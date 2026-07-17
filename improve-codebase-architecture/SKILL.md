@@ -1,0 +1,26 @@
+---
+name: improve-codebase-architecture
+description: Discovers and transforms shallow modules into deep ones to improve testability and AI navigability.
+---
+
+# Improve Codebase Architecture (Deep Architectural Optimization)
+
+Triggered when a project is full of "Tech Debt", modules are overly coupled, or the user requests to "refactor / improve architecture quality". This skill aims to transform "Shallow" modules into "Deep" modules to enhance testability and AI navigability.
+
+## 1. Architectural Exploration & Discovery `[Discover]`
+- **Blind Refactoring Prohibited**: Before proposing any modification suggestions, you MUST first scan `CONTEXT.md`, `docs/adr/`, and core interface definitions (Interfaces/Types).
+- Identify "Shallow Modules" (interfaces that are complex but have very little internal implementation).
+- Identify improperly coupled boundaries (Seams).
+
+## 2. Analysis & Proposal `[Think]`
+Use consistent domain terminology (Module, Interface, Implementation, Depth, Seam, Adapter) to communicate with the human.
+- Submit a "Deepening Opportunities" report to the user.
+- Explicitly point out which modules should be encapsulated and which boundaries (Seams) should be extracted into Adapters.
+
+## 3. Implementation Refactoring `[Try]`
+- After gaining human approval, launch `tdd` mode.
+- **Iron Rule of Refactoring**: MUST be done under the safety net of test coverage. If there are no tests, the first step MUST be to "write Characterization Tests for the legacy code" before modifying the architecture.
+
+## 4. Circuit Breaker & Evolution `[Summarize] & [Self-Evolve]`
+- If refactoring triggers more than 3 cascading compilation errors that cannot be fixed immediately, trigger the `zoom-out` circuit breaker and Rollback.
+- Write the discovered coupling traps into `self-evolve` memory, ensuring future newly generated code does not repeat the same mistakes.
