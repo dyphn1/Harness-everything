@@ -29,18 +29,20 @@ To avoid "over-engineering" and maximize efficiency, you must categorize the use
 
 ### Tier 2: Standard Tasks & Architectural Review
 - **Characteristics**: Adding a single API endpoint, fixing a specific bug, modifications requiring coordination across 2-3 files. Or requiring stress testing and benchmark evaluation for specific designs.
-- **Action Strategy (TDD & Validation Driven)**:
+- **Action Strategy (TDD, Deep Context & Domain Expertise)**:
+  - **Information Depth Requirement**: Before entering TDD, you MUST perform a deep context trace (find references, call sites, and related interfaces). Superficial fixes that break dependencies are strictly forbidden.
+  - **Load Domain Experts (領域專家召喚)**: Based on the tech stack detected in Tier 1, explicitly search for and load the corresponding **Domain Skills** (e.g., `frontend-patterns`, `security-review`, `api-design` from the user's legacy skill library) to inject robust expert knowledge into your context.
   - Development tasks: Automatically load and follow the `tdd` (Test-Driven Development) skill. Write tests first (Red) -> Implement (Green) -> Refactor.
   - If the user requests grilling or refactoring a plan, load `grill-me` (pure Q&A) or `improve-codebase-architecture` (deep architectural analysis).
   - If the user requests "scoring" or "benchmark comparison", load `eval-harness` for quantitative scoring and summarization.
 
 ### Tier 3: Macro Tasks & Documentation
 - **Characteristics**: New project initialization, low-level architecture refactoring, vague and massive requirements (e.g., "Help me write a user login system"). Or lack of global documentation.
-- **Action Strategy (Multi-Agent Orchestration)**:
+- **Action Strategy (Multi-Agent Orchestration & Domain Infusion)**:
   - If project-level documentation needs to be created, load `repo-docs`.
   - If establishing a large system design, strongly recommend loading `grill-with-docs` first to document decisions (ADR, CONTEXT) before proceeding.
+  - **Sub-Agent Specialization**: When calling `create-agent-launcher`, you MUST inject robust Domain Skills into the sub-agent's persona (e.g., passing `database-reviewer` and `backend-patterns` to a Backend Sub-Agent). Do not create generic, empty-shell agents.
   - Development execution: Automatically load `fable-mode` and `fable-discipline`.
-  - If necessary, call `create-agent-launcher` to establish specialized Sub-agents for collaboration.
 
 ## 3. Foolproofing & Circuit Breaker Mechanism
 LLMs have a Reasoning Ceiling. To avoid invalid infinite retries, you must strictly obey the following limits:

@@ -30,3 +30,11 @@ When this skill is loaded, you MUST suppress the urge to write implementation co
 If during a TDD cycle you get stuck in the **GREEN phase**, and 3 consecutive implementation attempts fail to pass the test:
 - **Trigger Condition Met**: You might have hit the reasoning ceiling, or the initial test logic (RED) was written incorrectly.
 - **Mandatory Action**: Stop guessing blindly. Immediately abort the TDD process and call the `zoom-out` skill, presenting the test failure logs to the human for judgment.
+
+## Deep Reference Guides
+For advanced testing, design, and mocking strategies, you MUST refer to:
+- `tdd/guides/mocking.md` — Mocking and stubbing principles
+- `tdd/guides/interface-design.md` — Interface and contract-driven design
+- `tdd/guides/deep-modules.md` — Testing deeply nested/complex modules
+- `tdd/guides/tests.md` — General test architecture and assertions
+- `tdd/guides/refactoring.md` — Refactoring techniques under safety nets

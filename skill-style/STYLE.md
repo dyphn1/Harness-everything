@@ -8,11 +8,14 @@
 3. Vague tone is strictly forbidden. MUST use uppercase `MUST` or `MUST NOT` to define behaviors. Words like `should` or `may` are forbidden.
 4. The length of each rule MUST NOT exceed 150 characters.
 
-## [Flow & Linearity]
-5. The SKILL entry point (SKILL.md) MUST be executed only once.
-6. The flow from SKILL.md to the end MUST be a flattened straight line. Infinite loops or branching trees are forbidden.
-7. All files MUST form a logical closed loop. If conditionals exist, each state MUST point to a deterministic next step or exit.
-8. Each MD file MUST NOT exceed 60 lines. If split, the current file MUST end with a unique pointer to maintain linearity.
+## [Skill Architecture: OS vs Domain]
+5. **OS Skills (Process Control)**: e.g., `install-cognitive-os`, `harness-everything`. These dictate *how* to work. They MUST be strictly linear and MUST NOT exceed 60 lines per file.
+6. **Domain Skills (Expertise)**: e.g., `api-design`, `security-review`. These provide *what* to write. They are EXEMPT from the 60-line and linearity limits. They are encouraged to be comprehensive, containing rich anti-patterns, code examples, and deep domain guardrails.
+
+## [Flow & Linearity (Applies to OS Skills)]
+7. The SKILL entry point (SKILL.md) MUST be executed only once.
+8. The flow from OS SKILL.md to the end MUST be a flattened straight line. Infinite loops or branching trees are forbidden.
+9. All OS files MUST form a logical closed loop. If split, the current file MUST end with a unique pointer to maintain linearity.
 
 ## [Cognitive Loop & Execution]
 9. Steps MUST be written sequentially. Every SKILL file MUST explicitly include this declaration:

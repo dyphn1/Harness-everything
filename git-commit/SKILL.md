@@ -27,3 +27,11 @@ Before generating a commit message, you **MUST** execute the following discovery
 ## 4. Execution and Handoff `[Try] & [Summarize]`
 - After confirming the commit message, call the terminal tool to execute `git commit -m "..." -m "..."`.
 - Upon success, if still within the `fable-mode` workflow, hand control back to `fable-mode` to continue to the next milestone.
+
+## Deep Reference Guides
+For comprehensive details on commit rules and submodule configurations, refer to:
+- `git-commit/guides/ANGULAR_STYLE.md` — Complete specification for commit messages
+- `git-commit/guides/COMMIT_GENERATION.md` — Generation patterns and strategies
+- `git-commit/guides/LANGUAGE_DETECTION.md` — Language-specific commit guidelines
+- `git-commit/guides/MAIN_REPO.md` — Committing within monorepos/main repo contexts
+- `git-commit/guides/SUBMODULES.md` — Advanced handling of submodules and nested repos

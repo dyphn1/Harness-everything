@@ -20,3 +20,15 @@ Triggered when a project lacks documentation, the user requests to create a `REA
 ## 3. Verification & Alignment `[Summarize]`
 - After generating the document, you MUST ensure the installation or test commands within the document are **actually executable**.
 - If there are uncertain parts, leave `// TODO: Pending confirmation` markers in the document and ask the human questions (`grill-me` mode).
+
+## Deep Reference Templates
+To ensure professional quality, you MUST use the appropriate template from `repo-docs/templates/`:
+- `repo-docs/templates/readme-template.md` — Standard project documentation template
+- `repo-docs/templates/product-readme-template.md` — Product archetype user-journey template
+- `repo-docs/templates/multi-skills-readme-template.md` — Large project with multiple skills/modules
+- `repo-docs/templates/knowledge-readme-template.md` — Information-heavy/knowledge-base template
+- `repo-docs/templates/agents-template.md` — Standard agent onboarding instructions template
+- `repo-docs/templates/product-agents-template.md` — Agent instructions for product repositories
+- `repo-docs/templates/skills-agents-template.md` — Agent instructions for skills repositories
+- `repo-docs/templates/knowledge-agents-template.md` — Agent instructions for knowledge/research projects
+- `repo-docs/templates/manual-recon.md` — Methodology for manual repo scanning and classification

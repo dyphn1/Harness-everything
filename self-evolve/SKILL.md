@@ -15,7 +15,8 @@ It ensures that the entire Harness ecosystem becomes smarter and avoids repeatin
 
 ## 2. Execution Process (The Evolution Loop)
 
-### Step 1: Root Cause Extraction
+### Step 1: Deep Reflection & Root Cause Extraction
+- **Reflection is Core**: Reflection is the true focus of the memory system. Mere recording cannot improve accuracy; you must continuously reflect to self-evolve.
 - Analyze the problem just solved, discarding specific variable names or specific line numbers of code.
 - Extract the **high-level, universally applicable root cause**.
 - *Incorrect Extraction*: "Do not use `forEach` to call the database on line 45 of `auth.js`."
@@ -26,12 +27,13 @@ It ensures that the entire Harness ecosystem becomes smarter and avoids repeatin
 - Explicitly define which domain this new rule applies to (e.g., Database, React Hooks, specific API integration).
 - **Anti-Focus Loss**: This rule must be able to directly guide future Agents to notice this landmine during the `[Discover]` phase, instead of finding out only after writing it wrong.
 
-### Step 3: Memory Persistence
+### Step 3: Memory Persistence & Dynamic Skill Generation
 - **MANDATORY**: You MUST execute the persistence script instead of manually editing files or calling write tools.
 - Find the `persist-memory.js` script in the `scripts/` directory of this skill and run it via terminal:
   ```bash
   node path/to/self-evolve/scripts/persist-memory.js "<Your extracted root cause and defensive rule here>"
   ```
+- **Dynamic Skill Generation (Session Packaging)**: Through self-review, package the successful session summary (hard boundary) into a new, dynamic skill (e.g., creating a new `SKILL.md` for a specific workflow, akin to the Hermes agent approach). Note that these dynamically generated skills have a lifecycle—they are meant to be continuously optimized or replaced, distinct from the system's foundational static skills.
 - **Note**: Only record "Key Insights", keeping the memory document short and punchy. Avoid stuffing it with lengthy conversation logs or useless narratives.
 
 ## 3. Purpose

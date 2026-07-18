@@ -49,6 +49,17 @@
         "id": "harness:pre:boundary-guard"
       },
       {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node d:/GitHub/harness-skills/hooks/scripts/depth-guard.js"
+          }
+        ],
+        "description": "Information depth guard - Enforce impact assessment before writing code",
+        "id": "harness:pre:depth-guard"
+      },
+      {
         "matcher": "*",
         "hooks": [
           {

@@ -6,6 +6,13 @@ Harness Skills is a dynamic routing and self-defense system built specifically f
 1. **Over-engineering**: Writing long-winded plans or generating unnecessary sub-agents for simple typo fixes.
 2. **Reasoning Ceiling & Infinite Loops**: Falling into invalid infinite retry loops when encountering complex algorithms beyond the model's capabilities.
 
+## What Makes Harness Skills Different?
+1. **Task Decomposition for High Accuracy**: Smartly breaks down tasks based on complexity (Tiers) to ensure agents do exactly what is needed without overcomplicating.
+2. **Deep Information Exploration**: Overcomes the common "shallow context" AI trap. Enforces multi-hop dependency tracing and impact radius assessment before any code is written, ensuring the agent sees the whole forest, not just one tree.
+3. **Reflection Over Repetition**: After consecutive failures, agents are trained to stop, step back, and deeply reflect on the problem rather than getting stuck in loops of repeated, futile verification.
+4. **Self-Evolution via Dynamic Skills**: Uses reflection to summarize session experiences (hard boundaries) and packages frequently repeated actions into new, dynamic skill packages (akin to the Hermes agent). These generated skills possess a lifecycle and can be continuously optimized or replaced.
+5. **Strict Environment Detection**: Solves the common agent failure of misjudging tool properties (e.g., mistaking Git Bash for PowerShell on Windows). It enforces proactive detection of OS, shell environments, and tech stacks before taking action.
+
 ## Core Design Philosophy: Single Entry & Circuit Breaker Architecture
 
 This Skills system does not require humans to manually choose which Skill to activate. You only need a single entry point: **`harness-everything`**.
@@ -39,9 +46,9 @@ flowchart LR
     R -.->|Next Loop| D
 ```
 
-### 3. Circuit Breaker & Self-Evolve
-*   **Rule of 3**: If fixing the same error fails 3 times, forcefully trigger the `zoom-out` circuit breaker. The Agent must stop writing code and seek human help.
-*   **Feedback Loop**: When human intervention resolves the blind spot, forcefully trigger `self-evolve`, abstract the solution, and write it to long-term memory to ensure the same mistake doesn't happen again.
+### 3. Circuit Breaker, Reflection & Self-Evolve
+*   **Rule of 3**: If fixing the same error fails 3 times, forcefully trigger the `zoom-out` circuit breaker. The Agent must stop writing code, reflect on the failure, and seek human help.
+*   **Feedback & Dynamic Skills**: When human intervention resolves the blind spot, forcefully trigger `self-evolve`, abstract the solution through reflection, and write it to long-term memory. If it's a recurring workflow, the agent will package it into a dynamic, lifecycle-managed skill to ensure continuous self-updating and evolution.
 
 ```mermaid
 flowchart TD

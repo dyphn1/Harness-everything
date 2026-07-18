@@ -24,10 +24,11 @@ Every Skill file (`SKILL.md`) must contain the following standard structure:
 - **Absolute Imperatives**: Use "MUST", "MUST NOT", "ALWAYS". Do not use "suggest" or "please consider".
 - **Defensive Thinking**: Expect the Agent to make mistakes or be lazy, and write defensive boundaries into the rules (e.g., PROHIBITED from directly overwriting without checking the file first).
 
-## 3. Avoid Functional Overlap
-- Before adding a new Skill, check if it can be integrated into the existing `harness-everything` workflow.
-- Skills should be high-cohesion and low-coupling; each Skill should only do one thing well.
+## 3. Avoid Functional Overlap (The Layered Approach)
+- **OS Skills vs. Domain Skills**: Distinguish between the OS layer (which routes and constrains behavior) and the Domain layer (which provides deep technical expertise). 
+- Do not bloat OS Skills with specific tech-stack rules.
+- Instead, OS Skills should actively **delegate and load** Domain Skills (e.g., "Load `react-patterns` when touching frontend code") to ensure the system remains both structurally disciplined and technically comprehensive.
 
 ## 4. Cognitive Boundaries
-- The skill itself should not contain concrete business logic code, but rather **tell the Agent how to think and acquire** business logic.
-- For example: Do not hardcode React best practices in the Skill; instead, write "When developing React components, you MUST first read the UI guidelines document in the project."
+- OS skills should not contain concrete business logic code, but rather **tell the Agent how to think and acquire** business logic.
+- Domain skills are the opposite: they MUST provide concrete architectural patterns, vulnerability checklists, and code examples to restore the rich, robust capability of legacy setups.

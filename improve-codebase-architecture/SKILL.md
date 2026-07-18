@@ -24,3 +24,10 @@ Use consistent domain terminology (Module, Interface, Implementation, Depth, Sea
 ## 4. Circuit Breaker & Evolution `[Summarize] & [Self-Evolve]`
 - If refactoring triggers more than 3 cascading compilation errors that cannot be fixed immediately, trigger the `zoom-out` circuit breaker and Rollback.
 - Write the discovered coupling traps into `self-evolve` memory, ensuring future newly generated code does not repeat the same mistakes.
+
+## Deep Reference Guides
+For precise architectural paradigms and deep module analysis, refer to:
+- `improve-codebase-architecture/guides/DEEPENING.md` — Deepening opportunities & modular depth rules
+- `improve-codebase-architecture/guides/INTERFACE-DESIGN.md` — Principles of interface design and seams
+- `improve-codebase-architecture/guides/LANGUAGE.md` — Language-specific refactoring and pattern guidelines
+- `improve-codebase-architecture/guides/HTML-REPORT.md` — Creating visual reports with Mermaid diagrams
