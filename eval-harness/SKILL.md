@@ -39,5 +39,10 @@ Please score based on the following four dimensions (out of 10 points each):
 - 0 points: Blindly threw commands (e.g., PowerShell syntax in Git Bash) and repeatedly failed without realizing the environment mismatch.
 
 ## 3. Output Report `[Summarize]`
-- Based on the analysis, generate a Markdown-formatted **Scorecard Table**.
-- MUST include a paragraph of **"Insights"**: Specifically point out if the underlying model (e.g., Haiku/Sonnet) broke through its original reasoning ceiling due to Harness's physical laws, or how much useless Token waste was saved during this test.
+- **MANDATORY**: You MUST execute the evaluation script to generate and save the report.
+- Find the `evaluate.js` script in the `scripts/` directory of this skill and run it via terminal:
+  ```bash
+  node path/to/eval-harness/scripts/evaluate.js <scoreA> <scoreB> <scoreC> <scoreD> "<Your insights here>"
+  ```
+  *(Example: `node scripts/evaluate.js 10 5 10 10 "The agent successfully used zoom-out..."`)*
+- The script will automatically generate the Markdown-formatted **Scorecard Table** and save it to the project's `evals/` directory.

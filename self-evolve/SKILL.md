@@ -27,7 +27,11 @@ It ensures that the entire Harness ecosystem becomes smarter and avoids repeatin
 - **Anti-Focus Loss**: This rule must be able to directly guide future Agents to notice this landmine during the `[Discover]` phase, instead of finding out only after writing it wrong.
 
 ### Step 3: Memory Persistence
-- Use corresponding file writing tools to write these abstracted lessons into the project's long-term memory area (e.g., corresponding `.md` files under `/memories/repo/`, or updating the project's `RULES.md`).
+- **MANDATORY**: You MUST execute the persistence script instead of manually editing files or calling write tools.
+- Find the `persist-memory.js` script in the `scripts/` directory of this skill and run it via terminal:
+  ```bash
+  node path/to/self-evolve/scripts/persist-memory.js "<Your extracted root cause and defensive rule here>"
+  ```
 - **Note**: Only record "Key Insights", keeping the memory document short and punchy. Avoid stuffing it with lengthy conversation logs or useless narratives.
 
 ## 3. Purpose

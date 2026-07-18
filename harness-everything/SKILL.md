@@ -13,7 +13,12 @@ No matter how simple the task is, your behavior must comply with the **Discover 
 Never rush to act before understanding the environment; establish contextual awareness first.
 
 ## 2. Task Triage
-To avoid "over-engineering" and maximize efficiency, you must categorize the user's task during the `[Think]` phase and take the corresponding action path:
+To avoid "over-engineering" and maximize efficiency, you must categorize the user's task during the `[Think]` phase and take the corresponding action path.
+- **MANDATORY**: Run the Tier Router script before deciding the tier:
+  ```bash
+  node path/to/harness-everything/scripts/tier-router.js "<Brief summary of the user's prompt>"
+  ```
+- You MUST follow the `REQUIRED TIER` output by the script.
 
 ### Tier 1: Trivial Tasks & Daily Chores
 - **Characteristics**: Fixing typos, simple modifications to a single function, asking/explaining code, syntax adjustments. Or simple `git-commit` and `rewrite-commits`.
