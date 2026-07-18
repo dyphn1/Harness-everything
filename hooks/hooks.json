@@ -1,6 +1,30 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node d:/GitHub/harness-skills/harness-everything/scripts/bootstrap.js"
+          }
+        ],
+        "description": "Bootstrap Harness Skills OS on session start",
+        "id": "harness:pre:bootstrap"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node d:/GitHub/harness-skills/harness-everything/scripts/tier-router.js"
+          }
+        ],
+        "description": "Auto-route user requests using tier-router",
+        "id": "harness:pre:tier-router"
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash|Edit|Write",
@@ -12,6 +36,28 @@
         ],
         "description": "Rule of 3 Circuit Breaker - Prevents micro-error looping",
         "id": "harness:pre:rule-of-3"
+      },
+      {
+        "matcher": "Search|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node d:/GitHub/harness-skills/hooks/scripts/boundary-guard.js"
+          }
+        ],
+        "description": "Physical boundary enforcement for searches and large file reads",
+        "id": "harness:pre:boundary-guard"
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node d:/GitHub/harness-skills/hooks/scripts/context-compact.js"
+          }
+        ],
+        "description": "Strategic context compaction enforcement",
+        "id": "harness:pre:context-compact"
       }
     ],
     "PostToolUse": [
@@ -25,6 +71,39 @@
         ],
         "description": "Track error signatures for Rule of 3",
         "id": "harness:post:rule-of-3-tracker"
+      },
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node d:/GitHub/harness-skills/hooks/scripts/state-persist.js"
+          }
+        ],
+        "description": "Save skill transition state",
+        "id": "harness:post:state-persist"
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node d:/GitHub/harness-skills/hooks/scripts/atomic-commit-check.js"
+          }
+        ],
+        "description": "Atomic commit enforcement",
+        "id": "harness:post:atomic-commit-check"
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node d:/GitHub/harness-skills/hooks/scripts/contract-test.js"
+          }
+        ],
+        "description": "Contract testing between sub-agents",
+        "id": "harness:post:contract-test"
       }
     ]
   }

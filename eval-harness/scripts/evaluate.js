@@ -34,8 +34,17 @@ for (const [dim, score] of Object.entries(scores)) {
 markdown += `| **Total Score** | **${total}/40** |\n\n`;
 markdown += `### Insights\n${insights}\n\n---\n`;
 
-// Store the evaluations in an evals folder in the current working directory
-const evalDir = path.join(process.cwd(), 'evals');
+function getWorkspaceRoot() {
+  let dir = path.resolve(process.cwd());
+  while (dir !== path.parse(dir).root) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return process.cwd();
+}
+
+// Store the evaluations in an evals folder in the project root
+const evalDir = path.join(getWorkspaceRoot(), 'evals');
 if (!fs.existsSync(evalDir)) {
   fs.mkdirSync(evalDir, { recursive: true });
 }

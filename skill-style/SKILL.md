@@ -7,6 +7,12 @@ description: Guidelines for writing and refactoring skills in the Harness ecosys
 
 When you need to create a new Skill or refactor an existing one, strictly adhere to the writing style in this document (STYLE.md) to ensure all Skills seamlessly integrate into the `harness-everything` routing system.
 
+## 0. Triggers
+This skill should be loaded when:
+- Creating a new SKILL.md file.
+- Refactoring or reviewing an existing SKILL.md file.
+- The user explicitly asks about skill style or guidelines.
+
 ## 1. Structured Definition
 Every Skill file (`SKILL.md`) must contain the following standard structure:
 1.  **Title & Introduction**: Clearly state the purpose of this Skill.

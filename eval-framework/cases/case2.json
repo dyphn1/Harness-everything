@@ -1,0 +1,5 @@
+{
+  "name": "Small bugfix",
+  "prompt": "Fix the typo in the login screen",
+  "expected_tier": "Tier 1"
+}

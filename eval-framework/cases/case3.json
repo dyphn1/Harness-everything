@@ -1,0 +1,5 @@
+{
+  "name": "API implementation with tests",
+  "prompt": "Implement the new payment API and write integration tests",
+  "expected_tier": "Tier 2"
+}

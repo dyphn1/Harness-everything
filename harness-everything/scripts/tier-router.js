@@ -3,19 +3,25 @@ const { execSync } = require('child_process');
 
 function getGitDiffStats() {
   try {
-    const diffStat = execSync('git diff --cached --numstat', { encoding: 'utf8' }).trim();
-    if (!diffStat) return { files: 0, lines: 0 };
-    
     let files = 0;
     let lines = 0;
+
+    const parseStats = (diffStat) => {
+      if (!diffStat) return;
+      diffStat.split('\n').forEach(line => {
+        const [added, deleted] = line.split('\t');
+        if (added && added !== '-' && deleted && deleted !== '-') {
+          files += 1;
+          lines += parseInt(added) + parseInt(deleted);
+        }
+      });
+    };
+
+    const staged = execSync('git diff --cached --numstat', { encoding: 'utf8' }).trim();
+    parseStats(staged);
     
-    diffStat.split('\n').forEach(line => {
-      const [added, deleted] = line.split('\t');
-      if (added !== '-' && deleted !== '-') {
-        files += 1;
-        lines += parseInt(added) + parseInt(deleted);
-      }
-    });
+    const unstaged = execSync('git diff --numstat', { encoding: 'utf8' }).trim();
+    parseStats(unstaged);
     
     return { files, lines };
   } catch (err) {

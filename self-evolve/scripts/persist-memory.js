@@ -10,8 +10,17 @@ if (!memoryText) {
   process.exit(1);
 }
 
+function getWorkspaceRoot() {
+  let dir = path.resolve(process.cwd());
+  while (dir !== path.parse(dir).root) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return process.cwd();
+}
+
 // Ensure the memory is written to the project root's /memories/repo/ directory
-const currentDir = process.cwd();
+const currentDir = getWorkspaceRoot();
 const memoryDir = path.join(currentDir, 'memories', 'repo');
 const rulesFile = path.join(memoryDir, 'RULES.md');
 

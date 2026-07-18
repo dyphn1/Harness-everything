@@ -1,0 +1,5 @@
+{
+  "name": "Refactoring large module",
+  "prompt": "We need to refactor the entire authentication architecture",
+  "expected_tier": "Tier 3"
+}
