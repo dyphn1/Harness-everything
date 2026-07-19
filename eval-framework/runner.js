@@ -20,8 +20,11 @@ files.forEach(file => {
   
   try {
     const tierRouterPath = path.join(__dirname, '..', 'harness-everything', 'scripts', 'tier-router.js');
-    // Call tier-router.js with the prompt
-    const output = execSync(`node "${tierRouterPath}" "${data.prompt}"`, { encoding: 'utf8' });
+    // Call tier-router.js with the prompt under hermetic evaluation env
+    const output = execSync(`node "${tierRouterPath}" "${data.prompt}"`, {
+      encoding: 'utf8',
+      env: { ...process.env, HARNESS_EVAL: 'true' }
+    });
     
     // Parse the output to find the recommended tier
     const tierMatch = output.match(/REQUIRED TIER: (Tier \d+)/i) || output.match(/(Tier \d+)/i);

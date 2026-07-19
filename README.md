@@ -1,76 +1,162 @@
-# Harness Skills (The Agentic Operating System)
+# Harness OS (AI Agent Operating System)
 
-> "Don't use a cannon to kill a mosquito; break through the reasoning ceiling."
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+> "Harness is not a static list of prompts. It is an Orchestrated Agent Operating System that executes, guards, and evolves AI reasoning in real-time."
 
-Harness Skills is a dynamic routing and self-defense system built specifically for AI Agents. Inspired by the powerful designs of ECC and Superpowers, this system aims to solve the two most common pain points for AI in daily development:
-1. **Over-engineering**: Writing long-winded plans or generating unnecessary sub-agents for simple typo fixes.
-2. **Reasoning Ceiling & Infinite Loops**: Falling into invalid infinite retry loops when encountering complex algorithms beyond the model's capabilities.
-
-## What Makes Harness Skills Different?
-1. **Task Decomposition for High Accuracy**: Smartly breaks down tasks based on complexity (Tiers) to ensure agents do exactly what is needed without overcomplicating.
-2. **Deep Information Exploration**: Overcomes the common "shallow context" AI trap. Enforces multi-hop dependency tracing and impact radius assessment before any code is written, ensuring the agent sees the whole forest, not just one tree.
-3. **Reflection Over Repetition**: After consecutive failures, agents are trained to stop, step back, and deeply reflect on the problem rather than getting stuck in loops of repeated, futile verification.
-4. **Self-Evolution via Dynamic Skills**: Uses reflection to summarize session experiences (hard boundaries) and packages frequently repeated actions into new, dynamic skill packages (akin to the Hermes agent). These generated skills possess a lifecycle and can be continuously optimized or replaced.
-5. **Strict Environment Detection**: Solves the common agent failure of misjudging tool properties (e.g., mistaking Git Bash for PowerShell on Windows). It enforces proactive detection of OS, shell environments, and tech stacks before taking action.
-
-## Core Design Philosophy: Single Entry & Circuit Breaker Architecture
-
-This Skills system does not require humans to manually choose which Skill to activate. You only need a single entry point: **`harness-everything`**.
-
-### 1. Task Triage
-When a task enters `harness-everything`, the Agent automatically categorizes the task:
-*   **Tier 1 (Trivial Task)**: Direct execution. Prohibited from writing plans or calling sub-agents.
-*   **Tier 2 (Standard Task)**: Automatically switches to `tdd` (Test-Driven Development) mode.
-*   **Tier 3 (Macro Task)**: Automatically loads `fable-mode` and `create-agent-launcher`, assembling specialized Sub-agents to handle complex architectures.
-
-```mermaid
-flowchart TD
-    Start([User Request]) --> Router{harness-everything}
-    Router -->|Tier 1: Trivial| Exec[Direct Execution]
-    Router -->|Tier 2: Standard| TDD[TDD Mode]
-    Router -->|Tier 3: Macro| Fable[Fable Mode]
-    Fable --> Launcher[create-agent-launcher]
-    Launcher --> Sub1[Sub-Agent: Backend]
-    Launcher --> Sub2[Sub-Agent: Frontend]
-```
-
-### 2. The Global OS
-Regardless of the Tier, all Agents must obey the cognitive loop defined by `install-cognitive-os`: **Discover > Think > Try > Summarize > Record**.
-
-```mermaid
-flowchart LR
-    D[Discover] -->|Context| Th[Think]
-    Th -->|Intent| Tr[Try]
-    Tr -->|Evidence| S[Summarize]
-    S -->|Persist| R[Record]
-    R -.->|Next Loop| D
-```
-
-### 3. Circuit Breaker, Reflection & Self-Evolve
-*   **Rule of 3**: If fixing the same error fails 3 times, forcefully trigger the `zoom-out` circuit breaker. The Agent must stop writing code, reflect on the failure, and seek human help.
-*   **Feedback & Dynamic Skills**: When human intervention resolves the blind spot, forcefully trigger `self-evolve`, abstract the solution through reflection, and write it to long-term memory. If it's a recurring workflow, the agent will package it into a dynamic, lifecycle-managed skill to ensure continuous self-updating and evolution.
-
-```mermaid
-flowchart TD
-    A[Agent Execution] -->|Error/Fail| B{Try Count >= 3?}
-    B -->|No, Try Again| A
-    B -->|Yes, Micro-loop detected| C(zoom-out: Halt & Escalate)
-    C --> D((Human Intervention))
-    D -->|Provides Insight| E(self-evolve)
-    E --> F[(Long-term Memory)]
-    F -.->|Protects Future 'Discover' phase| A
-```
-
-## Directory Structure
-- `harness-everything/`: System main entry and routing center
-- `install-cognitive-os/`: Underlying cognitive loop OS
-- `skill-style/`: Skills writing and design guidelines
-- `tdd/`: Standard task development mode
-- `fable-mode/` & `fable-discipline/`: Macro task and multi-agent orchestration architecture
-- `create-agent-launcher/`: Sub-agent generator
-- `zoom-out/`: Circuit breaker and global perspective
-- `self-evolve/`: Memory compression and self-evolution
-- And other integrated tools (e.g., `git-commit`, `grill-me`, etc.)
+Harness OS is a lightweight, non-intrusive runtime framework that wraps around your AI IDE/CLI sessions (Claude Code, Copilot, Cursor, Codex). It provides reactive hooks, routing, and circuit breakers designed to prevent **infinite trial-and-error loops**, **costly over-engineering**, and **lost-in-the-middle context drift**.
 
 ---
-*Generated for seamless integration into any AI IDE (VS Code Copilot, Claude Code, Cursor, etc.).*
+
+## ⚡ Quick Start (Get Protected in 10s)
+
+Harness OS integrates directly into your workspace. There's no heavy daemon, no paid external APIs, and zero configuration required.
+
+```bash
+# Install Harness hooks & skills into your current workspace
+npx github:prime-radiant-inc/harness-skills install
+```
+
+Upon startup, Harness OS automatically bootstraps itself, auditing your OS and Shell environment, and routing tasks seamlessly.
+
+---
+
+## 🤖 Supported AI IDEs & Installation Guides
+
+Harness OS is engineered to augment multiple AI interfaces natively, aligning with their respective hooks or instruction injection files:
+
+| AI Agent Tool | Hook Type / Config Used | Local Target Location | Installation Command / Workflow |
+|---|---|---|---|
+| **Claude Code** | Native Hooks (`PreToolUse`, `PostToolUse`, `SessionStart`) | `.claude.json` / `~/.claude.json` | `npx github:prime-radiant-inc/harness-skills install` (Configures hooks safely) |
+| **Copilot Chat (VS Code)** | Custom Instructions / Prompt Files | `.github/copilot-instructions.md` | Automatically referenced by Copilot for project-local guidelines |
+| **Cursor** | Native Project Rules | `.cursorrules` | Appended automatically during installation |
+| **Codex CLI / App** | Configuration & Agents | `.codex/config.toml` | Unified instructions matching `~/.codex/config.toml` |
+
+### Platform-Specific Integration Workflows
+
+#### 1. Claude Code
+Our installer safely injects the standard hooks directly into your project's `.claude.json`.
+*   The `SessionStart` hook fires `bootstrap.js` to restore any previous handoffs.
+*   `PreToolUse` fires `rule-of-3.js` and `context-compact.js` to guard tool operations.
+*   `PostToolUse` tracks errors via `rule-of-3-tracker.js` and updates the transaction log via `state-persist.js`.
+
+#### 2. Cursor (.cursorrules)
+Running `npx github:prime-radiant-inc/harness-skills install` automatically injects Harness Operating System instructions into your project's `.cursorrules`. If Cursor's agent is running commands, it will respect the rule-of-3 circuit breaker and discover active shell properties from `preflight.js` output.
+
+#### 3. Copilot Chat (VS Code)
+Copilot automatically ingests `.github/copilot-instructions.md` (and prompts under `.github/prompts/` in advanced setups). To align Copilot with Harness OS rules:
+1. Ensure your `.github/copilot-instructions.md` includes:
+   ```markdown
+   Always consult and execute standard Harness OS commands (e.g. preflight checks via node bin/cli.js) to align with operating system syntax.
+   ```
+
+---
+
+## 🏗️ Architecture
+
+Instead of letting the AI blindly execute tasks, Harness OS acts as a system supervisor, organizing the task's life cycle dynamically:
+
+```mermaid
+flowchart TD
+    subgraph User Session
+        U([User Request]) --> Boot[bootstrap.js: Session Start]
+    end
+
+    subgraph OS Kernel [Harness OS Engine]
+        Boot -->|Check Handoff Checkpoint| Preflight[preflight.js: Environment Audit]
+        Preflight --> Router{tier-router.js: Task Triage}
+        
+        Router -->|Tier 1: Trivial Task| T1[Direct Execution - No Plans]
+        Router -->|Tier 2: Standard Task| T2[tdd: Test-Driven Development]
+        Router -->|Tier 3: Macro Task| T3[fable-mode: Multi-Agent Spawn]
+    end
+
+    subgraph Defense & Safety [Circuit Breakers]
+        T1 & T2 & T3 --> Tools[Agent Tool Call]
+        Tools -->|PreToolUse| CG[context-compact.js: Bloat Warning]
+        Tools -->|PreToolUse| CB{rule-of-3.js: Circuit Breaker}
+        
+        CB -->|Fails 3x| ZO(zoom-out: Halt & Request Human Help)
+        CB -->|Succeeds| Done[Success / Finish]
+    end
+
+    subgraph Continuous Learning
+        ZO --> Human[Human Intervention & Fix]
+        Human --> SE[self-evolve: Deep Reflection]
+        Done -->|Complex Breakthrough| SE
+        SE --> RunSR[self-regression.js: CI Check]
+        RunSR -->|Pass 100%| Mem[(Long-term Memory / RULES.md)]
+        Mem -.->|Immunize| Preflight
+    end
+
+    style OS Kernel fill:#f9f,stroke:#333,stroke-width:2px
+    style Defense & Safety fill:#ff9,stroke:#333,stroke-width:2px
+    style Continuous Learning fill:#bbf,stroke:#333,stroke-width:2px
+```
+
+---
+
+## 🛠️ Core OS Modules
+
+Harness OS works through five lightweight cognitive layers:
+
+### 1. Task Triage (`harness-everything` / `tier-router.js`)
+Prevents over-engineering. Automatically segments incoming requests into corresponding execution tiers:
+*   **Tier 1 (Trivial Task)**: Direct file editing. Inhibits heavy plan writing or expensive sub-agents.
+*   **Tier 2 (Standard Task)**: Enforces `tdd` (Test-Driven Development) cycle (Red-Green-Refactor).
+*   **Tier 3 (Macro Task)**: Automatically launches the multi-agent orchestration center (`fable-mode` & `create-agent-launcher`).
+
+### 2. Environment Alignment (`environment-detection` / `preflight.js`)
+Proactively audits the workspace properties (OS, Terminal Shell, Package Managers, and Sandbox Capabilities) to ensure syntax correctness, eliminating wasted token cycles on Windows path backslash escapades.
+
+### 3. Context Bloat Shield (`hooks/scripts/context-compact.js`)
+An informational, non-intrusive warning dashboard that tracks uncommitted diffs and staged file counts. It reminds the agent to compact context and prevents the "Lost in the Middle" reasoning drop before your context window hits the limit.
+
+### 4. Circuit Breaker (`hooks/scripts/rule-of-3.js`)
+Tracks repeat failure hashes. If the same error fails to compile or verify 3 times in a row, it forcefully triggers the **`zoom-out`** circuit breaker, halting code generation and requesting human partner insights instead of burning budget.
+
+### 5. Self-Evolution Loop (`self-evolve` / `self-regression.js`)
+When an issue is successfully resolved, Harness abstracts the high-level root cause and persists it into workspace memory (`RULES.md`). Before saving, the `self-regression.js` test suite validates all script syntax hermetically to prevent behavior decay.
+
+---
+
+## 📂 Directory Structure
+
+```
+harness-skills/
+├── bin/
+│   └── cli.js                     # CLI main entry
+├── harness-everything/
+│   └── scripts/
+│       ├── bootstrap.js           # Session start check / Handoff recovery
+│       └── tier-router.js         # Triages incoming request tiers
+├── hooks/
+│   └── scripts/
+│       ├── rule-of-3.js           # Circuit breaker loop halt
+│       ├── context-compact.js     # Strategic context bloat dashboard
+│       └── state-persist.js       # Transaction log (WAL) & Handoff persistent state
+├── environment-detection/
+│   └── scripts/
+│       └── preflight.js           # OS/Shell environment audit
+├── self-evolve/
+│   └── scripts/
+│       ├── persist-memory.js      # Long-term RULES writer
+│       └── self-regression.js     # System self-test regression CI
+├── eval-framework/                # Router trigger verification cases
+└── tdd/                           # Standard Tier 2 development flow
+```
+
+---
+
+## 🤝 For Contributors & Self-Regression
+
+To contribute to Harness OS or to safely modify any Skill behavior:
+
+```bash
+# 1. Run full hermetic static syntax & routing simulations
+npm run self-regression
+```
+
+Ensure Phase 1 and Phase 2 pass 100% cleanly before pushing changes. All script modifications must run through the `self-regression` suite to keep the OS immunised against behavioral regression.
+
+---
+*Harness OS is a non-intrusive cognitive amplifier. It is built to wrap around, notify, and assist, preserving agent creativity while dramatically reducing trial-and-error budgets.*

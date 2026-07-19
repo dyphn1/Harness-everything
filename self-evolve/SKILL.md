@@ -28,6 +28,10 @@ It ensures that the entire Harness ecosystem becomes smarter and avoids repeatin
 - **Anti-Focus Loss**: This rule must be able to directly guide future Agents to notice this landmine during the `[Discover]` phase, instead of finding out only after writing it wrong.
 
 ### Step 3: Memory Persistence & Dynamic Skill Generation
+- **MANDATORY**: Before persisting or committing any dynamically generated skills or memories, you MUST run the self-regression suite to ensure no behavioral regressions or syntax errors were introduced:
+  ```bash
+  node d:/GitHub/harness-skills/self-evolve/scripts/self-regression.js
+  ```
 - **MANDATORY**: You MUST execute the persistence script instead of manually editing files or calling write tools.
 - Find the `persist-memory.js` script in the `scripts/` directory of this skill and run it via terminal:
   ```bash

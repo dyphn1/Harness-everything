@@ -2,6 +2,9 @@
 const { execSync } = require('child_process');
 
 function getGitDiffStats() {
+  if (process.env.HARNESS_EVAL === 'true') {
+    return { files: 0, lines: 0 };
+  }
   try {
     let files = 0;
     let lines = 0;
@@ -70,14 +73,17 @@ if (promptLower.includes("commit") || promptLower.includes("git") || promptLower
     "- git-commit/guides/COMMIT_GENERATION.md (Commit generation patterns)",
     "- git-commit/guides/LANGUAGE_DETECTION.md (Multi-language commits)",
     "- git-commit/guides/MAIN_REPO.md (Commits in main repositories)",
-    "- git-commit/guides/SUBMODULES.md (Git submodule commit handling)"
+    "- git-commit/guides/SUBMODULES.md (Git submodule commit handling)",
+    "- using-git-worktrees/SKILL.md (Git Worktrees isolation)"
   );
 }
-if (promptLower.includes("doc") || promptLower.includes("readme") || promptLower.includes("agent")) {
+if (promptLower.includes("doc") || promptLower.includes("readme") || promptLower.includes("agent") || promptLower.includes("multi-agent")) {
   recommendedGuides.push(
     "- repo-docs/templates/readme-template.md (Standard README template)",
     "- repo-docs/templates/product-readme-template.md (Product README template)",
-    "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)"
+    "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)",
+    "- build-multi-agent-system/SKILL.md (Universal Multi-Agent Workspace scaffolding)",
+    "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven Grilling)"
   );
 }
 if (promptLower.includes("refactor") || promptLower.includes("architecture") || promptLower.includes("structure") || promptLower.includes("couple") || promptLower.includes("seam")) {
@@ -85,7 +91,13 @@ if (promptLower.includes("refactor") || promptLower.includes("architecture") || 
     "- improve-codebase-architecture/guides/DEEPENING.md (Deepening opportunities & depth rules)",
     "- improve-codebase-architecture/guides/INTERFACE-DESIGN.md (Interface design principles)",
     "- improve-codebase-architecture/guides/LANGUAGE.md (Language-specific patterns)",
-    "- improve-codebase-architecture/guides/HTML-REPORT.md (Mermaid report generation)"
+    "- improve-codebase-architecture/guides/HTML-REPORT.md (Mermaid report generation)",
+    "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven Grilling)"
+  );
+}
+if (promptLower.includes("shell") || promptLower.includes("terminal") || promptLower.includes("powershell") || promptLower.includes("bash") || promptLower.includes("cmd") || promptLower.includes("env") || promptLower.includes("preflight")) {
+  recommendedGuides.push(
+    "- environment-detection/SKILL.md (Active shell and environment detection, syntax guardrails)"
   );
 }
 

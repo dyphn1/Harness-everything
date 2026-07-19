@@ -1,0 +1,20 @@
+{
+  "name": "harness-skills",
+  "version": "2.0.0",
+  "description": "Harness OS: An Orchestrated Agent Operating System for AI-driven Development",
+  "main": "harness-everything/scripts/bootstrap.js",
+  "bin": {
+    "harness": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "node self-evolve/scripts/self-regression.js",
+    "self-regression": "node self-evolve/scripts/self-regression.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "author": "Harness Core Team",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}
