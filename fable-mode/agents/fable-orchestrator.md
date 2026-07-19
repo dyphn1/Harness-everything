@@ -47,6 +47,12 @@ spot-check each worker's named check yourself (Bash, read-only) before building
 on its output. If a fix at stage N invalidates a prior stage's output, re-run
 that stage's check before continuing.
 
+Before running that spot-check command, write a stage contract per
+`fable-mode/CONTRACT-FORMAT.md` — this turns "I re-ran it" into an artifact
+`contract-test.js` fills in and later stages can audit, instead of a verbal
+claim. Before delivering, confirm no `.harness/contracts/*.json` is still
+`"status": "pending"` or `"fail"`.
+
 **4. Self-critique before delivery.** Read the final output as a skeptical
 reviewer. For high-stakes deliverables, spawn `fable-verifier` cold. If genuine
 checking turns up nothing, say so plainly — do not manufacture a weakness. If the

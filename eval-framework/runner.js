@@ -20,9 +20,13 @@ files.forEach(file => {
   
   try {
     const tierRouterPath = path.join(__dirname, '..', 'harness-everything', 'scripts', 'tier-router.js');
-    // Call tier-router.js with the prompt under hermetic evaluation env
-    const output = execSync(`node "${tierRouterPath}" "${data.prompt}"`, {
+    // Claude Code feeds UserPromptSubmit hooks JSON on stdin (a "prompt"
+    // field), not a CLI argument - match that here so this test actually
+    // exercises the real interface instead of a path tier-router.js never
+    // sees in production.
+    const output = execSync(`node "${tierRouterPath}"`, {
       encoding: 'utf8',
+      input: JSON.stringify({ prompt: data.prompt }),
       env: { ...process.env, HARNESS_EVAL: 'true' }
     });
     

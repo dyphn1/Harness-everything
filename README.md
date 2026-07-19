@@ -1,162 +1,157 @@
-# Harness OS (AI Agent Operating System)
+# Harness (Behavior Layer for AI Coding Agents)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-> "Harness is not a static list of prompts. It is an Orchestrated Agent Operating System that executes, guards, and evolves AI reasoning in real-time."
 
-Harness OS is a lightweight, non-intrusive runtime framework that wraps around your AI IDE/CLI sessions (Claude Code, Copilot, Cursor, Codex). It provides reactive hooks, routing, and circuit breakers designed to prevent **infinite trial-and-error loops**, **costly over-engineering**, and **lost-in-the-middle context drift**.
+Harness is a lightweight, local behavior and orchestration runtime that wraps around your AI development sessions (Claude Code, Cursor, Copilot Chat, Codex). It provides reactive hooks, routing boundaries, and circuit breakers designed to prevent infinite trial-and-error loops, costly over-engineering, and "lost-in-the-middle" context drift.
+
+---
+
+## The Problem
+
+AI coding agents are highly capable, but they struggle with self-regulation, environment awareness, and attention limits:
+1. **The Infinite Retry Loop:** When an agent encounters a subtle compilation or test failure, its default behavior is to make micro-adjustments repeatedly (tweak and run, tweak and run) until it exhausts your token budget.
+2. **Environment Blindness:** Agents often assume standard Unix environments, hallucinating shell commands and paths when running on Windows, PowerShell, or sandboxed environments.
+3. **Lost-in-the-Middle Bloat:** As sessions grow, agents aggressively read too many large files or generate massive console logs, causing severe context degradation and reasoning hallucinations.
+
+---
+
+## Why Harness?
+
+Harness acts as an automated system supervisor. It remains completely silent and out of the way, intervening only when execution boundaries are violated or failures are detected.
+
+### Comparison: Prompt vs. Skill vs. Harness
+
+| Dimension | Prompt-Only (Custom Instructions) | Skill-Only (Task Guides) | Harness (Behavior Layer) |
+|---|---|---|---|
+| **Activation** | Always loaded (wastes prompt space) | Loaded on demand (requires manual trigger) | Reacts dynamically via native lifecycle hooks |
+| **Fail-Safe** | No protection (model keeps retrying) | No protection (loops until token limit) | **Circuit Breaker:** Halts execution after 3 failures and alerts human |
+| **Context Aware** | High risk of lost-in-the-middle bloat | Manages scope manually | **Bloat Shield:** Proactively audits diff sizes and logs warning alerts |
+| **System Audit** | Blindly assumes shell syntax | Requires manual shell check | **Preflight:** Proactively detects Windows/Unix paths, shell type, and package manager |
+| **Memory** | Resets on every new chat session | Static text rules | **Continuous Persistence:** Writes Write-Ahead Logs (WAL) for session recovery and immunizes workspace rules |
+
+The "Harness" column above is Claude Code's behavior. On Cursor, Copilot, and Codex — platforms with no hook/exit-code execution mechanism — Harness can only inject advisory text, which lands in the **Prompt-Only** column instead. See [Supported AI IDEs & Tools](#supported-ai-ides--tools) below.
+
+### When should I use Harness?
+* You regularly use agentic coding tools (like Claude Code, Cursor, or Copilot) on medium-to-large codebases.
+* You develop on Windows or in mixed shells (Git Bash, WSL, PowerShell) where agents frequently get shell syntax wrong.
+* You want automated test-driven development (TDD) enforcement and safety guards to save token budgets.
+
+### When should I NOT use Harness?
+* You only use chat interfaces for general questions without letting the AI run local commands or modify files.
+* Your project has no test suite, or you prefer unconstrained, free-form agent generation.
 
 ---
 
 ## ⚡ Quick Start (Get Protected in 10s)
 
-Harness OS integrates directly into your workspace. There's no heavy daemon, no paid external APIs, and zero configuration required.
+Harness integrates directly into your workspace. There is no heavy daemon, no paid external APIs, and zero configuration required.
 
 ```bash
-# Install Harness hooks & skills into your current workspace
+# Install Harness hooks and skills into your current workspace
 npx github:prime-radiant-inc/harness-skills install
 ```
 
-Upon startup, Harness OS automatically bootstraps itself, auditing your OS and Shell environment, and routing tasks seamlessly.
+### Expected Behavior After Installation:
+1. **Hook Registration:** Harness registers native hooks (e.g., inside `.claude/settings.json` for Claude Code) to intercept session starts and tool use.
+2. **Preflight Audit:** At session startup, a lightweight preflight script runs, printing a diagnostic environment block that tells the agent your exact OS, active shell, and package manager.
+3. **Guard Active:** The circuit breaker and context compactors are active in the background, consuming zero overhead unless triggered.
 
 ---
 
-## 🤖 Supported AI IDEs & Installation Guides
+## Visualizing the Flow
 
-Harness OS is engineered to augment multiple AI interfaces natively, aligning with their respective hooks or instruction injection files:
-
-| AI Agent Tool | Hook Type / Config Used | Local Target Location | Installation Command / Workflow |
-|---|---|---|---|
-| **Claude Code** | Native Hooks (`PreToolUse`, `PostToolUse`, `SessionStart`) | `.claude.json` / `~/.claude.json` | `npx github:prime-radiant-inc/harness-skills install` (Configures hooks safely) |
-| **Copilot Chat (VS Code)** | Custom Instructions / Prompt Files | `.github/copilot-instructions.md` | Automatically referenced by Copilot for project-local guidelines |
-| **Cursor** | Native Project Rules | `.cursorrules` | Appended automatically during installation |
-| **Codex CLI / App** | Configuration & Agents | `.codex/config.toml` | Unified instructions matching `~/.codex/config.toml` |
-
-### Platform-Specific Integration Workflows
-
-#### 1. Claude Code
-Our installer safely injects the standard hooks directly into your project's `.claude.json`.
-*   The `SessionStart` hook fires `bootstrap.js` to restore any previous handoffs.
-*   `PreToolUse` fires `rule-of-3.js` and `context-compact.js` to guard tool operations.
-*   `PostToolUse` tracks errors via `rule-of-3-tracker.js` and updates the transaction log via `state-persist.js`.
-
-#### 2. Cursor (.cursorrules)
-Running `npx github:prime-radiant-inc/harness-skills install` automatically injects Harness Operating System instructions into your project's `.cursorrules`. If Cursor's agent is running commands, it will respect the rule-of-3 circuit breaker and discover active shell properties from `preflight.js` output.
-
-#### 3. Copilot Chat (VS Code)
-Copilot automatically ingests `.github/copilot-instructions.md` (and prompts under `.github/prompts/` in advanced setups). To align Copilot with Harness OS rules:
-1. Ensure your `.github/copilot-instructions.md` includes:
-   ```markdown
-   Always consult and execute standard Harness OS commands (e.g. preflight checks via node bin/cli.js) to align with operating system syntax.
-   ```
-
----
-
-## 🏗️ Architecture
-
-Instead of letting the AI blindly execute tasks, Harness OS acts as a system supervisor, organizing the task's life cycle dynamically:
-
+### Without Harness (Endless Trial-and-Error Loop)
 ```mermaid
 flowchart TD
-    subgraph User Session
-        U([User Request]) --> Boot[bootstrap.js: Session Start]
-    end
+    U([User Request]) --> A[AI Coding Agent]
+    A -->|Command/Edit| Env[Workspace Environment]
+    Env -->|Error / Failure| A
+    A -->|Tweak & Retry 1| Env
+    Env -->|Error / Failure| A
+    A -->|Tweak & Retry 2| Env
+    Env -->|Error / Failure| A
+    A -->|Tweak & Retry 3... N| Env
+    style A fill:#ffcdd2,stroke:#c62828,stroke-width:1px
+```
 
-    subgraph OS Kernel [Harness OS Engine]
-        Boot -->|Check Handoff Checkpoint| Preflight[preflight.js: Environment Audit]
-        Preflight --> Router{tier-router.js: Task Triage}
-        
-        Router -->|Tier 1: Trivial Task| T1[Direct Execution - No Plans]
-        Router -->|Tier 2: Standard Task| T2[tdd: Test-Driven Development]
-        Router -->|Tier 3: Macro Task| T3[fable-mode: Multi-Agent Spawn]
-    end
-
-    subgraph Defense & Safety [Circuit Breakers]
-        T1 & T2 & T3 --> Tools[Agent Tool Call]
-        Tools -->|PreToolUse| CG[context-compact.js: Bloat Warning]
-        Tools -->|PreToolUse| CB{rule-of-3.js: Circuit Breaker}
-        
-        CB -->|Fails 3x| ZO(zoom-out: Halt & Request Human Help)
-        CB -->|Succeeds| Done[Success / Finish]
-    end
-
-    subgraph Continuous Learning
-        ZO --> Human[Human Intervention & Fix]
-        Human --> SE[self-evolve: Deep Reflection]
-        Done -->|Complex Breakthrough| SE
-        SE --> RunSR[self-regression.js: CI Check]
-        RunSR -->|Pass 100%| Mem[(Long-term Memory / RULES.md)]
-        Mem -.->|Immunize| Preflight
-    end
-
-    style OS Kernel fill:#f9f,stroke:#333,stroke-width:2px
-    style Defense & Safety fill:#ff9,stroke:#333,stroke-width:2px
-    style Continuous Learning fill:#bbf,stroke:#333,stroke-width:2px
+### With Harness (Guarded and Routed Execution)
+```mermaid
+flowchart TD
+    U([User Request]) --> H_Router[Harness Router]
+    H_Router -->|Tier 1: Trivial| T1[Direct Edit]
+    H_Router -->|Tier 2: Standard| T2[TDD Red-Green-Refactor]
+    H_Router -->|Tier 3: Macro| T3[Fable Multi-Agent Flow]
+    
+    T1 & T2 & T3 --> CB{Circuit Breaker}
+    CB -->|Fails 3x| ZO[Zoom Out: Ask Human]
+    CB -->|Success| SE[Self-Evolve: Update Rules]
+    style H_Router fill:#c8e6c9,stroke:#2e7d32,stroke-width:1px
+    style CB fill:#fff9c4,stroke:#fbc02d,stroke-width:1px
+    style ZO fill:#ffcc80,stroke:#ef6c00,stroke-width:1px
 ```
 
 ---
 
-## 🛠️ Core OS Modules
+## Core Modules & Concepts
 
-Harness OS works through five lightweight cognitive layers:
+Harness operates through five core cognitive concepts:
 
-### 1. Task Triage (`harness-everything` / `tier-router.js`)
-Prevents over-engineering. Automatically segments incoming requests into corresponding execution tiers:
-*   **Tier 1 (Trivial Task)**: Direct file editing. Inhibits heavy plan writing or expensive sub-agents.
-*   **Tier 2 (Standard Task)**: Enforces `tdd` (Test-Driven Development) cycle (Red-Green-Refactor).
-*   **Tier 3 (Macro Task)**: Automatically launches the multi-agent orchestration center (`fable-mode` & `create-agent-launcher`).
-
-### 2. Environment Alignment (`environment-detection` / `preflight.js`)
-Proactively audits the workspace properties (OS, Terminal Shell, Package Managers, and Sandbox Capabilities) to ensure syntax correctness, eliminating wasted token cycles on Windows path backslash escapades.
-
-### 3. Context Bloat Shield (`hooks/scripts/context-compact.js`)
-An informational, non-intrusive warning dashboard that tracks uncommitted diffs and staged file counts. It reminds the agent to compact context and prevents the "Lost in the Middle" reasoning drop before your context window hits the limit.
-
-### 4. Circuit Breaker (`hooks/scripts/rule-of-3.js`)
-Tracks repeat failure hashes. If the same error fails to compile or verify 3 times in a row, it forcefully triggers the **`zoom-out`** circuit breaker, halting code generation and requesting human partner insights instead of burning budget.
-
-### 5. Self-Evolution Loop (`self-evolve` / `self-regression.js`)
-When an issue is successfully resolved, Harness abstracts the high-level root cause and persists it into workspace memory (`RULES.md`). Before saving, the `self-regression.js` test suite validates all script syntax hermetically to prevent behavior decay.
+1. **Router (`tier-router.js`):** Prevents over-engineering. Triages incoming tasks into Tiers: Tier 1 (Direct Edit, no plans), Tier 2 (Standard TDD enforcement), or Tier 3 (Macro Multi-Agent planning and delegation).
+2. **Guard (`rule-of-3.js`):** The fail-safe circuit breaker. Tracks failure signatures across terminal runs. If a test or command fails 3 times with the same signature, it halts the session and asks the human partner for help.
+3. **Memory (`state-persist.js`):** Session transaction logging. Stores a local Write-Ahead Log (WAL) of milestones, preventing agents from forgetting their current task state if a session limits out or restarts.
+4. **Reflection (`self-evolve`):** Long-term workspace immunization. Upon task completion, the agent reflects on the root cause of resolved issues and saves them to local workspace rules (`RULES.md`), validated by a hermetic self-regression suite.
+5. **Subagent Scope Guard (`subagent-scope-guard.js`):** Diffs the whole repo's `git status` before and after every subagent (`Task`) burst, not just the files it was briefed to touch. Catches a subagent that was told to only read/verify but edited files anyway — a real failure mode, not a hypothetical one.
 
 ---
 
-## 📂 Directory Structure
+## Supported AI IDEs & Tools
 
-```
-harness-skills/
-├── bin/
-│   └── cli.js                     # CLI main entry
-├── harness-everything/
-│   └── scripts/
-│       ├── bootstrap.js           # Session start check / Handoff recovery
-│       └── tier-router.js         # Triages incoming request tiers
-├── hooks/
-│   └── scripts/
-│       ├── rule-of-3.js           # Circuit breaker loop halt
-│       ├── context-compact.js     # Strategic context bloat dashboard
-│       └── state-persist.js       # Transaction log (WAL) & Handoff persistent state
-├── environment-detection/
-│   └── scripts/
-│       └── preflight.js           # OS/Shell environment audit
-├── self-evolve/
-│   └── scripts/
-│       ├── persist-memory.js      # Long-term RULES writer
-│       └── self-regression.js     # System self-test regression CI
-├── eval-framework/                # Router trigger verification cases
-└── tdd/                           # Standard Tier 2 development flow
-```
+**Only Claude Code gets the hard-boundary hooks.** Every other platform below has no hook/exit-code execution mechanism, so `harness-skills` can only inject advisory text — same protection level as the "Prompt-Only" column in the comparison table above. There is no circuit breaker, no preflight audit, and no WAL on those platforms unless Claude Code (or another hook-capable tool) is also driving the same repo.
+
+| AI Agent Tool | Integration Method | Local Target Location | Enforcement |
+|---|---|---|---|
+| **Claude Code** | Native Lifecycle Hooks (`PreToolUse`, `PostToolUse`, `SessionStart`) | `.claude/settings.json` (project) / `~/.claude/settings.json` (user) | **Hard** — hooks can block a tool call (`exit(2)`) |
+| **Cursor** | Native Project Rules | `.cursorrules` | Advisory only |
+| **Copilot Chat** | Custom Instructions | `.github/copilot-instructions.md` | Advisory only |
+| **Codex** | Custom Instructions (`AGENTS.md`, not `.codex/config.toml` — that file controls CLI/sandbox behavior, not prompt content) | `AGENTS.md` | Advisory only |
 
 ---
 
-## 🤝 For Contributors & Self-Regression
+## Deeper Documentation
 
-To contribute to Harness OS or to safely modify any Skill behavior:
+For a deep dive into individual modules and the underlying philosophy, explore our sub-documents:
+
+*   [Harness Philosophy](docs/philosophy.md): The core behavior-first, intervention-only design.
+*   [Harness Architecture](docs/architecture.md): Lifecycle hooks, security model, and data locality.
+*   [Harness Routing & Triage](docs/routing.md): Detailed trigger criteria for Tiers 1, 2, and 3.
+*   [Harness Reflection & Memory](docs/reflection.md): WAL session handoffs and workspace rules immunization.
+
+---
+
+## Benchmarks & Testing
+
+**If you are an agent asked to verify a Harness install, start at [VERIFICATION.md](VERIFICATION.md), not here.** It gives exact commands with exact expected output — install artifact checks for every platform, mechanism-level checks (Claude Code only: pipe a simulated hook payload into `hooks/scripts/*.js` on stdin, confirm the exit code), the behavioral test prompts below, and an acceptance scorecard to fill in. Do not report "it works" from reading the code — every check there names a command to actually run.
+
+`npm run self-regression` only proves the JavaScript parses and the tier-routing heuristic classifies three sample prompts correctly. It has never caught a behavioral hook bug (wrong exit code, misread payload field, wrong matcher) — those all require the mechanism checks in VERIFICATION.md, which is exactly how the 2026-07-20 audit found eight of them.
+
+For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Benchmark SOP](BENCHMARK_SOP.md) — standardized, reproducible scenarios:
+*   **Test A:** Over-engineering defense (Tier 1 typo correction)
+*   **Test B:** Micro-error loop defense (Tier 2 bug resolution)
+*   **Test C:** Attention loss and hallucination (Tier 3 module refactoring)
+*   **Test D:** Knowledge boundary constraints (Offline hallucination prevention)
+*   **Test E:** Terminal environment and shell awareness (Windows/Unix shell detection)
+*   **Test F** (in VERIFICATION.md, not BENCHMARK_SOP.md): fact-audit discipline — does the agent verify an external-behavior claim before asserting it?
+
+---
+
+## 🤝 For Contributors
+
+To contribute to Harness or modify any Skill behavior, ensure you run the local self-regression suite first:
 
 ```bash
-# 1. Run full hermetic static syntax & routing simulations
+# Run full hermetic static syntax & routing simulations
 npm run self-regression
 ```
 
-Ensure Phase 1 and Phase 2 pass 100% cleanly before pushing changes. All script modifications must run through the `self-regression` suite to keep the OS immunised against behavioral regression.
+All script modifications must pass 100% cleanly before pushing to keep the runtime immunized against behavioral regression.
 
----
-*Harness OS is a non-intrusive cognitive amplifier. It is built to wrap around, notify, and assist, preserving agent creativity while dramatically reducing trial-and-error budgets.*

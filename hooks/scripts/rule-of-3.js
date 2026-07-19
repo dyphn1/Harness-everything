@@ -17,9 +17,13 @@ try {
       console.error(`1. CEASE FIRE immediately. Do not attempt another Bash, Edit, or Write.`);
       console.error(`2. Load the 'zoom-out' skill IMMEDIATELY.`);
       console.error(`3. Report this limit to your Human Partner and wait for new instructions.`);
+      console.error(`\nThis block persists until the Human Partner clears it by running`);
+      console.error(`"npm run harness:reset" in their own terminal, or by starting a new`);
+      console.error(`session / running /clear (which resets it automatically on SessionStart).`);
       
-      // Exit non-zero to block the PreToolUse hook
-      process.exit(1);
+      // For PreToolUse, only exit code 2 actually blocks the tool call.
+      // Exit 1 is a non-blocking error and Claude Code proceeds anyway.
+      process.exit(2);
     }
   }
   

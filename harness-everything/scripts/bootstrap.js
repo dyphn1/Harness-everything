@@ -18,6 +18,32 @@ if (!fs.existsSync(harnessDir)) {
   fs.mkdirSync(harnessDir, { recursive: true });
 }
 
+// The Rule of 3 circuit breaker (hooks/scripts/rule-of-3.js) blocks all
+// Bash/Edit/Write calls once tripped, with no tool left to clear its own
+// state. A new SessionStart means the human has taken over (new session,
+// /clear, /compact) and reviewed the situation, so it's safe to clear here.
+const circuitBreakerFile = path.join(harnessDir, 'rule-of-3-state.json');
+if (fs.existsSync(circuitBreakerFile)) {
+  try {
+    fs.unlinkSync(circuitBreakerFile);
+    console.log("Rule of 3 circuit breaker state cleared for new session.");
+  } catch (err) {
+    // Ignore; worst case the breaker stays tripped until manually reset.
+  }
+}
+
+// Same reasoning: a stale subagent-scope baseline from a previous session
+// would make the first Task burst of this session diff against the wrong
+// starting point.
+const subagentScopeFile = path.join(harnessDir, 'subagent-scope-state.json');
+if (fs.existsSync(subagentScopeFile)) {
+  try {
+    fs.unlinkSync(subagentScopeFile);
+  } catch (err) {
+    // Ignore.
+  }
+}
+
 // Check for handoff/state checkpoint from previous session
 const handoffFile = path.join(harnessDir, 'handoff-state.json');
 if (fs.existsSync(handoffFile)) {

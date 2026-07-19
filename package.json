@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "node self-evolve/scripts/self-regression.js",
-    "self-regression": "node self-evolve/scripts/self-regression.js"
+    "self-regression": "node self-evolve/scripts/self-regression.js",
+    "harness:reset": "node hooks/scripts/reset-circuit-breaker.js"
   },
   "engines": {
     "node": ">=18"

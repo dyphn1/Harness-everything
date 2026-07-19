@@ -2,6 +2,8 @@
 
 This guide helps you objectively test the performance difference between an AI Agent **with the Harness framework** and **without the Harness framework (Vanilla)**. You can switch between different underlying models (e.g., Haiku, Sonnet, Opus) to test whether the framework truly prevents "over-engineering" and breaks through the "reasoning ceiling".
 
+**What this SOP does NOT test:** it compares emergent behavior (did the agent avoid the loop, did it stay in scope), not whether the underlying hook mechanism actually fired or blocked anything. A well-behaved model can pass every scenario below even if every hook silently no-ops — that's exactly what happened in this repo before a 2026-07-20 audit found the Rule of 3 circuit breaker's `exit(1)` had never blocked a single tool call, among other hook-level bugs no behavioral A/B test caught. Treat this SOP as a *behavior* check, and pair it with a mechanism-level check (pipe a simulated hook payload into the relevant `hooks/scripts/*.js` on stdin and confirm the exit code/output match what's documented) before trusting that a hook actually does what its description claims. On platforms with no hook system at all (Cursor, Copilot, Codex — see [README: Supported AI IDEs & Tools](README.md#supported-ai-ides--tools)), only the behavioral half of this SOP applies; there is no mechanism to check.
+
 ## Testing Process
 
 To maintain controlled variables, please follow these steps for testing:

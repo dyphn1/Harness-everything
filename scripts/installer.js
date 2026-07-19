@@ -60,14 +60,19 @@ try {
     });
   }
 
-  // 4. Merge into .claude.json or settings.json (for Claude Code target)
-  const claudeSettingsFile = path.join(workspaceRoot, '.claude.json');
+  // 4. Merge into .claude/settings.json (project-level hooks location for Claude Code)
+  const claudeDir = path.join(workspaceRoot, '.claude');
+  if (!fs.existsSync(claudeDir)) {
+    fs.mkdirSync(claudeDir, { recursive: true });
+    console.log("  Created .claude directory");
+  }
+  const claudeSettingsFile = path.join(claudeDir, 'settings.json');
   let claudeConfig = {};
   if (fs.existsSync(claudeSettingsFile)) {
     try {
       claudeConfig = JSON.parse(fs.readFileSync(claudeSettingsFile, 'utf8'));
     } catch (e) {
-      console.warn("  ⚠️ Existing .claude.json is malformed, creating fresh one.");
+      console.warn("  ⚠️ Existing .claude/settings.json is malformed, creating fresh one.");
     }
   }
 
@@ -92,22 +97,56 @@ try {
 
   // Write merged config back to workspace
   fs.writeFileSync(claudeSettingsFile, JSON.stringify(claudeConfig, null, 2), 'utf8');
-  console.log("  ✅ Configured Claude Code hooks safely in .claude.json");
+  console.log("  ✅ Configured Claude Code hooks safely in .claude/settings.json");
 
-  // 5. Cursor support (.cursorrules)
-  const cursorRulesFile = path.join(workspaceRoot, '.cursorrules');
-  const cursorInstructions = `\n# Harness OS Instructions\n- Proactively obey the cognitive loop: Discover > Think > Try > Summarize > Record\n- If consecutive errors happen, STOP and check the state persisted under .harness/handoff-state.json\n`;
-  
-  if (fs.existsSync(cursorRulesFile)) {
-    let content = fs.readFileSync(cursorRulesFile, 'utf8');
-    if (!content.includes("Harness OS")) {
-      fs.appendFileSync(cursorRulesFile, cursorInstructions, 'utf8');
-      console.log("  ✅ Augmented existing .cursorrules with Harness guidelines");
+  // 5. Prompt-injection-only platforms (Cursor, Copilot, Codex)
+  //
+  // These platforms have no hook/exit-code execution mechanism - there is no
+  // way to actually run rule-of-3.js, boundary-guard.js, etc, or to block a
+  // tool call the way Claude Code's PreToolUse exit(2) does. What follows is
+  // advisory text only: strong defaults the model is asked to follow, with
+  // no mechanical enforcement behind them. Do not oversell this as a
+  // "circuit breaker" - by the README's own Prompt vs Skill vs Harness
+  // comparison, this tier has the same protection level as Prompt-Only.
+  const MARKER = "Harness OS Guidance (Advisory)";
+  const advisoryInstructions = [
+    `\n# ${MARKER}`,
+    `This file is advisory only - this platform has no hook/execution mechanism to`,
+    `enforce it mechanically (unlike Claude Code's hook-based circuit breaker). Treat`,
+    `these as strong defaults, not guarantees.`,
+    ``,
+    `- Discover the environment (OS, shell, package manager) before running commands - don't assume.`,
+    `- Triage tasks: trivial fixes need no plan; standard features need tests; large refactors need`,
+    `  an explicit plan reviewed with the human before implementation.`,
+    `- If the same error repeats 3 times in a row, STOP retrying. Explain what's failing and ask the`,
+    `  human for direction instead of continuing to guess.`,
+    `- Prefer editing over rewriting; commit logically complete chunks rather than one giant diff.`,
+    ``
+  ].join('\n');
+
+  function injectAdvisoryText(targetFile, header, label) {
+    const dir = path.dirname(targetFile);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+    if (fs.existsSync(targetFile)) {
+      const content = fs.readFileSync(targetFile, 'utf8');
+      if (!content.includes(MARKER)) {
+        fs.appendFileSync(targetFile, advisoryInstructions, 'utf8');
+        console.log(`  ✅ Augmented existing ${label} with Harness guidance (advisory-only)`);
+      }
+    } else {
+      fs.writeFileSync(targetFile, `${header}\n${advisoryInstructions}`, 'utf8');
+      console.log(`  ✅ Created ${label} with Harness guidance (advisory-only)`);
     }
-  } else {
-    fs.writeFileSync(cursorRulesFile, `# Cursor Project Rules\n${cursorInstructions}`, 'utf8');
-    console.log("  ✅ Created new .cursorrules with Harness guidelines");
   }
+
+  // Cursor
+  injectAdvisoryText(path.join(workspaceRoot, '.cursorrules'), '# Cursor Project Rules', '.cursorrules');
+  // Copilot Chat
+  injectAdvisoryText(path.join(workspaceRoot, '.github', 'copilot-instructions.md'), '# Copilot Instructions', '.github/copilot-instructions.md');
+  // Codex - the real custom-instructions mechanism is AGENTS.md, not .codex/config.toml
+  // (config.toml controls CLI/sandbox behavior, not prompt content).
+  injectAdvisoryText(path.join(workspaceRoot, 'AGENTS.md'), '# AGENTS.md', 'AGENTS.md');
 
   console.log("\n🎉 INSTALL SUCCESS! Harness OS is now protecting this project.");
   console.log("Try your first AI interaction! The bootstrapped OS will auto-route your tier.");

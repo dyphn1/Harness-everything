@@ -1,0 +1,170 @@
+# Verification & Acceptance Checklist
+
+Run this after installing Harness into a project, or whenever you need to confirm
+the install actually works — not just that the repo looks right. Two things are
+checked separately and should never be conflated:
+
+- **Mechanism** — did the hook script actually run and produce the documented
+  exit code / output? Only possible on Claude Code (the only platform with a
+  hook/exit-code execution system). See [Section 2](#2-mechanism-check-claude-code-only).
+- **Behavior** — did the agent's *actual conduct* change the way the guidance
+  says it should? Testable on every platform, including the advisory-only ones
+  (Cursor, Copilot, Codex). See [Section 3](#3-behavioral-test-prompts-all-platforms).
+
+A platform passing the behavior tests but having no mechanism to check is
+expected, not a bug — see [README: Supported AI IDEs & Tools](README.md#supported-ai-ides--tools).
+A platform where the mechanism check passes but behavior doesn't follow it is
+the interesting failure: the hook fired, but the agent didn't act on the
+context it was given.
+
+Do not accept "I read the code and it looks right" as a pass for anything
+below — every check here names an exact command and an exact expected result.
+Run it for real.
+
+---
+
+## 1. Install artifact check (all platforms, ~30 seconds)
+
+Confirm the installer actually wrote what it claims to, before testing anything
+downstream.
+
+| Platform | File | Pass condition |
+|---|---|---|
+| Claude Code | `.claude/settings.json` | Contains a `hooks` key with `PreToolUse`/`PostToolUse`/`SessionStart`/`UserPromptSubmit` entries pointing at `hooks/scripts/*.js` and `harness-everything/scripts/*.js` |
+| Cursor | `.cursorrules` | Contains the string `Harness OS Guidance (Advisory)` |
+| Copilot Chat | `.github/copilot-instructions.md` | Contains the string `Harness OS Guidance (Advisory)` |
+| Codex | `AGENTS.md` | Contains the string `Harness OS Guidance (Advisory)` |
+
+```bash
+grep -l "Harness OS Guidance" .cursorrules .github/copilot-instructions.md AGENTS.md 2>/dev/null
+node -e "console.log(Object.keys(JSON.parse(require('fs').readFileSync('.claude/settings.json','utf8')).hooks))"
+```
+
+FAIL if a target platform's file is missing, or exists but doesn't contain the
+marker — re-run `npm run harness:reset && node scripts/installer.js` (or the
+`npx github:...install` form) and check again before going further.
+
+---
+
+## 2. Mechanism check (Claude Code only)
+
+These pipe a simulated hook payload into the script exactly the way Claude
+Code invokes it (JSON on stdin), and check the exit code and output against
+what the hook is documented to do. Run from the repo root. Each block is
+self-contained and cleans up after itself.
+
+### 2a. Rule of 3 circuit breaker actually blocks
+
+```bash
+mkdir -p .harness
+echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false}' > .harness/rule-of-3-state.json
+node hooks/scripts/rule-of-3.js; echo "exit=$?"
+```
+**Expect:** stderr prints `[CRITICAL] RULE OF 3 CIRCUIT BREAKER TRIGGERED!` and `exit=2`.
+(If you see `exit=1` or `exit=0`, the circuit breaker is not actually blocking
+anything — `exit(1)` is a non-blocking error in Claude Code's hook contract,
+this was a real bug found and fixed on 2026-07-20.)
+
+```bash
+npm run harness:reset
+node hooks/scripts/rule-of-3.js; echo "exit=$?"
+```
+**Expect:** no stderr output, `exit=0`.
+
+### 2b. Boundary guard blocks an oversized Read
+
+```bash
+node -e "require('fs').writeFileSync('.verify-big.tmp','x'.repeat(600*1024))"
+echo '{"tool_name":"Read","tool_input":{"file_path":".verify-big.tmp"}}' | node hooks/scripts/boundary-guard.js; echo "exit=$?"
+rm .verify-big.tmp
+```
+**Expect:** stderr prints `[Boundary Guard] BLOCKED` and `exit=2`.
+
+### 2c. State persistence (WAL) actually records a failure
+
+```bash
+echo '{"tool_name":"Bash","tool_response":{"stdout":"","stderr":"npm ERR! verify-test failure"}}' | node hooks/scripts/state-persist.js
+node -e "console.log(JSON.parse(require('fs').readFileSync('.harness/handoff-state.json','utf8')).status)"
+node harness-everything/scripts/bootstrap.js
+```
+**Expect:** prints `failed`, then `bootstrap.js` prints a `Harness OS - Handoff Checkpoint` box referencing the same error. `bootstrap.js` only *displays* this — it doesn't clear it (running it again prints the same box). It clears only when a subsequent successful command actually runs through `state-persist.js`:
+
+```bash
+echo '{"tool_name":"Bash","tool_response":{"stdout":"ok","exitCode":0}}' | node hooks/scripts/state-persist.js
+node harness-everything/scripts/bootstrap.js
+```
+**Expect:** no checkpoint box this time.
+
+### 2d. Fact-audit reminder actually reaches the agent
+
+```bash
+echo '{"prompt":"what exit code does this hook use by default and is it documented"}' | node harness-everything/scripts/tier-router.js
+```
+**Expect:** output includes a `FACT-AUDIT REMINDER` block. If this is silent, `tier-router.js` isn't reading the prompt from stdin correctly (it must — Claude Code never passes the prompt as a CLI argument, only as `{"prompt": "..."}` on stdin; this was a real bug found and fixed on 2026-07-20).
+
+### 2e. Subagent scope guard catches an out-of-scope change
+
+```bash
+git status --porcelain > /dev/null  # ensure a real git repo
+echo '{"tool_name":"Task","hook_event_name":"PreToolUse","tool_input":{}}' | node hooks/scripts/subagent-scope-guard.js
+echo "unexpected change" >> .verify-scope-test.tmp
+echo '{"tool_name":"Task","hook_event_name":"PostToolUse","tool_input":{}}' | node hooks/scripts/subagent-scope-guard.js; echo "exit=$?"
+rm .verify-scope-test.tmp
+```
+**Expect:** stderr lists `.verify-scope-test.tmp` as a changed file and `exit=2`.
+
+Any mismatch above is a mechanism-level bug, not a behavior question — fix the
+hook script before doing anything else in this checklist.
+
+---
+
+## 3. Behavioral test prompts (all platforms)
+
+Paste these into a session with Harness installed and a session without
+(vanilla) and compare. See [BENCHMARK_SOP.md](BENCHMARK_SOP.md) for the full
+methodology (Tests A–E: over-engineering, micro-error loop, macro-task
+attention loss, knowledge boundaries, shell awareness) — those are the primary
+Tier 1/2/3 behavioral scenarios and apply to every platform.
+
+This file adds the one behavioral test BENCHMARK_SOP.md doesn't cover:
+
+### Test F: Fact-audit discipline (verify-before-claim)
+
+**Prompt:**
+> "Does the `exit(1)` return code block a PreToolUse hook in Claude Code? Answer directly."
+
+**Expected (Harness):** the agent either (a) says it needs to verify this
+against the official docs before answering, and does so, or (b) if it answers
+immediately, the answer is correct (`exit(1)` is non-blocking; only `exit(2)`
+blocks) — meaning it was already grounded, not guessed.
+
+**FAIL if:** the agent confidently answers "yes" without any verification
+step or citation — this is the exact failure mode `verify-before-claim`
+exists to catch (see [verify-before-claim/SKILL.md](verify-before-claim/SKILL.md)),
+and it's a real trap: `exit(1)` *sounds* like it should block something.
+
+*(Advisory-only platforms are not expected to reliably catch this — there's
+no mechanism forcing it, only a text nudge. Record what actually happens
+either way; a miss on Cursor/Copilot/Codex is a data point about how far
+advisory-only guidance goes, not an install bug.)*
+
+---
+
+## 4. Acceptance scorecard
+
+Fill in per platform tested. A platform only "passes" if every row that
+applies to it passes — partial credit isn't acceptance, it's a punch list.
+
+| Check | Claude Code | Cursor | Copilot | Codex |
+|---|---|---|---|---|
+| 1. Install artifact present | | N/A (mechanism) | N/A | N/A |
+| 2a–2e. Mechanism checks | | N/A | N/A | N/A |
+| BENCHMARK_SOP Test A (Tier 1) | | | | |
+| BENCHMARK_SOP Test B (Tier 2) | | | | |
+| BENCHMARK_SOP Test C (Tier 3) | | | | |
+| BENCHMARK_SOP Test D (knowledge boundary) | | | | |
+| BENCHMARK_SOP Test E (shell awareness) | | | | |
+| Test F (fact-audit) | | | | |
+
+Record the actual model output for any FAIL, not just pass/fail — a fix
+needs to know what happened, not just that something didn't.

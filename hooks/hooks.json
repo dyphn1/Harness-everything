@@ -27,7 +27,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Edit|Write",
+        "matcher": "Bash|PowerShell|Edit|Write",
         "hooks": [
           {
             "type": "command",
@@ -38,7 +38,7 @@
         "id": "harness:pre:rule-of-3"
       },
       {
-        "matcher": "Search|Read",
+        "matcher": "Grep|Glob|Read",
         "hooks": [
           {
             "type": "command",
@@ -60,7 +60,7 @@
         "id": "harness:pre:depth-guard"
       },
       {
-        "matcher": "*",
+        "matcher": "Edit|Write|Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -69,11 +69,22 @@
         ],
         "description": "Strategic context compaction enforcement",
         "id": "harness:pre:context-compact"
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node d:/GitHub/harness-skills/hooks/scripts/subagent-scope-guard.js"
+          }
+        ],
+        "description": "Snapshot repo state before a subagent burst starts",
+        "id": "harness:pre:subagent-scope-guard"
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -84,7 +95,7 @@
         "id": "harness:post:rule-of-3-tracker"
       },
       {
-        "matcher": "Edit|Write|Bash",
+        "matcher": "Edit|Write|Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -106,7 +117,7 @@
         "id": "harness:post:atomic-commit-check"
       },
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -115,6 +126,17 @@
         ],
         "description": "Contract testing between sub-agents",
         "id": "harness:post:contract-test"
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node d:/GitHub/harness-skills/hooks/scripts/subagent-scope-guard.js"
+          }
+        ],
+        "description": "Diff the whole repo after a subagent burst finishes - catches scope creep past what the task briefed",
+        "id": "harness:post:subagent-scope-guard"
       }
     ]
   }

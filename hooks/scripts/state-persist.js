@@ -37,12 +37,21 @@ function processState(payload) {
     fs.mkdirSync(path.dirname(stateFile), { recursive: true });
 
     if (payload) {
-      const exitCode = payload.exitCode;
-      const isFailed = typeof exitCode === 'number' && exitCode !== 0;
+      // Claude Code nests tool output under tool_response, not at the top
+      // level, and uses tool_name rather than tool. A numeric exit code
+      // also isn't guaranteed to be present at all - only trust it when
+      // it's actually a number; fall back to a stderr signal otherwise.
+      const toolResponse = payload.tool_response || {};
+      const stdout = toolResponse.stdout ?? payload.stdout ?? '';
+      const stderr = toolResponse.stderr ?? payload.stderr ?? '';
+      const rawExitCode = toolResponse.exitCode ?? toolResponse.exit_code ?? payload.exitCode;
+      const exitCode = typeof rawExitCode === 'number' ? rawExitCode : undefined;
+      const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
+      const isFailed = (exitCode !== undefined && exitCode !== 0) || (exitCode === undefined && stderrSignal);
 
       if (isFailed) {
         // Truncate output to avoid state bloat
-        let output = payload.stdout || payload.stderr || payload.output || '';
+        let output = (stderrSignal ? stderr : stdout) || payload.output || '';
         if (output.length > 500) {
           output = '...' + output.slice(-500);
         }
@@ -50,7 +59,7 @@ function processState(payload) {
         const state = {
           status: 'failed',
           timestamp: new Date().toISOString(),
-          tool: payload.tool || 'command',
+          tool: payload.tool_name || payload.tool || 'command',
           exitCode: exitCode,
           errorSummary: output.trim()
         };
