@@ -198,6 +198,44 @@ advisory-only guidance goes, not an install bug.)*
 
 ---
 
+## 4. Workflow Conformance Check (all platforms)
+
+To prevent skills from acting as "single isolated tools," developers and test frameworks MUST verify that the agent's actual operational flow matches the multi-skill pipelines defined in the `docs/workflows/` directory.
+
+### 4a. Workflow Comparison Checklist
+
+When running any test or task (such as TDD, Agent Scaffolding, or Commit generation), inspect the agent's execution log against the corresponding skill's workflow document in `docs/workflows/[skill-name].md`:
+
+1.  **Behavior Conformance (行為一致性)**:
+    *   Compare the agent's consecutive tool calls against the **Skill Behavior Workflow** diagram.
+    *   *Pass Condition*: The agent executes steps in the defined sequence (e.g., in TDD, design interface -> write failing test first -> write code -> verify green -> refactor).
+2.  **Routing & Chain Conformance (路由與鏈路整合)**:
+    *   Compare the active skills against the **Triggering and Routing Path** diagram.
+    *   *Pass Condition*: The skill is not running as a "one-off" or "lone wolf." It must active-load and trigger its corresponding companion skills (e.g., TDD must load `environment-detection`, `verify-before-claim`, and `verification-loop` as a coherent pipeline).
+3.  **Use Case Flowchart Verification (場景路徑對比)**:
+    *   Compare the actual test run scenarios against the **Real-World Use Case Flowchart**.
+    *   *Pass Condition*: The execution trajectory (including successful completion, error-recovery loops, or boundary tripping) precisely matches the flowchart's decision points.
+
+### 4b. Conformance Test Matrix
+
+| Task Trigger | Target Workflow File | Expected Integrated Workflow Chain |
+|---|---|---|
+| Bug fixing, writing unit tests | `docs/workflows/tdd.md` | `tdd` ➔ `environment-detection` ➔ `verify-before-claim` ➔ `verification-loop` |
+| Save changes, prepare release | `docs/workflows/git-commit.md` | `git-commit` ➔ `rewrite-commits` ➔ `using-git-worktrees` ➔ `verification-loop` |
+| Multi-agent setup, launcher | `docs/workflows/create-agent-launcher.md` | `fable-mode` ➔ `fable-discipline` ➔ `build-multi-agent-system` ➔ `create-agent-launcher` |
+| System refactoring, design | `docs/workflows/improve-codebase-architecture.md` | `improve-codebase-architecture` ➔ `grill-with-docs` ➔ `grill-me` ➔ `fable-mode` |
+
+### 4c. Interactive Verification Protocol
+
+During live testing sessions, the Human Partner may execute the tier router on the given prompt:
+```bash
+node harness-everything/scripts/tier-router.js "<Task Prompt>"
+```
+*   **Verification Step**: Check that the console printout under `RECOMMENDED KNOWLEDGE GUIDES` lists the entire integrated chain from the matrix above.
+*   **Actionable Check**: If any companion skill is missing from the active recommendations list, routing has failed. Ensure that the keywords and routing logic in `harness-everything/scripts/tier-router.js` have not drifted from the workflow maps.
+
+---
+
 ## 4. Acceptance scorecard
 
 Fill in per platform tested. A platform only "passes" if every row that

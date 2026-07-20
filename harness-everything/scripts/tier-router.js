@@ -78,58 +78,104 @@ function run(userPrompt) {
   // Analyze and output relevant Knowledge Guides / Templates based on user prompt keywords
   const recommendedGuides = [];
 
-  if (promptLower.includes("tdd") || promptLower.includes("test") || promptLower.includes("mock") || promptLower.includes("stub") || promptLower.includes("測試")) {
+  const TDD_TEST_KEYWORDS = [
+    "tdd", "test", "mock", "stub", "api", "endpoint", "integration", "debugging", "bug", "error", "fix",
+    "測試", "單測", "模組測試", "端點", "介面", "除錯", "錯誤", "修復"
+  ];
+  if (TDD_TEST_KEYWORDS.some(k => promptLower.includes(k))) {
     recommendedGuides.push(
-      "- tdd/guides/mocking.md (Mocking principles)",
+      "- tdd/SKILL.md (Test-Driven Development Red-Green-Refactor loop)",
+      "- tdd/guides/mocking.md (Mocking principles & isolation)",
       "- tdd/guides/interface-design.md (Interface and contract design)",
       "- tdd/guides/deep-modules.md (Testing deep nested modules)",
       "- tdd/guides/tests.md (General test architecture)",
-      "- tdd/guides/refactoring.md (Refactoring safety)"
+      "- environment-detection/SKILL.md (Detect active shell & preflight syntax to run tests safely)",
+      "- verify-before-claim/SKILL.md (Validate test assertions with objective evidence)",
+      "- verification-loop/SKILL.md (Run pre-PR quality checks: build, types, lint, tests)"
     );
   }
-  if (promptLower.includes("commit") || promptLower.includes("git") || promptLower.includes("save") || promptLower.includes("submodule") || promptLower.includes("提交") || promptLower.includes("版控")) {
+
+  const GIT_COMMIT_KEYWORDS = [
+    "commit", "git", "save", "submodule", "pr", "pull request", "release", "quality gate", "ready to ship",
+    "提交", "版控", "合併", "分支", "發行"
+  ];
+  if (GIT_COMMIT_KEYWORDS.some(k => promptLower.includes(k))) {
     recommendedGuides.push(
-      "- git-commit/guides/ANGULAR_STYLE.md (Commit conventions)",
+      "- git-commit/SKILL.md (Angular-style commit convention generation)",
+      "- git-commit/guides/ANGULAR_STYLE.md (Commit conventions reference)",
       "- git-commit/guides/COMMIT_GENERATION.md (Commit generation patterns)",
       "- git-commit/guides/LANGUAGE_DETECTION.md (Multi-language commits)",
       "- git-commit/guides/MAIN_REPO.md (Commits in main repositories)",
-      "- git-commit/guides/SUBMODULES.md (Git submodule commit handling)",
-      "- using-git-worktrees/SKILL.md (Git Worktrees isolation)"
+      "- git-commit/guides/SUBMODULES.md (Submodule commit handling)",
+      "- rewrite-commits/SKILL.md (Rewrite commit history safely to Angular style)",
+      "- using-git-worktrees/SKILL.md (Git Worktrees isolation for multi-tasking)",
+      "- verification-loop/SKILL.md (Pre-PR verification gate: build, lint, types, tests, security scan)"
     );
   }
-  if (promptLower.includes("doc") || promptLower.includes("readme") || promptLower.includes("agent") || promptLower.includes("multi-agent") || promptLower.includes("文件") || promptLower.includes("代理")) {
+
+  if (promptLower.includes("doc") || promptLower.includes("readme") || promptLower.includes("文件") || promptLower.includes("說明文件")) {
     recommendedGuides.push(
       "- repo-docs/templates/readme-template.md (Standard README template)",
       "- repo-docs/templates/product-readme-template.md (Product README template)",
+      "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)"
+    );
+  }
+
+  const AGENT_KEYWORDS = [
+    "agent", "multi-agent", "launcher", "subagent", "sub-agent", "delegate", "orchestrate", "specialist", 
+    "workspace scaffolding", "scaffold workspace", "division of labor", "fable", "macro", "orchestrator",
+    "代理", "多代理", "啟動器", "子代理", "委派", "指派", "分工", "協調", "任務分配", "規劃"
+  ];
+  if (AGENT_KEYWORDS.some(k => promptLower.includes(k))) {
+    recommendedGuides.push(
+      "- fable-mode/SKILL.md (Macro task planning & execution orchestrator)",
+      "- fable-discipline/SKILL.md (Shadow guard preventing context bloat and managing token limits)",
+      "- build-multi-agent-system/SKILL.md (Universal Multi-Agent Workspace scaffolding & memory db)",
+      "- create-agent-launcher/SKILL.md (Sub-agent generator for specialized task delegation)",
       "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)",
-      "- build-multi-agent-system/SKILL.md (Universal Multi-Agent Workspace scaffolding)",
       "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven Grilling)"
     );
   }
-  if (promptLower.includes("refactor") || promptLower.includes("architecture") || promptLower.includes("structure") || promptLower.includes("couple") || promptLower.includes("seam") || promptLower.includes("重構") || promptLower.includes("架構")) {
+
+  const ARCH_REFACTOR_KEYWORDS = [
+    "refactor", "architecture", "structure", "couple", "seam", "adr", "design plan", "decision", "grill",
+    "重構", "架構", "結構", "解耦", "設計", "決策", "辯論", "質疑"
+  ];
+  if (ARCH_REFACTOR_KEYWORDS.some(k => promptLower.includes(k))) {
     recommendedGuides.push(
       "- improve-codebase-architecture/guides/DEEPENING.md (Deepening opportunities & depth rules)",
       "- improve-codebase-architecture/guides/INTERFACE-DESIGN.md (Interface design principles)",
       "- improve-codebase-architecture/guides/LANGUAGE.md (Language-specific patterns)",
-      "- improve-codebase-architecture/guides/HTML-REPORT.md (Mermaid report generation)",
-      "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven Grilling)"
+      "- improve-codebase-architecture/guides/HTML-REPORT.md (Mermaid dependency report generation)",
+      "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)",
+      "- grill-me/SKILL.md (Challenger interview to stress-test your architecture plan)",
+      "- fable-mode/SKILL.md (Fable execution framework for macro architectural rewrites)"
     );
   }
-  if (promptLower.includes("shell") || promptLower.includes("terminal") || promptLower.includes("powershell") || promptLower.includes("bash") || promptLower.includes("cmd") || promptLower.includes("env") || promptLower.includes("preflight")) {
+
+  const ENV_KEYWORDS = [
+    "shell", "terminal", "powershell", "bash", "cmd", "env", "preflight", "command", "run",
+    "終端機", "命令", "環境", "指令", "執行"
+  ];
+  if (ENV_KEYWORDS.some(k => promptLower.includes(k))) {
     recommendedGuides.push(
-      "- environment-detection/SKILL.md (Active shell and environment detection, syntax guardrails)"
+      "- environment-detection/SKILL.md (Active shell and environment detection, syntax guardrails)",
+      "- using-git-worktrees/SKILL.md (Git Worktrees isolation for safe terminal environment testing)"
     );
   }
-  if (promptLower.includes("verify") || promptLower.includes("fact") || promptLower.includes("audit") || promptLower.includes("驗證") || promptLower.includes("查證")) {
+
+  const VERIFY_KEYWORDS = [
+    "verify", "fact", "audit", "estimate", "benchmark", "performance", "speed", "scale",
+    "驗證", "查證", "核對", "效能", "評測", "性能", "估計"
+  ];
+  if (VERIFY_KEYWORDS.some(k => promptLower.includes(k))) {
     recommendedGuides.push(
-      "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)"
+      "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates)",
+      "- verification-loop/SKILL.md (Comprehensive pre-PR quality gate)",
+      "- eval-harness/SKILL.md (AI performance evaluation metrics & anti-loop metrics)"
     );
   }
-  if (/\bpr\b|pull request|release|quality gate|ready to ship|verification/.test(promptLower)) {
-    recommendedGuides.push(
-      "- verification-loop/SKILL.md (Pre-PR quality gates: build, types, lint, tests, security scan, diff review)"
-    );
-  }
+
   if (/\bskill\b|skill\.md|new skill|write a skill/.test(promptLower)) {
     recommendedGuides.push(
       "- skill-style/SKILL.md (Style rules for authoring or modifying SKILL.md files in this repository)"

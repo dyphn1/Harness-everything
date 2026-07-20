@@ -34,6 +34,25 @@ To avoid "over-engineering" and maximize efficiency, you must categorize the use
 - You MUST follow the `REQUIRED TIER` output by the script.
 - If a `UserPromptSubmit` hook already ran the router this turn (its `[Tier Routing Pre-check]` output is visible in context), reuse that output instead of running it again.
 
+### Mandated Routing Checkpoint Output
+At the very beginning of your response to the user, you **MUST** output a clear, stylized routing report. This report is mandatory for all entries via `harness-everything`. It must list the determined Tier and the exact routing targets:
+```markdown
+## 🚦 Harness OS Routing Checkpoint
+- **Active Tier**: Tier X (Tier Name)
+- **Rationale**: Short 1-sentence reason from the tier router.
+- **Routed Skills, Guides & Actions**:
+  - `path/to/skill/or/guide.md` (Brief description of why this applies)
+  - ...
+```
+
+### Proactive Copilot & VS Code Instruction (Avoid Silent Degrades)
+If you are running in VS Code or GitHub Copilot, you do not have automated hooks to run scripts on your behalf.
+- You **MUST** proactively run the tier-router script (`node harness-everything/scripts/tier-router.js "<prompt>"`) or simulate its routing logic manually at the start.
+- **NEVER degrade newly added features or structural extensions to Tier 1.** Copilot is highly prone to treating new feature requests as trivial Tier 1 direct edits. If the request adds *any* new logic, a new API endpoint, or a new file/module, it **MUST** be triaged as **Tier 2 (Standard Task)** or **Tier 3 (Macro Task)**. This activates:
+  1. The `todo-driven-workflow` checklist (mandatory step-by-step progress tracking).
+  2. Multi-agent spawning / sub-agents via `create-agent-launcher` or macro plan orchestration via `fable-mode`.
+  3. The memory summarization & evolution sequence via `self-evolve` upon completion, ensuring new knowledge is registered in workspace memory.
+
 ### Tier 1: Trivial Tasks & Daily Chores
 - **Characteristics**: Fixing typos, simple modifications to a single function, asking/explaining code, syntax adjustments. Or simple `git-commit` and `rewrite-commits`.
 - **Action Strategy (Direct Execution)**:
