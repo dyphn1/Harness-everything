@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.0-beta] - 2026-07-20
+
+### Added
+- Implemented strict boundaries and self-healing mechanisms for Harness core.
+- Added interactive setup and modular skill installation to the installer.
+
+### Changed
+- Promoted to beta release for broader testing and validation of the Harness OS capabilities.
+- Renamed references from `harness-skills` to `harness-everything` across the codebase.
+
+### Documentation
+- Updated `git-commit` guidelines to disallow blank lines between bullet points in the Angular style guide.
+
 ## [0.1.0-alpha] - 2026-07-20
 
 This is the initial alpha release of **Harness OS** — a lightweight, local behavior and orchestration runtime that wraps around AI development sessions to enforce self-regulation, prevent token-wasting infinite loops, and eliminate environment hallucinations.
