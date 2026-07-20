@@ -18,6 +18,9 @@ if (!command || command === '--help' || command === '-h') {
 
 switch (command) {
   case 'install':
+  case 'add':
+  case 'skill':
+  case 'skills':
     runInstaller(args.slice(1));
     break;
   case 'test':
@@ -39,6 +42,20 @@ Usage:
   
 Commands:
   install            Install Harness OS hooks & skills into the local repository
+                     Options:
+                       --claude      Install Claude Code hooks (.claude/settings.json)
+                       --cursor      Install Cursor project rules (.cursorrules)
+                       --copilot     Install Copilot Chat instructions (.github/copilot-instructions.md)
+                       --codex       Install Codex agents layout (AGENTS.md)
+                       --all         Install all of the above platforms
+                       -g, --global  Install to home directory (~/.agents) instead of local repository
+                       -y, --yes     Bypass interactive menu and use auto-detection
+  add/skills/skill   Add/install modular skills into the local workspace
+                     Usage:
+                       npx harness-skills add [skill-names...]
+                       Options:
+                         -g, --global  Install skills to home directory (~/.agents/skills)
+                       (Runs interactively if no skill names are specified)
   self-regression    Run syntax and routing checks before committing changes (alias: test)
 
 Options:
