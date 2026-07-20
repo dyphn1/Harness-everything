@@ -17,14 +17,19 @@ description: Use at the very beginning of the session (Discover phase) to automa
 - If you just started a session, run the preflight script immediately.
 
 ## [Discovery Phase: Environment Audit]
-1. Run the preflight script to programmatically detect the system:
+1. Run the preflight script that lives at `scripts/preflight.js` **inside this skill's own directory** — resolve the path from wherever this SKILL.md was loaded (do not guess a hard-coded location):
    ```bash
-   node d:/GitHub/harness-skills/environment-detection/scripts/preflight.js
+   node "<this-skill-dir>/scripts/preflight.js"
    ```
 2. Parse the output and understand:
    - Operating System (Windows vs. macOS vs. Linux)
    - Active Shell (Git Bash vs. PowerShell vs. Command Prompt)
    - Available CLI Tools (node, pnpm, docker, python, etc.)
+3. **Toolchain Self-Heal (工欲善其事,必先利其器)**: The harness itself is part of the environment. Audit whether this workspace's integration touchpoints (`.claude/settings.json` hooks, `.cursorrules`, `.github/copilot-instructions.md`, `AGENTS.md`) are installed, and repair any missing ones — e.g., installed via Claude Code but now opened in Copilot:
+   ```bash
+   node "<skills-repo-root>/harness-everything/scripts/self-heal.js"
+   ```
+   The script is idempotent (it delegates to the installer, which merges hooks by id and never duplicates advisory text), so running it on an already-healthy workspace is a no-op. Skip only if the user intentionally removed a touchpoint file.
 
 ## [Execution Phase: Syntax and Command Alignment]
 Choose the correct syntax matching your active shell:

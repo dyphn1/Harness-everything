@@ -28,14 +28,13 @@ It ensures that the entire Harness ecosystem becomes smarter and avoids repeatin
 - **Anti-Focus Loss**: This rule must be able to directly guide future Agents to notice this landmine during the `[Discover]` phase, instead of finding out only after writing it wrong.
 
 ### Step 3: Memory Persistence & Dynamic Skill Generation
-- **MANDATORY**: Before persisting or committing any dynamically generated skills or memories, you MUST run the self-regression suite to ensure no behavioral regressions or syntax errors were introduced:
+- **MANDATORY**: Before persisting or committing any dynamically generated skills or memories, you MUST run the self-regression suite to ensure no behavioral regressions or syntax errors were introduced. Both scripts below live in the `scripts/` directory **inside this skill's own directory** — resolve paths from wherever this SKILL.md was loaded (do not guess a hard-coded location):
   ```bash
-  node d:/GitHub/harness-skills/self-evolve/scripts/self-regression.js
+  node "<this-skill-dir>/scripts/self-regression.js"
   ```
-- **MANDATORY**: You MUST execute the persistence script instead of manually editing files or calling write tools.
-- Find the `persist-memory.js` script in the `scripts/` directory of this skill and run it via terminal:
+- **MANDATORY**: You MUST execute the persistence script instead of manually editing files or calling write tools:
   ```bash
-  node path/to/self-evolve/scripts/persist-memory.js "<Your extracted root cause and defensive rule here>"
+  node "<this-skill-dir>/scripts/persist-memory.js" "<Your extracted root cause and defensive rule here>"
   ```
 - **Dynamic Skill Generation (Session Packaging)**: Through self-review, package the successful session summary (hard boundary) into a new, dynamic skill (e.g., creating a new `SKILL.md` for a specific workflow, akin to the Hermes agent approach). Note that these dynamically generated skills have a lifecycle—they are meant to be continuously optimized or replaced, distinct from the system's foundational static skills.
 - **Note**: Only record "Key Insights", keeping the memory document short and punchy. Avoid stuffing it with lengthy conversation logs or useless narratives.

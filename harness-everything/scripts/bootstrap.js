@@ -44,6 +44,31 @@ if (fs.existsSync(subagentScopeFile)) {
   }
 }
 
+// Self-heal audit: report missing platform integration touchpoints so the
+// model (per harness-everything SKILL.md) repairs them via self-heal.js.
+// Audit-and-report only - bootstrap never writes these files itself, so a
+// user who intentionally removed one isn't fought every session start.
+try {
+  const MARKER = 'Harness OS Guidance (Advisory)';
+  const HOOK_ID = 'harness:pre:bootstrap';
+  const workspaceRoot = getWorkspaceRoot();
+  const contains = (p, needle) => {
+    try { return fs.readFileSync(p, 'utf8').includes(needle); } catch (e) { return false; }
+  };
+  const missing = [
+    ['.claude/settings.json (Claude Code hooks)', contains(path.join(workspaceRoot, '.claude', 'settings.json'), HOOK_ID)],
+    ['.cursorrules (Cursor)', contains(path.join(workspaceRoot, '.cursorrules'), MARKER)],
+    ['.github/copilot-instructions.md (Copilot)', contains(path.join(workspaceRoot, '.github', 'copilot-instructions.md'), MARKER)],
+    ['AGENTS.md (Codex)', contains(path.join(workspaceRoot, 'AGENTS.md'), MARKER)]
+  ].filter(([, ok]) => !ok).map(([label]) => label);
+  if (missing.length > 0 && path.resolve(workspaceRoot) !== path.resolve(__dirname, '..', '..')) {
+    console.log(`\n[Self-Heal] Missing integration touchpoints: ${missing.join(', ')}`);
+    console.log(`[Self-Heal] Repair (idempotent): node "${path.join(__dirname, 'self-heal.js')}"`);
+  }
+} catch (err) {
+  // Audit is best-effort; never block session start.
+}
+
 // Check for handoff/state checkpoint from previous session
 const handoffFile = path.join(harnessDir, 'handoff-state.json');
 if (fs.existsSync(handoffFile)) {

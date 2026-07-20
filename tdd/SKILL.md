@@ -8,6 +8,8 @@ description: Test-Driven Development mode (Red-Green-Refactor) for Standard Task
 This skill is automatically triggered and loaded by the `harness-everything` router when a task is judged as a **Tier 2 (Standard Task)**.
 It applies to adding a single feature, fixing a specific Bug, or medium-sized changes with clear expected outcomes.
 
+Tier 2 tasks run on the `todo-driven-workflow` base execution loop: initialize the checklist first, and map each Red / Green / Refactor phase (per feature or bug) onto its own verifiable todo item.
+
 ## TDD Core Discipline (Red-Green-Refactor)
 
 When this skill is loaded, you MUST suppress the urge to write implementation code directly, and strictly follow these three phases:

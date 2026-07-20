@@ -16,10 +16,10 @@ by actually fetching `code.claude.com/docs/en/hooks` instead of trusting the
 assumption. The circuit breaker had never blocked anything until that got
 checked.
 
-`hooks/scripts/tier-router.js` fires a lightweight keyword-based reminder for
-this automatically (`UserPromptSubmit`, "FACT-AUDIT REMINDER" block) so you
-don't have to be manually pushed into checking every time. This file is the
-actual discipline behind that reminder.
+`harness-everything/scripts/tier-router.js` fires a lightweight keyword-based
+reminder for this automatically (`UserPromptSubmit`, "FACT-AUDIT REMINDER"
+block) so you don't have to be manually pushed into checking every time. This
+file is the actual discipline behind that reminder.
 
 ## TRIGGER — verify before asserting, don't skip because the answer "feels obvious"
 

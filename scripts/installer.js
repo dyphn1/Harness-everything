@@ -49,9 +49,22 @@ try {
       if (cloned.hooks) {
         cloned.hooks = cloned.hooks.map(h => {
           if (h.type === 'command' && h.command) {
-            // Rewrite the relative paths of scripts to the current absolute installation location of harness-skills
-            h.command = h.command.replace(/node\s+d:\/GitHub\/harness-skills\//g, `node "${harnessSourceDir}/"`);
-            h.command = h.command.replace(/node\s+path\/to\/harness-skills\//g, `node "${harnessSourceDir}/"`);
+            // hooks.json is a TEMPLATE: it stores repo-relative script paths
+            // (e.g. "node harness-everything/scripts/bootstrap.js"). Resolve
+            // them here against the absolute location of THIS harness-skills
+            // checkout (found dynamically via __dirname), because installed
+            // hooks execute with the target project as cwd and must locate
+            // the scripts from anywhere. Quote the whole resolved path so it
+            // survives spaces. Legacy placeholder prefixes from older
+            // templates are stripped first for backward compatibility.
+            let cmd = h.command
+              .replace(/d:\/GitHub\/harness-skills\//g, '')
+              .replace(/path\/to\/harness-skills\//g, '');
+            cmd = cmd.replace(/^node\s+"?([^"\s]+)"?/, (m, scriptPath) => {
+              const abs = path.isAbsolute(scriptPath) ? scriptPath : path.join(harnessSourceDir, scriptPath);
+              return `node "${abs}"`;
+            });
+            h.command = cmd;
           }
           return h;
         });

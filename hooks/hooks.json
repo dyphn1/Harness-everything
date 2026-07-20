@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/harness-everything/scripts/bootstrap.js"
+            "command": "node harness-everything/scripts/bootstrap.js"
           }
         ],
         "description": "Bootstrap Harness Skills OS on session start",
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/harness-everything/scripts/tier-router.js"
+            "command": "node harness-everything/scripts/tier-router.js"
           }
         ],
         "description": "Auto-route user requests using tier-router",
@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/hooks/scripts/rule-of-3.js"
+            "command": "node hooks/scripts/rule-of-3.js"
           }
         ],
         "description": "Rule of 3 Circuit Breaker - Prevents micro-error looping",
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/hooks/scripts/boundary-guard.js"
+            "command": "node hooks/scripts/boundary-guard.js"
           }
         ],
         "description": "Physical boundary enforcement for searches and large file reads",
@@ -53,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/hooks/scripts/depth-guard.js"
+            "command": "node hooks/scripts/depth-guard.js"
           }
         ],
         "description": "Information depth guard - Enforce impact assessment before writing code",
@@ -64,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/hooks/scripts/context-compact.js"
+            "command": "node hooks/scripts/context-compact.js"
           }
         ],
         "description": "Strategic context compaction enforcement",
@@ -75,7 +75,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/hooks/scripts/subagent-scope-guard.js"
+            "command": "node hooks/scripts/subagent-scope-guard.js"
           }
         ],
         "description": "Snapshot repo state before a subagent burst starts",
@@ -88,7 +88,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/hooks/scripts/rule-of-3-tracker.js"
+            "command": "node hooks/scripts/rule-of-3-tracker.js"
           }
         ],
         "description": "Track error signatures for Rule of 3",
@@ -99,7 +99,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/hooks/scripts/state-persist.js"
+            "command": "node hooks/scripts/state-persist.js"
           }
         ],
         "description": "Save skill transition state",
@@ -110,7 +110,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/hooks/scripts/atomic-commit-check.js"
+            "command": "node hooks/scripts/atomic-commit-check.js"
           }
         ],
         "description": "Atomic commit enforcement",
@@ -121,7 +121,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/hooks/scripts/contract-test.js"
+            "command": "node hooks/scripts/contract-test.js"
           }
         ],
         "description": "Contract testing between sub-agents",
@@ -132,7 +132,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node d:/GitHub/harness-skills/hooks/scripts/subagent-scope-guard.js"
+            "command": "node hooks/scripts/subagent-scope-guard.js"
           }
         ],
         "description": "Diff the whole repo after a subagent burst finishes - catches scope creep past what the task briefed",

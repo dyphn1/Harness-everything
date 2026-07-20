@@ -30,7 +30,7 @@ Direct Edit       Test-Driven (TDD)     Multi-Agent Flow
 
 ### Tier 2: Standard Tasks (Test-Driven Development)
 *   **Trigger criteria:** Normal feature requests, bug fixes, algorithm additions, API endpoint creations, or any task affecting multiple files with logical risk.
-*   **Behavior:** Harness enforces the `tdd` skill. The model is strictly guided through the Red-Green-Refactor loop:
+*   **Behavior:** Harness enforces the `todo-driven-workflow` base execution loop (initialize a 3-7 item verifiable checklist before editing, one item in-progress at a time) and the `tdd` skill. The model is strictly guided through the Red-Green-Refactor loop:
     1.  **Red:** Write an automated test first that reproduces the issue or covers the feature, then run it to verify failure.
     2.  **Green:** Implement the minimal amount of code to make the test pass.
     3.  **Refactor:** Polish the code, clean up duplicates, and ensure coverage targets (minimum 80%) are met.
@@ -38,7 +38,7 @@ Direct Edit       Test-Driven (TDD)     Multi-Agent Flow
 
 ### Tier 3: Macro Tasks (Multi-Agent/Fable-Mode)
 *   **Trigger criteria:** High-level design changes, migration of modules, large-scale refactoring, or major capability additions affecting multiple domains.
-*   **Behavior:** Harness automatically spawns the multi-agent orchestration engine (`fable-mode` and `create-agent-launcher`).
+*   **Behavior:** Harness automatically spawns the multi-agent orchestration engine (`fable-mode` and `create-agent-launcher`), with the macro plan materialized as the `todo-driven-workflow` checklist.
     1.  **Planning:** An agent constructs a rigorous, phase-based implementation plan.
     2.  **Delegation:** Specialized sub-agents (e.g., `security-reviewer`, `database-reviewer`, `code-reviewer`) are created to handle specific work streams or audits.
     3.  **Handoffs:** Session handoffs are saved periodically to ensure that if a session limits out or restarts, the progress is seamlessly restored.

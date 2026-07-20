@@ -23,10 +23,11 @@ flowchart TD
         Router -->|Tier 1: Trivial Task| T1[Direct Execution - No Plans]
         Router -->|Tier 2: Standard Task| T2[tdd: Test-Driven Development]
         Router -->|Tier 3: Macro Task| T3[fable-mode: Multi-Agent Spawn]
+        T2 & T3 --> TDW[todo-driven-workflow: Base Execution Checklist]
     end
 
     subgraph Defense & Safety [Circuit Breakers]
-        T1 & T2 & T3 --> Tools[Agent Tool Call]
+        T1 & TDW --> Tools[Agent Tool Call]
         Tools -->|PreToolUse| CG[context-compact.js: Bloat Warning]
         Tools -->|PreToolUse| CB{rule-of-3.js: Circuit Breaker}
         
@@ -52,7 +53,9 @@ flowchart TD
 
 ## Integration touchpoints
 
-Harness is designed to align with the unique capabilities of various AI IDEs and CLI tools — but those capabilities are not equivalent across platforms, and this repo does not pretend otherwise. Only Claude Code has a hook system with exit-code-based blocking; every other platform below gets **advisory text only**, with the same protection level as the "Prompt-Only" column in the README's own comparison table. There is no `preflight.js` audit, no `Rule of 3` circuit breaker, and no WAL on those platforms — nothing runs `.harness/*` scripts unless Claude Code (or another hook-capable tool) is also driving the same repo.
+Harness is designed to align with the unique capabilities of various AI IDEs and CLI tools — but those capabilities are not equivalent across platforms, and this repo does not pretend otherwise.
+
+**Self-healing:** integration touchpoints can drift — installed from one editor, opened in another. `harness-everything/scripts/self-heal.js` audits all four touchpoints below and re-runs the idempotent installer to backfill whatever is missing. On Claude Code, `bootstrap.js` performs the audit at SessionStart and reports missing touchpoints (repair is left to the model so an intentionally removed file isn't silently re-created every session); on hook-less platforms, the audit runs when `harness-everything` or `environment-detection`'s Discover phase loads. Only Claude Code has a hook system with exit-code-based blocking; every other platform below gets **advisory text only**, with the same protection level as the "Prompt-Only" column in the README's own comparison table. There is no `preflight.js` audit, no `Rule of 3` circuit breaker, and no WAL on those platforms — nothing runs `.harness/*` scripts unless Claude Code (or another hook-capable tool) is also driving the same repo.
 
 ### 1. Claude Code (hook-enforced)
 Our installer configures native lifecycle hooks inside `.claude/settings.json`:

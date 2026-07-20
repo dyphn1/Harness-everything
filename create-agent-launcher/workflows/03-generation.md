@@ -14,7 +14,8 @@
    - MUST read the specific template.
    - IF `Conflict Strategy` is Smart Merge AND the target file exists, MUST read the existing file BEFORE merging to prevent hallucination.
    - MUST inject strict Cognitive Guardrails: MUST explicitly define Role Boundaries (refusing out-of-scope tasks), mandate the use of the Shared Memory Space (`memory-keeper`), and mandate deterministic outcome verification (no hallucinating success).
-   - MUST substitute placeholders using the `Context Profile`. IF a placeholder cannot be resolved, MUST NOT guess. MUST insert a conspicuous tag (e.g., `<<TODO: MANUAL_INPUT_REQUIRED>>`).
+   - MUST align generation with platform-specific capabilities (e.g., VS Code LSP tooltips vs Cursor rules) and inject localized task-tracking/TODO frameworks tailored to the target platform and specific agent role (ensuring each agent and platform gets its own isolated, native TODO tracking system, e.g., mapping to `manage_todo_list` for VS Code, `.cursorrules` checklists for Cursor, or unique agent-scoped status JSONs).
+   - MUST substitute placeholders using the `Context Profile`. IF a placeholder cannot be resolved, MUST NOT guess. MUST insert a conspicuous tag (e.g., `<<TODO: MANUAL_INPUT_REQUIRED>>` or localized `// TODO:` structured comments mapping to the active platform's task-tracking schema).
    - MUST write files securely to destination paths from `guidelines/platform-<platform>.md`.
 4. Orchestrator Gen: MUST consult `guidelines/platform-<platform>.md` for Orchestrator requirements. MUST generate separate Orchestrator Instructions or update the root system prompt IF required.
 

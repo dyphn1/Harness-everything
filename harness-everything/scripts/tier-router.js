@@ -56,6 +56,13 @@ function run(userPrompt) {
   console.log(`\n=> REQUIRED TIER: ${recommendedTier}`);
   console.log(`=> RATIONALE: ${rationale}`);
 
+  // Base execution loop: Tier 2/3 must run on the todo-driven-workflow
+  // checklist (Tier 1 is exempt to avoid checklist bloat on trivial edits).
+  if (!recommendedTier.startsWith("Tier 1")) {
+    console.log(`\n=> BASE EXECUTION LOOP: Load 'todo-driven-workflow' and initialize its checklist (3-7 verifiable sub-tasks) BEFORE editing any file.`);
+    console.log(`   Track exactly ONE item in-progress at a time; verify with real evidence before marking completed.`);
+  }
+
   // Analyze and output relevant Knowledge Guides / Templates based on user prompt keywords
   const recommendedGuides = [];
 
@@ -104,6 +111,16 @@ function run(userPrompt) {
   if (promptLower.includes("verify") || promptLower.includes("fact") || promptLower.includes("audit")) {
     recommendedGuides.push(
       "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)"
+    );
+  }
+  if (/\bpr\b|pull request|release|quality gate|ready to ship|verification/.test(promptLower)) {
+    recommendedGuides.push(
+      "- verification-loop/SKILL.md (Pre-PR quality gates: build, types, lint, tests, security scan, diff review)"
+    );
+  }
+  if (/\bskill\b|skill\.md|new skill|write a skill/.test(promptLower)) {
+    recommendedGuides.push(
+      "- skill-style/SKILL.md (Style rules for authoring or modifying SKILL.md files in this repository)"
     );
   }
 
