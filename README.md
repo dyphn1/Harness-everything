@@ -71,7 +71,7 @@ flowchart TD
     A -->|Tweak & Retry 2| Env
     Env -->|Error / Failure| A
     A -->|Tweak & Retry 3... N| Env
-    style A fill:#ffcdd2,stroke:#c62828,stroke-width:1px
+    style A fill:#ffcdd2,stroke:#c62828,stroke-width:1px,color:#000000
 ```
 
 ### With Harness (Guarded and Routed Execution)
@@ -85,9 +85,9 @@ flowchart TD
     T1 & T2 & T3 --> CB{Circuit Breaker}
     CB -->|Fails 3x| ZO[Zoom Out: Ask Human]
     CB -->|Success| SE[Self-Evolve: Update Rules]
-    style H_Router fill:#c8e6c9,stroke:#2e7d32,stroke-width:1px
-    style CB fill:#fff9c4,stroke:#fbc02d,stroke-width:1px
-    style ZO fill:#ffcc80,stroke:#ef6c00,stroke-width:1px
+    style H_Router fill:#c8e6c9,stroke:#2e7d32,stroke-width:1px,color:#000000
+    style CB fill:#fff9c4,stroke:#fbc02d,stroke-width:1px,color:#000000
+    style ZO fill:#ffcc80,stroke:#ef6c00,stroke-width:1px,color:#000000
 ```
 
 ---

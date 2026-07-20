@@ -12,11 +12,11 @@ The diagram below outlines the full lifecycle of a task under Harness:
 
 ```mermaid
 flowchart TD
-    subgraph User Session
+    subgraph User_Session [User Session]
         U([User Request]) --> Boot[bootstrap.js: Session Start]
     end
 
-    subgraph OS Kernel [Harness Engine]
+    subgraph OS_Kernel [Harness Engine]
         Boot -->|Check Handoff Checkpoint| Preflight[preflight.js: Environment Audit]
         Preflight --> Router{tier-router.js: Task Triage}
         
@@ -26,7 +26,7 @@ flowchart TD
         T2 & T3 --> TDW[todo-driven-workflow: Base Execution Checklist]
     end
 
-    subgraph Defense & Safety [Circuit Breakers]
+    subgraph Defense_Safety [Circuit Breakers]
         T1 & TDW --> Tools[Agent Tool Call]
         Tools -->|PreToolUse| CG[context-compact.js: Bloat Warning]
         Tools -->|PreToolUse| CB{rule-of-3.js: Circuit Breaker}
@@ -36,7 +36,7 @@ flowchart TD
         CB -->|Succeeds| Done[Success / Finish]
     end
 
-    subgraph Continuous Learning
+    subgraph Continuous_Learning [Continuous Learning]
         ZO -->|Genuine human decision / 2nd trip| Human[Human Decision & Guidance]
         Human --> SE[self-evolve: Deep Reflection]
         Done -->|Complex Breakthrough| SE
@@ -45,9 +45,9 @@ flowchart TD
         Mem -.->|Immunize| Preflight
     end
 
-    style OS Kernel fill:#eceff1,stroke:#37474f,stroke-width:2px
-    style Defense & Safety fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
-    style Continuous Learning fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px
+    style OS_Kernel fill:#eceff1,stroke:#37474f,stroke-width:2px,color:#000000
+    style Defense_Safety fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000000
+    style Continuous_Learning fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px,color:#000000
 ```
 
 ---
