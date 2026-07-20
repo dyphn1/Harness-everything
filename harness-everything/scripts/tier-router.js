@@ -176,17 +176,27 @@ function run(userPrompt) {
   console.log(`\nTreat the tier above as the default route. If your own read of the task clearly disagrees, follow your read and say why in one line. An explicit instruction from the Human Partner always wins.`);
 }
 
-let inputData = '';
-process.stdin.on('data', chunk => { inputData += chunk; });
-process.stdin.on('end', () => {
-  let userPrompt = process.argv[2] || '';
-  try {
-    if (inputData.trim()) {
-      const payload = JSON.parse(inputData);
-      if (typeof payload.prompt === 'string') userPrompt = payload.prompt;
-    }
-  } catch (err) {
-    // Not valid JSON on stdin - fall back to argv (useful for direct/manual testing).
-  }
+let userPrompt = process.argv[2] || '';
+
+if (process.argv[2]) {
+  // If a command-line argument is passed, use it and execute immediately.
   run(userPrompt);
-});
+} else if (process.stdin.isTTY) {
+  // Running interactively in a terminal without piped input, execute immediately.
+  run('');
+} else {
+  // Piped input or non-TTY, read from standard input.
+  let inputData = '';
+  process.stdin.on('data', chunk => { inputData += chunk; });
+  process.stdin.on('end', () => {
+    try {
+      if (inputData.trim()) {
+        const payload = JSON.parse(inputData);
+        if (typeof payload.prompt === 'string') userPrompt = payload.prompt;
+      }
+    } catch (err) {
+      // Not valid JSON on stdin - fall back to argv (useful for direct/manual testing).
+    }
+    run(userPrompt);
+  });
+}

@@ -12,6 +12,11 @@ description: Use at the very beginning of the session (Discover phase) to automa
 - **[Summarize]**: Output the detected terminal, OS, and toolchains so the session context retains these bounds.
 - **[Record]**: Adopt the corresponding command syntax rules for the rest of the conversation.
 
+## Strict Workspace Boundary (僅偵測與操作當前工作區)
+- **Current Workspace Only**: 必須僅偵測與操作當前活動工作區目錄（即當前專案根目錄，亦為 `process.cwd()`）。
+- **Ignore Other Workspaces**: 即使 VS Code 內容或歷史記錄中暴露了其他工作區、暫存路徑或最近開啟的專案（例如 `d:\super.h2o.sbom`、`d:\DeveloperDocs`、`c:\Users\DanielCH.Chang\Desktop\XinputDxe_V0.0.5` 等），你也 **必須完全忽略它們**。絕對不要對這些非當前專案之路徑進行結構分析、工具檢查，更不能在其中執行任何終端機指令。
+- **Single-Workspace Execution**: 所有終端機指令、工具可用性檢查、路徑解析均必須嚴格限制在當前專案根目錄內。嚴格禁止跨越邊界操作鄰近或無關的資料夾。
+
 ## [State Checkpoint]
 - Verify your environment details *before* executing commands or writing files.
 - If you just started a session, run the preflight script immediately.

@@ -81,25 +81,39 @@ function auditClaudeHooks(workspaceRoot) {
 }
 
 function auditWorkspace(workspaceRoot) {
-  const claudeHooks = auditClaudeHooks(workspaceRoot);
-  return [
-    {
+  const isClaudeCode = process.env.CLAUDE_CODE === 'true' || process.env.SHELL?.includes('claude-code') || false;
+  const isVSCodeCopilot = process.env.VSCODE_PID !== undefined || process.env.TERM_PROGRAM === 'vscode' || process.env.GITHUB_COPILOT_CHAT === 'true' || true; // Fallback default
+
+  const checks = [];
+
+  // 根據當前執行環境動態決定審查項目
+  if (isClaudeCode) {
+    const claudeHooks = auditClaudeHooks(workspaceRoot);
+    checks.push({
       label: 'Claude Code hooks (.claude/settings.json)' + (claudeHooks.detail ? ` - ${claudeHooks.detail}` : ''),
-      ok: claudeHooks.ok
-    },
-    {
+      ok: claudeHooks.ok,
+      platform: 'claude'
+    });
+  } else {
+    // 處於 VS Code / Copilot 或其他編輯器
+    checks.push({
       label: 'Cursor rules (.cursorrules)',
-      ok: fileContains(path.join(workspaceRoot, '.cursorrules'), MARKER)
-    },
-    {
+      ok: fileContains(path.join(workspaceRoot, '.cursorrules'), MARKER),
+      platform: 'cursor'
+    });
+    checks.push({
       label: 'Copilot instructions (.github/copilot-instructions.md)',
-      ok: fileContains(path.join(workspaceRoot, '.github', 'copilot-instructions.md'), MARKER)
-    },
-    {
+      ok: fileContains(path.join(workspaceRoot, '.github', 'copilot-instructions.md'), MARKER),
+      platform: 'copilot'
+    });
+    checks.push({
       label: 'Codex instructions (AGENTS.md)',
-      ok: fileContains(path.join(workspaceRoot, 'AGENTS.md'), MARKER)
-    }
-  ];
+      ok: fileContains(path.join(workspaceRoot, 'AGENTS.md'), MARKER),
+      platform: 'codex'
+    });
+  }
+
+  return checks;
 }
 
 function printAudit(checks) {
@@ -123,12 +137,12 @@ function main() {
 
   const missing = checks.filter(c => !c.ok);
   if (missing.length === 0) {
-    console.log('\nAll integration touchpoints present. Nothing to repair.');
+    console.log('\nAll active integration touchpoints present. Nothing to repair.');
     return;
   }
 
   if (checkOnly) {
-    console.log(`\n${missing.length} touchpoint(s) missing. Run without --check to repair:`);
+    console.log(`\n${missing.length} active touchpoint(s) missing. Run without --check to repair:`);
     console.log(`  node "${path.join(__dirname, 'self-heal.js')}"`);
     return;
   }
@@ -145,8 +159,11 @@ function main() {
     process.exit(1);
   }
 
-  console.log(`\nRepairing ${missing.length} missing touchpoint(s) via installer...\n`);
-  execSync(`node "${installerPath}"`, { cwd: workspaceRoot, stdio: 'inherit' });
+  console.log(`\nRepairing ${missing.length} missing active touchpoint(s) via installer...\n`);
+  
+  // 構造參數只針對當前環境缺少的平台調用安裝器
+  const activeFlags = missing.map(c => `--${c.platform}`).join(' ');
+  execSync(`node "${installerPath}" ${activeFlags} --yes`, { cwd: workspaceRoot, stdio: 'inherit' });
 
   const after = auditWorkspace(workspaceRoot);
   console.log('');
@@ -156,7 +173,7 @@ function main() {
     console.error(`\nSelf-heal incomplete: ${stillMissing.length} touchpoint(s) still missing.`);
     process.exit(1);
   }
-  console.log('\nSelf-heal complete. All platforms are now covered.');
+  console.log('\nSelf-heal complete. Active platforms are now covered.');
 }
 
 main();
