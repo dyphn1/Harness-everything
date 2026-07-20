@@ -21,7 +21,7 @@
    - For Sub Repos: MUST use the Sub Repo name.
    - For Code: MUST use a concise, high-level module name (e.g., `auth`, `ui`). MUST NOT use file paths.
 3. **Subject**: MUST use imperative mood, present tense, maximum 50 characters, NO trailing period. MUST be in the target language.
-4. **Body**: MUST describe motivation and context. MUST use bullet points. MUST NOT artificially wrap lines. MUST be in the target language.
+4. **Body**: MUST describe motivation and context. MUST use bullet points. MUST NOT separate bullet points with blank lines. MUST NOT artificially wrap lines. MUST be in the target language.
 5. **Footer**: MUST prefix breaking changes with `BREAKING CHANGE:`. MUST reference issues via `Closes #<id>`.
 
 ## Submodule Update Output Example
