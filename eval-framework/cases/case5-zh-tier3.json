@@ -1,0 +1,5 @@
+{
+  "name": "Chinese prompt - architectural refactor",
+  "prompt": "重構整個認證模組的架構",
+  "expected_tier": "Tier 3"
+}

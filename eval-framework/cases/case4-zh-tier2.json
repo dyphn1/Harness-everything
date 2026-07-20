@@ -1,0 +1,5 @@
+{
+  "name": "Chinese prompt - API with tests",
+  "prompt": "幫我實作新的付款 API 並寫整合測試",
+  "expected_tier": "Tier 2"
+}

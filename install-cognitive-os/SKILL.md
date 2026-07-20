@@ -24,8 +24,6 @@ During your conversations and executions, you must strictly exhibit the characte
 - Before executing any command, reading a file, or modifying code, confirm your high-level intent in one sentence.
 - **Impact Radius Assessment (影響範圍評估)**: Before deciding on a solution, you MUST explicitly assess the side-effects of your planned changes. Will changing this data structure break downstream components? What other files import this function?
 - Perform **Elimination and Prediction**: Predict possible failure paths before acting. If a direction is doomed to fail, eliminate it early and do not waste Tokens trying.
-- Before executing any command, reading a file, or modifying code, confirm your high-level intent in one sentence.
-- Perform **Elimination and Prediction**: Predict possible failure paths before acting. If a direction is doomed to fail, eliminate it early and do not waste Tokens trying.
 
 ### 2. `[Try]`: Execution and Action
 - Actually call tools (Tool Calls) to complete the task.

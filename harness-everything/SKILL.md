@@ -66,11 +66,11 @@ To avoid "over-engineering" and maximize efficiency, you must categorize the use
 ## 3. Foolproofing & Circuit Breaker Mechanism
 LLMs have a Reasoning Ceiling. To avoid invalid infinite retries, you must strictly obey the following limits:
 - **Rule of 3**: If attempting to fix the same Bug or test failure fails 3 times consecutively, **STOP modifying code immediately**.
-- **Trigger Circuit Breaker**: Forcefully call the `zoom-out` skill to step back from current details.
-- **Seek Human Help**: Report your 3 failed attempts to the Human Partner and ask if there are different architectural directions or logic hints.
+- **Trigger Circuit Breaker**: Forcefully call the `zoom-out` skill — rebuild the full picture, fact-check the assumption behind each failed attempt with read-only tools, and write the reflection report. Most trips should end in **self-recovery on a fresh diagnosis**, not a cry for help.
+- **Seek Human Help — only for genuine decisions**: Escalate when zoom-out concludes the blocker is a human call (requirement conflict, architecture trade-off, destructive action, missing access), or when the breaker hard-locks on a second trip of the same signature. Present verified facts and 2-3 options with a recommendation — never a bare "I'm stuck".
 
 ## 4. Evolution Loop
-- When the circuit breaker is triggered and the problem is ultimately solved with human intervention.
+- When the circuit breaker is triggered and the problem is ultimately solved — whether by post-reflection self-recovery or with human intervention.
 - Or, when you have expended great effort to overcome difficulties and complete a complex task.
 - You **MUST** automatically call the `self-evolve` skill to write "human key insights" or "successfully avoided traps" into system memory, ensuring the same blind spots are bypassed next time.
 

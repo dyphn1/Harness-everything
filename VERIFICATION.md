@@ -57,10 +57,12 @@ self-contained and cleans up after itself.
 
 ```bash
 mkdir -p .harness
+rm -f .harness/zoom-out-report.md
 echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false}' > .harness/rule-of-3-state.json
 node hooks/scripts/rule-of-3.js; echo "exit=$?"
 ```
-**Expect:** stderr prints `[CRITICAL] RULE OF 3 CIRCUIT BREAKER TRIGGERED!` and `exit=2`.
+**Expect:** stderr prints `[CRITICAL] RULE OF 3 CIRCUIT BREAKER TRIGGERED!`
+plus the reflect-first instructions (zoom-out protocol, report path), and `exit=2`.
 (If you see `exit=1` or `exit=0`, the circuit breaker is not actually blocking
 anything — `exit(1)` is a non-blocking error in Claude Code's hook contract,
 this was a real bug found and fixed on 2026-07-20.)
@@ -70,6 +72,27 @@ npm run harness:reset
 node hooks/scripts/rule-of-3.js; echo "exit=$?"
 ```
 **Expect:** no stderr output, `exit=0`.
+
+### 2a-bis. Zoom-out reflection report releases the breaker
+
+```bash
+echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false,"lastFailureAt":0,"zoomOutCycles":0}' > .harness/rule-of-3-state.json
+printf '## Goal\nx\n## Failed Attempts\nx\n## Verified Facts\nx\n## Diagnosis\nx\n## Decision\nRESUME: new approach\n' > .harness/zoom-out-report.md
+node hooks/scripts/rule-of-3.js; echo "exit=$?"
+node -e "const s=require('./.harness/rule-of-3-state.json'); console.log(s.count===0 && s.zoomOutResolved===true && s.zoomOutCycles===1 ? 'released-ok' : 'released-FAIL')"
+```
+**Expect:** stdout prints `breaker released`, `exit=0`, then `released-ok` —
+a completed reflection report is the agent's own way out; no human reset needed.
+
+```bash
+node -e "require('fs').writeFileSync('.harness/rule-of-3-state.json', JSON.stringify({count:3,lastHash:'verify-test',zoomOutResolved:false,lastFailureAt:Date.now()+60000,zoomOutCycles:1}))"
+node hooks/scripts/rule-of-3.js; echo "exit=$?"
+npm run harness:reset
+```
+**Expect:** stderr prints `repeat trip - hard lock` and `exit=2` — a second
+trip on the same signature is past reflect-and-retry (the report is also stale
+relative to `lastFailureAt`, so it cannot unlock anything); only the human
+clears this one.
 
 ### 2b. Boundary guard blocks an oversized Read
 
@@ -112,6 +135,31 @@ echo '{"tool_name":"Task","hook_event_name":"PostToolUse","tool_input":{}}' | no
 rm .verify-scope-test.tmp
 ```
 **Expect:** stderr lists `.verify-scope-test.tmp` as a changed file and `exit=2`.
+
+### 2f. Stop gate bounces an unverified-edit stop exactly once
+
+```bash
+rm -f .harness/stop-gate-state.json
+node -e "require('fs').mkdirSync('.harness',{recursive:true}); require('fs').writeFileSync('.harness/handoff-state.json', JSON.stringify({status:'idle',lastEditAt:Date.now(),lastVerifyAt:0}))"
+echo "dirty" > .verify-dirty.tmp
+echo '{}' | node hooks/scripts/stop-gate.js; echo "exit=$?"
+```
+**Expect:** stderr prints `[Stop Gate]` and `exit=2` — edits happened, nothing
+verification-ish ran after them, and the tree is dirty.
+
+```bash
+echo '{}' | node hooks/scripts/stop-gate.js; echo "exit=$?"
+```
+**Expect:** `exit=0` — same edit batch already bounced once; the gate never
+nags twice for the same batch.
+
+```bash
+rm -f .harness/stop-gate-state.json
+echo '{"stop_hook_active":true}' | node hooks/scripts/stop-gate.js; echo "exit=$?"
+rm .verify-dirty.tmp .harness/handoff-state.json .harness/stop-gate-state.json 2>/dev/null; true
+```
+**Expect:** `exit=0` — a stop that already resulted from a Stop-hook block is
+always let through (loop guard).
 
 Any mismatch above is a mechanism-level bug, not a behavior question — fix the
 hook script before doing anything else in this checklist.

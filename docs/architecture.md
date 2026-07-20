@@ -31,12 +31,13 @@ flowchart TD
         Tools -->|PreToolUse| CG[context-compact.js: Bloat Warning]
         Tools -->|PreToolUse| CB{rule-of-3.js: Circuit Breaker}
         
-        CB -->|Fails 3x| ZO(zoom-out: Halt & Request Human Help)
+        CB -->|Fails 3x| ZO(zoom-out: Halt, Reflect & Fact-Check)
+        ZO -->|Fresh diagnosis: RESUME| Tools
         CB -->|Succeeds| Done[Success / Finish]
     end
 
     subgraph Continuous Learning
-        ZO --> Human[Human Intervention & Fix]
+        ZO -->|Genuine human decision / 2nd trip| Human[Human Decision & Guidance]
         Human --> SE[self-evolve: Deep Reflection]
         Done -->|Complex Breakthrough| SE
         SE --> RunSR[self-regression.js: CI Check]
@@ -62,6 +63,7 @@ Our installer configures native lifecycle hooks inside `.claude/settings.json`:
 *   `SessionStart`: Runs `bootstrap.js` to restore previous handoffs, check environment variables, and initialize session state.
 *   `PreToolUse`: Triggers `rule-of-3.js`, `boundary-guard.js`, `depth-guard.js`, `context-compact.js`, and `subagent-scope-guard.js` to intercept tool invocations before they run, and can actually block one (`exit(2)`) — e.g. the Rule of 3 circuit breaker.
 *   `PostToolUse`: Records tool outcomes, updates the persistent transaction log (WAL) via `state-persist.js`, tracks repeat failures, and can only add advisory context back (the tool already ran; nothing here blocks it).
+*   `Stop`: Runs `stop-gate.js` — when a turn ends with uncommitted edits that were never followed by a successful verification command (test/build/lint), it bounces the stop back once per edit batch. This is the mechanical form of `verification-loop`'s pre-delivery gate; on every other platform that gate remains advisory prose.
 
 ### 2. Cursor (advisory only)
 The installer appends guidance to `.cursorrules`. Cursor has no hook/execution mechanism, so nothing in `.harness/` gets read or written by Cursor itself, and no tool call can be blocked — the model is simply asked (in the same file, every session) to self-regulate: discover the environment before acting, stop after 3 repeated failures instead of continuing to retry, and prefer small commits.

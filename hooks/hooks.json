@@ -82,6 +82,18 @@
         "id": "harness:pre:subagent-scope-guard"
       }
     ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/scripts/stop-gate.js"
+          }
+        ],
+        "description": "Pre-delivery gate - bounce the end of a turn once per edit batch when edits were never verified",
+        "id": "harness:stop:stop-gate"
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Bash|PowerShell",

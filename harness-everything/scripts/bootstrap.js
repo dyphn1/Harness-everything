@@ -18,10 +18,12 @@ if (!fs.existsSync(harnessDir)) {
   fs.mkdirSync(harnessDir, { recursive: true });
 }
 
-// The Rule of 3 circuit breaker (hooks/scripts/rule-of-3.js) blocks all
-// Bash/Edit/Write calls once tripped, with no tool left to clear its own
-// state. A new SessionStart means the human has taken over (new session,
-// /clear, /compact) and reviewed the situation, so it's safe to clear here.
+// The Rule of 3 circuit breaker (hooks/scripts/rule-of-3.js) locks all
+// Bash/Edit/Write calls once tripped; the only in-session exits are a valid
+// zoom-out reflection report or a human reset. A new SessionStart means the
+// human has taken over (new session, /clear, /compact) and reviewed the
+// situation, so it's safe to clear here. The stale reflection report goes
+// with it - it belongs to the previous loop, not this session.
 const circuitBreakerFile = path.join(harnessDir, 'rule-of-3-state.json');
 if (fs.existsSync(circuitBreakerFile)) {
   try {
@@ -29,6 +31,14 @@ if (fs.existsSync(circuitBreakerFile)) {
     console.log("Rule of 3 circuit breaker state cleared for new session.");
   } catch (err) {
     // Ignore; worst case the breaker stays tripped until manually reset.
+  }
+}
+const zoomOutReportFile = path.join(harnessDir, 'zoom-out-report.md');
+if (fs.existsSync(zoomOutReportFile)) {
+  try {
+    fs.unlinkSync(zoomOutReportFile);
+  } catch (err) {
+    // Ignore; rule-of-3.js already rejects reports older than the last failure.
   }
 }
 

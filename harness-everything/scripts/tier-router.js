@@ -41,20 +41,32 @@ function run(userPrompt) {
 
   const promptLower = userPrompt.toLowerCase();
 
-  // Basic heuristic
-  let recommendedTier = "Tier 1 (Trivial)";
-  let rationale = "Very few changes staged and prompt is short.";
+  // Basic keyword heuristic (bilingual - the Human Partner often prompts in
+  // Chinese, and an English-only net silently degrades to Tier 1 for them).
+  // Deliberately NOT driven by the diff stats above: those measure what is
+  // already sitting uncommitted in the tree - usually the PREVIOUS task's
+  // leftovers - not the complexity of the task being asked for now.
+  const TIER3_KEYWORDS = ["architecture", "refactor", "rewrite the", "架構", "重構", "重寫"];
+  const TIER2_KEYWORDS = ["test", "api", "integration", "endpoint", "測試", "整合", "端點", "介面"];
 
-  if (stats.files > 5 || stats.lines > 300 || promptLower.includes("architecture") || promptLower.includes("refactor")) {
+  let recommendedTier = "Tier 1 (Trivial)";
+  let rationale = "No structural/testing signals in the prompt.";
+
+  if (TIER3_KEYWORDS.some(k => promptLower.includes(k))) {
     recommendedTier = "Tier 3 (Macro Task)";
-    rationale = "Large number of files/lines changed, or prompt implies system-wide architectural changes.";
-  } else if (stats.files >= 2 || stats.lines >= 50 || promptLower.includes("test") || promptLower.includes("api")) {
+    rationale = "Prompt implies system-wide or architectural change.";
+  } else if (TIER2_KEYWORDS.some(k => promptLower.includes(k))) {
     recommendedTier = "Tier 2 (Standard Task)";
-    rationale = "Moderate changes requiring TDD validation or multi-file coordination.";
+    rationale = "Prompt implies development work needing TDD validation or multi-file coordination.";
   }
 
-  console.log(`\n=> REQUIRED TIER: ${recommendedTier}`);
+  console.log(`\n=> RECOMMENDED TIER: ${recommendedTier}`);
   console.log(`=> RATIONALE: ${rationale}`);
+
+  if (stats.files > 5 || stats.lines > 300) {
+    console.log(`\n=> WORKSPACE NOTE: large uncommitted changes already in the tree (${stats.files} files / ${stats.lines} lines).`);
+    console.log(`   This reflects workspace state, NOT this task's complexity. Consider committing or stashing completed work first so reviews and rollbacks stay tractable.`);
+  }
 
   // Base execution loop: Tier 2/3 must run on the todo-driven-workflow
   // checklist (Tier 1 is exempt to avoid checklist bloat on trivial edits).
@@ -66,7 +78,7 @@ function run(userPrompt) {
   // Analyze and output relevant Knowledge Guides / Templates based on user prompt keywords
   const recommendedGuides = [];
 
-  if (promptLower.includes("tdd") || promptLower.includes("test") || promptLower.includes("mock") || promptLower.includes("stub")) {
+  if (promptLower.includes("tdd") || promptLower.includes("test") || promptLower.includes("mock") || promptLower.includes("stub") || promptLower.includes("測試")) {
     recommendedGuides.push(
       "- tdd/guides/mocking.md (Mocking principles)",
       "- tdd/guides/interface-design.md (Interface and contract design)",
@@ -75,7 +87,7 @@ function run(userPrompt) {
       "- tdd/guides/refactoring.md (Refactoring safety)"
     );
   }
-  if (promptLower.includes("commit") || promptLower.includes("git") || promptLower.includes("save") || promptLower.includes("submodule")) {
+  if (promptLower.includes("commit") || promptLower.includes("git") || promptLower.includes("save") || promptLower.includes("submodule") || promptLower.includes("提交") || promptLower.includes("版控")) {
     recommendedGuides.push(
       "- git-commit/guides/ANGULAR_STYLE.md (Commit conventions)",
       "- git-commit/guides/COMMIT_GENERATION.md (Commit generation patterns)",
@@ -85,7 +97,7 @@ function run(userPrompt) {
       "- using-git-worktrees/SKILL.md (Git Worktrees isolation)"
     );
   }
-  if (promptLower.includes("doc") || promptLower.includes("readme") || promptLower.includes("agent") || promptLower.includes("multi-agent")) {
+  if (promptLower.includes("doc") || promptLower.includes("readme") || promptLower.includes("agent") || promptLower.includes("multi-agent") || promptLower.includes("文件") || promptLower.includes("代理")) {
     recommendedGuides.push(
       "- repo-docs/templates/readme-template.md (Standard README template)",
       "- repo-docs/templates/product-readme-template.md (Product README template)",
@@ -94,7 +106,7 @@ function run(userPrompt) {
       "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven Grilling)"
     );
   }
-  if (promptLower.includes("refactor") || promptLower.includes("architecture") || promptLower.includes("structure") || promptLower.includes("couple") || promptLower.includes("seam")) {
+  if (promptLower.includes("refactor") || promptLower.includes("architecture") || promptLower.includes("structure") || promptLower.includes("couple") || promptLower.includes("seam") || promptLower.includes("重構") || promptLower.includes("架構")) {
     recommendedGuides.push(
       "- improve-codebase-architecture/guides/DEEPENING.md (Deepening opportunities & depth rules)",
       "- improve-codebase-architecture/guides/INTERFACE-DESIGN.md (Interface design principles)",
@@ -108,7 +120,7 @@ function run(userPrompt) {
       "- environment-detection/SKILL.md (Active shell and environment detection, syntax guardrails)"
     );
   }
-  if (promptLower.includes("verify") || promptLower.includes("fact") || promptLower.includes("audit")) {
+  if (promptLower.includes("verify") || promptLower.includes("fact") || promptLower.includes("audit") || promptLower.includes("驗證") || promptLower.includes("查證")) {
     recommendedGuides.push(
       "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)"
     );
@@ -159,7 +171,9 @@ function run(userPrompt) {
     }
   }
 
-  console.log(`\nYou MUST route to this tier path unless explicitly overridden by the Human Partner.`);
+  // Constraint strength must match judgment reliability: this routing is a
+  // keyword heuristic, so it is a default, not an order.
+  console.log(`\nTreat the tier above as the default route. If your own read of the task clearly disagrees, follow your read and say why in one line. An explicit instruction from the Human Partner always wins.`);
 }
 
 let inputData = '';

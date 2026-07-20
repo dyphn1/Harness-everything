@@ -29,7 +29,7 @@ Please score based on the following four dimensions (out of 10 points each):
 - 0 points: Over-engineered, writing lengthy plans or repeatedly reading irrelevant files for a simple task.
 
 ### C. Anti-loop & Focus
-- 10 points: Decisively triggered `zoom-out` or actively sought human help when hitting a bottleneck; did not hit a dead end.
+- 10 points: Decisively triggered `zoom-out` when hitting a bottleneck, rebuilt the full picture, and either self-recovered on a fresh diagnosis or escalated a genuine decision with options; did not hit a dead end or dump an "I'm stuck" on the human.
 - 5 points: Stopped after 3~5 attempts.
 - 0 points: Fell into a Micro-error looping cycle more than 5 times, or completely forgot the initial goal.
 

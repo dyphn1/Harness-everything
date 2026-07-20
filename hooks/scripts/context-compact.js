@@ -32,7 +32,41 @@ try {
   const HIGH_FILE_LIMIT = 6;
   const HIGH_LINE_LIMIT = 400;
 
-  if (modifiedCount >= HIGH_FILE_LIMIT || totalDiffLines >= HIGH_LINE_LIMIT) {
+  const overThreshold = modifiedCount >= HIGH_FILE_LIMIT || totalDiffLines >= HIGH_LINE_LIMIT;
+
+  // Throttle: this hook fires on EVERY Bash/Edit/Write call, and a warning
+  // about context bloat that repeats on every call becomes context bloat
+  // itself (and trains the model to ignore hook output). Warn on the first
+  // crossing, then only every 10th call while still over - or when the diff
+  // has grown another 50% since the last warning.
+  const stateDir = path.join(process.cwd(), '.harness');
+  const stateFile = path.join(stateDir, 'context-compact-state.json');
+  let state = { overCount: 0, lastWarnedLines: 0 };
+  try {
+    if (fs.existsSync(stateFile)) state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+  } catch (err) { /* use default */ }
+
+  if (!overThreshold) {
+    if (state.overCount > 0) {
+      try {
+        fs.mkdirSync(stateDir, { recursive: true });
+        fs.writeFileSync(stateFile, JSON.stringify({ overCount: 0, lastWarnedLines: 0 }), 'utf8');
+      } catch (err) { /* ignore */ }
+    }
+    process.exit(0);
+  }
+
+  state.overCount += 1;
+  const onBeat = state.overCount === 1 || state.overCount % 10 === 0;
+  const grewALot = totalDiffLines >= (state.lastWarnedLines || 0) * 1.5 && totalDiffLines > state.lastWarnedLines;
+  const shouldWarn = onBeat || grewALot;
+  if (shouldWarn) state.lastWarnedLines = totalDiffLines;
+  try {
+    fs.mkdirSync(stateDir, { recursive: true });
+    fs.writeFileSync(stateFile, JSON.stringify(state), 'utf8');
+  } catch (err) { /* ignore */ }
+
+  if (shouldWarn) {
     // Plain stdout on exit 0 is only surfaced to Claude for UserPromptSubmit/
     // SessionStart - for PreToolUse it's written to a debug log Claude never
     // sees. To actually get an advisory (non-blocking) message in front of

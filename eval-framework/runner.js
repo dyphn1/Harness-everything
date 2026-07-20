@@ -30,8 +30,9 @@ files.forEach(file => {
       env: { ...process.env, HARNESS_EVAL: 'true' }
     });
     
-    // Parse the output to find the recommended tier
-    const tierMatch = output.match(/REQUIRED TIER: (Tier \d+)/i) || output.match(/(Tier \d+)/i);
+    // Parse the output to find the recommended tier (accept the old
+    // "REQUIRED TIER" label too so the runner works across versions)
+    const tierMatch = output.match(/(?:RECOMMENDED|REQUIRED) TIER: (Tier \d+)/i) || output.match(/(Tier \d+)/i);
     const actualTier = tierMatch ? tierMatch[1] : "Unknown";
     
     if (actualTier.includes(data.expected_tier)) {

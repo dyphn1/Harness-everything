@@ -29,7 +29,7 @@ Harness forces a **Discovery** phase immediately upon session start. By auditing
 
 ### 2. Guardrails (The Circuit Breakers)
 When a model gets stuck on a subtle bug or compiler error, its natural tendency is to make micro-adjustments repeatedly (the "infinite loop of trial-and-error"). 
-Harness implements a **Circuit Breaker** (the `Rule of 3`). If the exact same failure occurs three times, Harness halts execution, "zooms out," and prompts the human partner for guidance, preserving your token budget and sanity.
+Harness implements a **Circuit Breaker** (the `Rule of 3`). If the exact same failure occurs three times, Harness halts execution and forces a "zoom out": the agent must rebuild the full picture and fact-check the assumptions behind its failed attempts before it may touch the code again. Most loops die right there, resolved by a fresh diagnosis. The human partner is asked to step in only when a genuine decision is on the table — a requirement conflict, an architecture trade-off, a destructive step — preserving both your token budget and your sanity.
 
 ### 3. Context Preservation (Anti-Bloat Protection)
 As sessions grow, models often read too many large files or run commands that generate massive output, causing severe "Lost in the Middle" attention degradation. 

@@ -28,6 +28,7 @@ echo -e "\n[Step 3] Running Mechanism Checks..."
 # 3a. Rule of 3 Circuit Breaker actually blocks
 echo -e "\n---> Running 3a: Rule of 3 Circuit Breaker"
 mkdir -p .harness
+rm -f .harness/zoom-out-report.md
 echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false}' > .harness/rule-of-3-state.json
 
 # We expect this to exit with 2 and print CRITICAL trigger message
@@ -61,6 +62,46 @@ if [ "$EXIT_CODE" -ne 0 ]; then
   exit 1
 fi
 echo "✅ PASS: Rule of 3 reset check passed."
+
+# 3a-bis. Zoom-out reflection report releases the breaker (self-recovery path)
+echo -e "\n---> Running 3a-bis: Zoom-out report releases the breaker"
+echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false,"lastFailureAt":0,"zoomOutCycles":0}' > .harness/rule-of-3-state.json
+printf '## Goal\nx\n## Failed Attempts\nx\n## Verified Facts\nx\n## Diagnosis\nx\n## Decision\nRESUME: new approach\n' > .harness/zoom-out-report.md
+
+set +e
+node hooks/scripts/rule-of-3.js
+EXIT_CODE=$?
+set -e
+if [ "$EXIT_CODE" -ne 0 ]; then
+  echo "❌ FAIL: Valid reflection report did not release the breaker (expected 0, got $EXIT_CODE)"
+  exit 1
+fi
+if ! node -e "const s=require('./.harness/rule-of-3-state.json'); process.exit(s.count===0 && s.zoomOutResolved===true && s.zoomOutCycles===1 ? 0 : 1)"; then
+  echo "❌ FAIL: Breaker state not updated after report release"
+  cat .harness/rule-of-3-state.json
+  exit 1
+fi
+echo "✅ PASS: Valid reflection report released the breaker (self-recovery)."
+
+# Second trip on the same signature must hard-lock even though a report exists
+# (the report is stale relative to lastFailureAt, and the cycle budget is spent).
+node -e "require('fs').writeFileSync('.harness/rule-of-3-state.json', JSON.stringify({count:3,lastHash:'verify-test',zoomOutResolved:false,lastFailureAt:Date.now()+60000,zoomOutCycles:1}))"
+set +e
+node hooks/scripts/rule-of-3.js 2>rule-of-3-err.log
+EXIT_CODE=$?
+set -e
+if [ "$EXIT_CODE" -ne 2 ]; then
+  echo "❌ FAIL: Second trip did not hard-lock (expected 2, got $EXIT_CODE)"
+  cat rule-of-3-err.log
+  exit 1
+fi
+if ! grep -q "hard lock" rule-of-3-err.log; then
+  echo "❌ FAIL: Second-trip output did not contain hard-lock escalation message"
+  cat rule-of-3-err.log
+  exit 1
+fi
+echo "✅ PASS: Second trip on the same signature hard-locked for human decision."
+npm run harness:reset
 
 
 # 3b. Boundary Guard blocks oversized read
@@ -166,8 +207,54 @@ if ! grep -q "Subagent Scope Guard" scope-guard-err.log || ! grep -q ".verify-sc
 fi
 echo "✅ PASS: Subagent scope guard successfully blocked out-of-scope modifications."
 
+
+# 3f. Stop gate bounces an unverified-edit stop exactly once
+echo -e "\n---> Running 3f: Stop Gate"
+rm -f .harness/stop-gate-state.json
+node -e "require('fs').mkdirSync('.harness',{recursive:true}); require('fs').writeFileSync('.harness/handoff-state.json', JSON.stringify({status:'idle',lastEditAt:Date.now(),lastVerifyAt:0}))"
+echo "dirty" > .verify-dirty.tmp
+
+set +e
+echo '{}' | node hooks/scripts/stop-gate.js 2>stop-gate-err.log
+EXIT_CODE=$?
+set -e
+echo "Exit code: $EXIT_CODE"
+if [ "$EXIT_CODE" -ne 2 ]; then
+  echo "❌ FAIL: Stop gate did not bounce an unverified-edit stop (expected 2, got $EXIT_CODE)"
+  cat stop-gate-err.log
+  exit 1
+fi
+if ! grep -q "Stop Gate" stop-gate-err.log; then
+  echo "❌ FAIL: Stop gate output did not contain its message"
+  cat stop-gate-err.log
+  exit 1
+fi
+
+# Same edit batch must not bounce twice
+set +e
+echo '{}' | node hooks/scripts/stop-gate.js
+EXIT_CODE=$?
+set -e
+if [ "$EXIT_CODE" -ne 0 ]; then
+  echo "❌ FAIL: Stop gate bounced the same edit batch twice (expected 0, got $EXIT_CODE)"
+  exit 1
+fi
+
+# Loop guard: stop_hook_active always passes
+rm -f .harness/stop-gate-state.json
+set +e
+echo '{"stop_hook_active":true}' | node hooks/scripts/stop-gate.js
+EXIT_CODE=$?
+set -e
+if [ "$EXIT_CODE" -ne 0 ]; then
+  echo "❌ FAIL: Stop gate blocked despite stop_hook_active (expected 0, got $EXIT_CODE)"
+  exit 1
+fi
+rm -f .verify-dirty.tmp .harness/handoff-state.json .harness/stop-gate-state.json
+echo "✅ PASS: Stop gate bounced once, then respected the batch and loop guards."
+
 # Clean up temporary test output logs
-rm -f rule-of-3-err.log boundary-guard-err.log scope-guard-err.log
+rm -f rule-of-3-err.log boundary-guard-err.log scope-guard-err.log stop-gate-err.log
 
 echo -e "\n================================================="
 echo " 🎉 ALL HARNESS MECHANISM CHECKS PASSED SUCCESSFULLY!"

@@ -9,7 +9,7 @@ This skill is responsible for the long-term learning and error prevention of the
 It ensures that the entire Harness ecosystem becomes smarter and avoids repeating mistakes after solving difficult problems every time.
 
 ## 1. Triggers
-- **Post-Circuit Breaker**: When `zoom-out` was triggered, and the difficult problem was ultimately solved with the human's hints.
+- **Post-Circuit Breaker**: When `zoom-out` was triggered, and the difficult problem was ultimately solved — via the reflection report's fresh diagnosis or with the human's hints.
 - **Major Breakthrough**: Completed an extremely complex Tier 3 task, and discovered some previously unknown framework limitations or architectural pitfalls during the process.
 - **Human Instruction**: The user explicitly requests "remember this lesson" or "add this to memory".
 
