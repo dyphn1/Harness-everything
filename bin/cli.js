@@ -38,7 +38,7 @@ function showHelp() {
 Harness OS - AI Agent Operating System CLI
 
 Usage:
-  npx harness-skills <command> [options]
+  npx github:dyphn1/Harness-everything <command> [options]
   
 Commands:
   install            Install Harness OS hooks & skills into the local repository
@@ -52,7 +52,7 @@ Commands:
                        -y, --yes     Bypass interactive menu and use auto-detection
   add/skills/skill   Add/install modular skills into the local workspace
                      Usage:
-                       npx harness-skills add [skill-names...]
+                       npx github:dyphn1/Harness-everything add [skill-names...]
                        Options:
                          -g, --global  Install skills to home directory (~/.agents/skills)
                        (Runs interactively if no skill names are specified)

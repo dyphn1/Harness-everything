@@ -496,10 +496,7 @@ async function main() {
       if (cloned.hooks) {
         cloned.hooks = cloned.hooks.map(h => {
           if (h.type === 'command' && h.command) {
-            let cmd = h.command
-              .replace(/d:\/GitHub\/harness-skills\//g, '')
-              .replace(/path\/to\/harness-skills\//g, '');
-            cmd = cmd.replace(/^node\s+"?([^"\s]+)"?/, (m, scriptPath) => {
+            const cmd = h.command.replace(/^node\s+"?([^"\s]+)"?/, (m, scriptPath) => {
               const abs = path.isAbsolute(scriptPath) ? scriptPath : path.join(harnessSourceDir, scriptPath);
               return `node "${abs}"`;
             });

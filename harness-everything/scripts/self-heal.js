@@ -12,7 +12,7 @@
  * Usage:
  *   node self-heal.js            Audit and repair anything missing.
  *   node self-heal.js --check    Audit only; report, never write.
- *   node self-heal.js --force-self  Allow repairing the harness-skills repo
+ *   node self-heal.js --force-self  Allow repairing harness-everything repo
  *                                   itself (skipped by default to avoid
  *                                   polluting this repo with generated files).
  *
@@ -45,7 +45,7 @@ function fileContains(filePath, needle) {
 }
 
 // Presence of the hook id alone is not enough: the skills repo may have been
-// MOVED since install (it already happened once - harness-skills to
+// MOVED since install (it already happened once - harness-everything to
 // miya.daniel/skills), leaving settings.json full of absolute paths to dead
 // scripts while still "containing" the id. Verify every harness hook command
 // points at a script that actually exists on disk.
@@ -149,7 +149,7 @@ function main() {
 
   const isSelf = path.resolve(workspaceRoot) === path.resolve(harnessSourceDir);
   if (isSelf && !forceSelf) {
-    console.log('\nWorkspace IS the harness-skills repo itself - skipping repair to avoid');
+    console.log('\nWorkspace IS the harness-everything repo itself - skipping repair to avoid');
     console.log('polluting it with generated config files. Pass --force-self to override.');
     return;
   }
