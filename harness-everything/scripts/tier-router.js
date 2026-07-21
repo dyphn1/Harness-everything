@@ -1,44 +1,9 @@
 #!/usr/bin/env node
 const { execSync } = require('child_process');
 
-function getGitDiffStats() {
-  if (process.env.HARNESS_EVAL === 'true') {
-    return { files: 0, lines: 0 };
-  }
-  try {
-    let files = 0;
-    let lines = 0;
-
-    const parseStats = (diffStat) => {
-      if (!diffStat) return;
-      diffStat.split('\n').forEach(line => {
-        const [added, deleted] = line.split('\t');
-        if (added && added !== '-' && deleted && deleted !== '-') {
-          files += 1;
-          lines += parseInt(added) + parseInt(deleted);
-        }
-      });
-    };
-
-    const staged = execSync('git diff --cached --numstat', { encoding: 'utf8' }).trim();
-    parseStats(staged);
-
-    const unstaged = execSync('git diff --numstat', { encoding: 'utf8' }).trim();
-    parseStats(unstaged);
-
-    return { files, lines };
-  } catch (err) {
-    return { files: 0, lines: 0 };
-  }
-}
-
 function run(userPrompt) {
-  const stats = getGitDiffStats();
-
   console.log(`[Tier Routing Pre-check]`);
-  console.log(`- Staged Files Changed: ${stats.files}`);
-  console.log(`- Staged Lines Changed: ${stats.lines}`);
-
+  
   const promptLower = userPrompt.toLowerCase();
 
   // Basic keyword heuristic (bilingual - the Human Partner often prompts in
@@ -62,11 +27,6 @@ function run(userPrompt) {
 
   console.log(`\n=> RECOMMENDED TIER: ${recommendedTier}`);
   console.log(`=> RATIONALE: ${rationale}`);
-
-  if (stats.files > 5 || stats.lines > 300) {
-    console.log(`\n=> WORKSPACE NOTE: large uncommitted changes already in the tree (${stats.files} files / ${stats.lines} lines).`);
-    console.log(`   This reflects workspace state, NOT this task's complexity. Consider committing or stashing completed work first so reviews and rollbacks stay tractable.`);
-  }
 
   // Base execution loop: Tier 2/3 must run on the todo-driven-workflow
   // checklist (Tier 1 is exempt to avoid checklist bloat on trivial edits).
