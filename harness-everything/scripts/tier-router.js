@@ -184,7 +184,17 @@ function run(userPrompt) {
 
   if (recommendedGuides.length > 0) {
     console.log(`\n=> RECOMMENDED KNOWLEDGE GUIDES (Auto-loaded based on keywords):`);
-    recommendedGuides.forEach(guide => console.log(guide));
+    recommendedGuides.forEach(guide => {
+      const match = guide.match(/^- ([^\s]+)/);
+      if (match) {
+        const guidePath = require('path').join(__dirname, '..', '..', match[1]);
+        if (!require('fs').existsSync(guidePath)) {
+          console.log(`${guide} [NOT INSTALLED - Ignore this recommendation]`);
+          return;
+        }
+      }
+      console.log(guide);
+    });
   }
 
   // Fact-audit nudge: broad, cheap keyword net for claims that risk being

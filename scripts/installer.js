@@ -323,6 +323,125 @@ function interactiveSingleSelect(items) {
   });
 }
 
+function removeAdvisoryText(targetFile) {
+  if (!fs.existsSync(targetFile)) return;
+  try {
+    let content = fs.readFileSync(targetFile, 'utf8');
+    const markerIndex = content.indexOf("Harness OS Guidance (Advisory)");
+    if (markerIndex !== -1) {
+      let cleanContent = content;
+      const hashMarkerIndex = content.lastIndexOf('#', markerIndex);
+      if (hashMarkerIndex !== -1) {
+        cleanContent = content.substring(0, hashMarkerIndex).trim() + '\n';
+      } else {
+        cleanContent = content.substring(0, markerIndex).trim() + '\n';
+      }
+      
+      const lines = cleanContent.trim().split('\n').map(l => l.trim()).filter(l => l !== '');
+      if (lines.length === 0 || (lines.length === 1 && (lines[0] === '# Cursor Project Rules' || lines[0] === '# AGENTS.md' || lines[0] === '# Copilot Instructions'))) {
+        fs.unlinkSync(targetFile);
+        console.log(`  ✅ Removed empty advisory file: ${targetFile}`);
+      } else {
+        fs.writeFileSync(targetFile, cleanContent.trim() + '\n', 'utf8');
+        console.log(`  ✅ Removed Harness guidance from: ${targetFile}`);
+      }
+    }
+  } catch (e) {
+    console.warn(`  ⚠️ Error removing advisory text from ${targetFile}: ${e.message}`);
+  }
+}
+
+function removeClaudeHooks(claudeSettingsFile) {
+  if (!fs.existsSync(claudeSettingsFile)) return false;
+  try {
+    const content = fs.readFileSync(claudeSettingsFile, 'utf8');
+    let config = JSON.parse(content);
+    if (!config.hooks) return false;
+    
+    let modified = false;
+    for (const [hookType, hookList] of Object.entries(config.hooks)) {
+      if (Array.isArray(hookList)) {
+        const originalLength = hookList.length;
+        config.hooks[hookType] = hookList.filter(hook => {
+          const isHarness = (hook.id && hook.id.startsWith('harness:')) || 
+                            (hook.hooks && hook.hooks.some(h => h.command && h.command.includes('harness')));
+          return !isHarness;
+        });
+        if (config.hooks[hookType].length !== originalLength) {
+          modified = true;
+        }
+        if (config.hooks[hookType].length === 0) {
+          delete config.hooks[hookType];
+        }
+      }
+    }
+    if (Object.keys(config.hooks || {}).length === 0) {
+      delete config.hooks;
+    }
+    
+    if (modified) {
+      if (Object.keys(config).length === 0) {
+        fs.unlinkSync(claudeSettingsFile);
+        console.log(`  ✅ Cleaned up and removed empty Claude settings file: ${claudeSettingsFile}`);
+      } else {
+        fs.writeFileSync(claudeSettingsFile, JSON.stringify(config, null, 2), 'utf8');
+        console.log(`  ✅ Safely removed Harness hooks from Claude settings: ${claudeSettingsFile}`);
+      }
+      return true;
+    }
+  } catch (e) {
+    console.warn(`  ⚠️ Error cleaning Claude settings file ${claudeSettingsFile}: ${e.message}`);
+  }
+  return false;
+}
+
+function cleanEmptyDirs(dir) {
+  if (!fs.existsSync(dir)) return;
+  if (dir === workspaceRoot || dir === userHome || dir === path.parse(dir).root) return;
+  try {
+    const files = fs.readdirSync(dir);
+    if (files.length === 0) {
+      fs.rmdirSync(dir);
+      console.log(`  ✅ Cleaned up empty directory: ${dir}`);
+      cleanEmptyDirs(path.dirname(dir));
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function getInstalledSkills() {
+  const skills = [];
+  const pathsToCheck = [
+    { path: path.join(workspaceRoot, '.harness', 'skills'), scope: 'local (.harness)' },
+    { path: path.join(workspaceRoot, '.cursor', 'skills'), scope: 'local (.cursor)' },
+    { path: path.join(workspaceRoot, '.github', 'skills'), scope: 'local (.github)' },
+    { path: path.join(workspaceRoot, '.agents', 'skills'), scope: 'local (.agents)' },
+    { path: path.join(userHome, '.agents', 'skills'), scope: 'global' }
+  ];
+
+  for (const item of pathsToCheck) {
+    if (fs.existsSync(item.path)) {
+      try {
+        const entries = fs.readdirSync(item.path, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            skills.push({
+              id: entry.name,
+              scope: item.scope,
+              dirPath: path.join(item.path, entry.name),
+              parentPath: item.path
+            });
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+  return skills;
+}
+
 async function main() {
   const args = process.argv;
   const command = args[2] || 'install'; // 'install', 'add', 'skills', etc.
@@ -345,6 +464,168 @@ async function main() {
   const copilotExists = fs.existsSync(path.join(workspaceRoot, '.github', 'copilot-instructions.md')) || fs.existsSync(path.join(workspaceRoot, '.github'));
   const codexExists = fs.existsSync(path.join(workspaceRoot, 'AGENTS.md'));
   const detectedAny = claudeExists || cursorExists || copilotExists || codexExists;
+
+  if (command === 'uninstall') {
+    const localInstalled = fs.existsSync(path.join(workspaceRoot, '.harness')) || 
+                           fs.existsSync(path.join(workspaceRoot, '.claude', 'settings.json')) ||
+                           fs.existsSync(path.join(workspaceRoot, '.cursorrules')) ||
+                           fs.existsSync(path.join(workspaceRoot, '.github', 'copilot-instructions.md')) ||
+                           fs.existsSync(path.join(workspaceRoot, 'AGENTS.md'));
+
+    const globalInstalled = fs.existsSync(path.join(userHome, '.agents')) ||
+                            fs.existsSync(path.join(userHome, '.claude', 'settings.json')) ||
+                            fs.existsSync(path.join(userHome, '.cursorrules')) ||
+                            fs.existsSync(path.join(getUserPromptsDir(), 'harness.instructions.md')) ||
+                            fs.existsSync(path.join(getUserPromptsDir(), 'harness.agent.md'));
+
+    const installedSkills = getInstalledSkills();
+
+    console.log("=================================================");
+    console.log(`          Harness OS - Uninstall Utility         `);
+    console.log("=================================================");
+
+    let removeLocal = false;
+    let removeGlobal = false;
+    let removeSkills = false;
+
+    const runInteractively = isInteractive && !hasYesFlag;
+
+    if (runInteractively) {
+      const choices = [];
+      if (localInstalled) {
+        choices.push({ id: 'local', name: 'Uninstall Harness OS from Local Workspace (Hooks & Advisory files)', checked: true });
+      }
+      if (globalInstalled) {
+        choices.push({ id: 'global', name: 'Uninstall Harness OS from Global Home (~/.agents, VS Code Prompts, etc.)', checked: false });
+      }
+      
+      if (choices.length > 0) {
+        console.log("\nSelect installation scopes to uninstall:");
+        const selectedScopes = await interactiveSelect(choices);
+        removeLocal = selectedScopes.some(s => s.id === 'local' && s.checked);
+        removeGlobal = selectedScopes.some(s => s.id === 'global' && s.checked);
+      } else {
+        console.log("\nNo Harness OS installation detected in local workspace or global home.");
+      }
+
+      if (installedSkills.length > 0) {
+        console.log(`\nDetected ${installedSkills.length} installed skill(s):`);
+        installedSkills.forEach(s => {
+          console.log(`  - ${s.id} (${s.scope})`);
+        });
+        
+        console.log("\nWould you like to uninstall these skills?");
+        const skillChoiceItems = [
+          { id: 'all', name: 'Remove ALL detected skills', checked: true },
+          { id: 'select', name: 'Select specific skills to remove', checked: false },
+          { id: 'none', name: 'Keep all skills', checked: false }
+        ];
+        const skillAction = await interactiveSingleSelect(skillChoiceItems);
+        
+        if (skillAction === 'all') {
+          removeSkills = true;
+        } else if (skillAction === 'select') {
+          const selectSkillItems = installedSkills.map(s => ({
+            id: s.dirPath,
+            name: `${s.id} (${s.scope})`,
+            checked: true
+          }));
+          const chosenSkillsToRemove = await interactiveSelect(selectSkillItems);
+          for (const item of chosenSkillsToRemove) {
+            if (item.checked) {
+              fs.rmSync(item.id, { recursive: true, force: true });
+              console.log(`  ✅ Removed skill: ${item.name}`);
+              cleanEmptyDirs(path.dirname(item.id));
+            }
+          }
+        }
+      }
+    } else {
+      const hasLocalFlag = args.includes('--local');
+      const hasGlobalUninstallFlag = args.includes('--global') || args.includes('-g');
+      const hasSkillsUninstallFlag = args.includes('--skills');
+      
+      if (hasYesFlag) {
+        removeLocal = localInstalled;
+        removeGlobal = globalInstalled;
+        removeSkills = installedSkills.length > 0;
+      } else {
+        removeLocal = hasLocalFlag;
+        removeGlobal = hasGlobalUninstallFlag;
+        removeSkills = hasSkillsUninstallFlag;
+      }
+    }
+
+    if (removeLocal) {
+      console.log("\n-------------------------------------------------");
+      console.log("Uninstalling Harness OS from Local Workspace...");
+      console.log("-------------------------------------------------");
+      
+      const localSettingsFile = path.join(workspaceRoot, '.claude', 'settings.json');
+      removeClaudeHooks(localSettingsFile);
+      const localClaudeDir = path.join(workspaceRoot, '.claude');
+      cleanEmptyDirs(localClaudeDir);
+
+      removeAdvisoryText(path.join(workspaceRoot, '.cursorrules'));
+      removeAdvisoryText(path.join(workspaceRoot, '.github', 'copilot-instructions.md'));
+      removeAdvisoryText(path.join(workspaceRoot, 'AGENTS.md'));
+      
+      const localHarnessDir = path.join(workspaceRoot, '.harness');
+      if (fs.existsSync(localHarnessDir)) {
+        fs.rmSync(localHarnessDir, { recursive: true, force: true });
+        console.log(`  ✅ Removed local .harness/ directory`);
+      }
+    }
+
+    if (removeGlobal) {
+      console.log("\n-------------------------------------------------");
+      console.log("Uninstalling Harness OS from Global Home...");
+      console.log("-------------------------------------------------");
+
+      const globalSettingsFile = path.join(userHome, '.claude', 'settings.json');
+      removeClaudeHooks(globalSettingsFile);
+      const globalClaudeDir = path.join(userHome, '.claude');
+      cleanEmptyDirs(globalClaudeDir);
+
+      removeAdvisoryText(path.join(userHome, '.cursorrules'));
+
+      const promptsDir = getUserPromptsDir();
+      const vscodeInstFile = path.join(promptsDir, 'harness.instructions.md');
+      if (fs.existsSync(vscodeInstFile)) {
+        fs.unlinkSync(vscodeInstFile);
+        console.log(`  ✅ Removed global Copilot instructions: ${vscodeInstFile}`);
+      }
+      const vscodeAgentFile = path.join(promptsDir, 'harness.agent.md');
+      if (fs.existsSync(vscodeAgentFile)) {
+        fs.unlinkSync(vscodeAgentFile);
+        console.log(`  ✅ Removed global Codex agent: ${vscodeAgentFile}`);
+      }
+      cleanEmptyDirs(promptsDir);
+
+      const globalAgentsDir = path.join(userHome, '.agents');
+      if (fs.existsSync(globalAgentsDir)) {
+        fs.rmSync(globalAgentsDir, { recursive: true, force: true });
+        console.log(`  ✅ Removed global ~/.agents/ directory`);
+      }
+    }
+
+    if (removeSkills && installedSkills.length > 0) {
+      console.log("\n-------------------------------------------------");
+      console.log("Uninstalling all detected skills...");
+      console.log("-------------------------------------------------");
+      for (const skill of installedSkills) {
+        if (fs.existsSync(skill.dirPath)) {
+          fs.rmSync(skill.dirPath, { recursive: true, force: true });
+          console.log(`  ✅ Removed skill: ${skill.id} (${skill.scope})`);
+          cleanEmptyDirs(skill.parentPath);
+        }
+      }
+    }
+
+    console.log("\n🎉 UNINSTALL COMPLETE! Harness OS has been removed.");
+    console.log("=================================================");
+    return;
+  }
 
   let targets = {
     claude: false,
@@ -416,7 +697,7 @@ async function main() {
           }
         }
       } else {
-        chosenSkills = ['tdd', 'git-commit', 'todo-driven-workflow', 'verification-loop'];
+        chosenSkills = ['tdd', 'git-commit', 'todo-driven-workflow', 'verification-loop', 'zoom-out', 'install-cognitive-os'];
       }
       
       if (!isGlobal) {
@@ -451,7 +732,7 @@ async function main() {
           targets.claude = true;
         }
       }
-      chosenSkills = ['tdd', 'git-commit', 'todo-driven-workflow', 'verification-loop'];
+      chosenSkills = ['tdd', 'git-commit', 'todo-driven-workflow', 'verification-loop', 'zoom-out', 'install-cognitive-os'];
     }
   }
 

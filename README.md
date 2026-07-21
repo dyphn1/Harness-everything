@@ -79,15 +79,23 @@ flowchart TD
 flowchart TD
     U([User Request]) --> H_Router[Harness Router]
     H_Router -->|Tier 1: Trivial| T1[Direct Edit]
-    H_Router -->|Tier 2: Standard| T2[TDD Red-Green-Refactor]
+    H_Router -->|Tier 2: Standard| T2[todo-cli.js (Script State Machine)]
     H_Router -->|Tier 3: Macro| T3[Fable Multi-Agent Flow]
     
-    T1 & T2 & T3 --> CB{Circuit Breaker}
-    CB -->|Fails 3x| ZO[Zoom Out: Ask Human]
-    CB -->|Success| SE[Self-Evolve: Update Rules]
+    T2 & T3 --> Exec[Execute Code / Run Commands]
+    Exec --> Gate{verify-gate.js}
+    
+    Gate -->|Exit 1: Slap in face| Exec
+    Gate -->|Exit 1 (Repeated)| CB{Circuit Breaker rule-of-3.js}
+    CB -->|Fails 3x| ZO[Zoom Out: Ask Human / Reflect]
+    ZO -->|Fresh Diagnosis| Exec
+    Gate -->|Exit 0: Success| Done[todo-cli.js complete]
+    
+    Done --> SE[Self-Evolve: Update Rules]
     style H_Router fill:#c8e6c9,stroke:#2e7d32,stroke-width:1px,color:#000000
     style CB fill:#fff9c4,stroke:#fbc02d,stroke-width:1px,color:#000000
     style ZO fill:#ffcc80,stroke:#ef6c00,stroke-width:1px,color:#000000
+    style Gate fill:#ffcdd2,stroke:#c62828,stroke-width:1px,color:#000000
 ```
 
 ---

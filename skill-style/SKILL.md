@@ -5,30 +5,56 @@ description: Guidelines for writing and refactoring skills in the Harness ecosys
 
 # Skill Style (Harness Ecosystem Skill Development Guidelines)
 
-When you need to create a new Skill or refactor an existing one, strictly adhere to the writing style in this document (STYLE.md) to ensure all Skills seamlessly integrate into the `harness-everything` routing system.
+When you need to create a new Skill or refactor an existing one, strictly adhere to the writing style in this document to ensure all Skills seamlessly integrate into the `harness-everything` routing system and are mathematically enforced by scripts.
 
 ## 0. Triggers
 This skill should be loaded when:
 - Creating a new SKILL.md file.
 - Refactoring or reviewing an existing SKILL.md file.
-- The user explicitly asks about skill style or guidelines.
 
 ## 1. Structured Definition
-Every Skill file (`SKILL.md`) must contain the following standard structure:
+Every Skill file (`SKILL.md`) MUST contain the following standard structure:
+
 1.  **Title & Introduction**: Clearly state the purpose of this Skill.
-2.  **Triggers**: Explicitly tell the system (or single-entry router) under what conditions this skill should be loaded.
-3.  **Core Rules / Action List**: Specific, actionable commands. Avoid vague suggestions.
-4.  **Handoffs**: Define which Skill should take control after this Skill finishes, or when it encounters difficulties (e.g., call `zoom-out` when stuck).
+2.  **📋 Skill Contract (CRITICAL)**: A strict Markdown table defining inputs, outputs, state mutations, and script gates. This replaces vague prose.
+3.  **Triggers / Usage**: Explicitly tell the system when this skill applies.
+4.  **Core Rules / Action List**: Specific, actionable commands tied to Terminal Scripts. Avoid vague suggestions.
+
+### 📋 The Skill Contract Format
+Every SKILL.md MUST include this table exactly:
+
+```markdown
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | (What causes this skill to execute? What exact data/args does it expect?) |
+| **Expected Output** | (What specific files, artifacts, or Terminal Exit Codes are produced?) |
+| **State Mutations** | (What JSON/files are written to track progress? e.g., `.harness/todo-state.json`) |
+| **Enforcement Gate** | (Which exact CLI script slaps the LLM with Exit Code 1 if it fails?) |
+```
 
 ## 2. Tone & Voice
-- **Absolute Imperatives**: Use "MUST", "MUST NOT", "ALWAYS". Do not use "suggest" or "please consider".
-- **Defensive Thinking**: Expect the Agent to make mistakes or be lazy, and write defensive boundaries into the rules (e.g., PROHIBITED from directly overwriting without checking the file first).
+- **Anti-Linear / Anti-Prose**: Do not write long paragraphs. Map actions to specific `run_in_terminal` commands.
+- **Absolute Imperatives**: Use "MUST", "MUST NOT", "ALWAYS". Do not use "suggest".
+- **Script-Driven Enforcement**: Do not write "You should check your code". Write "You MUST run `node verify-gate.js`. If Exit Code 1, you MUST reflect and retry."
 
-## 3. Avoid Functional Overlap (The Layered Approach)
+## 3. Avoid Functional Overlap
 - **OS Skills vs. Domain Skills**: Distinguish between the OS layer (which routes and constrains behavior) and the Domain layer (which provides deep technical expertise). 
-- Do not bloat OS Skills with specific tech-stack rules.
-- Instead, OS Skills should actively **delegate and load** Domain Skills (e.g., "Load `react-patterns` when touching frontend code") to ensure the system remains both structurally disciplined and technically comprehensive.
+Every SKILL.md MUST include this table exactly:
 
-## 4. Cognitive Boundaries
-- OS skills should not contain concrete business logic code, but rather **tell the Agent how to think and acquire** business logic.
-- Domain skills are the opposite: they MUST provide concrete architectural patterns, vulnerability checklists, and code examples to restore the rich, robust capability of legacy setups.
+```markdown
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | (What causes this skill to execute? What exact data/args does it expect?) |
+| **Expected Output** | (What specific files, artifacts, or Terminal Exit Codes are produced?) |
+| **State Mutations** | (What JSON/files are written to track progress? e.g., \`.harness/todo-state.json\`) |
+| **Enforcement Gate** | (Which exact CLI script slaps the LLM with Exit Code 1 if it fails?) |
+```
+
+## 2. Tone & Voice
+- **Anti-Linear / Anti-Prose**: Do not write long paragraphs. Map actions to specific `run_in_terminal` commands.
+- **Absolute Imperatives**: Use "MUST", "MUST NOT", "ALWAYS". Do not use "suggest".
+- **Script-Driven Enforcement**: Do not write "You should check your code". Write "You MUST run `node verify-gate.js`. If Exit Code 1, you MUST reflect and retry."

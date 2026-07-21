@@ -254,3 +254,71 @@ applies to it passes — partial credit isn't acceptance, it's a punch list.
 
 Record the actual model output for any FAIL, not just pass/fail — a fix
 needs to know what happened, not just that something didn't.
+
+---
+
+## 5. Harness System Verification Standards & Framework
+
+This section defines the core standards and verification framework for evaluating this Harness System. Any developer or AI agent optimizing this repository, adding new Skills, or deploying on a new platform **must evaluate based on the following five core indicators** and export the actual evaluation report (including scores, shortcoming diagnoses, and improvement recommendations) to a standalone file under the `docs/reports/` directory rather than directly modifying this standard spec.
+
+### 5a. Five Core Verification Criteria
+
+1. **Skill Description Completeness**
+   - **Key Verification**: Check if each `SKILL.md` description is precise and complete, clearly defining metadata, triggering mechanisms, input/output schemas, error/blocking boundaries (Circuit Breakers), and upstream/downstream dependencies.
+   - **Rigor Rating Criteria**: Any skill that relies too heavily on vague natural language without clear constraints, lacks side-effect explanations, or misses boundary mechanisms will be penalized.
+
+2. **Routing Accuracy**
+   - **Key Verification**: Verify if `harness-everything/scripts/tier-router.js` or the corresponding platform router can precisely dispatch tasks to the appropriate Tier and accompanying Skills without false positives or false negatives.
+   - **Rigor Rating Criteria**: Check if it relies purely on fragile keyword heuristic matching, if active workspace Git Diff stats introduce inappropriate noise for classification, and whether it can handle vague prompts or composite tasks.
+
+3. **Test Coverage of All Skills**
+   - **Key Verification**: Ensure that the automated tests (such as `npm test` or the local `eval-framework/runner.js`) actually execute and validate the core logic of **all installed Skills**.
+   - **Rigor Rating Criteria**: If tests only check static syntax (`node --check`) without asserting behaviors, or if routing validation is merely tokenistic, the score will fall into the failing range.
+
+4. **Configuration Balance (Light vs. Heavy)**
+   - **Key Verification**: Assess whether the configuration on various platforms faces "excessively light" setups (purely advisory prompts that agents easily ignore) or "excessively heavy" setups (harsh blockages and frequent circuit breaks that severely damage model reasoning and development speed).
+   - **Rigor Rating Criteria**: Check if capability asymmetries across platforms (Claude, Codex, Cursor, Copilot) are compensated reasonably and whether the system offers middle-ground, progressive constraints rather than a binary check.
+
+5. **Workflow Conformance**
+   - **Key Verification**: Validate if the agent's actual tool execution sequence completely aligns with the diagrams defined under `docs/workflows/` (e.g., TDD's red-green-refactor loop, Git-Commit's submission chain, etc.).
+   - **Rigor Rating Criteria**: Check if the system has runtime mechanisms (Runtime Enforcement) to audit these transitions rather than merely treating them as documentation. Points are deducted if there is no state transition validation.
+
+---
+
+### 5b. Platform Feature Matrix Template
+
+After performing actual testing on each platform, fill in the following support matrix:
+
+| Feature         | Claude | Codex | Cursor | Copilot |
+| --------------- | ------ | ----- | ------ | ------- |
+| Hook            |        |       |        |         |
+| Runtime         |        |       |        |         |
+| Prompt Guidance |        |       |        |         |
+| Verification    |        |       |        |         |
+| Behavior Test   |        |       |        |         |
+| Auto Recovery   |        |       |        |         |
+
+---
+
+### 5c. Overall Scorecard Template
+
+Assign ratings and scores for the following dimensions (e.g., ⭐⭐⭐⭐☆ 8.5/10), and provide detailed improvements in the standalone report:
+
+| Category | Score | Deep Analysis & Improvement Directions |
+| :--- | :---: | :--- |
+| **Architecture** | /10 | |
+| **README Completeness** | /10 | |
+| **Maintainability** | /10 | |
+| **Skills Design** | /10 | |
+| **Agent Compatibility** | /10 | |
+| **Beginner Friendliness** | /10 | |
+
+---
+
+## 6. Evaluation Report Export Guideline
+
+When conducting a comprehensive quality audit of the system, **do not directly fill in the results within this specification document**.
+1. Create a standalone Markdown file under the `docs/reports/` folder.
+2. Naming convention: `evaluation-report-[model-name]-[YYYY-MM-DD].md` (e.g., `evaluation-report-gemini-3.1-pro-2026-07-21.md`).
+3. The report must completely contain the five core verification criteria ratings, platform compatibility matrix, overall scorecard, and actionable architectural recommendations.
+

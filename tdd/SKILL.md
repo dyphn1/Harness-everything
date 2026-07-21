@@ -5,6 +5,15 @@ description: Test-Driven Development mode (Red-Green-Refactor) for Standard Task
 
 # Test-Driven Development (TDD) Mode
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Tier 2 Task identification. Input: The specific feature or bug requirement. |
+| **Expected Output** | 1. Failing test terminal output. 2. Implementation code. 3. Passing test terminal output (Exit Code 0). |
+| **State Mutations** | Handled by `todo-cli.js` (tracked via `.harness/todo-state.json`). |
+| **Enforcement Gate** | You MUST run the test runner in the terminal. If it does not fail first (RED), you MUST fix the test. If it fails later (GREEN phase), you MUST reflect and fix the code. |
+
 This skill is automatically triggered and loaded by the `harness-everything` router when a task is judged as a **Tier 2 (Standard Task)**.
 It applies to adding a single feature, fixing a specific Bug, or medium-sized changes with clear expected outcomes.
 

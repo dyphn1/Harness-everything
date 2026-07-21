@@ -5,6 +5,15 @@ description: Generates Angular-style commit messages after verifying the environ
 
 # Git Commit (Angular Style)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | User explicitly requests a commit, or a task phase concludes. Input: Staged git diff. |
+| **Expected Output** | Execution of `git commit -m "..."`. |
+| **State Mutations** | Git tree is updated. Workspace becomes clean. |
+| **Enforcement Gate** | You MUST run `git status`. If there are no staged files, the terminal will exit 1 when you try to commit, or you MUST ask the user before staging. |
+
 This skill is automatically triggered by the `harness-everything` router upon task completion or when the user explicitly requests "commit" or "save changes".
 
 ## 1. Triggers
