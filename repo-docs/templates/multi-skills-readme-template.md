@@ -8,7 +8,7 @@ description: "README template for a repository hosting a collection of AI skills
 > {One-line pitch: E.g., A collection of composable, engineering-focused AI skills.}
 
 <!-- Optional: Badges for version, license, status -->
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ## Overview & Philosophy
 

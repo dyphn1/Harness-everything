@@ -62,7 +62,7 @@ workflow). Never leave empty section headings — skip sections that don't apply
 > {one_line_description}
 
 <!-- Optional: badges for language, license, CI status -->
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # Harness (Behavior Layer for AI Coding Agents)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 Harness is a lightweight, local behavior and orchestration runtime that wraps around your AI development sessions (Claude Code, Cursor, Copilot Chat, Codex). It provides reactive hooks, routing boundaries, and circuit breakers designed to prevent infinite trial-and-error loops, costly over-engineering, and "lost-in-the-middle" context drift.
 
@@ -79,14 +79,14 @@ flowchart TD
 flowchart TD
     U([User Request]) --> H_Router[Harness Router]
     H_Router -->|Tier 1: Trivial| T1[Direct Edit]
-    H_Router -->|Tier 2: Standard| T2[todo-cli.js (Script State Machine)]
+    H_Router -->|Tier 2: Standard| T2["todo-cli.js (Script State Machine)"]
     H_Router -->|Tier 3: Macro| T3[Fable Multi-Agent Flow]
     
     T2 & T3 --> Exec[Execute Code / Run Commands]
     Exec --> Gate{verify-gate.js}
     
     Gate -->|Exit 1: Slap in face| Exec
-    Gate -->|Exit 1 (Repeated)| CB{Circuit Breaker rule-of-3.js}
+    Gate -->|Exit 1 - Repeated| CB{Circuit Breaker rule-of-3.js}
     CB -->|Fails 3x| ZO[Zoom Out: Ask Human / Reflect]
     ZO -->|Fresh Diagnosis| Exec
     Gate -->|Exit 0: Success| Done[todo-cli.js complete]

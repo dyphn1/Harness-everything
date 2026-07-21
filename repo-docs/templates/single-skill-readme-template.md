@@ -8,7 +8,7 @@ description: "README template for a repository that hosts a single, complex AI s
 > {One-line description from SKILL.md YAML frontmatter}
 
 <!-- Optional: Badges for version, license, status -->
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ## Overview
 

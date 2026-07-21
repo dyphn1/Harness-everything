@@ -8,7 +8,7 @@ description: "README template for end-user products, tools, applications, or pla
 > {One-line pitch: What it is and the primary problem it solves.}
 
 <!-- Optional: Badges for version, license, status, discord -->
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ## Overview
 

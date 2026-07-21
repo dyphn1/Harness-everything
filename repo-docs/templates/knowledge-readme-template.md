@@ -8,7 +8,7 @@ description: "Dynamic README template for documentation, knowledge bases, and co
 > {One-line description summarizing the core subject or purpose of this knowledge base.}
 
 <!-- Optional: badges for version, license, or status -->
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ## Overview & Scope
 

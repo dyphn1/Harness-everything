@@ -15,7 +15,7 @@
     "node": ">=18"
   },
   "author": "Harness Core Team",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {},
   "devDependencies": {}
 }

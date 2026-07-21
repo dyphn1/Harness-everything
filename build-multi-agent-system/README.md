@@ -2,7 +2,7 @@
 
 > Deploy a universal, self-adapting Multi-Agent Architecture into any project. It dynamically analyzes the tech stack to scaffold a token-efficient workspace with strict physical boundaries, hybrid SQLite memory, and isomorphic alignment protocols.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ## Overview
 
