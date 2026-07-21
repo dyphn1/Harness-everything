@@ -5,6 +5,15 @@ description: Reflect-first circuit breaker - rebuild the full picture and fact-c
 
 # Zoom Out (Global Perspective & Circuit Breaker)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Terminal script failures 3 times in a row, or getting stuck in an infinite loop. Input: Error logs. |
+| **Expected Output** | Reflection report written to disk. Terminal commands MUST STOP until the report is completed. |
+| **State Mutations** | MUST write `.harness/zoom-out-report.md`. |
+| **Enforcement Gate** | The `rule-of-3.js` script (if run via Hook or CLI) will block all other `Write` or `Edit` actions until `.harness/zoom-out-report.md` exists and is formatted correctly. |
+
 This skill is the **Ultimate Circuit Breaker** in the Harness system.
 It MUST be forcefully triggered when the Agent falls into logic blind spots, invalid retries, or hits the Reasoning Ceiling.
 

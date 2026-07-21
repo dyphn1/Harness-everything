@@ -7,6 +7,15 @@ metadata:
 
 # Verification Loop Skill
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Approaching task completion or PR creation. Input: The modified project files. |
+| **Expected Output** | Terminal logs showing successful Build, Type Check, Lint, and Test execution. |
+| **State Mutations** | None. Pure verification. |
+| **Enforcement Gate** | You MUST execute `npm run build`, `npm run lint`, and `npm run test` (or equivalent). You cannot complete the task if any of these return Exit Code 1. |
+
 A comprehensive verification system for Claude Code sessions.
 
 ## When to Use

@@ -5,6 +5,15 @@ description: Macro task planning and execution engine for complex requirements a
 
 # Fable Mode (Macro Task Planning & Execution Engine)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Tier 3 Task classification. Input: Massive architectural requirement or module creation. |
+| **Expected Output** | 1. Documented architectural plan. 2. A sequence of subagent handoffs (`create-agent-launcher`). 3. System integration verified by terminal scripts. |
+| **State Mutations** | 1. Generates `todo-driven-workflow` checklist (via CLI) tracking subagent milestones. 2. `subagent-scope-state.json` updates during handoffs. |
+| **Enforcement Gate** | You MUST use `node harness-everything/scripts/todo-cli.js` to track milestones. You MUST run system tests (`verify-gate.js` or equivalent) after EACH subagent returns before moving to the next. |
+
 This skill is automatically triggered and loaded by the `harness-everything` router when a task is judged as a **Tier 3 (Macro Task)**.
 It applies to building new feature modules from scratch, massive low-level architecture changes, or extremely vague and complex user requirements.
 

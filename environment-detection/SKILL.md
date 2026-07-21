@@ -5,6 +5,15 @@ description: Use at the very beginning of the session (Discover phase) to automa
 
 # Environment Detection & Shell Alignment
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Session Start (Discover Phase), or before executing a complex terminal command sequence. |
+| **Expected Output** | Terminal execution of `node <this-skill-dir>/scripts/preflight.js`. Output of the detected OS and Shell. |
+| **State Mutations** | Context is updated with the correct path separator (`/` vs `\`) and environment variable syntax (`$VAR` vs `%VAR%`). |
+| **Enforcement Gate** | You MUST read the terminal output of `preflight.js`. If you use the wrong syntax (e.g. `%VAR%` in bash), the terminal will naturally Exit 1 and block your progress. |
+
 ## Core Principles
 - **MUST** operate using the cognitive loop: Think > Try > Summarize > Record.
 - **[Think]**: Before running any terminal commands, check your environment. Blind execution is the primary source of agent step waste.

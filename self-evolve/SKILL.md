@@ -5,6 +5,15 @@ description: Extracts root causes from resolved difficult problems and persists 
 
 # Self Evolve (Self Evolution & Memory Extraction)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Task completion after a major struggle, or post-zoom-out recovery. Input: The root cause of the previous failure. |
+| **Expected Output** | Terminal execution of the persistence script. |
+| **State Mutations** | Updates workspace memory/rules files (e.g., `RULES.md` or `.harness/memories.json`). |
+| **Enforcement Gate** | You MUST run `node <this-skill-dir>/scripts/self-regression.js`. You MUST run `node <this-skill-dir>/scripts/persist-memory.js "<rule>"`. |
+
 This skill is responsible for the long-term learning and error prevention of the system.
 It ensures that the entire Harness ecosystem becomes smarter and avoids repeating mistakes after solving difficult problems every time.
 

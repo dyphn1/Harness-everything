@@ -7,6 +7,15 @@ metadata:
 
 # Security Review Skill
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Task involves Auth, API Endpoints, File Uploads, User Input, or Secrets. Input: Target code file. |
+| **Expected Output** | Security scan commands executed in terminal. Code modified to fix vulnerabilities. |
+| **State Mutations** | Codebase hardened against injection/XSS/IDOR. |
+| **Enforcement Gate** | You MUST use grep or standard security linters in the terminal to scan for secrets (`sk-`, `password`) or raw SQL interpolations BEFORE marking the security check as complete. |
+
 This skill ensures all code follows security best practices and identifies potential vulnerabilities.
 
 ## When to Activate
