@@ -5,6 +5,15 @@ description: Objectively evaluates AI agent performance based on correctness, re
 
 # Eval Harness (Automated Performance & Reasoning Evaluation)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | User requests "run benchmark", "score conversation log", or "compare Vanilla vs Harness differences" — an execution log or the current conversation history. |
+| **Expected Output** | A 4-dimension scorecard (Correctness & Factuality, Token & Step Efficiency, Anti-loop & Focus, Environment & Tool Awareness), each scored 0-10 with rationale. |
+| **State Mutations** | Writes a generated Markdown scorecard to the project's `evals/` directory via `scripts/evaluate.js`. |
+| **Enforcement Gate** | MUST execute `scripts/evaluate.js` with the four scores and insight text — a verbally-stated score without running the script does not count as output. |
+
 This skill is used to objectively evaluate the performance of an AI Agent when "executing test tasks".
 Triggered when the user requests "run benchmark", "score conversation log", or "compare Vanilla vs Harness differences".
 

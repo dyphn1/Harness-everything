@@ -14,6 +14,15 @@ description: >
 
 # Fable Mode — Haiku (v3, agent-routed)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | User explicitly asks for staged/thorough execution run cheaply or fast on Haiku ("fable on haiku", "stage this on haiku") for bulk mechanical work. |
+| **Expected Output** | Task delegated to the `fable-worker-haiku` agent (or an inline fallback carrying the same rules verbatim), optionally fanned out across multiple concurrent workers, followed by a `fable-verifier` pass before any unsupervised delivery. |
+| **State Mutations** | None directly — spawns/manages Task-tool subagents and whatever file edits they perform. |
+| **Enforcement Gate** | Every worker brief **MUST** name the pass condition explicitly (no benefit of the doubt on verification for Haiku). A worker that escalates "needs synthesis" **MUST** be re-routed to `fable-worker-sonnet`, never retried on Haiku with a louder prompt. |
+
 v3 change: the worker is a real agent definition (`agents/fable-worker-haiku.md`)
 invoked by name. Its system prompt carries the loop, the tightened verification
 rule, and the operational rules; this skill only routes.

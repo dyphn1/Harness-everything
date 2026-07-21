@@ -68,7 +68,22 @@ if (fs.existsSync(runnerPath)) {
   console.warn("  ⚠️  eval-framework/runner.js not found. Skipping Phase 2.");
 }
 
-// 3. Final verdict
+// 3. Run Behavioral Test Suite (E2E state-machine transitions, not just syntax)
+console.log("\n[Phase 3] Behavioral Test Suite...");
+const behavioralTestPath = path.join(projectRoot, 'eval-framework', 'behavioral-test.js');
+if (fs.existsSync(behavioralTestPath)) {
+  const behavioralCheck = spawnSync('node', [behavioralTestPath], { stdio: 'inherit', cwd: projectRoot });
+  if (behavioralCheck.status !== 0) {
+    console.error("\n  ❌ Behavioral test suite failed!");
+    hasErrors = true;
+  } else {
+    console.log("\n  ✅ Behavioral test suite 100% Passed!");
+  }
+} else {
+  console.warn("  ⚠️  eval-framework/behavioral-test.js not found. Skipping Phase 3.");
+}
+
+// 4. Final verdict
 console.log("\n=================================================");
 if (hasErrors) {
   console.error(" ❌ REGRESSION DETECTED! Self-evolution rejected.");

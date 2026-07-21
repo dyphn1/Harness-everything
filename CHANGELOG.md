@@ -50,21 +50,17 @@ This is the initial alpha release of **Harness OS** — a lightweight, local beh
 - **`eval-framework`**: Automated evaluation cases (case 1 to 5) covering multiple complexity levels and support for multi-language (en/zh) prompt classification.
 - **`VERIFICATION.md` & `docker-verify.sh`**: A comprehensive mechanism verification test suite that locally executes sandbox environment simulations to prove terminal blocking and self-recovery behaviors.
 
-## [Unreleased] - 2026-07-21
+## [Unreleased]
+
+### Fixed
+- **Installer uninstall safety**: `scripts/installer.js uninstall -y` no longer implicitly wipes global state (`~/.agents`, VS Code global prompts, global `.claude`/`.cursorrules`) just because it happens to detect a prior global install. Global removal now requires an explicit `--global`/`-g` flag, matching the interactive flow's existing unchecked-by-default behavior. The bug spanned two independent code paths (config removal and skill removal); both are fixed. Found via live testing on 2026-07-21 - a bare `uninstall -y` run from an unrelated test repo deleted real global Harness state.
 
 ### Added
-- **Strict Evaluation Report**: Generated comprehensive strict evaluation report (`docs/reports/evaluation-report-harness-strict-2026-07-21.md`) following the most rigorous verification checklist.
-
-### Testing
-- **Mechanism Checks**: Verified all core mechanisms (Rule of 3 circuit breaker, boundary guard, state persistence, fact-audit reminder, subagent scope guard, stop gate).
-- **Behavioral Tests**: Executed Test F (Fact-audit discipline) with **PASS** result - agent correctly emitted FACT-AUDIT REMINDER instead of answering from memory.
-- **Workflow Conformance**: Confirmed execution sequences align with `docs/workflows/` definitions.
-- **Self-Heal Mechanism**: Successfully auto-repaired missing integration touchpoints (`.cursorrules`, `.github/copilot-instructions.md`, `AGENTS.md`).
+- **Skill Contract coverage**: All 25 `SKILL.md` files now carry a `📋 Skill Contract` table (Trigger/Input, Expected Output, State Mutations, Enforcement Gate) - up from 10/25.
+- **Behavioral test wiring**: `eval-framework/behavioral-test.js` (the `todo-cli.js` state-machine E2E test) is now actually executed as Phase 3 of `npm test` / `self-regression.js`. It previously existed but was never invoked by any script, so it never ran automatically.
 
 ### Documentation
-- **Evaluation Reports**: Added strict evaluation report template with detailed scoring matrix and improvement recommendations.
+- **External evaluation report**: Added `docs/reports/evaluation-report-gemini-3.1-pro-2026-07-21.md`, an independent strict audit scoring the system 2-4/10 across the five core verification criteria (skill contract completeness, routing accuracy, test coverage, configuration balance, workflow conformance). The router fix (`f87bf34`) and the Skill Contract rollout (`7b2d04f`, completed above) were made in direct response to its findings.
 
-### Performance
-- **Overall Score**: **9.0/10** (Excellent) in GitHub Copilot environment.
-- **Core Verification Criteria**: 9.2/10 average across all five core criteria.
-- **Platform Compatibility**: Full support on advisory platforms with auto-repair capabilities.
+### Corrected
+- Removed a changelog entry from 2026-07-21 that claimed a self-authored "9.0/10 (Excellent)" evaluation and referenced `docs/reports/evaluation-report-harness-strict-2026-07-21.md`. That report was only ever committed on an unmerged branch (`test-fresh-env`) and never existed on `main`; several of its "PASS" rows were self-reported as untestable ("stdin not a TTY, cannot test directly") rather than actually run - an excuse that doesn't hold, since the same mechanism checks run fine over stdin in practice (see VERIFICATION.md §2). The external Gemini audit above is the only evaluation report that exists on `main`.

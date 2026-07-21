@@ -5,6 +5,15 @@ description: Discovers and transforms shallow modules into deep ones to improve 
 
 # Improve Codebase Architecture (Deep Architectural Optimization)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Project shows tech debt, overly coupled modules, or the user requests to "refactor / improve architecture quality". |
+| **Expected Output** | A "Deepening Opportunities" report naming shallow modules and improperly coupled seams, followed (after human approval) by `tdd`-guarded refactoring. |
+| **State Mutations** | Refactors module boundaries/interfaces; may add Characterization Tests before touching legacy code that has no existing coverage. |
+| **Enforcement Gate** | Blind refactoring is **PROHIBITED** — must scan `CONTEXT.md`/ADRs/interfaces first. Refactoring code with no test safety net **MUST** start with Characterization Tests. More than 3 cascading compile errors **MUST** trigger `zoom-out` and rollback, not continued patching. |
+
 Triggered when a project is full of "Tech Debt", modules are overly coupled, or the user requests to "refactor / improve architecture quality". This skill aims to transform "Shallow" modules into "Deep" modules to enhance testability and AI navigability.
 
 ## 1. Architectural Exploration & Discovery `[Discover]`

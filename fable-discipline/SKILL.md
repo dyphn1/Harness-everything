@@ -5,6 +5,15 @@ description: Shadow guard for fable-mode to prevent context bloat and maintain p
 
 # Fable Discipline (Macro Task Discipline & Safety Net)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Runs continuously in the background for the entire duration `fable-mode` is active — not a standalone, one-shot trigger. |
+| **Expected Output** | Periodic state compaction after each milestone; one Git commit per independently functioning logic block; a state manifest handed off between sub-agents at every handoff point. |
+| **State Mutations** | None of its own — it constrains how `fable-mode` and `create-agent-launcher` mutate state (commit cadence, handoff manifests, read-size limits). |
+| **Enforcement Gate** | **HALTS execution immediately** (not a retry) if build errors show a divergent trend (more fixes → more breakage), and forces `zoom-out` instead of continued patching. |
+
 This skill acts as the shadow guard for `fable-mode`. As long as `fable-mode` is active, this skill MUST run in the background to prevent large tasks from spiraling out of control.
 
 ## 1. Anti-Context Bloat Defense

@@ -5,6 +5,15 @@ description: Automatically generates precise, reader-oriented README.md and AGEN
 
 # Repo Docs (Automated Project Documentation Generation)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Project lacks documentation, or the user requests a `README.md` / `AGENTS.md` / architectural guideline be generated. |
+| **Expected Output** | A reader-journey-oriented `README.md` and/or agent-oriented `AGENTS.md`, built from the appropriate template in `repo-docs/templates/`. |
+| **State Mutations** | Creates/overwrites `README.md`, `AGENTS.md`, or other doc files at the target path. |
+| **Enforcement Gate** | **MUST NOT** be written from training-data assumptions — every claim (language, framework, test/build commands) **MUST** come from actually scanning the project. Uncertain parts **MUST** be marked `// TODO: Pending confirmation` and raised to the human, not guessed. |
+
 Triggered when a project lacks documentation, the user requests to create a `README.md`, or needs to define architectural guidelines in `AGENTS.md`.
 
 ## 1. Reconnaissance & Environment Discovery `[Discover]`

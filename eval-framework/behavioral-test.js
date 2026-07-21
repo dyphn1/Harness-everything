@@ -30,10 +30,32 @@ function run(cmd, expectFail = false) {
   }
 }
 
-// 0. Setup: Clean slate
+// 0. Setup: Clean slate - but this suite runs against the REAL .harness/
+// directory of whatever project invokes it (e.g. via self-regression.js on
+// a contributor's machine), so any real in-flight todo-state.json must be
+// preserved, not clobbered. Back it up now and restore it on exit
+// (success, assertion failure, or process.exit alike - 'exit' fires on all
+// of them) instead of deleting real state outright.
+const stateBackup = stateFile + '.selfregression-backup';
+const hadExistingState = fs.existsSync(stateFile);
+if (hadExistingState) fs.copyFileSync(stateFile, stateBackup);
 if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile);
 if (fs.existsSync('.verify-fail.tmp')) fs.unlinkSync('.verify-fail.tmp');
 console.log("🧹 State cleaned.");
+
+process.on('exit', () => {
+  try {
+    if (hadExistingState) {
+      fs.copyFileSync(stateBackup, stateFile);
+      fs.unlinkSync(stateBackup);
+    } else if (fs.existsSync(stateFile)) {
+      fs.unlinkSync(stateFile);
+    }
+    if (fs.existsSync('.verify-fail.tmp')) fs.unlinkSync('.verify-fail.tmp');
+  } catch (e) {
+    // Best-effort - don't mask the real test outcome with a cleanup error.
+  }
+});
 
 // 1. Initialize
 console.log("\n[Test 1] Agent initializes checklist...");

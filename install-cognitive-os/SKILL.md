@@ -5,6 +5,15 @@ description: Defines the fundamental physical laws of behavior (Discover > Think
 
 # Agent Cognitive OS (Underlying Cognitive System)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Always — the foundational cognitive loop every other skill in this repository builds on; loaded before any action on any task. |
+| **Expected Output** | Every action passes through Discover → Think → Try → Summarize → Record, where Summarize is a script-gated reality check, not a self-assessment. |
+| **State Mutations** | None of its own — it is the meta-loop other skills' state changes (e.g. `todo-cli.js complete`) run inside. |
+| **Enforcement Gate** | Progress **MUST NOT** be recorded (`[Record]`) except after a verification script exits 0. A failing script (`verify-gate.js` or equivalent) forces a step back to `[Think]`; 3 consecutive failures forces `zoom-out` instead of a 4th blind retry. |
+
 This skill defines the most fundamental physical laws of behavior that all Agents in the Harness Skills system must obey. 
 
 ## 🚫 The Anti-Linear Paradigm (拒絕直線思維)

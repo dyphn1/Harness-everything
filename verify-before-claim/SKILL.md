@@ -7,6 +7,15 @@ metadata:
 
 # Verify Before Claim
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | About to state how an external system (framework/library/SDK/API/service) currently behaves, or about to state an unmeasured performance/cost/timing number. |
+| **Expected Output** | The claim is backed by a `WebFetch`/`WebSearch`-sourced quote from authoritative docs, or an actual measurement — never asserted from training memory alone. |
+| **State Mutations** | None — this is a discipline governing what gets asserted in the response, not a file-mutating skill. |
+| **Enforcement Gate** | An external-behavior claim without a same-session fetch/search backing it **MUST NOT** be asserted with confidence; an unmeasured number **MUST** be explicitly labeled as an estimate, not presented as fact. |
+
 Training memory goes stale and is easy to misremember with full confidence.
 This skill exists because that failure mode is real and already happened in
 this repo: an early claim that `rule-of-3.js`'s `process.exit(1)` blocked a

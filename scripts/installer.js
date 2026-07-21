@@ -546,8 +546,13 @@ async function main() {
       const hasSkillsUninstallFlag = args.includes('--skills');
       
       if (hasYesFlag) {
+        // -y auto-confirms local (cwd-scoped, obviously "this project") but
+        // must NEVER auto-confirm global (~/.agents, ~/.claude, etc.) just
+        // because something global happens to exist - home-directory state
+        // isn't implied by "yes" to the workspace you're standing in, and a
+        // bare `-y` run from any random project must not be able to wipe it.
         removeLocal = localInstalled;
-        removeGlobal = globalInstalled;
+        removeGlobal = globalInstalled && hasGlobalUninstallFlag;
         removeSkills = installedSkills.length > 0;
       } else {
         removeLocal = hasLocalFlag;
@@ -610,15 +615,27 @@ async function main() {
     }
 
     if (removeSkills && installedSkills.length > 0) {
+      // This block is only reached via a bulk "remove everything detected"
+      // path (interactive "all", or the non-interactive -y/--skills bypass) -
+      // never via the interactive per-item picker, which already removes
+      // exactly what the user checked. A bulk sweep must not reach into the
+      // real global home directory unless the user separately opted into
+      // global scope (same rule as the config removal above).
+      const skillsToRemove = installedSkills.filter(s => s.scope !== 'global' || removeGlobal);
+      const skippedGlobalCount = installedSkills.length - skillsToRemove.length;
+
       console.log("\n-------------------------------------------------");
       console.log("Uninstalling all detected skills...");
       console.log("-------------------------------------------------");
-      for (const skill of installedSkills) {
+      for (const skill of skillsToRemove) {
         if (fs.existsSync(skill.dirPath)) {
           fs.rmSync(skill.dirPath, { recursive: true, force: true });
           console.log(`  ✅ Removed skill: ${skill.id} (${skill.scope})`);
           cleanEmptyDirs(skill.parentPath);
         }
+      }
+      if (skippedGlobalCount > 0) {
+        console.log(`  ℹ️  Skipped ${skippedGlobalCount} global-scoped skill(s) - pass --global (or select "Uninstall ... Global Home") to remove those too.`);
       }
     }
 

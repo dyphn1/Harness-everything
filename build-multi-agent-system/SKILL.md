@@ -5,6 +5,15 @@ description: 'Deploy a universal, self-adapting Multi-Agent Architecture into an
 
 # Universal Multi-Agent Workspace Installer
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Tier 3 task requiring a multi-agent workspace to be scaffolded from scratch; explicit request to initialize a multi-agent system. |
+| **Expected Output** | A scaffolded 6-zone folder structure, a generated `index_memory` script that builds `memory.db` (SQLite relational index), and an immutable `AGENTS.md` router (< 50 lines) at the project root. |
+| **State Mutations** | Creates/rewrites `AGENTS.md`; creates the 6 functional zone directories; creates and runs the memory indexer script; writes `memory.db`. |
+| **Enforcement Gate** | MUST run the generated `index_memory` script once and verify it executes cleanly before the task is considered complete. `AGENTS.md` MUST include a directive forbidding sub-agents from modifying it. |
+
 ## Core Principles
 - MUST operate using the cognitive loop: Think > Try > Summarize > Record.
 - [Think] Map the project state before altering it. The architecture must adapt to the project's native ecosystem, not force a rigid template.

@@ -5,6 +5,15 @@ description: Sub-agent generator for orchestrating multi-domain specialized agen
 
 # Create Agent Launcher
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Invoked by `fable-mode` for Tier 3 tasks needing domain-specific division of labor — task complexity exceeds a single context, or spans disjoint tech stacks. |
+| **Expected Output** | One or more sub-agents launched with an explicit persona, a resource-isolated scope (only the file paths relevant to their task), and a model-tier assignment (Haiku / Sonnet / Opus by sub-task complexity). |
+| **State Mutations** | None directly to files — mutates the active session's delegation state (which sub-agents are live, what each was briefed to touch). |
+| **Enforcement Gate** | Every sub-agent MUST return a structured handoff report (files modified, new APIs/interfaces exposed, downstream concerns) before its output is trusted. Creating a sub-agent is **PROHIBITED** if the task fits in ≤2 files / ≤300 lines — resolve directly under `tdd` instead. |
+
 This skill is automatically invoked by `fable-mode` when handling Tier 3 (Macro Tasks) that require domain-specific division of labor.
 Its purpose is to avoid wasting Tokens and losing attention caused by a single General Agent handling everything, by creating highly specialized Sub-agents to solve complex problems.
 

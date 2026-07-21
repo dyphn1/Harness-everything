@@ -5,6 +5,15 @@ description: Acts as a relentless challenger to stress-test plans, find loophole
 
 # Grill Me (Interrogation & Stress Testing)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | User proposes a vague plan, asks to "evaluate architecture", or explicitly says "grill me" / "grill with docs". |
+| **Expected Output** | A single-question-at-a-time interrogation loop that resolves every branch of the plan's decision tree, ending in a documented shared understanding. |
+| **State Mutations** | Updates or generates ADR / `CONTEXT.md`-style docs inline as each blind spot is resolved. |
+| **Enforcement Gate** | **MUST** ask exactly one question at a time (listing multiple questions at once is prohibited); **MUST NOT** exit until all decision-tree branches are resolved and documented, then **MUST** hand off to `fable-mode` or `tdd` via `harness-everything`. |
+
 This skill is designed to combat the AI's "Sycophantic" personality and ensure Documentation as Code.
 Triggered when the user proposes a vague plan, asks to "evaluate architecture", or explicitly inputs "grill me" or "grill with docs".
 

@@ -5,6 +5,15 @@ description: Cleans, squashes, or rewrites past Git history to comply with Angul
 
 # Rewrite Commits
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | User requests cleaning, squashing, or rewriting past Git history to comply with Angular Style conventions. |
+| **Expected Output** | A rewritten, Angular-Style-compliant commit history on a temporary branch, confirmed against `git log --oneline` before being treated as final. |
+| **State Mutations** | Rewrites local Git history (via `git rebase -i` or equivalent) on a temp branch first — never in place on the target branch. |
+| **Enforcement Gate** | If any target commit has already been pushed to `main`/`master`, **MUST** warn the human and get explicit secondary confirmation before executing. A merge conflict during rebase **MUST** stop execution immediately and hand off to the human or `zoom-out` — no forced resolution. |
+
 Triggered when the user requests to clean, squash, or rewrite past Git history to comply with the team's Angular Style conventions.
 
 ## 1. Environment Discovery `[Discover]`

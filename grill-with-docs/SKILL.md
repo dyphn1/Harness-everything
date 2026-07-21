@@ -3,6 +3,15 @@ name: grill-with-docs
 description: Grilling session that challenges your plan against the existing domain model, sharpens terminology, and updates documentation (CONTEXT.md, ADRs) inline as decisions crystallise. Use when user wants to stress-test a plan against their project's language and documented decisions.
 ---
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | User wants to stress-test a plan against the project's existing domain language and documented decisions (`CONTEXT.md`, ADRs). |
+| **Expected Output** | A one-question-at-a-time interview walking the design tree to resolution; `CONTEXT.md` updated inline as terms resolve; new ADRs created only when a decision is hard-to-reverse, surprising, and a genuine trade-off. |
+| **State Mutations** | Creates/edits `CONTEXT.md` and `docs/adr/*.md` (or the per-context equivalents under a `CONTEXT-MAP.md` layout). |
+| **Enforcement Gate** | `CONTEXT.md` **MUST** stay a pure glossary — no implementation details. An ADR **MUST NOT** be offered unless all three criteria (hard to reverse, surprising without context, real trade-off) hold. |
+
 <what-to-do>
 
 Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.

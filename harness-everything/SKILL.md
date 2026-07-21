@@ -5,6 +5,15 @@ description: The single entry point and dynamic router for the Harness ecosystem
 
 # Harness Everything (System Main Entry & Dynamic Router)
 
+## 📋 Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Every new user request where no specific skill is already indicated — the mandatory first load, run via `scripts/tier-router.js "<prompt>"`. |
+| **Expected Output** | A Tier determination (1/2/3) and a mandatory "🚦 Harness OS Routing Checkpoint" block at the very start of the response, listing the tier, rationale, and routed skills/guides. |
+| **State Mutations** | None directly — orchestrates which other skills/guides get loaded and, for Tier 2/3, triggers `todo-driven-workflow` checklist initialization. |
+| **Enforcement Gate** | **MUST** run `scripts/tier-router.js` (or reuse the `UserPromptSubmit` hook's output for the same turn) before deciding the tier — the routing checkpoint output is mandatory, not optional. Rule of 3: 3 consecutive failed fix attempts on the same signature **MUST** stop further edits and force `zoom-out`. |
+
 This is the single entry point for the entire Harness Skills ecosystem. When you receive a new request from the user and no specific Skill is indicated, you **MUST** prioritize loading this Skill to perform Task Triage.
 
 ## 1. Core Rule: Global Underlying OS & Base Execution Loop
