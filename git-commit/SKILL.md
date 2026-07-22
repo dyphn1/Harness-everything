@@ -27,13 +27,20 @@ Before generating a commit message, you **MUST** execute the following discovery
 - **Circuit Breaker**: If no files are staged, ask the user if they want to stage the currently modified files; fabricating commit messages out of thin air is PROHIBITED.
 - Check if working within a Submodule. If so, you MUST handle commits for the Main Repo and Sub Repo separately.
 
-## 3. Commit Generation Discipline (Angular Style)
+## 3. Master Routing Workflow (Order of Operations)
+When both the Main Repo and any Submodules have changes, you **MUST** prioritize and process Submodule changes first. Strictly follow this execution order:
+1. **Detect Submodule Changes First**: Before processing the Main Repo, you MUST check if any submodules have changes (staged or unstaged).
+2. **Prioritize Submodule Commits**: If any submodules have changes, you MUST halt Main Repo commit generation immediately. Run `git-commit/guides/SUBMODULES.md` first to commit all submodule changes and update their pointers in the Main Repo.
+3. **Stage Submodule Pointers in Main Repo**: Ensure that updated submodule pointers are added (`git add <submodule_path>`) to the Main Repo staging area before generating the Main Repo commit.
+4. **Execute Main Repo Commit Last**: Once all submodules are fully clean and their new pointers are staged in the Main Repo, you may then proceed with `git-commit/guides/MAIN_REPO.md` to commit the Main Repo changes.
+
+## 4. Commit Generation Discipline (Angular Style)
 - Strictly follow the format: `<type>(<scope>): <subject>`.
 - **Type**: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
 - **Subject**: Short and concise, use the imperative, present tense (e.g., "add user auth", not "added user auth"), no capitalized first letter, no dot (.) at the end.
-- **Body (if necessary)**: Explain "why" this change was made and the "root cause of the problem", rather than explaining what the code looks like.
+- **Body (if necessary)**: Explain "why" this change was made and the "root cause of the problem", and MUST include a clear, structured bulleted list detailing the exact modified parts (such as files, functions, or logical adjustments) extracted from the `git diff --cached` analysis.
 
-## 4. Execution and Handoff `[Try] & [Summarize]`
+## 5. Execution and Handoff `[Try] & [Summarize]`
 - After confirming the commit message, call the terminal tool to execute `git commit -m "..." -m "..."`.
 - Upon success, if still within the `fable-mode` workflow, hand control back to `fable-mode` to continue to the next milestone.
 

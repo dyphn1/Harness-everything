@@ -11,6 +11,8 @@
 
 ## [Action Phase]
 3. Message Construction: MUST generate a strict Angular format message (Type, Scope, Subject, Body, Footer) integrating diff analysis.
+   - MUST perform a detailed analysis on `git diff --cached` to extract the exact files modified, functions/classes added or adjusted, and logical configuration changes.
+   - MUST compile these extracted points into a structured, bulleted list in the commit message body (e.g., listing changes file-by-file or feature-by-feature) so that the commit message serves as an accurate, self-contained changelog of the staged changes.
 4. Context Integration: IF Sub Repo logs were passed, MUST seamlessly integrate ALL Sub Repo log summaries into the commit body.
 5. State Isolation: MUST ignore unstaged changes AND MUST NOT run `git add` to prevent contamination.
 6. Execution: MUST execute the commit securely (e.g., `git commit -F - <<EOF` or writing to a temporary file) to ensure special characters do not break the terminal command.
