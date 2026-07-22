@@ -6,7 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [0.2.0-rc.1] - 2026-07-22
 
+### Added
+- **Multi-Platform State Isolation Strategy**: Designed and created a registry for developer platforms (`claude.js`, `cursor.js`, `copilot.js`, `continue.js`, `codex.js`, `hermes.js`, `worktrees.js`) dynamically managing state folders (`getStateDir`) under respective tool namespaces (e.g. `.github/harness-state/`, `.cursor/harness-state/`) instead of hardcoding `.claude/harness-state/`.
+- **Runtime and Install-Time Auto-Ignore Defense**: Automated self-exclusion by writing active platform patterns directly to `.gitignore` seamlessly during both runtime execution checkpoints and local setup/installation.
 ## [0.1.0-beta] - 2026-07-20
 
 ### Added
