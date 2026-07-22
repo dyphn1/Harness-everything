@@ -52,6 +52,9 @@ This is the initial alpha release of **Harness OS** — a lightweight, local beh
 
 ## [Unreleased]
 
+### Added
+- **Continue.dev and Hermes Agent platform support**: `scripts/installer.js` now accepts `--continue` and `--hermes` (also included in `--all`). Continue.dev gets a dedicated `.continue/rules/harness.md` rule file (YAML frontmatter, `alwaysApply: true` — Continue's native rules format is one Markdown file per rule rather than a single shared file, so unlike Cursor/Copilot/Codex, Harness never appends into an arbitrary pre-existing file); global scope writes to `~/.continue/rules/harness.md`. Hermes Agent ([Nous Research](https://hermes-agent.nousresearch.com/)) gets `.hermes.md`, which Hermes auto-loads into its system prompt alongside `AGENTS.md`/`CLAUDE.md`/`.cursorrules` if present — project scope only, since Hermes has no documented global project-instructions equivalent (`--global --hermes` is a deliberate no-op with an explanatory message, not a guess). Both platforms are advisory-only (no hook/exit-code mechanism), matching Cursor/Copilot/Codex. `harness-everything/scripts/self-heal.js` and the uninstall path cover both new touchpoints. Updated `README.md`, `docs/architecture.md`, `VERIFICATION.md`, and `BENCHMARK_SOP.md` accordingly.
+
 ## [0.2.0-alpha] - 2026-07-22
 
 ### Added

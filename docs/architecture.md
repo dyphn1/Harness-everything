@@ -56,7 +56,7 @@ flowchart TD
 
 Harness is designed to align with the unique capabilities of various AI IDEs and CLI tools — but those capabilities are not equivalent across platforms, and this repo does not pretend otherwise.
 
-**Self-healing:** integration touchpoints can drift — installed from one editor, opened in another. `harness-everything/scripts/self-heal.js` audits all four touchpoints below and re-runs the idempotent installer to backfill whatever is missing. On Claude Code, `bootstrap.js` performs the audit at SessionStart and reports missing touchpoints (repair is left to the model so an intentionally removed file isn't silently re-created every session); on hook-less platforms, the audit runs when `harness-everything` or `environment-detection`'s Discover phase loads. Only Claude Code has a hook system with exit-code-based blocking; every other platform below gets **advisory text only**, with the same protection level as the "Prompt-Only" column in the README's own comparison table. There is no `preflight.js` audit, no `Rule of 3` circuit breaker, and no WAL on those platforms — nothing runs `.harness/*` scripts unless Claude Code (or another hook-capable tool) is also driving the same repo.
+**Self-healing:** integration touchpoints can drift — installed from one editor, opened in another. `harness-everything/scripts/self-heal.js` audits all six touchpoints below and re-runs the idempotent installer to backfill whatever is missing. On Claude Code, `bootstrap.js` performs the audit at SessionStart and reports missing touchpoints (repair is left to the model so an intentionally removed file isn't silently re-created every session); on hook-less platforms, the audit runs when `harness-everything` or `environment-detection`'s Discover phase loads. Only Claude Code has a hook system with exit-code-based blocking; every other platform below gets **advisory text only**, with the same protection level as the "Prompt-Only" column in the README's own comparison table. There is no `preflight.js` audit, no `Rule of 3` circuit breaker, and no WAL on those platforms — nothing runs `.harness/*` scripts unless Claude Code (or another hook-capable tool) is also driving the same repo.
 
 ### 1. Claude Code (hook-enforced)
 Our installer configures native lifecycle hooks inside `.claude/settings.json`:
@@ -73,6 +73,12 @@ Same mechanism and same limits as Cursor, via `.github/copilot-instructions.md`.
 
 ### 4. Codex (advisory only)
 Same mechanism and same limits again, via `AGENTS.md` — Codex's actual custom-instruction file, read automatically at session start (`.codex/config.toml` controls CLI/sandbox behavior, not prompt content, and was never a valid target for this).
+
+### 5. Continue.dev (advisory only)
+Continue's rules system reads individual Markdown files (with YAML frontmatter — `name`, `globs`, `alwaysApply`) from a `.continue/rules/` folder rather than one shared file, so the installer writes a dedicated `.continue/rules/harness.md` with `alwaysApply: true` instead of appending into an arbitrary pre-existing file. No hook/execution mechanism, same limits as Cursor. Global scope writes to `~/.continue/rules/harness.md`.
+
+### 6. Hermes Agent (advisory only)
+[Hermes](https://hermes-agent.nousresearch.com/) (Nous Research) auto-injects project context into its system prompt from `.hermes.md`, `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` if present in the directory it's launched from (truncated at ~20k chars) — meaning a Codex or Cursor install already reaches Hermes for free. The installer still writes a dedicated `.hermes.md` for explicit coverage. No hook/execution mechanism. Project scope only: Hermes has no documented global project-instructions equivalent (its own settings live under `~/.hermes/`, which governs model/terminal/skills config, not per-project behavior text), so `--global --hermes` is a deliberate no-op rather than a guess.
 
 ---
 

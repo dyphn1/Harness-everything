@@ -2,11 +2,11 @@
 /**
  * Self-healing installation audit for Harness OS.
  *
- * Audits the four platform integration touchpoints in the current workspace
+ * Audits the six platform integration touchpoints in the current workspace
  * and, when any are missing, re-runs the idempotent installer to repair them.
  * This makes the harness portable across editors: install once via Claude
- * Code, then open the same repo in Copilot/Cursor/Codex and the missing
- * advisory instructions are backfilled automatically the first time
+ * Code, then open the same repo in Copilot/Cursor/Codex/Continue/Hermes and
+ * the missing advisory instructions are backfilled automatically the first time
  * harness-everything (or the environment-detection Discover phase) runs.
  *
  * Usage:
@@ -110,6 +110,16 @@ function auditWorkspace(workspaceRoot) {
       label: 'Codex instructions (AGENTS.md)',
       ok: fileContains(path.join(workspaceRoot, 'AGENTS.md'), MARKER),
       platform: 'codex'
+    });
+    checks.push({
+      label: 'Continue.dev rules (.continue/rules/harness.md)',
+      ok: fileContains(path.join(workspaceRoot, '.continue', 'rules', 'harness.md'), MARKER),
+      platform: 'continue'
+    });
+    checks.push({
+      label: 'Hermes Agent instructions (.hermes.md)',
+      ok: fileContains(path.join(workspaceRoot, '.hermes.md'), MARKER),
+      platform: 'hermes'
     });
   }
 

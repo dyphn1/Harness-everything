@@ -47,6 +47,8 @@ Commands:
                        --cursor      Install Cursor project rules (.cursorrules)
                        --copilot     Install Copilot Chat instructions (.github/copilot-instructions.md)
                        --codex       Install Codex agents layout (AGENTS.md)
+                       --continue    Install Continue.dev rules (.continue/rules/harness.md)
+                       --hermes      Install Hermes Agent instructions (.hermes.md, local scope only)
                        --all         Install all of the above platforms
                        -g, --global  Install to home directory (~/.agents) instead of local repository
                        -y, --yes     Bypass interactive menu and use auto-detection

@@ -9,7 +9,7 @@ checked separately and should never be conflated:
   hook/exit-code execution system). See [Section 2](#2-mechanism-check-claude-code-only).
 - **Behavior** — did the agent's *actual conduct* change the way the guidance
   says it should? Testable on every platform, including the advisory-only ones
-  (Cursor, Copilot, Codex). See [Section 3](#3-behavioral-test-prompts-all-platforms).
+  (Cursor, Copilot, Codex, Continue.dev, Hermes Agent). See [Section 3](#3-behavioral-test-prompts-all-platforms).
 
 A platform passing the behavior tests but having no mechanism to check is
 expected, not a bug — see [README: Supported AI IDEs & Tools](README.md#supported-ai-ides--tools).
@@ -34,9 +34,11 @@ downstream.
 | Cursor | `.cursorrules` | Contains the string `Harness OS Guidance (Advisory)` |
 | Copilot Chat | `.github/copilot-instructions.md` | Contains the string `Harness OS Guidance (Advisory)` |
 | Codex | `AGENTS.md` | Contains the string `Harness OS Guidance (Advisory)` |
+| Continue.dev | `.continue/rules/harness.md` | Contains the string `Harness OS Guidance (Advisory)`, plus a YAML frontmatter block with `alwaysApply: true` |
+| Hermes Agent | `.hermes.md` | Contains the string `Harness OS Guidance (Advisory)` |
 
 ```bash
-grep -l "Harness OS Guidance" .cursorrules .github/copilot-instructions.md AGENTS.md 2>/dev/null
+grep -l "Harness OS Guidance" .cursorrules .github/copilot-instructions.md AGENTS.md .continue/rules/harness.md .hermes.md 2>/dev/null
 node -e "console.log(Object.keys(JSON.parse(require('fs').readFileSync('.claude/settings.json','utf8')).hooks))"
 ```
 
@@ -193,8 +195,8 @@ and it's a real trap: `exit(1)` *sounds* like it should block something.
 
 *(Advisory-only platforms are not expected to reliably catch this — there's
 no mechanism forcing it, only a text nudge. Record what actually happens
-either way; a miss on Cursor/Copilot/Codex is a data point about how far
-advisory-only guidance goes, not an install bug.)*
+either way; a miss on Cursor/Copilot/Codex/Continue/Hermes is a data point
+about how far advisory-only guidance goes, not an install bug.)*
 
 ---
 
@@ -241,16 +243,16 @@ node harness-everything/scripts/tier-router.js "<Task Prompt>"
 Fill in per platform tested. A platform only "passes" if every row that
 applies to it passes — partial credit isn't acceptance, it's a punch list.
 
-| Check | Claude Code | Cursor | Copilot | Codex |
-|---|---|---|---|---|
-| 1. Install artifact present | | N/A (mechanism) | N/A | N/A |
-| 2a–2e. Mechanism checks | | N/A | N/A | N/A |
-| BENCHMARK_SOP Test A (Tier 1) | | | | |
-| BENCHMARK_SOP Test B (Tier 2) | | | | |
-| BENCHMARK_SOP Test C (Tier 3) | | | | |
-| BENCHMARK_SOP Test D (knowledge boundary) | | | | |
-| BENCHMARK_SOP Test E (shell awareness) | | | | |
-| Test F (fact-audit) | | | | |
+| Check | Claude Code | Cursor | Copilot | Codex | Continue.dev | Hermes Agent |
+|---|---|---|---|---|---|---|
+| 1. Install artifact present | | N/A (mechanism) | N/A | N/A | N/A | N/A |
+| 2a–2e. Mechanism checks | | N/A | N/A | N/A | N/A | N/A |
+| BENCHMARK_SOP Test A (Tier 1) | | | | | | |
+| BENCHMARK_SOP Test B (Tier 2) | | | | | | |
+| BENCHMARK_SOP Test C (Tier 3) | | | | | | |
+| BENCHMARK_SOP Test D (knowledge boundary) | | | | | | |
+| BENCHMARK_SOP Test E (shell awareness) | | | | | | |
+| Test F (fact-audit) | | | | | | |
 
 Record the actual model output for any FAIL, not just pass/fail — a fix
 needs to know what happened, not just that something didn't.
@@ -289,14 +291,14 @@ This section defines the core standards and verification framework for evaluatin
 
 After performing actual testing on each platform, fill in the following support matrix:
 
-| Feature         | Claude | Codex | Cursor | Copilot |
-| --------------- | ------ | ----- | ------ | ------- |
-| Hook            |        |       |        |         |
-| Runtime         |        |       |        |         |
-| Prompt Guidance |        |       |        |         |
-| Verification    |        |       |        |         |
-| Behavior Test   |        |       |        |         |
-| Auto Recovery   |        |       |        |         |
+| Feature         | Claude | Codex | Cursor | Copilot | Continue.dev | Hermes Agent |
+| --------------- | ------ | ----- | ------ | ------- | ------------ | ------------ |
+| Hook            |        |       |        |         |              |              |
+| Runtime         |        |       |        |         |              |              |
+| Prompt Guidance |        |       |        |         |              |              |
+| Verification    |        |       |        |         |              |              |
+| Behavior Test   |        |       |        |         |              |              |
+| Auto Recovery   |        |       |        |         |              |              |
 
 ---
 

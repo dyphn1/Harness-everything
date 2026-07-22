@@ -323,6 +323,89 @@ function interactiveSingleSelect(items) {
   });
 }
 
+// Prompt-injection-only platforms (Cursor, Copilot, Codex, Continue, Hermes)
+const MARKER = "Harness OS Guidance (Advisory)";
+const advisoryInstructions = [
+  `\n# ${MARKER}`,
+  `This file is advisory only - this platform has no hook/execution mechanism to`,
+  `enforce it mechanically (unlike Claude Code's hook-based circuit breaker). Treat`,
+  `these as strong defaults, not guarantees.`,
+  ``,
+  `## 🚦 MANDATORY ENTRY TRIAGE & ROUTING (ALWAYS RUN FIRST)`,
+  `Every time you receive a new prompt, you MUST load the \`harness-everything\` skill and immediately do the following:`,
+  `1. Run the Tier Router script: \`node harness-everything/scripts/tier-router.js "<Brief summary of user's prompt>"\` (or simulate its routing logic if terminal is not initialized yet).`,
+  `2. Output a clear, stylized routing checkpoint block at the VERY BEGINNING of your response to the user:`,
+  `   \`\`\`markdown`,
+  `   ## 🚦 Harness OS Routing Checkpoint`,
+  `   - **Active Tier**: Tier 1 (Trivial) | Tier 2 (Standard) | Tier 3 (Macro)`,
+  `   - **Rationale**: <1-sentence rationale from the tier router output>`,
+  `   - **Routed Skills, Guides & Actions**:`,
+  `     - \`path/to/skill/or/guide.md\` (<Brief reason why this guide/skill is loaded/used>)`,
+  `   \`\`\``,
+  ``,
+  `## 🤖 COGNITIVE COMPLIANCE (NO SILENT DEGRADES FOR NEW FEATURES)`,
+  `- **Newly Added Features / Extensions**: Copilot is highly prone to treating new feature requests as Tier 1 direct edits. If a task introduces *any* new logic, a new API endpoint, or a new file/module, you **MUST NOT** treat it as Tier 1. It **MUST** be treated as a **Tier 2 (Standard Task)** or **Tier 3 (Macro Task)**.`,
+  `- **Tier 2 Activation**: Initialize the \`todo-driven-workflow\` checklist first. Summon Domain Experts based on tech stack. Load and execute the \`tdd\` (Test-Driven Development) skill (write tests first, implement, refactor).`,
+  `- **Tier 3 Activation**: Initialize the \`todo-driven-workflow\` checklist, load \`fable-mode\` and \`fable-discipline\`, run sub-agents via \`create-agent-launcher\`, and write global docs using \`repo-docs\`.`,
+  `- **Memory Summarization (Self-Evolve)**: Upon task completion, you **MUST** run the \`self-evolve\` skill (running \`node self-evolve/scripts/self-regression.js\` or writing memories) to record key insights, lessons learned, and error boundaries so your context builds across sessions.`,
+  `- **Environment Discovery**: Discover the environment (OS, shell, package manager) before running commands - don't assume.`,
+  `- **Rule of 3**: If the same error repeats 3 times in a row, STOP retrying. Explain what's failing and ask the human for direction instead of continuing to guess.`,
+  `- **Prefer Editing**: Prefer editing over rewriting; commit logically complete chunks rather than one giant diff.`,
+  ``
+].join('\n');
+
+function injectAdvisoryText(targetFile, header, label) {
+  const dir = path.dirname(targetFile);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  if (fs.existsSync(targetFile)) {
+    const content = fs.readFileSync(targetFile, 'utf8');
+    if (!content.includes(MARKER)) {
+      fs.appendFileSync(targetFile, advisoryInstructions, 'utf8');
+      console.log(`  ✅ Augmented existing ${label} with Harness guidance (advisory-only)`);
+    }
+  } else {
+    fs.writeFileSync(targetFile, `${header}\n${advisoryInstructions}`, 'utf8');
+    console.log(`  ✅ Created ${label} with Harness guidance (advisory-only)`);
+  }
+}
+
+// Continue.dev reads project rules as individual Markdown files (with YAML
+// frontmatter) from a `.continue/rules/` folder rather than one shared file,
+// so - unlike the shared-file platforms above - Harness gets its own
+// dedicated `harness.md` rule file instead of appending into an arbitrary
+// pre-existing one.
+function installContinueRule(targetFile, label) {
+  const dir = path.dirname(targetFile);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (fs.existsSync(targetFile) && fs.readFileSync(targetFile, 'utf8').includes(MARKER)) {
+    return;
+  }
+  const content = [
+    `---`,
+    `name: Harness OS Guidance`,
+    `alwaysApply: true`,
+    `description: "Harness OS routing, circuit-breaker awareness, and environment-discovery guidance (advisory only on Continue - no hook mechanism)"`,
+    `---`,
+    advisoryInstructions.replace(/^\n/, '')
+  ].join('\n');
+  fs.writeFileSync(targetFile, content, 'utf8');
+  console.log(`  ✅ Installed Continue rule file with Harness guidance (advisory-only): ${label}`);
+}
+
+function removeContinueRule(targetFile) {
+  if (!fs.existsSync(targetFile)) return;
+  try {
+    const content = fs.readFileSync(targetFile, 'utf8');
+    if (content.includes(MARKER)) {
+      fs.unlinkSync(targetFile);
+      console.log(`  ✅ Removed Harness rule file: ${targetFile}`);
+    }
+  } catch (e) {
+    console.warn(`  ⚠️ Error removing ${targetFile}: ${e.message}`);
+  }
+}
+
 function removeAdvisoryText(targetFile) {
   if (!fs.existsSync(targetFile)) return;
   try {
@@ -338,7 +421,7 @@ function removeAdvisoryText(targetFile) {
       }
       
       const lines = cleanContent.trim().split('\n').map(l => l.trim()).filter(l => l !== '');
-      if (lines.length === 0 || (lines.length === 1 && (lines[0] === '# Cursor Project Rules' || lines[0] === '# AGENTS.md' || lines[0] === '# Copilot Instructions'))) {
+      if (lines.length === 0 || (lines.length === 1 && (lines[0] === '# Cursor Project Rules' || lines[0] === '# AGENTS.md' || lines[0] === '# Copilot Instructions' || lines[0] === '# .hermes.md'))) {
         fs.unlinkSync(targetFile);
         console.log(`  ✅ Removed empty advisory file: ${targetFile}`);
       } else {
@@ -417,6 +500,7 @@ function getInstalledSkills() {
     { path: path.join(workspaceRoot, '.cursor', 'skills'), scope: 'local (.cursor)' },
     { path: path.join(workspaceRoot, '.github', 'skills'), scope: 'local (.github)' },
     { path: path.join(workspaceRoot, '.agents', 'skills'), scope: 'local (.agents)' },
+    { path: path.join(workspaceRoot, '.continue', 'skills'), scope: 'local (.continue)' },
     { path: path.join(userHome, '.agents', 'skills'), scope: 'global' }
   ];
 
@@ -451,10 +535,12 @@ async function main() {
   const hasCursorFlag = args.includes('--cursor');
   const hasCopilotFlag = args.includes('--copilot');
   const hasCodexFlag = args.includes('--codex');
+  const hasContinueFlag = args.includes('--continue');
+  const hasHermesFlag = args.includes('--hermes');
   const hasAllFlag = args.includes('--all');
   const hasGlobalFlag = args.includes('--global') || args.includes('-g');
   const hasYesFlag = args.includes('-y') || args.includes('--yes');
-  const hasAnyPlatformFlag = hasClaudeFlag || hasCursorFlag || hasCopilotFlag || hasCodexFlag || hasAllFlag;
+  const hasAnyPlatformFlag = hasClaudeFlag || hasCursorFlag || hasCopilotFlag || hasCodexFlag || hasContinueFlag || hasHermesFlag || hasAllFlag;
   const requestedSkills = ['add', 'skill', 'skills'].includes(command)
     ? args.slice(3).filter(arg => !arg.startsWith('-'))
     : [];
@@ -463,18 +549,23 @@ async function main() {
   const cursorExists = fs.existsSync(path.join(workspaceRoot, '.cursorrules'));
   const copilotExists = fs.existsSync(path.join(workspaceRoot, '.github', 'copilot-instructions.md')) || fs.existsSync(path.join(workspaceRoot, '.github'));
   const codexExists = fs.existsSync(path.join(workspaceRoot, 'AGENTS.md'));
-  const detectedAny = claudeExists || cursorExists || copilotExists || codexExists;
+  const continueExists = fs.existsSync(path.join(workspaceRoot, '.continue'));
+  const hermesExists = fs.existsSync(path.join(workspaceRoot, '.hermes.md'));
+  const detectedAny = claudeExists || cursorExists || copilotExists || codexExists || continueExists || hermesExists;
 
   if (command === 'uninstall') {
-    const localInstalled = fs.existsSync(path.join(workspaceRoot, '.harness')) || 
+    const localInstalled = fs.existsSync(path.join(workspaceRoot, '.harness')) ||
                            fs.existsSync(path.join(workspaceRoot, '.claude', 'settings.json')) ||
                            fs.existsSync(path.join(workspaceRoot, '.cursorrules')) ||
                            fs.existsSync(path.join(workspaceRoot, '.github', 'copilot-instructions.md')) ||
-                           fs.existsSync(path.join(workspaceRoot, 'AGENTS.md'));
+                           fs.existsSync(path.join(workspaceRoot, 'AGENTS.md')) ||
+                           fs.existsSync(path.join(workspaceRoot, '.continue', 'rules', 'harness.md')) ||
+                           fs.existsSync(path.join(workspaceRoot, '.hermes.md'));
 
     const globalInstalled = fs.existsSync(path.join(userHome, '.agents')) ||
                             fs.existsSync(path.join(userHome, '.claude', 'settings.json')) ||
                             fs.existsSync(path.join(userHome, '.cursorrules')) ||
+                            fs.existsSync(path.join(userHome, '.continue', 'rules', 'harness.md')) ||
                             fs.existsSync(path.join(getUserPromptsDir(), 'harness.instructions.md')) ||
                             fs.existsSync(path.join(getUserPromptsDir(), 'harness.agent.md'));
 
@@ -574,7 +665,11 @@ async function main() {
       removeAdvisoryText(path.join(workspaceRoot, '.cursorrules'));
       removeAdvisoryText(path.join(workspaceRoot, '.github', 'copilot-instructions.md'));
       removeAdvisoryText(path.join(workspaceRoot, 'AGENTS.md'));
-      
+      removeAdvisoryText(path.join(workspaceRoot, '.hermes.md'));
+
+      removeContinueRule(path.join(workspaceRoot, '.continue', 'rules', 'harness.md'));
+      cleanEmptyDirs(path.join(workspaceRoot, '.continue', 'rules'));
+
       const localHarnessDir = path.join(workspaceRoot, '.harness');
       if (fs.existsSync(localHarnessDir)) {
         fs.rmSync(localHarnessDir, { recursive: true, force: true });
@@ -593,6 +688,9 @@ async function main() {
       cleanEmptyDirs(globalClaudeDir);
 
       removeAdvisoryText(path.join(userHome, '.cursorrules'));
+
+      removeContinueRule(path.join(userHome, '.continue', 'rules', 'harness.md'));
+      cleanEmptyDirs(path.join(userHome, '.continue', 'rules'));
 
       const promptsDir = getUserPromptsDir();
       const vscodeInstFile = path.join(promptsDir, 'harness.instructions.md');
@@ -648,7 +746,9 @@ async function main() {
     claude: false,
     cursor: false,
     copilot: false,
-    codex: false
+    codex: false,
+    continue: false,
+    hermes: false
   };
   let chosenSkills = [];
   let isGlobal = hasGlobalFlag;
@@ -666,7 +766,9 @@ async function main() {
       { id: 'claude', name: `Claude Code (hook-enforced)  ${claudeExists ? '(Detected)' : ''}`, checked: claudeExists || !detectedAny },
       { id: 'cursor', name: `Cursor (.cursorrules)          ${cursorExists ? '(Detected)' : ''}`, checked: cursorExists },
       { id: 'copilot', name: `Copilot (.github/copilot-...)  ${copilotExists ? '(Detected)' : ''}`, checked: copilotExists },
-      { id: 'codex', name: `Codex (AGENTS.md)              ${codexExists ? '(Detected)' : ''}`, checked: codexExists }
+      { id: 'codex', name: `Codex (AGENTS.md)              ${codexExists ? '(Detected)' : ''}`, checked: codexExists },
+      { id: 'continue', name: `Continue.dev (.continue/rules) ${continueExists ? '(Detected)' : ''}`, checked: continueExists },
+      { id: 'hermes', name: `Hermes Agent (.hermes.md)      ${hermesExists ? '(Detected)' : ''}`, checked: hermesExists }
     ];
     const selectedPlatforms = await interactiveSelect(platformItems);
     selectedPlatforms.forEach(p => {
@@ -722,6 +824,8 @@ async function main() {
         targets.cursor = cursorExists;
         targets.copilot = copilotExists;
         targets.codex = codexExists;
+        targets.continue = continueExists;
+        targets.hermes = hermesExists;
         if (!detectedAny) {
           targets.claude = true;
         }
@@ -733,11 +837,15 @@ async function main() {
           targets.cursor = true;
           targets.copilot = true;
           targets.codex = true;
+          targets.continue = true;
+          targets.hermes = true;
         } else {
           targets.claude = hasClaudeFlag;
           targets.cursor = hasCursorFlag;
           targets.copilot = hasCopilotFlag;
           targets.codex = hasCodexFlag;
+          targets.continue = hasContinueFlag;
+          targets.hermes = hasHermesFlag;
         }
       } else {
         if (detectedAny) {
@@ -745,6 +853,8 @@ async function main() {
           targets.cursor = cursorExists;
           targets.copilot = copilotExists;
           targets.codex = codexExists;
+          targets.continue = continueExists;
+          targets.hermes = hermesExists;
         } else {
           targets.claude = true;
         }
@@ -759,7 +869,7 @@ async function main() {
   }
 
   // If no targets selected at all, exit
-  if (!targets.claude && !targets.cursor && !targets.copilot && !targets.codex && !isGlobal) {
+  if (!targets.claude && !targets.cursor && !targets.copilot && !targets.codex && !targets.continue && !targets.hermes && !isGlobal) {
     console.log("\n❌ No platforms selected. Exiting.");
     process.exit(0);
   }
@@ -991,6 +1101,22 @@ async function main() {
       }
     }
   }
+  // Continue.dev
+  if (targets.continue) {
+    const targetFile = isGlobal ? path.join(userHome, '.continue', 'rules', 'harness.md') : path.join(workspaceRoot, '.continue', 'rules', 'harness.md');
+    installContinueRule(targetFile, isGlobal ? '~/.continue/rules/harness.md' : '.continue/rules/harness.md');
+  }
+  // Hermes Agent (reads .hermes.md/AGENTS.md/CLAUDE.md/.cursorrules from the
+  // project it's launched in - project scope only, no documented global
+  // equivalent, so --global is a documented no-op here rather than a guess).
+  if (targets.hermes) {
+    if (!isGlobal) {
+      const targetFile = path.join(targetWorkspaceRoot, '.hermes.md');
+      injectAdvisoryText(targetFile, '# .hermes.md', '.hermes.md');
+    } else {
+      console.log(`  ℹ️  Hermes Agent has no documented global instructions file (it reads .hermes.md from the current project directory only) - skipping global install for --hermes.`);
+    }
+  }
 
   // Install chosen skills
   if (chosenSkills.length > 0) {
@@ -1010,6 +1136,12 @@ async function main() {
       if (targets.codex) {
         targetDirs.push({ path: path.join(workspaceRoot, '.agents', 'skills'), label: '.agents/skills/' });
       }
+      if (targets.continue) {
+        targetDirs.push({ path: path.join(workspaceRoot, '.continue', 'skills'), label: '.continue/skills/' });
+      }
+      // Hermes has no documented project-level skills directory - its skills
+      // system is per-profile only (~/.hermes/skills/), which the isGlobal
+      // branch above already covers via the shared ~/.agents/skills/ target.
     }
 
     console.log(`\nInstalling Harness skills:`);
