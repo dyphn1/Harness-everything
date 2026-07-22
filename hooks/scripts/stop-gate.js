@@ -11,20 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return process.cwd();
-}
-
-const root = getWorkspaceRoot();
-const harnessDir = path.join(root, '.harness');
-const handoffFile = path.join(harnessDir, 'handoff-state.json');
-const gateFile = path.join(harnessDir, 'stop-gate-state.json');
+const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 
 function decide(payload) {
   try {
@@ -33,6 +20,11 @@ function decide(payload) {
     if (payload && payload.stop_hook_active) {
       process.exit(0);
     }
+
+    const root = getWorkspaceRoot();
+    const sessionDir = getSessionDir(root, payload && payload.session_id);
+    const handoffFile = path.join(sessionDir, 'handoff-state.json');
+    const gateFile = path.join(sessionDir, 'stop-gate-state.json');
 
     if (!fs.existsSync(handoffFile)) process.exit(0);
     const handoff = JSON.parse(fs.readFileSync(handoffFile, 'utf8'));
@@ -57,7 +49,6 @@ function decide(payload) {
     }).trim();
     if (!dirty) process.exit(0);
 
-    fs.mkdirSync(harnessDir, { recursive: true });
     fs.writeFileSync(gateFile, JSON.stringify({ blockedForEditAt: lastEditAt }, null, 2), 'utf8');
 
     console.error(`[Stop Gate] Turn is ending with uncommitted edits and no successful verification command (test/build/lint) since the last edit.`);

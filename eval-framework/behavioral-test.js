@@ -7,11 +7,12 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { getWorkspaceRoot, getStateRoot } = require('../hooks/scripts/lib/harness-state');
 
 console.log("=== 🧪 Harness Behavioral Test Suite ===");
 
 const todoCli = 'node harness-everything/scripts/todo-cli.js';
-const stateFile = path.join(process.cwd(), '.harness', 'todo-state.json');
+const stateFile = path.join(getStateRoot(getWorkspaceRoot()), 'todo-state.json');
 
 function run(cmd, expectFail = false) {
   try {
@@ -30,8 +31,8 @@ function run(cmd, expectFail = false) {
   }
 }
 
-// 0. Setup: Clean slate - but this suite runs against the REAL .harness/
-// directory of whatever project invokes it (e.g. via self-regression.js on
+// 0. Setup: Clean slate - but this suite runs against the REAL
+// .claude/harness-state/ directory of whatever project invokes it (e.g. via self-regression.js on
 // a contributor's machine), so any real in-flight todo-state.json must be
 // preserved, not clobbered. Back it up now and restore it on exit
 // (success, assertion failure, or process.exit alike - 'exit' fires on all

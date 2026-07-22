@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 
 // PostToolUse hooks in Claude Code typically receive the tool output via stdin
 let inputData = '';
@@ -36,12 +37,7 @@ process.stdin.on('end', () => {
     const isFailure = explicitFailure || (exitCode === undefined && stderrSignal && looksLikeError);
     const errorText = (stderrSignal ? stderr : stdout) || '';
 
-    const stateDir = path.join(process.cwd(), '.harness');
-    const stateFile = path.join(stateDir, 'rule-of-3-state.json');
-
-    if (!fs.existsSync(stateDir)) {
-      fs.mkdirSync(stateDir, { recursive: true });
-    }
+    const stateFile = path.join(getSessionDir(getWorkspaceRoot(), payload.session_id), 'rule-of-3-state.json');
 
     let state = { count: 0, lastHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0 };
     if (fs.existsSync(stateFile)) {

@@ -4,17 +4,14 @@
 // breaker is tripped) to clear it without waiting for a new session.
 const fs = require('fs');
 const path = require('path');
+const { getWorkspaceRoot, getSessionDir, readCurrentSession } = require('./lib/harness-state');
 
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return process.cwd();
-}
-
-const harnessDir = path.join(getWorkspaceRoot(), '.harness');
+// This is run directly by the human, not through the agent, so there's no
+// hook payload to read a session_id from - resolve "the session that's
+// currently blocked" via the pointer bootstrap.js wrote at its last
+// SessionStart.
+const root = getWorkspaceRoot();
+const harnessDir = getSessionDir(root, readCurrentSession(root));
 const stateFile = path.join(harnessDir, 'rule-of-3-state.json');
 const reportFile = path.join(harnessDir, 'zoom-out-report.md');
 

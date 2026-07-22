@@ -57,14 +57,21 @@ self-contained and cleans up after itself.
 
 ### 2a. Rule of 3 circuit breaker actually blocks
 
+Runtime state lives under `.claude/harness-state/sessions/<session_id>/`
+(see [docs/architecture.md](docs/architecture.md)). Invocations with no
+`session_id` in the piped payload — like these manual tests — fall into a
+fixed `sessions/default/` bucket rather than a random one.
+
 ```bash
-mkdir -p .harness
-rm -f .harness/zoom-out-report.md
-echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false}' > .harness/rule-of-3-state.json
+mkdir -p .claude/harness-state/sessions/default
+rm -f .claude/harness-state/sessions/default/zoom-out-report.md
+echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false}' > .claude/harness-state/sessions/default/rule-of-3-state.json
 node hooks/scripts/rule-of-3.js; echo "exit=$?"
 ```
 **Expect:** stderr prints `[CRITICAL] RULE OF 3 CIRCUIT BREAKER TRIGGERED!`
-plus the reflect-first instructions (zoom-out protocol, report path), and `exit=2`.
+plus the reflect-first instructions (zoom-out protocol, and the exact report
+path to write to — resolved per-session, so it'll read
+`.claude/harness-state/sessions/default/zoom-out-report.md` here), and `exit=2`.
 (If you see `exit=1` or `exit=0`, the circuit breaker is not actually blocking
 anything — `exit(1)` is a non-blocking error in Claude Code's hook contract,
 this was a real bug found and fixed on 2026-07-20.)
@@ -78,16 +85,16 @@ node hooks/scripts/rule-of-3.js; echo "exit=$?"
 ### 2a-bis. Zoom-out reflection report releases the breaker
 
 ```bash
-echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false,"lastFailureAt":0,"zoomOutCycles":0}' > .harness/rule-of-3-state.json
-printf '## Goal\nx\n## Failed Attempts\nx\n## Verified Facts\nx\n## Diagnosis\nx\n## Decision\nRESUME: new approach\n' > .harness/zoom-out-report.md
+echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false,"lastFailureAt":0,"zoomOutCycles":0}' > .claude/harness-state/sessions/default/rule-of-3-state.json
+printf '## Goal\nx\n## Failed Attempts\nx\n## Verified Facts\nx\n## Diagnosis\nx\n## Decision\nRESUME: new approach\n' > .claude/harness-state/sessions/default/zoom-out-report.md
 node hooks/scripts/rule-of-3.js; echo "exit=$?"
-node -e "const s=require('./.harness/rule-of-3-state.json'); console.log(s.count===0 && s.zoomOutResolved===true && s.zoomOutCycles===1 ? 'released-ok' : 'released-FAIL')"
+node -e "const s=require('./.claude/harness-state/sessions/default/rule-of-3-state.json'); console.log(s.count===0 && s.zoomOutResolved===true && s.zoomOutCycles===1 ? 'released-ok' : 'released-FAIL')"
 ```
 **Expect:** stdout prints `breaker released`, `exit=0`, then `released-ok` —
 a completed reflection report is the agent's own way out; no human reset needed.
 
 ```bash
-node -e "require('fs').writeFileSync('.harness/rule-of-3-state.json', JSON.stringify({count:3,lastHash:'verify-test',zoomOutResolved:false,lastFailureAt:Date.now()+60000,zoomOutCycles:1}))"
+node -e "require('fs').writeFileSync('.claude/harness-state/sessions/default/rule-of-3-state.json', JSON.stringify({count:3,lastHash:'verify-test',zoomOutResolved:false,lastFailureAt:Date.now()+60000,zoomOutCycles:1}))"
 node hooks/scripts/rule-of-3.js; echo "exit=$?"
 npm run harness:reset
 ```
@@ -109,14 +116,14 @@ rm .verify-big.tmp
 
 ```bash
 echo '{"tool_name":"Bash","tool_response":{"stdout":"","stderr":"npm ERR! verify-test failure"}}' | node hooks/scripts/state-persist.js
-node -e "console.log(JSON.parse(require('fs').readFileSync('.harness/handoff-state.json','utf8')).status)"
-node harness-everything/scripts/bootstrap.js
+node -e "console.log(JSON.parse(require('fs').readFileSync('.claude/harness-state/sessions/default/handoff-state.json','utf8')).status)"
+echo '{}' | node harness-everything/scripts/bootstrap.js
 ```
 **Expect:** prints `failed`, then `bootstrap.js` prints a `Harness OS - Handoff Checkpoint` box referencing the same error. `bootstrap.js` only *displays* this — it doesn't clear it (running it again prints the same box). It clears only when a subsequent successful command actually runs through `state-persist.js`:
 
 ```bash
 echo '{"tool_name":"Bash","tool_response":{"stdout":"ok","exitCode":0}}' | node hooks/scripts/state-persist.js
-node harness-everything/scripts/bootstrap.js
+echo '{}' | node harness-everything/scripts/bootstrap.js
 ```
 **Expect:** no checkpoint box this time.
 
@@ -141,8 +148,8 @@ rm .verify-scope-test.tmp
 ### 2f. Stop gate bounces an unverified-edit stop exactly once
 
 ```bash
-rm -f .harness/stop-gate-state.json
-node -e "require('fs').mkdirSync('.harness',{recursive:true}); require('fs').writeFileSync('.harness/handoff-state.json', JSON.stringify({status:'idle',lastEditAt:Date.now(),lastVerifyAt:0}))"
+rm -f .claude/harness-state/sessions/default/stop-gate-state.json
+node -e "require('fs').mkdirSync('.claude/harness-state/sessions/default',{recursive:true}); require('fs').writeFileSync('.claude/harness-state/sessions/default/handoff-state.json', JSON.stringify({status:'idle',lastEditAt:Date.now(),lastVerifyAt:0}))"
 echo "dirty" > .verify-dirty.tmp
 echo '{}' | node hooks/scripts/stop-gate.js; echo "exit=$?"
 ```
@@ -156,9 +163,9 @@ echo '{}' | node hooks/scripts/stop-gate.js; echo "exit=$?"
 nags twice for the same batch.
 
 ```bash
-rm -f .harness/stop-gate-state.json
+rm -f .claude/harness-state/sessions/default/stop-gate-state.json
 echo '{"stop_hook_active":true}' | node hooks/scripts/stop-gate.js; echo "exit=$?"
-rm .verify-dirty.tmp .harness/handoff-state.json .harness/stop-gate-state.json 2>/dev/null; true
+rm .verify-dirty.tmp .claude/harness-state/sessions/default/handoff-state.json .claude/harness-state/sessions/default/stop-gate-state.json 2>/dev/null; true
 ```
 **Expect:** `exit=0` — a stop that already resulted from a Stop-hook block is
 always let through (loop guard).

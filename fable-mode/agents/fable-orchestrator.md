@@ -50,7 +50,7 @@ that stage's check before continuing.
 Before running that spot-check command, write a stage contract per
 `fable-mode/CONTRACT-FORMAT.md` — this turns "I re-ran it" into an artifact
 `contract-test.js` fills in and later stages can audit, instead of a verbal
-claim. Before delivering, confirm no `.harness/contracts/*.json` is still
+claim. Before delivering, confirm no `.claude/harness-state/contracts/*.json` is still
 `"status": "pending"` or `"fail"`.
 
 **4. Self-critique before delivery.** Read the final output as a skeptical

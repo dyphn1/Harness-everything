@@ -1,22 +1,44 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
+const {
+  getWorkspaceRoot,
+  getSessionDir,
+  writeCurrentSession,
+  pruneStaleSessions,
+} = require('../../hooks/scripts/lib/harness-state');
 
 console.log("Bootstrapping Harness Skills OS...");
 
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
+// SessionStart hooks receive a payload with session_id via stdin, same as
+// every other hook. Read it synchronously up front - bootstrap has no
+// tool-call latency to protect, so there's no fast-path tradeoff here - but
+// skip entirely on an interactive TTY (manual run) where reading fd 0 would
+// just hang waiting for input that's never coming.
+let payload = null;
+if (!process.stdin.isTTY) {
+  try {
+    const raw = fs.readFileSync(0, 'utf8');
+    payload = JSON.parse(raw);
+  } catch (err) {
+    // No payload piped in, or invalid JSON - fall back to 'default'.
   }
-  return process.cwd();
 }
+const sessionId = payload && payload.session_id;
 
-const harnessDir = path.join(getWorkspaceRoot(), '.harness');
-if (!fs.existsSync(harnessDir)) {
-  fs.mkdirSync(harnessDir, { recursive: true });
-}
+const root = getWorkspaceRoot();
+
+// Nothing purges old session directories the way an OS temp dir would -
+// drop ones untouched for a while so .claude/harness-state/sessions/ doesn't
+// grow forever.
+pruneStaleSessions(root);
+
+// The manual escape hatch (reset-circuit-breaker.js) and any CLI tool that
+// can't see a session_id (todo-cli.js) resolve "current session" through
+// this pointer.
+writeCurrentSession(root, sessionId);
+
+const harnessDir = getSessionDir(root, sessionId);
 
 // The Rule of 3 circuit breaker (hooks/scripts/rule-of-3.js) locks all
 // Bash/Edit/Write calls once tripped; the only in-session exits are a valid

@@ -11,8 +11,8 @@ description: Reflect-first circuit breaker - rebuild the full picture and fact-c
 | :--- | :--- |
 | **Trigger / Input** | Terminal script failures 3 times in a row, or getting stuck in an infinite loop. Input: Error logs. |
 | **Expected Output** | Reflection report written to disk. Terminal commands MUST STOP until the report is completed. |
-| **State Mutations** | MUST write `.harness/zoom-out-report.md`. |
-| **Enforcement Gate** | The `rule-of-3.js` script (if run via Hook or CLI) will block all other `Write` or `Edit` actions until `.harness/zoom-out-report.md` exists and is formatted correctly. |
+| **State Mutations** | MUST write `zoom-out-report.md` at the exact path the Rule of 3 breaker message gives you (session-scoped under `.claude/harness-state/sessions/<id>/`). |
+| **Enforcement Gate** | The `rule-of-3.js` script (if run via Hook or CLI) will block all other `Write` or `Edit` actions until that `zoom-out-report.md` exists and is formatted correctly. |
 
 This skill is the **Ultimate Circuit Breaker** in the Harness system.
 It MUST be forcefully triggered when the Agent falls into logic blind spots, invalid retries, or hits the Reasoning Ceiling.
@@ -42,7 +42,7 @@ Use **READ-ONLY tools** (Read / Grep / Glob) — they remain available while the
 5. **Form a fresh diagnosis** that explains **ALL** observed evidence — including why all previous attempts failed — not just the latest error message.
 
 ## 4. Phase 3 — Write the Reflection Report
-Write your findings to `.harness/zoom-out-report.md` — the ONLY write permitted while the breaker is locked. (If the file already exists from an earlier cycle, Read it first so you do not re-propose an already-falsified diagnosis.) Required sections:
+Write your findings to the exact `zoom-out-report.md` path printed in the Rule of 3 block message — the ONLY write permitted while the breaker is locked. (If the file already exists from an earlier cycle, Read it first so you do not re-propose an already-falsified diagnosis.) Required sections:
 
 ```markdown
 ## Goal

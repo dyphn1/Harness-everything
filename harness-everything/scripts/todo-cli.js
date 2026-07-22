@@ -6,9 +6,13 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { getWorkspaceRoot, getStateRoot } = require('../../hooks/scripts/lib/harness-state');
 
-const stateFile = path.join(process.cwd(), '.harness', 'todo-state.json');
-const harnessDir = path.dirname(stateFile);
+// Shared across sessions (not scoped to one): todo-cli.js is invoked as a
+// plain CLI command by the agent, not a hook, so it never receives a
+// session_id to scope by.
+const harnessDir = getStateRoot(getWorkspaceRoot());
+const stateFile = path.join(harnessDir, 'todo-state.json');
 
 if (!fs.existsSync(harnessDir)) {
   fs.mkdirSync(harnessDir, { recursive: true });

@@ -20,15 +20,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return null;
-}
+const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 
 function gitStatus(root) {
   try {
@@ -46,11 +38,7 @@ process.stdin.on('end', () => {
     if (payload.tool_name !== 'Task') process.exit(0);
 
     const root = getWorkspaceRoot();
-    if (!root) process.exit(0);
-
-    const stateDir = path.join(root, '.harness');
-    const stateFile = path.join(stateDir, 'subagent-scope-state.json');
-    if (!fs.existsSync(stateDir)) fs.mkdirSync(stateDir, { recursive: true });
+    const stateFile = path.join(getSessionDir(root, payload.session_id), 'subagent-scope-state.json');
 
     if (payload.hook_event_name === 'PreToolUse') {
       // Only set the baseline if one isn't already pending - parallel/nested

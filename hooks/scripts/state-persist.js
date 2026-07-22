@@ -1,17 +1,7 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
-
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return process.cwd();
-}
-
-const stateFile = path.join(getWorkspaceRoot(), '.harness', 'handoff-state.json');
+const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 
 // Commands that count as "verification ran" for the Stop gate
 // (hooks/scripts/stop-gate.js). Recall over precision: under-blocking the
@@ -39,7 +29,8 @@ process.stdin.on('end', () => {
 
 function processState(payload) {
   try {
-    fs.mkdirSync(path.dirname(stateFile), { recursive: true });
+    const sessionId = payload && payload.session_id;
+    const stateFile = path.join(getSessionDir(getWorkspaceRoot(), sessionId), 'handoff-state.json');
 
     // Merge into the existing state rather than replacing it, so the
     // failure/idle status and the Stop-gate milestones can coexist.

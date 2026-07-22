@@ -14,7 +14,7 @@ metadata:
 | :--- | :--- |
 | **Trigger / Input** | Tier 2/3 Task Identification. Input: High-level task description. |
 | **Expected Output** | Granular execution state. A series of terminal calls to `todo-cli.js`. |
-| **State Mutations** | MUST write to `.harness/todo-state.json` via CLI. |
+| **State Mutations** | MUST write to `.claude/harness-state/todo-state.json` via CLI. |
 | **Enforcement Gate** | `node harness-everything/scripts/todo-cli.js`. Exits with Code 1 if multitasking, bypassing initialization, or skipping `verify-gate.js`. |
 
 This skill enforces a disciplined execution loop. It prevents "hallucinated progress" by forcing the Agent to track exact state and prove completion before moving to the next step. 

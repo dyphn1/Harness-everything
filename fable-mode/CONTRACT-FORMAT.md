@@ -1,6 +1,6 @@
 # Stage Contract Format
 
-Stage contracts live in `.harness/contracts/` and make fable-orchestrator's
+Stage contracts live in `.claude/harness-state/contracts/` and make fable-orchestrator's
 "re-run or spot-check every stage's named check" discipline auditable instead
 of a verbal claim. The `contract-test.js` hook (PostToolUse: Bash) watches for
 the exact `checkCommand` running and fills in the result — you write the
@@ -15,7 +15,7 @@ check.
 
 ## File
 
-`.harness/contracts/<stageId>.json`, created lazily. `stageId` is whatever you
+`.claude/harness-state/contracts/<stageId>.json`, created lazily. `stageId` is whatever you
 numbered the stage in your stage map (`stage-3`, `db-migration`, etc).
 
 ## Schema
@@ -38,7 +38,7 @@ output), and `verifiedAt` for you; you don't write those fields yourself.
 
 ## Reading contracts back
 
-Before delivering, `Read` (or `Grep status` across) `.harness/contracts/*.json`.
+Before delivering, `Read` (or `Grep status` across) `.claude/harness-state/contracts/*.json`.
 Any file still `"status": "pending"` means the named check was declared but
 never actually run — that stage's output hasn't been verified, whatever the
 worker's report claimed. Resolve it before building further on that stage.

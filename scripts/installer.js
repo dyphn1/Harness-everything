@@ -660,6 +660,13 @@ async function main() {
       const localSettingsFile = path.join(workspaceRoot, '.claude', 'settings.json');
       removeClaudeHooks(localSettingsFile);
       const localClaudeDir = path.join(workspaceRoot, '.claude');
+
+      const localHarnessStateDir = path.join(localClaudeDir, 'harness-state');
+      if (fs.existsSync(localHarnessStateDir)) {
+        fs.rmSync(localHarnessStateDir, { recursive: true, force: true });
+        console.log(`  ✅ Removed local .claude/harness-state/ directory`);
+      }
+
       cleanEmptyDirs(localClaudeDir);
 
       removeAdvisoryText(path.join(workspaceRoot, '.cursorrules'));
