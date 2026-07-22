@@ -45,7 +45,7 @@ It ensures that the entire Harness ecosystem becomes smarter and avoids repeatin
   ```bash
   node "<this-skill-dir>/scripts/persist-memory.js" "<Your extracted root cause and defensive rule here>"
   ```
-- **Dynamic Skill Generation (Session Packaging)**: Through self-review, package the successful session summary (hard boundary) into a new, dynamic skill (e.g., creating a new `SKILL.md` for a specific workflow, akin to the Hermes agent approach). Note that these dynamically generated skills have a lifecycle—they are meant to be continuously optimized or replaced, distinct from the system's foundational static skills.
+- **Dynamic Skill Generation (Session Packaging)**: Through self-review, package the successful session summary (hard boundary) into a new, dynamic skill. **You MUST load `skill-creator/SKILL.md` and follow its §4 Dynamic Skill Generation Contract** before writing the file — it defines the required location (`.harness/skills/generated/<name>/SKILL.md`, not the repo root), the required lifecycle frontmatter (`metadata.type: dynamic`, `status: draft`), and the Quality Checklist gate this file must pass since it skips human PR review by design. Do not hand-write a `SKILL.md` inline here; that checklist is the only review a dynamically generated skill gets. These dynamically generated skills have a lifecycle — draft → active → deprecated, or promoted to a static skill once proven general — distinct from the system's foundational static skills.
 - **Note**: Only record "Key Insights", keeping the memory document short and punchy. Avoid stuffing it with lengthy conversation logs or useless narratives.
 
 ## 3. Purpose

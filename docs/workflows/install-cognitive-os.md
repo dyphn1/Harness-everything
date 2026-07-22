@@ -30,6 +30,7 @@ graph LR
   InstallSkill -->|Deploys core router script| Router["harness-everything / scripts / tier-router.js"]
   InstallSkill -->|Establishes memory loop configs for| Evolve["self-evolve / SKILL.md"]
   InstallSkill -->|Guards all file edits using| Todo["todo-driven-workflow / SKILL.md"]
+  InstallSkill -->|Enforces Always-On Normalization for all responses| ADHD["Always-On ADHD-Friendly Output Shaping"]
 ```
 
 ---

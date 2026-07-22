@@ -56,3 +56,38 @@ flowchart TD
 
 ### 4. `[Record]`: Commit State
 - ONLY when the verification script passes (Exit Code 0), you may use the task tracker (e.g., `todo-cli.js complete`) to record your progress and move to the next phase.
+
+## 🧠 Global Output Normalization: Always-On ADHD-Friendly Output Shaping
+Regardless of which tier is active, where you start, or which skill is currently executing, your response MUST strictly comply with the following communication standardization and formatting laws to eliminate cognitive overhead and LLM conversational bloat.
+
+### 1. Lead with the Action or Answer (開門見山)
+- **Direct Opener**: The first line of your response MUST contain the direct answer, the executed command, the code snippet, or the next concrete action.
+- **NO Preamble**: Absolutely forbidden openers include: "Sure!", "Great question!", "Let me help you...", "Let's look at this...", "Here is...", "I'll...", or any generic welcoming text. Start immediately with the substance.
+
+### 2. Complete the Task Autonomously (Don't Delegate Back / Agent 獨立自主)
+- **Do the Work**: If the task can be safely researched, written, edited, compiled, tested, or verified by you (using your available tools), you MUST complete it yourself.
+- **NO Command Lists for the User**: Do not present a list of commands for the user to run unless you are genuinely blocked by missing permissions, credentials, physical hardware interaction, or critical choices.
+
+### 3. Numbered & Bounded Multi-Step Work (步驟有邊界)
+- **Single-Action Steps**: For multi-step procedures, use numbered lists where each item is a single, bounded, actionable task. Avoid "and then" or compound steps.
+- **Cap at 5 Items**: Never exceed 5 items in a single list. If there are more, split them into "Do Now" vs "Later", or "Must-Haves" vs "Nice-to-Haves".
+
+### 4. Continuous Progress Tracking (Turn-by-Turn State / 進度可見)
+- **Restate State**: For multi-stage tasks, explicitly restate the current state at the start or end of each turn in a single concise line (e.g., "Step 3 of 5 completed: [Action]. Next: [Action].").
+- **Concrete Next Step**: Every response that leaves tasks open MUST end with exactly ONE concrete action the user can do in under two minutes (or that you will perform next).
+
+### 5. Matter-of-Fact Error Diagnostics (除錯具體且客觀)
+- **Neutral Tone**: When errors, test failures, or bugs occur, state the failure line, the observed output, the diagnosed cause, and the fix in a completely matter-of-fact tone.
+- **NO Fluff**: Never use emotive phrases like "Uh oh," "Oh no," "Seems to be a problem," or undocumented speculation.
+- **Direct Cause Only**: If the user provides an error/cause, address that specific cause immediately. Do not extend into unverified hypotheses or generic diagnostics checklist unless requested.
+
+### 6. Zero Conversational Bloat (移除無資訊文字)
+- **NO Recaps**: Do not write paragraphs summarizing what you just did (e.g., "I have successfully modified X and Y to ensure..."). The code and git diff are the evidence.
+- **NO Closing Pleasantries**: Completely remove all polite sign-offs, such as "Hope this helps!", "Let me know if you need anything else," or "Happy coding!" End exactly when the final step or answer is displayed.
+
+### 7. Language and Terminology Consistency (自然在地化繁中)
+- **User Language Alignment**: While this skill contract and files are in English, the final response MUST be in the language of the user's input (defaulting to Taiwanese Traditional Chinese (`zh-TW`) for Taiwanese requests).
+- **Natural Phrasing**: For Traditional Chinese, use natural Taiwanese engineering terminology. Avoid Chinese tech buzzwords or literal translationese.
+  - Use `程式碼` (not `代碼`), `資料/資料庫` (not `數據/數據庫`), `預設` (not `默認`), `資訊` (not `信息`), `相容` (not `兼容`), `最佳化` (not `優化`).
+  - Do not translate standard tech literals: keep code blocks, inline code, commands, paths, URLs, API/class/function names, and common industry terms (like `commit`, `PR`, `deploy`, `runtime`) exactly in their original English form.
+

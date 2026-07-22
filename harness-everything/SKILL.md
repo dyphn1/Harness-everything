@@ -26,6 +26,7 @@ Never rush to act before understanding the environment; establish contextual awa
 **Always-On Disciplines** (apply on every tier, alongside the loops above):
 - `fable-mode/execution-guardrails` — verify-before-flag, warning batching, find-and-replace safety. These are behavioral contracts, not Tier-3-only rules.
 - `verify-before-claim` — never assert external framework/API behavior or unmeasured performance numbers from training memory; verify against an authoritative source first.
+- `install-cognitive-os`'s Global Output Normalization — lead with direct answers, suppress preambles/recaps/pleasantries, and enforce natural locale terminology (§6).
 
 **Self-Healing Toolchain (工欲善其事,必先利其器)**: The harness may have been installed from a different editor than the one currently running (e.g., installed via Claude Code, now opened in Copilot). During the `[Discover]` phase, audit the workspace's integration touchpoints and repair any that are missing — the script is idempotent and delegates to the installer, so re-running is always safe:
 ```bash
@@ -102,6 +103,9 @@ LLMs have a Reasoning Ceiling. To avoid invalid infinite retries, you must stric
 - Or, when you have expended great effort to overcome difficulties and complete a complex task.
 - You **MUST** automatically call the `self-evolve` skill to write "human key insights" or "successfully avoided traps" into system memory, ensuring the same blind spots are bypassed next time.
 
+## 6. Always-On ADHD-Friendly Output Shaping
+This is the same always-on discipline `install-cognitive-os` defines under its own §"Global Output Normalization" — this router doesn't restate it (that duplication was flagged in [`docs/reports/skill-quality-audit-writing-great-skills-2026-07-22.md`](../docs/reports/skill-quality-audit-writing-great-skills-2026-07-22.md) §1.1 and has been removed). Since §1 already sends every task through `install-cognitive-os` before any action, its output-shaping rules are already in effect by the time this router does anything — apply them as written there, on every response, regardless of tier.
+
 ## 5. Skill Registry (Full Activation Map)
 Every skill in this repository is reachable from this router. If a task matches a trigger below and the skill is not yet loaded, load it.
 
@@ -129,6 +133,7 @@ Every skill in this repository is reachable from this router. If a task matches 
 | `grill-with-docs` | Tier 3 | Documenting decisions (ADR / CONTEXT) before large designs. |
 | `zoom-out` | Circuit breaker | Rule of 3 trips (§3). |
 | `self-evolve` | Evolution | Post-breaker resolution or major breakthrough (§4). |
-| `skill-style` | Meta | Authoring or modifying any SKILL.md in this repository. |
+| `skill-style` | Meta | Authoring or modifying any SKILL.md in this repository — the terse Skill Contract format spec. |
+| `skill-creator` | Meta | Creating a new skill from scratch, auditing/refactoring an existing SKILL.md, or `self-evolve`'s dynamic skill generation step (§4) — the fuller authoring, quality-checklist, and testing workflow built on `skill-style`. |
 
 (`eval-framework/` is internal CI for the router itself — run `node eval-framework/runner.js` after modifying `tier-router.js`; it is not a routable skill. Likewise `scripts/self-heal.js` in this skill is infrastructure, invoked during `[Discover]` per §1.)

@@ -28,7 +28,8 @@ graph TD
   FactCheck -->|Yes| FactReminder["Append Fact-Audit Reminder"]
   FactCheck -->|No| FinalizeOutput["Finalize Routing Checkpoint Output"]
   FactReminder --> FinalizeOutput
-  FinalizeOutput --> End([Developer proceeds with recommended workflow])
+  FinalizeOutput --> Normalization["Apply Always-On ADHD-Friendly Output Shaping (Global Normalization)"]
+  Normalization --> End([Developer receives highly focused, concise response])
 ```
 
 ---
@@ -48,7 +49,13 @@ graph LR
   Guides -->|Agent/Fable/Macro| Ch3["fable-mode + fable-discipline + build-multi-agent-system + create-agent-launcher"]
   Guides -->|Refactor/Architecture| Ch4["improve-codebase-architecture + grill-with-docs + grill-me + fable-mode"]
   
+  Ch1 --> ADHD["Always-On ADHD-Friendly Output Shaping (Global Normalization)"]
+  Ch2 --> ADHD
+  Ch3 --> ADHD
+  Ch4 --> ADHD
+  
   style Router fill:#d35400,stroke:#e67e22,stroke-width:2px,color:#ffffff
+  style ADHD fill:#1abc9c,stroke:#16a085,stroke-width:2px,color:#ffffff
 ```
 
 ---

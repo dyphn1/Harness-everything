@@ -49,9 +49,9 @@ function run(userPrompt) {
       "- tdd/guides/interface-design.md (Interface and contract design)",
       "- tdd/guides/deep-modules.md (Testing deep nested modules)",
       "- tdd/guides/tests.md (General test architecture)",
-      "- environment-detection/SKILL.md (Detect active shell & preflight syntax to run tests safely)",
-      "- verify-before-claim/SKILL.md (Validate test assertions with objective evidence)",
-      "- verification-loop/SKILL.md (Run pre-PR quality checks: build, types, lint, tests)"
+      "- environment-detection/SKILL.md (Detect active shell/OS & preflight syntax before running commands)",
+      "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)",
+      "- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)"
     );
   }
 
@@ -68,8 +68,8 @@ function run(userPrompt) {
       "- git-commit/guides/MAIN_REPO.md (Commits in main repositories)",
       "- git-commit/guides/SUBMODULES.md (Submodule commit handling)",
       "- rewrite-commits/SKILL.md (Rewrite commit history safely to Angular style)",
-      "- using-git-worktrees/SKILL.md (Git Worktrees isolation for multi-tasking)",
-      "- verification-loop/SKILL.md (Pre-PR verification gate: build, lint, types, tests, security scan)"
+      "- using-git-worktrees/SKILL.md (Git Worktrees isolation for feature work, avoids workspace pollution)",
+      "- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)"
     );
   }
 
@@ -93,7 +93,7 @@ function run(userPrompt) {
       "- build-multi-agent-system/SKILL.md (Universal Multi-Agent Workspace scaffolding & memory db)",
       "- create-agent-launcher/SKILL.md (Sub-agent generator for specialized task delegation)",
       "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)",
-      "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven Grilling)"
+      "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)"
     );
   }
 
@@ -109,7 +109,7 @@ function run(userPrompt) {
       "- improve-codebase-architecture/guides/HTML-REPORT.md (Mermaid dependency report generation)",
       "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)",
       "- grill-me/SKILL.md (Challenger interview to stress-test your architecture plan)",
-      "- fable-mode/SKILL.md (Fable execution framework for macro architectural rewrites)"
+      "- fable-mode/SKILL.md (Macro task planning & execution orchestrator)"
     );
   }
 
@@ -119,8 +119,8 @@ function run(userPrompt) {
   ];
   if (ENV_KEYWORDS.some(k => promptLower.includes(k))) {
     recommendedGuides.push(
-      "- environment-detection/SKILL.md (Active shell and environment detection, syntax guardrails)",
-      "- using-git-worktrees/SKILL.md (Git Worktrees isolation for safe terminal environment testing)"
+      "- environment-detection/SKILL.md (Detect active shell/OS & preflight syntax before running commands)",
+      "- using-git-worktrees/SKILL.md (Git Worktrees isolation for feature work, avoids workspace pollution)"
     );
   }
 
@@ -130,15 +130,16 @@ function run(userPrompt) {
   ];
   if (VERIFY_KEYWORDS.some(k => promptLower.includes(k))) {
     recommendedGuides.push(
-      "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates)",
-      "- verification-loop/SKILL.md (Comprehensive pre-PR quality gate)",
+      "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)",
+      "- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)",
       "- eval-harness/SKILL.md (AI performance evaluation metrics & anti-loop metrics)"
     );
   }
 
   if (/\bskill\b|skill\.md|new skill|write a skill/.test(promptLower)) {
     recommendedGuides.push(
-      "- skill-style/SKILL.md (Style rules for authoring or modifying SKILL.md files in this repository)"
+      "- skill-creator/SKILL.md (Authoring, auditing, and testing workflow for SKILL.md files, incl. dynamic skill generation)",
+      "- skill-style/SKILL.md (Terse Skill Contract format spec that skill-creator builds on)"
     );
   }
 

@@ -40,21 +40,7 @@ Every SKILL.md MUST include this table exactly:
 - **Script-Driven Enforcement**: Do not write "You should check your code". Write "You MUST run `node verify-gate.js`. If Exit Code 1, you MUST reflect and retry."
 
 ## 3. Avoid Functional Overlap
-- **OS Skills vs. Domain Skills**: Distinguish between the OS layer (which routes and constrains behavior) and the Domain layer (which provides deep technical expertise). 
-Every SKILL.md MUST include this table exactly:
+- **OS Skills vs. Domain Skills**: Distinguish between the OS layer (which routes and constrains behavior) and the Domain layer (which provides deep technical expertise).
 
-```markdown
-## 📋 Skill Contract
-
-| Component | Specification |
-| :--- | :--- |
-| **Trigger / Input** | (What causes this skill to execute? What exact data/args does it expect?) |
-| **Expected Output** | (What specific files, artifacts, or Terminal Exit Codes are produced?) |
-| **State Mutations** | (What JSON/files are written to track progress? e.g., \`.harness/todo-state.json\`) |
-| **Enforcement Gate** | (Which exact CLI script slaps the LLM with Exit Code 1 if it fails?) |
-```
-
-## 2. Tone & Voice
-- **Anti-Linear / Anti-Prose**: Do not write long paragraphs. Map actions to specific `run_in_terminal` commands.
-- **Absolute Imperatives**: Use "MUST", "MUST NOT", "ALWAYS". Do not use "suggest".
-- **Script-Driven Enforcement**: Do not write "You should check your code". Write "You MUST run `node verify-gate.js`. If Exit Code 1, you MUST reflect and retry."
+## 4. For the fuller authoring & quality workflow, see `skill-creator`
+This document is the terse format spec — the Skill Contract table shape and the tone rules. For interviewing intent, drafting, testing a skill against real prompts, pruning duplication/no-op/sprawl, and the rules for skills `self-evolve` generates dynamically mid-session, load `skill-creator/SKILL.md` instead. It builds on this spec rather than replacing it.

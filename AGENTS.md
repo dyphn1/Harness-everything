@@ -2,7 +2,7 @@
 description: "Harness OS Guidance (Advisory)"
 applyTo: "**"
 ---
-# Copilot Instructions
+# Agent Instructions (Codex / AGENTS.md)
 
 This file is advisory only - this platform has no hook/execution mechanism to
 enforce it mechanically (unlike Claude Code's hook-based circuit breaker). Treat
@@ -29,3 +29,7 @@ Every time you receive a new prompt, you MUST load the `harness-everything` skil
 - **Environment Discovery**: Discover the environment (OS, shell, package manager) before running commands - don't assume.
 - **Rule of 3**: If the same error repeats 3 times in a row, STOP retrying. Explain what's failing and ask the human for direction instead of continuing to guess.
 - **Prefer Editing**: Prefer editing over rewriting; commit logically complete chunks rather than one giant diff.
+
+## ⚡ ALWAYS-ON ADHD-FRIENDLY OUTPUT SHAPING (GLOBAL NORMALIZATION)
+Same rules as `install-cognitive-os/SKILL.md`'s "Global Output Normalization" section — open that file and apply them to every response, regardless of the active tier or which skill is executing. (Previously restated here in full; consolidated to one source per `docs/reports/skill-quality-audit-writing-great-skills-2026-07-22.md` §1.1 — this platform has no hook to force re-reading that file automatically, so open it explicitly at session start if it isn't already in context, the same way §🤖 above tells you to open `tdd`/`fable-mode` rather than inlining them here.)
+
