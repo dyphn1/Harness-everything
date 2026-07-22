@@ -21,6 +21,7 @@ switch (command) {
   case 'add':
   case 'skill':
   case 'skills':
+  case 'uninstall':
     runInstaller(args.slice(1));
     break;
   case 'test':
@@ -58,6 +59,14 @@ Commands:
                        Options:
                          -g, --global  Install skills to home directory (~/.agents/skills)
                        (Runs interactively if no skill names are specified)
+  uninstall          Remove Harness OS hooks, advisory files & skills
+                     Options:
+                       --local       Remove from local workspace
+                       -g, --global  Also remove from home directory (~/.agents, etc.)
+                       --skills      Remove installed skills
+                       -y, --yes     Bypass interactive menu (local + skills only,
+                                     unless --global is also passed)
+                     (Runs interactively if no flags are specified)
   self-regression    Run syntax and routing checks before committing changes (alias: test)
 
 Options:
