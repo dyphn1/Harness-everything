@@ -26,12 +26,117 @@ function getWorkspaceRoot() {
   return process.cwd();
 }
 
+function detectActivePlatform(wsRoot) {
+  const root = wsRoot || getWorkspaceRoot();
+  
+  // 1. Check explicit environment variables
+  if (process.env.CLAUDE === '1' || process.env.CLAUDE) return 'claude';
+  if (process.env.CURSOR === '1' || process.env.CURSOR) return 'cursor';
+  if (process.env.COPILOT === '1' || process.env.COPILOT) return 'copilot';
+  if (process.env.CONTINUE === '1' || process.env.CONTINUE) return 'continue';
+  
+  // 2. Check parent/environment standard indicators
+  if (process.env.TERM_PROGRAM === 'vscode') {
+    if (fs.existsSync(path.join(root, '.cursorrules'))) {
+      return 'cursor';
+    }
+    if (fs.existsSync(path.join(root, '.github', 'copilot-instructions.md'))) {
+      return 'copilot';
+    }
+    return 'copilot'; // Default fallback for standard VS Code terminal
+  }
+  
+  // 3. Fallback to detecting workspace configuration presence
+  if (fs.existsSync(path.join(root, '.claude', 'settings.json'))) return 'claude';
+  if (fs.existsSync(path.join(root, '.cursorrules'))) return 'cursor';
+  if (fs.existsSync(path.join(root, '.github', 'copilot-instructions.md'))) return 'copilot';
+  if (fs.existsSync(path.join(root, '.continue'))) return 'continue';
+  if (fs.existsSync(path.join(root, 'AGENTS.md'))) return 'codex';
+  if (fs.existsSync(path.join(root, '.hermes.md'))) return 'hermes';
+  
+  return 'claude'; // Default global fallback
+}
+
+function ensureHarnessStateIgnored(rootPath) {
+  const wsRoot = rootPath || getWorkspaceRoot();
+  const gitignorePath = path.join(wsRoot, '.gitignore');
+  
+  try {
+    let content = '';
+    if (fs.existsSync(gitignorePath)) {
+      content = fs.readFileSync(gitignorePath, 'utf8');
+    }
+    
+    const lines = content.split(/\r?\n/);
+    const patternsToAdd = [];
+    
+    // Load and collect patterns & matching rules dynamically from all platforms
+    const allPlatforms = require('./platforms');
+    const dynamicPatterns = [];
+    const patternToPlatformMap = new Map();
+    
+    // Forcefully ensure active platform's state directory pattern is included
+    const activePlatformName = detectActivePlatform(wsRoot);
+    const activePlatform = allPlatforms.find(p => p.name === activePlatformName) || allPlatforms.find(p => p.name === 'claude');
+    
+    if (activePlatform && typeof activePlatform.getStateDir === 'function') {
+      const activeStateDir = activePlatform.getStateDir(wsRoot);
+      const relativeStateDir = path.relative(wsRoot, activeStateDir).replace(/\\/g, '/') + '/';
+      dynamicPatterns.push(relativeStateDir);
+      patternToPlatformMap.set(relativeStateDir, activePlatform);
+    }
+    
+    for (const platform of allPlatforms) {
+      const patterns = platform.getIgnorePatterns(wsRoot);
+      for (const pattern of patterns) {
+        if (!dynamicPatterns.includes(pattern)) {
+          dynamicPatterns.push(pattern);
+        }
+        patternToPlatformMap.set(pattern, platform);
+      }
+    }
+    
+    for (const pattern of dynamicPatterns) {
+      const platform = patternToPlatformMap.get(pattern);
+      const isIgnored = lines.some(line => {
+        const trimmed = line.trim();
+        // Delegate matching logic to the specific platform module if available
+        if (platform && typeof platform.isMatch === 'function') {
+          return platform.isMatch(pattern, trimmed);
+        }
+        return trimmed === pattern || trimmed === pattern.slice(0, -1);
+      });
+      
+      if (!isIgnored) {
+        patternsToAdd.push(pattern);
+      }
+    }
+    
+    if (patternsToAdd.length > 0) {
+      const separator = content.length === 0 || content.endsWith('\n') ? '' : '\n';
+      fs.appendFileSync(gitignorePath, separator + patternsToAdd.join('\n') + '\n', 'utf8');
+    }
+  } catch (err) {
+    // Fail silently to avoid breaking execution if .gitignore is write-locked
+  }
+}
+
 function getStateRoot(root) {
-  return path.join(root || getWorkspaceRoot(), '.claude', 'harness-state');
+  const wsRoot = root || getWorkspaceRoot();
+  const activePlatformName = detectActivePlatform(wsRoot);
+  const allPlatforms = require('./platforms');
+  const activePlatform = allPlatforms.find(p => p.name === activePlatformName) || allPlatforms.find(p => p.name === 'claude');
+  
+  if (activePlatform && typeof activePlatform.getStateDir === 'function') {
+    return activePlatform.getStateDir(wsRoot);
+  }
+  return path.join(wsRoot, '.claude', 'harness-state');
 }
 
 function getSessionDir(root, sessionId) {
-  const dir = path.join(getStateRoot(root), 'sessions', sessionId || DEFAULT_SESSION);
+  const resolvedRoot = root || getWorkspaceRoot();
+  ensureHarnessStateIgnored(resolvedRoot);
+  const dir = path.join(getStateRoot(resolvedRoot), 'sessions', sessionId || DEFAULT_SESSION);
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -50,7 +155,9 @@ function listSessionDirs(root) {
 function writeCurrentSession(root, sessionId) {
   if (!sessionId) return;
   try {
-    const stateRoot = getStateRoot(root);
+    const wsRoot = root || getWorkspaceRoot();
+    ensureHarnessStateIgnored(wsRoot);
+    const stateRoot = getStateRoot(wsRoot);
     fs.mkdirSync(stateRoot, { recursive: true });
     fs.writeFileSync(path.join(stateRoot, CURRENT_SESSION_FILE), sessionId, 'utf8');
   } catch (err) {

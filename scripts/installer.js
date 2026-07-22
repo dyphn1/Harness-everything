@@ -478,6 +478,41 @@ function removeClaudeHooks(claudeSettingsFile) {
   return false;
 }
 
+function ensureWorkspaceGitignorePatterns(wsRoot, patterns) {
+  const gitignorePath = path.join(wsRoot, '.gitignore');
+  try {
+    let content = '';
+    if (fs.existsSync(gitignorePath)) {
+      content = fs.readFileSync(gitignorePath, 'utf8');
+    }
+    
+    const lines = content.split(/\r?\n/);
+    const addedPatterns = [];
+    
+    for (const pattern of patterns) {
+      const isIgnored = lines.some(line => {
+        const trimmed = line.trim();
+        return trimmed === pattern || 
+               trimmed === pattern.slice(0, -1) ||
+               (pattern === '.claude/harness-state/' && (trimmed === '.claude/' || trimmed === '.claude'));
+      });
+      
+      if (!isIgnored) {
+        addedPatterns.push(pattern);
+      }
+    }
+    
+    if (addedPatterns.length > 0) {
+      const separator = content.length === 0 || content.endsWith('\n') ? '' : '\n';
+      const toAppend = addedPatterns.join('\n') + '\n';
+      fs.appendFileSync(gitignorePath, `${separator}${toAppend}`, 'utf8');
+      console.log(`  ✅ Added auto-generated directories to .gitignore: ${addedPatterns.join(', ')}`);
+    }
+  } catch (err) {
+    console.warn(`  ⚠️ Failed to update .gitignore: ${err.message}`);
+  }
+}
+
 function cleanEmptyDirs(dir) {
   if (!fs.existsSync(dir)) return;
   if (dir === workspaceRoot || dir === userHome || dir === path.parse(dir).root) return;
@@ -1164,6 +1199,31 @@ async function main() {
         console.log(`  ✅ Installed skill: ${target.label}${skillName}/`);
       }
     }
+  }
+
+  if (!isGlobal) {
+    const patternsToIgnore = ['.harness/', '.claude/harness-state/'];
+    try {
+      const platforms = require(path.join(__dirname, '../hooks/scripts/lib/platforms'));
+      for (const platform of platforms) {
+        if (targets[platform.name]) {
+          const patterns = platform.getIgnorePatterns(workspaceRoot);
+          for (const pattern of patterns) {
+            if (!patternsToIgnore.includes(pattern)) {
+              patternsToIgnore.push(pattern);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Fallback if platform modules fail to load
+      if (targets.cursor) patternsToIgnore.push('.cursor/skills/');
+      if (targets.copilot) patternsToIgnore.push('.github/skills/');
+      if (targets.codex) patternsToIgnore.push('.agents/skills/');
+      if (targets.continue) patternsToIgnore.push('.continue/skills/');
+    }
+    
+    ensureWorkspaceGitignorePatterns(workspaceRoot, patternsToIgnore);
   }
 
   console.log("\n🎉 INSTALL SUCCESS! Harness OS is now protecting this project.");
