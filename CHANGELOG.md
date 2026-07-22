@@ -50,7 +50,7 @@ This is the initial alpha release of **Harness OS** — a lightweight, local beh
 - **`eval-framework`**: Automated evaluation cases (case 1 to 5) covering multiple complexity levels and support for multi-language (en/zh) prompt classification.
 - **`VERIFICATION.md` & `docker-verify.sh`**: A comprehensive mechanism verification test suite that locally executes sandbox environment simulations to prove terminal blocking and self-recovery behaviors.
 
-## [Unreleased]
+## [0.2.0-beta] - 2026-07-22
 
 ### Fixed
 - **`uninstall` command unreachable via CLI**: `bin/cli.js`'s command dispatcher never had a `case 'uninstall'` - `scripts/installer.js` has handled `uninstall` internally since it was added, but the CLI entrypoint's `switch` fell through to `default` and printed `[Error] Unknown command: "uninstall"` before ever reaching it, making `npx github:dyphn1/Harness-everything uninstall` unusable regardless of flags. Added the missing case (routes to the same `runInstaller` path as `install`, since `installer.js` reads the command off `process.argv` itself) and documented `uninstall`'s flags in `--help`.
