@@ -1,6 +1,8 @@
 ---
 name: skill-creator
 description: Author, audit, and refactor SKILL.md files against a single quality bar — the Skill Contract format plus predictability/pruning/progressive-disclosure principles from external skill-writing research. Use when creating a new skill from scratch, reviewing or refactoring an existing SKILL.md, checking whether two skills overlap, or when self-evolve needs to package a session's learning into a durable dynamic skill.
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Skill Creator (Skill Authoring, Audit & Evolution Workflow)
@@ -69,7 +71,7 @@ A skill isn't done until every line here is true. This is deliberately a flat ch
 
 `self-evolve`'s Step 3 packages a hard-won session insight into a new, standalone skill. That new skill **MUST** go through this skill, not be hand-written inline:
 
-- **Location**: `.harness/skills/generated/<kebab-case-name>/SKILL.md` — not the repo root. `.harness/skills` is already a scope the installer recognizes (`scripts/installer.js`'s `getInstalledSkills`), which keeps dynamically-generated skills discoverable without mixing them into the reviewed, static skill set at the repo root.
+- **Location**: `.claude/harness-everything/skills/generated/<kebab-case-name>/SKILL.md` — not the repo root. `.claude/harness-everything/skills` is already a scope the installer recognizes (`scripts/lib/skills.js`'s `getInstalledSkills`), which keeps dynamically-generated skills discoverable without mixing them into the reviewed, static skill set at the repo root. `generated/` is deliberately excluded from the installer's manifest-tracked, bulk-removable skill set — these are the user's own accumulated learning, not package content, so "uninstall skills" must never sweep them.
 - **Required frontmatter**, in addition to `name`/`description`:
   ```yaml
   metadata:

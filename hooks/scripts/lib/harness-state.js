@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // Shared path resolution for Harness runtime state (hook JSON, circuit-breaker
-// counters, handoff/verification timestamps, etc). Separate from `.harness/`,
-// which is the installer's local-scope skill copy target
-// (scripts/installer.js `getInstalledSkills`) - unrelated content that must
-// not move here.
+// counters, handoff/verification timestamps, etc). Lives under the active
+// platform's own harness-everything/ subfolder (see each module's
+// getStateDir() in hooks/scripts/lib/platforms/) - a sibling of that same
+// platform's install manifest, and (for Claude only) its skill copies.
 //
-// State lives at `<repo root>/.claude/harness-state/`, keyed by Claude Code
-// session_id under `sessions/<id>/` so two sessions open on the same repo
-// never share (and stomp) each other's edit/verify timestamps or breaker
-// counts. Invocations with no session_id (manual terminal runs,
+// For Claude Code that's `<repo root>/.claude/harness-everything/state/`,
+// keyed by session_id under `sessions/<id>/` so two sessions open on the same
+// repo never share (and stomp) each other's edit/verify timestamps or
+// breaker counts. Invocations with no session_id (manual terminal runs,
 // VERIFICATION.md recipes) fall into a fixed `sessions/default/` bucket
 // rather than a random one, so manual testing stays predictable.
 const fs = require('fs');

@@ -1,6 +1,8 @@
 ---
 name: harness-everything
 description: The single entry point and dynamic router for the Harness ecosystem. Triage tasks into Tier 1, 2, or 3.
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Harness Everything (System Main Entry & Dynamic Router)

@@ -1,6 +1,7 @@
 ---
 name: todo-driven-workflow
 description: Enforces a deliberate, step-by-step execution loop.
+author: Harness Core Team
 version: 1.1.0
 metadata:
   type: harness-discipline

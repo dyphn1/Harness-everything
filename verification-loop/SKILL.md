@@ -1,6 +1,8 @@
 ---
 name: verification-loop
 description: "A comprehensive verification system for Claude Code sessions."
+author: Harness Core Team
+version: 0.2.0-rc.1
 metadata:
   origin: ECC
 ---

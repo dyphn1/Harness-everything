@@ -1,6 +1,8 @@
 ---
 name: tdd
 description: Test-Driven Development mode (Red-Green-Refactor) for Standard Tasks (Tier 2).
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Test-Driven Development (TDD) Mode

@@ -1,6 +1,8 @@
 ---
 name: create-agent-launcher
 description: Sub-agent generator for orchestrating multi-domain specialized agents to avoid token waste.
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Create Agent Launcher

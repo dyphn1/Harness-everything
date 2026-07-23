@@ -1,6 +1,8 @@
 ---
 name: fable-mode
 description: Macro task planning and execution engine for complex requirements and low-level architecture changes.
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Fable Mode (Macro Task Planning & Execution Engine)

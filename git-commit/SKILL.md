@@ -1,6 +1,8 @@
 ---
 name: git-commit
 description: Generates Angular-style commit messages after verifying the environment and staged files.
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Git Commit (Angular Style)

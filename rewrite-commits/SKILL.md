@@ -1,6 +1,8 @@
 ---
 name: rewrite-commits
 description: Cleans, squashes, or rewrites past Git history to comply with Angular Style conventions safely.
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Rewrite Commits

@@ -1,6 +1,8 @@
 ---
 name: skill-style
 description: Guidelines for writing and refactoring skills in the Harness ecosystem.
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Skill Style (Harness Ecosystem Skill Development Guidelines)

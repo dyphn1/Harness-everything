@@ -1,6 +1,8 @@
 ---
 name: install-cognitive-os
 description: Defines the fundamental physical laws of behavior (Discover > Think > Try > Summarize > Record) for all Agents.
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Agent Cognitive OS (Underlying Cognitive System)

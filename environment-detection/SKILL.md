@@ -1,6 +1,8 @@
 ---
 name: environment-detection
 description: Use at the very beginning of the session (Discover phase) to automatically detect and align with the operating system, terminal shell (e.g. Git Bash vs PowerShell vs Command Prompt), package managers, and development tools. Prevents blind command execution and repetitive tool-related errors.
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Environment Detection & Shell Alignment

@@ -1,6 +1,8 @@
 ---
 name: repo-docs
 description: Automatically generates precise, reader-oriented README.md and AGENTS.md based on actual project scans.
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Repo Docs (Automated Project Documentation Generation)

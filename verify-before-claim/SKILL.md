@@ -1,6 +1,8 @@
 ---
 name: verify-before-claim
 description: "Verify external framework/API claims and unmeasured perf/cost estimates against an authoritative source before asserting them, instead of answering from training memory."
+author: Harness Core Team
+version: 0.2.0-rc.1
 metadata:
   type: harness-discipline
 ---

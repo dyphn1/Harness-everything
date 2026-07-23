@@ -1,7 +1,12 @@
 .harness/
 .claude/
 node_modules/
+.cursor/harness-everything/
+.github/harness-everything/
+.continue/harness-everything/
+.codex/harness-everything/
 .agents/harness-state/
 .cursor/harness-state/
 .github/harness-state/
 .continue/harness-state/
+.claude/harness-everything/state/

@@ -1,6 +1,8 @@
 ---
 name: fable-discipline
 description: Shadow guard for fable-mode to prevent context bloat and maintain physical boundaries.
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Fable Discipline (Macro Task Discipline & Safety Net)

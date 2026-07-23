@@ -1,6 +1,8 @@
 ---
 name: build-multi-agent-system
 description: 'Deploy a universal, self-adapting Multi-Agent Architecture into any project. It dynamically analyzes the tech stack to scaffold a token-efficient workspace with strict physical boundaries, hybrid SQLite memory, and isomorphic alignment protocols.'
+author: Harness Core Team
+version: 0.2.0-rc.1
 ---
 
 # Universal Multi-Agent Workspace Installer
