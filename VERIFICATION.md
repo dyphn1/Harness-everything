@@ -55,6 +55,20 @@ Code invokes it (JSON on stdin), and check the exit code and output against
 what the hook is documented to do. Run from the repo root. Each block is
 self-contained and cleans up after itself.
 
+**Fastest path:** `npm run test:mechanism` (or plain `npm test`, which
+includes it as Phase 4) runs every check in this section automatically,
+end-to-end, on Windows/macOS/Linux alike — see
+[eval-framework/mechanism-test.js](eval-framework/mechanism-test.js). The
+recipes below exist for isolating and debugging one mechanism by hand; they
+pipe JSON into each hook via `node -e "...spawnSync(...)"` rather than a
+shell `echo '...' | node script.js` pipe. Use the shell-pipe form if you
+like — it works fine on macOS/Linux — but **not on Windows Git Bash**: three
+independent 2026-07-23 audits (`docs/reports/`) used exactly that form and
+got TTY/quoting interference that mangled the JSON, misdiagnosing working
+hooks (`rule-of-3.js`, `boundary-guard.js`, `state-persist.js`) as broken.
+The `node -e` form pipes stdin through Node's own `child_process` API
+instead of the shell, so it behaves identically on every platform.
+
 ### 2a. Rule of 3 circuit breaker actually blocks
 
 Runtime state lives under `.claude/harness-state/sessions/<session_id>/`
@@ -107,7 +121,7 @@ clears this one.
 
 ```bash
 node -e "require('fs').writeFileSync('.verify-big.tmp','x'.repeat(600*1024))"
-echo '{"tool_name":"Read","tool_input":{"file_path":".verify-big.tmp"}}' | node hooks/scripts/boundary-guard.js; echo "exit=$?"
+node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['hooks/scripts/boundary-guard.js'],{input:JSON.stringify({tool_name:'Read',tool_input:{file_path:'.verify-big.tmp'}}),encoding:'utf8'});process.stderr.write(r.stderr||'');console.log('exit='+r.status)"
 rm .verify-big.tmp
 ```
 **Expect:** stderr prints `[Boundary Guard] BLOCKED` and `exit=2`.
@@ -115,22 +129,22 @@ rm .verify-big.tmp
 ### 2c. State persistence (WAL) actually records a failure
 
 ```bash
-echo '{"tool_name":"Bash","tool_response":{"stdout":"","stderr":"npm ERR! verify-test failure"}}' | node hooks/scripts/state-persist.js
+node -e "const {spawnSync}=require('child_process');spawnSync('node',['hooks/scripts/state-persist.js'],{input:JSON.stringify({tool_name:'Bash',tool_response:{stdout:'',stderr:'npm ERR! verify-test failure'}}),encoding:'utf8'})"
 node -e "console.log(JSON.parse(require('fs').readFileSync('.claude/harness-state/sessions/default/handoff-state.json','utf8')).status)"
-echo '{}' | node harness-everything/scripts/bootstrap.js
+node -e "const {spawnSync}=require('child_process');spawnSync('node',['harness-everything/scripts/bootstrap.js'],{input:'{}',encoding:'utf8',stdio:['pipe','inherit','inherit']})"
 ```
 **Expect:** prints `failed`, then `bootstrap.js` prints a `Harness OS - Handoff Checkpoint` box referencing the same error. `bootstrap.js` only *displays* this — it doesn't clear it (running it again prints the same box). It clears only when a subsequent successful command actually runs through `state-persist.js`:
 
 ```bash
-echo '{"tool_name":"Bash","tool_response":{"stdout":"ok","exitCode":0}}' | node hooks/scripts/state-persist.js
-echo '{}' | node harness-everything/scripts/bootstrap.js
+node -e "const {spawnSync}=require('child_process');spawnSync('node',['hooks/scripts/state-persist.js'],{input:JSON.stringify({tool_name:'Bash',tool_response:{stdout:'ok',exitCode:0}}),encoding:'utf8'})"
+node -e "const {spawnSync}=require('child_process');spawnSync('node',['harness-everything/scripts/bootstrap.js'],{input:'{}',encoding:'utf8',stdio:['pipe','inherit','inherit']})"
 ```
 **Expect:** no checkpoint box this time.
 
 ### 2d. Fact-audit reminder actually reaches the agent
 
 ```bash
-echo '{"prompt":"what exit code does this hook use by default and is it documented"}' | node harness-everything/scripts/tier-router.js
+node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['harness-everything/scripts/tier-router.js'],{input:JSON.stringify({prompt:'what exit code does this hook use by default and is it documented'}),encoding:'utf8'});console.log(r.stdout)"
 ```
 **Expect:** output includes a `FACT-AUDIT REMINDER` block. If this is silent, `tier-router.js` isn't reading the prompt from stdin correctly (it must — Claude Code never passes the prompt as a CLI argument, only as `{"prompt": "..."}` on stdin; this was a real bug found and fixed on 2026-07-20).
 
@@ -138,9 +152,9 @@ echo '{"prompt":"what exit code does this hook use by default and is it document
 
 ```bash
 git status --porcelain > /dev/null  # ensure a real git repo
-echo '{"tool_name":"Task","hook_event_name":"PreToolUse","tool_input":{}}' | node hooks/scripts/subagent-scope-guard.js
+node -e "const {spawnSync}=require('child_process');spawnSync('node',['hooks/scripts/subagent-scope-guard.js'],{input:JSON.stringify({tool_name:'Task',hook_event_name:'PreToolUse',tool_input:{}}),encoding:'utf8'})"
 echo "unexpected change" >> .verify-scope-test.tmp
-echo '{"tool_name":"Task","hook_event_name":"PostToolUse","tool_input":{}}' | node hooks/scripts/subagent-scope-guard.js; echo "exit=$?"
+node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['hooks/scripts/subagent-scope-guard.js'],{input:JSON.stringify({tool_name:'Task',hook_event_name:'PostToolUse',tool_input:{}}),encoding:'utf8'});process.stderr.write(r.stderr||'');console.log('exit='+r.status)"
 rm .verify-scope-test.tmp
 ```
 **Expect:** stderr lists `.verify-scope-test.tmp` as a changed file and `exit=2`.
@@ -151,20 +165,20 @@ rm .verify-scope-test.tmp
 rm -f .claude/harness-state/sessions/default/stop-gate-state.json
 node -e "require('fs').mkdirSync('.claude/harness-state/sessions/default',{recursive:true}); require('fs').writeFileSync('.claude/harness-state/sessions/default/handoff-state.json', JSON.stringify({status:'idle',lastEditAt:Date.now(),lastVerifyAt:0}))"
 echo "dirty" > .verify-dirty.tmp
-echo '{}' | node hooks/scripts/stop-gate.js; echo "exit=$?"
+node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['hooks/scripts/stop-gate.js'],{input:'{}',encoding:'utf8'});process.stderr.write(r.stderr||'');console.log('exit='+r.status)"
 ```
 **Expect:** stderr prints `[Stop Gate]` and `exit=2` — edits happened, nothing
 verification-ish ran after them, and the tree is dirty.
 
 ```bash
-echo '{}' | node hooks/scripts/stop-gate.js; echo "exit=$?"
+node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['hooks/scripts/stop-gate.js'],{input:'{}',encoding:'utf8'});process.stderr.write(r.stderr||'');console.log('exit='+r.status)"
 ```
 **Expect:** `exit=0` — same edit batch already bounced once; the gate never
 nags twice for the same batch.
 
 ```bash
 rm -f .claude/harness-state/sessions/default/stop-gate-state.json
-echo '{"stop_hook_active":true}' | node hooks/scripts/stop-gate.js; echo "exit=$?"
+node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['hooks/scripts/stop-gate.js'],{input:JSON.stringify({stop_hook_active:true}),encoding:'utf8'});process.stderr.write(r.stderr||'');console.log('exit='+r.status)"
 rm .verify-dirty.tmp .claude/harness-state/sessions/default/handoff-state.json .claude/harness-state/sessions/default/stop-gate-state.json 2>/dev/null; true
 ```
 **Expect:** `exit=0` — a stop that already resulted from a Stop-hook block is

@@ -1,3 +1,7 @@
 .harness/
 .claude/
 node_modules/
+.agents/harness-state/
+.cursor/harness-state/
+.github/harness-state/
+.continue/harness-state/

@@ -26,7 +26,18 @@ function loadState() {
 }
 
 function saveState(state) {
-  fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+  // Atomic write (temp file + rename): todo-state.json is shared across the
+  // whole workspace, not scoped per session_id like the hook state files
+  // are, so parallel subagent Task bursts can genuinely call `todo-cli.js`
+  // around the same time. A plain writeFileSync lets a reader observe a
+  // truncated/partial JSON file if two writes interleave; rename is atomic
+  // at the filesystem level, so readers only ever see the old or the new
+  // file in full, never a half-written one. This doesn't resolve the
+  // separate lost-update race (last writer still wins) - that needs real
+  // cross-process locking, out of scope for what a CLI state file needs.
+  const tmpFile = `${stateFile}.tmp.${process.pid}`;
+  fs.writeFileSync(tmpFile, JSON.stringify(state, null, 2));
+  fs.renameSync(tmpFile, stateFile);
 }
 
 function printList(state) {

@@ -9,6 +9,7 @@
   "scripts": {
     "test": "node self-evolve/scripts/self-regression.js",
     "self-regression": "node self-evolve/scripts/self-regression.js",
+    "test:mechanism": "node eval-framework/mechanism-test.js",
     "harness:reset": "node hooks/scripts/reset-circuit-breaker.js"
   },
   "engines": {

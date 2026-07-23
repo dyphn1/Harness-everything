@@ -83,7 +83,22 @@ if (fs.existsSync(behavioralTestPath)) {
   console.warn("  ⚠️  eval-framework/behavioral-test.js not found. Skipping Phase 3.");
 }
 
-// 4. Final verdict
+// 4. Run Mechanism Test Suite (VERIFICATION.md §2 hook contract, automated)
+console.log("\n[Phase 4] Mechanism Test Suite (Claude Code hooks)...");
+const mechanismTestPath = path.join(projectRoot, 'eval-framework', 'mechanism-test.js');
+if (fs.existsSync(mechanismTestPath)) {
+  const mechanismCheck = spawnSync('node', [mechanismTestPath], { stdio: 'inherit', cwd: projectRoot });
+  if (mechanismCheck.status !== 0) {
+    console.error("\n  ❌ Mechanism test suite failed!");
+    hasErrors = true;
+  } else {
+    console.log("\n  ✅ Mechanism test suite 100% Passed!");
+  }
+} else {
+  console.warn("  ⚠️  eval-framework/mechanism-test.js not found. Skipping Phase 4.");
+}
+
+// 5. Final verdict
 console.log("\n=================================================");
 if (hasErrors) {
   console.error(" ❌ REGRESSION DETECTED! Self-evolution rejected.");
