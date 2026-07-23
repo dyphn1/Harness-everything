@@ -1,8 +1,8 @@
 ---
 name: security-review
 description: Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and patterns.
-author: Harness Core Team
-version: 0.2.0-rc.1
+author: Miya Daniel | Harness Core Team
+version: 0.2.0
 metadata:
   origin: ECC
 ---

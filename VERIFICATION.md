@@ -63,7 +63,7 @@ recipes below exist for isolating and debugging one mechanism by hand; they
 pipe JSON into each hook via `node -e "...spawnSync(...)"` rather than a
 shell `echo '...' | node script.js` pipe. Use the shell-pipe form if you
 like — it works fine on macOS/Linux — but **not on Windows Git Bash**: three
-independent 2026-07-23 audits (`docs/reports/`) used exactly that form and
+independent 2026-07-23 audits used exactly that form and
 got TTY/quoting interference that mangled the JSON, misdiagnosing working
 hooks (`rule-of-3.js`, `boundary-guard.js`, `state-persist.js`) as broken.
 The `node -e` form pipes stdin through Node's own `child_process` API

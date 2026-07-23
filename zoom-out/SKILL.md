@@ -1,8 +1,8 @@
 ---
 name: zoom-out
 description: Reflect-first circuit breaker - rebuild the full picture and fact-check assumptions when stuck; escalate to the human only for genuine decisions.
-author: Harness Core Team
-version: 0.2.0-rc.1
+author: Miya Daniel | Harness Core Team
+version: 0.2.0
 ---
 
 # Zoom Out (Global Perspective & Circuit Breaker)

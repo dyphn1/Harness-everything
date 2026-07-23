@@ -1,8 +1,8 @@
 ---
 name: grill-me
 description: Acts as a relentless challenger to stress-test plans, find loopholes, combat AI sycophancy, and ensure real-time documentation updates.
-author: Harness Core Team
-version: 0.2.0-rc.1
+author: Miya Daniel | Harness Core Team
+version: 0.2.0
 ---
 
 # Grill Me (Interrogation & Stress Testing)

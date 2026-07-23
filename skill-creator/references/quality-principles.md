@@ -1,6 +1,6 @@
 # Quality Principles — condensed from `writing-great-skills` and Anthropic's `skill-creator`
 
-Read this when `skill-creator/SKILL.md`'s Quality Checklist flags something and you need the reasoning behind the check, not just the checkbox. Each term below is condensed from the two source skills and paired with a Harness-specific example — good or bad — found during the [2026-07-22 audit](../../docs/reports/skill-quality-audit-writing-great-skills-2026-07-22.md).
+Read this when `skill-creator/SKILL.md`'s Quality Checklist flags something and you need the reasoning behind the check, not just the checkbox. Each term below is condensed from the two source skills and paired with a Harness-specific example — good or bad — found during the 2026-07-22 audit.
 
 ## Contents
 - [The root idea: Predictability](#the-root-idea-predictability)

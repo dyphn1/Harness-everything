@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
-## [0.2.0-rc.1] - 2026-07-22
+## [0.2.0] - 2026-07-23
 
 ### Added
 - **Multi-Platform State Isolation Strategy**: Designed and created a registry for developer platforms (`claude.js`, `cursor.js`, `copilot.js`, `continue.js`, `codex.js`, `hermes.js`, `worktrees.js`) dynamically managing state folders (`getStateDir`) under respective tool namespaces (e.g. `.github/harness-state/`, `.cursor/harness-state/`) instead of hardcoding `.claude/harness-state/`.
@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`scripts/installer.js` split into `scripts/lib/`**: the single ~1200-line file (TUI, hook merge, advisory-text injection duplicated twice, skill copy, gitignore upkeep all mixed together) is now an orchestrator over `lib/manifest.js`, `lib/skills.js`, `lib/claude-hooks.js`, `lib/advisory-text.js`, `lib/gitignore.js`, `lib/prompts.js`, and `lib/workspace.js`.
 - **Local runtime state relocated under `<platform-dir>/harness-everything/`**: the self-invented top-level `.harness/` root (Claude's manifest + skill copies) is retired in favor of `.claude/harness-everything/{state,skills,manifest.json}` — a subfolder of Claude's own directory that nothing else creates, so it can be added/removed as a unit. Each other platform's own `harness-state/` similarly moves to `<platform-dir>/harness-everything/state/`, alongside its own new `manifest.json`. Skill locations for Cursor/Copilot/Continue (`.cursor/skills`, `.github/skills`, `.continue/skills`) are unchanged. A one-time migration step removes any leftover `.harness/` on next local uninstall.
 - **Codex skill target corrected from `.agents/skills/` to `.codex/skills/`**: `.agents/` was never a real Codex CLI convention — Codex's actual project-scoped home is `.codex/` (`.codex/skills/` for project skills, `.codex/config.toml` for CLI/sandbox config), confirmed against OpenAI's own docs. This bug predated this release. `getInstalledSkills` still scans the old `.agents/skills/` location as a legacy fallback so existing wrong-location installs remain discoverable and cleanly removable.
+- **Author attribution**: `author` frontmatter across all 23 `SKILL.md` files, `package.json`, and the `HARNESS_AUTHOR` constant `scripts/lib/skills.js`'s uninstall safety check matches against, updated from `Harness Core Team` to `Miya Daniel | Harness Core Team`.
+
+### Documentation
+- Removed dangling `docs/reports/` links from `README.md`, `VERIFICATION.md`, `harness-everything/SKILL.md`, `skill-creator/SKILL.md`, and `skill-creator/references/quality-principles.md` — the referenced audit report files were removed from the repo; `VERIFICATION.md`'s own instruction to store *future* reports under `docs/reports/` is unaffected.
 
 ## [0.1.0-beta] - 2026-07-20
 

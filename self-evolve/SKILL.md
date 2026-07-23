@@ -1,8 +1,8 @@
 ---
 name: self-evolve
 description: Extracts root causes from resolved difficult problems and persists them as new error boundaries in memory.
-author: Harness Core Team
-version: 0.2.0-rc.1
+author: Miya Daniel | Harness Core Team
+version: 0.2.0
 ---
 
 # Self Evolve (Self Evolution & Memory Extraction)

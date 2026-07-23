@@ -1,8 +1,8 @@
 ---
 name: skill-creator
 description: Author, audit, and refactor SKILL.md files against a single quality bar — the Skill Contract format plus predictability/pruning/progressive-disclosure principles from external skill-writing research. Use when creating a new skill from scratch, reviewing or refactoring an existing SKILL.md, checking whether two skills overlap, or when self-evolve needs to package a session's learning into a durable dynamic skill.
-author: Harness Core Team
-version: 0.2.0-rc.1
+author: Miya Daniel | Harness Core Team
+version: 0.2.0
 ---
 
 # Skill Creator (Skill Authoring, Audit & Evolution Workflow)
@@ -20,7 +20,7 @@ version: 0.2.0-rc.1
 
 ## 1. Two philosophies, reconciled
 
-Harness gets predictability from a **physical** mechanism: the Skill Contract table's Enforcement Gate row, backed by a script that exits non-zero. External skill-writing research gets predictability from a **cognitive** mechanism: minimal context load, leading words, explaining *why* instead of just forbidding. Both are real and both are validated — see [`docs/reports/skill-quality-audit-writing-great-skills-2026-07-22.md`](../docs/reports/skill-quality-audit-writing-great-skills-2026-07-22.md) for the evidence — and they don't actually conflict where it counts:
+Harness gets predictability from a **physical** mechanism: the Skill Contract table's Enforcement Gate row, backed by a script that exits non-zero. External skill-writing research gets predictability from a **cognitive** mechanism: minimal context load, leading words, explaining *why* instead of just forbidding. Both are real and both are validated — see the 2026-07-22 skill quality audit for the evidence — and they don't actually conflict where it counts:
 
 - **Keep** the Skill Contract table and `MUST`/`PROHIBITED` for anything with a real Enforcement Gate: an irreversible action, a script that can exit non-zero, a state mutation another skill depends on. That's a hard guardrail; state it as one.
 - **Don't** reach for `MUST`/`PROHIBITED` as the default tone for style preferences with no gate behind them — "don't write long paragraphs" doesn't need to be a `MUST NOT`; say what good output looks like instead. Every imperative not backed by an actual gate is a candidate for rewriting positively.

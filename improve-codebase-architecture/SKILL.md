@@ -1,8 +1,8 @@
 ---
 name: improve-codebase-architecture
 description: Discovers and transforms shallow modules into deep ones to improve testability and AI navigability.
-author: Harness Core Team
-version: 0.2.0-rc.1
+author: Miya Daniel | Harness Core Team
+version: 0.2.0
 ---
 
 # Improve Codebase Architecture (Deep Architectural Optimization)

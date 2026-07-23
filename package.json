@@ -1,6 +1,6 @@
 {
   "name": "harness-everything",
-  "version": "0.2.0-rc.1",
+  "version": "0.2.0",
   "description": "Harness OS: An Orchestrated Agent Operating System for AI-driven Development",
   "main": "harness-everything/scripts/bootstrap.js",
   "bin": {
@@ -15,7 +15,7 @@
   "engines": {
     "node": ">=18"
   },
-  "author": "Harness Core Team",
+  "author": "Miya Daniel | Harness Core Team",
   "license": "Apache-2.0",
   "dependencies": {},
   "devDependencies": {}

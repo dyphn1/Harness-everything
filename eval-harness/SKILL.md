@@ -1,8 +1,8 @@
 ---
 name: eval-harness
 description: Objectively evaluates AI agent performance based on correctness, resource efficiency, and anti-loop focus.
-author: Harness Core Team
-version: 0.2.0-rc.1
+author: Miya Daniel | Harness Core Team
+version: 0.2.0
 ---
 
 # Eval Harness (Automated Performance & Reasoning Evaluation)

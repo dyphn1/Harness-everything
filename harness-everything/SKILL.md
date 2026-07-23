@@ -1,8 +1,8 @@
 ---
 name: harness-everything
 description: The single entry point and dynamic router for the Harness ecosystem. Triage tasks into Tier 1, 2, or 3.
-author: Harness Core Team
-version: 0.2.0-rc.1
+author: Miya Daniel | Harness Core Team
+version: 0.2.0
 ---
 
 # Harness Everything (System Main Entry & Dynamic Router)
@@ -106,7 +106,7 @@ LLMs have a Reasoning Ceiling. To avoid invalid infinite retries, you must stric
 - You **MUST** automatically call the `self-evolve` skill to write "human key insights" or "successfully avoided traps" into system memory, ensuring the same blind spots are bypassed next time.
 
 ## 6. Always-On ADHD-Friendly Output Shaping
-This is the same always-on discipline `install-cognitive-os` defines under its own §"Global Output Normalization" — this router doesn't restate it (that duplication was flagged in [`docs/reports/skill-quality-audit-writing-great-skills-2026-07-22.md`](../docs/reports/skill-quality-audit-writing-great-skills-2026-07-22.md) §1.1 and has been removed). Since §1 already sends every task through `install-cognitive-os` before any action, its output-shaping rules are already in effect by the time this router does anything — apply them as written there, on every response, regardless of tier.
+This is the same always-on discipline `install-cognitive-os` defines under its own §"Global Output Normalization" — this router doesn't restate it (that duplication was flagged in a skill quality audit §1.1 and has been removed). Since §1 already sends every task through `install-cognitive-os` before any action, its output-shaping rules are already in effect by the time this router does anything — apply them as written there, on every response, regardless of tier.
 
 ## 5. Skill Registry (Full Activation Map)
 Every skill in this repository is reachable from this router. If a task matches a trigger below and the skill is not yet loaded, load it.
