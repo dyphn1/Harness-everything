@@ -2,7 +2,7 @@
 name: skill-creator
 description: Author, audit, and refactor SKILL.md files against a single quality bar — the Skill Contract format plus predictability/pruning/progressive-disclosure principles from external skill-writing research. Use when creating a new skill from scratch, reviewing or refactoring an existing SKILL.md, checking whether two skills overlap, or when self-evolve needs to package a session's learning into a durable dynamic skill.
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Skill Creator (Skill Authoring, Audit & Evolution Workflow)
@@ -12,7 +12,7 @@ version: 0.2.0
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Creating a new skill from scratch; auditing/refactoring an existing `SKILL.md`; `self-evolve`'s Step 3 packaging a session's insight into a durable dynamic skill. Input: a task description, an existing SKILL.md, or a root-cause insight from self-evolve. |
-| **Expected Output** | A `SKILL.md` that passes the Quality Checklist (§3) — static skills at `<skill-name>/SKILL.md` with a `harness-everything` registry row, dynamic skills at `.harness/skills/generated/<skill-name>/SKILL.md` with lifecycle metadata (§4). |
+| **Expected Output** | A `SKILL.md` that passes the Quality Checklist (§3) — static skills at `<skill-name>/SKILL.md` with a `harness-everything` registry row, dynamic skills at `.claude/harness-everything/skills/generated/<skill-name>/SKILL.md` with lifecycle metadata (§4). |
 | **State Mutations** | Writes/edits `<skill>/SKILL.md` (+ optional `guides/`/`references/`); for new static skills, adds one row to `harness-everything/SKILL.md` §5 and, if keyword-routable, one line to `tier-router.js`'s `recommendedGuides`. |
 | **Enforcement Gate** | A new or edited `SKILL.md` **MUST NOT** be registered or persisted until every item in the Quality Checklist (§3) is checked off — for dynamic skills this is self-evolve's actual persistence gate, not optional polish. |
 
@@ -69,8 +69,9 @@ A skill isn't done until every line here is true. This is deliberately a flat ch
 
 ## 4. Dynamic Skill Generation Contract (for `self-evolve`)
 
-`self-evolve`'s Step 3 packages a hard-won session insight into a new, standalone skill. That new skill **MUST** go through this skill, not be hand-written inline:
+`self-evolve`'s Step 3 optionally packages a hard-won session insight into a new, standalone skill. This process **MUST** only occur if the LLM has judged that the lesson warrants an independent, complex structural skill rather than a simple memory rule:
 
+- **The Judgment Criterion**: Simple constraints or localized tips **MUST** only be written to `memories/repo/RULES.md`. Only highly generalizable, multi-step procedures or custom enforcement contracts (e.g. transaction pooling patterns) should be packaged as a dynamic skill.
 - **Location**: `.claude/harness-everything/skills/generated/<kebab-case-name>/SKILL.md` — not the repo root. `.claude/harness-everything/skills` is already a scope the installer recognizes (`scripts/lib/skills.js`'s `getInstalledSkills`), which keeps dynamically-generated skills discoverable without mixing them into the reviewed, static skill set at the repo root. `generated/` is deliberately excluded from the installer's manifest-tracked, bulk-removable skill set — these are the user's own accumulated learning, not package content, so "uninstall skills" must never sweep them.
 - **Required frontmatter**, in addition to `name`/`description`:
   ```yaml

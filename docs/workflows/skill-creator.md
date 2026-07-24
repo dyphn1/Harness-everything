@@ -10,7 +10,7 @@ This section visualizes how the `skill-creator` skill executes internally, detai
 
 ```mermaid
 graph TD
-  Start([New skill request / existing SKILL.md to audit / self-evolve dynamic-generation call]) --> Intent["Capture intent: what it does, the one canonical description sentence, which Tier, does an existing skill already own this ground"]
+  Start([New skill request / existing SKILL.md to audit / self-evolve dynamic-generation call after LLM selection]) --> Intent["Capture intent: what it does, the one canonical description sentence, which Tier, does an existing skill already own this ground"]
   Intent --> Draft["Draft: Skill Contract table first, then body sized by information hierarchy (steps vs flat reference vs guides/references)"]
   Draft --> Test["Test 2-3 realistic prompts via create-agent-launcher: with-skill subagent vs baseline subagent"]
   Test --> Checklist{"Quality Checklist (§3): SSOT, no duplication >5 lines, every MUST has a real gate, no no-ops, info hierarchy, leading words reused, checkable completion criteria, human-facing description"}
@@ -35,7 +35,7 @@ graph LR
   Creator -->|Table shape spec| SkillStyle["skill-style / SKILL.md"]
   Creator -->|With/without test subagents| Launcher["create-agent-launcher / SKILL.md"]
   Creator -->|Registers new static skills into| Registry["harness-everything / SKILL.md §5"]
-  Evolve["self-evolve / SKILL.md §4"] -->|MUST load before packaging a session insight| Creator
+  Evolve["self-evolve / SKILL.md §4"] -->|LLM decides to promote insight| Creator
   Creator -->|Writes dynamic skills to| Generated[".claude/harness-everything/skills/generated/"]
   Generated -->|Registered in| Manifest["manifest.json 'generated' registry"]
   Manifest -->|Matched & auto-loaded by| Router
@@ -58,12 +58,16 @@ graph TD
   Check1 -->|Yes| Reg1["Add row to harness-everything §5 + one line to tier-router.js"]
   Reg1 --> Done1([deploy-aws/SKILL.md live as a static, reviewed skill])
 
-  Start2["zoom-out recovery ends: root cause found for a recurring connection-pool exhaustion bug"] --> Trigger2["self-evolve §3 Step 3: Dynamic Skill Generation"]
+  Start2["zoom-out recovery ends: root cause found for a recurring connection-pool exhaustion bug"] --> Decide2{"LLM: Does it warrant a standalone complex skill?"}
+  Decide2 -->|No: Simple Tip| Save2["persist-memory.js writes simple rule to RULES.md"]
+  Decide2 -->|Yes: Complex Skill| Trigger2["self-evolve §3 Step 3: Promote to Dynamic Skill"]
   Trigger2 --> Load2["self-evolve MUST load skill-creator §4 before writing anything"]
   Load2 --> Gate2{Quality Checklist §3 passes?}
   Gate2 -->|No| Reject2["Do not persist — this checklist is the only review a dynamic skill gets"]
   Gate2 -->|Yes| Write2["Write .claude/harness-everything/skills/generated/orm-transaction-batching/SKILL.md & run register-dynamic-skill.js"]
   Write2 --> Done2([Dynamic skill available next session via manifest registration and tier-router.js scan])
+  Save2 --> Done3([Simple memory rule available in RULES.md])
+```
 ```
 
 ---

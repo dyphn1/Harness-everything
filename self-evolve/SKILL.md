@@ -2,7 +2,7 @@
 name: self-evolve
 description: Extracts root causes from resolved difficult problems and persists them as new error boundaries in memory.
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Self Evolve (Self Evolution & Memory Extraction)
@@ -47,7 +47,11 @@ It ensures that the entire Harness ecosystem becomes smarter and avoids repeatin
   ```bash
   node "<this-skill-dir>/scripts/persist-memory.js" "<Your extracted root cause and defensive rule here>"
   ```
-- **Dynamic Skill Generation (Session Packaging)**: Through self-review, package the successful session summary (hard boundary) into a new, dynamic skill. **You MUST load `skill-creator/SKILL.md` and follow its §4 Dynamic Skill Generation Contract** before writing the file — it defines the required location (`.claude/harness-everything/skills/generated/<name>/SKILL.md`, not the repo root), the required lifecycle frontmatter (`metadata.type: dynamic`, `status: draft`), and the Quality Checklist gate this file must pass since it skips human PR review by design. Do not hand-write a `SKILL.md` inline here; that checklist is the only review a dynamically generated skill gets. These dynamically generated skills have a lifecycle — draft → active → deprecated, or promoted to a static skill once proven general — distinct from the system's foundational static skills.
+- **Cognitive Decision: Memory vs. Dynamic Skill**:
+  - **Do NOT pack every memory into a skill.** This prevents skill bloat and unnecessary context loading.
+  - **Simple Rule (Rule-only Path)**: If the insight is a minor development tip, a local codebase quirk, or a simple "do/do-not" style constraint, it **MUST** only be written to `memories/repo/RULES.md` (via `persist-memory.js`). This is the default path.
+  - **Structural Skill (Dynamic Skill Path)**: You **SHOULD** promote the memory into a Dynamic Skill **ONLY IF** the insight is a complex, multi-step procedure, a reusable architectural design pattern, or requires a custom enforcement contract (with triggers, inputs, and expected outputs).
+- **Dynamic Skill Generation (Session Packaging)**: If (and only if) you decide to promote the memory to a Dynamic Skill, **you MUST load `skill-creator/SKILL.md` and follow its §4 Dynamic Skill Generation Contract** before writing the file. It defines the required location (`.claude/harness-everything/skills/generated/<name>/SKILL.md`, not the repo root), the required lifecycle frontmatter, and the Quality Checklist gate this file must pass. You must also run `node <this-skill-dir>/scripts/register-dynamic-skill.js <name>` to register it to `manifest.json`. These dynamically generated skills have a lifecycle — draft → active → deprecated.
 - **Note**: Only record "Key Insights", keeping the memory document short and punchy. Avoid stuffing it with lengthy conversation logs or useless narratives.
 
 ## 3. Purpose
