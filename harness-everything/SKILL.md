@@ -2,7 +2,7 @@
 name: harness-everything
 description: The single entry point and dynamic router for the Harness ecosystem. Triage tasks into Tier 1, 2, or 3.
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Harness Everything (System Main Entry & Dynamic Router)
@@ -39,6 +39,10 @@ Also run this immediately whenever the `bootstrap.js` SessionStart output shows 
 
 ## 2. Task Triage
 To avoid "over-engineering" and maximize efficiency, you must categorize the user's task during the `[Think]` phase and take the corresponding action path.
+
+**Thinking Discipline (Law of Elimination & Prediction - 預判與刪除定律)**:
+During the `[Think]` phase, analyze requirements and perform forward prediction before taking action. Use elimination early to prune unviable paths, skip scanning directories known to be unrelated, or discard strategies guaranteed to fail (e.g. skip executing a test suite on a file that has obvious syntax errors). Focus your limited attention solely on high-value, highly-relevant files to minimize failure costs.
+
 - **MANDATORY**: Run the Tier Router script before deciding the tier. The script lives at `scripts/tier-router.js` **inside this skill's own directory** — resolve the path from wherever this SKILL.md was loaded (do not guess a hard-coded location):
   ```bash
   node "<this-skill-dir>/scripts/tier-router.js" "<Brief summary of the user's prompt>"

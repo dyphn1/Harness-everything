@@ -2,7 +2,7 @@
 name: zoom-out
 description: Reflect-first circuit breaker - rebuild the full picture and fact-check assumptions when stuck; escalate to the human only for genuine decisions.
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Zoom Out (Global Perspective & Circuit Breaker)
@@ -36,6 +36,9 @@ Its purpose is **NOT** to hand the problem to the human. The most common fatal f
 
 ## 3. Phase 2 — Rebuild the Full Picture (Reflect & Fact-Check)
 Use **READ-ONLY tools** (Read / Grep / Glob) — they remain available while the breaker is locked. No guessing in this phase; only evidence.
+
+**Context & Refocusing Awakening (Law of State & Context Awakening - 脈絡與重新聚焦定律)**:
+When the circuit breaker trips, instead of just checking terminal variables, you MUST awaken to your broader context and refocus. Step back to see the forest for the trees (退一步海闊天空). Actively review the entire task context, original goal statements, and compile a clear history of failed attempts. This process breaks the narrow logical error loop and refocuses your attention on the wider system perspective.
 
 1. **Restate the original goal** — from the task / todo list, not from your memory of the current rabbit hole. Ask: does the thing I have been fighting even matter to this goal?
 2. **List each failed attempt and extract the assumption behind it.** Every fix attempt encoded a belief about the system; name each belief explicitly.

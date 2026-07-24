@@ -2,7 +2,7 @@
 name: todo-driven-workflow
 description: Enforces a deliberate, step-by-step execution loop.
 author: Miya Daniel | Harness Core Team
-version: 1.1.0
+version: 1.2.0
 metadata:
   type: harness-discipline
 ---
@@ -36,6 +36,9 @@ This workflow is **the default operating behavior** for any complex, multi-step,
 ## 🔄 Execution Loop: Think > Try > Summarize > Record
 
 ### 1. Analyze and Plan (Think)
+**Intent Precedence (Law of Intent Precedence - 意圖先決定律)**:
+Before taking any action or generating the checklist, you MUST explicitly formulate and state your high-level intent (e.g. `[Scope Discovery]`, `[TDD Feature Implementation]`). Stating your intent upfront ensures your sub-tasks are aligned with the overarching goal, raising context reliability and tracking precision.
+
 Break the high-level goal into **3 to 7 concrete, verifiable sub-tasks**.
 
 ### 2. Initialize the Todo List (Record)

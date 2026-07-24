@@ -2,7 +2,7 @@
 name: tdd
 description: Test-Driven Development mode (Red-Green-Refactor) for Standard Tasks (Tier 2).
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Test-Driven Development (TDD) Mode
@@ -25,6 +25,9 @@ Tier 2 tasks run on the `todo-driven-workflow` base execution loop: initialize t
 
 When this skill is loaded, you MUST suppress the urge to write implementation code directly, and strictly follow these three phases:
 
+**Evidence Assertion (Law of Evidence Assertion - 證據斷言定律)**:
+During each TDD phase (RED, GREEN, REFACTOR), you MUST present actual terminal test execution logs showing the exact test failure or pass. Claiming progress or success based on "assumed" passes is strictly PROHIBITED; you must assert outcomes with hard, objective evidence.
+
 ### 1. RED (Write a Failing Test)
 - **Action**: Before implementing the requested feature or Bug fix, write the corresponding Unit Test or Integration Test in the test folder.
 - **Validation**: Run the test to **ensure the test fails** (this proves the test actually covers unimplemented functionality, rather than being a fake test).
@@ -35,6 +38,9 @@ When this skill is loaded, you MUST suppress the urge to write implementation co
 - **Validation**: Run the test to ensure it passes.
 
 ### 3. REFACTOR (Refactor and Optimize)
+**Code-Doc Alignment (Law of Code-Documentation Alignment - 程式碼與文件對齊定律)**:
+In the REFACTOR phase, you MUST verify that the implemented code actually aligns with the documented contracts and doesn't contain hardcoded mocking to "finesse" or cheat the tests. Use the `todo-driven-workflow` checklist items to audit that your implementation aligns 100% with the requirement specifications.
+
 - **Action**: Under the safety net of passing tests, begin optimizing the code.
 - Checks: Is the naming clear? Is there duplicated code? Can performance be improved? Does it comply with the project's Clean Code standards?
 - **Validation**: After every modification, re-run the tests to ensure refactoring hasn't broken the original functionality.

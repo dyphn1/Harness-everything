@@ -2,7 +2,7 @@
 name: verification-loop
 description: "A comprehensive verification system for Claude Code sessions."
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.0
 metadata:
   origin: ECC
 ---
@@ -19,6 +19,9 @@ metadata:
 | **Enforcement Gate** | You MUST execute `npm run build`, `npm run lint`, and `npm run test` (or equivalent). You cannot complete the task if any of these return Exit Code 1. |
 
 A comprehensive verification system for Claude Code sessions.
+
+**Evidence Assertion (Law of Evidence Assertion - 證據斷言定律)**:
+Every single metric in your Verification Report (Build, Types, Lint, Tests, Security) MUST be strictly grounded in actual, physical output evidence retrieved from the terminal during this session. Fabricating passes or verbally finessing results without running the tools is strictly PROHIBITED; you must assert outcomes with hard, verified factual proof.
 
 ## When to Use
 
