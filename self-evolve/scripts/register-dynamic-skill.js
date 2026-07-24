@@ -117,13 +117,26 @@ function processSkillDir(skillDirPath) {
   } else if (fm.metadata && fm.metadata.triggers) {
     triggers = Array.isArray(fm.metadata.triggers) ? fm.metadata.triggers : [fm.metadata.triggers];
   } else {
-    // Dynamically infer triggers from the description/name
-    const words = (skillId + ' ' + description)
+    // Fallback only - explicit `triggers:` frontmatter (mandated by
+    // skill-creator/SKILL.md §4) should make this branch rare. Kept
+    // deliberately conservative: only the skill name plus the description's
+    // first sentence (not the whole prose block), a longer stopword list,
+    // and a length-5+ floor, so a generic skill description doesn't spam
+    // tier-router.js with broad words that fire on unrelated prompts.
+    const firstSentence = description.split(/[.!?]/)[0];
+    const STOPWORDS = new Set([
+      'with', 'from', 'this', 'that', 'your', 'about', 'some', 'than', 'then',
+      'prevent', 'resolved', 'skill', 'agent', 'using', 'which', 'these',
+      'those', 'their', 'there', 'where', 'when', 'while', 'after', 'before',
+      'again', 'other', 'every', 'being', 'would', 'could', 'should', 'still',
+      'first', 'never', 'always', 'ensure', 'provide', 'provided'
+    ]);
+    const words = (skillId + ' ' + firstSentence)
       .toLowerCase()
       .replace(/[^\w\s-]/g, ' ')
       .split(/\s+/)
-      .filter(w => w.length > 3 && !['with', 'from', 'this', 'that', 'your', 'about', 'some', 'than', 'then', 'prevent', 'resolved'].includes(w));
-    triggers = [...new Set(words)];
+      .filter(w => w.length >= 5 && !STOPWORDS.has(w));
+    triggers = [...new Set(words)].slice(0, 8);
   }
 
   return {

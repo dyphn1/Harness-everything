@@ -34,18 +34,6 @@ try {
 
   fs.appendFileSync(rulesFile, formattedMemory, 'utf8');
   console.log(`[Success] Memory persisted to ${rulesFile}`);
-
-  // Automatically trigger dynamic skill registration to manifest.json
-  try {
-    const { execSync } = require('child_process');
-    const registerScript = path.join(__dirname, 'register-dynamic-skill.js');
-    if (fs.existsSync(registerScript)) {
-      console.log(`[Info] Triggering auto-registration of dynamic skills to manifest.json...`);
-      execSync(`node "${registerScript}"`, { stdio: 'inherit' });
-    }
-  } catch (err) {
-    console.error(`[Warning] Failed to run auto-registration: ${err.message}`);
-  }
 } catch (err) {
   console.error(`[Error] Failed to write memory: ${err.message}`);
   process.exit(1);

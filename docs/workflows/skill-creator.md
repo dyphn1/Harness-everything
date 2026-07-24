@@ -68,7 +68,6 @@ graph TD
   Write2 --> Done2([Dynamic skill available next session via manifest registration and tier-router.js scan])
   Save2 --> Done3([Simple memory rule available in RULES.md])
 ```
-```
 
 ---
 
