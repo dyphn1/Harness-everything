@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [0.2.1] - 2026-07-24
+
+### Fixed
+- **Global skill installs landed one directory too deep**: `--global`/`-g` installs (all platforms share this one code path) copied skills to `~/.agents/harness-everything/skills/` instead of the documented `~/.agents/skills/` (see `bin/cli.js`'s own `-g, --global` help text, and the legacy-fallback scan `scripts/lib/skills.js` already expected at that path). Corrected in `scripts/installer.js` to match the same convention already used locally: `harness-everything/` holds manifest bookkeeping only, skill content lives in the native/shared `skills/` folder next to it. `~/.agents/harness-everything/manifest.json` is unchanged; uninstall's final global sweep was updated to match.
+- **Duplicate lines could accumulate in `.gitignore`**: `ensureHarnessStateIgnored` (`hooks/scripts/lib/harness-state.js`) runs once per hook-invoked subprocess with no cross-process lock around its read-then-append, so two invocations firing close together could both decide the same ignore pattern was missing and both append it. It (and the installer's own `scripts/lib/gitignore.js` writer, which shares the identical shape) now collapses exact-duplicate non-comment/non-blank lines on every write, so a duplicate from a lost race self-heals on the next invocation instead of accumulating.
+
+---
 ## [0.2.0] - 2026-07-23
 
 ### Added
