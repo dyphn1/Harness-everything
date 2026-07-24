@@ -18,7 +18,7 @@ graph TD
   Prune --> Checklist
   Checklist -->|Passes| Route{Static or dynamic?}
   Route -->|Static| Register["Register: harness-everything §5 row + tier-router.js keyword line"]
-  Route -->|Dynamic, from self-evolve| DynamicContract["§4 Dynamic Skill Generation Contract: write to .claude/harness-everything/skills/generated/<name>/, metadata.type=dynamic, status=draft"]
+  Route -->|Dynamic, from self-evolve| DynamicContract["§4 Dynamic Skill Generation Contract: write to .claude/harness-everything/skills/generated/<name>/ & register-dynamic-skill.js to manifest.json, metadata.type=dynamic, status=draft"]
   Register --> End([Skill live in the repo, single source of truth for its own description])
   DynamicContract --> End
 ```
@@ -37,6 +37,8 @@ graph LR
   Creator -->|Registers new static skills into| Registry["harness-everything / SKILL.md §5"]
   Evolve["self-evolve / SKILL.md §4"] -->|MUST load before packaging a session insight| Creator
   Creator -->|Writes dynamic skills to| Generated[".claude/harness-everything/skills/generated/"]
+  Generated -->|Registered in| Manifest["manifest.json 'generated' registry"]
+  Manifest -->|Matched & auto-loaded by| Router
 ```
 
 ---
@@ -60,8 +62,8 @@ graph TD
   Trigger2 --> Load2["self-evolve MUST load skill-creator §4 before writing anything"]
   Load2 --> Gate2{Quality Checklist §3 passes?}
   Gate2 -->|No| Reject2["Do not persist — this checklist is the only review a dynamic skill gets"]
-  Gate2 -->|Yes| Write2["Write .claude/harness-everything/skills/generated/orm-transaction-batching/SKILL.md, metadata.type=dynamic, status=draft"]
-  Write2 --> Done2([Dynamic skill available next session, lifecycle tracked separately from static skills])
+  Gate2 -->|Yes| Write2["Write .claude/harness-everything/skills/generated/orm-transaction-batching/SKILL.md & run register-dynamic-skill.js"]
+  Write2 --> Done2([Dynamic skill available next session via manifest registration and tier-router.js scan])
 ```
 
 ---

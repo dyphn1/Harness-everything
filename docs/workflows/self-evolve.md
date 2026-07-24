@@ -14,7 +14,8 @@ graph TD
   ReadSessionLogs --> IdentifyRootCauses["Isolate and extract system failures or bottlenecks"]
   IdentifyRootCauses --> SynthesizeGuardrails["Formulate actionable high-level cognitive guardrails"]
   SynthesizeGuardrails --> CompressMemories["Compress repetitive events into compact markdown files in /memories/"]
-  CompressMemories --> UpdateUserMemory["Commit lessons learned to user memory space"]
+  CompressMemories --> RegisterManifest["Register dynamic skill to manifest.json under 'generated' section"]
+  RegisterManifest --> UpdateUserMemory["Commit lessons learned to user memory space"]
   UpdateUserMemory --> End([Agent cognitive defense expanded for future sessions])
 ```
 
@@ -29,7 +30,8 @@ graph LR
   SessionEnd["Task Completed / Session Closed"] --> Evolve["self-evolve / SKILL.md"]
   Evolve -->|Reads from| HistoryLog["VS Code Debug logs & memory directories"]
   Evolve -->|Writes permanent updates to| UserMemory["/memories/ / user-memory files"]
-  Evolve -->|Informs future task triage in| Router["harness-everything / tier-router.js"]
+  Evolve -->|Registers in| Manifest["manifest.json 'generated' registry"]
+  Manifest -->|Scanned & matched by| Router["harness-everything / tier-router.js"]
 ```
 
 ---
@@ -44,8 +46,9 @@ graph TD
   Trigger --> Analyze["Reads last 5 execution logs"]
   Analyze --> DetectPattern["Finds 3 consecutive terminal command failures caused by path backslashes in PowerShell"]
   DetectPattern --> Formulate["Formulate new guardrail: 'When on Windows, convert backslashes to forward slashes for cross-shell command lines'"]
-  Formulate --> Write["Write bullet point to /memories/debugging.md"]
-  Write --> Done([Memory recorded: future sessions will automatically avoid Windows path errors])
+  Formulate --> Write["Write bullet point to /memories/debugging.md and package as dynamic skill"]
+  Write --> Register["Run register-dynamic-skill.js to write to manifest.json under 'generated'"]
+  Register --> Done([Memory & dynamic skill recorded: future sessions will automatically discover and load via tier-router.js])
 ```
 
 ---
