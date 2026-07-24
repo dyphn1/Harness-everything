@@ -1,6 +1,33 @@
 const path = require('path');
 const fs = require('fs');
 
+// Removes legacy static-skill subfolders left behind by the pre-0.2.2 bug
+// that installed skills to .claude/harness-everything/skills/ instead of the
+// native .claude/skills/, WITHOUT touching skills/generated/ - self-evolve
+// stores the user's own dynamically-generated skills there (see
+// skill-creator/SKILL.md §4), and a blind recursive rmSync on the whole
+// skills/ folder would silently delete that accumulated learning.
+function cleanupLegacySkillsDir(oldSkillsDir) {
+  if (!fs.existsSync(oldSkillsDir)) return;
+  try {
+    const entries = fs.readdirSync(oldSkillsDir, { withFileTypes: true });
+    let removedAny = false;
+    for (const entry of entries) {
+      if (entry.name === 'generated') continue;
+      fs.rmSync(path.join(oldSkillsDir, entry.name), { recursive: true, force: true });
+      removedAny = true;
+    }
+    if (fs.readdirSync(oldSkillsDir).length === 0) {
+      fs.rmdirSync(oldSkillsDir);
+    }
+    if (removedAny) {
+      console.log(`  🧹 Cleaned up legacy incorrect local skills folder at: .claude/harness-everything/skills/ (preserved skills/generated/ - self-evolve's own dynamic skills)`);
+    }
+  } catch (e) {
+    console.warn(`  ⚠️ Failed to clean up legacy skills folder: ${e.message}`);
+  }
+}
+
 // Claude Code has native project-skill directory: .claude/skills/.
 // Runtime state converges into .claude/harness-everything/.
 module.exports = {
@@ -100,15 +127,7 @@ module.exports = {
     console.log(`  ✅ Configured Claude Code hooks safely in ${isGlobal ? '~' : ''}/.claude/settings.json`);
 
     // DOWNWARD COMPATIBLE CLEANUP: Remove old wrong skill folder .claude/harness-everything/skills if it exists
-    const oldSkillsDir = path.join(claudeDir, 'harness-everything', 'skills');
-    if (fs.existsSync(oldSkillsDir)) {
-      try {
-        fs.rmSync(oldSkillsDir, { recursive: true, force: true });
-        console.log(`  🧹 Cleaned up legacy incorrect local skills folder at: .claude/harness-everything/skills/`);
-      } catch (e) {
-        console.warn(`  ⚠️ Failed to remove legacy skills folder: ${e.message}`);
-      }
-    }
+    cleanupLegacySkillsDir(path.join(claudeDir, 'harness-everything', 'skills'));
   },
   uninstall({ removeLocal, removeGlobal, workspaceRoot, userHome, getUserPromptsDir, advisory, claudeHooks, manifest, cleanEmptyDirs }) {
     if (removeLocal) {
@@ -116,11 +135,7 @@ module.exports = {
       claudeHooks.removeHarnessHooks(localSettingsFile);
       
       // Clear old wrong skill folder .claude/harness-everything/skills if any remain
-      const oldSkillsDir = path.join(workspaceRoot, '.claude', 'harness-everything', 'skills');
-      if (fs.existsSync(oldSkillsDir)) {
-        fs.rmSync(oldSkillsDir, { recursive: true, force: true });
-        console.log(`  🧹 Cleaned up legacy incorrect local skills folder at: .claude/harness-everything/skills/`);
-      }
+      cleanupLegacySkillsDir(path.join(workspaceRoot, '.claude', 'harness-everything', 'skills'));
     }
     if (removeGlobal) {
       const globalSettingsFile = path.join(userHome, '.claude', 'settings.json');
