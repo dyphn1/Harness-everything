@@ -1,6 +1,7 @@
 .harness/
 .claude/
 node_modules/
+.worktrees/
 .cursor/harness-everything/
 .github/harness-everything/
 .continue/harness-everything/

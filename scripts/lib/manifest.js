@@ -56,13 +56,41 @@ function recordSkillInstall(manifestPath, packageVersion, skillId, dirPath) {
   writeManifest(manifestPath, data);
 }
 
+function recordGeneratedSkill(manifestPath, skillId, dirPath, description, triggers = []) {
+  const data = readManifest(manifestPath);
+  if (!Array.isArray(data.generated)) data.generated = [];
+  
+  data.updatedAt = new Date().toISOString();
+  const idx = data.generated.findIndex(s => s.dirPath === dirPath || s.id === skillId);
+  const entry = {
+    id: skillId,
+    dirPath,
+    description,
+    triggers: Array.isArray(triggers) ? triggers : [],
+    generatedAt: new Date().toISOString()
+  };
+  
+  if (idx !== -1) data.generated[idx] = { ...data.generated[idx], ...entry };
+  else data.generated.push(entry);
+  
+  writeManifest(manifestPath, data);
+}
+
+function removeGeneratedSkill(manifestPath, dirPath) {
+  if (!fs.existsSync(manifestPath)) return;
+  const data = readManifest(manifestPath);
+  if (!Array.isArray(data.generated)) return;
+  data.generated = data.generated.filter(s => s.dirPath !== dirPath);
+  writeManifest(manifestPath, data);
+}
+
 // Removes one skill entry, and - once no skills remain in it - deletes the
 // manifest file itself rather than leaving an empty bookkeeping file behind.
 function removeSkillFromManifest(manifestPath, dirPath) {
   if (!fs.existsSync(manifestPath)) return;
   const data = readManifest(manifestPath);
   data.skills = data.skills.filter(s => s.dirPath !== dirPath);
-  if (data.skills.length === 0) {
+  if (data.skills.length === 0 && (!data.generated || data.generated.length === 0)) {
     fs.unlinkSync(manifestPath);
   } else {
     writeManifest(manifestPath, data);
@@ -78,5 +106,7 @@ module.exports = {
   readManifest,
   writeManifest,
   recordSkillInstall,
+  recordGeneratedSkill,
+  removeGeneratedSkill,
   removeSkillFromManifest,
 };

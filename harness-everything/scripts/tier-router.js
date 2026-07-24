@@ -158,6 +158,95 @@ function run(userPrompt) {
     });
   }
 
+  // ---------------------------------------------------------
+  // SELF-EVOLVED DYNAMIC SKILLS AUTO-DISCOVERY & PRECISE MATCHING
+  // ---------------------------------------------------------
+  try {
+    const userHome = process.env.HOME || process.env.USERPROFILE || '';
+    const workspaceRoot = require('path').join(__dirname, '..', '..');
+    const manifestPaths = [
+      require('path').join(workspaceRoot, '.claude', 'harness-everything', 'manifest.json'),
+      require('path').join(workspaceRoot, '.cursor', 'harness-everything', 'manifest.json'),
+      require('path').join(workspaceRoot, '.github', 'harness-everything', 'manifest.json'),
+      require('path').join(workspaceRoot, '.codex', 'harness-everything', 'manifest.json'),
+      require('path').join(workspaceRoot, '.continue', 'harness-everything', 'manifest.json'),
+      require('path').join(userHome, '.agents', 'harness-everything', 'manifest.json'),
+      require('path').join(userHome, '.claude', 'harness-everything', 'manifest.json')
+    ];
+
+    const generatedSkills = new Map();
+    for (const mPath of manifestPaths) {
+      if (require('fs').existsSync(mPath)) {
+        try {
+          const manifestData = JSON.parse(require('fs').readFileSync(mPath, 'utf8'));
+          if (Array.isArray(manifestData.generated)) {
+            for (const s of manifestData.generated) {
+              generatedSkills.set(s.id, s);
+            }
+          }
+        } catch (err) {
+          // ignore malformed manifests
+        }
+      }
+    }
+
+    const allDynamicSkills = Array.from(generatedSkills.values());
+    const matchedDynamicSkills = [];
+
+    for (const skill of allDynamicSkills) {
+      let score = 0;
+      const triggers = skill.triggers || [];
+      
+      for (const rawTrigger of triggers) {
+        const trigger = rawTrigger.toLowerCase().trim();
+        if (!trigger || trigger.length < 2) continue;
+        
+        // Ignore generic words to prevent false positives
+        if (['the', 'and', 'for', 'with', 'your', 'this', 'that', 'some', 'from', 'prevent', 'resolved'].includes(trigger)) continue;
+        
+        const isChinese = /[\u4e00-\u9fa5]/.test(trigger);
+        if (isChinese) {
+          if (promptLower.includes(trigger)) {
+            score += trigger.length * 2;
+          }
+        } else {
+          // English word-boundary matching to prevent substrings inside larger words
+          const escapedTrigger = trigger.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const regex = new RegExp(`\\b${escapedTrigger}\\b`, 'i');
+          if (regex.test(promptLower)) {
+            score += trigger.length >= 4 ? 3 : 1.5;
+          }
+        }
+      }
+      
+      if (score >= 3) {
+        matchedDynamicSkills.push({ skill, score });
+      }
+    }
+
+    if (matchedDynamicSkills.length > 0) {
+      matchedDynamicSkills.sort((a, b) => b.score - a.score);
+      console.log(`\n=> 🎯 HIGH-RELEVANCE SELF-EVOLVED SKILL(S) DETECTED:`);
+      matchedDynamicSkills.forEach(({ skill }) => {
+        // Compute path relative to workspace or keep absolute
+        let displayPath = skill.dirPath;
+        if (displayPath.startsWith(workspaceRoot)) {
+          displayPath = require('path').relative(workspaceRoot, displayPath);
+        }
+        console.log(`- ${displayPath}/SKILL.md (${skill.description} [DYNAMIC SKILL])`);
+      });
+    } else if (recommendedGuides.length === 0 && allDynamicSkills.length > 0) {
+      // Prompt has no match in standard skills, and no direct match in dynamic skills,
+      // but there are indeed dynamic skills in manifest.json. Suggest the LLM to inspect them!
+      console.log(`\n=> ℹ️ UNMATCHED PROMPT HINT:`);
+      console.log(`No standard or dynamic skills matched your prompt directly.`);
+      console.log(`However, you have ${allDynamicSkills.length} self-evolved dynamic skill(s) registered in your manifest.json.`);
+      console.log(`To ensure you don't miss past lessons, you should inspect the "generated" section of your manifest.json or check .claude/harness-everything/skills/generated/ to see if any apply to your current task.`);
+    }
+  } catch (err) {
+    // Fail silently in router to prevent breaking the core execution loop
+  }
+
   // Fact-audit nudge: broad, cheap keyword net for claims that risk being
   // asserted from stale/wrong training memory instead of verified. False
   // positives cost nothing here (it's a reminder, not a block) so recall
