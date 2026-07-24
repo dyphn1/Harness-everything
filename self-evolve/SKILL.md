@@ -19,6 +19,8 @@ version: 0.3.0
 This skill is responsible for the long-term learning and error prevention of the system.
 It ensures that the entire Harness ecosystem becomes smarter and avoids repeating mistakes after solving difficult problems every time.
 
+**Environment Requirements**: `persist-memory.js` and `register-dynamic-skill.js` require (1) Node.js on `PATH` (no npm dependencies), and (2) the shell's `cwd` to be inside the target Git repository — both resolve the workspace root by walking up from `cwd` to the nearest `.git`, matching `tier-router.js`'s discovery mechanism (see `harness-everything/SKILL.md`) so a skill registered here is actually found there. Outside a Git repo, `memories/repo/RULES.md` and any dynamic skill get written relative to `cwd` instead, which may not be where you expect if invoked from an unrelated directory.
+
 ## 1. Triggers
 - **Post-Circuit Breaker**: When `zoom-out` was triggered, and the difficult problem was ultimately solved — via the reflection report's fresh diagnosis or with the human's hints.
 - **Major Breakthrough**: Completed an extremely complex Tier 3 task, and discovered some previously unknown framework limitations or architectural pitfalls during the process.

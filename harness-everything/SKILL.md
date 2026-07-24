@@ -18,6 +18,8 @@ version: 0.3.0
 
 This is the single entry point for the entire Harness Skills ecosystem. When you receive a new request from the user and no specific Skill is indicated, you **MUST** prioritize loading this Skill to perform Task Triage.
 
+**Environment Requirements**: `tier-router.js` requires (1) a Node.js runtime on `PATH` — the script itself has zero npm dependencies, so no `npm install` is needed, just `node` being callable from whatever shell the agent is using; (2) the shell's current working directory to be inside the target Git repository (anywhere under it, not necessarily the root) — dynamic-skill auto-discovery resolves the workspace root by walking up from `cwd` to the nearest `.git`, *not* from wherever the script itself happens to be installed (that location varies by platform/scope: `.claude/skills/`, `.cursor/skills/`, `~/.agents/skills/`, etc., so a location-relative guess would be wrong more often than not). Outside a Git repository, it silently falls back to `cwd` itself, which may miss the real manifest.json if invoked from a subdirectory that isn't actually the intended scope.
+
 ## 1. Core Rule: Global Underlying OS & Base Execution Loop
 Before taking any action, you must awaken and load the principles of `install-cognitive-os`.
 No matter how simple the task is, your behavior must comply with the **Discover > Think > Try > Summarize > Record** cognitive loop.

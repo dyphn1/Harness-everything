@@ -162,23 +162,40 @@ function run(userPrompt) {
   // SELF-EVOLVED DYNAMIC SKILLS AUTO-DISCOVERY & PRECISE MATCHING
   // ---------------------------------------------------------
   try {
+    const fs = require('fs');
+    const path = require('path');
     const userHome = process.env.HOME || process.env.USERPROFILE || '';
-    const workspaceRoot = require('path').join(__dirname, '..', '..');
+
+    // Skill installs land at varying depth per platform/scope (e.g.
+    // <root>/.claude/skills/harness-everything/scripts/, <root>/.cursor/skills/...,
+    // ~/.claude/skills/...), so a fixed __dirname offset can't reach the real
+    // workspace root. Walk up from the invoking cwd to the nearest .git instead
+    // - the same approach register-dynamic-skill.js already uses.
+    function getWorkspaceRoot() {
+      let dir = path.resolve(process.cwd());
+      while (dir !== path.parse(dir).root) {
+        if (fs.existsSync(path.join(dir, '.git'))) return dir;
+        dir = path.dirname(dir);
+      }
+      return process.cwd();
+    }
+    const workspaceRoot = getWorkspaceRoot();
+
     const manifestPaths = [
-      require('path').join(workspaceRoot, '.claude', 'harness-everything', 'manifest.json'),
-      require('path').join(workspaceRoot, '.cursor', 'harness-everything', 'manifest.json'),
-      require('path').join(workspaceRoot, '.github', 'harness-everything', 'manifest.json'),
-      require('path').join(workspaceRoot, '.codex', 'harness-everything', 'manifest.json'),
-      require('path').join(workspaceRoot, '.continue', 'harness-everything', 'manifest.json'),
-      require('path').join(userHome, '.agents', 'harness-everything', 'manifest.json'),
-      require('path').join(userHome, '.claude', 'harness-everything', 'manifest.json')
+      path.join(workspaceRoot, '.claude', 'harness-everything', 'manifest.json'),
+      path.join(workspaceRoot, '.cursor', 'harness-everything', 'manifest.json'),
+      path.join(workspaceRoot, '.github', 'harness-everything', 'manifest.json'),
+      path.join(workspaceRoot, '.codex', 'harness-everything', 'manifest.json'),
+      path.join(workspaceRoot, '.continue', 'harness-everything', 'manifest.json'),
+      path.join(userHome, '.agents', 'harness-everything', 'manifest.json'),
+      path.join(userHome, '.claude', 'harness-everything', 'manifest.json')
     ];
 
     const generatedSkills = new Map();
     for (const mPath of manifestPaths) {
-      if (require('fs').existsSync(mPath)) {
+      if (fs.existsSync(mPath)) {
         try {
-          const manifestData = JSON.parse(require('fs').readFileSync(mPath, 'utf8'));
+          const manifestData = JSON.parse(fs.readFileSync(mPath, 'utf8'));
           if (Array.isArray(manifestData.generated)) {
             for (const s of manifestData.generated) {
               generatedSkills.set(s.id, s);
@@ -231,7 +248,7 @@ function run(userPrompt) {
         // Compute path relative to workspace or keep absolute
         let displayPath = skill.dirPath;
         if (displayPath.startsWith(workspaceRoot)) {
-          displayPath = require('path').relative(workspaceRoot, displayPath);
+          displayPath = path.relative(workspaceRoot, displayPath);
         }
         console.log(`- ${displayPath}/SKILL.md (${skill.description} [DYNAMIC SKILL])`);
       });
