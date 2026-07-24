@@ -22,8 +22,10 @@ When a complex issue—such as an environment-specific bug, a unique framework q
 
 1.  **Deep Reflection:** Harness triggers the `self-evolve` skill, directing the model to reflect on the root cause and extract the exact pattern.
 2.  **Rule Generation:** The model abstracts the learning into a concise rule (avoiding generic prompt prose).
-3.  **RULES.md Integration:** The rule is appended or merged into local workspace rules (usually under a `RULES.md` or a customized folder).
-4.  **Self-Regression Validation:** Before any new rule is persisted, Harness executes the `self-regression.js` test suite. This ensures that the generated rules do not conflict with existing core rules and that all script syntax is 100% correct, preventing behavior decay.
+3.  **Memory vs. Dynamic Skill Judgment:** The model decides whether the insight is a simple, localized tip or a reusable, complex procedure — packaging every lesson as a skill would bloat context for no benefit, so this is a deliberate gate, not the default.
+    *   **Simple Rule (default path):** Appended to local workspace rules (`RULES.md`, or a customized folder) via `persist-memory.js`.
+    *   **Dynamic Skill (exception path):** Written as a standalone `SKILL.md` under `.claude/harness-everything/skills/generated/<name>/` per `skill-creator`'s Dynamic Skill Generation Contract (with `status: draft` lifecycle metadata and required `triggers:` keywords), then registered via `register-dynamic-skill.js` into `manifest.json`. From there, `tier-router.js` scans and auto-surfaces it in future sessions whenever its triggers match the prompt — closing the loop from "learned once" to "discovered automatically," not just recorded.
+4.  **Self-Regression Validation:** Before any new rule or dynamic skill is persisted, Harness executes the `self-regression.js` test suite. This ensures that the generated rules/skills do not conflict with existing core rules and that all script syntax is 100% correct, preventing behavior decay.
 
 ---
 

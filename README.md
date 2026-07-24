@@ -102,13 +102,14 @@ flowchart TD
 
 ## Core Modules & Concepts
 
-Harness operates through five core cognitive concepts:
+Harness operates through six core cognitive concepts:
 
-1. **Router (`tier-router.js`):** Prevents over-engineering. Triages incoming tasks into Tiers: Tier 1 (Direct Edit, no plans), Tier 2 (Standard TDD enforcement), or Tier 3 (Macro Multi-Agent planning and delegation).
+1. **Router (`tier-router.js`):** Prevents over-engineering. Triages incoming tasks into Tiers: Tier 1 (Direct Edit, no plans), Tier 2 (Standard TDD enforcement), or Tier 3 (Macro Multi-Agent planning and delegation). It also scans every installed platform's `manifest.json` for skills `self-evolve` has generated dynamically, and auto-surfaces the ones whose keyword triggers match the current prompt — so a lesson learned in one session gets suggested again without the human having to remember it exists.
 2. **Guard (`rule-of-3.js`):** The fail-safe circuit breaker. Tracks failure signatures across terminal runs. If a test or command fails 3 times with the same signature, it locks mutating tools and forces a `zoom-out` reflection: re-verify every assumption with read-only tools, write a fact-checked report, then resume on a fresh diagnosis. The human partner is pulled in only for genuine decisions — or when the same signature trips the breaker a second time. A companion `Stop` gate (`stop-gate.js`) bounces the end of a turn once per edit batch when edits were never followed by a successful verification command.
 3. **Memory (`state-persist.js`):** Session transaction logging. Stores a local Write-Ahead Log (WAL) of milestones, preventing agents from forgetting their current task state if a session limits out or restarts.
-4. **Reflection (`self-evolve`):** Long-term workspace immunization. Upon task completion, the agent reflects on the root cause of resolved issues and saves them to local workspace rules (`RULES.md`), validated by a hermetic self-regression suite.
+4. **Reflection (`self-evolve`):** Long-term workspace immunization. Upon task completion, the agent reflects on the root cause of resolved issues, then judges whether the lesson is a simple rule or a reusable, complex pattern: simple rules are appended to local workspace rules (`RULES.md`); genuinely reusable patterns are instead packaged as a dynamic skill (via `skill-creator`'s Dynamic Skill Generation Contract) and registered in `manifest.json` so the Router picks it up in future sessions. Either path is validated by a hermetic self-regression suite before it's persisted.
 5. **Subagent Scope Guard (`subagent-scope-guard.js`):** Diffs the whole repo's `git status` before and after every subagent (`Task`) burst, not just the files it was briefed to touch. Catches a subagent that was told to only read/verify but edited files anyway — a real failure mode, not a hypothetical one.
+6. **Cognitive Laws (Agent Cognitive OS):** Six governing laws — Intent Precedence, State Handoff Awakening, Elimination & Prediction, Evidence Assertion, Adversarial Falsification, and Code-Documentation Alignment — are woven directly into the specific skill phase each one governs (e.g. Evidence Assertion inside `tdd`'s RED/GREEN/REFACTOR gates, State Handoff Awakening inside `zoom-out`'s reflection phase) rather than duplicated in one shared file. See the relevant skill's own `SKILL.md` for where a given law actually applies.
 
 ---
 
