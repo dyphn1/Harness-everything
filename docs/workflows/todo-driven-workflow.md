@@ -11,7 +11,8 @@ This section visualizes the rigid state constraints. Transitioning state is bloc
 ```mermaid
 graph TD
   Start([Initialize Checklist]) --> Plan["Define 3-7 Verifiable Sub-tasks"]
-  Plan --> SaveTodo["Try: node todo-cli.js init ..."]
+  Plan --> StateIntent["Awaken: State high-level intent (Law 1)"]
+  StateIntent --> SaveTodo["Try: node todo-cli.js init ..."]
   
   SaveTodo --> ChooseTask["Choose ONE pending task"]
   ChooseTask --> MarkInProgress["Try: node todo-cli.js start <id>"]

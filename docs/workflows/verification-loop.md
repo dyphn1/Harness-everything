@@ -22,7 +22,8 @@ graph TD
   CheckLint -->|Yes| RunTests["Execute complete automated test suite"]
   RunTests --> CheckTests{Tests passed?}
   CheckTests -->|No| FixTests["Debug and correct failing tests"]
-  CheckTests -->|Yes| End([Pre-PR verification gate cleared successfully])
+  CheckTests -->|Yes| GenerateReport["Compile Report: Assert real terminal logs as evidence (Law 4)"]
+  GenerateReport --> End([Pre-PR verification gate cleared successfully])
   FixBuild & FixTypes & FixLint & FixTests --> RunBuild
 ```
 

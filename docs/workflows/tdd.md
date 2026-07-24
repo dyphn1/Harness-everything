@@ -14,24 +14,27 @@ graph TD
   DesignInterface --> WriteTest["Write unit/integration tests first"]
   
   WriteTest --> RunRed["Try: Run tests (EXPECT FAILURE)"]
-  RunRed --> VerifyRed{Gate: Exit Code 1?}
+  RunRed --> AssertRed["Assert: Present terminal logs as evidence (Law 4)"]
+  AssertRed --> VerifyRed{Gate: Exit Code 1?}
   VerifyRed -->|Exit 0: Fake Test| FixTest["Reflect: Test is broken/fake. Fix it."]
   FixTest --> RunRed
   
   VerifyRed -->|Exit 1: True Red| WriteCode["Write minimal code to pass test"]
   
   WriteCode --> RunGreen["Try: Run tests (EXPECT SUCCESS)"]
-  RunGreen --> VerifyGreen{Gate: verify-gate.js}
+  RunGreen --> AssertGreen["Assert: Present terminal logs as evidence (Law 4)"]
+  AssertGreen --> VerifyGreen{Gate: verify-gate.js}
   
   VerifyGreen -->|Exit 1: Still Broken| DebugCode["Reflect: Read logs, fix code"]
   DebugCode --> RunGreen
   VerifyGreen -->|Exit 1: 3x Failures| CircuitBreaker["Trigger rule-of-3.js: ZOOM OUT"]
   CircuitBreaker --> DebugCode
   
-  VerifyGreen -->|Exit 0: Green| Refactor["Refactor code for readability"]
+  VerifyGreen -->|Exit 0: Green| Refactor["Refactor: Optimize & audit Code-Doc Alignment (Law 6)"]
   
   Refactor --> RunVerify["Try: Run tests again"]
-  RunVerify --> VerifyRefactor{Gate: verify-gate.js}
+  RunVerify --> AssertRefactor["Assert: Present terminal logs as evidence (Law 4)"]
+  AssertRefactor --> VerifyRefactor{Gate: verify-gate.js}
   VerifyRefactor -->|Exit 1| Revert["Revert refactor / Fix"]
   Revert --> RunVerify
   

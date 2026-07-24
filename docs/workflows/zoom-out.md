@@ -13,7 +13,8 @@ graph TD
   Start([3 Consecutive Errors Triggered]) --> Tripped{Rule of 3 Tripped?}
   Tripped -->|No| Backtrack["Review code change and retry"]
   Tripped -->|Yes| LockWork["Lock all file edit capabilities"]
-  LockWork --> GatherState["Analyze current working directory, file states, and errors"]
+  LockWork --> AwakenContext["Awaken: Review original goal & failed assumptions (Law 2)"]
+  AwakenContext --> GatherState["Analyze CWD, file states, and errors"]
   GatherState --> GenReport["Compile formal Reflection Report: what failed, assumptions, backtracking options"]
   GenReport --> PresentReport["Present report to human partner and request guidance"]
   PresentReport --> End([Workforce unlocked after human direction received])
@@ -43,7 +44,8 @@ Here we model concrete real-world scenarios and use cases of the `zoom-out` skil
 graph TD
   Start["Attempting to fix Python import error; fails 3 times consecutively with same trace"] --> Trigger["Rule of 3 circuit breaker trips"]
   Trigger --> Lock["Workspace writes locked"]
-  Trigger --> Collect["Collect error traces and diff history"]
+  Trigger --> Awaken["Awaken: Stop error-fixing; review imports design & requirements (Law 2)"]
+  Awaken --> Collect["Collect error traces and diff history"]
   Collect --> WriteReport["Create docs/reflection/zoom-out-report.md detailing the import cyclic dependency"]
   WriteReport --> Present["Present options to human: Option A - Merge imports, Option B - Extract shared modules"]
   Present --> UserChoice["User select: 'Option B'"]
