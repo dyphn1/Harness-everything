@@ -25,11 +25,33 @@ function ensureWorkspaceGitignorePatterns(wsRoot, patterns) {
       }
     }
 
-    if (addedPatterns.length > 0) {
-      const separator = content.length === 0 || content.endsWith('\n') ? '' : '\n';
-      const toAppend = addedPatterns.join('\n') + '\n';
-      fs.appendFileSync(gitignorePath, `${separator}${toAppend}`, 'utf8');
-      console.log(`  ✅ Added auto-generated directories to .gitignore: ${addedPatterns.join(', ')}`);
+    // Same read-then-append shape as ensureHarnessStateIgnored() in
+    // hooks/scripts/lib/harness-state.js, which runs once per hook
+    // invocation and can race across concurrent processes to leave an
+    // exact-duplicate line behind - see the comment there. Collapsing
+    // duplicates here too keeps both writers self-healing the same file.
+    const seen = new Set();
+    let sawDuplicate = false;
+    const dedupedLines = lines.filter(line => {
+      const trimmed = line.trim();
+      if (trimmed === '' || trimmed.startsWith('#')) return true;
+      if (seen.has(trimmed)) {
+        sawDuplicate = true;
+        return false;
+      }
+      seen.add(trimmed);
+      return true;
+    });
+
+    if (addedPatterns.length > 0 || sawDuplicate) {
+      while (dedupedLines.length > 0 && dedupedLines[dedupedLines.length - 1] === '') {
+        dedupedLines.pop();
+      }
+      const finalLines = dedupedLines.concat(addedPatterns);
+      fs.writeFileSync(gitignorePath, finalLines.join('\n') + '\n', 'utf8');
+      if (addedPatterns.length > 0) {
+        console.log(`  ✅ Added auto-generated directories to .gitignore: ${addedPatterns.join(', ')}`);
+      }
     }
   } catch (err) {
     console.warn(`  ⚠️ Failed to update .gitignore: ${err.message}`);

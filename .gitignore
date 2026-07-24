@@ -10,3 +10,4 @@ node_modules/
 .github/harness-state/
 .continue/harness-state/
 .claude/harness-everything/state/
+.codex/harness-everything/state/

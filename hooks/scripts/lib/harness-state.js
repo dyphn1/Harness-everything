@@ -112,9 +112,35 @@ function ensureHarnessStateIgnored(rootPath) {
       }
     }
     
-    if (patternsToAdd.length > 0) {
-      const separator = content.length === 0 || content.endsWith('\n') ? '' : '\n';
-      fs.appendFileSync(gitignorePath, separator + patternsToAdd.join('\n') + '\n', 'utf8');
+    // This runs once per hook invocation - i.e. once per Claude Code
+    // subprocess - with no cross-process lock around the read-then-append
+    // below. Two hook invocations firing close together (e.g. two tool
+    // calls in the same turn) can each read the file before either has
+    // written, so both decide the same pattern is missing and both append
+    // it, leaving an exact duplicate line behind. Rather than add real
+    // cross-process locking for a housekeeping file that already fails
+    // silently by design, every call also collapses any exact-duplicate
+    // non-comment/non-blank line it finds - so a duplicate from a lost
+    // race self-heals on the very next invocation instead of accumulating.
+    const seen = new Set();
+    let sawDuplicate = false;
+    const dedupedLines = lines.filter(line => {
+      const trimmed = line.trim();
+      if (trimmed === '' || trimmed.startsWith('#')) return true;
+      if (seen.has(trimmed)) {
+        sawDuplicate = true;
+        return false;
+      }
+      seen.add(trimmed);
+      return true;
+    });
+
+    if (patternsToAdd.length > 0 || sawDuplicate) {
+      while (dedupedLines.length > 0 && dedupedLines[dedupedLines.length - 1] === '') {
+        dedupedLines.pop();
+      }
+      const finalLines = dedupedLines.concat(patternsToAdd);
+      fs.writeFileSync(gitignorePath, finalLines.join('\n') + '\n', 'utf8');
     }
   } catch (err) {
     // Fail silently to avoid breaking execution if .gitignore is write-locked

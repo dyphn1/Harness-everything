@@ -290,10 +290,9 @@ async function main() {
     const targetDirs = [];
     if (isGlobal) {
       const globalAgentsDir = path.join(userHome, '.agents');
-      const globalHarnessDir = manifest.getHarnessDir(globalAgentsDir);
       targetDirs.push({
-        path: path.join(globalHarnessDir, 'skills'),
-        label: '~/.agents/harness-everything/skills/',
+        path: path.join(globalAgentsDir, 'skills'),
+        label: '~/.agents/skills/',
         manifestPath: manifest.getManifestPath(globalAgentsDir),
       });
     } else {
@@ -592,10 +591,11 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
 
     // ~/.agents is a shared directory - other tools or the user's own files
     // may live there. Never touch it directly; only clean up the
-    // harness-everything/ subfolder this package exclusively owns, and only
-    // once it's actually empty (manifest.json is removed automatically by
-    // the skills-removal step below once no skills remain in it).
-    cleanEmptyDirs(path.join(globalHarnessDir, 'skills'), [userHome]);
+    // harness-everything/ subfolder (manifest bookkeeping) and the skills/
+    // subfolder this package exclusively owns, and only once each is
+    // actually empty (manifest.json is removed automatically by the
+    // skills-removal step below once no skills remain in it).
+    cleanEmptyDirs(path.join(globalAgentsDir, 'skills'), [userHome]);
     cleanEmptyDirs(globalHarnessDir, [userHome]);
   }
 
