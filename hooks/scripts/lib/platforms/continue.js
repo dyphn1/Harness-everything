@@ -37,5 +37,37 @@ module.exports = {
       return fs.existsSync(path.join(userHome, '.continue', 'rules', 'harness.md'));
     }
     return fs.existsSync(path.join(workspaceRoot, '.continue', 'rules', 'harness.md'));
+  },
+  getSkillsTarget({ workspaceRoot, userHome, isGlobal, manifest }) {
+    if (isGlobal) {
+      const globalAgentsDir = path.join(userHome, '.agents');
+      return {
+        path: path.join(globalAgentsDir, 'skills'),
+        label: '~/.agents/skills/',
+        manifestPath: manifest.getManifestPath(globalAgentsDir),
+      };
+    } else {
+      const continueDir = path.join(workspaceRoot, '.continue');
+      return {
+        path: path.join(continueDir, 'skills'),
+        label: '.continue/skills/',
+        manifestPath: manifest.getManifestPath(continueDir),
+      };
+    }
+  },
+  install({ isGlobal, targetWorkspaceRoot, userHome, advisory, workspaceRoot }) {
+    const targetFile = isGlobal ? path.join(userHome, '.continue', 'rules', 'harness.md') : path.join(targetWorkspaceRoot, '.continue', 'rules', 'harness.md');
+    advisory.installContinueRule(targetFile, isGlobal ? '~/.continue/rules/harness.md' : '.continue/rules/harness.md');
+  },
+  uninstall({ removeLocal, removeGlobal, workspaceRoot, userHome, cleanEmptyDirs }) {
+    const advisory = require('../../../../scripts/lib/advisory-text');
+    if (removeLocal) {
+      advisory.removeContinueRule(path.join(workspaceRoot, '.continue', 'rules', 'harness.md'));
+      cleanEmptyDirs(path.join(workspaceRoot, '.continue', 'rules'), [workspaceRoot, userHome]);
+    }
+    if (removeGlobal) {
+      advisory.removeContinueRule(path.join(userHome, '.continue', 'rules', 'harness.md'));
+      cleanEmptyDirs(path.join(userHome, '.continue', 'rules'), [userHome]);
+    }
   }
 };

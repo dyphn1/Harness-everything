@@ -216,113 +216,40 @@ async function main() {
   console.log(`Installing Harness OS to ${isGlobal ? 'Global Home' : 'Local Workspace'}`);
   console.log("-------------------------------------------------");
 
-  // Merge into .claude/settings.json (only if Claude Code selected)
-  if (targets.claude) {
-    installClaudeHooks({ isGlobal, targetWorkspaceRoot });
-  }
-
-  // Cursor
-  if (targets.cursor) {
-    const targetFile = isGlobal ? path.join(userHome, '.cursorrules') : path.join(targetWorkspaceRoot, '.cursorrules');
-    advisory.injectAdvisoryText(targetFile, '# Cursor Project Rules', isGlobal ? '~/.cursorrules' : '.cursorrules');
-  }
-  // Copilot Chat
-  if (targets.copilot) {
-    if (!isGlobal) {
-      const targetFile = path.join(targetWorkspaceRoot, '.github', 'copilot-instructions.md');
-      advisory.injectAdvisoryText(targetFile, '# Copilot Instructions', '.github/copilot-instructions.md');
-    } else {
-      try {
-        const promptsDir = getUserPromptsDir();
-        if (!fs.existsSync(promptsDir)) {
-          fs.mkdirSync(promptsDir, { recursive: true });
-        }
-        const vscodeInstFile = path.join(promptsDir, 'harness.instructions.md');
-        fs.writeFileSync(vscodeInstFile, advisory.buildCopilotGlobalContent(), 'utf8');
-        console.log(`  ✅ Installed global Copilot instructions to VS Code: ${vscodeInstFile}`);
-      } catch (err) {
-        console.warn(`  ⚠️ Failed to write VS Code user prompts folder: ${err.message}`);
-      }
-    }
-  }
-  // Codex
-  if (targets.codex) {
-    if (!isGlobal) {
-      const targetFile = path.join(targetWorkspaceRoot, 'AGENTS.md');
-      advisory.injectAdvisoryText(targetFile, '# AGENTS.md', 'AGENTS.md');
-    } else {
-      try {
-        const promptsDir = getUserPromptsDir();
-        if (!fs.existsSync(promptsDir)) {
-          fs.mkdirSync(promptsDir, { recursive: true });
-        }
-        const vscodeAgentFile = path.join(promptsDir, 'harness.agent.md');
-        fs.writeFileSync(vscodeAgentFile, advisory.buildCodexGlobalContent(), 'utf8');
-        console.log(`  ✅ Installed global Codex agent to VS Code: ${vscodeAgentFile}`);
-      } catch (err) {
-        console.warn(`  ⚠️ Failed to write VS Code user prompts folder: ${err.message}`);
-      }
-    }
-  }
-  // Continue.dev
-  if (targets.continue) {
-    const targetFile = isGlobal ? path.join(userHome, '.continue', 'rules', 'harness.md') : path.join(workspaceRoot, '.continue', 'rules', 'harness.md');
-    advisory.installContinueRule(targetFile, isGlobal ? '~/.continue/rules/harness.md' : '.continue/rules/harness.md');
-  }
-  // Hermes Agent (reads .hermes.md/AGENTS.md/CLAUDE.md/.cursorrules from the
-  // project it's launched in - project scope only, no documented global
-  // equivalent, so --global is a documented no-op here rather than a guess).
-  if (targets.hermes) {
-    if (!isGlobal) {
-      const targetFile = path.join(targetWorkspaceRoot, '.hermes.md');
-      advisory.injectAdvisoryText(targetFile, '# .hermes.md', '.hermes.md');
-    } else {
-      console.log(`  ℹ️  Hermes Agent has no documented global instructions file (it reads .hermes.md from the current project directory only) - skipping global install for --hermes.`);
+  for (const platform of platformModules) {
+    if (targets[platform.name] && typeof platform.install === 'function') {
+      platform.install({
+        isGlobal,
+        targetWorkspaceRoot,
+        harnessSourceDir,
+        packageVersion,
+        getUserPromptsDir,
+        advisory,
+        claudeHooks,
+        manifest,
+        userHome,
+        workspaceRoot
+      });
     }
   }
 
   // Install chosen skills. Every platform's skills stay at that platform's
-  // own native location (unchanged) EXCEPT Claude, which never had one -
-  // its copy lives under its own harness-everything/ subfolder instead.
-  // Every platform still gets its own harness-everything/manifest.json so
-  // "what did we install here" is always precisely answerable per platform.
+  // own native location (unchanged) EXCEPT Claude, which has its copy under
+  // .claude/skills/. Each platform's manifest.json tracks its own.
   if (chosenSkills.length > 0) {
     const targetDirs = [];
-    if (isGlobal) {
-      const globalAgentsDir = path.join(userHome, '.agents');
-      targetDirs.push({
-        path: path.join(globalAgentsDir, 'skills'),
-        label: '~/.agents/skills/',
-        manifestPath: manifest.getManifestPath(globalAgentsDir),
-      });
-    } else {
-      if (targets.claude) {
-        const claudeDir = path.join(workspaceRoot, '.claude');
-        targetDirs.push({
-          path: path.join(manifest.getHarnessDir(claudeDir), 'skills'),
-          label: '.claude/harness-everything/skills/',
-          manifestPath: manifest.getManifestPath(claudeDir),
-        });
+    const addedPaths = new Set();
+    for (const platform of platformModules) {
+      // If it's a global install, gather all configured/selected platforms or defaults
+      if (targets[platform.name] || (isGlobal && (targets.claude || targets.cursor || targets.copilot || targets.codex || targets.continue || targets.hermes))) {
+        if (typeof platform.getSkillsTarget === 'function') {
+          const tgt = platform.getSkillsTarget({ workspaceRoot, userHome, isGlobal, manifest });
+          if (tgt && tgt.path && !addedPaths.has(tgt.path)) {
+            targetDirs.push(tgt);
+            addedPaths.add(tgt.path);
+          }
+        }
       }
-      if (targets.cursor) {
-        const cursorDir = path.join(workspaceRoot, '.cursor');
-        targetDirs.push({ path: path.join(cursorDir, 'skills'), label: '.cursor/skills/', manifestPath: manifest.getManifestPath(cursorDir) });
-      }
-      if (targets.copilot) {
-        const githubDir = path.join(workspaceRoot, '.github');
-        targetDirs.push({ path: path.join(githubDir, 'skills'), label: '.github/skills/', manifestPath: manifest.getManifestPath(githubDir) });
-      }
-      if (targets.codex) {
-        const codexDir = path.join(workspaceRoot, '.codex');
-        targetDirs.push({ path: path.join(codexDir, 'skills'), label: '.codex/skills/', manifestPath: manifest.getManifestPath(codexDir) });
-      }
-      if (targets.continue) {
-        const continueDir = path.join(workspaceRoot, '.continue');
-        targetDirs.push({ path: path.join(continueDir, 'skills'), label: '.continue/skills/', manifestPath: manifest.getManifestPath(continueDir) });
-      }
-      // Hermes has no documented project-level skills directory - its skills
-      // system is per-profile only (~/.hermes/skills/), which the isGlobal
-      // branch above already covers via the shared global harness-everything/ target.
     }
 
     console.log(`\nInstalling Harness skills:`);
@@ -355,61 +282,6 @@ async function main() {
   console.log("\n🎉 INSTALL SUCCESS! Harness OS is now protecting this project.");
   console.log("Try your first AI interaction! The bootstrapped OS will auto-route your tier.");
   console.log("=================================================");
-}
-
-function installClaudeHooks({ isGlobal, targetWorkspaceRoot }) {
-  const claudeDir = isGlobal ? path.join(userHome, '.claude') : path.join(targetWorkspaceRoot, '.claude');
-  if (!fs.existsSync(claudeDir)) {
-    fs.mkdirSync(claudeDir, { recursive: true });
-    console.log(`  Created ${isGlobal ? '~/.claude' : '.claude'} directory`);
-  }
-  const claudeSettingsFile = path.join(claudeDir, 'settings.json');
-  let claudeConfig = {};
-  if (fs.existsSync(claudeSettingsFile)) {
-    try {
-      claudeConfig = JSON.parse(fs.readFileSync(claudeSettingsFile, 'utf8'));
-    } catch (e) {
-      console.warn(`  ⚠️ Existing ${isGlobal ? '~' : ''}/.claude/settings.json is malformed, creating fresh one.`);
-    }
-  }
-
-  const resolvedHooks = resolveSourceHooks();
-  claudeHooks.mergeHarnessHooks(claudeConfig, resolvedHooks);
-
-  fs.writeFileSync(claudeSettingsFile, JSON.stringify(claudeConfig, null, 2), 'utf8');
-  console.log(`  ✅ Configured Claude Code hooks safely in ${isGlobal ? '~' : ''}/.claude/settings.json`);
-}
-
-// Resolves the source hooks.json into absolute script paths and stamps each
-// entry with which package/version/author installed it (informational -
-// removal itself still keys off the `harness:` id prefix alone).
-function resolveSourceHooks() {
-  const sourceHooksFile = path.join(harnessSourceDir, 'hooks', 'hooks.json');
-  if (!fs.existsSync(sourceHooksFile)) {
-    throw new Error(`Harness source hooks definition not found at: ${sourceHooksFile}`);
-  }
-  const sourceHooksObj = JSON.parse(fs.readFileSync(sourceHooksFile, 'utf8'));
-
-  const resolvedHooks = {};
-  for (const [hookType, hookList] of Object.entries(sourceHooksObj.hooks || {})) {
-    resolvedHooks[hookType] = hookList.map(hookItem => {
-      const cloned = JSON.parse(JSON.stringify(hookItem));
-      if (cloned.hooks) {
-        cloned.hooks = cloned.hooks.map(h => {
-          if (h.type === 'command' && h.command) {
-            h.command = h.command.replace(/^node\s+"?([^"\s]+)"?/, (m, scriptPath) => {
-              const abs = path.isAbsolute(scriptPath) ? scriptPath : path.join(harnessSourceDir, scriptPath);
-              return `node "${abs}"`;
-            });
-          }
-          return h;
-        });
-      }
-      cloned.harness = { package: manifest.PACKAGE_NAME, version: packageVersion, author: manifest.HARNESS_AUTHOR };
-      return cloned;
-    });
-  }
-  return resolvedHooks;
 }
 
 async function runUninstall({ hasYesFlag, args, isInteractive }) {
@@ -524,36 +396,30 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
     console.log("Uninstalling Harness OS from Local Workspace...");
     console.log("-------------------------------------------------");
 
-    const localSettingsFile = path.join(workspaceRoot, '.claude', 'settings.json');
-    claudeHooks.removeHarnessHooks(localSettingsFile);
-
-    // Clear each platform's own runtime hook-state. Manifest + any remaining
-    // skills are a separate, opt-in concern handled by the skills-removal
-    // step below, so the harness-everything/ dir itself isn't swept here yet
-    // - manifest.json (deleted only once its skills list empties out) may
-    // still be sitting in it at this point. The final sweep near the end of
-    // this function catches it once skill removal has actually run.
     for (const platform of platformModules) {
-      if (typeof platform.getStateDir !== 'function') continue;
-      const stateDir = platform.getStateDir(workspaceRoot);
-      if (fs.existsSync(stateDir)) {
-        fs.rmSync(stateDir, { recursive: true, force: true });
-        console.log(`  ✅ Removed local ${path.relative(workspaceRoot, stateDir).replace(/\\/g, '/')}/ directory`);
+      if (typeof platform.uninstall === 'function') {
+        platform.uninstall({
+          removeLocal: true,
+          removeGlobal: false,
+          workspaceRoot,
+          userHome,
+          getUserPromptsDir,
+          cleanEmptyDirs,
+          claudeHooks
+        });
+      }
+
+      if (typeof platform.getStateDir === 'function') {
+        const stateDir = platform.getStateDir(workspaceRoot);
+        if (fs.existsSync(stateDir)) {
+          fs.rmSync(stateDir, { recursive: true, force: true });
+          console.log(`  ✅ Removed local ${path.relative(workspaceRoot, stateDir).replace(/\\/g, '/')}/ directory`);
+        }
       }
     }
 
-    advisory.removeAdvisoryText(path.join(workspaceRoot, '.cursorrules'));
-    advisory.removeAdvisoryText(path.join(workspaceRoot, '.github', 'copilot-instructions.md'));
-    advisory.removeAdvisoryText(path.join(workspaceRoot, 'AGENTS.md'));
-    advisory.removeAdvisoryText(path.join(workspaceRoot, '.hermes.md'));
-
-    advisory.removeContinueRule(path.join(workspaceRoot, '.continue', 'rules', 'harness.md'));
-    cleanEmptyDirs(path.join(workspaceRoot, '.continue', 'rules'), [workspaceRoot, userHome]);
-
     // One-time migration cleanup: earlier versions used a self-invented
     // top-level .harness/ directory for Claude's manifest + skill copies.
-    // It was never shared with anything else in the workspace, so - unlike
-    // every other removal in this file - it's always safe to wipe wholesale.
     const legacyHarnessDir = path.join(workspaceRoot, '.harness');
     if (fs.existsSync(legacyHarnessDir)) {
       fs.rmSync(legacyHarnessDir, { recursive: true, force: true });
@@ -566,28 +432,19 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
     console.log("Uninstalling Harness OS from Global Home...");
     console.log("-------------------------------------------------");
 
-    const globalSettingsFile = path.join(userHome, '.claude', 'settings.json');
-    claudeHooks.removeHarnessHooks(globalSettingsFile);
-    const globalClaudeDir = path.join(userHome, '.claude');
-    cleanEmptyDirs(globalClaudeDir, [userHome]);
-
-    advisory.removeAdvisoryText(path.join(userHome, '.cursorrules'));
-
-    advisory.removeContinueRule(path.join(userHome, '.continue', 'rules', 'harness.md'));
-    cleanEmptyDirs(path.join(userHome, '.continue', 'rules'), [userHome]);
-
-    const promptsDir = getUserPromptsDir();
-    const vscodeInstFile = path.join(promptsDir, 'harness.instructions.md');
-    if (fs.existsSync(vscodeInstFile)) {
-      fs.unlinkSync(vscodeInstFile);
-      console.log(`  ✅ Removed global Copilot instructions: ${vscodeInstFile}`);
+    for (const platform of platformModules) {
+      if (typeof platform.uninstall === 'function') {
+        platform.uninstall({
+          removeLocal: false,
+          removeGlobal: true,
+          workspaceRoot,
+          userHome,
+          getUserPromptsDir,
+          cleanEmptyDirs,
+          claudeHooks
+        });
+      }
     }
-    const vscodeAgentFile = path.join(promptsDir, 'harness.agent.md');
-    if (fs.existsSync(vscodeAgentFile)) {
-      fs.unlinkSync(vscodeAgentFile);
-      console.log(`  ✅ Removed global Codex agent: ${vscodeAgentFile}`);
-    }
-    cleanEmptyDirs(promptsDir, [userHome]);
 
     // ~/.agents is a shared directory - other tools or the user's own files
     // may live there. Never touch it directly; only clean up the

@@ -118,7 +118,7 @@ Harness operates through five core cognitive concepts:
 
 | AI Agent Tool | Integration Method | Local Target Location | Enforcement |
 |---|---|---|---|
-| **Claude Code** | Native Lifecycle Hooks (`PreToolUse`, `PostToolUse`, `SessionStart`) | `.claude/settings.json` (project) / `~/.claude/settings.json` (user) | **Hard** — hooks can block a tool call (`exit(2)`) |
+| **Claude Code** | Native Lifecycle Hooks (`PreToolUse`, `PostToolUse`, `SessionStart`) | `.claude/settings.json` (project) / `~/.claude/settings.json` (user)<br>*.claude/skills/* (Project Skills) / *~/.claude/skills/* (Global Skills) | **Hard** — hooks can block a tool call (`exit(2)`) |
 | **Cursor** | Native Project Rules | `.cursorrules` | Advisory only |
 | **Copilot Chat** | Custom Instructions | `.github/copilot-instructions.md` | Advisory only |
 | **Codex** | Custom Instructions (`AGENTS.md`, not `.codex/config.toml` — that file controls CLI/sandbox behavior, not prompt content) | `AGENTS.md` | Advisory only |

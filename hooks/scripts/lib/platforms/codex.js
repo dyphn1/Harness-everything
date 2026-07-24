@@ -42,5 +42,55 @@ module.exports = {
       return false;
     }
     return fs.existsSync(path.join(workspaceRoot, 'AGENTS.md'));
+  },
+  getSkillsTarget({ workspaceRoot, userHome, isGlobal, manifest }) {
+    if (isGlobal) {
+      const globalAgentsDir = path.join(userHome, '.agents');
+      return {
+        path: path.join(globalAgentsDir, 'skills'),
+        label: '~/.agents/skills/',
+        manifestPath: manifest.getManifestPath(globalAgentsDir),
+      };
+    } else {
+      const codexDir = path.join(workspaceRoot, '.codex');
+      return {
+        path: path.join(codexDir, 'skills'),
+        label: '.codex/skills/',
+        manifestPath: manifest.getManifestPath(codexDir),
+      };
+    }
+  },
+  install({ isGlobal, targetWorkspaceRoot, getUserPromptsDir, advisory }) {
+    if (!isGlobal) {
+      const targetFile = path.join(targetWorkspaceRoot, 'AGENTS.md');
+      advisory.injectAdvisoryText(targetFile, '# AGENTS.md', 'AGENTS.md');
+    } else {
+      try {
+        const promptsDir = getUserPromptsDir();
+        if (!fs.existsSync(promptsDir)) {
+          fs.mkdirSync(promptsDir, { recursive: true });
+        }
+        const vscodeAgentFile = path.join(promptsDir, 'harness.agent.md');
+        fs.writeFileSync(vscodeAgentFile, advisory.buildCodexGlobalContent(), 'utf8');
+        console.log(`  ✅ Installed global Codex agent to VS Code: ${vscodeAgentFile}`);
+      } catch (err) {
+        console.warn(`  ⚠️ Failed to write VS Code user prompts folder: ${err.message}`);
+      }
+    }
+  },
+  uninstall({ removeLocal, removeGlobal, workspaceRoot, userHome, getUserPromptsDir, cleanEmptyDirs }) {
+    const advisory = require('../../../../scripts/lib/advisory-text');
+    if (removeLocal) {
+      advisory.removeAdvisoryText(path.join(workspaceRoot, 'AGENTS.md'));
+    }
+    if (removeGlobal) {
+      const promptsDir = getUserPromptsDir();
+      const vscodeAgentFile = path.join(promptsDir, 'harness.agent.md');
+      if (fs.existsSync(vscodeAgentFile)) {
+        fs.unlinkSync(vscodeAgentFile);
+        console.log(`  ✅ Removed global Codex agent: ${vscodeAgentFile}`);
+      }
+      cleanEmptyDirs(promptsDir, [userHome]);
+    }
   }
 };

@@ -110,6 +110,7 @@ function getInstalledSkills(workspaceRoot, userHome) {
     { home: path.join(workspaceRoot, '.github'), scope: 'local (Copilot)' },
     { home: path.join(workspaceRoot, '.codex'), scope: 'local (Codex)' },
     { home: path.join(workspaceRoot, '.continue'), scope: 'local (Continue)' },
+    { home: path.join(userHome, '.claude'), scope: 'global (Claude)' },
     { home: globalAgentsDir, scope: 'global' },
   ];
   for (const { home, scope } of manifestHomes) {
@@ -124,6 +125,7 @@ function getInstalledSkills(workspaceRoot, userHome) {
   // author marker - never a blind directory listing.
   const legacyDirs = [
     { path: path.join(workspaceRoot, '.harness', 'skills'), scope: 'local (legacy .harness)', manifestPath: manifest.getManifestPath(path.join(workspaceRoot, '.claude')) },
+    { path: path.join(workspaceRoot, '.claude', 'harness-everything', 'skills'), scope: 'local (Claude legacy erroneous path)', manifestPath: manifest.getManifestPath(path.join(workspaceRoot, '.claude')) },
     { path: path.join(workspaceRoot, '.cursor', 'skills'), scope: 'local (Cursor)', manifestPath: manifest.getManifestPath(path.join(workspaceRoot, '.cursor')) },
     { path: path.join(workspaceRoot, '.github', 'skills'), scope: 'local (Copilot)', manifestPath: manifest.getManifestPath(path.join(workspaceRoot, '.github')) },
     { path: path.join(workspaceRoot, '.codex', 'skills'), scope: 'local (Codex)', manifestPath: manifest.getManifestPath(path.join(workspaceRoot, '.codex')) },

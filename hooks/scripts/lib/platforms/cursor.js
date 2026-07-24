@@ -37,5 +37,35 @@ module.exports = {
       return fs.existsSync(path.join(userHome, '.cursorrules'));
     }
     return fs.existsSync(path.join(workspaceRoot, '.cursorrules'));
+  },
+  getSkillsTarget({ workspaceRoot, userHome, isGlobal, manifest }) {
+    if (isGlobal) {
+      const globalAgentsDir = path.join(userHome, '.agents');
+      return {
+        path: path.join(globalAgentsDir, 'skills'),
+        label: '~/.agents/skills/',
+        manifestPath: manifest.getManifestPath(globalAgentsDir),
+      };
+    } else {
+      const cursorDir = path.join(workspaceRoot, '.cursor');
+      return {
+        path: path.join(cursorDir, 'skills'),
+        label: '.cursor/skills/',
+        manifestPath: manifest.getManifestPath(cursorDir),
+      };
+    }
+  },
+  install({ isGlobal, targetWorkspaceRoot, userHome, advisory }) {
+    const targetFile = isGlobal ? path.join(userHome, '.cursorrules') : path.join(targetWorkspaceRoot, '.cursorrules');
+    advisory.injectAdvisoryText(targetFile, '# Cursor Project Rules', isGlobal ? '~/.cursorrules' : '.cursorrules');
+  },
+  uninstall({ removeLocal, removeGlobal, workspaceRoot, userHome }) {
+    const advisory = require('../../../../scripts/lib/advisory-text');
+    if (removeLocal) {
+      advisory.removeAdvisoryText(path.join(workspaceRoot, '.cursorrules'));
+    }
+    if (removeGlobal) {
+      advisory.removeAdvisoryText(path.join(userHome, '.cursorrules'));
+    }
   }
 };

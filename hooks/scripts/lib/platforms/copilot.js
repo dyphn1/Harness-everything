@@ -37,5 +37,55 @@ module.exports = {
       return false; // Handled via global userPromptsDir check
     }
     return fs.existsSync(path.join(workspaceRoot, '.github', 'copilot-instructions.md'));
+  },
+  getSkillsTarget({ workspaceRoot, userHome, isGlobal, manifest }) {
+    if (isGlobal) {
+      const globalAgentsDir = path.join(userHome, '.agents');
+      return {
+        path: path.join(globalAgentsDir, 'skills'),
+        label: '~/.agents/skills/',
+        manifestPath: manifest.getManifestPath(globalAgentsDir),
+      };
+    } else {
+      const githubDir = path.join(workspaceRoot, '.github');
+      return {
+        path: path.join(githubDir, 'skills'),
+        label: '.github/skills/',
+        manifestPath: manifest.getManifestPath(githubDir),
+      };
+    }
+  },
+  install({ isGlobal, targetWorkspaceRoot, getUserPromptsDir, advisory }) {
+    if (!isGlobal) {
+      const targetFile = path.join(targetWorkspaceRoot, '.github', 'copilot-instructions.md');
+      advisory.injectAdvisoryText(targetFile, '# Copilot Instructions', '.github/copilot-instructions.md');
+    } else {
+      try {
+        const promptsDir = getUserPromptsDir();
+        if (!fs.existsSync(promptsDir)) {
+          fs.mkdirSync(promptsDir, { recursive: true });
+        }
+        const vscodeInstFile = path.join(promptsDir, 'harness.instructions.md');
+        fs.writeFileSync(vscodeInstFile, advisory.buildCopilotGlobalContent(), 'utf8');
+        console.log(`  ✅ Installed global Copilot instructions to VS Code: ${vscodeInstFile}`);
+      } catch (err) {
+        console.warn(`  ⚠️ Failed to write VS Code user prompts folder: ${err.message}`);
+      }
+    }
+  },
+  uninstall({ removeLocal, removeGlobal, workspaceRoot, userHome, getUserPromptsDir, cleanEmptyDirs }) {
+    const advisory = require('../../../../scripts/lib/advisory-text');
+    if (removeLocal) {
+      advisory.removeAdvisoryText(path.join(workspaceRoot, '.github', 'copilot-instructions.md'));
+    }
+    if (removeGlobal) {
+      const promptsDir = getUserPromptsDir();
+      const vscodeInstFile = path.join(promptsDir, 'harness.instructions.md');
+      if (fs.existsSync(vscodeInstFile)) {
+        fs.unlinkSync(vscodeInstFile);
+        console.log(`  ✅ Removed global Copilot instructions: ${vscodeInstFile}`);
+      }
+      cleanEmptyDirs(promptsDir, [userHome]);
+    }
   }
 };
