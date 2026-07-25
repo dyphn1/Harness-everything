@@ -125,6 +125,17 @@ function run(userPrompt) {
     );
   }
 
+  const TICKET_KEYWORDS = [
+    "break this into tickets", "break into tickets", "vertical slice", "tracer bullet", "blocking edges",
+    "cut tickets", "ticket breakdown", "split into tickets",
+    "拆票", "拆解任務", "拆成票", "任務拆解", "垂直切分", "阻塞關係"
+  ];
+  if (TICKET_KEYWORDS.some(k => promptLower.includes(k))) {
+    recommendedGuides.push(
+      "- to-tickets/SKILL.md (Break a to-spec feature spec, plan, or conversation into tracer-bullet tickets with blocking edges. Explicit-invoke, reuses to-spec's own project-docs gate, never a second setup interview)"
+    );
+  }
+
   const ENV_KEYWORDS = [
     "shell", "terminal", "powershell", "bash", "cmd", "env", "preflight", "command", "run",
     "終端機", "命令", "環境", "指令", "執行"

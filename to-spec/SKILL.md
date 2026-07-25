@@ -2,7 +2,7 @@
 name: to-spec
 description: Turn the current conversation into a written spec — a feature PRD, CLI/API reference, schema doc, or dev doc, whichever shape actually fits — and publish it per this repo's own harness-everything/manifest.json projectDocs framework. No interview beyond pinning that framework down once; otherwise just synthesis of what's already been decided.
 author: Miya Daniel | Harness Core Team
-version: 0.4.0
+version: 0.3.0
 disable-model-invocation: true
 ---
 
