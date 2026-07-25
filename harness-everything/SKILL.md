@@ -86,6 +86,7 @@ If you are running in VS Code or GitHub Copilot, you do not have automated hooks
   - **Load Domain Experts (領域專家召喚)**: Based on the tech stack detected in Tier 1, explicitly search for and load the corresponding **Domain Skills** (e.g., `security-review` from this repo, or `frontend-patterns` / `api-design` from the user's legacy skill library) to inject robust expert knowledge into your context.
   - Development tasks: Automatically load and follow the `tdd` (Test-Driven Development) skill. Write tests first (Red) -> Implement (Green) -> Refactor.
   - Before starting feature work on a busy repository, consider loading `using-git-worktrees` to isolate your workspace and prevent workspace pollution.
+  - **Optional, non-blocking**: if the task introduces a new command/flag, API endpoint, or data shape, consider offering `to-spec` to write the matching lightweight doc (`cli-reference` or `schema-doc` template) before implementing — this is advisory only, skip it for straightforward single-function fixes, and never let it delay or gate TDD.
   - If the user requests grilling or refactoring a plan, load `grill-me` (pure Q&A) or `improve-codebase-architecture` (deep architectural analysis).
   - If the user requests "scoring" or "benchmark comparison", load `eval-harness` for quantitative scoring and summarization.
   - **Pre-Delivery Gate**: Before declaring the task done or creating a PR, load `verification-loop` (build / types / lint / tests / security scan / diff review). For changes touching auth, input handling, secrets, or network boundaries, additionally load `security-review`.
@@ -95,7 +96,8 @@ If you are running in VS Code or GitHub Copilot, you do not have automated hooks
 - **Action Strategy (Multi-Agent Orchestration & Domain Infusion)**:
   - If initializing a multi-agent system workspace, load `build-multi-agent-system` to scaffold the 6 functional zones, memory relational indexes, and immutable routing laws.
   - If project-level documentation needs to be created, load `repo-docs`.
-  - If establishing a large system design, strongly recommend loading `grill-with-docs` first to document decisions (ADR, CONTEXT) before proceeding.
+  - If establishing a large system design, strongly recommend loading `grill-with-docs` first to document decisions (ADR, CONTEXT) before proceeding. Once those decisions are settled, load `to-spec` to synthesize the conversation into whichever doc shape fits — a full feature spec (PRD) is the common case here, but `to-spec` also covers CLI/API reference, schema doc, and dev-doc shapes for narrower Tier 3 work. `to-spec` never re-interviews; if it hits an unresolved fork, that's a sign `grill-with-docs`/`grill-me` needed another pass first, not a cue to ask ad hoc questions.
+  - `to-spec` is advisory in both Tier 2 and Tier 3 — never a required gate. Its own internal Step 0 is mechanized, not advisory: it runs `node to-spec/scripts/check-project-docs.js check` to see whether this repo's own `harness-everything/manifest.json` already has a complete `projectDocs` entry (document location + issue tracker + issue definition) — Exit 0 skips straight past it, Exit 1 runs a one-time setup interview and persists the answer via the script's `init` subcommand. That reuses the same manifest this package and `self-evolve` already own, repo-local only (never the global `~/.agents`/`~/.claude` homes, since this data must not leak across projects). Its output is what `to-tickets` reads to cut clean vertical slices afterward.
   - **Sub-Agent Specialization**: When calling `create-agent-launcher`, you MUST inject robust Domain Skills into the sub-agent's persona (e.g., passing `database-reviewer` and `backend-patterns` to a Backend Sub-Agent). Do not create generic, empty-shell agents.
   - Development execution: Automatically load `fable-mode` and `fable-discipline`. The macro plan produced in fable-mode's Discovery phase MUST be materialized as the `todo-driven-workflow` checklist — sub-agent handoffs and milestone checks are tracked there, not in prose.
   - **Pre-Delivery Gate**: Same as Tier 2 — run `verification-loop` (and `security-review` where applicable) before the final handoff.
@@ -139,6 +141,7 @@ Every skill in this repository is reachable from this router. If a task matches 
 | `build-multi-agent-system` | Tier 3 | Scaffolding a multi-agent workspace. |
 | `repo-docs` | Tier 3 | Creating project-level documentation. |
 | `grill-with-docs` | Tier 3 | Documenting decisions (ADR / CONTEXT) before large designs. |
+| `to-spec` | Tier 2/3 (advisory, never a gate) | Synthesizing the (already-settled) conversation into whichever doc shape fits — feature spec, CLI/API reference, schema doc, or dev doc — published to this repo's issue tracker. Explicit-invoke only — never auto-executed. |
 | `zoom-out` | Circuit breaker | Rule of 3 trips (§3). |
 | `self-evolve` | Evolution | Post-breaker resolution or major breakthrough (§4). |
 | `skill-style` | Meta | Authoring or modifying any SKILL.md in this repository — the terse Skill Contract format spec. |

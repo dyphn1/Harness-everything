@@ -113,6 +113,18 @@ function run(userPrompt) {
     );
   }
 
+  const SPEC_KEYWORDS = [
+    "spec", "prd", "product requirement", "user stories", "problem statement", "write up the requirements",
+    "turn this into a spec", "cli reference", "cli help", "api reference", "design doc", "dev doc",
+    "file format", "schema doc", "document this schema", "document the endpoint", "document the command",
+    "規格", "規格書", "需求文件", "產品需求", "用戶故事", "需求規格", "設計文件", "檔案格式", "命令列說明"
+  ];
+  if (SPEC_KEYWORDS.some(k => promptLower.includes(k))) {
+    recommendedGuides.push(
+      "- to-spec/SKILL.md (Synthesize the conversation into whichever doc shape fits - feature spec, CLI/API reference, schema doc, or dev doc - and publish it. Explicit-invoke, advisory only, never a gate; run grill-with-docs/grill-me first if decisions aren't settled yet)"
+    );
+  }
+
   const ENV_KEYWORDS = [
     "shell", "terminal", "powershell", "bash", "cmd", "env", "preflight", "command", "run",
     "終端機", "命令", "環境", "指令", "執行"
