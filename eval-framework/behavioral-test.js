@@ -11,6 +11,12 @@ const { getWorkspaceRoot, getStateRoot } = require('../hooks/scripts/lib/harness
 
 console.log("=== 🧪 Harness Behavioral Test Suite ===");
 
+// Hermetic mode: this suite proves the gate's blocking MECHANISM via
+// .verify-fail.tmp injection. Letting verify-gate also run the real project
+// test suite here would recurse (npm test -> this file -> todo-cli complete
+// -> verify-gate -> npm test) and clobber the shared state backup.
+process.env.HARNESS_SKIP_PROJECT_CHECKS = '1';
+
 const todoCli = 'node harness-everything/scripts/todo-cli.js';
 const stateFile = path.join(getStateRoot(getWorkspaceRoot()), 'todo-state.json');
 
