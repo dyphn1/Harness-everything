@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [0.3.0-alpha] - 2026-07-26
+
+### Added
+- **`to-spec`**: adaptive spec/doc skill (feature spec, CLI/API reference, schema-doc, or dev-doc shape) chained after `grill-with-docs`/`grill-me`, advisory-only, with a one-time `check-project-docs.js` setup gate persisted in this repo's own `manifest.json`.
+- **`to-tickets`**: breaks a `to-spec` doc (or an already-settled plan/conversation) into tracer-bullet tickets with declared blocking edges, reusing `to-spec`'s project-docs gate rather than a second interview.
+- **`find-skills`**: external skill discovery via skills.sh/`npx skills`, defaulting to a zero-footprint ephemeral apply (content-addressed OS-temp cache) instead of caching third-party metadata in `manifest.json`; permanent install (`npx skills add`) remains an explicit, rare opt-in.
+- Self-evolve's dynamic skills now register in `manifest.json` and get precise trigger matching from `tier-router.js`, so a lesson learned in one session is auto-surfaced in later ones.
+- CI: `.github/workflows/ci.yml` runs `npm test` on push/PR across `ubuntu-latest` and `windows-latest`.
+- `verify-gate.js` now runs the target project's real `lint`/`test` scripts (via the detected package manager) instead of a simulated stub, with a self-recursion guard (`HARNESS_SKIP_PROJECT_CHECKS`).
+
+### Fixed
+- `tier-router.js` resolved `workspaceRoot` via a `__dirname` offset that only ever worked inside this source repo — real installs could never find their `manifest.json`, silently killing dynamic-skill auto-discovery outside of development. Now walks up from `cwd` to the nearest `.git`.
+- Installer's legacy-skills cleanup deleted `self-evolve`'s entire `skills/generated/` directory on every install/uninstall of Claude Code skills. Now only removes non-generated legacy subdirectories.
+- `self-regression`'s syntax-check phase didn't cover `to-spec`/`to-tickets` scripts.
+- Dynamic skill registration: removed an unconditional manifest rescan firing on every memory persist, tightened fallback trigger inference, made `triggers:` a required dynamic-skill frontmatter field, and fixed a broken Mermaid fence in `docs/workflows/skill-creator.md`.
+
+### Changed
+- Cognitive OS "iron laws" decoupled from one shared file and woven directly into the specific skill phase each governs.
+- `tier-router.js`'s keyword/guide tables extracted into a sibling `routing-keywords.json` (fails open to Tier 1 if the file is missing or invalid).
+- README and `docs/reflection.md` updated to describe six core modules (was five) and both `self-evolve` persistence paths (simple rule vs. dynamic skill).
+
+### Documentation
+- README restructured to be user-facing; audit scorecards, the 2026-07-23 mis-measurement incident, and the per-cycle change log moved to new `docs/audit.md`.
+- New "What Gets Installed (and How to Remove It)" README section.
+- `harness-everything/SKILL.md` section numbering fixed (§5 registry now precedes §6) and tier-following wording aligned with the router's actual output.
+
+---
 ## [0.2.1] - 2026-07-24
 
 ### Fixed
