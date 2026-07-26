@@ -2,6 +2,12 @@
 
 To prevent both over-engineering and under-planning, Harness classifies every user request into one of three execution tiers. This ensures that trivial tasks are executed instantly without unnecessary bloat, while complex architectural refactoring is strictly designed and verified.
 
+This is a default, not an order: `tier-router.js`'s own output tells the agent to follow its own read of the task when it clearly disagrees, and an explicit instruction from the Human Partner always wins. The keyword heuristic exists to catch the common case cheaply and deterministically, not to override judgment when it's wrong - the tier-router hook and the `zoom-out` step-back-and-retry loop are the safety net for when a hard call is actually needed, not the routing keywords themselves.
+
+## Tuning the keyword heuristic
+
+`tier-router.js` reads its keyword/guide tables from the sibling `harness-everything/scripts/routing-keywords.json` instead of hardcoding them. Edit that file directly to retune which prompts route to Tier 2/3 or surface a given knowledge guide - no code changes, no re-install, and it travels with `tier-router.js` automatically on every install/update since it lives in the same skill folder. Each `guideGroups` entry matches via a plain-substring `keywords` array (case-insensitive OR) or a `regex` source string; if the file is missing or hand-edited into invalid JSON, the router fails open (empty tables, Tier 1 default) instead of breaking the hook.
+
 ---
 
 ## The Three-Tier Routing System

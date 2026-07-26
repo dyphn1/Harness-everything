@@ -1,18 +1,41 @@
 #!/usr/bin/env node
 const { execSync } = require('child_process');
 
+// Keyword/guide tables live in the sibling routing-keywords.json, not inline
+// here, so the Human Partner (or the LLM itself) can retune routing by
+// editing data - no code changes, no re-install. It travels with this script
+// on every install/update since it lives in the same skill folder. Fail open
+// (empty tables) if it's missing or hand-edited into invalid JSON, so a bad
+// edit degrades routing instead of breaking the hook.
+function loadRoutingConfig() {
+  const fallback = { tiers: { tier3: [], tier2: [] }, guideGroups: [], factAudit: { externalClaim: [], estimate: [] } };
+  try {
+    const raw = require('fs').readFileSync(require('path').join(__dirname, 'routing-keywords.json'), 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      tiers: parsed.tiers || fallback.tiers,
+      guideGroups: Array.isArray(parsed.guideGroups) ? parsed.guideGroups : fallback.guideGroups,
+      factAudit: parsed.factAudit || fallback.factAudit
+    };
+  } catch (err) {
+    console.log(`[Tier Routing Pre-check] routing-keywords.json missing/invalid - falling back to Tier 1 default, no guides. (${err.message})`);
+    return fallback;
+  }
+}
+
 function run(userPrompt) {
   console.log(`[Tier Routing Pre-check]`);
-  
+
   const promptLower = userPrompt.toLowerCase();
+  const routingConfig = loadRoutingConfig();
 
   // Basic keyword heuristic (bilingual - the Human Partner often prompts in
   // Chinese, and an English-only net silently degrades to Tier 1 for them).
   // Deliberately NOT driven by the diff stats above: those measure what is
   // already sitting uncommitted in the tree - usually the PREVIOUS task's
   // leftovers - not the complexity of the task being asked for now.
-  const TIER3_KEYWORDS = ["architecture", "refactor", "rewrite the", "架構", "重構", "重寫"];
-  const TIER2_KEYWORDS = ["test", "api", "integration", "endpoint", "測試", "整合", "端點", "介面"];
+  const TIER3_KEYWORDS = routingConfig.tiers.tier3 || [];
+  const TIER2_KEYWORDS = routingConfig.tiers.tier2 || [];
 
   let recommendedTier = "Tier 1 (Trivial)";
   let rationale = "No structural/testing signals in the prompt.";
@@ -35,146 +58,21 @@ function run(userPrompt) {
     console.log(`   Track exactly ONE item in-progress at a time; verify with real evidence before marking completed.`);
   }
 
-  // Analyze and output relevant Knowledge Guides / Templates based on user prompt keywords
+  // Analyze and output relevant Knowledge Guides / Templates based on user prompt keywords.
+  // Each group comes from routing-keywords.json - matches via plain-substring
+  // 'keywords' OR a 'regex' source string (tested case-insensitively).
   const recommendedGuides = [];
 
-  const TDD_TEST_KEYWORDS = [
-    "tdd", "test", "mock", "stub", "api", "endpoint", "integration", "debugging", "bug", "error", "fix",
-    "測試", "單測", "模組測試", "端點", "介面", "除錯", "錯誤", "修復"
-  ];
-  if (TDD_TEST_KEYWORDS.some(k => promptLower.includes(k))) {
-    recommendedGuides.push(
-      "- tdd/SKILL.md (Test-Driven Development Red-Green-Refactor loop)",
-      "- tdd/guides/mocking.md (Mocking principles & isolation)",
-      "- tdd/guides/interface-design.md (Interface and contract design)",
-      "- tdd/guides/deep-modules.md (Testing deep nested modules)",
-      "- tdd/guides/tests.md (General test architecture)",
-      "- environment-detection/SKILL.md (Detect active shell/OS & preflight syntax before running commands)",
-      "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)",
-      "- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)"
-    );
-  }
-
-  const GIT_COMMIT_KEYWORDS = [
-    "commit", "git", "save", "submodule", "pr", "pull request", "release", "quality gate", "ready to ship",
-    "提交", "版控", "合併", "分支", "發行"
-  ];
-  if (GIT_COMMIT_KEYWORDS.some(k => promptLower.includes(k))) {
-    recommendedGuides.push(
-      "- git-commit/SKILL.md (Angular-style commit convention generation)",
-      "- git-commit/guides/ANGULAR_STYLE.md (Commit conventions reference)",
-      "- git-commit/guides/COMMIT_GENERATION.md (Commit generation patterns)",
-      "- git-commit/guides/LANGUAGE_DETECTION.md (Multi-language commits)",
-      "- git-commit/guides/MAIN_REPO.md (Commits in main repositories)",
-      "- git-commit/guides/SUBMODULES.md (Submodule commit handling)",
-      "- rewrite-commits/SKILL.md (Rewrite commit history safely to Angular style)",
-      "- using-git-worktrees/SKILL.md (Git Worktrees isolation for feature work, avoids workspace pollution)",
-      "- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)"
-    );
-  }
-
-  if (promptLower.includes("doc") || promptLower.includes("readme") || promptLower.includes("文件") || promptLower.includes("說明文件")) {
-    recommendedGuides.push(
-      "- repo-docs/templates/readme-template.md (Standard README template)",
-      "- repo-docs/templates/product-readme-template.md (Product README template)",
-      "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)"
-    );
-  }
-
-  const AGENT_KEYWORDS = [
-    "agent", "multi-agent", "launcher", "subagent", "sub-agent", "delegate", "orchestrate", "specialist", 
-    "workspace scaffolding", "scaffold workspace", "division of labor", "fable", "macro", "orchestrator",
-    "代理", "多代理", "啟動器", "子代理", "委派", "指派", "分工", "協調", "任務分配", "規劃"
-  ];
-  if (AGENT_KEYWORDS.some(k => promptLower.includes(k))) {
-    recommendedGuides.push(
-      "- fable-mode/SKILL.md (Macro task planning & execution orchestrator)",
-      "- fable-discipline/SKILL.md (Shadow guard preventing context bloat and managing token limits)",
-      "- build-multi-agent-system/SKILL.md (Universal Multi-Agent Workspace scaffolding & memory db)",
-      "- create-agent-launcher/SKILL.md (Sub-agent generator for specialized task delegation)",
-      "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)",
-      "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)"
-    );
-  }
-
-  const ARCH_REFACTOR_KEYWORDS = [
-    "refactor", "architecture", "structure", "couple", "seam", "adr", "design plan", "decision", "grill",
-    "重構", "架構", "結構", "解耦", "設計", "決策", "辯論", "質疑"
-  ];
-  if (ARCH_REFACTOR_KEYWORDS.some(k => promptLower.includes(k))) {
-    recommendedGuides.push(
-      "- improve-codebase-architecture/guides/DEEPENING.md (Deepening opportunities & depth rules)",
-      "- improve-codebase-architecture/guides/INTERFACE-DESIGN.md (Interface design principles)",
-      "- improve-codebase-architecture/guides/LANGUAGE.md (Language-specific patterns)",
-      "- improve-codebase-architecture/guides/HTML-REPORT.md (Mermaid dependency report generation)",
-      "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)",
-      "- grill-me/SKILL.md (Challenger interview to stress-test your architecture plan)",
-      "- fable-mode/SKILL.md (Macro task planning & execution orchestrator)"
-    );
-  }
-
-  const SPEC_KEYWORDS = [
-    "spec", "prd", "product requirement", "user stories", "problem statement", "write up the requirements",
-    "turn this into a spec", "cli reference", "cli help", "api reference", "design doc", "dev doc",
-    "file format", "schema doc", "document this schema", "document the endpoint", "document the command",
-    "規格", "規格書", "需求文件", "產品需求", "用戶故事", "需求規格", "設計文件", "檔案格式", "命令列說明"
-  ];
-  if (SPEC_KEYWORDS.some(k => promptLower.includes(k))) {
-    recommendedGuides.push(
-      "- to-spec/SKILL.md (Synthesize the conversation into whichever doc shape fits - feature spec, CLI/API reference, schema doc, or dev doc - and publish it. Explicit-invoke, advisory only, never a gate; run grill-with-docs/grill-me first if decisions aren't settled yet)"
-    );
-  }
-
-  const TICKET_KEYWORDS = [
-    "break this into tickets", "break into tickets", "vertical slice", "tracer bullet", "blocking edges",
-    "cut tickets", "ticket breakdown", "split into tickets",
-    "拆票", "拆解任務", "拆成票", "任務拆解", "垂直切分", "阻塞關係"
-  ];
-  if (TICKET_KEYWORDS.some(k => promptLower.includes(k))) {
-    recommendedGuides.push(
-      "- to-tickets/SKILL.md (Break a to-spec feature spec, plan, or conversation into tracer-bullet tickets with blocking edges. Explicit-invoke, reuses to-spec's own project-docs gate, never a second setup interview)"
-    );
-  }
-
-  const ENV_KEYWORDS = [
-    "shell", "terminal", "powershell", "bash", "cmd", "env", "preflight", "command", "run",
-    "終端機", "命令", "環境", "指令", "執行"
-  ];
-  if (ENV_KEYWORDS.some(k => promptLower.includes(k))) {
-    recommendedGuides.push(
-      "- environment-detection/SKILL.md (Detect active shell/OS & preflight syntax before running commands)",
-      "- using-git-worktrees/SKILL.md (Git Worktrees isolation for feature work, avoids workspace pollution)"
-    );
-  }
-
-  const VERIFY_KEYWORDS = [
-    "verify", "fact", "audit", "estimate", "benchmark", "performance", "speed", "scale",
-    "驗證", "查證", "核對", "效能", "評測", "性能", "估計"
-  ];
-  if (VERIFY_KEYWORDS.some(k => promptLower.includes(k))) {
-    recommendedGuides.push(
-      "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)",
-      "- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)",
-      "- eval-harness/SKILL.md (AI performance evaluation metrics & anti-loop metrics)"
-    );
-  }
-
-  if (/\bskill\b|skill\.md|new skill|write a skill/.test(promptLower)) {
-    recommendedGuides.push(
-      "- skill-creator/SKILL.md (Authoring, auditing, and testing workflow for SKILL.md files, incl. dynamic skill generation)",
-      "- skill-style/SKILL.md (Terse Skill Contract format spec that skill-creator builds on)"
-    );
-  }
-
-  const FIND_SKILLS_KEYWORDS = [
-    "find a skill", "is there a skill", "search for a skill", "install a skill", "find skills",
-    "skills.sh", "npx skills",
-    "找技能", "有沒有技能", "找找看有沒有", "安裝技能", "搜尋技能"
-  ];
-  if (FIND_SKILLS_KEYWORDS.some(k => promptLower.includes(k))) {
-    recommendedGuides.push(
-      "- find-skills/SKILL.md (Check static/generated skill coverage and \"npx skills list\" for anything already fetched first, then search skills.sh/npx skills and, only with explicit approval, install via npx skills add)"
-    );
+  for (const group of routingConfig.guideGroups) {
+    let matched = false;
+    if (typeof group.regex === "string") {
+      matched = new RegExp(group.regex, "i").test(promptLower);
+    } else if (Array.isArray(group.keywords)) {
+      matched = group.keywords.some(k => promptLower.includes(k));
+    }
+    if (matched && Array.isArray(group.guides)) {
+      recommendedGuides.push(...group.guides);
+    }
   }
 
   if (recommendedGuides.length > 0) {
@@ -312,17 +210,8 @@ function run(userPrompt) {
   // asserted from stale/wrong training memory instead of verified. False
   // positives cost nothing here (it's a reminder, not a block) so recall
   // matters more than precision.
-  const externalClaimTriggers = [
-    "does it support", "does support", "how does", "what's the default", "what is the default",
-    "exit code", "schema", "sdk", " api", "hook", "payload", "pricing", "rate limit",
-    "latest version", "current version", "deprecated", "breaking change", "changelog",
-    "spec", "documentation", "according to", "endpoint", "config option", "flag"
-  ];
-  const estimateTriggers = [
-    "benchmark", "performance", "how fast", "how long will", "how much memory",
-    "how many requests", "estimate", "roughly how", "big o", "complexity",
-    "will this scale", "throughput", "latency"
-  ];
+  const externalClaimTriggers = routingConfig.factAudit.externalClaim || [];
+  const estimateTriggers = routingConfig.factAudit.estimate || [];
   const hitExternalClaim = externalClaimTriggers.some(kw => promptLower.includes(kw));
   const hitEstimate = estimateTriggers.some(kw => promptLower.includes(kw));
 
