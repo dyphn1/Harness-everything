@@ -166,6 +166,17 @@ function run(userPrompt) {
     );
   }
 
+  const FIND_SKILLS_KEYWORDS = [
+    "find a skill", "is there a skill", "search for a skill", "install a skill", "find skills",
+    "skills.sh", "npx skills",
+    "找技能", "有沒有技能", "找找看有沒有", "安裝技能", "搜尋技能"
+  ];
+  if (FIND_SKILLS_KEYWORDS.some(k => promptLower.includes(k))) {
+    recommendedGuides.push(
+      "- find-skills/SKILL.md (Check static/generated skill coverage and \"npx skills list\" for anything already fetched first, then search skills.sh/npx skills and, only with explicit approval, install via npx skills add)"
+    );
+  }
+
   if (recommendedGuides.length > 0) {
     console.log(`\n=> RECOMMENDED KNOWLEDGE GUIDES (Auto-loaded based on keywords):`);
     recommendedGuides.forEach(guide => {
@@ -183,6 +194,15 @@ function run(userPrompt) {
 
   // ---------------------------------------------------------
   // SELF-EVOLVED DYNAMIC SKILLS AUTO-DISCOVERY & PRECISE MATCHING
+  //
+  // Deliberately generated[] only, not find-skills' downloaded skills:
+  // generated[] is safe to cache-and-match here because Harness owns its
+  // whole lifecycle (self-evolve authors it, skill-creator quality-gates it,
+  // status is tracked draft/active/deprecated). A skill fetched via
+  // `npx skills add` has none of that - caching its triggers/description at
+  // download time would silently go stale the moment the upstream skill (or
+  // a later `npx skills update`/`remove`) changes it. find-skills queries
+  // `npx skills list` live instead of being folded into this cache.
   // ---------------------------------------------------------
   try {
     const fs = require('fs');
@@ -282,6 +302,7 @@ function run(userPrompt) {
       console.log(`No standard or dynamic skills matched your prompt directly.`);
       console.log(`However, you have ${allDynamicSkills.length} self-evolved dynamic skill(s) registered in your manifest.json.`);
       console.log(`To ensure you don't miss past lessons, you should inspect the "generated" section of your manifest.json or check .claude/harness-everything/skills/generated/ to see if any apply to your current task.`);
+      console.log(`If genuinely nothing covers this - including nothing already fetched via find-skills - load find-skills/SKILL.md: it checks "npx skills list" for anything already installed, then searches skills.sh/npx skills if not, and always requires explicit approval before installing anything.`);
     }
   } catch (err) {
     // Fail silently in router to prevent breaking the core execution loop

@@ -3,6 +3,14 @@
 // hold content from other tools, the user's own manual additions, or
 // self-evolve's locally-generated skills.
 //
+// Deliberately does NOT track find-skills' third-party downloads the same
+// way: generated[] works because Harness owns the full lifecycle (authored,
+// quality-gated, and status-tracked by self-evolve/skill-creator). A skill
+// fetched via `npx skills add` is unaudited content Harness doesn't own or
+// control the lifecycle of - the `skills` CLI's own lock file is already the
+// live record of what's installed, so find-skills queries that directly
+// (`npx skills list`) instead of caching a second, driftable copy here.
+//
 // The manifest always lives at <platform-home>/harness-everything/manifest.json
 // - e.g. .claude/harness-everything/manifest.json, .cursor/harness-everything/
 // manifest.json, or (global scope) ~/.agents/harness-everything/manifest.json.

@@ -19,7 +19,7 @@ let hasErrors = false;
 
 // 1. Walk and syntax check all Javascript files
 console.log("\n[Phase 1] Static Syntax Check...");
-const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'eval-framework', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets'];
+const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'eval-framework', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills'];
 const jsFiles = [];
 
 function walkDir(dir) {
