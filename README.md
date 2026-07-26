@@ -56,6 +56,28 @@ npx github:dyphn1/Harness-everything install
 2. **Preflight Audit:** At session startup, a lightweight preflight script runs, printing a diagnostic environment block that tells the agent your exact OS, active shell, and package manager.
 3. **Guard Active:** The circuit breaker and context compactors are active in the background, consuming zero overhead unless triggered.
 
+### What Gets Installed (and How to Remove It)
+
+The installer only ever writes to your workspace (or, with `--global`, your home directory) — no daemons, no registry entries, no network services. Depending on which platforms you select, it creates:
+
+| File / Directory | Purpose |
+|---|---|
+| `.claude/settings.json` (merged) + `.claude/skills/` | Claude Code lifecycle hooks and project skills |
+| `.cursorrules` | Cursor advisory rules |
+| `.github/copilot-instructions.md` | Copilot Chat advisory instructions |
+| `AGENTS.md` | Codex advisory instructions |
+| `.continue/rules/harness.md` | Continue.dev advisory rules |
+| `.hermes.md` | Hermes Agent advisory context |
+| `.claude/harness-everything/` (or the per-platform equivalent) | Harness state: `manifest.json`, WAL, circuit-breaker counters |
+
+The installer also appends the state directories to your `.gitignore` so Harness state never lands in a commit. Everything is removed with the built-in uninstaller:
+
+```bash
+npx github:dyphn1/Harness-everything uninstall            # interactive
+npx github:dyphn1/Harness-everything uninstall --local --skills -y   # non-interactive, workspace only
+npx github:dyphn1/Harness-everything uninstall --global   # also remove ~/.agents etc.
+```
+
 ---
 
 ## Visualizing the Flow
@@ -85,7 +107,7 @@ flowchart TD
     T2 & T3 --> Exec[Execute Code / Run Commands]
     Exec --> Gate{verify-gate.js}
     
-    Gate -->|Exit 1: Slap in face| Exec
+    Gate -->|Exit 1: Fix & retry| Exec
     Gate -->|Exit 1 - Repeated| CB{Circuit Breaker rule-of-3.js}
     CB -->|Fails 3x| ZO[Zoom Out: Ask Human / Reflect]
     ZO -->|Fresh Diagnosis| Exec
@@ -136,6 +158,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 *   [Harness Architecture](docs/architecture.md): Lifecycle hooks, security model, and data locality.
 *   [Harness Routing & Triage](docs/routing.md): Detailed trigger criteria for Tiers 1, 2, and 3.
 *   [Harness Reflection & Memory](docs/reflection.md): WAL session handoffs and workspace rules immunization.
+*   [Harness Audit Log](docs/audit.md): Dated self-audit scorecards, methodology, and per-cycle change log.
 
 ---
 
@@ -143,7 +166,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 
 **If you are an agent asked to verify a Harness install, start at [VERIFICATION.md](VERIFICATION.md), not here.** It gives exact commands with exact expected output — install artifact checks for every platform, mechanism-level checks (Claude Code only: pipe a simulated hook payload into `hooks/scripts/*.js` on stdin, confirm the exit code), the behavioral test prompts below, and an acceptance scorecard to fill in. Do not report "it works" from reading the code — every check there names a command to actually run.
 
-`npm test` (`self-evolve/scripts/self-regression.js`) runs four phases: static syntax check on every script, 5 bilingual tier-routing assertions, a 6-step behavioral state-machine simulation of `todo-cli.js`, and — as of 2026-07-23 — an automated re-run of every VERIFICATION.md §2 mechanism check (`eval-framework/mechanism-test.js`, `npm run test:mechanism` to run it alone): the Rule of 3 breaker's full trip → zoom-out release → repeat-trip hard-lock cycle, boundary guard, WAL state persistence, the fact-audit reminder, subagent scope guard, and the stop gate — 10 assertions against real exit codes and stderr, not just "the code looks right." Before this, those mechanism checks existed only as copy-paste recipes in VERIFICATION.md, and three independent 2026-07-23 audits mis-tested them via a Windows-Git-Bash-unsafe `echo '...' | node script.js` pipe and reported working hooks as broken — see the System Evaluation section below for how that got resolved. There is currently no CI workflow enforcing `npm test` on push/PR — it's a local gate contributors are expected to run, not yet an automated one.
+`npm test` (`self-evolve/scripts/self-regression.js`) runs four phases: static syntax check on every script, 5 bilingual tier-routing assertions, a 6-step behavioral state-machine simulation of `todo-cli.js`, and an automated re-run of every VERIFICATION.md §2 mechanism check (`eval-framework/mechanism-test.js`, `npm run test:mechanism` to run it alone): the Rule of 3 breaker's full trip → zoom-out release → repeat-trip hard-lock cycle, boundary guard, WAL state persistence, the fact-audit reminder, subagent scope guard, and the stop gate — 10 assertions against real exit codes and stderr, not just "the code looks right." The suite runs in CI on every push and pull request (`.github/workflows/ci.yml`); the history of how these checks became automated (including a mis-measurement incident with external audits) is in [docs/audit.md](docs/audit.md).
 
 For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Benchmark SOP](BENCHMARK_SOP.md) — standardized, reproducible scenarios:
 *   **Test A:** Over-engineering defense (Tier 1 typo correction)
@@ -157,31 +180,7 @@ For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Bench
 
 ## 📊 System Evaluation
 
-**Last self-audited: 2026-07-23**, by running the actual test suite and the VERIFICATION.md recipes on Windows 11 — not by reading the code and assuming it works. Seven independent AI-model audits (Gemini 3.1 Pro, Gemini 3.5 Flash, GPT/Copilot on Mistral Medium/Small, and others) ran the same week and disagreed sharply on whether core hooks even functioned. Three of them tested `rule-of-3.js`, `boundary-guard.js`, and `state-persist.js` by piping JSON through `echo '...' | node script.js` in Windows Git Bash, which mangles stdin/TTY state and produced false "broken" verdicts. Re-running the identical payloads through Node's own `child_process` stdin API (the technique VERIFICATION.md's recipes now use) showed every one of those mechanisms working exactly as documented — the scores below reflect that corrected, verified state, not the average of the seven reports.
-
-### Five Core Verification Criteria (per VERIFICATION.md §5a)
-
-| Criterion | Score | Verified basis |
-|---|---|---|
-| **Skill Description Completeness** | 8.5/10 | 23 of 27 skills/hooks have a full Skill Contract `SKILL.md` (trigger, output, state mutations, enforcement gate). Four PreToolUse hooks — `depth-guard.js`, `context-compact.js`, `atomic-commit-check.js`, `contract-test.js` — are only described in passing in `docs/architecture.md`, not as standalone contracts. Known, not yet closed. |
-| **Routing Accuracy** | 7/10 | `tier-router.js` is a deterministic, bilingual (EN/中文) keyword heuristic — zero runtime dependencies (`package.json` has none), fully offline, fully auditable. That's a deliberate trade against false positives/negatives on ambiguous or metaphorical prompts, not an oversight: swapping it for semantic/LLM-based routing would trade determinism and zero external calls for accuracy, which cuts against the project's own "mechanism over prose" design. |
-| **Test Coverage of All Skills** | 8.5/10 | `npm test` now runs 55 real assertions: 34 syntax checks, 5 routing-tier assertions, 6 behavioral state-machine steps, and — new as of this audit — 10 mechanism assertions covering every hook in VERIFICATION.md §2 (`eval-framework/mechanism-test.js`). Previously this scored 3–6/10 across every 2026-07-23 report because the mechanism layer was manual-only. Remaining gap: no CI wiring yet (`npm test` isn't enforced on push/PR), and the four undocumented hooks above also lack dedicated tests. |
-| **Configuration Balance** | 8.5/10 | Confirmed asymmetric-by-design: hard `exit(2)` blocking hooks on Claude Code, advisory-only text on the other five platforms, with `self-heal.js` auto-repairing missing integration files on every platform. No platform is either silently ignored or over-blocked. |
-| **Workflow Conformance** | 7/10 | `docs/workflows/` diagrams (TDD, git-commit, agent-launcher, architecture refactor) are accurate and the tier-router recommends the full skill chain for each, confirmed live. What's still missing is a *runtime* check that an agent's actual tool-call sequence matched the diagram — today that's compliance-by-convention, not compliance-by-mechanism. Not attempted this round; it's a larger feature, not a fix. |
-
-### Overall Scorecard
-
-| Category | Score | Notes |
-|---|---|---|
-| **Architecture** | 9/10 | Per-session state isolation, per-platform state directories, fail-open-by-default hooks — all re-verified directly against `hooks/scripts/lib/harness-state.js`. |
-| **Test Coverage** | 8.5/10 | See above — the single biggest measured improvement this cycle (manual-only → 55 automated assertions, cross-platform). |
-| **README Completeness** | 9/10 | This section included. |
-| **Maintainability** | 8.5/10 | `todo-cli.js`'s shared, cross-session state file (`todo-state.json`) now writes atomically (temp file + rename) instead of a direct `writeFileSync`, closing a real corruption window for concurrent subagent Task bursts. |
-| **Skills Design** | 8.5/10 | Consistent Skill Contract format; four hooks still pending one (see above). |
-| **Agent Compatibility** | 9/10 | Full hard-mechanism support on Claude Code; verified advisory-text fallback on the other five platforms via `docs/architecture.md` and `scripts/installer.js`. |
-| **Beginner Friendliness** | 7.5/10 | Quick Start is genuinely 10 seconds, but Tier Routing / Rule of 3 / session-scoped state are load-bearing concepts a newcomer has to absorb before the system's behavior makes sense. Not addressed this round. |
-
-**What changed this cycle:** VERIFICATION.md §2's mechanism checks are now automated (`npm run test:mechanism`), VERIFICATION.md's own test recipes were rewritten to be Windows-safe (`node -e` stdin instead of a shell `echo` pipe), and `todo-cli.js` writes its shared state file atomically. Full detail in the commit history.
+Harness audits itself on a dated cycle by running its own test suite and VERIFICATION.md recipes — never by reading the code and assuming it works. The full scorecards, methodology (including a 2026-07 incident where three external AI audits mis-tested working hooks through a Windows-unsafe shell pipe), and per-cycle change log live in [docs/audit.md](docs/audit.md). Latest cycle: **2026-07-26** — headline scores: Architecture 9/10, Test Coverage 8.5/10, Routing Accuracy 7/10.
 
 ---
 

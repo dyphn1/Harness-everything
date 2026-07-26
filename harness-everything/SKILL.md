@@ -49,7 +49,7 @@ During the `[Think]` phase, analyze requirements and perform forward prediction 
   ```bash
   node "<this-skill-dir>/scripts/tier-router.js" "<Brief summary of the user's prompt>"
   ```
-- You MUST follow the `REQUIRED TIER` output by the script.
+- Treat the script's `RECOMMENDED TIER` as the default route — the same rule the router itself prints. If your own read of the task clearly disagrees (the router is a keyword heuristic, not an oracle), follow your read and state why in one line in the Routing Checkpoint. An explicit instruction from the Human Partner always wins.
 - If a `UserPromptSubmit` hook already ran the router this turn (its `[Tier Routing Pre-check]` output is visible in context), reuse that output instead of running it again.
 
 ### Mandated Routing Checkpoint Output
@@ -114,9 +114,6 @@ LLMs have a Reasoning Ceiling. To avoid invalid infinite retries, you must stric
 - Or, when you have expended great effort to overcome difficulties and complete a complex task.
 - You **MUST** automatically call the `self-evolve` skill to write "human key insights" or "successfully avoided traps" into system memory, ensuring the same blind spots are bypassed next time.
 
-## 6. Always-On ADHD-Friendly Output Shaping
-This is the same always-on discipline `install-cognitive-os` defines under its own §"Global Output Normalization" — this router doesn't restate it (that duplication was flagged in a skill quality audit §1.1 and has been removed). Since §1 already sends every task through `install-cognitive-os` before any action, its output-shaping rules are already in effect by the time this router does anything — apply them as written there, on every response, regardless of tier.
-
 ## 5. Skill Registry (Full Activation Map)
 Every skill in this repository is reachable from this router. If a task matches a trigger below and the skill is not yet loaded, load it.
 
@@ -151,3 +148,6 @@ Every skill in this repository is reachable from this router. If a task matches 
 | `skill-creator` | Meta | Creating a new skill from scratch, auditing/refactoring an existing SKILL.md, or `self-evolve`'s dynamic skill generation step (§4) — the fuller authoring, quality-checklist, and testing workflow built on `skill-style`. |
 
 (`eval-framework/` is internal CI for the router itself — run `node eval-framework/runner.js` after modifying `tier-router.js`; it is not a routable skill. Likewise `scripts/self-heal.js` in this skill is infrastructure, invoked during `[Discover]` per §1.)
+
+## 6. Always-On ADHD-Friendly Output Shaping
+This is the same always-on discipline `install-cognitive-os` defines under its own §"Global Output Normalization" — this router doesn't restate it (that duplication was flagged in a skill quality audit §1.1 and has been removed). Since §1 already sends every task through `install-cognitive-os` before any action, its output-shaping rules are already in effect by the time this router does anything — apply them as written there, on every response, regardless of tier.
