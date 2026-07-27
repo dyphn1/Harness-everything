@@ -3,12 +3,25 @@
 const fs = require('fs');
 
 // Every hook this package ships is namespaced "harness:<phase>:<name>" (see
-// hooks/hooks.json) specifically so removal can match on that prefix alone -
-// never on loose text like "does the command mention harness", which could
-// false-positive on someone else's unrelated hook (e.g. a script whose path
-// or name happens to contain "harness").
+// hooks/hooks.json) specifically so removal can match on that prefix alone.
+// To handle legacy installations (pre-0.3.0 or older) where hooks were installed
+// without an "id" field, we also check if any command contains keywords like
+// "harness-everything" or "harness-skills".
 function isHarnessHook(hook) {
-  return !!(hook && hook.id && hook.id.startsWith('harness:'));
+  if (!hook) return false;
+  if (hook.id && hook.id.startsWith('harness:')) {
+    return true;
+  }
+  if (Array.isArray(hook.hooks)) {
+    return hook.hooks.some(h => {
+      return h && typeof h.command === 'string' && (
+        h.command.includes('harness-everything') ||
+        h.command.includes('harness-skills') ||
+        h.command.includes('harness-state')
+      );
+    });
+  }
+  return false;
 }
 
 function mergeHarnessHooks(claudeConfig, resolvedHooks) {
