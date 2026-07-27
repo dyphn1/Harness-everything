@@ -18,7 +18,10 @@ graph TD
   ValidateResilience -->|No| GrillDeeper["Grill deeper on specific vulnerabilities"]
   ValidateResilience -->|Yes| DistillDecisions["Distill final agreed design decisions"]
   GrillDeeper --> ReceiveAnswers
-  DistillDecisions --> End([Proposal approved and hardened against failures])
+  DistillDecisions --> CheckDocsNeeded{Requires ADR / Glossary changes?}
+  CheckDocsNeeded -->|Yes| TransitionToGWD["Suggest handoff to grill-with-docs"]
+  CheckDocsNeeded -->|No| End([Proposal approved and hardened against failures])
+  TransitionToGWD --> End
 ```
 
 ---
@@ -30,8 +33,9 @@ This diagram illustrates how the `grill-me` skill is triggered through user requ
 ```mermaid
 graph LR
   Router["harness-everything / tier-router.js"] -->|Keyword: grill / debate / plan| GrillMe["grill-me / SKILL.md"]
-  GrillMe -->|Writes final hardened agreements into| GWD["grill-with-docs / SKILL.md"]
-  GrillMe -->|Directs macro execution strategies of| Fable["fable-mode / SKILL.md"]
+  GrillMe -->|Vague proposal or technical robustness needed| GrillMe
+  GrillMe -->|Needs glossary/ADR documentation alignment| GWD["grill-with-docs / SKILL.md"]
+  GWD -->|Directs macro execution strategies of| Fable["fable-mode / SKILL.md"]
 ```
 
 ---

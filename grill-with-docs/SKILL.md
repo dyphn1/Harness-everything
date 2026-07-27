@@ -9,10 +9,10 @@ version: 0.2.0
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | User wants to stress-test a plan against the project's existing domain language and documented decisions (`CONTEXT.md`, ADRs). |
+| **Trigger / Input** | User wants to stress-test a plan against the project's existing domain language and documented decisions (`CONTEXT.md`, ADRs). (If the core proposal is highly vague, unverified, or lacks SRE/vulnerability/fail-safe considerations, recommend running `grill-me` first to harden the plan before documenting). |
 | **Expected Output** | A one-question-at-a-time interview walking the design tree to resolution; `CONTEXT.md` updated inline as terms resolve; new ADRs created only when a decision is hard-to-reverse, surprising, and a genuine trade-off. |
 | **State Mutations** | Creates/edits `CONTEXT.md` and `docs/adr/*.md` (or the per-context equivalents under a `CONTEXT-MAP.md` layout). |
-| **Enforcement Gate** | `CONTEXT.md` **MUST** stay a pure glossary — no implementation details. An ADR **MUST NOT** be offered unless all three criteria (hard to reverse, surprising without context, real trade-off) hold. |
+| **Enforcement Gate** | `CONTEXT.md` **MUST** stay a pure glossary — no implementation details. An ADR **MUST NOT** be offered unless all three criteria (hard to reverse, surprising without context, real trade-off) hold. Once alignment is complete, hand off to subsequent specs (`to-spec`/`to-tickets`) or execution (`fable-mode`/`tdd`) via `harness-everything`. |
 
 <what-to-do>
 
@@ -95,5 +95,11 @@ Only offer to create an ADR when all three are true:
 3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
 
 If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
+
+### Connection to Grill Me (Pre-flight & Handoffs)
+
+1. **Pre-flight**: If the core proposal is highly vague or its technical robustness (SRE, security, locks, concurrency, fail-safes) is unverified, recommend the user run `grill-me` first. Do not attempt to align a glossary for a broken or unstable design.
+2. **Transition**: Once technical issues are hardened in `grill-me`, transition here to solidify domain terms and record architectural choices.
+3. **Downstream Handoff**: Once alignment is complete and documents are updated, route to spec generation (`to-spec`) or execution (`fable-mode` / `tdd`) via `harness-everything`.
 
 </supporting-info>

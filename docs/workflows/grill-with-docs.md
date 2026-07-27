@@ -10,7 +10,10 @@ This section visualizes how the `grill-with-docs` skill executes internally, det
 
 ```mermaid
 graph TD
-  Start([Plan Proposed against Domain]) --> ReadDomainModel["Read CONTEXT.md and existing ADRs"]
+  Start([Plan Proposed against Domain]) --> CheckCoreValidity{Plan vague or unverified?}
+  CheckCoreValidity -->|Yes| RecommendGrillMe["Recommend running grill-me first"]
+  CheckCoreValidity -->|No| ReadDomainModel["Read CONTEXT.md and existing ADRs"]
+  RecommendGrillMe --> EndVague([Postponed until plan is hardened])
   ReadDomainModel --> ChallengeDrift["Examine plan for term drift or architectural violations"]
   ChallengeDrift --> UpdateGlossary["Refine and match terminology with current Glossary"]
   UpdateGlossary --> DraftADR["Draft formal Architecture Decision Record in ADR format"]
@@ -29,9 +32,10 @@ This diagram illustrates how the `grill-with-docs` skill is triggered through us
 ```mermaid
 graph LR
   Router["harness-everything / tier-router.js"] -->|Keyword: adr / decision / glossary| GWD["grill-with-docs / SKILL.md"]
-  GWD -->|Coordinates stress-tests using| GrillMe["grill-me / SKILL.md"]
+  GrillMe["grill-me / SKILL.md"] -->|Hardened plan ready for formalization| GWD
   GWD -->|Aligns documentation during macro work in| Fable["fable-mode / SKILL.md"]
   GWD -->|Triggers todo tasks tracked by| Todo["todo-driven-workflow / SKILL.md"]
+  GWD -->|Hands off to generate specifications| ToSpec["to-spec / SKILL.md"]
 ```
 
 ---
