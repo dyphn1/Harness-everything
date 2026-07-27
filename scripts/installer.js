@@ -116,14 +116,13 @@ async function main() {
     console.log("\n[Step 2/3] Select skills to install:");
     const skillItems = availableSkills.map(s => {
       const info = skills.getSkillInfo(harnessSourceDir, s);
-      // Pre-check essential skills
-      const isEssential = ['tdd', 'git-commit', 'todo-driven-workflow', 'verification-loop'].includes(s);
+      // Pre-check all skills (install all by default)
       const isHarnessEverything = s === 'harness-everything';
       return {
         id: s,
         name: isHarnessEverything ? `${s} (Required)` : s,
         description: info ? info.description : '',
-        checked: isEssential || isHarnessEverything
+        checked: true
       };
     });
     const selectedSkills = await interactiveSelect(skillItems, 8);
@@ -152,7 +151,7 @@ async function main() {
           }
         }
       } else {
-        chosenSkills = ['tdd', 'git-commit', 'todo-driven-workflow', 'verification-loop', 'zoom-out', 'install-cognitive-os'];
+        chosenSkills = skills.getAvailableSkills(harnessSourceDir);
       }
 
       if (!isGlobal) {
@@ -195,7 +194,7 @@ async function main() {
           targets.claude = true;
         }
       }
-      chosenSkills = ['tdd', 'git-commit', 'todo-driven-workflow', 'verification-loop', 'zoom-out', 'install-cognitive-os'];
+      chosenSkills = skills.getAvailableSkills(harnessSourceDir);
     }
   }
 

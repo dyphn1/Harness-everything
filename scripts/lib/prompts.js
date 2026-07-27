@@ -159,7 +159,7 @@ function interactiveSingleSelect(items) {
       readline.cursorTo(process.stdout, 0);
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        const isSelected = item.checked ? '(o)' : '( )';
+        const isSelected = item.checked ? '[x]' : '[ ]';
         const isCurrent = i === cursor ? '> ' : '  ';
         readline.clearLine(process.stdout, 0);
         process.stdout.write(`${isCurrent}${isSelected} ${item.name}\n`);
