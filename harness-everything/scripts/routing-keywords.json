@@ -8,8 +8,8 @@
     {
       "id": "tdd-test",
       "keywords": [
-        "tdd", "test", "mock", "stub", "api", "endpoint", "integration", "debugging", "bug", "error", "fix",
-        "測試", "單測", "模組測試", "端點", "介面", "除錯", "錯誤", "修復"
+        "tdd", "test", "mock", "stub", "api", "endpoint", "integration", "debugging", "bug", "error", "fix", "lsp", "實作 lsp",
+        "測試", "單測", "模組測試", "端點", "介面", "除錯", "錯誤", "修復", "實作", "測試用例"
       ],
       "guides": [
         "- tdd/SKILL.md (Test-Driven Development Red-Green-Refactor loop)",
@@ -26,7 +26,7 @@
       "id": "git-commit",
       "keywords": [
         "commit", "git", "save", "submodule", "pr", "pull request", "release", "quality gate", "ready to ship",
-        "提交", "版控", "合併", "分支", "發行"
+        "commit message", "commit lint", "commit-lint", "angular-style", "提交", "版控", "合併", "分支", "發行", "規範", "提交訊息"
       ],
       "guides": [
         "- git-commit/SKILL.md (Angular-style commit convention generation)",
@@ -42,8 +42,9 @@
     },
     {
       "id": "docs",
-      "keywords": ["doc", "readme", "文件", "說明文件"],
+      "keywords": ["doc", "readme", "agents.md", "claude.md", "說明文件", "說明書", "專案說明", "文件記錄", "文件"],
       "guides": [
+        "- repo-docs/SKILL.md (Automated README & AGENTS.md generation from project scans)",
         "- repo-docs/templates/readme-template.md (Standard README template)",
         "- repo-docs/templates/product-readme-template.md (Product README template)",
         "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)"
@@ -52,9 +53,10 @@
     {
       "id": "agent",
       "keywords": [
-        "agent", "multi-agent", "launcher", "subagent", "sub-agent", "delegate", "orchestrate", "specialist",
-        "workspace scaffolding", "scaffold workspace", "division of labor", "fable", "macro", "orchestrator",
-        "代理", "多代理", "啟動器", "子代理", "委派", "指派", "分工", "協調", "任務分配", "規劃"
+        "agent", "multi-agent", "launcher", "subagent", "sub-agent", "subAgent", "create agent launcher", "delegate", "orchestrate", "specialist",
+        "workspace scaffolding", "scaffold workspace", "division of labor", "fable", "fable mode", "fable-mode", "fable-discipline", "fable-haiku", "macro", "orchestrator",
+        "harness-everything", "harness system", "harness-skills", "using-superpowers",
+        "代理", "多代理", "啟動器", "子代理", "委派", "指派", "分工", "協調", "任務分配", "規劃", "智慧體", "角色"
       ],
       "guides": [
         "- fable-mode/SKILL.md (Macro task planning & execution orchestrator)",
@@ -68,10 +70,11 @@
     {
       "id": "arch-refactor",
       "keywords": [
-        "refactor", "architecture", "structure", "couple", "seam", "adr", "design plan", "decision", "grill",
-        "重構", "架構", "結構", "解耦", "設計", "決策", "辯論", "質疑"
+        "refactor", "architecture", "structure", "couple", "seam", "adr", "design plan", "decision", "grill", "deepening", "deep module", "decoupling",
+        "grill-me", "grill-with-docs", "重構", "架構", "結構", "解耦", "設計", "決策", "辯論", "質疑", "深模組化", "深模組", "重寫", "解耦設計", "結構優化"
       ],
       "guides": [
+        "- improve-codebase-architecture/SKILL.md (Codebase deepening & decoupling)",
         "- improve-codebase-architecture/guides/DEEPENING.md (Deepening opportunities & depth rules)",
         "- improve-codebase-architecture/guides/INTERFACE-DESIGN.md (Interface design principles)",
         "- improve-codebase-architecture/guides/LANGUAGE.md (Language-specific patterns)",
@@ -107,8 +110,8 @@
     {
       "id": "env",
       "keywords": [
-        "shell", "terminal", "powershell", "bash", "cmd", "env", "preflight", "command", "run",
-        "終端機", "命令", "環境", "指令", "執行"
+        "shell", "terminal", "powershell", "bash", "cmd", "git bash", "git-bash", "env", "preflight", "command", "run", "worktree", "git worktree",
+        "終端機", "命令", "環境", "指令", "執行", "環境偵測", "環境認知", "os", "作業系統", "工作區"
       ],
       "guides": [
         "- environment-detection/SKILL.md (Detect active shell/OS & preflight syntax before running commands)",
@@ -118,8 +121,8 @@
     {
       "id": "verify",
       "keywords": [
-        "verify", "fact", "audit", "estimate", "benchmark", "performance", "speed", "scale",
-        "驗證", "查證", "核對", "效能", "評測", "性能", "估計"
+        "verify", "fact", "audit", "estimate", "benchmark", "performance", "speed", "scale", "token",
+        "驗證", "查證", "核對", "效能", "評測", "性能", "估計", "下一步建議", "測試", "正確度", "得分", "自我檢討", "token 消耗"
       ],
       "guides": [
         "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)",
@@ -129,10 +132,14 @@
     },
     {
       "id": "skill-creator",
-      "regex": "\\bskill\\b|skill\\.md|new skill|write a skill",
+      "keywords": [
+        "skill", "skill.md", "new skill", "write a skill", "self-evolve", "self-evolution", "generated", "manifest.json", "installer.js",
+        "自我進化", "自動產生", "動態索引", "註冊表", "進化"
+      ],
       "guides": [
         "- skill-creator/SKILL.md (Authoring, auditing, and testing workflow for SKILL.md files, incl. dynamic skill generation)",
-        "- skill-style/SKILL.md (Terse Skill Contract format spec that skill-creator builds on)"
+        "- skill-style/SKILL.md (Terse Skill Contract format spec that skill-creator builds on)",
+        "- self-evolve/SKILL.md (Self-evolution & memory compression loop)"
       ]
     },
     {
@@ -144,6 +151,26 @@
       ],
       "guides": [
         "- find-skills/SKILL.md (Check static/generated skill coverage and \"npx skills list\" for anything already fetched first, then search skills.sh/npx skills and, only with explicit approval, install via npx skills add)"
+      ]
+    },
+    {
+      "id": "security",
+      "keywords": [
+        "security", "auth", "login", "vulnerability", "leak", "secrets", "password", "api key",
+        "安全性", "驗證", "登入", "漏洞", "洩漏", "機密", "金鑰", "防護"
+      ],
+      "guides": [
+        "- security-review/SKILL.md (Comprehensive security and vulnerability checklist)"
+      ]
+    },
+    {
+      "id": "stuck",
+      "keywords": [
+        "stuck", "fail", "loop", "error repeats", "infinite loop", "cease fire", "rule-of-3", "rule of 3",
+        "卡住", "失敗", "重複", "報錯", "死循環", "無限循環", "停下來", "退一步", "卡"
+      ],
+      "guides": [
+        "- zoom-out/SKILL.md (Reflect-first circuit breaker to rebuild full picture when stuck)"
       ]
     }
   ],
