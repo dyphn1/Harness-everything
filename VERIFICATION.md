@@ -58,8 +58,23 @@ self-contained and cleans up after itself.
 **Fastest path:** `npm run test:mechanism` (or plain `npm test`, which
 includes it as Phase 4) runs every check in this section automatically,
 end-to-end, on Windows/macOS/Linux alike — see
-[eval-framework/mechanism-test.js](eval-framework/mechanism-test.js). The
-recipes below exist for isolating and debugging one mechanism by hand; they
+[eval-framework/mechanism-test.js](eval-framework/mechanism-test.js). 
+
+To ensure complete test traceability and avoid untested blind spots, the mechanism
+checks are split into isolated, dedicated test suites under `eval-framework/`:
+- `mechanism-2a-rule-of-3.test.js` — Rule of 3 circuit breaker
+- `mechanism-2b-boundary-guard.test.js` — Boundary guard block size limit
+- `mechanism-2c-state-persist.test.js` — WAL fail-safe state recording
+- `mechanism-2d-fact-audit.test.js` — Bilingual fact-audit stdin routing
+- `mechanism-2e-scope-guard.test.js` — Subagent workspace scope containment
+- `mechanism-2f-stop-gate.test.js` — Stop gate unverified edit bounce guard
+- `mechanism-2g-platform-ignore.test.js` — Cross-platform selective gitignore exclusions
+- `mechanism-2h-installer-manifest.test.js` — Installer manifest serialization and author-validation
+
+The master test runner `mechanism-test.js` automatically discovers, sorts, and executes
+each `.test.js` suite inline, printing a structured diagnostic table at the end.
+
+The recipes below exist for isolating and debugging one mechanism by hand; they
 pipe JSON into each hook via `node -e "...spawnSync(...)"` rather than a
 shell `echo '...' | node script.js` pipe. Use the shell-pipe form if you
 like — it works fine on macOS/Linux — but **not on Windows Git Bash**: three

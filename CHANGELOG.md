@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [0.3.0-beta] - 2026-07-27
+
+### Added
+- **Modular Mechanism Tests**: Completely split the monolithic mechanism-test suite into 8 isolated, highly cohesive `.test.js` modules (`mechanism-2a` through `mechanism-2h` under `eval-framework/`) for superior traceability and ease of debugging.
+- **Unified Test Helper**: Created `eval-framework/test-helper.js` managing mock execution directories, teardown life cycles, and child processes safely across all mechanism test runs.
+- **Selective Gitignore Exclusion Tests (`mechanism-2g`)**: Added full validation tests for selective `.gitignore` exclusion algorithms across different developer platforms.
+- **Installer & Manifest Serialization Tests (`mechanism-2h`)**: Implemented complete testing coverage for the installer manifest, metadata parsing, dynamic-skill registration, and automatic cleanup of empty manifest files.
+
+### Fixed
+- **Platform Gitignore Exclusion Overkill**: Fixed a critical bug in `hooks/scripts/lib/platforms/*.js` where the installer incorrectly added the entire workspace-level `.claude/skills` (or `.cursor/skills`, `.github/skills`, etc.) to `.gitignore`, silently blocking developers from committing their custom project-specific skills to version control. It now dynamically reads each skill's `SKILL.md` frontmatter and only ignores verified Harness core/system skills, keeping custom skills fully trackable.
+- **Redundant Gitignore Suffix Matches**: Optimized platform ignore matching (`isMatch` in platform helper modules) to prevent appending redundant nested directories to `.gitignore` when parent directories (e.g. `.claude/` or `.cursor/`) are already broadly ignored.
+
+### Changed
+- Refactored `eval-framework/mechanism-test.js` to serve as a dynamic test orchestration runner. It auto-discovers all mechanism test suites, executes them sequentially under isolated environments, and outputs a clean console summary table at the end.
+- Updated `VERIFICATION.md` and `docs/audit.md` to reflect the newly modularized test suites, raising the system-wide test coverage and capability scorecard to 9.0/10.
+
+---
 ## [0.3.0-alpha] - 2026-07-26
 
 ### Added

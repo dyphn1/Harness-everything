@@ -18,16 +18,34 @@ module.exports = {
   },
   getIgnorePatterns(workspaceRoot) {
     const patterns = ['.cursor/harness-everything/'];
-    if (fs.existsSync(path.join(workspaceRoot, '.cursor', 'skills'))) {
-      patterns.push('.cursor/skills/');
+    const skillsDir = path.join(workspaceRoot, '.cursor', 'skills');
+    if (fs.existsSync(skillsDir)) {
+      try {
+        const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            const skillMdPath = path.join(skillsDir, entry.name, 'SKILL.md');
+            if (fs.existsSync(skillMdPath)) {
+              const content = fs.readFileSync(skillMdPath, 'utf8');
+              const authorLine = content.split('\n').find(line => line.trim().startsWith('author:'));
+              if (authorLine && (authorLine.includes('Miya Daniel') || authorLine.includes('Harness Core Team'))) {
+                patterns.push(`.cursor/skills/${entry.name}/`);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Fallback or ignore to prevent breaking execution
+      }
     }
     return patterns;
   },
   isMatch(pattern, trimmedLine) {
+    if (trimmedLine === '.cursor/' || trimmedLine === '.cursor') {
+      return true;
+    }
     if (pattern === '.cursor/harness-everything/') {
-      return trimmedLine === '.cursor/' ||
-             trimmedLine === '.cursor' ||
-             trimmedLine === '.cursor/harness-everything' ||
+      return trimmedLine === '.cursor/harness-everything' ||
              trimmedLine === '.cursor/harness-everything/';
     }
     return trimmedLine === pattern || trimmedLine === pattern.slice(0, -1);
