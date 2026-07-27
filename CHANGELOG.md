@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [0.3.1-alpha] - 2026-07-28
+
+### Added
+- **Expanded Routing Keywords**: Expanded routing keywords derived from user history and resolved regex preemption in `tier-router.js`.
+- **Adjusted Default Skills**: Adjusted default skills configuration and unified command-line option indicators within the installer.
+
+### Fixed
+- **Legacy Hook Identification**: Supported robust legacy hook identification during global uninstallation.
+
+### Changed
+- **Pipeline Refactoring**: Integrated `grill-me` and `grill-with-docs` into a cohesive companion pipeline.
+
+---
 ## [0.3.0-beta] - 2026-07-27
 
 ### Added
