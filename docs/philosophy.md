@@ -43,3 +43,5 @@ When a complex issue is resolved, the model should never have to solve it again.
 ## A Non-Intrusive Cognitive Amplifier
 
 Harness does not run a heavy daemon, send your code to third-party APIs, or lock you into a proprietary ecosystem. It runs entirely locally within your project, acting as a quiet guardian that ensures your AI sessions are efficient, secure, and successful.
+
+For the skill-level coordination philosophy, see [Mechanism-First Skill Mesh](mechanism-first-skill-mesh.md). It explains why Harness prefers autonomous skills coordinated by scripts, hooks, exit codes, and compact return values over a single rigid handoff template.

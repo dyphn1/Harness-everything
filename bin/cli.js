@@ -28,6 +28,12 @@ switch (command) {
   case 'self-regression':
     runSelfRegression();
     break;
+  case 'next':
+    runNext(args.slice(1));
+    break;
+  case 'verify':
+    runVerify();
+    break;
   default:
     console.error(`[Error] Unknown command: "${command}"`);
     showHelp();
@@ -68,6 +74,15 @@ Commands:
                                      unless --global is also passed)
                      (Runs interactively if no flags are specified)
   self-regression    Run syntax and routing checks before committing changes (alias: test)
+  next "<prompt>"    Print the tier-router.js routing recommendation for a prompt.
+                     This is the mechanism hook/hookless platforms (Codex, Cursor,
+                     Copilot, Continue, Hermes) call explicitly at the start of a
+                     turn, since they have no hook to run it automatically.
+  verify             Run the pre-delivery verification gate (lint/test from the
+                     nearest package.json). Exits non-zero if checks fail. This is
+                     the explicit stand-in for Claude Code's stop-gate hook on
+                     platforms with no hook mechanism - call it before declaring a
+                     task complete.
 
 Options:
   --help, -h         Show this help text
@@ -94,4 +109,29 @@ function runSelfRegression() {
     console.error("[Error] Self-regression script not found.");
     process.exit(1);
   }
+}
+
+// Both wrappers resolve scripts relative to this CLI's own package install
+// (not the caller's cwd), so they work identically regardless of which
+// platform-specific directory (.codex/skills/, .cursor/skills/, ...) a copy
+// of the harness-everything skill also happens to be sitting in.
+function runNext(nextArgs) {
+  const routerPath = path.resolve(__dirname, '..', 'harness-everything', 'scripts', 'tier-router.js');
+  if (!fs.existsSync(routerPath)) {
+    console.error("[Error] Tier router script not found at harness-everything/scripts/tier-router.js");
+    process.exit(1);
+  }
+  const prompt = nextArgs.join(' ');
+  const result = spawnSync('node', [routerPath, prompt], { stdio: 'inherit' });
+  process.exit(result.status === null ? 1 : result.status);
+}
+
+function runVerify() {
+  const gatePath = path.resolve(__dirname, '..', 'harness-everything', 'scripts', 'verify-gate.js');
+  if (!fs.existsSync(gatePath)) {
+    console.error("[Error] Verify gate script not found at harness-everything/scripts/verify-gate.js");
+    process.exit(1);
+  }
+  const result = spawnSync('node', [gatePath], { stdio: 'inherit' });
+  process.exit(result.status === null ? 1 : result.status);
 }

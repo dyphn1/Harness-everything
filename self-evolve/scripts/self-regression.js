@@ -53,6 +53,32 @@ jsFiles.forEach(file => {
   }
 });
 
+// 1b. CLI smoke test: the `harness next` / `harness verify` commands are what
+// the advisory text on hookless platforms (Codex, Cursor, Copilot, Continue,
+// Hermes) tells the model to actually run - if these silently break, every
+// platform's advisory guidance points at a dead command with nothing to catch
+// it (see docs/mechanism-first-skill-mesh.md).
+console.log("\n[Phase 1b] CLI Command Smoke Test (harness next / harness verify)...");
+const cliPath = path.join(projectRoot, 'bin', 'cli.js');
+const nextCheck = spawnSync('node', [cliPath, 'next', 'add a new login endpoint with tests'], { cwd: projectRoot });
+if (nextCheck.status !== 0 || !nextCheck.stdout.toString().includes('RECOMMENDED TIER')) {
+  console.error("  ❌ `harness next` did not produce a routing recommendation.");
+  hasErrors = true;
+} else {
+  console.log("  ✅ `harness next` produced a routing recommendation.");
+}
+
+const verifyCheck = spawnSync('node', [cliPath, 'verify'], {
+  cwd: projectRoot,
+  env: { ...process.env, HARNESS_SKIP_PROJECT_CHECKS: '1' }
+});
+if (verifyCheck.status !== 0) {
+  console.error("  ❌ `harness verify` exited non-zero on a clean (skipped) check.");
+  hasErrors = true;
+} else {
+  console.log("  ✅ `harness verify` exited 0 on a clean (skipped) check.");
+}
+
 // 2. Run Tier Verification Framework
 console.log("\n[Phase 2] Routing Verification Check...");
 const runnerPath = path.join(projectRoot, 'eval-framework', 'runner.js');

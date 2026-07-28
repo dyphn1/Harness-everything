@@ -8,6 +8,8 @@ This document details the internal architecture, lifecycle, and integration touc
 
 Harness acts as a **system supervisor** wrapping around your AI development sessions. Instead of controlling the model's generation directly, it leverages native hook systems (like Claude Code's lifecycle hooks) and instruction files (like `.cursorrules` or `.github/copilot-instructions.md`) to inject contextual guardrails.
 
+At the skill layer, Harness is designed as a [mechanism-first skill mesh](mechanism-first-skill-mesh.md): each skill remains independently useful, while routers, gates, hooks, scripts, exit codes, and compact return values provide coordination at decision points.
+
 The diagram below outlines the full lifecycle of a task under Harness:
 
 ```mermaid
