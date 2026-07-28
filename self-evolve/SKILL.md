@@ -18,7 +18,7 @@ version: 0.3.0
 
 This skill enables long-term learning by extracting root causes from resolved challenges and recording defensive rules for future sessions.
 
-**Environment Requirements**: `persist-memory.js` and `register-dynamic-skill.js` require Node.js on `PATH` and should be executed within a Git repository context to correctly locate workspace boundaries.
+**Environment Requirements**: `persist-memory.js` and `register-dynamic-skill.js` require Node.js on `PATH` and should be executed within a Git repository context to correctly locate workspace boundaries. Run either script with `--help` for its full argument reference.
 
 ## 1. Triggers
 - **Post-Circuit Breaker**: Following successful recovery after a `zoom-out` reflection.

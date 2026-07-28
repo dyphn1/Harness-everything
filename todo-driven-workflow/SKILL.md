@@ -31,7 +31,7 @@ Recommended for complex, multi-step, or multi-file development tasks (Tier 2 and
 
 | Environment | Primary Task Tracker | Implementation Method |
 | :--- | :--- | :--- |
-| **All Environments** | `todo-cli.js` | Use `node harness-everything/scripts/todo-cli.js` (or `node scripts/todo-cli.js`) to manage task transitions. |
+| **All Environments** | `todo-cli.js` | Use `node harness-everything/scripts/todo-cli.js` (or `node scripts/todo-cli.js`) to manage task transitions. Run with `--help` for the full command reference. |
 
 ### 🔀 Multi-Agent Concurrency & Isolation
 When running multiple Sub-agents in parallel (e.g. during `fable-mode` tasks), avoid concurrent state modifications in a single workspace folder. Leverage `using-git-worktrees` to isolate each parallel agent into its own git worktree for clean filesystem-level separation.

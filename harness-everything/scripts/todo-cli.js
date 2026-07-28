@@ -55,8 +55,24 @@ function printList(state) {
 const args = process.argv.slice(2);
 const command = args[0];
 
+if (command === '--help' || command === '-h') {
+  console.log(`Harness Todo CLI - state machine for task tracking.
+
+Usage: node todo-cli.js <command> [args]
+
+Commands:
+  init "<title 1>" "<title 2>" ...   Reset the list and create tasks from these titles, in order.
+  add "<title>"                      Append one more task to the existing list.
+  start <id>                         Mark task <id> active. Blocked if a different task is already active.
+  complete <id>                      Run the verification gate (verify-gate.js); on success, mark active task <id> complete.
+  status                             Print the current list with each task's state.
+
+Only one task may be active at a time - complete or otherwise clear the active task before starting another.`);
+  process.exit(0);
+}
+
 if (!command) {
-  console.error("❌ Error: Missing command. Use 'init', 'add', 'start', 'complete', or 'status'.");
+  console.error("❌ Error: Missing command. Use 'init', 'add', 'start', 'complete', 'status', or '--help'.");
   process.exit(1);
 }
 

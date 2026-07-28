@@ -3,6 +3,22 @@ const fs = require('fs');
 const path = require('path');
 
 const args = process.argv.slice(2);
+
+if (args[0] === '--help' || args[0] === '-h') {
+  console.log(`Score a Harness-guarded session and write an evaluation report.
+
+Usage: node evaluate.js <scoreA> <scoreB> <scoreC> <scoreD> "<insights>"
+
+Four positional scores (0, 5, or 10 each), in this order:
+  scoreA  Correctness & Factuality
+  scoreB  Token & Step Efficiency
+  scoreC  Anti-loop & Focus
+  scoreD  Environment & Tool Awareness
+
+Followed by one free-text insights string (wrap in quotes).`);
+  process.exit(0);
+}
+
 if (args.length < 5) {
   console.error("Usage: node evaluate.js <scoreA> <scoreB> <scoreC> <scoreD> \"<insights>\"");
   console.error("Scores should be 0, 5, or 10.");

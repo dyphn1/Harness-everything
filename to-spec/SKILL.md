@@ -50,7 +50,7 @@ Persist the answers through the script — never hand-edit the manifest, so the 
 node to-spec/scripts/check-project-docs.js init --doc-location "<answer>" --tracker "<answer>" --issue-definition "<answer>"
 ```
 
-This is a one-time cost per repo. Once `projectDocs` exists in this repo's manifest, every future `/to-spec` (and `/to-tickets`, once installed) run skips straight past this step — that's the whole point of making it a script gate instead of a prose reminder.
+This is a one-time cost per repo. Once `projectDocs` exists in this repo's manifest, every future `/to-spec` (and `/to-tickets`, once installed) run skips straight past this step — that's the whole point of making it a script gate instead of a prose reminder. Run the script with `--help` for the full command/flag reference.
 
 Note this manifest lives under a gitignored path (`.claude/harness-everything/`, etc.) — it's local runtime state, not a committed team doc. On a fresh clone (or a teammate's machine), Step 0 will come back Exit 1 once and re-run the short interview; that's expected, not a bug.
 

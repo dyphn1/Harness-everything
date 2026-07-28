@@ -5,6 +5,18 @@ const path = require('path');
 const args = process.argv.slice(2);
 const memoryText = args[0];
 
+if (memoryText === '--help' || memoryText === '-h') {
+  console.log(`Append a short defensive rule to memories/repo/RULES.md.
+
+Usage: node persist-memory.js "<insight to remember>"
+
+One positional argument - the extracted root cause / rule, written as a universal,
+high-level statement (not a specific file, line number, or variable name). Wrap it
+in quotes if it contains spaces. Appended under a dated heading; never overwrites
+earlier entries.`);
+  process.exit(0);
+}
+
 if (!memoryText) {
   console.error("Usage: node persist-memory.js \"<insight to remember>\"");
   process.exit(1);

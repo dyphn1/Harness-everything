@@ -195,6 +195,19 @@ function runInit(workspaceRoot, args) {
   process.exit(0);
 }
 
+if (process.argv[2] === '--help' || process.argv[2] === '-h') {
+  console.log(`Gate: has this repo already pinned doc location / issue tracker / issue definition?
+
+Usage:
+  node check-project-docs.js [check]                                                Exit 0 if a complete projectDocs entry already exists in this repo's manifest.json; exit 1 with the missing field(s) otherwise.
+  node check-project-docs.js init --doc-location "..." --tracker "..." --issue-definition "..."
+                                                                                       Persist all three fields (each <= ${MAX_FIELD_LENGTH} chars - a pointer, not the content) to every already-bootstrapped platform manifest.json in this repo.
+
+Repo-local only: writes only to workspace-relative manifest homes (.claude/, .cursor/,
+.github/, .codex/, .continue/), never to the user-home manifests self-evolve uses.`);
+  process.exit(0);
+}
+
 const command = process.argv[2] || 'check';
 const workspaceRoot = getWorkspaceRoot();
 

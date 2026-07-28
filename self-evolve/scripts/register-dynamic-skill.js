@@ -168,6 +168,23 @@ function processSkillDir(skillDirPath) {
 
 function register() {
   const arg = process.argv[2];
+
+  if (arg === '--help' || arg === '-h') {
+    console.log(`Register self-evolve dynamic skills into every detected platform manifest.json.
+
+Usage:
+  node register-dynamic-skill.js              Scan .claude/harness-everything/skills/generated/ and register every skill found there.
+  node register-dynamic-skill.js <name>        Register only the skill folder named <name> under skills/generated/.
+  node register-dynamic-skill.js <path>        Register the skill folder at this literal path instead.
+
+Each skill folder needs a SKILL.md with 'name' and 'description' frontmatter (plus
+'triggers' - if omitted, triggers are inferred from the name and description, which
+is a conservative fallback, not a substitute for setting them explicitly). Writes to
+every already-bootstrapped platform's manifest.json (.claude/, .cursor/, .github/,
+.codex/, .continue/, plus the user-home ~/.agents and ~/.claude homes).`);
+    process.exit(0);
+  }
+
   const generatedBaseDir = path.join(workspaceRoot, '.claude', 'harness-everything', 'skills', 'generated');
   
   let skillsToRegister = [];

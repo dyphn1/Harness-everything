@@ -55,5 +55,5 @@ Please score based on the following four dimensions (out of 10 points each):
   ```bash
   node path/to/eval-harness/scripts/evaluate.js <scoreA> <scoreB> <scoreC> <scoreD> "<Your insights here>"
   ```
-  *(Example: `node scripts/evaluate.js 10 5 10 10 "The agent successfully used zoom-out..."`)*
+  *(Example: `node scripts/evaluate.js 10 5 10 10 "The agent successfully used zoom-out..."`)* — run with `--help` for the scoring-dimension reference.
 - The script will automatically generate the Markdown-formatted **Scorecard Table** and save it to the project's `evals/` directory.
