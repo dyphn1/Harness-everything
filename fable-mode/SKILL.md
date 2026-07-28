@@ -43,6 +43,7 @@ You MUST strictly comply with and pair this with `fable-discipline` to control r
 
 ### 3. Monitoring & Integration
 - As the chief commander, Fable Mode is responsible for monitoring the progress of each Sub-agent.
+- **Subagent Scope Guard Verification**: Sub-agent tool executions are actively intercepted by `subagent-scope-guard.js` (README §5). If a Sub-agent alters files outside its briefed domain scope, the scope guard will surface a warning listing the unexpected modified files. Verify these changes before accepting the handoff.
 - Ensure the outputs of various sub-agents can integrate perfectly.
 - Upon completing each Milestone, a global test or check MUST be executed.
 

@@ -43,9 +43,10 @@ Based on the complexity of the sub-task, select the most cost-effective model (a
 - Tell the Sub-agent that once it completes its task, it MUST output a report in a specific format to the main Orchestrator (`fable-mode`).
 - The report MUST include: which files were modified, what new APIs/interfaces were exposed, and what downstream Agents need to pay attention to.
 
-## 3. Foolproofing Mechanism
+## 3. Foolproofing Mechanism & Subagent Scope Guard
 - Avoid over-segmentation: If a cross-stack task can be resolved within 2 files and 300 lines of code, establishing a Sub-agent is **PROHIBITED**. Resolve it directly in the current Context using `tdd` mode.
 - Sub-agents are also Agents, equally bound by the `install-cognitive-os` physical laws and the `zoom-out` circuit breaker.
+- **Subagent Scope Guard Active**: All subagent tool bursts are actively monitored by `subagent-scope-guard.js` (README §5). The guard diffs repository `git status` before and after each subagent execution and will flag any unauthorized file edits made outside the subagent's explicit brief.
 
 ## 4. Execution Workflows & Platform Guidelines
 For structured multi-agent initialization and generation, follow the sequential workflows and platform templates in this skill:
