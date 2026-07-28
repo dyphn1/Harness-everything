@@ -14,7 +14,7 @@ version: 0.3.0
 | **Trigger / Input** | Task completion after a major struggle, or post-zoom-out recovery. Input: The root cause of the previous failure. |
 | **Expected Output** | Terminal execution of the persistence script. |
 | **State Mutations** | Updates workspace memory/rules files (e.g., `RULES.md` or `.claude/harness-state/memories.json`). |
-| **Enforcement Gate** | You MUST run `node <this-skill-dir>/scripts/self-regression.js`. You MUST run `node <this-skill-dir>/scripts/persist-memory.js "<rule>"`. |
+| **Enforcement Gate** | You MUST run `node self-evolve/scripts/self-regression.js`. You MUST run `node self-evolve/scripts/persist-memory.js "<rule>"`. |
 
 This skill is responsible for the long-term learning and error prevention of the system.
 It ensures that the entire Harness ecosystem becomes smarter and avoids repeating mistakes after solving difficult problems every time.
@@ -41,13 +41,13 @@ It ensures that the entire Harness ecosystem becomes smarter and avoids repeatin
 - **Anti-Focus Loss**: This rule must be able to directly guide future Agents to notice this landmine during the `[Discover]` phase, instead of finding out only after writing it wrong.
 
 ### Step 3: Memory Persistence & Dynamic Skill Generation
-- **MANDATORY**: Before persisting or committing any dynamically generated skills or memories, you MUST run the self-regression suite to ensure no behavioral regressions or syntax errors were introduced. Both scripts below live in the `scripts/` directory **inside this skill's own directory** — resolve paths from wherever this SKILL.md was loaded (do not guess a hard-coded location):
+- **MANDATORY**: Before persisting or committing any dynamically generated skills or memories, you MUST run the self-regression suite to ensure no behavioral regressions or syntax errors were introduced. Both scripts below live in `self-evolve/scripts/` (or the relative path where this skill resides):
   ```bash
-  node "<this-skill-dir>/scripts/self-regression.js"
+  node self-evolve/scripts/self-regression.js
   ```
 - **MANDATORY**: You MUST execute the persistence script instead of manually editing files or calling write tools:
   ```bash
-  node "<this-skill-dir>/scripts/persist-memory.js" "<Your extracted root cause and defensive rule here>"
+  node self-evolve/scripts/persist-memory.js "<Your extracted root cause and defensive rule here>"
   ```
 - **Cognitive Decision: Memory vs. Dynamic Skill**:
   - **Do NOT pack every memory into a skill.** This prevents skill bloat and unnecessary context loading.

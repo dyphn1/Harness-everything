@@ -1,10 +1,6 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
-const { getManifestPath, readManifest, writeManifest, recordGeneratedSkill } = require('../../scripts/lib/manifest');
-
-// Find user home folder
-const userHome = process.env.HOME || process.env.USERPROFILE || '';
 
 function getWorkspaceRoot() {
   let dir = path.resolve(process.cwd());
@@ -15,6 +11,28 @@ function getWorkspaceRoot() {
   return process.cwd();
 }
 
+function loadManifestHelper() {
+  const candidates = [
+    path.join(__dirname, '../../scripts/lib/manifest'),
+    path.join(__dirname, '../scripts/lib/manifest'),
+    path.join(__dirname, '../../../scripts/lib/manifest'),
+    path.join(getWorkspaceRoot(), 'scripts/lib/manifest'),
+    path.join(getWorkspaceRoot(), 'harness-everything/scripts/lib/manifest'),
+  ];
+  for (const cand of candidates) {
+    try {
+      if (fs.existsSync(cand + '.js') || fs.existsSync(cand)) {
+        return require(cand);
+      }
+    } catch (e) {}
+  }
+  throw new Error('[register-dynamic-skill] Failed to locate manifest helper module (scripts/lib/manifest)');
+}
+
+const { getManifestPath, readManifest, writeManifest, recordGeneratedSkill } = loadManifestHelper();
+
+// Find user home folder
+const userHome = process.env.HOME || process.env.USERPROFILE || '';
 const workspaceRoot = getWorkspaceRoot();
 
 // List of all possible manifest.json home paths
@@ -186,11 +204,14 @@ function register() {
     return;
   }
 
-  // Write to all detected manifests
+  // Write to all detected manifests (auto-creating target directories if in workspace)
   let count = 0;
   for (const home of manifestHomes) {
     const manifestPath = getManifestPath(home);
-    if (fs.existsSync(path.dirname(manifestPath))) {
+    const parentDir = path.dirname(manifestPath);
+    const isRepoHome = home.startsWith(workspaceRoot);
+    if (fs.existsSync(parentDir) || isRepoHome) {
+      fs.mkdirSync(parentDir, { recursive: true });
       for (const skill of skillsToRegister) {
         recordGeneratedSkill(manifestPath, skill.id, skill.dirPath, skill.description, skill.triggers);
       }
