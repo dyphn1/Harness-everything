@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [0.3.2-alpha] - 2026-07-28
+
+### Fixed
+- **Platform Self-Heal Overkill**: Completely redesigned the environment and workspace detection algorithm in `self-heal.js` and `bootstrap.js`. Replaced the overly-broad binary if-else check (which fell back to auditing and generating files for all other 5 non-Claude platforms when Claude Code env was absent) with a precise dual-track platform detection strategy based on environment variables (like `TERM_PROGRAM`, `CURSOR_SANDBOX`, and `GITHUB_COPILOT_CHAT`) and existing configuration files. This ensures that the self-healing and bootstrap processes only target and audit platforms that are actively used or pre-configured in the project, eliminating accidental file pollution for other platforms.
+- **Gitignore Suffix Matching**: Appended `.github/harness-everything/state/` to the ignore rules to prevent tracking state files for the Copilot integration.
+
+---
 ## [0.3.1-alpha] - 2026-07-28
 
 ### Added
