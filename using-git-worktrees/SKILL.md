@@ -28,17 +28,20 @@ Ensure work happens in an isolated workspace. Prefer your platform's native work
 
 **Before creating anything, check if you are already in an isolated workspace.**
 
+Adapt commands for your active shell (`environment-detection`). Use standard `git` subcommands rather than complex POSIX subshell substitutions:
+
 ```bash
-GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
-GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
-BRANCH=$(git branch --show-current)
+# Cross-platform git path resolution
+git rev-parse --git-dir
+git rev-parse --git-common-dir
+git branch --show-current
 ```
 
-**Submodule guard:** `GIT_DIR != GIT_COMMON` is also true inside git submodules. Before concluding "already in a worktree," verify you are not in a submodule:
+**Submodule guard:** `git-dir` differs from `git-common-dir` inside git submodules as well. Before concluding "already in a worktree," verify you are not in a submodule:
 
 ```bash
 # If this returns a path, you're in a submodule, not a worktree — treat as normal repo
-git rev-parse --show-superproject-working-tree 2>/dev/null
+git rev-parse --show-superproject-working-tree
 ```
 
 **If `GIT_DIR != GIT_COMMON` (and not a submodule):** You are already in a linked worktree. Skip to Step 2 (Project Setup). Do NOT create another worktree.
@@ -78,11 +81,7 @@ Follow this priority order. Explicit user preference always beats observed files
 1. **Check your instructions for a declared worktree directory preference.** If the user has already specified one, use it without asking.
 
 2. **Check for an existing project-local worktree directory:**
-   ```bash
-   ls -d .worktrees 2>/dev/null     # Preferred (hidden)
-   ls -d worktrees 2>/dev/null      # Alternative
-   ```
-   If found, use it. If both exist, `.worktrees` wins.
+   Check if `.worktrees/` or `worktrees/` exists using cross-platform file system tools (`read_file` / `list_dir` or native shell test commands). If found, use it. If both exist, `.worktrees` wins.
 
 3. **If there is no other guidance available**, default to `.worktrees/` at the project root.
 
@@ -91,7 +90,7 @@ Follow this priority order. Explicit user preference always beats observed files
 **MUST verify directory is ignored before creating worktree:**
 
 ```bash
-git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/dev/null
+git check-ignore -q .worktrees || git check-ignore -q worktrees
 ```
 
 **If NOT ignored:** Add to .gitignore, commit the change, then proceed.

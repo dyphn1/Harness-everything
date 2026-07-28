@@ -25,8 +25,8 @@ Triggered when the user requests to clean, squash, or rewrite past Git history t
 ## 2. Execution Process `[Think] & [Try]`
 - Create a temporary branch (Temp Branch) to perform history rewriting to avoid breaking the original history.
 - **Non-interactive Execution (Avoid Terminal Hangs)**:
-  - Do NOT execute interactive `git rebase -i` without `GIT_SEQUENCE_EDITOR` or `GIT_EDITOR` configured; bare interactive prompts will freeze the automated terminal indefinitely.
-  - Prefer non-interactive history restructuring strategies, such as `git reset --soft HEAD~<N>` followed by structured commits, or `GIT_SEQUENCE_EDITOR="sed -i ..."` scripting.
+  - Do NOT execute interactive `git rebase -i` without non-interactive script editors configured; bare interactive prompts will freeze the automated terminal indefinitely.
+  - Prefer non-interactive history restructuring strategies, such as `git reset --soft HEAD~<N>` followed by structured commits, or cross-platform Node.js scripting for sequence edits (avoid hardcoded `sed -i` commands which fail on Windows).
 - The rewritten commit messages MUST fully comply with the Angular Style conventions in the `git-commit` skill.
 
 ## 3. Completion and Validation `[Summarize]`
