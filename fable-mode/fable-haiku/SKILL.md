@@ -23,7 +23,7 @@ description: >
 | **State Mutations** | None directly — spawns/manages Task-tool subagents and whatever file edits they perform. |
 | **Enforcement Gate** | Every worker brief **MUST** name the pass condition explicitly (no benefit of the doubt on verification for Haiku). A worker that escalates "needs synthesis" **MUST** be re-routed to `fable-worker-sonnet`, never retried on Haiku with a louder prompt. |
 
-v3 change: the worker is a real agent definition (`agents/fable-worker-haiku.md`)
+v3 change: the worker is a real agent definition (`../agents/fable-worker-haiku.md`)
 invoked by name. Its system prompt carries the loop, the tightened verification
 rule, and the operational rules; this skill only routes.
 
@@ -34,7 +34,7 @@ loop and do it directly.
 
 1. Confirm `fable-worker-haiku` appears in the available agent types. If not,
    fall back to inline: spawn a general-purpose Haiku agent and pass it the
-   rules verbatim from `agents/fable-worker-haiku.md`.
+   rules verbatim from `../agents/fable-worker-haiku.md`.
 2. Spawn **@fable-worker-haiku** via the Task tool (`subagent_type:
    "fable-worker-haiku"`). Brief it with: the task, the exact output path(s),
    and the pass condition — name the check explicitly; Haiku gets no benefit of
