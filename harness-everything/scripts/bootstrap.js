@@ -87,12 +87,49 @@ try {
   const contains = (p, needle) => {
     try { return fs.readFileSync(p, 'utf8').includes(needle); } catch (e) { return false; }
   };
-  const missing = [
-    ['.claude/settings.json (Claude Code hooks)', contains(path.join(workspaceRoot, '.claude', 'settings.json'), HOOK_ID)],
-    ['.cursorrules (Cursor)', contains(path.join(workspaceRoot, '.cursorrules'), MARKER)],
-    ['.github/copilot-instructions.md (Copilot)', contains(path.join(workspaceRoot, '.github', 'copilot-instructions.md'), MARKER)],
-    ['AGENTS.md (Codex)', contains(path.join(workspaceRoot, 'AGENTS.md'), MARKER)]
-  ].filter(([, ok]) => !ok).map(([label]) => label);
+
+  const isClaudeEnv = process.env.CLAUDE_CODE === 'true' || process.env.SHELL?.includes('claude-code') || false;
+  const isCursorEnv = process.env.TERM_PROGRAM === 'cursor' || process.env.CURSOR_SANDBOX !== undefined || false;
+  const isCopilotEnv = process.env.GITHUB_COPILOT_CHAT === 'true' || process.env.COPILOT_AGENT === '1' || process.env.AI_AGENT?.includes('copilot') || process.env.TERM_PROGRAM === 'vscode' || process.env.VSCODE_PID !== undefined || false;
+
+  const hasClaude = fs.existsSync(path.join(workspaceRoot, '.claude'));
+  const hasCursor = fs.existsSync(path.join(workspaceRoot, '.cursorrules')) || fs.existsSync(path.join(workspaceRoot, '.cursor'));
+  const hasCopilot = fs.existsSync(path.join(workspaceRoot, '.github', 'copilot-instructions.md'));
+  const hasCodex = fs.existsSync(path.join(workspaceRoot, 'AGENTS.md'));
+
+  const activePlatforms = {
+    claude: isClaudeEnv || hasClaude,
+    cursor: isCursorEnv || hasCursor,
+    copilot: (!isClaudeEnv && !isCursorEnv && isCopilotEnv) || hasCopilot,
+    codex: hasCodex
+  };
+
+  // If no platforms are active, fallback to current environment
+  const hasAnyActive = Object.values(activePlatforms).some(v => v);
+  if (!hasAnyActive) {
+    if (isClaudeEnv) {
+      activePlatforms.claude = true;
+    } else if (isCursorEnv) {
+      activePlatforms.cursor = true;
+    } else {
+      activePlatforms.copilot = true;
+    }
+  }
+
+  const missing = [];
+  if (activePlatforms.claude && !contains(path.join(workspaceRoot, '.claude', 'settings.json'), HOOK_ID)) {
+    missing.push('.claude/settings.json (Claude Code hooks)');
+  }
+  if (activePlatforms.cursor && !contains(path.join(workspaceRoot, '.cursorrules'), MARKER)) {
+    missing.push('.cursorrules (Cursor)');
+  }
+  if (activePlatforms.copilot && !contains(path.join(workspaceRoot, '.github', 'copilot-instructions.md'), MARKER)) {
+    missing.push('.github/copilot-instructions.md (Copilot)');
+  }
+  if (activePlatforms.codex && !contains(path.join(workspaceRoot, 'AGENTS.md'), MARKER)) {
+    missing.push('AGENTS.md (Codex)');
+  }
+
   if (missing.length > 0 && path.resolve(workspaceRoot) !== path.resolve(__dirname, '..', '..')) {
     console.log(`\n[Self-Heal] Missing integration touchpoints: ${missing.join(', ')}`);
     console.log(`[Self-Heal] Repair (idempotent): node "${path.join(__dirname, 'self-heal.js')}"`);

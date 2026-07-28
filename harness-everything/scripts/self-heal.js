@@ -81,41 +81,85 @@ function auditClaudeHooks(workspaceRoot) {
 }
 
 function auditWorkspace(workspaceRoot) {
-  const isClaudeCode = process.env.CLAUDE_CODE === 'true' || process.env.SHELL?.includes('claude-code') || false;
-  const isVSCodeCopilot = process.env.VSCODE_PID !== undefined || process.env.TERM_PROGRAM === 'vscode' || process.env.GITHUB_COPILOT_CHAT === 'true' || true; // Fallback default
+  // 1. 環境變數偵測 (Environment Detection)
+  const isClaudeEnv = process.env.CLAUDE_CODE === 'true' || process.env.SHELL?.includes('claude-code') || false;
+  const isCursorEnv = process.env.TERM_PROGRAM === 'cursor' || process.env.CURSOR_SANDBOX !== undefined || false;
+  const isCopilotEnv = process.env.GITHUB_COPILOT_CHAT === 'true' || process.env.COPILOT_AGENT === '1' || process.env.AI_AGENT?.includes('copilot') || process.env.TERM_PROGRAM === 'vscode' || process.env.VSCODE_PID !== undefined || false;
+
+  // 2. 專案現存檔案偵測 (Workspace File Detection)
+  const hasClaudeFiles = fs.existsSync(path.join(workspaceRoot, '.claude'));
+  const hasCursorFiles = fs.existsSync(path.join(workspaceRoot, '.cursorrules')) || fs.existsSync(path.join(workspaceRoot, '.cursor'));
+  const hasCopilotFiles = fs.existsSync(path.join(workspaceRoot, '.github', 'copilot-instructions.md'));
+  const hasCodexFiles = fs.existsSync(path.join(workspaceRoot, 'AGENTS.md'));
+  const hasContinueFiles = fs.existsSync(path.join(workspaceRoot, '.continue'));
+  const hasHermesFiles = fs.existsSync(path.join(workspaceRoot, '.hermes.md'));
+
+  // 3. 決定哪些平台是「活躍」的（已初始化或目前正在使用該環境）
+  const activePlatforms = {
+    claude: isClaudeEnv || hasClaudeFiles,
+    cursor: isCursorEnv || hasCursorFiles,
+    copilot: (!isClaudeEnv && !isCursorEnv && isCopilotEnv) || hasCopilotFiles,
+    codex: hasCodexFiles,
+    continue: hasContinueFiles,
+    hermes: hasHermesFiles
+  };
+
+  // 如果偵測完，發現沒有任何活躍平台（例如全新專案第一次執行 self-heal），則根據環境變數提供預設平台
+  const hasAnyActive = Object.values(activePlatforms).some(v => v);
+  if (!hasAnyActive) {
+    if (isClaudeEnv) {
+      activePlatforms.claude = true;
+    } else if (isCursorEnv) {
+      activePlatforms.cursor = true;
+    } else {
+      activePlatforms.copilot = true;
+    }
+  }
 
   const checks = [];
 
-  // 根據當前執行環境動態決定審查項目
-  if (isClaudeCode) {
+  if (activePlatforms.claude) {
     const claudeHooks = auditClaudeHooks(workspaceRoot);
     checks.push({
       label: 'Claude Code hooks (.claude/settings.json)' + (claudeHooks.detail ? ` - ${claudeHooks.detail}` : ''),
       ok: claudeHooks.ok,
       platform: 'claude'
     });
-  } else {
-    // 處於 VS Code / Copilot 或其他編輯器
+  }
+
+  if (activePlatforms.cursor) {
     checks.push({
       label: 'Cursor rules (.cursorrules)',
       ok: fileContains(path.join(workspaceRoot, '.cursorrules'), MARKER),
       platform: 'cursor'
     });
+  }
+
+  if (activePlatforms.copilot) {
     checks.push({
       label: 'Copilot instructions (.github/copilot-instructions.md)',
       ok: fileContains(path.join(workspaceRoot, '.github', 'copilot-instructions.md'), MARKER),
       platform: 'copilot'
     });
+  }
+
+  if (activePlatforms.codex) {
     checks.push({
       label: 'Codex instructions (AGENTS.md)',
       ok: fileContains(path.join(workspaceRoot, 'AGENTS.md'), MARKER),
       platform: 'codex'
     });
+  }
+
+  if (activePlatforms.continue) {
     checks.push({
       label: 'Continue.dev rules (.continue/rules/harness.md)',
       ok: fileContains(path.join(workspaceRoot, '.continue', 'rules', 'harness.md'), MARKER),
       platform: 'continue'
     });
+  }
+
+  if (activePlatforms.hermes) {
     checks.push({
       label: 'Hermes Agent instructions (.hermes.md)',
       ok: fileContains(path.join(workspaceRoot, '.hermes.md'), MARKER),
