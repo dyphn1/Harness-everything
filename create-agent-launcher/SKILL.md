@@ -11,49 +11,28 @@ version: 0.2.0
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Invoked by `fable-mode` for Tier 3 tasks needing domain-specific division of labor — task complexity exceeds a single context, or spans disjoint tech stacks. |
-| **Expected Output** | One or more sub-agents launched with an explicit persona, a resource-isolated scope (only the file paths relevant to their task), and a model-tier assignment (Haiku / Sonnet / Opus by sub-task complexity). |
-| **State Mutations** | None directly to files — mutates the active session's delegation state (which sub-agents are live, what each was briefed to touch). |
-| **Enforcement Gate** | Every sub-agent MUST return a structured handoff report (files modified, new APIs/interfaces exposed, downstream concerns) before its output is trusted. Creating a sub-agent is **PROHIBITED** if the task fits in ≤2 files / ≤300 lines — resolve directly under `tdd` instead. |
+| **Trigger / Input** | Invoked by `fable-mode` for Tier 3 tasks needing domain-specific division of labor, or when scaffolding new multi-agent teams. |
+| **Expected Output** | One or more sub-agents launched with an explicit persona, a resource-isolated scope (file paths relevant to their task), and an appropriate model assignment. |
+| **State Mutations** | Updates the active session's delegation state (which sub-agents are active and their assigned boundaries). |
+| **Enforcement Gate** | Sub-agents return a structured handoff report (modified files, exposed APIs, downstream notes). Avoid creating sub-agents for simple tasks (≤2 files / ≤300 lines) — handle directly under `tdd` instead. |
 
-This skill is automatically invoked by `fable-mode` when handling Tier 3 (Macro Tasks) that require domain-specific division of labor.
-Its purpose is to avoid wasting Tokens and losing attention caused by a single General Agent handling everything, by creating highly specialized Sub-agents to solve complex problems.
+This skill provides orchestration and scaffolding for multi-agent workflows when tasks benefit from specialized division of labor.
 
-## 1. Responsibilities and Use Cases
-Launch this skill when the task complexity exceeds what a single context can handle, or when switching between entirely different tech stacks is necessary (e.g., the same feature requires modifying Postgres Schema, Node.js Backend, and React Frontend).
+## 1. When to Use
+Activate this skill when a task spans multiple distinct tech domains (e.g. database schema, backend API, and frontend UI) or exceeds the comfortable reasoning scope of a single context window.
 
-## 2. Standard Procedure for Creating Sub-agents
+## 2. Dynamic Sub-agent Orchestration
 
-### Step 1: Persona Definition
-Before calling a secondary model (or instantiating a new Agent), you MUST explicitly give it a specialized persona definition.
-- **Bad Example**: "Help me fix these frontend and backend codes."
-- **Good Example**: "You are now a Senior Database Architect. Your sole task is to optimize the indexing and write performance of the User Table for this requirement. You are PROHIBITED from modifying any frontend code."
+When launching ad-hoc sub-agents during execution:
+- **Persona Alignment**: Give the sub-agent a focused role (e.g. "Senior Database Architect focusing solely on user table indexes").
+- **Scope Isolation**: Provide only the relevant file paths and context necessary for the specific sub-task.
+- **Model Efficiency**: Match sub-task complexity with appropriate model tiers (e.g. small/fast model for file lookup, main model for multi-file implementation).
+- **Handoff Contract**: Require a brief summary upon completion covering modified files, new interfaces, and notes for downstream tasks.
+- **Scope Monitoring**: Sub-agent tool executions are monitored by `subagent-scope-guard.js`, which alerts if files outside the briefed brief are edited.
 
-### Step 2: Resource Isolation
-- Limit the Sub-agent's field of view. Only provide it with the file paths and Context necessary to complete its task.
-- Do not feed the entire project structure to an Agent that is only responsible for writing a single SQL Migration.
-
-### Step 3: Model Selection Strategy
-Based on the complexity of the sub-task, select the most cost-effective model (assuming the underlying Harness supports switching):
-- **Exploration/Finding Files/Simple Edits**: Assign to a fast, low-cost small model (like Claude 3.5 Haiku).
-- **Multi-file Implementation/General Logic**: Assign to a medium-sized main model (like Claude 3.5 Sonnet).
-- **Extremely Complex Algorithms/Security Audits**: Assign to a deep reasoning model (like Claude 3 Opus).
-
-### Step 4: Handoff Contract
-- Tell the Sub-agent that once it completes its task, it MUST output a report in a specific format to the main Orchestrator (`fable-mode`).
-- The report MUST include: which files were modified, what new APIs/interfaces were exposed, and what downstream Agents need to pay attention to.
-
-## 3. Foolproofing Mechanism & Subagent Scope Guard
-- Avoid over-segmentation: If a cross-stack task can be resolved within 2 files and 300 lines of code, establishing a Sub-agent is **PROHIBITED**. Resolve it directly in the current Context using `tdd` mode.
-- Sub-agents are also Agents, equally bound by the `install-cognitive-os` physical laws and the `zoom-out` circuit breaker.
-- **Subagent Scope Guard Active**: All subagent tool bursts are actively monitored by `subagent-scope-guard.js` (README §5). The guard diffs repository `git status` before and after each subagent execution and will flag any unauthorized file edits made outside the subagent's explicit brief.
-
-## 4. Execution Workflows & Platform Guidelines
-For structured multi-agent initialization and generation, follow the sequential workflows and platform templates in this skill:
-- **Workflows**:
-  - `create-agent-launcher/workflows/01-init.md` — Platform discovery and location preferences
-  - `create-agent-launcher/workflows/02-analysis.md` — Domain scope and task decomposition
-  - `create-agent-launcher/workflows/03-generation.md` — Agent prompt scaffolding
-  - `create-agent-launcher/workflows/04-launcher.md` — Execution and orchestration
-- **Platform Guidelines**: See `create-agent-launcher/guidelines/` (e.g. `platform-claude.md`, `platform-copilot.md`).
-- **Templates**: See `create-agent-launcher/templates/` for agent definitions and launcher manifests.
+## 3. Scaffolding Multi-Agent Project Infrastructure (Sequential Workflows)
+For generating structured, permanent agent manifests in a repository, follow the progressive workflow steps in order:
+1. **Phase 1 — Platform Discovery**: Read `create-agent-launcher/workflows/01-init.md`
+2. **Phase 2 — Project Analysis**: Read `create-agent-launcher/workflows/02-analysis.md`
+3. **Phase 3 — Scaffold Generation**: Read `create-agent-launcher/workflows/03-generation.md`
+4. **Phase 4 — Execution & Handoff**: Read `create-agent-launcher/workflows/04-launcher.md`
