@@ -33,12 +33,14 @@ Invoke this skill:
 
 ## Verification Phases
 
+Adapt commands according to the project's ecosystem and active environment (`environment-detection`). Run commands directly without non-portable POSIX pipe assumptions (avoid raw `head`, `tail`, `grep`, `2>/dev/null` piping on Windows).
+
 ### Phase 1: Build Verification
 ```bash
-# Check if project builds
-npm run build 2>&1 | tail -20
+# Check if project builds (JS/TS example)
+npm run build
 # OR
-pnpm build 2>&1 | tail -20
+pnpm build
 ```
 
 If build fails, STOP and fix before continuing.
@@ -46,10 +48,10 @@ If build fails, STOP and fix before continuing.
 ### Phase 2: Type Check
 ```bash
 # TypeScript projects
-npx tsc --noEmit 2>&1 | head -30
+npx tsc --noEmit
 
 # Python projects
-pyright . 2>&1 | head -30
+pyright .
 ```
 
 Report all type errors. Fix critical ones before continuing.
@@ -57,16 +59,16 @@ Report all type errors. Fix critical ones before continuing.
 ### Phase 3: Lint Check
 ```bash
 # JavaScript/TypeScript
-npm run lint 2>&1 | head -30
+npm run lint
 
 # Python
-ruff check . 2>&1 | head -30
+ruff check .
 ```
 
 ### Phase 4: Test Suite
 ```bash
 # Run tests with coverage
-npm run test -- --coverage 2>&1 | tail -50
+npm run test -- --coverage
 
 # Check coverage threshold
 # Target: 80% minimum
@@ -78,15 +80,10 @@ Report:
 - Failed: X
 - Coverage: X%
 
-### Phase 5: Security Scan
-```bash
-# Check for secrets
-grep -rn "sk-" --include="*.ts" --include="*.js" . 2>/dev/null | head -10
-grep -rn "api_key" --include="*.ts" --include="*.js" . 2>/dev/null | head -10
-
-# Check for console.log
-grep -rn "console.log" --include="*.ts" --include="*.tsx" src/ 2>/dev/null | head -10
-```
+### Phase 5: Security & Code Hygiene Scan
+Use native IDE search tools (`grep_search` / `file_search`) or cross-platform scripts rather than raw terminal `grep` pipes:
+- Check for hardcoded API keys / secrets (`sk-`, `api_key`).
+- Check for leftover debug log statements (`console.log`, `print`).
 
 ### Phase 6: Diff Review
 ```bash
