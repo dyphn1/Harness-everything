@@ -13,48 +13,44 @@ metadata:
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Tier 2/3 Task Identification. Input: High-level task description. |
-| **Expected Output** | Granular execution state. A series of terminal calls to `todo-cli.js`. |
-| **State Mutations** | MUST write to `.claude/harness-state/todo-state.json` via CLI. |
-| **Enforcement Gate** | `node harness-everything/scripts/todo-cli.js`. Exits with Code 1 if multitasking, bypassing initialization, or skipping `verify-gate.js`. |
+| **Trigger / Input** | Tier 2/3 task identification. Input: High-level task description. |
+| **Expected Output** | Step-by-step state tracking via `todo-cli.js`. |
+| **State Mutations** | Updates `.claude/harness-state/todo-state.json` via CLI. |
+| **Enforcement Gate** | Managed via `todo-cli.js`. Focuses on one active in-progress task at a time to maintain clean context boundaries. |
 
-This skill enforces a disciplined execution loop. It prevents "hallucinated progress" by forcing the Agent to track exact state and prove completion before moving to the next step. 
+This skill structures execution into deliberate, single-task milestones to prevent context drift and maintain clear progress visibility.
 
 ---
 
-## ⚡ Core Trigger (觸發時機)
-This workflow is **the default operating behavior** for any complex, multi-step, or multi-file development tasks (Tier 2 and Tier 3).
+## ⚡ Core Trigger
+Recommended for complex, multi-step, or multi-file development tasks (Tier 2 and Tier 3).
 
 ## ⚙️ Execution Method
 
 | Environment | Primary Task Tracker | Implementation Method |
 | :--- | :--- | :--- |
-| **All Environments** | `todo-cli.js` | Use `node harness-everything/scripts/todo-cli.js` (or `node scripts/todo-cli.js`) for all state transitions. Do NOT rely on prompt text. |
+| **All Environments** | `todo-cli.js` | Use `node harness-everything/scripts/todo-cli.js` (or `node scripts/todo-cli.js`) to manage task transitions. |
 
 ### 🔀 Multi-Agent Concurrency & Isolation
-When fanning out multiple Sub-agents in parallel (e.g., during `fable-mode` Tier 3 tasks), **DO NOT** run concurrent `todo-cli.js` mutating calls against a single shared directory. Instead, you **MUST** leverage `using-git-worktrees` (Git Worktrees) to isolate each parallel agent into its own clean git worktree. This provides native OS/filesystem-level isolation for code and state without risks of file lock deadlocks.
+When running multiple Sub-agents in parallel (e.g. during `fable-mode` tasks), avoid concurrent state modifications in a single workspace folder. Leverage `using-git-worktrees` to isolate each parallel agent into its own git worktree for clean filesystem-level separation.
 
 ---
 
 ## 🔄 Execution Loop: Think > Try > Summarize > Record
 
 ### 1. Analyze and Plan (Think)
-**Intent Precedence (Law of Intent Precedence - 意圖先決定律)**:
-Before taking any action or generating the checklist, you MUST explicitly formulate and state your high-level intent (e.g. `[Scope Discovery]`, `[TDD Feature Implementation]`). Stating your intent upfront ensures your sub-tasks are aligned with the overarching goal, raising context reliability and tracking precision.
-
-Break the high-level goal into **3 to 7 concrete, verifiable sub-tasks**.
+**Intent Precedence**: State your high-level goal upfront (e.g. `[Scope Discovery]`, `[TDD Feature Implementation]`). Break the requirement into 3 to 7 concrete, verifiable sub-tasks.
 
 ### 2. Initialize the Todo List (Record)
-- **CRITICAL ACTION**: You MUST use the `run_in_terminal` tool to run `node harness-everything/scripts/todo-cli.js init "Task 1" "Task 2"` BEFORE modifying any code.
-- *Rule*: The terminal output will confirm the list is initialized.
+Initialize the checklist before modifying code:
+`node harness-everything/scripts/todo-cli.js init "Task 1" "Task 2"`
 
 ### 3. Step-by-Step Execution
-1. **Start**: Use `run_in_terminal` to run `node harness-everything/scripts/todo-cli.js start <id>`. **If you try to start two tasks, the script will crash and block you.**
-2. **Execute**: Perform the necessary actions (read files, grep, run terminal commands, edit files).
-3. **Verify**: The validation gate is hardcoded into the completion step.
-4. **Complete**: Use `run_in_terminal` to run `node harness-everything/scripts/todo-cli.js complete <id>`. If the internal `verify-gate.js` check fails, this command will Exit 1 and block you.
+1. **Start Task**: Run `node harness-everything/scripts/todo-cli.js start <id>` to mark the active item.
+2. **Execute**: Perform necessary changes (read files, run commands, edit code).
+3. **Verify**: Verify changes using test/build tooling.
+4. **Complete Task**: Run `node harness-everything/scripts/todo-cli.js complete <id>` after verification succeeds.
 
-### 4. Handling Blocker Failures (Dynamic Adaptation)
-If a step fails:
-- Use `node harness-everything/scripts/todo-cli.js add "Fix specific error"` to insert a blocker.
-- Do NOT silently ignore or bypass the error.
+### 4. Adapting to Issues
+If unexpected blockers arise during execution, append sub-tasks using:
+`node harness-everything/scripts/todo-cli.js add "Fix specific error"`

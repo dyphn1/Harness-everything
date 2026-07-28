@@ -12,9 +12,9 @@ version: 0.2.0
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | User requests cleaning, squashing, or rewriting past Git history to comply with Angular Style conventions. |
-| **Expected Output** | A rewritten, Angular-Style-compliant commit history on a temporary branch, confirmed against `git log --oneline` before being treated as final. |
-| **State Mutations** | Rewrites local Git history on a temp branch first — never in place on the target branch. |
-| **Enforcement Gate** | NEVER run interactive `git rebase -i` bare (it hangs non-interactive terminals). Use non-interactive sequence scripts (`GIT_SEQUENCE_EDITOR`) or `git reset --soft`. On conflict, MUST run `git rebase --abort` immediately to clean state before handing off. |
+| **Expected Output** | A rewritten, Angular-Style-compliant commit history on a temporary branch, confirmed against `git log --oneline`. |
+| **State Mutations** | Rewrites local Git history on a temp branch first — avoiding direct mutations on main/release branches. |
+| **Enforcement Gate** | Avoid bare interactive `git rebase -i` without non-interactive script editors to prevent terminal hangs. Use `git reset --soft` or automated script editors. On rebase conflict, run `git rebase --abort` to restore clean state. |
 
 Triggered when the user requests to clean, squash, or rewrite past Git history to comply with the team's Angular Style conventions.
 

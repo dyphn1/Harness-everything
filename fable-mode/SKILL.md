@@ -11,42 +11,37 @@ version: 0.2.0
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Tier 3 Task classification. Input: Massive architectural requirement or module creation. |
-| **Expected Output** | 1. Documented architectural plan. 2. A sequence of subagent handoffs (`create-agent-launcher`). 3. System integration verified by terminal scripts. |
-| **State Mutations** | 1. Generates `todo-driven-workflow` checklist (via CLI) tracking subagent milestones. 2. `subagent-scope-state.json` updates during handoffs. |
-| **Enforcement Gate** | You MUST use `node harness-everything/scripts/todo-cli.js` to track milestones. You MUST run system tests (`verify-gate.js` or equivalent) after EACH subagent returns before moving to the next. |
+| **Trigger / Input** | Tier 3 Task classification. Input: Multi-domain requirement or major architectural scaffolding. |
+| **Expected Output** | 1. Clear architectural breakdown. 2. Structured sub-agent handoffs (`create-agent-launcher`). 3. Integrated system checks. |
+| **State Mutations** | Initializes `todo-driven-workflow` checklist (via CLI) tracking milestone sub-tasks. |
+| **Enforcement Gate** | Use `todo-cli.js` to manage milestone state. Run verification (`verify-gate.js` or project tests) at major integration boundaries. |
 
-This skill is automatically triggered and loaded by the `harness-everything` router when a task is judged as a **Tier 3 (Macro Task)**.
-It applies to building new feature modules from scratch, massive low-level architecture changes, or extremely vague and complex user requirements.
+Fable Mode structures complex, multi-domain Tier 3 tasks through architectural planning and specialized division of labor.
 
-## Core Concept: Plan Before Acting
+## Core Approach: Plan Before Execution
 
-In Fable Mode, you are no longer a simple "typist", but an "Architect" and "Project Manager".
-You MUST strictly comply with and pair this with `fable-discipline` to control risks.
+Act as an Architect and Technical Coordinator, combining Fable Mode with `fable-discipline` to maintain scope boundaries.
 
-## Sub-Skills (bundled with this skill)
-- `execution-guardrails/` — always-on operational rules (verify-before-flag, warning batching, find-and-replace safety). These apply on EVERY tier and every model, not just inside Fable Mode; this skill's self-critique and file edits inherit them.
-- `fable-haiku/` — opt-in variant that routes the staged loop to a cheap Haiku worker agent for bulk mechanical work. Only use when the user explicitly asks for it.
+## Sub-Skills
+- `execution-guardrails/` — always-on operational rules (verify-before-flag, warning thresholding, context-anchored substring edits).
+- `fable-haiku/` — opt-in variant that routes mechanical worker steps to a lightweight Haiku agent.
 
-## Execution Phases:
+## Execution Phases
 
 ### 1. Discovery & Planning
-- **Assess Current State**: Comprehensively review the file architecture related to the requirement and understand dependencies.
-- **Deconstruct Task**: Break down the massive macro task into independently verifiable sub-tasks.
-- **Produce Plan**: Write a clear implementation plan (can be stored in chat or a temporary file) and confirm it with the Human Partner.
-- **Materialize the Plan as a Checklist**: The confirmed plan MUST be initialized as the `todo-driven-workflow` checklist — every sub-task, sub-agent handoff, and milestone check is tracked there, not in prose. This is the harness's base execution loop.
+- **Assess System State**: Review relevant files, interfaces, and dependencies.
+- **Deconstruct Task**: Break large requirements into bounded, verifiable sub-tasks.
+- **Formulate Plan**: Draft a clear implementation outline and align with the user.
+- **Track Progress**: Initialize sub-tasks using `todo-driven-workflow` (`todo-cli.js`) to maintain visible state.
 
-### 2. Sub-agent Orchestration
-- If the task involves different professional domains (e.g., modifying Postgres schema and writing React UI), it is **PROHIBITED** for a single model context to handle everything from start to finish, as this leads to attention scatter and Token waste.
-- **Mandatory Call**: Invoke the `create-agent-launcher` skill.
-- Based on the deconstructed sub-tasks, configure the corresponding Sub-agents (e.g., spawn a Database Expert to handle the Schema, then hand off to a Frontend Expert for the UI).
+### 2. Sub-agent Delegation
+- When tasks span distinct technical boundaries (e.g. database migration vs frontend component), delegate specialized sub-tasks using `create-agent-launcher`.
+- Provide sub-agents with clear, bounded briefs and domain file paths.
 
 ### 3. Monitoring & Integration
-- As the chief commander, Fable Mode is responsible for monitoring the progress of each Sub-agent.
-- **Subagent Scope Guard Verification**: Sub-agent tool executions are actively intercepted by `subagent-scope-guard.js` (README §5). If a Sub-agent alters files outside its briefed domain scope, the scope guard will surface a warning listing the unexpected modified files. Verify these changes before accepting the handoff.
-- Ensure the outputs of various sub-agents can integrate perfectly.
-- Upon completing each Milestone, a global test or check MUST be executed.
+- Track progress as sub-agents complete their briefs.
+- **Scope Verification**: Review sub-agent output against `subagent-scope-guard.js` alerts to ensure changes remained within briefed boundaries.
+- Run integration tests at each milestone boundary before proceeding.
 
-## Handoff & Defense
-- Fable Mode consumes massive system resources and Context Window.
-- Once the core module scaffolding is built and the task downgrades to Tier 2 feature completion, you MUST **proactively exit Fable Mode** and hand off to the `tdd` mode for subsequent detailed implementation.
+### 4. Transitioning
+- Once macro scaffolding is complete and remaining work scales down to standard feature implementation, transition to `tdd` mode for focused iteration.

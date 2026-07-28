@@ -13,15 +13,15 @@ metadata:
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Approaching task completion or PR creation. Input: The modified project files. |
-| **Expected Output** | Terminal logs showing successful Build, Type Check, Lint, and Test execution. |
-| **State Mutations** | None. Pure verification. |
-| **Enforcement Gate** | You MUST execute `npm run build`, `npm run lint`, and `npm run test` (or equivalent). You cannot complete the task if any of these return Exit Code 1. |
+| **Trigger / Input** | Approaching task completion, milestone handoff, or PR creation. Input: Modified project files. |
+| **Expected Output** | Objective verification metrics (Build, Type Check, Lint, and Test execution). |
+| **State Mutations** | None. Read-only verification pass. |
+| **Enforcement Gate** | Run relevant build, lint, and test suite tools. Ensure code checks pass cleanly before concluding execution. |
 
-A comprehensive verification system for Claude Code sessions.
+A comprehensive verification system for validating codebase stability before completing work.
 
-**Evidence Assertion (Law of Evidence Assertion - 證據斷言定律)**:
-Every single metric in your Verification Report (Build, Types, Lint, Tests, Security) MUST be strictly grounded in actual, physical output evidence retrieved from the terminal during this session. Fabricating passes or verbally finessing results without running the tools is strictly PROHIBITED; you must assert outcomes with hard, verified factual proof.
+**Evidence Assertion**:
+Ground your Verification Report metrics (Build, Types, Lint, Tests, Security) in actual terminal execution outputs retrieved during the session.
 
 ## When to Use
 

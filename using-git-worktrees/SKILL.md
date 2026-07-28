@@ -14,7 +14,7 @@ version: 0.2.0
 | **Trigger / Input** | Starting feature work that needs isolation from the current workspace, or before executing an implementation plan. |
 | **Expected Output** | An isolated workspace (native worktree tool preferred, `git worktree add` fallback) with dependencies installed and a clean baseline test run confirmed. |
 | **State Mutations** | May create a new worktree directory/branch (`.worktrees/<branch>` by default) and add it to `.gitignore` if not already ignored. |
-| **Enforcement Gate** | **MUST** detect an already-isolated workspace first (`GIT_DIR != GIT_COMMON`, excluding submodules) and skip creating a redundant one. **MUST** verify the worktree directory is gitignored before creating it. **MUST** get human consent before creating a new worktree if no preference was already declared. |
+| **Enforcement Gate** | Detect existing workspace isolation first (`git rev-parse --git-dir` vs `--git-common-dir`) to avoid creating redundant worktrees. Ensure worktree directories are ignored in `.gitignore`. |
 
 ## Overview
 

@@ -14,11 +14,11 @@ metadata:
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Task involves Auth, API Endpoints, File Uploads, User Input, or Secrets. Input: Target code file. |
-| **Expected Output** | Security scan commands or IDE search tools executed. Code modified to fix vulnerabilities. |
+| **Expected Output** | Code modified to eliminate vulnerabilities; workspace scanned for credential leaks. |
 | **State Mutations** | Codebase hardened against injection/XSS/IDOR. |
-| **Enforcement Gate** | You MUST use workspace search tools (`grep_search`) or cross-platform linters/scripts to scan for hardcoded secrets (`sk-`, `password`) or raw SQL interpolations BEFORE marking the security check as complete. |
+| **Enforcement Gate** | Perform a workspace search (`grep_search`) or linter scan for hardcoded credentials (`sk-`, `password`) or unescaped SQL before concluding the security review. |
 
-This skill ensures all code follows security best practices and identifies potential vulnerabilities.
+This skill provides guidelines and security patterns for handling sensitive data and user inputs securely.
 
 ## When to Activate
 
@@ -30,24 +30,21 @@ This skill ensures all code follows security best practices and identifies poten
 - Storing or transmitting sensitive data
 - Integrating third-party APIs
 
-## Security Checklist
+## Security Checklist & Patterns
 
 ### 1. Secrets Management
 
-#### FAIL: NEVER Do This
+#### Anti-Pattern (Avoid)
 ```typescript
-const apiKey = "sk-proj-xxxxx"  // Hardcoded secret
-const dbPassword = "password123" // In source code
+const apiKey = "sk-proj-xxxxx"  // Hardcoded secret in source control
 ```
 
-#### PASS: ALWAYS Do This
+#### Recommended Pattern
 ```typescript
 const apiKey = process.env.OPENAI_API_KEY
-const dbUrl = process.env.DATABASE_URL
 
-// Verify secrets exist
 if (!apiKey) {
-  throw new Error('OPENAI_API_KEY not configured')
+  throw new Error('OPENAI_API_KEY environment variable is missing')
 }
 ```
 

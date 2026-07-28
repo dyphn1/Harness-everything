@@ -20,10 +20,10 @@ description: >
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Any turn about to flag a problem, raise a warning, or perform a search-and-replace file edit — regardless of tier or model, whether `fable-mode`'s staged loop is running or not. |
-| **Expected Output** | Warnings issued only for confirmed (grepped/diffed/run) problems; minor concerns batched and surfaced together at a 3-item threshold instead of one at a time; sed/substring edits anchored on word boundaries with a post-edit corruption grep. |
-| **State Mutations** | None of its own — governs how other file-editing actions in the same turn are performed. |
-| **Enforcement Gate** | An unverified flag (no grep/diff/run backing it) **MUST NOT** be surfaced. Any find-and-replace pass **MUST** be followed by a corruption grep before the result is presented. |
+| **Trigger / Input** | Any turn about to flag a problem, raise a warning, or perform search-and-replace file edits. |
+| **Expected Output** | Warnings grounded in verified findings; minor caveats batched at a 3-item threshold; edits context-anchored and checked post-write. |
+| **State Mutations** | None of its own — governs execution quality for file-editing turns. |
+| **Enforcement Gate** | Verify findings before raising warnings. Validate search-and-replace edits against corruption before presenting results. |
 
 Three rules extracted from fable-mode's operational section so they apply everywhere,
 not only inside the staged loop. A frontier model doesn't need a stage map for a simple

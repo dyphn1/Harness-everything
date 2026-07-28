@@ -11,73 +11,57 @@ version: 0.3.0
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Terminal script failures 3 times in a row, or getting stuck in an infinite loop. Input: Error logs. |
-| **Expected Output** | Reflection report written to disk. Terminal commands MUST STOP until the report is completed. |
-| **State Mutations** | MUST write `zoom-out-report.md` at the exact path given in the Rule of 3 breaker message (session-scoped under state/sessions/<id>/). |
-| **Enforcement Gate** | The `rule-of-3.js` script (via Hook or CLI) blocks mutating actions until that exact `zoom-out-report.md` exists and is formatted correctly. |
+| **Trigger / Input** | Terminal script failures 3 times in a row, or getting stuck in a loop. Input: Error logs. |
+| **Expected Output** | Reflection report written to disk. Mutating terminal commands pause until reflection is complete. |
+| **State Mutations** | Writes `zoom-out-report.md` at the path provided by the Rule of 3 breaker message (session-scoped). |
+| **Enforcement Gate** | The `rule-of-3.js` script (via Hook or CLI) allows writing `zoom-out-report.md` to unlock mutating operations. |
 
-This skill is the **Ultimate Circuit Breaker** in the Harness system.
-It MUST be forcefully triggered when the Agent falls into logic blind spots, invalid retries, or hits the Reasoning Ceiling.
+This skill serves as a circuit breaker to help agents step back, re-verify assumptions, and rebuild global context when stuck.
 
-Its purpose is **NOT** to hand the problem to the human. The most common fatal flaw when stuck is failing to step back and rebuild a complete overview of the problem — three failures in a row almost always share one unverified assumption. This skill forces that step. The Human Partner is interrupted only when there is a genuine **decision** that belongs to them, never as a substitute for reflection you have not done yet.
+Its purpose is self-recovery through reflection. When faced with repeated failures, stepping back to re-verify assumptions against codebase facts prevents unhelpful trial-and-error loops. Escalation to the user happens when a genuine architectural or requirements decision is needed.
 
-> **Platform note**: only Claude Code enforces this breaker physically (hooks lock mutating tools; a valid report releases them). On advisory-only platforms (Cursor, Copilot, Gemini CLI, Codex CLI...) nothing will stop you — the protocol is identical and **self-enforced**: stop at 3 failures, run Phases 1-4 exactly as written, and still write the report file as the reflection artifact.
+> **Platform note**: Physical tool locking (`exit 2`) is enforced natively on Claude Code via hooks. On advisory-only platforms (Cursor, Copilot, Gemini CLI, Codex CLI...), follow this reflection protocol self-directed when hitting 3 consecutive failures.
 
 ## 1. Triggers
-- **Rule of 3 (Micro-error looping)**: This is the most common fatal flaw of AI. If attempting to fix the same error, same test failure, or same logic fails 3 times consecutively, or if constantly making minor invalid changes in the same place (e.g., repeatedly changing variable names or adding console.log but it's still broken).
-- **Divergence Phenomenon**: Fixing one Bug leads to 2 new Bugs, and fixing those triggers even more errors.
-- **Attention Loss**: You realize you have forgotten the initial task goal, or the files being modified deviate too far from the original goal.
-- **Human Intervention**: The user explicitly instructs "zoom out", "step back and look", or "stop and think".
+- **Rule of 3 (Repeated Failures)**: Attempting to fix the same error or test failure 3 times without progress.
+- **Divergence**: Fixing one bug repeatedly introduces new secondary errors.
+- **Goal Drift**: Execution strays far from the initial task objective.
+- **User Instruction**: The user requests a step back ("zoom out", "step back", "stop and think").
 
 ## 2. Phase 1 — Cease Fire
-- **ABSOLUTELY PROHIBITED** from proposing any new code modification suggestions.
-- **ABSOLUTELY PROHIBITED** from saying "I understand, I will fix it using the following method..." — that sentence is the tunnel talking.
-- **Do NOT message the Human Partner yet.** "I failed 3 times" is not yet a report worth their time; reflection comes first.
+- Pause code editing attempts immediately.
+- Refrain from guessing quick fixes without checking underlying facts first.
 
-## 3. Phase 2 — Rebuild the Full Picture (Reflect & Fact-Check)
-Use **READ-ONLY tools** (Read / Grep / Glob) — they remain available while the breaker is locked. No guessing in this phase; only evidence.
+## 3. Phase 2 — Rebuild Full Picture (Reflect & Fact-Check)
+Use read-only tools (Read / Grep / Glob) to gather fresh evidence:
+1. **Restate Goal**: Review original objectives from task/todo context.
+2. **Examine Failed Attempts**: Identify the underlying belief behind each failed fix.
+3. **Fact-Check Assumptions**: Verify files, configuration, logs, and docs directly.
+4. **Elevate Perspective**: Check for layer mismatches, API contract misunderstandings, or conflicting requirements.
+5. **Form Fresh Diagnosis**: Synthesize a comprehensive explanation that accounts for all observed evidence.
 
-**Context & Refocusing Awakening (Law of State Handoff Awakening - 狀態喚醒定律)**:
-When the circuit breaker trips, instead of just checking terminal variables, you MUST awaken to your broader context and refocus. Step back to see the forest for the trees (退一步海闊天空). Actively review the entire task context, original goal statements, and compile a clear history of failed attempts. This process breaks the narrow logical error loop and refocuses your attention on the wider system perspective.
-
-1. **Restate the original goal** — from the task / todo list, not from your memory of the current rabbit hole. Ask: does the thing I have been fighting even matter to this goal?
-2. **List each failed attempt and extract the assumption behind it.** Every fix attempt encoded a belief about the system; name each belief explicitly.
-3. **Fact-check every assumption against reality.** Open the actual file, the actual log, the actual config, the actual upstream data, the actual docs. Replace every "it should be" with "I looked, and it is".
-4. **Raise the altitude.** Is this even the right layer? Is the module doing what the architecture intends? Did upstream pass wrong data? Is this a framework limitation? Do two requirements contradict each other?
-5. **Form a fresh diagnosis** that explains **ALL** observed evidence — including why all previous attempts failed — not just the latest error message.
-
-## 4. Phase 3 — Write the Reflection Report
-Write your findings to the exact `zoom-out-report.md` path printed in the Rule of 3 block message — the ONLY write permitted while the breaker is locked. (If the file already exists from an earlier cycle, Read it first so you do not re-propose an already-falsified diagnosis.) Required sections:
+## 4. Phase 3 — Write Reflection Report
+Write findings to the `zoom-out-report.md` path given in the Rule of 3 message:
 
 ```markdown
 ## Goal
-<the original task goal, restated from source>
+<original task goal>
 ## Failed Attempts
-<attempt → the assumption it relied on → why it was wrong>
+<attempt → underlying assumption → observed outcome>
 ## Verified Facts
-<only things you actually re-checked in Phase 2, each with where you looked>
+<facts re-checked in Phase 2 with file paths>
 ## Diagnosis
-<the fresh root-cause explanation covering all evidence>
+<comprehensive explanation of root cause>
 ## Decision
-RESUME: <the new approach>   — or —   ESCALATE: <the decision the human must make>
+RESUME: <new approach>   — or —   ESCALATE: <decision needed from user>
 ```
 
-A valid report automatically releases the circuit breaker. This is not paperwork — the hook checks it precisely because writing it honestly IS the reflection.
+A complete report automatically releases the circuit breaker on hook-enabled systems.
 
 ## 5. Phase 4 — Decision Gate: Resume or Escalate
 
-**RESUME (the default and expected outcome)** when the fresh diagnosis yields a genuinely NEW path — a different layer, different root cause, or different approach, not a variation of the attempts that already failed — and it is within your existing authority and task scope. Self-recovery is what zoom-out is for.
-
-**ESCALATE only when the blocker is a decision that belongs to a human**, such as:
-- Requirements contradict each other, or the goal itself is ambiguous.
-- The fix requires an architecture / scope trade-off the human has not sanctioned (rewriting a module, changing a public API, dropping a requirement).
-- The path forward is destructive or irreversible (data migration, force push, deleting user data).
-- You lack access only the human can grant (credentials, environment, third-party service).
-- This is the SECOND breaker trip on the same failure signature — reflection already had its shot; the hook hard-locks and the human decides.
-
-**"I am not capable of fixing this" is NOT an escalation reason** — that conclusion is usually the tunnel still talking; zoom out further instead. **"This requires a choice only you can make"** is.
-
-## 6. Escalation Format (only when genuinely needed)
+- **RESUME**: Selected when the fresh diagnosis identifies a clear, untried path within existing authority.
+- **ESCALATE**: Reserved for true decision points belonging to the user (conflicting requirements, destructive migration, missing credentials/access, or repeated breaker trips).
 Hand the human a **decision**, not a plea:
 
 > "Goal: [...]. I falsified paths X, Y, Z — verified facts: [...].
