@@ -37,6 +37,7 @@ To ensure professional quality, you MUST use the appropriate template from `repo
 - `repo-docs/templates/readme-template.md` — Standard project documentation template
 - `repo-docs/templates/product-readme-template.md` — Product archetype user-journey template
 - `repo-docs/templates/multi-skills-readme-template.md` — Large project with multiple skills/modules
+- `repo-docs/templates/single-skill-readme-template.md` — Single skill or focused utility documentation template
 - `repo-docs/templates/knowledge-readme-template.md` — Information-heavy/knowledge-base template
 - `repo-docs/templates/agents-template.md` — Standard agent onboarding instructions template
 - `repo-docs/templates/product-agents-template.md` — Agent instructions for product repositories
