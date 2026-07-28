@@ -9,7 +9,7 @@ description: >
   mode but cheap", "stage this on haiku"). For bulk mechanical work. Do NOT use
   for tasks needing synthesis — benchmark note: at n=1 the skill's effect on
   Haiku swung both directions (+25 / −17); route quality-critical work to
-  fable-sonnet instead.
+  the main Orchestrator model context instead.
 ---
 
 # Fable Mode — Haiku (v3, agent-routed)
@@ -21,7 +21,7 @@ description: >
 | **Trigger / Input** | User explicitly asks for staged/thorough execution run cheaply or fast on Haiku ("fable on haiku", "stage this on haiku") for bulk mechanical work. |
 | **Expected Output** | Task delegated to the `fable-worker-haiku` agent (or an inline fallback carrying the same rules verbatim), optionally fanned out across multiple concurrent workers, followed by a `fable-verifier` pass before any unsupervised delivery. |
 | **State Mutations** | None directly — spawns/manages Task-tool subagents and whatever file edits they perform. |
-| **Enforcement Gate** | Every worker brief **MUST** name the pass condition explicitly (no benefit of the doubt on verification for Haiku). A worker that escalates "needs synthesis" **MUST** be re-routed to `fable-worker-sonnet`, never retried on Haiku with a louder prompt. |
+| **Enforcement Gate** | Every worker brief **MUST** name the pass condition explicitly (no benefit of the doubt on verification for Haiku). A worker that escalates "needs synthesis" **MUST** be re-routed to the main Orchestrator context (Sonnet/Opus), never retried on Haiku with a louder prompt. |
 
 v3 change: the worker is a real agent definition (`../agents/fable-worker-haiku.md`)
 invoked by name. Its system prompt carries the loop, the tightened verification
@@ -45,4 +45,4 @@ loop and do it directly.
    inherit the worker's blind spots) for anything that will be delivered
    without human review.
 5. If a worker escalates ("needs synthesis"), re-route that part to
-   fable-worker-sonnet rather than retrying Haiku with a louder prompt.
+   the main Orchestrator model context rather than retrying Haiku with a louder prompt.

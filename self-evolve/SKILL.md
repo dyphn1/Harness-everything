@@ -13,7 +13,7 @@ version: 0.3.0
 | :--- | :--- |
 | **Trigger / Input** | Task completion after a major struggle, or post-zoom-out recovery. Input: The root cause of the previous failure. |
 | **Expected Output** | Terminal execution of the persistence script. |
-| **State Mutations** | Updates workspace memory/rules files (e.g., `RULES.md` or `.claude/harness-state/memories.json`). |
+| **State Mutations** | Updates workspace memory/rules files (e.g., `memories/repo/RULES.md` or `.claude/harness-everything/manifest.json`). |
 | **Enforcement Gate** | You MUST run `node self-evolve/scripts/self-regression.js`. You MUST run `node self-evolve/scripts/persist-memory.js "<rule>"`. |
 
 This skill is responsible for the long-term learning and error prevention of the system.
