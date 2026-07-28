@@ -91,7 +91,8 @@ function main() {
     // Safe to interpolate directly: assertSafeSource() already rejected
     // anything outside [A-Za-z0-9._/@:-], so there's no metacharacter left
     // for a shell to act on.
-    prompt = execSync(`npx --yes skills use ${source}`, { encoding: 'utf8' });
+    const npxCmd = os.platform() === 'win32' ? 'npx.cmd' : 'npx';
+    prompt = execSync(`${npxCmd} --yes skills use ${source}`, { encoding: 'utf8', shell: true });
   } catch (err) {
     console.error(`[Error] "npx skills use ${source}" failed:\n${(err.stderr || err.message || '').toString().trim()}`);
     process.exit(1);
