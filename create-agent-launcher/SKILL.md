@@ -36,3 +36,12 @@ For generating structured, permanent agent manifests in a repository, follow the
 2. **Phase 2 — Project Analysis**: Read `create-agent-launcher/workflows/02-analysis.md`
 3. **Phase 3 — Scaffold Generation**: Read `create-agent-launcher/workflows/03-generation.md`
 4. **Phase 4 — Execution & Handoff**: Read `create-agent-launcher/workflows/04-launcher.md`
+
+- **Platform Guidelines**: Supported platforms in `create-agent-launcher/guidelines/`:
+  - `platform-claude.md` — Claude Code (Hard enforcement via native hooks)
+  - `platform-cursor.md` — Cursor (Advisory rules via `.cursorrules`)
+  - `platform-copilot.md` — GitHub Copilot (Advisory custom instructions)
+  - `platform-codex.md` — Codex CLI (Advisory `AGENTS.md`)
+  - `platform-continue.md` — Continue.dev (Advisory `.continue/rules/harness.md`)
+  - `platform-hermes.md` — Hermes Agent (Advisory `.hermes.md`)
+  - `platform-gemini.md` — Gemini CLI (Advisory extension rules)

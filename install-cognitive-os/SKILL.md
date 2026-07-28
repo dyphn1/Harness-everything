@@ -18,6 +18,8 @@ version: 0.2.0
 
 This skill outlines the core cognitive loop that guides agent behavior across tasks in the Harness ecosystem.
 
+> **Platform Enforcement Note**: Hard boundary enforcement via native lifecycle hooks (`exit 2`) is exclusively supported on **Claude Code**. On advisory-only platforms (**Cursor, Copilot Chat, Codex, Continue.dev, Hermes Agent, Gemini CLI**), execution hooks cannot physically block tool calls; all state transitions and verification gates operate as self-directed agent guidance.
+
 ## 🔄 The Cyclical Development Paradigm
 Software development is iterative — a cycle of hypothesis, execution, feedback, and refinement.
 Rather than assuming code works immediately after writing it, ground progress in objective evidence from verification tools (`harness-everything/scripts/verify-gate.js` and `harness-everything/scripts/todo-cli.js`). When checks fail, step back to analyze, adapt, and resolve before continuing.
