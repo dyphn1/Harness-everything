@@ -37,7 +37,34 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { getManifestPath, readManifest, writeManifest } = require('../../scripts/lib/manifest');
+
+function getWorkspaceRoot() {
+  let dir = path.resolve(process.cwd());
+  while (dir !== path.parse(dir).root) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return process.cwd();
+}
+
+function loadManifestHelper() {
+  const candidates = [
+    path.join(__dirname, '../../scripts/lib/manifest'),
+    path.join(__dirname, '../scripts/lib/manifest'),
+    path.join(__dirname, '../../../scripts/lib/manifest'),
+    path.join(getWorkspaceRoot(), 'scripts/lib/manifest'),
+    path.join(getWorkspaceRoot(), 'harness-everything/scripts/lib/manifest'),
+  ];
+  for (const cand of candidates) {
+    try {
+      if (fs.existsSync(cand + '.js') || fs.existsSync(cand)) {
+        return require(cand);
+      }
+    } catch (e) {}
+  }
+  throw new Error('[to-spec/check-project-docs] Failed to locate manifest helper module (scripts/lib/manifest)');
+}
+const { getManifestPath, readManifest, writeManifest } = loadManifestHelper();
 
 const REQUIRED_FIELDS = ['docLocation', 'tracker', 'issueDefinition'];
 const FLAG_TO_FIELD = {
@@ -50,15 +77,6 @@ const FLAG_TO_FIELD = {
 // CONTEXT-MAP.md for per-context layout", too short for embedding a full
 // issue template or a multi-paragraph doc-location policy inline.
 const MAX_FIELD_LENGTH = 200;
-
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return process.cwd();
-}
 
 // Workspace-relative platform homes ONLY - no userHome/.agents or
 // userHome/.claude here (see file header). tier-router.js and
