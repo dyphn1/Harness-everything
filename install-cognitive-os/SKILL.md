@@ -21,7 +21,7 @@ This skill defines the most fundamental physical laws of behavior that all Agent
 ## 🚫 The Anti-Linear Paradigm (拒絕直線思維)
 Software engineering is **NOT a linear 1 -> 2 -> 3 -> Done process**. It is a cyclical process of hypothesis, execution, failure, and correction.
 If you attempt to write code sequentially and assume it works without verification, you are hallucinating.
-Your progression is **STRICTLY GATED** by terminal scripts (like `verify-gate.js` and `todo-cli.js`). If a script fails, you MUST step back, re-evaluate, and fix the issue. You cannot progress until the environment allows you to.
+Your progression is **STRICTLY GATED** by terminal scripts (like `harness-everything/scripts/verify-gate.js` and `harness-everything/scripts/todo-cli.js`). If a script fails, you MUST step back, re-evaluate, and fix the issue. You cannot progress until the environment allows you to.
 
 ## Core Loop: The State Machine (Discover > Think > Try > Summarize > Record)
 

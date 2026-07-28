@@ -72,9 +72,9 @@ const runnable = ['lint', 'test'].filter(name =>
 );
 
 if (!pkgDir || runnable.length === 0) {
-  console.log("ℹ️ No runnable lint/test scripts found in the nearest package.json.");
-  console.log("✅ Verification SUCCESS - but this gate ran NO mechanical checks.");
-  console.log("   Do NOT cite this exit code as evidence that tests pass; verify by other means (project-specific test runner, manual run).");
+  console.log("⚠️ Verification UNCHECKED: No automated lint/test scripts detected in package.json.");
+  console.log("   Exit code is 0 (non-blocking), but NO AUTOMATED EVIDENCE was produced.");
+  console.log("   PROHIBITED: Do NOT cite this run as proof that tests pass. Perform manual or alternative verification first.");
   process.exit(0);
 }
 
