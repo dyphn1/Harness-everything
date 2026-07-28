@@ -7,9 +7,9 @@ const path = require('path');
 function checkCmd(cmd) {
   try {
     if (os.platform() === 'win32') {
-      execSync(`where ${cmd}`, { stdio: 'ignore' });
+      execSync(`where "${cmd}"`, { stdio: 'ignore' });
     } else {
-      execSync(`which ${cmd}`, { stdio: 'ignore' });
+      execSync(`which "${cmd}"`, { stdio: 'ignore' });
     }
     return true;
   } catch (e) {
@@ -26,12 +26,22 @@ console.log("# [Environment Preflight Report]");
 console.log(`- **Operating System**: ${os.platform()} (${os.release()} ${os.arch()})`);
 
 // Shell Detection
-let shell = process.env.SHELL || process.env.COMSPEC || "Unknown";
+const isGitBash = !!(
+  process.env.MSYSTEM ||
+  process.env.BASH_VERSION ||
+  (process.env.SHELL && process.env.SHELL.toLowerCase().includes("bash"))
+);
+const isPowerShell = !!(
+  process.env.PSModulePath ||
+  (process.env.SHELL && (process.env.SHELL.toLowerCase().includes("powershell") || process.env.SHELL.toLowerCase().includes("pwsh")))
+);
+
+let shell = process.env.SHELL || (isGitBash ? "bash" : (isPowerShell ? "powershell" : process.env.COMSPEC)) || "Unknown";
 let shellName = "Unknown Shell";
 
-if (shell.toLowerCase().includes("bash")) {
+if (isGitBash || shell.toLowerCase().includes("bash")) {
   shellName = "Git Bash / Bash";
-} else if (shell.toLowerCase().includes("powershell") || shell.toLowerCase().includes("pwsh") || process.env.PSModulePath) {
+} else if (isPowerShell) {
   shellName = "PowerShell";
 } else if (shell.toLowerCase().includes("cmd.exe")) {
   shellName = "Windows Command Prompt (CMD)";
