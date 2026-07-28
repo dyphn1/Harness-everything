@@ -46,3 +46,13 @@ Based on the complexity of the sub-task, select the most cost-effective model (a
 ## 3. Foolproofing Mechanism
 - Avoid over-segmentation: If a cross-stack task can be resolved within 2 files and 300 lines of code, establishing a Sub-agent is **PROHIBITED**. Resolve it directly in the current Context using `tdd` mode.
 - Sub-agents are also Agents, equally bound by the `install-cognitive-os` physical laws and the `zoom-out` circuit breaker.
+
+## 4. Execution Workflows & Platform Guidelines
+For structured multi-agent initialization and generation, follow the sequential workflows and platform templates in this skill:
+- **Workflows**:
+  - `create-agent-launcher/workflows/01-init.md` — Platform discovery and location preferences
+  - `create-agent-launcher/workflows/02-analysis.md` — Domain scope and task decomposition
+  - `create-agent-launcher/workflows/03-generation.md` — Agent prompt scaffolding
+  - `create-agent-launcher/workflows/04-launcher.md` — Execution and orchestration
+- **Platform Guidelines**: See `create-agent-launcher/guidelines/` (e.g. `platform-claude.md`, `platform-copilot.md`).
+- **Templates**: See `create-agent-launcher/templates/` for agent definitions and launcher manifests.
