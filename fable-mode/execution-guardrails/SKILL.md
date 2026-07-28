@@ -65,18 +65,12 @@ does not wait for the threshold. The threshold governs minor concerns only.
 
 ## 3. Find-and-replace safety
 
-When editing files with sed (or any substring replace), always anchor on word boundaries
-to avoid corrupting compound words — a bare `edge` replace will mangle `Ledger` into
-garbage. Use `\bword\b`, not bare `word`.
+When editing files via substring or regex replacement:
+- **Prefer IDE/Harness Native Tools**: Use specialized file edit tools (e.g., `replace_string_in_file`) or language-native scripts (Node.js/Python) rather than shell `sed`. Raw `sed` invocations behave inconsistently across platforms (macOS BSD sed vs Linux GNU sed vs Windows lack of native sed) and risk subtle file corruption.
+- **Context Anchoring**: Always anchor replacement strings with unique surrounding code/context or word boundaries (`\bword\b`) to avoid corrupting compound words — a bare `edge` replace will mangle `Ledger` into garbage.
+- **Post-Edit Integrity Check**: After any find-and-replace pass, verify the file structure or syntax (e.g. via linter/compiler or targeted search) before presenting the result.
 
-After any sed pass on a file, grep for glued or malformed compound words before
-presenting the result. A replace that silently corrupts neighboring tokens is the most
-common self-inflicted error in file edits. The check is cheap; the silent corruption is
-not.
-
-Preferred order of tools: targeted string-replace on a unique anchor > word-boundary
-sed > bare sed (never). If the string to replace isn't unique in the file, widen the
-anchor until it is — do not replace-all and hope.
+Preferred order of tools: IDE native structured replace tool (`replace_string_in_file`) with 3+ lines of context > word-boundary anchored script > raw regexreplace (use with caution). If the string to replace isn't unique in the file, widen the surrounding context until it is — NEVER replace-all blindly.
 
 ## Relationship to fable-mode
 
