@@ -59,16 +59,6 @@ flowchart TD
 ### 4. `[Record]`: Commit State
 - ONLY when the verification script passes (Exit Code 0), you may use the task tracker (e.g., `todo-cli.js complete`) to record your progress and move to the next phase.
 
-## ⚖️ The 6 Governing Cognitive Laws (六大認知定律)
-As promised in the system architecture (README §6), the following six core laws govern agent cognition and are embedded across the operational lifecycle:
-
-1. **Law of Intent Precedence (意圖先決定律)**: Establish high-level intent before execution (`todo-driven-workflow`).
-2. **Law of State Handoff Awakening (狀態喚醒定律)**: Verify physical state, directory bounds, and session context at every boundary (`zoom-out`, `environment-detection`).
-3. **Law of Elimination and Prediction (預判與刪除定律)**: Perform forward prediction in `[Think]` to eliminate doomed paths early (`harness-everything`).
-4. **Law of Evidence Assertion (證據斷言定律)**: Base completion metrics solely on physical terminal execution evidence (`tdd`, `verification-loop`).
-5. **Law of Adversarial Falsification (反證與質疑定律)**: Challenge sycophancy by aggressively attacking assumptions (`grill-me`, `grill-with-docs`).
-6. **Law of Code-Documentation Alignment (程式碼與文件對齊定律)**: Synchronize code and documentation state without drift (`tdd`, `repo-docs`, `to-spec`).
-
 ## 🧠 Global Output Normalization: Always-On ADHD-Friendly Output Shaping
 Regardless of which tier is active, where you start, or which skill is currently executing, your response MUST strictly comply with the following communication standardization and formatting laws to eliminate cognitive overhead and LLM conversational bloat.
 
