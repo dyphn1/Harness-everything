@@ -13,8 +13,8 @@ version: 0.3.0
 | :--- | :--- |
 | **Trigger / Input** | Terminal script failures 3 times in a row, or getting stuck in an infinite loop. Input: Error logs. |
 | **Expected Output** | Reflection report written to disk. Terminal commands MUST STOP until the report is completed. |
-| **State Mutations** | MUST write `zoom-out-report.md` at the exact path the Rule of 3 breaker message gives you (session-scoped under `.claude/harness-state/sessions/<id>/`). |
-| **Enforcement Gate** | The `rule-of-3.js` script (if run via Hook or CLI) will block all other `Write` or `Edit` actions until that `zoom-out-report.md` exists and is formatted correctly. |
+| **State Mutations** | MUST write `zoom-out-report.md` at the exact path given in the Rule of 3 breaker message (session-scoped under state/sessions/<id>/). |
+| **Enforcement Gate** | The `rule-of-3.js` script (via Hook or CLI) blocks mutating actions until that exact `zoom-out-report.md` exists and is formatted correctly. |
 
 This skill is the **Ultimate Circuit Breaker** in the Harness system.
 It MUST be forcefully triggered when the Agent falls into logic blind spots, invalid retries, or hits the Reasoning Ceiling.

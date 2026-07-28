@@ -41,10 +41,17 @@ function anySessionTripped(root) {
 }
 
 // The one mutation allowed while tripped: writing the reflection report.
+const ALLOWED_WRITE_TOOLS = new Set([
+  'Write', 'Edit', 'create_file', 'replace_string_in_file',
+  'insert_edit_into_file', 'write_file', 'edit_file'
+]);
+
 function isReportWrite(payload, reportFile) {
   if (!payload) return false;
-  if (payload.tool_name !== 'Write' && payload.tool_name !== 'Edit') return false;
-  const target = payload.tool_input && payload.tool_input.file_path;
+  const toolName = payload.tool_name || payload.toolName;
+  if (!ALLOWED_WRITE_TOOLS.has(toolName)) return false;
+  const input = payload.tool_input || payload.toolInput || payload.input || {};
+  const target = input.file_path || input.filePath || input.path || input.file;
   if (!target) return false;
   return path.resolve(target).toLowerCase() === path.resolve(reportFile).toLowerCase();
 }
