@@ -29,7 +29,10 @@ This workflow is **the default operating behavior** for any complex, multi-step,
 
 | Environment | Primary Task Tracker | Implementation Method |
 | :--- | :--- | :--- |
-| **All Environments** | `todo-cli.js` | You MUST use `node harness-everything/scripts/todo-cli.js` for all state transitions. Do NOT rely on prompt text. |
+| **All Environments** | `todo-cli.js` | Use `node harness-everything/scripts/todo-cli.js` (or `node scripts/todo-cli.js`) for all state transitions. Do NOT rely on prompt text. |
+
+### 🔀 Multi-Agent Concurrency & Isolation
+When fanning out multiple Sub-agents in parallel (e.g., during `fable-mode` Tier 3 tasks), **DO NOT** run concurrent `todo-cli.js` mutating calls against a single shared directory. Instead, you **MUST** leverage `using-git-worktrees` (Git Worktrees) to isolate each parallel agent into its own clean git worktree. This provides native OS/filesystem-level isolation for code and state without risks of file lock deadlocks.
 
 ---
 
