@@ -18,7 +18,7 @@ version: 0.2.0
 
 This skill outlines the core cognitive loop that guides agent behavior across tasks in the Harness ecosystem.
 
-> **Platform Enforcement Note**: Hard boundary enforcement via native lifecycle hooks (`exit 2`) is exclusively supported on **Claude Code**. On advisory-only platforms (**Cursor, Copilot Chat, Codex, Continue.dev, Hermes Agent**), execution hooks cannot physically block tool calls; all state transitions and verification gates operate as self-directed agent guidance.
+> **Platform Enforcement Note**: See [README § Supported AI IDEs & Tools](../README.md#supported-ai-ides--tools) for which platforms get hard boundary enforcement (`exit 2` hooks) vs. advisory only. On advisory-only platforms, execution hooks cannot physically block tool calls; all state transitions and verification gates operate as self-directed agent guidance.
 
 ## 🔄 The Cyclical Development Paradigm
 Software development is iterative — a cycle of hypothesis, execution, feedback, and refinement.

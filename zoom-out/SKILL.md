@@ -20,7 +20,7 @@ This skill serves as a circuit breaker to help agents step back, re-verify assum
 
 Its purpose is self-recovery through reflection. When faced with repeated failures, stepping back to re-verify assumptions against codebase facts prevents unhelpful trial-and-error loops. Escalation to the user happens when a genuine architectural or requirements decision is needed.
 
-> **Platform note**: Physical tool locking (`exit 2`) is enforced natively on Claude Code via hooks. On advisory-only platforms (Cursor, Copilot Chat, Codex, Continue.dev, Hermes Agent), follow this reflection protocol self-directed when hitting 3 consecutive failures.
+> **Platform note**: See [README § Supported AI IDEs & Tools](../README.md#supported-ai-ides--tools) for which platforms enforce this physically (`exit 2` hooks) vs. advisory only. On advisory-only platforms, follow this reflection protocol self-directed when hitting 3 consecutive failures.
 
 ## 1. Triggers
 - **Rule of 3 (Repeated Failures)**: Attempting to fix the same error or test failure 3 times without progress.
@@ -41,20 +41,7 @@ Use read-only tools (Read / Grep / Glob) to gather fresh evidence:
 5. **Form Fresh Diagnosis**: Synthesize a comprehensive explanation that accounts for all observed evidence.
 
 ## 4. Phase 3 — Write Reflection Report
-Write findings to the `zoom-out-report.md` path given in the Rule of 3 message:
-
-```markdown
-## Goal
-<original task goal>
-## Failed Attempts
-<attempt → underlying assumption → observed outcome>
-## Verified Facts
-<facts re-checked in Phase 2 with file paths>
-## Diagnosis
-<comprehensive explanation of root cause>
-## Decision
-RESUME: <new approach>   — or —   ESCALATE: <decision needed from user>
-```
+Copy `zoom-out/templates/zoom-out-report.template.md` to the `zoom-out-report.md` path given in the Rule of 3 message and fill it in section by section.
 
 A complete report automatically releases the circuit breaker on hook-enabled systems.
 
