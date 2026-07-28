@@ -20,7 +20,7 @@ This skill serves as a circuit breaker to help agents step back, re-verify assum
 
 Its purpose is self-recovery through reflection. When faced with repeated failures, stepping back to re-verify assumptions against codebase facts prevents unhelpful trial-and-error loops. Escalation to the user happens when a genuine architectural or requirements decision is needed.
 
-> **Platform note**: Physical tool locking (`exit 2`) is enforced natively on Claude Code via hooks. On advisory-only platforms (Cursor, Copilot Chat, Codex, Continue.dev, Hermes Agent, Gemini CLI...), follow this reflection protocol self-directed when hitting 3 consecutive failures.
+> **Platform note**: Physical tool locking (`exit 2`) is enforced natively on Claude Code via hooks. On advisory-only platforms (Cursor, Copilot Chat, Codex, Continue.dev, Hermes Agent), follow this reflection protocol self-directed when hitting 3 consecutive failures.
 
 ## 1. Triggers
 - **Rule of 3 (Repeated Failures)**: Attempting to fix the same error or test failure 3 times without progress.

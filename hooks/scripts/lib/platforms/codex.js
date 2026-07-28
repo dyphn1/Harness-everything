@@ -11,7 +11,7 @@ const fs = require('fs');
 // `.codex/harness-everything/`.
 module.exports = {
   name: 'codex',
-  label: 'Codex / Gemini',
+  label: 'Codex',
   getHarnessDir(workspaceRoot) {
     return path.join(workspaceRoot, '.codex', 'harness-everything');
   },

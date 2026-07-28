@@ -5,7 +5,7 @@
 
 ## [Discovery & Inquiry Phase]
 1. Target Selection: First, auto-detect the current environment and target platform (`[Discover]`).
-   - Supported target platforms include: **Claude Code, Cursor, Copilot Chat, Codex, Continue.dev, Hermes Agent, Gemini CLI**.
+   - Supported target platforms include: **Claude Code, Cursor, Copilot Chat, Codex, Continue.dev, Hermes Agent**.
    - Note: Only **Claude Code** supports hard enforcement via native lifecycle hooks (`exit 2`). All other target platforms operate via prompt-based advisory rules (`README.md`).
    - If interactive inquiry tools (like `vscode_askQuestions`) are available, confirm platform and scope location (Project Level vs Global Level) with the user.
    - If running in a non-interactive terminal or without GUI inquiry tools, proceed with the auto-detected platform and default to Project Level location.

@@ -20,7 +20,7 @@ metadata:
 
 This skill structures execution into deliberate, single-task milestones to prevent context drift and maintain clear progress visibility.
 
-> **Platform note**: Hard hook gating is supported natively on Claude Code. On advisory-only platforms (Cursor, Copilot Chat, Codex, Continue.dev, Hermes Agent, Gemini CLI...), execution of `todo-cli.js` functions as self-directed state tracking.
+> **Platform note**: Hard hook gating is supported natively on Claude Code. On advisory-only platforms (Cursor, Copilot Chat, Codex, Continue.dev, Hermes Agent), execution of `todo-cli.js` functions as self-directed state tracking.
 
 ---
 

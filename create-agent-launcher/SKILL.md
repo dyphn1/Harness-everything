@@ -44,4 +44,3 @@ For generating structured, permanent agent manifests in a repository, follow the
   - `platform-codex.md` — Codex CLI (Advisory `AGENTS.md`)
   - `platform-continue.md` — Continue.dev (Advisory `.continue/rules/harness.md`)
   - `platform-hermes.md` — Hermes Agent (Advisory `.hermes.md`)
-  - `platform-gemini.md` — Gemini CLI (Advisory extension rules)
