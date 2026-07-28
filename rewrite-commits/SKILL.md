@@ -13,8 +13,8 @@ version: 0.2.0
 | :--- | :--- |
 | **Trigger / Input** | User requests cleaning, squashing, or rewriting past Git history to comply with Angular Style conventions. |
 | **Expected Output** | A rewritten, Angular-Style-compliant commit history on a temporary branch, confirmed against `git log --oneline` before being treated as final. |
-| **State Mutations** | Rewrites local Git history (via `git rebase -i` or equivalent) on a temp branch first — never in place on the target branch. |
-| **Enforcement Gate** | If any target commit has already been pushed to `main`/`master`, **MUST** warn the human and get explicit secondary confirmation before executing. A merge conflict during rebase **MUST** stop execution immediately and hand off to the human or `zoom-out` — no forced resolution. |
+| **State Mutations** | Rewrites local Git history on a temp branch first — never in place on the target branch. |
+| **Enforcement Gate** | NEVER run interactive `git rebase -i` bare (it hangs non-interactive terminals). Use non-interactive sequence scripts (`GIT_SEQUENCE_EDITOR`) or `git reset --soft`. On conflict, MUST run `git rebase --abort` immediately to clean state before handing off. |
 
 Triggered when the user requests to clean, squash, or rewrite past Git history to comply with the team's Angular Style conventions.
 
@@ -24,9 +24,11 @@ Triggered when the user requests to clean, squash, or rewrite past Git history t
 
 ## 2. Execution Process `[Think] & [Try]`
 - Create a temporary branch (Temp Branch) to perform history rewriting to avoid breaking the original history.
-- Use interactive rebase (`git rebase -i`) paired with environment tools, or aggregate past changes into single/multiple clean Commits.
+- **Non-interactive Execution (Avoid Terminal Hangs)**:
+  - Do NOT execute interactive `git rebase -i` without `GIT_SEQUENCE_EDITOR` or `GIT_EDITOR` configured; bare interactive prompts will freeze the automated terminal indefinitely.
+  - Prefer non-interactive history restructuring strategies, such as `git reset --soft HEAD~<N>` followed by structured commits, or `GIT_SEQUENCE_EDITOR="sed -i ..."` scripting.
 - The rewritten commit messages MUST fully comply with the Angular Style conventions in the `git-commit` skill.
 
 ## 3. Completion and Validation `[Summarize]`
 - Once rewriting is complete, execute `git log --oneline` to let the user confirm the new history tree.
-- If a Merge Conflict occurs, STOP immediately, hand over to human decision, or trigger `zoom-out` to seek guidance.
+- If a Merge Conflict occurs, execute `git rebase --abort` immediately to restore a clean workspace, then STOP and hand over to human decision or trigger `zoom-out`.
