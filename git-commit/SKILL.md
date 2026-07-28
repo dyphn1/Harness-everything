@@ -32,7 +32,7 @@ Before generating a commit message, you **MUST** execute the following discovery
 ## 3. Master Routing Workflow (Order of Operations)
 When both the Main Repo and any Submodules have changes, you **MUST** prioritize and process Submodule changes first. Strictly follow this execution order:
 1. **Detect Submodule Changes First**: Before processing the Main Repo, you MUST check if any submodules have changes (staged or unstaged).
-2. **Prioritize Submodule Commits**: If any submodules have changes, you MUST halt Main Repo commit generation immediately. Run `git-commit/guides/SUBMODULES.md` first to commit all submodule changes and update their pointers in the Main Repo.
+2. **Prioritize Submodule Commits**: If any submodules have changes, you MUST halt Main Repo commit generation immediately. Read and follow the guidelines in `git-commit/guides/SUBMODULES.md` first to commit all submodule changes and update their pointers in the Main Repo.
 3. **Stage Submodule Pointers in Main Repo**: Ensure that updated submodule pointers are added (`git add <submodule_path>`) to the Main Repo staging area before generating the Main Repo commit.
 4. **Execute Main Repo Commit Last**: Once all submodules are fully clean and their new pointers are staged in the Main Repo, you may then proceed with `git-commit/guides/MAIN_REPO.md` to commit the Main Repo changes.
 
