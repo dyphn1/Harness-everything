@@ -61,9 +61,15 @@ async function main() {
   const hasGlobalFlag = args.includes('--global') || args.includes('-g');
   const hasYesFlag = args.includes('-y') || args.includes('--yes');
   const hasAnyPlatformFlag = hasClaudeFlag || hasCursorFlag || hasCopilotFlag || hasCodexFlag || hasContinueFlag || hasHermesFlag || hasAllFlag;
-  const requestedSkills = ['add', 'skill', 'skills'].includes(command)
+  
+  let requestedSkills = ['add', 'skill', 'skills'].includes(command)
     ? args.slice(3).filter(arg => !arg.startsWith('-'))
     : [];
+    
+  const skillFlagIdx = args.indexOf('--skill') !== -1 ? args.indexOf('--skill') : args.indexOf('--skills');
+  if (skillFlagIdx !== -1 && args[skillFlagIdx + 1] && !args[skillFlagIdx + 1].startsWith('-')) {
+    requestedSkills.push(args[skillFlagIdx + 1]);
+  }
 
   const claudeExists = fs.existsSync(path.join(workspaceRoot, '.claude'));
   const cursorExists = fs.existsSync(path.join(workspaceRoot, '.cursorrules'));

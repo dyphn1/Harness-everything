@@ -75,6 +75,11 @@ flowchart TD
 
 Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout, and respect any ADRs in the area you're touching.
 
+**MANDATORY: Evidence-Driven Context (Zero-Trust Boundaries)**
+When gathering context, you are strictly forbidden from "guessing" the architecture or existing behavior. Every finding MUST be backed by an explicit evidence chain presented in your thought process or chat output.
+- **Format**: `Evidence: [File path & line number / Tool output] -> Finding: [What it means]`
+- **Example**: `Evidence: read src/auth.ts line 45 -> Finding: The API currently lacks JWT token validation.`
+
 If `grill-with-docs` or `grill-me` ran earlier in this conversation, treat their resolved decisions (updated `CONTEXT.md` entries, new ADRs) as settled input — cite them, don't reopen them. For anything they didn't cover, synthesize from what's already been said rather than asking new questions. If a genuinely new, unresolved fork turns up that blocks writing the doc, that's a sign this conversation needed a grilling pass first — say so and suggest running `grill-me`/`grill-with-docs` before continuing, rather than interviewing ad hoc inside this skill.
 
 ### 2. Pick template shape & present outline preview
@@ -124,3 +129,9 @@ Write the doc using the adapted template at the resolved storage path (from Step
   - Output path: `<resolved-path>/reference/<slug>.md` or `<resolved-path>/adr/<slug>.md`.
 
 No additional triage needed beyond the `issueDefinition` marker. A clearly-shaped doc in the right place is what lets `to-tickets` cut clean vertical slices afterward instead of guessing at scope from a raw conversation transcript.
+
+### 5. The Golden Flow: Handoff to Design Audit (Phase 1)
+After publishing a `Feature spec` (Tier 3), do **NOT** immediately instruct the user to run `/to-tickets`. 
+Instead, you MUST instruct the user to initiate a **Design Audit** first:
+-   Recommend invoking `create-agent-launcher` (or manually starting parallel Sub-agents) to conduct a Fan-out architectural audit (e.g., Security Auditor, Senior Architect) on the newly published spec.
+-   State explicitly: *"This specification must pass a Design Audit before being broken down by `/to-tickets`. Any architectural flaws or over-engineering must be caught now, not during implementation."*

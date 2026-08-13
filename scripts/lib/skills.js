@@ -70,6 +70,15 @@ function isHarnessSkillDir(dirPath) {
 function installSkillsToTargets({ chosenSkills, targetDirs, harnessSourceDir, packageVersion }) {
   for (const target of targetDirs) {
     fs.mkdirSync(target.path, { recursive: true });
+    
+    // Copy references directory
+    const refSrc = path.join(harnessSourceDir, 'references');
+    if (fs.existsSync(refSrc)) {
+      const refDest = path.join(path.dirname(target.manifestPath), 'references');
+      if (fs.existsSync(refDest)) fs.rmSync(refDest, { recursive: true, force: true });
+      copyDir(refSrc, refDest);
+    }
+
     for (const skillName of chosenSkills) {
       const src = path.join(harnessSourceDir, skillName);
       const dest = path.join(target.path, skillName);

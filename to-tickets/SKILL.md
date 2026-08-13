@@ -70,6 +70,7 @@ flowchart TD
 Work from whatever is already in context, in priority order:
 
 1. **A `to-spec` feature spec**, if the user passes a reference (issue number, URL, or `.scratch/<slug>/spec.md` path) or one was published earlier in this conversation — fetch it and read the full body (and comments, if a real tracker). This is the preferred source: it already went through seam-confirmation and cites settled `CONTEXT.md`/ADR decisions, so the ticket breakdown inherits a clean document trail instead of being re-derived from a raw transcript.
+   *   **MANDATORY: Audit Verification**: Before consuming a Feature Spec, verify that it has passed a Design Audit. If the spec was just generated and hasn't been grilled/audited by Sub-agents or the user, refuse to proceed and instruct the user to run the Design Audit first.
 2. Otherwise, work from whatever plan or conversation is already in context — same as before, no spec is not a blocker.
 
 If the referenced doc is a `cli-reference`, `schema-doc`, or `dev-doc` (one of `to-spec`'s lighter shapes, not a `feature-spec`), it's usually already ticket-sized on its own — don't force a multi-ticket vertical-slice breakdown onto something that's really one unit of work. Confirm with the user whether it needs splitting at all before running Step 3.
@@ -77,6 +78,10 @@ If the referenced doc is a `cli-reference`, `schema-doc`, or `dev-doc` (one of `
 ### 2. Explore the codebase (optional)
 
 If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
+
+**MANDATORY: Evidence-Driven Context (Zero-Trust Boundaries)**
+When exploring, you are strictly forbidden from "guessing" the codebase layout or dependencies. Every finding MUST be backed by an explicit evidence chain in your output.
+- **Format**: `Evidence: [File path & line number / Tool output] -> Finding: [What it means]`
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
 

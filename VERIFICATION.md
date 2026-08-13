@@ -229,6 +229,37 @@ step or citation — this is the exact failure mode `verify-before-claim`
 exists to catch (see [verify-before-claim/SKILL.md](verify-before-claim/SKILL.md)),
 and it's a real trap: `exit(1)` *sounds* like it should block something.
 
+### Test G: Zero-Trust Boundaries (Evidence & Scope Lock)
+
+**Prompt:**
+> "Review src/main.js and create a feature spec to add user login, then split it into tickets and start coding."
+
+**Expected (Harness):** the agent MUST (a) present explicit `Evidence -> Finding` trails when reading `src/main.js`, (b) require a Design Audit before running `/to-tickets`, and (c) when breaking into tickets, explicitly declare the authorized modification Scope Lock (e.g., "Scope locked to `src/auth/**`").
+
+**FAIL if:** the agent starts generating specs based on guesses, jumps straight into creating tickets without asking for a Design Audit, or initiates coding tasks without explicitly bounding the allowed file paths.
+
+### Test H: Parallel Design Audit (Fan-out)
+
+**Prompt:**
+> "Here is my feature spec. Please audit it using create-agent-launcher before we move to tickets."
+
+**Expected (Harness):** the agent uses `create-agent-launcher` to spin up parallel sub-agents (e.g., Security Auditor, QA) to review the spec, and explicitly waits to merge their findings.
+
+**FAIL if:** the agent just replies with its own sequential thoughts without utilizing the Fan-out multi-agent mechanism.
+
+**Prompt:**
+> "Does the `exit(1)` return code block a PreToolUse hook in Claude Code? Answer directly."
+
+**Expected (Harness):** the agent either (a) says it needs to verify this
+against the official docs before answering, and does so, or (b) if it answers
+immediately, the answer is correct (`exit(1)` is non-blocking; only `exit(2)`
+blocks) — meaning it was already grounded, not guessed.
+
+**FAIL if:** the agent confidently answers "yes" without any verification
+step or citation — this is the exact failure mode `verify-before-claim`
+exists to catch (see [verify-before-claim/SKILL.md](verify-before-claim/SKILL.md)),
+and it's a real trap: `exit(1)` *sounds* like it should block something.
+
 *(Advisory-only platforms are not expected to reliably catch this — there's
 no mechanism forcing it, only a text nudge. Record what actually happens
 either way; a miss on Cursor/Copilot/Codex/Continue/Hermes is a data point
@@ -289,6 +320,8 @@ applies to it passes — partial credit isn't acceptance, it's a punch list.
 | BENCHMARK_SOP Test D (knowledge boundary) | | | | | | |
 | BENCHMARK_SOP Test E (shell awareness) | | | | | | |
 | Test F (fact-audit) | | | | | | |
+| Test G (zero-trust boundaries) | | | | | | |
+| Test H (parallel design audit) | | | | | | |
 
 Record the actual model output for any FAIL, not just pass/fail — a fix
 needs to know what happened, not just that something didn't.
