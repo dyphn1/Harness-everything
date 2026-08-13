@@ -10,7 +10,9 @@ This section visualizes how the `harness-everything` skill executes internally, 
 
 ```mermaid
 graph TD
-  Start([User Prompt Received]) --> ExecuteRouter["Execute tier-router.js OR check UserPromptSubmit hook output"]
+  Start([User Prompt Received]) --> CheckSoftware{Software / Engineering Task?}
+  CheckSoftware -->|No: Pure Chat / Translation / Web Search| BypassHarness["Bypass Harness OS Completely - Reply Directly"]
+  CheckSoftware -->|Yes: Code / Architecture / Project| ExecuteRouter["Execute tier-router.js OR check UserPromptSubmit hook output"]
   ExecuteRouter --> DetectNewFeature{Contains new logic/files?}
   DetectNewFeature -->|Yes, enforce Tier 2+| PreventDegrade["Prevent Silent Degrade to Tier 1"]
   PreventDegrade --> TriageTier
@@ -30,6 +32,7 @@ graph TD
   FactReminder --> FinalizeOutput
   FinalizeOutput --> Normalization["Apply Always-On ADHD-Friendly Output Shaping (Global Normalization)"]
   Normalization --> End([Developer receives highly focused, concise response])
+  BypassHarness --> End
 ```
 
 ---

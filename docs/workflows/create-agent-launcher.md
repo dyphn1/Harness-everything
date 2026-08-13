@@ -10,15 +10,16 @@ This section visualizes how the `create-agent-launcher` skill executes internall
 
 ```mermaid
 graph TD
-  Start([Complex Task Demands Division of Labor]) --> AssessComplexity{Too complex for 1 context?}
-  AssessComplexity -->|No| Reject["Reject creation, resolve in current context via TDD"]
-  AssessComplexity -->|Yes| DefinePersona["Define highly restrictive specialized sub-agent persona"]
-  DefinePersona --> IsolateResources["Map exact, minimum file paths needed for sub-task"]
-  IsolateResources --> SelectModel["Select cost-effective model based on task weight"]
-  SelectModel --> WriteHandoff["Define strict input/output contract for sub-agent return report"]
-  WriteHandoff --> LaunchAgent["Launch specialized sub-agent under isolated sandbox"]
-  LaunchAgent --> MergeReport["Validate and merge sub-agent findings into main orchestrator"]
-  MergeReport --> End([Sub-agent work verified and closed])
+  Start([Complex Task Demands Division of Labor]) --> ScopeCheck{Complexity Check: >2 files / >300 lines?}
+  ScopeCheck -->|No| DirectTDD["Handle Directly via TDD / Tier 2 Flow"]
+  ScopeCheck -->|Yes| CheckTool{Sub-agent Tool Available?}
+  
+  CheckTool -->|Yes: runSubagent / Task tool| SpawnSub["Spawn Specialized Sub-agent with Isolated Scope"]
+  CheckTool -->|No Tool| InlinePersona["Inline Persona Role-Switch Fallback in Context"]
+  
+  SpawnSub --> ReceiveReport["Receive Structured Handoff Report"]
+  InlinePersona --> ReceiveReport
+  ReceiveReport --> End([Sub-task Completed & Verified])
 ```
 
 ---

@@ -2,7 +2,7 @@
 name: install-cognitive-os
 description: Defines the fundamental physical laws of behavior (Discover > Think > Try > Summarize > Record) for all Agents.
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.3
 ---
 
 # Agent Cognitive OS (Underlying Cognitive System)
@@ -13,7 +13,7 @@ version: 0.2.0
 | :--- | :--- |
 | **Trigger / Input** | Always — the foundational cognitive loop every other skill builds on; loaded before acting on tasks. |
 | **Expected Output** | Actions follow Discover → Think → Try → Summarize → Record, where Summarize relies on objective verification rather than self-assessment. |
-| **State Mutations** | None directly — provides the meta-loop within which other skills manage state (e.g. `todo-cli.js complete`). |
+| **State Mutations** | None directly — provides the meta-loop within which other skills manage state (e.g. `todo-driven-workflow/scripts/todo-cli.js complete`). |
 | **Enforcement Gate** | Progress recording (`[Record]`) is grounded in verified tool output. A failing test or script step triggers a return to `[Think]`; repeated failures lead to `zoom-out` reflection. |
 
 This skill outlines the core cognitive loop that guides agent behavior across tasks in the Harness ecosystem.
@@ -22,7 +22,7 @@ This skill outlines the core cognitive loop that guides agent behavior across ta
 
 ## 🔄 The Cyclical Development Paradigm
 Software development is iterative — a cycle of hypothesis, execution, feedback, and refinement.
-Rather than assuming code works immediately after writing it, ground progress in objective evidence from verification tools (`node "<harness-everything-dir>/scripts/verify-gate.js"` or `npx github:dyphn1/Harness-everything verify`, and `node "<todo-driven-workflow-dir>/scripts/todo-cli.js"`). When checks fail, step back to analyze, adapt, and resolve before continuing.
+Rather than assuming code works immediately after writing it, ground progress in objective evidence from verification tools (project test suite `npm test`/`pytest`, `harness-everything/scripts/verify-gate.js`, or `npx github:dyphn1/Harness-everything verify`) and active task trackers (`manage_todo_list`, `todo-driven-workflow/scripts/todo-cli.js`, or `tasks/todo.md`). When checks fail, step back to analyze, adapt, and resolve before continuing.
 
 ## Core Loop: The State Machine (Discover > Think > Try > Summarize > Record)
 
@@ -53,12 +53,12 @@ flowchart TD
 - Run terminal commands to test and validate behavior.
 
 ### 3. `[Summarize]`: Objective Reality Check
-- Base conclusions on actual tool outputs (tests, linters, `verify-gate.js`) rather than assumptions.
+- Base conclusions on actual tool outputs (tests, linters, `harness-everything/scripts/verify-gate.js`) rather than assumptions.
 - If a verification step fails, use the output diagnostics to refine your hypothesis in `[Think]`.
 - If an approach fails repeatedly (3 consecutive attempts), step back to `zoom-out` for a broader system reflection.
 
 ### 4. `[Record]`: State Commitment
-- Record completed milestones using the task tracker (`todo-cli.js complete`) once verification passes cleanly.
+- Record completed milestones using the task tracker (`todo-driven-workflow/scripts/todo-cli.js complete` or `manage_todo_list`) once verification passes cleanly.
 
 ## 🧠 Communication & Output Formatting Guidelines
 To maintain clarity and reduce conversational noise:

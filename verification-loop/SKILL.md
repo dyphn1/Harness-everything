@@ -2,7 +2,7 @@
 name: verification-loop
 description: "A comprehensive verification system for Claude Code sessions."
 author: Miya Daniel | Harness Core Team
-version: 0.3.0
+version: 0.3.3
 metadata:
   origin: ECC
 ---
@@ -14,14 +14,34 @@ metadata:
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Approaching task completion, milestone handoff, or PR creation. Input: Modified project files. |
-| **Expected Output** | Objective verification metrics (Build, Type Check, Lint, and Test execution). |
+| **Expected Output** | Objective verification metrics (Build, Type Check, Lint, Test execution) and structured Verification Report. |
 | **State Mutations** | None. Read-only verification pass. |
-| **Enforcement Gate** | Run relevant build, lint, and test suite tools. Ensure code checks pass cleanly before concluding execution. |
+| **Enforcement Gate** | Run relevant build, lint, and test suite tools. Fallback to direct markdown report if template or script fails. |
 
-A comprehensive verification system for validating codebase stability before completing work.
+## Process & Verification Resolution Flow
 
-**Evidence Assertion**:
-Ground your Verification Report metrics (Build, Types, Lint, Tests, Security) in actual terminal execution outputs retrieved during the session.
+Follow the decision matrix below when running pre-delivery verification:
+
+```mermaid
+flowchart TD
+    Start[Trigger: Pre-Delivery / PR Verification] --> Build[1. Phase 1: Build Verification]
+    Build --> Type[2. Phase 2: Type Check]
+    Type --> Lint[3. Phase 3: Lint Check]
+    Lint --> Test[4. Phase 4: Test Suite Execution]
+    Test --> Security[5. Phase 5: Security & Secret Scan]
+    Security --> Diff[6. Phase 6: Diff Review]
+    
+    Diff --> CheckScript{7. Is verify-gate.js / Template Available?}
+    
+    CheckScript -- Yes --> RunScript[Run harness-everything/scripts/verify-gate.js / Fill verification-report.template.md]
+    CheckScript -- No --> DirectReport[Output Verification Report Inline in Response]
+    
+    RunScript --> ReportResult{All Verification Gates Passed?}
+    DirectReport --> ReportResult
+    
+    ReportResult -- Exit 0 / All Green --> Deliver[Task Ready for Delivery / PR]
+    ReportResult -- Failures Detected --> Fix[Fix Issues in Code & Re-verify] --> Build
+```
 
 ## When to Use
 

@@ -10,13 +10,17 @@ This section visualizes how the `verify-before-claim` skill executes internally,
 
 ```mermaid
 graph TD
-  Start([Claim or Estimate Proposed]) --> IdentifyAssumptions["Isolate any claim or performance assumption"]
-  IdentifyAssumptions --> QueryAuthoritative["Execute WebSearch or read local code sources"]
-  QueryAuthoritative --> CrossVerify["Cross-verify details with authoritative documentation"]
-  CrossVerify --> RunLocalExperiment["Run quick script to empirically test the assumption"]
-  RunLocalExperiment --> CaptureResult["Log actual measured results and exit-codes"]
-  CaptureResult --> AssertFact["Assert verified fact based on objective data"]
-  AssertFact --> End([Hypothesis replaced with empirical truth])
+  Start([About to Assert External Framework / API Behavior or Perf Number]) --> CheckScope{Claim Scope Check}
+  CheckScope -->|Internal Repo Code| ReadSource["Read Local Source Code -> State Facts"]
+  CheckScope -->|External Framework / API / Number| CheckNet{Web Fetch / Search / Measurement Available?}
+  
+  CheckNet -->|Yes| FetchDocs["WebFetch Official Docs / Measure Real Execution"]
+  CheckNet -->|No / Offline| EstimateFallback["Explicitly Label Response as Unverified Estimate"]
+  
+  FetchDocs --> CiteDocs["Quote Authoritative Source / State Measured Data"]
+  ReadSource --> End([Verified Output Delivered])
+  CiteDocs --> End
+  EstimateFallback --> End
 ```
 
 ---

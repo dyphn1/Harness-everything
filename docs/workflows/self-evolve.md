@@ -12,14 +12,18 @@ This section visualizes how the `self-evolve` skill executes internally, detaili
 graph TD
   Start([Task Completed / Error Loop Triggered]) --> ReadSessionLogs["Read active debugging logs & session history"]
   ReadSessionLogs --> IdentifyRootCauses["Isolate and extract system failures or bottlenecks"]
-  IdentifyRootCauses --> SynthesizeGuardrails["Formulate actionable high-level cognitive guardrails"]
-  SynthesizeGuardrails --> CompressMemories["Compress repetitive events into compact markdown files in /memories/"]
-  CompressMemories --> DecideSkill{LLM Judgment: Is it a complex structural pattern?}
-  DecideSkill -->|No: Simple Tip| UpdateUserMemory["Commit simple rule to memories/repo/RULES.md"]
-  DecideSkill -->|Yes: Complex Skill| CreateDynamic["Package dynamic skill & run register-dynamic-skill.js"]
-  CreateDynamic --> RegisterManifest["Register dynamic skill to manifest.json under 'generated' section"]
-  RegisterManifest --> UpdateUserMemory
-  UpdateUserMemory --> End([Agent cognitive defense expanded for future sessions])
+  IdentifyRootCauses --> CheckWorkspaceMem{Detect Workspace Memory Architecture?}
+  
+  CheckWorkspaceMem -->|Found MEMORY.md / RULES.md| CheckLines{Check Target File Line Count}
+  CheckWorkspaceMem -->|Not Found / Script Available| RunScript["Run self-evolve/scripts/persist-memory.js"]
+  
+  CheckLines -->|< 60 Lines| DirectAppend["Append Rule directly to MEMORY.md / RULES.md"]
+  CheckLines -->|≥ 60 Lines| ModularSplit["Categorize & Create Sub-memory File (memories/rules/topic.md)"]
+  ModularSplit --> AddIndexPointer["Add 1-Line Index Link to Primary MEMORY.md for Lazy Loading"]
+  
+  RunScript --> CheckLines
+  DirectAppend --> End([Agent cognitive defense expanded])
+  AddIndexPointer --> End
 ```
 
 ---

@@ -10,21 +10,22 @@ This section visualizes how the `verification-loop` skill executes internally, d
 
 ```mermaid
 graph TD
-  Start([Pre-PR Quality Check Triggered]) --> RunBuild["Execute compilation / project build"]
-  RunBuild --> CheckBuild{Build succeeded?}
-  CheckBuild -->|No| FixBuild["Debug and fix build errors"]
-  CheckBuild -->|Yes| RunTypeCheck["Execute language type-checking compiler"]
-  RunTypeCheck --> CheckTypes{Typecheck green?}
-  CheckTypes -->|No| FixTypes["Correct type-definition errors"]
-  CheckTypes -->|Yes| RunLint["Execute code linter checks"]
-  RunLint --> CheckLint{Lint clean?}
-  CheckLint -->|No| FixLint["Correct code-style and syntax errors"]
-  CheckLint -->|Yes| RunTests["Execute complete automated test suite"]
-  RunTests --> CheckTests{Tests passed?}
-  CheckTests -->|No| FixTests["Debug and correct failing tests"]
-  CheckTests -->|Yes| GenerateReport["Compile Report: Assert real terminal logs as evidence (Law 4)"]
-  GenerateReport --> End([Pre-PR verification gate cleared successfully])
-  FixBuild & FixTypes & FixLint & FixTests --> RunBuild
+  Start([Pre-PR Quality Check Triggered]) --> RunBuild["1. Phase 1: Build Verification"]
+  RunBuild --> RunTypeCheck["2. Phase 2: Type Check (tsc / pyright)"]
+  RunTypeCheck --> RunLint["3. Phase 3: Lint Check"]
+  RunLint --> RunTests["4. Phase 4: Test Suite Execution"]
+  RunTests --> RunSecurity["5. Phase 5: Security & Secret Scan"]
+  RunSecurity --> DiffReview["6. Phase 6: Diff Review"]
+  
+  DiffReview --> CheckScript{7. Is verify-gate.js / Template Available?}
+  CheckScript -->|Yes| ScriptReport["Run harness-everything/scripts/verify-gate.js & Fill Template"]
+  CheckScript -->|No| DirectReport["Output Verification Report Inline"]
+  
+  ScriptReport --> CheckGate{All Verification Gates Passed?}
+  DirectReport --> CheckGate
+  
+  CheckGate -->|No| FixIssues["Fix Issues in Code & Re-verify"] --> RunBuild
+  CheckGate -->|Yes| End([Pre-PR Verification Gate Cleared])
 ```
 
 ---

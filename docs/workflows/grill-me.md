@@ -10,18 +10,14 @@ This section visualizes how the `grill-me` skill executes internally, detailing 
 
 ```mermaid
 graph TD
-  Start([Developer Proposes Plan]) --> IntroduceChallenger["Introduce 'Challenger' adversarial persona"]
-  IntroduceChallenger --> ProbeAssumptions["Analyze proposal and probe soft/mocked points"]
-  ProbeAssumptions --> AskHardQuestions["Ask 3-5 aggressive, non-trivial stress-testing questions"]
-  AskHardQuestions --> ReceiveAnswers["Developer provides details & arguments"]
-  ReceiveAnswers --> ValidateResilience{Answers robust & handle failures?}
-  ValidateResilience -->|No| GrillDeeper["Grill deeper on specific vulnerabilities"]
-  ValidateResilience -->|Yes| DistillDecisions["Distill final agreed design decisions"]
-  GrillDeeper --> ReceiveAnswers
-  DistillDecisions --> CheckDocsNeeded{Requires ADR / Glossary changes?}
-  CheckDocsNeeded -->|Yes| TransitionToGWD["Suggest handoff to grill-with-docs"]
-  CheckDocsNeeded -->|No| End([Proposal approved and hardened against failures])
-  TransitionToGWD --> End
+  Start([Developer Proposes Plan]) --> Discovery["Scan Related Code, CONTEXT.md & Existing ADRs"]
+  Discovery --> AskQuestion["Ask Exactly ONE Question at a Time (with AI Recommendation)"]
+  AskQuestion --> ReceiveAnswer["Receive Developer Answer & Resolve Branch"]
+  ReceiveAnswer --> UpdateGlossary["Update CONTEXT.md Glossary Inline"]
+  UpdateGlossary --> ValidateResilience{All Decision Tree Branches Resolved?}
+  ValidateResilience -->|No| AskQuestion
+  ValidateResilience -->|Yes| HandoffToSpec["Hand off to to-spec for Outline Preview & Spec/ADR Publishing"]
+  HandoffToSpec --> End([Route to to-tickets / fable-mode / tdd])
 ```
 
 ---

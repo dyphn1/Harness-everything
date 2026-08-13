@@ -2,7 +2,7 @@
 name: self-evolve
 description: Extracts root causes from resolved difficult problems and persists them as new error boundaries in memory.
 author: Miya Daniel | Harness Core Team
-version: 0.3.0
+version: 0.3.3
 ---
 
 # Self Evolve (Self Evolution & Memory Extraction)
@@ -12,41 +12,57 @@ version: 0.3.0
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Task completion after a major struggle, or post-zoom-out recovery. Input: Root cause analysis of previous failure. |
-| **Expected Output** | Execution of memory persistence script or generated dynamic skill. |
-| **State Mutations** | Updates workspace memory/rules files (`memories/repo/RULES.md` or `.claude/harness-everything/manifest.json`). |
-| **Enforcement Gate** | Run regression checks (`node "<this-skill-dir>/scripts/self-regression.js"` or `npx github:dyphn1/Harness-everything test`). Use `node "<this-skill-dir>/scripts/persist-memory.js" "<rule>"` to save concise rules. |
+| **Expected Output** | Persisted memory rule in workspace memory (`MEMORY.md`, `memories/repo/RULES.md`), CLI script execution, or modular sub-memory file. |
+| **State Mutations** | Updates workspace memory files or platform state memory (`.github/harness-everything/memories/RULES.md`). |
+| **Enforcement Gate** | Enforces the **60-Line Cleanliness Rule**: under 60 lines appends directly; 60+ lines creates a modular topic file with a 1-line index pointer for lazy loading. |
 
 This skill enables long-term learning by extracting root causes from resolved challenges and recording defensive rules for future sessions.
-
-**Environment Requirements**: `persist-memory.js` and `register-dynamic-skill.js` require Node.js on `PATH` and should be executed within a Git repository context to correctly locate workspace boundaries. Run either script with `--help` for its full argument reference.
 
 ## 1. Triggers
 - **Post-Circuit Breaker**: Following successful recovery after a `zoom-out` reflection.
 - **Major Breakthrough**: Upon completing complex tasks that revealed non-obvious framework limits or architectural edge cases.
 - **Explicit Request**: When the user asks to "remember this lesson" or "save this to memory".
 
-## 2. Execution Process (The Evolution Loop)
+## 2. Execution Process & Memory Resolution Flow
 
-### Step 1: Deep Reflection & Root Cause Extraction
-Analyze the resolved issue and extract a universal, high-level root cause rather than file-specific line details.
+Follow the decision matrix below to record extracted rules while maintaining memory cleanliness:
 
-### Step 2: Define Error Boundaries
-Format the insight into a concise defensive rule to help future agent sessions avoid similar pitfalls.
+```mermaid
+flowchart TD
+    Start[Self-Evolve Triggered: Extract Lessons] --> CheckProjectMemory{1. Detect Workspace Memory Architecture?<br>e.g. MEMORY.md, RULES.md}
+    
+    CheckProjectMemory -- Found MEMORY.md / RULES.md --> TargetFile[Set Target Memory File]
+    CheckProjectMemory -- Not Found --> CheckScript{2. Node.js & Script Executable?}
+    
+    CheckScript -- Yes --> RunScript[Execute scripts/persist-memory.js / register-dynamic-skill.js]
+    CheckScript -- No --> PathPlatform[Create Platform State Memory<br>e.g. .github/harness-everything/memories/RULES.md] --> TargetFile
+    
+    RunScript --> Done[Memory Persisted]
+    TargetFile --> CheckLineCount{3. Check Target File Line Count}
+    
+    CheckLineCount -- < 60 Lines --> DirectAppend[Directly Append Rule to Target Memory File]
+    CheckLineCount -- ≥ 60 Lines --> ModularSplit[Categorize & Create Sub-memory File<br>e.g. memories/rules/topic.md]
+    
+    ModularSplit --> LazyLoadIndex[Add 1-Line Index Pointer to Primary MEMORY.md<br>Enable Lazy Loading]
+    
+    DirectAppend --> Done
+    LazyLoadIndex --> Done
+```
 
-### Step 3: Persistence & Dynamic Skill Promotion
-- **Run Regression Check**: Validate system state by running:
-  ```bash
-  node "<this-skill-dir>/scripts/self-regression.js"
-  # Or universally from any project root:
-  npx github:dyphn1/Harness-everything test
-  ```
-- **Persist Rule**: Save concise guidelines using the persistence script:
-  ```bash
-  node "<this-skill-dir>/scripts/persist-memory.js" "<Your extracted root cause and defensive rule>"
-  ```
-- **Dynamic Skill Promotion**:
-  - For simple tips or codebase quirks: keep as a lightweight rule in `memories/repo/RULES.md`.
-  - For complex, multi-step procedures or architectural patterns: promote to a dynamic skill following `skill-creator/SKILL.md` §4, and register it via `node "<this-skill-dir>/scripts/register-dynamic-skill.js" <name>`.
+### Memory Resolution & Cleanliness Rules:
+
+1. **Workspace Memory Inspection First**:
+   Before creating new memory files or running scripts, check if the workspace already maintains a primary memory file (such as `MEMORY.md`, `memories/repo/RULES.md`, `CLAUDE.md`, or `AGENTS.md`). If found, prioritize updating the existing structure.
+
+2. **The 60-Line Cleanliness & Lazy Loading Rule**:
+   To prevent Context Bloat and keep workspace memory organized:
+   - **Under 60 Lines**: Append the concise, generalized defensive rule directly to the primary memory file.
+   - **60 Lines or Greater**:
+     - **Modular Split**: Extract the rule into a dedicated topic file under a sub-folder (e.g. `memories/rules/db-migration.md` or `.github/harness-everything/memories/rules/<topic>.md`).
+     - **Index Pointer & Lazy Loading**: Add a single-line link/pointer in the primary `MEMORY.md` (e.g. `- [DB Migration Rules](memories/rules/db-migration.md)`). Future agent sessions will lazy-load the sub-memory file only when touching that specific domain.
+
+3. **Script Tooling Fallback**:
+   If Node.js and `persist-memory.js` are executable, run `node "<this-skill-dir>/scripts/persist-memory.js" "<rule>"`. If script execution fails or is unavailable, use the agent's file tools or memory API directly.
 
 ## 3. Purpose
 Through `self-evolve`, we transform "invalid trial-and-error", which might otherwise waste Tokens, into a valuable "moat" for the system. Even if the underlying model doesn't become inherently smarter, equipped with these memories, the system will automatically avoid known traps and break through its original reasoning ceiling.

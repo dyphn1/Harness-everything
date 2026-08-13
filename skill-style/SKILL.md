@@ -2,7 +2,7 @@
 name: skill-style
 description: Guidelines for writing and refactoring skills in the Harness ecosystem.
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.3
 ---
 
 # Skill Style (Harness Ecosystem Skill Development Guidelines)
@@ -39,7 +39,7 @@ Every SKILL.md MUST include this table exactly:
 ## 2. Tone & Voice
 - **Anti-Linear / Anti-Prose**: Do not write long paragraphs. Map actions to specific `run_in_terminal` commands.
 - **Absolute Imperatives**: Use "MUST", "MUST NOT", "ALWAYS". Do not use "suggest".
-- **Script-Driven Enforcement**: Do not write "You should check your code". Write "You MUST run `node verify-gate.js`. If Exit Code 1, you MUST reflect and retry."
+- **Script-Driven Enforcement**: Do not write "You should check your code". Write "You MUST run `node harness-everything/scripts/verify-gate.js`. If Exit Code 1, you MUST reflect and retry."
 
 ## 3. Avoid Functional Overlap
 - **OS Skills vs. Domain Skills**: Distinguish between the OS layer (which routes and constrains behavior) and the Domain layer (which provides deep technical expertise).

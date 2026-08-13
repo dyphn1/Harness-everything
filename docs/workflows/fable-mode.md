@@ -10,23 +10,20 @@ This section visualizes how `fable-mode` handles macro tasks. Subagent failure o
 
 ```mermaid
 graph TD
-  Start([Tier 3 Macro Task Triggered]) --> InitFable["Initialize Fable Execution Context"]
-  InitFable --> AnalyzeScope["Map system dependencies & files"]
-  AnalyzeScope --> GenerateContract["Generate Contract & Todo List"]
+  Start([Tier 3 Macro Task Triggered]) --> Discovery["1. Discovery & Architectural Plan"]
+  Discovery --> InitTodo["2. Delegate Roadmap to todo-driven-workflow"]
   
-  GenerateContract --> RunStep["Try: Execute Step / Sub-agent"]
-  RunStep --> VerifyStep["Try: Run verify-gate.js for Integration"]
+  InitTodo --> Delegate{3. Delegate Sub-tasks}
+  Delegate -->|Sub-agent Tool Available| SpawnSub["Spawn Sub-agent via create-agent-launcher"]
+  Delegate -->|No Sub-agent Tool| InlinePersona["Inline Persona Role-Switch Fallback"]
   
-  VerifyStep --> Check{Gate: Exit Code?}
-  Check -->|Exit 1: Sub-agent Failed| Diagnose["Reflect: Why did sub-agent fail?"]
-  Diagnose --> InsertBlocker["Insert Blocker Todo: Fix Integration"]
-  InsertBlocker --> RunStep
+  SpawnSub --> ScopeCheck["Monitor via hooks/scripts/subagent-scope-guard.js"]
+  InlinePersona --> ScopeCheck
   
-  Check -->|Exit 0: Success| CheckAllSteps{All steps done?}
-  CheckAllSteps -->|No| RunStep
-  CheckAllSteps -->|Yes| FinalAudit["Perform system-wide verification loop"]
+  ScopeCheck --> VerifyStep["4. Integration Verification via harness-everything/scripts/verify-gate.js"]
+  VerifyStep --> CheckGate{Integration Verification Passed?}
   
-  FinalAudit --> FinalCheck{Gate: Exit Code?}
-  FinalCheck -->|Exit 1| Diagnose
-  FinalCheck -->|Exit 0| End([Macro rewrite successfully deployed])
+  CheckGate -->|No: Integration Error| FixBlocker["Add Blocker Item to todo-driven-workflow & Fix"] --> VerifyStep
+  CheckGate -->|Yes: Gate Passes| Transition["5. Transition Scaffolding to TDD Iteration"]
+  Transition --> End([Macro Scaffolding Successfully Deployed])
 ```

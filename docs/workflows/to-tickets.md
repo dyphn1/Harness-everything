@@ -10,28 +10,25 @@ This section visualizes how the `to-tickets` skill executes internally, detailin
 
 ```mermaid
 graph TD
-  Start(["/to-tickets invoked"]) --> CheckScript["Step 0: node to-spec/scripts/check-project-docs.js check (shared gate)"]
+  Start(["/to-tickets invoked"]) --> CheckScript["Step 0: node to-spec/scripts/check-project-docs.js check"]
   CheckScript --> ExitCode{"Exit code?"}
-  ExitCode -->|1: missing/incomplete| StopPoint["Stop - tell user to run to-spec's Step 0 interview first"]
-  ExitCode -->|0: projectDocs complete| Gather["Step 1: Gather context"]
-  Gather --> SourceChoice{"Source available?"}
-  SourceChoice -->|to-spec feature-spec referenced/in context| ReadSpec["Read full spec body + comments"]
-  SourceChoice -->|No spec, just plan/conversation| UseConvo["Work from conversation/plan directly"]
-  ReadSpec --> ShapeCheck{"Which to-spec shape was it?"}
-  ShapeCheck -->|feature-spec| Explore
-  ShapeCheck -->|cli-reference / schema-doc / dev-doc| ConfirmSplit["Confirm with user whether it even needs splitting"]
-  ConfirmSplit -->|Needs splitting| Explore
-  ConfirmSplit -->|Already ticket-sized| SingleTicket["Treat as a single ticket, skip Step 3 slicing"]
-  UseConvo --> Explore["Step 2: Explore codebase, look for prefactor opportunities"]
-  Explore --> Draft["Step 3: Draft vertical slices - tracer bullets + blocking edges"]
-  Draft --> WideRefactor{"Wide refactor (mechanical, huge blast radius)?"}
-  WideRefactor -->|Yes| ExpandContract["Sequence as expand - migrate batches - contract instead of tracer bullets"]
-  WideRefactor -->|No| Quiz
-  ExpandContract --> Quiz["Step 4: Quiz user - granularity, blocking edges, merge/split"]
-  SingleTicket --> Quiz
+  ExitCode -->|0: projectDocs configured/inferred| PathConfig["Use Configured / Inferred Tracker"]
+  ExitCode -->|1 / Script Missing| InspectRepo{"Inspect Workspace Directories"}
+  
+  InspectRepo -->|Folder Found| PathRepo["Use docs/roadmaps/, docs/tickets/, tasks/tickets/, .scratch/issues/"]
+  InspectRepo -->|No Folder| PathPlatform["Fallback to .github/harness-everything/tickets/"]
+  
+  PathConfig --> Gather["Step 1: Gather context from spec, plan, or conversation"]
+  PathRepo --> Gather
+  PathPlatform --> Gather
+  
+  Gather --> Explore["Step 2: Explore codebase & identify prefactor opportunities"]
+  Explore --> Draft["Step 3: Draft vertical slices with tracer bullets & blocking edges"]
+  Draft --> Quiz["Step 4: Quiz user on granularity, blocking edges, and merges"]
+  
   Quiz --> Approved{"User approves breakdown?"}
   Approved -->|No| Draft
-  Approved -->|Yes| Publish["Step 5: Publish per projectDocs.tracker + issueDefinition"]
+  Approved -->|Yes| Publish["Step 5: Publish ticket files at resolved storage path"]
   Publish --> End(["Tickets published, frontier = unblocked tickets"])
 ```
 

@@ -2,7 +2,7 @@
 name: using-git-worktrees
 description: Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.3
 ---
 
 # Using Git Worktrees
@@ -11,10 +11,31 @@ version: 0.2.0
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Starting feature work that needs isolation from the current workspace, or before executing an implementation plan. |
-| **Expected Output** | An isolated workspace (native worktree tool preferred, `git worktree add` fallback) with dependencies installed and a clean baseline test run confirmed. |
-| **State Mutations** | May create a new worktree directory/branch (`.worktrees/<branch>` by default) and add it to `.gitignore` if not already ignored. |
-| **Enforcement Gate** | Detect existing workspace isolation first (`git rev-parse --git-dir` vs `--git-common-dir`) to avoid creating redundant worktrees. Ensure worktree directories are ignored in `.gitignore`. |
+| **Trigger / Input** | Starting feature work that needs isolation from current workspace, or before executing an implementation plan. |
+| **Expected Output** | Isolated workspace (native worktree tool or `git worktree add` or work-in-place fallback) with clean test baseline. |
+| **State Mutations** | Creates a new worktree directory/branch (`.worktrees/<branch>`) and adds to `.gitignore` if needed. |
+| **Enforcement Gate** | Detect existing isolation first (`git rev-parse --git-dir` vs `--git-common-dir`). Fallback seamlessly if sandbox blocks worktree. |
+
+## Process & Worktree Resolution Flow
+
+Follow the decision matrix below when setting up an isolated workspace:
+
+```mermaid
+flowchart TD
+    Start[Trigger: Need Workspace Isolation] --> CheckIso{1. Already in Worktree?}
+    
+    CheckIso -- Yes (GIT_DIR != GIT_COMMON) --> Setup[3. Run Project Setup & Dependencies]
+    CheckIso -- No (Normal Repo) --> CheckNative{2. Native Worktree Tool Available?}
+    
+    CheckNative -- Yes --> RunNative[Use Native Worktree Tool] --> Setup
+    CheckNative -- No --> RunGit[Try git worktree add .worktrees/branch]
+    
+    RunGit -- Success --> Setup
+    RunGit -- Fails / Denied --> WorkInPlace[Fallback: Work in Place in Current Directory] --> Setup
+    
+    Setup --> RunBaseline[4. Verify Clean Test Baseline]
+    RunBaseline --> Done[Isolated Workspace Ready]
+```
 
 ## Overview
 

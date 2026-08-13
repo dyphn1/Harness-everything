@@ -10,13 +10,32 @@ This section visualizes how the `security-review` skill executes internally, det
 
 ```mermaid
 graph TD
-  Start([Code Refactoring / Feature Done]) --> ScanInputs["Locate all user input and API boundary points"]
-  ScanInputs --> ThreatModeling["Perform threat modeling on data flow"]
-  ThreatModeling --> CheckCommonVulnerabilities["Check for SQL Injection, XSS, CSRF, and broken access controls"]
-  CheckCommonVulnerabilities --> AuditDependencies["Scan package dependencies for known CVE vulnerabilities"]
-  AuditDependencies --> FlagSinks["Flag insecure coding patterns, hardcoded secrets, or raw exec commands"]
-  FlagSinks --> CompileSecurityReport["Compile actionable security hardening proposal"]
-  CompileSecurityReport --> End([Codebase hardened and verified secure])
+  Start([Code Refactoring / Feature Done / Security Audit]) --> STRIDE["1. STRIDE Threat Modeling & Abuse Case Design"]
+  STRIDE --> CheckScript{2. Is audit-secrets.js Executable?}
+  
+  CheckScript -->|Yes| RunAudit["Run node security-review/scripts/audit-secrets.js"]
+  CheckScript -->|No / Fails| GrepFallback["Scan Workspace Secrets & Inputs via grep_search"]
+  
+  RunAudit --> CheckVun{3. Detect Vulnerabilities or Leaks?}
+  GrepFallback --> CheckVun
+  
+  CheckVun -->|Hardcoded Secrets| FixSecrets["Always Do: Refactor to process.env & .env.local"]
+  CheckVun -->|SQL Concatenation| FixSQL["Always Do: Refactor to Parameterized Queries / ORM"]
+  CheckVun -->|Unvalidated Input| FixInput["Always Do: Add Zod Schema Validation"]
+  CheckVun -->|High-Risk Auth Shift| AskUser["Ask First: Require User Approval for Auth Shift"]
+  
+  FixSecrets --> CompileSecurityReport["4. Compile Security Audit Report"]
+  FixSQL --> CompileSecurityReport
+  FixInput --> CompileSecurityReport
+  AskUser -->|Approved| CompileSecurityReport
+  CheckVun -->|Clean| CompileSecurityReport
+  
+  CompileSecurityReport --> ResolveReportPath{5. Resolve Audit Report Path}
+  ResolveReportPath -->|docs/ Exists| WriteDocs["Save to docs/security-audit.md"]
+  ResolveReportPath -->|Protected / No Folder| WritePlatform["Save to .github/harness-everything/security-audit.md"]
+  
+  WriteDocs --> End([Codebase hardened and verified secure])
+  WritePlatform --> End
 ```
 
 ---

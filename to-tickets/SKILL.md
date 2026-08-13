@@ -2,8 +2,10 @@
 name: to-tickets
 description: Break a to-spec feature-spec, a plan, or the current conversation into tracer-bullet tickets with declared blocking edges, published per this repo's own harness-everything/manifest.json projectDocs framework — one file per ticket locally, or native blocking links on a real tracker.
 author: Miya Daniel | Harness Core Team
-version: 0.3.0
+version: 0.3.3
 disable-model-invocation: true
+metadata:
+  origin: mattpocock-skills
 ---
 
 # To Tickets
@@ -15,20 +17,53 @@ Breaks a plan, a `to-spec`-produced feature spec, or the current conversation in
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Explicit `/to-tickets` invocation (never auto-run — publishing has a real side effect). Input: a reference to a `to-spec` feature spec (path/issue number/URL) if one exists, otherwise whatever plan/conversation is already in context. |
-| **Expected Output** | A numbered set of tickets, each with a "What to build" description, a "Blocked by" list, and acceptance criteria — published per this repo's `projectDocs` entry. |
-| **State Mutations** | None to `manifest.json` itself — this skill only *reads* the `projectDocs` entry `to-spec` (or a prior run of this skill) already wrote. Writes the ticket files/issues themselves, at the location that entry specifies. |
-| **Enforcement Gate** | MUST run `node "<this-skill-dir>/scripts/check-project-docs.js" check` before Step 1 — same gate `to-spec` uses, not a duplicate. Exit 1 → stop and tell the user to run `to-spec`'s Step 0 interview first; this skill never runs its own copy of that interview. MUST present the proposed breakdown to the user and get approval before publishing (Step 4). This skill itself is never a gate on anything else. |
+| **Expected Output** | A numbered set of tickets, each with a "What to build" description, a "Blocked by" list, and acceptance criteria — published per this repo's `projectDocs` entry, detected convention, or platform fallback. |
+| **State Mutations** | None to `manifest.json` itself — this skill only *reads* `projectDocs` if present. Writes the ticket files/issues at the resolved location. |
+| **Enforcement Gate** | Run `node "to-spec/scripts/check-project-docs.js" check` if available. Never block or fail on Exit 1; fallback seamlessly to workspace inspection and platform-specific fallback directories. MUST present the proposed breakdown to the user and get approval before publishing (Step 4). |
 
 ## Process
 
-### 0. Check the project docs framework (shared gate — reuses to-spec, not its own copy)
+### 0. Resolve Storage Path & Framework (Gated Resolution Loop)
 
-```bash
-node "<this-skill-dir>/scripts/check-project-docs.js" check
+Follow the decision matrix below to determine where ticket artifacts must be published:
+
+```mermaid
+flowchart TD
+    Start[Receive /to-tickets Request] --> CheckScript{1. Node.js & Script Executable?}
+    
+    CheckScript -- Yes --> RunCheck[Run check-project-docs.js check]
+    RunCheck -- Exit 0 (Configured) --> PathConfig[Use Project Configured Path<br>e.g. docs/roadmaps/, tracker, or .scratch/]
+    RunCheck -- Exit 1 (Unset) --> InspectRepo
+    
+    CheckScript -- No / Fails --> InspectRepo{2. Inspect Existing Workspace Conventions}
+    
+    InspectRepo -- Existing Folder Found --> PathRepo[Use Workspace Convention<br>e.g. docs/roadmaps/, docs/tickets/, tasks/tickets/]
+    InspectRepo -- No Conventional Folder --> CheckPlatform{3. Fallback to Active Platform Home}
+    
+    CheckPlatform -- Claude Code --> PathClaude[Write to .claude/harness-everything/tickets/]
+    CheckPlatform -- GitHub Copilot / VS Code --> PathCopilot[Write to .github/harness-everything/tickets/]
+    CheckPlatform -- Cursor / Other --> PathCursor[Write to .cursor/harness-everything/tickets/]
+    
+    PathConfig --> Draft
+    PathRepo --> Draft
+    PathClaude --> Draft
+    PathCopilot --> Draft
+    PathCursor --> Draft
+    Draft[Draft & Publish Tickets]
 ```
 
-- **Exit 0** → this repo's `projectDocs` entry (document location / issue tracker / issue definition) already exists. Read it and proceed to Step 1.
-- **Exit 1** → stop here. Tell the user `to-spec`'s Step 0 framework interview needs to run first (`/to-spec` owns that setup; don't re-ask the same three questions inside this skill — that would be a second, drifting copy of the same config).
+#### Path Resolution Rules:
+1. **Explicit Project Configuration (`projectDocs`)**: If `check-project-docs.js` returns `Exit 0`, use the configured `docLocation` or `tracker`.
+2. **Workspace Convention Inspection**: If unconfigured or script unavailable, check if any of these directories exist in the workspace:
+   - `docs/roadmaps/`
+   - `docs/tickets/`
+   - `tasks/tickets/`
+   - `.scratch/issues/`
+   If found, save tickets in the matching directory.
+3. **Platform Isolation Fallback**: If no directory convention exists, create and write ticket files inside the active IDE platform state folder:
+   - Claude Code: `.claude/harness-everything/tickets/<NN>-<slug>.md`
+   - GitHub Copilot: `.github/harness-everything/tickets/<NN>-<slug>.md`
+   - Cursor: `.cursor/harness-everything/tickets/<NN>-<slug>.md`
 
 ### 1. Gather context
 
@@ -80,10 +115,14 @@ Iterate until the user approves the breakdown.
 
 ### 5. Publish the tickets
 
-Publish the approved tickets per this repo's `projectDocs` entry — same `tracker` and `issueDefinition` fields `to-spec` reads, so a repo only ever answers "where do issues live" once:
+Publish the approved tickets at the resolved storage path (from Step 0):
 
-- **Local tracker** (`tracker` names a local-markdown convention) → write one file per ticket under `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below — one ticket per file, never a single combined file.
-- **A real issue tracker** (GitHub, GitLab, other) → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues. Apply whatever status/label `issueDefinition` specifies (default `Status: ready-for-agent`) — apply a same-named tracker label only if it already exists, skip rather than fail if it doesn't.
+- **Local File Storage** (Markdown files):
+  - Write one file per ticket under `<resolved-path>/<NN>-<slug>.md` (e.g. `docs/roadmaps/01-setup.md` or `.github/harness-everything/tickets/01-setup.md`).
+  - Number tickets from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below — one ticket per file, never a single combined file.
+- **A Real Issue Tracker** (GitHub, GitLab, Jira, etc.):
+  - Publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where available.
+  - Apply status marker `Status: ready-for-agent`.
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 

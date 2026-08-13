@@ -2,7 +2,7 @@
 name: eval-harness
 description: Objectively evaluates AI agent performance based on correctness, resource efficiency, and anti-loop focus.
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.3
 ---
 
 # Eval Harness (Automated Performance & Reasoning Evaluation)
@@ -11,13 +11,34 @@ version: 0.2.0
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | User requests "run benchmark", "score conversation log", or "compare Vanilla vs Harness differences" — an execution log or the current conversation history. |
-| **Expected Output** | A 4-dimension scorecard (Correctness & Factuality, Token & Step Efficiency, Anti-loop & Focus, Environment & Tool Awareness), each scored 0-10 with rationale. |
-| **State Mutations** | Writes a generated Markdown scorecard to the project's `evals/` directory via `scripts/evaluate.js`. |
-| **Enforcement Gate** | MUST execute `scripts/evaluate.js` with the four scores and insight text — a verbally-stated score without running the script does not count as output. |
+| **Trigger / Input** | User requests "run benchmark", "score conversation log", or "compare Vanilla vs Harness differences" — an execution log or conversation history. |
+| **Expected Output** | A 4-dimension scorecard (0-10) with rationale, saved to `evals/` or platform state directory via script or direct markdown write. |
+| **State Mutations** | Writes a generated Markdown scorecard to the project's `evals/` directory or `.github/harness-everything/evals/`. |
+| **Enforcement Gate** | Run evaluation script or write scorecard directly if script fails. Output structured scorecard in response. |
 
-This skill is used to objectively evaluate the performance of an AI Agent when "executing test tasks".
-Triggered when the user requests "run benchmark", "score conversation log", or "compare Vanilla vs Harness differences".
+## Process & Evaluation Output Flow
+
+Follow the decision matrix below to evaluate performance and record scorecards:
+
+```mermaid
+flowchart TD
+    Start[Trigger: Benchmark / Evaluate Log] --> Parse[1. Parse Log: Actions, Loops, Tokens]
+    Parse --> Score[2. Calculate 4-Dimension Rubric Scores]
+    
+    Score --> CheckScript{3. Is evaluate.js Executable?}
+    
+    CheckScript -- Yes --> RunScript[Run node "<this-skill-dir>/scripts/evaluate.js" <scores> <insights>]
+    RunScript -- Exit 0 (Success) --> Done[Scorecard Saved to evals/]
+    RunScript -- Fails --> FileFallback
+    
+    CheckScript -- No --> FileFallback{4. Markdown File Fallback}
+    
+    FileFallback -- evals/ Directory Exists --> WriteEvals[Write to evals/scorecard.md]
+    FileFallback -- No evals/ Directory --> WritePlatform[Write to .github/harness-everything/evals/scorecard.md]
+    
+    WriteEvals --> Done
+    WritePlatform --> Done
+```
 
 ## 1. Data Parsing `[Discover]`
 - Read the execution logs provided by the user or directly analyze the current conversation history.

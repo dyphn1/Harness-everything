@@ -1,24 +1,71 @@
 ---
 name: security-review
-description: Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and patterns.
+description: Conducts STRIDE threat modeling, scans workspace secrets/vulnerabilities via audit scripts, and hardens code against OWASP Top 10 risks with three-tier boundary controls.
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.3
 metadata:
   origin: ECC
 ---
 
-# Security Review Skill
+# Security Review & Code Hardening
 
 ## 📋 Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Task involves Auth, API Endpoints, File Uploads, User Input, or Secrets. Input: Target code file. |
-| **Expected Output** | Code modified to eliminate vulnerabilities; workspace scanned for credential leaks. |
-| **State Mutations** | Codebase hardened against injection/XSS/IDOR. |
-| **Enforcement Gate** | Perform a workspace search (`grep_search`) or linter scan for hardcoded credentials (`sk-`, `password`) or unescaped SQL before concluding the security review. |
+| **Trigger / Input** | Tasks involving Auth, API Endpoints, File Uploads, User Input, Secrets, or explicit "security review" / "audit". |
+| **Expected Output** | Threat model assessment, automated secret/vulnerability scan via `audit-secrets.js`, hardened code, and security audit report. |
+| **State Mutations** | Codebase hardened against injection/XSS/IDOR; audit report written to `docs/security-audit.md` or platform state directory. |
+| **Enforcement Gate** | Perform workspace secret scan via `node "<this-skill-dir>/scripts/audit-secrets.js"` or `grep_search` before concluding review. |
 
-This skill provides guidelines and security patterns for handling sensitive data and user inputs securely.
+## Process & Security Review Flow
+
+Follow the decision matrix below when conducting security audits:
+
+```mermaid
+flowchart TD
+    Start[Trigger: Auth / Secrets / API / File Upload Task] --> ThreatModel[1. STRIDE Threat Modeling & Abuse Case Design]
+    ThreatModel --> CheckScript{2. Is audit-secrets.js Executable?}
+    
+    CheckScript -- Yes --> RunScript[Run node audit-secrets.js Scan]
+    CheckScript -- No / Fails --> GrepFallback[Scan Workspace Secrets & Inputs via grep_search]
+    
+    RunScript --> CheckVun{3. Detect Vulnerabilities or Leaks?}
+    GrepFallback --> CheckVun
+    
+    CheckVun -- Hardcoded Secrets --> FixSecrets[Always Do: Refactor to process.env & .env.local]
+    CheckVun -- SQL Concatenation --> FixSQL[Always Do: Refactor to Parameterized Queries / ORM]
+    CheckVun -- Unvalidated Input --> FixInput[Always Do: Add Zod Schema Validation]
+    CheckVun -- High-Risk Auth/CORS Shift --> AskUser[Ask First: Require User Approval for Architectural Auth Shift]
+    
+    FixSecrets --> AuditReport[4. Output Audit Results & Defense Report]
+    FixSQL --> AuditReport
+    FixInput --> AuditReport
+    AskUser -- Approved --> AuditReport
+    CheckVun -- Clean --> AuditReport
+    
+    AuditReport --> SavePath{5. Resolve Audit Report Path}
+    SavePath -- docs/ Folder Exists --> WriteDocs[Write to docs/security-audit.md]
+    SavePath -- Protected / No Folder --> WritePlatform[Write to .github/harness-everything/security-audit.md]
+    
+    WriteDocs --> Done[Security Review Complete]
+    WritePlatform --> Done
+```
+
+## 1. Threat Modeling First (`STRIDE`)
+Before changing code, spend two minutes analyzing the trust boundaries and abuse cases:
+- Consult `security-review/guides/STRIDE-THREAT-MODEL.md` for STRIDE definitions.
+- **Formulate Abuse Cases**: For every positive feature, ask "How would an attacker misuse this endpoint/input?"
+
+## 2. Three-Tier Boundary System
+- **Always Do**: Parameterize all SQL, validate inputs via Zod, store tokens in `httpOnly` cookies, extract secrets to `process.env`.
+- **Ask First**: Changing CORS policies, modifying auth/login flows, adding file uploads, modifying rate limits.
+- **Never Do**: Never commit hardcoded secrets (`sk-`), never log passwords/tokens, never use `eval()` or unescaped `innerHTML`.
+
+## Deep Reference Guides & Tooling
+- `security-review/scripts/audit-secrets.js` — Automated local workspace secret & SQL injection scanner.
+- `security-review/guides/STRIDE-THREAT-MODEL.md` — STRIDE threat modeling & abuse case guidelines.
+- `security-review/guides/OWASP-PATTERNS.md` — OWASP Top 10 code hardening & mitigation code patterns.
 
 ## When to Activate
 

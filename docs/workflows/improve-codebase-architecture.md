@@ -10,13 +10,21 @@ This section visualizes how the `improve-codebase-architecture` skill executes i
 
 ```mermaid
 graph TD
-  Start([Audit Request / Refactoring]) --> ScanDirectories["Scan code directories for coupling"]
-  ScanDirectories --> IdentifyTightlyCoupled["Locate highly coupled modules / wide files"]
-  IdentifyTightlyCoupled --> DeepModuleTest["Analyze modules against Deep Module Design rules"]
-  DeepModuleTest --> DefineSeams["Identify clean seams & write interface abstractions"]
-  DefineSeams --> GenMermaidReport["Generate visual HTML / Mermaid codebase dependency map"]
-  GenMermaidReport --> ProposeDecomposition["Formulate restructuring and extraction proposal"]
-  ProposeDecomposition --> End([Actionable refactoring strategy compiled])
+  Start([Audit Request / Refactoring / SRP Object Splitting]) --> ScanDirectories["Scan code directories, CONTEXT.md & ADRs"]
+  ScanDirectories --> IdentifyTarget["Identify Monolithic Objects (>300 lines) or Shallow Modules"]
+  IdentifyTarget --> FormulatePlan["Formulate Deepening & SRP Object Extraction Plan"]
+  FormulatePlan --> Propose["Present Deepening & SRP Proposal to User"]
+  Propose --> UserApproved{"User Approves Proposal?"}
+  
+  UserApproved -->|Yes| CheckTests{"Existing Test Safety Net Present?"}
+  UserApproved -->|No| AdjustPlan["Adjust Proposal Scope"] --> Propose
+  
+  CheckTests -->|No Tests| WriteCharTests["Write Characterization Tests First"] --> ExecuteTDD
+  CheckTests -->|Tests Present| ExecuteTDD["Execute Object Extraction via TDD"]
+  
+  ExecuteTDD --> CheckErrors{"Cascading Errors > 3?"}
+  CheckErrors -->|Yes| Rollback["Rollback Changes & Trigger zoom-out"]
+  CheckErrors -->|No| Complete["Refactoring Complete & Record Lessons in self-evolve"]
 ```
 
 ---

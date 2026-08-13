@@ -37,13 +37,24 @@ function run(userPrompt) {
   const TIER3_KEYWORDS = routingConfig.tiers.tier3 || [];
   const TIER2_KEYWORDS = routingConfig.tiers.tier2 || [];
 
+  function matchKeyword(prompt, keyword) {
+    const k = keyword.toLowerCase().trim();
+    if (!k) return false;
+    const isChineseOrMultiword = /[\u4e00-\u9fa5]/.test(k) || k.includes(' ') || k.includes('-');
+    if (isChineseOrMultiword) {
+      return prompt.includes(k);
+    }
+    const escaped = k.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    return new RegExp(`\\b${escaped}\\b`, 'i').test(prompt);
+  }
+
   let recommendedTier = "Tier 1 (Trivial)";
   let rationale = "No structural/testing signals in the prompt.";
 
-  if (TIER3_KEYWORDS.some(k => promptLower.includes(k))) {
+  if (TIER3_KEYWORDS.some(k => matchKeyword(promptLower, k))) {
     recommendedTier = "Tier 3 (Macro Task)";
-    rationale = "Prompt implies system-wide or architectural change.";
-  } else if (TIER2_KEYWORDS.some(k => promptLower.includes(k))) {
+    rationale = "Prompt implies macro task, new feature development, architectural refactoring, deep analysis, ADR adjustment, or multi-agent collaboration.";
+  } else if (TIER2_KEYWORDS.some(k => matchKeyword(promptLower, k))) {
     recommendedTier = "Tier 2 (Standard Task)";
     rationale = "Prompt implies development work needing TDD validation or multi-file coordination.";
   }

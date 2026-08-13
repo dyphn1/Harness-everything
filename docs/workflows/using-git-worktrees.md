@@ -10,14 +10,18 @@ This section visualizes how the `using-git-worktrees` skill executes internally,
 
 ```mermaid
 graph TD
-  Start([Switch Context Needed]) --> CheckClean["Assess if main branch has uncommitted changes"]
-  CheckClean --> CreateWorktree["Run git worktree add to a sibling directory"]
-  CreateWorktree --> CheckoutTarget["Checkout target branch or create a hotfix branch"]
-  CheckoutTarget --> OpenWorkspace["Open the sibling directory as a separate isolated workspace"]
-  OpenWorkspace --> RunDev["Perform isolated edits, tests, and debugging"]
-  RunDev --> CommitIsolated["Commit changes in the isolated workspace"]
-  CommitIsolated --> RemoveWorktree["Prune and clean up the worktree path"]
-  RemoveWorktree --> Return([Return to original workspace with pristine unsaved state intact])
+  Start([Trigger: Need Workspace Isolation]) --> CheckIso{1. Already in Worktree? GIT_DIR != GIT_COMMON}
+  CheckIso -->|Yes| Setup["3. Project Setup & Dependency Install"]
+  CheckIso -->|No| CheckNative{2. Native Worktree Tool Available?}
+  
+  CheckNative -->|Yes| RunNative["Use Native Worktree Tool"] --> Setup
+  CheckNative -->|No| RunGit["Try git worktree add .worktrees/branch"]
+  
+  RunGit -->|Success| Setup
+  RunGit -->|Fails / Sandbox Denied| WorkInPlace["Fallback: Work in Place in Current Directory"] --> Setup
+  
+  Setup --> RunBaseline["4. Verify Clean Test Baseline"]
+  RunBaseline --> End([Isolated Workspace Ready])
 ```
 
 ---

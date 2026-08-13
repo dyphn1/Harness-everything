@@ -2,7 +2,7 @@
 name: find-skills
 description: When no static skill, self-evolved skill, or already-installed third-party skill covers what the user needs, search the open agent-skills ecosystem (skills.sh / npx skills) for one, verify it, and — only with explicit user approval — apply it ephemerally via a content-addressed temp cache (default) or, only when the user explicitly wants to keep it long-term, install it permanently via npx skills add.
 author: Miya Daniel | Harness Core Team
-version: 0.3.0
+version: 0.3.3
 ---
 
 # Find Skills (External Skill Discovery)
@@ -11,10 +11,34 @@ version: 0.3.0
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | User asks "how do I do X", "is there a skill for X", "find a skill for X", "can you do X" — where X isn't already covered by a static skill, a self-evolved `generated` skill, or something already fetched by a prior `npx skills add` in this workspace/machine. |
-| **Expected Output** | Either: (a) a pointer to something that already covers the need — no fetch — or (b) after explicit user approval, the skill's content applied to the current task via the default ephemeral path (§6), or, only when the user explicitly says they'll reuse it, a permanent install via `npx skills add` (§6b). |
-| **State Mutations** | `npx skills list`/`find` (read-only, §0/§3) freely. Default path (§6): writes only to a content-addressed cache under the OS temp directory (`find-skills/scripts/use-skill.js`) — self-expiring, not part of any repo or platform directory. Exception path (§6b): `npx skills add`, landing at that platform's native skill directory — only after the user explicitly opts into keeping it. **No Harness-owned bookkeeping (manifest, registry) is ever written** — see §0.3 for why. |
-| **Enforcement Gate** | **MUST NOT** fetch or apply a specific third-party package without the user first confirming it (§5) — regardless of which path, this loads arbitrary third-party instructions into agent context, so silent auto-fetch is prohibited even under Tier 2/3 autonomy. **MUST** complete Step 0 (check existing coverage) before searching externally. **MUST** default to the ephemeral path (§6) unless the user explicitly states they want to keep the skill long-term — permanent install (§6b) is the exception, never the default. |
+| **Trigger / Input** | Explicit request to search for an external skill ("find skill for X"). |
+| **Expected Output** | Pointer to existing static/self-evolved skill, or external skill applied via `use-skill.js`/`npx skills add`, or direct domain capability fallback. |
+| **State Mutations** | Ephemeral temp cache (`use-skill.js`) or native platform skill folder (`npx skills add` if user opts in). |
+| **Enforcement Gate** | Check static/self-evolved skills first. MUST get explicit user confirmation before applying third-party skill code. Handle network/npx failure gracefully. |
+
+## Process & Search Resolution Flow
+
+Follow the decision matrix below when discovering skills:
+
+```mermaid
+flowchart TD
+    Start[User Asks for Skill / Capability X] --> CheckLocal{1. Covered by Static or Self-Evolved Skills?}
+    
+    CheckLocal -- Yes --> UseLocal[Use Existing Harness Skill / Dynamic Generated Skill]
+    CheckLocal -- No --> CheckNet{2. Network & npx Executable?}
+    
+    CheckNet -- Yes --> SearchSkills[Search via npx skills find / skills.sh]
+    SearchSkills -- Found & Approved --> ApplySkill[Apply Ephemerally via use-skill.js or npx skills add]
+    SearchSkills -- Network / Search Fails --> FallbackGeneral
+    
+    CheckNet -- No --> FallbackGeneral{3. Offline / General Domain Capability Fallback}
+    
+    FallbackGeneral --> ExecuteDirect[Apply Built-in Best Practices / Direct Solution]
+    
+    UseLocal --> Done[Delivered Capabilities]
+    ApplySkill --> Done
+    ExecuteDirect --> Done
+```
 
 ## 0. Check existing coverage first (don't search externally if you don't have to)
 

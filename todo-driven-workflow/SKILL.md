@@ -2,36 +2,56 @@
 name: todo-driven-workflow
 description: Enforces a deliberate, step-by-step execution loop.
 author: Miya Daniel | Harness Core Team
-version: 1.2.0
+version: 0.3.3
 metadata:
   type: harness-discipline
 ---
 
-# Todo-Driven Workflow (以 TODO 驅動的自動化工作流)
+# Todo-Driven Workflow
 
 ## 📋 Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Tier 2/3 task identification. Input: High-level task description. |
-| **Expected Output** | Step-by-step state tracking via `todo-cli.js`. |
-| **State Mutations** | Updates `.claude/harness-state/todo-state.json` via CLI. |
-| **Enforcement Gate** | Managed via `todo-cli.js`. Focuses on one active in-progress task at a time to maintain clean context boundaries. |
+| **Expected Output** | Step-by-step state tracking via native tool, CLI script, or workspace markdown state file. |
+| **State Mutations** | Updates native TODO tool state, `.claude/harness-state/todo-state.json`, or workspace file (`tasks/todo.md`). |
+| **Enforcement Gate** | Focuses on exactly ONE active `in-progress` task at a time to maintain clean context boundaries. |
 
 This skill structures execution into deliberate, single-task milestones to prevent context drift and maintain clear progress visibility.
-
-> **Platform note**: See [README § Supported AI IDEs & Tools](../README.md#supported-ai-ides--tools) for which platforms get hard hook gating vs. advisory only. On advisory-only platforms, execution of `todo-cli.js` functions as self-directed state tracking.
 
 ---
 
 ## ⚡ Core Trigger
 Recommended for complex, multi-step, or multi-file development tasks (Tier 2 and Tier 3).
 
-## ⚙️ Execution Method
+## ⚙️ Execution Method & Tool Selection Matrix
 
-| Environment | Primary Task Tracker | Implementation Method |
-| :--- | :--- | :--- |
-| **All Environments** | `todo-cli.js` | Use `node "<this-skill-dir>/scripts/todo-cli.js"` to manage task transitions. Run with `--help` for the full command reference. |
+Follow the decision matrix below to determine the task tracking method:
+
+```mermaid
+flowchart TD
+    Start[Task Requires Step-by-Step Tracking] --> CheckNativeTool{1. Agent / IDE Has Native TODO Tool?<br>e.g. manage_todo_list}
+    
+    CheckNativeTool -- Yes --> UseNative[Use Native TODO Tool<br>manage_todo_list]
+    CheckNativeTool -- No --> CheckScript{2. Node.js & todo-cli.js Executable?}
+    
+    CheckScript -- Yes --> UseScript[Execute todo-cli.js<br>init / start / complete]
+    CheckScript -- No --> FileFallback{3. Workspace Markdown File Fallback}
+    
+    FileFallback -- Existing Folder Found --> PathRepo[Write to Workspace File<br>e.g. tasks/todo.md or todo.md]
+    FileFallback -- No Folder --> PathPlatform[Write to Platform State File<br>e.g. .github/harness-everything/todo.md]
+    
+    UseNative --> Loop[Execution Loop: Think > Try > Summarize > Record]
+    UseScript --> Loop
+    PathRepo --> Loop
+    PathPlatform --> Loop
+```
+
+#### Execution Rules:
+1. **Native IDE/Agent Tool Priority**: If the environment provides a native TODO management tool (such as `manage_todo_list`), **MUST** use it as the primary tracker. Maintain exactly 1 item `in-progress` at a time and mark completed immediately.
+2. **CLI Script Fallback**: If no native tool exists but Node.js & `todo-cli.js` are executable, run `node "<this-skill-dir>/scripts/todo-cli.js"`.
+3. **Workspace Markdown File Fallback**: If neither tool nor script is available, create and update a markdown checklist file in the workspace (`tasks/todo.md`, `todo.md`, or `.github/harness-everything/todo.md`).
 
 ### 🔀 Multi-Agent Concurrency & Isolation
 When running multiple Sub-agents in parallel (e.g. during `fable-mode` tasks), avoid concurrent state modifications in a single workspace folder. Leverage `using-git-worktrees` to isolate each parallel agent into its own git worktree for clean filesystem-level separation.

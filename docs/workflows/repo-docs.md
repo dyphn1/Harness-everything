@@ -10,13 +10,18 @@ This section visualizes how the `repo-docs` skill executes internally, detailing
 
 ```mermaid
 graph TD
-  Start([Generate Repository Docs]) --> AuditProjectStructure["Audit workspace directory tree"]
-  AuditProjectStructure --> ClassifyProductArchetype["Classify repository archetype: tool, library, platform"]
+  Start([Generate / Update Repository Docs]) --> AuditProjectStructure["Audit workspace directory tree & build configs"]
+  AuditProjectStructure --> CheckExisting{Existing README / AGENTS File Found?}
+  
+  CheckExisting -->|Yes| ReadOld["Read Existing File & Extract Bespoke Notes (env vars, URLs, gotchas)"]
+  CheckExisting -->|No| ClassifyProductArchetype["Classify repository archetype"]
+  
+  ReadOld --> ClassifyProductArchetype
   ClassifyProductArchetype --> LoadTemplates["Load standard README and AGENTS templates"]
-  LoadTemplates --> InjectCustomStructure["Populate files with actual paths, licenses, and badges"]
-  InjectCustomStructure --> FormatMarkdown["Format documents following clean layout rules"]
-  FormatMarkdown --> WriteFiles["Commit README.md and AGENTS.md to workspace root"]
-  WriteFiles --> End([Professional onboarding documentation created])
+  LoadTemplates --> SmartMerge["Smartly Merge Codebase Facts + Bespoke Notes + Template Structure"]
+  SmartMerge --> FormatMarkdown["Format documents following clean layout rules"]
+  FormatMarkdown --> WriteFiles["Save / Merge README.md and AGENTS.md at Root or .github/"]
+  WriteFiles --> End([Professional onboarding documentation created without losing history])
 ```
 
 ---

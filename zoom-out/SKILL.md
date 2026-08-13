@@ -2,7 +2,7 @@
 name: zoom-out
 description: Reflect-first circuit breaker - rebuild the full picture and fact-check assumptions when stuck; escalate to the human only for genuine decisions.
 author: Miya Daniel | Harness Core Team
-version: 0.3.0
+version: 0.3.3
 ---
 
 # Zoom Out (Global Perspective & Circuit Breaker)
@@ -11,16 +11,34 @@ version: 0.3.0
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Terminal script failures 3 times in a row, or getting stuck in a loop. Input: Error logs. |
-| **Expected Output** | Reflection report written to disk. Mutating terminal commands pause until reflection is complete. |
-| **State Mutations** | Writes `zoom-out-report.md` at the path provided by the Rule of 3 breaker message (session-scoped). |
-| **Enforcement Gate** | The `rule-of-3.js` script (via Hook or CLI) allows writing `zoom-out-report.md` to unlock mutating operations. |
+| **Trigger / Input** | Terminal script failures 3 times in a row, divergence, or explicit "step back" request. Input: Error logs. |
+| **Expected Output** | Reflection report written to disk or presented inline, followed by self-recovery or human decision escalation. |
+| **State Mutations** | Writes `zoom-out-report.md` at session path, `.github/harness-everything/zoom-out-report.md`, or inline. |
+| **Enforcement Gate** | Pause code edits immediately upon 3 failures. Must write reflection report before resuming edits. |
 
-This skill serves as a circuit breaker to help agents step back, re-verify assumptions, and rebuild global context when stuck.
+## Process & Circuit Breaker Resolution Flow
 
-Its purpose is self-recovery through reflection. When faced with repeated failures, stepping back to re-verify assumptions against codebase facts prevents unhelpful trial-and-error loops. Escalation to the user happens when a genuine architectural or requirements decision is needed.
+Follow the decision matrix below when hitting a circuit breaker:
 
-> **Platform note**: See [README § Supported AI IDEs & Tools](../README.md#supported-ai-ides--tools) for which platforms enforce this physically (`exit 2` hooks) vs. advisory only. On advisory-only platforms, follow this reflection protocol self-directed when hitting 3 consecutive failures.
+```mermaid
+flowchart TD
+    Start[Trigger: 3 Consecutive Failures / Goal Drift] --> CeaseFire[1. Phase 1: Cease Fire - Stop Code Edits Immediately]
+    CeaseFire --> Rebuild[2. Phase 2: Rebuild Full Picture using Read-Only Tools]
+    Rebuild --> CheckPath{3. Resolve Reflection Report Path}
+    
+    CheckPath -- Session Path Provided --> WriteSession[Copy template to Session zoom-out-report.md]
+    CheckPath -- Template / Path Unavailable --> WritePlatform[Write to .github/harness-everything/zoom-out-report.md or Inline]
+    
+    WriteSession --> DecisionGate{4. Phase 4: Decision Gate}
+    WritePlatform --> DecisionGate
+    
+    DecisionGate -- Clear Untried Path Identified --> Resume[RESUME: Execute Fresh Diagnosis in TDD / Fable]
+    DecisionGate -- Requirement Conflict / Access Gap --> Escalate[ESCALATE: Present 2-3 Options + Recommendation to Human]
+    
+    Resume --> Resolved{5. Problem Cracking Succeeds?}
+    Resolved -- Yes --> SelfEvolve[Call self-evolve to Persist Insight]
+    Resolved -- No (3 More Failures) --> Escalate
+```
 
 ## 1. Triggers
 - **Rule of 3 (Repeated Failures)**: Attempting to fix the same error or test failure 3 times without progress.

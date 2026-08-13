@@ -97,35 +97,73 @@ function missingFields(projectDocs) {
   return REQUIRED_FIELDS.filter(f => !String(projectDocs[f] || '').trim());
 }
 
+/**
+ * Heuristic workspace convention detector.
+ * Automatically infers docLocation, tracker, and issueDefinition from standard directory layouts.
+ */
+function detectWorkspaceConventions(workspaceRoot) {
+  const inferred = {};
+
+  // Detect docLocation
+  const docCandidates = ['docs/roadmaps', 'docs/reference', 'docs/specs', 'docs', 'doc'];
+  for (const dir of docCandidates) {
+    if (fs.existsSync(path.join(workspaceRoot, dir))) {
+      inferred.docLocation = `${dir}/`;
+      break;
+    }
+  }
+
+  // Detect tracker
+  if (fs.existsSync(path.join(workspaceRoot, '.github/ISSUE_TEMPLATE'))) {
+    inferred.tracker = 'GitHub Issues via .github/ISSUE_TEMPLATE/';
+  } else if (fs.existsSync(path.join(workspaceRoot, 'docs/roadmaps'))) {
+    inferred.tracker = 'docs/roadmaps/ local markdown tickets';
+  } else if (fs.existsSync(path.join(workspaceRoot, 'tasks/tickets'))) {
+    inferred.tracker = 'tasks/tickets/ local markdown tickets';
+  } else if (fs.existsSync(path.join(workspaceRoot, '.scratch'))) {
+    inferred.tracker = '.scratch/ local markdown workspace';
+  } else if (inferred.docLocation) {
+    inferred.tracker = `${inferred.docLocation}tickets/ local markdown tickets`;
+  }
+
+  // Detect issueDefinition
+  if (inferred.tracker && inferred.tracker.includes('ISSUE_TEMPLATE')) {
+    inferred.issueDefinition = '.github/ISSUE_TEMPLATE/ template structure';
+  } else if (inferred.tracker) {
+    inferred.issueDefinition = 'Title + acceptance criteria + Status: ready-for-agent';
+  }
+
+  return inferred;
+}
+
 function runCheck(workspaceRoot) {
   const existingPaths = getRepoManifestHomes(workspaceRoot)
     .map(getManifestPath)
     .filter(p => fs.existsSync(p));
 
-  if (existingPaths.length === 0) {
-    console.log('[Project Docs Check] MISSING: no harness-everything/manifest.json found for any detected platform in this repo.');
-    console.log('=> Run the Step 0 framework interview (to-spec/SKILL.md), then persist with:');
-    console.log('   node to-spec/scripts/check-project-docs.js init --doc-location "..." --tracker "..." --issue-definition "..."');
-    process.exit(1);
-  }
-
-  // Any one manifest defining projectDocs fully is enough - init below
-  // writes to every detected home together, so in practice they stay in sync.
+  // Check explicit projectDocs entries in manifest files
   for (const manifestPath of existingPaths) {
-    if (missingFields(readManifest(manifestPath).projectDocs).length === 0) {
+    const docs = readManifest(manifestPath).projectDocs;
+    if (docs && missingFields(docs).length === 0) {
       console.log(`[Project Docs Check] OK: ${manifestPath} defines document location, issue tracker, and issue definition.`);
       process.exit(0);
     }
   }
 
-  // Report against whichever existing manifest is furthest along, so the
-  // interview only needs to fill genuine gaps.
-  const closest = existingPaths
-    .map(p => ({ p, missing: missingFields(readManifest(p).projectDocs) }))
-    .sort((a, b) => a.missing.length - b.missing.length)[0];
+  // Fallback to heuristic workspace detection
+  const inferred = detectWorkspaceConventions(workspaceRoot);
+  const missingInferred = missingFields(inferred);
 
-  console.log(`[Project Docs Check] INCOMPLETE: no manifest.json has a complete projectDocs entry. Closest is ${closest.p}, missing: ${closest.missing.join(', ')}`);
-  console.log('=> Run the Step 0 framework interview for just the missing field(s), then re-run `init` to fill them in.');
+  if (missingInferred.length === 0) {
+    console.log(`[Project Docs Check] OK (Inferred from workspace structure):`);
+    console.log(`  - docLocation: ${inferred.docLocation}`);
+    console.log(`  - tracker: ${inferred.tracker}`);
+    console.log(`  - issueDefinition: ${inferred.issueDefinition}`);
+    process.exit(0);
+  }
+
+  console.log(`[Project Docs Check] INCOMPLETE: no manifest.json or standard folder structure covers all fields. Missing: ${missingInferred.join(', ')}`);
+  console.log('=> Run the Step 0 framework interview for missing fields, or proceed using default workspace fallbacks.');
   process.exit(1);
 }
 

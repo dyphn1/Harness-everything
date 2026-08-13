@@ -2,7 +2,7 @@
 name: verify-before-claim
 description: "Verify external framework/API claims and unmeasured perf/cost estimates against an authoritative source before asserting them, instead of answering from training memory."
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.3
 metadata:
   type: harness-discipline
 ---
@@ -13,24 +13,31 @@ metadata:
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | About to state how an external system (framework/library/SDK/API/service) currently behaves, or about to state an unmeasured performance/cost/timing number. |
-| **Expected Output** | The claim is backed by a `WebFetch`/`WebSearch`-sourced quote from authoritative docs, or an actual measurement — never asserted from training memory alone. |
-| **State Mutations** | None — this is a discipline governing what gets asserted in the response, not a file-mutating skill. |
-| **Enforcement Gate** | An external-behavior claim without a same-session fetch/search backing it **MUST NOT** be asserted with confidence; an unmeasured number **MUST** be explicitly labeled as an estimate, not presented as fact. |
+| **Trigger / Input** | About to state how an external system behaves, or state unmeasured performance/cost numbers. |
+| **Expected Output** | Claim backed by WebFetch/WebSearch from authoritative docs, real measurement, or explicit fallback estimate warning. |
+| **State Mutations** | None — governs response assertions. |
+| **Enforcement Gate** | Fetch/search official docs for external claims. If web fetch/search is unavailable, explicitly label assertions as unverified estimates. |
 
-Training memory goes stale and is easy to misremember with full confidence.
-This skill exists because that failure mode is real and already happened in
-this repo: an early claim that `rule-of-3.js`'s `process.exit(1)` blocked a
-Claude Code `PreToolUse` hook was wrong — the official docs say only
-`exit(2)` blocks, `exit(1)` is a non-blocking error — and it was only caught
-by actually fetching `code.claude.com/docs/en/hooks` instead of trusting the
-assumption. The circuit breaker had never blocked anything until that got
-checked.
+## Process & Verification Flow
 
-`harness-everything/scripts/tier-router.js` fires a lightweight keyword-based
-reminder for this automatically (`UserPromptSubmit`, "FACT-AUDIT REMINDER"
-block) so you don't have to be manually pushed into checking every time. This
-file is the actual discipline behind that reminder.
+Follow the decision matrix below when making external framework or performance assertions:
+
+```mermaid
+flowchart TD
+    Start[About to Assert External API / Framework Behavior or Perf Number] --> CheckScope{1. Claim Scope Check}
+    
+    CheckScope -- Internal Repo Code --> ReadCode[Read Local Source Code -> State Facts]
+    CheckScope -- External Framework / API / Number --> CheckNet{2. Web Fetch / Search / Measurement Available?}
+    
+    CheckNet -- Yes --> FetchDocs[WebFetch Official Docs / Measure Real Execution]
+    FetchDocs --> CiteDocs[Quote Authoritative Source / State Measured Data]
+    
+    CheckNet -- No / Offline --> EstimateFallback[Explicitly Label Response as Unverified Estimate]
+    
+    ReadCode --> Done[Verified Output]
+    CiteDocs --> Done
+    EstimateFallback --> Done
+```
 
 ## TRIGGER — verify before asserting, don't skip because the answer "feels obvious"
 

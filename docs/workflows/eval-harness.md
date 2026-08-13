@@ -10,12 +10,19 @@ This section visualizes how the `eval-harness` skill executes internally, detail
 
 ```mermaid
 graph TD
-  Start([Agent Execution Finished]) --> CollectExecutionMetrics["Gather total elapsed time, token count, and API calls"]
-  CollectExecutionMetrics --> EvaluateAccuracy["Compare completed task output against baseline correctness requirements"]
-  EvaluateAccuracy --> AnalyzeLoops["Check for repetitive tool invocations or redundant edits"]
-  AnalyzeLoops --> CalculateScores["Calculate performance and efficiency scores"]
-  CalculateScores --> GenerateEvalReport["Compile formal evaluation report and dashboard metrics"]
-  GenerateEvalReport --> End([Performance metrics indexed and logged])
+  Start([Trigger: Benchmark / Evaluate Log]) --> ParseLog["1. Parse Log: Actions, Error Loops, Token Indicator"]
+  ParseLog --> CalcRubric["2. Calculate Scores across 4 Dimensions (0-10)"]
+  CalcRubric --> CheckScript{3. Is evaluate.js Executable?}
+  
+  CheckScript -->|Yes| RunScript["Run node eval-harness/scripts/evaluate.js"]
+  CheckScript -->|No / Fails| FileFallback{"4. Markdown File Fallback"}
+  
+  FileFallback -->|evals/ Exists| WriteEvals["Save Scorecard to evals/scorecard.md"]
+  FileFallback -->|No evals/ Folder| WritePlatform["Save Scorecard to .github/harness-everything/evals/scorecard.md"]
+  
+  RunScript --> End([Evaluation Scorecard Logged])
+  WriteEvals --> End
+  WritePlatform --> End
 ```
 
 ---

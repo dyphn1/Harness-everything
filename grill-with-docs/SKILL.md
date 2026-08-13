@@ -2,17 +2,48 @@
 name: grill-with-docs
 description: Grilling session that challenges your plan against the existing domain model, sharpens terminology, and updates documentation (CONTEXT.md, ADRs) inline as decisions crystallise. Use when user wants to stress-test a plan against their project's language and documented decisions.
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.3
 ---
+
+# Grill With Docs (Domain Modeling & Architectural Alignment)
 
 ## 📋 Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | User wants to stress-test a plan against the project's existing domain language and documented decisions (`CONTEXT.md`, ADRs). (If the core proposal is highly vague, unverified, or lacks SRE/vulnerability/fail-safe considerations, recommend running `grill-me` first to harden the plan before documenting). |
-| **Expected Output** | A one-question-at-a-time interview walking the design tree to resolution; `CONTEXT.md` updated inline as terms resolve; new ADRs created only when a decision is hard-to-reverse, surprising, and a genuine trade-off. |
-| **State Mutations** | Creates/edits `CONTEXT.md` and `docs/adr/*.md` (or the per-context equivalents under a `CONTEXT-MAP.md` layout). |
-| **Enforcement Gate** | `CONTEXT.md` **MUST** stay a pure glossary — no implementation details. An ADR **MUST NOT** be offered unless all three criteria (hard to reverse, surprising without context, real trade-off) hold. Once alignment is complete, hand off to subsequent specs (`to-spec`/`to-tickets`) or execution (`fable-mode`/`tdd`) via `harness-everything`. |
+| **Trigger / Input** | User wants to stress-test a plan against the project's existing domain language and documented decisions (`CONTEXT.md`, ADRs). |
+| **Expected Output** | Structured interview walking the design tree; `CONTEXT.md` updated inline as terms resolve; ADRs created via dynamic path resolution or handed off to `to-spec`. |
+| **State Mutations** | Updates `CONTEXT.md` and ADR files at resolved locations (`docs/adr/`, `CONTEXT-MAP.md` locations, or platform fallback `.github/harness-everything/adr/`). |
+| **Enforcement Gate** | `CONTEXT.md` MUST remain a pure glossary (no implementation details). ADRs MUST meet the 3-part criteria. Hand off to `to-spec` for formal spec/ADR publishing upon alignment completion. |
+
+## Process & Domain Alignment Flow
+
+Follow the decision matrix below when aligning domain models and architectural decisions:
+
+```mermaid
+flowchart TD
+    Start[Trigger: Stress-test Plan against Domain Model] --> Scan[1. Scan Codebase, CONTEXT.md & Existing ADRs]
+    Scan --> Frontier[2. Calculate Frontier & Ask Questions]
+    
+    Frontier --> Answer[Receive Answer & Resolve Domain Term]
+    Answer --> UpdateGlossary[3. Update CONTEXT.md Glossary Inline]
+    
+    UpdateGlossary --> CheckADR{4. Hard-to-reverse Trade-off Decision Reached?}
+    
+    CheckADR -- Yes --> ResolvePath{Resolve ADR Storage Path}
+    CheckADR -- No --> CheckMore
+    
+    ResolvePath -- projectDocs / docs/adr Exists --> WriteMain[Write to docs/adr/ or CONTEXT-MAP.md Location]
+    ResolvePath -- No Folder Found --> WritePlatform[Write to .github/harness-everything/adr/ or Delegate to to-spec]
+    
+    WriteMain --> CheckMore{5. All Design Tree Branches Resolved?}
+    WritePlatform --> CheckMore
+    
+    CheckMore -- Unresolved Branches Remain --> Frontier
+    CheckMore -- All Branches Resolved --> ToSpec[6. Hand off to to-spec for Outline Preview & Spec/ADR Publishing]
+    
+    ToSpec --> Execution[7. Route to to-tickets / fable-mode / tdd via harness-everything]
+```
 
 <what-to-do>
 
@@ -30,37 +61,25 @@ If a question can be answered by exploring the codebase, explore the codebase in
 
 During codebase exploration, also look for existing documentation:
 
-### File structure
+### Dynamic Storage Resolution & File Structure
 
-Most repos have a single context:
+Inspect the workspace and resolve document locations dynamically:
+
+1. **Monorepo / Multi-Context**: If `CONTEXT-MAP.md` exists at the root, follow its context-specific mapping.
+2. **Project Configured / Inferred Location**: Run `node "to-spec/scripts/check-project-docs.js" check` or inspect if `docs/adr/` or `docs/` exists in the workspace.
+3. **Platform Fallback**: If no documentation directory exists, write ADRs under `.github/harness-everything/adr/` (or `.claude/harness-everything/adr/`, `.cursor/harness-everything/adr/`), or delegate formal document generation to `to-spec`.
 
 ```
 /
-├── CONTEXT.md
-├── docs/
-│   └── adr/
+├── CONTEXT.md                        ← Primary domain glossary
+├── docs/                             ← Default documentation root
+│   └── adr/                          ← System-wide ADR decisions
 │       ├── 0001-event-sourced-orders.md
 │       └── 0002-postgres-for-write-model.md
-└── src/
+└── .github/harness-everything/adr/   ← Fallback ADR storage if workspace has no docs/ directory
 ```
 
-If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The map points to where each one lives:
-
-```
-/
-├── CONTEXT-MAP.md
-├── docs/
-│   └── adr/                          ← system-wide decisions
-├── src/
-│   ├── ordering/
-│   │   ├── CONTEXT.md
-│   │   └── docs/adr/                 ← context-specific decisions
-│   └── billing/
-│       ├── CONTEXT.md
-│       └── docs/adr/
-```
-
-Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed.
+Create files lazily — only when you have resolved terms or ADRs to write.
 
 ## During the session
 
@@ -96,10 +115,11 @@ Only offer to create an ADR when all three are true:
 
 If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
 
-### Connection to Grill Me (Pre-flight & Handoffs)
+### Connection to Grill Me & Specification Handoffs
 
 1. **Pre-flight**: If the core proposal is highly vague or its technical robustness (SRE, security, locks, concurrency, fail-safes) is unverified, recommend the user run `grill-me` first. Do not attempt to align a glossary for a broken or unstable design.
 2. **Transition**: Once technical issues are hardened in `grill-me`, transition here to solidify domain terms and record architectural choices.
-3. **Downstream Handoff**: Once alignment is complete and documents are updated, route to spec generation (`to-spec`) or execution (`fable-mode` / `tdd`) via `harness-everything`.
+3. **Downstream Specification Handoff**: Once alignment is complete and domain terms are updated, hand off to `to-spec/SKILL.md` to present an outline preview and publish the formal specification document or ADR.
+4. **Execution Handoff**: Route to `to-tickets` (for ticket decomposition), `fable-mode` (for macro scaffolding), or `tdd` (for feature implementation) via `harness-everything`.
 
 </supporting-info>

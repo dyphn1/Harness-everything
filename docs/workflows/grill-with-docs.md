@@ -16,11 +16,14 @@ graph TD
   RecommendGrillMe --> EndVague([Postponed until plan is hardened])
   ReadDomainModel --> ChallengeDrift["Examine plan for term drift or architectural violations"]
   ChallengeDrift --> UpdateGlossary["Refine and match terminology with current Glossary"]
-  UpdateGlossary --> DraftADR["Draft formal Architecture Decision Record in ADR format"]
-  DraftADR --> StressTestADR["Stress-test ADR against error boundaries and fail-safes"]
-  StressTestADR --> WriteDocs["Commit ADR to docs/adr/ and update CONTEXT.md"]
-  WriteDocs --> InjectTodos["Inject critical TODO: [CRITICAL BUG FIX] tags into corresponding code"]
-  InjectTodos --> End([Code and documentation are perfectly aligned])
+  UpdateGlossary --> ResolveADRPath{Resolve ADR Storage Path}
+  
+  ResolveADRPath -->|docs/adr/ or CONTEXT-MAP.md Exists| WriteDocs["Write ADR to docs/adr/ or CONTEXT-MAP.md Location"]
+  ResolveADRPath -->|No Folder Found| WritePlatform["Write to .github/harness-everything/adr/ or Delegate to to-spec"]
+  
+  WriteDocs --> ToSpec["Hand off to to-spec for Outline Preview & Spec/ADR Publishing"]
+  WritePlatform --> ToSpec
+  ToSpec --> End([Route to to-tickets / fable-mode / tdd])
 ```
 
 ---

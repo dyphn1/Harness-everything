@@ -57,25 +57,29 @@ function detectActivePlatform(wsRoot) {
   return 'claude'; // Default global fallback
 }
 
+function loadGitignoreHelper() {
+  const candidates = [
+    path.join(__dirname, '../../../scripts/lib/gitignore'),
+    path.join(getWorkspaceRoot(), 'scripts/lib/gitignore'),
+    path.join(getWorkspaceRoot(), 'harness-everything/scripts/lib/gitignore'),
+  ];
+  for (const cand of candidates) {
+    try {
+      if (fs.existsSync(cand + '.js') || fs.existsSync(cand)) {
+        return require(cand);
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
 function ensureHarnessStateIgnored(rootPath) {
   const wsRoot = rootPath || getWorkspaceRoot();
-  const gitignorePath = path.join(wsRoot, '.gitignore');
   
   try {
-    let content = '';
-    if (fs.existsSync(gitignorePath)) {
-      content = fs.readFileSync(gitignorePath, 'utf8');
-    }
-    
-    const lines = content.split(/\r?\n/);
-    const patternsToAdd = [];
-    
-    // Load and collect patterns & matching rules dynamically from all platforms
     const allPlatforms = require('./platforms');
     const dynamicPatterns = [];
-    const patternToPlatformMap = new Map();
     
-    // Forcefully ensure active platform's state directory pattern is included
     const activePlatformName = detectActivePlatform(wsRoot);
     const activePlatform = allPlatforms.find(p => p.name === activePlatformName) || allPlatforms.find(p => p.name === 'claude');
     
@@ -83,80 +87,25 @@ function ensureHarnessStateIgnored(rootPath) {
       const activeStateDir = activePlatform.getStateDir(wsRoot);
       const relativeStateDir = path.relative(wsRoot, activeStateDir).replace(/\\/g, '/') + '/';
       dynamicPatterns.push(relativeStateDir);
-      patternToPlatformMap.set(relativeStateDir, activePlatform);
     }
     
-    // Only include patterns for platforms that actually exist/have data in the workspace
     for (const platform of allPlatforms) {
       if (typeof platform.getHarnessDir === 'function') {
         const harnessDir = platform.getHarnessDir(wsRoot);
-        // If the platform directory or active platform matches, collect ignore patterns
         if (fs.existsSync(harnessDir) || platform.name === activePlatformName) {
           const patterns = platform.getIgnorePatterns(wsRoot);
           for (const pattern of patterns) {
             if (!dynamicPatterns.includes(pattern)) {
               dynamicPatterns.push(pattern);
             }
-            patternToPlatformMap.set(pattern, platform);
           }
         }
       }
     }
     
-    for (const pattern of dynamicPatterns) {
-      const platform = patternToPlatformMap.get(pattern);
-      const isIgnored = lines.some(line => {
-        const trimmed = line.trim();
-        // Delegate matching logic to the specific platform module if available
-        if (platform && typeof platform.isMatch === 'function') {
-          return platform.isMatch(pattern, trimmed);
-        }
-        return trimmed === pattern || trimmed === pattern.slice(0, -1);
-      });
-      
-      if (!isIgnored) {
-        patternsToAdd.push(pattern);
-      }
-    }
-    
-    // This runs once per hook invocation - i.e. once per Claude Code
-    // subprocess - with no cross-process lock around the read-then-append
-    // below. Two hook invocations firing close together (e.g. two tool
-    // calls in the same turn) can each read the file before either has
-    // written, so both decide the same pattern is missing and both append
-    // it, leaving an exact duplicate line behind. Rather than add real
-    // cross-process locking for a housekeeping file that already fails
-    // silently by design, every call also collapses any exact-duplicate
-    // non-comment/non-blank line it finds - so a duplicate from a lost
-    // race self-heals on the very next invocation instead of accumulating.
-    const seen = new Set();
-    let sawDuplicate = false;
-    const dedupedLines = lines.filter(line => {
-      const trimmed = line.trim();
-      if (trimmed === '' || trimmed.startsWith('#')) return true;
-      if (seen.has(trimmed)) {
-        sawDuplicate = true;
-        return false;
-      }
-      seen.add(trimmed);
-      return true;
-    });
-
-    if (patternsToAdd.length > 0 || sawDuplicate) {
-      while (dedupedLines.length > 0 && dedupedLines[dedupedLines.length - 1] === '') {
-        dedupedLines.pop();
-      }
-      
-      const bannerComment = '# Harness OS Auto-generated Ignore Rules';
-      const hasBanner = dedupedLines.some(line => line.trim() === bannerComment);
-      const toAppend = [];
-      if (!hasBanner && patternsToAdd.length > 0) {
-        toAppend.push('', bannerComment);
-      }
-      toAppend.push(...patternsToAdd);
-
-      const finalLines = dedupedLines.concat(toAppend);
-      fs.writeFileSync(gitignorePath, finalLines.join('\n') + '\n', 'utf8');
+    const gitignoreHelper = loadGitignoreHelper();
+    if (gitignoreHelper && typeof gitignoreHelper.ensureWorkspaceGitignorePatterns === 'function') {
+      gitignoreHelper.ensureWorkspaceGitignorePatterns(wsRoot, dynamicPatterns);
     }
   } catch (err) {
     // Fail silently to avoid breaking execution if .gitignore is write-locked

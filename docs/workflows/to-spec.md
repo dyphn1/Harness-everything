@@ -10,33 +10,23 @@ This section visualizes how the `to-spec` skill executes internally, detailing t
 
 ```mermaid
 graph TD
-  Start(["/to-spec invoked"]) --> CheckScript["Step 0: node to-spec/scripts/check-project-docs.js check"]
+  Start(["/to-spec invoked"]) --> OutlinePreview["Phase 1: Present 10-20 Line Outline Preview & Path to User"]
+  OutlinePreview --> UserApproved{"User Approves Outline?"}
+  UserApproved -->|No / Adjustments Needed| AdjustOutline["Refine Template Shape & Outline"] --> OutlinePreview
+  
+  UserApproved -->|Yes| CheckScript["Phase 2: node to-spec/scripts/check-project-docs.js check"]
   CheckScript --> ExitCode{"Exit code?"}
-  ExitCode -->|0: projectDocs complete in a repo-local manifest.json| Gather
-  ExitCode -->|1: missing/incomplete| Interview["Interview only the flagged field(s): docLocation / tracker / issueDefinition"]
-  Interview --> PersistInit["node check-project-docs.js init --doc-location ... --tracker ... --issue-definition ..."]
-  PersistInit --> WriteManifest["Writes projectDocs into every bootstrapped platform's harness-everything/manifest.json (repo-local homes only)"]
-  WriteManifest --> Gather["Step 1: Gather context - explore codebase, cite settled CONTEXT.md/ADR decisions"]
-  Gather --> PriorGrilling{"Unresolved fork found?"}
-  PriorGrilling -->|Yes| SuggestGrill["Suggest grill-me/grill-with-docs first - do NOT interview inline"]
-  PriorGrilling -->|No| PickShape["Step 2: Pick the template shape"]
-  PickShape --> ShapeChoice{"What's being built?"}
-  ShapeChoice -->|Feature / product surface| FeatureSpec["templates/feature-spec.md"]
-  ShapeChoice -->|Command / endpoint| CliRef["templates/cli-reference.md"]
-  ShapeChoice -->|Data shape| SchemaDoc["templates/schema-doc.md"]
-  ShapeChoice -->|Scoped decision| DevDoc["templates/dev-doc.md"]
-  FeatureSpec --> ConfirmSeams["Step 3: Confirm seams with user"]
-  CliRef --> ConfirmSurface["Step 3: Confirm flag/field surface with user"]
-  SchemaDoc --> ConfirmSurface
-  DevDoc --> ConfirmDecision["Step 3: Confirm one-line decision with user"]
-  ConfirmSeams --> WriteDoc["Step 4: Write doc from adapted template"]
-  ConfirmSurface --> WriteDoc
-  ConfirmDecision --> WriteDoc
-  WriteDoc --> RouteDest{"Shape?"}
-  RouteDest -->|Feature spec| PublishIssue["File as issue per tracker + issueDefinition fields"]
-  RouteDest -->|CLI ref / schema doc / dev doc| PublishDoc["Write under docLocation field - not filed as an issue"]
-  PublishIssue --> End(["Published"])
-  PublishDoc --> End
+  ExitCode -->|0: projectDocs complete or inferred| ResolveConfig["Use Configured / Inferred docLocation"]
+  ExitCode -->|1 / Script Missing| InspectWorkspace{"Inspect Workspace Folders"}
+  
+  InspectWorkspace -->|Folder Found| ResolveWorkspace["Use docs/specs/, docs/reference/, docs/adr/, .scratch/"]
+  InspectWorkspace -->|No Folder| ResolvePlatform["Fallback to .github/harness-everything/specs/"]
+  
+  ResolveConfig --> WriteDoc["Generate & Publish Full Document"]
+  ResolveWorkspace --> WriteDoc
+  ResolvePlatform --> WriteDoc
+  
+  WriteDoc --> End(["Spec Document Published Successfully"])
 ```
 
 ---

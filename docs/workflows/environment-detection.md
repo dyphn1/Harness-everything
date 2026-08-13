@@ -10,16 +10,16 @@ This section visualizes how the `environment-detection` skill executes internall
 
 ```mermaid
 graph TD
-  Start([Before Command Execution]) --> DetectOS["Detect Operating System: Windows, macOS, Linux"]
-  DetectOS --> DetectShell["Detect Shell: Bash, PowerShell, CMD, Zsh"]
-  DetectShell --> ScanCapabilities["Scan available runtimes: Node, Python, .NET, Docker"]
-  ScanCapabilities --> CheckSyntax["Inspect command for active shell compatibilities"]
-  CheckSyntax --> SyntaxGuard{Syntax safe for shell?}
-  SyntaxGuard -->|No| RewriteCmd["Transform/Rewrite command syntax to match active shell"]
-  SyntaxGuard -->|Yes| Execute["Run command in persistent terminal"]
-  RewriteCmd --> Execute
-  Execute --> CaptureOutput["Interleave output and exit code correctly"]
-  CaptureOutput --> End([Secure terminal result returned])
+  Start([Session Start / Discover Phase]) --> CheckNode{Node.js Executable?}
+  CheckNode -->|Yes| RunPreflight["Run scripts/preflight.js"]
+  CheckNode -->|No / Fails| Heuristic["Inspect <environment_info> & Probe Shell via echo/env"]
+  
+  RunPreflight --> ParseOutput["Parse OS, Shell, Path Separators & CLI Runtimes"]
+  Heuristic --> ParseOutput
+  
+  ParseOutput --> SelfHeal["Run self-heal.js if Node available"]
+  SelfHeal --> AlignSyntax["Adopt Path Slash (/ vs \\) & Env Var Syntax ($VAR vs %VAR%)"]
+  AlignSyntax --> End([Environment Context Established])
 ```
 
 ---

@@ -10,15 +10,24 @@ This section visualizes how the `git-commit` skill executes internally, detailin
 
 ```mermaid
 graph TD
-  Start([Trigger Commit Hook / Command]) --> DetectRepo["Detect main repo vs submodule"]
-  DetectRepo --> PreCheck["Verify unstaged changes & staged files"]
-  PreCheck --> StageCheck{Staged files present?}
-  StageCheck -->|No| Warning["Warn developer & exit"]
-  StageCheck -->|Yes| DetectLang["Analyze file extensions for active languages"]
-  DetectLang --> GenMessage["Analyze changes and generate Angular-style commit message"]
-  GenMessage --> FormatCheck["Format check: type, scope, subject, body, footer"]
-  FormatCheck --> WriteCommit["Commit staged files with formatted message"]
-  WriteCommit --> End([Staging clean and committed])
+  Start([Trigger Commit Request / Task Complete]) --> CheckGit{Is Git Repo Initialized?}
+  CheckGit -->|No| OfferInit["Prompt User: Run git init or Skip Commit"]
+  CheckGit -->|Yes| CheckSubmodules{Has Submodule Changes?}
+  
+  CheckSubmodules -->|Yes| CommitSubmodules["Commit Submodules First (Bottom-Up)"] --> CheckStatus
+  CheckSubmodules -->|No| CheckStatus["Run git status & git diff --cached"]
+  
+  CheckStatus --> StageCheck{Are Files Staged?}
+  StageCheck -->|No| AskStage["Prompt User / Stage Targeted Files"] --> FormatMessage
+  StageCheck -->|Yes| FormatMessage["Format Angular Commit Message"]
+  
+  FormatMessage --> CheckShell{Shell / Multiline Escaping Check?}
+  CheckShell -->|Simple Single Line| DirectCommit["Run git commit -m 'type(scope): subject'"]
+  CheckShell -->|Multiline / Windows| TempFileCommit["Write .git-commit-msg.txt -> Run git commit -F -> Cleanup"]
+  
+  DirectCommit --> VerifyCommit["Run git log -1 to Verify"]
+  TempFileCommit --> VerifyCommit
+  VerifyCommit --> End([Staging Clean and Committed])
 ```
 
 ---

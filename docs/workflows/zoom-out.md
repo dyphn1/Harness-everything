@@ -10,14 +10,24 @@ This section visualizes how the `zoom-out` skill executes internally, detailing 
 
 ```mermaid
 graph TD
-  Start([3 Consecutive Errors Triggered]) --> Tripped{Rule of 3 Tripped?}
-  Tripped -->|No| Backtrack["Review code change and retry"]
-  Tripped -->|Yes| LockWork["Lock all file edit capabilities"]
-  LockWork --> AwakenContext["Awaken: Review original goal & failed assumptions (Law 2)"]
-  AwakenContext --> GatherState["Analyze CWD, file states, and errors"]
-  GatherState --> GenReport["Compile formal Reflection Report: what failed, assumptions, backtracking options"]
-  GenReport --> PresentReport["Present report to human partner and request guidance"]
-  PresentReport --> End([Workforce unlocked after human direction received])
+  Start([3 Consecutive Failures / Goal Drift Triggered]) --> CeaseFire["1. Phase 1: Cease Fire - Stop Code Edits Immediately"]
+  CeaseFire --> Rebuild["2. Phase 2: Rebuild Full Picture using Read-Only Tools"]
+  Rebuild --> CheckPath{3. Resolve Reflection Report Path}
+  
+  CheckPath -->|Session Path Provided| WriteSession["Copy template to Session zoom-out-report.md"]
+  CheckPath -->|Template / Path Unavailable| WritePlatform["Write to .github/harness-everything/zoom-out-report.md or Inline"]
+  
+  WriteSession --> DecisionGate{4. Phase 4: Decision Gate}
+  WritePlatform --> DecisionGate
+  
+  DecisionGate -->|Untried Path Identified| Resume["RESUME: Execute Fresh Diagnosis in TDD / Fable"]
+  DecisionGate -->|Requirement Conflict / Access Gap| Escalate["ESCALATE: Present 2-3 Options + Recommendation to Human"]
+  
+  Resume --> Resolved{5. Problem Cracking Succeeds?}
+  Resolved -->|Yes| SelfEvolve["Call self-evolve to Persist Insight"]
+  Resolved -->|No: 3 More Failures| Escalate
+  SelfEvolve --> End([Reflection Completed & Lessons Persisted])
+  Escalate --> End
 ```
 
 ---

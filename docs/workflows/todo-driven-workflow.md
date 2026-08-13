@@ -1,6 +1,6 @@
 # Workflow: Todo-Driven Workflow
 
-> The fundamental execution loop. Driven entirely by terminal state machines (`todo-cli.js`).
+> The fundamental execution loop. Prioritizes native IDE tools (`manage_todo_list`), with fallback to CLI script (`todo-cli.js`) or workspace markdown files (`tasks/todo.md`).
 
 ---
 
@@ -11,25 +11,26 @@ This section visualizes the rigid state constraints. Transitioning state is bloc
 ```mermaid
 graph TD
   Start([Initialize Checklist]) --> Plan["Define 3-7 Verifiable Sub-tasks"]
-  Plan --> StateIntent["Awaken: State high-level intent (Law 1)"]
-  StateIntent --> SaveTodo["Try: node todo-cli.js init ..."]
+  Plan --> StateIntent["Awaken: State high-level intent"]
+  StateIntent --> CheckTool{Native TODO Tool Available?}
   
-  SaveTodo --> ChooseTask["Choose ONE pending task"]
-  ChooseTask --> MarkInProgress["Try: node todo-cli.js start <id>"]
+  CheckTool -->|Yes: manage_todo_list| NativeTracker["Use IDE Native manage_todo_list"]
+  CheckTool -->|No: Node.js & Script| ScriptTracker["Use node todo-cli.js init"]
+  CheckTool -->|No Tooling| FileTracker["Write to tasks/todo.md / .github/harness-everything/todo.md"]
   
-  MarkInProgress --> CheckStart{Gate: Exit Code?}
-  CheckStart -->|Exit 1: Multitasking Blocked| ReflectStart["Reflect: Must complete previous task first"]
-  ReflectStart --> Execute
+  NativeTracker --> ChooseTask["Choose ONE pending task (Set in-progress)"]
+  ScriptTracker --> ChooseTask
+  FileTracker --> ChooseTask
   
-  CheckStart -->|Exit 0| Execute["Execute code changes"]
+  ChooseTask --> Execute["Execute code changes"]
   
-  Execute --> GatherEvidence["Try: node verify-gate.js"]
-  GatherEvidence --> VerifySuccess{Gate: Exit Code?}
+  Execute --> GatherEvidence["Verify via Tests / verify-gate.js"]
+  GatherEvidence --> VerifySuccess{Verification Passed?}
   
-  VerifySuccess -->|Exit 1: Code is broken| ReflectCode["Reflect: Read Error Log & Fix"]
+  VerifySuccess -->|No: Code is broken| ReflectCode["Reflect: Read Error Log & Fix"]
   ReflectCode --> Execute
   
-  VerifySuccess -->|Exit 0: Code works| MarkCompleted["Try: node todo-cli.js complete <id>"]
+  VerifySuccess -->|Yes: Code works| MarkCompleted["Mark Task Completed in Active Tracker"]
   
   MarkCompleted --> CheckRemaining{All tasks completed?}
   CheckRemaining -->|No| ChooseTask

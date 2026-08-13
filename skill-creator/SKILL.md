@@ -2,7 +2,7 @@
 name: skill-creator
 description: Author, audit, and refactor SKILL.md files against a single quality bar — the Skill Contract format plus predictability/pruning/progressive-disclosure principles from external skill-writing research. Use when creating a new skill from scratch, reviewing or refactoring an existing SKILL.md, checking whether two skills overlap, or when self-evolve needs to package a session's learning into a durable dynamic skill.
 author: Miya Daniel | Harness Core Team
-version: 0.3.0
+version: 0.3.3
 ---
 
 # Skill Creator (Skill Authoring, Audit & Evolution Workflow)
@@ -11,12 +11,37 @@ version: 0.3.0
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Creating a new skill from scratch; auditing/refactoring an existing `SKILL.md`; `self-evolve`'s Step 3 packaging a session's insight into a durable dynamic skill. Input: a task description, an existing SKILL.md, or a root-cause insight from self-evolve. |
-| **Expected Output** | A `SKILL.md` that passes the Quality Checklist (§3) — static skills at `<skill-name>/SKILL.md` with a `harness-everything` registry row, dynamic skills at `.claude/harness-everything/skills/generated/<skill-name>/SKILL.md` with lifecycle metadata (§4). |
-| **State Mutations** | Writes/edits `<skill>/SKILL.md` (+ optional `guides/`/`references/`); for new static skills, adds one row to `harness-everything/SKILL.md` §5 and, if keyword-routable, one line to `tier-router.js`'s `recommendedGuides`. |
-| **Enforcement Gate** | A new or edited `SKILL.md` **MUST NOT** be registered or persisted until every item in the Quality Checklist (§3) is checked off — for dynamic skills this is self-evolve's actual persistence gate, not optional polish. |
+| **Trigger / Input** | Creating a new skill from scratch; auditing/refactoring an existing `SKILL.md`; `self-evolve` packaging a session's insight into a dynamic skill. |
+| **Expected Output** | A `SKILL.md` file passing Quality Checklist (§3) with explicit Fallback rules, registered in `harness-everything` or generated folder. |
+| **State Mutations** | Writes/edits `<skill>/SKILL.md` (+ optional `guides/`/`references/`); updates static registry or generated dynamic skills folder. |
+| **Enforcement Gate** | Complete Quality Checklist (§3) including Mermaid decision trees & Fallback rules before registering. |
 
-`skill-style/SKILL.md` defines *the shape* a SKILL.md must take (the Skill Contract table, the imperative tone) but not *how to get there well* — how to size a skill, when to push detail into a reference file, how to tell a real enforcement gate from a restated default, or where a rule belongs before it starts drifting across three files. Those questions come from two sources studied for this skill: [`writing-great-skills`](../mattpocock-skills/skills/productivity/writing-great-skills/SKILL.md) and Anthropic's own `skill-creator`. Neither is followed blindly — §1 says where Harness's own conventions override them, and why.
+## Process & Skill Authoring Flow
+
+Follow the decision matrix below when creating or refactoring a skill:
+
+```mermaid
+flowchart TD
+    Start[Trigger: Create or Audit Skill] --> CheckDup{1. Duplicate Check: Grep harness-everything Registry}
+    
+    CheckDup -- Skill Exists --> Extend[Extend / Refactor Existing Skill]
+    CheckDup -- New Concept --> DraftContract[2. Draft Skill Contract Table & Enforcement Gate]
+    
+    Extend --> DraftContract
+    DraftContract --> DraftBody[3. Draft Body Steps & Reference Sections]
+    DraftBody --> AddFallback[4. Add Mermaid Decision Tree & Fallback Rules]
+    
+    AddFallback --> AuditCheck{5. Pass Quality Checklist & Testing?}
+    
+    AuditCheck -- Checklist Fails --> Fix[Fix Issues & Refine Prompts] --> AddFallback
+    AuditCheck -- Passes All Gates --> Register{6. Resolve Skill Type}
+    
+    Register -- Static Skill --> RegStatic[Register in harness-everything/SKILL.md & tier-router.js]
+    Register -- Dynamic Skill --> RegDynamic[Save to .claude/harness-everything/skills/generated/]
+    
+    RegStatic --> Done[Skill Active]
+    RegDynamic --> Done
+```
 
 ## 1. Two philosophies, reconciled
 

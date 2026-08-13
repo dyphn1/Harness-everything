@@ -2,7 +2,7 @@
 name: harness-everything
 description: The single entry point and dynamic router for the Harness ecosystem. Triage tasks into Tier 1, 2, or 3.
 author: Miya Daniel | Harness Core Team
-version: 0.3.0
+version: 0.3.3
 ---
 
 # Harness Everything (System Main Entry & Dynamic Router)
@@ -12,13 +12,39 @@ version: 0.3.0
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Every new user request where no specific skill is already indicated — the mandatory first load, run via `scripts/tier-router.js "<prompt>"`. |
-| **Expected Output** | A Tier determination (1/2/3) and a mandatory "🚦 Harness OS Routing Checkpoint" block at the very start of the response, listing the tier, rationale, and routed skills/guides. |
+| **Expected Output** | A Tier determination (1/2/3) and a mandatory "🚦 Harness OS Routing Checkpoint" block at the start of software/project responses. Automatically bypassed for non-software tasks. |
 | **State Mutations** | None directly — orchestrates which other skills/guides get loaded and, for Tier 2/3, triggers `todo-driven-workflow` checklist initialization. |
-| **Enforcement Gate** | **MUST** run `scripts/tier-router.js` (or reuse the `UserPromptSubmit` hook's output for the same turn) before deciding the tier — the routing checkpoint output is mandatory, not optional. Rule of 3: 3 consecutive failed fix attempts on the same signature **MUST** stop further edits and force `zoom-out`. |
+| **Enforcement Gate** | **MUST** run `scripts/tier-router.js` (or reuse hook output) for software tasks. Rule of 3: 3 consecutive failed fix attempts on the same signature **MUST** stop further edits and force `zoom-out`. |
 
 This is the single entry point for the entire Harness Skills ecosystem. When you receive a new request from the user and no specific Skill is indicated, you **MUST** prioritize loading this Skill to perform Task Triage.
 
-**Environment Requirements**: `tier-router.js` requires (1) a Node.js runtime on `PATH` — the script itself has zero npm dependencies, so no `npm install` is needed, just `node` being callable from whatever shell the agent is using; (2) the shell's current working directory to be inside the target Git repository (anywhere under it, not necessarily the root) — dynamic-skill auto-discovery resolves the workspace root by walking up from `cwd` to the nearest `.git`, *not* from wherever the script itself happens to be installed (that location varies by platform/scope: `.claude/skills/`, `.cursor/skills/`, `~/.agents/skills/`, etc., so a location-relative guess would be wrong more often than not). Outside a Git repository, it silently falls back to `cwd` itself, which may miss the real manifest.json if invoked from a subdirectory that isn't actually the intended scope.
+## 0. Non-Software Task Bypass Decision Matrix
+
+Follow the decision matrix below to determine whether Harness OS routing applies:
+
+```mermaid
+flowchart TD
+    Start[Receive User Prompt] --> IntentCheck{1. Is this a Software Engineering / Project Task?<br>e.g. coding, refactoring, specs, git, bugs}
+    
+    IntentCheck -- No: Pure Chat / Translation / Web Search / General Q&A --> Bypass[Bypass Harness OS Completely<br>Direct & Natural Answer]
+    IntentCheck -- Yes: Code / Architecture / Project Task --> RunRouter{2. Execute / Reuse tier-router.js}
+    
+    RunRouter --> DetermineTier{Determine Tier}
+    
+    DetermineTier -- Tier 1: Trivial Code Fix / Minor Chore --> T1[Tier 1: Direct Execution]
+    DetermineTier -- Tier 2: Standard Feature / Bug / Refactor --> T2[Tier 2: Load TDD & todo-driven-workflow]
+    DetermineTier -- Tier 3: Macro Arch / Multi-Agent / Spec --> T3[Tier 3: Load Fable Mode & to-spec/to-tickets]
+    
+    T1 --> OutputContract[Output Standardized Routing Checkpoint<br>Establish Deterministic Agent State]
+    T2 --> OutputContract
+    T3 --> OutputContract
+    
+    OutputContract --> Execute[Execute Routed Skills & Deliver Result]
+```
+
+#### Bypass Rules:
+- **Pure Conversations / General Tasks**: If the user prompt is general Q&A, text translation, web searching, or non-software writing, **BYPASS** `harness-everything` completely. Do NOT output a Routing Checkpoint block; reply directly and naturally.
+- **Software Engineering / Codebase Tasks**: **MUST** output the standardized `🚦 Harness OS Routing Checkpoint` block at the top of the response to establish a deterministic status contract across different AI models.
 
 ## 1. Core Rule: Global Underlying OS & Base Execution Loop
 Before taking any action, you must awaken and load the principles of `install-cognitive-os`.

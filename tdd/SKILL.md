@@ -2,7 +2,7 @@
 name: tdd
 description: Test-Driven Development mode (Red-Green-Refactor) for Standard Tasks (Tier 2).
 author: Miya Daniel | Harness Core Team
-version: 0.3.0
+version: 0.3.3
 ---
 
 # Test-Driven Development (TDD) Mode
@@ -11,15 +11,30 @@ version: 0.3.0
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Tier 2 Task identification. Input: The specific feature or bug requirement. |
-| **Expected Output** | 1. Failing test terminal output. 2. Implementation code. 3. Passing test terminal output (Exit Code 0). |
-| **State Mutations** | Handled by `todo-cli.js` (tracked via `.claude/harness-state/todo-state.json`). |
-| **Enforcement Gate** | You MUST run the test runner in the terminal. If it does not fail first (RED), you MUST fix the test. If it fails later (GREEN phase), you MUST reflect and fix the code. |
+| **Trigger / Input** | Tier 2 Task identification. Input: Specific feature or bug requirement. |
+| **Expected Output** | 1. Failing test log (RED). 2. Minimal implementation code (GREEN). 3. Refactored code (REFACTOR). |
+| **State Mutations** | Handled by active TODO tracker (`manage_todo_list`, `todo-cli.js`, or `tasks/todo.md`). |
+| **Enforcement Gate** | Run test runner in terminal (`npm test`, `pytest`, `cargo test`). If stuck >3 times in GREEN phase, force `zoom-out`. |
 
-This skill is automatically triggered and loaded by the `harness-everything` router when a task is judged as a **Tier 2 (Standard Task)**.
-It applies to adding a single feature, fixing a specific Bug, or medium-sized changes with clear expected outcomes.
+## Process & TDD Execution Flow
 
-Tier 2 tasks run on the `todo-driven-workflow` base execution loop: initialize the checklist first, and map each Red / Green / Refactor phase (per feature or bug) onto its own verifiable todo item.
+Follow the decision matrix below when conducting TDD:
+
+```mermaid
+flowchart TD
+    Start[Trigger: Tier 2 Feature / Bugfix Task] --> Red[1. RED: Write Failing Unit/Integration Test]
+    Red --> TestRunner{Run Project Test Runner}
+    
+    TestRunner -- Tests Fail as Expected --> Green[2. GREEN: Write Minimal Code to Pass]
+    TestRunner -- Tests Unexpectedly Pass --> FixTest[Fix Test Logic / Assertions] --> Red
+    
+    Green --> CheckPass{Re-run Test Runner}
+    CheckPass -- Tests Pass --> Refactor[3. REFACTOR: Clean Code & Verify Alignments]
+    CheckPass -- Tests Fail (> 3 Retries) --> ZoomOut[Trigger zoom-out Circuit Breaker]
+    
+    Refactor --> VerifyFinal[Re-run Tests & Mark Todo Complete]
+    VerifyFinal --> Done[TDD Cycle Complete]
+```
 
 ## TDD Core Discipline (Red-Green-Refactor)
 

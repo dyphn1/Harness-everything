@@ -1,6 +1,35 @@
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * Checks if a target pattern is already covered by a line in .gitignore.
+ * Handles exact matches, trailing slash differences, and parent directory subsumption
+ * (e.g. `.claude/` or `.claude` subsumes `.claude/harness-everything/state/`).
+ */
+function isPatternCoveredByLine(pattern, gitignoreLine) {
+  const normPattern = pattern.trim().replace(/\\/g, '/');
+  const normLine = gitignoreLine.trim().replace(/\\/g, '/');
+
+  if (!normLine || normLine.startsWith('#') || normLine.startsWith('!')) {
+    return false;
+  }
+
+  const cleanLine = normLine.endsWith('/') ? normLine.slice(0, -1) : normLine;
+  const cleanPattern = normPattern.endsWith('/') ? normPattern.slice(0, -1) : normPattern;
+
+  // Exact match or slash variant (e.g. '.claude' vs '.claude/')
+  if (cleanLine === cleanPattern) {
+    return true;
+  }
+
+  // Parent directory check: e.g. '.claude' covers '.claude/harness-everything/'
+  if (cleanPattern.startsWith(cleanLine + '/')) {
+    return true;
+  }
+
+  return false;
+}
+
 function ensureWorkspaceGitignorePatterns(wsRoot, patterns) {
   const gitignorePath = path.join(wsRoot, '.gitignore');
   try {
@@ -10,53 +39,54 @@ function ensureWorkspaceGitignorePatterns(wsRoot, patterns) {
     }
 
     const lines = content.split(/\r?\n/);
+
+    // Filter and prune lines:
+    // 1. Remove exact duplicates.
+    // 2. Remove subpaths that are already covered by an earlier parent rule in the file.
+    const seenLines = [];
+    let modified = false;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed === '' || trimmed.startsWith('#')) {
+        seenLines.push(line);
+        continue;
+      }
+
+      // Check if line is exact duplicate or covered by an earlier parent directory rule
+      const isRedundant = seenLines.some(prevLine => isPatternCoveredByLine(trimmed, prevLine));
+      if (isRedundant) {
+        modified = true;
+      } else {
+        seenLines.push(line);
+      }
+    }
+
+    // Determine which new patterns need to be added
     const addedPatterns = [];
-
     for (const pattern of patterns) {
-      const isIgnored = lines.some(line => {
-        const trimmed = line.trim();
-        return trimmed === pattern ||
-               trimmed === pattern.slice(0, -1) ||
-               (pattern === '.claude/harness-state/' && (trimmed === '.claude/' || trimmed === '.claude'));
-      });
-
-      if (!isIgnored) {
+      if (!pattern) continue;
+      const isAlreadyCovered = seenLines.some(line => isPatternCoveredByLine(pattern, line));
+      if (!isAlreadyCovered && !addedPatterns.some(p => isPatternCoveredByLine(pattern, p))) {
         addedPatterns.push(pattern);
       }
     }
 
-    // Same read-then-append shape as ensureHarnessStateIgnored() in
-    // hooks/scripts/lib/harness-state.js, which runs once per hook
-    // invocation and can race across concurrent processes to leave an
-    // exact-duplicate line behind - see the comment there. Collapsing
-    // duplicates here too keeps both writers self-healing the same file.
-    const seen = new Set();
-    let sawDuplicate = false;
-    const dedupedLines = lines.filter(line => {
-      const trimmed = line.trim();
-      if (trimmed === '' || trimmed.startsWith('#')) return true;
-      if (seen.has(trimmed)) {
-        sawDuplicate = true;
-        return false;
-      }
-      seen.add(trimmed);
-      return true;
-    });
-
-    if (addedPatterns.length > 0 || sawDuplicate) {
-      while (dedupedLines.length > 0 && dedupedLines[dedupedLines.length - 1] === '') {
-        dedupedLines.pop();
+    if (addedPatterns.length > 0 || modified) {
+      const cleanedLines = [...seenLines];
+      while (cleanedLines.length > 0 && cleanedLines[cleanedLines.length - 1].trim() === '') {
+        cleanedLines.pop();
       }
 
       const bannerComment = '# Harness OS Auto-generated Ignore Rules';
-      const hasBanner = dedupedLines.some(line => line.trim() === bannerComment);
+      const hasBanner = cleanedLines.some(line => line.trim() === bannerComment);
       const toAppend = [];
       if (!hasBanner && addedPatterns.length > 0) {
         toAppend.push('', bannerComment);
       }
       toAppend.push(...addedPatterns);
 
-      const finalLines = dedupedLines.concat(toAppend);
+      const finalLines = cleanedLines.concat(toAppend);
       fs.writeFileSync(gitignorePath, finalLines.join('\n') + '\n', 'utf8');
       if (addedPatterns.length > 0) {
         console.log(`  ✅ Added auto-generated directories to .gitignore: ${addedPatterns.join(', ')}`);

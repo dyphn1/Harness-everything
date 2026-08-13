@@ -2,7 +2,7 @@
 name: build-multi-agent-system
 description: 'Deploy a universal, self-adapting Multi-Agent Architecture into any project. It dynamically analyzes the tech stack to scaffold a token-efficient workspace with strict physical boundaries, hybrid SQLite memory, and isomorphic alignment protocols.'
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.3
 ---
 
 # Universal Multi-Agent Workspace Installer
@@ -12,9 +12,31 @@ version: 0.2.0
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Tier 3 task requiring a multi-agent workspace to be scaffolded from scratch; explicit request to initialize a multi-agent system. |
-| **Expected Output** | A scaffolded 6-zone folder structure, a generated `index_memory` script that builds `memory.db` (SQLite relational index), and an immutable `AGENTS.md` router (< 50 lines) at the project root. |
-| **State Mutations** | Creates/rewrites `AGENTS.md`; creates the 6 functional zone directories; creates and runs the memory indexer script; writes `memory.db`. |
-| **Enforcement Gate** | MUST run the generated `index_memory` script once and verify it executes cleanly before the task is considered complete. `AGENTS.md` MUST include a directive forbidding sub-agents from modifying it. |
+| **Expected Output** | A scaffolded 6-zone folder structure, a generated `index_memory` script or markdown index fallback (`memory-index.md`), and an immutable `AGENTS.md` router (< 50 lines) at the project root. |
+| **State Mutations** | Creates/rewrites `AGENTS.md`; creates the 6 functional zone directories; creates memory indexer or markdown index; writes `memory.db` or `memory-index.md`. |
+| **Enforcement Gate** | Run memory indexer. If SQLite/script execution fails, fallback seamlessly to `memory-index.md`. `AGENTS.md` MUST include a directive forbidding sub-agents from modifying it. |
+
+## Core Process & Resolution Flow
+
+Follow the decision matrix below to scaffold the multi-agent workspace:
+
+```mermaid
+flowchart TD
+    Start[Trigger: Build Multi-Agent System] --> Audit[Environment Audit: Tech Stack & Roles]
+    Audit --> Scaffold[Scaffold 6 Functional Zones]
+    Scaffold --> CheckDB{1. Is SQLite / Script Environment Available?}
+    
+    CheckDB -- Yes --> GenScript[Generate index_memory Script & Build memory.db]
+    GenScript --> RunScript{Run & Verify Script}
+    RunScript -- Success --> Router[Create Immutable AGENTS.md Router]
+    RunScript -- Fails --> MDKnown
+    
+    CheckDB -- No / Fails --> MDKnown{2. Fallback to Markdown Relational Index}
+    MDKnown --> WriteMD[Create memory-index.md with Topic Links]
+    WriteMD --> Router
+    
+    Router --> Done[Workspace Scaffolding Complete]
+```
 
 ## Core Principles
 - MUST operate using the cognitive loop: Think > Try > Summarize > Record.
@@ -48,9 +70,9 @@ version: 0.2.0
    - `[Roles]`: Individual sub-agent system prompts.
 
 ## [Execution Phase: Hybrid Memory Implementation]
-4. Polyglot Indexer Generation: MUST generate an `index_memory` script in the project's primary language (e.g., Python, Node.js, Bash) or provide a pure CLI fallback.
-   - The script MUST parse YAML frontmatter/Markdown headers across the documentation zones.
-   - It MUST build a local SQLite database (`memory.db`) to serve as a relational index, enabling low-token historical queries.
+4. Polyglot Indexer Generation & Fallback:
+   - **Primary**: Generate an `index_memory` script in the project's primary language (e.g., Python, Node.js, Bash) to parse frontmatter and build a local SQLite database (`memory.db`).
+   - **Fallback (Pure Markdown Index)**: If SQLite or script execution is unavailable or fails, generate a clean `memory-index.md` at the project root or `.github/harness-everything/memory-index.md` listing document zone links and topic tags.
 
 ## [Execution Phase: The Immutable Router]
 5. Hardcoded Laws: MUST create or rewrite `AGENTS.md` at the project root. This file is the system's brain and must be strictly protected:

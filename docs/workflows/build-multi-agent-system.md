@@ -13,11 +13,15 @@ graph TD
   Start([Workspace Scaffolding Requested]) --> DiscoverStack["Analyze project package.json/runtimes"]
   DiscoverStack --> DeduceRoles["Deduce required specialist roles & PM / Challenger"]
   DeduceRoles --> ScaffoldZones["Scaffold '6 Functional Zones' directories: State, Decisions, Logs, etc."]
-  ScaffoldZones --> GenMemoryIndexer["Generate language-appropriate index_memory script"]
-  GenMemoryIndexer --> GenAgentsRouter["Generate AGENTS.md routing brain"]
-  GenAgentsRouter --> RunIndexer["Execute memory indexer to initialize local memory.db SQLite index"]
-  RunIndexer --> VerifyExecution["Verify schema, tables, and execution status"]
-  VerifyExecution --> End([Scaffolding and hybrid relational memory initialized])
+  ScaffoldZones --> CheckDB{Is SQLite / Script Executable?}
+  
+  CheckDB -->|Yes| GenMemoryIndexer["Generate index_memory script & Build memory.db"]
+  CheckDB -->|No / Fails| MarkdownFallback["Create memory-index.md Relational Index Fallback"]
+  
+  GenMemoryIndexer --> GenAgentsRouter["Generate immutable AGENTS.md routing brain"]
+  MarkdownFallback --> GenAgentsRouter
+  
+  GenAgentsRouter --> End([Scaffolding and hybrid relational memory initialized])
 ```
 
 ---

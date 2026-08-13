@@ -2,7 +2,7 @@
 name: environment-detection
 description: Use at the very beginning of the session (Discover phase) to automatically detect and align with the operating system, terminal shell (e.g. Git Bash vs PowerShell vs Command Prompt), package managers, and development tools. Prevents blind command execution and repetitive tool-related errors.
 author: Miya Daniel | Harness Core Team
-version: 0.2.0
+version: 0.3.3
 ---
 
 # Environment Detection & Shell Alignment
@@ -12,9 +12,32 @@ version: 0.2.0
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Session Start (Discover Phase), or before executing a complex terminal command sequence. |
-| **Expected Output** | Terminal execution of `node <this-skill-dir>/scripts/preflight.js`. Output of the detected OS and Shell. |
-| **State Mutations** | Context is updated with the correct path separator (`/` vs `\`) and environment variable syntax (`$VAR` vs `%VAR%`). |
-| **Enforcement Gate** | You MUST read the terminal output of `preflight.js`. If you use the wrong syntax (e.g. `%VAR%` in bash), the terminal will naturally Exit 1 and block your progress. |
+| **Expected Output** | Detected OS, Shell, and PATH conventions via `preflight.js` script or environment heuristic inspection fallback. |
+| **State Mutations** | Session context is updated with the correct path separator (`/` vs `\`) and environment variable syntax (`$VAR` vs `%VAR%`). |
+| **Enforcement Gate** | Run preflight check. If Node.js or script execution fails, fallback seamlessly to system prompt `<environment_info>` inspection and shell probing. |
+
+## Process & Environment Audit Flow
+
+Follow the decision matrix below to align terminal commands with the host environment:
+
+```mermaid
+flowchart TD
+    Start[Session Start / Discover Phase] --> CheckNode{1. Node.js Executable?}
+    
+    CheckNode -- Yes --> RunPreflight[Run scripts/preflight.js]
+    RunPreflight -- Exit 0 (Success) --> ParseOutput[Parse OS, Shell & Available CLI Tools]
+    RunPreflight -- Fails --> Heuristic
+    
+    CheckNode -- No --> Heuristic{2. Environment Heuristic Inspection Fallback}
+    
+    Heuristic --> CheckPrompt[Inspect <environment_info> & Session Context]
+    CheckPrompt --> ProbeShell[Probe Shell via echo $SHELL / $env:OS / %COMSPEC%]
+    
+    ParseOutput --> AlignSyntax[Adopt Command & Path Syntax Rules]
+    ProbeShell --> AlignSyntax
+    AlignSyntax --> SelfHeal[Run self-heal.js if Node available]
+    SelfHeal --> Done[Environment Context Established]
+```
 
 ## Core Principles
 - **MUST** operate using the cognitive loop: Think > Try > Summarize > Record.
@@ -23,10 +46,10 @@ version: 0.2.0
 - **[Summarize]**: Output the detected terminal, OS, and toolchains so the session context retains these bounds.
 - **[Record]**: Adopt the corresponding command syntax rules for the rest of the conversation.
 
-## Strict Workspace Boundary (僅偵測與操作當前工作區)
-- **Current Workspace Only**: 必須僅偵測與操作當前活動工作區目錄（即當前專案根目錄，亦為 `process.cwd()`）。
-- **Ignore Other Workspaces**: 即使 VS Code 內容或歷史記錄中暴露了其他工作區、暫存路徑或最近開啟的專案（例如 `d:\super.h2o.sbom`、`d:\DeveloperDocs`、`c:\Users\DanielCH.Chang\Desktop\XinputDxe_V0.0.5` 等），你也 **必須完全忽略它們**。絕對不要對這些非當前專案之路徑進行結構分析、工具檢查，更不能在其中執行任何終端機指令。
-- **Single-Workspace Execution**: 所有終端機指令、工具可用性檢查、路徑解析均必須嚴格限制在當前專案根目錄內。嚴格禁止跨越邊界操作鄰近或無關的資料夾。
+## Strict Workspace Boundary (Current Active Workspace Only)
+- **Current Workspace Only**: Must detect and operate solely within the active workspace directory (i.e. the current project root, which is `process.cwd()`).
+- **Ignore Other Workspaces**: Even if VS Code context or history exposes other workspaces, temporary paths, or recently opened projects (e.g. `d:\super.h2o.sbom`, `d:\DeveloperDocs`, `c:\Users\DanielCH.Chang\Desktop\XinputDxe_V0.0.5`, etc.), you **MUST completely ignore them**. Never perform structural analysis, tool checks, or execute terminal commands in those non-current project paths.
+- **Single-Workspace Execution**: All terminal commands, tool availability checks, and path resolutions MUST be strictly restricted to the current project root directory. Operating across boundaries on adjacent or unrelated folders is strictly prohibited.
 
 ## [State Checkpoint]
 - Verify your environment details *before* executing commands or writing files.
@@ -41,7 +64,7 @@ version: 0.2.0
    - Operating System (Windows vs. macOS vs. Linux)
    - Active Shell (Git Bash vs. PowerShell vs. Command Prompt)
    - Available CLI Tools (node, pnpm, docker, python, etc.)
-3. **Toolchain Self-Heal (工欲善其事,必先利其器)**: The harness itself is part of the environment. Audit whether this workspace's integration touchpoints (`.claude/settings.json` hooks, `.cursorrules`, `.github/copilot-instructions.md`, `AGENTS.md`) are installed, and repair any missing ones — e.g., installed via Claude Code but now opened in Copilot:
+3. **Toolchain Self-Heal**: The harness itself is part of the environment. Audit whether this workspace's integration touchpoints (`.claude/settings.json` hooks, `.cursorrules`, `.github/copilot-instructions.md`, `AGENTS.md`) are installed, and repair any missing ones — e.g., installed via Claude Code but now opened in Copilot:
    ```bash
    node "<skills-repo-root>/harness-everything/scripts/self-heal.js"
    ```
