@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [0.3.3-alpha] - 2026-08-13
+
+### Added
+- **CLI Commands (`harness next` & `harness verify`)**: Added `harness next "<prompt>"` and `harness verify` subcommands to `bin/cli.js` as thin wrappers around `tier-router.js` and `verify-gate.js`, enabling `npx github:dyphn1/Harness-everything next/verify` across all platforms (`7625a2f`).
+- **Expressive CLI `--help` Interfaces**: Added CLI `--help`/`-h` options to agent-facing scripts (`todo-cli.js`, `persist-memory.js`, `register-dynamic-skill.js`, `check-project-docs.js`, and `evaluate.js`) to expose parameter schemas directly from code logic (`f1f4f11`).
+- **OWASP & STRIDE Guides in Security Review**: Added OWASP patterns, STRIDE threat model guides, and `audit-secrets` script to `security-review` (`5df5844`).
+- **Report Template Files**: Extracted report structures into dedicated template files for `zoom-out` (`zoom-out/templates/zoom-out-report.template.md`) and `verification-loop` (`verification-loop/templates/verification-report.template.md`) (`8b6724e`).
+- **Git Worktree Concurrency Guidance**: Added Git Worktree concurrency isolation rules and cross-platform compatibility guidelines to `todo-driven-workflow` (`c3df2b3`, `c031aa1`).
+
+### Fixed
+- **Hookless Platform Routing Paths**: Fixed dead path issue in advisory text by updating hookless platforms (Codex, Cursor, Copilot, Continue, Hermes) to use `npx github:dyphn1/Harness-everything next/verify` (`7625a2f`).
+- **Orchestrator Discoverability**: Surfaced `fable-orchestrator` as a discoverable sub-skill in `fable-mode/SKILL.md` and tier-router logic (`4ea61eb`).
+- **Cross-Platform & Windows Compatibility**:
+  - `find-skills`: Fixed Windows execution by invoking `npx.cmd` and enabling shell execution option (`2b678d6`).
+  - `environment-detection`: Resolved Git Bash shell misidentification on Windows (`97c2f48`).
+  - `rewrite-commits`: Prevented terminal hangs during interactive rebase by requiring explicit rebase abort on conflict (`c51a091`).
+  - `verification-loop`: Removed POSIX pipeline (`head`/`tail`/`grep`) dependencies for cross-platform compatibility (`5f9c580`).
+  - `execution-guardrails`: Replaced raw `sed` command suggestions with cross-platform native edit tools (`9a2fc78`).
+- **Compliance Theater Prevention**: Updated `verify-gate.js` to output an explicit `UNCHECKED` warning when tests are missing instead of silently passing (`fb8c851`).
+- **Self-Evolve & Path Fixes**:
+  - Auto-create repo manifest directories and resolve script path references in `self-evolve` (`e0f0295`).
+  - Resolved stale memory paths and relative agent definition references in `fable-haiku` (`962ff39`, `9975063`).
+- **Circuit Breaker Deadlock**: Resolved tool name matching and session path deadlock in `zoom-out` (`46b4798`).
+- **Manifest Loading in `to-spec`**: Fixed manifest helper module loading in `check-project-docs.js` (`142c668`).
+- **Unlinked Launcher Files**: Linked orphaned workflow/template files in `create-agent-launcher` and unbound hard tool dependencies (`dbf075f`).
+
+### Changed
+- **Progressive Disclosure & Gentle Guidance**: Streamlined `git-commit`, `create-agent-launcher`, and `cognitive-os` skills to follow progressive disclosure, replacing rigid commands with adaptable entrypoints (`5df5844`, `8a6a48f`, `b53d9d5`, `d84147b`, `a1234da`).
+- **Path Portability**: Standardized script path invocation references across `SKILL.md` files to use `<this-skill-dir>` and `npx` commands (`30bc368`).
+- **Single Source of Truth for Platform Notes**: Centralized platform availability notes across `zoom-out`, `todo-driven-workflow`, `install-cognitive-os`, and `create-agent-launcher` to link to README's supported tools table (`8b6724e`).
+- **Subagent Scope Guard Awareness**: Integrated `subagent-scope-guard` awareness across `fable-mode` and launcher workflows (`b9a4a42`).
+- **Gitignore Auto-Rules**: Added auto-generated comment banner for Harness OS ignore rules in `.gitignore` (`30bc368`).
+
+### Removed
+- **Unverified Platform References**: Removed dangling, unverified Gemini CLI references and deleted the orphaned `platform-gemini.md` guideline (`e427bee`).
+- **Obsolete Style Docs**: Removed obsolete `STYLE.md` and updated missing single-skill templates in `repo-docs` (`2d98ceb`).
+
+---
 ## [0.3.2-alpha] - 2026-07-28
 
 ### Fixed
