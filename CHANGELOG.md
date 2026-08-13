@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [0.3.3-beta] - 2026-08-13
+
+### Added
+- **Cognitive OS Enhancements**: Implemented zero-trust evidence-driven context in `to-spec` and `to-tickets` and added comprehensive documentation.
+- **Reference Checklists**: Added `security-checklist.md`, `performance-checklist.md`, and `definition-of-done.md` to the `references/` directory.
+- **Mandatory Design Audit**: Enforced mandatory design audit verification step in specification skills.
+
+### Fixed
+- **Installer `--skill` flag**: Fixed `--skill` flag argument parsing in the installer script and ensured the `references` directory is copied when installing skills.
+
+### Changed
+- **Fable Mode & Specs**: Updated `fable-mode`, `to-spec`, and `to-tickets` skills to integrate the cognitive OS enhancements.
+
+---
 ## [0.3.3-alpha] - 2026-08-13
 
 ### Added
