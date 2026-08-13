@@ -86,13 +86,20 @@ function ensureHarnessStateIgnored(rootPath) {
       patternToPlatformMap.set(relativeStateDir, activePlatform);
     }
     
+    // Only include patterns for platforms that actually exist/have data in the workspace
     for (const platform of allPlatforms) {
-      const patterns = platform.getIgnorePatterns(wsRoot);
-      for (const pattern of patterns) {
-        if (!dynamicPatterns.includes(pattern)) {
-          dynamicPatterns.push(pattern);
+      if (typeof platform.getHarnessDir === 'function') {
+        const harnessDir = platform.getHarnessDir(wsRoot);
+        // If the platform directory or active platform matches, collect ignore patterns
+        if (fs.existsSync(harnessDir) || platform.name === activePlatformName) {
+          const patterns = platform.getIgnorePatterns(wsRoot);
+          for (const pattern of patterns) {
+            if (!dynamicPatterns.includes(pattern)) {
+              dynamicPatterns.push(pattern);
+            }
+            patternToPlatformMap.set(pattern, platform);
+          }
         }
-        patternToPlatformMap.set(pattern, platform);
       }
     }
     
@@ -139,7 +146,16 @@ function ensureHarnessStateIgnored(rootPath) {
       while (dedupedLines.length > 0 && dedupedLines[dedupedLines.length - 1] === '') {
         dedupedLines.pop();
       }
-      const finalLines = dedupedLines.concat(patternsToAdd);
+      
+      const bannerComment = '# Harness OS Auto-generated Ignore Rules';
+      const hasBanner = dedupedLines.some(line => line.trim() === bannerComment);
+      const toAppend = [];
+      if (!hasBanner && patternsToAdd.length > 0) {
+        toAppend.push('', bannerComment);
+      }
+      toAppend.push(...patternsToAdd);
+
+      const finalLines = dedupedLines.concat(toAppend);
       fs.writeFileSync(gitignorePath, finalLines.join('\n') + '\n', 'utf8');
     }
   } catch (err) {

@@ -22,7 +22,7 @@ This skill outlines the core cognitive loop that guides agent behavior across ta
 
 ## 🔄 The Cyclical Development Paradigm
 Software development is iterative — a cycle of hypothesis, execution, feedback, and refinement.
-Rather than assuming code works immediately after writing it, ground progress in objective evidence from verification tools (`harness-everything/scripts/verify-gate.js` and `harness-everything/scripts/todo-cli.js`). When checks fail, step back to analyze, adapt, and resolve before continuing.
+Rather than assuming code works immediately after writing it, ground progress in objective evidence from verification tools (`node "<harness-everything-dir>/scripts/verify-gate.js"` or `npx github:dyphn1/Harness-everything verify`, and `node "<todo-driven-workflow-dir>/scripts/todo-cli.js"`). When checks fail, step back to analyze, adapt, and resolve before continuing.
 
 ## Core Loop: The State Machine (Discover > Think > Try > Summarize > Record)
 

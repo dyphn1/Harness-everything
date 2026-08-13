@@ -65,7 +65,7 @@ At the very beginning of your response to the user, you **MUST** output a clear,
 
 ### Proactive Copilot & VS Code Instruction (Avoid Silent Degrades)
 If you are running in VS Code or GitHub Copilot, you do not have automated hooks to run scripts on your behalf.
-- You **MUST** proactively run the tier-router script (`node harness-everything/scripts/tier-router.js "<prompt>"`) or simulate its routing logic manually at the start.
+- You **MUST** proactively run the tier-router script (`node "<this-skill-dir>/scripts/tier-router.js" "<prompt>"` or `npx github:dyphn1/Harness-everything next "<prompt>"`) or simulate its routing logic manually at the start.
 - **NEVER degrade newly added features or structural extensions to Tier 1.** Copilot is highly prone to treating new feature requests as trivial Tier 1 direct edits. If the request adds *any* new logic, a new API endpoint, or a new file/module, it **MUST** be triaged as **Tier 2 (Standard Task)** or **Tier 3 (Macro Task)**. This activates:
   1. The `todo-driven-workflow` checklist (mandatory step-by-step progress tracking).
   2. Multi-agent spawning / sub-agents via `create-agent-launcher` or macro plan orchestration via `fable-mode`.

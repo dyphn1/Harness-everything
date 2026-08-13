@@ -53,7 +53,7 @@ Please score based on the following four dimensions (out of 10 points each):
 - **MANDATORY**: You MUST execute the evaluation script to generate and save the report.
 - Find the `evaluate.js` script in the `scripts/` directory of this skill and run it via terminal:
   ```bash
-  node path/to/eval-harness/scripts/evaluate.js <scoreA> <scoreB> <scoreC> <scoreD> "<Your insights here>"
+  node "<this-skill-dir>/scripts/evaluate.js" <scoreA> <scoreB> <scoreC> <scoreD> "<Your insights here>"
   ```
   *(Example: `node scripts/evaluate.js 10 5 10 10 "The agent successfully used zoom-out..."`)* — run with `--help` for the scoring-dimension reference.
 - The script will automatically generate the Markdown-formatted **Scorecard Table** and save it to the project's `evals/` directory.

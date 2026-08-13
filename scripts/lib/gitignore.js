@@ -47,7 +47,16 @@ function ensureWorkspaceGitignorePatterns(wsRoot, patterns) {
       while (dedupedLines.length > 0 && dedupedLines[dedupedLines.length - 1] === '') {
         dedupedLines.pop();
       }
-      const finalLines = dedupedLines.concat(addedPatterns);
+
+      const bannerComment = '# Harness OS Auto-generated Ignore Rules';
+      const hasBanner = dedupedLines.some(line => line.trim() === bannerComment);
+      const toAppend = [];
+      if (!hasBanner && addedPatterns.length > 0) {
+        toAppend.push('', bannerComment);
+      }
+      toAppend.push(...addedPatterns);
+
+      const finalLines = dedupedLines.concat(toAppend);
       fs.writeFileSync(gitignorePath, finalLines.join('\n') + '\n', 'utf8');
       if (addedPatterns.length > 0) {
         console.log(`  ✅ Added auto-generated directories to .gitignore: ${addedPatterns.join(', ')}`);

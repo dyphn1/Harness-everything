@@ -31,7 +31,7 @@ Recommended for complex, multi-step, or multi-file development tasks (Tier 2 and
 
 | Environment | Primary Task Tracker | Implementation Method |
 | :--- | :--- | :--- |
-| **All Environments** | `todo-cli.js` | Use `node harness-everything/scripts/todo-cli.js` (or `node scripts/todo-cli.js`) to manage task transitions. Run with `--help` for the full command reference. |
+| **All Environments** | `todo-cli.js` | Use `node "<this-skill-dir>/scripts/todo-cli.js"` to manage task transitions. Run with `--help` for the full command reference. |
 
 ### 🔀 Multi-Agent Concurrency & Isolation
 When running multiple Sub-agents in parallel (e.g. during `fable-mode` tasks), avoid concurrent state modifications in a single workspace folder. Leverage `using-git-worktrees` to isolate each parallel agent into its own git worktree for clean filesystem-level separation.
@@ -45,14 +45,14 @@ When running multiple Sub-agents in parallel (e.g. during `fable-mode` tasks), a
 
 ### 2. Initialize the Todo List (Record)
 Initialize the checklist before modifying code:
-`node harness-everything/scripts/todo-cli.js init "Task 1" "Task 2"`
+`node "<this-skill-dir>/scripts/todo-cli.js" init "Task 1" "Task 2"`
 
 ### 3. Step-by-Step Execution
-1. **Start Task**: Run `node harness-everything/scripts/todo-cli.js start <id>` to mark the active item.
+1. **Start Task**: Run `node "<this-skill-dir>/scripts/todo-cli.js" start <id>` to mark the active item.
 2. **Execute**: Perform necessary changes (read files, run commands, edit code).
 3. **Verify**: Verify changes using test/build tooling.
-4. **Complete Task**: Run `node harness-everything/scripts/todo-cli.js complete <id>` after verification succeeds.
+4. **Complete Task**: Run `node "<this-skill-dir>/scripts/todo-cli.js" complete <id>` after verification succeeds.
 
 ### 4. Adapting to Issues
 If unexpected blockers arise during execution, append sub-tasks using:
-`node harness-everything/scripts/todo-cli.js add "Fix specific error"`
+`node "<this-skill-dir>/scripts/todo-cli.js" add "Fix specific error"`

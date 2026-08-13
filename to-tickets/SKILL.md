@@ -17,14 +17,14 @@ Breaks a plan, a `to-spec`-produced feature spec, or the current conversation in
 | **Trigger / Input** | Explicit `/to-tickets` invocation (never auto-run — publishing has a real side effect). Input: a reference to a `to-spec` feature spec (path/issue number/URL) if one exists, otherwise whatever plan/conversation is already in context. |
 | **Expected Output** | A numbered set of tickets, each with a "What to build" description, a "Blocked by" list, and acceptance criteria — published per this repo's `projectDocs` entry. |
 | **State Mutations** | None to `manifest.json` itself — this skill only *reads* the `projectDocs` entry `to-spec` (or a prior run of this skill) already wrote. Writes the ticket files/issues themselves, at the location that entry specifies. |
-| **Enforcement Gate** | MUST run `node to-spec/scripts/check-project-docs.js check` before Step 1 — same gate `to-spec` uses, not a duplicate. Exit 1 → stop and tell the user to run `to-spec`'s Step 0 interview first; this skill never runs its own copy of that interview. MUST present the proposed breakdown to the user and get approval before publishing (Step 4). This skill itself is never a gate on anything else. |
+| **Enforcement Gate** | MUST run `node "<this-skill-dir>/scripts/check-project-docs.js" check` before Step 1 — same gate `to-spec` uses, not a duplicate. Exit 1 → stop and tell the user to run `to-spec`'s Step 0 interview first; this skill never runs its own copy of that interview. MUST present the proposed breakdown to the user and get approval before publishing (Step 4). This skill itself is never a gate on anything else. |
 
 ## Process
 
 ### 0. Check the project docs framework (shared gate — reuses to-spec, not its own copy)
 
 ```bash
-node to-spec/scripts/check-project-docs.js check
+node "<this-skill-dir>/scripts/check-project-docs.js" check
 ```
 
 - **Exit 0** → this repo's `projectDocs` entry (document location / issue tracker / issue definition) already exists. Read it and proceed to Step 1.

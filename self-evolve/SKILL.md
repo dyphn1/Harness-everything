@@ -14,7 +14,7 @@ version: 0.3.0
 | **Trigger / Input** | Task completion after a major struggle, or post-zoom-out recovery. Input: Root cause analysis of previous failure. |
 | **Expected Output** | Execution of memory persistence script or generated dynamic skill. |
 | **State Mutations** | Updates workspace memory/rules files (`memories/repo/RULES.md` or `.claude/harness-everything/manifest.json`). |
-| **Enforcement Gate** | Run regression checks (`node self-evolve/scripts/self-regression.js`). Use `node self-evolve/scripts/persist-memory.js "<rule>"` to save concise rules. |
+| **Enforcement Gate** | Run regression checks (`node "<this-skill-dir>/scripts/self-regression.js"` or `npx github:dyphn1/Harness-everything test`). Use `node "<this-skill-dir>/scripts/persist-memory.js" "<rule>"` to save concise rules. |
 
 This skill enables long-term learning by extracting root causes from resolved challenges and recording defensive rules for future sessions.
 
@@ -36,15 +36,17 @@ Format the insight into a concise defensive rule to help future agent sessions a
 ### Step 3: Persistence & Dynamic Skill Promotion
 - **Run Regression Check**: Validate system state by running:
   ```bash
-  node self-evolve/scripts/self-regression.js
+  node "<this-skill-dir>/scripts/self-regression.js"
+  # Or universally from any project root:
+  npx github:dyphn1/Harness-everything test
   ```
 - **Persist Rule**: Save concise guidelines using the persistence script:
   ```bash
-  node self-evolve/scripts/persist-memory.js "<Your extracted root cause and defensive rule>"
+  node "<this-skill-dir>/scripts/persist-memory.js" "<Your extracted root cause and defensive rule>"
   ```
 - **Dynamic Skill Promotion**:
   - For simple tips or codebase quirks: keep as a lightweight rule in `memories/repo/RULES.md`.
-  - For complex, multi-step procedures or architectural patterns: promote to a dynamic skill following `skill-creator/SKILL.md` §4, and register it via `node self-evolve/scripts/register-dynamic-skill.js <name>`.
+  - For complex, multi-step procedures or architectural patterns: promote to a dynamic skill following `skill-creator/SKILL.md` §4, and register it via `node "<this-skill-dir>/scripts/register-dynamic-skill.js" <name>`.
 
 ## 3. Purpose
 Through `self-evolve`, we transform "invalid trial-and-error", which might otherwise waste Tokens, into a valuable "moat" for the system. Even if the underlying model doesn't become inherently smarter, equipped with these memories, the system will automatically avoid known traps and break through its original reasoning ceiling.

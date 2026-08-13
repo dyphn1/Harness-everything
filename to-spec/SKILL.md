@@ -19,7 +19,7 @@ Not every task needs a PRD. This skill carries four starting skeletons under `te
 | **Trigger / Input** | Explicit `/to-spec` invocation (never auto-run — publishing has a real side effect). Input: the current conversation plus whatever `CONTEXT.md`/ADRs/grilling already settled. |
 | **Expected Output** | One published doc using whichever `templates/*.md` skeleton fits the artifact — adapted, not filled in verbatim — placed per the repo's `projectDocs` entry (see Step 0). |
 | **State Mutations** | The `projectDocs` field inside this repo's own `<platform>/harness-everything/manifest.json` (the same file `scripts/lib/manifest.js` and self-evolve's `generated` skill registry already own) — written only via `check-project-docs.js init`, never hand-edited, only when the check gate says it's missing/incomplete. Plus the doc/issue itself, at the location that entry specifies. |
-| **Enforcement Gate** | MUST run `node to-spec/scripts/check-project-docs.js check` before Step 1. Exit 0 → read the entry, proceed. Exit 1 → run the Step 0 interview for the missing field(s), then persist with `init` — do not proceed to Step 1 on a failing check. MUST NOT re-interview the user about feature content already settled by a prior `grill-me`/`grill-with-docs` pass or plainly stated in conversation. For the `feature-spec` shape, MUST confirm seams before publishing. This skill itself is never a gate on anything else — `tdd`/`verification-loop` never wait on it. |
+| **Enforcement Gate** | MUST run `node "<this-skill-dir>/scripts/check-project-docs.js" check` before Step 1. Exit 0 → read the entry, proceed. Exit 1 → run the Step 0 interview for the missing field(s), then persist with `init` — do not proceed to Step 1 on a failing check. MUST NOT re-interview the user about feature content already settled by a prior `grill-me`/`grill-with-docs` pass or plainly stated in conversation. For the `feature-spec` shape, MUST confirm seams before publishing. This skill itself is never a gate on anything else — `tdd`/`verification-loop` never wait on it. |
 
 ## Process
 
@@ -28,7 +28,7 @@ Not every task needs a PRD. This skill carries four starting skeletons under `te
 Three things affect every later step and every future `to-tickets` run on this repo: **where reference docs live**, **how issues are tracked**, and **what counts as a valid issue** here. Don't re-derive these from scratch, and don't re-ask once they're known — check first:
 
 ```bash
-node to-spec/scripts/check-project-docs.js check
+node "<this-skill-dir>/scripts/check-project-docs.js" check
 ```
 
 This reads/writes a `projectDocs` object inside `<platform>/harness-everything/manifest.json` (e.g. `.claude/harness-everything/manifest.json`) — the file this package already uses for its install manifest and for `self-evolve`'s generated-skill registry. No new `docs/` config file, no second place to look. It's deliberately **repo-local only**: the script never touches the global `~/.agents`/`~/.claude` manifest homes, because doc location / tracker / issue definition are per-repo facts — writing them to a global, cross-project file would leak one repo's tracker into every other repo sharing that install.
@@ -47,7 +47,7 @@ This reads/writes a `projectDocs` object inside `<platform>/harness-everything/m
 Persist the answers through the script — never hand-edit the manifest, so the shape the checker parses stays guaranteed-consistent:
 
 ```bash
-node to-spec/scripts/check-project-docs.js init --doc-location "<answer>" --tracker "<answer>" --issue-definition "<answer>"
+node "<this-skill-dir>/scripts/check-project-docs.js" init --doc-location "<answer>" --tracker "<answer>" --issue-definition "<answer>"
 ```
 
 This is a one-time cost per repo. Once `projectDocs` exists in this repo's manifest, every future `/to-spec` (and `/to-tickets`, once installed) run skips straight past this step — that's the whole point of making it a script gate instead of a prose reminder. Run the script with `--help` for the full command/flag reference.
