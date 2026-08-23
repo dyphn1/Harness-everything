@@ -28,6 +28,33 @@ const sessionId = payload && payload.session_id;
 
 const root = getWorkspaceRoot();
 
+// Guard: only materialize state in a workspace that actually has Harness
+// installed. Without this, running a Claude session in any random folder
+// (or using the agent for non-engineering chat) would still create
+// state directories and session files there. A workspace counts as
+// managed when it is a git repo AND carries at least one Harness install
+// marker - or IS the harness-everything source repo itself (so manual
+// VERIFICATION.md runs keep working after a fresh clone).
+function isManagedWorkspace(wsRoot) {
+  if (!fs.existsSync(path.join(wsRoot, '.git'))) return false;
+  if (fs.existsSync(path.join(wsRoot, 'harness-everything', 'scripts', 'bootstrap.js'))) return true;
+  const markers = [
+    path.join(wsRoot, '.claude', 'settings.json'),
+    path.join(wsRoot, '.cursorrules'),
+    path.join(wsRoot, '.github', 'copilot-instructions.md'),
+    path.join(wsRoot, 'AGENTS.md'),
+    path.join(wsRoot, '.continue', 'rules', 'harness.md'),
+    path.join(wsRoot, '.hermes.md'),
+  ];
+  return markers.some(m => fs.existsSync(m));
+}
+
+if (!isManagedWorkspace(root)) {
+  // Stay completely silent: hooks must never surprise the user with files
+  // or output in workspaces Harness was never installed into.
+  process.exit(0);
+}
+
 // Nothing purges old session directories the way an OS temp dir would -
 // drop ones untouched for a while so .claude/harness-state/sessions/ doesn't
 // grow forever.

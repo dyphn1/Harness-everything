@@ -60,6 +60,11 @@ async function main() {
   const hasAllFlag = args.includes('--all');
   const hasGlobalFlag = args.includes('--global') || args.includes('-g');
   const hasYesFlag = args.includes('-y') || args.includes('--yes');
+  // Self-heal repair mode: configure the platform touchpoints (advisory text,
+  // hooks settings, gitignore patterns) WITHOUT copying any skills into the
+  // workspace - skill installation is an explicit user choice, never a
+  // side effect of a background repair.
+  const hasNoSkillsFlag = args.includes('--no-skills');
   const hasAnyPlatformFlag = hasClaudeFlag || hasCursorFlag || hasCopilotFlag || hasCodexFlag || hasContinueFlag || hasHermesFlag || hasAllFlag;
   
   let requestedSkills = ['add', 'skill', 'skills'].includes(command)
@@ -200,12 +205,12 @@ async function main() {
           targets.claude = true;
         }
       }
-      chosenSkills = skills.getAvailableSkills(harnessSourceDir);
+      chosenSkills = hasNoSkillsFlag ? [] : skills.getAvailableSkills(harnessSourceDir);
     }
   }
 
   // Ensure harness-everything is ALWAYS included in chosenSkills
-  if (!chosenSkills.includes('harness-everything')) {
+  if (!hasNoSkillsFlag && !chosenSkills.includes('harness-everything')) {
     chosenSkills.push('harness-everything');
   }
 

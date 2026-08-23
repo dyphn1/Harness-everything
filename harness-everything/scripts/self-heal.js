@@ -82,9 +82,14 @@ function auditClaudeHooks(workspaceRoot) {
 
 function auditWorkspace(workspaceRoot) {
   // 1. 環境變數偵測 (Environment Detection)
-  const isClaudeEnv = process.env.CLAUDE_CODE === 'true' || process.env.SHELL?.includes('claude-code') || false;
+  //    NOTE: TERM_PROGRAM=vscode / VSCODE_PID are deliberately NOT treated as
+  //    Copilot signals - Claude Code's integrated terminal reports vscode too,
+  //    and treating it as Copilot made self-heal backfill .github/ artifacts
+  //    (and copy every global skill into the project) for Claude-driven repos.
+  //    Only explicit Copilot runtime signals count here.
+  const isClaudeEnv = process.env.CLAUDECODE === '1' || process.env.CLAUDE_CODE === 'true' || process.env.CLAUDE === '1' || false;
   const isCursorEnv = process.env.TERM_PROGRAM === 'cursor' || process.env.CURSOR_SANDBOX !== undefined || false;
-  const isCopilotEnv = process.env.GITHUB_COPILOT_CHAT === 'true' || process.env.COPILOT_AGENT === '1' || process.env.AI_AGENT?.includes('copilot') || process.env.TERM_PROGRAM === 'vscode' || process.env.VSCODE_PID !== undefined || false;
+  const isCopilotEnv = process.env.GITHUB_COPILOT_CHAT === 'true' || process.env.COPILOT_AGENT === '1' || (process.env.AI_AGENT?.includes('copilot') ?? false);
 
   // 2. 專案現存檔案偵測 (Workspace File Detection)
   const hasClaudeFiles = fs.existsSync(path.join(workspaceRoot, '.claude'));
@@ -104,14 +109,15 @@ function auditWorkspace(workspaceRoot) {
     hermes: hasHermesFiles
   };
 
-  // 如果偵測完，發現沒有任何活躍平台（例如全新專案第一次執行 self-heal），則根據環境變數提供預設平台
+  // 如果偵測完，沒有任何活躍平台（全新專案第一次執行 self-heal），只在有明確
+  // 環境訊號時提供預設平台；否則不修復 - 寧可不做也不要猜測並汙染工作區。
   const hasAnyActive = Object.values(activePlatforms).some(v => v);
   if (!hasAnyActive) {
     if (isClaudeEnv) {
       activePlatforms.claude = true;
     } else if (isCursorEnv) {
       activePlatforms.cursor = true;
-    } else {
+    } else if (isCopilotEnv) {
       activePlatforms.copilot = true;
     }
   }
@@ -215,9 +221,11 @@ function main() {
 
   console.log(`\nRepairing ${missing.length} missing active touchpoint(s) via installer...\n`);
   
-  // 構造參數只針對當前環境缺少的平台調用安裝器
+  // 構造參數只針對當前環境缺少的平台調用安裝器。--no-skills 讓修復只回補
+  // 該平台的整合觸點（advisory 檔案 / hooks 設定），絕不把全域 skills 複製進
+  // 專案 - skills 的安裝與否是使用者明確的選擇，不是 self-heal 的職權。
   const activeFlags = missing.map(c => `--${c.platform}`).join(' ');
-  execSync(`node "${installerPath}" ${activeFlags} --yes`, { cwd: workspaceRoot, stdio: 'inherit' });
+  execSync(`node "${installerPath}" ${activeFlags} --no-skills --yes`, { cwd: workspaceRoot, stdio: 'inherit' });
 
   const after = auditWorkspace(workspaceRoot);
   console.log('');

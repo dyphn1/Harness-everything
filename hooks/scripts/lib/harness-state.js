@@ -28,89 +28,36 @@ function getWorkspaceRoot() {
 
 function detectActivePlatform(wsRoot) {
   const root = wsRoot || getWorkspaceRoot();
-  
-  // 1. Check explicit environment variables
-  if (process.env.CLAUDE === '1' || process.env.CLAUDE) return 'claude';
-  if (process.env.CURSOR === '1' || process.env.CURSOR) return 'cursor';
-  if (process.env.COPILOT === '1' || process.env.COPILOT) return 'copilot';
-  if (process.env.CONTINUE === '1' || process.env.CONTINUE) return 'continue';
-  
-  // 2. Check parent/environment standard indicators
-  if (process.env.TERM_PROGRAM === 'vscode') {
-    if (fs.existsSync(path.join(root, '.cursorrules'))) {
-      return 'cursor';
-    }
-    if (fs.existsSync(path.join(root, '.github', 'copilot-instructions.md'))) {
-      return 'copilot';
-    }
-    return 'copilot'; // Default fallback for standard VS Code terminal
-  }
-  
-  // 3. Fallback to detecting workspace configuration presence
+
+  // 1. Explicit environment variables - strongest signal. Claude Code sets
+  //    CLAUDECODE=1 / CLAUDE_CODE_ENTRYPOINT inside its own shell; a bare
+  //    TERM_PROGRAM=vscode does NOT mean Copilot, because Claude Code's
+  //    integrated terminal reports vscode too.
+  const env = process.env;
+  if (env.CLAUDE === '1' || env.CLAUDE || env.CLAUDECODE === '1' ||
+      env.CLAUDE_CODE === 'true' || env.CLAUDE_CODE_ENTRYPOINT) return 'claude';
+  if (env.CURSOR === '1' || env.CURSOR || env.CURSOR_AGENT) return 'cursor';
+  if (env.COPILOT === '1' || env.COPILOT || env.GITHUB_COPILOT_CHAT === 'true') return 'copilot';
+  if (env.CONTINUE === '1' || env.CONTINUE) return 'continue';
+
+  // 2. Workspace configuration presence - which platform's config actually
+  //    lives here beats inferring from the terminal program.
   if (fs.existsSync(path.join(root, '.claude', 'settings.json'))) return 'claude';
   if (fs.existsSync(path.join(root, '.cursorrules'))) return 'cursor';
   if (fs.existsSync(path.join(root, '.github', 'copilot-instructions.md'))) return 'copilot';
   if (fs.existsSync(path.join(root, '.continue'))) return 'continue';
   if (fs.existsSync(path.join(root, 'AGENTS.md'))) return 'codex';
   if (fs.existsSync(path.join(root, '.hermes.md'))) return 'hermes';
-  
+
+  // 3. Weak terminal inference, last resort only.
+  if (env.TERM_PROGRAM === 'vscode') return 'copilot';
+
   return 'claude'; // Default global fallback
 }
 
-function loadGitignoreHelper() {
-  const candidates = [
-    path.join(__dirname, '../../../scripts/lib/gitignore'),
-    path.join(getWorkspaceRoot(), 'scripts/lib/gitignore'),
-    path.join(getWorkspaceRoot(), 'harness-everything/scripts/lib/gitignore'),
-  ];
-  for (const cand of candidates) {
-    try {
-      if (fs.existsSync(cand + '.js') || fs.existsSync(cand)) {
-        return require(cand);
-      }
-    } catch (e) {}
-  }
-  return null;
-}
-
-function ensureHarnessStateIgnored(rootPath) {
-  const wsRoot = rootPath || getWorkspaceRoot();
-  
-  try {
-    const allPlatforms = require('./platforms');
-    const dynamicPatterns = [];
-    
-    const activePlatformName = detectActivePlatform(wsRoot);
-    const activePlatform = allPlatforms.find(p => p.name === activePlatformName) || allPlatforms.find(p => p.name === 'claude');
-    
-    if (activePlatform && typeof activePlatform.getStateDir === 'function') {
-      const activeStateDir = activePlatform.getStateDir(wsRoot);
-      const relativeStateDir = path.relative(wsRoot, activeStateDir).replace(/\\/g, '/') + '/';
-      dynamicPatterns.push(relativeStateDir);
-    }
-    
-    for (const platform of allPlatforms) {
-      if (typeof platform.getHarnessDir === 'function') {
-        const harnessDir = platform.getHarnessDir(wsRoot);
-        if (fs.existsSync(harnessDir) || platform.name === activePlatformName) {
-          const patterns = platform.getIgnorePatterns(wsRoot);
-          for (const pattern of patterns) {
-            if (!dynamicPatterns.includes(pattern)) {
-              dynamicPatterns.push(pattern);
-            }
-          }
-        }
-      }
-    }
-    
-    const gitignoreHelper = loadGitignoreHelper();
-    if (gitignoreHelper && typeof gitignoreHelper.ensureWorkspaceGitignorePatterns === 'function') {
-      gitignoreHelper.ensureWorkspaceGitignorePatterns(wsRoot, dynamicPatterns);
-    }
-  } catch (err) {
-    // Fail silently to avoid breaking execution if .gitignore is write-locked
-  }
-}
+// Runtime hooks must NEVER touch .gitignore - that file is install/uninstall
+// territory (scripts/installer.js -> lib/gitignore.js). Rewriting it on every
+// hook invocation caused repeated diffs and surprised users mid-session.
 
 function getStateRoot(root) {
   const wsRoot = root || getWorkspaceRoot();
@@ -126,7 +73,6 @@ function getStateRoot(root) {
 
 function getSessionDir(root, sessionId) {
   const resolvedRoot = root || getWorkspaceRoot();
-  ensureHarnessStateIgnored(resolvedRoot);
   const dir = path.join(getStateRoot(resolvedRoot), 'sessions', sessionId || DEFAULT_SESSION);
   fs.mkdirSync(dir, { recursive: true });
   return dir;
@@ -147,7 +93,6 @@ function writeCurrentSession(root, sessionId) {
   if (!sessionId) return;
   try {
     const wsRoot = root || getWorkspaceRoot();
-    ensureHarnessStateIgnored(wsRoot);
     const stateRoot = getStateRoot(wsRoot);
     fs.mkdirSync(stateRoot, { recursive: true });
     fs.writeFileSync(path.join(stateRoot, CURRENT_SESSION_FILE), sessionId, 'utf8');
@@ -184,6 +129,7 @@ function pruneStaleSessions(root, maxAgeMs = 14 * 24 * 60 * 60 * 1000) {
 module.exports = {
   DEFAULT_SESSION,
   getWorkspaceRoot,
+  detectActivePlatform,
   getStateRoot,
   getSessionDir,
   listSessionDirs,
