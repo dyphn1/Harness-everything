@@ -4,7 +4,7 @@ description: Search the agent-skills ecosystem (skills.sh / npx skills) when no 
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Find Skills (External Skill Discovery)

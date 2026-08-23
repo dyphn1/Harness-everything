@@ -4,7 +4,7 @@ description: "Triage new software requests into Tier 1/2/3 before work begins. U
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Harness Everything (System Main Entry & Dynamic Router)

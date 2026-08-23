@@ -4,7 +4,7 @@ description: Use when starting feature work needing isolation or before implemen
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Using Git Worktrees

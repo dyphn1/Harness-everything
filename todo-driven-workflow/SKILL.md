@@ -4,7 +4,7 @@ description: "Enforce a deliberate step-by-step execution loop for complex multi
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Todo-Driven Workflow

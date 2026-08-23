@@ -4,7 +4,7 @@ description: "Verify external framework/API claims and unmeasured perf/cost esti
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Verify Before Claim

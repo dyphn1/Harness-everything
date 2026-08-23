@@ -4,7 +4,7 @@ description: "Extract root causes from resolved problems and persist them as def
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Self Evolve (Self Evolution & Memory Extraction)

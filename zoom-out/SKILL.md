@@ -4,7 +4,7 @@ description: "Reflect-first circuit breaker - after 3 failures, stop edits, rebu
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Zoom Out (Global Perspective & Circuit Breaker)

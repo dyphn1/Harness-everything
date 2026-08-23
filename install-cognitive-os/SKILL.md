@@ -4,7 +4,7 @@ description: Defines the fundamental physical laws of behavior — Discover, Thi
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Agent Cognitive OS (Underlying Cognitive System)

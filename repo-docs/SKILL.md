@@ -4,7 +4,7 @@ description: Generate or update precise, reader-oriented README.md and AGENTS.md
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Repo Docs (Automated Project Documentation Generation & Smart Merging)

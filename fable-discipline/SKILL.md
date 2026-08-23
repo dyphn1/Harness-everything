@@ -4,7 +4,7 @@ description: Enforce fable-mode's context discipline as a shadow guard. Use when
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.2.0
+  version: 0.3.4
 ---
 
 # Fable Discipline (Macro Task Discipline & Safety Net)

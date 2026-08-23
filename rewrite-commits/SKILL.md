@@ -4,7 +4,7 @@ description: "Rewrite past Git history to comply with Angular Style conventions.
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.2.0
+  version: 0.3.4
 ---
 
 # Rewrite Commits

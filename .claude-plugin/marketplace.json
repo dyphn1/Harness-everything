@@ -9,7 +9,7 @@
       "name": "harness-everything",
       "source": "./",
       "description": "Harness OS: an orchestrated agent operating system — tier routing, circuit breaker guardrails, verification gates, WAL session memory, and self-evolving workspace rules.",
-      "version": "0.4.0-beta",
+      "version": "0.3.4-beta",
       "author": {
         "name": "Miya Daniel | Harness Core Team"
       },

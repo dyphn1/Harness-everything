@@ -4,7 +4,7 @@ description: Deploy a universal, self-adapting Multi-Agent Architecture into any
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Universal Multi-Agent Workspace Installer

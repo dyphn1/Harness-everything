@@ -4,7 +4,7 @@ description: Discovers and transforms shallow or bloated modules into deep, SRP-
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Improve Codebase Architecture (Deep & SRP Refactoring)

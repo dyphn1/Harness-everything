@@ -4,7 +4,7 @@ description: Turn the conversation into a written spec — feature PRD, CLI/API 
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # To Spec

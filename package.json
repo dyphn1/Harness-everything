@@ -1,6 +1,6 @@
 {
   "name": "harness-everything",
-  "version": "0.4.0-beta",
+  "version": "0.3.4-beta",
   "description": "Harness OS: An Orchestrated Agent Operating System for AI-driven Development",
   "main": "harness-everything/scripts/bootstrap.js",
   "bin": {

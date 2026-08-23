@@ -4,7 +4,7 @@ description: Challenge the plan against the existing domain model, sharpen termi
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Grill With Docs (Domain Modeling & Architectural Alignment)

@@ -134,6 +134,34 @@ for (const s of skills) {
   );
 }
 
+// --- 5b. Skill version ceiling --------------------------------------------
+// Skill frontmatter versions move in lockstep with releases; no skill may
+// exceed the package version's numeric base (prerelease suffixes ignored).
+function verBase(v) {
+  const m = String(v).match(/^(\d+)\.(\d+)\.(\d+)/);
+  return m ? m.slice(1).map(Number) : null;
+}
+function cmpVer(a, b) {
+  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] - b[i];
+  return 0;
+}
+const pkgBase = verBase(pkg.version);
+check(
+  `package.json version parses (${pkg.version})`,
+  !!pkgBase
+);
+for (const s of skills) {
+  const raw = fs.readFileSync(s.path, 'utf8');
+  const fm = (raw.match(/^---\n([\s\S]*?)\n---/) || [])[1] || '';
+  const vRaw = ((fm.match(/^  version:\s*(.+)$/m) || [])[1] || '').trim();
+  const v = verBase(vRaw);
+  check(
+    `${s.dir}: skill version ${vRaw || '(missing)'} <= package base ${pkgBase ? pkgBase.join('.') : '?'}`,
+    !!v && !!pkgBase && cmpVer(v, pkgBase) <= 0,
+    v ? 'skill version exceeds package version' : 'missing or unparseable metadata.version'
+  );
+}
+
 // --- 6. Dead-link audit over README.md and docs/** -----------------------
 function extractLocalLinks(file) {
   const text = fs.readFileSync(file, 'utf8');

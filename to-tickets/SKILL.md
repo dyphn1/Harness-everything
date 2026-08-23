@@ -4,7 +4,7 @@ description: Break a to-spec feature-spec, a plan, or a conversation into tracer
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # To Tickets

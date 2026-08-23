@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.4.0-beta] - 2026-08-23
+## [0.3.4-beta] - 2026-08-23
 
 ### Added
 - **Plugin Distribution (`.claude-plugin/`)**: Added `plugin.json` and `marketplace.json` so Harness installs as a Claude Code plugin (`/plugin marketplace add dyphn1/Harness-everything`) with the full skill catalog, hooks, and version pinning — previously only `npx github:` was supported.
@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Full Routing-Eval Coverage**: Added trigger/routing evals for all remaining 22 skills (`evals/<skill>/eval.yaml` + positive/negative tasks), bringing catalog coverage from 5/27 to 27/27.
 - **Description Collision Detection** (`eval-framework/description-collision.js`): Pairwise stemmed-Jaccard similarity over skill descriptions; fails at ≥0.75 overlap where the router cannot distinguish two skills. Guards against description drift as the catalog grows.
 - **Consistency Check** (`eval-framework/consistency-check.js`): Validates SKILL.md frontmatter names match directories, both trigger sections exist, `.claude-plugin/*` manifests list exactly the on-disk skills, versions agree across package.json/plugin.json/marketplace.json, every skill has a routing eval, and every local link in README/docs resolves. A stale manifest is a router that lies.
+
+### Fixed
+- **Corrupt AGENTS.md**: Root AGENTS.md contained only a dangling `description: "` fragment; rewritten as a full operating guide (layout, change rules, quality gates, version policy).
+- **Skill Version Drift**: All skills modified after the 0.3.3-beta release now carry frontmatter version 0.3.4 (two were stale at 0.2.0); package/plugin/marketplace realigned from 0.4.0-beta to 0.3.4-beta so no version exceeds the release base.
+
+### Added
+- **Version Ceiling Gate**: consistency check now parses every skill's metadata.version and fails if it is missing, unparseable, or numerically above the package.json version base.
 
 ### Changed
 - **CI**: New `consistency` job running manifest/doc-link/eval-coverage checks and collision detection on every push.
