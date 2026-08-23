@@ -4,7 +4,7 @@ description: "Delegate bulk mechanical work to the fable-worker-haiku agent for 
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
-  version: 0.3.3
+  version: 0.3.4
 ---
 
 # Fable Mode — Haiku (v3, agent-routed)

@@ -162,6 +162,39 @@ for (const s of skills) {
   );
 }
 
+// --- 5c. Nested sub-skill versions -----------------------------------------
+// Sub-skills nested inside a parent skill dir (<skill>/<sub>/SKILL.md) are
+// invoked by the parent, not routed independently; they inherit the parent
+// skill's version so the lockstep policy stays enforceable.
+const nestedSubSkills = [];
+for (const s of skills) {
+  (function walk(dir) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (!e.isDirectory() || e.name.startsWith('.') || e.name === 'node_modules') continue;
+      const sub = path.join(dir, e.name);
+      if (fs.existsSync(path.join(sub, 'SKILL.md'))) nestedSubSkills.push(sub);
+      else walk(sub);
+    }
+  })(path.join(ROOT, s.dir));
+}
+for (const sub of nestedSubSkills) {
+  const rel = path.relative(ROOT, path.join(sub, 'SKILL.md'));
+  const parentDir = path.dirname(sub);
+  const parentRaw = fs.readFileSync(path.join(parentDir, 'SKILL.md'), 'utf8');
+  const parentFm = (parentRaw.match(/^---\n([\s\S]*?)\n---/) || [])[1] || '';
+  const parentV = ((parentFm.match(/^  version:\s*(.+)$/m) || [])[1] || '').trim();
+  const raw = fs.readFileSync(path.join(sub, 'SKILL.md'), 'utf8');
+  const fm = (raw.match(/^---\n([\s\S]*?)\n---/) || [])[1] || '';
+  const v = ((fm.match(/^  version:\s*(.+)$/m) || [])[1] || '').trim();
+  check(
+    `${rel}: nested sub-skill inherits parent version (${parentV})`,
+    !!v && v === parentV,
+    `"${v}" != parent "${parentV}"`
+  );
+}
+
 // --- 6. Dead-link audit over README.md and docs/** -----------------------
 function extractLocalLinks(file) {
   const text = fs.readFileSync(file, 'utf8');

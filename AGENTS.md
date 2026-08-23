@@ -24,7 +24,7 @@ You are modifying **Harness**: an orchestrated agent operating system (skills + 
 1. **Every SKILL.md keeps ≤ 500 tokens** (hard CI gate) and must contain `## USE FOR:` and `## DO NOT USE FOR:` sections. Deep detail goes in the skill's `references/` or `guides/`.
 2. **Descriptions are routing surfaces.** Two skills whose descriptions overlap enough that a router cannot distinguish them will fail `test:collision`. When adding a skill, differentiate its description from near neighbors deliberately.
 3. **A new skill ships with a routing eval** (`evals/<skill>/eval.yaml` + positive/negative tasks). The positive task's `description:` field must carry the skill's exact frontmatter description — waza's deterministic matcher requires it verbatim.
-4. **Version policy:** skill frontmatter versions move in lockstep with releases. Skills modified after a release get bumped to that next version; nothing may exceed the package version's numeric base (`package.json`). The consistency check enforces this.
+4. **Version policy:** skill frontmatter versions move in lockstep with releases. Skills modified after a release get bumped to that next version; nothing may exceed the package version's numeric base (`package.json`). Nested sub-skills (`<skill>/<sub>/SKILL.md`) are not routed independently — they inherit the parent skill's version and must always match it. The consistency check enforces both rules.
 5. **Manifests are generated facts, not opinions:** if you add/remove/rename a skill directory, update `.claude-plugin/plugin.json` (and marketplace entry version) in the same change. `npm run test:consistency` fails otherwise.
 6. **CHANGELOG.md is append-only history.** Every user-visible change gets an entry under the current `-beta` heading before merge.
 

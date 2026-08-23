@@ -7,6 +7,9 @@ description: >-
   boundaries with a post-write corruption check. Use whenever a turn would
   raise a warning or edit files via search-and-replace.
 license: Apache-2.0
+metadata:
+  author: Miya Daniel | Harness Core Team
+  version: 0.3.4
 ---
 
 # Execution Guardrails
