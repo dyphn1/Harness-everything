@@ -32,7 +32,7 @@ const advisory = require('./lib/advisory-text');
 const claudeHooks = require('./lib/claude-hooks');
 const manifest = require('./lib/manifest');
 const skills = require('./lib/skills');
-const { ensureWorkspaceGitignorePatterns, cleanEmptyDirs } = require('./lib/gitignore');
+const { ensureWorkspaceGitignorePatterns, removeWorkspaceExcludePatterns, cleanEmptyDirs } = require('./lib/gitignore');
 
 const userHome = require('os').homedir();
 const workspaceRoot = getWorkspaceRoot();
@@ -435,6 +435,11 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
       fs.rmSync(legacyHarnessDir, { recursive: true, force: true });
       console.log(`  ✅ Removed legacy .harness/ directory (superseded by .claude/harness-everything/)`);
     }
+
+    // Remove Harness's local-only ignore section (.git/info/exclude) and any
+    // legacy banner block older installers appended to the working-tree
+    // .gitignore. Only ever touches Harness-owned lines.
+    removeWorkspaceExcludePatterns(workspaceRoot);
   }
 
   if (removeGlobal) {

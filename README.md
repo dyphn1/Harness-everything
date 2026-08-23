@@ -70,7 +70,7 @@ The installer only ever writes to your workspace (or, with `--global`, your home
 | `.hermes.md` | Hermes Agent advisory context |
 | `.claude/harness-everything/` (or the per-platform equivalent) | Harness state: `manifest.json`, WAL, circuit-breaker counters |
 
-The installer also appends the state directories to your `.gitignore` so Harness state never lands in a commit. Everything is removed with the built-in uninstaller:
+The installer records the state directories in `.git/info/exclude` — a local-only git ignore file — so Harness state never lands in a commit and your working tree (including `.gitignore`) is never modified. Everything is removed with the built-in uninstaller:
 
 ```bash
 npx github:dyphn1/Harness-everything uninstall            # interactive
