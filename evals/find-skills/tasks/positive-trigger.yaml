@@ -1,0 +1,15 @@
+id: positive-find-skills-001
+name: On-scope prompt triggers find-skills
+description: A request squarely inside find-skills's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Find a skill that can generate mermaid sequence diagrams from code."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "skill"

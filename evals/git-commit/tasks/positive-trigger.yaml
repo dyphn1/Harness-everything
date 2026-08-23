@@ -1,0 +1,15 @@
+id: positive-git-commit-001
+name: On-scope prompt triggers git-commit
+description: A request squarely inside git-commit's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Commit these staged changes with a conventional commit message following our house style."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "commit"

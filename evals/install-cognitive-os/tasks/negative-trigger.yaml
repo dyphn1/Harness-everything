@@ -1,0 +1,16 @@
+id: negative-install-cognitive-os-001
+name: Off-scope prompt must not trigger install-cognitive-os
+description: A request outside install-cognitive-os's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Delete the node_modules directory."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "Cognitive Law"
+        - "cognitive loop"

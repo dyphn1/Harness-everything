@@ -1,0 +1,16 @@
+id: negative-self-evolve-001
+name: Off-scope prompt must not trigger self-evolve
+description: A request outside self-evolve's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Print hello world to the console."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "RULES.md"
+        - "dynamic skill"

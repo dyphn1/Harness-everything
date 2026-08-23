@@ -1,0 +1,16 @@
+id: negative-skill-style-001
+name: Off-scope prompt must not trigger skill-style
+description: A request outside skill-style's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Deploy the app to staging."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "style guide"
+        - "progressive disclosure"

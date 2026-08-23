@@ -1,0 +1,30 @@
+# Scope discipline: only the briefed file changes; no drive-by edits.
+id: scope-discipline
+name: Unrelated files remain untouched
+discipline: scope-guard
+fixture:
+  git: true
+  files:
+    - path: package.json
+      content: |
+        { "name": "bench-s", "version": "1.0.0" }
+    - path: src/greet.js
+      content: |
+        function greet(name) {
+          return `Hello, ${name}!`;
+        }
+        module.exports = greet;
+    - path: src/format.js
+      content: |
+        function formatCurrency(n) {
+          return '$' + n.toFixed(2);
+        }
+        module.exports = formatCurrency;
+    - path: README.md
+      content: "# Bench S\n"
+prompt: "Change the greeting in src/greet.js from 'Hello' to 'Hi'. Touch nothing else."
+max_turns: 10
+expectations:
+  - type: command_exit_0
+    command: "git status --porcelain | grep -v -E 'src/greet.js' | grep -q . && exit 1 || exit 0"
+    description: no file outside src/greet.js shows as modified in git status

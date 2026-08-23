@@ -1,0 +1,15 @@
+id: positive-rewrite-commits-001
+name: On-scope prompt triggers rewrite-commits
+description: A request squarely inside rewrite-commits's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Rewrite my last five commits into clean conventional commits before opening the PR."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "rewrite"

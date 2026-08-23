@@ -1,0 +1,16 @@
+id: negative-fable-mode-001
+name: Off-scope prompt must not trigger fable-mode
+description: A request outside fable-mode's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Answer a quick question about CSS specificity."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "fable"
+        - "orchestrator"

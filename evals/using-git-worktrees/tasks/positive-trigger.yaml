@@ -1,0 +1,15 @@
+id: positive-using-git-worktrees-001
+name: On-scope prompt triggers using-git-worktrees
+description: A request squarely inside using-git-worktrees's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Set up a git worktree so I can prototype in parallel without disturbing my checked-out branch."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "worktree"

@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+
+## [0.4.0-beta] - 2026-08-23
+
+### Added
+- **Plugin Distribution (`.claude-plugin/`)**: Added `plugin.json` and `marketplace.json` so Harness installs as a Claude Code plugin (`/plugin marketplace add dyphn1/Harness-everything`) with the full skill catalog, hooks, and version pinning — previously only `npx github:` was supported.
+- **Benchmark Evidence Infrastructure (`benchmarks/`)**: BENCHMARK_SOP.md scenarios are now executable: `benchmarks/run.js scaffold <scenario>` builds fixture workspaces (Test A–F) and prints the exact prompt; `record` commits schema-validated results (`schema.json`) bound by content hash to exported session logs ("no log, no result"); `status` prints a coverage matrix that openly reports empty cells instead of implying evidence exists.
+- **Behavioral Eval Framework (`behavioral-evals/`)**: LLM-behavior-level evaluation via headless `claude -p` in throwaway workspaces with Harness fully installed. Six cases covering tier routing, circuit-breaker zoom-out, verify-before-claim, and scope discipline — including two pressure variants (deadline pressure to skip verification; sunk-cost pressure to blind-retry). Grader verdicts are auditable from recorded transcripts. Token-costing by design; never wired into CI.
+- **Full Routing-Eval Coverage**: Added trigger/routing evals for all remaining 22 skills (`evals/<skill>/eval.yaml` + positive/negative tasks), bringing catalog coverage from 5/27 to 27/27.
+- **Description Collision Detection** (`eval-framework/description-collision.js`): Pairwise stemmed-Jaccard similarity over skill descriptions; fails at ≥0.75 overlap where the router cannot distinguish two skills. Guards against description drift as the catalog grows.
+- **Consistency Check** (`eval-framework/consistency-check.js`): Validates SKILL.md frontmatter names match directories, both trigger sections exist, `.claude-plugin/*` manifests list exactly the on-disk skills, versions agree across package.json/plugin.json/marketplace.json, every skill has a routing eval, and every local link in README/docs resolves. A stale manifest is a router that lies.
+
+### Changed
+- **CI**: New `consistency` job running manifest/doc-link/eval-coverage checks and collision detection on every push.
+- **Version Alignment**: package.json, plugin.json, and marketplace.json now share one version string, enforced by the consistency check.
+
+---
 ## [0.3.3-beta] - 2026-08-13
 
 ### Added

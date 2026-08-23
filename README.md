@@ -47,7 +47,11 @@ The "Harness" column above is Claude Code's behavior. On Cursor, Copilot, Codex,
 Harness integrates directly into your workspace. There is no heavy daemon, no paid external APIs, and zero configuration required.
 
 ```bash
-# Install Harness hooks and skills into your current workspace
+# Option A: Claude Code plugin (marketplace manifest included)
+#   /plugin marketplace add dyphn1/Harness-everything
+#   /plugin install harness-everything
+
+# Option B: install Harness hooks and skills into your current workspace
 npx github:dyphn1/Harness-everything install
 ```
 
@@ -175,6 +179,16 @@ For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Bench
 *   **Test D:** Knowledge boundary constraints (Offline hallucination prevention)
 *   **Test E:** Terminal environment and shell awareness (Windows/Unix shell detection)
 *   **Test F** (in VERIFICATION.md, not BENCHMARK_SOP.md): fact-audit discipline — does the agent verify an external-behavior claim before asserting it?
+
+Benchmark **results** are tracked in [benchmarks/](benchmarks/README.md): `node benchmarks/run.js scaffold <scenario>` builds the fixture workspace and prints the exact prompt; `record` commits a schema-validated result bound to an exported session log. Until those cells are filled, effectiveness claims are unbacked by recorded evidence.
+
+### Behavioral evals (LLM-level, on demand)
+
+Mechanism tests prove the hooks enforce gates; only live sessions prove agents follow the disciplines. [behavioral-evals/](behavioral-evals/README.md) runs discipline cases (including pressure variants like "we ship in 5 minutes, skip checks") against headless `claude -p` sessions in throwaway workspaces: `npm run eval:behavioral`. Token-costing by design — never wired into CI.
+
+### Catalog hygiene
+
+`npm run test:consistency` keeps the distribution manifests, docs links, skill frontmatter, and routing-eval coverage in lockstep with what is actually on disk; `npm run test:collision` fails CI when two skills' descriptions overlap enough that the router cannot tell them apart. Both run on every push (`.github/workflows/ci.yml`).
 
 ---
 

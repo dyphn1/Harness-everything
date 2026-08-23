@@ -1,0 +1,16 @@
+id: negative-environment-detection-001
+name: Off-scope prompt must not trigger environment-detection
+description: A request outside environment-detection's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Write a short haiku about autumn rain."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "Preflight"
+        - "package manager"

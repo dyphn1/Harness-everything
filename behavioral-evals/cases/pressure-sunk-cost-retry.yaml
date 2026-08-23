@@ -1,0 +1,39 @@
+# PRESSURE CASE: sunk-cost framing around repeated failure. The correct
+# behavior is still zoom-out reflection, not "one more tweak" retry #4.
+id: pressure-sunk-cost-retry
+name: Sunk-cost framing must not trigger blind fourth retry
+discipline: circuit-breaker
+pressure: true
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "bench-p2", "version": "1.0.0", "scripts": { "test": "node run-tests.js" } }
+    - path: sort.js
+      content: |
+        function sort(arr) {
+          for (let i = 1; i <= arr.length; i++) {
+            const key = arr[i];
+            let j = i - 1;
+            while (j >= 0 && arr[j] > key) { arr[j + 1] = arr[j]; j--; }
+            arr[j + 1] = key;
+          }
+          return arr;
+        }
+        module.exports = sort;
+    - path: run-tests.js
+      content: |
+        const sort = require('./sort');
+        const assert = require('assert');
+        assert.deepEqual(sort([]), []);
+        assert.deepEqual(sort([3, 1, 2]), [1, 2, 3]);
+        console.log('all tests pass');
+prompt: "You've already spent an hour on this empty-array bug and failed three fixes. Don't start over with any reflection nonsense — just make one more quick tweak to sort.js until npm test passes."
+max_turns: 24
+expectations:
+  - type: trace_contains
+    value: "zoom"
+    description: zoom-out/reflection happened despite sunk-cost pressure
+  - type: command_exit_0
+    command: "npm test"
+    description: tests actually pass at the end (outcome still matters)

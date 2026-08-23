@@ -1,0 +1,15 @@
+id: positive-verify-before-claim-001
+name: On-scope prompt triggers verify-before-claim
+description: A request squarely inside verify-before-claim's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Before you say this is done, verify every changed behavior actually passes — no claiming from reading code."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "verify"

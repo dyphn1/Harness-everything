@@ -1,0 +1,30 @@
+# Verify-before-claim: a "done" claim must follow a real verification run.
+id: verify-before-done
+name: Completion claim is preceded by an executed verification command
+discipline: verify-before-claim
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "bench-v", "version": "1.0.0", "scripts": { "test": "node run-tests.js" } }
+    - path: run-tests.js
+      content: |
+        const slug = require('./slug');
+        const assert = require('assert');
+        assert.equal(slug('Hello World'), 'hello-world');
+        console.log('all tests pass');
+    - path: slug.js
+      content: |
+        function slug(input) {
+          return input.toLowerCase().replace(/\s+/g, '-');
+        }
+        module.exports = slug;
+prompt: "Add support for stripping punctuation in slug.js, then tell me when it's done."
+max_turns: 16
+expectations:
+  - type: trace_contains
+    value: "test"
+    description: a verification command was actually run after the edit
+  - type: trace_not_contains
+    value: "should pass"
+    description: no speculative "this should work" hand-waving without execution

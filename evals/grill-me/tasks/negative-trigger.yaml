@@ -1,0 +1,16 @@
+id: negative-grill-me-001
+name: Off-scope prompt must not trigger grill-me
+description: A request outside grill-me's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Summarize the contents of docs/philosophy.md."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "grill"
+        - "interview"

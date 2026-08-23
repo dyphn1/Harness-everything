@@ -1,0 +1,16 @@
+id: negative-git-commit-001
+name: Off-scope prompt must not trigger git-commit
+description: A request outside git-commit's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Explain the difference between git rebase and git merge."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "Conventional Commit"
+        - "staged"

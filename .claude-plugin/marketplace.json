@@ -1,0 +1,27 @@
+{
+  "name": "harness-everything",
+  "owner": {
+    "name": "dyphn1",
+    "url": "https://github.com/dyphn1"
+  },
+  "plugins": [
+    {
+      "name": "harness-everything",
+      "source": "./",
+      "description": "Harness OS: an orchestrated agent operating system — tier routing, circuit breaker guardrails, verification gates, WAL session memory, and self-evolving workspace rules.",
+      "version": "0.4.0-beta",
+      "author": {
+        "name": "Miya Daniel | Harness Core Team"
+      },
+      "license": "Apache-2.0",
+      "keywords": [
+        "agent-harness",
+        "orchestration",
+        "circuit-breaker",
+        "tdd",
+        "verification"
+      ],
+      "category": "productivity"
+    }
+  ]
+}

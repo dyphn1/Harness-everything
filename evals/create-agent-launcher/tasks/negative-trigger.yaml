@@ -1,0 +1,15 @@
+id: negative-create-agent-launcher-001
+name: Off-scope prompt must not trigger create-agent-launcher
+description: A request outside create-agent-launcher's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "What does the parseConfig function do?"
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "launcher"

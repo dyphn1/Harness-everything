@@ -1,0 +1,15 @@
+id: positive-improve-codebase-architecture-001
+name: On-scope prompt triggers improve-codebase-architecture
+description: A request squarely inside improve-codebase-architecture's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Improve the architecture of this tangled billing module and produce a report of proposed refactorings."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "architecture"

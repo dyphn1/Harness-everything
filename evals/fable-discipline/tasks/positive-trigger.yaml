@@ -1,0 +1,15 @@
+id: positive-fable-discipline-001
+name: On-scope prompt triggers fable-discipline
+description: A request squarely inside fable-discipline's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Enforce stage discipline on this large parallel build-out with named workers and per-stage verification."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "stage"

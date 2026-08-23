@@ -1,0 +1,16 @@
+id: negative-improve-codebase-architecture-001
+name: Off-scope prompt must not trigger improve-codebase-architecture
+description: A request outside improve-codebase-architecture's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Update the copyright year across files."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "refactor plan"
+        - "architecture report"

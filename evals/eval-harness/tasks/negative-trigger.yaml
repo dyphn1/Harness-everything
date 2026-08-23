@@ -1,0 +1,16 @@
+id: negative-eval-harness-001
+name: Off-scope prompt must not trigger eval-harness
+description: A request outside eval-harness's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Refactor the auth module to use middleware."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "eval-harness"
+        - "scoring rubric"

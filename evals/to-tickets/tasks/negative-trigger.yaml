@@ -1,0 +1,15 @@
+id: negative-to-tickets-001
+name: Off-scope prompt must not trigger to-tickets
+description: A request outside to-tickets's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Optimize this slow SQL query."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "ticket"

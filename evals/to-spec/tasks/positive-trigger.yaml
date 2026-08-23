@@ -1,0 +1,15 @@
+id: positive-to-spec-001
+name: On-scope prompt triggers to-spec
+description: A request squarely inside to-spec's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Turn this rough feature request into a full written spec with schema and CLI reference sections."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "spec"

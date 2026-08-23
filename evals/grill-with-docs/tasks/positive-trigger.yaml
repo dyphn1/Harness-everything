@@ -1,0 +1,15 @@
+id: positive-grill-with-docs-001
+name: On-scope prompt triggers grill-with-docs
+description: A request squarely inside grill-with-docs's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Interview me about this domain and persist what we establish into CONTEXT.md and ADRs."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "ADR"

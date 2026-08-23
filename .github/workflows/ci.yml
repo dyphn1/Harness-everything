@@ -64,3 +64,17 @@ jobs:
           exit $fail
       - name: Block SKILL.md token growth vs base branch
         run: waza tokens compare "${{ github.event.pull_request.base.ref || 'HEAD' }}" --strict --threshold 10
+
+  consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Docs, manifest, and eval-coverage consistency
+        run: npm run test:consistency
+      - name: Skill description collision detection
+        run: npm run test:collision

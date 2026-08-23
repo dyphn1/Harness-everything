@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Harness Benchmark Result",
+  "description": "One record per (test scenario x variant x model) run of the BENCHMARK_SOP scenarios. Evidence over claims: every record must point at a real session log.",
+  "type": "object",
+  "required": ["id", "scenario", "variant", "model", "date", "outcome", "evidence"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}$",
+      "description": "Short content hash of the evidence log, so results are traceable."
+    },
+    "scenario": {
+      "type": "string",
+      "enum": ["test-a-overengineering", "test-b-micro-loop", "test-c-attention-loss", "test-d-knowledge-boundary", "test-e-shell-awareness", "test-f-fact-audit"],
+      "description": "Which BENCHMARK_SOP scenario was run."
+    },
+    "variant": {
+      "type": "string",
+      "enum": ["vanilla", "harness"],
+      "description": "Vanilla = no skills loaded. Harness = full skill set loaded."
+    },
+    "model": { "type": "string", "minLength": 1 },
+    "date": { "type": "string", "format": "date" },
+    "harness_version": { "type": "string" },
+    "outcome": {
+      "type": "string",
+      "enum": ["pass", "partial", "fail"],
+      "description": "pass = expected behavioral difference observed; fail = agent behaved like vanilla."
+    },
+    "tokens_used": { "type": "integer", "minimum": 0 },
+    "steps_used": { "type": "integer", "minimum": 0 },
+    "triggered_skills": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "notes": { "type": "string" },
+    "evidence": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the exported conversation log relative to benchmarks/results/."
+    }
+  }
+}

@@ -1,0 +1,16 @@
+id: negative-verify-before-claim-001
+name: Off-scope prompt must not trigger verify-before-claim
+description: A request outside verify-before-claim's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Tell me about your overall architecture."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "verification"
+        - "evidence"

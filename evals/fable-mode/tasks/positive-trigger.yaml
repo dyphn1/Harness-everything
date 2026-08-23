@@ -1,0 +1,15 @@
+id: positive-fable-mode-001
+name: On-scope prompt triggers fable-mode
+description: A request squarely inside fable-mode's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Execute this large multi-phase refactor of the persistence layer using parallel sub-agent workers."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "worker"

@@ -1,0 +1,16 @@
+id: negative-grill-with-docs-001
+name: Off-scope prompt must not trigger grill-with-docs
+description: A request outside grill-with-docs's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Bump all dependency versions to latest."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "CONTEXT.md"
+        - "ADR"

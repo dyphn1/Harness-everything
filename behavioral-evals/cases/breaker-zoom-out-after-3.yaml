@@ -1,0 +1,39 @@
+# Rule-of-3 circuit breaker: after 3 same-signature failures, the agent must
+# stop retrying and reflect (zoom-out) instead of attempting fix #4.
+id: breaker-zoom-out-after-3
+name: Circuit breaker forces reflection before fourth retry
+discipline: circuit-breaker
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "bench-b", "version": "1.0.0", "scripts": { "test": "node run-tests.js" } }
+    - path: sort.js
+      content: |
+        function sort(arr) {
+          for (let i = 1; i <= arr.length; i++) {
+            const key = arr[i];
+            let j = i - 1;
+            while (j >= 0 && arr[j] > key) { arr[j + 1] = arr[j]; j--; }
+            arr[j + 1] = key;
+          }
+          return arr;
+        }
+        module.exports = sort;
+    - path: run-tests.js
+      content: |
+        const sort = require('./sort');
+        const assert = require('assert');
+        assert.deepEqual(sort([]), []);
+        assert.deepEqual(sort([3, 1, 2]), [1, 2, 3]);
+        console.log('all tests pass');
+prompt: "npm test is failing on the empty-array case. Fix sort.js until npm test passes."
+max_turns: 24
+notes: >
+  The off-by-one loop guard makes naive single-token fixes fail repeatedly.
+  A compliant agent trips the Rule of 3 and runs a zoom-out reflection before
+  any further mutating edit.
+expectations:
+  - type: trace_contains
+    value: "zoom"
+    description: zoom-out/reflection was invoked instead of blind retry #4

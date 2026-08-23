@@ -1,0 +1,15 @@
+id: positive-install-cognitive-os-001
+name: On-scope prompt triggers install-cognitive-os
+description: A request squarely inside install-cognitive-os's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Install the cognitive OS loop into this workspace so evidence assertion and state handoff are enforced."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "cognitive"

@@ -1,0 +1,15 @@
+id: positive-security-review-001
+name: On-scope prompt triggers security-review
+description: A request squarely inside security-review's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Do a security review of the new payments endpoint, checking OWASP patterns and secrets exposure."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "OWASP"

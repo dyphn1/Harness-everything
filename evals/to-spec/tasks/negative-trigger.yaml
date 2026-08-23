@@ -1,0 +1,16 @@
+id: negative-to-spec-001
+name: Off-scope prompt must not trigger to-spec
+description: A request outside to-spec's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Chat about weekend plans for a bit."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "feature-spec"
+        - "spec"

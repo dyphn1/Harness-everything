@@ -1,0 +1,15 @@
+id: positive-repo-docs-001
+name: On-scope prompt triggers repo-docs
+description: A request squarely inside repo-docs's USE FOR scope must trigger it.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Generate AGENTS.md and README documentation for this repo from its actual structure."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "AGENTS.md"

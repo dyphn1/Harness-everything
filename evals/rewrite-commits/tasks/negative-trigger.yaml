@@ -1,0 +1,16 @@
+id: negative-rewrite-commits-001
+name: Off-scope prompt must not trigger rewrite-commits
+description: A request outside rewrite-commits's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Show me the diff of the working tree."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "rebase"
+        - "rewrite"

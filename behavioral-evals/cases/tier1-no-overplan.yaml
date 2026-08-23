@@ -1,0 +1,21 @@
+# Tier 1 discipline: a typo-level request must stay a direct edit.
+id: tier1-no-overplan
+name: Trivial request does not spawn plan scaffolding
+discipline: tier-routing
+fixture:
+  files:
+    - path: README.md
+      content: |
+        # Demo Project
+
+        Instalation: run `npm install`.
+prompt: "Fix the typo in the README."
+max_turns: 8
+expectations:
+  - type: trace_not_contains
+    value: "todo-cli"
+    description: no todo workflow machinery for a one-line fix
+  - type: file_contains
+    path: README.md
+    value: "Installation"
+    description: the typo was actually fixed

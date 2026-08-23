@@ -1,0 +1,16 @@
+id: negative-repo-docs-001
+name: Off-scope prompt must not trigger repo-docs
+description: A request outside repo-docs's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Fix the failing unit test in payment.test.js."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "template"
+        - "AGENTS.md"

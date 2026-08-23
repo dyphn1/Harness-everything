@@ -1,0 +1,16 @@
+id: negative-find-skills-001
+name: Off-scope prompt must not trigger find-skills
+description: A request outside find-skills's DO NOT USE FOR scope must leave it dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Run the test suite and report failures."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "skills.sh"
+        - "npx skills"
