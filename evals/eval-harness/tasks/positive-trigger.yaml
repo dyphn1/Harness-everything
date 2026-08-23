@@ -1,6 +1,6 @@
 id: positive-eval-harness-001
 name: On-scope prompt triggers eval-harness
-description: A request squarely inside eval-harness's USE FOR scope must trigger it.
+description: "Evaluate AI agent performance across correctness, token efficiency, anti-loop focus, and environment awareness; save a 4-dimension scorecard. Use when asked to run a benchmark or score an execution log or conversation history."
 tags:
   - positive-trigger
 inputs:

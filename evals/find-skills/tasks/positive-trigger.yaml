@@ -1,6 +1,6 @@
 id: positive-find-skills-001
 name: On-scope prompt triggers find-skills
-description: A request squarely inside find-skills's USE FOR scope must trigger it.
+description: "Search the agent-skills ecosystem (skills.sh / npx skills) when no installed skill fits; verify quality, apply ephemerally via temp cache by default, and install permanently via npx skills add only with explicit user approval"
 tags:
   - positive-trigger
 inputs:

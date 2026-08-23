@@ -1,6 +1,6 @@
 id: positive-git-commit-001
 name: On-scope prompt triggers git-commit
-description: A request squarely inside git-commit's USE FOR scope must trigger it.
+description: "Generate Angular-style commit messages after verifying the environment, submodules, and staged files; use for explicit commit requests or concluded task phases."
 tags:
   - positive-trigger
 inputs:

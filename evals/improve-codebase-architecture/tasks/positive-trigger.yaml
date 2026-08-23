@@ -1,6 +1,6 @@
 id: positive-improve-codebase-architecture-001
 name: On-scope prompt triggers improve-codebase-architecture
-description: A request squarely inside improve-codebase-architecture's USE FOR scope must trigger it.
+description: "Discovers and transforms shallow or bloated modules into deep, SRP-compliant ones by splitting oversized objects/functions, extracting seams, and decoupling interfaces."
 tags:
   - positive-trigger
 inputs:

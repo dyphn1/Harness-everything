@@ -1,6 +1,6 @@
 id: positive-skill-creator-001
 name: On-scope prompt triggers skill-creator
-description: A request squarely inside skill-creator's USE FOR scope must trigger it.
+description: "Author, audit, and refactor SKILL.md files against one quality bar — the Skill Contract format. Use when creating a new skill, refactoring a SKILL.md, checking overlap, or packaging an insight as a dynamic skill."
 tags:
   - positive-trigger
 inputs:

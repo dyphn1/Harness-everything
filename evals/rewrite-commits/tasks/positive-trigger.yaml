@@ -1,6 +1,6 @@
 id: positive-rewrite-commits-001
 name: On-scope prompt triggers rewrite-commits
-description: A request squarely inside rewrite-commits's USE FOR scope must trigger it.
+description: "Rewrite past Git history to comply with Angular Style conventions. Use when cleaning unpushed commits before a PR, squashing fixups, rewording messages, or reordering history safely with abort on conflict."
 tags:
   - positive-trigger
 inputs:

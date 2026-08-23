@@ -1,6 +1,6 @@
 id: positive-environment-detection-001
 name: On-scope prompt triggers environment-detection
-description: A request squarely inside environment-detection's USE FOR scope must trigger it.
+description: "Use at session start (Discover phase) to detect and align with the operating system, shell (Git Bash vs PowerShell vs CMD), package managers, and dev tools; prevents blind command execution and repetitive tool errors."
 tags:
   - positive-trigger
 inputs:

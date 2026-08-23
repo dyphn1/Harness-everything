@@ -1,6 +1,6 @@
 id: positive-security-review-001
 name: On-scope prompt triggers security-review
-description: A request squarely inside security-review's USE FOR scope must trigger it.
+description: "Conducts STRIDE threat modeling, scans secrets via audit scripts, and hardens code against OWASP Top 10 risks with three-tier boundary controls. Use when implementing auth, handling input/uploads, managing secrets, or auditing code before deployment."
 tags:
   - positive-trigger
 inputs:

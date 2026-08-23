@@ -1,6 +1,6 @@
 id: positive-grill-me-001
 name: On-scope prompt triggers grill-me
-description: A request squarely inside grill-me's USE FOR scope must trigger it.
+description: "Acts as a relentless challenger to stress-test plans and architectures by interrogating one question at a time, finding loopholes, combating AI sycophancy, updating the CONTEXT.md glossary in real time, and handing off resolved decisions to to-spec for formal specs/ADRs."
 tags:
   - positive-trigger
 inputs:

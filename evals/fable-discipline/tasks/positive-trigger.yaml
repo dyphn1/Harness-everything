@@ -1,6 +1,6 @@
 id: positive-fable-discipline-001
 name: On-scope prompt triggers fable-discipline
-description: A request squarely inside fable-discipline's USE FOR scope must trigger it.
+description: "Enforce fable-mode's context discipline as a shadow guard. Use when running staged multi-agent loops to prevent context bloat, cap per-stage output size, keep each stage within its physical token boundaries, and stop agents from reading files outside the current stage's scope."
 tags:
   - positive-trigger
 inputs:

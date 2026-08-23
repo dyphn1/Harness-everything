@@ -1,6 +1,6 @@
 id: positive-fable-mode-001
 name: On-scope prompt triggers fable-mode
-description: A request squarely inside fable-mode's USE FOR scope must trigger it.
+description: "Plan and execute complex Tier 3 macro tasks by breaking multi-domain requirements into architectural milestones and delegating sub-agents. Use for multi-domain work or major scaffolding; outputs milestone TODO plans, sub-agent briefs, verified gates."
 tags:
   - positive-trigger
 inputs:

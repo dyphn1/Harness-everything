@@ -1,6 +1,6 @@
 id: positive-to-tickets-001
 name: On-scope prompt triggers to-tickets
-description: A request squarely inside to-tickets's USE FOR scope must trigger it.
+description: "Break a to-spec feature-spec, a plan, or a conversation into tracer-bullet tickets with declared blocking edges — one file per ticket locally or issues on a real tracker via projectDocs. Use when an approved spec needs dependency-aware ordering."
 tags:
   - positive-trigger
 inputs:

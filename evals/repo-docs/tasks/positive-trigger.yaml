@@ -1,6 +1,6 @@
 id: positive-repo-docs-001
 name: On-scope prompt triggers repo-docs
-description: A request squarely inside repo-docs's USE FOR scope must trigger it.
+description: "Generate or update precise, reader-oriented README.md and AGENTS.md based on actual project scans and smart merging of existing files. Use when a project lacks documentation or needs refreshed agent onboarding docs."
 tags:
   - positive-trigger
 inputs:

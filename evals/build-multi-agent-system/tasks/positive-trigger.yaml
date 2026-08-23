@@ -1,6 +1,6 @@
 id: positive-build-multi-agent-system-001
 name: On-scope prompt triggers build-multi-agent-system
-description: A request squarely inside build-multi-agent-system's USE FOR scope must trigger it.
+description: "Deploy a universal, self-adapting Multi-Agent Architecture into any project. It dynamically analyzes the tech stack to scaffold a token-efficient workspace with strict physical boundaries, hybrid SQLite memory, and isomorphic alignment protocols."
 tags:
   - positive-trigger
 inputs:

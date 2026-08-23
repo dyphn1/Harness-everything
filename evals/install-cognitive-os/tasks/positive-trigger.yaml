@@ -1,6 +1,6 @@
 id: positive-install-cognitive-os-001
 name: On-scope prompt triggers install-cognitive-os
-description: A request squarely inside install-cognitive-os's USE FOR scope must trigger it.
+description: "Defines the fundamental physical laws of behavior — Discover, Think, Try, Summarize, Record — for all Agents. Use this loop before acting on any task to ground progress in verified tool output."
 tags:
   - positive-trigger
 inputs:

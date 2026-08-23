@@ -1,6 +1,6 @@
 id: positive-create-agent-launcher-001
 name: On-scope prompt triggers create-agent-launcher
-description: A request squarely inside create-agent-launcher's USE FOR scope must trigger it.
+description: "Spawn specialized sub-agents or scaffold multi-agent infrastructure when tasks span multiple domains beyond one context window. Use for Tier 3 delegation from fable-mode or building permanent agent manifests; output is a scoped sub-agent, inline persona fallback, or platform manifests."
 tags:
   - positive-trigger
 inputs:

@@ -1,6 +1,6 @@
 id: positive-using-git-worktrees-001
 name: On-scope prompt triggers using-git-worktrees
-description: A request squarely inside using-git-worktrees's USE FOR scope must trigger it.
+description: "Use when starting feature work needing isolation or before implementation plans - ensures an isolated workspace via native tools or git worktree fallback"
 tags:
   - positive-trigger
 inputs:

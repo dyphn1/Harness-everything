@@ -1,6 +1,6 @@
 id: positive-skill-style-001
 name: On-scope prompt triggers skill-style
-description: A request squarely inside skill-style's USE FOR scope must trigger it.
+description: "Apply Harness style guidelines when writing or refactoring SKILL.md files. Use when creating a new skill, reviewing skill structure, enforcing naming and frontmatter conventions, or standardizing tone, formatting, and progressive disclosure across the skill catalog."
 tags:
   - positive-trigger
 inputs:

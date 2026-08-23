@@ -1,6 +1,6 @@
 id: positive-grill-with-docs-001
 name: On-scope prompt triggers grill-with-docs
-description: A request squarely inside grill-with-docs's USE FOR scope must trigger it.
+description: "Challenge the plan against the existing domain model, sharpen terminology, and update CONTEXT.md and ADRs inline as decisions crystallise; use when stress-testing a plan against documented language and decisions."
 tags:
   - positive-trigger
 inputs:
