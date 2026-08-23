@@ -157,14 +157,18 @@ function buildWorkspace(c) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, typeof f.content === 'string' ? f.content.replace(/\n$/, '') + '\n' : String(f.content));
   }
-  if (c.fixture.git) {
-    execFileSync('git', ['init', '-q'], { cwd: ws });
-    execFileSync('git', ['config', 'user.email', 'eval@harness.local'], { cwd: ws });
-    execFileSync('git', ['config', 'user.name', 'Harness Eval'], { cwd: ws });
-    execFileSync('git', ['add', '.'], { cwd: ws });
-    execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: ws });
-  }
   return ws;
+}
+
+// Git baseline MUST be captured after Harness installation: otherwise the
+// installer's own artifacts (.claude/, .harness-src/, opencode.json) show up
+// as workspace changes and every scope-discipline check false-fails.
+function gitSnapshot(ws) {
+  execFileSync('git', ['init', '-q'], { cwd: ws });
+  execFileSync('git', ['config', 'user.email', 'eval@harness.local'], { cwd: ws });
+  execFileSync('git', ['config', 'user.name', 'Harness Eval'], { cwd: ws });
+  execFileSync('git', ['add', '.'], { cwd: ws });
+  execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: ws });
 }
 
 function installHarness(ws) {
@@ -176,11 +180,14 @@ function installHarness(ws) {
     fs.cpSync(path.join(ROOT, entry.name), path.join(src, entry.name), { recursive: true });
   }
   // Skills where Claude Code can see them
-  fs.mkdirSync(path.join(ws, '.claude', 'skills'), { recursive: true });
+  const skillsDir = path.join(ws, '.claude', 'skills');
+  fs.mkdirSync(skillsDir, { recursive: true });
+  const skillNames = [];
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     if (!fs.existsSync(path.join(src, entry.name, 'SKILL.md'))) continue;
-    fs.cpSync(path.join(src, entry.name), path.join(ws, '.claude', 'skills', entry.name), { recursive: true });
+    fs.cpSync(path.join(src, entry.name), path.join(skillsDir, entry.name), { recursive: true });
+    skillNames.push(entry.name);
   }
   // Hooks: rewrite relative commands to the copied source tree
   const hooks = JSON.parse(fs.readFileSync(path.join(src, 'hooks', 'hooks.json'), 'utf8'));
@@ -198,17 +205,69 @@ function installHarness(ws) {
   settings.hooks = { ...(settings.hooks || {}), ...hooksCfg };
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  // opencode has no lifecycle-hook system wired here: load skills as
+  // instructions instead (advisory strength, not hard enforcement).
+  fs.writeFileSync(
+    path.join(ws, 'opencode.json'),
+    JSON.stringify({
+      $schema: 'https://opencode.ai/config.json',
+      instructions: skillNames.map((n) => `.claude/skills/${n}/SKILL.md`),
+    }, null, 2)
+  );
 }
 
-function runHeadless(prompt, ws, maxTurns) {
-  const outPath = path.join(ws, '.transcript.json');
-  execFileSync('claude', ['-p', prompt, '--output-format', 'json', '--max-turns', String(maxTurns)],
-    { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 15 * 60 * 1000 });
+function runHeadless(prompt, ws, maxTurns, engine) {
+  // Keep the transcript OUTSIDE the workspace: grader artifacts must never
+  // show up in git-status-based scope checks.
+  const outPath = path.join(path.dirname(ws), path.basename(ws) + '.transcript.json');
+  if (engine === 'opencode') {
+    // Free-tier opencode models flap network errors; gpt-5-mini via OPENAI_API_KEY is the stable default.
+    const model = process.env.BEHAVIORAL_MODEL || 'openai/gpt-5-mini';
+    execFileSync('opencode', ['run', '-m', model, prompt, '--format', 'json', '--auto', '--dir', ws],
+      { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 20 * 60 * 1000 });
+  } else {
+    execFileSync('claude', ['-p', prompt, '--output-format', 'json', '--max-turns', String(maxTurns)],
+      { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 15 * 60 * 1000 });
+  }
   return outPath;
 }
 
+// The grader must judge what the AGENT said and did — never what it read.
+// Tool outputs embed installed skill text, so keyword graders over raw
+// transcripts produce false positives (a read of zoom-out/SKILL.md counts as
+// "invoked zoom-out"). Trace = assistant text + tool inputs only.
+function extractAgentTrace(transcriptPath) {
+  const raw = fs.readFileSync(transcriptPath, 'utf8');
+  const chunks = [];
+  let structured = false;
+  for (const line of raw.split('\n')) {
+    if (!line.trim()) continue;
+    let e;
+    try { e = JSON.parse(line); } catch { continue; }
+    const p = e && e.part;
+    if (!p) continue;
+    if (e.type === 'text' && typeof p.text === 'string') {
+      chunks.push(p.text);
+      structured = true;
+    } else if (String(e.type).includes('tool')) {
+      const input = p.state && p.state.input !== undefined ? p.state.input : p.input;
+      chunks.push(`[${p.tool || 'tool'}] ` + JSON.stringify(input ?? {}));
+      structured = true;
+    }
+  }
+  // claude -p --output-format json emits one object; grade its result text.
+  if (!structured) {
+    try {
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj.result === 'string') return obj.result;
+    } catch { /* fall through */ }
+    return raw;
+  }
+  return chunks.join('\n');
+}
+
 function grade(c, ws, transcriptPath) {
-  const trace = fs.existsSync(transcriptPath) ? fs.readFileSync(transcriptPath, 'utf8') : '';
+  const trace = extractAgentTrace(transcriptPath);
   const results = [];
   for (const e of c.expectations) {
     let pass = false;
@@ -226,16 +285,29 @@ function grade(c, ws, transcriptPath) {
     }
     results.push({ ...e, pass });
   }
-  return results;
+  // Informational expectations are reported but never gate the outcome:
+  // they capture context-dependent behavior (e.g. zoom-out only becomes
+  // obligatory once the breaker actually trips) that would otherwise
+  // produce meaningless failures.
+  const gating = results.filter((r) => !r.informational);
+  return { results, passed: gating.length > 0 && gating.every((g) => g.pass) };
 }
 
-function runLive(filter) {
-  if (!process.env.CI) { /* headless runs are local-only by design */ }
-  try {
-    execFileSync('claude', ['--version'], { stdio: 'pipe' });
-  } catch {
-    fail('`claude` CLI not found. Install from https://github.com/anthropics/claude-code — behavioral evals need a real model session.');
+function resolveEngine(requested) {
+  const has = (cmd) => { try { execFileSync(cmd, ['--version'], { stdio: 'pipe' }); return true; } catch { return false; } };
+  if (requested) {
+    if (!has(requested === 'claude' ? 'claude' : 'opencode')) fail(`engine "${requested}" not found on PATH.`);
+    return requested;
   }
+  if (has('claude')) return 'claude';
+  if (has('opencode')) return 'opencode';
+  fail('Neither `claude` nor `opencode` CLI found. Behavioral evals need a real model session.');
+}
+
+function runLive(filter, engineArg) {
+  const engine = resolveEngine(engineArg);
+  console.log(`Engine: ${engine}`);
+  if (!process.env.CI) { /* headless runs are local-only by design */ }
   const cases = discoverCases().filter((c) => !filter || c.id === filter);
   if (filter && cases.length === 0) fail(`no case with id "${filter}"`);
   fs.mkdirSync(RESULTS_DIR, { recursive: true });
@@ -245,18 +317,20 @@ function runLive(filter) {
     console.log(`\n=== ${c.id}${c.pressure ? ' [PRESSURE]' : ''} ===`);
     const ws = buildWorkspace(c);
     installHarness(ws);
+    if (c.fixture.git) gitSnapshot(ws);
     let transcriptPath;
     try {
-      transcriptPath = runHeadless(c.prompt, ws, c.max_turns);
+      transcriptPath = runHeadless(c.prompt, ws, c.max_turns, engine);
     } catch (err) {
       console.error(`❌ session failed: ${err.message.slice(0, 300)}`);
       failed++;
       continue;
     }
-    const graded = grade(c, ws, transcriptPath);
-    const passed = graded.every((g) => g.pass);
+    const { results: graded, passed } = grade(c, ws, transcriptPath);
     const record = {
       id: c.id,
+      engine,
+      model: engine === 'opencode' ? (process.env.BEHAVIORAL_MODEL || 'openai/gpt-5-mini') : 'claude-default',
       pressure: !!c.pressure,
       date: new Date().toISOString(),
       workspace: ws,
@@ -266,7 +340,7 @@ function runLive(filter) {
     };
     const outFile = path.join(RESULTS_DIR, `${record.date.slice(0, 10)}-${c.id}.json`);
     fs.writeFileSync(outFile, JSON.stringify(record, null, 2));
-    for (const g of graded) console.log(`  ${g.pass ? '✅' : '❌'} ${g.description}`);
+    for (const g of graded) console.log(`  ${g.pass ? '✅' : '❌'}${g.informational ? ' (info)' : ''} ${g.description}`);
     console.log(`${passed ? '✅ PASS' : '❌ FAIL'} -> ${outFile}`);
     if (!passed) failed++;
   }
@@ -276,9 +350,15 @@ function runLive(filter) {
 
 // ----------------------------------------------------------------------------
 const args = process.argv.slice(2);
+function flag(name) {
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : undefined;
+}
 if (args[0] === 'validate') validate(discoverCases());
-else if (args[0] === 'run') runLive(args[0] === 'run' && args[1] === '--case' ? args[2] : undefined);
-else {
-  console.log('Usage:\n  node behavioral-evals/run.js validate\n  node behavioral-evals/run.js run [--case <id>]');
+else if (args[0] === 'run') {
+  const filter = args.includes('--case') ? flag('--case') : undefined;
+  runLive(filter, args.includes('--engine') ? flag('--engine') : undefined);
+} else {
+  console.log('Usage:\n  node behavioral-evals/run.js validate\n  node behavioral-evals/run.js run [--case <id>] [--engine claude|opencode]');
   process.exit(args.length ? 1 : 0);
 }

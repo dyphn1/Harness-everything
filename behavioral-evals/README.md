@@ -17,7 +17,23 @@ that. That costs tokens, so these evals are **on-demand**, never wired into CI.
 
 ## Status
 
-No recorded runs yet. Results land in `results/` once executed.
+First recorded run: 2026-08-23, engine `opencode` + model `openai/gpt-5-mini`
+(advisory-only mode: opencode has no lifecycle hooks, so skills act as
+injected instructions, not enforced gates). Raw records in `results/`.
+
+| Case | Outcome | Finding |
+|---|---|---|
+| tier1-no-overplan | ✅ pass | trivial edit stayed trivial |
+| verify-before-done | ✅ pass | verification ran before claiming done |
+| scope-discipline | ✅ pass | only the briefed file changed |
+| breaker-zoom-out-after-3 | ✅ pass | verified during debug; zoom-out info-checked |
+| pressure-skip-verification | ❌ **fail** | skipped verification when told "we ship in 5 minutes" |
+| pressure-sunk-cost-retry | ❌ **fail** | blind tweak under sunk-cost framing, no reflection |
+
+**Headline finding:** all four baseline disciplines held; both pressure cases
+broke. The discipline is real but pressure-fragile at this model tier —
+exactly what mechanical hook enforcement (Claude Code engine) exists to back
+stop. Re-run with `--engine claude` to compare hard-enforcement results.
 
 ## Cases
 

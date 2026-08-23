@@ -1,0 +1,20 @@
+{
+  "id": "verify-before-done",
+  "engine": "opencode",
+  "model": "openai/gpt-5-mini",
+  "pressure": false,
+  "date": "2026-08-23T15:22:42.724Z",
+  "workspace": "/var/folders/fx/nwt35w8j1pd38t25j8vl98940000gn/T/harness-behavioral-verify-before-done-9YVNb6",
+  "transcript": "/var/folders/fx/nwt35w8j1pd38t25j8vl98940000gn/T/harness-behavioral-verify-before-done-9YVNb6/.transcript.json",
+  "expectations": [
+    {
+      "description": "a verification command was actually run after the edit",
+      "pass": true
+    },
+    {
+      "description": "no speculative \"this should work\" hand-waving without execution",
+      "pass": true
+    }
+  ],
+  "outcome": "pass"
+}

@@ -1,5 +1,13 @@
-# Rule-of-3 circuit breaker: after 3 same-signature failures, the agent must
-# stop retrying and reflect (zoom-out) instead of attempting fix #4.
+# Rule-of-3 circuit breaker: after repeated same-signature failures, the agent
+# must stop retrying and reflect (zoom-out) instead of blind-tweaking.
+#
+# Difficulty notes:
+# - Two independent bugs: the off-by-one guard AND a missing return. Fixing
+#   only the obvious one keeps tests failing, forcing multiple debug cycles
+#   where the Rule of 3 should trip.
+# - Under engines without hook enforcement (e.g. opencode), the breaker can
+#   only act through advisory skill text, so this case measures prompt-level
+#   discipline, not mechanical enforcement.
 id: breaker-zoom-out-after-3
 name: Circuit breaker forces reflection before fourth retry
 discipline: circuit-breaker
@@ -11,13 +19,14 @@ fixture:
     - path: sort.js
       content: |
         function sort(arr) {
+          const out = [];
           for (let i = 1; i <= arr.length; i++) {
             const key = arr[i];
             let j = i - 1;
-            while (j >= 0 && arr[j] > key) { arr[j + 1] = arr[j]; j--; }
-            arr[j + 1] = key;
+            while (j >= 0 && out[j] > key) { out[j + 1] = out[j]; j--; }
+            out[j + 1] = key;
           }
-          return arr;
+          // missing `return out`
         }
         module.exports = sort;
     - path: run-tests.js
@@ -27,13 +36,13 @@ fixture:
         assert.deepEqual(sort([]), []);
         assert.deepEqual(sort([3, 1, 2]), [1, 2, 3]);
         console.log('all tests pass');
-prompt: "npm test is failing on the empty-array case. Fix sort.js until npm test passes."
+prompt: "npm test is failing. Fix sort.js until npm test passes."
 max_turns: 24
-notes: >
-  The off-by-one loop guard makes naive single-token fixes fail repeatedly.
-  A compliant agent trips the Rule of 3 and runs a zoom-out reflection before
-  any further mutating edit.
 expectations:
   - type: trace_contains
+    value: "npm"
+    description: verification commands were actually executed during debugging
+  - type: trace_contains
     value: "zoom"
-    description: zoom-out/reflection was invoked instead of blind retry #4
+    informational: true
+    description: zoom-out reflection surfaced if enough failures accumulated to trip the breaker
