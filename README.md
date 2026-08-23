@@ -168,9 +168,9 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 
 ## Benchmarks & Testing
 
-**If you are an agent asked to verify a Harness install, start at [VERIFICATION.md](VERIFICATION.md), not here.** It gives exact commands with exact expected output — install artifact checks for every platform, mechanism-level checks (Claude Code only: pipe a simulated hook payload into `hooks/scripts/*.js` on stdin, confirm the exit code), the behavioral test prompts below, and an acceptance scorecard to fill in. Do not report "it works" from reading the code — every check there names a command to actually run.
+**If you are an agent asked to verify a Harness install, start at [VERIFICATION.md](VERIFICATION.md), not here.** It gives exact commands with exact expected output — install artifact checks for every platform, mechanism-level checks (Claude Code only), the behavioral test prompts below, and an acceptance scorecard to fill in. Do not report "it works" from reading the code — every check there names a command to actually run.
 
-`npm test` (`self-evolve/scripts/self-regression.js`) runs four phases: static syntax check on every script, 5 bilingual tier-routing assertions, a 6-step behavioral state-machine simulation of `todo-cli.js`, and an automated re-run of every VERIFICATION.md §2 mechanism check (`eval-framework/mechanism-test.js`, `npm run test:mechanism` to run it alone): the Rule of 3 breaker's full trip → zoom-out release → repeat-trip hard-lock cycle, boundary guard, WAL state persistence, the fact-audit reminder, subagent scope guard, and the stop gate — 10 assertions against real exit codes and stderr, not just "the code looks right." The suite runs in CI on every push and pull request (`.github/workflows/ci.yml`); the history of how these checks became automated (including a mis-measurement incident with external audits) is in [docs/audit.md](docs/audit.md).
+`npm test` (`self-evolve/scripts/self-regression.js`) runs four phases: static syntax check on every script, 5 bilingual tier-routing assertions, a 6-step behavioral state-machine simulation of `todo-cli.js`, and an automated re-run of every VERIFICATION.md §2 mechanism check (`eval-framework/mechanism-test.js`, `npm run test:mechanism` to run it alone) — 10 assertions against real exit codes and stderr, not just "the code looks right." The suite runs in CI on every push and pull request (`.github/workflows/ci.yml`); the history of how these checks became automated is in [docs/audit.md](docs/audit.md).
 
 For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Benchmark SOP](BENCHMARK_SOP.md) — standardized, reproducible scenarios:
 *   **Test A:** Over-engineering defense (Tier 1 typo correction)
@@ -180,21 +180,25 @@ For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Bench
 *   **Test E:** Terminal environment and shell awareness (Windows/Unix shell detection)
 *   **Test F** (in VERIFICATION.md, not BENCHMARK_SOP.md): fact-audit discipline — does the agent verify an external-behavior claim before asserting it?
 
-Benchmark **results** are tracked in [benchmarks/](benchmarks/README.md): `node benchmarks/run.js scaffold <scenario>` builds the fixture workspace and prints the exact prompt; `record` commits a schema-validated result bound to an exported session log. Until those cells are filled, effectiveness claims are unbacked by recorded evidence.
+Benchmark **results** are tracked in [benchmarks/](benchmarks/README.md) (`run.js scaffold` builds the fixture, `record` commits a schema-validated result bound to a session log). Until those cells are filled, effectiveness claims are unbacked by recorded evidence.
 
 ### Behavioral evals (LLM-level, on demand)
 
-Mechanism tests prove the hooks enforce gates; only live sessions prove agents follow the disciplines. [behavioral-evals/](behavioral-evals/README.md) runs discipline cases (including pressure variants like "we ship in 5 minutes, skip checks") against headless `claude -p` sessions in throwaway workspaces: `npm run eval:behavioral`. Token-costing by design — never wired into CI.
+Mechanism tests prove the hooks enforce gates; only live sessions prove agents follow the disciplines. [behavioral-evals/](behavioral-evals/README.md) runs discipline cases (including pressure variants like "we ship in 5 minutes, skip checks") against headless agent sessions (`claude -p`, opencode) in throwaway workspaces: `npm run eval:behavioral`. Token-costing by design — never wired into CI.
 
 ### Catalog hygiene
 
-`npm run test:consistency` keeps the distribution manifests, docs links, skill frontmatter, and routing-eval coverage in lockstep with what is actually on disk; `npm run test:collision` fails CI when two skills' descriptions overlap enough that the router cannot tell them apart. Both run on every push (`.github/workflows/ci.yml`).
+`npm run test:consistency` keeps the distribution manifests, docs links, skill frontmatter, and routing-eval coverage in lockstep with what is actually on disk; `npm run test:collision` fails CI when two skills' descriptions overlap enough to confuse the router. Both run on every push (`.github/workflows/ci.yml`).
 
 ---
 
 ## 📊 System Evaluation
 
-Harness audits itself on a dated cycle by running its own test suite and VERIFICATION.md recipes — never by reading the code and assuming it works. The full scorecards, methodology (including a 2026-07 incident where three external AI audits mis-tested working hooks through a Windows-unsafe shell pipe), and per-cycle change log live in [docs/audit.md](docs/audit.md). Latest cycle: **2026-07-26** — headline scores: Architecture 9/10, Test Coverage 8.5/10, Routing Accuracy 7/10.
+Harness audits itself on a dated cycle by running its own test suite and VERIFICATION.md recipes — never by reading the code and assuming it works. The full scorecards, methodology, and per-cycle change log live in [docs/audit.md](docs/audit.md).
+
+**Latest baseline — 2026-08-23**, measured with [waza](https://github.com/microsoft/waza) 0.38.7 against an LF-normalized export of `main`: `waza check` 29/29 skills, `waza spec verify` 27/27 eval suites, `npm test` / `test:consistency` / `test:collision` all green.
+
+Measure on an LF export, not a Windows working tree — CRLF inflates waza's counts enough to push 20 of 29 `SKILL.md` files past the 500-token ceiling.
 
 ---
 
