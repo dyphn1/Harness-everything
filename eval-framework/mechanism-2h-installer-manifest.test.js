@@ -64,6 +64,16 @@ helper.check(
   `Expected true but got false`
 );
 
+// Regression: spec-compliant frontmatter (author nested under metadata:) must
+// also be recognized. Guards the getMeta parser in scripts/lib/skills.js.
+fs.writeFileSync(mockSkillMdPath, '---\nname: spec-skill\ndescription: x\nlicense: Apache-2.0\nmetadata:\n  author: Miya Daniel | Harness Core Team\n  version: 0.3.3\n---\n', 'utf8');
+const isHarnessSpec = skillsHelper.isHarnessSkillDir(mockSkillPath);
+helper.check(
+  '2h. isHarnessSkillDir detects author under metadata: (spec format)',
+  isHarnessSpec === true,
+  `Expected true but got false`
+);
+
 fs.writeFileSync(mockSkillMdPath, '---\nauthor: Outsider\n---\n', 'utf8');
 const isNotHarness = skillsHelper.isHarnessSkillDir(mockSkillPath);
 helper.check(

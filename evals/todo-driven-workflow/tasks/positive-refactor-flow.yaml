@@ -1,0 +1,15 @@
+id: positive-refactor-flow-002
+name: Multi-file refactor tracked step by step
+description: Work through a multi-file refactor step by step, one tracked sub-task at a time.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Work through this multi-file refactor step by step: move src/utils/date.js helpers into src/lib/time and update every importer."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "todo"

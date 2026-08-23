@@ -42,7 +42,21 @@ function parseFrontmatter(skillMdPath) {
       const m = yaml.match(new RegExp(`^${key}:\\s*(.*)$`, 'm'));
       return m ? m[1].trim().replace(/^['"]|['"]$/g, '') : '';
     };
-    return { name: get('name'), description: get('description'), author: get('author'), version: get('version') };
+    // Spec-compliant skills carry author/version under `metadata:`; older
+    // installs (pre-0.3.4 copies already sitting in user workspaces) keep
+    // them at the top level, so read both and prefer the nested form.
+    const getMeta = (key) => {
+      // Only keys nested under `metadata:` are indented in frontmatter,
+      // so matching the indented key directly is unambiguous.
+      const m = yaml.match(new RegExp(`^[ \\t]+${key}:\\s*(.*)$`, 'm'));
+      return m ? m[1].trim().replace(/^['"]|['"]$/g, '') : '';
+    };
+    return {
+      name: get('name'),
+      description: get('description'),
+      author: getMeta('author') || get('author'),
+      version: getMeta('version') || get('version'),
+    };
   } catch (e) {
     return null;
   }

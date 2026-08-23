@@ -1,0 +1,16 @@
+id: positive-macro-tier3-001
+name: Architectural task routes to Tier 3
+description: Route this coding request - a cross-cutting macro task must be triaged as Tier 3 multi-agent planning.
+tags:
+  - positive-trigger
+  - tier-3
+inputs:
+  prompt: "Route this coding request: split our monolith into two services (orders and billing) with an event bus between them; this touches deployment, data migration, and every team's code."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "Tier 3"

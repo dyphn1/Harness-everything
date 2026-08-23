@@ -1,0 +1,15 @@
+id: positive-refactor-tdd-003
+name: Refactoring under green tests
+description: Refactor safely under tests - keep the suite green through each REFACTOR step.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Refactor safely under tests: extract the pricing logic in src/checkout into its own module without changing behavior."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "REFACTOR"

@@ -1,8 +1,10 @@
 ---
 name: eval-harness
-description: Objectively evaluates AI agent performance based on correctness, resource efficiency, and anti-loop focus.
-author: Miya Daniel | Harness Core Team
-version: 0.3.3
+description: Evaluate AI agent performance across correctness, token efficiency, anti-loop focus, and environment awareness; save a 4-dimension scorecard. Use when asked to run a benchmark or score an execution log or conversation history.
+license: Apache-2.0
+metadata:
+  author: Miya Daniel | Harness Core Team
+  version: 0.3.3
 ---
 
 # Eval Harness (Automated Performance & Reasoning Evaluation)
@@ -11,70 +13,31 @@ version: 0.3.3
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | User requests "run benchmark", "score conversation log", or "compare Vanilla vs Harness differences" — an execution log or conversation history. |
-| **Expected Output** | A 4-dimension scorecard (0-10) with rationale, saved to `evals/` or platform state directory via script or direct markdown write. |
-| **State Mutations** | Writes a generated Markdown scorecard to the project's `evals/` directory or `.github/harness-everything/evals/`. |
-| **Enforcement Gate** | Run evaluation script or write scorecard directly if script fails. Output structured scorecard in response. |
+| **Trigger** | "run benchmark" / "score conversation log"; input is an execution log or history. |
+| **Output** | 4-dimension scorecard (0-10) with rationale, saved to `evals/`. |
+| **Mutations** | Writes scorecard to `evals/` or `.github/harness-everything/evals/`. |
+| **Gate** | Run evaluation script; write scorecard directly if script fails. |
 
-## Process & Evaluation Output Flow
+## Workflow
 
-Follow the decision matrix below to evaluate performance and record scorecards:
+1. **Parse** the log or history `[Discover]`: action count, error loop count, tokens/time if provided.
+2. **Score** four dimensions (0-10 each) `[Think]`: **A. Correctness & Factuality**, **B. Token & Step Efficiency**, **C. Anti-loop & Focus**, **D. Environment & Tool Awareness** — full anchors in references.
+3. **Report** `[Summarize]` — MANDATORY script execution:
+   ```bash
+   node "<this-skill-dir>/scripts/evaluate.js" <scoreA> <scoreB> <scoreC> <scoreD> "<Your insights here>"
+   ```
+   Example: `node scripts/evaluate.js 10 5 10 10 "The agent successfully used zoom-out..."` (`--help` shows scoring reference).
+4. **Fallback**: if the script fails or is missing, write `evals/scorecard.md`, else `.github/harness-everything/evals/scorecard.md`.
 
-```mermaid
-flowchart TD
-    Start[Trigger: Benchmark / Evaluate Log] --> Parse[1. Parse Log: Actions, Loops, Tokens]
-    Parse --> Score[2. Calculate 4-Dimension Rubric Scores]
-    
-    Score --> CheckScript{3. Is evaluate.js Executable?}
-    
-    CheckScript -- Yes --> RunScript[Run node "<this-skill-dir>/scripts/evaluate.js" <scores> <insights>]
-    RunScript -- Exit 0 (Success) --> Done[Scorecard Saved to evals/]
-    RunScript -- Fails --> FileFallback
-    
-    CheckScript -- No --> FileFallback{4. Markdown File Fallback}
-    
-    FileFallback -- evals/ Directory Exists --> WriteEvals[Write to evals/scorecard.md]
-    FileFallback -- No evals/ Directory --> WritePlatform[Write to .github/harness-everything/evals/scorecard.md]
-    
-    WriteEvals --> Done
-    WritePlatform --> Done
-```
+## USE FOR:
+- "run a benchmark on this log"
+- "score this agent execution"
+- "compare Vanilla vs Harness"
+- "generate an evaluation scorecard"
 
-## 1. Data Parsing `[Discover]`
-- Read the execution logs provided by the user or directly analyze the current conversation history.
-- Extract key metrics:
-  - **Action Count**: Includes the number of file reads, searches, and terminal executions.
-  - **Error Loop Count**: The number of times the same error message appeared consecutively triggering attempted micro-adjustments.
-  - **Token / Time Indicator**: Record token consumption or time spent if provided by the user.
+## DO NOT USE FOR:
+- Writing or fixing code being evaluated
+- General review without scoring dimensions
+- Tasks with no execution log
 
-## 2. Scoring Rubric `[Think]`
-Please score based on the following four dimensions (out of 10 points each):
-
-### A. Correctness & Factuality
-- 10 points: Perfectly solved the problem with no side effects. Clearly knows its own knowledge boundaries, **no hallucinations or fabricated facts**.
-- 5 points: Solved the surface problem but introduced new issues, or provided slightly outdated information.
-- 0 points: Task failed, broke original code, or "hallucinated with straight-faced confidence".
-
-### B. Token & Step Efficiency
-- 10 points: Extremely streamlined, no superfluous exploration or useless tool calls (prevented over-engineering).
-- 5 points: Reasonable steps, but with minor unnecessary file reads.
-- 0 points: Over-engineered, writing lengthy plans or repeatedly reading irrelevant files for a simple task.
-
-### C. Anti-loop & Focus
-- 10 points: Decisively triggered `zoom-out` when hitting a bottleneck, rebuilt the full picture, and either self-recovered on a fresh diagnosis or escalated a genuine decision with options; did not hit a dead end or dump an "I'm stuck" on the human.
-- 5 points: Stopped after 3~5 attempts.
-- 0 points: Fell into a Micro-error looping cycle more than 5 times, or completely forgot the initial goal.
-
-### D. Environment & Tool Awareness
-- 10 points: Accurately detected OS, terminal shell (e.g., Git Bash vs PowerShell), and available tools in the `[Discover]` phase before acting. No syntax errors caused by wrong shell assumptions.
-- 5 points: Made an initial incorrect assumption about the terminal/tools but corrected it immediately after the first failure.
-- 0 points: Blindly threw commands (e.g., PowerShell syntax in Git Bash) and repeatedly failed without realizing the environment mismatch.
-
-## 3. Output Report `[Summarize]`
-- **MANDATORY**: You MUST execute the evaluation script to generate and save the report.
-- Find the `evaluate.js` script in the `scripts/` directory of this skill and run it via terminal:
-  ```bash
-  node "<this-skill-dir>/scripts/evaluate.js" <scoreA> <scoreB> <scoreC> <scoreD> "<Your insights here>"
-  ```
-  *(Example: `node scripts/evaluate.js 10 5 10 10 "The agent successfully used zoom-out..."`)* — run with `--help` for the scoring-dimension reference.
-- The script will automatically generate the Markdown-formatted **Scorecard Table** and save it to the project's `evals/` directory.
+Deep dive: references/scoring-rubric.md

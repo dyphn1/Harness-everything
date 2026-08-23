@@ -1,0 +1,16 @@
+id: negative-non-software-001
+name: Non-software question bypasses routing
+description: Chat or general Q&A, and non-software writing, bypass the router entirely — no Checkpoint.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "What's the difference between latte and cappuccino?"
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "Routing Checkpoint"
+        - "Tier"

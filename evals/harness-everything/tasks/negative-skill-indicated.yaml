@@ -1,0 +1,15 @@
+id: negative-skill-indicated-001
+name: Explicit skill indication bypasses routing
+description: A skill is already indicated, so the router must not re-route or print a Checkpoint.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Use the git-commit skill to commit my staged changes."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "Routing Checkpoint"

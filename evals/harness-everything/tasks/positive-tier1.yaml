@@ -1,0 +1,16 @@
+id: positive-trivial-tier1-001
+name: Trivial edit routes to Tier 1
+description: Triage a new software task - a typo-level fix must be triaged as Tier 1 direct edit, no plan.
+tags:
+  - positive-trigger
+  - tier-1
+inputs:
+  prompt: "Triage this new software task: fix the typo 'lorem ipsum' to 'lorem ipsum dolor' in docs/intro.md."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "Tier 1"

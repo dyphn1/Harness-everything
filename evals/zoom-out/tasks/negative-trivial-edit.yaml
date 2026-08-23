@@ -1,0 +1,16 @@
+id: negative-trivial-edit-001
+name: Trivial edit must not trigger reflection
+description: Routine single-failure debugging and greenfield planning without failures must not trip the circuit breaker.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Fix the typo in README.md line 3: change 'recieve' to 'receive'."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "circuit breaker tripped"
+        - "reflection report"

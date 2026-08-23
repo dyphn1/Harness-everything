@@ -1,140 +1,46 @@
 ---
 name: verification-loop
-description: "A comprehensive verification system for Claude Code sessions."
-author: Miya Daniel | Harness Core Team
-version: 0.3.3
+description: "Run objective verification gates (build, types, lint, tests, security scan) before claiming work done. USE FOR: \"run the full verification loop\", \"verify this is done before delivery\". DO NOT USE FOR: \"design discussions with no completed work\", \"planning without code changes\"."
+license: Apache-2.0
 metadata:
-  origin: ECC
+  author: Miya Daniel | Harness Core Team
+  version: 0.3.3
 ---
 
 # Verification Loop Skill
 
-## 📋 Skill Contract
+Six objective gates pre-delivery, then a Verification Report.
+
+## USE FOR:
+- Verify a feature or change before delivery
+- Run quality gates before a PR
+
+## DO NOT USE FOR:
+- Fixing failures without re-running the loop
+- Writing new features or tests (use `tdd`)
+
+## Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Approaching task completion, milestone handoff, or PR creation. Input: Modified project files. |
-| **Expected Output** | Objective verification metrics (Build, Type Check, Lint, Test execution) and structured Verification Report. |
+| **Trigger / Input** | Completion, handoff, or PR; modified project files. |
+| **Expected Output** | Build/Type/Lint/Test metrics + Verification Report. |
 | **State Mutations** | None. Read-only verification pass. |
-| **Enforcement Gate** | Run relevant build, lint, and test suite tools. Fallback to direct markdown report if template or script fails. |
+| **Enforcement Gate** | Run build/lint/test tools; inline report fallback if template/script fails. |
 
-## Process & Verification Resolution Flow
+## Workflow
 
-Follow the decision matrix below when running pre-delivery verification:
+Adapt to the ecosystem (`environment-detection`).
 
-```mermaid
-flowchart TD
-    Start[Trigger: Pre-Delivery / PR Verification] --> Build[1. Phase 1: Build Verification]
-    Build --> Type[2. Phase 2: Type Check]
-    Type --> Lint[3. Phase 3: Lint Check]
-    Lint --> Test[4. Phase 4: Test Suite Execution]
-    Test --> Security[5. Phase 5: Security & Secret Scan]
-    Security --> Diff[6. Phase 6: Diff Review]
-    
-    Diff --> CheckScript{7. Is verify-gate.js / Template Available?}
-    
-    CheckScript -- Yes --> RunScript[Run harness-everything/scripts/verify-gate.js / Fill verification-report.template.md]
-    CheckScript -- No --> DirectReport[Output Verification Report Inline in Response]
-    
-    RunScript --> ReportResult{All Verification Gates Passed?}
-    DirectReport --> ReportResult
-    
-    ReportResult -- Exit 0 / All Green --> Deliver[Task Ready for Delivery / PR]
-    ReportResult -- Failures Detected --> Fix[Fix Issues in Code & Re-verify] --> Build
-```
+1. Build: `npm run build`. On failure, STOP and fix.
+2. Type check: `npx tsc --noEmit` (TS) or `pyright .`. Fix critical errors.
+3. Lint: `npm run lint` or `ruff check .`.
+4. Tests with coverage (`npm run test -- --coverage`; target 80%). Report totals/passed/failed/coverage.
+5. Security scan via IDE search: secrets (`sk-`, `api_key`), stray logs (`console.log`, `print`).
+6. Diff review: `git diff --stat`; check unintended changes, error handling, edge cases.
+7. All gates pass -> ready; else fix and re-run from Phase 1.
+8. Report: fill `verification-loop/templates/verification-report.template.md` (inline if it fails). Gate script: `harness-everything/scripts/verify-gate.js`.
 
-## When to Use
+Long sessions: run `/verify` every ~15 min.
 
-Invoke this skill:
-- After completing a feature or significant code change
-- Before creating a PR
-- When you want to ensure quality gates pass
-- After refactoring
-
-## Verification Phases
-
-Adapt commands according to the project's ecosystem and active environment (`environment-detection`). Run commands directly without non-portable POSIX pipe assumptions (avoid raw `head`, `tail`, `grep`, `2>/dev/null` piping on Windows).
-
-### Phase 1: Build Verification
-```bash
-# Check if project builds (JS/TS example)
-npm run build
-# OR
-pnpm build
-```
-
-If build fails, STOP and fix before continuing.
-
-### Phase 2: Type Check
-```bash
-# TypeScript projects
-npx tsc --noEmit
-
-# Python projects
-pyright .
-```
-
-Report all type errors. Fix critical ones before continuing.
-
-### Phase 3: Lint Check
-```bash
-# JavaScript/TypeScript
-npm run lint
-
-# Python
-ruff check .
-```
-
-### Phase 4: Test Suite
-```bash
-# Run tests with coverage
-npm run test -- --coverage
-
-# Check coverage threshold
-# Target: 80% minimum
-```
-
-Report:
-- Total tests: X
-- Passed: X
-- Failed: X
-- Coverage: X%
-
-### Phase 5: Security & Code Hygiene Scan
-Use native IDE search tools (`grep_search` / `file_search`) or cross-platform scripts rather than raw terminal `grep` pipes:
-- Check for hardcoded API keys / secrets (`sk-`, `api_key`).
-- Check for leftover debug log statements (`console.log`, `print`).
-
-### Phase 6: Diff Review
-```bash
-# Show what changed
-git diff --stat
-git diff HEAD~1 --name-only
-```
-
-Review each changed file for:
-- Unintended changes
-- Missing error handling
-- Potential edge cases
-
-## Output Format
-
-After running all phases, fill in `verification-loop/templates/verification-report.template.md` with the actual results and present it.
-
-## Continuous Mode
-
-For long sessions, run verification every 15 minutes or after major changes:
-
-```markdown
-Set a mental checkpoint:
-- After completing each function
-- After finishing a component
-- Before moving to next task
-
-Run: /verify
-```
-
-## Integration with Hooks
-
-This skill complements PostToolUse hooks but provides deeper verification.
-Hooks catch issues immediately; this skill provides comprehensive review.
+Deep dive: references/verification-phases.md

@@ -1,0 +1,15 @@
+id: positive-pre-ship-verify-001
+name: Pre-completion request runs verification loop
+description: Run the full verification loop - run objective verification gates (build, types, lint, tests, security scan) before claiming work done; verify this is done before delivery with evidence.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "You said the refactor is finished. Run the full verification loop and show me the evidence before we call this done."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "verification"

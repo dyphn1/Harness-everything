@@ -1,0 +1,15 @@
+id: positive-bugfix-tdd-002
+name: Bug fix requests a regression test
+description: Drive Standard Tasks (Tier 2) with Test-Driven Development (RED/GREEN/REFACTOR) backed by terminal test evidence.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Fix a bug with a regression test: the discount calculation rounds wrong for prices ending in .99."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "regression"

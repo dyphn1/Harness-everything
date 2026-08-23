@@ -1,0 +1,16 @@
+id: negative-single-edit-001
+name: Trivial single edit skips todo machinery
+description: Trivial single-file edits and quick questions without implementation must not be wrapped in a todo state machine.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Rename the variable 'usrName' to 'userName' in src/utils/format.js."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "todo-cli add"
+        - "creating a todo list"

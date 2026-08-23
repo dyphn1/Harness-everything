@@ -1,15 +1,10 @@
 ---
 name: fable-haiku
-description: >
-  Run fable-mode execution discipline on Claude Haiku. Routes the task to the
-  @fable-worker-haiku agent, whose definition carries the staged loop with
-  tightened verification (no bare "unverified" allowed) and an
-  escalate-don't-improvise rule. Trigger when the user explicitly asks for
-  thorough/systematic handling run cheaply or fast ("fable on haiku", "deep work
-  mode but cheap", "stage this on haiku"). For bulk mechanical work. Do NOT use
-  for tasks needing synthesis — benchmark note: at n=1 the skill's effect on
-  Haiku swung both directions (+25 / −17); route quality-critical work to
-  the main Orchestrator model context instead.
+description: "Delegate bulk mechanical work to the fable-worker-haiku agent for staged execution at low cost: explicit pass conditions, optional fan-out, then a fable-verifier pass. Use for 'fable on haiku' requests."
+license: Apache-2.0
+metadata:
+  author: Miya Daniel | Harness Core Team
+  version: 0.3.3
 ---
 
 # Fable Mode — Haiku (v3, agent-routed)
@@ -18,31 +13,28 @@ description: >
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | User explicitly asks for staged/thorough execution run cheaply or fast on Haiku ("fable on haiku", "stage this on haiku") for bulk mechanical work. |
-| **Expected Output** | Task delegated to the `fable-worker-haiku` agent (or an inline fallback carrying the same rules verbatim), optionally fanned out across multiple concurrent workers, followed by a `fable-verifier` pass before any unsupervised delivery. |
-| **State Mutations** | None directly — spawns/manages Task-tool subagents and whatever file edits they perform. |
-| **Enforcement Gate** | Every worker brief **MUST** name the pass condition explicitly (no benefit of the doubt on verification for Haiku). A worker that escalates "needs synthesis" **MUST** be re-routed to the main Orchestrator context (Sonnet/Opus), never retried on Haiku with a louder prompt. |
+| **Trigger / Input** | "Fable on haiku" / "stage this on haiku": bulk mechanical work run cheaply on Haiku. |
+| **Expected Output** | Delegation to `fable-worker-haiku` (or inline fallback with rules verbatim), optional fan-out, then a `fable-verifier` pass before unsupervised delivery. |
+| **State Mutations** | None directly — Task-tool subagents and their file edits. |
+| **Enforcement Gate** | Worker brief **MUST** name the pass condition explicitly (no benefit of the doubt for Haiku). A "needs synthesis" escalation **MUST** re-route to the main Orchestrator context (Sonnet/Opus), never retried on Haiku louder. |
 
-v3 change: the worker is a real agent definition (`../agents/fable-worker-haiku.md`)
-invoked by name. Its system prompt carries the loop, the tightened verification
-rule, and the operational rules; this skill only routes.
+One obvious single-pass approach → skip this loop; do it directly.
 
-If a task has one obvious correct approach and fits in a single pass, skip this
-loop and do it directly.
+## Run it
 
-## How to run it
+1. Confirm `fable-worker-haiku` is available; else spawn a general-purpose Haiku agent with rules verbatim from `../agents/fable-worker-haiku.md`.
+2. Spawn **@fable-worker-haiku** (`subagent_type: "fable-worker-haiku"`). Brief: task, output path(s), named pass condition.
+3. Fan out one worker per independent sub-part (cap concurrency); merge.
+4. Follow with **@fable-verifier** for unsupervised delivery.
 
-1. Confirm `fable-worker-haiku` appears in the available agent types. If not,
-   fall back to inline: spawn a general-purpose Haiku agent and pass it the
-   rules verbatim from `../agents/fable-worker-haiku.md`.
-2. Spawn **@fable-worker-haiku** via the Task tool (`subagent_type:
-   "fable-worker-haiku"`). Brief it with: the task, the exact output path(s),
-   and the pass condition — name the check explicitly; Haiku gets no benefit of
-   the doubt on verification.
-3. Haiku is cheap: for independent sub-parts, fan out one worker per part and
-   merge. Set a ceiling on concurrent workers.
-4. Follow with **@fable-verifier** (a second Haiku is cheap; fresh eyes can't
-   inherit the worker's blind spots) for anything that will be delivered
-   without human review.
-5. If a worker escalates ("needs synthesis"), re-route that part to
-   the main Orchestrator model context rather than retrying Haiku with a louder prompt.
+## USE FOR:
+- "Fable on haiku" / "stage this on haiku" asks
+- Bulk mechanical work on Haiku workers
+- Fan-out plus cheap @fable-verifier checks
+
+## DO NOT USE FOR:
+- Tasks with one obvious approach fitting a single pass
+- Synthesis-heavy work (main Orchestrator)
+- Delivery without a `fable-verifier` pass
+
+Deep dive: references/routing-notes.md

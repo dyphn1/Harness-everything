@@ -1,0 +1,16 @@
+id: positive-feature-tdd-001
+name: Standard feature requests TDD enforcement
+description: Implement a feature test-first through the RED/GREEN/REFACTOR cycle with real terminal evidence.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Implement a feature test-first: add input validation to the user signup function — reject emails without '@' and passwords shorter than 8 characters."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "RED"
+        - "failing test"

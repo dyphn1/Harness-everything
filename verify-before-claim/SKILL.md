@@ -1,93 +1,40 @@
 ---
 name: verify-before-claim
-description: "Verify external framework/API claims and unmeasured perf/cost estimates against an authoritative source before asserting them, instead of answering from training memory."
-author: Miya Daniel | Harness Core Team
-version: 0.3.3
+description: "Verify external framework/API claims and unmeasured perf/cost estimates against an authoritative source before asserting them, instead of answering from training memory. Use whenever about to state how an external framework, SDK, CLI, or API behaves, or quote any number not produced by a real run this session; output is a cited claim, a real measurement, or a labeled estimate."
+license: Apache-2.0
 metadata:
-  type: harness-discipline
+  author: Miya Daniel | Harness Core Team
+  version: 0.3.3
 ---
 
 # Verify Before Claim
 
-## 📋 Skill Contract
+Verify external claims against authoritative sources before asserting them; never answer from memory.
 
+## 📋 Skill Contract
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | About to state how an external system behaves, or state unmeasured performance/cost numbers. |
-| **Expected Output** | Claim backed by WebFetch/WebSearch from authoritative docs, real measurement, or explicit fallback estimate warning. |
+| **Trigger / Input** | About to state how an external system behaves, or state unmeasured perf/cost numbers. |
+| **Expected Output** | Claim backed by WebFetch/WebSearch docs, real measurement, or explicit fallback estimate warning. |
 | **State Mutations** | None — governs response assertions. |
-| **Enforcement Gate** | Fetch/search official docs for external claims. If web fetch/search is unavailable, explicitly label assertions as unverified estimates. |
+| **Enforcement Gate** | Fetch/search official docs for external claims; if unavailable, label assertions as unverified estimates. |
 
-## Process & Verification Flow
+## Core Flow
 
-Follow the decision matrix below when making external framework or performance assertions:
+1. **Scope check**: claim about this repo's own code → read local source, state facts directly (no web check).
+2. **External claim**: `WebFetch` official docs first; if uncovered, `WebSearch` and cite. Quote the source rather than paraphrasing from memory.
+3. **Unmeasured numbers**: if stakes justify it, actually run it — real benchmark/timing/measurement; if infeasible, label it an unverified estimate.
+4. **Inconclusive or contradicting results**: say so and show the source — don't reconcile into false confidence.
 
-```mermaid
-flowchart TD
-    Start[About to Assert External API / Framework Behavior or Perf Number] --> CheckScope{1. Claim Scope Check}
-    
-    CheckScope -- Internal Repo Code --> ReadCode[Read Local Source Code -> State Facts]
-    CheckScope -- External Framework / API / Number --> CheckNet{2. Web Fetch / Search / Measurement Available?}
-    
-    CheckNet -- Yes --> FetchDocs[WebFetch Official Docs / Measure Real Execution]
-    FetchDocs --> CiteDocs[Quote Authoritative Source / State Measured Data]
-    
-    CheckNet -- No / Offline --> EstimateFallback[Explicitly Label Response as Unverified Estimate]
-    
-    ReadCode --> Done[Verified Output]
-    CiteDocs --> Done
-    EstimateFallback --> Done
-```
+## USE FOR:
+- Stating how an external framework, SDK, CLI tool, or API behaves
+- Quoting performance, cost, latency, or timing numbers
+- Answering "does X support Y" or version-specific questions
+- Citing defaults, exit codes, config flags, pricing, or rate limits
 
-## TRIGGER — verify before asserting, don't skip because the answer "feels obvious"
+## DO NOT USE FOR:
+- Claims about this repository's own code (read the actual source)
+- Facts the user supplied directly in this conversation
+- Generic CS/engineering knowledge (e.g. Big-O) that can't go stale
 
-Whenever either is true:
-
-1. **You are about to state how an external system currently behaves** —
-   a framework, library, SDK, CLI tool, API, or service's schema, defaults,
-   exit codes, config flags, pricing, rate limits, version-specific behavior,
-   or "does X support Y." This includes cases that feel like common
-   knowledge — exit-code conventions, hook payload shapes, and default
-   values are exactly where confident misremembering happens.
-2. **You are about to state a performance, cost, or timing number that
-   wasn't produced by an actual run in this session** — "this should take
-   ~X," "this is O(n)," "this will cost about $Y," "this should be fast
-   enough." An estimate rendered with confidence is still an estimate.
-
-## Procedure
-
-- For claim (1): `WebFetch` the tool's official documentation first. If the
-  official docs don't cover it, `WebSearch` and cite what you find. Quote the
-  relevant part back rather than paraphrasing from memory — paraphrasing
-  reintroduces the same risk you're trying to avoid.
-- For claim (2): if the stakes justify it (the number feeds a design
-  decision, a rejection/deferral, or something the user will act on),
-  actually run it — a real benchmark, a real timing, a real measurement —
-  instead of reasoning about what it "should" be. If running it isn't
-  feasible, say explicitly that the number is an unverified estimate; don't
-  present it with the same confidence as a measured fact.
-- If a fetch or search comes back inconclusive or contradicts your prior
-  assumption, say so and show the source — don't quietly reconcile it into
-  something that sounds more confident than what you actually found.
-
-## SKIP — don't over-trigger
-
-- **The claim is about this repository's own code**, not an external system.
-  Reading the actual source here already is the authoritative check; no web
-  verification needed.
-- **The user supplied the fact or number directly** in this conversation —
-  trust their firsthand statement, don't second-guess it with a search.
-- **Already verified this session** — don't re-fetch the same source
-  redundantly if it was already checked earlier in this conversation and
-  nothing suggests it changed.
-- **Generic, non-version-specific CS/engineering knowledge** (what a hash map
-  is, what Big-O notation means) — this isn't tied to any particular tool's
-  current implementation, so there's nothing to go stale.
-
-## Why this is a skill, not just a hook
-
-The `tier-router.js` reminder is a keyword net — cheap, broad, and it can
-only nudge, not judge whether a specific sentence you're about to write is
-actually an unverified claim. The judgment call is still yours: notice when
-you're about to assert something you haven't actually checked this session,
-regardless of whether a keyword happened to fire.
+Deep dive: references/verification-guide.md

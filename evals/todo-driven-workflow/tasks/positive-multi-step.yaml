@@ -1,0 +1,15 @@
+id: positive-multi-step-001
+name: Multi-step task gets tracked as todos
+description: Enforce a deliberate step-by-step execution loop for this Tier 2 complex multi-step, multi-file task - track it as todos with one sub-task in-progress at a time until the loop completes.
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Migrate all REST endpoints in src/api to the new error-handling middleware, update the tests, and refresh the docs. Keep track of progress as you go."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "todo"

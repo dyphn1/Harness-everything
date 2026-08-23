@@ -17,6 +17,14 @@
   },
   "author": "Miya Daniel | Harness Core Team",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dyphn1/Harness-everything.git"
+  },
+  "homepage": "https://github.com/dyphn1/Harness-everything#readme",
+  "bugs": {
+    "url": "https://github.com/dyphn1/Harness-everything/issues"
+  },
   "dependencies": {},
   "devDependencies": {}
 }

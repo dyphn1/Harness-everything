@@ -1,181 +1,49 @@
 ---
 name: using-git-worktrees
-description: Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback
-author: Miya Daniel | Harness Core Team
-version: 0.3.3
+description: Use when starting feature work needing isolation or before implementation plans - ensures an isolated workspace via native tools or git worktree fallback
+license: Apache-2.0
+metadata:
+  author: Miya Daniel | Harness Core Team
+  version: 0.3.3
 ---
 
 # Using Git Worktrees
+
+Native worktree tools first, git fallback.
 
 ## 📋 Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Starting feature work that needs isolation from current workspace, or before executing an implementation plan. |
-| **Expected Output** | Isolated workspace (native worktree tool or `git worktree add` or work-in-place fallback) with clean test baseline. |
-| **State Mutations** | Creates a new worktree directory/branch (`.worktrees/<branch>`) and adds to `.gitignore` if needed. |
-| **Enforcement Gate** | Detect existing isolation first (`git rev-parse --git-dir` vs `--git-common-dir`). Fallback seamlessly if sandbox blocks worktree. |
+| **Trigger / Input** | Isolation-needing feature work; pre-plan setup. |
+| **Expected Output** | Isolated workspace plus clean test baseline. |
+| **State Mutations** | Creates `.worktrees/<branch>`; updates `.gitignore` if needed. |
+| **Enforcement Gate** | Detect existing isolation first; seamless sandbox fallback. |
 
-## Process & Worktree Resolution Flow
+## Workflow
 
-Follow the decision matrix below when setting up an isolated workspace:
-
-```mermaid
-flowchart TD
-    Start[Trigger: Need Workspace Isolation] --> CheckIso{1. Already in Worktree?}
-    
-    CheckIso -- Yes (GIT_DIR != GIT_COMMON) --> Setup[3. Run Project Setup & Dependencies]
-    CheckIso -- No (Normal Repo) --> CheckNative{2. Native Worktree Tool Available?}
-    
-    CheckNative -- Yes --> RunNative[Use Native Worktree Tool] --> Setup
-    CheckNative -- No --> RunGit[Try git worktree add .worktrees/branch]
-    
-    RunGit -- Success --> Setup
-    RunGit -- Fails / Denied --> WorkInPlace[Fallback: Work in Place in Current Directory] --> Setup
-    
-    Setup --> RunBaseline[4. Verify Clean Test Baseline]
-    RunBaseline --> Done[Isolated Workspace Ready]
-```
-
-## Overview
-
-Ensure work happens in an isolated workspace. Prefer your platform's native worktree tools. Fall back to manual git worktrees only when no native tool is available.
-
-**Core principle:** Detect existing isolation first. Then use native tools. Then fall back to git. Never fight the harness.
-
-**Announce at start:** "I'm using the using-git-worktrees skill to set up an isolated workspace."
-
-## Step 0: Detect Existing Isolation
-
-**Before creating anything, check if you are already in an isolated workspace.**
-
-Adapt commands for your active shell (`environment-detection`). Use standard `git` subcommands rather than complex POSIX subshell substitutions:
-
+**Step 0 — Detect existing isolation** (adapt per `environment-detection`):
 ```bash
-# Cross-platform git path resolution
 git rev-parse --git-dir
 git rev-parse --git-common-dir
 git branch --show-current
-```
-
-**Submodule guard:** `git-dir` differs from `git-common-dir` inside git submodules as well. Before concluding "already in a worktree," verify you are not in a submodule:
-
-```bash
-# If this returns a path, you're in a submodule, not a worktree — treat as normal repo
 git rev-parse --show-superproject-working-tree
 ```
+Dirs differ and no superproject → already isolated; skip to Step 2; never nest. Superproject → submodule (normal repo). Else honor declared preference or ask consent; declined → in place.
 
-**If `GIT_DIR != GIT_COMMON` (and not a submodule):** You are already in a linked worktree. Skip to Step 2 (Project Setup). Do NOT create another worktree.
+**Step 1 — Create**: native tool (`EnterWorktree`, `/worktree`, `--worktree`) first — raw git creates phantom state. Else verify ignored via `git check-ignore -q .worktrees || git check-ignore -q worktrees`; unignored → add to .gitignore and commit. Then `git worktree add "$path" -b "$BRANCH_NAME"` at declared preference, existing `.worktrees/`/`worktrees/`, or default `.worktrees/`. Sandbox denial → work in place.
 
-Report with branch state:
-- On a branch: "Already in isolated workspace at `<path>` on branch `<name>`."
-- Detached HEAD: "Already in isolated workspace at `<path>` (detached HEAD, externally managed). Branch creation needed at finish time."
+**Step 2 — Setup**: npm/cargo/pip/poetry/go.
 
-**If `GIT_DIR == GIT_COMMON` (or in a submodule):** You are in a normal repo checkout.
+**Step 3 — Baseline**: run tests (`npm test`/`cargo test`/`pytest`/`go test ./...`); failures → report, ask.
 
-Has the user already indicated their worktree preference in your instructions? If not, ask for consent before creating a worktree:
+Deep dive: references/workflow-details.md
 
-> "Would you like me to set up an isolated worktree? It protects your current branch from changes."
+## USE FOR:
+- feature work needing isolation
+- pre-implementation-plan setup
+- native vs manual `git worktree add`
 
-Honor any existing declared preference without asking. If the user declines consent, work in place and skip to Step 2.
-
-## Step 1: Create Isolated Workspace
-
-**You have two mechanisms. Try them in this order.**
-
-### 1a. Native Worktree Tools (preferred)
-
-The user has asked for an isolated workspace (Step 0 consent). Do you already have a way to create a worktree? It might be a tool with a name like `EnterWorktree`, `WorktreeCreate`, a `/worktree` command, or a `--worktree` flag. If you do, use it and skip to Step 2.
-
-Native tools handle directory placement, branch creation, and cleanup automatically. Using `git worktree add` when you have a native tool creates phantom state your harness can't see or manage.
-
-Only proceed to Step 1b if you have no native worktree tool available.
-
-### 1b. Git Worktree Fallback
-
-**Only use this if Step 1a does not apply** — you have no native worktree tool available. Create a worktree manually using git.
-
-#### Directory Selection
-
-Follow this priority order. Explicit user preference always beats observed filesystem state.
-
-1. **Check your instructions for a declared worktree directory preference.** If the user has already specified one, use it without asking.
-
-2. **Check for an existing project-local worktree directory:**
-   Check if `.worktrees/` or `worktrees/` exists using cross-platform file system tools (`read_file` / `list_dir` or native shell test commands). If found, use it. If both exist, `.worktrees` wins.
-
-3. **If there is no other guidance available**, default to `.worktrees/` at the project root.
-
-#### Safety Verification (project-local directories only)
-
-**MUST verify directory is ignored before creating worktree:**
-
-```bash
-git check-ignore -q .worktrees || git check-ignore -q worktrees
-```
-
-**If NOT ignored:** Add to .gitignore, commit the change, then proceed.
-
-**Why critical:** Prevents accidentally committing worktree contents to repository.
-
-#### Create the Worktree
-
-```bash
-# Determine path based on chosen location
-path="$LOCATION/$BRANCH_NAME"
-
-git worktree add "$path" -b "$BRANCH_NAME"
-cd "$path"
-```
-
-**Sandbox fallback:** If `git worktree add` fails with a permission error (sandbox denial), tell the user the sandbox blocked worktree creation and you're working in the current directory instead. Then run setup and baseline tests in place.
-
-## Step 2: Project Setup
-
-Auto-detect and run appropriate setup:
-
-```bash
-# Node.js
-if [ -f package.json ]; then npm install; fi
-
-# Rust
-if [ -f Cargo.toml ]; then cargo build; fi
-
-# Python
-if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-if [ -f pyproject.toml ]; then poetry install; fi
-
-# Go
-if [ -f go.mod ]; then go mod download; fi
-```
-
-## Step 3: Verify Clean Baseline
-
-Run tests to ensure workspace starts clean:
-
-```bash
-# Use project-appropriate command
-npm test / cargo test / pytest / go test ./...
-```
-
-**If tests fail:** Report failures, ask whether to proceed or investigate.
-
-**If tests pass:** Report ready.
-
-### Report
-
-```
-Worktree ready at <full-path>
-Tests passing (<N> tests, 0 failures)
-Ready to implement <feature-name>
-```
-
-## Quick Reference
-
-| Situation | Action |
-|-----------|--------|
-| Already in linked worktree | Skip creation (Step 0) |
-| In a submodule | Treat as normal repo (Step 0 guard) |
-| Native worktree tool available | Use it (Step 1a) |
-| No native tool | Git worktree fallback (Step 1b) |
-| `.worktrees/` exists | Use it (verify ignored) |
+## DO NOT USE FOR:
+- nesting inside an existing worktree
+- branch/merge workflows

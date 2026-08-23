@@ -1,8 +1,10 @@
 ---
 name: fable-mode
-description: Macro task planning and execution engine for complex requirements and low-level architecture changes.
-author: Miya Daniel | Harness Core Team
-version: 0.3.3
+description: Plan and execute complex Tier 3 macro tasks by breaking multi-domain requirements into architectural milestones and delegating sub-agents. Use for multi-domain work or major scaffolding; outputs milestone TODO plans, sub-agent briefs, verified gates.
+license: Apache-2.0
+metadata:
+  author: Miya Daniel | Harness Core Team
+  version: 0.3.3
 ---
 
 # Fable Mode (Macro Task Planning & Execution Engine)
@@ -11,69 +13,31 @@ version: 0.3.3
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Tier 3 Task classification. Input: Multi-domain requirement or major architectural scaffolding. |
-| **Expected Output** | 1. Architectural breakdown. 2. Milestone TODO tracking via `todo-driven-workflow`. 3. Sub-agent handoffs or inline persona delegation. 4. Integration verification. |
-| **State Mutations** | Initializes TODO checklist via `todo-driven-workflow` (`manage_todo_list`, `todo-cli.js`, or `tasks/todo.md`). |
-| **Enforcement Gate** | Milestone state tracking via `todo-driven-workflow`. Run integration verification (`harness-everything/scripts/verify-gate.js` or project test suite) at major integration boundaries. |
+| **Trigger / Input** | Tier 3 Task; multi-domain requirement or scaffolding. |
+| **Expected Output** | Breakdown, milestone TODOs, handoffs, verification. |
+| **State Mutations** | TODO checklist via `todo-driven-workflow` (`manage_todo_list`, `todo-cli.js`, `tasks/todo.md`). |
+| **Enforcement Gate** | Run `harness-everything/scripts/verify-gate.js` or tests at boundaries. |
 
-## Process & Macro Execution Flow
+## Workflow
 
-Follow the decision matrix below when executing Tier 3 macro tasks:
-
-```mermaid
-flowchart TD
-    Start[Trigger: Tier 3 Macro Task] --> Plan[1. Discovery & Architectural Plan]
-    Plan --> InitTodo{2. Delegate to todo-driven-workflow}
-    
-    InitTodo --> UseTracker[Load todo-driven-workflow<br>manage_todo_list / todo-cli.js / tasks/todo.md]
-    UseTracker --> Delegate{3. Delegate Sub-tasks}
-    
-    Delegate -- Sub-agent Tool Available --> SpawnSub[Spawn Sub-agent via create-agent-launcher]
-    Delegate -- No Sub-agent Tool --> InlineSwitch[Inline Persona Role-Switch Fallback]
-    
-    SpawnSub --> Verify[4. Integration Verification]
-    InlineSwitch --> Verify
-    
-    Verify -- Tests / Script Available --> RunVerify[Run harness-everything/scripts/verify-gate.js / npm test / pytest]
-    Verify -- No Script --> ManualVerify[Verify State Changes & Build Logs]
-    
-    RunVerify --> Transition[5. Transition Scaffolding to TDD Iteration]
-    ManualVerify --> Transition
-```
-
-Fable Mode structures complex, multi-domain Tier 3 tasks through architectural planning and specialized division of labor.
-
-## Core Approach: Plan Before Execution
-
-Act as an Architect and Technical Coordinator, combining Fable Mode with `fable-discipline` to maintain scope boundaries.
+1. **Plan** with `fable-discipline`: deconstruct into bounded sub-tasks; **Scope Lock**: define the authorized file scope first, block anything outside it.
+2. **Track**: load `todo-driven-workflow` (`manage_todo_list` / `todo-cli.js` / `tasks/todo.md`).
+3. **Delegate** via `create-agent-launcher` with bounded briefs; persona role-switch if no sub-agent tool.
+4. **Verify**: check output against `hooks/scripts/subagent-scope-guard.js`; integration-test at milestones.
+5. **Gate**: fan out QA/Security/Performance audits of the Git Diff via `create-agent-launcher`; regress on any `Blocker`.
+6. **Transition** to `tdd` for standard features.
 
 ## Sub-Skills
-- `execution-guardrails/` — always-on operational rules (verify-before-flag, warning thresholding, context-anchored substring edits).
-- `fable-haiku/` — opt-in variant that routes mechanical worker steps to a lightweight Haiku agent.
-- `agents/fable-orchestrator` — opt-in variant for large, multi-part, or multi-session tasks needing enforced delegation: it has no Write/Edit tool of its own, so every artifact must come from `fable-worker-sonnet`/`fable-worker-haiku` behind a failable per-stage check (`CONTRACT-FORMAT.md`), with high-stakes output cold-reviewed by `fable-verifier` before delivery. Spawn it via the Task tool (`subagent_type: "fable-orchestrator"`) in place of running the phases below directly when the task is too large or too session-spanning to trust continuous self-supervision.
+`execution-guardrails/`, `fable-haiku/`, `agents/fable-orchestrator` (spawn via Task tool).
 
-## Execution Phases
+## USE FOR:
+- "plan this multi-domain feature end to end"
+- "break this requirement into milestones"
+- "delegate subtasks to agents"
+- "orchestrate major scaffolding"
 
-### 1. Discovery & Planning
-- **Assess System State**: Review relevant files, interfaces, and dependencies.
-- **Deconstruct Task**: Break large requirements into bounded, verifiable sub-tasks.
-- **Scope Lock (Zero-Trust Boundaries)**: Before writing any code or delegating tasks, you MUST explicitly define the authorized file modification scope (e.g., "Allowed to edit `src/billing/**`"). This scope must be documented in the state file or chat. Any sub-agent or execution step that attempts to modify files outside this explicit boundary is a violation and must be blocked.
-- **Formulate Plan**: Draft a clear implementation outline and align with the user.
-- **Track Progress**: Load and execute `todo-driven-workflow` to initialize the milestone roadmap and manage step-by-step state across phases.
+## DO NOT USE FOR:
+- Standard Tier 2 features or bugfixes (use `tdd`)
+- Single-file edits or small refactors
 
-### 2. Sub-agent Delegation
-- When tasks span distinct technical boundaries (e.g. database migration vs frontend component), delegate specialized sub-tasks using `create-agent-launcher`.
-- Provide sub-agents with clear, bounded briefs and domain file paths.
-
-### 3. Monitoring & Integration
-- Track progress as sub-agents complete their briefs.
-- **Scope Verification**: Review sub-agent output against `hooks/scripts/subagent-scope-guard.js` alerts to ensure changes remained within briefed boundaries.
-- Run integration tests at each milestone boundary before proceeding.
-
-### 4. Verification Gate: Pre-Delivery Code Audit (Fan-out/Merge)
-- Before declaring a macro task (Tier 3) complete, you MUST initiate a parallel code audit.
-- **Fan-out**: Use `create-agent-launcher` to simultaneously launch independent Sub-agents (e.g., QA, Security, Performance) to review the Git Diff of the completed work.
-- **Merge**: Wait for these reports. If any `Blocker` level issue is found, regress to the implementation phase to fix it. If all pass, proceed to finalize.
-
-### 5. Transitioning
-- Once macro scaffolding is complete and remaining work scales down to standard feature implementation, transition to `tdd` mode for focused iteration.
+Deep dive: references/execution-phases.md

@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/waza/main/schemas/config.schema.json
+
+paths:
+  skills: .
+  evals: evals/
+
+tokens:
+  warningThreshold: 500
+  limits:
+    defaults:
+      # Skill bodies stay lean (progressive disclosure); deep detail lives in
+      # references/*.md which may be larger but still bounded.
+      # "*.md" (no slash) is required to match root-level files like README.md;
+      # "**/*.md" alone cannot match them because its regex demands a leading path segment.
+      "SKILL.md": 500
+      "**/SKILL.md": 500
+      "*.md": 4000
+      "**/*.md": 4000
+    overrides:
+      # Append-only history / audit documents — size grows by design.
+      "CHANGELOG.md": 12000
+      "VERIFICATION.md": 10000

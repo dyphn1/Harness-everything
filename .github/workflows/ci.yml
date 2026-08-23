@@ -19,3 +19,48 @@ jobs:
           node-version: 20
       - name: Run hermetic self-regression suite
         run: npm test
+
+  skill-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install waza CLI
+        run: curl -fsSL https://raw.githubusercontent.com/microsoft/waza/main/install.sh | bash
+      - name: Check every SKILL.md passes waza readiness gates
+        run: |
+          fail=0
+          for dir in $(find . -name "SKILL.md" -not -path "./node_modules/*" -not -path "./.git/*" -exec dirname {} \; | sort); do
+            out=$(waza check "$dir" 2>&1) || true
+            echo "=== $dir"
+            # Hard gates: spec compliance, token budget, trigger sections.
+            if echo "$out" | grep -q "Does not fully meet"; then
+              echo "::error file=$dir/SKILL.md::waza spec compliance failed"
+              fail=1
+            fi
+            if echo "$out" | grep -qE "SKILL.md is [0-9]+ tokens \(hard limit 500\)"; then
+              echo "::error file=$dir/SKILL.md::token budget exceeded (hard limit 500)"
+              fail=1
+            fi
+            if ! grep -q "^## USE FOR:" "$dir/SKILL.md"; then
+              echo "::error file=$dir/SKILL.md::missing '## USE FOR:' trigger section"
+              fail=1
+            fi
+            if ! grep -q "^## DO NOT USE FOR:" "$dir/SKILL.md"; then
+              echo "::error file=$dir/SKILL.md::missing '## DO NOT USE FOR:' trigger section"
+              fail=1
+            fi
+          done
+          exit $fail
+      - name: Verify eval coverage against SKILL.md requirements
+        run: |
+          fail=0
+          for eval in evals/*/eval.yaml; do
+            skill=$(dirname "$eval" | xargs basename)
+            echo "=== $skill"
+            waza spec verify "$skill" "$eval" --fail --threshold 1 || fail=1
+          done
+          exit $fail
+      - name: Block SKILL.md token growth vs base branch
+        run: waza tokens compare "${{ github.event.pull_request.base.ref || 'HEAD' }}" --strict --threshold 10

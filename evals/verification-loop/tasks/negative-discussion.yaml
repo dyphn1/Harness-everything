@@ -1,0 +1,16 @@
+id: negative-discussion-001
+name: Design discussion must not launch verification loop
+description: A design discussion with no completed work to verify, or planning without code changes, needs no gates.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Sketch two possible approaches for caching API responses and list trade-offs. Don't write any code yet."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "running the verification report"
+        - "verification passed"

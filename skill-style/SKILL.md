@@ -1,48 +1,42 @@
 ---
 name: skill-style
-description: Guidelines for writing and refactoring skills in the Harness ecosystem.
-author: Miya Daniel | Harness Core Team
-version: 0.3.3
+description: Apply Harness style guidelines when writing or refactoring SKILL.md files. Use when creating a new skill, reviewing skill structure, enforcing naming and frontmatter conventions, or standardizing tone, formatting, and progressive disclosure across the skill catalog.
+license: Apache-2.0
+metadata:
+  author: Miya Daniel | Harness Core Team
+  version: 0.3.3
 ---
 
 # Skill Style (Harness Ecosystem Skill Development Guidelines)
 
-When you need to create a new Skill or refactor an existing one, strictly adhere to the writing style in this document to ensure all Skills seamlessly integrate into the `harness-everything` routing system and are mathematically enforced by scripts.
+When creating or refactoring a Skill, strictly follow the writing style in this document so all Skills integrate into the `harness-everything` routing system and are mathematically enforced by scripts.
 
-## 0. Triggers
-This skill should be loaded when:
-- Creating a new SKILL.md file.
-- Refactoring or reviewing an existing SKILL.md file.
+## USE FOR:
+- Creating a new SKILL.md file
+- Refactoring or reviewing an existing SKILL.md
+- Deciding tone, structure, or enforcement style for skills
+- Checking whether a skill overlaps an existing OS/domain skill
 
-## 1. Structured Definition
-Every Skill file (`SKILL.md`) MUST contain the following standard structure:
+## DO NOT USE FOR:
+- Interviewing intent, drafting, or testing a skill against real prompts (load `skill-creator/SKILL.md`)
+- Routing rules for dynamically generated mid-session skills owned by `self-evolve`
+- Non-Harness skill formats outside `harness-everything`
 
-1.  **Title & Introduction**: Clearly state the purpose of this Skill.
-2.  **📋 Skill Contract (CRITICAL)**: A strict Markdown table defining inputs, outputs, state mutations, and script gates. This replaces vague prose.
-3.  **Triggers / Usage**: Explicitly tell the system when this skill applies.
-4.  **Core Rules / Action List**: Specific, actionable commands tied to Terminal Scripts. Avoid vague suggestions.
+## Required Structure
+Every SKILL.md MUST contain, in order:
 
-### 📋 The Skill Contract Format
-Every SKILL.md MUST include this table exactly:
+1. **Title & Introduction** — state the purpose.
+2. **📋 Skill Contract (CRITICAL)** — strict Markdown table: Trigger/Input, Expected Output, State Mutations, Enforcement Gate. Exact shape in Deep dive below.
+3. **Triggers / Usage** — when this skill applies.
+4. **Core Rules / Action List** — actionable commands tied to terminal scripts; no vague suggestions.
 
-```markdown
-## 📋 Skill Contract
+## Tone & Voice
+- Anti-prose: no long paragraphs; map actions to specific commands.
+- Absolute imperatives: "MUST", "MUST NOT", "ALWAYS" — never "suggest".
+- Script-driven enforcement: write "You MUST run `node harness-everything/scripts/verify-gate.js`. If Exit Code 1, you MUST reflect and retry." — never "You should check your code".
 
-| Component | Specification |
-| :--- | :--- |
-| **Trigger / Input** | (What causes this skill to execute? What exact data/args does it expect?) |
-| **Expected Output** | (What specific files, artifacts, or Terminal Exit Codes are produced?) |
-| **State Mutations** | (What JSON/files are written to track progress? e.g., `.claude/harness-state/todo-state.json`) |
-| **Enforcement Gate** | (Which exact CLI script slaps the LLM with Exit Code 1 if it fails?) |
-```
+Avoid overlap between the OS layer (routes and constrains behavior) and the Domain layer (deep technical expertise).
 
-## 2. Tone & Voice
-- **Anti-Linear / Anti-Prose**: Do not write long paragraphs. Map actions to specific `run_in_terminal` commands.
-- **Absolute Imperatives**: Use "MUST", "MUST NOT", "ALWAYS". Do not use "suggest".
-- **Script-Driven Enforcement**: Do not write "You should check your code". Write "You MUST run `node harness-everything/scripts/verify-gate.js`. If Exit Code 1, you MUST reflect and retry."
+For the fuller authoring & quality workflow (intent interviewing, drafting, prompt-testing, pruning duplication/no-op/sprawl), load `skill-creator/SKILL.md` instead.
 
-## 3. Avoid Functional Overlap
-- **OS Skills vs. Domain Skills**: Distinguish between the OS layer (which routes and constrains behavior) and the Domain layer (which provides deep technical expertise).
-
-## 4. For the fuller authoring & quality workflow, see `skill-creator`
-This document is the terse format spec — the Skill Contract table shape and the tone rules. For interviewing intent, drafting, testing a skill against real prompts, pruning duplication/no-op/sprawl, and the rules for skills `self-evolve` generates dynamically mid-session, load `skill-creator/SKILL.md` instead. It builds on this spec rather than replacing it.
+Deep dive: references/style-guide.md

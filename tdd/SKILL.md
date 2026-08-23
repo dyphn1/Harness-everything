@@ -1,8 +1,10 @@
 ---
 name: tdd
-description: Test-Driven Development mode (Red-Green-Refactor) for Standard Tasks (Tier 2).
-author: Miya Daniel | Harness Core Team
-version: 0.3.3
+description: "Drive Standard Tasks (Tier 2) with Test-Driven Development (RED/GREEN/REFACTOR) backed by terminal test evidence. USE FOR: \"implement a feature test-first\", \"fix a bug with a regression test\", \"refactor safely under tests\". DO NOT USE FOR: \"macro planning or scaffolding\", \"docs-only work with no testable logic\"."
+license: Apache-2.0
+metadata:
+  author: Miya Daniel | Harness Core Team
+  version: 0.3.3
 ---
 
 # Test-Driven Development (TDD) Mode
@@ -11,64 +13,32 @@ version: 0.3.3
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Tier 2 Task identification. Input: Specific feature or bug requirement. |
-| **Expected Output** | 1. Failing test log (RED). 2. Minimal implementation code (GREEN). 3. Refactored code (REFACTOR). |
-| **State Mutations** | Handled by active TODO tracker (`manage_todo_list`, `todo-cli.js`, or `tasks/todo.md`). |
-| **Enforcement Gate** | Run test runner in terminal (`npm test`, `pytest`, `cargo test`). If stuck >3 times in GREEN phase, force `zoom-out`. |
+| **Trigger** | Tier 2 task; feature or bug requirement. |
+| **Output** | Failing test (RED), minimal code (GREEN), refactor. |
+| **Mutations** | TODO tracker (`todo-cli.js`, `tasks/todo.md`). |
+| **Gate** | `npm test` / `pytest`; >3 GREEN failures force `zoom-out`. |
 
-## Process & TDD Execution Flow
+## TDD Discipline (Red-Green-Refactor)
 
-Follow the decision matrix below when conducting TDD:
+Every phase obeys the **Evidence Assertion Law**: real test logs prove pass/fail; assumed passes are PROHIBITED.
 
-```mermaid
-flowchart TD
-    Start[Trigger: Tier 2 Feature / Bugfix Task] --> Red[1. RED: Write Failing Unit/Integration Test]
-    Red --> TestRunner{Run Project Test Runner}
-    
-    TestRunner -- Tests Fail as Expected --> Green[2. GREEN: Write Minimal Code to Pass]
-    TestRunner -- Tests Unexpectedly Pass --> FixTest[Fix Test Logic / Assertions] --> Red
-    
-    Green --> CheckPass{Re-run Test Runner}
-    CheckPass -- Tests Pass --> Refactor[3. REFACTOR: Clean Code & Verify Alignments]
-    CheckPass -- Tests Fail (> 3 Retries) --> ZoomOut[Trigger zoom-out Circuit Breaker]
-    
-    Refactor --> VerifyFinal[Re-run Tests & Mark Todo Complete]
-    VerifyFinal --> Done[TDD Cycle Complete]
-```
+1. **RED**: write the failing test; confirm it fails (a pass means wrong test or no bug).
+2. **GREEN**: minimal code just enough to pass; re-run until green.
+3. **REFACTOR**: optimize naming/duplication/performance with green tests. **Code-Doc Alignment Law**: code matches contracts, no cheating mocks; audit vs `todo-driven-workflow` checklist; re-run tests each change.
 
-## TDD Core Discipline (Red-Green-Refactor)
+## Circuit Breaker
+3 straight GREEN failures: call `zoom-out`; fact-check each attempt's assumptions (including the RED test's own expectation); resume fresh; human only for genuine decisions.
 
-When this skill is loaded, you MUST suppress the urge to write implementation code directly, and strictly follow these three phases:
+Guides: `tdd/guides/{mocking,interface-design,deep-modules,tests,refactoring}.md`.
 
-**Evidence Assertion (Law of Evidence Assertion - 證據斷言定律)**:
-During each TDD phase (RED, GREEN, REFACTOR), you MUST present actual terminal test execution logs showing the exact test failure or pass. Claiming progress or success based on "assumed" passes is strictly PROHIBITED; you must assert outcomes with hard, objective evidence.
+## USE FOR:
+- implement this feature test-first
+- fix this bug with a regression test
+- prove this change works
+- refactor safely under tests
 
-### 1. RED (Write a Failing Test)
-- **Action**: Before implementing the requested feature or Bug fix, write the corresponding Unit Test or Integration Test in the test folder.
-- **Validation**: Run the test to **ensure the test fails** (this proves the test actually covers unimplemented functionality, rather than being a fake test).
-- **Note**: If the test passes immediately, it means your test is wrong or the Bug doesn't actually exist. You must fix the test.
+## DO NOT USE FOR:
+- macro planning or scaffolding (use `fable-mode`)
+- prototyping or docs-only work with no testable logic
 
-### 2. GREEN (Implement Minimal Code to Pass Test)
-- **Action**: Switch to the implementation code and write the "minimum amount of code just enough to pass the test". Do not over-engineer or consider future extensibility at this stage.
-- **Validation**: Run the test to ensure it passes.
-
-### 3. REFACTOR (Refactor and Optimize)
-**Code-Doc Alignment (Law of Code-Documentation Alignment - 程式碼與文件對齊定律)**:
-In the REFACTOR phase, you MUST verify that the implemented code actually aligns with the documented contracts and doesn't contain hardcoded mocking to "finesse" or cheat the tests. Use the `todo-driven-workflow` checklist items to audit that your implementation aligns 100% with the requirement specifications.
-
-- **Action**: Under the safety net of passing tests, begin optimizing the code.
-- Checks: Is the naming clear? Is there duplicated code? Can performance be improved? Does it comply with the project's Clean Code standards?
-- **Validation**: After every modification, re-run the tests to ensure refactoring hasn't broken the original functionality.
-
-## Circuit Breaker Defense
-If during a TDD cycle you get stuck in the **GREEN phase**, and 3 consecutive implementation attempts fail to pass the test:
-- **Trigger Condition Met**: You might have hit the reasoning ceiling, or the initial test logic (RED) was written incorrectly.
-- **Mandatory Action**: Stop guessing blindly. Immediately abort the TDD process and call the `zoom-out` skill: fact-check the assumption behind each failing attempt — including whether the RED test itself encodes the wrong expectation — and resume on a fresh diagnosis. Bring the human in only if the reflection surfaces a genuine decision (e.g., the test contradicts the requirement).
-
-## Deep Reference Guides
-For advanced testing, design, and mocking strategies, you MUST refer to:
-- `tdd/guides/mocking.md` — Mocking and stubbing principles
-- `tdd/guides/interface-design.md` — Interface and contract-driven design
-- `tdd/guides/deep-modules.md` — Testing deeply nested/complex modules
-- `tdd/guides/tests.md` — General test architecture and assertions
-- `tdd/guides/refactoring.md` — Refactoring techniques under safety nets
+Deep dive: references/core-discipline.md
