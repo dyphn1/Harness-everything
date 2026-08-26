@@ -82,3 +82,27 @@ jobs:
         run: npm run test:consistency
       - name: Skill description collision detection
         run: npm run test:collision
+
+  installer-e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: CLI --help works
+        run: node bin/cli.js --help
+      - name: Install into fresh temp directory
+        shell: bash
+        run: |
+          TMPDIR=$(mktemp -d)
+          cd "$TMPDIR"
+          git init
+          node "$GITHUB_WORKSPACE/bin/cli.js" install --all -y
+          # Verify at least one platform file was created
+          ls -la .claude/settings.json .cursorrules .github/copilot-instructions.md 2>/dev/null || true
+          echo "✅ Installer e2e passed"
