@@ -39,7 +39,7 @@ The `SKILL.md` MUST always begin with this exact YAML structure:
 ---
 name: "build-multi-agent-system"
 description: >
-  Deploy a universal, self-adapting Multi-Agent Architecture into any project. It dynamically analyzes the tech stack to scaffold a token-efficient workspace with strict physical boundaries, hybrid SQLite memory, and isomorphic alignment protocols.
+  Scaffold a multi-agent workspace in any project by analyzing its tech stack at runtime: six functional zones, an immutable AGENTS.md router, and a shared memory index generated as a project-local script with a markdown fallback.
 ---
 ```
 

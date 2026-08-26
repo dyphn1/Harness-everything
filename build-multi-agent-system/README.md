@@ -1,12 +1,12 @@
 # build-multi-agent-system
 
-> Deploy a universal, self-adapting Multi-Agent Architecture into any project. It dynamically analyzes the tech stack to scaffold a token-efficient workspace with strict physical boundaries, hybrid SQLite memory, and isomorphic alignment protocols.
+> Scaffold a multi-agent workspace in any project by analyzing its tech stack at runtime: six functional zones, an immutable AGENTS.md router, and a shared memory index generated as a project-local script with a markdown fallback.
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ## Overview
 
-This skill installs the physical landing gear ("where the agent lives") for a multi-agent team inside any repository. By dynamically adapting to the project's native ecosystem, it enforces physical isolation of context and cognitive metabolism, preventing the agent team from drowning in unstructured logs. It sets up 6 distinct functional zones, a relational SQLite memory indexer, and an immutable `AGENTS.md` router to keep token burn low and mitigate hallucination.
+This skill installs the physical landing gear ("where the agent lives") for a multi-agent team inside any repository. By dynamically adapting to the project's native ecosystem, it enforces physical isolation of context and cognitive metabolism, preventing the agent team from drowning in unstructured logs. It sets up 6 distinct functional zones, a generated memory-index script (with a markdown fallback when script execution is unavailable), and an immutable `AGENTS.md` router to keep token burn low and mitigate hallucination.
 
 ---
 

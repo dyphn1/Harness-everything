@@ -1,6 +1,6 @@
 ---
 name: build-multi-agent-system
-description: Deploy a universal, self-adapting Multi-Agent Architecture into any project. It dynamically analyzes the tech stack to scaffold a token-efficient workspace with strict physical boundaries, hybrid SQLite memory, and isomorphic alignment protocols.
+description: Scaffold a multi-agent workspace in any project by analyzing its tech stack at runtime: six functional zones, an immutable AGENTS.md router, and a shared memory index generated as a project-local script with a markdown fallback.
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
@@ -9,12 +9,12 @@ metadata:
 
 # Universal Multi-Agent Workspace Installer
 
-Deploys a self-adapting multi-agent workspace: 6 functional zones, hybrid SQLite/markdown memory, immutable `AGENTS.md` router.
+Scaffolds a multi-agent workspace: 6 functional zones, a generated memory-index script (markdown fallback), immutable `AGENTS.md` router.
 
 ## USE FOR:
 - Scaffold a multi-agent workspace from scratch
 - Initialize an agent team with dynamically deduced roles
-- Set up shared agent memory (SQLite indexer or markdown index)
+- Set up shared agent memory (generated index script or markdown index)
 - Create an immutable AGENTS.md router
 
 ## DO NOT USE FOR:

@@ -1,6 +1,6 @@
 # Workflow: Build Multi-Agent System
 
-> Deploys an industrial-grade, self-adapting Multi-Agent Workspace architecture, scaffolding physical boundaries and relational SQLite context indexes.
+> Deploys an industrial-grade, self-adapting Multi-Agent Workspace architecture, scaffolding zone boundaries and a runtime-generated context index (markdown fallback).
 
 ---
 
