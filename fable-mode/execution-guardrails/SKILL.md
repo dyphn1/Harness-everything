@@ -1,11 +1,6 @@
 ---
 name: execution-guardrails
-description: >-
-  Apply always-on operational guardrails on every task and model: verify
-  findings before flagging warnings, batch minor caveats instead of
-  interrupting piecemeal, and anchor search-and-replace edits to word
-  boundaries with a post-write corruption check. Use whenever a turn would
-  raise a warning or edit files via search-and-replace.
+description: Always-on operational guardrails: verify before flagging warnings, batch minor caveats, anchor search-and-replace edits with post-write corruption check.
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
@@ -14,25 +9,9 @@ metadata:
 
 # Execution Guardrails
 
-## 📋 Skill Contract
+**USE FOR**: Raising warnings or flagging problems, search-and-replace/regex file edits, batching minor caveats, reporting capability limits.
 
-| Component | Specification |
-| :--- | :--- |
-| **Trigger / Input** | Any turn about to flag a problem, raise a warning, or perform search-and-replace file edits. |
-| **Expected Output** | Warnings grounded in verified findings; minor caveats batched at a 3-item threshold; edits context-anchored and checked post-write. |
-| **State Mutations** | None of its own — governs execution quality for file-editing turns. |
-| **Enforcement Gate** | Verify findings before raising warnings. Validate search-and-replace edits against corruption before presenting results. |
-
-## USE FOR:
-- Raising a warning or flagging a suspected problem
-- Search-and-replace or regex file edits
-- Batching multiple minor caveats during a run
-- Reporting capability limits ("this may be beyond me")
-
-## DO NOT USE FOR:
-- Task planning, staging, or fable-mode's staged loop itself
-- Git history rewriting (see `rewrite-commits`)
-- Skills that never raise warnings or edit files
+**DO NOT USE FOR**: Task planning or fable-mode's staged loop, git history rewriting, skills that never raise warnings or edit files.
 
 ## Core Rules
 

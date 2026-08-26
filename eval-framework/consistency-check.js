@@ -195,6 +195,22 @@ for (const sub of nestedSubSkills) {
   );
 }
 
+// --- 5d. Word-count budget (token proxy) ------------------------------------
+// Skill frontmatter descriptions are routing surfaces; long descriptions
+// bloat token budgets. A simple word-count proxy flags files likely to
+// exceed the waza 500-token limit (~1.55 tokens/word → 330 words ≈ 507 tokens).
+const WORD_BUDGET = 330;
+for (const s of skills) {
+  const raw = fs.readFileSync(s.path, 'utf8');
+  const body = raw.replace(/^---\r?\n[\s\S]*?\r?\n---/, '').trim();
+  const wc = body.split(/\s+/).filter(Boolean).length;
+  check(
+    `${s.dir}: SKILL.md word count ${wc} <= ${WORD_BUDGET}`,
+    wc <= WORD_BUDGET,
+    `body is ${wc} words (~${Math.round(wc * 1.55)} tokens); trim to under ${WORD_BUDGET} words`
+  );
+}
+
 // --- 6. Dead-link audit over README.md and docs/** -----------------------
 function extractLocalLinks(file) {
   const text = fs.readFileSync(file, 'utf8');
