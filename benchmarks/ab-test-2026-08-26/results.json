@@ -1,0 +1,55 @@
+{
+  "date": "2026-08-26",
+  "engine": "opencode",
+  "model": "openai/gpt-5-mini",
+  "summary": {
+    "effective": 0,
+    "ineffective": 0,
+    "inconclusive": 1,
+    "harmful": 0,
+    "total": 1
+  },
+  "results": [
+    {
+      "id": "verification-loop-gates",
+      "skill": "verification-loop",
+      "name": "Verification-loop skill makes agent list specific verification gates",
+      "date": "2026-08-26T15:24:37.438Z",
+      "engine": "opencode",
+      "model": "openai/gpt-5-mini",
+      "baseline": {
+        "results": [
+          {
+            "description": "baseline does NOT list build verification",
+            "pass": true
+          },
+          {
+            "description": "baseline does NOT list lint verification",
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      "treatment": {
+        "results": [
+          {
+            "description": "treatment lists build verification gate",
+            "pass": true
+          },
+          {
+            "description": "treatment lists lint verification gate",
+            "pass": true
+          },
+          {
+            "description": "treatment lists test verification gate",
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      "verdict": "INCONCLUSIVE",
+      "baseline_trace_preview": "I'll search the codebase for upload- and S3-related code (handlers, libraries, validations, and tests) in parallel.\n[grep] {\"pattern\":\"upload\",\"path\":\"\"}\n[grep] {\"pattern\":\"multipart\",\"path\":\"\"}\n[grep] {\"pattern\":\"multipart/form-data\",\"path\":\"\"}\n[grep] {\"pattern\":\"s3\",\"path\":\"\"}\n[grep] {\"pattern\":\"aws-sdk\",\"path\":\"\"}\n[grep] {\"pattern\":\"Multer\",\"path\":\"\"}\n[grep] {\"pattern\":\"multer\",\"path\":\"\"}\n[grep] {\"pattern\":\"busboy\",\"path\":\"\"}\n[grep] {\"pattern\":\"presign\",\"path\":\"\"}\n[grep] {\"pattern\":\"Content-T",
+      "treatment_trace_preview": "I'll run the verification gates in order: build, type-check, lint, tests (with coverage), security scan, and a git diff review. Running `npm run build` first.\n[bash] {\"command\":\"npm run build\",\"timeout\":120000}\nNo package.json found. I'll detect the project's ecosystem (look for pyproject.toml, setup.py, package.json).\n[glob] {\"pattern\":\"**/*.{json,py,ts,js,tsx,jsx,pyproject.toml,setup.py,requirements.txt}\"}\n[bash] {\"command\":\"ls -la\",\"timeout\":120000}\n[bash] {\"command\":\"git ls-files --exclude-s"
+    }
+  ]
+}

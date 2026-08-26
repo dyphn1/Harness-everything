@@ -16,6 +16,8 @@
     "benchmark:status": "node benchmarks/run.js status",
     "eval:behavioral": "node behavioral-evals/run.js run",
     "eval:behavioral:validate": "node behavioral-evals/run.js validate",
+    "test:ab": "node eval-framework/ab-test-harness.js validate",
+    "test:ab:run": "node eval-framework/ab-test-harness.js run",
     "harness:reset": "node hooks/scripts/reset-circuit-breaker.js"
   },
   "engines": {
