@@ -280,11 +280,19 @@ console.log(`\nChecked ${linkCount} local doc links.`);
 
 // --- 7. Token-budget gate (word-count proxy, hard limit 500) ----------------
 // Exact tokenization is waza's job; this is the local early-warning gate.
+// Includes warning threshold at 80% (400 words) for early detection.
 const TOKEN_HARD_LIMIT = 500;
+const TOKEN_WARNING_THRESHOLD = 400; // 80% of hard limit
 for (const s of skills) {
   const raw = fs.readFileSync(s.path, 'utf8');
   const withoutFm = raw.replace(/^---\n[\s\S]*?\n---\n?/, '');
   const wordCount = withoutFm.split(/\s+/).filter(Boolean).length;
+  
+  // Warning at 80% threshold (non-blocking)
+  if (wordCount > TOKEN_WARNING_THRESHOLD && wordCount <= TOKEN_HARD_LIMIT) {
+    console.log(`⚠️ ${s.dir}: SKILL.md word count ${wordCount} approaching limit (${TOKEN_HARD_LIMIT - wordCount} words remaining)`);
+  }
+  
   check(
     `${s.dir}: SKILL.md word count ${wordCount} <= ${TOKEN_HARD_LIMIT}`,
     wordCount <= TOKEN_HARD_LIMIT,
