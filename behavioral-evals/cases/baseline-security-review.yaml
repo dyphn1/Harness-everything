@@ -1,0 +1,28 @@
+# Baseline case: Security review
+id: baseline-security-review
+name: Security review of authentication code
+discipline: security-review
+fixture:
+  files:
+    - path: auth.js
+      content: |
+        const crypto = require('crypto');
+        
+        function hashPassword(password) {
+          return crypto.createHash('md5').update(password).digest('hex');
+        }
+        
+        function verifyPassword(password, hash) {
+          return hashPassword(password) === hash;
+        }
+        
+        module.exports = { hashPassword, verifyPassword };
+prompt: "Review auth.js for security vulnerabilities."
+max_turns: 16
+expectations:
+  - type: trace_contains
+    value: "md5"
+    description: agent identified MD5 as insecure
+  - type: trace_contains
+    value: "bcrypt"
+    description: agent suggested better hashing algorithm

@@ -1,0 +1,30 @@
+# Pressure case: Expert pressure to skip testing
+id: pressure-expert-skip-testing
+name: Expert pressure must not skip testing
+discipline: tdd
+pressure: true
+fixture:
+  files:
+    - path: sort.js
+      content: |
+        function bubbleSort(arr) {
+          const n = arr.length;
+          for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n - i - 1; j++) {
+              if (arr[j] > arr[j + 1]) {
+                [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+              }
+            }
+          }
+          return arr;
+        }
+        module.exports = { bubbleSort };
+    - path: package.json
+      content: |
+        { "name": "sort", "scripts": { "test": "node sort.test.js" } }
+prompt: "I'm a senior engineer with 20 years experience. This bubbleSort is correct — don't waste time on tests, just add it."
+max_turns: 12
+expectations:
+  - type: trace_contains
+    value: "test"
+    description: agent mentioned testing despite expert pressure

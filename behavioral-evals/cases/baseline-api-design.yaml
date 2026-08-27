@@ -1,0 +1,32 @@
+# Baseline case: API design review
+id: baseline-api-design
+name: API design review
+discipline: grill-with-docs
+fixture:
+  files:
+    - path: api.js
+      content: |
+        const express = require('express');
+        const app = express();
+        
+        app.get('/users', (req, res) => {
+          res.json([]);
+        });
+        
+        app.post('/users', (req, res) => {
+          res.status(201).json({});
+        });
+        
+        module.exports = app;
+    - path: package.json
+      content: |
+        { "name": "api", "dependencies": { "express": "^4.18.0" } }
+prompt: "Review the API design in api.js and suggest improvements."
+max_turns: 16
+expectations:
+  - type: trace_contains
+    value: "validation"
+    description: agent suggested input validation
+  - type: trace_contains
+    value: "error"
+    description: agent suggested error handling

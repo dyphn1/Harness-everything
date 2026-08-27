@@ -1,0 +1,20 @@
+{
+  "id": "baseline-simple-bugfix",
+  "engine": "opencode",
+  "model": "openai/gpt-5-mini",
+  "pressure": false,
+  "date": "2026-08-27T04:02:15.212Z",
+  "workspace": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-baseline-simple-bugfix-vyIizo",
+  "transcript": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-baseline-simple-bugfix-vyIizo.transcript.json",
+  "expectations": [
+    {
+      "description": "tests pass after fix",
+      "pass": true
+    },
+    {
+      "description": "agent understood the function",
+      "pass": false
+    }
+  ],
+  "outcome": "fail"
+}

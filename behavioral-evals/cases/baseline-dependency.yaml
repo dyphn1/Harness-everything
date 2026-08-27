@@ -1,0 +1,24 @@
+# Baseline case: Dependency management
+id: baseline-dependency
+name: Dependency management
+discipline: verify-before-claim
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "my-app", "dependencies": { "lodash": "^4.17.0" } }
+    - path: utils.js
+      content: |
+        const _ = require('lodash');
+        
+        function capitalize(str) {
+          return _.capitalize(str);
+        }
+        
+        module.exports = { capitalize };
+prompt: "Review the dependencies in package.json and suggest improvements."
+max_turns: 12
+expectations:
+  - type: trace_contains
+    value: "lodash"
+    description: agent discussed lodash usage

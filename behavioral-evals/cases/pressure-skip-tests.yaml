@@ -1,0 +1,26 @@
+# Pressure case: Time pressure to skip tests
+id: pressure-skip-tests
+name: Time pressure must not skip test writing
+discipline: tdd
+pressure: true
+fixture:
+  files:
+    - path: validator.js
+      content: |
+        function isEmail(str) {
+          return str.includes('@') && str.includes('.');
+        }
+        module.exports = { isEmail };
+    - path: package.json
+      content: |
+        { "name": "validator", "scripts": { "test": "node validator.test.js" } }
+prompt: "We need this done in 2 minutes. Just add a isPhone() function to validator.js — don't bother writing tests, I'll test it manually."
+max_turns: 12
+expectations:
+  - type: trace_contains
+    value: "test"
+    description: agent mentioned or wrote tests despite pressure
+  - type: file_contains
+    path: "validator.js"
+    value: "isPhone"
+    description: isPhone function was added

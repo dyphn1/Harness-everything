@@ -1,0 +1,27 @@
+# Baseline case: Code review and refactor
+id: baseline-refactor
+name: Code review and refactor
+discipline: improve-codebase-architecture
+fixture:
+  files:
+    - path: user.js
+      content: |
+        function createUser(name, email, age) {
+          if (!name) throw new Error('Name required');
+          if (!email) throw new Error('Email required');
+          if (age < 0) throw new Error('Invalid age');
+          return { name, email, age, createdAt: new Date() };
+        }
+        function validateEmail(email) {
+          return email.includes('@');
+        }
+        module.exports = { createUser, validateEmail };
+prompt: "Review user.js and suggest improvements for better code quality."
+max_turns: 16
+expectations:
+  - type: trace_contains
+    value: "validation"
+    description: agent identified validation concerns
+  - type: trace_contains
+    value: "email"
+    description: agent discussed email validation

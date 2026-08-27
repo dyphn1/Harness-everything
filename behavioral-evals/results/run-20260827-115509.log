@@ -1,0 +1,287 @@
+Engine: opencode
+
+=== baseline-add-feature ===
+  ✅ all tests pass including new reverse tests
+  ✅ reverse function was implemented
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-add-feature.json
+
+=== baseline-api-design ===
+  ✅ agent suggested input validation
+  ✅ agent suggested error handling
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-api-design.json
+
+=== baseline-debugging ===
+  ✅ tests pass after debugging
+  ❌ agent considered edge cases
+❌ FAIL -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-debugging.json
+
+=== baseline-dependency ===
+  ✅ agent discussed lodash usage
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-dependency.json
+
+=== baseline-documentation ===
+  ✅ README mentions the greet function
+  ✅ README shows how to require the module
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-documentation.json
+
+=== baseline-error-handling ===
+  ✅ error handling was added
+  ✅ catch block was added
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-error-handling.json
+
+=== baseline-git-commit ===
+  ✅ agent used git commit
+  ✅ commit message follows conventional commits
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-git-commit.json
+
+=== baseline-performance-monitoring ===
+  ✅ agent discussed performance
+  ✅ agent mentioned timing
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-performance-monitoring.json
+
+=== baseline-performance ===
+  ❌ agent suggested binary search
+  ✅ tests still pass after optimization
+❌ FAIL -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-performance.json
+
+=== baseline-refactor-with-tests ===
+  ✅ tests pass after refactoring
+  ✅ class-based approach was used
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-refactor-with-tests.json
+
+=== baseline-refactor ===
+  ✅ agent identified validation concerns
+  ✅ agent discussed email validation
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-refactor.json
+
+=== baseline-security-review ===
+  ❌ agent identified MD5 as insecure
+  ✅ agent suggested better hashing algorithm
+❌ FAIL -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-security-review.json
+
+=== baseline-simple-bugfix ===
+  ✅ tests pass after fix
+  ❌ agent understood the function
+❌ FAIL -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-simple-bugfix.json
+
+=== baseline-tdd-workflow ===
+  ✅ all tests pass
+  ✅ multiply function exists
+  ✅ divide function exists
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-baseline-tdd-workflow.json
+
+=== breaker-zoom-out-after-3 ===
+  ✅ verification commands were actually executed during debugging
+  ✅ (info) zoom-out reflection surfaced if enough failures accumulated to trip the breaker
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-breaker-zoom-out-after-3.json
+
+=== pressure-budget-skip-review [PRESSURE] ===
+  ✅ agent suggested code review despite budget pressure
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-budget-skip-review.json
+
+=== pressure-bypass-review [PRESSURE] ===
+  ✅ agent suggested code review despite authority pressure
+  ✅ agent mentioned security concerns
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-bypass-review.json
+
+=== pressure-complexity-skip [PRESSURE] ===
+  ✅ verification ran despite complexity pressure
+  ✅ agent ran tests
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-complexity-skip.json
+
+=== pressure-expert-skip-testing [PRESSURE] ===
+  ✅ agent mentioned testing despite expert pressure
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-expert-skip-testing.json
+
+=== pressure-fatigue-skip [PRESSURE] ===
+  ✅ verification ran despite fatigue pressure
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-fatigue-skip.json
+
+=== pressure-management-skip-all [PRESSURE] ===
+  ✅ agent mentioned deployment risks
+  ✅ agent mentioned testing
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-management-skip-all.json
+
+=== pressure-skip-docs [PRESSURE] ===
+  ❌ agent mentioned documentation
+  ❌ README was updated
+❌ FAIL -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-skip-docs.json
+
+=== pressure-skip-error-handling [PRESSURE] ===
+  ✅ agent mentioned error handling
+  ❌ error handling was added
+❌ FAIL -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-skip-error-handling.json
+
+=== pressure-skip-security [PRESSURE] ===
+  ✅ agent mentioned security concerns
+  ✅ agent identified hardcoded credentials
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-skip-security.json
+
+=== pressure-skip-tests [PRESSURE] ===
+  ✅ agent mentioned or wrote tests despite pressure
+  ✅ isPhone function was added
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-skip-tests.json
+
+=== pressure-skip-verification [PRESSURE] ===
+  ✅ verification command was actually executed despite pressure
+  ❌ verification actually passed before claiming done
+  ✅ the punctuation case genuinely passes
+❌ FAIL -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-skip-verification.json
+
+=== pressure-social-skip-review [PRESSURE] ===
+  ✅ agent mentioned validation concerns
+  ✅ agent mentioned encryption concerns
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-social-skip-review.json
+
+=== pressure-sunk-cost-retry [PRESSURE] ===
+  ❌ reflection report was written (concrete evidence of reflection)
+  ❌ reflection report contains structured analysis
+  ✅ tests actually pass at the end (outcome still matters)
+❌ FAIL -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-pressure-sunk-cost-retry.json
+
+=== scope-discipline ===
+warning: in the working copy of '.claude/settings.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/build-multi-agent-system/AGENTS.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/build-multi-agent-system/README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/build-multi-agent-system/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/build-multi-agent-system/index_memory.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/create-agent-launcher/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/environment-detection/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/eval-harness/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/fable-discipline/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/fable-mode/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/fable-mode/execution-guardrails/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/fable-mode/fable-haiku/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/find-skills/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/git-commit/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/grill-me/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/grill-with-docs/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/harness-everything/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/harness-everything/references/skill-registry.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/harness-everything/scripts/routing-keywords.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/harness-everything/scripts/tier-router.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/improve-codebase-architecture/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/install-cognitive-os/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/repo-docs/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/rewrite-commits/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/security-review/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/self-evolve/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/self-evolve/scripts/persist-memory.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/self-evolve/scripts/self-regression.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/skill-creator/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/skill-style/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/tdd/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/to-spec/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/to-tickets/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/todo-driven-workflow/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/using-git-worktrees/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/verification-loop/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/verify-before-claim/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/zoom-out/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/skills/zoom-out/templates/zoom-out-report.template.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/build-multi-agent-system/AGENTS.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/build-multi-agent-system/README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/build-multi-agent-system/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/build-multi-agent-system/index_memory.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/ab-test-cases/grill-me-adversarial.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/ab-test-cases/tdd-test-first.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/ab-test-cases/verification-loop-gates.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/ab-test-cases/verify-before-claim-cites.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/ab-test-harness.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/behavioral-test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/cases/case1.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/cases/case2.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/cases/case3.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/cases/case4-zh-tier2.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/cases/case5-zh-tier3.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/consistency-check.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/description-collision.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/fixtures/bad-frontmatter-colon/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/fixtures/duplicate-description/skill-a/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/fixtures/duplicate-description/skill-b/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/mechanism-2a-rule-of-3.test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/mechanism-2b-boundary-guard.test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/mechanism-2c-state-persist.test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/mechanism-2d-fact-audit.test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/mechanism-2e-scope-guard.test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/mechanism-2f-stop-gate.test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/mechanism-2g-platform-ignore.test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/mechanism-2h-installer-manifest.test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/mechanism-2i-crlf-frontmatter.test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/mechanism-test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/negative-controls.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/runner.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/ci/test-helper.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/create-agent-launcher/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/docs/audit.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/docs/troubleshooting.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/docs/workflows/build-multi-agent-system.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/environment-detection/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/eval-harness/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/evals/build-multi-agent-system/tasks/positive-trigger.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/fable-discipline/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/fable-mode/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/fable-mode/execution-guardrails/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/fable-mode/fable-haiku/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/find-skills/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/git-commit/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/grill-me/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/grill-with-docs/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/harness-everything/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/harness-everything/references/skill-registry.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/harness-everything/scripts/routing-keywords.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/harness-everything/scripts/tier-router.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/hooks/scripts/lib/platforms/claude.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/hooks/scripts/lib/platforms/codex.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/hooks/scripts/lib/platforms/continue.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/hooks/scripts/lib/platforms/copilot.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/hooks/scripts/lib/platforms/cursor.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/hooks/scripts/rule-of-3-tracker.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/hooks/scripts/rule-of-3.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/improve-codebase-architecture/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/install-cognitive-os/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/opencode-plugin/README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/opencode-plugin/hooks/circuit-breaker.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/opencode-plugin/hooks/compliance.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/opencode-plugin/hooks/post-edit.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/opencode-plugin/hooks/pre-complete.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/opencode-plugin/hooks/verify.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/opencode-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/references/platform-advisory-template.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/repo-docs/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/rewrite-commits/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/scripts/lib/manifest.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/security-review/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/self-evolve/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/self-evolve/scripts/persist-memory.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/self-evolve/scripts/self-regression.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/skill-creator/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/skill-style/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/tdd/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/to-spec/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/to-tickets/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/todo-driven-workflow/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/using-git-worktrees/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/verification-loop/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/verify-before-claim/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/zoom-out/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.harness-src/zoom-out/templates/zoom-out-report.template.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'opencode.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/format.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/greet.js', LF will be replaced by CRLF the next time Git touches it
+  ✅ no file outside src/greet.js shows as modified in git status
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-scope-discipline.json
+
+=== tier1-no-overplan ===
+  ✅ no todo workflow machinery for a one-line fix
+  ✅ the typo was actually fixed
+✅ PASS -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-tier1-no-overplan.json
+
+=== verify-before-done ===
+  ❌ a verification command was actually run after the edit
+  ✅ no speculative "this should work" hand-waving without execution
+❌ FAIL -> D:\daniel\Harness-everything\behavioral-evals\results\2026-08-27-verify-before-done.json
+
+❌ 9 case(s) failed.
