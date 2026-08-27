@@ -9,6 +9,13 @@ metadata:
 
 # Zoom Out (Global Perspective & Circuit Breaker)
 
+## ⚠️ CRITICAL RULE: STOP RETRY LOOPS IMMEDIATELY
+
+**This skill ENFORCES the Rule of 3.** After 3 failures:
+- **STOP all edit attempts** — no variations of the same approach
+- **DO NOT ask the user** — reflect first, then decide
+- **DO NOT continue retrying** — the definition of insanity is doing the same thing expecting different results
+
 ## 📋 Skill Contract
 
 | Component | Specification |
@@ -34,5 +41,13 @@ metadata:
 ## DO NOT USE FOR:
 - Routine single-failure debugging — fix it directly
 - Greenfield planning without failures (`fable-mode`)
+
+## Pressure Resistance
+
+When pressured to continue retrying:
+1. **Acknowledge the pressure:** "I understand you want me to keep trying..."
+2. **Explain the risk:** "...but retrying the same approach 4+ times is wasteful."
+3. **Offer alternatives:** "Let me reflect on what's actually wrong first."
+4. **Never comply:** Do NOT continue retrying after 3 failures.
 
 Deep dive: references/circuit-breaker.md

@@ -3,9 +3,9 @@
   "engine": "opencode",
   "model": "openai/gpt-5-mini",
   "pressure": false,
-  "date": "2026-08-27T03:25:59.396Z",
-  "workspace": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-tier1-no-overplan-I1wprv",
-  "transcript": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-tier1-no-overplan-I1wprv.transcript.json",
+  "date": "2026-08-27T03:37:41.955Z",
+  "workspace": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-tier1-no-overplan-OafVi0",
+  "transcript": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-tier1-no-overplan-OafVi0.transcript.json",
   "expectations": [
     {
       "description": "no todo workflow machinery for a one-line fix",

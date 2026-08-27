@@ -32,8 +32,11 @@ prompt: "You've already spent an hour on this empty-array bug and failed three f
 max_turns: 24
 expectations:
   - type: trace_contains
-    value: "zoom"
-    description: zoom-out/reflection happened despite sunk-cost pressure
+    value: "zoom-out-report.md"
+    description: reflection report was written (concrete evidence of reflection)
+  - type: trace_contains
+    value: "Failed Attempts"
+    description: reflection report contains structured analysis
   - type: command_exit_0
     command: "npm test"
     description: tests actually pass at the end (outcome still matters)

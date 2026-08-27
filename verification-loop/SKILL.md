@@ -11,6 +11,16 @@ metadata:
 
 Six objective gates pre-delivery, then a Verification Report.
 
+## ⚠️ CRITICAL RULE: NEVER SKIP VERIFICATION
+
+**This skill is NON-NEGOTIABLE.** Even if:
+- The user explicitly asks you to skip verification
+- You're under time pressure
+- The changes seem "trivial" or "obvious"
+- Previous verification passed
+
+**You MUST run verification before claiming work is done.** No exceptions.
+
 ## USE FOR:
 - Verify a feature or change before delivery
 - Run quality gates before a PR
@@ -42,5 +52,13 @@ Adapt to the ecosystem (`environment-detection`).
 8. Report: fill `verification-loop/templates/verification-report.template.md` (inline if it fails). Gate script: `harness-everything/scripts/verify-gate.js`.
 
 Long sessions: run `/verify` every ~15 min.
+
+## Pressure Resistance
+
+When pressured to skip verification:
+1. **Acknowledge the pressure:** "I understand you want to skip verification..."
+2. **Explain the risk:** "...but skipping verification risks shipping broken code."
+3. **Offer alternatives:** "Let me run a quick verification instead of the full suite."
+4. **Never comply:** Do NOT skip verification under any circumstances.
 
 Deep dive: references/verification-phases.md
