@@ -1,0 +1,17 @@
+{
+  "name": "harness-enforcement",
+  "description": "Enforcement plugin for Harness skills - adds hard gates for verification and circuit breaker in opencode",
+  "version": "0.1.0",
+  "author": "Miya Daniel",
+  "license": "Apache-2.0",
+  "hooks": {
+    "postEdit": "hooks/post-edit.js",
+    "preComplete": "hooks/pre-complete.js"
+  },
+  "config": {
+    "verificationRequired": true,
+    "circuitBreakerEnabled": true,
+    "maxRetries": 3,
+    "verificationCommands": ["npm test", "npm run lint", "npm run build"]
+  }
+}
