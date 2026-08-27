@@ -23,7 +23,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PACKAGE_NAME = 'harness-everything';
-const HARNESS_AUTHOR = 'Miya Daniel | Harness Core Team';
+const HARNESS_AUTHOR = 'Miya Daniel';
 const HARNESS_DIR_NAME = 'harness-everything';
 
 function getHarnessDir(homeDir) {

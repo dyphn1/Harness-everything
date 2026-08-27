@@ -9,9 +9,9 @@
   "scripts": {
     "test": "node self-evolve/scripts/self-regression.js",
     "self-regression": "node self-evolve/scripts/self-regression.js",
-    "test:mechanism": "node eval-framework/mechanism-test.js",
-    "test:consistency": "node eval-framework/consistency-check.js",
-    "test:collision": "node eval-framework/description-collision.js",
+    "test:mechanism": "node ci/mechanism-test.js",
+    "test:consistency": "node ci/consistency-check.js",
+    "test:collision": "node ci/description-collision.js",
     "benchmark:scaffold": "node benchmarks/run.js scaffold",
     "benchmark:status": "node benchmarks/run.js status",
     "eval:behavioral": "node behavioral-evals/run.js run",
@@ -23,7 +23,7 @@
   "engines": {
     "node": ">=18"
   },
-  "author": "Miya Daniel | Harness Core Team",
+  "author": "Miya Daniel",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

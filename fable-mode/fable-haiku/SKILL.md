@@ -3,7 +3,7 @@ name: fable-haiku
 description: "Delegate bulk mechanical work to the fable-worker-haiku agent for staged execution at low cost: explicit pass conditions, optional fan-out, then a fable-verifier pass. Use for 'fable on haiku' requests."
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

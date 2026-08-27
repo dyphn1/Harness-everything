@@ -3,7 +3,7 @@ name: to-tickets
 description: Break a to-spec feature-spec, a plan, or a conversation into tracer-bullet tickets with declared blocking edges — one file per ticket locally or issues on a real tracker via projectDocs. Use when an approved spec needs dependency-aware ordering.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

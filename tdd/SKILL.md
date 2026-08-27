@@ -3,7 +3,7 @@ name: tdd
 description: "Drive Standard Tasks (Tier 2) with Test-Driven Development (RED/GREEN/REFACTOR) backed by terminal test evidence. USE FOR: \"implement a feature test-first\", \"fix a bug with a regression test\", \"refactor safely under tests\". DO NOT USE FOR: \"macro planning or scaffolding\", \"docs-only work with no testable logic\"."
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

@@ -33,7 +33,11 @@ function readState(stateFile) {
 }
 
 function isTripped(state) {
-  return !!state && state.count >= 3 && !state.zoomOutResolved;
+  if (!state || state.zoomOutResolved) return false;
+  
+  // Use context-aware thresholds if available, otherwise default to 3
+  const threshold = state.threshold || 3;
+  return state.count >= threshold;
 }
 
 function anySessionTripped(root) {

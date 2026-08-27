@@ -56,7 +56,7 @@ const mockSkillPath = path.join(manifestMockWs, 'mock-skill-folder');
 fs.mkdirSync(mockSkillPath, { recursive: true });
 const mockSkillMdPath = path.join(mockSkillPath, 'SKILL.md');
 
-fs.writeFileSync(mockSkillMdPath, '---\nauthor: Miya Daniel | Harness Core Team\n---\n', 'utf8');
+fs.writeFileSync(mockSkillMdPath, '---\nauthor: Miya Daniel\n---\n', 'utf8');
 const isHarness = skillsHelper.isHarnessSkillDir(mockSkillPath);
 helper.check(
   '2h. isHarnessSkillDir detects Harness author correctly',
@@ -66,7 +66,7 @@ helper.check(
 
 // Regression: spec-compliant frontmatter (author nested under metadata:) must
 // also be recognized. Guards the getMeta parser in scripts/lib/skills.js.
-fs.writeFileSync(mockSkillMdPath, '---\nname: spec-skill\ndescription: x\nlicense: Apache-2.0\nmetadata:\n  author: Miya Daniel | Harness Core Team\n  version: 0.3.3\n---\n', 'utf8');
+fs.writeFileSync(mockSkillMdPath, '---\nname: spec-skill\ndescription: x\nlicense: Apache-2.0\nmetadata:\n  author: Miya Daniel\n  version: 0.3.3\n---\n', 'utf8');
 const isHarnessSpec = skillsHelper.isHarnessSkillDir(mockSkillPath);
 helper.check(
   '2h. isHarnessSkillDir detects author under metadata: (spec format)',

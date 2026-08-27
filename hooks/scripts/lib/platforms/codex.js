@@ -33,7 +33,7 @@ module.exports = {
             if (fs.existsSync(skillMdPath)) {
               const content = fs.readFileSync(skillMdPath, 'utf8');
               const authorLine = content.split('\n').find(line => line.trim().startsWith('author:'));
-              if (authorLine && (authorLine.includes('Miya Daniel') || authorLine.includes('Harness Core Team'))) {
+              if (authorLine && (authorLine.includes('Miya Daniel'))) {
                 patterns.push(`.codex/skills/${entry.name}/`);
               }
             }

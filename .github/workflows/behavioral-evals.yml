@@ -1,0 +1,36 @@
+name: Behavioral Evals (Weekly)
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate eval case structure (free)
+        run: node behavioral-evals/run.js validate
+      - name: Install Harness for eval
+        run: node scripts/installer.js install --force
+      - name: Run behavioral evals
+        run: |
+          # Run evals if claude CLI is available; skip gracefully otherwise
+          if command -v claude &> /dev/null; then
+            node behavioral-evals/run.js run
+          else
+            echo "::warning::claude CLI not found — skipping live evals"
+            echo "Validate-only mode: case structure verified, no token cost"
+          fi
+      - name: Commit results if any
+        if: success()
+        run: |
+          git config user.email "ci@harness-everything"
+          git config user.name "Harness CI"
+          git add behavioral-evals/results/ || true
+          git diff --staged --quiet || git commit -m "chore(evals): weekly behavioral eval results [skip ci]"
+          git push || true

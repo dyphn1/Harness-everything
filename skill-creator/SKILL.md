@@ -3,7 +3,7 @@ name: skill-creator
 description: Author, audit, and refactor SKILL.md files against one quality bar — the Skill Contract format. Use when creating a new skill, refactoring a SKILL.md, checking overlap, or packaging an insight as a dynamic skill.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

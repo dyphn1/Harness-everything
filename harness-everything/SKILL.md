@@ -3,7 +3,7 @@ name: harness-everything
 description: "Triage new software requests into Tier 1/2/3 before work begins. USE FOR: \"triage a new software task\", \"route this coding request\". DO NOT USE FOR: \"chat or general Q&A\", \"non-software writing\", \"a skill is already indicated\"."
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

@@ -3,7 +3,7 @@ name: find-skills
 description: Search the agent-skills ecosystem (skills.sh / npx skills) when no installed skill fits; verify quality, apply ephemerally via temp cache by default, and install permanently via npx skills add only with explicit user approval 
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

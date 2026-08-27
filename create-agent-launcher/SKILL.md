@@ -3,7 +3,7 @@ name: create-agent-launcher
 description: "Spawn specialized sub-agents or scaffold multi-agent infrastructure when tasks span multiple domains beyond one context window. Use for Tier 3 delegation from fable-mode or building permanent agent manifests; output is a scoped sub-agent, inline persona fallback, or platform manifests."
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

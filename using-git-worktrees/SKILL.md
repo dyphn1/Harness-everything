@@ -3,7 +3,7 @@ name: using-git-worktrees
 description: Use when starting feature work needing isolation or before implementation plans - ensures an isolated workspace via native tools or git worktree fallback
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 
