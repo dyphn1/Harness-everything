@@ -247,6 +247,23 @@ for (const file of docFiles) {
 }
 console.log(`\nChecked ${linkCount} local doc links.`);
 
+// --- 7. Token-budget gate (word-count proxy, hard limit 500) ----------------
+// Exact tokenization is waza's job; this is the local early-warning gate.
+// Counts whitespace-normalized words after stripping frontmatter.
+const TOKEN_HARD_LIMIT = 500;
+for (const s of skills) {
+  const raw = fs.readFileSync(s.path, 'utf8');
+  const withoutFm = raw.replace(/^---\n[\s\S]*?\n---\n?/, '');
+  const wordCount = withoutFm.split(/\s+/).filter(Boolean).length;
+  check(
+    `${s.dir}: SKILL.md word count ${wordCount} <= ${TOKEN_HARD_LIMIT}`,
+    wordCount <= TOKEN_HARD_LIMIT,
+    wordCount > TOKEN_HARD_LIMIT
+      ? `exceeds hard limit by ${wordCount - TOKEN_HARD_LIMIT} words`
+      : `${TOKEN_HARD_LIMIT - wordCount} words of headroom`
+  );
+}
+
 if (failures > 0) {
   console.error(`\n❌ CONSISTENCY CHECK FAILED: ${failures} problem(s).`);
   process.exit(1);
