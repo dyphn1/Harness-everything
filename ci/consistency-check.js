@@ -81,7 +81,7 @@ for (const s of skills) {
 // Catches unquoted colons, unclosed quotes, and broken multi-line strings
 // that regex extraction misses but waza's real YAML parser catches in CI.
 function validateFrontmatterSyntax(raw, skillDir) {
-  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!fmMatch) return check(`${skillDir}: has valid YAML frontmatter delimiters`, false, 'missing --- delimiters');
   const fm = fmMatch[1];
   const lines = fm.split('\n');
@@ -297,10 +297,8 @@ console.log(`\nChecked ${linkCount} local doc links.`);
 // --- 7. Token-budget gate (word-count proxy, hard limit 500) ----------------
 // Exact tokenization is waza's job; this is the local early-warning gate.
 // Includes warning threshold at 80% (400 words) for early detection.
-// WORD_BUDGET (330 words) provides early signal before 80% threshold.
 const TOKEN_HARD_LIMIT = 500;
 const TOKEN_WARNING_THRESHOLD = 400; // 80% of hard limit
-const WORD_BUDGET = 330; // Early warning before 80% threshold
 for (const s of skills) {
   const raw = fs.readFileSync(s.path, 'utf8');
   const withoutFm = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');

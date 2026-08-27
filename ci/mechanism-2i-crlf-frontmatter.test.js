@@ -69,7 +69,7 @@ function getDescription(file) {
 }
 
 function runGate(cwd, script) {
-  const r = spawnSync(process.execPath, [path.join('eval-framework', script)], {
+  const r = spawnSync(process.execPath, [path.join('ci', script)], {
     cwd,
     encoding: 'utf8',
   });

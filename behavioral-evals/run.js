@@ -221,13 +221,16 @@ function runHeadless(prompt, ws, maxTurns, engine) {
   // show up in git-status-based scope checks.
   const outPath = path.join(path.dirname(ws), path.basename(ws) + '.transcript.json');
   if (engine === 'opencode') {
-    // Free-tier opencode models flap network errors; gpt-5-mini via OPENAI_API_KEY is the stable default.
-    const model = process.env.BEHAVIORAL_MODEL || 'openai/gpt-5-mini';
-    execFileSync('opencode', ['run', '-m', model, prompt, '--format', 'json', '--auto', '--dir', ws],
-      { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 20 * 60 * 1000 });
+    // Use default model if no specific model is set
+    const model = process.env.BEHAVIORAL_MODEL;
+    const args = ['run', '--format', 'json', '--auto', '--dir', ws];
+    if (model) args.push('-m', model);
+    args.push(prompt);
+    execFileSync('opencode', args,
+      { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 20 * 60 * 1000, shell: true });
   } else {
     execFileSync('claude', ['-p', prompt, '--output-format', 'json', '--max-turns', String(maxTurns)],
-      { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 15 * 60 * 1000 });
+      { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 15 * 60 * 1000, shell: true });
   }
   return outPath;
 }
@@ -294,7 +297,20 @@ function grade(c, ws, transcriptPath) {
 }
 
 function resolveEngine(requested) {
-  const has = (cmd) => { try { execFileSync(cmd, ['--version'], { stdio: 'pipe' }); return true; } catch { return false; } };
+  const has = (cmd) => { 
+    try { 
+      // Try direct path first
+      execFileSync(cmd, ['--version'], { stdio: 'pipe' }); 
+      return true; 
+    } catch { 
+      // Try with shell option on Windows
+      try {
+        execFileSync(cmd, ['--version'], { stdio: 'pipe', shell: true });
+        return true;
+      } catch {}
+      return false; 
+    } 
+  };
   if (requested) {
     if (!has(requested === 'claude' ? 'claude' : 'opencode')) fail(`engine "${requested}" not found on PATH.`);
     return requested;
