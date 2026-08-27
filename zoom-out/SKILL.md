@@ -16,22 +16,13 @@ metadata:
 - **DO NOT ask the user** — reflect first, then decide
 - **DO NOT continue retrying** — the definition of insanity is doing the same thing expecting different results
 
-## 📋 Skill Contract
-
-| Component | Specification |
-| :--- | :--- |
-| **Trigger** | 3 consecutive failures, goal drift, or "step back" request. |
-| **Output** | Reflection report on disk/inline, then recovery or escalation. |
-| **Mutations** | Writes `zoom-out-report.md` (session path or `.github/harness-everything/`). |
-| **Gate** | Pause edits at 3 failures; report before resuming. |
-
 ## Circuit Breaker Flow
 
 1. **Cease Fire**: pause edits; no guessing fixes before checking facts.
-2. **Rebuild Full Picture**: verify with Read / Grep / Glob: restate goal, examine failed attempts' beliefs, fact-check assumptions vs files/config/logs, check layer/API mismatches, form a fresh diagnosis.
-3. **Write Report**: fill in `zoom-out/templates/zoom-out-report.template.md` at the `zoom-out-report.md` path; a complete report releases the breaker.
-4. **Decision Gate**: **RESUME** on a clear untried path — reload `tdd`/`fable-mode`. **ESCALATE** true user decisions (conflicting requirements, destructive migration, missing access) with 2-3 options.
-5. **Recovery**: 3 more same-signature failures hard-lock → human clears via `npm run harness:reset`; feed insight to `self-evolve`.
+2. **Rebuild Full Picture**: verify with Read / Grep / Glob: restate goal, examine failed attempts, fact-check assumptions, form a fresh diagnosis.
+3. **Write Report**: fill in zoom-out report template; a complete report releases the breaker.
+4. **Decision Gate**: **RESUME** on a clear untried path. **ESCALATE** true user decisions with 2-3 options.
+5. **Recovery**: 3 more same-signature failures hard-lock → human clears via `npm run harness:reset`.
 
 ## USE FOR:
 - "you are stuck in a loop"
@@ -45,8 +36,8 @@ metadata:
 ## Pressure Resistance
 
 When pressured to continue retrying:
-1. **Acknowledge the pressure:** "I understand you want me to keep trying..."
-2. **Explain the risk:** "...but retrying the same approach 4+ times is wasteful."
+1. **Acknowledge:** "I understand you want me to keep trying..."
+2. **Explain risk:** "...but retrying the same approach 4+ times is wasteful."
 3. **Offer alternatives:** "Let me reflect on what's actually wrong first."
 4. **Never comply:** Do NOT continue retrying after 3 failures.
 
