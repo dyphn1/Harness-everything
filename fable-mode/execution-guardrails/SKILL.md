@@ -1,11 +1,9 @@
 ---
 name: execution-guardrails
 description: >-
-  Apply always-on operational guardrails on every task and model: verify
-  findings before flagging warnings, batch minor caveats instead of
-  interrupting piecemeal, and anchor search-and-replace edits to word
-  boundaries with a post-write corruption check. Use whenever a turn would
-  raise a warning or edit files via search-and-replace.
+  Always-on guardrails: verify findings before flagging warnings, batch
+  minor caveats, and anchor search-and-replace edits with post-write checks.
+  Use when raising warnings or performing search-and-replace file edits.
 license: Apache-2.0
 metadata:
   author: Miya Daniel | Harness Core Team
@@ -16,12 +14,12 @@ metadata:
 
 ## 📋 Skill Contract
 
-| Component | Specification |
+| Component | Spec |
 | :--- | :--- |
-| **Trigger / Input** | Any turn about to flag a problem, raise a warning, or perform search-and-replace file edits. |
-| **Expected Output** | Warnings grounded in verified findings; minor caveats batched at a 3-item threshold; edits context-anchored and checked post-write. |
-| **State Mutations** | None of its own — governs execution quality for file-editing turns. |
-| **Enforcement Gate** | Verify findings before raising warnings. Validate search-and-replace edits against corruption before presenting results. |
+| **Trigger / Input** | Turn raising a warning or performing search-and-replace edits. |
+| **Expected Output** | Verified warnings; batched caveats (3-item threshold); corruption-checked edits. |
+| **State Mutations** | None — governs execution quality for file-editing turns. |
+| **Enforcement Gate** | Verify before flagging; validate edits post-write. |
 
 ## USE FOR:
 - Raising a warning or flagging a suspected problem
@@ -36,9 +34,9 @@ metadata:
 
 ## Core Rules
 
-1. **Verify before flag** — Confirm a problem exists (grep, diff, run, check source) before reporting it. Never convert absence of evidence into a warning; web silence is not grounds for a warning about the user's firsthand world.
-2. **Warning threshold** — Keep a running count of minor concerns. At three (default, tunable), surface them all at once before continuing. Material concerns do not wait for the threshold.
-3. **Find-and-replace safety** — Prefer structured edit tools (`replace_string_in_file`) over shell `sed`; anchor replacements with unique context or `\bword\b` boundaries; verify file integrity post-edit. Never replace-all blindly.
+1. **Verify before flag** — Confirm a problem exists before reporting it. Never convert absence of evidence into a warning.
+2. **Warning threshold** — Batch minor concerns; surface them together at three (default). Material concerns do not wait.
+3. **Find-and-replace safety** — Prefer structured edit tools over shell `sed`; anchor with unique context or `\bword\b` boundaries; verify file integrity post-edit. Never replace-all blindly.
 
 These rules are always-on, even when `fable-mode`'s staged loop is not running.
 
