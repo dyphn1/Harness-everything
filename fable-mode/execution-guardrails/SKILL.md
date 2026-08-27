@@ -9,9 +9,16 @@ metadata:
 
 # Execution Guardrails
 
-**USE FOR**: Raising warnings or flagging problems, search-and-replace/regex file edits, batching minor caveats, reporting capability limits.
+## USE FOR:
+- Raising warnings or flagging problems
+- Search-and-replace/regex file edits
+- Batching minor caveats
+- Reporting capability limits
 
-**DO NOT USE FOR**: Task planning or fable-mode's staged loop, git history rewriting, skills that never raise warnings or edit files.
+## DO NOT USE FOR:
+- Task planning or fable-mode's staged loop
+- Git history rewriting
+- Skills that never raise warnings or edit files
 
 ## Core Rules
 
