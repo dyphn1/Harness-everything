@@ -33,4 +33,4 @@ Every skill in this repository is reachable from this router. If a task matches 
 | `skill-style` | Meta | Authoring or modifying any SKILL.md in this repository — the terse Skill Contract format spec. |
 | `skill-creator` | Meta | Creating a new skill from scratch, auditing/refactoring an existing SKILL.md, or `self-evolve`'s dynamic skill generation step (§4) — the fuller authoring, quality-checklist, and testing workflow built on `skill-style`. |
 
-(`eval-framework/` is internal CI for the router itself — run `node eval-framework/runner.js` after modifying `tier-router.js`; it is not a routable skill. Likewise `scripts/self-heal.js` in this skill is infrastructure, invoked during `[Discover]` per §1.)
+(`ci/` is internal CI for the router itself — run `node ci/runner.js` after modifying `tier-router.js`; it is not a routable skill. Likewise `scripts/self-heal.js` in this skill is infrastructure, invoked during `[Discover]` per §1.)

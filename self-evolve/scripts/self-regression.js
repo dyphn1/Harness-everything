@@ -19,7 +19,7 @@ let hasErrors = false;
 
 // 1. Walk and syntax check all Javascript files
 console.log("\n[Phase 1] Static Syntax Check...");
-const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'eval-framework', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills'];
+const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'ci', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills'];
 const jsFiles = [];
 
 function walkDir(dir) {
@@ -81,7 +81,7 @@ if (verifyCheck.status !== 0) {
 
 // 2. Run Tier Verification Framework
 console.log("\n[Phase 2] Routing Verification Check...");
-const runnerPath = path.join(projectRoot, 'eval-framework', 'runner.js');
+const runnerPath = path.join(projectRoot, 'ci', 'runner.js');
 if (fs.existsSync(runnerPath)) {
   const runnerCheck = spawnSync('node', [runnerPath], { stdio: 'inherit' });
   if (runnerCheck.status !== 0) {
@@ -91,12 +91,12 @@ if (fs.existsSync(runnerPath)) {
     console.log("\n  ✅ Routing verification framework 100% Passed!");
   }
 } else {
-  console.warn("  ⚠️  eval-framework/runner.js not found. Skipping Phase 2.");
+  console.warn("  ⚠️  ci/runner.js not found. Skipping Phase 2.");
 }
 
 // 3. Run Behavioral Test Suite (E2E state-machine transitions, not just syntax)
 console.log("\n[Phase 3] Behavioral Test Suite...");
-const behavioralTestPath = path.join(projectRoot, 'eval-framework', 'behavioral-test.js');
+const behavioralTestPath = path.join(projectRoot, 'ci', 'behavioral-test.js');
 if (fs.existsSync(behavioralTestPath)) {
   const behavioralCheck = spawnSync('node', [behavioralTestPath], { stdio: 'inherit', cwd: projectRoot });
   if (behavioralCheck.status !== 0) {
@@ -106,12 +106,12 @@ if (fs.existsSync(behavioralTestPath)) {
     console.log("\n  ✅ Behavioral test suite 100% Passed!");
   }
 } else {
-  console.warn("  ⚠️  eval-framework/behavioral-test.js not found. Skipping Phase 3.");
+  console.warn("  ⚠️  ci/behavioral-test.js not found. Skipping Phase 3.");
 }
 
 // 4. Run Mechanism Test Suite (VERIFICATION.md §2 hook contract, automated)
 console.log("\n[Phase 4] Mechanism Test Suite (Claude Code hooks)...");
-const mechanismTestPath = path.join(projectRoot, 'eval-framework', 'mechanism-test.js');
+const mechanismTestPath = path.join(projectRoot, 'ci', 'mechanism-test.js');
 if (fs.existsSync(mechanismTestPath)) {
   const mechanismCheck = spawnSync('node', [mechanismTestPath], { stdio: 'inherit', cwd: projectRoot });
   if (mechanismCheck.status !== 0) {
@@ -121,7 +121,7 @@ if (fs.existsSync(mechanismTestPath)) {
     console.log("\n  ✅ Mechanism test suite 100% Passed!");
   }
 } else {
-  console.warn("  ⚠️  eval-framework/mechanism-test.js not found. Skipping Phase 4.");
+  console.warn("  ⚠️  ci/mechanism-test.js not found. Skipping Phase 4.");
 }
 
 // 5. Final verdict

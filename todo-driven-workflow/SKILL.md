@@ -3,7 +3,7 @@ name: todo-driven-workflow
 description: "Enforce a deliberate step-by-step execution loop for complex multi-step or multi-file tasks (Tier 2/3), one sub-task in-progress at a time. USE FOR: \"track a complex multi-step task as todos\", \"work through a multi-file refactor step by step\". DO NOT USE FOR: \"trivial single-file edits\", \"quick questions without implementation\"."
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

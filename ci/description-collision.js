@@ -11,7 +11,7 @@
  *   >= 0.75 similarity -> ERROR (collision; rewrite one description)
  *   >= 0.50 similarity -> WARNING (review recommended)
  *
- * Usage: node eval-framework/description-collision.js
+ * Usage: node ci/description-collision.js
  */
 const fs = require('fs');
 const path = require('path');

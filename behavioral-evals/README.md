@@ -5,9 +5,9 @@ disciplines in a live session — including when pressured not to?
 
 This is deliberately separate from:
 
-- `eval-framework/mechanism-*.test.js` — proves the *hook scripts* enforce
+- `ci/mechanism-*.test.js` — proves the *hook scripts* enforce
   gates (exit codes, state machines). Hermetic, free, runs in CI.
-- `eval-framework/behavioral-test.js` — simulates agent state transitions
+- `ci/behavioral-test.js` — simulates agent state transitions
   against `todo-cli.js`. Still mechanism-level.
 - `evals/` — trigger/routing precision cases for the waza executor.
 

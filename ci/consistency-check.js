@@ -77,6 +77,53 @@ for (const s of skills) {
   );
 }
 
+// --- 1b. YAML frontmatter syntax validation (parser parity) ---------------
+// Catches unquoted colons, unclosed quotes, and broken multi-line strings
+// that regex extraction misses but waza's real YAML parser catches in CI.
+function validateFrontmatterSyntax(raw, skillDir) {
+  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+  if (!fmMatch) return check(`${skillDir}: has valid YAML frontmatter delimiters`, false, 'missing --- delimiters');
+  const fm = fmMatch[1];
+  const lines = fm.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim() || line.trim().startsWith('#')) continue;
+    // Check for unquoted colons in values: "key: value with : inside"
+    const kvMatch = line.match(/^(\s*)(\w[\w-]*):\s*(.*)/);
+    if (kvMatch && kvMatch[3]) {
+      const val = kvMatch[3];
+      // Value contains colon not inside quotes → likely unquoted YAML
+      if (val.includes(':') && !/^["']/.test(val) && !/["']$/.test(val)) {
+        const inQuotes = /^["'].*:.*["']$/.test(val);
+        if (!inQuotes) {
+          check(
+            `${skillDir}: frontmatter line ${i + 1} has unquoted colon in value`,
+            false,
+            `"${line.trim()}" — wrap value in quotes to avoid YAML parse errors`
+          );
+          return;
+        }
+      }
+    }
+    // Check for unclosed single quotes
+    const singleQuoteCount = (line.match(/(?<!\\)'/g) || []).length;
+    if (singleQuoteCount % 2 !== 0) {
+      check(`${skillDir}: frontmatter line ${i + 1} has unclosed single quote`, false, `"${line.trim()}"`);
+      return;
+    }
+    // Check for unclosed double quotes
+    const doubleQuoteCount = (line.match(/(?<!\\)"/g) || []).length;
+    if (doubleQuoteCount % 2 !== 0) {
+      check(`${skillDir}: frontmatter line ${i + 1} has unclosed double quote`, false, `"${line.trim()}"`);
+      return;
+    }
+  }
+  check(`${skillDir}: frontmatter YAML syntax valid`, true);
+}
+for (const s of skills) {
+  validateFrontmatterSyntax(s.body, s.dir);
+}
+
 // --- 3+4. Distribution manifests -----------------------------------------
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const pluginJsonPath = path.join(ROOT, '.claude-plugin', 'plugin.json');
@@ -230,6 +277,22 @@ for (const file of docFiles) {
   }
 }
 console.log(`\nChecked ${linkCount} local doc links.`);
+
+// --- 7. Token-budget gate (word-count proxy, hard limit 500) ----------------
+// Exact tokenization is waza's job; this is the local early-warning gate.
+const TOKEN_HARD_LIMIT = 500;
+for (const s of skills) {
+  const raw = fs.readFileSync(s.path, 'utf8');
+  const withoutFm = raw.replace(/^---\n[\s\S]*?\n---\n?/, '');
+  const wordCount = withoutFm.split(/\s+/).filter(Boolean).length;
+  check(
+    `${s.dir}: SKILL.md word count ${wordCount} <= ${TOKEN_HARD_LIMIT}`,
+    wordCount <= TOKEN_HARD_LIMIT,
+    wordCount > TOKEN_HARD_LIMIT
+      ? `exceeds hard limit by ${wordCount - TOKEN_HARD_LIMIT} words`
+      : `${TOKEN_HARD_LIMIT - wordCount} words of headroom`
+  );
+}
 
 if (failures > 0) {
   console.error(`\n❌ CONSISTENCY CHECK FAILED: ${failures} problem(s).`);

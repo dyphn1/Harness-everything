@@ -3,7 +3,7 @@ name: grill-with-docs
 description: Challenge the plan against the existing domain model, sharpen terminology, and update CONTEXT.md and ADRs inline as decisions crystallise; use when stress-testing a plan against documented language and decisions.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

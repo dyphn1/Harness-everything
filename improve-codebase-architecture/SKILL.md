@@ -3,7 +3,7 @@ name: improve-codebase-architecture
 description: Discovers and transforms shallow or bloated modules into deep, SRP-compliant ones by splitting oversized objects/functions, extracting seams, and decoupling interfaces.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

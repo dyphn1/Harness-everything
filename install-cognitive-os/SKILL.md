@@ -3,7 +3,7 @@ name: install-cognitive-os
 description: Defines the fundamental physical laws of behavior — Discover, Think, Try, Summarize, Record — for all Agents. Use this loop before acting on any task to ground progress in verified tool output.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

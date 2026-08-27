@@ -3,7 +3,7 @@ name: grill-me
 description: Acts as a relentless challenger to stress-test plans and architectures by interrogating one question at a time, finding loopholes, combating AI sycophancy, updating the CONTEXT.md glossary in real time, and handing off resolved decisions to to-spec for formal specs/ADRs.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

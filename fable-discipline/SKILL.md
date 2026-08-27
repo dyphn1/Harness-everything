@@ -3,7 +3,7 @@ name: fable-discipline
 description: Enforce fable-mode's context discipline as a shadow guard. Use when running staged multi-agent loops to prevent context bloat, cap per-stage output size, keep each stage within its physical token boundaries, and stop agents from reading files outside the current stage's scope.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

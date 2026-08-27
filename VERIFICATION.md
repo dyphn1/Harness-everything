@@ -58,10 +58,10 @@ self-contained and cleans up after itself.
 **Fastest path:** `npm run test:mechanism` (or plain `npm test`, which
 includes it as Phase 4) runs every check in this section automatically,
 end-to-end, on Windows/macOS/Linux alike — see
-[eval-framework/mechanism-test.js](eval-framework/mechanism-test.js). 
+[ci/mechanism-test.js](ci/mechanism-test.js). 
 
 To ensure complete test traceability and avoid untested blind spots, the mechanism
-checks are split into isolated, dedicated test suites under `eval-framework/`:
+checks are split into isolated, dedicated test suites under `ci/`:
 - `mechanism-2a-rule-of-3.test.js` — Rule of 3 circuit breaker
 - `mechanism-2b-boundary-guard.test.js` — Boundary guard block size limit
 - `mechanism-2c-state-persist.test.js` — WAL fail-safe state recording
@@ -343,7 +343,7 @@ This section defines the core standards and verification framework for evaluatin
    - **Rigor Rating Criteria**: Check if it relies purely on fragile keyword heuristic matching, if active workspace Git Diff stats introduce inappropriate noise for classification, and whether it can handle vague prompts or composite tasks.
 
 3. **Test Coverage of All Skills**
-   - **Key Verification**: Ensure that the automated tests (such as `npm test` or the local `eval-framework/runner.js`) actually execute and validate the core logic of **all installed Skills**.
+   - **Key Verification**: Ensure that the automated tests (such as `npm test` or the local `ci/runner.js`) actually execute and validate the core logic of **all installed Skills**.
    - **Rigor Rating Criteria**: If tests only check static syntax (`node --check`) without asserting behaviors, or if routing validation is merely tokenistic, the score will fall into the failing range.
 
 4. **Configuration Balance (Light vs. Heavy)**

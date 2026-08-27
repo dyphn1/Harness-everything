@@ -3,7 +3,7 @@ name: git-commit
 description: "Generate Angular-style commit messages after verifying the environment, submodules, and staged files; use for explicit commit requests or concluded task phases."
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

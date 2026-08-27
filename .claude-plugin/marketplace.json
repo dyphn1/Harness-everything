@@ -11,7 +11,7 @@
       "description": "Harness OS: an orchestrated agent operating system — tier routing, circuit breaker guardrails, verification gates, WAL session memory, and self-evolving workspace rules.",
       "version": "0.3.4-beta",
       "author": {
-        "name": "Miya Daniel | Harness Core Team"
+        "name": "Miya Daniel"
       },
       "license": "Apache-2.0",
       "keywords": [

@@ -8,7 +8,7 @@ description: >-
   raise a warning or edit files via search-and-replace.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

@@ -3,7 +3,7 @@ name: to-spec
 description: Turn the conversation into a written spec — feature PRD, CLI/API reference, schema doc, or dev doc, whichever fits — and publish it per this repo's projectDocs framework; use when alignment is complete.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 
