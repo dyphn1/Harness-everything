@@ -63,7 +63,7 @@ jobs:
           done
           exit $fail
       - name: Block SKILL.md token growth vs base branch
-        run: waza tokens compare "${{ github.event.pull_request.base.ref || 'HEAD' }}" --strict --threshold 10
+        run: waza tokens compare "${{ github.event.pull_request.base.ref || 'HEAD' }}" --strict --threshold 10 --skills
 
   consistency:
     strategy:
