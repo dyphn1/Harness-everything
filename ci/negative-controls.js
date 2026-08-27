@@ -34,7 +34,7 @@ test('consistency-check rejects unquoted colon in frontmatter', () => {
   const fixture = path.join(ROOT, 'ci/fixtures/bad-frontmatter-colon/SKILL.md');
   assert(fs.existsSync(fixture), `fixture not found: ${fixture}`);
   const raw = fs.readFileSync(fixture, 'utf8');
-  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   assert(fmMatch, 'fixture has no frontmatter');
   const fm = fmMatch[1];
   const desc = (fm.match(/^description:\s*(.+)$/m) || [])[1] || '';
@@ -47,8 +47,8 @@ test('collision detection rejects two skills with identical descriptions', () =>
   const skillA = path.join(ROOT, 'ci/fixtures/duplicate-description/skill-a/SKILL.md');
   const skillB = path.join(ROOT, 'ci/fixtures/duplicate-description/skill-b/SKILL.md');
   assert(fs.existsSync(skillA) && fs.existsSync(skillB), 'duplicate fixtures not found');
-  const fmA = fs.readFileSync(skillA, 'utf8').match(/^---\n([\s\S]*?)\n---/)[1];
-  const fmB = fs.readFileSync(skillB, 'utf8').match(/^---\n([\s\S]*?)\n---/)[1];
+  const fmA = fs.readFileSync(skillA, 'utf8').match(/^---\r?\n([\s\S]*?)\r?\n---/)[1];
+  const fmB = fs.readFileSync(skillB, 'utf8').match(/^---\r?\n([\s\S]*?)\r?\n---/)[1];
   const descA = (fmA.match(/^description:\s*(.+)$/m) || [])[1] || '';
   const descB = (fmB.match(/^description:\s*(.+)$/m) || [])[1] || '';
   assert(descA === descB && descA.length > 0, 'descriptions should be identical and non-empty');

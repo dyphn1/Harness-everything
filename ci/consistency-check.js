@@ -40,7 +40,7 @@ function discoverSkills() {
     const skillMd = path.join(ROOT, entry.name, 'SKILL.md');
     if (!fs.existsSync(skillMd)) continue;
     const raw = fs.readFileSync(skillMd, 'utf8');
-    const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+    const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
     const fm = fmMatch ? fmMatch[1] : '';
     const name = (fm.match(/^name:\s*(.+)$/m) || [])[1];
     const desc = (fm.match(/^description:\s*(.+)$/m) || [])[1];
@@ -230,10 +230,10 @@ for (const sub of nestedSubSkills) {
   const rel = path.relative(ROOT, path.join(sub, 'SKILL.md'));
   const parentDir = path.dirname(sub);
   const parentRaw = fs.readFileSync(path.join(parentDir, 'SKILL.md'), 'utf8');
-  const parentFm = (parentRaw.match(/^---\n([\s\S]*?)\n---/) || [])[1] || '';
+  const parentFm = (parentRaw.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
   const parentV = ((parentFm.match(/^  version:\s*(.+)$/m) || [])[1] || '').trim();
   const raw = fs.readFileSync(path.join(sub, 'SKILL.md'), 'utf8');
-  const fm = (raw.match(/^---\n([\s\S]*?)\n---/) || [])[1] || '';
+  const fm = (raw.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
   const v = ((fm.match(/^  version:\s*(.+)$/m) || [])[1] || '').trim();
   check(
     `${rel}: nested sub-skill inherits parent version (${parentV})`,
@@ -281,12 +281,19 @@ console.log(`\nChecked ${linkCount} local doc links.`);
 // --- 7. Token-budget gate (word-count proxy, hard limit 500) ----------------
 // Exact tokenization is waza's job; this is the local early-warning gate.
 // Includes warning threshold at 80% (400 words) for early detection.
+// WORD_BUDGET (330 words) provides early signal before 80% threshold.
 const TOKEN_HARD_LIMIT = 500;
 const TOKEN_WARNING_THRESHOLD = 400; // 80% of hard limit
+const WORD_BUDGET = 330; // Early warning before 80% threshold
 for (const s of skills) {
   const raw = fs.readFileSync(s.path, 'utf8');
-  const withoutFm = raw.replace(/^---\n[\s\S]*?\n---\n?/, '');
+  const withoutFm = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
   const wordCount = withoutFm.split(/\s+/).filter(Boolean).length;
+  
+  // Early warning at WORD_BUDGET threshold (non-blocking)
+  if (wordCount > WORD_BUDGET && wordCount <= TOKEN_WARNING_THRESHOLD) {
+    console.log(`⚠️ ${s.dir}: word count ${wordCount} exceeds WORD_BUDGET (${WORD_BUDGET})`);
+  }
   
   // Warning at 80% threshold (non-blocking)
   if (wordCount > TOKEN_WARNING_THRESHOLD && wordCount <= TOKEN_HARD_LIMIT) {
