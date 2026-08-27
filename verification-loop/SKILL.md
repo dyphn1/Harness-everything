@@ -31,14 +31,16 @@ Six objective gates pre-delivery, then a Verification Report.
 
 ## Workflow
 
+Adapt to the ecosystem (`environment-detection`).
+
 1. Build: `npm run build`. On failure, STOP and fix.
 2. Type check: `npx tsc --noEmit` (TS) or `pyright .`. Fix critical errors.
 3. Lint: `npm run lint` or `ruff check .`.
 4. Tests with coverage (`npm run test -- --coverage`; target 80%).
 5. Security scan: secrets (`sk-`, `api_key`), stray logs (`console.log`).
-6. Diff review: `git diff --stat`; check unintended changes.
-7. All gates pass -> ready; else fix and re-run.
-8. Report: fill verification report template.
+6. Diff review: `git diff --stat`; check unintended changes, error handling.
+7. All gates pass -> ready; else fix and re-run from Phase 1.
+8. Report: fill `verification-loop/templates/verification-report.template.md`.
 
 Long sessions: run `/verify` every ~15 min.
 

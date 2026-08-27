@@ -12,17 +12,17 @@ metadata:
 ## ⚠️ CRITICAL RULE: STOP RETRY LOOPS
 
 **After 3 failures:**
-- **STOP all edit attempts**
-- **DO NOT ask the user** — reflect first
-- **DO NOT continue retrying**
+- **STOP all edit attempts** — no variations of the same approach
+- **DO NOT ask the user** — reflect first, then decide
+- **DO NOT continue retrying** — same approach ≠ different results
 
 ## Circuit Breaker Flow
 
 1. **Cease Fire**: pause edits; no guessing before checking facts.
-2. **Rebuild Full Picture**: verify with Read / Grep / Glob; form fresh diagnosis.
-3. **Write Report**: fill in report template; complete report releases breaker.
-4. **Decision Gate**: **RESUME** on untried path or **ESCALATE** with options.
-5. **Recovery**: 3 more same-signature failures → human clears via reset.
+2. **Rebuild Full Picture**: verify with Read / Grep / Glob; restate goal, examine failed attempts, fact-check assumptions vs files/config/logs, form fresh diagnosis.
+3. **Write Report**: fill `zoom-out/templates/zoom-out-report.template.md`; complete report releases breaker.
+4. **Decision Gate**: **RESUME** on untried path (reload `tdd`/`fable-mode`). **ESCALATE** true user decisions with 2-3 options.
+5. **Recovery**: 3 more same-signature failures → human clears via `npm run harness:reset`. Feed insight to `self-evolve`.
 
 ## USE FOR:
 - "you are stuck in a loop"
@@ -30,8 +30,8 @@ metadata:
 - "rethink your assumptions"
 
 ## DO NOT USE FOR:
-- Routine single-failure debugging
-- Greenfield planning (`fable-mode`)
+- Routine single-failure debugging — fix it directly
+- Greenfield planning without failures (`fable-mode`)
 
 ## Pressure Resistance
 
