@@ -45,26 +45,69 @@ process.stdin.on('end', () => {
     }
 
     if (isFailure && errorText) {
-      // Hash the tail of the error to identify identical loops. Normalize
-      // first: timestamps, line numbers, addresses and counters vary between
-      // otherwise-identical failures, and an ever-changing hash would hide a
-      // genuine loop from the breaker.
+      // Enhanced failure signature detection with context-aware categorization
+      // Hash includes: error message, file path, command attempted, and failure category
+      const filePath = payload.tool_input?.file_path || payload.tool_input?.filePath || '';
+      const command = payload.tool_input?.command || '';
+      
+      // Categorize failure type for context-aware thresholds
+      let category = 'unknown';
+      if (/SyntaxError|Unexpected token|Syntax Error/i.test(errorText)) {
+        category = 'syntax';
+      } else if (/ENOENT|not found|No such file|找不到|不存在/i.test(errorText)) {
+        category = 'environment';
+      } else if (/timeout|timed out|超時|逾時/i.test(errorText)) {
+        category = 'timeout';
+      } else if (/test.*fail|assertion|AssertionError|測試.*失敗|斷言.*錯誤/i.test(errorText)) {
+        category = 'test';
+      } else if (/permission|denied|EACCES|權限/i.test(errorText)) {
+        category = 'permission';
+      } else if (/dependency|module not found|Cannot find module|模組.*找不到/i.test(errorText)) {
+        category = 'dependency';
+      }
+      
+      // Normalize error text with context for better loop detection
       const normalized = errorText.slice(-400)
         .toLowerCase()
         .replace(/0x[0-9a-f]+/g, '#')
         .replace(/\d+/g, '#')
         .replace(/\s+/g, ' ')
         .trim();
-      const hash = crypto.createHash('md5').update(normalized.slice(-200)).digest('hex');
+      
+      // Include file path and command in hash for better context
+      const contextString = `${category}:${filePath}:${command}:${normalized.slice(-200)}`;
+      const hash = crypto.createHash('md5').update(contextString).digest('hex');
+
+      // Context-aware thresholds: different failure types have different breaking points
+      let threshold = 3; // Default: 3 strikes
+      if (category === 'syntax') {
+        threshold = 3; // Same syntax error 3 times = stop
+      } else if (category === 'environment') {
+        threshold = 4; // Environment issues may need more exploration
+      } else if (category === 'test') {
+        threshold = 3; // Same test failure 3 times = stop
+      } else if (category === 'timeout') {
+        threshold = 2; // Timeouts are expensive, fail faster
+      } else if (category === 'permission') {
+        threshold = 2; // Permission issues rarely resolve by retrying
+      } else if (category === 'dependency') {
+        threshold = 4; // Dependency issues may need different approaches
+      }
 
       if (state.lastHash === hash) {
         state.count += 1;
+        state.category = category; // Track failure category for smarter decisions
       } else {
         state.count = 1;
         state.lastHash = hash;
+        state.category = category;
         // New signature = new problem: the zoom-out cycle budget starts over.
         state.zoomOutCycles = 0;
       }
+      
+      // Store threshold for this failure type
+      state.threshold = threshold;
+      
       // Any fresh failure re-arms the breaker. Without this, a signature that
       // failed again after a success (or after a zoom-out release) would keep
       // zoomOutResolved=true and the breaker could never trip on it again.

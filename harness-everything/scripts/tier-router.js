@@ -59,6 +59,38 @@ function run(userPrompt) {
     rationale = "Prompt implies development work needing TDD validation or multi-file coordination.";
   }
 
+  // Structural complexity signals (not just keywords)
+  // These help differentiate between simple and complex tasks within the same keyword tier
+  const sentenceCount = userPrompt.split(/[.!?。！？]+/).filter(s => s.trim()).length;
+  const hasMultipleTasks = /\b(and|also|then|additionally|plus|而且|還有|然後|另外|以及)\b/i.test(userPrompt);
+  const mentionsSpecificFile = /\b(file|script|module|class|function|component)\b.*\.\w+/i.test(userPrompt);
+  const hasQuestionMarks = /\?|？/.test(userPrompt);
+  const hasMultipleSentences = sentenceCount > 2;
+
+  // Adjust tier based on structural signals
+  if (hasMultipleTasks && hasMultipleSentences) {
+    // Multiple tasks with multiple sentences suggests complexity
+    if (recommendedTier.startsWith("Tier 1")) {
+      recommendedTier = "Tier 2 (Standard Task)";
+      rationale = "Multiple tasks detected with structural complexity - upgraded to Tier 2 for TDD validation.";
+    } else if (recommendedTier.startsWith("Tier 2")) {
+      // Keep at Tier 2 but note the complexity
+      rationale += " Multiple task structure detected.";
+    }
+  } else if (mentionsSpecificFile && !hasMultipleTasks) {
+    // Single file mention with no multiple tasks suggests simpler work
+    if (recommendedTier.startsWith("Tier 3")) {
+      recommendedTier = "Tier 2 (Standard Task)";
+      rationale = "Single file focus detected - downgraded from Tier 3 to Tier 2.";
+    }
+  } else if (hasQuestionMarks && !hasMultipleTasks) {
+    // Questions without multiple tasks are often advisory, not execution
+    if (recommendedTier.startsWith("Tier 3")) {
+      recommendedTier = "Tier 2 (Standard Task)";
+      rationale = "Question format detected - likely advisory rather than macro execution.";
+    }
+  }
+
   console.log(`\n=> RECOMMENDED TIER: ${recommendedTier}`);
   console.log(`=> RATIONALE: ${rationale}`);
 
