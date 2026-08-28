@@ -154,6 +154,68 @@ Harness operates through six core cognitive concepts:
 
 ---
 
+## 📁 Repository Map
+
+This repository contains 27 skills plus supporting infrastructure. The table below helps you locate what you're looking for.
+
+### 🎯 Skills (27)
+| Directory | Purpose | Tier |
+|---|---|---|
+| `harness-everything` | Meta-skill: routes to other skills | Core |
+| `verification-loop` | Enforces test/lint before task completion | Core |
+| `verify-before-claim` | Fact-audit discipline before assertions | Core |
+| `environment-detection` | Detects OS, shell, package manager | Core |
+| `self-evolve` | Long-term workspace immunization | Core |
+| `find-skills` | Discovers external skills via CLI | Core |
+| `zoom-out` | Circuit breaker reflection protocol | Core |
+| `tdd` | RED/GREEN/REFACTOR enforcement | Task |
+| `todo-driven-workflow` | State-machine task execution | Task |
+| `fable-mode` | Multi-agent orchestration (fable-orchestrator) | Macro |
+| `fable-discipline` | Fable worker discipline & guardrails | Macro |
+| `build-multi-agent-system` | Generates multi-agent architectures | Macro |
+| `create-agent-launcher` | Creates agent launchers for platforms | Macro |
+| `to-spec` | Reverse-engineers specs from code | Spec |
+| `to-tickets` | Converts specs to actionable tickets | Spec |
+| `grill-me` | Adversarial code review (Socratic) | Quality |
+| `grill-with-docs` | Document-grounded adversarial review | Quality |
+| `git-commit` | Conventional commit generation | Git |
+| `rewrite-commits` | History rewriting & squashing | Git |
+| `using-git-worktrees` | Parallel worktree workflows | Git |
+| `improve-codebase-architecture` | Architectural improvement patterns | Architecture |
+| `security-review` | OWASP/STRIDE vulnerability scanning | Security |
+| `skill-style` | Skill authoring style guide | Meta |
+| `skill-creator` | Dynamic skill generation contract | Meta |
+| `eval-harness` | Skill evaluation framework | Eval |
+| `install-cognitive-os` | Cognitive OS installation | Meta |
+| `repo-docs` | Repository documentation templates | Docs |
+
+### ⚙️ Infrastructure
+| Directory | Purpose |
+|---|---|
+| `hooks/` | Claude Code lifecycle hooks (hard enforcement: circuit breaker, boundary guard, stop gate) |
+| `ci/` | Quality gates: consistency-check, description-collision, mechanism tests |
+| `scripts/` | Runtime: tier-router, todo-cli, verify-gate, bootstrap, installer |
+| `bin/` | CLI entry point (`harness`) |
+| `eval-framework/` | Legacy eval harness (deprecated → `eval-harness/`) |
+| `behavioral-evals/` | LLM behavioral test cases (on-demand, token-costing) |
+| `benchmarks/` | Benchmark fixtures & recorded results (BENCHMARK_SOP) |
+| `evals/` | Routing evals per skill (waza format) |
+| `.claude-plugin/` | Plugin distribution manifests |
+
+### 📚 Documentation
+| Directory | Purpose |
+|---|---|
+| `docs/` | Architecture, philosophy, routing, reflection, audit |
+| `references/` | Shared checklists: definition-of-done, performance, security |
+| `docs/workflows/` | Detailed workflow guides (TDD, git-commit, skill-creator, etc.) |
+
+### 🔬 Fixtures & Tests
+| Directory | Purpose |
+|---|---|
+| `eval-framework/fixtures/` | Negative control fixtures for quality gates |
+
+---
+
 ## Deeper Documentation
 
 For a deep dive into individual modules and the underlying philosophy, explore our sub-documents:
