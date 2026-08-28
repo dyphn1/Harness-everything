@@ -59,7 +59,7 @@ function discoverSkills() {
     if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
     const skillMd = path.join(ROOT, entry.name, 'SKILL.md');
     if (!fs.existsSync(skillMd)) continue;
-    const fm = (fs.readFileSync(skillMd, 'utf8').match(/^---\n([\s\S]*?)\n---/) || [])[1] || '';
+    const fm = (fs.readFileSync(skillMd, 'utf8').match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
     const desc = ((fm.match(/^description:\s*(.+)$/m) || [])[1] || '').trim();
     out.push({ name: entry.name, desc });
   }

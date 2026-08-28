@@ -40,7 +40,7 @@ function discoverSkills() {
     const skillMd = path.join(ROOT, entry.name, 'SKILL.md');
     if (!fs.existsSync(skillMd)) continue;
     const raw = fs.readFileSync(skillMd, 'utf8');
-    const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+    const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
     const fm = fmMatch ? fmMatch[1] : '';
     const name = (fm.match(/^name:\s*(.+)$/m) || [])[1];
     const desc = (fm.match(/^description:\s*(.+)$/m) || [])[1];
@@ -152,7 +152,7 @@ check(
 );
 for (const s of skills) {
   const raw = fs.readFileSync(s.path, 'utf8');
-  const fm = (raw.match(/^---\n([\s\S]*?)\n---/) || [])[1] || '';
+  const fm = (raw.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
   const vRaw = ((fm.match(/^  version:\s*(.+)$/m) || [])[1] || '').trim();
   const v = verBase(vRaw);
   check(
@@ -183,10 +183,10 @@ for (const sub of nestedSubSkills) {
   const rel = path.relative(ROOT, path.join(sub, 'SKILL.md'));
   const parentDir = path.dirname(sub);
   const parentRaw = fs.readFileSync(path.join(parentDir, 'SKILL.md'), 'utf8');
-  const parentFm = (parentRaw.match(/^---\n([\s\S]*?)\n---/) || [])[1] || '';
+  const parentFm = (parentRaw.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
   const parentV = ((parentFm.match(/^  version:\s*(.+)$/m) || [])[1] || '').trim();
   const raw = fs.readFileSync(path.join(sub, 'SKILL.md'), 'utf8');
-  const fm = (raw.match(/^---\n([\s\S]*?)\n---/) || [])[1] || '';
+  const fm = (raw.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
   const v = ((fm.match(/^  version:\s*(.+)$/m) || [])[1] || '').trim();
   check(
     `${rel}: nested sub-skill inherits parent version (${parentV})`,
