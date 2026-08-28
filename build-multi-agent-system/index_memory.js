@@ -1,89 +1,77 @@
 #!/usr/bin/env node
 /**
- * Minimal Memory Indexer for build-multi-agent-system
+ * index_memory — Minimal memory indexer for build-multi-agent-system.
  *
- * Generates a project-local memory index (markdown fallback) by parsing
- * frontmatter from markdown files in the 6 functional zones.
- * This is the runtime-generated component — NOT shipped in the skill directory.
+ * Scans the workspace for agent-related files (SKILL.md, AGENTS.md, zone
+ * directories) and generates a markdown index. This is the fallback when
+ * SQLite is unavailable.
+ *
+ * Usage: node index_memory.js [workspace-root]
+ * Output: memory-index.md in the workspace root.
  */
-
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = process.cwd();
-const ZONES = ['State', 'Logs', 'Decisions', 'Domain', 'Architecture', 'Roles'];
+const ROOT = path.resolve(process.argv[2] || '.');
 const OUTPUT = path.join(ROOT, 'memory-index.md');
 
-function parseFrontmatter(content) {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return null;
-  const fm = match[1];
-  const data = {};
-  for (const line of fm.split('\n')) {
-    const m = line.match(/^(\w+):\s*(.+)$/);
-    if (m) data[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
-  }
-  return data;
-}
-
-function walk(dir, files = []) {
-  if (!fs.existsSync(dir)) return files;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) walk(full, files);
-    else if (entry.name.endsWith('.md')) files.push(full);
-  }
-  return files;
-}
-
-function main() {
-  console.log('[index_memory] Scanning 6 functional zones...');
-
-  const allFiles = [];
-  for (const zone of ZONES) {
-    const zonePath = path.join(ROOT, zone);
-    allFiles.push(...walk(zonePath));
-  }
-
-  if (allFiles.length === 0) {
-    console.log('[index_memory] No markdown files found in zones. Creating empty index.');
-    fs.writeFileSync(OUTPUT, '# Memory Index\n\n_No indexed documents yet._\n');
-    return;
-  }
-
-  const index = [];
-  for (const file of allFiles) {
-    const content = fs.readFileSync(file, 'utf8');
-    const fm = parseFrontmatter(content);
-    if (fm) {
-      const rel = path.relative(ROOT, file);
-      index.push({ file: rel, frontmatter: fm });
+function findAgents(dir, depth = 0) {
+  if (depth > 3) return [];
+  const results = [];
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+  for (const e of entries) {
+    if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) {
+      results.push(...findAgents(full, depth + 1));
+    } else if (e.name === 'SKILL.md' || e.name === 'AGENTS.md') {
+      const rel = path.relative(ROOT, full);
+      const content = fs.readFileSync(full, 'utf8');
+      const nameMatch = content.match(/^name:\s*(.+)$/m);
+      results.push({ path: rel, name: nameMatch ? nameMatch[1].trim() : e.name });
     }
   }
-
-  // Generate markdown index
-  let md = '# Memory Index\n\n';
-  md += `Generated: ${new Date().toISOString()}\n`;
-  md += `Total documents: ${index.length}\n\n`;
-
-  for (const zone of ZONES) {
-    const zoneFiles = index.filter(i => i.file.startsWith(zone + '/'));
-    if (zoneFiles.length === 0) continue;
-    md += `## ${zone} (${zoneFiles.length})\n\n`;
-    for (const item of zoneFiles) {
-      const { title, date, tags, status } = item.frontmatter;
-      md += `- [${item.file}](${item.file})`;
-      if (title) md += ` — ${title}`;
-      if (date) md += ` (${date})`;
-      if (tags) md += ` [${tags}]`;
-      if (status) md += ` {${status}}`;
-      md += '\n';
-    }
-    md += '\n';
-  }
-
-  fs.writeFileSync(OUTPUT, md);
-  console.log(`[index_memory] Generated ${OUTPUT} with ${index.length} entries`);
+  return results;
 }
 
-main();
+function findZones(dir) {
+  const zonePatterns = ['state', 'logs', 'decisions', 'domain', 'architecture', 'roles'];
+  const found = [];
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+  for (const e of entries) {
+    if (e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules') {
+      if (zonePatterns.includes(e.name.toLowerCase())) {
+        found.push(e.name);
+      }
+    }
+  }
+  return found;
+}
+
+const agents = findAgents(ROOT);
+const zones = findZones(ROOT);
+
+let md = `# Memory Index\n\n`;
+md += `Generated: ${new Date().toISOString()}\n\n`;
+md += `## Agents (${agents.length})\n\n`;
+if (agents.length) {
+  for (const a of agents) {
+    md += `- **${a.name}** — \`${a.path}\`\n`;
+  }
+} else {
+  md += `_No agents found._\n`;
+}
+md += `\n## Zones (${zones.length})\n\n`;
+if (zones.length) {
+  for (const z of zones) {
+    md += `- ${z}/\n`;
+  }
+} else {
+  md += `_No functional zones detected._\n`;
+}
+
+fs.writeFileSync(OUTPUT, md, 'utf8');
+console.log(`Memory index written to ${OUTPUT}`);
+console.log(`  Agents: ${agents.length}, Zones: ${zones.length}`);
