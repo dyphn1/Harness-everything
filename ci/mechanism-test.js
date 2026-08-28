@@ -3,7 +3,7 @@
  * Harness Mechanism Test Suite Runner (Claude Code hook contract)
  *
  * Dynamically discovers and executes all isolated mechanism test files (matching `mechanism-*.test.js`
- * under `eval-framework/`). This allows clean tracking of which mechanism tests are implemented,
+ * under `ci/`). This allows clean tracking of which mechanism tests are implemented,
  * keeps the test code highly decoupled, and simplifies debugging and adding new test suites.
  */
 
@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 
 const projectRoot = path.resolve(__dirname, '..');
-const evalDir = path.join(projectRoot, 'eval-framework');
+const evalDir = path.join(projectRoot, 'ci');
 
 console.log('=================================================');
 console.log('=== 🔧 Harness Mechanism Test Suite (VERIFICATION.md §2) ===');

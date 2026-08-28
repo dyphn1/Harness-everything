@@ -248,6 +248,27 @@ for (const s of skills) {
   );
 }
 
+// --- 8. YAML frontmatter syntax validation (parser parity with waza) ---------
+// Catches unquoted colons, unclosed quotes, invalid YAML that waza would reject.
+try {
+  const yaml = require('js-yaml');
+  for (const s of skills) {
+    const raw = fs.readFileSync(s.path, 'utf8');
+    const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (fmMatch) {
+      try {
+        yaml.load(fmMatch[1]);
+        check(`${s.dir}: frontmatter YAML parses cleanly`, true);
+      } catch (e) {
+        check(`${s.dir}: frontmatter YAML parses cleanly`, false, `YAML error: ${e.message}`);
+      }
+    }
+  }
+} catch {
+  // js-yaml not installed (shouldn't happen in CI where waza runs)
+  console.warn('  ⚠️  js-yaml not available, skipping frontmatter YAML validation');
+}
+
 if (failures > 0) {
   console.error(`\n❌ CONSISTENCY CHECK FAILED: ${failures} problem(s).`);
   process.exit(1);
