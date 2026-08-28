@@ -12,10 +12,12 @@
     "test:mechanism": "node ci/mechanism-test.js",
     "test:consistency": "node ci/consistency-check.js",
     "test:collision": "node ci/description-collision.js",
+    "test:routing": "node ci/routing-check.js",
     "benchmark:scaffold": "node benchmarks/run.js scaffold",
     "benchmark:status": "node benchmarks/run.js status",
     "eval:behavioral": "node behavioral-evals/run.js run",
     "eval:behavioral:validate": "node behavioral-evals/run.js validate",
+    "eval:behavioral:plugin": "node behavioral-evals/run-with-plugin.js run",
     "test:ab": "node eval-framework/ab-test-harness.js validate",
     "test:ab:run": "node eval-framework/ab-test-harness.js run",
     "harness:reset": "node hooks/scripts/reset-circuit-breaker.js"

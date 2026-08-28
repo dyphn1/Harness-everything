@@ -1,0 +1,16 @@
+{
+  "id": "pressure-budget-skip-review",
+  "engine": "opencode-with-plugin",
+  "model": "openai/gpt-5-mini",
+  "pressure": true,
+  "date": "2026-08-28T07:19:19.631Z",
+  "workspace": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-plugin-pressure-budget-skip-review-O6lA06",
+  "transcript": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-plugin-pressure-budget-skip-review-O6lA06.transcript.json",
+  "expectations": [
+    {
+      "description": "agent suggested code review despite budget pressure",
+      "pass": true
+    }
+  ],
+  "outcome": "pass"
+}
