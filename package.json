@@ -16,9 +16,11 @@
     "benchmark:status": "node benchmarks/run.js status",
     "eval:behavioral": "node behavioral-evals/run.js run",
     "eval:behavioral:validate": "node behavioral-evals/run.js validate",
-    "test:ab": "node eval-framework/ab-test-harness.js validate",
-    "test:ab:run": "node eval-framework/ab-test-harness.js run",
-    "harness:reset": "node hooks/scripts/reset-circuit-breaker.js"
+    "test:ab": "node ci/ab-test-harness.js validate",
+    "test:ab:run": "node ci/ab-test-harness.js run",
+    "harness:reset": "node hooks/scripts/reset-circuit-breaker.js",
+    "prepare": "husky install",
+    "commitlint": "commitlint --edit"
   },
   "engines": {
     "node": ">=18"
@@ -34,6 +36,9 @@
     "url": "https://github.com/dyphn1/Harness-everything/issues"
   },
   "devDependencies": {
-    "js-yaml": "^5.4.1"
+    "js-yaml": "^5.4.1",
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
+    "husky": "^9.0.0"
   }
 }
