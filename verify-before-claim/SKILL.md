@@ -3,7 +3,7 @@ name: verify-before-claim
 description: "Verify external framework/API claims and unmeasured perf/cost estimates against an authoritative source before asserting them, instead of answering from training memory. Use whenever about to state how an external framework, SDK, CLI, or API behaves, or quote any number not produced by a real run this session; output is a cited claim, a real measurement, or a labeled estimate."
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

@@ -16,12 +16,14 @@
     "benchmark:status": "node benchmarks/run.js status",
     "eval:behavioral": "node behavioral-evals/run.js run",
     "eval:behavioral:validate": "node behavioral-evals/run.js validate",
+    "test:ab": "node eval-framework/ab-test-harness.js validate",
+    "test:ab:run": "node eval-framework/ab-test-harness.js run",
     "harness:reset": "node hooks/scripts/reset-circuit-breaker.js"
   },
   "engines": {
     "node": ">=18"
   },
-  "author": "Miya Daniel | Harness Core Team",
+  "author": "Miya Daniel",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

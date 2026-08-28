@@ -1,0 +1,35 @@
+# Baseline case: Refactoring with tests
+id: baseline-refactor-with-tests
+name: Refactoring with test coverage
+discipline: tdd
+fixture:
+  files:
+    - path: user-service.js
+      content: |
+        function createUser(name, email) {
+          return { name, email, id: Date.now() };
+        }
+        function validateUser(user) {
+          return user.name && user.email;
+        }
+        module.exports = { createUser, validateUser };
+    - path: user-service.test.js
+      content: |
+        const { createUser, validateUser } = require('./user-service');
+        const assert = require('assert');
+        const user = createUser('John', 'john@example.com');
+        assert.ok(validateUser(user));
+        console.log('all tests pass');
+    - path: package.json
+      content: |
+        { "name": "user-service", "scripts": { "test": "node user-service.test.js" } }
+prompt: "Refactor user-service.js to use a class-based approach while maintaining test coverage."
+max_turns: 20
+expectations:
+  - type: command_exit_0
+    command: "npm test"
+    description: tests pass after refactoring
+  - type: file_contains
+    path: "user-service.js"
+    value: "class"
+    description: class-based approach was used

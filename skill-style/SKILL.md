@@ -3,7 +3,7 @@ name: skill-style
 description: Apply Harness style guidelines when writing or refactoring SKILL.md files. Use when creating a new skill, reviewing skill structure, enforcing naming and frontmatter conventions, or standardizing tone, formatting, and progressive disclosure across the skill catalog.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

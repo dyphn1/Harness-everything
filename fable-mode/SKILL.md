@@ -3,7 +3,7 @@ name: fable-mode
 description: Plan and execute complex Tier 3 macro tasks by breaking multi-domain requirements into architectural milestones and delegating sub-agents. Use for multi-domain work or major scaffolding; outputs milestone TODO plans, sub-agent briefs, verified gates.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

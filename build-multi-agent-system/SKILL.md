@@ -3,7 +3,7 @@ name: build-multi-agent-system
 description: "Scaffold a multi-agent workspace in any project by analyzing its tech stack at runtime: six functional zones, an immutable AGENTS.md router, and a shared memory index generated as a project-local script with a markdown fallback."
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

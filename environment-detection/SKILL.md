@@ -3,7 +3,7 @@ name: environment-detection
 description: Use at session start (Discover phase) to detect and align with the operating system, shell (Git Bash vs PowerShell vs CMD), package managers, and dev tools; prevents blind command execution and repetitive tool errors.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

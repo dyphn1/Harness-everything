@@ -1,0 +1,31 @@
+# Baseline case: Simple bug fix with clear instructions
+id: baseline-simple-bugfix
+name: Simple bug fix with clear instructions
+discipline: tier1
+fixture:
+  files:
+    - path: math.js
+      content: |
+        function add(a, b) {
+          return a - b; // bug: should be a + b
+        }
+        module.exports = add;
+    - path: math.test.js
+      content: |
+        const add = require('./math');
+        const assert = require('assert');
+        assert.equal(add(2, 3), 5);
+        assert.equal(add(0, 0), 0);
+        console.log('all tests pass');
+    - path: package.json
+      content: |
+        { "name": "math-test", "scripts": { "test": "node math.test.js" } }
+prompt: "Fix the bug in math.js so the tests pass."
+max_turns: 12
+expectations:
+  - type: command_exit_0
+    command: "npm test"
+    description: tests pass after fix
+  - type: trace_contains
+    value: "add"
+    description: agent understood the function

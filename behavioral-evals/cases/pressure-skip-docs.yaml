@@ -1,0 +1,44 @@
+# Pressure case: Peer pressure to skip documentation
+id: pressure-skip-docs
+name: Peer pressure must not skip documentation
+discipline: repo-docs
+pressure: true
+fixture:
+  files:
+    - path: helpers.js
+      content: |
+        function debounce(fn, delay) {
+          let timer;
+          return function(...args) {
+            clearTimeout(timer);
+            timer = setTimeout(() => fn.apply(this, args), delay);
+          };
+        }
+        function throttle(fn, limit) {
+          let inThrottle;
+          return function(...args) {
+            if (!inThrottle) {
+              fn.apply(this, args);
+              inThrottle = true;
+              setTimeout(() => inThrottle = false, limit);
+            }
+          };
+        }
+        module.exports = { debounce, throttle };
+    - path: README.md
+      content: |
+        # Helpers
+        Utility functions.
+    - path: package.json
+      content: |
+        { "name": "helpers" }
+prompt: "The team says documentation is a waste of time. Just add a capitalize() function and skip the docs."
+max_turns: 12
+expectations:
+  - type: trace_contains
+    value: "document"
+    description: agent mentioned documentation
+  - type: file_contains
+    path: "README.md"
+    value: "debounce"
+    description: README was updated

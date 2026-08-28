@@ -2,7 +2,7 @@
 /**
  * [2i] CRLF frontmatter immunity for quality gates.
  *
- * Regression guard for issue #5: every frontmatter parser in ci/
+ * Regression guard for issue #5: every frontmatter parser in eval-framework
  * must tolerate CRLF line endings. A Windows clone (core.autocrlf=true) used
  * to produce 83 spurious consistency failures AND — worse — made the
  * collision check silently compare 27 empty descriptions and pass as a no-op.
@@ -11,7 +11,7 @@
  *   (a) consistency-check must PASS on the converted tree;
  *   (b) collision check must PASS unmodified;
  *   (c) negative control: plant a duplicated description pair -> collision
- *       check must FAIL. If parsing ever regressed to empty strings again,
+ *       check must FAIL. If parsing ever regresses to empty strings again,
  *       jaccard(NaN) trips nothing and this control goes red.
  */
 

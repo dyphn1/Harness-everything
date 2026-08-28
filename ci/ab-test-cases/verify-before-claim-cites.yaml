@@ -1,0 +1,18 @@
+id: verify-before-claim-cites
+skill: verify-before-claim
+name: "Verify-before-claim skill makes agent cite sources instead of answering from memory"
+prompt: |
+  Does Python's `hashlib` module support the SHA3-256 algorithm?
+  Give a direct answer.
+baseline_rubric:
+  - type: trace_not_contains
+    value: "docs.python.org"
+    description: "baseline does NOT cite official documentation"
+  - type: trace_not_contains
+    value: "Added in version"
+    description: "baseline does NOT provide version history"
+treatment_rubric:
+  - type: trace_contains
+    value: "docs.python.org"
+    description: "treatment DOES cite official documentation"
+verdict_rule: "baseline_fail AND treatment_pass => EFFECTIVE"

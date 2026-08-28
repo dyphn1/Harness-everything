@@ -3,7 +3,7 @@ name: rewrite-commits
 description: "Rewrite past Git history to comply with Angular Style conventions. Use when cleaning unpushed commits before a PR, squashing fixups, rewording messages, or reordering history safely with abort on conflict."
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

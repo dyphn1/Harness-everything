@@ -6,13 +6,13 @@ description: >-
   Use when raising warnings or performing search-and-replace file edits.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 
 # Execution Guardrails
 
-## 📋 Skill Contract
+**USE FOR**: Raising warnings or flagging problems, search-and-replace/regex file edits, batching minor caveats, reporting capability limits.
 
 | Component | Spec |
 | :--- | :--- |

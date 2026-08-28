@@ -1,49 +1,36 @@
-name: Weekly Behavioral Evaluations
+name: Behavioral Evals (Weekly)
 
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Every Sunday at midnight UTC
+    - cron: '0 6 * * 1'  # Every Monday 06:00 UTC
   workflow_dispatch:
-    inputs:
-      engine:
-        description: 'Engine to run evals with (claude or opencode)'
-        required: false
-        default: 'opencode'
-
-permissions:
-  contents: read
 
 jobs:
-  behavioral-evals:
+  validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run behavioral evals (opencode)
-        if: github.event.inputs.engine == 'opencode' || github.event_name == 'schedule'
-        run: node behavioral-evals/run.js run --engine opencode
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
-      - name: Run behavioral evals (claude)
-        if: github.event.inputs.engine == 'claude'
-        run: node behavioral-evals/run.js run --engine claude
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-
-      - name: Validate case files (always runs)
+      - name: Validate eval case structure (free)
         run: node behavioral-evals/run.js validate
-
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: behavioral-eval-results-${{ github.run_id }}
-          path: behavioral-evals/results/
-          retention-days: 30
+      - name: Install Harness for eval
+        run: node scripts/installer.js install --force
+      - name: Run behavioral evals
+        run: |
+          # Run evals if claude CLI is available; skip gracefully otherwise
+          if command -v claude &> /dev/null; then
+            node behavioral-evals/run.js run
+          else
+            echo "::warning::claude CLI not found — skipping live evals"
+            echo "Validate-only mode: case structure verified, no token cost"
+          fi
+      - name: Commit results if any
+        if: success()
+        run: |
+          git config user.email "ci@harness-everything"
+          git config user.name "Harness CI"
+          git add behavioral-evals/results/ || true
+          git diff --staged --quiet || git commit -m "chore(evals): weekly behavioral eval results [skip ci]"
+          git push || true

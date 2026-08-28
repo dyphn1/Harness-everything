@@ -1,0 +1,28 @@
+# Baseline case: TDD workflow
+id: baseline-tdd-workflow
+name: TDD workflow with test-first approach
+discipline: tdd
+fixture:
+  files:
+    - path: calculator.js
+      content: |
+        function add(a, b) { return a + b; }
+        function subtract(a, b) { return a - b; }
+        module.exports = { add, subtract };
+    - path: package.json
+      content: |
+        { "name": "calculator", "scripts": { "test": "node calculator.test.js" } }
+prompt: "Add multiply() and divide() functions using TDD — write tests first."
+max_turns: 20
+expectations:
+  - type: command_exit_0
+    command: "npm test"
+    description: all tests pass
+  - type: file_contains
+    path: "calculator.js"
+    value: "multiply"
+    description: multiply function exists
+  - type: file_contains
+    path: "calculator.js"
+    value: "divide"
+    description: divide function exists

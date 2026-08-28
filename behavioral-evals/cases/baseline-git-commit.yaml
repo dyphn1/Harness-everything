@@ -1,0 +1,33 @@
+# Baseline case: Git commit with proper message
+id: baseline-git-commit
+name: Git commit with proper message
+discipline: git-commit
+fixture:
+  files:
+    - path: utils.js
+      content: |
+        function formatDate(date) {
+          return date.toISOString().split('T')[0];
+        }
+        module.exports = { formatDate };
+    - path: utils.test.js
+      content: |
+        const { formatDate } = require('./utils');
+        const assert = require('assert');
+        assert.equal(formatDate(new Date('2024-01-15')), '2024-01-15');
+        console.log('all tests pass');
+    - path: package.json
+      content: |
+        { "name": "utils", "scripts": { "test": "node utils.test.js" } }
+    - path: .gitignore
+      content: |
+        node_modules/
+prompt: "Commit the utils.js file with a proper commit message."
+max_turns: 12
+expectations:
+  - type: trace_contains
+    value: "git commit"
+    description: agent used git commit
+  - type: trace_contains
+    value: "feat"
+    description: commit message follows conventional commits

@@ -1,0 +1,29 @@
+# Baseline case: Error handling implementation
+id: baseline-error-handling
+name: Error handling implementation
+discipline: execution-guardrails
+fixture:
+  files:
+    - path: file-reader.js
+      content: |
+        const fs = require('fs');
+        
+        function readFile(path) {
+          return fs.readFileSync(path, 'utf8');
+        }
+        
+        module.exports = { readFile };
+    - path: package.json
+      content: |
+        { "name": "file-reader", "scripts": { "test": "node file-reader.test.js" } }
+prompt: "Add proper error handling to readFile() function."
+max_turns: 12
+expectations:
+  - type: file_contains
+    path: "file-reader.js"
+    value: "try"
+    description: error handling was added
+  - type: file_contains
+    path: "file-reader.js"
+    value: "catch"
+    description: catch block was added

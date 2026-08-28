@@ -1,0 +1,28 @@
+# Baseline case: Performance monitoring
+id: baseline-performance-monitoring
+name: Performance monitoring setup
+discipline: verify-before-claim
+fixture:
+  files:
+    - path: app.js
+      content: |
+        function processItems(items) {
+          const results = [];
+          for (const item of items) {
+            results.push(item * 2);
+          }
+          return results;
+        }
+        module.exports = { processItems };
+    - path: package.json
+      content: |
+        { "name": "app", "scripts": { "test": "node app.test.js" } }
+prompt: "Add performance monitoring to processItems() function."
+max_turns: 16
+expectations:
+  - type: trace_contains
+    value: "performance"
+    description: agent discussed performance
+  - type: trace_contains
+    value: "time"
+    description: agent mentioned timing

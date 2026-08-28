@@ -1,0 +1,34 @@
+# Baseline case: Add new feature with tests
+id: baseline-add-feature
+name: Add new feature with tests
+discipline: tdd
+fixture:
+  files:
+    - path: string-utils.js
+      content: |
+        function capitalize(str) {
+          return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+        function lowercase(str) {
+          return str.toLowerCase();
+        }
+        module.exports = { capitalize, lowercase };
+    - path: string-utils.test.js
+      content: |
+        const { capitalize, lowercase } = require('./string-utils');
+        const assert = require('assert');
+        assert.equal(capitalize('hello'), 'Hello');
+        assert.equal(lowercase('HELLO'), 'hello');
+        console.log('all tests pass');
+    - path: package.json
+      content: |
+        { "name": "string-utils", "scripts": { "test": "node string-utils.test.js" } }
+prompt: "Add a reverse() function to string-utils.js and write tests for it."
+max_turns: 16
+expectations:
+  - type: command_exit_0
+    command: "npm test"
+    description: all tests pass including new reverse tests
+  - type: trace_contains
+    value: "reverse"
+    description: reverse function was implemented

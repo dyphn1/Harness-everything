@@ -3,7 +3,7 @@ name: eval-harness
 description: Evaluate AI agent performance across correctness, token efficiency, anti-loop focus, and environment awareness; save a 4-dimension scorecard. Use when asked to run a benchmark or score an execution log or conversation history.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

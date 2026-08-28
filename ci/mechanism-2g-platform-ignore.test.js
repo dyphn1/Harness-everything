@@ -18,7 +18,7 @@ fs.mkdirSync(path.join(claudeSkillsDir, 'custom-skill'), { recursive: true });
 
 fs.writeFileSync(
   path.join(claudeSkillsDir, 'harness-skill', 'SKILL.md'),
-  '---\nauthor: Miya Daniel | Harness Core Team\n---\n',
+  '---\nauthor: Miya Daniel\n---\n',
   'utf8'
 );
 fs.writeFileSync(
@@ -58,7 +58,7 @@ fs.mkdirSync(path.join(cursorSkillsDir, 'custom-skill'), { recursive: true });
 
 fs.writeFileSync(
   path.join(cursorSkillsDir, 'harness-skill', 'SKILL.md'),
-  '---\nauthor: Miya Daniel | Harness Core Team\n---\n',
+  '---\nauthor: Miya Daniel\n---\n',
   'utf8'
 );
 fs.writeFileSync(

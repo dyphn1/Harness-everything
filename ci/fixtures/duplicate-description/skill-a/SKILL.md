@@ -1,18 +1,16 @@
 ---
-name: skill-a
-description: "This skill has a unique description for testing collision detection"
+name: duplicate-a
+description: Identical description used for collision testing purposes only
 license: Apache-2.0
 metadata:
   author: Test
-  version: 0.3.4
+  version: 0.0.1
 ---
 
-# Skill A
-
-Test skill for negative controls.
+# Duplicate A
 
 ## USE FOR:
-- Testing description collision detection
+- Testing
 
 ## DO NOT USE FOR:
-- Real work
+- Production

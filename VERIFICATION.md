@@ -58,7 +58,7 @@ self-contained and cleans up after itself.
 **Fastest path:** `npm run test:mechanism` (or plain `npm test`, which
 includes it as Phase 4) runs every check in this section automatically,
 end-to-end, on Windows/macOS/Linux alike — see
-[ci/mechanism-test.js](ci/mechanism-test.js).
+[ci/mechanism-test.js](ci/mechanism-test.js). 
 
 To ensure complete test traceability and avoid untested blind spots, the mechanism
 checks are split into isolated, dedicated test suites under `ci/`:

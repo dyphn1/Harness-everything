@@ -1,6 +1,6 @@
 # Workflow: Build Multi-Agent System
 
-> Scaffolds a multi-agent workspace in any project by analyzing its tech stack at runtime: six functional zones, an immutable AGENTS.md router, and a shared memory index generated as a project-local script with a markdown fallback.
+> Deploys an industrial-grade, self-adapting Multi-Agent Workspace architecture, scaffolding zone boundaries and a runtime-generated context index (markdown fallback).
 
 ---
 

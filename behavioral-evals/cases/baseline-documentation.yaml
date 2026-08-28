@@ -1,0 +1,34 @@
+# Baseline case: Documentation update
+id: baseline-documentation
+name: Documentation update
+discipline: repo-docs
+fixture:
+  files:
+    - path: README.md
+      content: |
+        # My Project
+        
+        ## Installation
+        
+        Run npm install.
+        
+        ## Usage
+        
+        Use the project.
+    - path: index.js
+      content: |
+        function greet(name) {
+          return `Hello, ${name}!`;
+        }
+        module.exports = { greet };
+prompt: "Update the README.md with proper installation and usage instructions based on the code."
+max_turns: 12
+expectations:
+  - type: file_contains
+    path: "README.md"
+    value: "greet"
+    description: README mentions the greet function
+  - type: file_contains
+    path: "README.md"
+    value: "require"
+    description: README shows how to require the module

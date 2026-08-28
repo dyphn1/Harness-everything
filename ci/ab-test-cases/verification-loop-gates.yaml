@@ -1,0 +1,25 @@
+id: verification-loop-gates
+skill: verification-loop
+name: "Verification-loop skill makes agent list specific verification gates"
+prompt: |
+  I've finished implementing the file upload feature. It handles
+  multipart uploads, validates file types, and stores to S3.
+  Can you verify it's ready for production?
+baseline_rubric:
+  - type: trace_not_contains
+    value: "npm run build"
+    description: "baseline does NOT list build verification"
+  - type: trace_not_contains
+    value: "npm run lint"
+    description: "baseline does NOT list lint verification"
+treatment_rubric:
+  - type: trace_contains
+    value: "npm run build"
+    description: "treatment lists build verification gate"
+  - type: trace_contains
+    value: "npm run lint"
+    description: "treatment lists lint verification gate"
+  - type: trace_contains
+    value: "npm run test"
+    description: "treatment lists test verification gate"
+verdict_rule: "baseline_fail AND treatment_pass => EFFECTIVE"

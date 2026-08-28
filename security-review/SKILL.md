@@ -3,7 +3,7 @@ name: security-review
 description: Conducts STRIDE threat modeling, scans secrets via audit scripts, and hardens code against OWASP Top 10 risks with three-tier boundary controls. Use when implementing auth, handling input/uploads, managing secrets, or auditing code before deployment.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 

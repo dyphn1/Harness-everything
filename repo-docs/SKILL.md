@@ -3,7 +3,7 @@ name: repo-docs
 description: Generate or update precise, reader-oriented README.md and AGENTS.md based on actual project scans and smart merging of existing files. Use when a project lacks documentation or needs refreshed agent onboarding docs.
 license: Apache-2.0
 metadata:
-  author: Miya Daniel | Harness Core Team
+  author: Miya Daniel
   version: 0.3.4
 ---
 
