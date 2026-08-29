@@ -154,65 +154,51 @@ Harness operates through six core cognitive concepts:
 
 ---
 
-## 📁 Repository Map
+## Repository Index
 
-This repository contains 27 skills plus supporting infrastructure. The table below helps you locate what you're looking for.
+This repo uses a flat layout (waza/agentskills.io convention). The table below maps each top-level directory to its role.
 
-### 🎯 Skills (27)
-| Directory | Purpose | Tier |
+| Directory | Category | Description |
 |---|---|---|
-| `harness-everything` | Meta-skill: routes to other skills | Core |
-| `verification-loop` | Enforces test/lint before task completion | Core |
-| `verify-before-claim` | Fact-audit discipline before assertions | Core |
-| `environment-detection` | Detects OS, shell, package manager | Core |
-| `self-evolve` | Long-term workspace immunization | Core |
-| `find-skills` | Discovers external skills via CLI | Core |
-| `zoom-out` | Circuit breaker reflection protocol | Core |
-| `tdd` | RED/GREEN/REFACTOR enforcement | Task |
-| `todo-driven-workflow` | State-machine task execution | Task |
-| `fable-mode` | Multi-agent orchestration (fable-orchestrator) | Macro |
-| `fable-discipline` | Fable worker discipline & guardrails | Macro |
-| `build-multi-agent-system` | Generates multi-agent architectures | Macro |
-| `create-agent-launcher` | Creates agent launchers for platforms | Macro |
-| `to-spec` | Reverse-engineers specs from code | Spec |
-| `to-tickets` | Converts specs to actionable tickets | Spec |
-| `grill-me` | Adversarial code review (Socratic) | Quality |
-| `grill-with-docs` | Document-grounded adversarial review | Quality |
-| `git-commit` | Conventional commit generation | Git |
-| `rewrite-commits` | History rewriting & squashing | Git |
-| `using-git-worktrees` | Parallel worktree workflows | Git |
-| `improve-codebase-architecture` | Architectural improvement patterns | Architecture |
-| `security-review` | OWASP/STRIDE vulnerability scanning | Security |
-| `skill-style` | Skill authoring style guide | Meta |
-| `skill-creator` | Dynamic skill generation contract | Meta |
-| `eval-harness` | Skill evaluation framework | Eval |
-| `install-cognitive-os` | Cognitive OS installation | Meta |
-| `repo-docs` | Repository documentation templates | Docs |
-
-### ⚙️ Infrastructure
-| Directory | Purpose |
-|---|---|
-| `hooks/` | Claude Code lifecycle hooks (hard enforcement: circuit breaker, boundary guard, stop gate) |
-| `ci/` | Quality gates: consistency-check, description-collision, mechanism tests |
-| `scripts/` | Runtime: tier-router, todo-cli, verify-gate, bootstrap, installer |
-| `bin/` | CLI entry point (`harness`) |
-| `eval-framework/` | Legacy eval harness (deprecated → `eval-harness/`) |
-| `behavioral-evals/` | LLM behavioral test cases (on-demand, token-costing) |
-| `benchmarks/` | Benchmark fixtures & recorded results (BENCHMARK_SOP) |
-| `evals/` | Routing evals per skill (waza format) |
-| `.claude-plugin/` | Plugin distribution manifests |
-
-### 📚 Documentation
-| Directory | Purpose |
-|---|---|
-| `docs/` | Architecture, philosophy, routing, reflection, audit |
-| `references/` | Shared checklists: definition-of-done, performance, security |
-| `docs/workflows/` | Detailed workflow guides (TDD, git-commit, skill-creator, etc.) |
-
-### 🔬 Fixtures & Tests
-| Directory | Purpose |
-|---|---|
-| `eval-framework/fixtures/` | Negative control fixtures for quality gates |
+| `harness-everything` | **Core Runtime** | Bootstrap, tier-router, todo-cli, verify-gate, self-heal |
+| `hooks` | **Core Runtime** | Claude Code lifecycle hooks (circuit breaker, scope guard, stop gate, etc.) |
+| `scripts` | **Core Runtime** | Installer, manifest, prompts, workspace utilities |
+| `bin` | **Core Runtime** | `harness` CLI entry point |
+| `ci` | **Quality Gates** | Consistency check, description collision, mechanism tests, negative controls |
+| `.github` | **CI/CD** | GitHub Actions workflows (ci.yml, release.yml, behavioral-evals.yml) |
+| `.claude-plugin` | **Distribution** | Plugin manifests for Claude Code marketplace |
+| `evals` | **Routing Evals** | 27 trigger/routing eval suites (waza format) |
+| `behavioral-evals` | **Behavioral Evals** | LLM-level discipline cases (headless agent sessions) |
+| `benchmarks` | **Benchmarks** | BENCHMARK_SOP fixtures and recorded A/B results |
+| `docs` | **Documentation** | Philosophy, architecture, routing, reflection, audit |
+| `references` | **Documentation** | Shared checklists (security, performance, definition-of-done) |
+| `build-multi-agent-system` | **Skill (Tier 3)** | Scaffold multi-agent workspace with zones & memory index |
+| `create-agent-launcher` | **Skill (Tier 3)** | Generate agent launcher specs from requirements |
+| `environment-detection` | **Skill (Tier 2)** | Preflight: detect OS, shell, package manager |
+| `eval-harness` | **Skill (Tier 2)** | Evaluate agent outputs against rubrics |
+| `fable-discipline` | **Skill (Tier 3)** | Enforce Fable execution guardrails |
+| `fable-mode` | **Skill (Tier 3)** | Multi-agent orchestration with milestone gates |
+| `find-skills` | **Skill (Tier 1)** | Discover and install skills from open ecosystems |
+| `git-commit` | **Skill (Tier 1)** | Conventional commit messages with verification |
+| `grill-me` | **Skill (Tier 2)** | Adversarial code review before merge |
+| `grill-with-docs` | **Skill (Tier 2)** | Code review with documentation cross-check |
+| `improve-codebase-architecture` | **Skill (Tier 3)** | Architectural refactoring with evidence |
+| `install-cognitive-os` | **Skill (Tier 2)** | Install Harness cognitive OS into workspace |
+| `repo-docs` | **Skill (Tier 1)** | Generate repository documentation |
+| `rewrite-commits` | **Skill (Tier 1)** | Interactive rebase and commit history cleanup |
+| `security-review` | **Skill (Tier 2)** | OWASP/STRIDE security review |
+| `self-evolve` | **Skill (Tier 2)** | Workspace immunization via dynamic skills |
+| `skill-creator` | **Skill (Tier 2)** | Create new skills from patterns |
+| `skill-style` | **Skill (Tier 1)** | Skill authoring style guide |
+| `tdd` | **Skill (Tier 2)** | Test-driven development enforcement |
+| `to-spec` | **Skill (Tier 3)** | Generate specs from code with evidence |
+| `to-tickets` | **Skill (Tier 3)** | Decompose work into tracked tickets |
+| `todo-driven-workflow` | **Skill (Tier 2)** | Todo state machine for task discipline |
+| `using-git-worktrees` | **Skill (Tier 2)** | Git worktree concurrency patterns |
+| `verification-loop` | **Skill (Tier 2)** | Verify-before-complete enforcement |
+| `verify-before-claim` | **Skill (Tier 1)** | Fact-audit before asserting claims |
+| `zoom-out` | **Skill (Tier 2)** | Circuit-breaker reflection protocol |
+| `opencode-plugin` | **Platform Plugin** | Enforcement hooks for opencode (post-edit, pre-complete, circuit-breaker) |
 
 ---
 
