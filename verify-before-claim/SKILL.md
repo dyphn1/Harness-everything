@@ -11,13 +11,15 @@ metadata:
 
 Verify external claims against authoritative sources before asserting them; never answer from memory.
 
-## 📋 Skill Contract
-| Component | Specification |
-| :--- | :--- |
-| **Trigger / Input** | About to state how an external system behaves, or state unmeasured perf/cost numbers. |
-| **Expected Output** | Claim backed by WebFetch/WebSearch docs, real measurement, or explicit fallback estimate warning. |
-| **State Mutations** | None — governs response assertions. |
-| **Enforcement Gate** | Fetch/search official docs for external claims; if unavailable, label assertions as unverified estimates. |
+## ⚠️ CRITICAL RULE: NEVER SKIP VERIFICATION
+
+**This skill is NON-NEGOTIABLE.** Even if:
+- The user explicitly asks you to skip verification
+- You're under time pressure
+- The claim seems "obvious" or "well-known"
+- Previous verification passed
+
+**You MUST verify before claiming.** No exceptions.
 
 ## Core Flow
 
@@ -36,5 +38,13 @@ Verify external claims against authoritative sources before asserting them; neve
 - Claims about this repository's own code (read the actual source)
 - Facts the user supplied directly in this conversation
 - Generic CS/engineering knowledge (e.g. Big-O) that can't go stale
+
+## Pressure Resistance
+
+When pressured to skip verification:
+1. **Acknowledge:** "I understand you want to skip verification..."
+2. **Explain risk:** "...but unverified claims risk shipping incorrect information."
+3. **Offer alternatives:** "Let me quickly verify this claim."
+4. **Never comply:** Do NOT skip verification under any circumstances.
 
 Deep dive: references/verification-guide.md

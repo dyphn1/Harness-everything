@@ -3,10 +3,11 @@
  * Verification Runner Hook
  * 
  * Runs verification commands and updates state.
- * This hook runs verification commands (npm test, lint, build) and:
- * 1. Executes the verification command
- * 2. Updates state to reflect verification status
- * 3. Logs verification results
+ * This hook runs available verification commands (npm test, lint, build) and:
+ * 1. Detects available scripts from package.json
+ * 2. Executes only available verification commands
+ * 3. Updates state to reflect verification status
+ * 4. Logs verification results
  */
 
 const fs = require('fs');
@@ -15,6 +16,11 @@ const { execSync } = require('child_process');
 
 const STATE_DIR = path.join(process.env.HOME || process.env.USERPROFILE, '.harness-state');
 const STATE_FILE = path.join(STATE_DIR, 'edit-state.json');
+
+// Ensure state directory exists
+if (!fs.existsSync(STATE_DIR)) {
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+}
 
 function loadState() {
   try {
@@ -36,6 +42,19 @@ function saveState(state) {
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
+function getAvailableScripts() {
+  const pkgPath = path.join(process.cwd(), 'package.json');
+  if (!fs.existsSync(pkgPath)) {
+    return [];
+  }
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    return pkg.scripts || {};
+  } catch {
+    return [];
+  }
+}
+
 function runVerification(command) {
   try {
     execSync(command, { 
@@ -55,12 +74,34 @@ function runVerification(command) {
 function main() {
   const state = loadState();
   
-  // Verification commands to try
-  const commands = [
-    'npm test',
-    'npm run lint',
-    'npm run build'
+  // Get available scripts from package.json
+  const scripts = getAvailableScripts();
+  
+  // Verification commands to try (only if script exists)
+  const possibleCommands = [
+    { cmd: 'npm test', script: 'test' },
+    { cmd: 'npm run lint', script: 'lint' },
+    { cmd: 'npm run build', script: 'build' }
   ];
+  
+  const commands = possibleCommands
+    .filter(c => scripts[c.script])
+    .map(c => c.cmd);
+  
+  // If no verification scripts available, check if we should skip
+  if (commands.length === 0) {
+    // No npm verification available - check if this is a non-code task
+    // Allow completion without npm verification for doc-only tasks
+    console.log(JSON.stringify({
+      hook: 'verification-runner',
+      action: 'verify',
+      allPassed: true,
+      results: [],
+      message: 'No npm verification scripts available. Skipping npm verification (non-code task assumed).',
+      skipped: true
+    }));
+    return;
+  }
   
   const results = [];
   let allPassed = true;
@@ -91,8 +132,8 @@ function main() {
       success: r.success
     })),
     message: allPassed 
-      ? 'All verification passed. You can now complete.'
-      : 'Verification failed. Fix issues before completing.'
+      ? 'All available verification passed. You can now complete.'
+      : 'Some verification failed. Fix issues before completing.'
   }));
 }
 

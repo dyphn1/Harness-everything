@@ -47,7 +47,7 @@ function main() {
       reason: 'verification_pending',
       editsSinceVerification: state.editsSinceVerification,
       message: `Cannot complete: ${state.editsSinceVerification} edit(s) since last verification. Run verification first.`,
-      instructions: 'Run one of: npm test, npm run lint, npm run build'
+      instructions: 'Run verification: node .harness-src/opencode-plugin/hooks/verify.js'
     }));
     
     // Exit with non-zero to block

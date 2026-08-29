@@ -85,8 +85,14 @@ try {
     recursive: true,
     filter: (src) => {
       const rel = path.relative(projectRoot, src);
-      return !rel.split(path.sep)[0].match(/^\.git$/);
+      const first = rel.split(path.sep)[0];
+      return first !== '.git' && first !== 'node_modules';
     },
+  });
+  
+  // Copy node_modules separately to preserve symlinks
+  fs.cpSync(path.join(projectRoot, 'node_modules'), path.join(tmpRoot, 'node_modules'), {
+    recursive: true,
   });
 
   const skillMdFiles = listSkillMdFiles(tmpRoot);
