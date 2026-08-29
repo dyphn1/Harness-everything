@@ -88,6 +88,9 @@ function main() {
         process.exit(2);
       } else {
         // No reflection yet - force reflection
+        // Save state first so next invocation knows count >= 3
+        saveBreakerState(state);
+        
         console.log(JSON.stringify({
           hook: 'circuit-breaker',
           action: 'force_reflection',

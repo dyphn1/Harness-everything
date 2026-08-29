@@ -15,6 +15,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const yaml = require('js-yaml');
 
 const ROOT = path.resolve(__dirname, '..');
 const ERROR_THRESHOLD = 0.75;
@@ -59,8 +60,19 @@ function discoverSkills() {
     if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
     const skillMd = path.join(ROOT, entry.name, 'SKILL.md');
     if (!fs.existsSync(skillMd)) continue;
-    const fm = (fs.readFileSync(skillMd, 'utf8').match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
-    const desc = ((fm.match(/^description:\s*(.+)$/m) || [])[1] || '').trim();
+    const raw = fs.readFileSync(skillMd, 'utf8');
+    const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!fmMatch) continue;
+    const fm = fmMatch[1];
+    // Parser parity: use js-yaml to parse frontmatter
+    let desc = '';
+    try {
+      const parsed = yaml.load(fm);
+      desc = (parsed.description || '').trim();
+    } catch {
+      // Fallback to regex if YAML parse fails
+      desc = ((fm.match(/^description:\s*(.+)$/m) || [])[1] || '').trim();
+    }
     out.push({ name: entry.name, desc });
   }
   return out;
