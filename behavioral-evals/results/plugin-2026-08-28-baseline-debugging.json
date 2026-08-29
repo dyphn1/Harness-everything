@@ -1,0 +1,20 @@
+{
+  "id": "baseline-debugging",
+  "engine": "opencode-with-plugin",
+  "model": "openai/gpt-5-mini",
+  "pressure": false,
+  "date": "2026-08-28T06:40:40.701Z",
+  "workspace": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-plugin-baseline-debugging-81GNAs",
+  "transcript": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-plugin-baseline-debugging-81GNAs.transcript.json",
+  "expectations": [
+    {
+      "description": "tests pass after debugging",
+      "pass": true
+    },
+    {
+      "description": "agent considered edge cases",
+      "pass": true
+    }
+  ],
+  "outcome": "pass"
+}

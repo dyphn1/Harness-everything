@@ -15,6 +15,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const yaml = require('js-yaml');
 
 const ROOT = path.resolve(__dirname, '..');
 let failures = 0;
@@ -84,6 +85,15 @@ function validateFrontmatterSyntax(raw, skillDir) {
   const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!fmMatch) return check(`${skillDir}: has valid YAML frontmatter delimiters`, false, 'missing --- delimiters');
   const fm = fmMatch[1];
+  
+  // Parser parity: use js-yaml to validate the frontmatter
+  try {
+    yaml.load(fm);
+  } catch (e) {
+    return check(`${skillDir}: frontmatter YAML syntax valid`, false, e.message);
+  }
+  
+  // Additional regex-based checks for common issues
   const lines = fm.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];

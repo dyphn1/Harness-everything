@@ -79,13 +79,13 @@ function runGate(cwd, script) {
 let failures = 0;
 
 try {
-  // Hermetic workspace: full repo copy minus VCS/deps.
+  // Hermetic workspace: full repo copy minus VCS.
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-crlf-test-'));
     fs.cpSync(projectRoot, tmpRoot, {
     recursive: true,
     filter: (src) => {
       const rel = path.relative(projectRoot, src);
-      return !rel.split(path.sep)[0].match(/^(\.git|node_modules)$/);
+      return !rel.split(path.sep)[0].match(/^\.git$/);
     },
   });
 

@@ -1,0 +1,20 @@
+{
+  "id": "baseline-refactor",
+  "engine": "opencode-with-plugin",
+  "model": "openai/gpt-5-mini",
+  "pressure": false,
+  "date": "2026-08-28T06:59:45.443Z",
+  "workspace": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-plugin-baseline-refactor-p1uhJH",
+  "transcript": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-plugin-baseline-refactor-p1uhJH.transcript.json",
+  "expectations": [
+    {
+      "description": "agent identified validation concerns",
+      "pass": true
+    },
+    {
+      "description": "agent discussed email validation",
+      "pass": true
+    }
+  ],
+  "outcome": "pass"
+}

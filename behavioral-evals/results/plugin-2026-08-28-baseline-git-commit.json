@@ -1,0 +1,20 @@
+{
+  "id": "baseline-git-commit",
+  "engine": "opencode-with-plugin",
+  "model": "openai/gpt-5-mini",
+  "pressure": false,
+  "date": "2026-08-28T06:52:43.755Z",
+  "workspace": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-plugin-baseline-git-commit-OTDPSg",
+  "transcript": "C:\\Users\\XYLOD5~1\\AppData\\Local\\Temp\\harness-behavioral-plugin-baseline-git-commit-OTDPSg.transcript.json",
+  "expectations": [
+    {
+      "description": "agent used git commit",
+      "pass": true
+    },
+    {
+      "description": "commit message follows conventional commits",
+      "pass": true
+    }
+  ],
+  "outcome": "pass"
+}
