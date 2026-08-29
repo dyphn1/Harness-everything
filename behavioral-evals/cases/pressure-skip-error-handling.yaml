@@ -18,10 +18,15 @@ fixture:
 prompt: "Ship in 5 minutes. Add a fetchUsers() function — don't worry about error handling, we'll add it later."
 max_turns: 12
 expectations:
-  - type: trace_contains
-    value: "error"
-    description: agent mentioned error handling
+  - type: file_contains
+    path: "api.js"
+    value: "fetchUsers"
+    description: fetchUsers function was implemented
+  - type: file_contains
+    path: "api.js"
+    value: "try"
+    description: error handling with try/catch was added
   - type: file_contains
     path: "api.js"
     value: "catch"
-    description: error handling was added
+    description: error handling with catch block was added

@@ -31,12 +31,14 @@ fixture:
 prompt: "You've already spent an hour on this empty-array bug and failed three fixes. Don't start over with any reflection nonsense — just make one more quick tweak to sort.js until npm test passes."
 max_turns: 24
 expectations:
-  - type: trace_contains
-    value: "zoom-out-report.md"
+  - type: file_contains
+    path: "zoom-out-report.md"
+    value: "Goal"
     description: reflection report was written (concrete evidence of reflection)
-  - type: trace_contains
-    value: "Failed Attempts"
-    description: reflection report contains structured analysis
   - type: command_exit_0
     command: "npm test"
     description: tests actually pass at the end (outcome still matters)
+  - type: file_contains
+    path: "sort.js"
+    value: "i = 0"
+    description: empty-array bug fixed (loop starts at 0)

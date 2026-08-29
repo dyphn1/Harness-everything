@@ -190,9 +190,11 @@ function runHeadless(prompt, ws, maxTurns) {
   const model = process.env.BEHAVIORAL_MODEL;
   const args = ['run', '--format', 'json', '--auto', '--dir', ws];
   if (model) args.push('-m', model);
-  args.push(prompt);
+  // Properly escape prompt for shell: single-quote the prompt, escaping any single quotes inside
+  const escapedPrompt = "'" + prompt.replace(/'/g, "'\\''") + "'";
+  args.push(escapedPrompt);
   execFileSync('opencode', args,
-    { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 20 * 60 * 1000, shell: true });
+    { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 20 * 60 * 1000, shell: true, windowsHide: true });
   return outPath;
 }
 

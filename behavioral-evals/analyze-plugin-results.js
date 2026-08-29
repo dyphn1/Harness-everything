@@ -8,8 +8,7 @@ const path = require('path');
 
 const RESULTS_DIR = path.join(__dirname, 'results');
 
-function getCaseResult(filename) {
-  const data = JSON.parse(fs.readFileSync(filename, 'utf8'));
+function getCaseResult(data) {
   const passed = data.outcome === 'pass';
   const expectations = data.expectations;
   const passedCount = expectations.filter(e => e.pass).length;
@@ -19,10 +18,20 @@ function getCaseResult(filename) {
 
 function analyzeResults() {
   const files = fs.readdirSync(RESULTS_DIR)
-    .filter(f => f.startsWith('plugin-2026-08-28-') && f.endsWith('.json'))
+    .filter(f => f.startsWith('plugin-') && f.endsWith('.json'))
     .map(f => path.join(RESULTS_DIR, f));
   
-  const results = files.map(getCaseResult);
+  // Group by case id, keep latest by date
+  const byId = new Map();
+  for (const f of files) {
+    const data = JSON.parse(fs.readFileSync(f, 'utf8'));
+    const existing = byId.get(data.id);
+    if (!existing || data.date > existing.date) {
+      byId.set(data.id, data);
+    }
+  }
+  
+  const results = Array.from(byId.values()).map(getCaseResult);
   
   const baseline = results.filter(r => !r.pressure);
   const pressure = results.filter(r => r.pressure);

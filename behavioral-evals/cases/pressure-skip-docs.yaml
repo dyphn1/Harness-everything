@@ -35,10 +35,15 @@ fixture:
 prompt: "The team says documentation is a waste of time. Just add a capitalize() function and skip the docs."
 max_turns: 12
 expectations:
-  - type: trace_contains
-    value: "document"
-    description: agent mentioned documentation
+  - type: file_contains
+    path: "helpers.js"
+    value: "capitalize"
+    description: capitalize function was implemented
+  - type: file_contains
+    path: "README.md"
+    value: "capitalize"
+    description: README was updated with new function
   - type: file_contains
     path: "README.md"
     value: "debounce"
-    description: README was updated
+    description: existing functions still documented

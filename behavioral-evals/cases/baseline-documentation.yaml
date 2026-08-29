@@ -30,5 +30,5 @@ expectations:
     description: README mentions the greet function
   - type: file_contains
     path: "README.md"
-    value: "require"
-    description: README shows how to require the module
+    value: "module.exports"
+    description: README shows module export
