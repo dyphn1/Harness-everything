@@ -1,0 +1,15 @@
+id: negative-multi-agent-workspace-001
+name: Off-scope prompt must not trigger multi-agent-workspace
+description: A request for an ordinary single-agent code fix must leave the multi-agent workspace skill dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Fix the typo in src/utils.js and run the unit test."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "multi-agent-workspace"

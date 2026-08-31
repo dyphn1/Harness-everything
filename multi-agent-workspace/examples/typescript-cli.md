@@ -1,5 +1,5 @@
 ---
-description: "Output example for create-agent-launcher applied to a fictional TypeScript npm-workspaces monorepo CLI project (Acme CLI). Shows the Context Profile from project discovery and the expected generated agent content."
+description: "Output example for multi-agent-workspace applied to a fictional TypeScript npm-workspaces monorepo CLI project (Acme CLI). Shows the Context Profile from project discovery and the expected generated agent content."
 ---
 
 # Example: TypeScript npm Monorepo CLI (Acme CLI)

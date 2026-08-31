@@ -34,12 +34,12 @@ When launching ad-hoc sub-agents during execution:
 ## Scaffolding Multi-Agent Project Infrastructure (Sequential Workflows)
 
 For generating structured, permanent agent manifests in a repository, follow the progressive workflow steps in order:
-1. **Phase 1 — Platform Discovery**: Read `create-agent-launcher/workflows/01-init.md`
-2. **Phase 2 — Project Analysis**: Read `create-agent-launcher/workflows/02-analysis.md`
-3. **Phase 3 — Scaffold Generation**: Read `create-agent-launcher/workflows/03-generation.md`
-4. **Phase 4 — Execution & Handoff**: Read `create-agent-launcher/workflows/04-launcher.md`
+1. **Phase 1 — Platform Discovery**: Read `multi-agent-workspace/workflows/01-init.md`
+2. **Phase 2 — Project Analysis**: Read `multi-agent-workspace/workflows/02-analysis.md`
+3. **Phase 3 — Scaffold Generation**: Read `multi-agent-workspace/workflows/03-generation.md`
+4. **Phase 4 — Execution & Handoff**: Read `multi-agent-workspace/workflows/04-launcher.md`
 
-- **Platform Guidelines**: Supported platforms in `create-agent-launcher/guidelines/`:
+- **Platform Guidelines**: Supported platforms in `multi-agent-workspace/guidelines/`:
   - `platform-claude.md` — Claude Code (Hard enforcement via native hooks)
   - `platform-cursor.md` — Cursor (Advisory rules via `.cursorrules`)
   - `platform-copilot.md` — GitHub Copilot (Advisory custom instructions)

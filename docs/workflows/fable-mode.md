@@ -14,7 +14,7 @@ graph TD
   Discovery --> InitTodo["2. Delegate Roadmap to todo-driven-workflow"]
   
   InitTodo --> Delegate{3. Delegate Sub-tasks}
-  Delegate -->|Sub-agent Tool Available| SpawnSub["Spawn Sub-agent via create-agent-launcher"]
+  Delegate -->|Sub-agent Tool Available| SpawnSub["Spawn Sub-agent via multi-agent-workspace"]
   Delegate -->|No Sub-agent Tool| InlinePersona["Inline Persona Role-Switch Fallback"]
   
   SpawnSub --> ScopeCheck["Monitor via hooks/scripts/subagent-scope-guard.js"]

@@ -15,7 +15,7 @@ Core objectives include:
 ### 2.1 The Golden Flow & Dual-Phase Parallel Audits (Fan-out/Merge)
 Instead of auditing only at the end of the lifecycle, we will implement a dual-phase audit strategy to catch design flaws early.
 -   **Phase 1: Design Audit (Post `to-spec`, Pre `to-tickets`)**:
-    -   After `to-spec` generates the PRD/Design Doc, invoke `create-agent-launcher` for a Fan-out architectural audit (e.g., Security Auditor, Senior Architect).
+    -   After `to-spec` generates the PRD/Design Doc, invoke `multi-agent-workspace` for a Fan-out architectural audit (e.g., Security Auditor, Senior Architect).
     -   If flaws (e.g., over-engineering, logic gaps) are found, the process regresses to `to-spec`.
     -   `to-tickets` is only permitted to consume a *fully audited and approved* spec.
 -   **Phase 2: Code Audit (Pre-Delivery in `fable-mode`)**:

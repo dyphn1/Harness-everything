@@ -162,8 +162,7 @@
       "guides": [
         "- fable-mode/SKILL.md (v3 staged execution, model selection, delegation, and verification)",
         "- fable-discipline/SKILL.md (Shadow guard preventing context bloat and managing token limits)",
-        "- build-multi-agent-system/SKILL.md (Universal Multi-Agent Workspace scaffolding & memory db)",
-        "- create-agent-launcher/SKILL.md (Sub-agent generator for specialized task delegation)",
+        "- multi-agent-workspace/SKILL.md (Verified workspace scaffolding and bounded agency specialist selection)",
         "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)",
         "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)"
       ]

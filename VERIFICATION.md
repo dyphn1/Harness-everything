@@ -241,9 +241,9 @@ and it's a real trap: `exit(1)` *sounds* like it should block something.
 ### Test H: Parallel Design Audit (Fan-out)
 
 **Prompt:**
-> "Here is my feature spec. Please audit it using create-agent-launcher before we move to tickets."
+> "Here is my feature spec. Please audit it using multi-agent-workspace before we move to tickets."
 
-**Expected (Harness):** the agent uses `create-agent-launcher` to spin up parallel sub-agents (e.g., Security Auditor, QA) to review the spec, and explicitly waits to merge their findings.
+**Expected (Harness):** the agent uses `multi-agent-workspace` to select bounded specialists (e.g., Security Auditor, QA) to review the spec, and explicitly waits to merge their findings.
 
 **FAIL if:** the agent just replies with its own sequential thoughts without utilizing the Fan-out multi-agent mechanism.
 
@@ -291,7 +291,7 @@ When running any test or task (such as TDD, Agent Scaffolding, or Commit generat
 |---|---|---|
 | Bug fixing, writing unit tests | `docs/workflows/tdd.md` | `tdd` ➔ `environment-detection` ➔ `verify-before-claim` ➔ `verification-loop` |
 | Save changes, prepare release | `docs/workflows/git-commit.md` | `git-commit` ➔ `rewrite-commits` ➔ `using-git-worktrees` ➔ `verification-loop` |
-| Multi-agent setup, launcher | `docs/workflows/create-agent-launcher.md` | `fable-mode` ➔ `fable-discipline` ➔ `build-multi-agent-system` ➔ `create-agent-launcher` |
+| Multi-agent setup, launcher | `docs/workflows/multi-agent-workspace.md` | `fable-mode` ➔ `fable-discipline` ➔ `multi-agent-workspace` |
 | System refactoring, design | `docs/workflows/improve-codebase-architecture.md` | `improve-codebase-architecture` ➔ `grill-with-docs` ➔ `grill-me` ➔ `fable-mode` |
 
 ### 4c. Interactive Verification Protocol
@@ -392,4 +392,3 @@ When conducting a comprehensive quality audit of the system, **do not directly f
 1. Create a standalone Markdown file under the `docs/reports/` folder.
 2. Naming convention: `evaluation-report-[model-name]-[YYYY-MM-DD].md` (e.g., `evaluation-report-gemini-3.1-pro-2026-07-21.md`).
 3. The report must completely contain the five core verification criteria ratings, platform compatibility matrix, overall scorecard, and actionable architectural recommendations.
-

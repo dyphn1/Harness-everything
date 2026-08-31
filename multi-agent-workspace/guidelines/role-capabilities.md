@@ -1,6 +1,6 @@
 ---
 description: >
-  Capability menu for create-agent-launcher. Maps Karpathy behavioral guidelines and
+  Capability menu for multi-agent-workspace. Maps Karpathy behavioral guidelines and
   skill-derived behaviors to each subAgent role. Consult when generating any agent file.
   Core roles use the templates directly. Specialist and custom roles inject the blocks below
   into templates/specialist-agent.md.

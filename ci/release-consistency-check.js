@@ -15,6 +15,10 @@ const tagIndex = process.argv.indexOf('--tag');
 const tag = tagIndex === -1 ? 'v0.3.3-beta' : process.argv[tagIndex + 1];
 const ignoredPrefixes = new Set(['.claude', '.github', '.cursor', '.codex', '.continue', 'tasks', 'memories', 'specs', 'docs', 'evals']);
 const rootPrefixes = new Set(['hooks', 'harness-everything', 'to-spec', 'to-tickets', 'bin', 'ci', 'skill-creator', 'self-evolve']);
+const releaseRenames = new Map([
+  ['build-multi-agent-system', 'multi-agent-workspace'],
+  ['create-agent-launcher', 'multi-agent-workspace']
+]);
 
 function git(args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -63,8 +67,10 @@ function main() {
     process.exit(2);
   }
   const current = new Set(discoverSkills(root));
-  const missing = [...tagRoot].filter(skill => !current.has(skill));
-  const extra = [...current].filter(skill => !tagRoot.includes(skill));
+  const currentLogical = new Set([...current].map(skill => releaseRenames.get(skill) || skill));
+  const releaseLogical = new Set(tagRoot.map(skill => releaseRenames.get(skill) || skill));
+  const missing = [...releaseLogical].filter(skill => !currentLogical.has(skill));
+  const extra = [...currentLogical].filter(skill => !releaseLogical.has(skill));
   console.log(`Release ${tag}: ${tagRoot.length} skill(s); current tree: ${current.size} skill(s).`);
   if (missing.length || extra.length) {
     if (missing.length) console.error(`Missing from current tree: ${missing.join(', ')}`);
@@ -93,8 +99,10 @@ function main() {
   }
   for (const skill of tagRoot) {
     const files = tagFiles(skill);
-    const sourceFiles = currentFiles(skill);
-    console.log(`  ${skill}: ${files.size} file(s) in ${tag}; ${sourceFiles.size} file(s) in current source`);
+    const currentSkill = current.has(skill) ? skill : releaseRenames.get(skill);
+    const sourceFiles = currentSkill && current.has(currentSkill) ? currentFiles(currentSkill) : new Set();
+    const renameNote = currentSkill && currentSkill !== skill ? ` (renamed to ${currentSkill})` : '';
+    console.log(`  ${skill}: ${files.size} file(s) in ${tag}; ${sourceFiles.size} file(s) in current source${renameNote}`);
   }
   console.log(`Checked ${references} release-tag skill reference(s).`);
   if (failures) {
@@ -109,7 +117,7 @@ function main() {
     console.error(`CURRENT RELEASE CHECK FAILED: ${currentReferences.failures.length} dangling reference(s).`);
     process.exit(1);
   }
-  console.log(`RELEASE SKILL CATALOG PASSED for ${tag}; current source has the same ${tagRoot.length} skill directories.`);
+  console.log(`RELEASE SKILL CATALOG PASSED for ${tag}; current source has the same logical skill catalog (${tagRoot.length} release entries, ${current.size} current directories after merges).`);
 }
 
 if (require.main === module) main();

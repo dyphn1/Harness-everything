@@ -12,7 +12,7 @@ This section visualizes how the `skill-creator` skill executes internally, detai
 graph TD
   Start([New skill request / existing SKILL.md to audit / self-evolve dynamic-generation call after LLM selection]) --> Intent["Capture intent: what it does, the one canonical description sentence, which Tier, does an existing skill already own this ground"]
   Intent --> Draft["Draft: Skill Contract table first, then body sized by information hierarchy (steps vs flat reference vs guides/references)"]
-  Draft --> Test["Test 2-3 realistic prompts via create-agent-launcher: with-skill subagent vs baseline subagent"]
+  Draft --> Test["Test 2-3 realistic prompts via multi-agent-workspace: with-skill subagent vs baseline subagent"]
   Test --> Checklist{"Quality Checklist (§3): SSOT, no duplication >5 lines, every MUST has a real gate, no no-ops, info hierarchy, leading words reused, checkable completion criteria, human-facing description"}
   Checklist -->|Fails| Prune["Prune and rewrite the failing item"]
   Prune --> Checklist
@@ -33,7 +33,7 @@ This diagram illustrates how `skill-creator` is triggered through user requests 
 graph LR
   Router["harness-everything / tier-router.js"] -->|Keyword: skill / skill.md / new skill / write a skill| Creator["skill-creator / SKILL.md"]
   Creator -->|Table shape spec| SkillStyle["skill-style / SKILL.md"]
-  Creator -->|With/without test subagents| Launcher["create-agent-launcher / SKILL.md"]
+  Creator -->|With/without test subagents| Launcher["multi-agent-workspace / SKILL.md"]
   Creator -->|Registers new static skills into| Registry["harness-everything / SKILL.md §5"]
   Evolve["self-evolve / SKILL.md §4"] -->|LLM decides to promote insight| Creator
   Creator -->|Writes dynamic skills to| Generated[".claude/harness-everything/skills/generated/"]
@@ -51,7 +51,7 @@ Here we model concrete real-world scenarios and use cases of the `skill-creator`
 graph TD
   Start1["Developer: 'I want a skill for deploying to AWS'"] --> Intent1["skill-creator §2 Step 1: capture intent, one canonical description sentence"]
   Intent1 --> Draft1["Draft Skill Contract table + steps, push detail to deploy-aws/guides/"]
-  Draft1 --> Test1["Spawn with/without subagents via create-agent-launcher on 2-3 realistic prompts"]
+  Draft1 --> Test1["Spawn with/without subagents via multi-agent-workspace on 2-3 realistic prompts"]
   Test1 --> Check1{Quality Checklist passes?}
   Check1 -->|No| Fix1["Fix flagged item, re-test"]
   Fix1 --> Check1

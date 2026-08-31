@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.6-beta] - 2026-09-01
+
+### Added
+- **Unified multi-agent workspace**: Merged launcher and workspace scaffolding into the routed `multi-agent-workspace` skill with six zones, an immutable router, a local memory indexer, selected-role launcher, and structured handoff manifest.
+- **agency-agents catalog integration**: Added read-only source discovery with division metadata, specialist selection, frontmatter validation, duplicate-name/slug checks, source-revision drift protection, supported-platform validation, and explicit missing-source fallback.
+- **Fresh-workspace integration coverage**: Added fixture tests for fallback, real catalog selection, idempotence, malformed catalog paths, drift, and unsupported platforms.
+
+### Changed
+- **Routing and distribution**: Replaced the two overlapping routed skills with one canonical skill, retained script/README migration stubs, updated plugin/marketplace manifests, docs, and routing eval coverage.
+- **Provenance**: Recorded the local agency-agents snapshot (18 divisions, 258 agents, 14 converter targets) and preserved the upstream MIT attribution without vendoring agent bodies.
+
+---
+
 ## [0.3.5-beta] - 2026-09-01
 
 ### Added

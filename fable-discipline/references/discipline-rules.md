@@ -12,7 +12,7 @@ When executing large architectural tasks, conversation logs expand rapidly, lead
 - **Atomic Commits**: You are NOT allowed to modify dozens of files at once before testing. For every independently functioning logic block completed, advise the human to create a Git Commit as a safe save point.
 
 ## 3. Agent Handoff Protocol
-When `fable-mode` spawns and switches between different sub-agents via `create-agent-launcher`, strict handoff discipline must be observed:
+When `fable-mode` spawns and switches between different sub-agents via `multi-agent-workspace`, strict handoff discipline must be observed:
 - **State Manifest**: The previous agent MUST leave a clear state record (e.g., what APIs were completed, expected inputs/outputs).
 - **Contract Testing**: The very first step for the succeeding agent is to verify if the state manifest left by the previous agent is correct.
 

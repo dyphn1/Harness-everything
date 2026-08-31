@@ -156,6 +156,22 @@ Harness operates through six core cognitive concepts:
 
 ## Repository Index
 
+## Multi-Agent Workspace
+
+Use the canonical `multi-agent-workspace` skill for permanent multi-agent
+infrastructure:
+
+```bash
+node multi-agent-workspace/scripts/scaffold.js --workspace . \
+  --agency-source <path-to-agency-agents> --division engineering --platform codex
+```
+
+The source is read-only input. The generated `.harness/multi-agent/` directory
+records the six zones, selected metadata, supported converter targets,
+launcher, immutable router, memory index, and structured handoff. Omit the
+source for an explicit unavailable-catalog fallback; do not treat it as a
+complete roster.
+
 This repo uses a flat layout (waza/agentskills.io convention). The table below maps each top-level directory to its role.
 
 | Directory | Category | Description |
@@ -172,8 +188,7 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `benchmarks` | **Benchmarks** | BENCHMARK_SOP fixtures and recorded A/B results |
 | `docs` | **Documentation** | Philosophy, architecture, routing, reflection, audit |
 | `references` | **Documentation** | Shared checklists (security, performance, definition-of-done) |
-| `build-multi-agent-system` | **Skill (Tier 3)** | Scaffold multi-agent workspace with zones & memory index |
-| `create-agent-launcher` | **Skill (Tier 3)** | Generate agent launcher specs from requirements |
+| `multi-agent-workspace` | **Skill (Tier 3)** | Scaffold six zones, select agency specialists, and generate bounded launchers |
 | `environment-detection` | **Skill (Tier 2)** | Preflight: detect OS, shell, package manager |
 | `eval-harness` | **Skill (Tier 2)** | Evaluate agent outputs against rubrics |
 | `fable-discipline` | **Skill (Tier 3)** | Enforce Fable execution guardrails |

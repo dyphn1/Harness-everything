@@ -1,0 +1,6 @@
+{
+  "divisions": {
+    "engineering": { "label": "Engineering", "icon": "Code", "color": "#3B82F6" },
+    "testing": { "label": "Testing", "icon": "FlaskConical", "color": "#F59E0B" }
+  }
+}

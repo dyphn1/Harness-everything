@@ -4,7 +4,7 @@ description: Author, audit, and refactor SKILL.md files against one quality bar 
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.6
 ---
 
 # Skill Creator
@@ -34,7 +34,7 @@ SKILL.md authoring and audit.
 
 1. Grep the registry for near-duplicates; the when-to-fire sentence becomes the frontmatter description.
 2. Draft the Contract table first (forces the Enforcement Gate), then steps/flat reference; push branch-only detail to references/.
-3. A/B-test via `create-agent-launcher` subagents; read both transcripts.
+3. A/B-test via `multi-agent-workspace` subagents; read both transcripts.
 4. Run the Quality Checklist; register (static row quotes the description; dynamic below).
 
 ## Dynamic Skill Generation Contract

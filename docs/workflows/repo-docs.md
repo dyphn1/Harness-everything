@@ -33,7 +33,7 @@ This diagram illustrates how the `repo-docs` skill is triggered through user req
 ```mermaid
 graph LR
   Router["harness-everything / tier-router.js"] -->|Keyword: doc / readme / agents-template| RepoDocs["repo-docs / SKILL.md"]
-  RepoDocs -->|Integrates frontmatter constraints into| BMAS["build-multi-agent-system / SKILL.md"]
+  RepoDocs -->|Integrates frontmatter constraints into| BMAS["multi-agent-workspace / SKILL.md"]
   RepoDocs -->|Leverages ADR details generated in| GWD["grill-with-docs / SKILL.md"]
 ```
 
