@@ -31,7 +31,7 @@ jobs:
       - name: Check every SKILL.md passes waza readiness gates
         run: |
           fail=0
-          for dir in $(find . -name "SKILL.md" -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./ci/fixtures/*" -exec dirname {} \; | sort); do
+          for dir in $(find . -name "SKILL.md" -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./ci/fixtures/*" -not -path "./eval-framework/fixtures/*" -exec dirname {} \; | sort); do
             out=$(waza check "$dir" 2>&1) || true
             echo "=== $dir"
             # Hard gates: spec compliance, token budget, trigger sections.
@@ -78,6 +78,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install Node dependencies
+        run: npm ci
       - name: Docs, manifest, and eval-coverage consistency
         run: npm run test:consistency
       - name: Skill executable and deep-dive references resolve

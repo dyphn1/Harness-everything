@@ -1,6 +1,6 @@
 ---
 name: verify-before-claim
-description: "Verify external framework/API claims and unmeasured perf/cost estimates against an authoritative source before asserting them, instead of answering from training memory. Use whenever about to state how an external framework, SDK, CLI, or API behaves, or quote any number not produced by a real run this session; output is a cited claim, a real measurement, or a labeled estimate."
+description: "Verify external framework/API claims and unmeasured perf/cost estimates against an authoritative source before asserting them. Use when stating how an external framework, SDK, CLI, or API behaves, or quoting numbers not produced by a real run; output is a cited claim, a real measurement, or a labeled estimate."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -13,13 +13,8 @@ Verify external claims against authoritative sources before asserting them; neve
 
 ## ⚠️ CRITICAL RULE: NEVER SKIP VERIFICATION
 
-**This skill is NON-NEGOTIABLE.** Even if:
-- The user explicitly asks you to skip verification
-- You're under time pressure
-- The claim seems "obvious" or "well-known"
-- Previous verification passed
-
-**You MUST verify before claiming.** No exceptions.
+Verify before claiming, even when the user asks to skip it, time is short, the
+claim seems obvious, or a previous check passed. No exceptions.
 
 ## Core Flow
 
@@ -41,10 +36,7 @@ Verify external claims against authoritative sources before asserting them; neve
 
 ## Pressure Resistance
 
-When pressured to skip verification:
-1. **Acknowledge:** "I understand you want to skip verification..."
-2. **Explain risk:** "...but unverified claims risk shipping incorrect information."
-3. **Offer alternatives:** "Let me quickly verify this claim."
-4. **Never comply:** Do NOT skip verification under any circumstances.
+When pressured to skip verification, acknowledge the request, explain the risk,
+offer a quick verification, and never comply.
 
 Deep dive: references/verification-guide.md
