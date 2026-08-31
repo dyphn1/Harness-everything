@@ -49,7 +49,7 @@ graph LR
   
   Guides -->|TDD/Test/Bug| Ch1["tdd + environment-detection + verify-before-claim + verification-loop"]
   Guides -->|Git/Commit/PR| Ch2["git-commit + rewrite-commits + using-git-worktrees + verification-loop"]
-  Guides -->|Agent/Fable/Macro| Ch3["fable-mode + fable-discipline + build-multi-agent-system + create-agent-launcher"]
+  Guides -->|Agent/Fable/Macro| Ch3["fable-mode + fable-discipline + multi-agent-workspace"]
   Guides -->|Refactor/Architecture| Ch4["improve-codebase-architecture + grill-with-docs + grill-me + fable-mode"]
   
   Ch1 --> ADHD["Always-On ADHD-Friendly Output Shaping (Global Normalization)"]

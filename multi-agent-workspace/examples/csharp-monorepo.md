@@ -1,5 +1,5 @@
 ---
-description: "Output example for create-agent-launcher applied to a fictional C# super-monorepo project (Contoso Workbench). Shows the Context Profile from project discovery and the expected generated agent content."
+description: "Output example for multi-agent-workspace applied to a fictional C# super-monorepo project (Contoso Workbench). Shows the Context Profile from project discovery and the expected generated agent content."
 ---
 
 # Example: C# Super-Monorepo (Contoso Workbench)

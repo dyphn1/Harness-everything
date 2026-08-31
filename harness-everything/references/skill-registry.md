@@ -23,8 +23,7 @@ Every skill in this repository is reachable from this router. If a task matches 
 | `fable-mode/fable-haiku` | Tier 3 (opt-in) | User explicitly asks for staged execution on Haiku for bulk mechanical work. |
 | `fable-mode/fable-sonnet` | Tier 3 (opt-in) | User explicitly asks for staged execution on Sonnet for bounded reasoning or synthesis. |
 | `fable-mode/fable-opus` | Tier 3 (opt-in) | User explicitly asks for staged execution on Opus for orchestration or high-stakes architecture. |
-| `create-agent-launcher` | Tier 3 | Spawning specialized sub-agents. |
-| `build-multi-agent-system` | Tier 3 | Scaffolding a multi-agent workspace. |
+| `multi-agent-workspace` | Tier 3 | Scaffolding a multi-agent workspace and selecting bounded specialists. |
 | `repo-docs` | Tier 3 | Creating project-level documentation. |
 | `grill-with-docs` | Tier 3 | Documenting decisions (ADR / CONTEXT) before large designs. |
 | `to-spec` | Tier 2/3 (advisory, never a gate) | Synthesizing the (already-settled) conversation into whichever doc shape fits — feature spec, CLI/API reference, schema doc, or dev doc — published to this repo's issue tracker. Explicit-invoke only — never auto-executed. |

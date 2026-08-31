@@ -4,7 +4,7 @@ description: Enforce fable-mode's context discipline as a shadow guard. Use when
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.6
 ---
 
 # Fable Discipline (Macro Task Discipline & Safety Net)
@@ -15,7 +15,7 @@ metadata:
 | :--- | :--- |
 | **Trigger / Input** | Background shadow for the whole duration `fable-mode` is active — not a standalone one-shot trigger. |
 | **Expected Output** | State compaction after milestones; one Git commit per independent logic block; a state manifest at every sub-agent handoff. |
-| **State Mutations** | None of its own — constrains how `fable-mode` and `create-agent-launcher` mutate state. |
+| **State Mutations** | None of its own — constrains how `fable-mode` and `multi-agent-workspace` mutate state. |
 | **Enforcement Gate** | **HALTS execution immediately** if build errors diverge (more fixes → more breakage); forces `zoom-out` instead of continued patching. |
 
 Shadow guard for `fable-mode`: MUST run in the background for its whole duration.
@@ -23,7 +23,7 @@ Shadow guard for `fable-mode`: MUST run in the background for its whole duration
 ## USE FOR:
 - Long architectural tasks under `fable-mode`
 - Compacting state after milestones
-- Sub-agent handoffs via `create-agent-launcher`
+- Sub-agent handoffs via `multi-agent-workspace`
 - Halting on diverging build errors
 
 ## DO NOT USE FOR:

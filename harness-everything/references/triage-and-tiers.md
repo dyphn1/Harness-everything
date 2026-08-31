@@ -76,14 +76,14 @@ If you are running in VS Code or GitHub Copilot, you do not have automated hooks
 - You **MUST** proactively run the tier-router script (`node "<this-skill-dir>/scripts/tier-router.js" "<prompt>"` or `npx github:dyphn1/Harness-everything next "<prompt>"`) or simulate its routing logic manually at the start.
 - **NEVER degrade newly added features or structural extensions to Tier 1.** Copilot is highly prone to treating new feature requests as trivial Tier 1 direct edits. If the request adds *any* new logic, a new API endpoint, or a new file/module, it **MUST** be triaged as **Tier 2 (Standard Task)** or **Tier 3 (Macro Task)**. This activates:
   1. The `todo-driven-workflow` checklist (mandatory step-by-step progress tracking).
-  2. Multi-agent spawning / sub-agents via `create-agent-launcher` or macro plan orchestration via `fable-mode`.
+  2. Multi-agent spawning / sub-agents via `multi-agent-workspace` or macro plan orchestration via `fable-mode`.
   3. The memory summarization & evolution sequence via `self-evolve` upon completion, ensuring new knowledge is registered in workspace memory.
 
 ### Tier 1: Trivial Tasks & Daily Chores
 - **Characteristics**: Fixing typos, simple modifications to a single function, asking/explaining code, syntax adjustments. Or simple `git-commit` and `rewrite-commits`.
 - **Action Strategy (Direct Execution)**:
   - **PROHIBITED** from writing large plans.
-  - **PROHIBITED** from calling `create-agent-launcher` or `fable-mode`.
+  - **PROHIBITED** from calling `multi-agent-workspace` or `fable-mode`.
   - Execute the modification directly based on requirements, or load `git-commit` / `rewrite-commits`. Perform a simple `[Record]` after modifying.
 
 ### Tier 2: Standard Tasks & Architectural Review
@@ -102,12 +102,12 @@ If you are running in VS Code or GitHub Copilot, you do not have automated hooks
 ### Tier 3: Macro Tasks & Documentation
 - **Characteristics**: New project initialization, low-level architecture refactoring, vague and massive requirements (e.g., "Help me write a user login system"). Or lack of global documentation.
 - **Action Strategy (Multi-Agent Orchestration & Domain Infusion)**:
-  - If initializing a multi-agent system workspace, load `build-multi-agent-system` to scaffold the 6 functional zones, memory relational indexes, and immutable routing laws.
+  - If initializing a multi-agent system workspace, load `multi-agent-workspace` to scaffold the 6 functional zones, memory index, immutable router, and agency catalog.
   - If project-level documentation needs to be created, load `repo-docs`.
   - If establishing a large system design, strongly recommend loading `grill-with-docs` first to document decisions (ADR, CONTEXT) before proceeding. Once those decisions are settled, load `to-spec` to synthesize the conversation into whichever doc shape fits — a full feature spec (PRD) is the common case here, but `to-spec` also covers CLI/API reference, schema doc, and dev-doc shapes for narrower Tier 3 work. `to-spec` never re-interviews; if it hits an unresolved fork, that's a sign `grill-with-docs`/`grill-me` needed another pass first, not a cue to ask ad hoc questions.
   - `to-spec` is advisory in both Tier 2 and Tier 3 — never a required gate. Its own internal Step 0 is mechanized, not advisory: it runs `node to-spec/scripts/check-project-docs.js check` to see whether this repo's own `harness-everything/manifest.json` already has a complete `projectDocs` entry (document location + issue tracker + issue definition) — Exit 0 skips straight past it, Exit 1 runs a one-time setup interview and persists the answer via the script's `init` subcommand. That reuses the same manifest this package and `self-evolve` already own, repo-local only (never the global `~/.agents`/`~/.claude` homes, since this data must not leak across projects). Its output is what `to-tickets` reads to cut clean vertical slices afterward.
   - Once a `to-spec` feature spec exists (or the user just wants an already-settled plan/conversation broken down directly), load `to-tickets` to cut it into tracer-bullet tickets with declared blocking edges. It runs the *same* `check-project-docs.js check` gate `to-spec` does — never a second copy of that interview — and publishes through the identical `tracker`/`issueDefinition` fields, so the repo only ever answers "where do issues live" once. Quizzes the user on the proposed breakdown (granularity, blocking edges) before publishing; never forces multi-ticket decomposition onto a `to-spec` doc that was already a single unit of work (a `cli-reference`/`schema-doc`/`dev-doc` shape).
-  - **Sub-Agent Specialization**: When calling `create-agent-launcher`, you MUST inject robust Domain Skills into the sub-agent's persona (e.g., passing `database-reviewer` and `backend-patterns` to a Backend Sub-Agent). Do not create generic, empty-shell agents.
+  - **Sub-Agent Specialization**: When calling `multi-agent-workspace`, you MUST inject robust Domain Skills into the sub-agent's persona (e.g., selecting an agency specialist for a Backend Sub-Agent). Do not create generic, empty-shell agents.
   - Development execution: Automatically load `fable-mode` and `fable-discipline`. The macro plan produced in fable-mode's Discovery phase MUST be materialized as the `todo-driven-workflow` checklist — sub-agent handoffs and milestone checks are tracked there, not in prose.
   - **Pre-Delivery Gate**: Same as Tier 2 — run `verification-loop` (and `security-review` where applicable) before the final handoff.
 

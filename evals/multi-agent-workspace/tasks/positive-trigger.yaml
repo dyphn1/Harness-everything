@@ -1,0 +1,15 @@
+id: positive-multi-agent-workspace-001
+name: On-scope prompt triggers multi-agent-workspace
+description: "Scaffold a verified multi-agent workspace and select bounded specialists from an external agency-agents catalog without vendoring the full roster."
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Scaffold a six-zone multi-agent workspace from our agency-agents source and select engineering specialists for a bounded launcher."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "multi-agent-workspace"

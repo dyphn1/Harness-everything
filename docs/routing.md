@@ -51,7 +51,7 @@ Upon receiving a software engineering request, the `tier-router.js` script analy
 
 ### Tier 3: Macro Tasks (Multi-Agent/Fable-Mode)
 *   **Trigger criteria:** High-level design changes, migration of modules, large-scale refactoring, or major capability additions affecting multiple domains.
-*   **Behavior:** Harness automatically spawns the multi-agent orchestration engine (`fable-mode` and `create-agent-launcher`), with the macro plan materialized via `todo-driven-workflow`.
+*   **Behavior:** Harness automatically spawns the multi-agent orchestration engine (`fable-mode` and `multi-agent-workspace`), with the macro plan materialized via `todo-driven-workflow`.
     1.  **Planning & Alignment:** Perform grilling (`grill-me` / `grill-with-docs`), present an outline preview via `to-spec`, and publish formal specs or vertical-slice tickets (`to-tickets`).
     2.  **Delegation:** Specialized sub-agents (or inline persona role-switches) handle specific work streams or audits.
     3.  **Handoffs & Memory:** Milestone progress is saved to `todo-driven-workflow` state, and lessons learned are recorded via `self-evolve` (enforcing the 60-line cleanliness and lazy-loading rule).

@@ -1,6 +1,6 @@
-name: build-multi-agent-system-routing-eval
-description: Trigger precision eval for the build-multi-agent-system skill.
-skill: build-multi-agent-system
+name: multi-agent-workspace-routing-eval
+description: Trigger precision eval for the multi-agent-workspace skill.
+skill: multi-agent-workspace
 version: "1.0"
 config:
   trials_per_task: 1
@@ -12,7 +12,7 @@ metrics:
   - name: task_completion
     weight: 0.7
     threshold: 0.8
-    description: Did build-multi-agent-system trigger exactly when it should?
+    description: Did multi-agent-workspace trigger exactly when it should?
   - name: efficiency
     weight: 0.3
     threshold: 0.7

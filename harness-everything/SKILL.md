@@ -4,7 +4,7 @@ description: "Triage new software requests into Tier 1/2/3 before work begins. U
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.5
+  version: 0.3.6
 ---
 
 # Harness Everything
@@ -37,6 +37,6 @@ metadata:
 
 - **Tier 1:** Trivial edits; direct edit only.
 - **Tier 2:** Standard changes; use `todo-driven-workflow`, `tdd`, and `verification-loop`.
-- **Tier 3:** Macro work; use `fable-mode` and `fable-discipline`, select Haiku/Sonnet/Opus via the model matrix, and delegate through `create-agent-launcher`.
+- **Tier 3:** Macro work; use `fable-mode` and `fable-discipline`, select Haiku/Sonnet/Opus via the model matrix, and delegate through `multi-agent-workspace`.
 
 See `references/triage-and-tiers.md` for the full routing contract.

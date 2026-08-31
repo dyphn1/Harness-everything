@@ -4,7 +4,7 @@ description: "Turn the conversation into a written spec — feature PRD, CLI/API
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.6
 ---
 
 # To Spec
@@ -26,7 +26,7 @@ Turns the conversation into one published spec artifact. No interviewing — `gr
 2. Zero-trust context: cite `Evidence: <file:line> -> Finding: <meaning>`; blocking forks mean run `grill-me`/`grill-with-docs` first.
 3. Mandatory outline preview (closest fit, 10-20 lines + target path); write only after user confirms.
 4. Publish to `specs/<feature-slug>.md` (`Status: ready-for-agent`) or `reference/`, `adr/`.
-5. Golden Flow: Feature spec needs a Design Audit (`create-agent-launcher`) before `/to-tickets`.
+5. Golden Flow: Feature spec needs a Design Audit (`multi-agent-workspace`) before `/to-tickets`.
 
 Templates: `templates/feature-spec.md`, `templates/cli-reference.md`, `templates/schema-doc.md`, `templates/dev-doc.md`
 
