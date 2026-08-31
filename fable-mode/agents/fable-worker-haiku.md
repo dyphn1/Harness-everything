@@ -28,6 +28,10 @@ Rules, in order:
 5. **Report format:** artifact path, check command, check output, blockers.
    Short.
 
+Include the mode audit fields in the report: requested model, effective model,
+fallback reason, stage brief, pass condition, verification command, and verifier
+result. A fallback or blocker must remain visible in the report.
+
 Do not spawn subagents.
 
 Operational rules (mandatory):

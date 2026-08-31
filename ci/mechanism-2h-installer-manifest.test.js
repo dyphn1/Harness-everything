@@ -90,6 +90,58 @@ helper.check(
   `Manifest file still exists after removing all entries!`
 );
 
+// 6. Verify Fable agent definitions install into the native Claude agent
+// directory, preserve a conflicting user file, and are manifest tracked.
+const agentTargetDir = path.join(manifestMockWs, 'agents');
+const agentManifestPath = path.join(manifestMockWs, 'agent-manifest.json');
+fs.mkdirSync(agentTargetDir, { recursive: true });
+const conflictPath = path.join(agentTargetDir, 'fable-orchestrator.md');
+fs.writeFileSync(conflictPath, '---\nname: fable-orchestrator\n---\nuser-owned\n', 'utf8');
+skillsHelper.installAgentsToTarget({
+  target: { path: agentTargetDir, label: 'test-agents/', manifestPath: agentManifestPath },
+  harnessSourceDir: path.join(__dirname, '..'),
+  packageVersion: '1.0.0'
+});
+const installedAgents = manifestHelper.readManifest(agentManifestPath).agents;
+helper.check(
+  '2h. Fable agents are manifest tracked without overwriting a conflicting file',
+  installedAgents.length === 3 &&
+    fs.readFileSync(conflictPath, 'utf8').includes('user-owned') &&
+    fs.existsSync(path.join(agentTargetDir, 'fable-verifier.md')),
+  `Got: ${JSON.stringify(installedAgents)}`
+);
+
+for (const agent of [...installedAgents]) {
+  skillsHelper.removeAgent({ ...agent, manifestPath: agentManifestPath });
+}
+helper.check(
+  '2h. Removing Fable agents removes only tracked files and manifest state',
+  fs.existsSync(conflictPath) && !fs.existsSync(agentManifestPath),
+  `Agent conflict or manifest was removed unexpectedly`
+);
+
+const identicalPath = path.join(agentTargetDir, 'fable-verifier.md');
+fs.copyFileSync(path.join(__dirname, '..', 'fable-mode', 'agents', 'fable-verifier.md'), identicalPath);
+skillsHelper.installAgentsToTarget({
+  target: { path: agentTargetDir, label: 'test-agents/', manifestPath: agentManifestPath },
+  harnessSourceDir: path.join(__dirname, '..'),
+  packageVersion: '1.0.0'
+});
+const secondInstall = manifestHelper.readManifest(agentManifestPath).agents;
+helper.check(
+  '2h. Pre-existing identical agent is not claimed as Harness-owned',
+  secondInstall.length === 2,
+  `Got: ${JSON.stringify(secondInstall)}`
+);
+for (const agent of [...secondInstall]) {
+  skillsHelper.removeAgent({ ...agent, manifestPath: agentManifestPath });
+}
+helper.check(
+  '2h. Pre-existing identical agent survives tracked-agent removal',
+  fs.existsSync(conflictPath) && fs.existsSync(identicalPath),
+  `A pre-existing agent was removed unexpectedly`
+);
+
 fs.rmSync(manifestMockWs, { recursive: true, force: true });
 
 helper.finish();

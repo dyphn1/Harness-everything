@@ -106,6 +106,39 @@ function installSkillsToTargets({ chosenSkills, targetDirs, harnessSourceDir, pa
   }
 }
 
+function installAgentsToTarget({ target, harnessSourceDir, packageVersion }) {
+  const sourceDir = path.join(harnessSourceDir, 'fable-mode', 'agents');
+  if (!fs.existsSync(sourceDir) || !target || !target.path || !target.manifestPath) return;
+
+  fs.mkdirSync(target.path, { recursive: true });
+  const trackedPaths = new Set(
+    (manifest.readManifest(target.manifestPath).agents || []).map(agent => agent.filePath)
+  );
+  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+    const sourcePath = path.join(sourceDir, entry.name);
+    const destPath = path.join(target.path, entry.name);
+    if (fs.existsSync(destPath)) {
+      const source = fs.readFileSync(sourcePath, 'utf8');
+      const existing = fs.readFileSync(destPath, 'utf8');
+      if (source !== existing) {
+        console.warn(`  ⚠️ Preserved existing agent without overwrite: ${destPath}`);
+        continue;
+      }
+      if (!trackedPaths.has(destPath)) {
+        console.warn(`  ⚠️ Preserved pre-existing identical agent without claiming ownership: ${destPath}`);
+        continue;
+      }
+    } else {
+      fs.copyFileSync(sourcePath, destPath);
+      console.log(`  ✅ Installed agent: ${target.label}${entry.name}`);
+    }
+    const agentInfo = parseFrontmatter(sourcePath);
+    const agentName = (agentInfo && agentInfo.name) || entry.name.replace(/\.md$/i, '');
+    manifest.recordAgentInstall(target.manifestPath, packageVersion, agentName, destPath);
+  }
+}
+
 function manifestTrackedSkills(manifestPath, scopeLabel) {
   const data = manifest.readManifest(manifestPath);
   const results = [];
@@ -177,6 +210,24 @@ function getInstalledSkills(workspaceRoot, userHome) {
   return results;
 }
 
+function getInstalledAgents(workspaceRoot, userHome) {
+  const homes = [
+    { home: path.join(workspaceRoot, '.claude'), scope: 'local (Claude)' },
+    { home: path.join(userHome, '.claude'), scope: 'global (Claude)' },
+  ];
+  const results = [];
+  for (const { home, scope } of homes) {
+    const manifestPath = manifest.getManifestPath(home);
+    const data = manifest.readManifest(manifestPath);
+    for (const entry of data.agents || []) {
+      if (entry.filePath && fs.existsSync(entry.filePath)) {
+        results.push({ ...entry, scope, manifestPath });
+      }
+    }
+  }
+  return results;
+}
+
 function removeSkill(entry) {
   if (fs.existsSync(entry.dirPath)) {
     fs.rmSync(entry.dirPath, { recursive: true, force: true });
@@ -186,12 +237,24 @@ function removeSkill(entry) {
   }
 }
 
+function removeAgent(entry) {
+  if (entry.filePath && fs.existsSync(entry.filePath)) {
+    fs.unlinkSync(entry.filePath);
+  }
+  if (entry.manifestPath) {
+    manifest.removeAgentFromManifest(entry.manifestPath, entry.filePath);
+  }
+}
+
 module.exports = {
   copyDir,
   getAvailableSkills,
   getSkillInfo,
   isHarnessSkillDir,
   installSkillsToTargets,
+  installAgentsToTarget,
   getInstalledSkills,
+  getInstalledAgents,
   removeSkill,
+  removeAgent,
 };

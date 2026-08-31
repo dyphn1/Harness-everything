@@ -4,41 +4,39 @@ description: "Triage new software requests into Tier 1/2/3 before work begins. U
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.5
 ---
 
-# Harness Everything (System Main Entry & Dynamic Router)
+# Harness Everything
 
 ## USE FOR:
-- Triage new software tasks upfront
+- Triage new software tasks before implementation.
 
 ## DO NOT USE FOR:
-- Chat / general Q&A — reply directly, no Checkpoint
+- Chat or general Q&A.
+- Non-software writing.
+- Requests that already name a skill.
 
-## 📋 Skill Contract
+## Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger** | New request, no skill indicated. |
-| **Output** | Mandatory `🚦 Routing Checkpoint`. |
-| **Mutations** | None; Tier 2/3 init todo workflow. |
-| **Gate** | MUST run `scripts/tier-router.js` before edits. |
+| **Trigger** | New software request with no skill indicated. |
+| **Output** | Print a Routing Checkpoint with tier and rationale. |
+| **Mutations** | None; Tier 2/3 starts native TODO or Markdown tracking. |
+| **Gate** | Run `scripts/tier-router.js` before edits. |
 
 ## Workflow
 
-1. Unless a hook ran it: `node "<this-skill-dir>/scripts/tier-router.js" "<prompt summary>"`
-2. Print the Checkpoint, execute by tier.
-3. On `[Self-Heal]` warnings run `scripts/self-heal.js`.
-4. Rule of 3 failures → `zoom-out` → `self-evolve`.
+1. Unless a hook ran it, run `node "<this-skill-dir>/scripts/tier-router.js" "<prompt summary>"`.
+2. Print the checkpoint and execute the selected tier.
+3. On `[Self-Heal]` warnings, run the named self-heal script.
+4. After three same-signature failures, use `zoom-out`, then `self-evolve`.
 
-## 🚦 Harness OS Routing Checkpoint
+## Routing
 
-- **Active Tier**: Tier X (Name)
-- **Rationale**: 1-line router reason.
-- **Routed Skills & Actions**: `path` (why)| Tier | Characteristics | Action |
-| :--- | :--- | :--- |
-| **1 Trivial** | Typos, single-function tweaks | Direct edit only; no plans/sub-agents/`fable-mode`. |
-| **2 Standard** | One endpoint, bug, 2-3 files | `todo-driven-workflow` FIRST, context trace, `tdd`; gate: `verification-loop` (+`security-review`). |
-| **3 Macro** | New project, architecture refactor | `fable-mode` + `fable-discipline`, sub-agents via `create-agent-launcher`; advisory `to-spec`/`to-tickets`. |
+- **Tier 1:** Trivial edits; direct edit only.
+- **Tier 2:** Standard changes; use `todo-driven-workflow`, `tdd`, and `verification-loop`.
+- **Tier 3:** Macro work; use `fable-mode` and `fable-discipline`, select Haiku/Sonnet/Opus via the model matrix, and delegate through `create-agent-launcher`.
 
-Deep dive: references/triage-and-tiers.md
+See `references/triage-and-tiers.md` for the full routing contract.

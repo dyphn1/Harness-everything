@@ -1,47 +1,27 @@
 # Execution Guide (Deep Dive)
 
-## Tool Selection Matrix
+## Tracker selection
 
 ```mermaid
 flowchart TD
-    Start[Task Requires Step-by-Step Tracking] --> CheckNativeTool{Agent / IDE Has Native TODO Tool?}
-    CheckNativeTool -- Yes --> UseNative[Use Native TODO Tool]
-    CheckNativeTool -- No --> FileFallback[Create or update workspace Markdown checklist]
-    UseNative --> Loop[Think > Try > Summarize > Record]
-    FileFallback --> Loop
+  Start[Task needs milestones] --> Native{Native TODO tracker available?}
+  Native -->|Yes| Host[Use the host tracker]
+  Native -->|No| Markdown[Create tasks/todo.md or .github/harness-everything/todo.md]
+  Host --> One[Keep exactly one item in-progress]
+  Markdown --> One
+  One --> Check[Run the named verification command]
+  Check --> Record[Record evidence and mark the item complete]
 ```
 
-## Execution Rules
+## Rules
 
-1. If the environment provides a native TODO tool such as `manage_todo_list`,
-   use it as the primary tracker. Keep exactly one item in progress.
-2. Otherwise create or update a workspace checklist such as `tasks/todo.md`,
-   `todo.md`, or `.github/harness-everything/todo.md`.
-3. Keep the checklist short: 3-7 verifiable items for a multi-step task.
-4. Mark an item complete only after the real verification command passes.
+1. Define 3-7 verifiable milestones before changing files.
+2. Prefer the host's native TODO tool and preserve its status history.
+3. If no native tracker exists, use a Markdown checklist in the repository or platform project-instructions area.
+4. Each item names its output, pass condition, and verification command.
+5. Keep one item `in-progress`; complete it from evidence before starting another.
+6. When parallel agents are active, isolate their writes with `using-git-worktrees` and merge only after scope review.
 
-## Multi-Agent Concurrency & Isolation
-
-When multiple sub-agents work in parallel, use `using-git-worktrees` so each
-agent has a separate filesystem and checklist.
-
-## Execution Loop
-
-### Think
-
-State the goal and split it into bounded, verifiable sub-tasks.
-
-### Record
-
-Initialize the native checklist, or write markdown checklist items before
-modifying code.
-
-### Try and Verify
-
-Mark one item in progress, execute the work, and run the relevant test or
-verification gate.
-
-### Summarize
-
-Record actual command output and blockers. Add a concrete follow-up item when
-the diagnosis changes; do not create a second tracker.
+The former repository TODO CLI is intentionally not a fallback. This keeps
+tracking native to the host or transparent in Markdown and avoids shared
+cross-session state collisions.

@@ -17,6 +17,9 @@ expectations:
   - type: trace_not_contains
     value: "creating a checklist"
     description: no checklist machinery for a one-line fix
+  - type: trace_not_contains
+    value: "stage map"
+    description: no macro planning machinery for a one-line fix
   - type: file_contains
     path: README.md
     value: "Installation"

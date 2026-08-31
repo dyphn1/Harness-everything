@@ -1,7 +1,7 @@
 {
   "name": "harness-everything",
   "description": "Harness OS: an orchestrated agent operating system — tier routing, circuit breaker guardrails, verification gates, WAL session memory, and self-evolving workspace rules.",
-  "version": "0.3.4-beta",
+  "version": "0.3.5-beta",
   "author": {
     "name": "Miya Daniel"
   },
@@ -19,6 +19,7 @@
     "verification"
   ],
   "hooks": "./hooks/hooks.json",
+  "agents": "./fable-mode/agents",
   "skills": [
     "./build-multi-agent-system",
     "./create-agent-launcher",

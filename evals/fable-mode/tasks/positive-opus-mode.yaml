@@ -1,15 +1,16 @@
-id: positive-fable-mode-001
-name: On-scope prompt triggers fable-mode
+id: positive-fable-opus-004
+name: Explicit Opus mode routes macro orchestration
 description: "Stage large, multi-source or multi-session tasks through a written plan, named fable agents, failable per-stage checks, and skeptical delivery review; use fable-opus, fable-sonnet, or fable-haiku for explicit model selection."
 tags:
   - positive-trigger
+  - fable-opus
 inputs:
-  prompt: "Execute this large multi-phase refactor of the persistence layer using parallel sub-agent workers."
+  prompt: "Fable on opus: orchestrate the cross-service migration, delegate artifacts to named workers, and cold-verify the final architecture decision."
 expected:
   should_trigger: true
 graders:
   - type: text
-    name: contains-keywords
+    name: routes-opus
     config:
       contains:
-        - "worker"
+        - "opus"

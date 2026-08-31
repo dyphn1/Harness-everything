@@ -4,16 +4,16 @@ description: "Enforce a deliberate step-by-step execution loop for complex multi
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.5
 ---
 
 # Todo-Driven Workflow
 
-Single-task milestones prevent context drift (Tier 2/3).
+Single-task milestones prevent context drift in Tier 2/3 work.
 
 ## USE FOR:
 - Track multi-step, multi-file development tasks
-- Enforce single-task execution discipline
+- Enforce exactly one active milestone
 
 ## DO NOT USE FOR:
 - Trivial single-file edits
@@ -23,27 +23,18 @@ Single-task milestones prevent context drift (Tier 2/3).
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Tier 2/3 task; high-level description. |
-| **Expected Output** | TODO state via the native tracker or markdown. |
-| **State Mutations** | Updates the native tracker or `tasks/todo.md`. |
-| **Enforcement Gate** | ONE active `in-progress` task at a time. |
-
-## Tool Selection
-
-1. Native TODO tool -> primary tracker; complete items immediately.
-2. Otherwise -> markdown checklist (`tasks/todo.md`, `.github/harness-everything/todo.md`).
-
-Parallel sub-agents: one worktree each via `using-git-worktrees`.
+| **Trigger / Input** | Tier 2/3 task with a high-level description. |
+| **Expected Output** | Native TODO state or a Markdown checklist with verifiable milestones. |
+| **State Mutations** | Host-native TODO state or `tasks/todo.md` / `.github/harness-everything/todo.md`. |
+| **Enforcement Gate** | Exactly one milestone is `in-progress`; verify before marking it complete. |
 
 ## Execution Loop: Think > Try > Summarize > Record
 
-1. [Think] State the goal; break into 3-7 verifiable sub-tasks.
-2. [Record] Initialize the native tracker, or create the markdown checklist, before code changes.
-3. Per task: mark one item in-progress -> execute -> verify -> mark it complete.
-4. On blockers: add a concrete blocked/follow-up item to the same tracker.
+1. [Think] State the goal and split it into 3-7 checkable milestones.
+2. [Record] Initialize the native host tracker before edits; if unavailable, create a Markdown checklist.
+3. Start exactly one milestone, execute only its scope, and run its named check.
+4. Mark it complete only after evidence passes; then start the next milestone.
+5. Record blockers in the checklist and escalate after the applicable circuit-breaker threshold.
 
-Harness no longer ships a todo CLI. The native tracker or a workspace markdown
-checklist is the canonical record; this skill does not create a second state
-machine or require a process exit code to advance.
-
-Deep dive: references/execution-guide.md
+Native TODO tools take priority. Markdown is the portable fallback; this skill
+does not depend on a repository CLI state machine. See `references/execution-guide.md`.

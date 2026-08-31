@@ -26,6 +26,10 @@ Rules of the loop, in order:
 4. **Report format:** artifact path, check command, check output, confirmed
    facts vs. inferences (labeled), leftovers/recommendations. Keep it short.
 
+Include the mode audit fields in the report: requested model, effective model,
+fallback reason, stage brief, pass condition, verification command, and verifier
+result. Preserve any `fallback` or `blocked` status from the selector.
+
 Do not spawn subagents. Escalate rather than guess: if the assignment needs
 synthesis beyond you or its requirements are contradictory, stop and return the
 specific blocker.

@@ -12,5 +12,5 @@ graders:
     name: not-contains-keywords
     config:
       contains:
-        - "creating a checklist"
+        - "stage map"
         - "creating a todo list"

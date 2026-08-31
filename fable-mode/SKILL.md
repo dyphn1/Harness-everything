@@ -1,43 +1,39 @@
 ---
 name: fable-mode
-description: Plan and execute complex Tier 3 macro tasks by breaking multi-domain requirements into architectural milestones and delegating sub-agents. Use for multi-domain work or major scaffolding; outputs milestone TODO plans, sub-agent briefs, verified gates.
+description: "Stage large, multi-source or multi-session tasks through a written plan, named fable agents, failable per-stage checks, and skeptical delivery review; use fable-opus, fable-sonnet, or fable-haiku for explicit model selection."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.5
 ---
 
-# Fable Mode (Macro Task Planning & Execution Engine)
+# Fable Mode (v3)
 
-## 📋 Skill Contract
+## Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Tier 3 Task; multi-domain requirement or scaffolding. |
-| **Expected Output** | Breakdown, milestone TODOs, handoffs, verification. |
-| **State Mutations** | TODO checklist via `todo-driven-workflow` (`manage_todo_list` or `tasks/todo.md`). |
-| **Enforcement Gate** | Run `harness-everything/scripts/verify-gate.js` or tests at boundaries. |
+| **Trigger / Input** | Tier 3 work spanning multiple files, sources, or sessions. |
+| **Expected Output** | Stage map, named-agent briefs, failable checks, and skeptical review. |
+| **State Mutations** | Native host TODO tracker or a Markdown checklist; one JSON audit record per stage. |
+| **Enforcement Gate** | `fable-mode/scripts/model-selector.js`, stage contracts, and `harness-everything/scripts/verify-gate.js`. |
+
+## USE FOR:
+- Large multi-file, multi-source, or multi-session work
+- Explicit `fable on haiku`, `fable on sonnet`, or `fable on opus` requests
+- Work needing named delegation and cold verification
+
+## DO NOT USE FOR:
+- One obvious single-pass edit
+- Ordinary Tier 2 implementation or bugfix work
 
 ## Workflow
 
-1. **Plan** with `fable-discipline`: deconstruct into bounded sub-tasks; **Scope Lock**: define the authorized file scope first, block anything outside it.
-2. **Track**: load `todo-driven-workflow` (`manage_todo_list` / `tasks/todo.md`).
-3. **Delegate** via `create-agent-launcher` with bounded briefs; persona role-switch if no sub-agent tool.
-4. **Verify**: check output against `hooks/scripts/subagent-scope-guard.js`; integration-test at milestones.
-5. **Gate**: fan out QA/Security/Performance audits of the Git Diff via `create-agent-launcher`; regress on any `Blocker`.
-6. **Transition** to `tdd` for standard features.
+1. Discover the runtime and lock the authorized file scope before edits.
+2. Write a numbered stage map with one artifact and pass condition per stage; allow at most two full replans.
+3. Resolve the requested model with `model-selector.js`; never silently downgrade.
+4. Delegate by named agent where available: Opus orchestrates, Sonnet reasons, Haiku handles mechanical work, and workers never spawn workers.
+5. Write a stage contract, run its named check, then cold-review high-stakes artifacts with `fable-verifier`.
+6. Record requested/effective model, fallback reason, stage brief, pass condition, verification command, and verifier result for every stage. Escalate unresolved blockers.
 
-## Sub-Skills
-`execution-guardrails/`, `fable-haiku/`, `agents/fable-orchestrator` (spawn via Task tool).
-
-## USE FOR:
-- "plan this multi-domain feature end to end"
-- "break this requirement into milestones"
-- "delegate subtasks to agents"
-- "orchestrate major scaffolding"
-
-## DO NOT USE FOR:
-- Standard Tier 2 features or bugfixes (use `tdd`)
-- Single-file edits or small refactors
-
-Deep dive: references/execution-phases.md
+Model roles, fallback behavior, and the audit schema live in `references/model-matrix.md`.

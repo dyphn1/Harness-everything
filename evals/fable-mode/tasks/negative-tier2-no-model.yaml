@@ -1,0 +1,18 @@
+id: negative-fable-model-005
+name: Ordinary Tier 2 work does not select a fable model
+description: A normal Tier 2 bugfix must not route to a model-pinned fable entrypoint.
+tags:
+  - negative-trigger
+  - tier-2
+inputs:
+  prompt: "Fix this checkout bug with a regression test; keep the change to the affected module."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: no-model-pinned-route
+    config:
+      contains:
+        - "fable-opus"
+        - "fable-sonnet"
+        - "fable-haiku"

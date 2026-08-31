@@ -66,7 +66,7 @@ The installer only ever writes to your workspace (or, with `--global`, your home
 
 | File / Directory | Purpose |
 |---|---|
-| `.claude/settings.json` (merged) + `.claude/skills/` | Claude Code lifecycle hooks and project skills |
+| `.claude/settings.json` (merged) + `.claude/skills/` + `.claude/agents/` | Claude Code lifecycle hooks, project skills, and named Fable agents |
 | `.cursorrules` | Cursor advisory rules |
 | `.github/copilot-instructions.md` | Copilot Chat advisory instructions |
 | `AGENTS.md` | Codex advisory instructions |
@@ -212,13 +212,15 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 *   [Harness Reflection & Memory](docs/reflection.md): WAL session handoffs and workspace rules immunization.
 *   [Harness Audit Log](docs/audit.md): Dated self-audit scorecards, methodology, and per-cycle change log.
 
+Fable model selection is documented in [fable-mode/references/model-matrix.md](fable-mode/references/model-matrix.md); the explicit entrypoints are `fable-haiku`, `fable-sonnet`, and `fable-opus`.
+
 ---
 
 ## Benchmarks & Testing
 
 **If you are an agent asked to verify a Harness install, start at [VERIFICATION.md](VERIFICATION.md), not here.** It gives exact commands with exact expected output — install artifact checks for every platform, mechanism-level checks (Claude Code only), the behavioral test prompts below, and an acceptance scorecard to fill in. Do not report "it works" from reading the code — every check there names a command to actually run.
 
-`npm test` (`self-evolve/scripts/self-regression.js`) runs four deterministic phases: JavaScript syntax checks and CLI smoke tests, the labeled routing matrix, skill path/reference plus behavioral-case validation, and every mechanism check (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone). The suite runs in CI on every push and pull request (`.github/workflows/ci.yml`); live model evaluations remain explicitly on-demand.
+`npm test` (`self-evolve/scripts/self-regression.js`) runs four deterministic phases: JavaScript syntax checks and CLI smoke tests, the labeled routing matrix, skill path/reference plus behavioral-case validation, Fable model-mode contract tests, and every mechanism check (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone). The suite checks real exit codes and stderr, not just "the code looks right." It runs in CI on every push and pull request (`.github/workflows/ci.yml`); live model evaluations remain explicitly on-demand.
 
 For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Benchmark SOP](BENCHMARK_SOP.md) — standardized, reproducible scenarios:
 *   **Test A:** Over-engineering defense (Tier 1 typo correction)

@@ -64,6 +64,18 @@ module.exports = {
         // Fallback or ignore to prevent breaking execution
       }
     }
+    const agentsDir = path.join(workspaceRoot, '.claude', 'agents');
+    if (fs.existsSync(agentsDir)) {
+      try {
+        for (const entry of fs.readdirSync(agentsDir, { withFileTypes: true })) {
+          if (!entry.isFile() || !/^fable-(?:orchestrator|verifier|worker-haiku|worker-sonnet)\.md$/i.test(entry.name)) continue;
+          const content = fs.readFileSync(path.join(agentsDir, entry.name), 'utf8');
+          if (/^name:\s*fable-/mi.test(content)) patterns.push(`.claude/agents/${entry.name}`);
+        }
+      } catch (e) {
+        // Fallback or ignore to prevent breaking installation.
+      }
+    }
     return patterns;
   },
   isMatch(pattern, trimmedLine) {
@@ -98,6 +110,14 @@ module.exports = {
         manifestPath: manifest.getManifestPath(claudeDir)
       };
     }
+  },
+  getAgentsTarget({ workspaceRoot, userHome, isGlobal, manifest }) {
+    const claudeDir = isGlobal ? path.join(userHome, '.claude') : path.join(workspaceRoot, '.claude');
+    return {
+      path: path.join(claudeDir, 'agents'),
+      label: isGlobal ? '~/.claude/agents/' : '.claude/agents/',
+      manifestPath: manifest.getManifestPath(claudeDir)
+    };
   },
   install({ isGlobal, targetWorkspaceRoot, harnessSourceDir, packageVersion, getUserPromptsDir, advisory, claudeHooks, manifest }) {
     const userHome = require('os').homedir();

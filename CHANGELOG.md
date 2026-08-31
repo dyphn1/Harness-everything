@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.5-beta] - 2026-09-01
+
+### Added
+- **Fable v3 model modes**: Added explicit Haiku, Sonnet, and Opus entrypoints, named agent distribution, a deterministic model matrix/selector, required stage audit records, and visible fallback or blocked escalation behavior.
+- **Fable routing and contract coverage**: Added positive/negative mode routing evals and deterministic selector tests for model availability, alias normalization, audit persistence, and unsupported-runtime handling.
+
+### Changed
+- **Native workflow tracking**: Removed the repository TODO CLI and its legacy behavioral test; active workflow guidance now uses the host TODO tracker or Markdown checklists.
+- **Harness distribution and documentation**: Updated plugin manifests, version metadata, routing guides, audit notes, and workflow references for the Fable v3 integration.
+
+---
+
 ## [0.3.4-beta] - 2026-08-23
 
 ### Added

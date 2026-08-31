@@ -43,7 +43,7 @@ Upon receiving a software engineering request, the `tier-router.js` script analy
 
 ### Tier 2: Standard Tasks (Test-Driven Development)
 *   **Trigger criteria:** Normal feature requests, bug fixes, algorithm additions, API endpoint creations, SRP object splitting, or security reviews affecting multiple files.
-*   **Behavior:** Harness enforces the `todo-driven-workflow` base execution loop (prioritizing native IDE tools like `manage_todo_list`, falling back to `tasks/todo.md`) and the `tdd` skill. The model is strictly guided through the Red-Green-Refactor loop:
+*   **Behavior:** Harness enforces the `todo-driven-workflow` base execution loop (prioritizing native IDE tools like `manage_todo_list`, with `tasks/todo.md` as the portable fallback) and the `tdd` skill. The model is strictly guided through the Red-Green-Refactor loop:
     1.  **Red:** Write an automated test first that reproduces the issue or covers the feature, then run it to verify failure.
     2.  **Green:** Implement the minimal amount of code to make the test pass.
     3.  **Refactor:** Polish the code, clean up duplicates, and ensure coverage targets are met.

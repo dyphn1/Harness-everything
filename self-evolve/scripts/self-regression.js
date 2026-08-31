@@ -34,7 +34,7 @@ function runNode(label, script, args = [], options = {}) {
 
 // 1. Syntax-check every shipped JavaScript file.
 console.log('\n[Phase 1] Static Syntax Check...');
-const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'ci', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills'];
+const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'ci', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills', 'fable-mode'];
 const jsFiles = [];
 function walkDir(dir) {
   if (!fs.existsSync(dir)) return;
@@ -80,6 +80,20 @@ runNode('routing matrix', path.join(projectRoot, 'ci', 'runner.js'));
 console.log('\n[Phase 3] Skill Reference and Behavioral Case Checks...');
 runNode('skill reference check', path.join(projectRoot, 'ci', 'reference-check.js'));
 runNode('behavioral case validation', path.join(projectRoot, 'behavioral-evals', 'run.js'), ['validate']);
+// 3b. Run Fable model mode contract tests (selector + router separation)
+console.log('\n[Phase 3b] Fable Model Mode Contract Tests...');
+const fableModeTestPath = path.join(projectRoot, 'ci', 'fable-mode-test.js');
+if (fs.existsSync(fableModeTestPath)) {
+  const fableModeCheck = spawnSync('node', [fableModeTestPath], { stdio: 'inherit', cwd: projectRoot });
+  if (fableModeCheck.status !== 0) {
+    console.error("\n  ❌ Fable model mode contract suite failed!");
+    hasErrors = true;
+  } else {
+    console.log("\n  ✅ Fable model mode contract suite 100% Passed!");
+  }
+} else {
+  console.warn("  ⚠️  ci/fable-mode-test.js not found. Skipping Phase 3.");
+}
 
 // 4. Hook/mechanism checks.
 console.log('\n[Phase 4] Mechanism Test Suite (Claude Code hooks)...');
