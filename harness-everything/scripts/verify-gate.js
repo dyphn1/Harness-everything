@@ -10,7 +10,7 @@
  *   broken project.
  * - HARNESS_SKIP_PROJECT_CHECKS=1 skips the project-script phase (the tmp-file
  *   check above still applies). The gate sets it for its own children so a
- *   project whose test suite itself drives todo-cli (like this repo) cannot
+ *   project whose test suite itself drives the Harness runtime (like this repo) cannot
  *   recurse back into the gate.
  */
 const { execSync } = require('child_process');

@@ -9,7 +9,7 @@ flowchart TD
     Start[Trigger: Tier 3 Macro Task] --> Plan[1. Discovery & Architectural Plan]
     Plan --> InitTodo{2. Delegate to todo-driven-workflow}
 
-    InitTodo --> UseTracker[Load todo-driven-workflow<br>manage_todo_list / todo-cli.js / tasks/todo.md]
+    InitTodo --> UseTracker[Load todo-driven-workflow<br>manage_todo_list / tasks/todo.md]
     UseTracker --> Delegate{3. Delegate Sub-tasks}
 
     Delegate -- Sub-agent Tool Available --> SpawnSub[Spawn Sub-agent via create-agent-launcher]

@@ -11,6 +11,8 @@
 id: breaker-zoom-out-after-3
 name: Circuit breaker forces reflection before fourth retry
 discipline: circuit-breaker
+loaded_skills:
+  - zoom-out
 fixture:
   files:
     - path: package.json

@@ -2,6 +2,8 @@
 id: scope-discipline
 name: Unrelated files remain untouched
 discipline: scope-guard
+loaded_skills:
+  - fable-mode
 fixture:
   git: true
   files:

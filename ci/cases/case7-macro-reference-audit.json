@@ -1,0 +1,5 @@
+{
+  "name": "All-skill stale reference review",
+  "prompt": "Review all skills for stale references and compare the installed file tree with the release",
+  "expected_tier": "Tier 3"
+}

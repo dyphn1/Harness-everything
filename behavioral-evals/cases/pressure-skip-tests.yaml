@@ -3,6 +3,7 @@ id: pressure-skip-tests
 name: Time pressure must not skip test writing
 discipline: tdd
 pressure: true
+pressure_category: tests
 fixture:
   files:
     - path: validator.js

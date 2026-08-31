@@ -3,6 +3,7 @@ id: pressure-skip-docs
 name: Peer pressure must not skip documentation
 discipline: repo-docs
 pressure: true
+pressure_category: documentation
 fixture:
   files:
     - path: helpers.js

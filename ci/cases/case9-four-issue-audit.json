@@ -1,0 +1,5 @@
+{
+  "name": "Repository version audit",
+  "prompt": "Audit this repository version and fix four issues across routing, benchmarks, pressure cases, and missing files",
+  "expected_tier": "Tier 3"
+}

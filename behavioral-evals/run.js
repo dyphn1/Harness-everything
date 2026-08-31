@@ -10,17 +10,18 @@
  *   node behavioral-evals/run.js run --case <id>   # run one case
  *
  * How a live run works:
- *  1. Build the case fixture in an OS temp workspace (git init if requested).
- *  2. Install Harness into it: copy skill dirs, hooks, and runtime scripts,
- *     rewrite hook commands to absolute paths, merge .claude/settings.json.
+ *  1. Build identical case fixtures in OS temp workspaces.
+ *  2. Run a control with no Harness files and a treatment with only the
+ *     case's named skill loaded; `--arm both` randomizes this order.
  *  3. Run: claude -p "<prompt>" --output-format json --max-turns N
  *  4. Grade expectations[] against transcript text and workspace state.
- *  5. Write results/<date>-<case>.json with the full trace reference so any
+ *  5. Write paired results with fixture/prompt hashes and attribution so any
  *     grader verdict can be audited by a human.
  */
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -120,6 +121,23 @@ function fail(msg) {
   process.exit(1);
 }
 
+const PRESSURE_RULES = {
+  budget: ['trace_contains'],
+  authority: ['trace_contains'],
+  complexity: ['command_exit_0', 'trace_contains'],
+  expert: ['trace_contains', 'command_exit_0'],
+  fatigue: ['command_exit_0', 'trace_contains'],
+  management: ['command_exit_0', 'trace_contains'],
+  documentation: ['file_contains'],
+  'error-handling': ['file_contains'],
+  security: ['file_contains', 'trace_contains'],
+  tests: ['trace_contains', 'file_contains'],
+  verification: ['command_exit_0', 'trace_contains'],
+  social: ['trace_contains'],
+  'sunk-cost': ['file_contains'],
+  'scope-bypass': ['command_exit_0', 'file_contains'],
+};
+
 // --- validate mode ----------------------------------------------------------
 function validate(cases) {
   let failures = 0;
@@ -131,12 +149,23 @@ function validate(cases) {
     if (!c.max_turns) problems.push('missing max_turns');
     if (!c.fixture || !Array.isArray(c.fixture.files)) problems.push('fixture.files missing');
     if (!Array.isArray(c.expectations) || c.expectations.length === 0) problems.push('expectations missing');
+    if (c.loaded_skills !== undefined && (!Array.isArray(c.loaded_skills) || c.loaded_skills.some(skill => !fs.existsSync(path.join(ROOT, skill, 'SKILL.md'))))) {
+      problems.push('loaded_skills must name existing skills');
+    }
+    if (!resolveTreatmentSkills(c).length) problems.push('treatment must load at least one named Harness skill');
     for (const e of c.expectations || []) {
       if (!EXPECT_TYPES.has(e.type)) problems.push(`unknown expectation type "${e.type}"`);
       if (e.value === undefined && e.command === undefined) problems.push(`expectation ${e.type} needs value or command`);
     }
     if (c.pressure && !/skip|don't|not|quick|minutes/i.test(c.prompt)) {
       problems.push('pressure case prompt does not read as pressure');
+    }
+    if (c.pressure) {
+      const allowed = PRESSURE_RULES[c.pressure_category];
+      if (!allowed) problems.push(`pressure_category must be one of: ${Object.keys(PRESSURE_RULES).join(', ')}`);
+      else if (!(c.expectations || []).some(e => allowed.includes(e.type))) {
+        problems.push(`pressure category ${c.pressure_category} has no minimum expectation (${allowed.join(' or ')})`);
+      }
     }
     if (problems.length) {
       console.error(`❌ ${c.file}: ${problems.join('; ')}`);
@@ -160,9 +189,9 @@ function buildWorkspace(c) {
   return ws;
 }
 
-// Git baseline MUST be captured after Harness installation: otherwise the
+// Capture the requested fixture baseline after treatment installation so the
 // installer's own artifacts (.claude/, .harness-src/, opencode.json) show up
-// as workspace changes and every scope-discipline check false-fails.
+// in neither arm's post-run scope check.
 function gitSnapshot(ws) {
   execFileSync('git', ['init', '-q'], { cwd: ws });
   execFileSync('git', ['config', 'user.email', 'eval@harness.local'], { cwd: ws });
@@ -171,7 +200,13 @@ function gitSnapshot(ws) {
   execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: ws });
 }
 
-function installHarness(ws) {
+function resolveTreatmentSkills(c) {
+  if (Array.isArray(c.loaded_skills)) return c.loaded_skills;
+  if (c.discipline && fs.existsSync(path.join(ROOT, c.discipline, 'SKILL.md'))) return [c.discipline];
+  return [];
+}
+
+function installHarness(ws, loadedSkills) {
   const src = path.join(ws, '.harness-src');
   fs.mkdirSync(src, { recursive: true });
   for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
@@ -185,6 +220,7 @@ function installHarness(ws) {
   const skillNames = [];
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
+    if (!loadedSkills.includes(entry.name)) continue;
     if (!fs.existsSync(path.join(src, entry.name, 'SKILL.md'))) continue;
     fs.cpSync(path.join(src, entry.name), path.join(skillsDir, entry.name), { recursive: true });
     skillNames.push(entry.name);
@@ -216,21 +252,36 @@ function installHarness(ws) {
   );
 }
 
-function runHeadless(prompt, ws, maxTurns, engine) {
+function buildEngineInvocation(engine, prompt, ws, maxTurns, arm = 'treatment') {
+  if (engine === 'opencode') {
+    const args = ['run', '--format', 'json', '--auto', '--dir', ws];
+    const model = process.env.BEHAVIORAL_MODEL;
+    if (model) args.push('-m', model);
+    args.push(prompt);
+    return { command: 'opencode', args };
+  }
+  const args = ['-p', prompt, '--output-format', 'json', '--max-turns', String(maxTurns), '--permission-mode', 'acceptEdits', '--setting-sources', 'project,local'];
+  if (arm === 'baseline') args.push('--safe-mode');
+  return { command: 'claude', args };
+}
+
+function runHeadless(prompt, ws, maxTurns, engine, arm) {
   // Keep the transcript OUTSIDE the workspace: grader artifacts must never
   // show up in git-status-based scope checks.
   const outPath = path.join(path.dirname(ws), path.basename(ws) + '.transcript.json');
-  if (engine === 'opencode') {
-    // Use default model if no specific model is set
-    const model = process.env.BEHAVIORAL_MODEL;
-    const args = ['run', '--format', 'json', '--auto', '--dir', ws];
-    if (model) args.push('-m', model);
-    args.push(prompt);
-    execFileSync('opencode', args,
-      { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 20 * 60 * 1000, shell: true });
-  } else {
-    execFileSync('claude', ['-p', prompt, '--output-format', 'json', '--max-turns', String(maxTurns)],
-      { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 15 * 60 * 1000, shell: true });
+  const invocation = buildEngineInvocation(engine, prompt, ws, maxTurns, arm);
+  const outputFd = fs.openSync(outPath, 'w');
+  try {
+    // Pass the prompt as one argv element. A shell wrapper on Windows can
+    // reinterpret spaces and punctuation, truncating prompts to `Add.`.
+    execFileSync(invocation.command, invocation.args, {
+      cwd: ws,
+      stdio: ['ignore', outputFd, 'inherit'],
+      timeout: engine === 'opencode' ? 20 * 60 * 1000 : 15 * 60 * 1000,
+      windowsHide: true,
+    });
+  } finally {
+    fs.closeSync(outputFd);
   }
   return outPath;
 }
@@ -269,6 +320,29 @@ function extractAgentTrace(transcriptPath) {
   return chunks.join('\n');
 }
 
+function extractSessionMetadata(transcriptPath) {
+  try {
+    const raw = fs.readFileSync(transcriptPath, 'utf8');
+    const obj = JSON.parse(raw);
+    const cost = [obj.total_cost_usd, obj.cost_usd, obj.cost].find(value => typeof value === 'number');
+    return {
+      cost: cost === undefined ? null : cost,
+      usage: obj.usage || null,
+      duration_ms: typeof obj.duration_ms === 'number' ? obj.duration_ms : null,
+      num_turns: typeof obj.num_turns === 'number' ? obj.num_turns : null,
+    };
+  } catch {
+    return { cost: null, usage: null, duration_ms: null, num_turns: null };
+  }
+}
+
+function runShellCommand(command, cwd) {
+  if (process.platform === 'win32') {
+    return execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', command], { cwd, stdio: 'ignore' });
+  }
+  return execFileSync('/bin/sh', ['-c', command], { cwd, stdio: 'ignore' });
+}
+
 function grade(c, ws, transcriptPath) {
   const trace = extractAgentTrace(transcriptPath);
   const results = [];
@@ -280,7 +354,7 @@ function grade(c, ws, transcriptPath) {
       else if (e.type === 'file_contains') pass = fs.readFileSync(path.join(ws, e.path), 'utf8').includes(e.value);
       else if (e.type === 'file_not_exists') pass = !fs.existsSync(path.join(ws, e.path));
       else if (e.type === 'command_exit_0') {
-        execFileSync('bash', ['-c', e.command], { cwd: ws, stdio: 'ignore' });
+        runShellCommand(e.command, ws);
         pass = true;
       }
     } catch (err) {
@@ -302,14 +376,9 @@ function resolveEngine(requested) {
       // Try direct path first
       execFileSync(cmd, ['--version'], { stdio: 'pipe' }); 
       return true; 
-    } catch { 
-      // Try with shell option on Windows
-      try {
-        execFileSync(cmd, ['--version'], { stdio: 'pipe', shell: true });
-        return true;
-      } catch {}
-      return false; 
-    } 
+    } catch {
+      return false;
+    }
   };
   if (requested) {
     if (!has(requested === 'claude' ? 'claude' : 'opencode')) fail(`engine "${requested}" not found on PATH.`);
@@ -320,61 +389,199 @@ function resolveEngine(requested) {
   fail('Neither `claude` nor `opencode` CLI found. Behavioral evals need a real model session.');
 }
 
-function runLive(filter, engineArg) {
+function sha256(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function countToolCalls(trace) {
+  return (trace.match(/^\[[^\]]+\]/gm) || []).length;
+}
+
+function treatmentSkills(c) {
+  return resolveTreatmentSkills(c);
+}
+
+function runArm(c, engine, arm, pairId) {
+  const loadedSkills = arm === 'treatment' ? treatmentSkills(c) : [];
+  const attributionRequired = arm === 'treatment';
+  const ws = buildWorkspace(c);
+  if (arm === 'treatment') installHarness(ws, loadedSkills);
+  if (c.fixture.git) gitSnapshot(ws);
+
+  const record = {
+    arm,
+    pair_id: pairId,
+    harness_loaded: arm === 'treatment',
+    loaded_skills: loadedSkills,
+    attribution_required: attributionRequired,
+    workspace: ws,
+    fixture_sha256: sha256(JSON.stringify(c.fixture)),
+    prompt_sha256: sha256(c.prompt),
+    cost: null,
+  };
+  try {
+    const transcriptPath = runHeadless(c.prompt, ws, c.max_turns, engine, arm);
+    const { results, passed } = grade(c, ws, transcriptPath);
+    const trace = extractAgentTrace(transcriptPath);
+    const metadata = extractSessionMetadata(transcriptPath);
+    if (attributionRequired && loadedSkills.length === 0) {
+      throw new Error('treatment attribution is required but no skill was loaded');
+    }
+    return {
+      ...record,
+      transcript: transcriptPath,
+      cost: metadata.cost,
+      usage: metadata.usage,
+      duration_ms: metadata.duration_ms,
+      num_turns: metadata.num_turns,
+      expectations: results.map(({ description, pass }) => ({ description, pass })),
+      outcome: passed ? 'pass' : 'fail',
+      tool_call_count: countToolCalls(trace),
+      trace_preview: trace.slice(0, 500),
+    };
+  } catch (err) {
+    return {
+      ...record,
+      outcome: 'session-error',
+      error: err.message.slice(0, 500),
+      tool_call_count: 0,
+    };
+  }
+}
+
+function pairVerdict(baseline, treatment) {
+  if (baseline.outcome === 'pass' && treatment.outcome === 'pass') return 'INCONCLUSIVE';
+  if (baseline.outcome !== 'pass' && treatment.outcome === 'pass') return 'EFFECTIVE';
+  if (baseline.outcome === 'pass' && treatment.outcome !== 'pass') return 'HARMFUL';
+  return 'INEFFECTIVE';
+}
+
+function wilsonInterval(successes, total) {
+  if (!total) return null;
+  const z = 1.96;
+  const p = successes / total;
+  const denominator = 1 + (z * z) / total;
+  const centre = (p + (z * z) / (2 * total)) / denominator;
+  const spread = (z / denominator) * Math.sqrt((p * (1 - p) / total) + (z * z) / (4 * total * total));
+  return [Math.max(0, centre - spread), Math.min(1, centre + spread)].map(v => Number(v.toFixed(4)));
+}
+
+function runLive(filter, engineArg, armArg = 'treatment') {
+  const validArms = new Set(['baseline', 'treatment', 'both']);
+  if (!validArms.has(armArg)) fail(`arm must be baseline, treatment, or both (got ${armArg})`);
   const engine = resolveEngine(engineArg);
   console.log(`Engine: ${engine}`);
-  if (!process.env.CI) { /* headless runs are local-only by design */ }
+  console.log(`Arm mode: ${armArg}`);
   const cases = discoverCases().filter((c) => !filter || c.id === filter);
   if (filter && cases.length === 0) fail(`no case with id "${filter}"`);
   fs.mkdirSync(RESULTS_DIR, { recursive: true });
 
-  let failed = 0;
+  const pairResults = [];
+  let sessionFailures = 0;
   for (const c of cases) {
-    console.log(`\n=== ${c.id}${c.pressure ? ' [PRESSURE]' : ''} ===`);
-    const ws = buildWorkspace(c);
-    installHarness(ws);
-    if (c.fixture.git) gitSnapshot(ws);
-    let transcriptPath;
-    try {
-      transcriptPath = runHeadless(c.prompt, ws, c.max_turns, engine);
-    } catch (err) {
-      console.error(`❌ session failed: ${err.message.slice(0, 300)}`);
-      failed++;
-      continue;
-    }
-    const { results: graded, passed } = grade(c, ws, transcriptPath);
+    const pairId = `${c.id}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+    const order = armArg === 'both'
+      ? (crypto.randomInt(0, 2) === 0 ? ['baseline', 'treatment'] : ['treatment', 'baseline'])
+      : [armArg];
+    console.log(`\n=== ${c.id}${c.pressure ? ' [PRESSURE]' : ''} | order: ${order.join(' -> ')} ===`);
+    const arms = {};
+    for (const arm of order) arms[arm] = runArm(c, engine, arm, pairId);
+
     const record = {
       id: c.id,
+      pair_id: pairId,
       engine,
       model: engine === 'opencode' ? (process.env.BEHAVIORAL_MODEL || 'openai/gpt-5-mini') : 'claude-default',
       pressure: !!c.pressure,
+      pressure_category: c.pressure_category || null,
+      sample_unit: 'paired case',
+      arm_order: order,
+      fixture_sha256: sha256(JSON.stringify(c.fixture)),
+      prompt_sha256: sha256(c.prompt),
+      arms,
+      verdict: armArg === 'both' ? pairVerdict(arms.baseline, arms.treatment) : null,
       date: new Date().toISOString(),
-      workspace: ws,
-      transcript: transcriptPath,
-      expectations: graded.map(({ description, pass }) => ({ description, pass })),
-      outcome: passed ? 'pass' : 'fail',
     };
-    const outFile = path.join(RESULTS_DIR, `${record.date.slice(0, 10)}-${c.id}.json`);
-    fs.writeFileSync(outFile, JSON.stringify(record, null, 2));
-    for (const g of graded) console.log(`  ${g.pass ? '✅' : '❌'}${g.informational ? ' (info)' : ''} ${g.description}`);
-    console.log(`${passed ? '✅ PASS' : '❌ FAIL'} -> ${outFile}`);
-    if (!passed) failed++;
+    pairResults.push(record);
+    if (Object.values(arms).some(arm => arm.outcome === 'session-error')) sessionFailures++;
+    for (const arm of Object.values(arms)) {
+      console.log(`  ${arm.arm}: ${arm.outcome} (${arm.loaded_skills.length ? arm.loaded_skills.join(', ') : 'no Harness skills'})`);
+    }
+    if (armArg === 'both') console.log(`  Verdict: ${record.verdict}`);
+    const suffix = armArg === 'both' ? 'pair' : armArg;
+    fs.writeFileSync(path.join(RESULTS_DIR, `${record.date.slice(0, 10)}-${c.id}-${suffix}.json`), JSON.stringify(record, null, 2));
   }
-  console.log(failed ? `\n❌ ${failed} case(s) failed.` : '\n🎉 all cases passed.');
-  process.exit(failed ? 1 : 0);
+
+  if (armArg === 'both') {
+    const completed = pairResults.filter(r => !Object.values(r.arms).some(a => a.outcome === 'session-error'));
+    const effective = completed.filter(r => r.verdict === 'EFFECTIVE').length;
+    const categorySummary = {};
+    for (const record of pairResults) {
+      const category = record.pressure_category || 'unclassified';
+      if (!categorySummary[category]) categorySummary[category] = { requested: 0, completed: 0, pass: 0, fail: 0 };
+      categorySummary[category].requested++;
+    }
+    for (const record of completed) {
+      const category = record.pressure_category || 'unclassified';
+      const bucket = categorySummary[category];
+      bucket.completed++;
+      if (record.arms.treatment.outcome === 'pass') bucket.pass++;
+      else bucket.fail++;
+    }
+    for (const bucket of Object.values(categorySummary)) {
+      bucket.pass_rate = Number((bucket.pass / bucket.completed).toFixed(4));
+      bucket.pass_rate_ci95 = wilsonInterval(bucket.pass, bucket.completed);
+    }
+    const costs = completed.flatMap(record => Object.values(record.arms).map(arm => arm.cost));
+    const cost = costs.length === completed.length * 2 && costs.every(value => typeof value === 'number')
+      ? Number(costs.reduce((sum, value) => sum + value, 0).toFixed(6))
+      : null;
+    const summary = {
+      date: new Date().toISOString(),
+      protocol: 'paired-randomized-v1',
+      requested_sample_size: cases.length,
+      completed_pairs: completed.length,
+      session_failures: pairResults.length - completed.length,
+      boundary_compliance: completed.length === cases.length ? 'complete' : 'incomplete',
+      cost,
+      tool_call_delta: completed.map(r => ({
+        id: r.id,
+        baseline: r.arms.baseline.tool_call_count,
+        treatment: r.arms.treatment.tool_call_count,
+        treatment_minus_baseline: r.arms.treatment.tool_call_count - r.arms.baseline.tool_call_count,
+      })),
+      verdicts: Object.fromEntries(['EFFECTIVE', 'INEFFECTIVE', 'INCONCLUSIVE', 'HARMFUL'].map(v => [v, completed.filter(r => r.verdict === v).length])),
+      effective_rate_ci95: wilsonInterval(effective, completed.length),
+      pressure_categories: categorySummary,
+      interpretation: completed.length < 2
+        ? 'insufficient paired samples for an effectiveness claim'
+        : 'report paired outcomes; do not treat INCONCLUSIVE pairs as skill lift',
+    };
+    const summaryPath = path.join(RESULTS_DIR, `${new Date().toISOString().slice(0, 10)}-summary-both.json`);
+    fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+    console.log(`\nPaired summary: ${summaryPath}`);
+    console.log(`Completed pairs: ${summary.completed_pairs}/${summary.requested_sample_size}`);
+  }
+  process.exit(sessionFailures ? 1 : 0);
 }
 
 // ----------------------------------------------------------------------------
-const args = process.argv.slice(2);
-function flag(name) {
-  const i = args.indexOf(name);
-  return i >= 0 ? args[i + 1] : undefined;
+function main() {
+  const args = process.argv.slice(2);
+  function flag(name) {
+    const i = args.indexOf(name);
+    return i >= 0 ? args[i + 1] : undefined;
+  }
+  if (args[0] === 'validate') validate(discoverCases());
+  else if (args[0] === 'run') {
+    const filter = args.includes('--case') ? flag('--case') : undefined;
+    runLive(filter, args.includes('--engine') ? flag('--engine') : undefined, args.includes('--arm') ? flag('--arm') : undefined);
+  } else {
+    console.log('Usage:\n  node behavioral-evals/run.js validate\n  node behavioral-evals/run.js run [--case <id>] [--arm baseline|treatment|both] [--engine claude|opencode]');
+    process.exit(args.length ? 1 : 0);
+  }
 }
-if (args[0] === 'validate') validate(discoverCases());
-else if (args[0] === 'run') {
-  const filter = args.includes('--case') ? flag('--case') : undefined;
-  runLive(filter, args.includes('--engine') ? flag('--engine') : undefined);
-} else {
-  console.log('Usage:\n  node behavioral-evals/run.js validate\n  node behavioral-evals/run.js run [--case <id>] [--engine claude|opencode]');
-  process.exit(args.length ? 1 : 0);
-}
+
+if (require.main === module) main();
+
+module.exports = { buildEngineInvocation, extractAgentTrace, extractSessionMetadata, grade, parseSimpleYaml, validate };

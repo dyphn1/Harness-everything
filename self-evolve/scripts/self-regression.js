@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * Harness Self-Regression Test Suite
- * Compiles and validates all Javascript files and runs routing verification framework
- * before dynamic evolution / dynamic skills are officially persisted.
+ * Harness Self-Regression Test Suite.
+ *
+ * This is the free, deterministic gate. Model sessions remain on-demand;
+ * their results must not be confused with a local tracker simulation.
  */
 
 const { spawnSync } = require('child_process');
@@ -10,130 +11,85 @@ const path = require('path');
 const fs = require('fs');
 
 const projectRoot = path.resolve(__dirname, '..', '..');
-
-console.log("=================================================");
-console.log("     Harness OS - Self-Regression Test Suite     ");
-console.log("=================================================");
-
 let hasErrors = false;
 
-// 1. Walk and syntax check all Javascript files
-console.log("\n[Phase 1] Static Syntax Check...");
-const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'ci', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills'];
-const jsFiles = [];
+console.log('=================================================');
+console.log('     Harness OS - Self-Regression Test Suite     ');
+console.log('=================================================');
 
-function walkDir(dir) {
-  if (!fs.existsSync(dir)) return;
-  const list = fs.readdirSync(dir);
-  list.forEach(file => {
-    const filePath = path.join(dir, file);
-    const stat = fs.statSync(filePath);
-    if (stat && stat.isDirectory()) {
-      walkDir(filePath);
-    } else if (filePath.endsWith('.js')) {
-      jsFiles.push(filePath);
-    }
+function runNode(label, script, args = [], options = {}) {
+  const result = spawnSync('node', [script, ...args], {
+    cwd: projectRoot,
+    stdio: 'inherit',
+    ...options,
   });
-}
-
-foldersToScan.forEach(folder => {
-  walkDir(path.join(projectRoot, folder));
-});
-
-jsFiles.forEach(file => {
-  const relativePath = path.relative(projectRoot, file);
-  // node --check checks syntax without execution
-  const check = spawnSync('node', ['--check', file]);
-  if (check.status !== 0) {
-    console.error(`  ❌ Syntax Error in ${relativePath}`);
-    console.error(check.stderr.toString().trim());
+  if (result.status !== 0) {
+    console.error(`  FAIL ${label}`);
     hasErrors = true;
   } else {
-    console.log(`  ✅ ${relativePath.padEnd(50)} [Valid Syntax]`);
+    console.log(`  PASS ${label}`);
   }
-});
+  return result;
+}
 
-// 1b. CLI smoke test: the `harness next` / `harness verify` commands are what
-// the advisory text on hookless platforms (Codex, Cursor, Copilot, Continue,
-// Hermes) tells the model to actually run - if these silently break, every
-// platform's advisory guidance points at a dead command with nothing to catch
-// it (see docs/mechanism-first-skill-mesh.md).
-console.log("\n[Phase 1b] CLI Command Smoke Test (harness next / harness verify)...");
+// 1. Syntax-check every shipped JavaScript file.
+console.log('\n[Phase 1] Static Syntax Check...');
+const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'ci', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills'];
+const jsFiles = [];
+function walkDir(dir) {
+  if (!fs.existsSync(dir)) return;
+  for (const file of fs.readdirSync(dir)) {
+    const filePath = path.join(dir, file);
+    if (fs.statSync(filePath).isDirectory()) walkDir(filePath);
+    else if (filePath.endsWith('.js')) jsFiles.push(filePath);
+  }
+}
+for (const folder of foldersToScan) walkDir(path.join(projectRoot, folder));
+for (const file of jsFiles) {
+  const check = spawnSync('node', ['--check', file]);
+  if (check.status !== 0) {
+    console.error(`  FAIL syntax: ${path.relative(projectRoot, file)}`);
+    console.error(check.stderr.toString().trim());
+    hasErrors = true;
+  }
+}
+console.log(`  PASS syntax: ${jsFiles.length} JavaScript file(s)`);
+
+// 1b. Smoke-test the public CLI wrappers.
+console.log('\n[Phase 1b] CLI Command Smoke Test...');
 const cliPath = path.join(projectRoot, 'bin', 'cli.js');
 const nextCheck = spawnSync('node', [cliPath, 'next', 'add a new login endpoint with tests'], { cwd: projectRoot });
 if (nextCheck.status !== 0 || !nextCheck.stdout.toString().includes('RECOMMENDED TIER')) {
-  console.error("  ❌ `harness next` did not produce a routing recommendation.");
+  console.error('  FAIL `harness next` did not produce a routing recommendation.');
   hasErrors = true;
-} else {
-  console.log("  ✅ `harness next` produced a routing recommendation.");
-}
-
+} else console.log('  PASS `harness next` produced a routing recommendation.');
 const verifyCheck = spawnSync('node', [cliPath, 'verify'], {
   cwd: projectRoot,
-  env: { ...process.env, HARNESS_SKIP_PROJECT_CHECKS: '1' }
+  env: { ...process.env, HARNESS_SKIP_PROJECT_CHECKS: '1' },
 });
 if (verifyCheck.status !== 0) {
-  console.error("  ❌ `harness verify` exited non-zero on a clean (skipped) check.");
+  console.error('  FAIL `harness verify` exited non-zero on a skipped check.');
   hasErrors = true;
-} else {
-  console.log("  ✅ `harness verify` exited 0 on a clean (skipped) check.");
-}
+} else console.log('  PASS `harness verify` exited 0 on a skipped check.');
 
-// 2. Run Tier Verification Framework
-console.log("\n[Phase 2] Routing Verification Check...");
-const runnerPath = path.join(projectRoot, 'ci', 'runner.js');
-if (fs.existsSync(runnerPath)) {
-  const runnerCheck = spawnSync('node', [runnerPath], { stdio: 'inherit' });
-  if (runnerCheck.status !== 0) {
-    console.error("\n  ❌ Routing verification framework failed!");
-    hasErrors = true;
-  } else {
-    console.log("\n  ✅ Routing verification framework 100% Passed!");
-  }
-} else {
-  console.warn("  ⚠️  ci/runner.js not found. Skipping Phase 2.");
-}
+// 2. Deterministic routing matrix.
+console.log('\n[Phase 2] Routing Verification Check...');
+runNode('routing matrix', path.join(projectRoot, 'ci', 'runner.js'));
 
-// 3. Run Behavioral Test Suite (E2E state-machine transitions, not just syntax)
-console.log("\n[Phase 3] Behavioral Test Suite...");
-const behavioralTestPath = path.join(projectRoot, 'ci', 'behavioral-test.js');
-if (fs.existsSync(behavioralTestPath)) {
-  const behavioralCheck = spawnSync('node', [behavioralTestPath], { stdio: 'inherit', cwd: projectRoot });
-  if (behavioralCheck.status !== 0) {
-    console.error("\n  ❌ Behavioral test suite failed!");
-    hasErrors = true;
-  } else {
-    console.log("\n  ✅ Behavioral test suite 100% Passed!");
-  }
-} else {
-  console.warn("  ⚠️  ci/behavioral-test.js not found. Skipping Phase 3.");
-}
+// 3. Static integrity gates; behavioral evals are validated, not executed.
+console.log('\n[Phase 3] Skill Reference and Behavioral Case Checks...');
+runNode('skill reference check', path.join(projectRoot, 'ci', 'reference-check.js'));
+runNode('behavioral case validation', path.join(projectRoot, 'behavioral-evals', 'run.js'), ['validate']);
 
-// 4. Run Mechanism Test Suite (VERIFICATION.md §2 hook contract, automated)
-console.log("\n[Phase 4] Mechanism Test Suite (Claude Code hooks)...");
-const mechanismTestPath = path.join(projectRoot, 'ci', 'mechanism-test.js');
-if (fs.existsSync(mechanismTestPath)) {
-  const mechanismCheck = spawnSync('node', [mechanismTestPath], { stdio: 'inherit', cwd: projectRoot });
-  if (mechanismCheck.status !== 0) {
-    console.error("\n  ❌ Mechanism test suite failed!");
-    hasErrors = true;
-  } else {
-    console.log("\n  ✅ Mechanism test suite 100% Passed!");
-  }
-} else {
-  console.warn("  ⚠️  ci/mechanism-test.js not found. Skipping Phase 4.");
-}
+// 4. Hook/mechanism checks.
+console.log('\n[Phase 4] Mechanism Test Suite (Claude Code hooks)...');
+runNode('mechanism suite', path.join(projectRoot, 'ci', 'mechanism-test.js'));
 
-// 5. Final verdict
-console.log("\n=================================================");
+console.log('\n=================================================');
 if (hasErrors) {
-  console.error(" ❌ REGRESSION DETECTED! Self-evolution rejected.");
-  console.error(" Please fix the errors listed above before persisting changes.");
-  console.log("=================================================");
+  console.error(' FAIL: self-regression found one or more problems.');
+  console.log('=================================================');
   process.exit(1);
-} else {
-  console.log(" 🎉 SUCCESS! All self-regression checks passed 100%.");
-  console.log(" Dynamic skills and memories are safe to be committed.");
-  console.log("=================================================");
-  process.exit(0);
 }
+console.log(' PASS: all deterministic self-regression checks passed.');
+console.log('=================================================');

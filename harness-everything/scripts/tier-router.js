@@ -51,9 +51,28 @@ function run(userPrompt) {
   let recommendedTier = "Tier 1 (Trivial)";
   let rationale = "No structural/testing signals in the prompt.";
 
-  if (TIER3_KEYWORDS.some(k => matchKeyword(promptLower, k))) {
+  // Task-shape signals catch one-sentence audits and benchmarks that a flat
+  // keyword list cannot see. They are intentionally kept here, rather than
+  // mixed into the editable technology keyword table.
+  const macroSignals = [
+    /\b(?:every|each|all|entire|whole|full|complete)\s+(?:skill|skills|repo|repository|codebase|project|file|files|module|modules)/i,
+    /\b(?:evaluate|audit|benchmark|stress[- ]test|ab test|a\/b test|compare)\b/i,
+    /\b(?:repository[- ]wide|codebase[- ]wide|end[- ]to[- ]end)\b/i,
+    /\b(?:multiple|several|four|fourteen|dozens)\s+(?:issues|skills|files|modules)/i,
+    /(?:每個|每一個|所有|全部|整個|全套|逐一|多個|四個).*(?:skill|技能|檔案|問題|版本|基準|測試|評估|稽核|比較|壓力)/i,
+    /(?:評估|稽核|基準|壓力測試|比較).*(?:每個|所有|全部|整個|全套|技能|skill|檔案|版本)/i
+  ];
+  const hasMacroSignal = macroSignals.some(signal => signal.test(userPrompt));
+  const isTrivialDocsEdit = /^(?:(?:please|help me)\s+)?(?:fix|update|correct|change)\b.*\b(?:readme|documentation|docs?)\b.*\b(?:typo|spelling|wording|one line|single line)\b/i.test(userPrompt.trim());
+
+  if (isTrivialDocsEdit) {
+    // "update" is a common Tier 2 verb, but a one-line documentation typo
+    // is still Tier 1. This override prevents a broad keyword from winning.
+    recommendedTier = "Tier 1 (Trivial)";
+    rationale = "Single documentation typo detected - direct edit, no checklist required.";
+  } else if (hasMacroSignal || TIER3_KEYWORDS.some(k => matchKeyword(promptLower, k))) {
     recommendedTier = "Tier 3 (Macro Task)";
-    rationale = "Prompt implies macro task, new feature development, architectural refactoring, deep analysis, ADR adjustment, or multi-agent collaboration.";
+    rationale = "Prompt implies repository-wide scope, audit/benchmark work, architectural refactoring, or multi-agent collaboration.";
   } else if (TIER2_KEYWORDS.some(k => matchKeyword(promptLower, k))) {
     recommendedTier = "Tier 2 (Standard Task)";
     rationale = "Prompt implies development work needing TDD validation or multi-file coordination.";
@@ -68,7 +87,7 @@ function run(userPrompt) {
   const hasMultipleSentences = sentenceCount > 2;
 
   // Adjust tier based on structural signals
-  if (hasMultipleTasks && hasMultipleSentences) {
+  if (!hasMacroSignal && !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences) {
     // Multiple tasks with multiple sentences suggests complexity
     if (recommendedTier.startsWith("Tier 1")) {
       recommendedTier = "Tier 2 (Standard Task)";
@@ -77,13 +96,13 @@ function run(userPrompt) {
       // Keep at Tier 2 but note the complexity
       rationale += " Multiple task structure detected.";
     }
-  } else if (mentionsSpecificFile && !hasMultipleTasks) {
+  } else if (!hasMacroSignal && mentionsSpecificFile && !hasMultipleTasks) {
     // Single file mention with no multiple tasks suggests simpler work
     if (recommendedTier.startsWith("Tier 3")) {
       recommendedTier = "Tier 2 (Standard Task)";
       rationale = "Single file focus detected - downgraded from Tier 3 to Tier 2.";
     }
-  } else if (hasQuestionMarks && !hasMultipleTasks) {
+  } else if (!hasMacroSignal && hasQuestionMarks && !hasMultipleTasks) {
     // Questions without multiple tasks are often advisory, not execution
     if (recommendedTier.startsWith("Tier 3")) {
       recommendedTier = "Tier 2 (Standard Task)";

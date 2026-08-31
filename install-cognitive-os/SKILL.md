@@ -31,7 +31,7 @@ metadata:
 2. `[Think]` Establish intent before modifying code; evaluate failure modes early.
 3. `[Try]` Apply minimal, focused changes; run commands to validate behavior.
 4. `[Summarize]` Base conclusions on actual tool outputs (`npm test`, linters, `harness-everything/scripts/verify-gate.js`, `npx github:dyphn1/Harness-everything verify`). On failure, use diagnostics to refine `[Think]`. After 3 consecutive failures, step back to `zoom-out`.
-5. `[Record]` Record milestones via the tracker (`todo-driven-workflow/scripts/todo-cli.js complete` or `manage_todo_list`) once verification passes.
+5. `[Record]` Record milestones via the native tracker (`manage_todo_list`) or a workspace markdown checklist once verification passes.
 
 On advisory-only platforms hooks cannot block tool calls; gates are self-directed guidance.
 

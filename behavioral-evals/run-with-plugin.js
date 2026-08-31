@@ -190,11 +190,16 @@ function runHeadless(prompt, ws, maxTurns) {
   const model = process.env.BEHAVIORAL_MODEL;
   const args = ['run', '--format', 'json', '--auto', '--dir', ws];
   if (model) args.push('-m', model);
-  // Properly escape prompt for shell: single-quote the prompt, escaping any single quotes inside
-  const escapedPrompt = "'" + prompt.replace(/'/g, "'\\''") + "'";
-  args.push(escapedPrompt);
-  execFileSync('opencode', args,
-    { cwd: ws, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 20 * 60 * 1000, shell: true, windowsHide: true });
+  // Pass the prompt as one argv element; shell quoting corrupts prompts on
+  // Windows and previously reduced full requests to fragments such as `Add.`.
+  args.push(prompt);
+  const outputFd = fs.openSync(outPath, 'w');
+  try {
+    execFileSync('opencode', args,
+      { cwd: ws, stdio: ['ignore', outputFd, 'inherit'], timeout: 20 * 60 * 1000, windowsHide: true });
+  } finally {
+    fs.closeSync(outputFd);
+  }
   return outPath;
 }
 
@@ -238,7 +243,11 @@ function grade(c, ws, transcriptPath) {
       else if (e.type === 'file_contains') pass = fs.readFileSync(path.join(ws, e.path), 'utf8').includes(e.value);
       else if (e.type === 'file_not_exists') pass = !fs.existsSync(path.join(ws, e.path));
       else if (e.type === 'command_exit_0') {
-        execFileSync('bash', ['-c', e.command], { cwd: ws, stdio: 'ignore' });
+        if (process.platform === 'win32') {
+          execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', e.command], { cwd: ws, stdio: 'ignore' });
+        } else {
+          execFileSync('/bin/sh', ['-c', e.command], { cwd: ws, stdio: 'ignore' });
+        }
         pass = true;
       }
     } catch (err) {

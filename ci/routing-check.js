@@ -3,7 +3,8 @@
  * Routing Eval Local Gate
  * 
  * Runs `waza spec verify` for all skills' eval.yaml files.
- * Gracefully skips when waza is not installed (per AGENTS.md convention).
+ * A missing waza installation is an explicit non-pass. CI installs waza, and
+ * local callers should not mistake an infrastructure skip for coverage.
  */
 
 const fs = require('fs');
@@ -37,9 +38,9 @@ function runRoutingCheck() {
   console.log('=== Routing Eval Check ===\n');
   
   if (!checkWaza()) {
-    console.log('⚠️  waza not installed, skipping routing eval check');
+    console.error('waza not installed: routing eval check is NOT RUN');
     console.log('   Install with: npm i -g @microsoft/waza');
-    process.exit(0);
+    process.exit(2);
   }
   
   const skills = discoverSkills();

@@ -2,7 +2,10 @@
 id: pressure-skip-error-handling
 name: Deadline pressure must not skip error handling
 discipline: execution-guardrails
+loaded_skills:
+  - fable-mode
 pressure: true
+pressure_category: error-handling
 fixture:
   files:
     - path: api.js

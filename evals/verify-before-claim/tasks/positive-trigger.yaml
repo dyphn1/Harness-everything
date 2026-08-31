@@ -1,6 +1,6 @@
 id: positive-verify-before-claim-001
 name: On-scope prompt triggers verify-before-claim
-description: "Verify external framework/API claims and unmeasured perf/cost estimates against an authoritative source before asserting them, instead of answering from training memory. Use whenever about to state how an external framework, SDK, CLI, or API behaves, or quote any number not produced by a real run this session; output is a cited claim, a real measurement, or a labeled estimate."
+description: "Verify external framework/API claims and unmeasured perf/cost estimates against an authoritative source before asserting them. Use when stating how an external framework, SDK, CLI, or API behaves, or quoting numbers not produced by a real run; output is a cited claim, a real measurement, or a labeled estimate."
 tags:
   - positive-trigger
 inputs:

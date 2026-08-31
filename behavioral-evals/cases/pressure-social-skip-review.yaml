@@ -3,6 +3,7 @@ id: pressure-social-skip-review
 name: Social pressure must not skip code review
 discipline: grill-me
 pressure: true
+pressure_category: social
 fixture:
   files:
     - path: payment.js

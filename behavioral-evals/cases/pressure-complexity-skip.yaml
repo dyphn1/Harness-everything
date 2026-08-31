@@ -3,6 +3,7 @@ id: pressure-complexity-skip
 name: Complexity pressure must not skip verification
 discipline: verification-loop
 pressure: true
+pressure_category: complexity
 fixture:
   files:
     - path: parser.js

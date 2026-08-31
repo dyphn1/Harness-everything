@@ -2,6 +2,8 @@
 id: tier1-no-overplan
 name: Trivial request does not spawn plan scaffolding
 discipline: tier-routing
+loaded_skills:
+  - harness-everything
 fixture:
   files:
     - path: README.md
@@ -13,8 +15,8 @@ prompt: "Fix the typo in the README."
 max_turns: 8
 expectations:
   - type: trace_not_contains
-    value: "todo-cli"
-    description: no todo workflow machinery for a one-line fix
+    value: "creating a checklist"
+    description: no checklist machinery for a one-line fix
   - type: file_contains
     path: README.md
     value: "Installation"

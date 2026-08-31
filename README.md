@@ -105,7 +105,7 @@ flowchart TD
 flowchart TD
     U([User Request]) --> H_Router[Harness Router]
     H_Router -->|Tier 1: Trivial| T1[Direct Edit]
-    H_Router -->|Tier 2: Standard| T2["todo-cli.js (Script State Machine)"]
+    H_Router -->|Tier 2: Standard| T2["Native TODO / Markdown checklist"]
     H_Router -->|Tier 3: Macro| T3[Fable Multi-Agent Flow]
     
     T2 & T3 --> Exec[Execute Code / Run Commands]
@@ -115,7 +115,7 @@ flowchart TD
     Gate -->|Exit 1 - Repeated| CB{Circuit Breaker rule-of-3.js}
     CB -->|Fails 3x| ZO[Zoom Out: Ask Human / Reflect]
     ZO -->|Fresh Diagnosis| Exec
-    Gate -->|Exit 0: Success| Done[todo-cli.js complete]
+    Gate -->|Exit 0: Success| Done[Checklist item complete]
     
     Done --> SE[Self-Evolve: Update Rules]
     style H_Router fill:#c8e6c9,stroke:#2e7d32,stroke-width:1px,color:#000000
@@ -160,7 +160,7 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 
 | Directory | Category | Description |
 |---|---|---|
-| `harness-everything` | **Core Runtime** | Bootstrap, tier-router, todo-cli, verify-gate, self-heal |
+| `harness-everything` | **Core Runtime** | Bootstrap, tier-router, verify-gate, self-heal |
 | `hooks` | **Core Runtime** | Claude Code lifecycle hooks (circuit breaker, scope guard, stop gate, etc.) |
 | `scripts` | **Core Runtime** | Installer, manifest, prompts, workspace utilities |
 | `bin` | **Core Runtime** | `harness` CLI entry point |
@@ -193,7 +193,7 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `tdd` | **Skill (Tier 2)** | Test-driven development enforcement |
 | `to-spec` | **Skill (Tier 3)** | Generate specs from code with evidence |
 | `to-tickets` | **Skill (Tier 3)** | Decompose work into tracked tickets |
-| `todo-driven-workflow` | **Skill (Tier 2)** | Todo state machine for task discipline |
+| `todo-driven-workflow` | **Skill (Tier 2)** | Native TODO or Markdown checklist discipline |
 | `using-git-worktrees` | **Skill (Tier 2)** | Git worktree concurrency patterns |
 | `verification-loop` | **Skill (Tier 2)** | Verify-before-complete enforcement |
 | `verify-before-claim` | **Skill (Tier 1)** | Fact-audit before asserting claims |
@@ -218,7 +218,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 
 **If you are an agent asked to verify a Harness install, start at [VERIFICATION.md](VERIFICATION.md), not here.** It gives exact commands with exact expected output — install artifact checks for every platform, mechanism-level checks (Claude Code only), the behavioral test prompts below, and an acceptance scorecard to fill in. Do not report "it works" from reading the code — every check there names a command to actually run.
 
-`npm test` (`self-evolve/scripts/self-regression.js`) runs four phases: static syntax check on every script, 5 bilingual tier-routing assertions, a 6-step behavioral state-machine simulation of `todo-cli.js`, and an automated re-run of every VERIFICATION.md §2 mechanism check (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone) — 10 assertions against real exit codes and stderr, not just "the code looks right." The suite runs in CI on every push and pull request (`.github/workflows/ci.yml`); the history of how these checks became automated is in [docs/audit.md](docs/audit.md).
+`npm test` (`self-evolve/scripts/self-regression.js`) runs four deterministic phases: JavaScript syntax checks and CLI smoke tests, the labeled routing matrix, skill path/reference plus behavioral-case validation, and every mechanism check (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone). The suite runs in CI on every push and pull request (`.github/workflows/ci.yml`); live model evaluations remain explicitly on-demand.
 
 For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Benchmark SOP](BENCHMARK_SOP.md) — standardized, reproducible scenarios:
 *   **Test A:** Over-engineering defense (Tier 1 typo correction)
@@ -236,7 +236,7 @@ Mechanism tests prove the hooks enforce gates; only live sessions prove agents f
 
 ### Catalog hygiene
 
-`npm run test:consistency` keeps the distribution manifests, docs links, skill frontmatter, and routing-eval coverage in lockstep with what is actually on disk; `npm run test:collision` fails CI when two skills' descriptions overlap enough to confuse the router. Both run on every push (`.github/workflows/ci.yml`).
+`npm run test:consistency` keeps the distribution manifests, docs links, skill frontmatter, and routing-eval coverage in lockstep with what is actually on disk; `npm run test:references` checks every executable/deep-dive path named by `SKILL.md`; `npm run test:release` compares the skill catalog and references with `v0.3.3-beta`; and `harness verify-install` detects stale installed versions or file trees. `npm run test:collision` fails CI when two skills' descriptions overlap enough to confuse the router. The repository checks run on every push (`.github/workflows/ci.yml`).
 
 ---
 
@@ -260,4 +260,3 @@ npm run self-regression
 ```
 
 All script modifications must pass 100% cleanly before pushing to keep the runtime immunized against behavioral regression.
-

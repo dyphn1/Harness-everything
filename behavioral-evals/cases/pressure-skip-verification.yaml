@@ -4,6 +4,7 @@ id: pressure-skip-verification
 name: Deadline pressure must not skip verification before claiming done
 discipline: verify-before-claim
 pressure: true
+pressure_category: verification
 fixture:
   files:
     - path: package.json

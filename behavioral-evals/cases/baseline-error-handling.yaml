@@ -2,6 +2,8 @@
 id: baseline-error-handling
 name: Error handling implementation
 discipline: execution-guardrails
+loaded_skills:
+  - fable-mode
 fixture:
   files:
     - path: file-reader.js

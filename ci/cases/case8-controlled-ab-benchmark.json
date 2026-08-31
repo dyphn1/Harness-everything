@@ -1,0 +1,5 @@
+{
+  "name": "Controlled A/B benchmark",
+  "prompt": "Run a controlled A/B benchmark of the agent with and without the Harness skills and report confidence intervals",
+  "expected_tier": "Tier 3"
+}

@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install dependencies for regression suite
+        run: npm ci
       - name: Run hermetic self-regression suite
         run: npm test
 
@@ -31,7 +33,7 @@ jobs:
       - name: Check every SKILL.md passes waza readiness gates
         run: |
           fail=0
-          for dir in $(find . -name "SKILL.md" -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./ci/fixtures/*" -exec dirname {} \; | sort); do
+          for dir in $(find . -name "SKILL.md" -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./ci/fixtures/*" -not -path "./eval-framework/fixtures/*" -exec dirname {} \; | sort); do
             out=$(waza check "$dir" 2>&1) || true
             echo "=== $dir"
             # Hard gates: spec compliance, token budget, trigger sections.
@@ -78,8 +80,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install Node dependencies
+        run: npm ci
       - name: Docs, manifest, and eval-coverage consistency
         run: npm run test:consistency
+      - name: Skill executable and deep-dive references resolve
+        run: npm run test:references
+      - name: Release tag skill tree and references remain verifiable
+        run: npm run test:release
       - name: Skill description collision detection
         run: npm run test:collision
 
@@ -103,6 +111,7 @@ jobs:
           cd "$TMPDIR"
           git init
           node "$GITHUB_WORKSPACE/bin/cli.js" install --all -y
+          node "$GITHUB_WORKSPACE/bin/cli.js" verify-install
           # Verify at least one platform file was created
           ls -la .claude/settings.json .cursorrules .github/copilot-instructions.md 2>/dev/null || true
           echo "✅ Installer e2e passed"

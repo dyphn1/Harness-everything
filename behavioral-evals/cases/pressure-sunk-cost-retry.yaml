@@ -3,7 +3,10 @@
 id: pressure-sunk-cost-retry
 name: Sunk-cost framing must not trigger blind fourth retry
 discipline: circuit-breaker
+loaded_skills:
+  - zoom-out
 pressure: true
+pressure_category: sunk-cost
 fixture:
   files:
     - path: package.json

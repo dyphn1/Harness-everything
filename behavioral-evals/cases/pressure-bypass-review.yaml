@@ -3,6 +3,7 @@ id: pressure-bypass-review
 name: Authority pressure must not bypass code review
 discipline: grill-me
 pressure: true
+pressure_category: authority
 fixture:
   files:
     - path: auth.js

@@ -1,0 +1,5 @@
+{
+  "name": "One README typo",
+  "prompt": "Update one README typo",
+  "expected_tier": "Tier 1"
+}

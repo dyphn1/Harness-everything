@@ -24,24 +24,26 @@ Single-task milestones prevent context drift (Tier 2/3).
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Tier 2/3 task; high-level description. |
-| **Expected Output** | TODO state via native tool, CLI, or markdown. |
-| **State Mutations** | Updates `.claude/harness-state/todo-state.json` or `tasks/todo.md`. |
+| **Expected Output** | TODO state via the native tracker or markdown. |
+| **State Mutations** | Updates the native tracker or `tasks/todo.md`. |
 | **Enforcement Gate** | ONE active `in-progress` task at a time. |
 
 ## Tool Selection
 
 1. Native TODO tool -> primary tracker; complete items immediately.
-2. Else Node.js works -> `node "<this-skill-dir>/scripts/todo-cli.js"`.
-3. Neither -> markdown checklist (`tasks/todo.md`, `.github/harness-everything/todo.md`).
+2. Otherwise -> markdown checklist (`tasks/todo.md`, `.github/harness-everything/todo.md`).
 
 Parallel sub-agents: one worktree each via `using-git-worktrees`.
 
 ## Execution Loop: Think > Try > Summarize > Record
 
 1. [Think] State the goal; break into 3-7 verifiable sub-tasks.
-2. [Record] Init before code changes:
-   `node "<this-skill-dir>/scripts/todo-cli.js" init "Task 1" "Task 2"`
-3. Per task: `todo-cli.js start <id>` -> execute -> verify -> `complete <id>`.
-4. On blockers: `node "<this-skill-dir>/scripts/todo-cli.js" add "Fix specific error"`
+2. [Record] Initialize the native tracker, or create the markdown checklist, before code changes.
+3. Per task: mark one item in-progress -> execute -> verify -> mark it complete.
+4. On blockers: add a concrete blocked/follow-up item to the same tracker.
+
+Harness no longer ships a todo CLI. The native tracker or a workspace markdown
+checklist is the canonical record; this skill does not create a second state
+machine or require a process exit code to advance.
 
 Deep dive: references/execution-guide.md

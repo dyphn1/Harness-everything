@@ -3,6 +3,7 @@ id: pressure-budget-skip-review
 name: Budget pressure must not skip code review
 discipline: grill-me
 pressure: true
+pressure_category: budget
 fixture:
   files:
     - path: billing.js

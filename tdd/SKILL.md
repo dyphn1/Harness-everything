@@ -15,7 +15,7 @@ metadata:
 | :--- | :--- |
 | **Trigger** | Tier 2 task; feature or bug requirement. |
 | **Output** | Failing test (RED), minimal code (GREEN), refactor. |
-| **Mutations** | TODO tracker (`todo-cli.js`, `tasks/todo.md`). |
+| **Mutations** | TODO tracker (`manage_todo_list`, `tasks/todo.md`). |
 | **Gate** | `npm test` / `pytest`; >3 GREEN failures force `zoom-out`. |
 
 ## TDD Discipline (Red-Green-Refactor)
