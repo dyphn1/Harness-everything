@@ -1,5 +1,5 @@
 name: todo-driven-workflow-eval
-description: Trigger precision eval for the todo-driven workflow checklist discipline.
+description: Trigger precision eval for the native TODO and Markdown checklist workflow.
 skill: todo-driven-workflow
 version: "1.0"
 config:
@@ -12,7 +12,7 @@ metrics:
   - name: task_completion
     weight: 0.7
     threshold: 0.8
-    description: Did multi-step work get tracked via native TODO or Markdown checklist transitions?
+    description: Did multi-step work get tracked through native TODO or Markdown checklist state transitions?
   - name: efficiency
     weight: 0.3
     threshold: 0.7

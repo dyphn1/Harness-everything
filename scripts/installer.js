@@ -264,6 +264,17 @@ async function main() {
 
     console.log(`\nInstalling Harness skills:`);
     skills.installSkillsToTargets({ chosenSkills, targetDirs, harnessSourceDir, packageVersion });
+
+    // Claude Code discovers named agents from .claude/agents/, not from a
+    // nested skill directory. Keep the source copies in fable-mode for plugin
+    // distribution, and also install them into Claude's native agent folder.
+    if (chosenSkills.includes('fable-mode') && targets.claude) {
+      const claudePlatform = platformModules.find(platform => platform.name === 'claude');
+      if (claudePlatform && typeof claudePlatform.getAgentsTarget === 'function') {
+        const agentTarget = claudePlatform.getAgentsTarget({ workspaceRoot, userHome, isGlobal, manifest });
+        skills.installAgentsToTarget({ target: agentTarget, harnessSourceDir, packageVersion });
+      }
+    }
   }
 
   if (!isGlobal) {
@@ -318,6 +329,7 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
                           fs.existsSync(path.join(getUserPromptsDir(), 'harness.agent.md'));
 
   const installedSkills = skills.getInstalledSkills(workspaceRoot, userHome);
+  const installedAgents = skills.getInstalledAgents(workspaceRoot, userHome);
 
   console.log("=================================================");
   console.log(`          Harness OS - Uninstall Utility         `);
@@ -440,6 +452,12 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
     // legacy banner block older installers appended to the working-tree
     // .gitignore. Only ever touches Harness-owned lines.
     removeWorkspaceExcludePatterns(workspaceRoot);
+
+    for (const agent of installedAgents.filter(entry => entry.scope.startsWith('local'))) {
+      skills.removeAgent(agent);
+      console.log(`  ✅ Removed agent: ${agent.filePath}`);
+    }
+    cleanEmptyDirs(path.join(workspaceRoot, '.claude', 'agents'), [workspaceRoot, userHome]);
   }
 
   if (removeGlobal) {
@@ -468,6 +486,13 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
     // actually empty (manifest.json is removed automatically by the
     // skills-removal step below once no skills remain in it).
     cleanEmptyDirs(path.join(globalAgentsDir, 'skills'), [userHome]);
+    cleanEmptyDirs(globalHarnessDir, [userHome]);
+
+    for (const agent of installedAgents.filter(entry => entry.scope.startsWith('global'))) {
+      skills.removeAgent(agent);
+      console.log(`  ✅ Removed agent: ${agent.filePath}`);
+    }
+    cleanEmptyDirs(path.join(userHome, '.claude', 'agents'), [workspaceRoot, userHome]);
     cleanEmptyDirs(globalHarnessDir, [userHome]);
   }
 

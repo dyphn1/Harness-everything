@@ -155,17 +155,28 @@
       "id": "agent",
       "keywords": [
         "agent", "multi-agent", "launcher", "subagent", "sub-agent", "subAgent", "create agent launcher", "delegate", "orchestrate", "specialist",
-        "workspace scaffolding", "scaffold workspace", "division of labor", "fable", "fable mode", "fable-mode", "fable-discipline", "fable-haiku", "macro", "orchestrator",
+        "workspace scaffolding", "scaffold workspace", "division of labor", "fable", "fable mode", "fable-mode", "fable-discipline", "fable-haiku", "fable-sonnet", "fable-opus", "macro", "orchestrator",
         "harness-everything", "harness system", "harness-skills", "using-superpowers",
         "代理", "多代理", "啟動器", "子代理", "委派", "指派", "分工", "協調", "任務分配", "規劃", "智慧體", "角色"
       ],
       "guides": [
-        "- fable-mode/SKILL.md (Macro task planning & execution orchestrator)",
+        "- fable-mode/SKILL.md (v3 staged execution, model selection, delegation, and verification)",
         "- fable-discipline/SKILL.md (Shadow guard preventing context bloat and managing token limits)",
         "- build-multi-agent-system/SKILL.md (Universal Multi-Agent Workspace scaffolding & memory db)",
         "- create-agent-launcher/SKILL.md (Sub-agent generator for specialized task delegation)",
         "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)",
         "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)"
+      ]
+    },
+    {
+      "id": "fable-model-mode",
+      "regex": "\\bfable(?:[- ]mode)?\\s+(?:on|with)\\s+(?:haiku|sonnet|sonnect|opus)\\b|\\bfable-(?:haiku|sonnet|opus)\\b",
+      "guides": [
+        "- fable-mode/model-matrix.json (Machine-readable Haiku/Sonnet/Opus roles and fallback policies)",
+        "- fable-mode/scripts/model-selector.js (Deterministic model selection and execution audit record)",
+        "- fable-mode/fable-haiku/SKILL.md (Haiku mode entrypoint)",
+        "- fable-mode/fable-sonnet/SKILL.md (Sonnet mode entrypoint)",
+        "- fable-mode/fable-opus/SKILL.md (Opus mode entrypoint)"
       ]
     },
     {
@@ -184,7 +195,7 @@
         "- improve-codebase-architecture/guides/HTML-REPORT.md (Mermaid dependency report generation)",
         "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)",
         "- grill-me/SKILL.md (Challenger interview to stress-test your architecture plan)",
-        "- fable-mode/SKILL.md (Macro task planning & execution orchestrator)"
+        "- fable-mode/SKILL.md (v3 staged execution, model selection, delegation, and verification)"
       ]
     },
     {

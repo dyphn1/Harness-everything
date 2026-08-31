@@ -12,6 +12,13 @@ greps, diffs) ONLY. Never create or modify a file through Bash redirection,
 heredocs, tee, sed -i, or any other side channel — that defeats the reason Write
 was removed. If you catch yourself about to produce content, stop and delegate.
 
+Before the first stage, resolve the requested model with
+`fable-mode/scripts/model-selector.js`. Carry its JSON record into every stage
+brief. A missing model must produce an explicit `fallback` or `blocked` status;
+never silently substitute a model. Every brief and handoff names the stage
+artifact, pass condition, verification command, verifier result, and requested
+versus effective model.
+
 ## Core loop
 
 **1. Stage map (before touching anything).** Write the full stage plan first.

@@ -48,6 +48,13 @@ function run(userPrompt) {
     return new RegExp(`\\b${escaped}\\b`, 'i').test(prompt);
   }
 
+  function detectFableModel(prompt) {
+    const match = prompt.match(/\bfable(?:[- ]mode)?\s+(?:on|with)\s+(haiku|sonnet|sonnect|opus)\b|\bfable-(haiku|sonnet|opus)\b/i);
+    if (!match) return null;
+    const requested = (match[1] || match[2]).toLowerCase();
+    return requested === 'sonnect' ? 'sonnet' : requested;
+  }
+
   let recommendedTier = "Tier 1 (Trivial)";
   let rationale = "No structural/testing signals in the prompt.";
 
@@ -118,6 +125,13 @@ function run(userPrompt) {
   if (!recommendedTier.startsWith("Tier 1")) {
     console.log(`\n=> BASE EXECUTION LOOP: Load 'todo-driven-workflow' and initialize its checklist (3-7 verifiable sub-tasks) BEFORE editing any file.`);
     console.log(`   Track exactly ONE item in-progress at a time; verify with real evidence before marking completed.`);
+  }
+
+  const requestedFableModel = detectFableModel(promptLower);
+  if (requestedFableModel) {
+    console.log(`\n=> REQUESTED FABLE MODEL MODE: ${requestedFableModel}`);
+    console.log(`=> ROUTE: fable-mode/fable-${requestedFableModel}/SKILL.md`);
+    console.log(`   Resolve availability and record fallback status with fable-mode/scripts/model-selector.js.`);
   }
 
   // Analyze and output relevant Knowledge Guides / Templates based on user prompt keywords.

@@ -1,36 +1,34 @@
 # Workflow: Todo-Driven Workflow
 
-> The fundamental execution loop. Prioritizes native IDE tools (`manage_todo_list`), with fallback to workspace markdown files (`tasks/todo.md`).
-
----
-
-## 1. Skill Behavior Workflow
-
-This section visualizes the rigid state constraints. Transitioning state is blocked unless verification gates pass.
+> The fundamental execution loop for Tier 2/3 work. Prefer the host's native
+> TODO tracker; use a Markdown checklist when no native tracker is available.
 
 ```mermaid
 graph TD
-  Start([Initialize Checklist]) --> Plan["Define 3-7 Verifiable Sub-tasks"]
-  Plan --> StateIntent["Awaken: State high-level intent"]
-  StateIntent --> CheckTool{Native TODO Tool Available?}
-  
-  CheckTool -->|Yes: manage_todo_list| NativeTracker["Use IDE Native manage_todo_list"]
-  CheckTool -->|No Tooling| FileTracker["Write to tasks/todo.md / .github/harness-everything/todo.md"]
-  
-  NativeTracker --> ChooseTask["Choose ONE pending task (Set in-progress)"]
-  FileTracker --> ChooseTask
-  
-  ChooseTask --> Execute["Execute code changes"]
-  
-  Execute --> GatherEvidence["Verify via Tests / verify-gate.js"]
-  GatherEvidence --> VerifySuccess{Verification Passed?}
-  
-  VerifySuccess -->|No: Code is broken| ReflectCode["Reflect: Read Error Log & Fix"]
-  ReflectCode --> Execute
-  
-  VerifySuccess -->|Yes: Code works| MarkCompleted["Mark Task Completed in Active Tracker"]
-  
-  MarkCompleted --> CheckRemaining{All tasks completed?}
-  CheckRemaining -->|No| ChooseTask
-  CheckRemaining -->|Yes| Finish([Signal Task Completion])
+  Start[Initialize checklist] --> Plan[Define 3-7 verifiable milestones]
+  Plan --> Native{Native TODO tracker available?}
+  Native -->|Yes| Host[Use host tracker]
+  Native -->|No| Markdown[Create tasks/todo.md]
+  Host --> One[Keep one item in-progress]
+  Markdown --> One
+  One --> Execute[Execute bounded scope]
+  Execute --> Verify[Run named verification command]
+  Verify -->|pass| Complete[Record evidence and complete item]
+  Verify -->|fail| Reflect[Inspect failure and update plan]
+  Reflect --> Execute
+  Complete --> More{More milestones?}
+  More -->|Yes| One
+  More -->|No| Done[Finish]
 ```
+
+## Operating rules
+
+1. Define 3-7 milestones before editing.
+2. Give each milestone an output, pass condition, and verification command.
+3. Keep exactly one milestone `in-progress`.
+4. Mark a milestone complete only after its check passes.
+5. Use `using-git-worktrees` when parallel agents would otherwise share a write scope.
+6. Leave a blocker visible in the checklist and escalate instead of inventing progress.
+
+The repository has no TODO CLI state machine. This keeps progress portable,
+host-native, and transparent across sessions.

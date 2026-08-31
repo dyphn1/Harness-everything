@@ -18,9 +18,11 @@ Every skill in this repository is reachable from this router. If a task matches 
 | `eval-harness` | Tier 2 | Scoring, stress testing, benchmark comparison. |
 | `verification-loop` | Tier 2/3 gate | Before declaring done or creating a PR. |
 | `security-review` | Tier 2/3 gate | Changes touching auth, input handling, secrets, network boundaries. |
-| `fable-mode` | Tier 3 | Macro task planning & execution engine. |
+| `fable-mode` | Tier 3 | v3 staged planning, named-agent delegation, model selection, failable gates, and cold review. |
 | `fable-discipline` | Tier 3 | Risk control paired with fable-mode. |
-| `fable-mode/fable-haiku` | Tier 3 (opt-in) | User explicitly asks for staged execution run cheaply on Haiku. |
+| `fable-mode/fable-haiku` | Tier 3 (opt-in) | User explicitly asks for staged execution on Haiku for bulk mechanical work. |
+| `fable-mode/fable-sonnet` | Tier 3 (opt-in) | User explicitly asks for staged execution on Sonnet for bounded reasoning or synthesis. |
+| `fable-mode/fable-opus` | Tier 3 (opt-in) | User explicitly asks for staged execution on Opus for orchestration or high-stakes architecture. |
 | `create-agent-launcher` | Tier 3 | Spawning specialized sub-agents. |
 | `build-multi-agent-system` | Tier 3 | Scaffolding a multi-agent workspace. |
 | `repo-docs` | Tier 3 | Creating project-level documentation. |

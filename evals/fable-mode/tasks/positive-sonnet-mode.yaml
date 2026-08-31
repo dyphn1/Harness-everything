@@ -1,15 +1,16 @@
-id: positive-fable-mode-001
-name: On-scope prompt triggers fable-mode
+id: positive-fable-sonnet-003
+name: Explicit Sonnet mode routes reasoning work
 description: "Stage large, multi-source or multi-session tasks through a written plan, named fable agents, failable per-stage checks, and skeptical delivery review; use fable-opus, fable-sonnet, or fable-haiku for explicit model selection."
 tags:
   - positive-trigger
+  - fable-sonnet
 inputs:
-  prompt: "Execute this large multi-phase refactor of the persistence layer using parallel sub-agent workers."
+  prompt: "Fable on sonnect: synthesize the API research, implement the bounded adapter, and report the named verification command."
 expected:
   should_trigger: true
 graders:
   - type: text
-    name: contains-keywords
+    name: routes-sonnet
     config:
       contains:
-        - "worker"
+        - "sonnet"

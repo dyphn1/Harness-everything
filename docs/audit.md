@@ -34,6 +34,10 @@ This incident is why VERIFICATION.md's recipes were rewritten to be Windows-safe
 
 ## Change log by audit cycle
 
+### 2026-09-01
+- Fable v3 integration now exposes explicit Haiku, Sonnet, and Opus entrypoints, with deterministic model selection and visible inline fallback or blocked escalation in `fable-mode/model-matrix.json` and `fable-mode/scripts/model-selector.js`.
+- The current workflow uses native host TODO tracking or Markdown checklists. The older shared TODO CLI/state-machine references below are retained only as historical audit evidence; no runtime, test, or active workflow depends on them.
+
 ### 2026-07-26
 - `verify-gate.js` is no longer a simulated stub: it now discovers the nearest `package.json` (scoped to the enclosing git repo), runs its real `lint`/`test` scripts via the detected package manager (npm/pnpm/yarn/bun), and blocks completion on any failure. The `.verify-fail.tmp` injection hook is kept for hermetic mechanism tests, and `HARNESS_SKIP_PROJECT_CHECKS=1` guards against self-recursion in projects (like this one) whose test suite itself drives the Harness runtime. When no runnable scripts exist it exits 0 but explicitly warns that no mechanical checks ran — the exit code is not evidence.
 - CI added: `.github/workflows/ci.yml` runs `npm test` on push/PR, closing the "local-gate-only" gap called out in the previous cycle.
@@ -43,3 +47,4 @@ This incident is why VERIFICATION.md's recipes were rewritten to be Windows-safe
 ### 2026-07-23
 - VERIFICATION.md §2's mechanism checks automated (`npm run test:mechanism`).
 - VERIFICATION.md's test recipes rewritten to be Windows-safe (`node -e` stdin instead of a shell `echo` pipe).
+- Workflow progress is recorded in the host TODO tracker or a Markdown checklist.

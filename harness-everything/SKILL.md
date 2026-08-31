@@ -4,7 +4,7 @@ description: "Triage new software requests into Tier 1/2/3 before work begins. U
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.5
 ---
 
 # Harness Everything (System Main Entry & Dynamic Router)
@@ -39,6 +39,6 @@ metadata:
 | :--- | :--- | :--- |
 | **1 Trivial** | Typos, single-function tweaks | Direct edit only; no plans/sub-agents/`fable-mode`. |
 | **2 Standard** | One endpoint, bug, 2-3 files | `todo-driven-workflow` FIRST, context trace, `tdd`; gate: `verification-loop` (+`security-review`). |
-| **3 Macro** | New project, architecture refactor | `fable-mode` + `fable-discipline`, sub-agents via `create-agent-launcher`; advisory `to-spec`/`to-tickets`. |
+| **3 Macro** | New project, architecture refactor | `fable-mode` + `fable-discipline`, explicit Haiku/Sonnet/Opus selector, sub-agents via `create-agent-launcher`; advisory `to-spec`/`to-tickets`. |
 
 Deep dive: references/triage-and-tiers.md

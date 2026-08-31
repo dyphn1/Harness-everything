@@ -36,14 +36,15 @@ function getManifestPath(homeDir) {
 
 function readManifest(manifestPath) {
   if (!fs.existsSync(manifestPath)) {
-    return { package: PACKAGE_NAME, skills: [] };
+    return { package: PACKAGE_NAME, skills: [], agents: [] };
   }
   try {
     const data = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     if (!Array.isArray(data.skills)) data.skills = [];
+    if (!Array.isArray(data.agents)) data.agents = [];
     return data;
   } catch (e) {
-    return { package: PACKAGE_NAME, skills: [] };
+    return { package: PACKAGE_NAME, skills: [], agents: [] };
   }
 }
 
@@ -61,6 +62,18 @@ function recordSkillInstall(manifestPath, packageVersion, skillId, dirPath) {
   const entry = { id: skillId, dirPath, installedAt: new Date().toISOString() };
   if (idx !== -1) data.skills[idx] = entry;
   else data.skills.push(entry);
+  writeManifest(manifestPath, data);
+}
+
+function recordAgentInstall(manifestPath, packageVersion, agentId, filePath) {
+  const data = readManifest(manifestPath);
+  data.package = PACKAGE_NAME;
+  data.version = packageVersion;
+  data.updatedAt = new Date().toISOString();
+  const idx = data.agents.findIndex(agent => agent.filePath === filePath);
+  const entry = { id: agentId, filePath, installedAt: new Date().toISOString() };
+  if (idx !== -1) data.agents[idx] = entry;
+  else data.agents.push(entry);
   writeManifest(manifestPath, data);
 }
 
@@ -98,7 +111,18 @@ function removeSkillFromManifest(manifestPath, dirPath) {
   if (!fs.existsSync(manifestPath)) return;
   const data = readManifest(manifestPath);
   data.skills = data.skills.filter(s => s.dirPath !== dirPath);
-  if (data.skills.length === 0 && (!data.generated || data.generated.length === 0)) {
+  if (data.skills.length === 0 && (!data.generated || data.generated.length === 0) && (!data.agents || data.agents.length === 0)) {
+    fs.unlinkSync(manifestPath);
+  } else {
+    writeManifest(manifestPath, data);
+  }
+}
+
+function removeAgentFromManifest(manifestPath, filePath) {
+  if (!fs.existsSync(manifestPath)) return;
+  const data = readManifest(manifestPath);
+  data.agents = data.agents.filter(agent => agent.filePath !== filePath);
+  if (data.skills.length === 0 && (!data.generated || data.generated.length === 0) && data.agents.length === 0) {
     fs.unlinkSync(manifestPath);
   } else {
     writeManifest(manifestPath, data);
@@ -114,7 +138,9 @@ module.exports = {
   readManifest,
   writeManifest,
   recordSkillInstall,
+  recordAgentInstall,
   recordGeneratedSkill,
   removeGeneratedSkill,
   removeSkillFromManifest,
+  removeAgentFromManifest,
 };

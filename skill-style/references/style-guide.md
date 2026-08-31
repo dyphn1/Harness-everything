@@ -20,7 +20,7 @@ Every SKILL.md MUST include this table exactly:
 | :--- | :--- |
 | **Trigger / Input** | (What causes this skill to execute? What exact data/args does it expect?) |
 | **Expected Output** | (What specific files, artifacts, or Terminal Exit Codes are produced?) |
-| **State Mutations** | (What JSON/files are written to track progress? e.g., `.claude/harness-state/todo-state.json`) |
+| **State Mutations** | (What JSON/files are written to track progress? e.g., a stage audit JSONL file under `.claude/harness-state/`) |
 | **Enforcement Gate** | (Which exact CLI script slaps the LLM with Exit Code 1 if it fails?) |
 ```
 

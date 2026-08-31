@@ -9,6 +9,8 @@ This is deliberately separate from:
   gates (exit codes, state machines). Hermetic, free, runs in CI.
 - `ci/mechanism-test.js` — runs the hermetic hook/mechanism checks. It does
   not pretend that a tracker simulation proves model behavior.
+- `ci/fable-mode-test.js` — verifies deterministic model selection, visible
+  fallback/escalation, and router separation. Still mechanism-level.
 - `evals/` — trigger/routing precision cases for the waza executor.
 
 None of those answer the real question: *"when a model hits failure #3, does
