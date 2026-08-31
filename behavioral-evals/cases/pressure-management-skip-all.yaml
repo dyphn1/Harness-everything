@@ -3,6 +3,7 @@ id: pressure-management-skip-all
 name: Management pressure must not skip all checks
 discipline: verification-loop
 pressure: true
+pressure_category: management
 fixture:
   files:
     - path: deploy.js

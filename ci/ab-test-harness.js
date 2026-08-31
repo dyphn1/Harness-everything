@@ -5,9 +5,9 @@
  * Proves whether skills actually change agent behavior by comparing
  * baseline (no skill) vs treatment (skill loaded) outputs.
  *
- *   node eval-framework/ab-test-harness.js validate          # structural check (free)
- *   node eval-framework/ab-test-harness.js run               # run all cases (costs tokens)
- *   node eval-framework/ab-test-harness.js run --case <id>   # run one case
+ *   node ci/ab-test-harness.js validate          # structural check (free)
+ *   node ci/ab-test-harness.js run               # run all cases (costs tokens)
+ *   node ci/ab-test-harness.js run --case <id>   # run one case
  *
  * Verdict logic:
  *   baseline FAIL + treatment PASS => EFFECTIVE (skill changed behavior)
@@ -19,6 +19,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -133,14 +134,22 @@ function validateCase(c) {
 function runHeadless(prompt, cwd, engine) {
   const model = process.env.AB_TEST_MODEL || 'openai/gpt-5-mini';
   const outPath = path.join(os.tmpdir(), `ab-test-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
+  const outputFd = fs.openSync(outPath, 'w');
   try {
     execFileSync('opencode', ['run', '-m', model, prompt, '--format', 'json', '--auto', '--dir', cwd],
-      { cwd, stdio: ['ignore', fs.openSync(outPath, 'w'), 'inherit'], timeout: 10 * 60 * 1000 });
+      { cwd, stdio: ['ignore', outputFd, 'inherit'], timeout: 10 * 60 * 1000, windowsHide: true });
   } catch (err) {
     // Timeout or crash — return empty trace
+    fs.rmSync(outPath, { force: true });
     return '';
+  } finally {
+    fs.closeSync(outputFd);
   }
-  return extractTrace(outPath);
+  try {
+    return extractTrace(outPath);
+  } finally {
+    fs.rmSync(outPath, { force: true });
+  }
 }
 
 function extractTrace(transcriptPath) {
@@ -226,51 +235,63 @@ function cleanWorkspace(ws) {
 
 // ---------------------------------------------------------------------------
 // Run a single A/B test case
+function sha256(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function countToolCalls(trace) {
+  return (trace.match(/^\[[^\]]+\]/gm) || []).length;
+}
+
+function wilsonInterval(successes, total) {
+  if (!total) return null;
+  const z = 1.96;
+  const p = successes / total;
+  const denominator = 1 + (z * z) / total;
+  const centre = (p + (z * z) / (2 * total)) / denominator;
+  const spread = (z / denominator) * Math.sqrt((p * (1 - p) / total) + (z * z) / (4 * total * total));
+  return [Math.max(0, centre - spread), Math.min(1, centre + spread)].map(v => Number(v.toFixed(4)));
+}
+
+// Every run is a paired experiment. The order is randomized to avoid making
+// the second arm systematically benefit from cache/session warm-up.
 function runCase(c, engine) {
   console.log(`\n=== ${c.id}: ${c.name} ===`);
   console.log(`Skill: ${c.skill}`);
-
-  // Load skill content for treatment
-  const skillPath = path.join(SKILLS_DIR, c.skill, 'SKILL.md');
-  const skillContent = fs.readFileSync(skillPath, 'utf8');
-
-  // Treatment prompt: skill content + original prompt
+  const skillContent = fs.readFileSync(path.join(SKILLS_DIR, c.skill, 'SKILL.md'), 'utf8');
   const treatmentPrompt = `You are following the ${c.skill} discipline. Here is your skill:\n\n${skillContent}\n\n---\n\n${c.prompt}`;
-
-  // Run baseline (no skill)
-  console.log('  Running baseline...');
-  const baselineWs = buildWorkspace();
-  let baselineTrace = '';
-  try {
-    baselineTrace = runHeadless(c.prompt, baselineWs, engine);
-  } catch (err) {
-    console.error(`  Baseline failed: ${err.message}`);
+  const pairId = `${c.id}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+  const order = crypto.randomInt(0, 2) === 0 ? ['baseline', 'treatment'] : ['treatment', 'baseline'];
+  const arms = {};
+  for (const arm of order) {
+    const ws = buildWorkspace();
+    let trace = '';
+    try {
+      trace = runHeadless(arm === 'treatment' ? treatmentPrompt : c.prompt, ws, engine);
+    } catch (err) {
+      console.error(`  ${arm} failed: ${err.message}`);
+    }
+    const results = grade(trace, arm === 'treatment' ? c.treatment_rubric : c.baseline_rubric);
+    const pass = results.every(r => r.pass);
+    arms[arm] = {
+      pass,
+      loaded_skills: arm === 'treatment' ? [c.skill] : [],
+      attribution_required: arm === 'treatment',
+      results: results.map(r => ({ description: r.description, pass: r.pass })),
+      trace_preview: trace.slice(0, 500),
+      tool_call_count: countToolCalls(trace),
+    };
+    cleanWorkspace(ws);
   }
-  cleanWorkspace(baselineWs);
-
-  // Run treatment (with skill)
-  console.log('  Running treatment...');
-  const treatmentWs = buildWorkspace();
-  let treatmentTrace = '';
-  try {
-    treatmentTrace = runHeadless(treatmentPrompt, treatmentWs, engine);
-  } catch (err) {
-    console.error(`  Treatment failed: ${err.message}`);
-  }
-  cleanWorkspace(treatmentWs);
-
-  // Grade
-  const baselineResults = grade(baselineTrace, c.baseline_rubric);
-  const treatmentResults = grade(treatmentTrace, c.treatment_rubric);
-  const verdict = computeVerdict(baselineResults, treatmentResults);
-
-  // Report
-  const bPass = baselineResults.every((r) => r.pass);
-  const tPass = treatmentResults.every((r) => r.pass);
-  console.log(`  Baseline: ${bPass ? 'PASS' : 'FAIL'} (${baselineResults.filter((r) => r.pass).length}/${baselineResults.length})`);
-  console.log(`  Treatment: ${tPass ? 'PASS' : 'FAIL'} (${treatmentResults.filter((r) => r.pass).length}/${treatmentResults.length})`);
+  if (!arms.treatment.loaded_skills.length) throw new Error('treatment attribution is empty');
+  const verdict = computeVerdict(
+    arms.baseline.results.map(r => ({ pass: r.pass })),
+    arms.treatment.results.map(r => ({ pass: r.pass }))
+  );
+  console.log(`  Order: ${order.join(' -> ')}`);
+  console.log(`  Baseline: ${arms.baseline.pass ? 'PASS' : 'FAIL'}`);
+  console.log(`  Treatment: ${arms.treatment.pass ? 'PASS' : 'FAIL'} [${c.skill}]`);
   console.log(`  Verdict: ${verdict}`);
-
   return {
     id: c.id,
     skill: c.skill,
@@ -278,11 +299,18 @@ function runCase(c, engine) {
     date: new Date().toISOString(),
     engine,
     model: process.env.AB_TEST_MODEL || 'openai/gpt-5-mini',
-    baseline: { results: baselineResults.map((r) => ({ description: r.description, pass: r.pass })), pass: bPass },
-    treatment: { results: treatmentResults.map((r) => ({ description: r.description, pass: r.pass })), pass: tPass },
+    protocol: 'paired-randomized-v1',
+    pair_id: pairId,
+    arm_order: order,
+    fixture_defined: false,
+    fixture_sha256: sha256('no fixture declared'),
+    prompt_sha256: sha256(c.prompt),
+    sample_unit: 'one paired prompt-only case',
+    cost: null,
+    baseline: arms.baseline,
+    treatment: arms.treatment,
+    tool_call_delta: arms.treatment.tool_call_count - arms.baseline.tool_call_count,
     verdict,
-    baseline_trace_preview: baselineTrace.slice(0, 500),
-    treatment_trace_preview: treatmentTrace.slice(0, 500),
   };
 }
 
@@ -352,7 +380,22 @@ function main() {
     const resultDir = path.join(RESULTS_DIR, `ab-test-${date}`);
     fs.mkdirSync(resultDir, { recursive: true });
     const resultFile = path.join(resultDir, 'results.json');
-    fs.writeFileSync(resultFile, JSON.stringify({ date, engine, model: process.env.AB_TEST_MODEL || 'openai/gpt-5-mini', summary: { effective, ineffective, inconclusive, harmful, total: results.length }, results }, null, 2));
+    const completed = results.length;
+    const toolCallDeltas = results.map(r => r.tool_call_delta);
+    const summary = {
+      effective,
+      ineffective,
+      inconclusive,
+      harmful,
+      requested_sample_size: cases.length,
+      completed_pairs: completed,
+      boundary_compliance: completed === cases.length ? 'complete' : 'incomplete',
+      cost: null,
+      tool_call_delta: toolCallDeltas,
+      effective_rate_ci95: wilsonInterval(effective, completed),
+      interpretation: 'Prompt-only cases have no workspace boundary; use behavioral-evals/run.js --arm both for fixture-bound evidence.',
+    };
+    fs.writeFileSync(resultFile, JSON.stringify({ date, engine, model: process.env.AB_TEST_MODEL || 'openai/gpt-5-mini', protocol: 'paired-randomized-v1', summary, results }, null, 2));
     console.log(`\nResults written to: ${resultFile}`);
 
     // Exit non-zero if any EFFECTIVE or HARMFUL (these are signal, not noise)

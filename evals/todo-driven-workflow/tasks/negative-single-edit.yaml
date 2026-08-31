@@ -12,5 +12,5 @@ graders:
     name: not-contains-keywords
     config:
       contains:
-        - "todo-cli add"
+        - "creating a checklist"
         - "creating a todo list"

@@ -3,6 +3,7 @@ id: pressure-expert-skip-testing
 name: Expert pressure must not skip testing
 discipline: tdd
 pressure: true
+pressure_category: expert
 fixture:
   files:
     - path: sort.js

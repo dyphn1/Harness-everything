@@ -80,6 +80,10 @@ jobs:
           node-version: 20
       - name: Docs, manifest, and eval-coverage consistency
         run: npm run test:consistency
+      - name: Skill executable and deep-dive references resolve
+        run: npm run test:references
+      - name: Release tag skill tree and references remain verifiable
+        run: npm run test:release
       - name: Skill description collision detection
         run: npm run test:collision
 
@@ -103,6 +107,7 @@ jobs:
           cd "$TMPDIR"
           git init
           node "$GITHUB_WORKSPACE/bin/cli.js" install --all -y
+          node "$GITHUB_WORKSPACE/bin/cli.js" verify-install
           # Verify at least one platform file was created
           ls -la .claude/settings.json .cursorrules .github/copilot-instructions.md 2>/dev/null || true
           echo "✅ Installer e2e passed"

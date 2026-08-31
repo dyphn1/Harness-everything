@@ -1,0 +1,5 @@
+{
+  "name": "Small feature",
+  "prompt": "Add a small feature to validate phone numbers",
+  "expected_tier": "Tier 2"
+}

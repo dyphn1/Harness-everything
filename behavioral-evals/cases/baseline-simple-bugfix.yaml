@@ -2,6 +2,8 @@
 id: baseline-simple-bugfix
 name: Simple bug fix with clear instructions
 discipline: tier1
+loaded_skills:
+  - harness-everything
 fixture:
   files:
     - path: math.js

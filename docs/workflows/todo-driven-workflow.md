@@ -1,6 +1,6 @@
 # Workflow: Todo-Driven Workflow
 
-> The fundamental execution loop. Prioritizes native IDE tools (`manage_todo_list`), with fallback to CLI script (`todo-cli.js`) or workspace markdown files (`tasks/todo.md`).
+> The fundamental execution loop. Prioritizes native IDE tools (`manage_todo_list`), with fallback to workspace markdown files (`tasks/todo.md`).
 
 ---
 
@@ -15,11 +15,9 @@ graph TD
   StateIntent --> CheckTool{Native TODO Tool Available?}
   
   CheckTool -->|Yes: manage_todo_list| NativeTracker["Use IDE Native manage_todo_list"]
-  CheckTool -->|No: Node.js & Script| ScriptTracker["Use node todo-cli.js init"]
   CheckTool -->|No Tooling| FileTracker["Write to tasks/todo.md / .github/harness-everything/todo.md"]
   
   NativeTracker --> ChooseTask["Choose ONE pending task (Set in-progress)"]
-  ScriptTracker --> ChooseTask
   FileTracker --> ChooseTask
   
   ChooseTask --> Execute["Execute code changes"]

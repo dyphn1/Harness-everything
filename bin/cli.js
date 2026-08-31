@@ -34,6 +34,9 @@ switch (command) {
   case 'verify':
     runVerify();
     break;
+  case 'verify-install':
+    runInstallVerification(args.slice(1));
+    break;
   default:
     console.error(`[Error] Unknown command: "${command}"`);
     showHelp();
@@ -78,6 +81,8 @@ Commands:
                      This is the mechanism hook/hookless platforms (Codex, Cursor,
                      Copilot, Continue, Hermes) call explicitly at the start of a
                      turn, since they have no hook to run it automatically.
+  verify-install     Compare installed Harness manifests and skill trees with
+                     this package source; stale versions or missing files fail.
   verify             Run the pre-delivery verification gate (lint/test from the
                      nearest package.json). Exits non-zero if checks fail. This is
                      the explicit stand-in for Claude Code's stop-gate hook on
@@ -133,5 +138,15 @@ function runVerify() {
     process.exit(1);
   }
   const result = spawnSync('node', [gatePath], { stdio: 'inherit' });
+  process.exit(result.status === null ? 1 : result.status);
+}
+
+function runInstallVerification(verifyArgs) {
+  const script = path.resolve(__dirname, '..', 'scripts', 'verify-install.js');
+  if (!fs.existsSync(script)) {
+    console.error('[Error] Install verification script not found.');
+    process.exit(1);
+  }
+  const result = spawnSync('node', [script, ...verifyArgs], { stdio: 'inherit' });
   process.exit(result.status === null ? 1 : result.status);
 }

@@ -15,13 +15,13 @@ metadata:
 | :--- | :--- |
 | **Trigger / Input** | Tier 3 Task; multi-domain requirement or scaffolding. |
 | **Expected Output** | Breakdown, milestone TODOs, handoffs, verification. |
-| **State Mutations** | TODO checklist via `todo-driven-workflow` (`manage_todo_list`, `todo-cli.js`, `tasks/todo.md`). |
+| **State Mutations** | TODO checklist via `todo-driven-workflow` (`manage_todo_list` or `tasks/todo.md`). |
 | **Enforcement Gate** | Run `harness-everything/scripts/verify-gate.js` or tests at boundaries. |
 
 ## Workflow
 
 1. **Plan** with `fable-discipline`: deconstruct into bounded sub-tasks; **Scope Lock**: define the authorized file scope first, block anything outside it.
-2. **Track**: load `todo-driven-workflow` (`manage_todo_list` / `todo-cli.js` / `tasks/todo.md`).
+2. **Track**: load `todo-driven-workflow` (`manage_todo_list` / `tasks/todo.md`).
 3. **Delegate** via `create-agent-launcher` with bounded briefs; persona role-switch if no sub-agent tool.
 4. **Verify**: check output against `hooks/scripts/subagent-scope-guard.js`; integration-test at milestones.
 5. **Gate**: fan out QA/Security/Performance audits of the Git Diff via `create-agent-launcher`; regress on any `Blocker`.

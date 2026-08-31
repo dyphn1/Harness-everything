@@ -1,7 +1,7 @@
 # Agent Cognitive OS — Full Reference
 
 ## The Cyclical Development Paradigm
-Software development is iterative — a cycle of hypothesis, execution, feedback, and refinement. Rather than assuming code works immediately after writing it, ground progress in objective evidence from verification tools (project test suite `npm test`/`pytest`, `harness-everything/scripts/verify-gate.js`, or `npx github:dyphn1/Harness-everything verify`) and active task trackers (`manage_todo_list`, `todo-driven-workflow/scripts/todo-cli.js`, or `tasks/todo.md`). When checks fail, step back to analyze, adapt, and resolve before continuing.
+Software development is iterative — a cycle of hypothesis, execution, feedback, and refinement. Rather than assuming code works immediately after writing it, ground progress in objective evidence from verification tools (project test suite `npm test`/`pytest`, `harness-everything/scripts/verify-gate.js`, or `npx github:dyphn1/Harness-everything verify`) and an active task tracker (`manage_todo_list` or `tasks/todo.md`). When checks fail, step back to analyze, adapt, and resolve before continuing.
 
 ## Core Loop State Machine
 

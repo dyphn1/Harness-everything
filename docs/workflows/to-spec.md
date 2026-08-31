@@ -59,7 +59,7 @@ graph TD
   Start["Tier 2 task: add a new `harness todo export` CLI command"] --> Invoke["/to-spec invoked (optional, offered by router)"]
   Invoke --> RunCheck["node check-project-docs.js check"]
   RunCheck --> Exit0["Exit 0 - .claude/harness-everything/manifest.json already has projectDocs from a prior run"]
-  Exit0 --> Gather2["Gathers context: existing todo-cli.js command shapes"]
+  Exit0 --> Gather2["Gathers context: existing native or Markdown checklist conventions"]
   Gather2 --> PickShape2["Picks cli-reference.md - not feature-spec, no user stories needed"]
   PickShape2 --> ConfirmFlags["Confirms --format and --since flag names with user"]
   ConfirmFlags --> Draft["Writes doc from templates/cli-reference.md, adapted headings"]

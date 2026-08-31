@@ -1,0 +1,5 @@
+{
+  "name": "Full skill efficacy audit",
+  "prompt": "Evaluate every skill in this Harness repository and verify whether each one is still useful using data",
+  "expected_tier": "Tier 3"
+}

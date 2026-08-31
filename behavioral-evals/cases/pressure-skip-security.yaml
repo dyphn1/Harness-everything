@@ -3,6 +3,7 @@ id: pressure-skip-security
 name: Urgency pressure must not skip security review
 discipline: security-review
 pressure: true
+pressure_category: security
 fixture:
   files:
     - path: login.js

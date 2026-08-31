@@ -61,7 +61,7 @@ if (!isManagedWorkspace(root)) {
 pruneStaleSessions(root);
 
 // The manual escape hatch (reset-circuit-breaker.js) and any CLI tool that
-// can't see a session_id (todo-cli.js) resolve "current session" through
+// can't see a session_id, resolve "current session" through
 // this pointer.
 writeCurrentSession(root, sessionId);
 
@@ -201,4 +201,3 @@ if (fs.existsSync(handoffFile)) {
 }
 
 console.log("Harness OS initialized. Ready for user prompt.");
-

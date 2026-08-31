@@ -1,0 +1,5 @@
+{
+  "name": "Chinese full skill audit",
+  "prompt": "請逐一評估所有 skill 的內容、檔案結構與版本，並用數據比較是否仍然有效",
+  "expected_tier": "Tier 3"
+}
