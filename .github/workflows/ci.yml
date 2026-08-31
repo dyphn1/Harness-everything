@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install dependencies for regression suite
+        run: npm ci
       - name: Run hermetic self-regression suite
         run: npm test
 
