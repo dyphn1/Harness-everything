@@ -37,7 +37,7 @@ A relentless Senior Architect persona that stress-tests plans via one-question-a
 2. Grill strictly using the project's domain model and terminology.
 3. Ask exactly ONE question at a time (questionnaires prohibited); attach your insight; resolve each branch before moving on.
 4. Update `CONTEXT.md` glossary inline as terms resolve.
-5. On consensus, hand off to `to-spec/SKILL.md` to preview the outline and publish (PRD, CLI/API reference, Schema doc, or ADR).
+5. On consensus, hand off to `<skills-repo-root>/to-spec/SKILL.md` to preview the outline and publish (PRD, CLI/API reference, Schema doc, or ADR).
 6. Route execution: `to-tickets`, `fable-mode`, or `tdd`.
 
-Deep dive: references/grilling-playbook.md
+Deep dive: <this-skill-dir>/references/grilling-playbook.md

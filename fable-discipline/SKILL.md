@@ -38,4 +38,4 @@ Shadow guard for `fable-mode`: MUST run in the background for its whole duration
 3. **Agent handoff**: Outgoing agents MUST leave a state manifest (completed APIs, expected inputs/outputs); incoming agents MUST verify it first.
 4. **Circuit breaker**: If build errors diverge, HALT, call `zoom-out`, and map the error dependency graph for the human.
 
-Deep dive: references/discipline-rules.md
+Deep dive: <this-skill-dir>/references/discipline-rules.md

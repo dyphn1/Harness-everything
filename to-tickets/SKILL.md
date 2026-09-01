@@ -28,7 +28,7 @@ Cuts a plan or spec into tracer-bullet vertical slices, each declaring its block
 | **Trigger / Input** | Explicit /to-tickets only; input: spec reference or plan in context. |
 | **Expected Output** | Tickets with What-to-build, Blocked-by, criteria — per projectDocs/convention/fallback. |
 | **State Mutations** | None to manifest.json (reads only); writes tickets at resolved location. |
-| **Enforcement Gate** | Run `node "to-spec/scripts/check-project-docs.js" check` if available; never block on Exit 1; MUST get user approval before publishing. |
+| **Enforcement Gate** | Run `node "<skills-repo-root>/to-spec/scripts/check-project-docs.js" check` if available; never block on Exit 1; MUST get user approval before publishing. |
 
 ## Process
 
@@ -39,4 +39,4 @@ Cuts a plan or spec into tracer-bullet vertical slices, each declaring its block
 5. Quiz the user on granularity and edges until approved (MANDATORY gate).
 6. Publish per ticket: one `<NN>-<slug>.md` file or tracker issue, dependency order, ready-for-agent, blocking links. Work the frontier; never close parents.
 
-Deep dive: references/publishing-and-templates.md
+Deep dive: <this-skill-dir>/references/publishing-and-templates.md

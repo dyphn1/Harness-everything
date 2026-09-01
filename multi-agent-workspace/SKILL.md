@@ -24,14 +24,14 @@ metadata:
 | **Trigger / Input** | Tier 3 workspace scaffold or specialist-selection request; optional `--agency-source`. |
 | **Expected Output** | Six zones, immutable router, selected-agent catalog, launcher, local indexer, and structured handoff. |
 | **State Mutations** | Writes only `.harness/multi-agent/` in the target workspace; never edits the external source. |
-| **Enforcement Gate** | Run `scripts/scaffold.js`; it validates source metadata, conflicts, revision drift, and generated artifacts. |
+| **Enforcement Gate** | Run `<this-skill-dir>/scripts/scaffold.js`; it validates source metadata, conflicts, revision drift, and generated artifacts. |
 
 ## Workflow
 
 1. Discover the target stack, source availability, requested platform, divisions, and agents.
-2. Run `node multi-agent-workspace/scripts/scaffold.js --workspace <root>` with explicit selections.
+2. Run `node <this-skill-dir>/scripts/scaffold.js --workspace <root>` with explicit selections.
 3. Read the generated router and handoff before delegating. Pass each specialist only its declared scope.
-4. Run the generated `index_memory.js`; verify `manifest.json`, `memory-index.md`, and all six zones.
+4. Run the generated `<this-skill-dir>/scripts/index_memory.js`; verify `manifest.json`, `memory-index.md`, and all six zones.
 5. Record the handoff and continue through `fable-mode` verification gates.
 
-The source is optional: missing source produces an explicit unavailable-catalog fallback, never a fake complete roster. `--allow-source-drift` is required to refresh an existing catalog at a different source revision. See `references/orchestration.md` and `references/agency-agents.md` for migration and source rules.
+The source is optional: missing source produces an explicit unavailable-catalog fallback, never a fake complete roster. `--allow-source-drift` is required to refresh an existing catalog at a different source revision. See `<this-skill-dir>/references/orchestration.md` and `<this-skill-dir>/references/agency-agents.md` for migration and source rules.

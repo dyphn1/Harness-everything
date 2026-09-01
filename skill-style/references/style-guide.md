@@ -27,10 +27,25 @@ Every SKILL.md MUST include this table exactly:
 ## 2. Tone & Voice
 - **Anti-Linear / Anti-Prose**: Do not write long paragraphs. Map actions to specific `run_in_terminal` commands.
 - **Absolute Imperatives**: Use "MUST", "MUST NOT", "ALWAYS". Do not use "suggest".
-- **Script-Driven Enforcement**: Do not write "You should check your code". Write "You MUST run `node harness-everything/scripts/verify-gate.js`. If Exit Code 1, you MUST reflect and retry."
+- **Script-Driven Enforcement**: Do not write "You should check your code". Write "You MUST run `node <skills-repo-root>/harness-everything/scripts/verify-gate.js`. If Exit Code 1, you MUST reflect and retry."
 
-## 3. Avoid Functional Overlap
+## 3. Path Notation
+Every path a `SKILL.md` names is checked by `node <skills-repo-root>/ci/reference-check.js`, so write paths relative to the file that names them. The placeholder head decides the base, and nothing else may override it.
+
+| Head | Base | Checked? |
+| :--- | :--- | :--- |
+| `<this-skill-dir>/...` | this skill's own directory; `../` reaches siblings | yes |
+| `<skills-repo-root>/...` | the root of this package | yes |
+| `<workspace>/...` | a path in the USER's project, produced at runtime | no - recorded as intentional |
+
+- **MUST** give every in-repo path a `<this-skill-dir>/` or `<skills-repo-root>/` head. A bare `references/x.md` reads as skill-relative but a bare `ci/x.js` silently resolved to the repo root instead; the head removes the guess.
+- **MUST** mark a path the skill writes into the user's project with `<workspace>/`, so "unchecked" is a stated decision rather than an accident.
+- **MUST NOT** invent a new placeholder. An unrecognised one is a hard failure, not a skip - a typo like `<this_folder>/` would otherwise make every path in the file invisible to the gate. Register a genuinely new one in `<skills-repo-root>/ci/reference-check.js`.
+- A bare filename with no directory (`CONTEXT.md`, `package.json`) is prose and stays unchecked. Give it a head when you mean a specific file.
+- A cross-skill reference may name the skill directly (`skill-creator/SKILL.md`): a first segment that is itself a skill is a fact about the repo, not a hidden list.
+
+## 4. Avoid Functional Overlap
 - **OS Skills vs. Domain Skills**: Distinguish between the OS layer (which routes and constrains behavior) and the Domain layer (which provides deep technical expertise).
 
-## 4. For the fuller authoring & quality workflow, see `skill-creator`
+## 5. For the fuller authoring & quality workflow, see `skill-creator`
 This document is the terse format spec — the Skill Contract table shape and the tone rules. For interviewing intent, drafting, testing a skill against real prompts, pruning duplication/no-op/sprawl, and the rules for skills `self-evolve` generates dynamically mid-session, load `skill-creator/SKILL.md` instead. It builds on this spec rather than replacing it.

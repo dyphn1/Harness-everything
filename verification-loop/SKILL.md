@@ -17,7 +17,7 @@ Run objective quality gates before claiming a change is ready.
 | :--- | :--- |
 | **Trigger / Input** | Completed implementation or change awaiting delivery. |
 | **Expected Output** | Evidence-backed verification report and delivery decision. |
-| **State Mutations** | Fills a report from `templates/verification-report.template.md`. |
+| **State Mutations** | Fills a report from `<this-skill-dir>/templates/verification-report.template.md`. |
 | **Enforcement Gate** | Build, type, lint, test, security, and diff gates all pass. |
 
 ## USE FOR:
@@ -41,6 +41,6 @@ and rerun from the first affected gate.
 4. Tests and coverage: `npm run test -- --coverage`.
 5. Security scan: secrets and stray logs.
 6. Diff review: `git diff --stat` and unintended-change checks.
-7. Fill `templates/verification-report.template.md` with evidence.
+7. Fill `<this-skill-dir>/templates/verification-report.template.md` with evidence.
 
-Deep dive: `references/verification-phases.md`
+Deep dive: `<this-skill-dir>/references/verification-phases.md`

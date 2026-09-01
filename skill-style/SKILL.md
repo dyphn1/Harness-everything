@@ -27,7 +27,7 @@ Apply the Harness writing standard when creating or refactoring `SKILL.md` files
 - Checking whether a skill overlaps an existing OS/domain skill
 
 ## DO NOT USE FOR:
-- Interviewing intent, drafting, or testing a skill against real prompts (load `skill-creator/SKILL.md`)
+- Interviewing intent, drafting, or testing a skill against real prompts (load `<skills-repo-root>/skill-creator/SKILL.md`)
 - Routing rules for dynamically generated mid-session skills owned by `self-evolve`
 - Non-Harness skill formats outside `harness-everything`
 
@@ -37,6 +37,6 @@ Apply the Harness writing standard when creating or refactoring `SKILL.md` files
 2. MUST include, in order: title, introduction, Skill Contract, usage, and actionable rules.
 3. MUST use imperative language and name the enforcing command or gate.
 4. MUST avoid overlap with OS-layer routing or domain expertise.
-5. For intent interviews, drafting, and prompt tests, load `skill-creator/SKILL.md`.
+5. For intent interviews, drafting, and prompt tests, load `<skills-repo-root>/skill-creator/SKILL.md`.
 
-Deep dive: `references/style-guide.md`
+Deep dive: `<this-skill-dir>/references/style-guide.md`

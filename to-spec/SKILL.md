@@ -22,15 +22,15 @@ Turns the conversation into one published spec artifact. No interviewing — `gr
 
 ## Workflow
 
-1. Resolve path via `node "to-spec/scripts/check-project-docs.js" check`; else existing `docs/specs/`, `docs/reference/`, `docs/adr/`, `docs/`, `.scratch/`; else `.claude/`, `.github/`, or `.cursor/harness-everything/specs/<slug>.md`.
+1. Resolve path via `node "<this-skill-dir>/scripts/check-project-docs.js" check`; else existing `docs/specs/`, `docs/reference/`, `docs/adr/`, `docs/`, `.scratch/`; else `.claude/`, `.github/`, or `.cursor/harness-everything/specs/<slug>.md`.
 2. Zero-trust context: cite `Evidence: <file:line> -> Finding: <meaning>`; blocking forks mean run `grill-me`/`grill-with-docs` first.
 3. Mandatory outline preview (closest fit, 10-20 lines + target path); write only after user confirms.
 4. Publish to `specs/<feature-slug>.md` (`Status: ready-for-agent`) or `reference/`, `adr/`.
 5. Golden Flow: Feature spec needs a Design Audit (`multi-agent-workspace`) before `/to-tickets`.
 
-Templates: `templates/feature-spec.md`, `templates/cli-reference.md`, `templates/schema-doc.md`, `templates/dev-doc.md`
+Templates: `<this-skill-dir>/templates/feature-spec.md`, `<this-skill-dir>/templates/cli-reference.md`, `<this-skill-dir>/templates/schema-doc.md`, `<this-skill-dir>/templates/dev-doc.md`
 
-Deep dive: references/process.md
+Deep dive: <this-skill-dir>/references/process.md
 
 ## USE FOR:
 - conversation into a published PRD or design doc

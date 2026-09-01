@@ -40,4 +40,4 @@ Verify external behavior and unmeasured numbers before asserting them.
 
 Never claim an unverified external fact as certain, even under time pressure.
 
-Deep dive: `references/verification-guide.md`
+Deep dive: `<this-skill-dir>/references/verification-guide.md`

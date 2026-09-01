@@ -39,7 +39,7 @@ SKILL.md authoring and audit.
 
 ## Dynamic Skill Generation Contract
 
-Only generalizable multi-step procedures or enforcement contracts qualify as skills; simple constraints go to `memories/repo/RULES.md`.
+Only generalizable multi-step procedures or enforcement contracts qualify as skills; simple constraints go to `<workspace>/memories/repo/RULES.md`.
 
 - Location: `.claude/harness-everything/skills/generated/<kebab-case-name>/SKILL.md`
 - Frontmatter beyond name/description: triggers (3-6 keywords), metadata type: dynamic, generated, source, status: draft.

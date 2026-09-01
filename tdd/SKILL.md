@@ -15,7 +15,7 @@ metadata:
 | :--- | :--- |
 | **Trigger / Input** | Tier 2 task; feature or bug requirement. |
 | **Expected Output** | Failing test (RED), minimal code (GREEN), refactor. |
-| **State Mutations** | Native host TODO tracker or Markdown checklist (`tasks/todo.md`). |
+| **State Mutations** | Native host TODO tracker or Markdown checklist (`<workspace>/tasks/todo.md`). |
 | **Enforcement Gate** | `npm test` / `pytest`; >3 GREEN failures force `zoom-out`. |
 
 ## TDD Discipline (Red-Green-Refactor)
@@ -41,4 +41,4 @@ Guides: `tdd/guides/{mocking,interface-design,deep-modules,tests,refactoring}.md
 - macro planning or scaffolding (use `fable-mode`)
 - prototyping or docs-only work with no testable logic
 
-Deep dive: references/core-discipline.md
+Deep dive: <this-skill-dir>/references/core-discipline.md

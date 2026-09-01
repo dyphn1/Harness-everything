@@ -37,7 +37,7 @@ Dirs differ and no superproject → already isolated; skip to Step 2; never nest
 
 **Step 3 — Baseline**: run tests (`npm test`/`cargo test`/`pytest`/`go test ./...`); failures → report, ask.
 
-Deep dive: references/workflow-details.md
+Deep dive: <this-skill-dir>/references/workflow-details.md
 
 ## USE FOR:
 - feature work needing isolation
