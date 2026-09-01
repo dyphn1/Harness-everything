@@ -1,6 +1,6 @@
 # Harness Enforcement Plugin for opencode
 
-This plugin adds hard enforcement gates for Harness skills in opencode, addressing the limitation that skills are advisory-only in this platform.
+Intended to add hard enforcement gates for Harness skills in opencode, addressing the limitation that skills are advisory-only on that platform. **Not yet functional** - see the status note below.
 
 ## Problem
 
@@ -43,24 +43,38 @@ Tracks compliance metrics:
 - Circuit breaker trips
 - Pressure resistance metrics
 
-## How each hook is invoked
+> **Status: not loadable by opencode.** This directory holds working
+> enforcement logic, but not in a shape opencode can load. Verified against
+> the opencode plugin docs (https://opencode.ai/docs/plugins/):
+>
+> - A plugin is a **JS/TS module** that exports a function returning its hooks
+>   (`export const MyPlugin: Plugin = async (ctx) => ({ ... })`), registered
+>   through the `plugin` array in `opencode.json` or by being dropped in
+>   `.opencode/plugins/`. There is **no** mechanism that maps event names to
+>   external script paths from a JSON manifest, which is what `plugin.json`
+>   here assumes.
+> - opencode has **no `postEdit` and no `preComplete` events**. Its tool hooks
+>   are `tool.execute.before` / `tool.execute.after`; there are also file,
+>   session, permission and shell hooks.
+> - Blocking is done by **throwing an Error inside `tool.execute.before`** (or
+>   denying in the permission hook), not by a child process exiting non-zero.
+>
+> So the hooks below have never fired inside a real opencode session. Porting
+> them is tracked in issue #37.
 
-`plugin.json` splits the five hooks by invocation model. The split is asserted
-by `ci/mechanism-2n-opencode-plugin.test.js`, which fails if a hook file exists
-without a declaration or a declaration points at a missing file.
+## What each file does
 
-| Key | Hooks | Fired by |
+`ci/mechanism-2n-opencode-plugin.test.js` asserts manifest/disk parity and
+runs the hook scripts directly, which proves the *logic* works. It does not
+prove opencode invokes it - nothing does yet.
+
+| Key in `plugin.json` | Files | Reality |
 |---|---|---|
-| `hooks` | `post-edit.js`, `pre-complete.js` | opencode lifecycle events (`postEdit`, `preComplete`) |
-| `onDemandHooks` | `verify.js`, `circuit-breaker.js`, `compliance.js` | invoked explicitly — `verify.js` is named in `pre-complete.js`'s block message; the other two read a payload on stdin |
-
-`onDemandHooks` is a Harness-side declaration, not an opencode feature: those
-three are **not** auto-fired by the runtime today. Binding `circuit-breaker.js`
-to a real lifecycle event requires confirming opencode's event names against its
-plugin API first — tracked in issue #37.
+| `hooks` | `post-edit.js`, `pre-complete.js` | Written for `postEdit` / `preComplete`; neither event exists in opencode |
+| `onDemandHooks` | `verify.js`, `circuit-breaker.js`, `compliance.js` | Standalone CLIs; `verify.js` is named in `pre-complete.js`'s block message, the other two read a payload on stdin |
 
 `verify.js` resolves its verification commands from `process.cwd()/package.json`.
-Run it from the workspace under test, never from the Harness repo root — from
+Run it from the workspace under test, never from the Harness repo root - from
 there it would re-enter `npm test` from inside `npm test`.
 
 ## Installation

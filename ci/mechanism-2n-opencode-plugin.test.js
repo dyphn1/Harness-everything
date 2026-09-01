@@ -8,9 +8,11 @@ console.log('\n[2n] opencode enforcement plugin: manifest parity and hook firing
 const pluginDir = path.join(helper.root, 'opencode-plugin');
 const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, 'plugin.json'), 'utf8'));
 
-// 1. Manifest <-> disk parity. A hook file that no key points at is dead code
-// the runtime will never load; a key pointing at a missing file is a broken
-// install. Both shipped undetected before (issue #37).
+// 1. Manifest <-> disk parity. Note this manifest is Harness-side bookkeeping:
+// opencode cannot load it (no manifest-to-command mechanism, no postEdit /
+// preComplete events - see opencode-plugin/README.md and issue #37). The
+// parity check still earns its place, because an undeclared hook file or a
+// declaration with no file is the drift that hid the gap in the first place.
 const onDisk = fs.readdirSync(path.join(pluginDir, 'hooks')).filter(f => f.endsWith('.js')).sort();
 const declared = [
   ...Object.values(manifest.hooks || {}),

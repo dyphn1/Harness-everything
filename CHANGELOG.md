@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Changelog/tag consistency** (`ci/consistency-check.js`): every released changelog heading must have a matching git tag; versions that were never tagged must say so in the heading.
 
 ### Documentation
-- **Platform enforcement** (`README.md`): opencode is documented as a hard-enforcement platform alongside Claude Code. The previous "only Claude Code" claim predated `opencode-plugin/` and understated the project's own capability.
+- **opencode plugin status** (`README.md`, `opencode-plugin/README.md`): `opencode-plugin/` is now documented as **not loadable by opencode**. Verified against opencode's plugin docs: a plugin is a JS/TS module registered through the `plugin` array in `opencode.json`, opencode has no `postEdit`/`preComplete` events and no manifest-to-command mechanism, and blocking is done by throwing inside `tool.execute.before`. The directory's hook logic is real and tested in isolation, but has never fired in an opencode session. Claude Code remains the only platform with working hard enforcement.
 
 ---
 
