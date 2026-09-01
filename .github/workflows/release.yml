@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install dependencies for release checks
+        run: npm ci
       - name: Self-regression suite
         run: npm test
       - name: Mechanism checks
@@ -35,6 +37,8 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
+      - name: Install dependencies for publishing
+        run: npm ci
       - name: Publish to npm
         run: npm publish --provenance --access public
         env:
