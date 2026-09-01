@@ -1,71 +1,40 @@
 # Workflow: Self-Evolve
 
-> Analyzes execution logs and session memories to extract underlying root causes, defining new error boundaries and compressing them into cognitive guardrails.
+> The host agent supplies relevant session evidence and a generalized root-cause analysis. `self-evolve` classifies, validates, and persists the lesson; it does not collect host transcripts.
 
----
+## 1. Responsibility boundary
 
-## 1. Skill Behavior Workflow
+The host agent may inspect the current session and any history explicitly exposed by the host. It selects the evidence and states the reusable root cause. `self-evolve` MUST NOT scan global host transcript stores or persist raw transcripts.
 
-This section visualizes how the `self-evolve` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
-
-```mermaid
-graph TD
-  Start([Task Completed / Error Loop Triggered]) --> ReadSessionLogs["Read active debugging logs & session history"]
-  ReadSessionLogs --> IdentifyRootCauses["Isolate and extract system failures or bottlenecks"]
-  IdentifyRootCauses --> CheckWorkspaceMem{Detect Workspace Memory Architecture?}
-  
-  CheckWorkspaceMem -->|Found MEMORY.md / RULES.md| CheckLines{Check Target File Line Count}
-  CheckWorkspaceMem -->|Not Found / Script Available| RunScript["Run self-evolve/scripts/persist-memory.js"]
-  
-  CheckLines -->|< 60 Lines| DirectAppend["Append Rule directly to MEMORY.md / RULES.md"]
-  CheckLines -->|≥ 60 Lines| ModularSplit["Categorize & Create Sub-memory File (memories/rules/topic.md)"]
-  ModularSplit --> AddIndexPointer["Add 1-Line Index Link to Primary MEMORY.md for Lazy Loading"]
-  
-  RunScript --> CheckLines
-  DirectAppend --> End([Agent cognitive defense expanded])
-  AddIndexPointer --> End
-```
-
----
-
-## 2. Triggering and Routing Path
-
-This diagram illustrates how the `self-evolve` skill is triggered through user requests or developer actions, and how it integrates or chains together with other companion skills in the Harness OS ecosystem to form unified workflows.
-
-```mermaid
-graph LR
-  SessionEnd["Task Completed / Session Closed"] --> Evolve["Invoke self-evolve / SKILL.md"]
-  Evolve -->|Reads from| HistoryLog["Session evidence & workspace memory"]
-  Evolve -->|Writes permanent updates to| UserMemory["workspace memory files"]
-  Evolve -->|If Complex Skill, registers in| Manifest["manifest.json 'generated' registry"]
-  Manifest -->|Scanned & matched by| Router["harness-everything / tier-router.js"]
-```
-
----
-
-## 3. Real-World Use Case Flowchart
-
-Here we model concrete real-world scenarios and use cases of the `self-evolve` skill, illustrating standard success paths, error handling, or recovery loops.
+## 2. Persistence flow
 
 ```mermaid
 graph TD
-  Start["Session ends after solving a recurring, messy Windows path-slashes bug"] --> Trigger["self-evolve skill is invoked"]
-  Trigger --> Analyze["Reads last 5 execution logs"]
-  Analyze --> DetectPattern["Finds 3 consecutive terminal command failures caused by path backslashes in PowerShell"]
-  DetectPattern --> Formulate["Formulate new guardrail: 'When on Windows, convert backslashes to forward slashes for cross-shell command lines'"]
-  Formulate --> Decide{"Is it a complex structural pattern or a simple rule?"}
-  Decide -->|Simple Rule| Write["Write simple rule to memories/repo/RULES.md"]
-  Decide -->|Complex Skill| Register["Package as dynamic skill & run register-dynamic-skill.js to write to manifest.json 'generated'"]
-  Write --> Done([Memory recorded: future sessions will automatically avoid errors])
-  Register --> Done([Memory & dynamic skill recorded: future sessions will automatically discover and load via tier-router.js])
+  Start([Agent has resolved a recurring problem]) --> Evidence["Agent selects allowed evidence and states root cause"]
+  Evidence --> Memory{Existing workspace memory?}
+  Memory -->|Yes| Lines{Target under 60 lines?}
+  Memory -->|No| Route["Choose workspace memory fallback"]
+  Lines -->|Yes| Append["Append concise rule"]
+  Lines -->|No| Modular["Create topic memory and add lazy-load pointer"]
+  Route --> Append
+  Append --> Validate["Run self-evolve self-regression and quality gates"]
+  Modular --> Validate
+  Evidence -->|Reusable multi-step pattern| Dynamic["Load skill-creator, create draft skill, register generated[]"]
+  Dynamic --> Validate
+  Validate --> Done([Lesson persisted])
 ```
 
----
+## 3. Triggering and routing
 
-## 4. Verification Check
+The agent invokes `self-evolve/SKILL.md` after a resolved struggle, zoom-out recovery, or explicit request. It passes the selected evidence and root cause to `persist-memory.js`, or routes a reusable pattern through `skill-creator` and `register-dynamic-skill.js`. The router later matches registered `generated[]` metadata; this is not an automatic transcript scan.
 
-To ensure that the `self-evolve` skill is operating in strict compliance with Harness OS design laws, verify the following:
+## 4. Example
 
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+After resolving a recurring Windows path error, the agent summarizes the cause, checks existing memory, and chooses either a concise rule or a draft dynamic skill. It runs the relevant quality/self-regression gate before persistence and records only the generalized lesson.
+
+## 5. Verification checklist
+
+- [ ] Evidence came from the host context the agent is authorized to inspect.
+- [ ] No raw transcript, secret, or one-off detail was persisted.
+- [ ] Rule/dynamic-skill classification and deduplication passed.
+- [ ] Self-regression passed before the memory or manifest changed.

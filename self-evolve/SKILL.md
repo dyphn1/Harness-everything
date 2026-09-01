@@ -4,21 +4,27 @@ description: "Extract root causes from resolved problems and persist them as def
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.6
 ---
 
 # Self Evolve (Self Evolution & Memory Extraction)
 
 Record resolved root causes as rules future sessions follow.
 
+Boundary: the host agent supplies relevant session evidence and root-cause analysis; this skill does not scan host transcripts.
+
 ## 📋 Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Post-struggle completion or zoom-out recovery; input: root-cause analysis. |
+| **Trigger / Input** | Post-struggle completion or explicit request; caller supplies evidence and root-cause analysis. |
 | **Expected Output** | Persisted rule in `MEMORY.md`/`memories/repo/RULES.md` or sub-memory file. |
-| **State Mutations** | Updates workspace/platform memory (`.github/harness-everything/memories/RULES.md`). |
-| **Enforcement Gate** | **60-Line Rule**: <60 lines append directly; 60+ lines create modular topic file + lazy-load index pointer in primary `MEMORY.md`. |
+| **State Mutations** | Updates the selected workspace memory or generated-skill manifest. |
+| **Enforcement Gate** | Quality/deduplication checks, self-regression, and the 60-line routing rule pass before persistence. |
+
+## Responsibility Boundary
+
+The host agent reads the session context it is allowed to access, selects relevant evidence, and writes a generalized root cause. `self-evolve` classifies and persists that result; it MUST NOT fetch global host transcripts or act as a transcript daemon.
 
 ## Core Workflow
 
