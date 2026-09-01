@@ -4,7 +4,7 @@ description: Evaluate AI agent performance across correctness, token efficiency,
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.6
 ---
 
 # Eval Harness (Automated Performance & Reasoning Evaluation)
@@ -13,10 +13,10 @@ metadata:
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger** | "run benchmark" / "score conversation log"; input is an execution log or history. |
-| **Output** | 4-dimension scorecard (0-10) with rationale, saved to `evals/`. |
-| **Mutations** | Writes scorecard to `evals/` or `.github/harness-everything/evals/`. |
-| **Gate** | Run evaluation script; write scorecard directly if script fails. |
+| **Trigger / Input** | "run benchmark" / "score conversation log"; input is an execution log or history. |
+| **Expected Output** | 4-dimension scorecard (0-10) with rationale, saved to `evals/`. |
+| **State Mutations** | Writes scorecard to `evals/` or `.github/harness-everything/evals/`. |
+| **Enforcement Gate** | Run evaluation script; write scorecard directly if script fails. |
 
 ## Workflow
 

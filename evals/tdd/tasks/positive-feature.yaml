@@ -1,6 +1,6 @@
 id: positive-feature-tdd-001
 name: Standard feature requests TDD enforcement
-description: Implement a feature test-first through the RED/GREEN/REFACTOR cycle with real terminal evidence.
+description: "Drive Standard Tasks (Tier 2) with Test-Driven Development (RED/GREEN/REFACTOR) backed by terminal test evidence. USE FOR: \"implement a feature test-first\", \"fix a bug with a regression test\", \"refactor safely under tests\". DO NOT USE FOR: \"macro planning or scaffolding\", \"docs-only work with no testable logic\"."
 tags:
   - positive-trigger
 inputs:

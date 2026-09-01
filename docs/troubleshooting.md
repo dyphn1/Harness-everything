@@ -103,7 +103,7 @@ npx github:dyphn1/Harness-everything install
 2. Follow the zoom-out instructions in the error message
 3. If it's a false positive, check the error signature:
    ```bash
-   cat .claude/harness-state/sessions/default/rule-of-3-state.json
+   cat .claude/harness-everything/state/sessions/default/rule-of-3-state.json
    ```
 
 4. Reset if needed:
@@ -177,7 +177,7 @@ npx github:dyphn1/Harness-everything install
 
 3. Reset state:
    ```bash
-   rm -rf .claude/harness-state/sessions/
+   rm -rf .claude/harness-everything/state/sessions/
    ```
 
 ### High Memory Usage
@@ -210,11 +210,11 @@ node hooks/scripts/rule-of-3.js < payload.json
 
 ```bash
 # View current state
-cat .claude/harness-state/sessions/default/rule-of-3-state.json
-cat .claude/harness-state/sessions/default/handoff-state.json
+cat .claude/harness-everything/state/sessions/default/rule-of-3-state.json
+cat .claude/harness-everything/state/sessions/default/handoff-state.json
 
 # Reset all state
-rm -rf .claude/harness-state/sessions/
+rm -rf .claude/harness-everything/state/sessions/
 npm run harness:reset
 ```
 

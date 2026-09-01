@@ -92,7 +92,7 @@ function getWorkspaceRoot() {
   return process.cwd();
 }
 
-// Ensure the memory is written to the project root's /memories/repo/ directory
+// Ensure the memory is written to the project root's memories/repo/ directory
 const currentDir = getWorkspaceRoot();
 const memoryDir = path.join(currentDir, 'memories', 'repo');
 const rulesFile = path.join(memoryDir, 'RULES.md');

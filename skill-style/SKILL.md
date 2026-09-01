@@ -4,12 +4,21 @@ description: Apply Harness style guidelines when writing or refactoring SKILL.md
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.6
 ---
 
 # Skill Style (Harness Ecosystem Skill Development Guidelines)
 
 When creating or refactoring a Skill, strictly follow the writing style in this document so all Skills integrate into the `harness-everything` routing system and are mathematically enforced by scripts.
+
+## Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Creating, reviewing, or refactoring a Harness `SKILL.md`. |
+| **Expected Output** | A concise, structurally complete, non-overlapping `SKILL.md`. |
+| **State Mutations** | None; this is a writing and review standard. |
+| **Enforcement Gate** | `npm run test:consistency` plus style-guide review. |
 
 ## USE FOR:
 - Creating a new SKILL.md file

@@ -2,7 +2,7 @@
 
 Maintainer-facing audit record. If you just want to know whether Harness works and how to verify it yourself, start at [VERIFICATION.md](../VERIFICATION.md) instead — this file records *how the scores below were obtained* and what changed between audit cycles.
 
-**Last self-audited: 2026-07-23**, by running the actual test suite and the VERIFICATION.md recipes on Windows 11 — not by reading the code and assuming it works.
+**Last self-audited: 2026-09-01**, by running the actual test suite and the VERIFICATION.md recipes on Windows 11 — not by reading the code and assuming it works.
 
 ## The 2026-07-23 mis-measurement incident
 
@@ -14,11 +14,11 @@ This incident is why VERIFICATION.md's recipes were rewritten to be Windows-safe
 
 | Criterion | Score | Verified basis |
 |---|---|---|
-| **Skill Description Completeness** | 8.5/10 | 23 of 27 skills/hooks have a full Skill Contract `SKILL.md` (trigger, output, state mutations, enforcement gate). Four PreToolUse hooks — `depth-guard.js`, `context-compact.js`, `atomic-commit-check.js`, `contract-test.js` — are only described in passing in `docs/architecture.md`, not as standalone contracts. Known, not yet closed. |
-| **Routing Accuracy** | 8.5/10 | `tier-router.js` is a deterministic, bilingual (EN/中文) heuristic. The 12-case adversarial matrix now scores 12/12 (100%) with 100% explicit macro recall, including one-sentence audits, benchmarks, four-issue audits, and Chinese prompts. Ambiguous/metaphorical prompts remain an unmeasured generalization risk; no effectiveness claim follows from this routing matrix. |
-| **Test Coverage of All Skills** | 9.0/10 | `npm test` runs deterministic syntax, routing, reference, behavioral-case, install-drift, and mechanism checks. Live model sessions are separate and token-costing, so a local simulation cannot masquerade as model evidence. |
+| **Skill Description Completeness** | 10/10 | All 26 current skill directories have a complete four-row Skill Contract and the required trigger sections. Four PreToolUse hooks remain internal mechanisms, not standalone skills. |
+| **Routing Accuracy** | 9/10 | The local router passes 34/34 positive prompts across all 26 skills, including the foundation and meta routes added in this audit. Waza verification is not runnable in this Windows checkout; ambiguous/metaphorical generalization remains unmeasured. |
+| **Test Coverage of All Skills** | 9.5/10 | `npm test` now includes syntax, CLI, routing matrix, positive route coverage, references, behavioral-case structure, Fable contract, and mechanism checks. Waza and live model sessions remain separate CI/on-demand evidence. |
 | **Configuration Balance** | 8.5/10 | Confirmed asymmetric-by-design: hard `exit(2)` blocking hooks on Claude Code, advisory-only text on the other five platforms, with `self-heal.js` auto-repairing missing integration files on every platform. No platform is either silently ignored or over-blocked. |
-| **Workflow Conformance** | 7/10 | `docs/workflows/` diagrams (TDD, git-commit, agent-launcher, architecture refactor) are accurate and the tier-router recommends the full skill chain for each, confirmed live. What's still missing is a *runtime* check that an agent's actual tool-call sequence matched the diagram — today that's compliance-by-convention, not compliance-by-mechanism. Not attempted this round; it's a larger feature, not a fix. |
+| **Workflow Conformance** | 8.5/10 | Every current skill has a matching workflow document, and `ci/skill-routing-check.js` executes every positive route case against the real router. Runtime tool-call sequence conformance remains host-dependent and is not claimed. |
 
 ## Overall Scorecard
 
@@ -26,9 +26,9 @@ This incident is why VERIFICATION.md's recipes were rewritten to be Windows-safe
 |---|---|---|
 | **Architecture** | 9/10 | Per-session state isolation, per-platform state directories, fail-open-by-default hooks — all re-verified directly against `hooks/scripts/lib/harness-state.js`. |
 | **Test Coverage** | 9/10 | See above — deterministic checks now cover syntax, routing, skill references, release-tag catalog, install tree/version drift, behavioral-case structure, and 12 mechanism suites. Live model evaluation remains on-demand and is not represented by a local simulation. |
-| **README Completeness** | 9/10 | Audit detail now lives here rather than in the README itself, keeping the README user-facing. |
-| **Maintainability** | 8.5/10 | The custom cross-session todo CLI was removed; complex work now uses the host agent's native tracker or a workspace Markdown checklist, reducing a second state machine and its drift surface. |
-| **Skills Design** | 8.5/10 | Consistent Skill Contract format; four hooks still pending one (see above). |
+| **README Completeness** | 9.5/10 | Catalog counts, layer labels, route coverage, and the local baseline now match the current 26-skill tree. |
+| **Maintainability** | 9/10 | The custom cross-session todo CLI and obsolete multi-agent compatibility stubs are absent; route coverage is now a deterministic regression gate. |
+| **Skills Design** | 9.5/10 | All 26 current skills use the same four-row Skill Contract and exact trigger-section contract; internal hooks remain intentionally non-routable. |
 | **Agent Compatibility** | 9/10 | Full hard-mechanism support on Claude Code; verified advisory-text fallback on the other five platforms via `docs/architecture.md` and `scripts/installer.js`. |
 | **Beginner Friendliness** | 7.5/10 | Quick Start is genuinely 10 seconds, but Tier Routing / Rule of 3 / session-scoped state are load-bearing concepts a newcomer has to absorb before the system's behavior makes sense. Not addressed this round. |
 
@@ -37,6 +37,9 @@ This incident is why VERIFICATION.md's recipes were rewritten to be Windows-safe
 ### 2026-09-01
 - Fable v3 integration now exposes explicit Haiku, Sonnet, and Opus entrypoints, with deterministic model selection and visible inline fallback or blocked escalation in `fable-mode/model-matrix.json` and `fable-mode/scripts/model-selector.js`.
 - The current workflow uses native host TODO tracking or Markdown checklists. The older shared TODO CLI/state-machine references below are retained only as historical audit evidence; no runtime, test, or active workflow depends on them.
+- Strict catalog audit: removed obsolete compatibility directories and stale workflow; added the missing `find-skills` workflow.
+- Corrected current documentation and runtime references to the per-session `.claude/harness-everything/state/` path, aligned README/registry layer labels, and removed unimplemented workflow claims.
+- Added `ci/skill-routing-check.js`; all 34 positive routing cases across the 26-skill catalog pass locally, and all positive eval descriptions now exactly match their skill frontmatter.
 
 ### 2026-07-26
 - `verify-gate.js` is no longer a simulated stub: it now discovers the nearest `package.json` (scoped to the enclosing git repo), runs its real `lint`/`test` scripts via the detected package manager (npm/pnpm/yarn/bun), and blocks completion on any failure. The `.verify-fail.tmp` injection hook is kept for hermetic mechanism tests, and `HARNESS_SKIP_PROJECT_CHECKS=1` guards against self-recursion in projects (like this one) whose test suite itself drives the Harness runtime. When no runnable scripts exist it exits 0 but explicitly warns that no mechanical checks ran — the exit code is not evidence.

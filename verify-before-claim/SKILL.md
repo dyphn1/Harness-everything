@@ -4,12 +4,21 @@ description: "Verify external framework/API claims and unmeasured perf/cost esti
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.6
 ---
 
 # Verify Before Claim
 
 Verify external claims against authoritative sources before asserting them; never answer from memory.
+
+## Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | External behavior, version/config/exit-code claim, or unmeasured number. |
+| **Expected Output** | Official citation, real measurement, or explicitly labeled estimate. |
+| **State Mutations** | None; evidence is returned with the claim. |
+| **Enforcement Gate** | Official source or real measurement; unresolved claims stay inconclusive. |
 
 ## ⚠️ CRITICAL RULE: NEVER SKIP VERIFICATION
 

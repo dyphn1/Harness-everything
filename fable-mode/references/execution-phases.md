@@ -28,7 +28,7 @@ explicit inline fallback or stop and escalate; do not silently change models.
 
 ## Verification and handoff
 
-Before each spot-check, create `.claude/harness-state/contracts/<stage>.json`
+Before each spot-check, create `.claude/harness-everything/state/contracts/<stage>.json`
 using `CONTRACT-FORMAT.md`, then run the exact command in that contract. A
 stage is not complete until the command passes and the audit record contains
 the verifier result. Use `fable-verifier` with only the spec and artifact for

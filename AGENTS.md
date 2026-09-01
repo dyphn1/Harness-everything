@@ -37,6 +37,7 @@ npm test                    # self-regression: syntax, routing tiers, mechanism 
 npm run test:mechanism      # hook-level mechanism suite alone
 npm run test:consistency    # manifests, versions, trigger sections, dead links, eval coverage
 npm run test:collision      # description collision detection
+npm run test:routing:skills # every positive skill route reaches its target
 ```
 
 If waza is installed (`~/bin/waza`), also run what CI runs:

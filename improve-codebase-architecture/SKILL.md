@@ -4,7 +4,7 @@ description: Discovers and transforms shallow or bloated modules into deep, SRP-
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.6
 ---
 
 # Improve Codebase Architecture (Deep & SRP Refactoring)
@@ -13,10 +13,10 @@ metadata:
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger** | "refactor architecture", "split object/class", "apply SRP", tech debt |
-| **Output** | SRP proposal, Characterization Test safety net, TDD-guided extraction. |
-| **Mutations** | Extracts classes/functions/objects; adds characterization tests. |
-| **Gate** | Scan docs first; Characterization Tests before refactoring untested code; >3 cascading errors → rollback + `zoom-out`. |
+| **Trigger / Input** | "refactor architecture", "split object/class", "apply SRP", tech debt |
+| **Expected Output** | SRP proposal, Characterization Test safety net, TDD-guided extraction. |
+| **State Mutations** | Extracts classes/functions/objects; adds characterization tests. |
+| **Enforcement Gate** | Scan docs first; Characterization Tests before refactoring untested code; >3 cascading errors → rollback + `zoom-out`. |
 
 ## Workflow
 

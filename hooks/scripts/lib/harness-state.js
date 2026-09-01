@@ -68,7 +68,7 @@ function getStateRoot(root) {
   if (activePlatform && typeof activePlatform.getStateDir === 'function') {
     return activePlatform.getStateDir(wsRoot);
   }
-  return path.join(wsRoot, '.claude', 'harness-state');
+  return path.join(wsRoot, '.claude', 'harness-everything', 'state');
 }
 
 function getSessionDir(root, sessionId) {

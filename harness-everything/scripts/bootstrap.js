@@ -56,7 +56,7 @@ if (!isManagedWorkspace(root)) {
 }
 
 // Nothing purges old session directories the way an OS temp dir would -
-// drop ones untouched for a while so .claude/harness-state/sessions/ doesn't
+// drop ones untouched for a while so .claude/harness-everything/state/sessions/ doesn't
 // grow forever.
 pruneStaleSessions(root);
 

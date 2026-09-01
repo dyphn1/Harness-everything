@@ -10,6 +10,5 @@ human-readable frontmatter description, run realistic with/without tests using
 belong in the root catalog and need a routing eval; dynamic skills use the
 generated manifest flow from `self-evolve`.
 
-The canonical multi-agent entrypoint is `multi-agent-workspace`; it replaces
-the former `create-agent-launcher` and `build-multi-agent-system` routes while
-retaining bounded delegation and workspace isolation.
+The canonical multi-agent entrypoint is `multi-agent-workspace`; it owns
+bounded delegation and workspace isolation.

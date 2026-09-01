@@ -1,6 +1,6 @@
 id: positive-trivial-tier1-001
 name: Trivial edit routes to Tier 1
-description: Triage a new software task - a typo-level fix must be triaged as Tier 1 direct edit, no plan.
+description: "Triage new software requests into Tier 1/2/3 before work begins. USE FOR: \"triage a new software task\", \"route this coding request\". DO NOT USE FOR: \"chat or general Q&A\", \"non-software writing\", \"a skill is already indicated\"."
 tags:
   - positive-trigger
   - tier-1

@@ -4,12 +4,21 @@ description: "Run objective verification gates (build, types, lint, tests, secur
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.6
 ---
 
 # Verification Loop Skill
 
 Six objective gates pre-delivery, then a Verification Report.
+
+## Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Completed implementation or change awaiting delivery. |
+| **Expected Output** | Evidence-backed verification report and delivery decision. |
+| **State Mutations** | Fills a report from `templates/verification-report.template.md`. |
+| **Enforcement Gate** | Build, type, lint, test, security, and diff gates all pass. |
 
 ## ⚠️ CRITICAL RULE: NEVER SKIP VERIFICATION
 

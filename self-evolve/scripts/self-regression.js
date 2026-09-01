@@ -75,6 +75,7 @@ if (verifyCheck.status !== 0) {
 // 2. Deterministic routing matrix.
 console.log('\n[Phase 2] Routing Verification Check...');
 runNode('routing matrix', path.join(projectRoot, 'ci', 'runner.js'));
+runNode('skill route coverage', path.join(projectRoot, 'ci', 'skill-routing-check.js'));
 
 // 3. Static integrity gates; behavioral evals are validated, not executed.
 console.log('\n[Phase 3] Skill Reference and Behavioral Case Checks...');

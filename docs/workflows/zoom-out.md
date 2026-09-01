@@ -40,7 +40,7 @@ This diagram illustrates how the `zoom-out` skill is triggered through user requ
 graph LR
   RuleOf3["Rule of 3 Circuit Breaker"] -->|Tripped!| ZoomOut["zoom-out / SKILL.md"]
   ZoomOut -->|Halts execution for| ActiveWork["Active workspace edits"]
-  ZoomOut -->|Asks for human direction via| AskQuestions["vscode_askQuestions"]
+  ZoomOut -->|Asks for human direction via| AskQuestions["host user-input mechanism"]
   ZoomOut -->|Unlocks workspace state after| HumanReset["Human Partner Response"]
 ```
 
@@ -56,7 +56,7 @@ graph TD
   Trigger --> Lock["Workspace writes locked"]
   Trigger --> Awaken["Awaken: Stop error-fixing; review imports design & requirements (Law 2)"]
   Awaken --> Collect["Collect error traces and diff history"]
-  Collect --> WriteReport["Create docs/reflection/zoom-out-report.md detailing the import cyclic dependency"]
+  Collect --> WriteReport["Create the session zoom-out-report.md detailing the import cyclic dependency"]
   WriteReport --> Present["Present options to human: Option A - Merge imports, Option B - Extract shared modules"]
   Present --> UserChoice["User select: 'Option B'"]
   UserChoice --> Unlock["Unlock workspace and execute Option B"]

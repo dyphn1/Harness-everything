@@ -26,7 +26,7 @@ The JSON result always records `requestedModel`, `effectiveModel`,
 `fallbackReason`, `stageBrief`, `passCondition`, `verificationCommand`, and
 `verifierResult`, plus available agents, status, agent, and escalation state. The
 CLI appends the same record as one JSON line to
-`.claude/harness-state/fable-mode/audit.jsonl` (or the path supplied by
+`.claude/harness-everything/state/fable-mode/audit.jsonl` (or the path supplied by
 `--audit-file`).
 
 If the requested model is unavailable, `--fallback inline` records the declared

@@ -5,12 +5,14 @@ Every skill in this repository is reachable from this router. If a task matches 
 
 | Skill | Layer | Activated when |
 | :--- | :--- | :--- |
+| `harness-everything` | Entry point | New software request with no skill indicated; emits the tier checkpoint. |
 | `install-cognitive-os` | Foundation | Always, before any action (§1). |
 | `todo-driven-workflow` | Foundation | Every Tier 2/3 task — the base execution loop (§1). |
 | `environment-detection` | Foundation | Session start / `[Discover]` phase, before running shell commands. |
 | `fable-mode/execution-guardrails` | Always-on discipline | Every tier: flagging problems, batching warnings, find-and-replace edits (§1). |
 | `verify-before-claim` | Always-on discipline | Before asserting external-system behavior or unmeasured numbers (§1). |
-| `git-commit` / `rewrite-commits` | Tier 1 | Commit creation / history rewriting. |
+| `git-commit` | Tier 1 | Commit creation and conventional commit verification. |
+| `rewrite-commits` | Tier 1 | History rewriting and commit cleanup. |
 | `tdd` | Tier 2 | Feature/bugfix development (Red-Green-Refactor). |
 | `using-git-worktrees` | Tier 2 | Isolating feature work on a busy repository. |
 | `grill-me` | Tier 2 | User asks to be grilled on a plan (pure Q&A). |

@@ -15,7 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fresh-workspace integration coverage**: Added fixture tests for fallback, real catalog selection, idempotence, malformed catalog paths, drift, and unsupported platforms.
 
 ### Changed
-- **Routing and distribution**: Replaced the two overlapping routed skills with one canonical skill, retained script/README migration stubs, updated plugin/marketplace manifests, docs, and routing eval coverage.
+- **Routing and distribution**: Replaced the two overlapping routed skills with one canonical skill, retained historical release mappings and canonical migration guidance, updated plugin/marketplace manifests, docs, and routing eval coverage.
+- **Strict catalog audit**: Removed obsolete compatibility directories and stale workflow, added the missing `find-skills` workflow, aligned all 26 skill contracts/eval descriptions, and added deterministic 34-case route coverage.
+- **Documentation alignment**: Corrected README/registry layer labels, per-session state paths, and unimplemented workflow claims; waza remains an explicit CI gate when unavailable locally.
 - **Provenance**: Recorded the local agency-agents snapshot (18 divisions, 258 agents, 14 converter targets) and preserved the upstream MIT attribution without vendoring agent bodies.
 
 ---

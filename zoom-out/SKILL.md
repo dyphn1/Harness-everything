@@ -4,10 +4,19 @@ description: "Reflect-first circuit breaker - after 3 failures, stop edits, rebu
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.6
 ---
 
 # Zoom Out (Circuit Breaker)
+
+## Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **Trigger / Input** | Three same-signature failures or an explicit loop/rethink request. |
+| **Expected Output** | Fact-checked report ending in `RESUME` or `ESCALATE`. |
+| **State Mutations** | Writes the session `zoom-out-report.md`; reset may clear breaker state. |
+| **Enforcement Gate** | `hooks/scripts/rule-of-3.js` plus a valid report; reset only after the second cycle. |
 
 ## ⚠️ CRITICAL RULE: STOP RETRY LOOPS
 

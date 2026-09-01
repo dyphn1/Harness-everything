@@ -34,9 +34,9 @@ This diagram illustrates how the `self-evolve` skill is triggered through user r
 
 ```mermaid
 graph LR
-  SessionEnd["Task Completed / Session Closed"] --> Evolve["self-evolve / SKILL.md"]
-  Evolve -->|Reads from| HistoryLog["VS Code Debug logs & memory directories"]
-  Evolve -->|Writes permanent updates to| UserMemory["/memories/ / user-memory files"]
+  SessionEnd["Task Completed / Session Closed"] --> Evolve["Invoke self-evolve / SKILL.md"]
+  Evolve -->|Reads from| HistoryLog["Session evidence & workspace memory"]
+  Evolve -->|Writes permanent updates to| UserMemory["workspace memory files"]
   Evolve -->|If Complex Skill, registers in| Manifest["manifest.json 'generated' registry"]
   Manifest -->|Scanned & matched by| Router["harness-everything / tier-router.js"]
 ```
@@ -49,12 +49,12 @@ Here we model concrete real-world scenarios and use cases of the `self-evolve` s
 
 ```mermaid
 graph TD
-  Start["Session ends after solving a recurring, messy Windows path-slashes bug"] --> Trigger["self-evolve skill runs automatically"]
+  Start["Session ends after solving a recurring, messy Windows path-slashes bug"] --> Trigger["self-evolve skill is invoked"]
   Trigger --> Analyze["Reads last 5 execution logs"]
   Analyze --> DetectPattern["Finds 3 consecutive terminal command failures caused by path backslashes in PowerShell"]
   DetectPattern --> Formulate["Formulate new guardrail: 'When on Windows, convert backslashes to forward slashes for cross-shell command lines'"]
   Formulate --> Decide{"Is it a complex structural pattern or a simple rule?"}
-  Decide -->|Simple Rule| Write["Write simple rule to /memories/repo/RULES.md"]
+  Decide -->|Simple Rule| Write["Write simple rule to memories/repo/RULES.md"]
   Decide -->|Complex Skill| Register["Package as dynamic skill & run register-dynamic-skill.js to write to manifest.json 'generated'"]
   Write --> Done([Memory recorded: future sessions will automatically avoid errors])
   Register --> Done([Memory & dynamic skill recorded: future sessions will automatically discover and load via tier-router.js])
