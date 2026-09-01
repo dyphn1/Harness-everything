@@ -37,7 +37,7 @@ Merges codebase scan facts and bespoke notes into `README.md`/`AGENTS.md`.
 3. Pick a template below; else built-in structure.
 4. Draft: `README.md` = user journey; `AGENTS.md` = conventions, build/test commands.
 5. [Summarize] Verify commands run; mark doubts `// TODO: Pending confirmation`; ask (`grill-me`).
-6. Write to root; if protected, `<workspace>/.github/AGENTS.md`/`<workspace>/docs/README.md`.
+6. Write to root; if protected, `.github/AGENTS.md`/`docs/README.md`.
 
 ## `repo-docs/templates/`
 

@@ -25,7 +25,7 @@ Evaluate an agent log with a four-dimension scorecard.
 1. Parse actions, errors, tokens, and timing from the log.
 2. Score all four dimensions using `references/scoring-rubric.md`.
 3. Run `node scripts/evaluate.js <A> <B> <C> <D> "insights"`.
-4. If the script fails, write `<workspace>/evals/scorecard.md` (or the `.github` fallback).
+4. If the script fails, write `evals/scorecard.md` (or the `.github` fallback).
 
 ## USE FOR:
 

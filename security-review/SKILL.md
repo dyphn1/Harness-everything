@@ -39,7 +39,7 @@ Hardens code against OWASP Top 10.
    node "<this-skill-dir>/scripts/audit-secrets.js"
    ```
    Fallback: grep scan.
-3. Fix findings per the boundary system; report to `<workspace>/docs/security-audit.md`, or `<workspace>/.github/harness-everything/security-audit.md` when docs/ is protected or absent.
+3. Fix findings per the boundary system; report to `docs/security-audit.md`, or `.github/harness-everything/security-audit.md` when docs/ is protected or absent.
 
 ## Three-Tier Boundary System
 

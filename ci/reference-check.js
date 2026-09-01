@@ -14,7 +14,9 @@
  *                                   itself a skill, which is a fact about the
  *                                   repo rather than a hidden allowlist
  *   <skills-repo-root>/hooks/x.js   the root of this package
- *   <workspace>/tasks/todo.md       the USER's project - never checked here
+ *   <workspace>/tasks/todo.md       the USER's project - never checked here,
+ *                                   as are the published WORKSPACE_NAMESPACES
+ *                                   ('tasks/', '.github/', ...) below
  *
  * There is deliberately no allowlist of top-level directory names. 'ci/x.js'
  * used to silently resolve at the repo root while 'scripts/x.js' resolved
@@ -45,6 +47,17 @@ const GENERIC_PLACEHOLDERS = new Set([
   'workspace',        // a path in the user's project, produced at runtime
   'skill',            // any skill, as a pattern
   'kebab-case-name',  // a skill yet to be created
+]);
+// Top-level namespaces that belong to the USER's project, never to this
+// package, so a path starting here is theirs to create and nothing local can
+// be checked against it. Unlike the ROOT_PREFIXES list this replaces, a
+// skip-list cannot produce a wrong verdict - only a missing check - and it is
+// published in skill-style/references/style-guide.md rather than hidden.
+// `<workspace>/` says the same thing explicitly and always wins; prefer it for
+// anything outside these names.
+const WORKSPACE_NAMESPACES = new Set([
+  '.claude', '.github', '.cursor', '.codex', '.continue',
+  'tasks', 'memories', 'specs', 'docs', 'evals',
 ]);
 
 function discoverSkills(root) {
@@ -117,6 +130,7 @@ function classifyReference(root, skillDir, reference) {
   // hardcoded list, so cross-skill references stay readable.
   const first = ref.split('/')[0];
   if (fs.existsSync(path.join(root, first, 'SKILL.md'))) return { status: 'check', target: path.resolve(root, ref) };
+  if (WORKSPACE_NAMESPACES.has(first)) return { status: 'skip' };
   return { status: 'check', target: path.resolve(root, skillDir, ref) };
 }
 

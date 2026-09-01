@@ -37,12 +37,13 @@ Every path a `SKILL.md` names is checked by `node <skills-repo-root>/ci/referenc
 | `references/x.md`, `./x.md`, `../x.md` | this skill's own directory | yes |
 | `skill-creator/SKILL.md` | another skill, named directly | yes |
 | `<skills-repo-root>/hooks/x.js` | the root of this package | yes |
-| `<workspace>/tasks/todo.md` | a path in the USER's project | no - recorded as intentional |
+| `<workspace>/anywhere/x.md` | a path in the USER's project | no - recorded as intentional |
+| `tasks/`, `memories/`, `specs/`, `docs/`, `evals/`, `.claude/`, `.github/`, `.cursor/`, `.codex/`, `.continue/` | the USER's project, by published namespace | no |
 
-- **MUST** mark a path outside the skill's own directory. There is no allowlist of top-level names: `ci/x.js` is this skill's `ci/`, not the repo's. Write `<skills-repo-root>/ci/x.js` when you mean the package root.
-- **MUST** mark a path the skill writes into the user's project with `<workspace>/`, so "unchecked" is a stated decision rather than an accident.
+- **MUST** mark a path outside the skill's own directory. There is no allowlist of top-level names promoting a path to the repo root: `ci/x.js` is this skill's `ci/`. Write `<skills-repo-root>/ci/x.js` when you mean the package root.
 - **MUST NOT** invent a new placeholder. An unrecognised one is a hard failure, not a skip - a typo like `<this_folder>/` would otherwise make every path in the file invisible to the gate. Register a genuinely new one in `<skills-repo-root>/ci/reference-check.js`.
-- **PREFER the bare relative form.** Markers cost tokens against the 500-token `waza` budget, so spend them only where the base actually differs.
+- Use `<workspace>/` for a user-project path outside the published namespaces above. It always wins over any other rule.
+- **Markers cost tokens** against the 500-token `waza` hard limit, so spend them only where the base actually differs. The bare relative form is both the default and the cheapest.
 - A bare filename with no directory (`CONTEXT.md`, `package.json`) is prose and stays unchecked. Give it a directory when you mean a specific file.
 
 ## 4. Avoid Functional Overlap

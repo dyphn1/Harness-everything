@@ -28,7 +28,7 @@ Load `references/memory-resolution.md` on demand for the decision matrix, fallba
 
 1. Prefer existing `MEMORY.md`/`RULES.md`/`CLAUDE.md`/`AGENTS.md`.
 2. Route the lesson:
-   - Simple rule (constraint/tip) → `<workspace>/memories/repo/RULES.md`, else `<workspace>/.github/harness-everything/memories/RULES.md`; use `persist-memory.js`.
+   - Simple rule (constraint/tip) → `memories/repo/RULES.md`, else `.github/harness-everything/memories/RULES.md`; use `persist-memory.js`.
    - Reusable procedure → follow `skill-creator/SKILL.md`, then register with `register-dynamic-skill.js` in every platform `manifest.json`.
 3. Run `self-regression.js` before persisting. Never persist without it.
 

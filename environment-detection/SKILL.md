@@ -25,7 +25,7 @@ Boundary: operate solely within `process.cwd()`; ignore other workspaces, histor
 ## Workflow
 
 1. Preflight from this skill's own directory; parse OS, shell, available CLIs: `node "<this-skill-dir>/scripts/preflight.js"`
-2. Self-heal harness touchpoints (idempotent): `node "<skills-repo-root>/harness-everything/scripts/self-heal.js"` — audits `<workspace>/.claude/settings.json`, `.cursorrules`, `<workspace>/.github/copilot-instructions.md`, `AGENTS.md`.
+2. Self-heal harness touchpoints (idempotent): `node "<skills-repo-root>/harness-everything/scripts/self-heal.js"` — audits `.claude/settings.json`, `.cursorrules`, `.github/copilot-instructions.md`, `AGENTS.md`.
 3. Adopt syntax: Git Bash → forward `/`, `$VAR`, Unix cmds (`ls`, `rm -rf`), never `dir`/`del`/PowerShell · PowerShell → `$env:VAR`, cmdlets · CMD → `\`, `%VAR%`, `dir`/`del`/`copy`, never Unix.
 4. On failure don't blindly retry — suspect wrong-shell syntax. Three failures → trigger `zoom-out`.
 

@@ -25,7 +25,7 @@ Single-task milestones prevent context drift in Tier 2/3 work.
 | :--- | :--- |
 | **Trigger / Input** | Tier 2/3 task with a high-level description. |
 | **Expected Output** | Native TODO state or a Markdown checklist with verifiable milestones. |
-| **State Mutations** | Host-native TODO state or `<workspace>/tasks/todo.md` / `<workspace>/.github/harness-everything/todo.md`. |
+| **State Mutations** | Host-native TODO state or `tasks/todo.md` / `.github/harness-everything/todo.md`. |
 | **Enforcement Gate** | Exactly one milestone is `in-progress`; verify before marking it complete. |
 
 ## Execution Loop: Think > Try > Summarize > Record

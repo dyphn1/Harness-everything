@@ -15,7 +15,7 @@ metadata:
 | :--- | :--- |
 | **Trigger / Input** | Tier 2 task; feature or bug requirement. |
 | **Expected Output** | Failing test (RED), minimal code (GREEN), refactor. |
-| **State Mutations** | Native host TODO tracker or Markdown checklist (`<workspace>/tasks/todo.md`). |
+| **State Mutations** | Native host TODO tracker or Markdown checklist (`tasks/todo.md`). |
 | **Enforcement Gate** | `npm test` / `pytest`; >3 GREEN failures force `zoom-out`. |
 
 ## TDD Discipline (Red-Green-Refactor)
