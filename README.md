@@ -29,7 +29,7 @@ Harness acts as an automated system supervisor. It remains completely silent and
 | **System Audit** | Blindly assumes shell syntax | Requires manual shell check | **Preflight:** Proactively detects Windows/Unix paths, shell type, and package manager |
 | **Memory** | Resets on every new chat session | Static text rules | **Continuous Persistence:** Writes Write-Ahead Logs (WAL) for session recovery and immunizes workspace rules |
 
-The "Harness" column above is Claude Code's behavior. On Cursor, Copilot, Codex, Continue.dev, and Hermes Agent — platforms with no hook/exit-code execution mechanism — Harness can only inject advisory text, which lands in the **Prompt-Only** column instead. See [Supported AI IDEs & Tools](#supported-ai-ides--tools) below.
+The "Harness" column above describes the two platforms Harness can enforce on: **Claude Code** (native lifecycle hooks) and **opencode** (via [`opencode-plugin/`](opencode-plugin/)). On Cursor, Copilot, Codex, Continue.dev, and Hermes Agent — platforms with no hook/exit-code execution mechanism — Harness can only inject advisory text, which lands in the **Prompt-Only** column instead. See [Supported AI IDEs & Tools](#supported-ai-ides--tools) below.
 
 ### When should I use Harness?
 * You regularly use agentic coding tools (like Claude Code, Cursor, or Copilot) on medium-to-large codebases.
@@ -141,11 +141,14 @@ Harness operates through six core cognitive concepts:
 
 ## Supported AI IDEs & Tools
 
-**Only Claude Code gets the hard-boundary hooks.** Every other platform below has no hook/exit-code execution mechanism, so `harness-everything` can only inject advisory text — same protection level as the "Prompt-Only" column in the comparison table above. There is no circuit breaker, no preflight audit, and no WAL on those platforms unless Claude Code (or another hook-capable tool) is also driving the same repo.
+**Two platforms get hard boundaries: Claude Code and opencode.** Everything else below has no hook/exit-code execution mechanism, so `harness-everything` can only inject advisory text — same protection level as the "Prompt-Only" column in the comparison table above. There is no circuit breaker, no preflight audit, and no WAL on those platforms unless a hook-capable tool is also driving the same repo.
+
+The two enforcement paths are not equivalent. Claude Code gets the full set — circuit breaker, scope guard, boundary guard, stop gate, WAL. opencode gets the enforcement plugin's post-edit and pre-complete gates; its circuit breaker, compliance monitor and verification runner are implemented and tested but invoked explicitly rather than fired by the runtime (see [issue #37](https://github.com/dyphn1/Harness-everything/issues/37)).
 
 | AI Agent Tool | Integration Method | Local Target Location | Enforcement |
 |---|---|---|---|
 | **Claude Code** | Native Lifecycle Hooks (`PreToolUse`, `PostToolUse`, `SessionStart`) | `.claude/settings.json` (project) / `~/.claude/settings.json` (user)<br>*.claude/skills/* (Project Skills) / *~/.claude/skills/* (Global Skills) | **Hard** — hooks can block a tool call (`exit(2)`) |
+| **opencode** | Enforcement plugin (`opencode-plugin/plugin.json`, referenced from `opencode.json`) | `opencode-plugin/` | **Hard** — `pre-complete` blocks completion (`exit(1)`) until verification runs; `post-edit` tracks it. Breaker/compliance/verify ship but are on-demand — see #37 |
 | **Cursor** | Native Project Rules | `.cursorrules` | Advisory only |
 | **Copilot Chat** | Custom Instructions | `.github/copilot-instructions.md` | Advisory only |
 | **Codex** | Custom Instructions (`AGENTS.md`, not `.codex/config.toml` — that file controls CLI/sandbox behavior, not prompt content) | `AGENTS.md` | Advisory only |

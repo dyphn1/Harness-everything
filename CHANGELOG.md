@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Self-repo detection** (`scripts/lib/workspace.js`): bootstrap and self-heal now identify the harness repo by `package.json` name instead of comparing against the running script's own directory, so an npx or global install no longer reports the harness checkout as drifted and recommends a repair that self-heal refuses to run. The audit also distinguishes an absent integration file from one that exists without the Harness advisory block.
+- **opencode plugin manifest** (`opencode-plugin/plugin.json`): all five hooks are now declared - `circuit-breaker.js`, `compliance.js` and `verify.js` were implemented and unreachable. New `ci/mechanism-2n-opencode-plugin.test.js` asserts manifest/disk parity and runs the plugin's hook-firing suite under a redirected `HOME` and `cwd`, so `npm test` covers opencode enforcement for the first time.
+- **Release baseline** (`ci/release-consistency-check.js`): the comparison tag is derived from the latest tag (or `--tag` / `HARNESS_RELEASE_TAG`) instead of being pinned to `v0.3.3-beta`, which had been three releases stale while still reporting PASSED.
+
+### Changed
+- **Release gate** (`.github/workflows/release.yml`): a tag push now runs the same job set as a pull request - including `test:references`, `test:release`, the waza skill-quality gate, and the windows matrix - instead of a weaker ubuntu-only subset.
+- **Changelog/tag consistency** (`ci/consistency-check.js`): every released changelog heading must have a matching git tag; versions that were never tagged must say so in the heading.
+
+### Documentation
+- **Platform enforcement** (`README.md`): opencode is documented as a hard-enforcement platform alongside Claude Code. The previous "only Claude Code" claim predated `opencode-plugin/` and understated the project's own capability.
+
+---
+
 ## [0.3.6] - 2026-09-01
 
 ### Added
@@ -25,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.3.5-beta] - 2026-09-01
+## [0.3.5-beta] - 2026-09-01 (unreleased - never tagged; shipped in 0.3.6)
 
 ### Added
 - **Fable v3 model modes**: Added explicit Haiku, Sonnet, and Opus entrypoints, named agent distribution, a deterministic model matrix/selector, required stage audit records, and visible fallback or blocked escalation behavior.
@@ -37,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.3.4-beta] - 2026-08-23
+## [0.3.4-beta] - 2026-08-23 (unreleased - never tagged; shipped in 0.3.6)
 
 ### Added
 - **A/B Eval Harness** (`eval-framework/ab-test-harness.js`): automated with/without skill comparison to prove method effectiveness. Takes a skill + test prompt, spawns baseline (no skill) and treatment (with skill) agent sessions, grades both against a rubric, and produces a verdict (EFFECTIVE / INCONCLUSIVE / INEFFECTIVE / HARMFUL). Run `npm run test:ab` (validate, free) or `npm run test:ab:run` (costs tokens). First run on gpt-5-mini: 4/4 INCONCLUSIVE — model already performs tested behaviors by default. Results in `benchmarks/ab-test-<date>/`.
