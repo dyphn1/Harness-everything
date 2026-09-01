@@ -10,35 +10,35 @@ permissions:
   id-token: write
 
 jobs:
+  # The full PR gate, not a subset. The previous inline gate ran four npm
+  # scripts on ubuntu only, so a tag push could publish a tree that would have
+  # failed CI - notably the end-to-end installer check, the one gate that
+  # proves the published artifact actually installs (issue #39).
   gate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Install dependencies for release checks
-        run: npm ci
-      - name: Self-regression suite
-        run: npm test
-      - name: Mechanism checks
-        run: npm run test:mechanism
-      - name: Consistency check
-        run: npm run test:consistency
-      - name: Description collision detection
-        run: npm run test:collision
+    uses: ./.github/workflows/ci.yml
 
   publish:
     needs: gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
       - name: Install dependencies for publishing
         run: npm ci
+      - name: Release tag matches package version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          test "$TAG" = "$PKG" || { echo "::error::tag $GITHUB_REF_NAME does not match package version $PKG"; exit 1; }
+      - name: Skill catalog matches the tag being released
+        run: npm run test:release
+        env:
+          HARNESS_RELEASE_TAG: ${{ github.ref_name }}
       - name: Publish to npm
         run: npm publish --provenance --access public
         env:

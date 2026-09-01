@@ -12,7 +12,30 @@ const { discoverSkills, extractCandidates, checkSkillReferences } = require('./r
 
 const root = path.resolve(__dirname, '..');
 const tagIndex = process.argv.indexOf('--tag');
-const tag = tagIndex === -1 ? 'v0.3.3-beta' : process.argv[tagIndex + 1];
+
+// A hard-coded baseline silently rots: it stayed on v0.3.3-beta while the
+// package moved to 0.3.6, so every run compared the tree against a release
+// three weeks old and still reported PASSED (issue #39). Derive it instead.
+function latestTag() {
+  try {
+    return git(['describe', '--tags', '--abbrev=0']);
+  } catch (err) {
+    try {
+      return git(['for-each-ref', '--sort=-creatordate', '--format=%(refname:short)', '--count=1', 'refs/tags']);
+    } catch (inner) {
+      return '';
+    }
+  }
+}
+
+const tag = tagIndex !== -1
+  ? process.argv[tagIndex + 1]
+  : (process.env.HARNESS_RELEASE_TAG || latestTag());
+
+if (!tag) {
+  console.error('No release tag to compare against. Pass --tag <tag>, set HARNESS_RELEASE_TAG, or fetch tags (actions/checkout needs fetch-depth: 0).');
+  process.exit(2);
+}
 const ignoredPrefixes = new Set(['.claude', '.github', '.cursor', '.codex', '.continue', 'tasks', 'memories', 'specs', 'docs', 'evals']);
 const rootPrefixes = new Set(['hooks', 'harness-everything', 'to-spec', 'to-tickets', 'bin', 'ci', 'skill-creator', 'self-evolve']);
 const releaseRenames = new Map([

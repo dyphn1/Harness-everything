@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # release.yml calls this workflow so a tag push is gated by exactly the same
+  # jobs as a pull request - including installer-e2e and the windows matrix.
+  workflow_call:
 
 jobs:
   self-regression:
