@@ -23,6 +23,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { isHarnessRepo } = require('../../scripts/lib/workspace');
 
 const MARKER = 'Harness OS Guidance (Advisory)';
 const HOOK_ID = 'harness:pre:bootstrap';
@@ -42,6 +43,15 @@ function fileContains(filePath, needle) {
   } catch (err) {
     return false;
   }
+}
+
+// "Missing" and "present but not ours" are different states and lead to
+// different user actions. Reporting a hand-written AGENTS.md as MISSING is
+// what made this audit untrustworthy in its own repo (issue #40).
+function auditMarkerFile(filePath) {
+  if (!fs.existsSync(filePath)) return { ok: false, detail: 'not created' };
+  if (fileContains(filePath, MARKER)) return { ok: true };
+  return { ok: false, detail: 'present, no Harness advisory block' };
 }
 
 // Presence of the hook id alone is not enough: the skills repo may have been
@@ -134,41 +144,46 @@ function auditWorkspace(workspaceRoot) {
   }
 
   if (activePlatforms.cursor) {
+    const audit = auditMarkerFile(path.join(workspaceRoot, '.cursorrules'));
     checks.push({
-      label: 'Cursor rules (.cursorrules)',
-      ok: fileContains(path.join(workspaceRoot, '.cursorrules'), MARKER),
+      label: 'Cursor rules (.cursorrules)' + (audit.detail ? ` - ${audit.detail}` : ''),
+      ok: audit.ok,
       platform: 'cursor'
     });
   }
 
   if (activePlatforms.copilot) {
+    const audit = auditMarkerFile(path.join(workspaceRoot, '.github', 'copilot-instructions.md'));
     checks.push({
-      label: 'Copilot instructions (.github/copilot-instructions.md)',
-      ok: fileContains(path.join(workspaceRoot, '.github', 'copilot-instructions.md'), MARKER),
+      label: 'Copilot instructions (.github/copilot-instructions.md)' + (audit.detail ? ` - ${audit.detail}` : ''),
+      ok: audit.ok,
       platform: 'copilot'
     });
   }
 
   if (activePlatforms.codex) {
+    const audit = auditMarkerFile(path.join(workspaceRoot, 'AGENTS.md'));
     checks.push({
-      label: 'Codex instructions (AGENTS.md)',
-      ok: fileContains(path.join(workspaceRoot, 'AGENTS.md'), MARKER),
+      label: 'Codex instructions (AGENTS.md)' + (audit.detail ? ` - ${audit.detail}` : ''),
+      ok: audit.ok,
       platform: 'codex'
     });
   }
 
   if (activePlatforms.continue) {
+    const audit = auditMarkerFile(path.join(workspaceRoot, '.continue', 'rules', 'harness.md'));
     checks.push({
-      label: 'Continue.dev rules (.continue/rules/harness.md)',
-      ok: fileContains(path.join(workspaceRoot, '.continue', 'rules', 'harness.md'), MARKER),
+      label: 'Continue.dev rules (.continue/rules/harness.md)' + (audit.detail ? ` - ${audit.detail}` : ''),
+      ok: audit.ok,
       platform: 'continue'
     });
   }
 
   if (activePlatforms.hermes) {
+    const audit = auditMarkerFile(path.join(workspaceRoot, '.hermes.md'));
     checks.push({
-      label: 'Hermes Agent instructions (.hermes.md)',
-      ok: fileContains(path.join(workspaceRoot, '.hermes.md'), MARKER),
+      label: 'Hermes Agent instructions (.hermes.md)' + (audit.detail ? ` - ${audit.detail}` : ''),
+      ok: audit.ok,
       platform: 'hermes'
     });
   }
@@ -207,7 +222,10 @@ function main() {
     return;
   }
 
-  const isSelf = path.resolve(workspaceRoot) === path.resolve(harnessSourceDir);
+  // Identity first, path second: an npx/global install has a different
+  // harnessSourceDir than the checkout it is auditing (issue #40).
+  const isSelf = isHarnessRepo(workspaceRoot)
+    || path.resolve(workspaceRoot) === path.resolve(harnessSourceDir);
   if (isSelf && !forceSelf) {
     console.log('\nWorkspace IS the harness-everything repo itself - skipping repair to avoid');
     console.log('polluting it with generated config files. Pass --force-self to override.');

@@ -340,6 +340,43 @@ for (const s of skills) {
   );
 }
 
+// 6. Changelog headings vs git tags.
+// release.yml triggers on tag push, so a version with a changelog entry and no
+// tag was never gated and never published - 0.3.4-beta and 0.3.5-beta both sat
+// in that state (issue #39). A version deliberately left unreleased must say so
+// in its heading rather than being silently absent from git.
+const { execFileSync } = require('child_process');
+let knownTags = null;
+try {
+  knownTags = new Set(
+    execFileSync('git', ['tag', '--list'], { cwd: ROOT, encoding: 'utf8' })
+      .split(/\r?\n/)
+      .filter(Boolean)
+  );
+} catch (err) {
+  knownTags = null;
+}
+
+if (knownTags === null || knownTags.size === 0) {
+  console.log('WARN changelog/tag check skipped: no git tags available (shallow clone? use fetch-depth: 0)');
+} else {
+  const changelog = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
+  const headings = [...changelog.matchAll(/^## \[([^\]]+)\](.*)$/gm)];
+  check('CHANGELOG.md exposes version headings', headings.length > 0, 'no "## [version]" headings found');
+  for (const [, version, rest] of headings) {
+    if (/^unreleased$/i.test(version.trim())) continue;
+    if (/unreleased/i.test(rest)) {
+      console.log(`OK CHANGELOG ${version}: declared unreleased, no tag required`);
+      continue;
+    }
+    check(
+      `CHANGELOG ${version}: released heading has tag v${version}`,
+      knownTags.has(`v${version}`),
+      `no tag v${version}; tag the release or mark the heading unreleased`
+    );
+  }
+}
+
 if (failures > 0) {
   console.error(`\n❌ CONSISTENCY CHECK FAILED: ${failures} problem(s).`);
   process.exit(1);

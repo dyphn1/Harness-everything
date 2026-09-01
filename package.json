@@ -12,7 +12,7 @@
     "test:mechanism": "node ci/mechanism-test.js",
     "test:consistency": "node ci/consistency-check.js",
     "test:references": "node ci/reference-check.js",
-    "test:release": "node ci/release-consistency-check.js --tag v0.3.3-beta",
+    "test:release": "node ci/release-consistency-check.js",
     "test:install": "node scripts/verify-install.js",
     "test:collision": "node ci/description-collision.js",
     "test:routing:skills": "node ci/skill-routing-check.js",

@@ -143,9 +143,12 @@ Harness operates through six core cognitive concepts:
 
 **Only Claude Code gets the hard-boundary hooks.** Every other platform below has no hook/exit-code execution mechanism, so `harness-everything` can only inject advisory text — same protection level as the "Prompt-Only" column in the comparison table above. There is no circuit breaker, no preflight audit, and no WAL on those platforms unless Claude Code (or another hook-capable tool) is also driving the same repo.
 
+[`opencode-plugin/`](opencode-plugin/) contains enforcement logic for opencode — a verification gate and a Rule of 3 breaker — but it is **not loadable by opencode today**: it is declared as a JSON manifest mapping `postEdit`/`preComplete` to standalone scripts, and opencode has neither of those events nor any manifest-to-command mechanism. It is tracked as unfinished in [issue #37](https://github.com/dyphn1/Harness-everything/issues/37) and is not counted as enforcement here.
+
 | AI Agent Tool | Integration Method | Local Target Location | Enforcement |
 |---|---|---|---|
 | **Claude Code** | Native Lifecycle Hooks (`PreToolUse`, `PostToolUse`, `SessionStart`) | `.claude/settings.json` (project) / `~/.claude/settings.json` (user)<br>*.claude/skills/* (Project Skills) / *~/.claude/skills/* (Global Skills) | **Hard** — hooks can block a tool call (`exit(2)`) |
+| **opencode** | Skill files via `instructions` in `opencode.json`. (`opencode-plugin/` is not wired — see #37) | `opencode.json` | Advisory only |
 | **Cursor** | Native Project Rules | `.cursorrules` | Advisory only |
 | **Copilot Chat** | Custom Instructions | `.github/copilot-instructions.md` | Advisory only |
 | **Codex** | Custom Instructions (`AGENTS.md`, not `.codex/config.toml` — that file controls CLI/sandbox behavior, not prompt content) | `AGENTS.md` | Advisory only |
@@ -213,7 +216,7 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `verification-loop` | **Skill (Tier 2)** | Verify-before-complete enforcement |
 | `verify-before-claim` | **Always-on discipline** | Fact-audit before asserting claims |
 | `zoom-out` | **Circuit breaker** | Circuit-breaker reflection protocol |
-| `opencode-plugin` | **Platform Plugin** | Enforcement hooks for opencode (post-edit, pre-complete, circuit-breaker) |
+| `opencode-plugin` | **Platform Plugin (not wired)** | Enforcement logic for opencode; needs porting to opencode's plugin API before it loads (#37) |
 
 ---
 
