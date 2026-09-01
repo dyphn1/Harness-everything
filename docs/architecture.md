@@ -74,7 +74,7 @@ Our installer configures native lifecycle hooks inside `.claude/settings.json`, 
 *   `Stop`: Runs `stop-gate.js` — when a turn ends with uncommitted edits that were never followed by a successful verification command (test/build/lint), it bounces the stop back once per edit batch. This is the mechanical form of `verification-loop`'s pre-delivery gate; on every other platform that gate remains advisory prose.
 
 ### 2. Cursor (advisory only)
-The installer appends guidance to `.cursorrules`. Cursor has no hook/execution mechanism, so nothing in `.claude/harness-state/` gets read or written by Cursor itself, and no tool call can be blocked — the model is simply asked (in the same file, every session) to self-regulate: discover the environment before acting, stop after 3 repeated failures instead of continuing to retry, and prefer small commits.
+The installer appends guidance to `.cursorrules`. Cursor has no hook/execution mechanism, so nothing in `.claude/harness-everything/state/` gets read or written by Cursor itself, and no tool call can be blocked — the model is simply asked (in the same file, every session) to self-regulate: discover the environment before acting, stop after 3 repeated failures instead of continuing to retry, and prefer small commits.
 
 ### 3. Copilot Chat (advisory only)
 Same mechanism and same limits as Cursor, via `.github/copilot-instructions.md`.

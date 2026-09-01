@@ -44,7 +44,7 @@ graph TD
   Start["Fresh repository checkout"] --> Trigger["Run 'node scripts/installer.js install --all --yes'"]
   Trigger --> Scan["Detects Cursor editor rules and GitHub action configurations"]
   Scan --> BuildAdvisory["Appends mandatory routing checkpoint and cognitive compliance blocks to .cursorrules"]
-  BuildAdvisory --> CopySkills["Copies all 23 core skills into .cursor/skills/ and .github/skills/"]
+  BuildAdvisory --> CopySkills["Copies all current skills into .cursor/skills/ and .github/skills/"]
   CopySkills --> CheckHeal["Runs preflight audit to confirm 100% path coverage"]
   CheckHeal --> Done([Harness OS environment setup is complete and active])
 ```

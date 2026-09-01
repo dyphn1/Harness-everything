@@ -1,6 +1,6 @@
 id: positive-pre-ship-verify-001
 name: Pre-completion request runs verification loop
-description: Run the full verification loop - run objective verification gates (build, types, lint, tests, security scan) before claiming work done; verify this is done before delivery with evidence.
+description: "Run objective verification gates (build, types, lint, tests, security scan) before claiming work done. USE FOR: \"run the full verification loop\", \"verify this is done before delivery\". DO NOT USE FOR: \"design discussions with no completed work\", \"planning without code changes\"."
 tags:
   - positive-trigger
 inputs:

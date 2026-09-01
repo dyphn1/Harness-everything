@@ -15,11 +15,11 @@
 4. Validation: MUST verify generation success. IF ANY Sub Repo has remaining staged changes, MUST diagnose failure and halt.
 
 ## [Indexing Phase]
-5. Preference Check: MUST read `/memories/git-commit-prefs.md` for `auto_stage_submodules` setting.
+5. Preference Check: MUST read the resolved Harness memory file `git-commit-prefs.md` for the `auto_stage_submodules` setting. Prefer an existing `MEMORY.md`/`RULES.md`; otherwise use `.github/harness-everything/memories/git-commit-prefs.md`.
 6. Execution:
    - IF `auto_stage_submodules=true`: MUST run `git add <path>` in the Main Repo for all updated Sub Repos.
    - IF missing: MUST prompt user exactly: "[1] Yes, [2] No, [3] Yes & Always allow".
-   - IF user selects [3]: MUST write `auto_stage_submodules=true` to `/memories/git-commit-prefs.md` AND run `git add <path>`.
+   - IF user selects [3]: MUST write `auto_stage_submodules=true` to the resolved Harness memory file AND run `git add <path>`.
    - IF user selects [1]: MUST run `git add <path>` in the Main Repo.
    - IF user selects [2]: MUST NOT run `git add`.
 

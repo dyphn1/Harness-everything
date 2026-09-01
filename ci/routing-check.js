@@ -39,7 +39,7 @@ function runRoutingCheck() {
   
   if (!checkWaza()) {
     console.error('waza not installed: routing eval check is NOT RUN');
-    console.log('   Install with: npm i -g @microsoft/waza');
+    console.log('   Provide the waza binary locally; CI installs it from the official installer in .github/workflows/ci.yml.');
     process.exit(2);
   }
   

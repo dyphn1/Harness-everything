@@ -4,7 +4,7 @@
  * Resolves fable-mode stage contracts. fable-orchestrator's discipline says
  * every stage check must be "re-run or spot-checked... before building on
  * its output" - but a verbal claim of "I re-ran it" isn't auditable. So the
- * orchestrator now writes .claude/harness-state/contracts/<stageId>.json with
+ * orchestrator now writes .claude/harness-everything/state/contracts/<stageId>.json with
  * status:"pending" and the exact checkCommand BEFORE running it. This hook
  * watches every shell call; when the command matches a pending contract's
  * checkCommand verbatim, it records pass/fail into that manifest using the

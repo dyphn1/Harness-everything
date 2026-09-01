@@ -12,7 +12,6 @@ metadata:
 ## USE FOR:
 - Scaffolding six-zone multi-agent workspaces with a launcher, memory index, and handoff manifest.
 - Selecting and delegating bounded specialists from an agency-agents source catalog.
-- Migrating from `create-agent-launcher` or `build-multi-agent-system`.
 
 ## DO NOT USE FOR:
 - A single-agent task, ordinary TDD, or Fable-only orchestration.

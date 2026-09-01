@@ -5,8 +5,6 @@
       "architecture",
       "refactor",
       "refactoring",
-      "rewrite",
-      "rewrite the",
       "rearchitect",
       "decouple",
       "new feature",
@@ -20,6 +18,9 @@
       "system analysis",
       "impact analysis",
       "codebase analysis",
+      "implementation tickets",
+      "ticket breakdown",
+      "vertical slice",
       "adr",
       "prd",
       "architectural decision",
@@ -29,6 +30,10 @@
       "multi-agent",
       "fable",
       "fable-mode",
+      "stage discipline",
+      "multi-stage",
+      "named workers",
+      "per-stage verification",
       "架構",
       "重構",
       "深度重構",
@@ -154,7 +159,7 @@
     {
       "id": "agent",
       "keywords": [
-        "agent", "multi-agent", "launcher", "subagent", "sub-agent", "subAgent", "create agent launcher", "delegate", "orchestrate", "specialist",
+        "agent", "multi-agent", "launcher", "subagent", "sub-agent", "subAgent", "delegate", "orchestrate", "specialist", "stage discipline", "context discipline", "per-stage", "named workers", "stage contract", "stage contracts",
         "workspace scaffolding", "scaffold workspace", "division of labor", "fable", "fable mode", "fable-mode", "fable-discipline", "fable-haiku", "fable-sonnet", "fable-opus", "macro", "orchestrator",
         "harness-everything", "harness system", "harness-skills", "using-superpowers",
         "代理", "多代理", "啟動器", "子代理", "委派", "指派", "分工", "協調", "任務分配", "規劃", "智慧體", "角色"
@@ -213,7 +218,7 @@
       "id": "tickets",
       "keywords": [
         "break this into tickets", "break into tickets", "vertical slice", "tracer bullet", "blocking edges",
-        "cut tickets", "ticket breakdown", "split into tickets",
+        "cut tickets", "ticket breakdown", "split into tickets", "implementation tickets", "publish tickets", "approved spec",
         "拆票", "拆解任務", "拆成票", "任務拆解", "垂直切分", "阻塞關係"
       ],
       "guides": [
@@ -234,7 +239,7 @@
     {
       "id": "verify",
       "keywords": [
-        "verify", "fact", "audit", "estimate", "benchmark", "performance", "speed", "scale", "token", "security", "secret", "owasp", "stride", "leak", "vulnerability",
+        "verify", "fact", "audit", "estimate", "benchmark", "performance", "speed", "scale", "token", "security", "secret", "owasp", "stride", "leak", "vulnerability", "score", "scorecard", "session log", "execution log", "agent performance",
         "驗證", "查證", "核對", "效能", "評測", "性能", "估計", "下一步建議", "測試", "正確度", "得分", "自我檢討", "token 消耗", "安全", "資安", "金鑰", "洩漏", "漏洞", "弱點", "安全審查"
       ],
       "guides": [
@@ -244,6 +249,15 @@
         "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)",
         "- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)",
         "- eval-harness/SKILL.md (AI performance evaluation metrics & anti-loop metrics)"
+      ]
+    },
+    {
+      "id": "cognitive-os",
+      "keywords": [
+        "cognitive os", "cognitive loop", "install cognitive", "evidence assertion", "state handoff"
+      ],
+      "guides": [
+        "- install-cognitive-os/SKILL.md (Foundational Discover > Think > Try > Summarize > Record loop)"
       ]
     },
     {

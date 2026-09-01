@@ -183,36 +183,36 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `ci` | **Quality Gates** | Consistency check, description collision, mechanism tests, negative controls |
 | `.github` | **CI/CD** | GitHub Actions workflows (ci.yml, release.yml, behavioral-evals.yml) |
 | `.claude-plugin` | **Distribution** | Plugin manifests for Claude Code marketplace |
-| `evals` | **Routing Evals** | 27 trigger/routing eval suites (waza format) |
+| `evals` | **Routing Evals** | 26 trigger/routing eval suites (waza format) |
 | `behavioral-evals` | **Behavioral Evals** | LLM-level discipline cases (headless agent sessions) |
 | `benchmarks` | **Benchmarks** | BENCHMARK_SOP fixtures and recorded A/B results |
 | `docs` | **Documentation** | Philosophy, architecture, routing, reflection, audit |
 | `references` | **Documentation** | Shared checklists (security, performance, definition-of-done) |
 | `multi-agent-workspace` | **Skill (Tier 3)** | Scaffold six zones, select agency specialists, and generate bounded launchers |
-| `environment-detection` | **Skill (Tier 2)** | Preflight: detect OS, shell, package manager |
+| `environment-detection` | **Foundation** | Preflight: detect OS, shell, package manager |
 | `eval-harness` | **Skill (Tier 2)** | Evaluate agent outputs against rubrics |
 | `fable-discipline` | **Skill (Tier 3)** | Enforce Fable execution guardrails |
 | `fable-mode` | **Skill (Tier 3)** | Multi-agent orchestration with milestone gates |
-| `find-skills` | **Skill (Tier 1)** | Discover and install skills from open ecosystems |
+| `find-skills` | **Meta** | Discover and install skills from open ecosystems |
 | `git-commit` | **Skill (Tier 1)** | Conventional commit messages with verification |
-| `grill-me` | **Skill (Tier 2)** | Adversarial code review before merge |
-| `grill-with-docs` | **Skill (Tier 2)** | Code review with documentation cross-check |
-| `improve-codebase-architecture` | **Skill (Tier 3)** | Architectural refactoring with evidence |
-| `install-cognitive-os` | **Skill (Tier 2)** | Install Harness cognitive OS into workspace |
-| `repo-docs` | **Skill (Tier 1)** | Generate repository documentation |
+| `grill-me` | **Skill (Tier 2)** | Adversarial plan interrogation before implementation |
+| `grill-with-docs` | **Skill (Tier 3)** | Domain-model and decision alignment before design publication |
+| `improve-codebase-architecture` | **Skill (Tier 2)** | Architectural refactoring with evidence |
+| `install-cognitive-os` | **Foundation** | Install Harness cognitive OS into workspace |
+| `repo-docs` | **Skill (Tier 3)** | Generate repository documentation |
 | `rewrite-commits` | **Skill (Tier 1)** | Interactive rebase and commit history cleanup |
 | `security-review` | **Skill (Tier 2)** | OWASP/STRIDE security review |
 | `self-evolve` | **Skill (Tier 2)** | Workspace immunization via dynamic skills |
-| `skill-creator` | **Skill (Tier 2)** | Create new skills from patterns |
-| `skill-style` | **Skill (Tier 1)** | Skill authoring style guide |
+| `skill-creator` | **Meta** | Create new skills from patterns |
+| `skill-style` | **Meta** | Skill authoring style guide |
 | `tdd` | **Skill (Tier 2)** | Test-driven development enforcement |
-| `to-spec` | **Skill (Tier 3)** | Generate specs from code with evidence |
-| `to-tickets` | **Skill (Tier 3)** | Decompose work into tracked tickets |
-| `todo-driven-workflow` | **Skill (Tier 2)** | Native TODO or Markdown checklist discipline |
+| `to-spec` | **Advisory (Tier 2/3)** | Publish specs from settled conversations |
+| `to-tickets` | **Advisory (Tier 2/3)** | Decompose settled specs into tracked tickets |
+| `todo-driven-workflow` | **Foundation** | Native TODO or Markdown checklist discipline |
 | `using-git-worktrees` | **Skill (Tier 2)** | Git worktree concurrency patterns |
 | `verification-loop` | **Skill (Tier 2)** | Verify-before-complete enforcement |
-| `verify-before-claim` | **Skill (Tier 1)** | Fact-audit before asserting claims |
-| `zoom-out` | **Skill (Tier 2)** | Circuit-breaker reflection protocol |
+| `verify-before-claim` | **Always-on discipline** | Fact-audit before asserting claims |
+| `zoom-out` | **Circuit breaker** | Circuit-breaker reflection protocol |
 | `opencode-plugin` | **Platform Plugin** | Enforcement hooks for opencode (post-edit, pre-complete, circuit-breaker) |
 
 ---
@@ -235,7 +235,7 @@ Fable model selection is documented in [fable-mode/references/model-matrix.md](f
 
 **If you are an agent asked to verify a Harness install, start at [VERIFICATION.md](VERIFICATION.md), not here.** It gives exact commands with exact expected output — install artifact checks for every platform, mechanism-level checks (Claude Code only), the behavioral test prompts below, and an acceptance scorecard to fill in. Do not report "it works" from reading the code — every check there names a command to actually run.
 
-`npm test` (`self-evolve/scripts/self-regression.js`) runs four deterministic phases: JavaScript syntax checks and CLI smoke tests, the labeled routing matrix, skill path/reference plus behavioral-case validation, Fable model-mode contract tests, and every mechanism check (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone). The suite checks real exit codes and stderr, not just "the code looks right." It runs in CI on every push and pull request (`.github/workflows/ci.yml`); live model evaluations remain explicitly on-demand.
+`npm test` (`self-evolve/scripts/self-regression.js`) runs deterministic syntax, CLI, routing-matrix, positive skill-route coverage, reference, behavioral-case, Fable model-mode, and mechanism checks (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone). The suite checks real exit codes and stderr, not just "the code looks right." It runs in CI on every push and pull request (`.github/workflows/ci.yml`); live model evaluations remain explicitly on-demand.
 
 For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Benchmark SOP](BENCHMARK_SOP.md) — standardized, reproducible scenarios:
 *   **Test A:** Over-engineering defense (Tier 1 typo correction)
@@ -261,9 +261,9 @@ Mechanism tests prove the hooks enforce gates; only live sessions prove agents f
 
 Harness audits itself on a dated cycle by running its own test suite and VERIFICATION.md recipes — never by reading the code and assuming it works. The full scorecards, methodology, and per-cycle change log live in [docs/audit.md](docs/audit.md).
 
-**Latest baseline — 2026-08-23**, measured with [waza](https://github.com/microsoft/waza) 0.38.7 against an LF-normalized export of `main`: `waza check` 29/29 skills, `waza spec verify` 27/27 eval suites, `npm test` / `test:consistency` / `test:collision` all green.
+**Latest local baseline — 2026-09-01**: 26/26 on-disk skills, 26/26 routing-eval directories, and the local npm gates are green. Waza remains a CI-only gate in this checkout because its installer is not available as an npm package; run it on an LF-normalized export as documented by CI.
 
-Measure on an LF export, not a Windows working tree — CRLF inflates waza's counts enough to push 20 of 29 `SKILL.md` files past the 500-token ceiling.
+Measure on an LF export, not a Windows working tree — CRLF can inflate waza's token counts and trigger false budget failures.
 
 ---
 

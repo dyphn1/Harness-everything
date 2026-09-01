@@ -32,7 +32,7 @@ This diagram illustrates how the `verify-before-claim` skill is triggered throug
 ```mermaid
 graph LR
   Router["harness-everything / tier-router.js"] -->|Requires fact checking or estimates| VBC["verify-before-claim / SKILL.md"]
-  VBC -->|Empirical verification helper| RunCode["mcp_provides_tool_pylanceRunCodeSnippet / run_in_terminal"]
+  VBC -->|Empirical verification helper| RunCode["Run a real Node/terminal measurement"]
   VBC -->|Secures quality of decisions in| GWD["grill-with-docs / SKILL.md"]
   VBC -->|Verifies assertions in testing suite| TDD["tdd / SKILL.md"]
 ```

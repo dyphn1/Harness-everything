@@ -1,6 +1,6 @@
 id: positive-macro-tier3-001
 name: Architectural task routes to Tier 3
-description: Route this coding request - a cross-cutting macro task must be triaged as Tier 3 multi-agent planning.
+description: "Triage new software requests into Tier 1/2/3 before work begins. USE FOR: \"triage a new software task\", \"route this coding request\". DO NOT USE FOR: \"chat or general Q&A\", \"non-software writing\", \"a skill is already indicated\"."
 tags:
   - positive-trigger
   - tier-3

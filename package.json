@@ -15,6 +15,7 @@
     "test:release": "node ci/release-consistency-check.js --tag v0.3.3-beta",
     "test:install": "node scripts/verify-install.js",
     "test:collision": "node ci/description-collision.js",
+    "test:routing:skills": "node ci/skill-routing-check.js",
     "test:routing": "node ci/routing-check.js",
     "benchmark:scaffold": "node benchmarks/run.js scaffold",
     "benchmark:status": "node benchmarks/run.js status",

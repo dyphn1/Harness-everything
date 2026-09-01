@@ -1,6 +1,6 @@
 id: positive-standard-tier2-001
 name: Standard bug fix routes to Tier 2
-description: Triage new software requests into tiers before work begins - this standard multi-file bug fix routes to Tier 2 with TDD.
+description: "Triage new software requests into Tier 1/2/3 before work begins. USE FOR: \"triage a new software task\", \"route this coding request\". DO NOT USE FOR: \"chat or general Q&A\", \"non-software writing\", \"a skill is already indicated\"."
 tags:
   - positive-trigger
   - tier-2

@@ -30,10 +30,3 @@ six zones --> launcher.md --> bounded specialist handoff
   unavailable source cannot be mistaken for a complete roster.
 - A changed source revision is a migration event. Refresh only with
   `--allow-source-drift`, then review the new catalog and selection.
-
-## Compatibility
-
-`create-agent-launcher` and `build-multi-agent-system` remain as README or
-script-only migration stubs. They contain no `SKILL.md`, so they are not
-routed or listed in plugin manifests. Existing launcher templates and the
-memory indexer now live under `multi-agent-workspace/`.

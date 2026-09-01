@@ -1,6 +1,6 @@
 id: positive-to-spec-001
 name: On-scope prompt triggers to-spec
-description: "Turn the conversation into a written spec — feature PRD, CLI/API reference, schema doc, or dev doc, whichever fits — and publish it per this repo's projectDocs framework; use when alignment is complete."
+description: "Turn the conversation into a written spec — feature PRD, CLI/API reference, schema doc, or dev doc, whichever fits — and publish it per this repos projectDocs framework; use when alignment is complete."
 tags:
   - positive-trigger
 inputs:

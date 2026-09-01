@@ -4,40 +4,39 @@ description: Evaluate AI agent performance across correctness, token efficiency,
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.3.6
 ---
 
-# Eval Harness (Automated Performance & Reasoning Evaluation)
+# Eval Harness
 
-## 📋 Skill Contract
+Evaluate an agent log with a four-dimension scorecard.
+
+## Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger** | "run benchmark" / "score conversation log"; input is an execution log or history. |
-| **Output** | 4-dimension scorecard (0-10) with rationale, saved to `evals/`. |
-| **Mutations** | Writes scorecard to `evals/` or `.github/harness-everything/evals/`. |
-| **Gate** | Run evaluation script; write scorecard directly if script fails. |
+| **Trigger / Input** | A benchmark request and an execution log or conversation history. |
+| **Expected Output** | A 0–10 scorecard for correctness, efficiency, anti-loop focus, and environment awareness. |
+| **State Mutations** | Writes the scorecard under `evals/` or `.github/harness-everything/evals/`. |
+| **Enforcement Gate** | Run `scripts/evaluate.js`; use the documented fallback only if it fails or is missing. |
 
 ## Workflow
 
-1. **Parse** the log or history `[Discover]`: action count, error loop count, tokens/time if provided.
-2. **Score** four dimensions (0-10 each) `[Think]`: **A. Correctness & Factuality**, **B. Token & Step Efficiency**, **C. Anti-loop & Focus**, **D. Environment & Tool Awareness** — full anchors in references.
-3. **Report** `[Summarize]` — MANDATORY script execution:
-   ```bash
-   node "<this-skill-dir>/scripts/evaluate.js" <scoreA> <scoreB> <scoreC> <scoreD> "<Your insights here>"
-   ```
-   Example: `node scripts/evaluate.js 10 5 10 10 "The agent successfully used zoom-out..."` (`--help` shows scoring reference).
-4. **Fallback**: if the script fails or is missing, write `evals/scorecard.md`, else `.github/harness-everything/evals/scorecard.md`.
+1. Parse actions, errors, tokens, and timing from the log.
+2. Score all four dimensions using `references/scoring-rubric.md`.
+3. Run `node scripts/evaluate.js <A> <B> <C> <D> "insights"`.
+4. If the script fails, write `evals/scorecard.md` (or the `.github` fallback).
 
 ## USE FOR:
-- "run a benchmark on this log"
-- "score this agent execution"
-- "compare Vanilla vs Harness"
-- "generate an evaluation scorecard"
+
+- Running a benchmark or scoring an agent execution.
+- Comparing Vanilla and Harness execution.
+- Generating a four-dimension scorecard.
 
 ## DO NOT USE FOR:
-- Writing or fixing code being evaluated
-- General review without scoring dimensions
-- Tasks with no execution log
 
-Deep dive: references/scoring-rubric.md
+- Writing or fixing the evaluated code.
+- General review without scoring dimensions.
+- Tasks without an execution log.
+
+Deep dive: `references/scoring-rubric.md`

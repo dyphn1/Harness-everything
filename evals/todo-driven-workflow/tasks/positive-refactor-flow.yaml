@@ -1,6 +1,6 @@
 id: positive-refactor-flow-002
 name: Multi-file refactor tracked step by step
-description: Work through a multi-file refactor step by step, one tracked sub-task at a time.
+description: "Enforce a deliberate step-by-step execution loop for complex multi-step or multi-file tasks (Tier 2/3), one sub-task in-progress at a time. USE FOR: \"track a complex multi-step task as todos\", \"work through a multi-file refactor step by step\". DO NOT USE FOR: \"trivial single-file edits\", \"quick questions without implementation\"."
 tags:
   - positive-trigger
 inputs:

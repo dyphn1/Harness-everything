@@ -4,7 +4,7 @@ description: "Drive Standard Tasks (Tier 2) with Test-Driven Development (RED/GR
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.5
+  version: 0.3.6
 ---
 
 # Test-Driven Development (TDD) Mode
@@ -13,10 +13,10 @@ metadata:
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger** | Tier 2 task; feature or bug requirement. |
-| **Output** | Failing test (RED), minimal code (GREEN), refactor. |
-| **Mutations** | Native host TODO tracker or Markdown checklist (`tasks/todo.md`). |
-| **Gate** | `npm test` / `pytest`; >3 GREEN failures force `zoom-out`. |
+| **Trigger / Input** | Tier 2 task; feature or bug requirement. |
+| **Expected Output** | Failing test (RED), minimal code (GREEN), refactor. |
+| **State Mutations** | Native host TODO tracker or Markdown checklist (`tasks/todo.md`). |
+| **Enforcement Gate** | `npm test` / `pytest`; >3 GREEN failures force `zoom-out`. |
 
 ## TDD Discipline (Red-Green-Refactor)
 

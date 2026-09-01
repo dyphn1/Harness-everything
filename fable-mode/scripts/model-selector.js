@@ -102,7 +102,7 @@ function printHelp() {
 }
 
 function appendAuditRecord(record, auditFile) {
-  const target = auditFile || process.env.FABLE_AUDIT_FILE || path.join(process.cwd(), '.claude', 'harness-state', 'fable-mode', 'audit.jsonl');
+  const target = auditFile || process.env.FABLE_AUDIT_FILE || path.join(process.cwd(), '.claude', 'harness-everything', 'state', 'fable-mode', 'audit.jsonl');
   fs.mkdirSync(path.dirname(path.resolve(target)), { recursive: true });
   fs.appendFileSync(target, `${JSON.stringify(record)}\n`, 'utf8');
 }

@@ -21,10 +21,10 @@ metadata:
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger** | New software request with no skill indicated. |
-| **Output** | Print a Routing Checkpoint with tier and rationale. |
-| **Mutations** | None; Tier 2/3 starts native TODO or Markdown tracking. |
-| **Gate** | Run `scripts/tier-router.js` before edits. |
+| **Trigger / Input** | New software request with no skill indicated. |
+| **Expected Output** | Print a Routing Checkpoint with tier and rationale. |
+| **State Mutations** | None; Tier 2/3 starts native TODO or Markdown tracking. |
+| **Enforcement Gate** | Run `scripts/tier-router.js` before edits. |
 
 ## Workflow
 
