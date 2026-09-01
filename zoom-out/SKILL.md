@@ -18,7 +18,7 @@ Stop repeated failures, rebuild the facts, and choose a safe next step.
 | **Trigger / Input** | Three same-signature failures or an explicit loop/rethink request. |
 | **Expected Output** | Fact-checked report ending in `RESUME` or `ESCALATE`. |
 | **State Mutations** | Writes the session `zoom-out-report.md`; reset may clear breaker state. |
-| **Enforcement Gate** | `hooks/scripts/rule-of-3.js` plus a valid report; reset only after the second cycle. |
+| **Enforcement Gate** | `<skills-repo-root>/hooks/scripts/rule-of-3.js` plus a valid report; reset only after the second cycle. |
 
 ## Circuit Breaker Flow
 

@@ -3,6 +3,30 @@
  * Verify that paths named by each SKILL.md resolve inside the checked-out
  * package. This is intentionally separate from markdown-link checking:
  * commands, deep-dive paths, and executable examples are also routing API.
+ *
+ * A path is relative to the file that names it. That is the default and needs
+ * no ceremony - 'references/x.md' is this skill's own references/. Only a base
+ * that is NOT the current file's directory needs a marker, so the common case
+ * stays short and the exceptions are visible:
+ *
+ *   references/x.md                 this skill's directory (default; './', '../' work)
+ *   skill-creator/SKILL.md          another skill - a first segment that is
+ *                                   itself a skill, which is a fact about the
+ *                                   repo rather than a hidden allowlist
+ *   <skills-repo-root>/hooks/x.js   the root of this package
+ *   <workspace>/tasks/todo.md       the USER's project - never checked here,
+ *                                   as are the published WORKSPACE_NAMESPACES
+ *                                   ('tasks/', '.github/', ...) below
+ *
+ * There is deliberately no allowlist of top-level directory names. 'ci/x.js'
+ * used to silently resolve at the repo root while 'scripts/x.js' resolved
+ * under the skill - two identical shapes with different bases, decided by a
+ * list no author ever saw. Now both are skill-relative and the repo root is
+ * spelled out.
+ *
+ * An unrecognised placeholder is a hard failure, not a silent skip: a typo
+ * such as '<this_folder>/' used to make every path in a file invisible to
+ * this gate, which is the opposite of what the gate is for.
  */
 
 const fs = require('fs');
@@ -11,11 +35,30 @@ const path = require('path');
 const DEFAULT_ROOT = path.resolve(__dirname, '..');
 const EXTENSIONS = '(?:md|mdx|js|json|yaml|yml|txt)';
 const PATH_TOKEN = new RegExp(`(?:<[^>]+>\\/)?(?:\\.{0,2}\\/)?[A-Za-z0-9_.-]+(?:\\/[A-Za-z0-9_.-]+)*\\.${EXTENSIONS}\\b`, 'g');
-const ROOT_PREFIXES = new Set([
-  'hooks', 'harness-everything', 'to-spec', 'to-tickets', 'bin',
-  'ci', 'skill-creator', 'self-evolve'
+// Placeholder heads an author may write. A `resolvable` one is authoritative:
+// whatever follows is joined onto that base and checked, and no other rule may
+// override it. A `generic` one names something deliberately not a file in this
+// repo, so it is recorded as intentional and never checked.
+const RESOLVABLE_PLACEHOLDERS = {
+  'this-skill-dir': (root, skillDir) => path.join(root, skillDir),
+  'skills-repo-root': root => root,
+};
+const GENERIC_PLACEHOLDERS = new Set([
+  'workspace',        // a path in the user's project, produced at runtime
+  'skill',            // any skill, as a pattern
+  'kebab-case-name',  // a skill yet to be created
 ]);
-const WORKSPACE_PREFIXES = new Set(['.claude', '.github', '.cursor', '.codex', '.continue', 'tasks', 'memories', 'specs', 'docs', 'evals']);
+// Top-level namespaces that belong to the USER's project, never to this
+// package, so a path starting here is theirs to create and nothing local can
+// be checked against it. Unlike the ROOT_PREFIXES list this replaces, a
+// skip-list cannot produce a wrong verdict - only a missing check - and it is
+// published in skill-style/references/style-guide.md rather than hidden.
+// `<workspace>/` says the same thing explicitly and always wins; prefer it for
+// anything outside these names.
+const WORKSPACE_NAMESPACES = new Set([
+  '.claude', '.github', '.cursor', '.codex', '.continue',
+  'tasks', 'memories', 'specs', 'docs', 'evals',
+]);
 
 function discoverSkills(root) {
   return fs.readdirSync(root, { withFileTypes: true })
@@ -54,23 +97,46 @@ function extractCandidates(text) {
   return [...new Set(candidates)];
 }
 
-function resolveReference(root, skillDir, reference) {
-  let ref = reference.replace(/\\/g, '/');
-  if (ref.includes('<') && !ref.startsWith('<this-skill-dir>/') && !ref.startsWith('<skills-repo-root>/')) return null;
-  ref = ref.replace(/^<this-skill-dir>\//, '').replace(/^<skills-repo-root>\//, '');
-  if (ref.startsWith('./')) return path.resolve(root, skillDir, ref.slice(2));
+// Returns one of:
+//   { status: 'check',   target }  resolve on disk and fail if missing
+//   { status: 'skip' }             deliberately not a file in this repo
+//   { status: 'invalid', reason }  malformed - fail and say why
+function classifyReference(root, skillDir, reference) {
+  const ref = reference.replace(/\\/g, '/');
+  const head = ref.match(/^<([^>/]+)>\//);
+  if (head) {
+    const name = head[1];
+    const rest = ref.slice(head[0].length);
+    const base = RESOLVABLE_PLACEHOLDERS[name];
+    // Authoritative: the placeholder alone decides the base. Nothing below
+    // this line may relocate it to the repo root.
+    if (base) return { status: 'check', target: path.resolve(base(root, skillDir), rest) };
+    if (GENERIC_PLACEHOLDERS.has(name)) return { status: 'skip' };
+    const known = Object.keys(RESOLVABLE_PLACEHOLDERS).map(k => '<' + k + '>/').join(' or ');
+    return {
+      status: 'invalid',
+      reason: 'unknown placeholder <' + name + '>; use ' + known +
+        ', or add <' + name + '> to GENERIC_PLACEHOLDERS if it names no file in this repo',
+    };
+  }
+  // A placeholder anywhere else makes the token a pattern, not a path.
+  if (ref.includes('<')) return { status: 'skip' };
+  if (ref.startsWith('./')) return { status: 'check', target: path.resolve(root, skillDir, ref.slice(2)) };
+  if (ref === 'SKILL.md') return { status: 'check', target: path.resolve(root, skillDir, ref) };
+  // A bare filename with no directory is prose ("edit CONTEXT.md", "Node.js"),
+  // too ambiguous to attach a base to. Write it with a placeholder to check it.
+  if (!ref.includes('/')) return { status: 'skip' };
+  // A first segment that is itself a skill is a fact about the repo, not a
+  // hardcoded list, so cross-skill references stay readable.
   const first = ref.split('/')[0];
-  if (!ref.includes('/')) {
-    if (ref === 'SKILL.md') return path.resolve(root, skillDir, ref);
-    if (fs.existsSync(path.join(root, ref))) return path.resolve(root, ref);
-    if (fs.existsSync(path.join(root, skillDir, ref))) return path.resolve(root, skillDir, ref);
-    return null;
-  }
-  if (ROOT_PREFIXES.has(first) || fs.existsSync(path.join(root, first, 'SKILL.md'))) {
-    return path.resolve(root, ref);
-  }
-  if (WORKSPACE_PREFIXES.has(first)) return null;
-  return path.resolve(root, skillDir, ref);
+  if (fs.existsSync(path.join(root, first, 'SKILL.md'))) return { status: 'check', target: path.resolve(root, ref) };
+  if (WORKSPACE_NAMESPACES.has(first)) return { status: 'skip' };
+  return { status: 'check', target: path.resolve(root, skillDir, ref) };
+}
+
+function resolveReference(root, skillDir, reference) {
+  const result = classifyReference(root, skillDir, reference);
+  return result.status === 'check' ? result.target : null;
 }
 
 function checkSkillReferences(root, skillDirs = discoverSkills(root)) {
@@ -81,11 +147,13 @@ function checkSkillReferences(root, skillDirs = discoverSkills(root)) {
     const skillPath = path.join(root, document);
     const candidates = extractCandidates(fs.readFileSync(skillPath, 'utf8'));
     for (const reference of candidates) {
-      const target = resolveReference(root, skillDir, reference);
-      if (!target) continue;
+      const result = classifyReference(root, skillDir, reference);
+      if (result.status === 'skip') continue;
       references++;
-      if (!fs.existsSync(target)) {
-        failures.push({ skill: skillDir, reference, target: path.relative(root, target) });
+      if (result.status === 'invalid') {
+        failures.push({ skill: skillDir, reference, target: result.reason });
+      } else if (!fs.existsSync(result.target)) {
+        failures.push({ skill: skillDir, reference, target: path.relative(root, result.target) });
       }
     }
   }
@@ -109,4 +177,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { discoverSkills, discoverSkillDocuments, extractCandidates, resolveReference, checkSkillReferences };
+module.exports = { discoverSkills, discoverSkillDocuments, extractCandidates, classifyReference, resolveReference, checkSkillReferences };
