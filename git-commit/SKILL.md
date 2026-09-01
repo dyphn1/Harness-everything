@@ -20,17 +20,17 @@ metadata:
 
 ## Quick Workflow
 
-1. `git status`; no repo → offer `git init` or skip; submodules changed → commit first per `<this-skill-dir>/guides/SUBMODULES.md`.
+1. `git status`; no repo → offer `git init` or skip; submodules changed → commit first per `git-commit/guides/SUBMODULES.md`.
 2. `git diff --cached`; nothing staged → prompt user / stage targeted files.
-3. Format `<type>(<scope>): <subject>` per `<this-skill-dir>/guides/ANGULAR_STYLE.md`. Multiline/Windows → `.git-commit-msg.txt` + `git commit -F`, clean up.
+3. Format `<type>(<scope>): <subject>` per `git-commit/guides/ANGULAR_STYLE.md`. Multiline/Windows → `.git-commit-msg.txt` + `git commit -F`, clean up.
 4. `git commit -m "..."`, verify with `git log -1`.
 
 Deep guides:
-- `<this-skill-dir>/guides/ANGULAR_STYLE.md` — Conventional structure, scopes
-- `<this-skill-dir>/guides/COMMIT_GENERATION.md` — Patterns, diff analysis
-- `<this-skill-dir>/guides/LANGUAGE_DETECTION.md` — Subject language rules
-- `<this-skill-dir>/guides/MAIN_REPO.md` — Monorepo commits
-- `<this-skill-dir>/guides/SUBMODULES.md` — Submodules, nested repos
+- `git-commit/guides/ANGULAR_STYLE.md` — Conventional structure, scopes
+- `git-commit/guides/COMMIT_GENERATION.md` — Patterns, diff analysis
+- `git-commit/guides/LANGUAGE_DETECTION.md` — Subject language rules
+- `git-commit/guides/MAIN_REPO.md` — Monorepo commits
+- `git-commit/guides/SUBMODULES.md` — Submodules, nested repos
 
 ## USE FOR:
 - Commit request from the user
@@ -42,4 +42,4 @@ Deep guides:
 - Branching, rebasing, merging, pushing
 - Non-git dirs where user declines `git init`
 
-Deep dive: <this-skill-dir>/references/commit-flow.md
+Deep dive: references/commit-flow.md

@@ -22,14 +22,14 @@ Interview the design tree one question at a time with recommended answers; explo
 
 ## Workflow
 
-1. Resolve storage (root `CONTEXT-MAP.md` wins); else `node "<skills-repo-root>/to-spec/scripts/check-project-docs.js" check` or inspect `docs/adr/` / `docs/`; else `.github/harness-everything/adr/` (or `.claude/…`, `.cursor/…`). Formats: [CONTEXT-FORMAT.md](<this-skill-dir>/CONTEXT-FORMAT.md) · [ADR-FORMAT.md](<this-skill-dir>/ADR-FORMAT.md)
+1. Resolve storage (root `CONTEXT-MAP.md` wins); else `node "to-spec/scripts/check-project-docs.js" check` or inspect `docs/adr/` / `docs/`; else `.github/harness-everything/adr/` (or `.claude/…`, `.cursor/…`). Formats: [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) · [ADR-FORMAT.md](./ADR-FORMAT.md)
 2. Challenge glossary conflicts; sharpen fuzzy terms to canonical ones.
 3. Stress-test relationships with concrete scenarios; cross-check claims against code.
 4. Update `CONTEXT.md` inline, never batch; zero implementation details.
 5. Offer an ADR only if hard to reverse + surprising without context + a real trade-off.
-6. Hand off: unverified design → `grill-me`; aligned → `<skills-repo-root>/to-spec/SKILL.md` publishes; execution → `to-tickets`/`fable-mode`/`tdd`.
+6. Hand off: unverified design → `grill-me`; aligned → `to-spec/SKILL.md` publishes; execution → `to-tickets`/`fable-mode`/`tdd`.
 
-Deep dive: <this-skill-dir>/references/session-playbook.md
+Deep dive: references/session-playbook.md
 
 ## USE FOR:
 - stress-testing plans against the domain model

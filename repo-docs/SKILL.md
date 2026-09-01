@@ -39,12 +39,8 @@ Merges codebase scan facts and bespoke notes into `README.md`/`AGENTS.md`.
 5. [Summarize] Verify commands run; mark doubts `// TODO: Pending confirmation`; ask (`grill-me`).
 6. Write to root; if protected, `<workspace>/.github/AGENTS.md`/`<workspace>/docs/README.md`.
 
-## `<this-skill-dir>/templates/`
+## `repo-docs/templates/`
 
-README: <this-skill-dir>/templates/readme-template.md · <this-skill-dir>/templates/product-readme-template.md · <this-skill-dir>/templates/multi-skills-readme-template.md · <this-skill-dir>/templates/single-skill-readme-template.md · <this-skill-dir>/templates/knowledge-readme-template.md
+readme-template.md · product-readme-template.md · multi-skills-readme-template.md · single-skill-readme-template.md · knowledge-readme-template.md · agents-template.md · product-agents-template.md · skills-agents-template.md · knowledge-agents-template.md · manual-recon.md
 
-AGENTS: <this-skill-dir>/templates/agents-template.md · <this-skill-dir>/templates/product-agents-template.md · <this-skill-dir>/templates/skills-agents-template.md · <this-skill-dir>/templates/knowledge-agents-template.md
-
-Recon: <this-skill-dir>/templates/manual-recon.md
-
-Deep dive: <this-skill-dir>/references/process-guide.md
+Deep dive: references/process-guide.md

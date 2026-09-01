@@ -25,7 +25,7 @@ metadata:
 3. `[Try]`: launch `tdd`; Characterization Tests first if legacy code lacks tests; extract incrementally, verifying tests after each change.
 4. `[Summarize]`/`[Self-Evolve]`: >3 cascading errors → rollback + `zoom-out`; record traps in `self-evolve`.
 
-Guides: `<this-skill-dir>/guides/DEEPENING.md`, `<this-skill-dir>/guides/INTERFACE-DESIGN.md`, `<this-skill-dir>/guides/LANGUAGE.md`, `<this-skill-dir>/guides/HTML-REPORT.md`.
+Guides: `improve-codebase-architecture/guides/DEEPENING.md`, `improve-codebase-architecture/guides/INTERFACE-DESIGN.md`, `improve-codebase-architecture/guides/LANGUAGE.md`, `improve-codebase-architecture/guides/HTML-REPORT.md`.
 
 ## USE FOR:
 - "refactor this architecture"
@@ -37,4 +37,4 @@ Guides: `<this-skill-dir>/guides/DEEPENING.md`, `<this-skill-dir>/guides/INTERFA
 - Features or bugfixes (use `tdd`)
 - Style-only cleanups with no structure change
 
-Deep dive: <this-skill-dir>/guides/refactoring-workflow.md
+Deep dive: guides/refactoring-workflow.md

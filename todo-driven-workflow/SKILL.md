@@ -37,4 +37,4 @@ Single-task milestones prevent context drift in Tier 2/3 work.
 5. Record blockers in the checklist and escalate after the applicable circuit-breaker threshold.
 
 Native TODO tools take priority. Markdown is the portable fallback; this skill
-does not depend on a repository CLI state machine. See `<this-skill-dir>/references/execution-guide.md`.
+does not depend on a repository CLI state machine. See `references/execution-guide.md`.

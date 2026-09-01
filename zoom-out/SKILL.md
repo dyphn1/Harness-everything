@@ -24,7 +24,7 @@ Stop repeated failures, rebuild the facts, and choose a safe next step.
 
 1. After three same-signature failures, stop edits and do not ask the user yet.
 2. Use read-only tools to restate the goal and check files, configuration, and logs.
-3. Fill `<this-skill-dir>/templates/zoom-out-report.template.md` and end with `RESUME` or `ESCALATE`.
+3. Fill `templates/zoom-out-report.template.md` and end with `RESUME` or `ESCALATE`.
 4. Resume only on an untried path; escalate genuine user decisions with options.
 5. Clear a repeated breaker cycle with `npm run harness:reset`; record the insight with `self-evolve`.
 
@@ -39,4 +39,4 @@ Stop repeated failures, rebuild the facts, and choose a safe next step.
 
 Never retry the same approach after the third failure, even under pressure.
 
-Deep dive: `<this-skill-dir>/references/circuit-breaker.md`
+Deep dive: `references/circuit-breaker.md`

@@ -41,4 +41,4 @@ Guides: `tdd/guides/{mocking,interface-design,deep-modules,tests,refactoring}.md
 - macro planning or scaffolding (use `fable-mode`)
 - prototyping or docs-only work with no testable logic
 
-Deep dive: <this-skill-dir>/references/core-discipline.md
+Deep dive: references/core-discipline.md

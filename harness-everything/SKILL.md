@@ -24,7 +24,7 @@ metadata:
 | **Trigger / Input** | New software request with no skill indicated. |
 | **Expected Output** | Print a Routing Checkpoint with tier and rationale. |
 | **State Mutations** | None; Tier 2/3 starts native TODO or Markdown tracking. |
-| **Enforcement Gate** | Run `<this-skill-dir>/scripts/tier-router.js` before edits. |
+| **Enforcement Gate** | Run `scripts/tier-router.js` before edits. |
 
 ## Workflow
 
@@ -39,4 +39,4 @@ metadata:
 - **Tier 2:** Standard changes; use `todo-driven-workflow`, `tdd`, and `verification-loop`.
 - **Tier 3:** Macro work; use `fable-mode` and `fable-discipline`, select Haiku/Sonnet/Opus via the model matrix, and delegate through `multi-agent-workspace`.
 
-See `<this-skill-dir>/references/triage-and-tiers.md` for the full routing contract.
+See `references/triage-and-tiers.md` for the full routing contract.

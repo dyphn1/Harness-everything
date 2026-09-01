@@ -27,13 +27,13 @@ Hardens code against OWASP Top 10.
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Auth, endpoints, uploads, user input, secrets, audit requests. |
-| **Expected Output** | Threat model, scan via `<this-skill-dir>/scripts/audit-secrets.js`, hardened code, audit report. |
+| **Expected Output** | Threat model, scan via `audit-secrets.js`, hardened code, audit report. |
 | **State Mutations** | Codebase hardened against injection/XSS/IDOR; report to docs or platform dir. |
 | **Enforcement Gate** | Secret scan via the script or grep before concluding review. |
 
 ## Review Flow
 
-1. Threat-model (`STRIDE`) per <this-skill-dir>/guides/STRIDE-THREAT-MODEL.md; misuse-case every endpoint/input.
+1. Threat-model (`STRIDE`) per security-review/guides/STRIDE-THREAT-MODEL.md; misuse-case every endpoint/input.
 2. Scan secrets and injection risks:
    ```bash
    node "<this-skill-dir>/scripts/audit-secrets.js"
@@ -47,4 +47,4 @@ Hardens code against OWASP Top 10.
 - **Ask First**: CORS changes, auth/login flows, file uploads, rate limits.
 - **Never Do**: commit hardcoded secrets (`sk-`), log passwords/tokens, use eval() or unescaped innerHTML.
 
-Deep dive: <this-skill-dir>/references/security-checklist.md + <this-skill-dir>/guides/OWASP-PATTERNS.md
+Deep dive: references/security-checklist.md + security-review/guides/OWASP-PATTERNS.md

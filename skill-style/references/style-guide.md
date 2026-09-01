@@ -30,19 +30,20 @@ Every SKILL.md MUST include this table exactly:
 - **Script-Driven Enforcement**: Do not write "You should check your code". Write "You MUST run `node <skills-repo-root>/harness-everything/scripts/verify-gate.js`. If Exit Code 1, you MUST reflect and retry."
 
 ## 3. Path Notation
-Every path a `SKILL.md` names is checked by `node <skills-repo-root>/ci/reference-check.js`, so write paths relative to the file that names them. The placeholder head decides the base, and nothing else may override it.
+Every path a `SKILL.md` names is checked by `node <skills-repo-root>/ci/reference-check.js`. A path is **relative to the file that names it** - that is the default and needs no ceremony. Only a base that is not the current file's directory takes a marker.
 
-| Head | Base | Checked? |
+| Form | Base | Checked? |
 | :--- | :--- | :--- |
-| `<this-skill-dir>/...` | this skill's own directory; `../` reaches siblings | yes |
-| `<skills-repo-root>/...` | the root of this package | yes |
-| `<workspace>/...` | a path in the USER's project, produced at runtime | no - recorded as intentional |
+| `references/x.md`, `./x.md`, `../x.md` | this skill's own directory | yes |
+| `skill-creator/SKILL.md` | another skill, named directly | yes |
+| `<skills-repo-root>/hooks/x.js` | the root of this package | yes |
+| `<workspace>/tasks/todo.md` | a path in the USER's project | no - recorded as intentional |
 
-- **MUST** give every in-repo path a `<this-skill-dir>/` or `<skills-repo-root>/` head. A bare `references/x.md` reads as skill-relative but a bare `ci/x.js` silently resolved to the repo root instead; the head removes the guess.
+- **MUST** mark a path outside the skill's own directory. There is no allowlist of top-level names: `ci/x.js` is this skill's `ci/`, not the repo's. Write `<skills-repo-root>/ci/x.js` when you mean the package root.
 - **MUST** mark a path the skill writes into the user's project with `<workspace>/`, so "unchecked" is a stated decision rather than an accident.
 - **MUST NOT** invent a new placeholder. An unrecognised one is a hard failure, not a skip - a typo like `<this_folder>/` would otherwise make every path in the file invisible to the gate. Register a genuinely new one in `<skills-repo-root>/ci/reference-check.js`.
-- A bare filename with no directory (`CONTEXT.md`, `package.json`) is prose and stays unchecked. Give it a head when you mean a specific file.
-- A cross-skill reference may name the skill directly (`skill-creator/SKILL.md`): a first segment that is itself a skill is a fact about the repo, not a hidden list.
+- **PREFER the bare relative form.** Markers cost tokens against the 500-token `waza` budget, so spend them only where the base actually differs.
+- A bare filename with no directory (`CONTEXT.md`, `package.json`) is prose and stays unchecked. Give it a directory when you mean a specific file.
 
 ## 4. Avoid Functional Overlap
 - **OS Skills vs. Domain Skills**: Distinguish between the OS layer (which routes and constrains behavior) and the Domain layer (which provides deep technical expertise).

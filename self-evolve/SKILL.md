@@ -13,7 +13,7 @@ Record reusable root causes from resolved work.
 
 Boundary: the host agent supplies authorized evidence and a generalized root cause. This skill classifies and persists it; it does not scan host transcripts.
 
-Load `<this-skill-dir>/references/memory-resolution.md` on demand for the decision matrix, fallback paths, lazy-loading rules, and dynamic-skill details.
+Load `references/memory-resolution.md` on demand for the decision matrix, fallback paths, lazy-loading rules, and dynamic-skill details.
 
 ## 📋 Skill Contract
 
@@ -28,9 +28,9 @@ Load `<this-skill-dir>/references/memory-resolution.md` on demand for the decisi
 
 1. Prefer existing `MEMORY.md`/`RULES.md`/`CLAUDE.md`/`AGENTS.md`.
 2. Route the lesson:
-   - Simple rule (constraint/tip) → `<workspace>/memories/repo/RULES.md`, else `<workspace>/.github/harness-everything/memories/RULES.md`; use `<this-skill-dir>/scripts/persist-memory.js`.
-   - Reusable procedure → follow `<skills-repo-root>/skill-creator/SKILL.md`, then register with `<this-skill-dir>/scripts/register-dynamic-skill.js` in every platform `manifest.json`.
-3. Run `<this-skill-dir>/scripts/self-regression.js` before persisting. Never persist without it.
+   - Simple rule (constraint/tip) → `<workspace>/memories/repo/RULES.md`, else `<workspace>/.github/harness-everything/memories/RULES.md`; use `persist-memory.js`.
+   - Reusable procedure → follow `skill-creator/SKILL.md`, then register with `register-dynamic-skill.js` in every platform `manifest.json`.
+3. Run `self-regression.js` before persisting. Never persist without it.
 
 ## USE FOR:
 - Lesson after hard debugging recovery
@@ -44,4 +44,4 @@ Load `<this-skill-dir>/references/memory-resolution.md` on demand for the decisi
 - Secrets in memory files
 - Static repo skills (use `skill-creator`)
 
-Deep dive: <this-skill-dir>/references/memory-resolution.md
+Deep dive: references/memory-resolution.md

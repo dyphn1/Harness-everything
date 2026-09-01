@@ -29,7 +29,7 @@ Boundary: operate solely within `process.cwd()`; ignore other workspaces, histor
 3. Adopt syntax: Git Bash → forward `/`, `$VAR`, Unix cmds (`ls`, `rm -rf`), never `dir`/`del`/PowerShell · PowerShell → `$env:VAR`, cmdlets · CMD → `\`, `%VAR%`, `dir`/`del`/`copy`, never Unix.
 4. On failure don't blindly retry — suspect wrong-shell syntax. Three failures → trigger `zoom-out`.
 
-Deep dive: <this-skill-dir>/references/shell-syntax-rules.md
+Deep dive: references/shell-syntax-rules.md
 
 ## USE FOR:
 - session-start OS/shell/toolchain detection

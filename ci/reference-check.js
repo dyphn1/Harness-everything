@@ -4,13 +4,23 @@
  * package. This is intentionally separate from markdown-link checking:
  * commands, deep-dive paths, and executable examples are also routing API.
  *
- * Paths are written relative to the file that names them, via an explicit
- * placeholder head, so a path means the same thing wherever it is read from
- * and no hidden allowlist decides its base:
+ * A path is relative to the file that names it. That is the default and needs
+ * no ceremony - 'references/x.md' is this skill's own references/. Only a base
+ * that is NOT the current file's directory needs a marker, so the common case
+ * stays short and the exceptions are visible:
  *
- *   <this-skill-dir>/scripts/foo.js   this skill's own directory ('../' allowed)
- *   <skills-repo-root>/hooks/foo.js   the root of this package
- *   <workspace>/tasks/todo.md         the USER's project - never checked here
+ *   references/x.md                 this skill's directory (default; './', '../' work)
+ *   skill-creator/SKILL.md          another skill - a first segment that is
+ *                                   itself a skill, which is a fact about the
+ *                                   repo rather than a hidden allowlist
+ *   <skills-repo-root>/hooks/x.js   the root of this package
+ *   <workspace>/tasks/todo.md       the USER's project - never checked here
+ *
+ * There is deliberately no allowlist of top-level directory names. 'ci/x.js'
+ * used to silently resolve at the repo root while 'scripts/x.js' resolved
+ * under the skill - two identical shapes with different bases, decided by a
+ * list no author ever saw. Now both are skill-relative and the repo root is
+ * spelled out.
  *
  * An unrecognised placeholder is a hard failure, not a silent skip: a typo
  * such as '<this_folder>/' used to make every path in a file invisible to
