@@ -7,32 +7,28 @@ metadata:
   version: 0.3.6
 ---
 
-# Self Evolve (Self Evolution & Memory Extraction)
+# Self-evolve
 
-Record resolved root causes as rules future sessions follow.
+Record reusable root causes from resolved work.
 
-Boundary: the host agent supplies relevant session evidence and root-cause analysis; this skill does not scan host transcripts.
+Boundary: the host agent supplies authorized evidence and a generalized root cause. This skill classifies and persists it; it does not scan host transcripts.
 
 ## 📋 Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Post-struggle completion or explicit request; caller supplies evidence and root-cause analysis. |
-| **Expected Output** | Persisted rule in `MEMORY.md`/`memories/repo/RULES.md` or sub-memory file. |
+| **Trigger / Input** | Resolved struggle, zoom-out recovery, or explicit request; caller supplies evidence and root cause. |
+| **Expected Output** | Persisted rule or registered dynamic skill. |
 | **State Mutations** | Updates the selected workspace memory or generated-skill manifest. |
-| **Enforcement Gate** | Quality/deduplication checks, self-regression, and the 60-line routing rule pass before persistence. |
-
-## Responsibility Boundary
-
-The host agent reads the session context it is allowed to access, selects relevant evidence, and writes a generalized root cause. `self-evolve` classifies and persists that result; it MUST NOT fetch global host transcripts or act as a transcript daemon.
+| **Enforcement Gate** | Deduplication, self-regression, and the 60-line routing rule pass before persistence. |
 
 ## Core Workflow
 
-1. Prefer existing `MEMORY.md`/`RULES.md`/`CLAUDE.md`/`AGENTS.md` over new parallel structures.
+1. Prefer existing `MEMORY.md`/`RULES.md`/`CLAUDE.md`/`AGENTS.md`.
 2. Route the lesson:
-   - Simple rule (constraint/tip) → `memories/repo/RULES.md`, else `.github/harness-everything/memories/RULES.md`; prefer `node "<this-skill-dir>/scripts/persist-memory.js" "<rule>"`.
-   - Reusable pattern (generalizable procedure) → dynamic skill via `skill-creator/SKILL.md` Dynamic Skill Generation Contract; register via `node "<this-skill-dir>/scripts/register-dynamic-skill.js"` into every platform's `manifest.json`.
-3. Validate before persisting: hermetic self-regression (`node "<this-skill-dir>/scripts/self-regression.js"`); never persist without it.
+   - Simple rule (constraint/tip) → `memories/repo/RULES.md`, else `.github/harness-everything/memories/RULES.md`; use `persist-memory.js`.
+   - Reusable procedure → follow `skill-creator/SKILL.md`, then register with `register-dynamic-skill.js` in every platform `manifest.json`.
+3. Run `self-regression.js` before persisting. Never persist without it.
 
 ## USE FOR:
 - Lesson after hard debugging recovery
