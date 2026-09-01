@@ -43,6 +43,26 @@ Tracks compliance metrics:
 - Circuit breaker trips
 - Pressure resistance metrics
 
+## How each hook is invoked
+
+`plugin.json` splits the five hooks by invocation model. The split is asserted
+by `ci/mechanism-2n-opencode-plugin.test.js`, which fails if a hook file exists
+without a declaration or a declaration points at a missing file.
+
+| Key | Hooks | Fired by |
+|---|---|---|
+| `hooks` | `post-edit.js`, `pre-complete.js` | opencode lifecycle events (`postEdit`, `preComplete`) |
+| `onDemandHooks` | `verify.js`, `circuit-breaker.js`, `compliance.js` | invoked explicitly — `verify.js` is named in `pre-complete.js`'s block message; the other two read a payload on stdin |
+
+`onDemandHooks` is a Harness-side declaration, not an opencode feature: those
+three are **not** auto-fired by the runtime today. Binding `circuit-breaker.js`
+to a real lifecycle event requires confirming opencode's event names against its
+plugin API first — tracked in issue #37.
+
+`verify.js` resolves its verification commands from `process.cwd()/package.json`.
+Run it from the workspace under test, never from the Harness repo root — from
+there it would re-enter `npm test` from inside `npm test`.
+
 ## Installation
 
 1. Copy `opencode-plugin/` to your opencode config directory
