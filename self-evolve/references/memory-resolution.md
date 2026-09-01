@@ -2,6 +2,10 @@
 
 Details moved from SKILL.md. Read when you need the full decision matrix or the reasoning behind the cleanliness rules.
 
+## Responsibility Boundary
+
+The host agent owns access to the current session and any history explicitly exposed by the host. It selects authorized evidence and states a generalized root cause before invoking this skill. `self-evolve` classifies, deduplicates, validates, and persists that result. It MUST NOT scan global transcript stores, persist raw transcripts, or act as a transcript daemon.
+
 ## Triggers
 
 - **Post-Circuit Breaker**: Following successful recovery after a `zoom-out` reflection.
@@ -31,6 +35,8 @@ flowchart TD
     DirectAppend --> Done
     LazyLoadIndex --> Done
 ```
+
+For a simple rule, persist only the generalized constraint or tip. For a reusable multi-step procedure, load `skill-creator/SKILL.md`, create the draft skill, and use `register-dynamic-skill.js` to update each platform's `manifest.json` `generated[]` registry. The host agent remains responsible for deciding which evidence is relevant; these scripts do not discover session history.
 
 ## Memory Resolution & Cleanliness Rules
 

@@ -2,6 +2,8 @@
 
 > The host agent supplies relevant session evidence and a generalized root-cause analysis. `self-evolve` classifies, validates, and persists the lesson; it does not collect host transcripts.
 
+Load `self-evolve/references/memory-resolution.md` on demand when the persistence decision, fallback path, lazy-loading rule, or dynamic-skill registration details are needed.
+
 ## 1. Responsibility boundary
 
 The host agent may inspect the current session and any history explicitly exposed by the host. It selects the evidence and states the reusable root cause. `self-evolve` MUST NOT scan global host transcript stores or persist raw transcripts.

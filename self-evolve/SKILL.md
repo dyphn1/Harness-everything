@@ -13,12 +13,14 @@ Record reusable root causes from resolved work.
 
 Boundary: the host agent supplies authorized evidence and a generalized root cause. This skill classifies and persists it; it does not scan host transcripts.
 
+Load `references/memory-resolution.md` on demand for the decision matrix, fallback paths, lazy-loading rules, and dynamic-skill details.
+
 ## 📋 Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Resolved struggle, zoom-out recovery, or explicit request; caller supplies evidence and root cause. |
-| **Expected Output** | Persisted rule or registered dynamic skill. |
+| **Expected Output** | Persisted rule in existing memory or registered dynamic skill. |
 | **State Mutations** | Updates the selected workspace memory or generated-skill manifest. |
 | **Enforcement Gate** | Deduplication, self-regression, and the 60-line routing rule pass before persistence. |
 
