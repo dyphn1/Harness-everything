@@ -157,7 +157,15 @@ try {
     missing.push('AGENTS.md (Codex)');
   }
 
-  if (missing.length > 0 && path.resolve(workspaceRoot) !== path.resolve(__dirname, '..', '..')) {
+  // Identity, not path: __dirname/../.. is the INSTALLED copy's root, so an
+  // npx/global install auditing the harness checkout itself compares two
+  // different paths and wrongly advises a repair that self-heal then skips
+  // (issue #40). Required lazily so a missing lib can never break session start.
+  const { isHarnessRepo } = require('../../scripts/lib/workspace');
+  const auditingSelf = isHarnessRepo(workspaceRoot)
+    || path.resolve(workspaceRoot) === path.resolve(__dirname, '..', '..');
+
+  if (missing.length > 0 && !auditingSelf) {
     console.log(`\n[Self-Heal] Missing integration touchpoints: ${missing.join(', ')}`);
     console.log(`[Self-Heal] Repair (idempotent): node "${path.join(__dirname, 'self-heal.js')}"`);
   }

@@ -25,4 +25,21 @@ function getUserPromptsDir() {
   }
 }
 
-module.exports = { getWorkspaceRoot, getUserPromptsDir };
+// The harness repo must never be "repaired" into carrying its own generated
+// advisory files. Identify it by repo identity, not by comparing the caller's
+// __dirname: when harness runs from an npx/global install against its own
+// source checkout, the installed path and the workspace path differ and a
+// path-based guard silently fails open (issue #40).
+const HARNESS_PACKAGE_NAME = 'harness-everything';
+
+function isHarnessRepo(workspaceRoot) {
+  try {
+    const pkgPath = path.join(workspaceRoot, 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    return pkg.name === HARNESS_PACKAGE_NAME;
+  } catch (err) {
+    return false;
+  }
+}
+
+module.exports = { getWorkspaceRoot, getUserPromptsDir, isHarnessRepo, HARNESS_PACKAGE_NAME };
