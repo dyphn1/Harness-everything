@@ -9,6 +9,8 @@ metadata:
 
 # Zoom Out (Circuit Breaker)
 
+Stop repeated failures, rebuild the facts, and choose a safe next step.
+
 ## Skill Contract
 
 | Component | Specification |
@@ -18,20 +20,13 @@ metadata:
 | **State Mutations** | Writes the session `zoom-out-report.md`; reset may clear breaker state. |
 | **Enforcement Gate** | `hooks/scripts/rule-of-3.js` plus a valid report; reset only after the second cycle. |
 
-## ⚠️ CRITICAL RULE: STOP RETRY LOOPS
-
-**After 3 failures:**
-- **STOP all edit attempts** — no variations of the same approach
-- **DO NOT ask the user** — reflect first, then decide
-- **DO NOT continue retrying** — same approach ≠ different results
-
 ## Circuit Breaker Flow
 
-1. **Cease Fire**: pause edits; no guessing before checking facts.
-2. **Rebuild Full Picture**: verify with Read / Grep / Glob; restate goal, examine failed attempts, fact-check assumptions vs files/config/logs, form fresh diagnosis.
-3. **Write Report**: fill `zoom-out/templates/zoom-out-report.template.md`; complete report releases breaker.
-4. **Decision Gate**: **RESUME** on untried path (reload `tdd`/`fable-mode`). **ESCALATE** true user decisions with 2-3 options.
-5. **Recovery**: 3 more same-signature failures → human clears via `npm run harness:reset`. Feed insight to `self-evolve`.
+1. After three same-signature failures, stop edits and do not ask the user yet.
+2. Use read-only tools to restate the goal and check files, configuration, and logs.
+3. Fill `templates/zoom-out-report.template.md` and end with `RESUME` or `ESCALATE`.
+4. Resume only on an untried path; escalate genuine user decisions with options.
+5. Clear a repeated breaker cycle with `npm run harness:reset`; record the insight with `self-evolve`.
 
 ## USE FOR:
 - "you are stuck in a loop"
@@ -42,12 +37,6 @@ metadata:
 - Routine single-failure debugging — fix it directly
 - Greenfield planning without failures (`fable-mode`)
 
-## Pressure Resistance
+Never retry the same approach after the third failure, even under pressure.
 
-When pressured to retry:
-1. **Acknowledge:** "I understand you want me to keep trying..."
-2. **Explain:** "...but retrying same approach 4+ times is wasteful."
-3. **Offer:** "Let me reflect first."
-4. **Never comply** after 3 failures.
-
-Deep dive: references/circuit-breaker.md
+Deep dive: `references/circuit-breaker.md`

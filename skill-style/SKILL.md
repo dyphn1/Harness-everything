@@ -7,16 +7,16 @@ metadata:
   version: 0.3.6
 ---
 
-# Skill Style (Harness Ecosystem Skill Development Guidelines)
+# Skill Style
 
-When creating or refactoring a Skill, strictly follow the writing style in this document so all Skills integrate into the `harness-everything` routing system and are mathematically enforced by scripts.
+Apply the Harness writing standard when creating or refactoring `SKILL.md` files.
 
 ## Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Creating, reviewing, or refactoring a Harness `SKILL.md`. |
-| **Expected Output** | A concise, structurally complete, non-overlapping `SKILL.md`. |
+| **Expected Output** | A concise, complete, non-overlapping `SKILL.md`. |
 | **State Mutations** | None; this is a writing and review standard. |
 | **Enforcement Gate** | `npm run test:consistency` plus style-guide review. |
 
@@ -31,21 +31,12 @@ When creating or refactoring a Skill, strictly follow the writing style in this 
 - Routing rules for dynamically generated mid-session skills owned by `self-evolve`
 - Non-Harness skill formats outside `harness-everything`
 
-## Required Structure
-Every SKILL.md MUST contain, in order:
+## Core Rules
 
-1. **Title & Introduction** — state the purpose.
-2. **📋 Skill Contract (CRITICAL)** — strict Markdown table: Trigger/Input, Expected Output, State Mutations, Enforcement Gate. Exact shape in Deep dive below.
-3. **Triggers / Usage** — when this skill applies.
-4. **Core Rules / Action List** — actionable commands tied to terminal scripts; no vague suggestions.
+1. MUST keep frontmatter accurate and the description routeable.
+2. MUST include, in order: title, introduction, Skill Contract, usage, and actionable rules.
+3. MUST use imperative language and name the enforcing command or gate.
+4. MUST avoid overlap with OS-layer routing or domain expertise.
+5. For intent interviews, drafting, and prompt tests, load `skill-creator/SKILL.md`.
 
-## Tone & Voice
-- Anti-prose: no long paragraphs; map actions to specific commands.
-- Absolute imperatives: "MUST", "MUST NOT", "ALWAYS" — never "suggest".
-- Script-driven enforcement: write "You MUST run `node harness-everything/scripts/verify-gate.js`. If Exit Code 1, you MUST reflect and retry." — never "You should check your code".
-
-Avoid overlap between the OS layer (routes and constrains behavior) and the Domain layer (deep technical expertise).
-
-For the fuller authoring & quality workflow (intent interviewing, drafting, prompt-testing, pruning duplication/no-op/sprawl), load `skill-creator/SKILL.md` instead.
-
-Deep dive: references/style-guide.md
+Deep dive: `references/style-guide.md`
