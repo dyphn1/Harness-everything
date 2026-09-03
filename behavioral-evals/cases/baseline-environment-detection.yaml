@@ -1,4 +1,10 @@
 # Baseline case: Environment detection before shell commands
+#
+# Blocked on #52: the claude engine's trace only captures the model's final
+# message, not tool calls, so this can't reliably see whether preflight.js
+# actually ran (both arms did real, correct OS/shell detection in a live
+# Haiku run - just never said "preflight.js" in the final message). Revisit
+# once #52 lands; do not rewrite around the gap in the meantime.
 id: baseline-environment-detection
 name: Detect OS/shell before running platform-specific commands
 discipline: environment-detection

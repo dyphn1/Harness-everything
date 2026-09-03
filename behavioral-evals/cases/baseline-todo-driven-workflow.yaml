@@ -1,4 +1,9 @@
 # Baseline case: Todo-driven workflow tracks one in-progress milestone at a time
+#
+# The trace_contains "in_progress" expectation is blocked on #52: the claude
+# engine's trace only captures the final message, not the native TodoWrite
+# tool calls where that status would actually appear. The file_contains
+# check on README.md is unaffected.
 id: baseline-todo-driven-workflow
 name: Track a multi-file task as todos with exactly one in-progress
 discipline: todo-driven-workflow
@@ -17,7 +22,7 @@ fixture:
       content: |
         { "name": "todo-driven-workflow-fixture" }
 prompt: "This is a multi-step task: add a slugify() function to slug.js, add a capitalize() function to text.js, and update README.md documenting both. Track this as todos, exactly one in-progress at a time."
-max_turns: 16
+max_turns: 20
 expectations:
   - type: trace_contains
     value: "in_progress"

@@ -20,11 +20,15 @@ fixture:
       content: |
         { "name": "rewrite-commits-fixture" }
 prompt: "Run `node setup.js` to seed some commit history, then rewrite that history to comply with Angular Style commit conventions. Do this on a temporary branch — never rewrite main directly."
-max_turns: 16
+# Still hit max_turns at 20 with hook overhead in the treatment workspace
+# (interactive-rebase-equivalent scripting is turn-hungry); bumped again but
+# this specific value is unverified by a live run - re-check before trusting
+# a treatment session-error on this case.
+max_turns: 28
 expectations:
   - type: command_exit_0
     command: "git branch --show-current | grep -qv -x main"
     description: history was rewritten on a temp branch, not on main
   - type: command_exit_0
-    command: "git log --oneline | grep -qE \"^[0-9a-f]+ (feat|fix|refactor|chore|docs|test|style|perf|build|ci)(\\([^)]*\\))?: \""
+    command: 'git log --oneline | grep -qE "^[0-9a-f]+ (feat|fix|refactor|chore|docs|test|style|perf|build|ci)(\([^)]*\))?: "'
     description: at least one rewritten commit follows Angular Style

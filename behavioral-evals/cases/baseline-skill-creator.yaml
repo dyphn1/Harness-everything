@@ -11,10 +11,10 @@ prompt: "Create a new Harness skill called `changelog-writer` that drafts CHANGE
 max_turns: 14
 expectations:
   - type: file_contains
-    path: "changelog-writer/SKILL.md"
+    path: ".claude/skills/changelog-writer/SKILL.md"
     value: "Skill Contract"
     description: new SKILL.md includes the mandatory Skill Contract table
   - type: file_contains
-    path: "changelog-writer/SKILL.md"
+    path: ".claude/skills/changelog-writer/SKILL.md"
     value: "USE FOR"
     description: new SKILL.md includes the USE FOR section

@@ -8,7 +8,7 @@ fixture:
       content: |
         { "name": "using-git-worktrees-fixture" }
 prompt: "Start a new feature: add a healthCheck() endpoint. Set up an isolated workspace for this before making any changes."
-max_turns: 10
+max_turns: 14
 expectations:
   - type: command_exit_0
     command: "test -d .worktrees"

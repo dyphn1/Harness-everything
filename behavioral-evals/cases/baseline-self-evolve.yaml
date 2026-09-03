@@ -1,4 +1,10 @@
 # Baseline case: Self-evolve persists a root-cause rule after a resolved bug
+#
+# The trace_contains "persist-memory.js" expectation is blocked on #52: the
+# claude engine's trace only captures the final message, not tool calls, so
+# it can't reliably see the script invocation even when it happens. The
+# file_contains check on memories/repo/RULES.md is unaffected and is the
+# one that actually proves the rule got persisted.
 id: baseline-self-evolve
 name: Persist a defensive rule after a resolved recurring bug
 discipline: self-evolve
@@ -6,13 +12,18 @@ fixture:
   files:
     - path: NOTES.md
       content: |
-        You just spent a while debugging a recurring "stale cache after file
-        rename" bug in this project and fixed it.
+        You just spent a while debugging a recurring bug in this project and
+        fixed it. Root cause: the build script cached file contents keyed by
+        filename only. When a file was renamed but the content stayed the
+        same, the cache key collided with a stale entry from before the
+        rename, so the old (pre-rename) content kept getting served instead
+        of a fresh read. Fix: key the cache by content hash instead of
+        filename.
     - path: package.json
       content: |
         { "name": "self-evolve-fixture" }
-prompt: "Reflect on the root cause of the stale-cache-after-rename bug described in NOTES.md and persist a defensive rule for future sessions."
-max_turns: 10
+prompt: "Reflect on the root cause described in NOTES.md and persist a defensive rule for future sessions."
+max_turns: 14
 expectations:
   - type: trace_contains
     value: "persist-memory.js"

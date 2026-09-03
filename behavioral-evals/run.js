@@ -260,7 +260,13 @@ function buildEngineInvocation(engine, prompt, ws, maxTurns, arm = 'treatment') 
     args.push(prompt);
     return { command: 'opencode', args };
   }
-  const args = ['-p', prompt, '--output-format', 'json', '--max-turns', String(maxTurns), '--permission-mode', 'acceptEdits', '--setting-sources', 'project,local'];
+  // acceptEdits only auto-approves file edits, not Bash/PowerShell tool calls -
+  // a headless -p session has no human to answer those prompts, so any case
+  // needing a shell command (git, npm, node scripts) stalled with every tool
+  // call denied and the model just describing what it would do. This harness
+  // needs the same full autonomy opencode's --auto gives it, in the same kind
+  // of disposable os.tmpdir() fixture workspace.
+  const args = ['-p', prompt, '--output-format', 'json', '--max-turns', String(maxTurns), '--dangerously-skip-permissions', '--setting-sources', 'project,local'];
   const model = process.env.BEHAVIORAL_MODEL;
   if (model) args.push('--model', model);
   if (arm === 'baseline') args.push('--safe-mode');

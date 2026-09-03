@@ -3,6 +3,7 @@ id: baseline-fable-discipline
 name: One Git commit per independent logic block
 discipline: fable-discipline
 fixture:
+  git: true
   files:
     - path: math.js
       content: |
