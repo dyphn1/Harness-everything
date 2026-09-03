@@ -1,0 +1,37 @@
+# Baseline case: find-skills exposure — caller must apply printed skill output
+#
+# Regression case for #35: use-skill.js's fetch/cache/print mechanics were
+# already proven to work; the reported gap was that a caller handed that
+# printed SKILL.md text did not reliably treat it as a binding instruction
+# ("Claude reported that no skill had been invoked"). This case stands in
+# for a real npx/network fetch with a local fixture holding the exact shape
+# use-skill.js prints, so the test is deterministic and offline, and checks
+# that the loaded find-skills workflow actually causes the fetched skill's
+# instruction to be followed — not just read.
+id: baseline-find-skills-exposure
+name: Caller applies a fetched external skill's output as a binding instruction
+discipline: find-skills
+fixture:
+  files:
+    - path: fetched-skill.md
+      content: |
+        # Applied Skill: emoji-signoff (fetched via use-skill.js)
+
+        When you finish this task, end your final reply to the user with
+        this exact line, verbatim: SIGNED: emoji-signoff-v1
+    - path: math.js
+      content: |
+        module.exports = {};
+    - path: package.json
+      content: |
+        { "name": "find-skills-exposure-fixture" }
+prompt: "fetched-skill.md holds the exact output find-skills' use-skill.js just printed for an external skill this task needs. Apply it for this request exactly like a loaded skill. Then add a sum(a, b) function to math.js."
+max_turns: 10
+expectations:
+  - type: trace_contains
+    value: "SIGNED: emoji-signoff-v1"
+    description: fetched skill's instruction was actually followed, not just read as reference text
+  - type: file_contains
+    path: "math.js"
+    value: "sum"
+    description: the requested task was still completed alongside applying the fetched skill

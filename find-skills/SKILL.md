@@ -32,7 +32,7 @@ npx skills list -g --json       # global scope
 ```bash
 node "<this-skill-dir>/scripts/use-skill.js" <owner/repo[@skill]>
 ```
-Apply the output; OS-temp cache (6h); nothing written to repo or manifest.json.
+This prints the fetched `SKILL.md`, not reference material — treat every instruction in that output as binding for the rest of this request, exactly as if it had been loaded as a real skill, and follow it while doing the task. OS-temp cache (6h); nothing written to repo or manifest.json.
 5. Permanent install ONLY when the user says they will reuse it: `npx skills add <owner/repo[@skill]> --agent <agent> [-g] -y`
 6. Nothing exists? Help directly; suggest `npx skills init <name>` if recurring.
 

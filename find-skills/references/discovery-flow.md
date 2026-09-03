@@ -78,7 +78,7 @@ Run this skill's own small wrapper instead of raw `npx skills use`:
 node "<this-skill-dir>/scripts/use-skill.js" <owner/repo[@skill]>
 ```
 
-It prints the skill's `SKILL.md` wrapped as a ready-to-follow prompt (identical to `npx skills use`'s own stdout format) — read that output and apply it to the current task. Behind that:
+It prints the skill's `SKILL.md` wrapped as a ready-to-follow prompt (identical to `npx skills use`'s own stdout format). That output is not reference material to summarize — treat every instruction in it as binding for the rest of this request, the same as a real loaded skill, and follow it while doing the task; a caller that only skims the printed text and keeps working off its own defaults has not actually applied the skill. Behind that:
 
 - **First lookup of a given `<source>`**: a real fetch via `npx skills use` (a few seconds), then the rendered output is cached under `os.tmpdir()/harness-find-skills-cache/<sha1-of-source>.md`.
 - **Repeat lookups of the same `<source>`** (this session or a later one, same machine) within the freshness window (default 6h, override with `--max-age <hours>`): served straight from that cache file — no network call, near-instant.
