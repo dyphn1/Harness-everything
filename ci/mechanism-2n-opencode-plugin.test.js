@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { pathToFileURL } = require('url');
 const helper = require('./test-helper');
 
@@ -23,10 +24,11 @@ helper.check(
 // Hook firing, against opencode's real Hooks interface (verified from
 // packages/plugin/src/index.ts and packages/web/.../plugins.mdx in the
 // opencode source - see opencode-plugin/README.md). Two isolations are
-// load-bearing: HOME -> temp, because the plugin persists to
-// ~/.harness-state and an un-redirected run would corrupt a real session's
-// circuit-breaker state; workspace -> temp, with a package.json this test
-// controls, so verification pass/fail is deterministic.
+// load-bearing: HOME -> temp, because the plugin persists under
+// ~/.agents/harness-everything/ and an un-redirected run would corrupt a
+// real session's circuit-breaker state; workspace -> temp, with a
+// package.json this test controls, so verification pass/fail is
+// deterministic.
 (async () => {
   const fakeHome = helper.tempDir('.mechanism-test-opencode-home');
   const workspace = helper.tempDir('.mechanism-test-opencode-workspace');
@@ -34,8 +36,16 @@ helper.check(
   fs.mkdirSync(workspace, { recursive: true });
   process.env.HOME = fakeHome;
   process.env.USERPROFILE = fakeHome;
+  delete process.env.HARNESS_STATE_HOME;
 
-  const stateDir = path.join(fakeHome, '.harness-state');
+  // Mirrors the plugin's own getWorkspaceKey(directory) exactly (issue #42
+  // item #4) - duplicated here rather than imported since the plugin only
+  // exports HarnessEnforcement.
+  const realWorkspace = fs.realpathSync(path.resolve(workspace));
+  const slug = path.basename(realWorkspace).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
+  const hash = crypto.createHash('sha1').update(realWorkspace).digest('hex').slice(0, 12);
+  const stateHome = path.join(fakeHome, '.agents', 'harness-everything');
+  const stateDir = path.join(stateHome, 'workspaces', `${slug}-${hash}`);
   const editStateFile = path.join(stateDir, 'edit-state.json');
   const breakerFile = path.join(stateDir, 'circuit-breaker.json');
   const complianceFile = path.join(stateDir, 'compliance.json');
@@ -162,7 +172,7 @@ helper.check(
   }
   helper.check('2n. a hard lock only blocks edit-shaped tools, not read', !readBlocked, 'tool.execute.before blocked a read');
 
-  helper.check('2n. hook state stayed inside the redirected HOME', fs.existsSync(stateDir), `no .harness-state under ${fakeHome}`);
+  helper.check('2n. hook state stayed inside the redirected HOME', fs.existsSync(stateDir), `no state dir under ${stateHome}`);
 
   helper.finish();
 })().catch((err) => {

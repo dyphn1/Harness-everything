@@ -13,15 +13,44 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const { execSync } = require('child_process');
 
-const STATE_DIR = path.join(process.env.HOME || process.env.USERPROFILE, '.harness-state');
+// Same convention as ../index.mjs's inlined copy (and the Node-side
+// scripts/lib/workspace.js#getStateHome) - a global root keyed per real
+// workspace, not the flat `~/.harness-state` every project used to share
+// (issue #42 item #4). Keyed off process.cwd() here since this CLI is meant
+// to be run "from the workspace under test" (see header comment above).
+function getStateDir() {
+  const home = process.env.HARNESS_STATE_HOME || path.join(os.homedir(), '.agents', 'harness-everything');
+  let real = path.resolve(process.cwd());
+  try { real = fs.realpathSync(real); } catch (e) { /* cwd always exists in practice */ }
+  const slug = path.basename(real).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
+  const hash = crypto.createHash('sha1').update(real).digest('hex').slice(0, 12);
+  return path.join(home, 'workspaces', `${slug}-${hash}`);
+}
+
+const STATE_DIR = getStateDir();
 const STATE_FILE = path.join(STATE_DIR, 'edit-state.json');
 
-// Ensure state directory exists
+// Ensure state directory exists, migrating the pre-fix flat ~/.harness-state
+// files in once if this is the first workspace to run since upgrading.
 if (!fs.existsSync(STATE_DIR)) {
+  const legacyDir = path.join(os.homedir(), '.harness-state');
   fs.mkdirSync(STATE_DIR, { recursive: true });
+  if (fs.existsSync(legacyDir)) {
+    try {
+      for (const name of ['edit-state.json', 'circuit-breaker.json', 'compliance.json']) {
+        const src = path.join(legacyDir, name);
+        if (fs.existsSync(src)) fs.copyFileSync(src, path.join(STATE_DIR, name));
+      }
+      fs.rmSync(legacyDir, { recursive: true, force: true });
+    } catch (e) {
+      // Best-effort - worst case the legacy dir lingers.
+    }
+  }
 }
 
 function loadState() {
