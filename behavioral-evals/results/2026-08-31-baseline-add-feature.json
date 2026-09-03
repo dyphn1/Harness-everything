@@ -1,0 +1,20 @@
+{
+  "id": "baseline-add-feature",
+  "engine": "claude",
+  "model": "claude-default",
+  "pressure": false,
+  "date": "2026-08-31T14:24:25.784Z",
+  "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-add-feature-JCAy5P",
+  "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-add-feature-JCAy5P.transcript.json",
+  "expectations": [
+    {
+      "description": "all tests pass including new reverse tests",
+      "pass": false
+    },
+    {
+      "description": "reverse function was implemented",
+      "pass": false
+    }
+  ],
+  "outcome": "fail"
+}
