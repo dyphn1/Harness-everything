@@ -53,13 +53,21 @@ function writeManifest(manifestPath, data) {
   fs.writeFileSync(manifestPath, JSON.stringify(data, null, 2), 'utf8');
 }
 
-function recordSkillInstall(manifestPath, packageVersion, skillId, dirPath) {
+// linkInfo: { kind?: 'symlink'|'junction'|'copy', canonicalPath?: string }.
+// Omitted entirely for a plain physical copy (today's/legacy behavior) - only
+// a link-based install records `kind` + `canonicalPath`, so old manifests and
+// callers that pass no 5th argument are unaffected.
+function recordSkillInstall(manifestPath, packageVersion, skillId, dirPath, linkInfo = {}) {
   const data = readManifest(manifestPath);
   data.package = PACKAGE_NAME;
   data.version = packageVersion;
   data.updatedAt = new Date().toISOString();
   const idx = data.skills.findIndex(s => s.dirPath === dirPath);
   const entry = { id: skillId, dirPath, installedAt: new Date().toISOString() };
+  if (linkInfo.kind && linkInfo.kind !== 'copy') {
+    entry.kind = linkInfo.kind;
+    entry.canonicalPath = linkInfo.canonicalPath;
+  }
   if (idx !== -1) data.skills[idx] = entry;
   else data.skills.push(entry);
   writeManifest(manifestPath, data);
