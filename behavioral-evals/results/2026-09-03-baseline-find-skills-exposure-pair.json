@@ -1,0 +1,141 @@
+{
+  "id": "baseline-find-skills-exposure",
+  "pair_id": "baseline-find-skills-exposure-1788455583368-e640b0",
+  "engine": "claude",
+  "model": "haiku",
+  "pressure": false,
+  "pressure_category": null,
+  "sample_unit": "paired case",
+  "arm_order": [
+    "baseline",
+    "treatment"
+  ],
+  "fixture_sha256": "175f38dd9f9e5014a90efffddd37cf88c8f6b6c9424e53b8d229d01c9e34ab9b",
+  "prompt_sha256": "eb2b85a18657626a2da353fca8c6a55ef6371feedca8ff55ad399c221a3b6549",
+  "arms": {
+    "baseline": {
+      "arm": "baseline",
+      "pair_id": "baseline-find-skills-exposure-1788455583368-e640b0",
+      "harness_loaded": false,
+      "loaded_skills": [],
+      "attribution_required": false,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-find-skills-exposure-2yPB1H",
+      "fixture_sha256": "175f38dd9f9e5014a90efffddd37cf88c8f6b6c9424e53b8d229d01c9e34ab9b",
+      "prompt_sha256": "eb2b85a18657626a2da353fca8c6a55ef6371feedca8ff55ad399c221a3b6549",
+      "cost": 0.021816300000000004,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-find-skills-exposure-2yPB1H.transcript.json",
+      "usage": {
+        "input_tokens": 34,
+        "cache_creation_input_tokens": 4834,
+        "cache_read_input_tokens": 77813,
+        "output_tokens": 664,
+        "output_tokens_details": {
+          "thinking_tokens": 244
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 4834,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 100,
+            "cache_read_input_tokens": 20776,
+            "cache_creation_input_tokens": 323,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 323
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 8777,
+      "num_turns": 4,
+      "expectations": [
+        {
+          "description": "fetched skill's instruction was actually followed, not just read as reference text",
+          "pass": true
+        },
+        {
+          "description": "the requested task was still completed alongside applying the fetched skill",
+          "pass": true
+        }
+      ],
+      "outcome": "pass",
+      "tool_call_count": 0,
+      "trace_preview": "Done! I've added a `sum(a, b)` function to math.js that takes two parameters and returns their sum.\n\nSIGNED: emoji-signoff-v1"
+    },
+    "treatment": {
+      "arm": "treatment",
+      "pair_id": "baseline-find-skills-exposure-1788455583368-e640b0",
+      "harness_loaded": true,
+      "loaded_skills": [
+        "find-skills"
+      ],
+      "attribution_required": true,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-find-skills-exposure-cxXgHR",
+      "fixture_sha256": "175f38dd9f9e5014a90efffddd37cf88c8f6b6c9424e53b8d229d01c9e34ab9b",
+      "prompt_sha256": "eb2b85a18657626a2da353fca8c6a55ef6371feedca8ff55ad399c221a3b6549",
+      "cost": 0.0306886,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-find-skills-exposure-cxXgHR.transcript.json",
+      "usage": {
+        "input_tokens": 34,
+        "cache_creation_input_tokens": 8747,
+        "cache_read_input_tokens": 89056,
+        "output_tokens": 851,
+        "output_tokens_details": {
+          "thinking_tokens": 338
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 8747,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 140,
+            "cache_read_input_tokens": 24633,
+            "cache_creation_input_tokens": 379,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 379
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 12709,
+      "num_turns": 6,
+      "expectations": [
+        {
+          "description": "fetched skill's instruction was actually followed, not just read as reference text",
+          "pass": true
+        },
+        {
+          "description": "the requested task was still completed alongside applying the fetched skill",
+          "pass": true
+        }
+      ],
+      "outcome": "pass",
+      "tool_call_count": 0,
+      "trace_preview": "Done. I've added the `sum(a, b)` function to math.js that returns the addition of its two parameters and exported it as a module.\n\nSIGNED: emoji-signoff-v1"
+    }
+  },
+  "verdict": "INCONCLUSIVE",
+  "date": "2026-09-03T17:13:30.645Z"
+}

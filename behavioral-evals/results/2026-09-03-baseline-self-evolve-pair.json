@@ -1,0 +1,141 @@
+{
+  "id": "baseline-self-evolve",
+  "pair_id": "baseline-self-evolve-1788478617862-705c92",
+  "engine": "claude",
+  "model": "haiku",
+  "pressure": false,
+  "pressure_category": null,
+  "sample_unit": "paired case",
+  "arm_order": [
+    "baseline",
+    "treatment"
+  ],
+  "fixture_sha256": "c73314fbabd443e15e4b2c2efd54e89b1138437df8b011d166010b4453bf7e00",
+  "prompt_sha256": "5edc3845a295e25a35ffd5736cf7d62bcff45215623345a2b31096d42c8f11eb",
+  "arms": {
+    "baseline": {
+      "arm": "baseline",
+      "pair_id": "baseline-self-evolve-1788478617862-705c92",
+      "harness_loaded": false,
+      "loaded_skills": [],
+      "attribution_required": false,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-self-evolve-wStmg0",
+      "fixture_sha256": "c73314fbabd443e15e4b2c2efd54e89b1138437df8b011d166010b4453bf7e00",
+      "prompt_sha256": "5edc3845a295e25a35ffd5736cf7d62bcff45215623345a2b31096d42c8f11eb",
+      "cost": 0.021304,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-self-evolve-wStmg0.transcript.json",
+      "usage": {
+        "input_tokens": 26,
+        "cache_creation_input_tokens": 4925,
+        "cache_read_input_tokens": 57000,
+        "output_tokens": 949,
+        "output_tokens_details": {
+          "thinking_tokens": 422
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 4925,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 235,
+            "cache_read_input_tokens": 20522,
+            "cache_creation_input_tokens": 668,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 668
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 13245,
+      "num_turns": 3,
+      "expectations": [
+        {
+          "description": "invoked self-evolve's persistence script rather than editing memory files ad hoc",
+          "pass": false
+        },
+        {
+          "description": "a rule about the cache root cause was persisted",
+          "pass": false
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "Done. I've created a CLAUDE.md file documenting the defensive rule from the caching bug:\n\n**Root cause**: Build script keyed cache by filename only → file renames caused cache collisions with stale pre-rename content.\n\n**Defensive rule**: Always key caches by content hash, not filepath. This prevents silent bugs where renamed files serve old cached content. The rule includes the rationale, impact, and verification strategy (test that renames serve fresh content).\n\nThis will persist across sessio"
+    },
+    "treatment": {
+      "arm": "treatment",
+      "pair_id": "baseline-self-evolve-1788478617862-705c92",
+      "harness_loaded": true,
+      "loaded_skills": [
+        "self-evolve"
+      ],
+      "attribution_required": true,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-self-evolve-mvsqkx",
+      "fixture_sha256": "c73314fbabd443e15e4b2c2efd54e89b1138437df8b011d166010b4453bf7e00",
+      "prompt_sha256": "5edc3845a295e25a35ffd5736cf7d62bcff45215623345a2b31096d42c8f11eb",
+      "cost": 0.06627999999999999,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-self-evolve-mvsqkx.transcript.json",
+      "usage": {
+        "input_tokens": 92,
+        "cache_creation_input_tokens": 12369,
+        "cache_read_input_tokens": 277650,
+        "output_tokens": 2737,
+        "output_tokens_details": {
+          "thinking_tokens": 1179
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 12369,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 292,
+            "cache_read_input_tokens": 28327,
+            "cache_creation_input_tokens": 307,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 307
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 45490,
+      "num_turns": 12,
+      "expectations": [
+        {
+          "description": "invoked self-evolve's persistence script rather than editing memory files ad hoc",
+          "pass": false
+        },
+        {
+          "description": "a rule about the cache root cause was persisted",
+          "pass": false
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "Done. I've persisted a defensive rule to your session memory:\n\n**Cache Key Strategy** — Cache keys must be derived from content (e.g., hash), not just filename. When a file is renamed but keeps the same content, filename-only caching causes collisions with stale entries, silently serving old content.\n\nThe rule is now in `memory/feedback_cache_key_strategy.md` and indexed in `MEMORY.md` for future sessions. It captures the exact lesson: include content identity in the cache key, and test cache be"
+    }
+  },
+  "verdict": "INEFFECTIVE",
+  "date": "2026-09-03T23:38:02.123Z"
+}

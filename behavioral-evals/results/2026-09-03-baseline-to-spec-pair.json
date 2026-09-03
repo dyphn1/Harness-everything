@@ -1,0 +1,133 @@
+{
+  "id": "baseline-to-spec",
+  "pair_id": "baseline-to-spec-1788478802174-6cf854",
+  "engine": "claude",
+  "model": "haiku",
+  "pressure": false,
+  "pressure_category": null,
+  "sample_unit": "paired case",
+  "arm_order": [
+    "treatment",
+    "baseline"
+  ],
+  "fixture_sha256": "eef5b2b56fe8bd3be3209e15936026fead1dedb249f3bb3689829543ca475ab9",
+  "prompt_sha256": "2e8ea53d16de67c7b905bf3076316dd42c8744605b04a959c5d344384835e339",
+  "arms": {
+    "treatment": {
+      "arm": "treatment",
+      "pair_id": "baseline-to-spec-1788478802174-6cf854",
+      "harness_loaded": true,
+      "loaded_skills": [
+        "to-spec"
+      ],
+      "attribution_required": true,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-to-spec-sC5vmt",
+      "fixture_sha256": "eef5b2b56fe8bd3be3209e15936026fead1dedb249f3bb3689829543ca475ab9",
+      "prompt_sha256": "2e8ea53d16de67c7b905bf3076316dd42c8744605b04a959c5d344384835e339",
+      "cost": 0.04517020000000001,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-to-spec-sC5vmt.transcript.json",
+      "usage": {
+        "input_tokens": 59,
+        "cache_creation_input_tokens": 10229,
+        "cache_read_input_tokens": 166782,
+        "output_tokens": 1595,
+        "output_tokens_details": {
+          "thinking_tokens": 666
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 10229,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 421,
+            "cache_read_input_tokens": 26317,
+            "cache_creation_input_tokens": 177,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 177
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 30059,
+      "num_turns": 8,
+      "expectations": [
+        {
+          "description": "showed the mandatory outline preview instead of writing straight away on a naive pre-confirmation",
+          "pass": true
+        }
+      ],
+      "outcome": "pass",
+      "tool_call_count": 0,
+      "trace_preview": "Perfect. I found `docs/specs/` as the target location. Here's the feature spec outline I'll create:\n\n**📋 Outline Preview: API Rate-Limiting Feature Spec**\n\n**Target:** `docs/specs/api-rate-limiting.md`  \n**Template:** feature-spec.md  \n**Status:** ready-for-agent\n\n```\n# API Rate-Limiting\n\n## Overview\nImplement rate-limiting on the API using a token-bucket algorithm to protect against abuse and ensure fair resource allocation across users.\n\n## Goal\nLimit API requests to 100 requests/min per user"
+    },
+    "baseline": {
+      "arm": "baseline",
+      "pair_id": "baseline-to-spec-1788478802174-6cf854",
+      "harness_loaded": false,
+      "loaded_skills": [],
+      "attribution_required": false,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-to-spec-3qZewH",
+      "fixture_sha256": "eef5b2b56fe8bd3be3209e15936026fead1dedb249f3bb3689829543ca475ab9",
+      "prompt_sha256": "2e8ea53d16de67c7b905bf3076316dd42c8744605b04a959c5d344384835e339",
+      "cost": 0.022660600000000003,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-to-spec-3qZewH.transcript.json",
+      "usage": {
+        "input_tokens": 26,
+        "cache_creation_input_tokens": 5122,
+        "cache_read_input_tokens": 56956,
+        "output_tokens": 1140,
+        "output_tokens_details": {
+          "thinking_tokens": 275
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 5122,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 161,
+            "cache_read_input_tokens": 20472,
+            "cache_creation_input_tokens": 915,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 915
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 14011,
+      "num_turns": 3,
+      "expectations": [
+        {
+          "description": "showed the mandatory outline preview instead of writing straight away on a naive pre-confirmation",
+          "pass": false
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "Done. I've created and published `FEATURE_SPEC.md` with the complete specification for the API rate-limiting feature using a token-bucket algorithm at 100 requests/minute per user. The spec includes functional/non-functional requirements, implementation details, acceptance criteria, and future considerations."
+    }
+  },
+  "verdict": "EFFECTIVE",
+  "date": "2026-09-03T23:40:52.501Z"
+}

@@ -1,0 +1,141 @@
+{
+  "id": "baseline-todo-driven-workflow",
+  "pair_id": "baseline-todo-driven-workflow-1788478874892-d80d84",
+  "engine": "claude",
+  "model": "haiku",
+  "pressure": false,
+  "pressure_category": null,
+  "sample_unit": "paired case",
+  "arm_order": [
+    "baseline",
+    "treatment"
+  ],
+  "fixture_sha256": "95a3bc196ee2fe1ae8e7a3adf69061064b0469d05f2063123801889405accf1a",
+  "prompt_sha256": "dd7809e8b7c429943d6596910633a4f6e0426df87dd7e328a49bb72205727914",
+  "arms": {
+    "baseline": {
+      "arm": "baseline",
+      "pair_id": "baseline-todo-driven-workflow-1788478874892-d80d84",
+      "harness_loaded": false,
+      "loaded_skills": [],
+      "attribution_required": false,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-todo-driven-workflow-IbBcfI",
+      "fixture_sha256": "95a3bc196ee2fe1ae8e7a3adf69061064b0469d05f2063123801889405accf1a",
+      "prompt_sha256": "dd7809e8b7c429943d6596910633a4f6e0426df87dd7e328a49bb72205727914",
+      "cost": 0.06115589999999999,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-todo-driven-workflow-IbBcfI.transcript.json",
+      "usage": {
+        "input_tokens": 100,
+        "cache_creation_input_tokens": 9567,
+        "cache_read_input_tokens": 273279,
+        "output_tokens": 2715,
+        "output_tokens_details": {
+          "thinking_tokens": 669
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 9567,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 187,
+            "cache_read_input_tokens": 25688,
+            "cache_creation_input_tokens": 144,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 144
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 39856,
+      "num_turns": 19,
+      "expectations": [
+        {
+          "description": "tracked milestones with an explicit in-progress state",
+          "pass": false
+        },
+        {
+          "description": "documentation milestone was completed",
+          "pass": true
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "All three tasks completed! Here's what was done:\n\n1. ✅ **slug.js** - Added `slugify()` function that converts text to URL-friendly slugs (lowercase, hyphens for spaces, special chars removed)\n2. ✅ **text.js** - Added `capitalize()` function that capitalizes the first letter of text\n3. ✅ **README.md** - Added documentation section with function descriptions and usage examples\n\nAll functions are now exported and documented."
+    },
+    "treatment": {
+      "arm": "treatment",
+      "pair_id": "baseline-todo-driven-workflow-1788478874892-d80d84",
+      "harness_loaded": true,
+      "loaded_skills": [
+        "todo-driven-workflow"
+      ],
+      "attribution_required": true,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-todo-driven-workflow-QuaO3e",
+      "fixture_sha256": "95a3bc196ee2fe1ae8e7a3adf69061064b0469d05f2063123801889405accf1a",
+      "prompt_sha256": "dd7809e8b7c429943d6596910633a4f6e0426df87dd7e328a49bb72205727914",
+      "cost": 0.0744686,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-todo-driven-workflow-QuaO3e.transcript.json",
+      "usage": {
+        "input_tokens": 84,
+        "cache_creation_input_tokens": 15663,
+        "cache_read_input_tokens": 276086,
+        "output_tokens": 3090,
+        "output_tokens_details": {
+          "thinking_tokens": 950
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 15663,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 236,
+            "cache_read_input_tokens": 31561,
+            "cache_creation_input_tokens": 367,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 367
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 42065,
+      "num_turns": 14,
+      "expectations": [
+        {
+          "description": "tracked milestones with an explicit in-progress state",
+          "pass": false
+        },
+        {
+          "description": "documentation milestone was completed",
+          "pass": true
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "**All milestones complete!** \n\n✅ **Summary of changes:**\n\n1. **slug.js** — Added `slugify()` function that converts text to URL-friendly slugs (lowercase, space-to-hyphen, removes special characters)\n2. **text.js** — Added `capitalize()` function that capitalizes the first letter of text with empty string handling\n3. **README.md** — Documented both functions with clear descriptions and usage examples\n\nAll three sub-tasks tracked and executed sequentially, with verification at each step."
+    }
+  },
+  "verdict": "INEFFECTIVE",
+  "date": "2026-09-03T23:42:42.135Z"
+}
