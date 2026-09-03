@@ -66,6 +66,12 @@ async function main() {
   // side effect of a background repair.
   const hasNoSkillsFlag = args.includes('--no-skills');
   const hasAnyPlatformFlag = hasClaudeFlag || hasCursorFlag || hasCopilotFlag || hasCodexFlag || hasContinueFlag || hasHermesFlag || hasAllFlag;
+  // #49: default 'auto' tries a junction (Windows) / symlink (elsewhere) into
+  // one canonical per-scope copy and silently falls back to an independent
+  // physical copy per target if that fails. --copy/--symlink override the
+  // auto-detection explicitly - --symlink surfaces a link failure as an
+  // error instead of silently falling back, since the user asked for it.
+  const linkMode = args.includes('--copy') ? 'copy' : args.includes('--symlink') ? 'symlink' : 'auto';
   
   let requestedSkills = ['add', 'skill', 'skills'].includes(command)
     ? args.slice(3).filter(arg => !arg.startsWith('-'))
@@ -263,7 +269,8 @@ async function main() {
     }
 
     console.log(`\nInstalling Harness skills:`);
-    skills.installSkillsToTargets({ chosenSkills, targetDirs, harnessSourceDir, packageVersion });
+    const canonicalDir = skills.getCanonicalSkillsDir({ isGlobal, workspaceRoot, userHome });
+    skills.installSkillsToTargets({ chosenSkills, targetDirs, harnessSourceDir, packageVersion, canonicalDir, linkMode });
 
     // Claude Code discovers named agents from .claude/agents/, not from a
     // nested skill directory. Keep the source copies in fable-mode for plugin
@@ -295,6 +302,16 @@ async function main() {
       if (targets.copilot) patternsToIgnore.push('.github/harness-everything/', '.github/skills/');
       if (targets.codex) patternsToIgnore.push('.codex/harness-everything/', '.codex/skills/');
       if (targets.continue) patternsToIgnore.push('.continue/harness-everything/', '.continue/skills/');
+    }
+
+    // The local canonical skills store (#49) is new territory - .agents/
+    // wasn't previously a Harness-owned local directory - so it needs its
+    // own ignore pattern rather than relying on any platform's own list.
+    if (chosenSkills.length > 0 && linkMode !== 'copy') {
+      const canonicalDir = skills.getCanonicalSkillsDir({ isGlobal: false, workspaceRoot, userHome });
+      if (fs.existsSync(canonicalDir)) {
+        patternsToIgnore.push('.agents/skills/');
+      }
     }
 
     ensureWorkspaceGitignorePatterns(workspaceRoot, patternsToIgnore);
@@ -339,7 +356,29 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
   let removeGlobal = false;
   let removeSkills = false;
 
-  const runInteractively = isInteractive && !hasYesFlag;
+  const hasLocalFlag = args.includes('--local');
+  const hasGlobalUninstallFlag = args.includes('--global') || args.includes('-g');
+  const hasSkillsUninstallFlag = args.includes('--skills');
+  // #48: any explicit scope flag wins over the interactive menu, even with a
+  // TTY attached - so `uninstall --local --global --skills` actually does
+  // what it says instead of being silently swapped for the checkbox menu
+  // (where only -y previously had that effect). Only a truly bare `uninstall`
+  // (no flags at all) still goes interactive when a TTY is available.
+  const hasAnyScopeFlag = hasYesFlag || hasLocalFlag || hasGlobalUninstallFlag || hasSkillsUninstallFlag;
+  const runInteractively = isInteractive && !hasAnyScopeFlag;
+
+  if (!runInteractively && !hasAnyScopeFlag) {
+    // #48: no flags AND no interactive terminal to fall back on - this used
+    // to silently do nothing while still printing "UNINSTALL COMPLETE!".
+    // Fail loudly instead so a non-TTY invocation (npx in some shells/CI/
+    // piped input) never looks like a successful no-op.
+    console.error("\n❌ No scope specified and no interactive terminal detected.");
+    console.error("   Pass flags to say what to remove, e.g.:");
+    console.error("     uninstall --local --skills");
+    console.error("     uninstall --local --global --skills -y");
+    console.error("   ...or run this command in an interactive terminal to use the menu.");
+    process.exit(1);
+  }
 
   if (runInteractively) {
     const choices = [];
@@ -385,7 +424,7 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
         const chosenSkillsToRemove = await interactiveSelect(selectSkillItems);
         for (const item of chosenSkillsToRemove) {
           if (item.checked) {
-            skills.removeSkill(item._entry);
+            skills.removeSkill(item._entry, { workspaceRoot, userHome });
             console.log(`  ✅ Removed skill: ${item.name}`);
             cleanEmptyDirs(item._entry.parentPath, [workspaceRoot, userHome]);
           }
@@ -393,10 +432,6 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
       }
     }
   } else {
-    const hasLocalFlag = args.includes('--local');
-    const hasGlobalUninstallFlag = args.includes('--global') || args.includes('-g');
-    const hasSkillsUninstallFlag = args.includes('--skills');
-
     if (hasYesFlag) {
       // -y auto-confirms local (cwd-scoped, obviously "this project") but
       // must NEVER auto-confirm global (~/.agents, ~/.claude, etc.) just
@@ -528,8 +563,11 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
     console.log("Uninstalling all detected skills...");
     console.log("-------------------------------------------------");
     for (const skill of skillsToRemove) {
-      if (fs.existsSync(skill.dirPath)) {
-        skills.removeSkill(skill);
+      // pathPresent (not bare existsSync) so a dangling link - its canonical
+      // target already gone - still gets its manifest row cleaned up instead
+      // of being silently skipped forever.
+      if (skills.pathPresent(skill.dirPath)) {
+        skills.removeSkill(skill, { workspaceRoot, userHome });
         console.log(`  ✅ Removed skill: ${skill.id} (${skill.scope})`);
         cleanEmptyDirs(skill.parentPath, [workspaceRoot, userHome]);
       }
@@ -550,6 +588,20 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
     cleanEmptyDirs(platform.getHarnessDir(workspaceRoot), [workspaceRoot, userHome]);
   }
   cleanEmptyDirs(path.join(workspaceRoot, '.claude'), [workspaceRoot, userHome]);
+
+  // Canonical skills store (#49) - removeSkill() above already deletes each
+  // now-unreferenced canonical copy as its last link goes; this just tidies
+  // up the now-empty .agents/skills/ (and .agents/ itself, if nothing else
+  // put anything there). Runs here rather than inside the removeLocal/
+  // removeGlobal blocks above because skill removal itself happens later,
+  // in the removeSkills block below those - running any earlier would find
+  // the directory still populated.
+  if (removeLocal) {
+    cleanEmptyDirs(skills.getCanonicalSkillsDir({ isGlobal: false, workspaceRoot, userHome }), [workspaceRoot, userHome]);
+  }
+  if (removeGlobal) {
+    cleanEmptyDirs(skills.getCanonicalSkillsDir({ isGlobal: true, workspaceRoot, userHome }), [userHome]);
+  }
 
   console.log("\n🎉 UNINSTALL COMPLETE! Harness OS has been removed.");
   console.log("=================================================");

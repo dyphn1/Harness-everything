@@ -62,11 +62,19 @@ Commands:
                        --all         Install all of the above platforms
                        -g, --global  Install to home directory (~/.agents) instead of local repository
                        -y, --yes     Bypass interactive menu and use auto-detection
+                       --symlink     Force linking every platform's skill dir to one canonical
+                                     copy (junction on Windows, symlink elsewhere) - errors
+                                     instead of falling back if a link can't be created
+                       --copy        Force an independent physical copy per platform (skip the
+                                     canonical store entirely) - use when links aren't supported
+                                     (default: try a link automatically, fall back to --copy
+                                     behavior silently on failure)
   add/skills/skill   Add/install modular skills into the local workspace
                      Usage:
                        npx github:dyphn1/Harness-everything add [skill-names...]
                        Options:
-                         -g, --global  Install skills to home directory (~/.agents/skills)
+                         -g, --global      Install skills to home directory (~/.agents/skills)
+                         --symlink/--copy  See 'install' above
                        (Runs interactively if no skill names are specified)
   uninstall          Remove Harness OS hooks, advisory files & skills
                      Options:
@@ -75,7 +83,13 @@ Commands:
                        --skills      Remove installed skills
                        -y, --yes     Bypass interactive menu (local + skills only,
                                      unless --global is also passed)
-                     (Runs interactively if no flags are specified)
+                     Passing ANY of the above flags (even with -y omitted) always runs
+                     non-interactively against exactly what you passed - e.g.
+                     'uninstall --local --global --skills' removes both scopes and all
+                     skills in one run, with no menu. Only a bare 'uninstall' with no
+                     flags goes interactive, and only when run in a real terminal; with
+                     no flags and no interactive terminal available, it exits with an
+                     error instead of silently doing nothing.
   self-regression    Run syntax and routing checks before committing changes (alias: test)
   next "<prompt>"    Print the tier-router.js routing recommendation for a prompt.
                      This is the mechanism hook/hookless platforms (Codex, Cursor,
