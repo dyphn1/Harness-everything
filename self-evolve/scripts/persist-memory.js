@@ -2,6 +2,14 @@
 const fs = require('fs');
 const path = require('path');
 
+// NOTE: this script ships standalone - it's copied whole into every install
+// target (e.g. `.claude/skills/self-evolve/scripts/`), where the source
+// repo's `scripts/lib/workspace.js` does not exist alongside it. It cannot
+// import the canonical resolver; this copy has to stay (issue #42's
+// "converge everyone onto one resolver" applies only to the scripts that
+// always execute from the harness source checkout - hook scripts and
+// harness-everything/scripts/* - not to per-skill CLI scripts like this one).
+
 const args = process.argv.slice(2);
 const memoryText = args[0];
 
@@ -73,7 +81,7 @@ function calculateSimilarity(text1, text2) {
 // Extract existing rules from RULES.md
 function extractExistingRules(rulesFile) {
   if (!fs.existsSync(rulesFile)) return [];
-  
+
   try {
     const content = fs.readFileSync(rulesFile, 'utf8');
     const ruleMatches = content.match(/^- .+$/gm) || [];

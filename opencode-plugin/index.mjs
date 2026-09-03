@@ -30,16 +30,61 @@
  */
 
 import { homedir } from "node:os"
-import { join, dirname } from "node:path"
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs"
+import { join, dirname, resolve, basename } from "node:path"
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, realpathSync } from "node:fs"
 import { execSync } from "node:child_process"
+import { createHash } from "node:crypto"
 
 const EDIT_TOOLS = new Set(["edit", "write", "apply_patch"])
 
-const STATE_DIR = join(homedir(), ".harness-state")
-const EDIT_STATE_FILE = join(STATE_DIR, "edit-state.json")
-const BREAKER_FILE = join(STATE_DIR, "circuit-breaker.json")
-const COMPLIANCE_FILE = join(STATE_DIR, "compliance.json")
+// Global state root, matching the Node-side resolver at
+// scripts/lib/workspace.js#getStateHome (same env var precedence) - this
+// plugin can't require that CJS module (opencode loads a single self-
+// contained ESM file, see the header comment above), so the derivation is
+// duplicated here, algorithm-for-algorithm, so the two stay physically
+// compatible if a workspace is ever inspected from both sides.
+function getStateHome() {
+  return process.env.HARNESS_STATE_HOME || join(homedir(), ".agents", "harness-everything")
+}
+
+// Keys state per real workspace (`directory`, which opencode itself resolves
+// - never a cwd walk) instead of one flat dir shared by every project on the
+// machine. The pre-fix `~/.harness-state` had no such key at all: a circuit
+// breaker trip in one opencode project hard-locked every other one too
+// (issue #42 item #4).
+function getWorkspaceKey(directory) {
+  let real = resolve(directory)
+  try { real = realpathSync(real) } catch { /* directory may not exist yet */ }
+  const slug = basename(real).toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "workspace"
+  const hash = createHash("sha1").update(real).digest("hex").slice(0, 12)
+  return `${slug}-${hash}`
+}
+
+function getStateDir(directory) {
+  return join(getStateHome(), "workspaces", getWorkspaceKey(directory))
+}
+
+// One-time move of the pre-fix flat `~/.harness-state/*.json` files into
+// this workspace's new keyed directory. That old location was never keyed
+// by workspace, so on a machine with multiple opencode projects there's no
+// way to know which project each legacy file belonged to - best-effort: the
+// first workspace to run after upgrading claims them once, everyone else
+// just starts a fresh stream at the new location.
+function migrateLegacyFlatState(stateDir) {
+  const legacyDir = join(homedir(), ".harness-state")
+  if (!existsSync(legacyDir) || existsSync(stateDir)) return
+  try {
+    mkdirSync(stateDir, { recursive: true })
+    for (const name of ["edit-state.json", "circuit-breaker.json", "compliance.json"]) {
+      const src = join(legacyDir, name)
+      if (existsSync(src)) writeFileSync(join(stateDir, name), readFileSync(src))
+    }
+    rmSync(legacyDir, { recursive: true, force: true })
+  } catch {
+    // Best-effort - worst case the legacy dir lingers and this workspace
+    // just starts a fresh state stream at the new location.
+  }
+}
 
 function loadJSON(file, fallback) {
   try {
@@ -117,8 +162,8 @@ function runVerification(cwd) {
  * failure on this signature), or hard_lock (same signature repeats after a
  * reflection was recorded).
  */
-function tripBreaker(signature) {
-  const breaker = loadJSON(BREAKER_FILE, defaultBreakerState())
+function tripBreaker(breakerFile, signature) {
+  const breaker = loadJSON(breakerFile, defaultBreakerState())
 
   if (!breaker.failures[signature]) {
     breaker.failures[signature] = { count: 0, firstSeen: Date.now() }
@@ -130,49 +175,59 @@ function tripBreaker(signature) {
   if (entry.count >= 3) {
     if (breaker.lastReflection && breaker.lastReflection > entry.firstSeen) {
       breaker.hardLock = true
-      saveJSON(BREAKER_FILE, breaker)
+      saveJSON(breakerFile, breaker)
       return { action: "hard_lock", count: entry.count }
     }
-    saveJSON(BREAKER_FILE, breaker)
+    saveJSON(breakerFile, breaker)
     return { action: "force_reflection", count: entry.count }
   }
 
-  saveJSON(BREAKER_FILE, breaker)
+  saveJSON(breakerFile, breaker)
   return { action: "allow", count: entry.count, remaining: 3 - entry.count }
 }
 
-function recordCompliance(mutate) {
-  const compliance = loadJSON(COMPLIANCE_FILE, defaultCompliance())
+function recordCompliance(complianceFile, mutate) {
+  const compliance = loadJSON(complianceFile, defaultCompliance())
   mutate(compliance)
-  saveJSON(COMPLIANCE_FILE, compliance)
+  saveJSON(complianceFile, compliance)
 }
 
 export const HarnessEnforcement = async ({ client, directory }) => {
+  // Resolved once per session/workspace and closed over below - never a
+  // shared module-level binding, so concurrent sessions for different
+  // opencode projects in the same process can never cross-talk (issue #42
+  // item #4: the pre-fix flat ~/.harness-state had exactly that problem).
+  const stateDir = getStateDir(directory)
+  migrateLegacyFlatState(stateDir)
+  const editStateFile = join(stateDir, "edit-state.json")
+  const breakerFile = join(stateDir, "circuit-breaker.json")
+  const complianceFile = join(stateDir, "compliance.json")
+
   return {
     "tool.execute.before": async (input) => {
       if (!EDIT_TOOLS.has(input.tool)) return
-      const breaker = loadJSON(BREAKER_FILE, defaultBreakerState())
+      const breaker = loadJSON(breakerFile, defaultBreakerState())
       if (breaker.hardLock) {
         throw new Error(
-          "Harness circuit breaker hard-locked after a repeat failure post-reflection. " +
-            "Delete ~/.harness-state/circuit-breaker.json or start a new session to reset.",
+          `Harness circuit breaker hard-locked after a repeat failure post-reflection. ` +
+            `Delete "${breakerFile}" or start a new session to reset.`,
         )
       }
     },
 
     "tool.execute.after": async (input) => {
       if (!EDIT_TOOLS.has(input.tool)) return
-      const state = loadJSON(EDIT_STATE_FILE, defaultEditState())
+      const state = loadJSON(editStateFile, defaultEditState())
       state.lastEditTime = Date.now()
       state.verificationPending = true
       state.editsSinceVerification++
-      saveJSON(EDIT_STATE_FILE, state)
-      recordCompliance((c) => c.totalEdits++)
+      saveJSON(editStateFile, state)
+      recordCompliance(complianceFile, (c) => c.totalEdits++)
     },
 
     event: async ({ event }) => {
       if (event.type !== "session.idle") return
-      const state = loadJSON(EDIT_STATE_FILE, defaultEditState())
+      const state = loadJSON(editStateFile, defaultEditState())
       if (!state.verificationPending || state.editsSinceVerification === 0) return
 
       const { allPassed, skipped, results } = runVerification(directory)
@@ -180,14 +235,14 @@ export const HarnessEnforcement = async ({ client, directory }) => {
       if (skipped || allPassed) {
         state.verificationPending = false
         state.editsSinceVerification = 0
-        saveJSON(EDIT_STATE_FILE, state)
-        recordCompliance((c) => c.verifiedEdits++)
+        saveJSON(editStateFile, state)
+        recordCompliance(complianceFile, (c) => c.verifiedEdits++)
         return
       }
 
       const failing = results.find((r) => !r.success)
       const signature = extractFailureSignature(`${failing.command}: ${failing.error || ""}`)
-      const trip = tripBreaker(signature)
+      const trip = tripBreaker(breakerFile, signature)
 
       const sessionID = event.properties.sessionID
       let text
@@ -195,13 +250,13 @@ export const HarnessEnforcement = async ({ client, directory }) => {
         text =
           `Harness: same verification failure ("${failing.command}") returned after a reflection was ` +
           `already recorded. The circuit breaker is now hard-locked - edits are blocked until it is reset.`
-        recordCompliance((c) => c.circuitBreakerTrips++)
+        recordCompliance(complianceFile, (c) => c.circuitBreakerTrips++)
       } else if (trip.action === "force_reflection") {
         text =
           `Harness: "${failing.command}" has now failed 3 times with the same error. Stop and reflect ` +
           `before retrying - write down the goal, what was tried, verified facts, a diagnosis, and a decision, ` +
           `then resume with a different approach. Failure: ${failing.error || "(no output captured)"}`
-        recordCompliance((c) => {
+        recordCompliance(complianceFile, (c) => {
           c.circuitBreakerTrips++
           c.reflectionsForced++
         })

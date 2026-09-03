@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 
 function getWorkspaceRoot() {
   let dir = path.resolve(process.cwd());
@@ -9,6 +10,34 @@ function getWorkspaceRoot() {
     dir = path.dirname(dir);
   }
   return process.cwd();
+}
+
+// Single global root for ALL Harness runtime state (session counters,
+// circuit-breaker trips, audit logs, handoff timestamps, ...). Never
+// cwd-derived, so a script invoked from a fixture dir, worktree, submodule,
+// or any other nested non-git directory can never scatter files there
+// (issue #42). `$HARNESS_STATE_HOME` matches the env var the opencode
+// plugin already used for its own (differently-rooted) global state.
+function getStateHome() {
+  return process.env.HARNESS_STATE_HOME || path.join(os.homedir(), '.agents', 'harness-everything');
+}
+
+// Keys runtime state per real workspace instead of per invocation cwd, so
+// two different repos (or a repo and a stray subdirectory someone `cd`ed
+// into) never collide or fork the same state stream. Uses the resolved real
+// path (symlinks collapsed) hashed short, prefixed with a readable slug
+// purely so `~/.agents/harness-everything/workspaces/` stays eyeballable.
+function getWorkspaceKey(root) {
+  const resolved = path.resolve(root || getWorkspaceRoot());
+  let real = resolved;
+  try { real = fs.realpathSync(resolved); } catch (err) { /* path may not exist yet (tests) */ }
+  const slug = path.basename(real).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
+  const hash = crypto.createHash('sha1').update(real).digest('hex').slice(0, 12);
+  return `${slug}-${hash}`;
+}
+
+function getWorkspaceStateDir(root) {
+  return path.join(getStateHome(), 'workspaces', getWorkspaceKey(root));
 }
 
 function getUserPromptsDir() {
@@ -42,4 +71,12 @@ function isHarnessRepo(workspaceRoot) {
   }
 }
 
-module.exports = { getWorkspaceRoot, getUserPromptsDir, isHarnessRepo, HARNESS_PACKAGE_NAME };
+module.exports = {
+  getWorkspaceRoot,
+  getStateHome,
+  getWorkspaceKey,
+  getWorkspaceStateDir,
+  getUserPromptsDir,
+  isHarnessRepo,
+  HARNESS_PACKAGE_NAME,
+};

@@ -186,16 +186,11 @@ function run(userPrompt) {
     // Skill installs land at varying depth per platform/scope (e.g.
     // <root>/.claude/skills/harness-everything/scripts/, <root>/.cursor/skills/...,
     // ~/.claude/skills/...), so a fixed __dirname offset can't reach the real
-    // workspace root. Walk up from the invoking cwd to the nearest .git instead
-    // - the same approach register-dynamic-skill.js already uses.
-    function getWorkspaceRoot() {
-      let dir = path.resolve(process.cwd());
-      while (dir !== path.parse(dir).root) {
-        if (fs.existsSync(path.join(dir, '.git'))) return dir;
-        dir = path.dirname(dir);
-      }
-      return process.cwd();
-    }
+    // workspace root - this hook always runs from the harness source
+    // checkout itself (hooks.json rewrites its command to an absolute path
+    // there at install time), never from a copied skill folder, so it's safe
+    // to import the canonical walk-up-to-.git resolver (issue #42).
+    const { getWorkspaceRoot } = require('../../scripts/lib/workspace');
     const workspaceRoot = getWorkspaceRoot();
 
     const manifestPaths = [
