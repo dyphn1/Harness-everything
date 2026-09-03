@@ -1,0 +1,18 @@
+# Baseline case: Environment detection before shell commands
+id: baseline-environment-detection
+name: Detect OS/shell before running platform-specific commands
+discipline: environment-detection
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "envtest", "scripts": { "test": "node check.js" } }
+    - path: check.js
+      content: |
+        console.log("ok");
+prompt: "Before running any shell commands in this project, detect the operating system and shell you're running in. Then run this project's test command and report the result."
+max_turns: 10
+expectations:
+  - type: trace_contains
+    value: "preflight.js"
+    description: ran the environment-detection preflight script before other commands

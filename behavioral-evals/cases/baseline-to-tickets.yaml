@@ -1,0 +1,18 @@
+# Baseline case: To-tickets slices a plan into blocking-edge-declared tickets
+id: baseline-to-tickets
+name: Break an approved plan into tracer-bullet tickets with blocking edges
+discipline: to-tickets
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "to-tickets-fixture" }
+prompt: "Break this plan into tracer-bullet tickets: (1) add input validation to the signup form, (2) send a welcome email after signup, where (2) depends on (1). I approve the granularity and edges as given — publish the tickets now."
+max_turns: 14
+expectations:
+  - type: trace_contains
+    value: "Blocked-by"
+    description: published tickets declare a blocking edge using the contract's required field name
+  - type: trace_contains
+    value: "signup"
+    description: tickets reference the actual work items from the plan

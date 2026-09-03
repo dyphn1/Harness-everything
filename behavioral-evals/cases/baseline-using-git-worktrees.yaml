@@ -1,0 +1,15 @@
+# Baseline case: Using-git-worktrees isolates feature work before editing
+id: baseline-using-git-worktrees
+name: Isolate feature work in a worktree before touching source
+discipline: using-git-worktrees
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "using-git-worktrees-fixture" }
+prompt: "Start a new feature: add a healthCheck() endpoint. Set up an isolated workspace for this before making any changes."
+max_turns: 10
+expectations:
+  - type: command_exit_0
+    command: "test -d .worktrees"
+    description: created an isolated .worktrees/<branch> workspace per the documented state mutation

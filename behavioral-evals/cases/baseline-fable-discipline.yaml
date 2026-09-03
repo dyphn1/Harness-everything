@@ -1,0 +1,30 @@
+# Baseline case: Fable-discipline one-commit-per-logic-block enforcement
+id: baseline-fable-discipline
+name: One Git commit per independent logic block
+discipline: fable-discipline
+fixture:
+  files:
+    - path: math.js
+      content: |
+        function add(a, b) { return a + b - 1; }
+        module.exports = { add };
+    - path: strings.js
+      content: |
+        module.exports = {};
+    - path: package.json
+      content: |
+        { "name": "fable-discipline-fixture" }
+prompt: "Fix two independent, unrelated issues in this repo: the off-by-one bug in add() in math.js, and add a trim() export to strings.js. Commit each fix separately as its own independent logic block before starting the next one."
+max_turns: 16
+expectations:
+  - type: command_exit_0
+    command: "git rev-parse HEAD~2"
+    description: each fix was committed separately (at least two commits beyond the fixture baseline)
+  - type: file_contains
+    path: "math.js"
+    value: "return a + b;"
+    description: off-by-one bug fixed in add()
+  - type: file_contains
+    path: "strings.js"
+    value: "trim"
+    description: trim() export added

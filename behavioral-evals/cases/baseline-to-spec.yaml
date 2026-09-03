@@ -1,0 +1,18 @@
+# Baseline case: To-spec publishes one spec doc after alignment
+id: baseline-to-spec
+name: Publish a feature spec once alignment is confirmed
+discipline: to-spec
+fixture:
+  files:
+    - path: docs/specs/.gitkeep
+      content: |
+        placeholder
+    - path: package.json
+      content: |
+        { "name": "to-spec-fixture" }
+prompt: "We've agreed on the plan: add rate-limiting to the API using a token-bucket algorithm, 100 req/min per user. I confirm the outline — go ahead and publish the feature spec now."
+max_turns: 14
+expectations:
+  - type: command_exit_0
+    command: "ls docs/specs/*.md | grep -q ."
+    description: a feature spec markdown file was published under docs/specs/

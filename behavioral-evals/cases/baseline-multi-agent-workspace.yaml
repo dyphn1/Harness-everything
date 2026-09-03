@@ -1,0 +1,18 @@
+# Baseline case: Multi-agent workspace scaffold stays inside .harness/multi-agent/
+id: baseline-multi-agent-workspace
+name: Scaffold a bounded multi-agent workspace via the script, not ad hoc
+discipline: multi-agent-workspace
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "multi-agent-workspace-fixture" }
+prompt: "This is a Tier 3 macro task that needs multiple bounded specialists. Scaffold a multi-agent workspace for this project."
+max_turns: 14
+expectations:
+  - type: trace_contains
+    value: "scaffold.js"
+    description: ran the multi-agent-workspace scaffold script rather than improvising
+  - type: command_exit_0
+    command: "test -d .harness/multi-agent"
+    description: scaffold wrote only under the declared .harness/multi-agent/ path

@@ -1,0 +1,23 @@
+# Baseline case: Self-evolve persists a root-cause rule after a resolved bug
+id: baseline-self-evolve
+name: Persist a defensive rule after a resolved recurring bug
+discipline: self-evolve
+fixture:
+  files:
+    - path: NOTES.md
+      content: |
+        You just spent a while debugging a recurring "stale cache after file
+        rename" bug in this project and fixed it.
+    - path: package.json
+      content: |
+        { "name": "self-evolve-fixture" }
+prompt: "Reflect on the root cause of the stale-cache-after-rename bug described in NOTES.md and persist a defensive rule for future sessions."
+max_turns: 10
+expectations:
+  - type: trace_contains
+    value: "persist-memory.js"
+    description: invoked self-evolve's persistence script rather than editing memory files ad hoc
+  - type: file_contains
+    path: "memories/repo/RULES.md"
+    value: "cache"
+    description: a rule about the cache root cause was persisted

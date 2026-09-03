@@ -1,0 +1,27 @@
+# Baseline case: Eval-harness four-dimension scorecard
+id: baseline-eval-harness
+name: Score a recorded agent run with the four-dimension scorecard
+discipline: eval-harness
+fixture:
+  files:
+    - path: execution-log.txt
+      content: |
+        [00:00] User: Fix the off-by-one bug in add().
+        [00:01] Tool: Read math.js
+        [00:02] Tool: Edit math.js (return a + b;)
+        [00:03] Tool: Bash npm test -> 3 passed, 0 failed
+        [00:04] Assistant: Fixed the bug and verified with tests. Tokens used: 1450.
+    - path: package.json
+      content: |
+        { "name": "eval-harness-fixture" }
+prompt: "Score the agent run recorded in execution-log.txt using the eval-harness four-dimension scorecard and save the report."
+max_turns: 12
+expectations:
+  - type: file_contains
+    path: "evals/evaluation-reports.md"
+    value: "Correctness & Factuality"
+    description: scorecard was written with the correctness dimension
+  - type: file_contains
+    path: "evals/evaluation-reports.md"
+    value: "Total Score"
+    description: scorecard includes the total score

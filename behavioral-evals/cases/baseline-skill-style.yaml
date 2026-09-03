@@ -1,0 +1,21 @@
+# Baseline case: Skill-style refactors a SKILL.md to the Harness writing standard
+id: baseline-skill-style
+name: Refactor a non-conforming SKILL.md to the house style
+discipline: skill-style
+fixture:
+  files:
+    - path: messy-skill/SKILL.md
+      content: |
+        This skill helps with stuff related to formatting text in various ways
+        depending on what the user wants, and it can be used whenever someone
+        needs some text formatted nicely, sort of like a general helper.
+    - path: package.json
+      content: |
+        { "name": "skill-style-fixture" }
+prompt: "Review and refactor messy-skill/SKILL.md to comply with the Harness skill style guide."
+max_turns: 12
+expectations:
+  - type: file_contains
+    path: "messy-skill/SKILL.md"
+    value: "Skill Contract"
+    description: refactored file includes the mandatory Skill Contract section
