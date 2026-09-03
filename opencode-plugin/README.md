@@ -1,128 +1,99 @@
 # Harness Enforcement Plugin for opencode
 
-Intended to add hard enforcement gates for Harness skills in opencode, addressing the limitation that skills are advisory-only on that platform. **Not yet functional** - see the status note below.
+Adds hard enforcement gates for Harness skills in opencode, addressing the
+limitation that skills are otherwise advisory-only on that platform.
 
 ## Problem
 
-In Claude Code, Harness hooks ENFORCE rules (hard gate). In opencode, skills only SUGGEST rules (soft guidance). This means:
+In Claude Code, Harness hooks ENFORCE rules (hard gate). In opencode, skills
+only SUGGEST rules (soft guidance). This means:
 - Under pressure, agents can bypass skills
 - Verification can be skipped
 - Circuit breaker patterns don't trigger
 
-## Solution
+## The plugin
 
-This plugin implements three enforcement mechanisms:
+**File:** `index.mjs` - a single ESM module, because that is what opencode
+actually loads: a JS/TS file exporting a function that returns a hooks
+object (see https://opencode.ai/docs/plugins/). There is no manifest-to-script
+mechanism; an earlier version of this plugin assumed one (a `plugin.json`
+mapping event names to standalone scripts) and opencode never invoked it -
+see issue #37 for how that was found and fixed.
 
-### 1. Post-Edit Verification Gate
+It implements three enforcement mechanisms across opencode's real hooks:
 
-**File:** `hooks/post-edit.js`
+### 1. Edit tracking (`tool.execute.after`)
 
-Records every edit and tracks verification status.
+Fires after every `edit`, `write` or `apply_patch` tool call and marks
+verification as pending.
 
-### 2. Pre-Complete Verification Gate
+### 2. Verification gate (`event`, on `session.idle`)
 
-**File:** `hooks/pre-complete.js`
+opencode has no "before complete" hook to block the way Claude Code's Stop
+hook does. `session.idle` - fired when the agent's turn ends - is the closest
+analog, and it cannot be blocked (the hook has no return value that denies
+it). So when it fires with verification still pending, the plugin runs the
+available `npm test` / `npm run lint` / `npm run build` scripts right there,
+and on failure calls `client.session.prompt()` to push a synthetic follow-up
+message into the session - forcing the agent to keep working instead of
+actually stopping.
 
-Blocks completion until verification runs after edits.
+### 3. Circuit breaker (`tool.execute.before` + the verification gate above)
 
-### 3. Circuit Breaker
-
-**File:** `hooks/circuit-breaker.js`
-
-Enforces Rule of 3:
-- Tracks failure signatures
-- Blocks edits after 3 failures on same signature
-- Requires reflection (zoom-out) before resuming
-
-### 4. Compliance Monitor
-
-**File:** `hooks/compliance.js`
-
-Tracks compliance metrics:
-- Verification compliance rate
-- Circuit breaker trips
-- Pressure resistance metrics
-
-> **Status: not loadable by opencode.** This directory holds working
-> enforcement logic, but not in a shape opencode can load. Verified against
-> the opencode plugin docs (https://opencode.ai/docs/plugins/):
->
-> - A plugin is a **JS/TS module** that exports a function returning its hooks
->   (`export const MyPlugin: Plugin = async (ctx) => ({ ... })`), registered
->   through the `plugin` array in `opencode.json` or by being dropped in
->   `.opencode/plugins/`. There is **no** mechanism that maps event names to
->   external script paths from a JSON manifest, which is what `plugin.json`
->   here assumes.
-> - opencode has **no `postEdit` and no `preComplete` events**. Its tool hooks
->   are `tool.execute.before` / `tool.execute.after`; there are also file,
->   session, permission and shell hooks.
-> - Blocking is done by **throwing an Error inside `tool.execute.before`** (or
->   denying in the permission hook), not by a child process exiting non-zero.
->
-> So the hooks below have never fired inside a real opencode session. Porting
-> them is tracked in issue #37.
-
-## What each file does
-
-`ci/mechanism-2n-opencode-plugin.test.js` asserts manifest/disk parity and
-runs the hook scripts directly, which proves the *logic* works. It does not
-prove opencode invokes it - nothing does yet.
-
-| Key in `plugin.json` | Files | Reality |
-|---|---|---|
-| `hooks` | `post-edit.js`, `pre-complete.js` | Written for `postEdit` / `preComplete`; neither event exists in opencode |
-| `onDemandHooks` | `verify.js`, `circuit-breaker.js`, `compliance.js` | Standalone CLIs; `verify.js` is named in `pre-complete.js`'s block message, the other two read a payload on stdin |
-
-`verify.js` resolves its verification commands from `process.cwd()/package.json`.
-Run it from the workspace under test, never from the Harness repo root - from
-there it would re-enter `npm test` from inside `npm test`.
+Enforces Rule of 3 on repeated verification failures (same failing command +
+truncated error, not arbitrary tool failures - `tool.execute.after` has no
+normalized success/failure field to key a signature on for tools in general):
+- 3rd failure on the same signature forces a reflection message instead of a
+  retry nudge
+- the same signature failing again after a reflection was recorded hard-locks
+  the breaker
+- once hard-locked, `tool.execute.before` throws on any `edit`/`write`/
+  `apply_patch` call, blocking further edits until the state file is cleared
+  or a new session starts
 
 ## Installation
 
-1. Copy `opencode-plugin/` to your opencode config directory
-2. Add to `opencode.json`:
+Copy `index.mjs` into opencode's plugin directory - it is self-contained, no
+sibling files required:
 
-```json
-{
-  "plugins": ["./opencode-plugin"]
-}
+```bash
+cp opencode-plugin/index.mjs .opencode/plugins/harness-enforcement.mjs   # project-level
+# or
+cp opencode-plugin/index.mjs ~/.config/opencode/plugins/harness-enforcement.mjs  # global
 ```
 
-## Configuration
+opencode auto-loads any file dropped in those directories at startup - no
+`opencode.json` entry needed. (`opencode.json`'s `plugin` array is for npm
+package names, not local file paths.)
 
-Edit `plugin.json` to configure:
+## Manual verification CLI
 
-```json
-{
-  "config": {
-    "verificationRequired": true,
-    "circuitBreakerEnabled": true,
-    "maxRetries": 3,
-    "verificationCommands": ["npm test", "npm run lint", "npm run build"]
-  }
-}
+**File:** `hooks/verify.js` - the same "run available npm scripts" logic as
+`index.mjs`'s verification gate, kept as a standalone command:
+
+```bash
+node opencode-plugin/hooks/verify.js
 ```
 
-## Expected Impact
+Run it from the workspace under test, never from the Harness repo root - from
+there it would re-enter `npm test` from inside `npm test`. It is intentionally
+a separate copy of the logic, not a shared import, so `index.mjs` stays a
+single portable file for the installation step above.
 
-| Metric | Before | After (Expected) |
-|--------|--------|------------------|
-| Pressure pass rate | 0% | 80%+ |
-| Verification compliance | Unknown | 95%+ |
-| Circuit breaker enforcement | Advisory only | Hard gate |
+## State
 
-## Limitations
-
-1. **Requires opencode plugin support** - opencode must support post-edit hooks
-2. **State files in user home** - Uses `~/.harness-state/` for persistence
-3. **No cross-session state** - Each session starts fresh (by design)
+Uses `~/.harness-state/` for persistence (`edit-state.json`,
+`circuit-breaker.json`, `compliance.json`). Each session starts fresh only in
+the sense that opencode restarts the plugin per process; the state files
+themselves persist across sessions until cleared.
 
 ## Testing
 
-Run the behavioral evals to verify:
-
-```bash
-node behavioral-evals/run.js run --engine opencode
-```
-
-Expected improvement in pressure cases.
+`ci/mechanism-2n-opencode-plugin.test.js` imports `index.mjs` and drives its
+exported hooks directly with a mock `client`/`event` context - the same shape
+opencode's plugin loader would pass in - covering edit tracking, the
+verification gate, the three-strikes reflection trip, and the post-reflection
+hard lock. It does not launch a real opencode process (opencode requires Bun
+and was not available to install in this repo's CI/dev environment); it
+verifies the plugin's exported hooks behave correctly against the documented
+and source-verified hook signatures.

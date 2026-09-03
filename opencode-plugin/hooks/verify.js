@@ -1,25 +1,56 @@
 #!/usr/bin/env node
 /**
- * Verification Runner Hook
- * 
- * Runs verification commands and updates state.
- * This hook runs available verification commands (npm test, lint, build) and:
- * 1. Detects available scripts from package.json
- * 2. Executes only available verification commands
- * 3. Updates state to reflect verification status
- * 4. Logs verification results
+ * Manual verification runner CLI.
+ *
+ * opencode itself never invokes this file - the real plugin (../index.mjs)
+ * runs its own inlined copy of this logic from the session.idle event, since
+ * opencode plugins must be a single loadable module (see issue #37). This
+ * script stays as a standalone command a human (or the message a hook prints)
+ * can run directly: `node opencode-plugin/hooks/verify.js`.
+ *
+ * Run it from the workspace under test, never from the Harness repo root -
+ * from there it would re-enter `npm test` from inside `npm test`.
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const { execSync } = require('child_process');
 
-const STATE_DIR = path.join(process.env.HOME || process.env.USERPROFILE, '.harness-state');
+// Same convention as ../index.mjs's inlined copy (and the Node-side
+// scripts/lib/workspace.js#getStateHome) - a global root keyed per real
+// workspace, not the flat `~/.harness-state` every project used to share
+// (issue #42 item #4). Keyed off process.cwd() here since this CLI is meant
+// to be run "from the workspace under test" (see header comment above).
+function getStateDir() {
+  const home = process.env.HARNESS_STATE_HOME || path.join(os.homedir(), '.agents', 'harness-everything');
+  let real = path.resolve(process.cwd());
+  try { real = fs.realpathSync(real); } catch (e) { /* cwd always exists in practice */ }
+  const slug = path.basename(real).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
+  const hash = crypto.createHash('sha1').update(real).digest('hex').slice(0, 12);
+  return path.join(home, 'workspaces', `${slug}-${hash}`);
+}
+
+const STATE_DIR = getStateDir();
 const STATE_FILE = path.join(STATE_DIR, 'edit-state.json');
 
-// Ensure state directory exists
+// Ensure state directory exists, migrating the pre-fix flat ~/.harness-state
+// files in once if this is the first workspace to run since upgrading.
 if (!fs.existsSync(STATE_DIR)) {
+  const legacyDir = path.join(os.homedir(), '.harness-state');
   fs.mkdirSync(STATE_DIR, { recursive: true });
+  if (fs.existsSync(legacyDir)) {
+    try {
+      for (const name of ['edit-state.json', 'circuit-breaker.json', 'compliance.json']) {
+        const src = path.join(legacyDir, name);
+        if (fs.existsSync(src)) fs.copyFileSync(src, path.join(STATE_DIR, name));
+      }
+      fs.rmSync(legacyDir, { recursive: true, force: true });
+    } catch (e) {
+      // Best-effort - worst case the legacy dir lingers.
+    }
+  }
 }
 
 function loadState() {

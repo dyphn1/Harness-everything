@@ -13,6 +13,21 @@ const {
 const GENERATOR = 'harness-everything/multi-agent-workspace';
 const ZONES = Object.freeze(['state', 'logs', 'decisions', 'domain', 'architecture', 'roles']);
 
+// Ships standalone (copied whole into every install target), so it can't
+// import the source repo's scripts/lib/workspace.js. Only used as the
+// --workspace default below - without it, an invocation from a nested
+// non-git directory with no explicit --workspace would scatter a fresh
+// .harness/multi-agent/ tree right there instead of at the project root
+// (issue #42).
+function getWorkspaceRoot() {
+  let dir = path.resolve(process.cwd());
+  while (dir !== path.parse(dir).root) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return process.cwd();
+}
+
 function values(args, name) {
   const result = [];
   for (let i = 0; i < args.length; i++) if (args[i] === name) {
@@ -28,7 +43,7 @@ function commaValues(args, name) {
 
 function parseArgs(args) {
   if (args.includes('--help') || args.includes('-h')) return { help: true };
-  const workspace = values(args, '--workspace')[0] || '.';
+  const workspace = values(args, '--workspace')[0] || getWorkspaceRoot();
   const sourceValues = values(args, '--agency-source');
   const platform = values(args, '--platform')[0] || null;
   if (platform && !SUPPORTED_PLATFORMS.includes(platform)) {

@@ -1,9 +1,36 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
 const MATRIX_PATH = path.join(__dirname, '..', 'model-matrix.json');
+
+// This script ships standalone (copied whole into every install target,
+// e.g. .claude/skills/fable-mode/scripts/), so it can't require the source
+// repo's scripts/lib/workspace.js. The audit log is genuine runtime state
+// though - not a project artifact - so it needs to land in the same global,
+// workspace-keyed root that hooks/scripts/lib/harness-state.js resolves to,
+// not scattered under cwd (issue #42). Duplicated here, algorithm-for-
+// algorithm, same as opencode-plugin/index.mjs's own inlined copy.
+function getWorkspaceRoot() {
+  let dir = path.resolve(process.cwd());
+  while (dir !== path.parse(dir).root) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return process.cwd();
+}
+
+function getWorkspaceStateDir(root) {
+  const home = process.env.HARNESS_STATE_HOME || path.join(os.homedir(), '.agents', 'harness-everything');
+  let real = path.resolve(root);
+  try { real = fs.realpathSync(real); } catch (err) { /* path may not exist yet */ }
+  const slug = path.basename(real).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
+  const hash = crypto.createHash('sha1').update(real).digest('hex').slice(0, 12);
+  return path.join(home, 'workspaces', `${slug}-${hash}`);
+}
 const REQUIRED = ['stageBrief', 'passCondition', 'verificationCommand', 'verifierResult'];
 const VALID_VERIFIER_RESULTS = new Set(['pending', 'pass', 'fail', 'not-run', 'blocked']);
 
@@ -102,7 +129,8 @@ function printHelp() {
 }
 
 function appendAuditRecord(record, auditFile) {
-  const target = auditFile || process.env.FABLE_AUDIT_FILE || path.join(process.cwd(), '.claude', 'harness-everything', 'state', 'fable-mode', 'audit.jsonl');
+  const target = auditFile || process.env.FABLE_AUDIT_FILE ||
+    path.join(getWorkspaceStateDir(getWorkspaceRoot()), 'state', 'fable-mode', 'audit.jsonl');
   fs.mkdirSync(path.dirname(path.resolve(target)), { recursive: true });
   fs.appendFileSync(target, `${JSON.stringify(record)}\n`, 'utf8');
 }

@@ -26,7 +26,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { getWorkspaceRoot, getUserPromptsDir } = require('./lib/workspace');
+const { getWorkspaceRoot, getWorkspaceStateDir, getUserPromptsDir } = require('./lib/workspace');
 const { interactiveSelect, interactiveSingleSelect, askQuestion } = require('./lib/prompts');
 const advisory = require('./lib/advisory-text');
 const claudeHooks = require('./lib/claude-hooks');
@@ -432,12 +432,27 @@ async function runUninstall({ hasYesFlag, args, isInteractive }) {
       }
 
       if (typeof platform.getStateDir === 'function') {
+        // Legacy per-workspace state dir (pre-#42) - almost always already
+        // gone by the time uninstall runs, since the first hook invocation
+        // after the fix migrates it into the global home below. Kept as a
+        // no-op-in-the-common-case safety net for a workspace that was
+        // never actually used since upgrading.
         const stateDir = platform.getStateDir(workspaceRoot);
         if (fs.existsSync(stateDir)) {
           fs.rmSync(stateDir, { recursive: true, force: true });
           console.log(`  ✅ Removed local ${path.relative(workspaceRoot, stateDir).replace(/\\/g, '/')}/ directory`);
         }
       }
+    }
+
+    // Runtime state for this workspace now lives outside it entirely, under
+    // ~/.agents/harness-everything/workspaces/<key>/ (issue #42) - remove
+    // this workspace's slice of it too, so uninstalling doesn't leave an
+    // orphaned global state dir behind.
+    const globalWorkspaceStateDir = getWorkspaceStateDir(workspaceRoot);
+    if (fs.existsSync(globalWorkspaceStateDir)) {
+      fs.rmSync(globalWorkspaceStateDir, { recursive: true, force: true });
+      console.log(`  ✅ Removed global runtime state for this workspace (${globalWorkspaceStateDir})`);
     }
 
     // One-time migration cleanup: earlier versions used a self-invented

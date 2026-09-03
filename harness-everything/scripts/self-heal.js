@@ -23,19 +23,10 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { isHarnessRepo } = require('../../scripts/lib/workspace');
+const { getWorkspaceRoot, isHarnessRepo } = require('../../scripts/lib/workspace');
 
 const MARKER = 'Harness OS Guidance (Advisory)';
 const HOOK_ID = 'harness:pre:bootstrap';
-
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return process.cwd();
-}
 
 function fileContains(filePath, needle) {
   try {
