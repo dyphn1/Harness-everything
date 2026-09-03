@@ -29,7 +29,7 @@ Harness acts as an automated system supervisor. It remains completely silent and
 | **System Audit** | Blindly assumes shell syntax | Requires manual shell check | **Preflight:** Proactively detects Windows/Unix paths, shell type, and package manager |
 | **Memory** | Resets on every new chat session | Static text rules | **Continuous Persistence:** Writes Write-Ahead Logs (WAL) for session recovery and immunizes workspace rules |
 
-The "Harness" column above is Claude Code's behavior. On Cursor, Copilot, Codex, Continue.dev, and Hermes Agent — platforms with no hook/exit-code execution mechanism — Harness can only inject advisory text, which lands in the **Prompt-Only** column instead. See [Supported AI IDEs & Tools](#supported-ai-ides--tools) below.
+The "Harness" column above is Claude Code's behavior; opencode gets the same hard-gate treatment via a plugin ([`opencode-plugin/`](opencode-plugin/), unverified in a live opencode session — see [#37](https://github.com/dyphn1/Harness-everything/issues/37)). On Cursor, Copilot, Codex, Continue.dev, and Hermes Agent — platforms with no hook/exit-code execution mechanism — Harness can only inject advisory text, which lands in the **Prompt-Only** column instead. See [Supported AI IDEs & Tools](#supported-ai-ides--tools) below.
 
 ### When should I use Harness?
 * You regularly use agentic coding tools (like Claude Code, Cursor, or Copilot) on medium-to-large codebases.
@@ -141,14 +141,14 @@ Harness operates through six core cognitive concepts:
 
 ## Supported AI IDEs & Tools
 
-**Only Claude Code gets the hard-boundary hooks.** Every other platform below has no hook/exit-code execution mechanism, so `harness-everything` can only inject advisory text — same protection level as the "Prompt-Only" column in the comparison table above. There is no circuit breaker, no preflight audit, and no WAL on those platforms unless Claude Code (or another hook-capable tool) is also driving the same repo.
+**Claude Code and opencode get hard-boundary hooks.** Every other platform below has no hook/exit-code execution mechanism, so `harness-everything` can only inject advisory text — same protection level as the "Prompt-Only" column in the comparison table above. There is no circuit breaker, no preflight audit, and no WAL on those platforms unless Claude Code or opencode is also driving the same repo.
 
-[`opencode-plugin/`](opencode-plugin/) contains enforcement logic for opencode — a verification gate and a Rule of 3 breaker — but it is **not loadable by opencode today**: it is declared as a JSON manifest mapping `postEdit`/`preComplete` to standalone scripts, and opencode has neither of those events nor any manifest-to-command mechanism. It is tracked as unfinished in [issue #37](https://github.com/dyphn1/Harness-everything/issues/37) and is not counted as enforcement here.
+[`opencode-plugin/`](opencode-plugin/) (`index.mjs`) implements a verification gate and a Rule of 3 breaker against opencode's real, source-verified plugin API (`tool.execute.before`/`.after`, the `session.idle` event) — a `plugin.json` JSON manifest previously assumed a mechanism opencode doesn't have and was never actually loaded; see [issue #37](https://github.com/dyphn1/Harness-everything/issues/37) for how that was found and replaced. `ci/mechanism-2n-opencode-plugin.test.js` drives the exported hooks directly against a mock context matching that API. What's *not* yet done: a live opencode session actually loading and firing the plugin — opencode requires Bun and wasn't installable in this repo's dev/CI environment, so that step is unverified.
 
 | AI Agent Tool | Integration Method | Local Target Location | Enforcement |
 |---|---|---|---|
 | **Claude Code** | Native Lifecycle Hooks (`PreToolUse`, `PostToolUse`, `SessionStart`) | `.claude/settings.json` (project) / `~/.claude/settings.json` (user)<br>*.claude/skills/* (Project Skills) / *~/.claude/skills/* (Global Skills) | **Hard** — hooks can block a tool call (`exit(2)`) |
-| **opencode** | Skill files via `instructions` in `opencode.json`. (`opencode-plugin/` is not wired — see #37) | `opencode.json` | Advisory only |
+| **opencode** | Plugin module dropped in `.opencode/plugins/` ([`opencode-plugin/index.mjs`](opencode-plugin/index.mjs)) | `.opencode/plugins/` | **Hard, unverified live** — `tool.execute.before` throws to block edits once circuit-broken; verified against opencode's source, not yet against a running opencode session (see #37) |
 | **Cursor** | Native Project Rules | `.cursorrules` | Advisory only |
 | **Copilot Chat** | Custom Instructions | `.github/copilot-instructions.md` | Advisory only |
 | **Codex** | Custom Instructions (`AGENTS.md`, not `.codex/config.toml` — that file controls CLI/sandbox behavior, not prompt content) | `AGENTS.md` | Advisory only |
@@ -216,7 +216,7 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `verification-loop` | **Skill (Tier 2)** | Verify-before-complete enforcement |
 | `verify-before-claim` | **Always-on discipline** | Fact-audit before asserting claims |
 | `zoom-out` | **Circuit breaker** | Circuit-breaker reflection protocol |
-| `opencode-plugin` | **Platform Plugin (not wired)** | Enforcement logic for opencode; needs porting to opencode's plugin API before it loads (#37) |
+| `opencode-plugin` | **Platform Plugin** | Enforcement logic for opencode's real plugin API; live-session firing still unverified (#37) |
 
 ---
 

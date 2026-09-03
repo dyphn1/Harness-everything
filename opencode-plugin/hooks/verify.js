@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
- * Verification Runner Hook
- * 
- * Runs verification commands and updates state.
- * This hook runs available verification commands (npm test, lint, build) and:
- * 1. Detects available scripts from package.json
- * 2. Executes only available verification commands
- * 3. Updates state to reflect verification status
- * 4. Logs verification results
+ * Manual verification runner CLI.
+ *
+ * opencode itself never invokes this file - the real plugin (../index.mjs)
+ * runs its own inlined copy of this logic from the session.idle event, since
+ * opencode plugins must be a single loadable module (see issue #37). This
+ * script stays as a standalone command a human (or the message a hook prints)
+ * can run directly: `node opencode-plugin/hooks/verify.js`.
+ *
+ * Run it from the workspace under test, never from the Harness repo root -
+ * from there it would re-enter `npm test` from inside `npm test`.
  */
 
 const fs = require('fs');

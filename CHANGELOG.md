@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Self-repo detection** (`scripts/lib/workspace.js`): bootstrap and self-heal now identify the harness repo by `package.json` name instead of comparing against the running script's own directory, so an npx or global install no longer reports the harness checkout as drifted and recommends a repair that self-heal refuses to run. The audit also distinguishes an absent integration file from one that exists without the Harness advisory block.
-- **opencode plugin manifest** (`opencode-plugin/plugin.json`): all five hooks are now declared - `circuit-breaker.js`, `compliance.js` and `verify.js` were implemented and unreachable. New `ci/mechanism-2n-opencode-plugin.test.js` asserts manifest/disk parity and runs the plugin's hook-firing suite under a redirected `HOME` and `cwd`, so `npm test` covers opencode enforcement for the first time.
+- **opencode plugin, ported to the real API** (`opencode-plugin/index.mjs`, #37): the previous `plugin.json` manifest mapping `postEdit`/`preComplete` to standalone scripts was never invoked by opencode - it has no manifest-to-script mechanism and no such events. Replaced with a single ESM module exporting `tool.execute.before` (circuit-breaker hard lock), `tool.execute.after` (edit tracking) and `event` (verification gate on `session.idle`, which pushes a follow-up message via `client.session.prompt()` on failure since the event can't be blocked directly) - all three verified against opencode's plugin source. `ci/mechanism-2n-opencode-plugin.test.js` now imports `index.mjs` and drives those hooks with a mock context matching that API, covering edit tracking, the verification gate, the three-strikes reflection trip and the post-reflection hard lock. Not yet verified: a live opencode session actually loading and firing the plugin (opencode requires Bun, not installable in this repo's environment).
 - **Release baseline** (`ci/release-consistency-check.js`): the comparison tag is derived from the latest tag (or `--tag` / `HARNESS_RELEASE_TAG`) instead of being pinned to `v0.3.3-beta`, which had been three releases stale while still reporting PASSED.
 
 ### Changed
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Changelog/tag consistency** (`ci/consistency-check.js`): every released changelog heading must have a matching git tag; versions that were never tagged must say so in the heading.
 
 ### Documentation
-- **opencode plugin status** (`README.md`, `opencode-plugin/README.md`): `opencode-plugin/` is now documented as **not loadable by opencode**. Verified against opencode's plugin docs: a plugin is a JS/TS module registered through the `plugin` array in `opencode.json`, opencode has no `postEdit`/`preComplete` events and no manifest-to-command mechanism, and blocking is done by throwing inside `tool.execute.before`. The directory's hook logic is real and tested in isolation, but has never fired in an opencode session. Claude Code remains the only platform with working hard enforcement.
+- **opencode plugin status** (`README.md`, `opencode-plugin/README.md`): updated to describe the real `index.mjs` plugin and its installation (drop into `.opencode/plugins/`, no `opencode.json` entry needed). opencode is now listed alongside Claude Code as a hard-enforcement platform, flagged as unverified in a live session pending #37's remaining step.
 
 ---
 

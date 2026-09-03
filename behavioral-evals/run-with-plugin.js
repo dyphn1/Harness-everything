@@ -158,30 +158,24 @@ function installHarnessWithPlugin(ws) {
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
   
-  // opencode config with skills AND plugin hooks
-  const pluginHooks = {};
-  const pluginJson = JSON.parse(fs.readFileSync(path.join(PLUGIN_DIR, 'plugin.json'), 'utf8'));
-  
-  // Map plugin hooks to opencode hook events
-  if (pluginJson.hooks) {
-    for (const [event, hookFile] of Object.entries(pluginJson.hooks)) {
-      const hookPath = path.join(PLUGIN_DIR, hookFile);
-      if (fs.existsSync(hookPath)) {
-        pluginHooks[event] = [{ type: 'command', command: `node "${hookPath}"` }];
-      }
-    }
-  }
-  
+  // opencode config with skills. The plugin itself is not referenced here -
+  // opencode auto-loads any file dropped in .opencode/plugins/, there is no
+  // config key that maps event names to commands (that was the bug #37
+  // fixed; see opencode-plugin/README.md).
   fs.writeFileSync(
     path.join(ws, 'opencode.json'),
     JSON.stringify({
       $schema: 'https://opencode.ai/config.json',
-      instructions: skillNames.map((n) => `.claude/skills/${n}/SKILL.md`),
-      hooks: pluginHooks
+      instructions: skillNames.map((n) => `.claude/skills/${n}/SKILL.md`)
     }, null, 2)
   );
-  
-  // Also copy plugin hooks to workspace for reference
+
+  // Install the real plugin where opencode actually looks for it.
+  const opencodePluginsDir = path.join(ws, '.opencode', 'plugins');
+  fs.mkdirSync(opencodePluginsDir, { recursive: true });
+  fs.copyFileSync(path.join(PLUGIN_DIR, 'index.mjs'), path.join(opencodePluginsDir, 'harness-enforcement.mjs'));
+
+  // Also copy the plugin source to the harness source tree for reference.
   fs.cpSync(PLUGIN_DIR, path.join(src, 'opencode-plugin'), { recursive: true });
 }
 
