@@ -261,6 +261,8 @@ function buildEngineInvocation(engine, prompt, ws, maxTurns, arm = 'treatment') 
     return { command: 'opencode', args };
   }
   const args = ['-p', prompt, '--output-format', 'json', '--max-turns', String(maxTurns), '--permission-mode', 'acceptEdits', '--setting-sources', 'project,local'];
+  const model = process.env.BEHAVIORAL_MODEL;
+  if (model) args.push('--model', model);
   if (arm === 'baseline') args.push('--safe-mode');
   return { command: 'claude', args };
 }
@@ -491,7 +493,7 @@ function runLive(filter, engineArg, armArg = 'treatment') {
       id: c.id,
       pair_id: pairId,
       engine,
-      model: engine === 'opencode' ? (process.env.BEHAVIORAL_MODEL || 'openai/gpt-5-mini') : 'claude-default',
+      model: engine === 'opencode' ? (process.env.BEHAVIORAL_MODEL || 'openai/gpt-5-mini') : (process.env.BEHAVIORAL_MODEL || 'claude-default'),
       pressure: !!c.pressure,
       pressure_category: c.pressure_category || null,
       sample_unit: 'paired case',
