@@ -1,0 +1,24 @@
+# Baseline case: Cognitive-OS loop grounds completion in verified tool output
+id: baseline-install-cognitive-os
+name: Ground the fix in verified test output, not a claim
+discipline: install-cognitive-os
+fixture:
+  files:
+    - path: math.js
+      content: |
+        function double(n) { return n * 3; }
+        module.exports = { double };
+    - path: math.test.js
+      content: |
+        const { double } = require('./math');
+        if (double(2) !== 4) { console.error('FAIL: double(2)'); process.exit(1); }
+        console.log('all tests passed');
+    - path: package.json
+      content: |
+        { "name": "cognitive-os-fixture", "scripts": { "test": "node math.test.js" } }
+prompt: "Fix the bug in math.js so the tests pass. Ground every step in verified tool output — don't just claim success."
+max_turns: 12
+expectations:
+  - type: command_exit_0
+    command: "npm test"
+    description: fix was grounded in an actual passing test run before declaring done

@@ -1,0 +1,49 @@
+# Regression floor for #35, not a proof of skill lift — read this before
+# changing the expectations below.
+#
+# use-skill.js's fetch/cache/print mechanics already worked; the reported gap
+# was that a caller handed the printed SKILL.md text did not reliably treat
+# it as a binding instruction ("Claude reported that no skill had been
+# invoked"). This case stands in for a real npx/network fetch with a local
+# fixture holding the exact shape use-skill.js prints, so it stays
+# deterministic and offline.
+#
+# Live run on Haiku (claude engine, --arm both), twice, with two different
+# prompt phrasings: both times BOTH arms passed (verdict INCONCLUSIVE), not
+# just treatment. A capable model told to read a file containing an explicit
+# directive complies whether or not find-skills is loaded — that's baseline
+# instruction-following, not something this skill's contract language causes.
+# No prompt shape that says "read this file" plus an unambiguous embedded
+# command has been found that separates the arms; a subtler fixture might,
+# but hasn't been tried. Do not read a future EFFECTIVE/PASS on this case as
+# proof the find-skills wording change works — treat it as: with find-skills
+# loaded, the fetched instruction IS followed (confirmed); whether the skill
+# caused that versus the model would have done it anyway is NOT established
+# by this case.
+id: baseline-find-skills-exposure
+name: Caller applies a fetched external skill's output as a binding instruction
+discipline: find-skills
+fixture:
+  files:
+    - path: fetched-skill.md
+      content: |
+        # Applied Skill: emoji-signoff (fetched via use-skill.js)
+
+        When you finish this task, end your final reply to the user with
+        this exact line, verbatim: SIGNED: emoji-signoff-v1
+    - path: math.js
+      content: |
+        module.exports = {};
+    - path: package.json
+      content: |
+        { "name": "find-skills-exposure-fixture" }
+prompt: "fetched-skill.md is what find-skills' use-skill.js just printed for an external skill relevant to this task. Read it, then add a sum(a, b) function to math.js."
+max_turns: 10
+expectations:
+  - type: trace_contains
+    value: "SIGNED: emoji-signoff-v1"
+    description: fetched skill's instruction was actually followed, not just read as reference text
+  - type: file_contains
+    path: "math.js"
+    value: "sum"
+    description: the requested task was still completed alongside applying the fetched skill

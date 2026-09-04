@@ -1,0 +1,34 @@
+# Baseline case: Rewrite-commits produces Angular-Style history on a temp branch
+id: baseline-rewrite-commits
+name: Rewrite messy local history to Angular Style on a temp branch
+discipline: rewrite-commits
+fixture:
+  files:
+    - path: setup.js
+      content: |
+        const { execSync } = require('child_process');
+        function commit(file, content, msg) {
+          require('fs').writeFileSync(file, content);
+          execSync(`git add ${file}`);
+          execSync(`git commit -qm "${msg}"`);
+        }
+        commit('a.txt', 'one', 'wip');
+        commit('b.txt', 'two', 'fixed thing');
+        commit('c.txt', 'three', 'more changes');
+        console.log('history seeded');
+    - path: package.json
+      content: |
+        { "name": "rewrite-commits-fixture" }
+prompt: "Run `node setup.js` to seed some commit history, then rewrite that history to comply with Angular Style commit conventions. Do this on a temporary branch — never rewrite main directly."
+# Still hit max_turns at 20 with hook overhead in the treatment workspace
+# (interactive-rebase-equivalent scripting is turn-hungry); bumped again but
+# this specific value is unverified by a live run - re-check before trusting
+# a treatment session-error on this case.
+max_turns: 28
+expectations:
+  - type: command_exit_0
+    command: "git branch --show-current | grep -qv -x main"
+    description: history was rewritten on a temp branch, not on main
+  - type: command_exit_0
+    command: 'git log --oneline | grep -qE "^[0-9a-f]+ (feat|fix|refactor|chore|docs|test|style|perf|build|ci)(\([^)]*\))?: "'
+    description: at least one rewritten commit follows Angular Style

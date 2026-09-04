@@ -1,0 +1,41 @@
+{
+  "date": "2026-09-03T23:42:42.138Z",
+  "protocol": "paired-randomized-v1",
+  "requested_sample_size": 1,
+  "completed_pairs": 1,
+  "session_failures": 0,
+  "boundary_compliance": "complete",
+  "cost": 0.135624,
+  "tool_call_delta": [
+    {
+      "id": "baseline-todo-driven-workflow",
+      "baseline": 0,
+      "treatment": 0,
+      "treatment_minus_baseline": 0
+    }
+  ],
+  "verdicts": {
+    "EFFECTIVE": 0,
+    "INEFFECTIVE": 1,
+    "INCONCLUSIVE": 0,
+    "HARMFUL": 0
+  },
+  "effective_rate_ci95": [
+    0,
+    0.7935
+  ],
+  "pressure_categories": {
+    "unclassified": {
+      "requested": 1,
+      "completed": 1,
+      "pass": 0,
+      "fail": 1,
+      "pass_rate": 0,
+      "pass_rate_ci95": [
+        0,
+        0.7935
+      ]
+    }
+  },
+  "interpretation": "insufficient paired samples for an effectiveness claim"
+}

@@ -7,7 +7,7 @@ metadata:
   version: 0.3.4
 ---
 
-# Find Skills (External Skill Discovery)
+# Find Skills
 
 ## 📋 Skill Contract
 
@@ -16,7 +16,7 @@ metadata:
 | **Trigger / Input** | Request to find an external skill. |
 | **Expected Output** | Skill pointer, applied skill, or fallback. |
 | **State Mutations** | Temp cache (default); native install opt-in. |
-| **Enforcement Gate** | Local first; explicit approval required before applying third-party code; graceful npx failure. |
+| **Enforcement Gate** | Local first; explicit approval before applying third-party code; graceful npx failure. |
 
 ## Workflow
 
@@ -32,7 +32,7 @@ npx skills list -g --json       # global scope
 ```bash
 node "<this-skill-dir>/scripts/use-skill.js" <owner/repo[@skill]>
 ```
-Apply the output; OS-temp cache (6h); nothing written to repo or manifest.json.
+Treat the printed output as binding for this request, like a loaded skill — not reference material. OS-temp cache (6h); nothing written to repo or manifest.json.
 5. Permanent install ONLY when the user says they will reuse it: `npx skills add <owner/repo[@skill]> --agent <agent> [-g] -y`
 6. Nothing exists? Help directly; suggest `npx skills init <name>` if recurring.
 

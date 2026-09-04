@@ -1,0 +1,133 @@
+{
+  "id": "baseline-using-git-worktrees",
+  "pair_id": "baseline-using-git-worktrees-1788477772133-21239a",
+  "engine": "claude",
+  "model": "haiku",
+  "pressure": false,
+  "pressure_category": null,
+  "sample_unit": "paired case",
+  "arm_order": [
+    "baseline",
+    "treatment"
+  ],
+  "fixture_sha256": "8797789a5961912054d794dadfa35263fa207533f6f8fc103ae9e25d4acc697e",
+  "prompt_sha256": "e746fafb2b4c7ddcb82048d1a784ec8d0a9120bb42cb775d32fce7703acbe52e",
+  "arms": {
+    "baseline": {
+      "arm": "baseline",
+      "pair_id": "baseline-using-git-worktrees-1788477772133-21239a",
+      "harness_loaded": false,
+      "loaded_skills": [],
+      "attribution_required": false,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-using-git-worktrees-tcWyrf",
+      "fixture_sha256": "8797789a5961912054d794dadfa35263fa207533f6f8fc103ae9e25d4acc697e",
+      "prompt_sha256": "e746fafb2b4c7ddcb82048d1a784ec8d0a9120bb42cb775d32fce7703acbe52e",
+      "cost": 0.0330668,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-using-git-worktrees-tcWyrf.transcript.json",
+      "usage": {
+        "input_tokens": 50,
+        "cache_creation_input_tokens": 5872,
+        "cache_read_input_tokens": 122018,
+        "output_tokens": 1619,
+        "output_tokens_details": {
+          "thinking_tokens": 784
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 5872,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 451,
+            "cache_read_input_tokens": 21826,
+            "cache_creation_input_tokens": 311,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 311
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 26428,
+      "num_turns": 8,
+      "expectations": [
+        {
+          "description": "created an isolated .worktrees/<branch> workspace per the documented state mutation",
+          "pass": false
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "Perfect! I've set up an isolated git worktree for the healthCheck feature. You're now working in `/feature/healthcheck` with a clean, detached workspace. Here's what I created:\n\n✓ Initialized git repository  \n✓ Created initial commit on main  \n✓ Created isolated worktree at `feature/healthcheck`\n\nNow I'm ready to implement the healthCheck endpoint. Since this is a Node.js project, should I:\n\n1. **Create a simple Express server** with a GET `/health` endpoint that returns status info\n2. **Add to "
+    },
+    "treatment": {
+      "arm": "treatment",
+      "pair_id": "baseline-using-git-worktrees-1788477772133-21239a",
+      "harness_loaded": true,
+      "loaded_skills": [
+        "using-git-worktrees"
+      ],
+      "attribution_required": true,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-using-git-worktrees-oETnyy",
+      "fixture_sha256": "8797789a5961912054d794dadfa35263fa207533f6f8fc103ae9e25d4acc697e",
+      "prompt_sha256": "e746fafb2b4c7ddcb82048d1a784ec8d0a9120bb42cb775d32fce7703acbe52e",
+      "cost": 0.0840091,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-using-git-worktrees-oETnyy.transcript.json",
+      "usage": {
+        "input_tokens": 84,
+        "cache_creation_input_tokens": 21906,
+        "cache_read_input_tokens": 291081,
+        "output_tokens": 2201,
+        "output_tokens_details": {
+          "thinking_tokens": 779
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 21906,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 353,
+            "cache_read_input_tokens": 37705,
+            "cache_creation_input_tokens": 466,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 466
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 46661,
+      "num_turns": 15,
+      "expectations": [
+        {
+          "description": "created an isolated .worktrees/<branch> workspace per the documented state mutation",
+          "pass": true
+        }
+      ],
+      "outcome": "pass",
+      "tool_call_count": 0,
+      "trace_preview": "Perfect! Your isolated workspace is ready for the healthCheck feature. Here's what's been set up:\n\n**✅ Initialization complete:**\n- Git repository initialized with initial commit (master branch)\n- `.gitignore` configured to exclude `.worktrees/` directory\n- Git worktree created at `.worktrees/health-check` on branch `feature/add-health-check`\n\n**Active worktrees:**\n- `master` (main branch) — current working directory\n- `feature/add-health-check` (isolated feature branch) — ready for development\n"
+    }
+  },
+  "verdict": "EFFECTIVE",
+  "date": "2026-09-03T23:24:10.718Z"
+}

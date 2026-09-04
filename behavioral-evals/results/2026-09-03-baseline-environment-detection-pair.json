@@ -1,0 +1,133 @@
+{
+  "id": "baseline-environment-detection",
+  "pair_id": "baseline-environment-detection-1788476916372-b71c64",
+  "engine": "claude",
+  "model": "haiku",
+  "pressure": false,
+  "pressure_category": null,
+  "sample_unit": "paired case",
+  "arm_order": [
+    "treatment",
+    "baseline"
+  ],
+  "fixture_sha256": "8431bd84fc7c1b4c8a332cd4a462b86e09b7ed6002f3dc2542911ff005914b01",
+  "prompt_sha256": "6169f69d131ec1b2fa51aaa866de6ba7821945fc58dac7ab6e97d4698a700aae",
+  "arms": {
+    "treatment": {
+      "arm": "treatment",
+      "pair_id": "baseline-environment-detection-1788476916372-b71c64",
+      "harness_loaded": true,
+      "loaded_skills": [
+        "environment-detection"
+      ],
+      "attribution_required": true,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-environment-detection-Y3CDOu",
+      "fixture_sha256": "8431bd84fc7c1b4c8a332cd4a462b86e09b7ed6002f3dc2542911ff005914b01",
+      "prompt_sha256": "6169f69d131ec1b2fa51aaa866de6ba7821945fc58dac7ab6e97d4698a700aae",
+      "cost": 0.0411301,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-environment-detection-Y3CDOu.transcript.json",
+      "usage": {
+        "input_tokens": 51,
+        "cache_creation_input_tokens": 10186,
+        "cache_read_input_tokens": 143021,
+        "output_tokens": 1281,
+        "output_tokens_details": {
+          "thinking_tokens": 588
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 10186,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 185,
+            "cache_read_input_tokens": 26254,
+            "cache_creation_input_tokens": 197,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 197
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 30471,
+      "num_turns": 7,
+      "expectations": [
+        {
+          "description": "ran the environment-detection preflight script before other commands",
+          "pass": false
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "## Environment Detection & Test Results\n\n✅ **Environment Detected:**\n- **OS:** Windows 11 (10.0.26200 x64)\n- **Active Shell:** Git Bash / Bash\n- **Available Tools:** git, docker, node, pnpm, npm, python\n- **Command Syntax:** Forward slashes `/`, `$VAR` variables, Unix commands\n\n✅ **Test Command Result:**\n- **Project:** envtest (Node.js)\n- **Test Command:** `npm test` → `node check.js`\n- **Result:** **PASSED** ✓\n\nThe project's test suite executed successfully with exit code 0."
+    },
+    "baseline": {
+      "arm": "baseline",
+      "pair_id": "baseline-environment-detection-1788476916372-b71c64",
+      "harness_loaded": false,
+      "loaded_skills": [],
+      "attribution_required": false,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-environment-detection-cc9zPb",
+      "fixture_sha256": "8431bd84fc7c1b4c8a332cd4a462b86e09b7ed6002f3dc2542911ff005914b01",
+      "prompt_sha256": "6169f69d131ec1b2fa51aaa866de6ba7821945fc58dac7ab6e97d4698a700aae",
+      "cost": 0.0243547,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-environment-detection-cc9zPb.transcript.json",
+      "usage": {
+        "input_tokens": 34,
+        "cache_creation_input_tokens": 5293,
+        "cache_read_input_tokens": 78607,
+        "output_tokens": 976,
+        "output_tokens_details": {
+          "thinking_tokens": 347
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 5293,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 151,
+            "cache_read_input_tokens": 21303,
+            "cache_creation_input_tokens": 255,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 255
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 17898,
+      "num_turns": 7,
+      "expectations": [
+        {
+          "description": "ran the environment-detection preflight script before other commands",
+          "pass": false
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "## Environment Detection and Test Results\n\n**Operating System & Shell:**\n- **OS**: Windows 11 Home (version 10.0.26200.0)\n- **Shell**: PowerShell 5.1.26100.9168 (Windows PowerShell)\n\n**Project Type:**\n- Node.js project with `npm test` as the test command\n\n**Test Result:**\n✅ **PASSED** - The test executed successfully and returned \"ok\"\n\nThe project's test command (`npm test` → `node check.js`) ran without errors."
+    }
+  },
+  "verdict": "INEFFECTIVE",
+  "date": "2026-09-03T23:09:30.069Z"
+}

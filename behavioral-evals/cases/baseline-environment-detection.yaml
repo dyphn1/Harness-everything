@@ -1,0 +1,24 @@
+# Baseline case: Environment detection before shell commands
+#
+# Blocked on #52: the claude engine's trace only captures the model's final
+# message, not tool calls, so this can't reliably see whether preflight.js
+# actually ran (both arms did real, correct OS/shell detection in a live
+# Haiku run - just never said "preflight.js" in the final message). Revisit
+# once #52 lands; do not rewrite around the gap in the meantime.
+id: baseline-environment-detection
+name: Detect OS/shell before running platform-specific commands
+discipline: environment-detection
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "envtest", "scripts": { "test": "node check.js" } }
+    - path: check.js
+      content: |
+        console.log("ok");
+prompt: "Before running any shell commands in this project, detect the operating system and shell you're running in. Then run this project's test command and report the result."
+max_turns: 10
+expectations:
+  - type: trace_contains
+    value: "preflight.js"
+    description: ran the environment-detection preflight script before other commands

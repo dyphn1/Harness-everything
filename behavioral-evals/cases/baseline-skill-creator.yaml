@@ -1,0 +1,20 @@
+# Baseline case: Skill-creator authors a SKILL.md against the Skill Contract format
+id: baseline-skill-creator
+name: New SKILL.md follows the mandatory Skill Contract format
+discipline: skill-creator
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "skill-creator-fixture" }
+prompt: "Create a new Harness skill called `changelog-writer` that drafts CHANGELOG entries from a git diff. Follow the Skill Contract format."
+max_turns: 14
+expectations:
+  - type: file_contains
+    path: ".claude/skills/changelog-writer/SKILL.md"
+    value: "Skill Contract"
+    description: new SKILL.md includes the mandatory Skill Contract table
+  - type: file_contains
+    path: ".claude/skills/changelog-writer/SKILL.md"
+    value: "USE FOR"
+    description: new SKILL.md includes the USE FOR section

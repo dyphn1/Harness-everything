@@ -1,0 +1,29 @@
+# Baseline case: Multi-agent workspace scaffold stays inside .harness/multi-agent/
+#
+# The trace_contains "scaffold.js" expectation is blocked on #52 (final
+# message only, not tool calls). The command_exit_0 directory check is
+# unaffected.
+#
+# Live run showed the original prompt was genuinely underspecified: the
+# skill's own Workflow step 1 ("Discover the target stack, source
+# availability, requested platform, divisions, and agents") correctly asked
+# clarifying questions instead of guessing, so a single headless turn never
+# reached scaffolding. Gave the prompt concrete answers to those questions.
+# Unverified by a live run - re-check before trusting a result on this case.
+id: baseline-multi-agent-workspace
+name: Scaffold a bounded multi-agent workspace via the script, not ad hoc
+discipline: multi-agent-workspace
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "multi-agent-workspace-fixture" }
+prompt: "This is a Tier 3 macro task that needs multiple bounded specialists: implement a REST API with a code-review pass and a security-review pass before merge. Divisions needed: engineering, security. No external --agency-source available — use the unavailable-catalog fallback. Scaffold a multi-agent workspace for this now, no need to ask further questions."
+max_turns: 18
+expectations:
+  - type: trace_contains
+    value: "scaffold.js"
+    description: ran the multi-agent-workspace scaffold script rather than improvising
+  - type: command_exit_0
+    command: "test -d .harness/multi-agent"
+    description: scaffold wrote only under the declared .harness/multi-agent/ path

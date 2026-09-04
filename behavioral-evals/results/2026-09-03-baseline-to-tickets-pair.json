@@ -1,0 +1,141 @@
+{
+  "id": "baseline-to-tickets",
+  "pair_id": "baseline-to-tickets-1788478735771-78595b",
+  "engine": "claude",
+  "model": "haiku",
+  "pressure": false,
+  "pressure_category": null,
+  "sample_unit": "paired case",
+  "arm_order": [
+    "treatment",
+    "baseline"
+  ],
+  "fixture_sha256": "ef406aa28eac1daf9b45c7086e412419fdb2dda269b00e1dd3511a2345c25f40",
+  "prompt_sha256": "6e8e15097f97cce6b88a08d3bc3bbcd07f50aa7a9acf74d26f6856896491b5ec",
+  "arms": {
+    "treatment": {
+      "arm": "treatment",
+      "pair_id": "baseline-to-tickets-1788478735771-78595b",
+      "harness_loaded": true,
+      "loaded_skills": [
+        "to-tickets"
+      ],
+      "attribution_required": true,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-to-tickets-61aGWj",
+      "fixture_sha256": "ef406aa28eac1daf9b45c7086e412419fdb2dda269b00e1dd3511a2345c25f40",
+      "prompt_sha256": "6e8e15097f97cce6b88a08d3bc3bbcd07f50aa7a9acf74d26f6856896491b5ec",
+      "cost": 0.05141370000000001,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-to-tickets-61aGWj.transcript.json",
+      "usage": {
+        "input_tokens": 59,
+        "cache_creation_input_tokens": 11585,
+        "cache_read_input_tokens": 169847,
+        "output_tokens": 2240,
+        "output_tokens_details": {
+          "thinking_tokens": 737
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 11585,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 209,
+            "cache_read_input_tokens": 26973,
+            "cache_creation_input_tokens": 877,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 877
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 42122,
+      "num_turns": 11,
+      "expectations": [
+        {
+          "description": "published tickets declare a blocking edge (checked in the ticket file itself, not chat text - the claude engine's trace only captures the final message, see #52)",
+          "pass": true
+        },
+        {
+          "description": "tickets reference the actual work items from the plan",
+          "pass": true
+        }
+      ],
+      "outcome": "pass",
+      "tool_call_count": 0,
+      "trace_preview": "✅ **Published 2 tickets to `.claude/tickets/`:**\n\n1. **`01-add-input-validation-signup-form.md`** — No dependencies\n   - Email, password, username validation (client & server)\n   - Real-time error feedback\n   - Ready for downstream work\n\n2. **`02-send-welcome-email-after-signup.md`** — Blocked by ticket 1\n   - Sends welcome email after successful signup\n   - Includes account confirmation and onboarding info\n   - Graceful error handling\n\nBoth tickets use cross-references (`[[01-...]]`, `[[02-...]"
+    },
+    "baseline": {
+      "arm": "baseline",
+      "pair_id": "baseline-to-tickets-1788478735771-78595b",
+      "harness_loaded": false,
+      "loaded_skills": [],
+      "attribution_required": false,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-to-tickets-dckXPF",
+      "fixture_sha256": "ef406aa28eac1daf9b45c7086e412419fdb2dda269b00e1dd3511a2345c25f40",
+      "prompt_sha256": "6e8e15097f97cce6b88a08d3bc3bbcd07f50aa7a9acf74d26f6856896491b5ec",
+      "cost": 0.037103500000000005,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-to-tickets-dckXPF.transcript.json",
+      "usage": {
+        "input_tokens": 64,
+        "cache_creation_input_tokens": 7567,
+        "cache_read_input_tokens": 149425,
+        "output_tokens": 1187,
+        "output_tokens_details": {
+          "thinking_tokens": 532
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 7567,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 121,
+            "cache_read_input_tokens": 23692,
+            "cache_creation_input_tokens": 140,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 140
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 17774,
+      "num_turns": 8,
+      "expectations": [
+        {
+          "description": "published tickets declare a blocking edge (checked in the ticket file itself, not chat text - the claude engine's trace only captures the final message, see #52)",
+          "pass": false
+        },
+        {
+          "description": "tickets reference the actual work items from the plan",
+          "pass": false
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "Done. Two tracer-bullet tickets published:\n\n- **#1** [pending] Add input validation to the signup form\n- **#2** [pending] Send a welcome email after signup — blocked by #1\n\nTask #2 won't be startable until #1 is completed."
+    }
+  },
+  "verdict": "EFFECTIVE",
+  "date": "2026-09-03T23:40:01.942Z"
+}

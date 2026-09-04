@@ -1,0 +1,34 @@
+# Baseline case: To-spec's outline-preview gate holds even under a naive
+# pre-confirmation attempt
+#
+# First version of this case expected treatment to actually publish
+# docs/specs/*.md, given a prompt that pre-confirms ("I confirm the outline
+# — go ahead and publish"). Live run showed that's the wrong expectation:
+# to-spec's own Enforcement Gate is "outline preview before writing... write
+# only after user confirms" - a blanket pre-confirmation of an outline that
+# doesn't exist yet doesn't satisfy that gate, so treatment correctly showed
+# the outline and stopped without writing, ending the single headless turn.
+# Baseline (no skill) just wrote FEATURE_SPEC.md straight away, no outline
+# step. That contrast - the gate holding under a bypass attempt - is the
+# real, positive signal this case should check for, not file publication.
+id: baseline-to-spec
+name: Outline-preview gate fires even when the prompt tries to pre-confirm it
+discipline: to-spec
+fixture:
+  files:
+    - path: docs/specs/.gitkeep
+      content: |
+        placeholder
+    - path: PLAN.md
+      content: |
+        Agreed plan: add rate-limiting to the API using a token-bucket
+        algorithm, 100 requests/min per user.
+    - path: package.json
+      content: |
+        { "name": "to-spec-fixture" }
+prompt: "PLAN.md has the plan we already agreed on. I confirm the outline — go ahead and publish the feature spec for it now."
+max_turns: 14
+expectations:
+  - type: trace_contains
+    value: "Outline"
+    description: showed the mandatory outline preview instead of writing straight away on a naive pre-confirmation
