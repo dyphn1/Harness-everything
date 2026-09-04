@@ -28,12 +28,12 @@ SKILL.md authoring and audit.
 | **Trigger / Input** | New skill; SKILL.md audit; self-evolve packaging. |
 | **Expected Output** | SKILL.md passing the Quality Checklist. |
 | **State Mutations** | Writes `<skill>/SKILL.md`; updates registry/generated folder. |
-| **Enforcement Gate** | Quality Checklist complete before registering. |
+| **Enforcement Gate** | Quality Checklist complete before registering; `<skills-repo-root>/ci/consistency-check.js` (`npm run test:consistency`) enforces frontmatter + the `## USE FOR:`/`## DO NOT USE FOR:` sections on every static skill. |
 
 ## Authoring Workflow
 
 1. Grep the registry for near-duplicates; the when-to-fire sentence becomes the frontmatter description.
-2. Draft the Contract table first (forces the Enforcement Gate), then steps/flat reference; push branch-only detail to references/.
+2. Draft the Contract table first (forces the Enforcement Gate), then the `## USE FOR:` / `## DO NOT USE FOR:` trigger sections (required by `<skills-repo-root>/ci/consistency-check.js`, not optional), then steps/flat reference; push branch-only detail to references/.
 3. A/B-test via `multi-agent-workspace` subagents; read both transcripts.
 4. Run the Quality Checklist; register (static row quotes the description; dynamic below).
 
