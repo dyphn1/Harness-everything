@@ -22,15 +22,17 @@ Load `references/memory-resolution.md` on demand for the decision matrix, fallba
 | **Trigger / Input** | Resolved struggle, zoom-out recovery, or explicit request; caller supplies evidence and root cause. |
 | **Expected Output** | Persisted rule in existing memory or registered dynamic skill. |
 | **State Mutations** | Updates the selected workspace memory or generated-skill manifest. |
-| **Enforcement Gate** | Deduplication, self-regression, and the 60-line routing rule pass before persistence. |
+| **Enforcement Gate** | `persist-memory.js`'s dedup + quality-score (≥5/10) gate for simple rules; the 60-line routing rule; `self-regression.js` only when registering a dynamic skill in this repo. |
 
 ## Core Workflow
 
+This skill's output is `memories/repo/RULES.md` (or the fallback below) — not any other memory feature the host agent may have. Write there.
+
 1. Prefer existing `MEMORY.md`/`RULES.md`/`CLAUDE.md`/`AGENTS.md`.
 2. Route the lesson:
-   - Simple rule (constraint/tip) → `memories/repo/RULES.md`, else `.github/harness-everything/memories/RULES.md`; use `persist-memory.js`.
+   - Simple rule (constraint/tip) → run `node "<this-skill-dir>/scripts/persist-memory.js" "<generalized rule>"`. It appends to `memories/repo/RULES.md` (else `.github/harness-everything/memories/RULES.md`) and self-gates on dedup + quality score — no other check applies.
    - Reusable procedure → follow `skill-creator/SKILL.md`, then register with `register-dynamic-skill.js` in every platform `manifest.json`.
-3. Run `self-regression.js` before persisting. Never persist without it.
+3. Only inside a Harness-everything checkout (this repo, not a host project): run `self-regression.js` (`npm test`) before registering a dynamic skill or editing this repo's own files. It validates this repo's CI, not the host workspace — never run it, or gate on it, elsewhere.
 
 ## USE FOR:
 - Lesson after hard debugging recovery

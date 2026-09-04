@@ -51,7 +51,10 @@ For a simple rule, persist only the generalized constraint or tip. For a reusabl
      - **Index Pointer & Lazy Loading**: Add a single-line link/pointer in the primary `MEMORY.md` (e.g. `- [DB Migration Rules](memories/rules/db-migration.md)`). Future agent sessions will lazy-load the sub-memory file only when touching that specific domain.
 
 3. **Script Tooling Fallback**:
-   If Node.js and `persist-memory.js` are executable, run `node "<this-skill-dir>/scripts/persist-memory.js" "<rule>"`. If script execution fails or is unavailable, use the agent's file tools or memory API directly.
+   If Node.js and `persist-memory.js` are executable, run `node "<this-skill-dir>/scripts/persist-memory.js" "<rule>"`. If script execution fails or is unavailable, use the agent's file tools to append the same content directly to `memories/repo/RULES.md`.
+
+4. **`self-regression.js` Is Not a Persistence Gate**:
+   `self-regression.js` (aliased `npm test`) runs the Harness-everything meta-repo's own CI — syntax-checking its shipped scripts, its routing matrix, its behavioral-case validation, its mechanism suite. It is relevant only when this skill is used to modify *this repo's own* skill/script files (e.g. registering a dynamic skill here). It does not gate, and cannot resolve, ordinary rule persistence to a host workspace's `memories/repo/RULES.md` — `persist-memory.js`'s own dedup + quality-score check is the complete gate for that path, as the flow above shows (`RunScript --> Done`, no self-regression step).
 
 ## Purpose
 
