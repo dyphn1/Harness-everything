@@ -5,6 +5,7 @@
 A skill isn't done until every line here is true. This is deliberately a flat checklist, not steps — check them in any order, but check all of them.
 
 - [ ] **Skill Contract table present and accurate** — all four rows; Enforcement Gate names a real script/exit-code or an explicit "None" if the skill is pure reference.
+- [ ] **`## USE FOR:` and `## DO NOT USE FOR:` sections present**, each a flat bullet list starting on its own line (`^## USE FOR:` / `^## DO NOT USE FOR:`). Required by `<skills-repo-root>/ci/consistency-check.js` (`npm run test:consistency`) — missing either fails the repo's own consistency gate, not just this checklist.
 - [ ] **Single source of truth**: the frontmatter `description` is the *only* place this skill's purpose is originally written. The registry row and any `tier-router.js` line quote or tightly paraphrase it — they don't independently re-describe the skill.
 - [ ] **No block over ~5 lines duplicated verbatim elsewhere** — in this file or in another always/near-always-loaded skill. (`install-cognitive-os` vs. `harness-everything`'s 33-line ADHD-output block, flagged in the audit report, is the canonical counter-example — don't add a second one.)
 - [ ] **Every `MUST`/`MUST NOT`/`PROHIBITED` has a real gate behind it**, or is rewritten as a positive statement of the target behavior. A prohibition with no gate and no "why" sentence next to it is a smell, not a strength.

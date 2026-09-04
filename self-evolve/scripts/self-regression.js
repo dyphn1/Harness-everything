@@ -13,6 +13,19 @@ const fs = require('fs');
 const projectRoot = path.resolve(__dirname, '..', '..');
 let hasErrors = false;
 
+// This suite validates the Harness-everything meta-repo's own CI. It is not
+// a gate for self-evolve's ordinary rule persistence in a host workspace
+// (see self-evolve/SKILL.md Core Workflow step 3) and cannot resolve there —
+// skip gracefully instead of failing on missing sibling files/folders.
+let pkgName = null;
+try {
+  pkgName = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')).name;
+} catch (e) {}
+if (pkgName !== 'harness-everything') {
+  console.log('self-regression.js validates the Harness-everything repo\'s own CI; this workspace is not that repo, so there is nothing to check here. Skipping.');
+  process.exit(0);
+}
+
 console.log('=================================================');
 console.log('     Harness OS - Self-Regression Test Suite     ');
 console.log('=================================================');

@@ -1,0 +1,80 @@
+{
+  "id": "baseline-self-evolve",
+  "pair_id": "baseline-self-evolve-1788488006972-30cf13",
+  "engine": "claude",
+  "model": "claude-default",
+  "pressure": false,
+  "pressure_category": null,
+  "sample_unit": "paired case",
+  "arm_order": [
+    "treatment"
+  ],
+  "fixture_sha256": "c73314fbabd443e15e4b2c2efd54e89b1138437df8b011d166010b4453bf7e00",
+  "prompt_sha256": "5edc3845a295e25a35ffd5736cf7d62bcff45215623345a2b31096d42c8f11eb",
+  "arms": {
+    "treatment": {
+      "arm": "treatment",
+      "pair_id": "baseline-self-evolve-1788488006972-30cf13",
+      "harness_loaded": true,
+      "loaded_skills": [
+        "self-evolve"
+      ],
+      "attribution_required": true,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-self-evolve-Rw2Znl",
+      "fixture_sha256": "c73314fbabd443e15e4b2c2efd54e89b1138437df8b011d166010b4453bf7e00",
+      "prompt_sha256": "5edc3845a295e25a35ffd5736cf7d62bcff45215623345a2b31096d42c8f11eb",
+      "cost": 0.0922722,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-self-evolve-Rw2Znl.transcript.json",
+      "usage": {
+        "input_tokens": 12,
+        "cache_creation_input_tokens": 11532,
+        "cache_read_input_tokens": 183251,
+        "output_tokens": 947,
+        "output_tokens_details": {
+          "thinking_tokens": 233
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 11532,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 76,
+            "cache_read_input_tokens": 33344,
+            "cache_creation_input_tokens": 334,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 334
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 20612,
+      "num_turns": 7,
+      "expectations": [
+        {
+          "description": "invoked self-evolve's persistence script rather than editing memory files ad hoc",
+          "pass": false
+        },
+        {
+          "description": "a rule about the cache root cause was persisted",
+          "pass": true
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "Persisted the defensive rule to `memories/repo/RULES.md` (quality 7/10): always key build-script file caches by content hash, not filename/path alone, since filename-only keys collide across renames and silently serve stale content."
+    }
+  },
+  "verdict": null,
+  "date": "2026-09-04T02:13:50.448Z"
+}
