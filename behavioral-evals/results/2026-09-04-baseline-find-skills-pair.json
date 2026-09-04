@@ -1,0 +1,141 @@
+{
+  "id": "baseline-find-skills",
+  "pair_id": "baseline-find-skills-1788483935610-fa4f05",
+  "engine": "claude",
+  "model": "haiku",
+  "pressure": false,
+  "pressure_category": null,
+  "sample_unit": "paired case",
+  "arm_order": [
+    "treatment",
+    "baseline"
+  ],
+  "fixture_sha256": "c718a78a5d2410c1e6a6649a204a8ff60f8bf8a210b961248b849b77249f0503",
+  "prompt_sha256": "454afa7510c4852ae80b2d918e60e2b05999882a0ade979e1b63d646cae37f86",
+  "arms": {
+    "treatment": {
+      "arm": "treatment",
+      "pair_id": "baseline-find-skills-1788483935610-fa4f05",
+      "harness_loaded": true,
+      "loaded_skills": [
+        "find-skills"
+      ],
+      "attribution_required": true,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-find-skills-lngmKS",
+      "fixture_sha256": "c718a78a5d2410c1e6a6649a204a8ff60f8bf8a210b961248b849b77249f0503",
+      "prompt_sha256": "454afa7510c4852ae80b2d918e60e2b05999882a0ade979e1b63d646cae37f86",
+      "cost": 0.0459151,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-find-skills-lngmKS.transcript.json",
+      "usage": {
+        "input_tokens": 54,
+        "cache_creation_input_tokens": 11432,
+        "cache_read_input_tokens": 144991,
+        "output_tokens": 1257,
+        "output_tokens_details": {
+          "thinking_tokens": 310
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 11432,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 347,
+            "cache_read_input_tokens": 27305,
+            "cache_creation_input_tokens": 392,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 392
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 47010,
+      "num_turns": 8,
+      "expectations": [
+        {
+          "description": "searched the external skill ecosystem via npx skills find",
+          "pass": false
+        },
+        {
+          "description": "did not install anything without explicit approval",
+          "pass": true
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "## Summary\n\nI found **16 changelog skills** in the ecosystem. The top contenders are:\n\n### **🏆 `alirezarezvani/claude-skills@changelog-generator`** (619 installs)\n- **Purpose**: Automates release notes from Conventional Commits\n- **Inputs**: Commit messages (git ranges or direct input)\n- **Outputs**: Semantic version bumps + Keep a Changelog formatted sections + JSON for CI\n- **Features**: Parses Conventional Commits, auto-detects semantic versioning (major/minor/patch), renders changelog secti"
+    },
+    "baseline": {
+      "arm": "baseline",
+      "pair_id": "baseline-find-skills-1788483935610-fa4f05",
+      "harness_loaded": false,
+      "loaded_skills": [],
+      "attribution_required": false,
+      "workspace": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-find-skills-IBVjzW",
+      "fixture_sha256": "c718a78a5d2410c1e6a6649a204a8ff60f8bf8a210b961248b849b77249f0503",
+      "prompt_sha256": "454afa7510c4852ae80b2d918e60e2b05999882a0ade979e1b63d646cae37f86",
+      "cost": 0.014800500000000001,
+      "transcript": "C:\\Users\\user\\AppData\\Local\\Temp\\harness-behavioral-baseline-find-skills-IBVjzW.transcript.json",
+      "usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 3971,
+        "cache_read_input_tokens": 16265,
+        "output_tokens": 843,
+        "output_tokens_details": {
+          "thinking_tokens": 556
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 3971,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 10,
+            "output_tokens": 843,
+            "cache_read_input_tokens": 16265,
+            "cache_creation_input_tokens": 3971,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 3971
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 10653,
+      "num_turns": 1,
+      "expectations": [
+        {
+          "description": "searched the external skill ecosystem via npx skills find",
+          "pass": false
+        },
+        {
+          "description": "did not install anything without explicit approval",
+          "pass": true
+        }
+      ],
+      "outcome": "fail",
+      "tool_call_count": 0,
+      "trace_preview": "I don't have a direct tool to search an external skills ecosystem — the skills available to me are the ones listed in the system environment, which are Claude Code's built-in skills.\n\nHowever, I can help in a couple of ways:\n\n1. **WebSearch for existing solutions**: I could search for changelog generation tools, GitHub actions, or scripts that work with git diffs. Would you like me to do that to find general approaches (not necessarily Claude Code skills, but tools you could integrate)?\n\n2. **Ch"
+    }
+  },
+  "verdict": "INEFFECTIVE",
+  "date": "2026-09-04T01:06:41.150Z"
+}
