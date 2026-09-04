@@ -1,4 +1,14 @@
 # Baseline case: find-skills search-then-approval gate
+#
+# The trace_contains "npx skills find" expectation is blocked on #52: the
+# claude engine's trace only captures the model's final message, not tool
+# calls. Confirmed live (2026-09-04, post permission-mode fix): treatment
+# actually ran a real search (found 16 real changelog skills, presented
+# them, never auto-applied - the skill worked correctly) but the final
+# message never echoes the literal command, so this check fails regardless.
+# An earlier round (pre permission-fix) reported this case EFFECTIVE - that
+# was a false positive from a denied tool call whose permission-request text
+# happened to mention "npx skills find"; see PR #51 and #52 for the record.
 id: baseline-find-skills
 name: Search external skill ecosystem, never apply without explicit approval
 discipline: find-skills
