@@ -7,38 +7,43 @@ metadata:
   version: 0.3.6
 ---
 
-# Test-Driven Development (TDD) Mode
+# Test-Driven Development
 
-## 📋 Skill Contract
+**ROUTER:** Select unit or integration evidence before RED/GREEN/REFACTOR.
+
+## Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Tier 2 task; feature or bug requirement. |
-| **Expected Output** | Failing test (RED), minimal code (GREEN), refactor. |
-| **State Mutations** | Native host TODO tracker or Markdown checklist (`tasks/todo.md`). |
-| **Enforcement Gate** | `npm test` / `pytest`; >3 GREEN failures force `zoom-out`. |
-
-## TDD Discipline (Red-Green-Refactor)
-
-Every phase obeys the **Evidence Assertion Law**: real test logs prove pass/fail; assumed passes are PROHIBITED.
-
-1. **RED**: write the failing test; confirm it fails (a pass means wrong test or no bug).
-2. **GREEN**: minimal code just enough to pass; re-run until green.
-3. **REFACTOR**: optimize naming/duplication/performance with green tests. **Code-Doc Alignment Law**: code matches contracts, no cheating mocks; audit vs `todo-driven-workflow` checklist; re-run tests each change.
-
-## Circuit Breaker
-3 straight GREEN failures: call `zoom-out`; fact-check each attempt's assumptions (including the RED test's own expectation); resume fresh; human only for genuine decisions.
-
-Guides: `tdd/guides/{mocking,interface-design,deep-modules,tests,refactoring}.md`.
+| **Trigger / Input** | Tier 2 feature, bugfix, or behavior-preserving refactor. |
+| **Expected Output** | RED/GREEN logs and a profile-tagged quality report. |
+| **State Mutations** | Tests, implementation, TODO state, and optional report JSON. |
+| **Enforcement Gate** | Project tests plus `npm run tdd:quality -- <evidence.json>`; exit 1 blocks completion. |
 
 ## USE FOR:
-- implement this feature test-first
-- fix this bug with a regression test
-- prove this change works
-- refactor safely under tests
+- implementing behavior test-first
+- bug regression tests
+- safe refactors under tests
 
 ## DO NOT USE FOR:
-- macro planning or scaffolding (use `fable-mode`)
-- prototyping or docs-only work with no testable logic
+- macro planning or scaffolding
+- docs-only or non-testable work
 
-Deep dive: references/core-discipline.md
+## Route the Behavior
+
+```mermaid
+flowchart TD
+  B[Behavior under test] --> X{Crosses process, filesystem, database, network, or service boundary?}
+  X -- No --> U[Unit profile]
+  X -- Yes --> I[Integration profile]
+  U --> R[RED -> GREEN -> REFACTOR]
+  I --> R
+  R --> S[Run tests + score evidence]
+  S --> P{Score 100 and all gates pass?}
+  P -- No --> R
+  P -- Yes --> D[Done]
+```
+
+Read [core discipline](references/core-discipline.md) and the [common quality contract](references/quality-model.md), then load only [unit testing](references/unit-testing.md) or [integration testing](references/integration-testing.md). If a task needs both, record separate requirements; never merge their applicability rules.
+
+After three failed GREEN attempts, invoke `zoom-out` before another edit.

@@ -1,0 +1,20 @@
+{
+  "baseFixture": "pass-evidence.json",
+  "description": "Focused mutations used to audit every required issue #58 outcome without duplicating the full evidence document.",
+  "scenarios": [
+    { "name": "PASS", "mutation": "none", "expectedResult": "PASS" },
+    { "name": "unit profile", "mutation": "testProfile = unit and determinism is reasoned N/A", "expectedResult": "PASS" },
+    { "name": "integration profile", "mutation": "testProfile = integration and determinism has two matching runs", "expectedResult": "PASS" },
+    { "name": "weighted integration failure", "mutation": "the 0.15 positive dimension scores zero", "expectedScore": 85, "expectedResult": "FAIL" },
+    { "name": "weighted unit failure", "mutation": "unit determinism is N/A and the 0.15 positive dimension scores zero", "expectedScore": 83.33, "expectedResult": "FAIL" },
+    { "name": "NON_CONFORMANT", "mutation": "sourceConformance = NON_CONFORMANT", "expectedResult": "FAIL" },
+    { "name": "SOURCE_DEFECT", "mutation": "sourceValidity = SOURCE_DEFECT and sourceNotes is present", "expectedResult": "PASS" },
+    { "name": "SOURCE_CONFLICT", "mutation": "sourceValidity = SOURCE_CONFLICT with a traced additional source", "expectedResult": "FAIL" },
+    { "name": "malformed input", "mutation": "requirements is not an array", "expectedResult": "FAIL" },
+    { "name": "unexpected input", "mutation": "one unexpectedInput check is FAIL", "expectedResult": "FAIL" },
+    { "name": "error handling", "mutation": "one errorHandling check is SKIPPED", "expectedResult": "FAIL" },
+    { "name": "nondeterministic output", "mutation": "run-2 output differs from run-1", "expectedResult": "FAIL" },
+    { "name": "auditable N/A", "mutation": "a check is N/A with a written reason", "expectedResult": "PASS" },
+    { "name": "skipped test", "mutation": "a required check is SKIPPED", "expectedResult": "FAIL" }
+  ]
+}

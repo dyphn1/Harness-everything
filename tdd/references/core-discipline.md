@@ -22,6 +22,8 @@ flowchart TD
 
 When this skill is loaded, you MUST suppress the urge to write implementation code directly, and strictly follow these three phases.
 
+For public behavior, RED/GREEN evidence is necessary but not sufficient. Apply the machine-verifiable matrix, source-conformance policy, determinism comparison, and mandatory gates in `quality-model.md` before completion.
+
 **Evidence Assertion (Law of Evidence Assertion - 證據斷言定律)**:
 During each TDD phase (RED, GREEN, REFACTOR), you MUST present actual terminal test execution logs showing the exact test failure or pass. Claiming progress or success based on "assumed" passes is strictly PROHIBITED; you must assert outcomes with hard, objective evidence.
 
