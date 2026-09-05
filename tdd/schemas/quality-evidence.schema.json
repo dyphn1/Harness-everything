@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dyphn1/Harness-everything/tdd/schemas/quality-evidence.schema.json",
+  "title": "Harness TDD quality evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "requirements"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/requirement" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": ["type", "status"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["AUTHORITATIVE", "INFERRED"] },
+        "path": { "type": "string", "minLength": 1 },
+        "section": { "type": "string", "minLength": 1 },
+        "inferenceBasis": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "AUTHORITATIVE" } } },
+          "then": {
+            "required": ["path", "section"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "section": { "type": "string", "minLength": 1 }
+            }
+          },
+          "else": {
+            "required": ["inferenceBasis"],
+            "properties": { "inferenceBasis": { "type": "string", "minLength": 1 } }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "check": {
+      "type": "object",
+      "required": ["id", "class", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "class": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["PASS", "FAIL", "SKIPPED", "N/A"] },
+        "evidence": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "N/A" } } },
+          "then": {
+            "required": ["reason"],
+            "properties": { "reason": { "type": "string", "minLength": 1 } }
+          },
+          "else": {
+            "required": ["evidence"],
+            "properties": { "evidence": { "type": "string", "minLength": 1 } }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "checkDimension": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["applicable", "checks"],
+          "properties": {
+            "applicable": { "const": true },
+            "checks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/check" } }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["applicable", "reason"],
+          "properties": {
+            "applicable": { "const": false },
+            "reason": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "sideEffects": {
+      "type": "object",
+      "required": ["createdFiles", "changedFiles", "deletedFiles", "persistentState", "events", "logs", "externalCalls"],
+      "properties": {
+        "createdFiles": { "type": "array" },
+        "changedFiles": { "type": "array" },
+        "deletedFiles": { "type": "array" },
+        "persistentState": {},
+        "events": { "type": "array" },
+        "logs": { "type": "array" },
+        "externalCalls": { "type": "array" }
+      },
+      "additionalProperties": false
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "input", "exitStatus", "errorCategory", "output", "sideEffects"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "input": {},
+        "exitStatus": { "type": "integer" },
+        "errorCategory": { "type": ["string", "null"] },
+        "output": {},
+        "sideEffects": { "$ref": "#/$defs/sideEffects" }
+      }
+    },
+    "normalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "rule", "sourceSection"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^(output|sideEffects)\\." },
+        "rule": { "type": "string", "minLength": 1 },
+        "sourceSection": { "type": "string", "minLength": 1 }
+      }
+    },
+    "determinism": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["applicable", "runs", "normalizations"],
+          "properties": {
+            "applicable": { "const": true },
+            "runs": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/run" } },
+            "normalizations": { "type": "array", "items": { "$ref": "#/$defs/normalization" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["applicable", "reason"],
+          "properties": {
+            "applicable": { "const": false },
+            "reason": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirementId", "testProfile", "source", "sourceConformance", "sourceValidity", "dimensions", "skippedTests", "naDeclarations"],
+      "properties": {
+        "requirementId": { "type": "string", "minLength": 1 },
+        "testProfile": { "enum": ["unit", "integration"] },
+        "source": { "$ref": "#/$defs/source" },
+        "additionalSources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+        "sourceConformance": { "enum": ["PASS", "NON_CONFORMANT"] },
+        "sourceValidity": { "enum": ["VALID", "SOURCE_DEFECT", "SOURCE_CONFLICT"] },
+        "sourceNotes": { "type": "string", "minLength": 1 },
+        "skippedTests": { "type": "array" },
+        "flakyTests": { "type": "array" },
+        "naDeclarations": { "type": "array" },
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["positiveParameters", "negativeParameters", "inputCompleteness", "outputCompleteness", "errorHandling", "unexpectedInput", "determinism", "sourceTraceability"],
+          "properties": {
+            "positiveParameters": { "$ref": "#/$defs/checkDimension" },
+            "negativeParameters": { "$ref": "#/$defs/checkDimension" },
+            "inputCompleteness": { "$ref": "#/$defs/checkDimension" },
+            "outputCompleteness": { "$ref": "#/$defs/checkDimension" },
+            "errorHandling": { "$ref": "#/$defs/checkDimension" },
+            "unexpectedInput": { "$ref": "#/$defs/checkDimension" },
+            "determinism": { "$ref": "#/$defs/determinism" },
+            "sourceTraceability": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["applicable"],
+              "properties": { "applicable": { "const": true } }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["testProfile"],
+            "properties": { "testProfile": { "const": "integration" } }
+          },
+          "then": {
+            "properties": {
+              "dimensions": {
+                "type": "object",
+                "properties": {
+                  "determinism": {
+                    "type": "object",
+                    "properties": { "applicable": { "const": true } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

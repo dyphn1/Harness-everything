@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "1.0.0",
+  "requirements": [
+    {
+      "requirementId": "REQ-001",
+      "testProfile": "integration",
+      "source": {
+        "type": "SPEC",
+        "path": "docs/example.md",
+        "section": "Expected behavior",
+        "status": "AUTHORITATIVE"
+      },
+      "sourceConformance": "PASS",
+      "sourceValidity": "VALID",
+      "dimensions": {
+        "positiveParameters": {
+          "applicable": true,
+          "checks": [{ "id": "positive-supported", "class": "supported-partition", "status": "PASS", "evidence": "tests/example.test.js#positive" }]
+        },
+        "negativeParameters": {
+          "applicable": true,
+          "checks": [{ "id": "negative-rejected", "class": "rejected-partition", "status": "PASS", "evidence": "tests/example.test.js#negative" }]
+        },
+        "inputCompleteness": {
+          "applicable": true,
+          "checks": [
+            { "id": "input-required", "class": "required", "status": "PASS", "evidence": "tests/example.test.js#input-required" },
+            { "id": "input-optional", "class": "optional", "status": "PASS", "evidence": "tests/example.test.js#input-optional" },
+            { "id": "input-omitted", "class": "omitted", "status": "PASS", "evidence": "tests/example.test.js#input-omitted" },
+            { "id": "input-empty", "class": "empty", "status": "PASS", "evidence": "tests/example.test.js#input-empty" },
+            { "id": "input-null", "class": "null", "status": "PASS", "evidence": "tests/example.test.js#input-null" },
+            { "id": "input-min", "class": "min", "status": "PASS", "evidence": "tests/example.test.js#input-min" },
+            { "id": "input-max", "class": "max", "status": "PASS", "evidence": "tests/example.test.js#input-max" },
+            { "id": "input-boundary", "class": "boundary", "status": "PASS", "evidence": "tests/example.test.js#input-boundary" }
+          ]
+        },
+        "outputCompleteness": {
+          "applicable": true,
+          "checks": [
+            { "id": "output-value", "class": "value", "status": "PASS", "evidence": "tests/example.test.js#output-value" },
+            { "id": "output-type", "class": "type", "status": "PASS", "evidence": "tests/example.test.js#output-type" },
+            { "id": "output-schema", "class": "schema", "status": "PASS", "evidence": "tests/example.test.js#output-schema" },
+            { "id": "output-required-field", "class": "required-field", "status": "PASS", "evidence": "tests/example.test.js#output-required-field" },
+            { "id": "output-no-extra", "class": "prohibited-extra-field", "status": "PASS", "evidence": "tests/example.test.js#output-no-extra" },
+            { "id": "output-side-effect", "class": "side-effect", "status": "PASS", "evidence": "tests/example.test.js#output-side-effect" }
+          ]
+        },
+        "errorHandling": {
+          "applicable": true,
+          "checks": [
+            { "id": "error-type", "class": "error-type", "status": "PASS", "evidence": "tests/example.test.js#error-type" },
+            { "id": "error-code", "class": "error-code", "status": "PASS", "evidence": "tests/example.test.js#error-code" },
+            { "id": "error-message", "class": "message", "status": "PASS", "evidence": "tests/example.test.js#error-message" },
+            { "id": "error-cleanup", "class": "state-cleanup", "status": "PASS", "evidence": "tests/example.test.js#error-cleanup" },
+            { "id": "error-rollback", "class": "rollback", "status": "PASS", "evidence": "tests/example.test.js#error-rollback" },
+            { "id": "error-no-output", "class": "no-unintended-output", "status": "PASS", "evidence": "tests/example.test.js#error-no-output" }
+          ]
+        },
+        "unexpectedInput": {
+          "applicable": true,
+          "checks": [
+            { "id": "unexpected-malformed", "class": "malformed", "status": "PASS", "evidence": "tests/example.test.js#unexpected-malformed" },
+            { "id": "unexpected-unknown", "class": "unknown", "status": "PASS", "evidence": "tests/example.test.js#unexpected-unknown" },
+            { "id": "unexpected-extra", "class": "extra", "status": "PASS", "evidence": "tests/example.test.js#unexpected-extra" },
+            { "id": "unexpected-unsupported", "class": "unsupported", "status": "PASS", "evidence": "tests/example.test.js#unexpected-unsupported" },
+            { "id": "unexpected-range", "class": "out-of-range", "status": "PASS", "evidence": "tests/example.test.js#unexpected-range" },
+            { "id": "unexpected-duplicate", "class": "duplicate", "status": "PASS", "evidence": "tests/example.test.js#unexpected-duplicate" },
+            { "id": "unexpected-type", "class": "wrong-type", "status": "PASS", "evidence": "tests/example.test.js#unexpected-type" }
+          ]
+        },
+        "determinism": {
+          "applicable": true,
+          "runs": [
+            {
+              "id": "run-1",
+              "input": { "value": 1 },
+              "exitStatus": 0,
+              "errorCategory": null,
+              "output": { "value": 2 },
+              "sideEffects": { "createdFiles": [], "changedFiles": [], "deletedFiles": [], "persistentState": {}, "events": [], "logs": [], "externalCalls": [] }
+            },
+            {
+              "id": "run-2",
+              "input": { "value": 1 },
+              "exitStatus": 0,
+              "errorCategory": null,
+              "output": { "value": 2 },
+              "sideEffects": { "createdFiles": [], "changedFiles": [], "deletedFiles": [], "persistentState": {}, "events": [], "logs": [], "externalCalls": [] }
+            }
+          ],
+          "normalizations": []
+        },
+        "sourceTraceability": { "applicable": true }
+      },
+      "skippedTests": [],
+      "flakyTests": [],
+      "naDeclarations": []
+    }
+  ]
+}
