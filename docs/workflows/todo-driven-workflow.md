@@ -32,3 +32,36 @@ graph TD
 
 The repository has no TODO CLI state machine. This keeps progress portable,
 host-native, and transparent across sessions.
+
+## Blocker loop
+
+One milestone owns the active work. A failed check updates that milestone and
+returns to execution; it does not silently advance the rest of the list.
+
+```mermaid
+flowchart LR
+  Active[One milestone in progress] --> Execute[Execute bounded scope]
+  Execute --> Verify[Run named verification]
+  Verify -->|Pass| Record[Record evidence and complete]
+  Verify -->|Fail| Blocker[Record blocker and update plan]
+  Blocker --> Active
+  Record --> More{More milestones?}
+  More -->|Yes| Active
+  More -->|No| Done([Finish])
+```
+
+## Ownership state
+
+The checklist makes ownership visible from planning through completion.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Planned
+  Planned --> InProgress
+  InProgress --> Verifying
+  Verifying --> Complete: check passes
+  Verifying --> Blocked: check fails
+  Blocked --> InProgress: plan updated
+  Complete --> InProgress: milestones remain
+  Complete --> [*]: no milestones remain
+```

@@ -40,3 +40,39 @@ graph TD
   
   VerifyRefactor -->|Exit 0| End([Feature verified & completed])
 ```
+
+## Profile boundary
+
+The profile describes the boundary crossed by the behavior under test. The
+RED/GREEN/REFACTOR loop remains the same; only the evidence and fixtures
+change.
+
+```mermaid
+flowchart TD
+  Behavior[Behavior under test] --> Boundary{External process or service boundary?}
+  Boundary -->|No| Unit[Unit profile]
+  Boundary -->|Yes| Integration[Integration profile]
+  Unit --> Loop[RED -> GREEN -> REFACTOR]
+  Integration --> Loop
+  Loop --> Evidence[Run tests and score evidence]
+  Evidence -->|Gate fails| Loop
+  Evidence -->|All gates pass| Done([Verified behavior])
+```
+
+## Recovery state
+
+The circuit breaker limits repeated edits. A third failed GREEN attempt moves
+the work into `zoom-out`, where the assumptions are rebuilt before retrying.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Red
+  Red --> GreenAttempt
+  GreenAttempt --> Green: tests pass
+  GreenAttempt --> Retry: tests fail
+  Retry --> GreenAttempt: attempts one or two
+  Retry --> ZoomOut: attempt three
+  ZoomOut --> Red: assumptions rebuilt
+  Green --> Refactor
+  Refactor --> [*]
+```

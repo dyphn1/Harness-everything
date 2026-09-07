@@ -13,7 +13,7 @@ Record reusable root causes from resolved work.
 
 Boundary: the host agent supplies evidence and a generalized root cause; this skill classifies and persists it, and never scans host transcripts.
 
-Load `references/memory-resolution.md` on demand for the decision matrix, fallback paths, and dynamic-skill details.
+Deep dive: references/memory-resolution.md
 
 ## 📋 Skill Contract
 

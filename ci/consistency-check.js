@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { checkDisclosure } = require('./disclosure-check');
 
 const ROOT = path.resolve(__dirname, '..');
 let failures = 0;
@@ -133,6 +134,15 @@ function validateFrontmatterSyntax(raw, skillDir) {
 for (const s of skills) {
   validateFrontmatterSyntax(s.body, s.dir);
 }
+
+// --- 2b. Progressive-disclosure surface -------------------------------
+// Keep routed contracts, plain-language workflow docs, and lazy-loaded detail
+// paired. The standalone module is also exercised by focused mechanism tests.
+const disclosure = checkDisclosure(ROOT);
+for (const failure of disclosure.failures) {
+  check(`disclosure: ${failure.check}`, false, failure.detail);
+}
+console.log(`Checked disclosure for ${disclosure.skills.length} skill(s) and ${disclosure.workflows.length} workflow doc(s).`);
 
 // --- 3+4. Distribution manifests -----------------------------------------
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));

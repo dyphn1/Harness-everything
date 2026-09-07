@@ -34,3 +34,43 @@ flowchart TD
 If search, network, or application fails, report the failure and continue with
 the direct built-in solution. Never treat an unaudited third-party skill as a
 first-party Harness skill or add it to the static manifest.
+
+## Lazy-loading and trust boundary
+
+The local catalog is the first source of truth. A candidate is inspected
+before approval, and the detailed body is loaded only after the user agrees
+to apply it.
+
+```mermaid
+sequenceDiagram
+  participant Agent
+  participant Catalog as Local catalog
+  participant Search as skills.sh / npx
+  participant User
+  Agent->>Catalog: Check existing coverage
+  alt Covered locally
+    Catalog-->>Agent: Return the local skill
+  else Missing locally
+    Agent->>Search: Find candidates
+    Search-->>Agent: Return source and metadata
+    Agent->>User: Present candidate for approval
+    User-->>Agent: Approve or decline
+    Agent->>Agent: Load body only after approval
+  end
+```
+
+## Failure handling
+
+Search and application are optional edges. A failed edge returns control to a
+direct solution without changing the static catalog.
+
+```mermaid
+flowchart TD
+  Search[Search candidate] --> Inspect[Inspect source and trust signal]
+  Inspect -->|Unsafe or unclear| Decline[Decline and use built-in path]
+  Inspect -->|Acceptable| Approval{Human approval?}
+  Approval -->|No| Decline
+  Approval -->|Yes| Apply[Apply for the session]
+  Apply -->|Failure| Decline
+  Apply -->|Success| Verify[Verify the applied skill]
+```

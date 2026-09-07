@@ -46,8 +46,18 @@ Every path a `SKILL.md` names is checked by `node <skills-repo-root>/ci/referenc
 - **Markers cost tokens** against the 500-token `waza` hard limit, so spend them only where the base actually differs. The bare relative form is both the default and the cheapest.
 - A bare filename with no directory (`CONTEXT.md`, `package.json`) is prose and stays unchecked. Give it a directory when you mean a specific file.
 
-## 4. Avoid Functional Overlap
+## 4. Progressive Disclosure
+
+Keep each skill in three clear rungs:
+
+1. `SKILL.md` contains the trigger, contract, short imperative workflow, `USE FOR`/`DO NOT USE FOR`, and one valid `Deep dive:` entry point. Keep its body at or below 330 words, the local proxy for waza's 500-token limit.
+2. `docs/workflows/<skill>.md` explains the same workflow in plain language. It must contain at least one meaningful Mermaid diagram showing a real sequence, state change, or decision. Complex workflows need separate diagrams for distinct branches; repeated decorative graphs do not count.
+3. `references/` or `guides/` holds detailed procedures, examples, and checklists. Load these files only when the task reaches that detail.
+
+Do not put Mermaid source in `SKILL.md`, copy a full guide into the top-level file, or change a `description:` during a content-only rewrite. The description is a routing API and must remain byte-identical unless a routing change is intentional.
+
+## 5. Avoid Functional Overlap
 - **OS Skills vs. Domain Skills**: Distinguish between the OS layer (which routes and constrains behavior) and the Domain layer (which provides deep technical expertise).
 
-## 5. For the fuller authoring & quality workflow, see `skill-creator`
+## 6. For the fuller authoring & quality workflow, see `skill-creator`
 This document is the terse format spec — the Skill Contract table shape and the tone rules. For interviewing intent, drafting, testing a skill against real prompts, pruning duplication/no-op/sprawl, and the rules for skills `self-evolve` generates dynamically mid-session, load `skill-creator/SKILL.md` instead. It builds on this spec rather than replacing it.
