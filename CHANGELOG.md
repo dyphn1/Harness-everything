@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.7-beta] - Unreleased
+
+### Changed
+- Prepare the next beta for the reviewed open-issue implementations (#20, #37, #42, #43, #44, #52, #56). Individual changes and verification evidence are recorded as they are integrated.
+
+---
+
 ### Added
 - **Machine-verifiable TDD scoring gate** (`tdd/`, #58): the TDD skill routes behavior through a Mermaid path to separate unit or integration standards. Added profile-tagged source evidence, published canonical weights and calculation inputs, per-requirement and aggregate scores, mandatory PASS/FAIL gates, strict integration rerun comparison, auditable skip/N/A handling, and separate `NON_CONFORMANT`, `SOURCE_DEFECT`, and `SOURCE_CONFLICT` outcomes. `npm run tdd:quality -- <evidence.json> --output <report.json>` is the agent self-check; CI fixtures lock exact Unit and Integration scores plus malformed, incomplete, conflicting, skipped, and nondeterministic failures.
 - **`--model` support for the `claude` engine in `behavioral-evals/run.js`**: `BEHAVIORAL_MODEL` now also passes `--model <value>` to the `claude -p` invocation (previously only the `opencode` engine read it). Lets a live run target a specific model, e.g. `BEHAVIORAL_MODEL=haiku node behavioral-evals/run.js run --case <id> --arm both`.
