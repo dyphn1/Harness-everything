@@ -39,4 +39,4 @@ metadata:
 - **Tier 2:** Standard changes; use `todo-driven-workflow`, `tdd`, and `verification-loop`.
 - **Tier 3:** Macro work; use `fable-mode` and `fable-discipline`, select Haiku/Sonnet/Opus via the model matrix, and delegate through `multi-agent-workspace`.
 
-See `references/triage-and-tiers.md` for the full routing contract.
+Deep dive: references/triage-and-tiers.md

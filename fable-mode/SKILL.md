@@ -36,4 +36,4 @@ metadata:
 5. Write a stage contract, run its named check, then cold-review high-stakes artifacts with `fable-verifier`.
 6. Record requested/effective model, fallback reason, stage brief, pass condition, verification command, and verifier result for every stage. Escalate unresolved blockers.
 
-Model roles, fallback behavior, and the audit schema live in `references/model-matrix.md`.
+Deep dive: references/model-matrix.md
