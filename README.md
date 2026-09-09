@@ -170,11 +170,12 @@ node multi-agent-workspace/scripts/scaffold.js --workspace . \
 ```
 
 The source is read-only input. Runtime metadata, selected roles, the launcher,
-memory index, and structured handoff are keyed under the global Harness state
-home. Decision, domain, and architecture records are resolved per repository
-from `CONTEXT-MAP.md`, project configuration, existing documentation folders,
-or a committable fallback. Omit the source for an explicit unavailable-catalog
-fallback; do not treat it as a complete roster.
+resolved router, memory index, and structured handoff are keyed under the
+global Harness state home; no generated router, executable, or zone skeleton is
+written to the target workspace. Decision, domain, and architecture records
+are resolved per repository from `CONTEXT-MAP.md`, project configuration,
+existing documentation folders, or a committable fallback. Omit the source for
+an explicit unavailable-catalog fallback; do not treat it as a complete roster.
 
 This repo uses a flat layout (waza/agentskills.io convention). The table below maps each top-level directory to its role.
 

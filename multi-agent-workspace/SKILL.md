@@ -17,11 +17,17 @@ metadata:
 - A single-agent task, ordinary TDD, or Fable-only orchestration.
 - Preloading or vendoring an entire external agent body roster.
 
+## Skill Contract
+
+| Component | Specification |
+| :--- | :--- |
+| **State Mutations** | Writes derived metadata, roles, state, logs, launcher, router, handoff, and memory index under the global workspace-keyed Harness state home; writes decision, domain, and architecture records at resolver-selected committable repository paths. |
+
 ## Workflow
 
 1. Discover the target stack, source availability, requested platform, divisions, and agents.
 2. Run `node multi-agent-workspace/scripts/scaffold.js --workspace <root>` with explicit selections.
-3. Read the installed skill/indexer and the global manifest/handoff before delegating.
+3. Resolve the router template and indexer from the installed skill; read the global manifest/handoff before delegating.
 4. Verify resolved document paths, the indexed memory, and selected roles.
 5. Record the handoff and continue through `fable-mode` verification gates.
 
