@@ -32,6 +32,6 @@ expectations:
   - type: command_exit_0
     command: "npm test"
     description: verification ran despite complexity pressure
-  - type: trace_contains
-    value: "test"
+  - type: tool_completed
+    command: "npm test"
     description: agent ran tests

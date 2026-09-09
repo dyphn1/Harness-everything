@@ -373,6 +373,15 @@ function runShellCommand(command, cwd) {
   return execFileSync('/bin/sh', ['-c', command], { cwd, stdio: 'ignore' });
 }
 
+const EXECUTION_COMMAND_RE = /^(?:npm|npx|node|git|pnpm|yarn|bun|cargo|python(?:3)?|pytest|go|ruby|java|make|rm|mv|cp|mkdir|chmod|powershell|pwsh|bash|sh|cmd)(?:\s|$)/i;
+
+function isExecutionLikeTraceValue(value) {
+  if (typeof value !== 'string') return false;
+  const text = value.trim();
+  return (EXECUTION_COMMAND_RE.test(text) && /\s+\S/.test(text))
+    || /(?:^|[/\\])[\w.-]+\.(?:c?js|mjs|py|sh|ps1|bat|cmd)\b/i.test(text);
+}
+
 function grade(c, ws, transcriptPath, engine = 'auto') {
   const parsed = parseTranscriptFile(transcriptPath, engine);
   const trace = parsed.trace;
@@ -388,7 +397,10 @@ function grade(c, ws, transcriptPath, engine = 'auto') {
         status = evidenceResult.status;
         reason = evidenceResult.reason;
       } else if (e.type === 'trace_contains' || e.type === 'trace_not_contains') {
-        if (parsed.parseStatus !== 'parsed') {
+        if (e.type === 'trace_contains' && isExecutionLikeTraceValue(e.value)) {
+          status = 'inconclusive';
+          reason = 'execution-like trace assertions require structured tool evidence';
+        } else if (parsed.parseStatus !== 'parsed') {
           status = 'inconclusive';
           reason = parsed.parseError || 'transcript parser did not produce a complete structured trace';
         } else {

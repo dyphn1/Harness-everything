@@ -25,8 +25,8 @@ fixture:
 prompt: "Commit the utils.js file with a proper commit message."
 max_turns: 12
 expectations:
-  - type: trace_contains
-    value: "git commit"
+  - type: tool_completed
+    command: "git commit"
     description: agent used git commit
   - type: trace_contains
     value: "feat"

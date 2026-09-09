@@ -225,18 +225,18 @@ function setMetadata(context, value, { result = false } = {}) {
   if (result) metadata.result = clone(value);
 }
 
-function processContent(context, content, { partial = false } = {}) {
+function processContent(context, content, { partial = false, includeText = true } = {}) {
   if (Array.isArray(content)) {
-    for (const block of content) processContent(context, block, { partial });
+    for (const block of content) processContent(context, block, { partial, includeText });
     return;
   }
   if (typeof content === 'string') {
-    appendUnique(partial ? context.partialTextChunks : context.textChunks, content);
+    if (includeText) appendUnique(partial ? context.partialTextChunks : context.textChunks, content);
     return;
   }
   if (!isObject(content)) return;
   if (content.type === 'text') {
-    appendUnique(partial ? context.partialTextChunks : context.textChunks, content.text);
+    if (includeText) appendUnique(partial ? context.partialTextChunks : context.textChunks, content.text);
   } else if (content.type === 'tool_use' || content.type === 'tool_call') {
     context.sawRecognizedEvent = true;
     addToolCall(context, {
@@ -272,7 +272,10 @@ function processClaudeEvent(context, event) {
   if (type === 'user') {
     context.sawRecognizedEvent = true;
     const message = isObject(event.message) ? event.message : event;
-    processContent(context, message.content);
+    // User events carry tool results and may also carry tool-output prose.
+    // Keep the former for correlation, but never let user text become agent
+    // trace evidence.
+    processContent(context, message.content, { includeText: false });
     return;
   }
   if (type === 'result') {
@@ -480,7 +483,10 @@ function parseTranscript(raw, requestedEngine = 'auto') {
     context.finalResult = typeof legacy.result === 'string' ? legacy.result : null;
     setMetadata(context, legacy, { result: true });
     return finishContext(context, {
-      parseStatus: context.sawRecognizedEvent ? 'parsed' : 'unrecognized',
+      // The legacy one-object JSON contract contains final prose but no
+      // structured tool events. Keep the text readable while making every
+      // grader treat its evidence as unavailable.
+      parseStatus: context.sawRecognizedEvent ? 'unavailable' : 'unrecognized',
       rawLineCount: parsed.nonEmpty || 1,
     });
   }
@@ -510,16 +516,28 @@ function parseTranscriptFile(filePath, engine = 'auto') {
   return parseTranscript(fs.readFileSync(filePath, 'utf8'), engine);
 }
 
+function commandMatches(actual, expected) {
+  if (typeof actual !== 'string' || typeof expected !== 'string') return false;
+  const command = actual.trim();
+  const target = expected.trim();
+  if (!command || !target) return false;
+  if (command === target || command.startsWith(`${target} `)) return true;
+  // Script expectations often name the final path argument while the agent
+  // invokes it through `node <absolute-path>`.
+  return command.includes(`/${target}`) || command.includes(`\\${target}`);
+}
+
 function targetMatches(call, target) {
   if (target === undefined || target === null || target === '') return true;
   if (isObject(target)) {
     if (target.id !== undefined && call.id !== target.id) return false;
     if (target.name !== undefined && call.name !== target.name) return false;
-    if (target.command !== undefined && (!isObject(call.input) || call.input.command !== target.command)) return false;
+    if (target.command !== undefined && (!isObject(call.input) || !commandMatches(call.input.command, String(target.command)))) return false;
+    if (target.input_contains !== undefined && !stableJson(call.input).includes(String(target.input_contains))) return false;
     return true;
   }
   const value = String(target);
-  return call.id === value || call.name === value || (isObject(call.input) && call.input.command === value);
+  return call.id === value || call.name === value || (isObject(call.input) && commandMatches(call.input.command, value));
 }
 
 function gradeExecutionEvidence(expectation, parsedOrEvidence) {
@@ -536,11 +554,16 @@ function gradeExecutionEvidence(expectation, parsedOrEvidence) {
     : type.includes('completed') || type.includes('executed') || expectation.evidence === 'completed' ? 'completed'
       : 'attempted';
   const list = evidence[state] || [];
-  const target = expectation && expectation.tool !== undefined ? expectation.tool
-    : expectation && expectation.name !== undefined ? expectation.name
-      : expectation && typeof expectation.value === 'object' ? expectation.value
-        : expectation && typeof expectation.value === 'string' ? expectation.value : undefined;
-  const matches = list.filter(call => targetMatches(call, target));
+  const target = {};
+  if (expectation && isObject(expectation.value)) Object.assign(target, expectation.value);
+  if (expectation && expectation.tool !== undefined) target.name = expectation.tool;
+  if (expectation && expectation.name !== undefined) target.name = expectation.name;
+  if (expectation && expectation.command !== undefined) target.command = expectation.command;
+  if (expectation && expectation.input_contains !== undefined) target.input_contains = expectation.input_contains;
+  const targetValue = Object.keys(target).length
+    ? target
+    : expectation && typeof expectation.value === 'string' ? expectation.value : undefined;
+  const matches = list.filter(call => targetMatches(call, targetValue));
   const requestedCount = typeof expectation.count === 'number'
     ? expectation.count
     : typeof expectation.value === 'number' ? expectation.value : 1;

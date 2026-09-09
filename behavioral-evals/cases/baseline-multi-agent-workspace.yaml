@@ -1,8 +1,7 @@
 # Baseline case: Multi-agent workspace scaffold stays inside .harness/multi-agent/
 #
-# The trace_contains "scaffold.js" expectation is blocked on #52 (final
-# message only, not tool calls). The command_exit_0 directory check is
-# unaffected.
+# The scaffold assertion uses structured completed-tool evidence. The
+# command_exit_0 directory check independently verifies the output location.
 #
 # Live run showed the original prompt was genuinely underspecified: the
 # skill's own Workflow step 1 ("Discover the target stack, source
@@ -21,8 +20,8 @@ fixture:
 prompt: "This is a Tier 3 macro task that needs multiple bounded specialists: implement a REST API with a code-review pass and a security-review pass before merge. Divisions needed: engineering, security. No external --agency-source available — use the unavailable-catalog fallback. Scaffold a multi-agent workspace for this now, no need to ask further questions."
 max_turns: 18
 expectations:
-  - type: trace_contains
-    value: "scaffold.js"
+  - type: tool_completed
+    command: "scaffold.js"
     description: ran the multi-agent-workspace scaffold script rather than improvising
   - type: command_exit_0
     command: "test -d .harness/multi-agent"
