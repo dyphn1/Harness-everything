@@ -46,9 +46,30 @@ function isMeaningfulMermaid(block) {
   if (!block) return false;
   const lines = block.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   if (lines.length < 2) return false;
-  const source = lines.slice(1).join('\n');
-  const edges = (source.match(/(?:-->|->>|-.->|==>|---)/g) || []).length;
-  return edges >= 1;
+  const edgeTokens = ['-.->', '-..->', '==>', '-->', '->>', '---', '-.-', '~~~', '-..-'];
+  for (const line of lines.slice(1)) {
+    let nesting = 0;
+    let quote = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"' && line[i - 1] !== '\\') {
+        quote = !quote;
+        continue;
+      }
+      if (quote) continue;
+      if ('([{'.includes(char)) {
+        nesting++;
+        continue;
+      }
+      if (')]}'.includes(char)) {
+        nesting = Math.max(0, nesting - 1);
+        continue;
+      }
+      if (nesting !== 0) continue;
+      if (edgeTokens.some(token => line.startsWith(token, i))) return true;
+    }
+  }
+  return false;
 }
 
 function deepDivePointers(body) {
@@ -68,6 +89,32 @@ function cleanPointer(pointer) {
   return pointer.replace(/[),.;:]+$/, '').trim();
 }
 
+function isInside(root, target) {
+  const relative = path.relative(path.resolve(root), path.resolve(target));
+  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+}
+
+function globRegExp(segment) {
+  const escaped = segment.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${escaped.replace(/\*/g, '.*').replace(/\?/g, '.')}$`);
+}
+
+function globMatches(root, base, segments) {
+  if (!isInside(root, base)) return false;
+  if (!segments.length) return fs.existsSync(base);
+  if (!fs.existsSync(base) || !fs.statSync(base).isDirectory()) return false;
+
+  const [segment, ...rest] = segments;
+  if (!segment) return globMatches(root, base, rest);
+  if (!segment.includes('*') && !segment.includes('?')) {
+    const next = path.resolve(base, segment);
+    return isInside(root, next) && globMatches(root, next, rest);
+  }
+
+  const pattern = globRegExp(segment);
+  return fs.readdirSync(base).some(entry => pattern.test(entry) && globMatches(root, path.join(base, entry), rest));
+}
+
 function pointerTarget(root, skill, pointer, skillDirs) {
   const clean = cleanPointer(pointer);
   const match = clean.match(/^<([^>/]+)>\/(.*)$/);
@@ -80,12 +127,17 @@ function pointerTarget(root, skill, pointer, skillDirs) {
 
 function pointerResolves(root, skill, pointer, skillDirs) {
   const clean = cleanPointer(pointer);
-  const wildcard = clean.search(/[?*[]/);
-  const target = pointerTarget(root, skill, wildcard === -1 ? clean : clean.slice(0, wildcard), skillDirs);
-  if (!fs.existsSync(target)) return false;
-  if (wildcard === -1) return true;
-  if (!fs.statSync(target).isDirectory()) return false;
-  return fs.readdirSync(target).length > 0;
+  const wildcard = clean.search(/[?*]/);
+  if (wildcard === -1) {
+    const target = pointerTarget(root, skill, clean, skillDirs);
+    return isInside(root, target) && fs.existsSync(target);
+  }
+
+  const slash = clean.lastIndexOf('/', wildcard);
+  const basePointer = slash === -1 ? '.' : clean.slice(0, slash + 1);
+  const pattern = clean.slice(slash + 1);
+  const base = pointerTarget(root, skill, basePointer, skillDirs);
+  return globMatches(root, base, pattern.split('/'));
 }
 
 function checkDisclosure(root = DEFAULT_ROOT, options = {}) {

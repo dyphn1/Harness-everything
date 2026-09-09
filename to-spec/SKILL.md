@@ -22,15 +22,13 @@ Turns the conversation into one published spec artifact. No interviewing — `gr
 
 ## Workflow
 
-1. Resolve path via the shared `project-docs-resolver.js` contract and `node "to-spec/scripts/check-project-docs.js" check`; use explicit projectDocs, CONTEXT-MAP, inferred docs, then committable fallback.
+1. Resolve path via the shared `<skills-repo-root>/multi-agent-workspace/scripts/project-docs-resolver.js` contract and `node "<this-skill-dir>/scripts/check-project-docs.js" check`; use explicit projectDocs, CONTEXT-MAP, inferred docs, then committable fallback.
 2. Zero-trust context: cite `Evidence: <file:line> -> Finding: <meaning>`; blocking forks mean run `grill-me`/`grill-with-docs` first.
 3. Mandatory outline preview (closest fit, 10-20 lines + target path); write only after user confirms.
 4. Publish to `specs/<feature-slug>.md` (`Status: ready-for-agent`) or `reference/`, `adr/`.
 5. Golden Flow: Feature spec needs a Design Audit (`multi-agent-workspace`) before `/to-tickets`.
 
-Templates: `templates/feature-spec.md`, `templates/cli-reference.md`, `templates/schema-doc.md`, `templates/dev-doc.md`
-
-Deep dive: references/process.md
+Deep dive: <this-skill-dir>/references/process.md
 
 ## USE FOR:
 - conversation into a published PRD or design doc

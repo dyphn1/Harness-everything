@@ -4,7 +4,7 @@ description: "Enforce a deliberate step-by-step execution loop for complex multi
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.5
+  version: 0.3.6
 ---
 
 # Todo-Driven Workflow
@@ -25,7 +25,7 @@ Single-task milestones prevent context drift in Tier 2/3 work.
 | :--- | :--- |
 | **Trigger / Input** | Tier 2/3 task with a high-level description. |
 | **Expected Output** | Native TODO state or a Markdown checklist with verifiable milestones. |
-| **State Mutations** | Host-native TODO state or `tasks/todo.md` / `.github/harness-everything/todo.md`. |
+| **State Mutations** | Host-native TODO state or `<workspace>/tasks/todo.md` / `<workspace>/.github/harness-everything/todo.md`. |
 | **Enforcement Gate** | Exactly one milestone is `in-progress`; verify before marking it complete. |
 
 ## Execution Loop: Think > Try > Summarize > Record
@@ -39,4 +39,4 @@ Single-task milestones prevent context drift in Tier 2/3 work.
 Native TODO tools take priority. Markdown is portable fallback; this skill
 does not depend on a repository CLI state machine.
 
-Deep dive: references/execution-guide.md
+Deep dive: <this-skill-dir>/references/execution-guide.md

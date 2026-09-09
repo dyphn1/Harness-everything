@@ -7,7 +7,7 @@ description: >-
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.5
+  version: 0.3.6
 ---
 
 # Execution Guardrails
@@ -40,4 +40,4 @@ metadata:
 
 These rules are always-on, even when `fable-mode`'s staged loop is not running.
 
-Deep dive: references/guardrail-rules.md
+Deep dive: <this-skill-dir>/references/guardrail-rules.md

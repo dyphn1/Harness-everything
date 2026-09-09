@@ -25,7 +25,7 @@ metadata:
 3. `[Try]`: launch `tdd`; Characterization Tests first if legacy code lacks tests; extract incrementally, verifying tests after each change.
 4. `[Summarize]`/`[Self-Evolve]`: >3 cascading errors → rollback + `zoom-out`; record traps in `self-evolve`.
 
-Deep dive: references/README.md
+Deep dive: <this-skill-dir>/references/README.md
 
 ## USE FOR:
 - "refactor this architecture"
