@@ -162,6 +162,9 @@ function validate(cases) {
       if (e.value === undefined && e.command === undefined && e.tool === undefined && e.name === undefined) {
         problems.push(`expectation ${e.type} needs value, command, or tool`);
       }
+      if (e.type === 'command_exit_0' && (typeof e.command !== 'string' || !e.command.trim())) {
+        problems.push('command_exit_0 requires a non-empty command');
+      }
     }
     if (c.pressure && !/skip|don't|not|quick|minutes/i.test(c.prompt)) {
       problems.push('pressure case prompt does not read as pressure');
@@ -358,7 +361,8 @@ function isEditOperation(tool, input) {
 function executionState(status, type) {
   const normalizedType = String(type || '').toLowerCase();
   if (DENIED_TOOL_STATUSES.has(status) || normalizedType.includes('denied') || normalizedType.includes('rejected')) return 'denied';
-  if (COMPLETED_TOOL_STATUSES.has(status) || normalizedType.includes('result') || normalizedType.includes('completed')) return 'executed';
+  if (status && !COMPLETED_TOOL_STATUSES.has(status)) return 'attempted';
+  if (COMPLETED_TOOL_STATUSES.has(status) || (!status && (normalizedType.includes('result') || normalizedType.includes('completed')))) return 'executed';
   return 'attempted';
 }
 
@@ -462,8 +466,16 @@ function extractSessionMetadata(transcriptPath) {
 }
 
 function runShellCommand(command, cwd) {
+  if (typeof command !== 'string' || !command.trim()) throw new Error('command must be non-empty');
   if (process.platform === 'win32') {
-    return execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', command], { cwd, stdio: 'ignore' });
+    const scriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'behavioral-shell-'));
+    const scriptPath = path.join(scriptDir, 'command.cmd');
+    try {
+      fs.writeFileSync(scriptPath, `@echo off\r\n${command}\r\n`, 'utf8');
+      return execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/c', scriptPath], { cwd, stdio: 'ignore' });
+    } finally {
+      fs.rmSync(scriptDir, { recursive: true, force: true });
+    }
   }
   return execFileSync('/bin/sh', ['-c', command], { cwd, stdio: 'ignore' });
 }
@@ -501,11 +513,11 @@ function toolMatches(event, target) {
 function gradeToolExpectation(events, expectation) {
   const target = toolTarget(expectation);
   const type = expectation.type === 'execution_evidence' ? 'tool_executed' : expectation.type;
-  return events.some((event, index) => {
+  return events.some(event => {
     if (!toolMatches(event, target)) return false;
     if (type === 'tool_executed' || type === 'tool_completed') {
       if (!event.executed) return false;
-      if (expectation.after_edit && !events.some(previous => previous.kind === 'tool' && previous.edit && previous.sequence < event.sequence)) return false;
+      if (expectation.after_edit && !events.some(previous => previous.kind === 'tool' && previous.edit && previous.executed && previous.sequence < event.sequence)) return false;
     } else if (type === 'tool_denied') {
       if (!event.denied) return false;
     } else if (type === 'tool_attempted') {

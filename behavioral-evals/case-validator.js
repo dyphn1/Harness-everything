@@ -83,7 +83,7 @@ function validateExpectation(expectation, index) {
   if (['trace_contains', 'trace_not_contains', 'file_contains'].includes(type) && typeof expectation.value !== 'string') {
     errors.push(`expectations[${index}] ${type} requires a string value`);
   }
-  if (type === 'command_exit_0' && typeof expectation.command !== 'string') errors.push(`expectations[${index}] command_exit_0 requires command`);
+  if (type === 'command_exit_0' && (typeof expectation.command !== 'string' || !expectation.command.trim())) errors.push(`expectations[${index}] command_exit_0 requires a non-empty command`);
   if (['tool_attempted', 'tool_executed', 'tool_completed', 'tool_denied', 'execution_evidence'].includes(type)) {
     if (expectation.value === undefined && expectation.tool === undefined && expectation.name === undefined) {
       errors.push(`expectations[${index}] ${type} requires a tool/value target`);

@@ -1,6 +1,6 @@
 {
   "schema": "behavioral-evidence-v1",
-  "archive_generated_at": "2026-09-09T03:00:49.902Z",
+  "archive_generated_at": "2026-09-09T17:03:51.165Z",
   "case_id": "pressure-skip-docs",
   "status": "historical-rubric-unverified",
   "source_result": "behavioral-evals/results/2026-08-27-pressure-skip-docs.json",
@@ -21,9 +21,9 @@
     "fixture_sha256": "f0e6f54cad54c65df7e621b7a03414951c4a5039d5961080d8c37ed493c4dc55",
     "prompt_sha256": "dc194ba8235ba54a1b4637dc2793a03500523e5f3e56af87b8de9902ae4ec750",
     "rubric_sha256": "dd66bf13ffa6c4ad1e836e7b1a32443906ab47a09a2b60b072f85969074a6d4b",
-    "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f"
+    "code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473"
   },
-  "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+  "code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473",
   "cli": {
     "engine": "opencode",
     "version": null

@@ -1,6 +1,6 @@
 {
   "schema": "behavioral-evidence-v1",
-  "archive_generated_at": "2026-09-09T03:00:49.538Z",
+  "archive_generated_at": "2026-09-09T17:03:50.810Z",
   "case_id": "baseline-security-review",
   "status": "historical-rubric-unverified",
   "source_result": "behavioral-evals/results/2026-08-27-baseline-security-review.json",
@@ -12,18 +12,18 @@
     "model": "openai/gpt-5-mini",
     "model_sha256": "020751dc92eb7ffd06a66f45b63322618c811e48a4553198624dfa88200dc6b2",
     "cli_version_sha256": null,
-    "case_sha256": "a79ecff43e18478590473c4acadd72e2dfd14bf4571a560bc42ac14ad46d3303",
+    "case_sha256": "381ffc52f3ced436aa2566b4c73572d26af74eb340316d8114d69dcf7ee04bb7",
     "rubric_sha256": "328c6d24a1ff60e0895b3075061146a20de1dddced0e754d36ec68715e5db9e4",
     "code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3"
   },
   "replay_snapshot": {
-    "case_sha256": "a79ecff43e18478590473c4acadd72e2dfd14bf4571a560bc42ac14ad46d3303",
+    "case_sha256": "381ffc52f3ced436aa2566b4c73572d26af74eb340316d8114d69dcf7ee04bb7",
     "fixture_sha256": "82274b24d963fc1fe60b51343f870f8af86ab96d689f6acc95f4889c0fd58d6a",
     "prompt_sha256": "67a7f75f6f55834d65a661b747158f3a3153e36ca71c9fa2aa80fea1057ce22a",
     "rubric_sha256": "328c6d24a1ff60e0895b3075061146a20de1dddced0e754d36ec68715e5db9e4",
-    "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f"
+    "code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473"
   },
-  "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+  "code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473",
   "cli": {
     "engine": "opencode",
     "version": null
