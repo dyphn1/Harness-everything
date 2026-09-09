@@ -23,11 +23,19 @@
 // rather than a random one, so manual testing stays predictable.
 const fs = require('fs');
 const path = require('path');
-const { getWorkspaceRoot, getWorkspaceStateDir } = require('../../../scripts/lib/workspace');
+const { getWorkspaceRoot, getWorkspaceStateDir, resolveWorkspaceIdentity, getSessionId } = require('../../../scripts/lib/workspace');
 
 const CURRENT_SESSION_FILE = 'current-session';
 const DEFAULT_SESSION = 'default';
 const MIGRATION_MARKER = '.migrated-from';
+
+function sessionDirectoryName(sessionId) {
+  const value = String(sessionId || DEFAULT_SESSION)
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/^\.+/, '')
+    .slice(0, 128);
+  return value || DEFAULT_SESSION;
+}
 
 function detectActivePlatform(wsRoot) {
   const root = wsRoot || getWorkspaceRoot();
@@ -62,57 +70,140 @@ function detectActivePlatform(wsRoot) {
 // territory (scripts/installer.js -> lib/gitignore.js). Rewriting it on every
 // hook invocation caused repeated diffs and surprised users mid-session.
 
-// One-time move of state a pre-#42 install left inside the workspace (under
+// Move state a pre-#42 install left inside the workspace (under
 // any platform's old `<workspaceRoot>/.<platform>/harness-everything/state/`
 // - see hooks/scripts/lib/platforms/*.getStateDir()) into the new global
 // location. Tries every platform's legacy dir, not just the currently
 // detected one, since a workspace may have been used under a different
-// platform (or misdetected) before this fix landed. Best-effort and
-// idempotent: only runs while `newStateDir` doesn't exist yet, so it can
-// never clobber state a later run already wrote or migrated.
+// platform (or misdetected) before this fix landed. The destination may
+// already exist: migration merges every source into it without overwriting
+// newer state. A source is removed only after its complete merge succeeds;
+// failed/conflicting sources remain in place so a later invocation can retry.
 function migrateLegacyState(wsRoot, newStateDir) {
-  if (fs.existsSync(newStateDir)) return;
+  const results = [];
   let allPlatforms;
-  try { allPlatforms = require('./platforms'); } catch (err) { return; }
+  try { allPlatforms = require('./platforms'); } catch (err) { return results; }
+  const seen = new Set();
   for (const platform of allPlatforms) {
     if (typeof platform.getStateDir !== 'function') continue;
     let legacyDir;
     try { legacyDir = platform.getStateDir(wsRoot); } catch (err) { continue; }
     if (!legacyDir || path.resolve(legacyDir) === path.resolve(newStateDir)) continue;
+    const legacyKey = path.resolve(legacyDir).toLowerCase();
+    if (seen.has(legacyKey)) continue;
+    seen.add(legacyKey);
     if (!fs.existsSync(legacyDir)) continue;
     try {
-      fs.mkdirSync(path.dirname(newStateDir), { recursive: true });
-      fs.cpSync(legacyDir, newStateDir, { recursive: true });
+      mergeLegacyTree(legacyDir, newStateDir);
       fs.rmSync(legacyDir, { recursive: true, force: true });
-      fs.writeFileSync(
-        path.join(newStateDir, MIGRATION_MARKER),
-        `${legacyDir}\n${new Date().toISOString()}\n`,
-        'utf8'
-      );
-      return; // first legacy dir found wins - state doesn't merge across platforms
+      try { appendMigrationMarker(newStateDir, legacyDir); } catch (markerError) {
+        // The source has already been removed; a missing breadcrumb must not
+        // be reported as a preserved source or make the migration retry.
+      }
+      results.push({ source: legacyDir, status: 'migrated' });
     } catch (err) {
-      // Fail open - worst case the legacy dir lingers and enforcement starts
-      // a fresh state stream at the new location instead.
+      // Preserve the legacy source. A partial merge is safe to retry because
+      // identical destination files are skipped and conflicting files cause
+      // the source to remain available for manual recovery.
+      results.push({ source: legacyDir, status: 'preserved', error: err.message });
+    }
+  }
+  if (results.some(result => result.status === 'preserved')) {
+    writeMigrationReport(newStateDir, results);
+  }
+  return results;
+}
+
+function mergeLegacyTree(source, target) {
+  const sourceStat = fs.lstatSync(source);
+  if (!sourceStat.isDirectory()) throw new Error(`legacy state is not a directory: ${source}`);
+  fs.mkdirSync(target, { recursive: true });
+
+  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+    const from = path.join(source, entry.name);
+    const to = path.join(target, entry.name);
+    if (entry.isDirectory()) {
+      if (pathExists(to) && !fs.lstatSync(to).isDirectory()) {
+        throw new Error(`legacy state conflicts with a file: ${to}`);
+      }
+      mergeLegacyTree(from, to);
+      continue;
+    }
+    if (!entry.isFile()) {
+      throw new Error(`unsupported legacy state entry (preserved): ${from}`);
+    }
+    if (pathExists(to)) {
+      if (!fs.lstatSync(to).isFile() || !filesEqual(from, to)) {
+        throw new Error(`legacy state conflicts with existing state: ${to}`);
+      }
+      continue;
+    }
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    try {
+      fs.copyFileSync(from, to, fs.constants.COPYFILE_EXCL);
+    } catch (err) {
+      // A concurrent migration may have won the exclusive create. Accept it
+      // only when the resulting file is byte-for-byte identical; never let a
+      // race overwrite newer state.
+      if (err.code !== 'EEXIST' || !filesEqual(from, to)) throw err;
     }
   }
 }
 
-function getStateRoot(root) {
-  const wsRoot = root || getWorkspaceRoot();
+function pathExists(target) {
+  try { fs.lstatSync(target); return true; } catch (err) { return false; }
+}
+
+function filesEqual(left, right) {
+  try { return fs.readFileSync(left).equals(fs.readFileSync(right)); } catch (err) { return false; }
+}
+
+function appendMigrationMarker(newStateDir, legacyDir) {
+  fs.mkdirSync(newStateDir, { recursive: true });
+  const marker = path.join(newStateDir, MIGRATION_MARKER);
+  const prior = fs.existsSync(marker) ? fs.readFileSync(marker, 'utf8') : '';
+  const line = `${legacyDir}\t${new Date().toISOString()}\n`;
+  if (!prior.split('\n').some(existing => existing.startsWith(`${legacyDir}\t`))) {
+    fs.writeFileSync(marker, prior + line, 'utf8');
+  }
+}
+
+function writeMigrationReport(newStateDir, results) {
+  try {
+    const reportPath = path.join(path.dirname(newStateDir), 'migration-report.json');
+    let report = { version: 1, sources: [] };
+    if (fs.existsSync(reportPath)) {
+      try { report = JSON.parse(fs.readFileSync(reportPath, 'utf8')); } catch (err) { /* replace malformed report */ }
+    }
+    const bySource = new Map((report.sources || []).map(entry => [entry.source, entry]));
+    for (const result of results) bySource.set(result.source, { ...result, updatedAt: new Date().toISOString() });
+    report.sources = [...bySource.values()];
+    report.updatedAt = new Date().toISOString();
+    fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
+  } catch (err) {
+    // The source directory remains the recovery record when the report itself
+    // cannot be written (for example, a read-only state home).
+  }
+}
+
+function getStateRoot(root, context) {
+  const wsRoot = root || getWorkspaceRoot(context);
   const stateDir = path.join(getWorkspaceStateDir(wsRoot), 'state');
   migrateLegacyState(wsRoot, stateDir);
   return stateDir;
 }
 
-function getSessionDir(root, sessionId) {
-  const resolvedRoot = root || getWorkspaceRoot();
-  const dir = path.join(getStateRoot(resolvedRoot), 'sessions', sessionId || DEFAULT_SESSION);
+function getSessionDir(root, sessionId, context) {
+  const resolvedRoot = root || getWorkspaceRoot(context || (typeof sessionId === 'object' ? sessionId : undefined));
+  if (sessionId && typeof sessionId === 'object') sessionId = getSessionId(sessionId);
+  const dir = path.join(getStateRoot(resolvedRoot), 'sessions', sessionDirectoryName(sessionId));
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-function listSessionDirs(root) {
-  const sessionsRoot = path.join(getStateRoot(root), 'sessions');
+function listSessionDirs(root, context) {
+  const sessionsRoot = path.join(getStateRoot(root, context), 'sessions');
   try {
     return fs.readdirSync(sessionsRoot, { withFileTypes: true })
       .filter(e => e.isDirectory())
@@ -161,11 +252,15 @@ function pruneStaleSessions(root, maxAgeMs = 14 * 24 * 60 * 60 * 1000) {
 
 module.exports = {
   DEFAULT_SESSION,
+  sessionDirectoryName,
   getWorkspaceRoot,
+  getSessionId,
+  resolveWorkspaceIdentity,
   detectActivePlatform,
   getStateRoot,
   getSessionDir,
   listSessionDirs,
+  migrateLegacyState,
   writeCurrentSession,
   readCurrentSession,
   pruneStaleSessions,

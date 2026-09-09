@@ -6,6 +6,9 @@ const path = require('path');
 const crypto = require('crypto');
 
 const MATRIX_PATH = path.join(__dirname, '..', 'model-matrix.json');
+const SESSION_REGISTRY_DIR = 'session-workspaces';
+const SESSION_REGISTRY_VERSION = 1;
+const HOST_CONTEXT_KEYS = ['host_id', 'hostId', 'agent_id', 'agentId', 'client_id', 'clientId', 'machine_id', 'machineId', 'runtime_id', 'runtimeId'];
 
 // This script ships standalone (copied whole into every install target,
 // e.g. .claude/skills/fable-mode/scripts/), so it can't require the source
@@ -14,13 +17,106 @@ const MATRIX_PATH = path.join(__dirname, '..', 'model-matrix.json');
 // workspace-keyed root that hooks/scripts/lib/harness-state.js resolves to,
 // not scattered under cwd (issue #42). Duplicated here, algorithm-for-
 // algorithm, same as opencode-plugin/index.mjs's own inlined copy.
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
+function findWorkspaceRoot(startPath) {
+  let dir = path.resolve(startPath || process.cwd());
+  while (true) {
+    if (fs.existsSync(path.join(dir, '.git'))) return canonicalPath(dir);
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
-  return process.cwd();
+  return canonicalPath(startPath || process.cwd());
+}
+
+function canonicalPath(value) {
+  const resolved = path.resolve(value || process.cwd());
+  try { return fs.realpathSync(resolved); } catch (err) { return resolved; }
+}
+
+function getSessionId(context) {
+  if (!context || typeof context !== 'object') return null;
+  return context.session_id || context.sessionId || null;
+}
+
+function getHostId(context) {
+  if (!context || typeof context !== 'object') return process.env.FABLE_HOST_ID || process.env.HARNESS_HOST_ID || null;
+  for (const key of HOST_CONTEXT_KEYS) {
+    if (typeof context[key] === 'string' && context[key].trim()) return context[key].trim();
+  }
+  return process.env.FABLE_HOST_ID || process.env.HARNESS_HOST_ID || null;
+}
+
+function getSessionRegistryPath(sessionId, hostId) {
+  const namespace = hostId ? `${hostId}\0${sessionId}` : String(sessionId);
+  const hash = crypto.createHash('sha256').update(namespace).digest('hex');
+  const home = process.env.HARNESS_STATE_HOME || path.join(os.homedir(), '.agents', 'harness-everything');
+  return path.join(home, SESSION_REGISTRY_DIR, `${hash}.json`);
+}
+
+function readRegistryRecord(filePath) {
+  try {
+    const record = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return record.version === SESSION_REGISTRY_VERSION && typeof record.workspaceRoot === 'string' ? record : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function getBoundWorkspace(sessionId, context) {
+  if (!sessionId) return null;
+  const hostId = getHostId(context);
+  const records = [];
+  const preferred = readRegistryRecord(getSessionRegistryPath(sessionId, hostId));
+  if (preferred && (!hostId || !preferred.hostId || preferred.hostId === hostId)) records.push(preferred);
+  if (hostId) {
+    const unscoped = readRegistryRecord(getSessionRegistryPath(sessionId, null));
+    if (unscoped && !unscoped.hostId) records.push(unscoped);
+  }
+  try {
+    const home = process.env.HARNESS_STATE_HOME || path.join(os.homedir(), '.agents', 'harness-everything');
+    const dir = path.join(home, SESSION_REGISTRY_DIR);
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+      const record = readRegistryRecord(path.join(dir, entry.name));
+      if (record && record.sessionId === sessionId && (!hostId || !record.hostId || record.hostId === hostId)) records.push(record);
+    }
+  } catch (err) { /* no registry yet */ }
+  const unique = [...new Map(records.map(record => [`${record.hostId || ''}\0${record.workspaceRoot}`, record])).values()];
+  if (unique.length === 1) return unique[0].workspaceRoot;
+  if (unique.length > 1 && new Set(unique.map(record => canonicalPath(record.workspaceRoot))).size === 1) return unique[0].workspaceRoot;
+  return null;
+}
+
+function getRegistryRecord(sessionId, context) {
+  const root = getBoundWorkspace(sessionId, context);
+  return root ? { workspaceRoot: root } : null;
+}
+
+function bindWorkspace(sessionId, root, context) {
+  if (!sessionId) return;
+  const hostId = getHostId(context);
+  const target = getSessionRegistryPath(sessionId, hostId);
+  const record = { version: SESSION_REGISTRY_VERSION, sessionId, hostId: hostId || undefined, workspaceRoot: root, updatedAt: new Date().toISOString() };
+  let temporary;
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(temporary, JSON.stringify(record, null, 2), 'utf8');
+    if (fs.existsSync(target)) fs.unlinkSync(temporary);
+    else fs.renameSync(temporary, target);
+  } catch (err) {
+    try { if (temporary && fs.existsSync(temporary)) fs.unlinkSync(temporary); } catch (cleanupErr) { /* ignore */ }
+  }
+}
+
+function getWorkspaceRoot(context) {
+  const sessionId = getSessionId(context);
+  const bound = getRegistryRecord(sessionId, context);
+  if (bound) return bound.workspaceRoot;
+  const explicit = context && (context.workspace_root || context.workspaceRoot || context.cwd);
+  const root = findWorkspaceRoot(explicit || process.env.HARNESS_WORKSPACE_ROOT || process.env.FABLE_WORKSPACE_ROOT || process.cwd());
+  if (sessionId) bindWorkspace(sessionId, root, context);
+  return root;
 }
 
 function getWorkspaceStateDir(root) {
@@ -128,9 +224,9 @@ function printHelp() {
   console.log('Usage: node fable-mode/scripts/model-selector.js --requested <haiku|sonnet|sonnect|opus> --available <models> --available-agents <agent names> --stage-brief <text> --pass-condition <text> --verification-command <command> --verifier-result <pending|pass|fail|not-run|blocked> [--fallback <inline|stop>] [--host-model <model>] [--audit-file <path>]');
 }
 
-function appendAuditRecord(record, auditFile) {
+function appendAuditRecord(record, auditFile, context) {
   const target = auditFile || process.env.FABLE_AUDIT_FILE ||
-    path.join(getWorkspaceStateDir(getWorkspaceRoot()), 'state', 'fable-mode', 'audit.jsonl');
+    path.join(getWorkspaceStateDir(getWorkspaceRoot(context)), 'state', 'fable-mode', 'audit.jsonl');
   fs.mkdirSync(path.dirname(path.resolve(target)), { recursive: true });
   fs.appendFileSync(target, `${JSON.stringify(record)}\n`, 'utf8');
 }
@@ -143,7 +239,7 @@ function main(argv = process.argv.slice(2)) {
       return 0;
     }
     const record = resolveMode(input);
-    appendAuditRecord(record, input.auditFile);
+    appendAuditRecord(record, input.auditFile, input);
     console.log(JSON.stringify(record, null, 2));
     return record.status === 'blocked' ? 2 : 0;
   } catch (error) {

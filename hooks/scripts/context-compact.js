@@ -7,7 +7,8 @@ const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 function main(payload) {
   try {
     // Let's run a quick Git check to estimate context size from modified files
-    const statusRaw = execSync('git status --porcelain', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    const root = getWorkspaceRoot(payload);
+    const statusRaw = execSync('git status --porcelain', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     if (!statusRaw) {
       process.exit(0);
     }
@@ -17,7 +18,7 @@ function main(payload) {
 
     let totalDiffLines = 0;
     try {
-      const diffStat = execSync('git diff --numstat', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+      const diffStat = execSync('git diff --numstat', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
       if (diffStat) {
         diffStat.split('\n').forEach(line => {
           const [added, deleted] = line.split('\t');
@@ -41,7 +42,7 @@ function main(payload) {
     // itself (and trains the model to ignore hook output). Warn on the first
     // crossing, then only every 10th call while still over - or when the diff
     // has grown another 50% since the last warning.
-    const stateFile = path.join(getSessionDir(getWorkspaceRoot(), payload && payload.session_id), 'context-compact-state.json');
+    const stateFile = path.join(getSessionDir(root, payload && (payload.session_id || payload.sessionId)), 'context-compact-state.json');
     let state = { overCount: 0, lastWarnedLines: 0 };
     try {
       if (fs.existsSync(stateFile)) state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
