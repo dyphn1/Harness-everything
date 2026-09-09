@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const MATRIX_PATH = path.join(__dirname, '..', 'model-matrix.json');
 const SESSION_REGISTRY_DIR = 'session-workspaces';
 const SESSION_REGISTRY_VERSION = 1;
+const UNBOUND_WORKSPACE_KEY = 'unbound-workspace';
 const HOST_CONTEXT_KEYS = ['host_id', 'hostId', 'agent_id', 'agentId', 'client_id', 'clientId', 'machine_id', 'machineId', 'runtime_id', 'runtimeId'];
 
 // This script ships standalone (copied whole into every install target,
@@ -17,19 +18,21 @@ const HOST_CONTEXT_KEYS = ['host_id', 'hostId', 'agent_id', 'agentId', 'client_i
 // workspace-keyed root that hooks/scripts/lib/harness-state.js resolves to,
 // not scattered under cwd (issue #42). Duplicated here, algorithm-for-
 // algorithm, same as opencode-plugin/index.mjs's own inlined copy.
-function findWorkspaceRoot(startPath) {
-  let dir = path.resolve(startPath || process.cwd());
+function findWorkspaceRoot(startPath, allowNonGit = false) {
+  if (typeof startPath !== 'string' || !startPath.trim()) return null;
+  let dir = path.resolve(startPath);
   while (true) {
     if (fs.existsSync(path.join(dir, '.git'))) return canonicalPath(dir);
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  return canonicalPath(startPath || process.cwd());
+  return allowNonGit ? canonicalPath(startPath) : null;
 }
 
 function canonicalPath(value) {
-  const resolved = path.resolve(value || process.cwd());
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const resolved = path.resolve(value);
   try { return fs.realpathSync(resolved); } catch (err) { return resolved; }
 }
 
@@ -94,6 +97,7 @@ function getRegistryRecord(sessionId, context) {
 
 function bindWorkspace(sessionId, root, context) {
   if (!sessionId) return;
+  if (!root) return;
   const hostId = getHostId(context);
   const target = getSessionRegistryPath(sessionId, hostId);
   const record = { version: SESSION_REGISTRY_VERSION, sessionId, hostId: hostId || undefined, workspaceRoot: root, updatedAt: new Date().toISOString() };
@@ -114,17 +118,20 @@ function getWorkspaceRoot(context) {
   const bound = getRegistryRecord(sessionId, context);
   if (bound) return bound.workspaceRoot;
   const explicit = context && (context.workspace_root || context.workspaceRoot || context.cwd);
-  const root = findWorkspaceRoot(explicit || process.env.HARNESS_WORKSPACE_ROOT || process.env.FABLE_WORKSPACE_ROOT || process.cwd());
+  const hostRoot = explicit || process.env.HARNESS_WORKSPACE_ROOT || process.env.FABLE_WORKSPACE_ROOT;
+  const root = findWorkspaceRoot(hostRoot || process.cwd(), Boolean(hostRoot));
   if (sessionId) bindWorkspace(sessionId, root, context);
   return root;
 }
 
 function getWorkspaceStateDir(root) {
   const home = process.env.HARNESS_STATE_HOME || path.join(os.homedir(), '.agents', 'harness-everything');
+  if (!root) return path.join(home, 'workspaces', UNBOUND_WORKSPACE_KEY);
   let real = path.resolve(root);
   try { real = fs.realpathSync(real); } catch (err) { /* path may not exist yet */ }
   const slug = path.basename(real).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
-  const hash = crypto.createHash('sha1').update(real).digest('hex').slice(0, 12);
+  const hashInput = process.platform === 'win32' ? real.toLowerCase() : real;
+  const hash = crypto.createHash('sha1').update(hashInput).digest('hex').slice(0, 12);
   return path.join(home, 'workspaces', `${slug}-${hash}`);
 }
 const REQUIRED = ['stageBrief', 'passCondition', 'verificationCommand', 'verifierResult'];

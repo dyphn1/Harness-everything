@@ -36,7 +36,11 @@ function commaValues(args, name) {
 
 function parseArgs(args) {
   if (args.includes('--help') || args.includes('-h')) return { help: true };
-  const workspace = values(args, '--workspace')[0] || getWorkspaceRoot();
+  const explicitWorkspace = values(args, '--workspace')[0];
+  const workspace = explicitWorkspace || getWorkspaceRoot();
+  if (!workspace) {
+    throw new Error('cannot infer a workspace outside a git repository; pass --workspace <path> explicitly');
+  }
   const sourceValues = values(args, '--agency-source');
   const platform = values(args, '--platform')[0] || null;
   if (platform && !SUPPORTED_PLATFORMS.includes(platform)) {

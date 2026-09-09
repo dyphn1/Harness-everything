@@ -31,7 +31,7 @@
 
 import { homedir } from "node:os"
 import { join, dirname, resolve, basename, relative, isAbsolute } from "node:path"
-import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, realpathSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, realpathSync, readdirSync } from "node:fs"
 import { execSync } from "node:child_process"
 import { createHash, randomUUID } from "node:crypto"
 
@@ -56,12 +56,41 @@ function getWorkspaceKey(directory) {
   let real = resolve(directory)
   try { real = realpathSync(real) } catch { /* directory may not exist yet */ }
   const slug = basename(real).toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "workspace"
-  const hash = createHash("sha1").update(real).digest("hex").slice(0, 12)
+  const hashInput = process.platform === "win32" ? real.toLowerCase() : real
+  const hash = createHash("sha1").update(hashInput).digest("hex").slice(0, 12)
   return `${slug}-${hash}`
 }
 
+// Move the pre-#42 flat plugin state into the first workspace that claims it.
+// Keep conflicting or unsupported entries in place so a later run can retry.
+function migrateLegacyFlatState(stateDir) {
+  const legacyDir = join(homedir(), ".harness-state")
+  if (!existsSync(legacyDir)) return
+  try {
+    mkdirSync(stateDir, { recursive: true })
+    let conflict = false
+    for (const entry of readdirSync(legacyDir, { withFileTypes: true })) {
+      if (!entry.isFile()) {
+        conflict = true
+        continue
+      }
+      const source = join(legacyDir, entry.name)
+      const destination = join(stateDir, entry.name)
+      if (!existsSync(destination)) writeFileSync(destination, readFileSync(source))
+      else if (!readFileSync(source).equals(readFileSync(destination))) conflict = true
+    }
+    if (!conflict) rmSync(legacyDir, { recursive: true, force: true })
+  } catch {
+    // Best effort: leave the legacy source available for recovery.
+  }
+}
+
+function getStateDir(directory) {
+  return join(getStateHome(), "workspaces", getWorkspaceKey(directory))
+}
+
 function getStateRoot(directory) {
-  return join(getStateHome(), "workspaces", getWorkspaceKey(directory), "state")
+  return join(getStateDir(directory), "state")
 }
 
 function getSessionKey(sessionID) {
@@ -278,6 +307,7 @@ export const HarnessEnforcement = async ({ client, directory }) => {
   // the old flat plugin state is intentionally left untouched because it is
   // impossible to attribute safely to one workspace or session.
   const workspace = resolve(directory || process.cwd())
+  migrateLegacyFlatState(getStateDir(workspace))
   const activeVerifications = new Set()
 
   function pathsFor(sessionID) {

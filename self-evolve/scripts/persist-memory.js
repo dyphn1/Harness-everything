@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
+let getWorkspaceRoot;
+try {
+  ({ getWorkspaceRoot } = require('../../scripts/lib/workspace'));
+} catch (err) {
+  getWorkspaceRoot = () => null;
+}
 
 // NOTE: this script ships standalone - it's copied whole into every install
 // target (e.g. `.claude/skills/self-evolve/scripts/`), where the source
@@ -91,17 +97,12 @@ function extractExistingRules(rulesFile) {
   }
 }
 
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return process.cwd();
-}
-
 // Ensure the memory is written to the project root's memories/repo/ directory
 const currentDir = getWorkspaceRoot();
+if (!currentDir) {
+  console.error('[self-evolve] Cannot persist project memory without a resolved git workspace.');
+  process.exit(1);
+}
 const memoryDir = path.join(currentDir, 'memories', 'repo');
 const rulesFile = path.join(memoryDir, 'RULES.md');
 

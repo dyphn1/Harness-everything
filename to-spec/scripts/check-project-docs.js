@@ -224,6 +224,10 @@ if (workspaceIndex !== -1 && !commandArgs[workspaceIndex + 1]) {
 const workspaceRoot = workspaceIndex === -1
   ? getWorkspaceRoot()
   : path.resolve(commandArgs[workspaceIndex + 1]);
+if (!workspaceRoot) {
+  console.error('[to-spec/check-project-docs] Cannot inspect project docs without a resolved git workspace.');
+  process.exit(1);
+}
 
 if (command === 'check') {
   runCheck(workspaceRoot);

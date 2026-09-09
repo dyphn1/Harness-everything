@@ -17,14 +17,16 @@ const PROJECT_DOC_FIELDS = Object.freeze({
   domain: ['domainLocation', 'domains', 'contextLocation', 'contexts', 'domain'],
   architecture: ['architectureLocation', 'architectures', 'architecture']
 });
+const UNBOUND_WORKSPACE_KEY = 'unbound-workspace';
 
-function getWorkspaceRoot(start = process.cwd()) {
-  let dir = path.resolve(start);
+function getWorkspaceRoot(start, allowNonGit = false) {
+  const candidate = typeof start === 'string' && start.trim() ? start : process.cwd();
+  let dir = path.resolve(candidate);
   while (dir !== path.parse(dir).root) {
     if (fs.existsSync(path.join(dir, '.git'))) return dir;
     dir = path.dirname(dir);
   }
-  return path.resolve(start);
+  return allowNonGit && typeof start === 'string' && start.trim() ? path.resolve(start) : null;
 }
 
 function getStateHome() {
@@ -32,13 +34,16 @@ function getStateHome() {
 }
 
 function getWorkspaceKey(workspaceRoot) {
-  const absolute = path.resolve(workspaceRoot || getWorkspaceRoot());
+  const root = workspaceRoot || getWorkspaceRoot();
+  if (!root) return UNBOUND_WORKSPACE_KEY;
+  const absolute = path.resolve(root);
   let real = absolute;
   try { real = fs.realpathSync(absolute); } catch { /* the caller may be creating it */ }
   const slug = path.basename(real).toLowerCase()
     .replace(/[^a-z0-9._-]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'workspace';
-  const hash = crypto.createHash('sha1').update(real).digest('hex').slice(0, 12);
+  const hashInput = process.platform === 'win32' ? real.toLowerCase() : real;
+  const hash = crypto.createHash('sha1').update(hashInput).digest('hex').slice(0, 12);
   return `${slug}-${hash}`;
 }
 
@@ -194,7 +199,9 @@ function isWithinWorkspace(workspaceRoot, absolute) {
 }
 
 function resolveProjectDocs(workspaceRoot, options = {}) {
-  const root = path.resolve(workspaceRoot || getWorkspaceRoot());
+  const resolvedRoot = workspaceRoot || getWorkspaceRoot();
+  if (!resolvedRoot) throw new Error('cannot resolve project docs outside a git workspace; pass --workspace <path> explicitly');
+  const root = path.resolve(resolvedRoot);
   const manifest = readProjectDocs(root);
   const projectDocs = manifest ? manifest.projectDocs : {};
   const contextMap = parseContextMap(root, projectDocs.contextMap || projectDocs.contextMapPath);
@@ -249,7 +256,9 @@ function resolveProjectDocs(workspaceRoot, options = {}) {
 }
 
 function detectProjectDocsConventions(workspaceRoot) {
-  const root = path.resolve(workspaceRoot || getWorkspaceRoot());
+  const resolvedRoot = workspaceRoot || getWorkspaceRoot();
+  if (!resolvedRoot) return {};
+  const root = path.resolve(resolvedRoot);
   const configured = readProjectDocs(root);
   const inferred = {};
   if (configured && configured.projectDocs && configured.projectDocs.docLocation) {

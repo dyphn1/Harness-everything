@@ -43,7 +43,8 @@ helper.check(
   // exports HarnessEnforcement.
   const realWorkspace = fs.realpathSync(path.resolve(workspace));
   const slug = path.basename(realWorkspace).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
-  const hash = crypto.createHash('sha1').update(realWorkspace).digest('hex').slice(0, 12);
+  const hashInput = process.platform === 'win32' ? realWorkspace.toLowerCase() : realWorkspace;
+  const hash = crypto.createHash('sha1').update(hashInput).digest('hex').slice(0, 12);
   const stateHome = path.join(fakeHome, '.agents', 'harness-everything');
   const stateRoot = path.join(stateHome, 'workspaces', `${slug}-${hash}`, 'state');
   const stateDir = path.join(stateRoot, 'sessions', 's1');
@@ -300,7 +301,12 @@ helper.check(
   helper.check('2n. resetting an unsafe session cannot delete an outside sentinel', fs.existsSync(path.join(outsideSentinel, 'keep.txt')), outsideSentinel);
   helper.check('2n. resetting s1 leaves the independent s2 state', fs.existsSync(path.join(secondSessionDir, 'circuit-breaker.json')), secondSessionDir);
 
-  helper.check('2n. ambiguous legacy flat state is preserved', fs.existsSync(path.join(legacyDir, 'circuit-breaker.json')), legacyDir);
+  const workspaceStateRoot = path.dirname(stateRoot);
+  helper.check(
+    '2n. legacy flat state migrates into the workspace-keyed root',
+    !fs.existsSync(legacyDir) && fs.existsSync(path.join(workspaceStateRoot, 'circuit-breaker.json')),
+    JSON.stringify({ legacyDir, workspaceStateRoot })
+  );
   helper.check('2n. hook state stayed inside the redirected HOME', fs.existsSync(stateRoot), `no state root under ${stateHome}`);
 
   helper.finish();

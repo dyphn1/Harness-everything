@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
+let getWorkspaceRoot;
+try {
+  ({ getWorkspaceRoot } = require('../../scripts/lib/workspace'));
+} catch (err) {
+  getWorkspaceRoot = () => null;
+}
 
 const args = process.argv.slice(2);
 
@@ -50,17 +56,13 @@ for (const [dim, score] of Object.entries(scores)) {
 markdown += `| **Total Score** | **${total}/40** |\n\n`;
 markdown += `### Insights\n${insights}\n\n---\n`;
 
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return process.cwd();
-}
-
 // Store the evaluations in an evals folder in the project root
-const evalDir = path.join(getWorkspaceRoot(), 'evals');
+const workspaceRoot = getWorkspaceRoot();
+if (!workspaceRoot) {
+  console.error('[eval-harness] Cannot write an evaluation report without a resolved git workspace.');
+  process.exit(1);
+}
+const evalDir = path.join(workspaceRoot, 'evals');
 if (!fs.existsSync(evalDir)) {
   fs.mkdirSync(evalDir, { recursive: true });
 }
