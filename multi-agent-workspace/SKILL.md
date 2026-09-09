@@ -36,4 +36,6 @@ metadata:
 
 The source is optional: missing source produces an explicit unavailable-catalog fallback, never a fake complete roster. The resolver records detailed provenance (`CONTEXT-MAP`, `projectDocs`, inference, or fallback) plus normalized resolution kind (`explicit`, `inferred`, or `fallback`). An omitted `--workspace` means the repository root from the current directory; an explicit target is used verbatim. `--allow-source-drift` is required to refresh an existing catalog at a different source revision. See `references/orchestration.md` and `references/agency-agents.md` for migration and source rules.
 
-Deep dive: [references/orchestration.md](references/orchestration.md) + [references/architecture-guide.md](references/architecture-guide.md). Workflow: [docs/workflows/multi-agent-workspace.md](../docs/workflows/multi-agent-workspace.md)
+Deep dive: references/orchestration.md
+Deep dive: references/architecture-guide.md
+Deep dive: ../docs/workflows/multi-agent-workspace.md
