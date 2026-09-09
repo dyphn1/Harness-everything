@@ -123,6 +123,12 @@ const todoPending = parseTranscript([
 const todoExpectation = { type: 'tool_completed', name: 'TodoWrite', input_contains: 'in_progress' };
 helper.check('2t. Tool input qualifiers do not match unrelated TodoWrite state', !gradeExecutionEvidence(todoExpectation, todoPending).pass, JSON.stringify(gradeExecutionEvidence(todoExpectation, todoPending)));
 
+const caseDir = path.join(__dirname, '..', 'behavioral-evals', 'cases');
+const staleGuidance = fs.readdirSync(caseDir)
+  .filter(file => file.endsWith('.yaml'))
+  .filter(file => /#52|trace only captures|final message only/i.test(fs.readFileSync(path.join(caseDir, file), 'utf8')));
+helper.check('2t. Behavioral cases do not retain the obsolete #52 trace limitation', staleGuidance.length === 0, staleGuidance.join(', '));
+
 helper.check('2t. Non-definitive arm cannot produce effectiveness', pairVerdict({ outcome: 'inconclusive' }, { outcome: 'pass' }) === 'INCONCLUSIVE', pairVerdict({ outcome: 'inconclusive' }, { outcome: 'pass' }));
 helper.check('2t. Session errors cannot produce effectiveness', pairVerdict({ outcome: 'session-error' }, { outcome: 'pass' }) === 'INCONCLUSIVE', pairVerdict({ outcome: 'session-error' }, { outcome: 'pass' }));
 const pairSummary = summarizePairResults([
