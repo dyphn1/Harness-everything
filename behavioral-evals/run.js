@@ -13,7 +13,7 @@
  *  1. Build identical case fixtures in OS temp workspaces.
  *  2. Run a control with no Harness files and a treatment with only the
  *     case's named skill loaded; `--arm both` randomizes this order.
- *  3. Run: claude -p "<prompt>" --output-format json --max-turns N
+ *  3. Run: claude -p "<prompt>" --output-format stream-json --verbose --max-turns N
  *  4. Grade expectations[] against transcript text and workspace state.
  *  5. Write paired results with fixture/prompt hashes and attribution so any
  *     grader verdict can be audited by a human.
@@ -23,6 +23,10 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
+const {
+  gradeExecutionEvidence,
+  parseTranscriptFile,
+} = require('./transcript-parser');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -141,7 +145,10 @@ const PRESSURE_RULES = {
 // --- validate mode ----------------------------------------------------------
 function validate(cases) {
   let failures = 0;
-  const EXPECT_TYPES = new Set(['trace_contains', 'trace_not_contains', 'file_contains', 'file_not_exists', 'command_exit_0']);
+  const EXPECT_TYPES = new Set([
+    'trace_contains', 'trace_not_contains', 'file_contains', 'file_not_exists', 'command_exit_0',
+    'tool_call', 'tool_attempted', 'tool_completed', 'tool_executed', 'tool_denied', 'execution_evidence',
+  ]);
   for (const c of cases) {
     const problems = [];
     if (!c.id) problems.push('missing id');
@@ -155,7 +162,9 @@ function validate(cases) {
     if (!resolveTreatmentSkills(c).length) problems.push('treatment must load at least one named Harness skill');
     for (const e of c.expectations || []) {
       if (!EXPECT_TYPES.has(e.type)) problems.push(`unknown expectation type "${e.type}"`);
-      if (e.value === undefined && e.command === undefined) problems.push(`expectation ${e.type} needs value or command`);
+      if (e.value === undefined && e.command === undefined && e.tool === undefined && e.name === undefined && e.count === undefined) {
+        problems.push(`expectation ${e.type} needs value, tool, name, count, or command`);
+      }
     }
     if (c.pressure && !/skip|don't|not|quick|minutes/i.test(c.prompt)) {
       problems.push('pressure case prompt does not read as pressure');
@@ -266,23 +275,68 @@ function buildEngineInvocation(engine, prompt, ws, maxTurns, arm = 'treatment') 
   // call denied and the model just describing what it would do. This harness
   // needs the same full autonomy opencode's --auto gives it, in the same kind
   // of disposable os.tmpdir() fixture workspace.
-  const args = ['-p', prompt, '--output-format', 'json', '--max-turns', String(maxTurns), '--dangerously-skip-permissions', '--setting-sources', 'project,local'];
+  const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--max-turns', String(maxTurns), '--dangerously-skip-permissions', '--setting-sources', 'project,local'];
   const model = process.env.BEHAVIORAL_MODEL;
   if (model) args.push('--model', model);
   if (arm === 'baseline') args.push('--safe-mode');
   return { command: 'claude', args };
 }
 
+function expandWindowsBatchPath(value, batchPath) {
+  const base = path.dirname(batchPath) + path.sep;
+  return value
+    .replace(/%~dp0/gi, base)
+    .replace(/%dp0%/gi, base)
+    .replace(/^"|"$/g, '')
+    .trim();
+}
+
+function windowsCommandCandidates(command) {
+  try {
+    return execFileSync('where.exe', [command], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(line => line && !/^INFO:/i.test(line));
+  } catch {
+    return [];
+  }
+}
+
+function resolveCliInvocation(invocation) {
+  if (process.platform !== 'win32') return invocation;
+  const candidates = windowsCommandCandidates(invocation.command);
+  const native = candidates.find(candidate => /\.exe$/i.test(candidate));
+  if (native) return { command: native, args: invocation.args.slice() };
+  const shim = candidates.find(candidate => /\.(?:cmd|bat)$/i.test(candidate));
+  if (shim) {
+    let source = '';
+    try { source = fs.readFileSync(shim, 'utf8'); } catch { source = ''; }
+    const nodeEntry = source.match(/(?:^|\s)(?:node(?:\.exe)?)(?:\s+)(?:"([^"]+\.js)"|([^\s]+\.js))/im);
+    if (nodeEntry) {
+      const entry = expandWindowsBatchPath(nodeEntry[1] || nodeEntry[2], shim);
+      return { command: process.execPath, args: [entry, ...invocation.args] };
+    }
+    const binaryEntry = source.match(/"?([^"\r\n]+\.exe)"?\s+%\*/i);
+    if (binaryEntry) {
+      const entry = expandWindowsBatchPath(binaryEntry[1], shim);
+      return { command: entry, args: invocation.args.slice() };
+    }
+  }
+  const direct = candidates.find(candidate => !/\.(?:cmd|bat|ps1)$/i.test(candidate));
+  return direct ? { command: direct, args: invocation.args.slice() } : invocation;
+}
+
 function runHeadless(prompt, ws, maxTurns, engine, arm) {
   // Keep the transcript OUTSIDE the workspace: grader artifacts must never
   // show up in git-status-based scope checks.
-  const outPath = path.join(path.dirname(ws), path.basename(ws) + '.transcript.json');
+  const outPath = path.join(path.dirname(ws), path.basename(ws) + '.transcript.jsonl');
   const invocation = buildEngineInvocation(engine, prompt, ws, maxTurns, arm);
+  const executable = resolveCliInvocation(invocation);
   const outputFd = fs.openSync(outPath, 'w');
   try {
     // Pass the prompt as one argv element. A shell wrapper on Windows can
     // reinterpret spaces and punctuation, truncating prompts to `Add.`.
-    execFileSync(invocation.command, invocation.args, {
+    execFileSync(executable.command, executable.args, {
       cwd: ws,
       stdio: ['ignore', outputFd, 'inherit'],
       timeout: engine === 'opencode' ? 20 * 60 * 1000 : 15 * 60 * 1000,
@@ -298,50 +352,18 @@ function runHeadless(prompt, ws, maxTurns, engine, arm) {
 // Tool outputs embed installed skill text, so keyword graders over raw
 // transcripts produce false positives (a read of zoom-out/SKILL.md counts as
 // "invoked zoom-out"). Trace = assistant text + tool inputs only.
-function extractAgentTrace(transcriptPath) {
-  const raw = fs.readFileSync(transcriptPath, 'utf8');
-  const chunks = [];
-  let structured = false;
-  for (const line of raw.split('\n')) {
-    if (!line.trim()) continue;
-    let e;
-    try { e = JSON.parse(line); } catch { continue; }
-    const p = e && e.part;
-    if (!p) continue;
-    if (e.type === 'text' && typeof p.text === 'string') {
-      chunks.push(p.text);
-      structured = true;
-    } else if (String(e.type).includes('tool')) {
-      const input = p.state && p.state.input !== undefined ? p.state.input : p.input;
-      chunks.push(`[${p.tool || 'tool'}] ` + JSON.stringify(input ?? {}));
-      structured = true;
-    }
-  }
-  // claude -p --output-format json emits one object; grade its result text.
-  if (!structured) {
-    try {
-      const obj = JSON.parse(raw);
-      if (obj && typeof obj.result === 'string') return obj.result;
-    } catch { /* fall through */ }
-    return raw;
-  }
-  return chunks.join('\n');
+function extractAgentTrace(transcriptPath, engine = 'auto') {
+  return parseTranscriptFile(transcriptPath, engine).trace;
 }
 
-function extractSessionMetadata(transcriptPath) {
-  try {
-    const raw = fs.readFileSync(transcriptPath, 'utf8');
-    const obj = JSON.parse(raw);
-    const cost = [obj.total_cost_usd, obj.cost_usd, obj.cost].find(value => typeof value === 'number');
-    return {
-      cost: cost === undefined ? null : cost,
-      usage: obj.usage || null,
-      duration_ms: typeof obj.duration_ms === 'number' ? obj.duration_ms : null,
-      num_turns: typeof obj.num_turns === 'number' ? obj.num_turns : null,
-    };
-  } catch {
-    return { cost: null, usage: null, duration_ms: null, num_turns: null };
-  }
+function extractSessionMetadata(transcriptPath, engine = 'auto') {
+  const parsed = parseTranscriptFile(transcriptPath, engine);
+  return {
+    ...parsed.metadata,
+    parse_status: parsed.parseStatus,
+    parse_error: parsed.parseError,
+    format: parsed.format,
+  };
 }
 
 function runShellCommand(command, cwd) {
@@ -351,39 +373,69 @@ function runShellCommand(command, cwd) {
   return execFileSync('/bin/sh', ['-c', command], { cwd, stdio: 'ignore' });
 }
 
-function grade(c, ws, transcriptPath) {
-  const trace = extractAgentTrace(transcriptPath);
+function grade(c, ws, transcriptPath, engine = 'auto') {
+  const parsed = parseTranscriptFile(transcriptPath, engine);
+  const trace = parsed.trace;
   const results = [];
   for (const e of c.expectations) {
     let pass = false;
+    let status = 'fail';
+    let reason = null;
     try {
-      if (e.type === 'trace_contains') pass = trace.includes(e.value);
-      else if (e.type === 'trace_not_contains') pass = !trace.includes(e.value);
-      else if (e.type === 'file_contains') pass = fs.readFileSync(path.join(ws, e.path), 'utf8').includes(e.value);
-      else if (e.type === 'file_not_exists') pass = !fs.existsSync(path.join(ws, e.path));
-      else if (e.type === 'command_exit_0') {
+      if (['tool_call', 'tool_attempted', 'tool_completed', 'tool_executed', 'tool_denied', 'execution_evidence'].includes(e.type)) {
+        const evidenceResult = gradeExecutionEvidence(e, parsed);
+        pass = evidenceResult.pass;
+        status = evidenceResult.status;
+        reason = evidenceResult.reason;
+      } else if (e.type === 'trace_contains' || e.type === 'trace_not_contains') {
+        if (parsed.parseStatus !== 'parsed') {
+          status = 'inconclusive';
+          reason = parsed.parseError || 'transcript parser did not produce a complete structured trace';
+        } else {
+          pass = e.type === 'trace_contains' ? trace.includes(e.value) : !trace.includes(e.value);
+          status = pass ? 'pass' : 'fail';
+        }
+      } else if (e.type === 'file_contains') {
+        pass = fs.readFileSync(path.join(ws, e.path), 'utf8').includes(e.value);
+        status = pass ? 'pass' : 'fail';
+      } else if (e.type === 'file_not_exists') {
+        pass = !fs.existsSync(path.join(ws, e.path));
+        status = pass ? 'pass' : 'fail';
+      } else if (e.type === 'command_exit_0') {
         runShellCommand(e.command, ws);
         pass = true;
+        status = 'pass';
       }
     } catch (err) {
       pass = false;
+      status = status === 'inconclusive' ? status : 'fail';
+      reason = err.message;
     }
-    results.push({ ...e, pass });
+    results.push({ ...e, pass, status, reason });
   }
   // Informational expectations are reported but never gate the outcome:
   // they capture context-dependent behavior (e.g. zoom-out only becomes
   // obligatory once the breaker actually trips) that would otherwise
   // produce meaningless failures.
   const gating = results.filter((r) => !r.informational);
-  return { results, passed: gating.length > 0 && gating.every((g) => g.pass) };
+  const inconclusive = parsed.parseStatus !== 'parsed' || gating.some(result => result.status === 'inconclusive');
+  const passed = gating.length > 0 && !inconclusive && gating.every((g) => g.pass);
+  return {
+    results,
+    passed,
+    status: inconclusive ? 'inconclusive' : passed ? 'pass' : 'fail',
+    parsed,
+    trace,
+    executionEvidence: parsed.executionEvidence,
+  };
 }
 
 function resolveEngine(requested) {
-  const has = (cmd) => { 
-    try { 
-      // Try direct path first
-      execFileSync(cmd, ['--version'], { stdio: 'pipe' }); 
-      return true; 
+  const has = (cmd) => {
+    try {
+      const invocation = resolveCliInvocation({ command: cmd, args: [] });
+      execFileSync(invocation.command, [...invocation.args, '--version'], { stdio: 'pipe' });
+      return true;
     } catch {
       return false;
     }
@@ -402,7 +454,10 @@ function sha256(value) {
 }
 
 function countToolCalls(trace) {
-  return (trace.match(/^\[[^\]]+\]/gm) || []).length;
+  const evidence = trace && (trace.executionEvidence || (trace.parsed && trace.parsed.executionEvidence));
+  if (evidence) return evidence.counts.attempted;
+  const text = typeof trace === 'string' ? trace : trace && trace.trace;
+  return typeof text === 'string' ? (text.match(/^\[[^\]]+\]/gm) || []).length : null;
 }
 
 function treatmentSkills(c) {
@@ -429,9 +484,11 @@ function runArm(c, engine, arm, pairId) {
   };
   try {
     const transcriptPath = runHeadless(c.prompt, ws, c.max_turns, engine, arm);
-    const { results, passed } = grade(c, ws, transcriptPath);
-    const trace = extractAgentTrace(transcriptPath);
-    const metadata = extractSessionMetadata(transcriptPath);
+    const graded = grade(c, ws, transcriptPath, engine);
+    const { results, passed } = graded;
+    const trace = graded.trace;
+    const metadata = graded.parsed.metadata;
+    const evidence = graded.executionEvidence;
     if (attributionRequired && loadedSkills.length === 0) {
       throw new Error('treatment attribution is required but no skill was loaded');
     }
@@ -442,9 +499,16 @@ function runArm(c, engine, arm, pairId) {
       usage: metadata.usage,
       duration_ms: metadata.duration_ms,
       num_turns: metadata.num_turns,
-      expectations: results.map(({ description, pass }) => ({ description, pass })),
-      outcome: passed ? 'pass' : 'fail',
-      tool_call_count: countToolCalls(trace),
+      model_name: metadata.model,
+      expectations: results.map(({ description, pass, status, reason }) => ({ description, pass, status, reason })),
+      outcome: graded.status,
+      parse_status: graded.parsed.parseStatus,
+      parse_error: graded.parsed.parseError,
+      transcript_format: graded.parsed.format,
+      cli_version: metadata.cli_version,
+      tool_call_count: countToolCalls(graded),
+      tool_call_counts: evidence.counts,
+      execution_evidence: evidence,
       trace_preview: trace.slice(0, 500),
     };
   } catch (err) {
@@ -452,16 +516,82 @@ function runArm(c, engine, arm, pairId) {
       ...record,
       outcome: 'session-error',
       error: err.message.slice(0, 500),
-      tool_call_count: 0,
+      parse_status: 'unavailable',
+      tool_call_count: null,
+      tool_call_counts: { attempted: null, completed: null, denied: null, unresolved: null },
     };
   }
 }
 
+function isDefinitiveArm(arm) {
+  return !!arm && (arm.outcome === 'pass' || arm.outcome === 'fail');
+}
+
+function isCompletedPair(record) {
+  return !!record && isDefinitiveArm(record.arms && record.arms.baseline)
+    && isDefinitiveArm(record.arms && record.arms.treatment);
+}
+
 function pairVerdict(baseline, treatment) {
+  if (!isDefinitiveArm(baseline) || !isDefinitiveArm(treatment)) return 'INCONCLUSIVE';
   if (baseline.outcome === 'pass' && treatment.outcome === 'pass') return 'INCONCLUSIVE';
   if (baseline.outcome !== 'pass' && treatment.outcome === 'pass') return 'EFFECTIVE';
   if (baseline.outcome === 'pass' && treatment.outcome !== 'pass') return 'HARMFUL';
   return 'INEFFECTIVE';
+}
+
+function summarizePairResults(pairResults) {
+  const completed = pairResults.filter(isCompletedPair);
+  const sessionFailures = pairResults.filter(record => Object.values(record.arms || {})
+    .some(arm => arm.outcome === 'session-error')).length;
+  const effective = completed.filter(record => record.verdict === 'EFFECTIVE').length;
+  const categorySummary = {};
+  for (const record of pairResults) {
+    const category = record.pressure_category || 'unclassified';
+    if (!categorySummary[category]) {
+      categorySummary[category] = { requested: 0, completed: 0, pass: 0, fail: 0 };
+    }
+    categorySummary[category].requested++;
+  }
+  for (const record of completed) {
+    const category = record.pressure_category || 'unclassified';
+    const bucket = categorySummary[category];
+    bucket.completed++;
+    if (record.arms.treatment.outcome === 'pass') bucket.pass++;
+    else bucket.fail++;
+  }
+  for (const bucket of Object.values(categorySummary)) {
+    bucket.pass_rate = bucket.completed
+      ? Number((bucket.pass / bucket.completed).toFixed(4))
+      : null;
+    bucket.pass_rate_ci95 = wilsonInterval(bucket.pass, bucket.completed);
+  }
+  const costs = completed.flatMap(record => Object.values(record.arms || {}).map(arm => arm.cost));
+  const cost = costs.length === completed.length * 2 && costs.every(value => typeof value === 'number')
+    ? Number(costs.reduce((sum, value) => sum + value, 0).toFixed(6))
+    : null;
+  const toolCallDelta = completed.map(record => {
+    const baseline = record.arms.baseline.tool_call_count;
+    const treatment = record.arms.treatment.tool_call_count;
+    return {
+      id: record.id,
+      baseline,
+      treatment,
+      treatment_minus_baseline: typeof baseline === 'number' && typeof treatment === 'number'
+        ? treatment - baseline
+        : null,
+    };
+  });
+  return {
+    cost,
+    completed_pairs: completed.length,
+    session_failures: sessionFailures,
+    tool_call_delta: toolCallDelta,
+    verdicts: Object.fromEntries(['EFFECTIVE', 'INEFFECTIVE', 'INCONCLUSIVE', 'HARMFUL']
+      .map(verdict => [verdict, completed.filter(record => record.verdict === verdict).length])),
+    effective_rate_ci95: wilsonInterval(effective, completed.length),
+    pressure_categories: categorySummary,
+  };
 }
 
 function wilsonInterval(successes, total) {
@@ -511,57 +641,26 @@ function runLive(filter, engineArg, armArg = 'treatment') {
       date: new Date().toISOString(),
     };
     pairResults.push(record);
-    if (Object.values(arms).some(arm => arm.outcome === 'session-error')) sessionFailures++;
     for (const arm of Object.values(arms)) {
       console.log(`  ${arm.arm}: ${arm.outcome} (${arm.loaded_skills.length ? arm.loaded_skills.join(', ') : 'no Harness skills'})`);
     }
+    if (Object.values(arms).some(arm => arm.outcome === 'session-error')) sessionFailures++;
     if (armArg === 'both') console.log(`  Verdict: ${record.verdict}`);
     const suffix = armArg === 'both' ? 'pair' : armArg;
     fs.writeFileSync(path.join(RESULTS_DIR, `${record.date.slice(0, 10)}-${c.id}-${suffix}.json`), JSON.stringify(record, null, 2));
   }
 
+  let exitCode = sessionFailures ? 1 : 0;
   if (armArg === 'both') {
-    const completed = pairResults.filter(r => !Object.values(r.arms).some(a => a.outcome === 'session-error'));
-    const effective = completed.filter(r => r.verdict === 'EFFECTIVE').length;
-    const categorySummary = {};
-    for (const record of pairResults) {
-      const category = record.pressure_category || 'unclassified';
-      if (!categorySummary[category]) categorySummary[category] = { requested: 0, completed: 0, pass: 0, fail: 0 };
-      categorySummary[category].requested++;
-    }
-    for (const record of completed) {
-      const category = record.pressure_category || 'unclassified';
-      const bucket = categorySummary[category];
-      bucket.completed++;
-      if (record.arms.treatment.outcome === 'pass') bucket.pass++;
-      else bucket.fail++;
-    }
-    for (const bucket of Object.values(categorySummary)) {
-      bucket.pass_rate = Number((bucket.pass / bucket.completed).toFixed(4));
-      bucket.pass_rate_ci95 = wilsonInterval(bucket.pass, bucket.completed);
-    }
-    const costs = completed.flatMap(record => Object.values(record.arms).map(arm => arm.cost));
-    const cost = costs.length === completed.length * 2 && costs.every(value => typeof value === 'number')
-      ? Number(costs.reduce((sum, value) => sum + value, 0).toFixed(6))
-      : null;
+    const aggregate = summarizePairResults(pairResults);
     const summary = {
       date: new Date().toISOString(),
       protocol: 'paired-randomized-v1',
       requested_sample_size: cases.length,
-      completed_pairs: completed.length,
-      session_failures: pairResults.length - completed.length,
-      boundary_compliance: completed.length === cases.length ? 'complete' : 'incomplete',
-      cost,
-      tool_call_delta: completed.map(r => ({
-        id: r.id,
-        baseline: r.arms.baseline.tool_call_count,
-        treatment: r.arms.treatment.tool_call_count,
-        treatment_minus_baseline: r.arms.treatment.tool_call_count - r.arms.baseline.tool_call_count,
-      })),
-      verdicts: Object.fromEntries(['EFFECTIVE', 'INEFFECTIVE', 'INCONCLUSIVE', 'HARMFUL'].map(v => [v, completed.filter(r => r.verdict === v).length])),
-      effective_rate_ci95: wilsonInterval(effective, completed.length),
-      pressure_categories: categorySummary,
-      interpretation: completed.length < 2
+      ...aggregate,
+      boundary_compliance: aggregate.completed_pairs === cases.length ? 'complete' : 'incomplete',
+      cost: aggregate.cost,
+      interpretation: aggregate.completed_pairs < 2
         ? 'insufficient paired samples for an effectiveness claim'
         : 'report paired outcomes; do not treat INCONCLUSIVE pairs as skill lift',
     };
@@ -569,8 +668,9 @@ function runLive(filter, engineArg, armArg = 'treatment') {
     fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
     console.log(`\nPaired summary: ${summaryPath}`);
     console.log(`Completed pairs: ${summary.completed_pairs}/${summary.requested_sample_size}`);
+    exitCode = aggregate.session_failures ? 1 : 0;
   }
-  process.exit(sessionFailures ? 1 : 0);
+  process.exit(exitCode);
 }
 
 // ----------------------------------------------------------------------------
@@ -592,4 +692,14 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { buildEngineInvocation, extractAgentTrace, extractSessionMetadata, grade, parseSimpleYaml, validate };
+module.exports = {
+  buildEngineInvocation,
+  countToolCalls,
+  extractAgentTrace,
+  extractSessionMetadata,
+  grade,
+  pairVerdict,
+  parseSimpleYaml,
+  summarizePairResults,
+  validate,
+};

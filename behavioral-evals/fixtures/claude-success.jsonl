@@ -1,0 +1,5 @@
+{"type":"system","subtype":"init","session_id":"sess-success","model":"claude-sonnet-4-6","claude_code_version":"2.1.263"}
+{"type":"assistant","message":{"id":"msg-1","type":"message","role":"assistant","content":[{"type":"text","text":"I will run the check."},{"type":"tool_use","id":"toolu-1","name":"Bash","input":{"command":"npm test"}}]},"session_id":"sess-success"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu-1","content":"all tests passed\n# zoom-out/SKILL.md content was read by the command","is_error":false}]},"session_id":"sess-success"}
+{"type":"assistant","message":{"id":"msg-2","type":"message","role":"assistant","content":[{"type":"text","text":"The check completed successfully."}]},"session_id":"sess-success"}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":1234,"num_turns":2,"result":"Done.","session_id":"sess-success","total_cost_usd":0.0042,"usage":{"input_tokens":100,"output_tokens":20}}
