@@ -1,4 +1,6 @@
-.harness/
+.harness/multi-agent/state/
+.harness/multi-agent/logs/
+.harness/multi-agent/roles/
 .claude/
 node_modules/
 .worktrees/

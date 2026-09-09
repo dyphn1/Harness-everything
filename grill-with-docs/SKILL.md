@@ -22,7 +22,7 @@ Interview the design tree one question at a time with recommended answers; explo
 
 ## Workflow
 
-1. Resolve storage (root `CONTEXT-MAP.md` wins); else `node "to-spec/scripts/check-project-docs.js" check` or inspect `docs/adr/` / `docs/`; else `.github/harness-everything/adr/` (or `.claude/…`, `.cursor/…`). Formats: [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) · [ADR-FORMAT.md](./ADR-FORMAT.md)
+1. Resolve storage with the shared `multi-agent-workspace/scripts/project-docs-resolver.js` contract (root `CONTEXT-MAP.md` wins); use its decision/domain/architecture paths instead of inferring from generated output. Formats: [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) · [ADR-FORMAT.md](./ADR-FORMAT.md)
 2. Challenge glossary conflicts; sharpen fuzzy terms to canonical ones.
 3. Stress-test relationships with concrete scenarios; cross-check claims against code.
 4. Update `CONTEXT.md` inline, never batch; zero implementation details.

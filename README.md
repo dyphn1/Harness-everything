@@ -169,11 +169,12 @@ node multi-agent-workspace/scripts/scaffold.js --workspace . \
   --agency-source <path-to-agency-agents> --division engineering --platform codex
 ```
 
-The source is read-only input. The generated `.harness/multi-agent/` directory
-records the six zones, selected metadata, supported converter targets,
-launcher, immutable router, memory index, and structured handoff. Omit the
-source for an explicit unavailable-catalog fallback; do not treat it as a
-complete roster.
+The source is read-only input. Runtime metadata, selected roles, the launcher,
+memory index, and structured handoff are keyed under the global Harness state
+home. Decision, domain, and architecture records are resolved per repository
+from `CONTEXT-MAP.md`, project configuration, existing documentation folders,
+or a committable fallback. Omit the source for an explicit unavailable-catalog
+fallback; do not treat it as a complete roster.
 
 This repo uses a flat layout (waza/agentskills.io convention). The table below maps each top-level directory to its role.
 

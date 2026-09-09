@@ -22,7 +22,7 @@ Turns the conversation into one published spec artifact. No interviewing — `gr
 
 ## Workflow
 
-1. Resolve path via `node "to-spec/scripts/check-project-docs.js" check`; else existing `docs/specs/`, `docs/reference/`, `docs/adr/`, `docs/`, `.scratch/`; else `.claude/`, `.github/`, or `.cursor/harness-everything/specs/<slug>.md`.
+1. Resolve path via the shared `project-docs-resolver.js` contract and `node "to-spec/scripts/check-project-docs.js" check`; use explicit projectDocs, CONTEXT-MAP, inferred docs, then committable fallback.
 2. Zero-trust context: cite `Evidence: <file:line> -> Finding: <meaning>`; blocking forks mean run `grill-me`/`grill-with-docs` first.
 3. Mandatory outline preview (closest fit, 10-20 lines + target path); write only after user confirms.
 4. Publish to `specs/<feature-slug>.md` (`Status: ready-for-agent`) or `reference/`, `adr/`.
