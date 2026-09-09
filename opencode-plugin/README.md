@@ -26,8 +26,9 @@ The module follows opencode's V1 plugin contract directly: the named
 `HarnessEnforcement` export is an async factory receiving the opencode context
 (`client`, `directory`, `project`, `worktree`, and `$`) and returning the hook
 map. Copying this one `.mjs` file into `.opencode/plugins/` is enough for
-opencode to discover and invoke it; there is no manifest or sibling script to
-configure. The hook callbacks use the V1 `(input, output)` shape, including
+opencode to discover and invoke it; `plugin.json` is only a repository
+inventory and is not an opencode runtime manifest. The hook callbacks use the
+V1 `(input, output)` shape, including
 `output.args` when the host supplies tool arguments only in the result object.
 
 ### 1. Edit tracking (`tool.execute.after`)
@@ -97,6 +98,9 @@ there it would re-enter `npm test` from inside `npm test`. It is intentionally
 a separate copy of the logic, not a shared import, so `index.mjs` stays a
 single portable file for the installation step above.
 
+`plugin.json` records this standalone helper for repository parity checks; it
+does not configure opencode. The runtime module is `index.mjs`.
+
 ## State and reset contract
 
 State is persisted per workspace and session under
@@ -104,15 +108,18 @@ State is persisted per workspace and session under
 The plugin shares this layout with Harness's CJS hooks. A new session ID gets a
 new state stream, and `session.created` clears a reused session ID. A
 `session.deleted` event removes only that session's state. The old ambiguous
-`~/.harness-state/` files are left in place and are never claimed for the first
-workspace that loads the plugin. Session IDs such as `.` or `..` are hashed
+`~/.harness-state/` files are migrated into the first workspace-keyed root that
+loads the plugin; conflicting or unsupported entries remain in place for
+recovery. Session IDs such as `.` or `..` are hashed
 into safe child names, and reset only removes a path proven to remain under the
 session root.
 
 The reflection report is `zoom-out-report.md` in the session state directory.
 It must contain `## Goal`, `## Failed Attempts`, `## Verified Facts`,
-`## Diagnosis`, `## Decision`, a `RESUME:` or `ESCALATE:` decision, and the
-token supplied in the forced-reflection prompt.
+`## Diagnosis`, `## Decision`, with the first non-empty line under `## Decision`
+starting with `RESUME:` or `ESCALATE:`, and the token supplied in the
+forced-reflection prompt. `apply_patch` reflection writes are accepted when
+their patch target names the report file.
 
 ## Testing
 
@@ -120,6 +127,7 @@ token supplied in the forced-reflection prompt.
 exported hooks directly with a mock `client`/`event` context - the same shape
 opencode's plugin loader passes in - covering the edit → idle → follow-up →
 reflection-artifact → retry → hard-lock sequence, repeated-idle idempotency,
-session isolation, reset behavior, and preservation of ambiguous legacy state.
+session isolation, reset behavior, legacy-state migration, corrupt-state
+fail-closed behavior, and patch-based reflection writes.
 It does not launch a real opencode process; the test remains a deterministic
 hook-sequence check against the documented and source-verified hook signatures.
