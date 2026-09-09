@@ -17,15 +17,6 @@ metadata:
 - A single-agent task, ordinary TDD, or Fable-only orchestration.
 - Preloading or vendoring an entire external agent body roster.
 
-## Skill Contract
-
-| Component | Specification |
-| :--- | :--- |
-| **Trigger / Input** | Tier 3 workspace scaffold or specialist-selection request; optional `--agency-source`. |
-| **Expected Output** | Global runtime manifest/handoff, resolved document paths, selected-agent catalog, launcher, and indexed memory. |
-| **State Mutations** | Writes runtime state under the global workspace key; only resolved decision/domain/architecture folders are repository-local. |
-| **Enforcement Gate** | Run `scripts/scaffold.js`; it validates source metadata, conflicts, revision drift, and generated artifacts. |
-
 ## Workflow
 
 1. Discover the target stack, source availability, requested platform, divisions, and agents.
@@ -34,7 +25,7 @@ metadata:
 4. Verify resolved document paths, the indexed memory, and selected roles.
 5. Record the handoff and continue through `fable-mode` verification gates.
 
-The source is optional: missing source produces an explicit unavailable-catalog fallback, never a fake complete roster. The resolver records detailed provenance (`CONTEXT-MAP`, `projectDocs`, inference, or fallback) plus normalized resolution kind (`explicit`, `inferred`, or `fallback`). An omitted `--workspace` means the repository root from the current directory; an explicit target is used verbatim. `--allow-source-drift` is required to refresh an existing catalog at a different source revision. See `references/orchestration.md` and `references/agency-agents.md` for migration and source rules.
+The source is optional: missing source yields an unavailable-catalog fallback. The resolver records provenance and a resolution kind (`explicit`, `inferred`, or `fallback`). Omitted `--workspace` uses the current repository root; explicit targets are used verbatim. Use `--allow-source-drift` to refresh a catalog at another revision. Read the references for migration and source rules.
 
 Deep dive: references/orchestration.md
 Deep dive: references/architecture-guide.md
