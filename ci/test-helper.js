@@ -1,8 +1,15 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 process.env.CLAUDE = '1'; // Force Claude Code state path
+// Mechanism tests use a fixed session id. Keep each test process hermetic so
+// prior worktrees or an earlier local run cannot make the session registry
+// ambiguous under the global Harness state home.
+const ownsStateHome = !process.env.HARNESS_STATE_HOME;
+const isolatedStateHome = process.env.HARNESS_STATE_HOME || fs.mkdtempSync(path.join(os.tmpdir(), 'harness-mechanism-state-'));
+process.env.HARNESS_STATE_HOME = isolatedStateHome;
 
 const { getWorkspaceRoot, getSessionDir } = require('../hooks/scripts/lib/harness-state');
 
@@ -81,6 +88,9 @@ function cleanup() {
     try { if (fs.existsSync(d)) fs.rmSync(d, { recursive: true, force: true }); } catch (e) { /* best-effort */ }
   }
   try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) { /* best-effort */ }
+  if (ownsStateHome) {
+    try { fs.rmSync(isolatedStateHome, { recursive: true, force: true }); } catch (e) { /* best-effort */ }
+  }
 }
 
 process.on('exit', cleanup);
