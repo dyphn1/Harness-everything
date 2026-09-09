@@ -22,6 +22,14 @@ see issue #37 for how that was found and fixed.
 
 It implements three enforcement mechanisms across opencode's real hooks:
 
+The module follows opencode's V1 plugin contract directly: the named
+`HarnessEnforcement` export is an async factory receiving the opencode context
+(`client`, `directory`, `project`, `worktree`, and `$`) and returning the hook
+map. Copying this one `.mjs` file into `.opencode/plugins/` is enough for
+opencode to discover and invoke it; there is no manifest or sibling script to
+configure. The hook callbacks use the V1 `(input, output)` shape, including
+`output.args` when the host supplies tool arguments only in the result object.
+
 ### 1. Edit tracking (`tool.execute.after`)
 
 Fires after every `edit`, `write` or `apply_patch` tool call and marks
@@ -45,11 +53,20 @@ truncated error, not arbitrary tool failures - `tool.execute.after` has no
 normalized success/failure field to key a signature on for tools in general):
 - 3rd failure on the same signature forces a reflection message instead of a
   retry nudge
-- the same signature failing again after a reflection was recorded hard-locks
-  the breaker
+- the follow-up asks for a tokenized `zoom-out-report.md` artifact with the
+  required reflection sections; the artifact is accepted through the real
+  edit hook and records `lastReflection`
+- the same signature failing again after that reflection was recorded
+  hard-locks the breaker
 - once hard-locked, `tool.execute.before` throws on any `edit`/`write`/
   `apply_patch` call, blocking further edits until the state file is cleared
   or a new session starts
+
+Idle handling is bounded: after a failed verification, the plugin records that
+the follow-up is pending and ignores repeated `session.idle` events until a new
+code edit arrives. If prompt delivery fails, the exact follow-up text is saved
+and retried on the next idle event without re-running verification or adding a
+new breaker failure. A reflection artifact itself does not count as a code edit.
 
 ## Installation
 
@@ -80,20 +97,29 @@ there it would re-enter `npm test` from inside `npm test`. It is intentionally
 a separate copy of the logic, not a shared import, so `index.mjs` stays a
 single portable file for the installation step above.
 
-## State
+## State and reset contract
 
-Uses `~/.harness-state/` for persistence (`edit-state.json`,
-`circuit-breaker.json`, `compliance.json`). Each session starts fresh only in
-the sense that opencode restarts the plugin per process; the state files
-themselves persist across sessions until cleared.
+State is persisted per workspace and session under
+`~/.agents/harness-everything/workspaces/<workspace-key>/state/sessions/<session-id>/`.
+The plugin shares this layout with Harness's CJS hooks. A new session ID gets a
+new state stream, and `session.created` clears a reused session ID. A
+`session.deleted` event removes only that session's state. The old ambiguous
+`~/.harness-state/` files are left in place and are never claimed for the first
+workspace that loads the plugin. Session IDs such as `.` or `..` are hashed
+into safe child names, and reset only removes a path proven to remain under the
+session root.
+
+The reflection report is `zoom-out-report.md` in the session state directory.
+It must contain `## Goal`, `## Failed Attempts`, `## Verified Facts`,
+`## Diagnosis`, `## Decision`, a `RESUME:` or `ESCALATE:` decision, and the
+token supplied in the forced-reflection prompt.
 
 ## Testing
 
 `ci/mechanism-2n-opencode-plugin.test.js` imports `index.mjs` and drives its
 exported hooks directly with a mock `client`/`event` context - the same shape
-opencode's plugin loader would pass in - covering edit tracking, the
-verification gate, the three-strikes reflection trip, and the post-reflection
-hard lock. It does not launch a real opencode process (opencode requires Bun
-and was not available to install in this repo's CI/dev environment); it
-verifies the plugin's exported hooks behave correctly against the documented
-and source-verified hook signatures.
+opencode's plugin loader passes in - covering the edit → idle → follow-up →
+reflection-artifact → retry → hard-lock sequence, repeated-idle idempotency,
+session isolation, reset behavior, and preservation of ambiguous legacy state.
+It does not launch a real opencode process; the test remains a deterministic
+hook-sequence check against the documented and source-verified hook signatures.
