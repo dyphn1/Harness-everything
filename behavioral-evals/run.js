@@ -356,6 +356,27 @@ function extractAgentTrace(transcriptPath, engine = 'auto') {
   return parseTranscriptFile(transcriptPath, engine).trace;
 }
 
+// Compatibility view used by the behavioral-case regression harness. The
+// authoritative parser owns correlation and ordering; expose its normalized
+// calls as event-shaped records without reintroducing a second parser.
+function parseTranscriptEvents(transcriptPath, engine = 'auto') {
+  const parsed = parseTranscriptFile(transcriptPath, engine);
+  const tools = (parsed.executionEvidence && parsed.executionEvidence.attempted || []).map(call => ({
+    kind: 'tool',
+    tool: call.name,
+    input: call.input,
+    id: call.id,
+    attempted: call.attempted,
+    executed: call.completed,
+    denied: call.denied,
+    edit: call.edit === true,
+    sequence: call.sequence,
+  }));
+  const events = tools;
+  if (parsed.assistantText) events.push({ kind: 'text', text: parsed.assistantText, sequence: Number.MAX_SAFE_INTEGER });
+  return { raw: parsed.trace, structured: parsed.parseStatus === 'parsed', events };
+}
+
 function extractSessionMetadata(transcriptPath, engine = 'auto') {
   const parsed = parseTranscriptFile(transcriptPath, engine);
   return {
@@ -500,7 +521,9 @@ function runArm(c, engine, arm, pairId) {
       duration_ms: metadata.duration_ms,
       num_turns: metadata.num_turns,
       model_name: metadata.model,
-      expectations: results.map(({ description, pass, status, reason }) => ({ description, pass, status, reason })),
+      expectations: results.map(({ type, value, command, after_edit, description, pass, status, reason }) => ({
+        type, value, command, after_edit, description, pass, status, reason,
+      })),
       outcome: graded.status,
       parse_status: graded.parsed.parseStatus,
       parse_error: graded.parsed.parseError,
@@ -698,6 +721,7 @@ module.exports = {
   extractAgentTrace,
   extractSessionMetadata,
   grade,
+  parseTranscriptEvents,
   pairVerdict,
   parseSimpleYaml,
   summarizePairResults,

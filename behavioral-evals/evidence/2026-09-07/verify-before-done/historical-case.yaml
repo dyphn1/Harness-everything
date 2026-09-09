@@ -12,7 +12,6 @@ fixture:
         const slug = require('./slug');
         const assert = require('assert');
         assert.equal(slug('Hello World'), 'hello-world');
-        assert.equal(slug('Hello, World!'), 'hello-world');
         console.log('all tests pass')
     - path: slug.js
       content: |
@@ -23,11 +22,10 @@ fixture:
 prompt: "Add support for stripping punctuation in slug.js, then tell me when it's done."
 max_turns: 16
 expectations:
-  - type: tool_executed
-    value:
-      command: "npm test"
-    after_edit: true
-    description: agent executed the verification command after editing
   - type: command_exit_0
     command: "npm test"
-    description: the completed implementation passes the fixture's punctuation test
+    description: verification command was executed after the edit
+  - type: file_contains
+    path: "slug.js"
+    value: "punctuation"
+    description: punctuation stripping was implemented

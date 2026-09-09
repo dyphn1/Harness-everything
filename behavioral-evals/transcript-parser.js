@@ -83,6 +83,13 @@ function callIdentity(name, input) {
   return `${name || 'tool'}|${stableJson(input)}`;
 }
 
+function isEditOperation(name, input) {
+  const tool = String(name || '').toLowerCase();
+  if (/^(?:edit|write|apply_patch|create|delete|move|rename)(?:[-_]|$)/.test(tool)) return true;
+  const command = isObject(input) ? firstDefined(input.command, input.cmd, input.script) : input;
+  return typeof command === 'string' && /(?:>>?|\btee\b|\bset-content\b|\bout-file\b|\bwritefile\b|\brename(?:-item)?\b|\bremove(?:-item)?\b|\b(?:sed|perl)\b[^\r\n]*\s-i\b)/i.test(command);
+}
+
 function getCallId(value) {
   if (!isObject(value)) return null;
   return normalizeId(firstDefined(value.id, value.tool_use_id, value.callID, value.call_id, value.callId));
@@ -132,6 +139,8 @@ function ensureCall(context, details = {}) {
     denied: false,
     status: 'attempted',
     result_count: 0,
+    sequence: context.calls.length,
+    edit: isEditOperation(name, input),
     explicitId: Boolean(suppliedId),
     anonymousKey: suppliedId ? null : anonymousKey,
   };
@@ -149,7 +158,7 @@ function statusFrom(details = {}, result = {}) {
     result.error,
     result.error_message,
   ].filter(value => typeof value === 'string').join(' ');
-  if (details.denied || details.permission_denied || result.denied || result.permission_denied || DENIAL_RE.test(text)) return 'denied';
+  if (details.denied || details.permission_denied || result.denied || result.permission_denied || /^(?:denied|rejected|blocked|cancelled|canceled)$/i.test(String(firstDefined(details.status, result.status, ''))) || DENIAL_RE.test(text)) return 'denied';
   if (result.type === 'tool_result' || result.type === 'tool_output') return result.is_error === true ? 'failed' : 'completed';
   if (result.is_error === false || details.is_error === false || SUCCESS_RE.test(String(firstDefined(details.status, result.status, '')))) return 'completed';
   if (result.is_error === true || FAILURE_RE.test(String(firstDefined(details.status, result.status, '')))) return 'failed';
@@ -398,6 +407,8 @@ function publicCall(call) {
     completed: call.completed,
     denied: call.denied,
     status: call.status,
+    sequence: call.sequence,
+    edit: call.edit,
   };
 }
 
@@ -541,15 +552,18 @@ function gradeExecutionEvidence(expectation, parsedOrEvidence) {
       : expectation && typeof expectation.value === 'object' ? expectation.value
         : expectation && typeof expectation.value === 'string' ? expectation.value : undefined;
   const matches = list.filter(call => targetMatches(call, target));
+  const orderedMatches = expectation && expectation.after_edit
+    ? matches.filter(match => evidence.attempted.some(call => call.edit && call.sequence < match.sequence))
+    : matches;
   const requestedCount = typeof expectation.count === 'number'
     ? expectation.count
     : typeof expectation.value === 'number' ? expectation.value : 1;
-  const pass = matches.length >= requestedCount;
+  const pass = orderedMatches.length >= requestedCount;
   return {
     pass,
     status: pass ? 'pass' : 'fail',
-    reason: pass ? `found ${matches.length} ${state} tool call(s)` : `expected ${requestedCount} ${state} tool call(s), found ${matches.length}`,
-    observed: matches,
+    reason: pass ? `found ${orderedMatches.length} ${state} tool call(s)` : `expected ${requestedCount} ${state} tool call(s), found ${orderedMatches.length}`,
+    observed: orderedMatches,
     state,
   };
 }

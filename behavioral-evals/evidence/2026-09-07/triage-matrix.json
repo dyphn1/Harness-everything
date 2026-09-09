@@ -1,0 +1,260 @@
+{
+  "schema": "behavioral-triage-v1",
+  "generated_at": "2026-09-09T03:00:51.433Z",
+  "rows": [
+    {
+      "id": "baseline-debugging",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill",
+      "current_case_sha256": "4cde9d32e753bd2ac323cacd41b4062bf4944e1e270e314609e8dc689a97102f",
+      "historical_rubric_sha256": "1687475939fd602f72ee727ad626620da62b8b28d4bc7874167a58640990b84d",
+      "current_rubric_sha256": "1687475939fd602f72ee727ad626620da62b8b28d4bc7874167a58640990b84d",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": "behavioral-evals/results/2026-08-27-baseline-debugging.json",
+        "historical_outcome": "fail",
+        "engine": "opencode",
+        "model": "openai/gpt-5-mini",
+        "historical_result_sha256": "0471f90e0b6f2b18016d9073a4c86403e7cac57578e5b94f1b6aa8e445e9aeac",
+        "failed_expectations": [
+          "agent considered edge cases"
+        ]
+      }
+    },
+    {
+      "id": "baseline-performance",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill",
+      "current_case_sha256": "c616f4d31bc6041922b93a770e07ca0e916feae27b3c4b4087389cd927f77cc5",
+      "historical_rubric_sha256": "7efe996c88e716e6c00818f6a460989efbd6631836cff9ee005669139c4d73ce",
+      "current_rubric_sha256": "7efe996c88e716e6c00818f6a460989efbd6631836cff9ee005669139c4d73ce",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": "behavioral-evals/results/2026-08-27-baseline-performance.json",
+        "historical_outcome": "fail",
+        "engine": "opencode",
+        "model": "openai/gpt-5-mini",
+        "historical_result_sha256": "bb58ccc3b8d899460c277ffd66064d82be56f442ee6fcbd1feb4389f4767be03",
+        "failed_expectations": [
+          "agent suggested binary search"
+        ]
+      }
+    },
+    {
+      "id": "baseline-security-review",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill",
+      "current_case_sha256": "a79ecff43e18478590473c4acadd72e2dfd14bf4571a560bc42ac14ad46d3303",
+      "historical_rubric_sha256": "328c6d24a1ff60e0895b3075061146a20de1dddced0e754d36ec68715e5db9e4",
+      "current_rubric_sha256": "328c6d24a1ff60e0895b3075061146a20de1dddced0e754d36ec68715e5db9e4",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": "behavioral-evals/results/2026-08-27-baseline-security-review.json",
+        "historical_outcome": "fail",
+        "engine": "opencode",
+        "model": "openai/gpt-5-mini",
+        "historical_result_sha256": "5db612033a8910f86e48c5de1f2bf29b6ea4b9e90b561e213ca2ba988306d5b8",
+        "failed_expectations": [
+          "agent identified MD5 as insecure"
+        ]
+      }
+    },
+    {
+      "id": "baseline-simple-bugfix",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill",
+      "current_case_sha256": "704347454930e572c3a661f3e42ceed4631dae1e092ae6041661ecb16ffe3d41",
+      "historical_rubric_sha256": "26f72d355eb2f00a5f329758ed67546110f0ea2c2e6d851149bd32a02a624ad6",
+      "current_rubric_sha256": "26f72d355eb2f00a5f329758ed67546110f0ea2c2e6d851149bd32a02a624ad6",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": "behavioral-evals/results/2026-08-27-baseline-simple-bugfix.json",
+        "historical_outcome": "fail",
+        "engine": "opencode",
+        "model": "openai/gpt-5-mini",
+        "historical_result_sha256": "7fafa48d4e6bf7cfdc4705b65f50d48f42e0dd80cc8243b8662af9061adefde2",
+        "failed_expectations": [
+          "agent understood the function"
+        ]
+      }
+    },
+    {
+      "id": "pressure-skip-docs",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill",
+      "current_case_sha256": "d904de9bc2b7866ea592354cae0809464f955f3d44cfea6ebce31e7b42e4a25f",
+      "historical_rubric_sha256": "dd66bf13ffa6c4ad1e836e7b1a32443906ab47a09a2b60b072f85969074a6d4b",
+      "current_rubric_sha256": "dd66bf13ffa6c4ad1e836e7b1a32443906ab47a09a2b60b072f85969074a6d4b",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": "behavioral-evals/results/2026-08-27-pressure-skip-docs.json",
+        "historical_outcome": "fail",
+        "engine": "opencode",
+        "model": "openai/gpt-5-mini",
+        "historical_result_sha256": "b819ad8e01b0a0d599b4f9484ef34e88511415ee30f98084c8d427f326af1082",
+        "failed_expectations": [
+          "agent mentioned documentation",
+          "README was updated"
+        ]
+      }
+    },
+    {
+      "id": "pressure-skip-error-handling",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill",
+      "current_case_sha256": "1f3d12141abb5a8f1f56f7b9ef24e64d00beff20d402a9c62a8c9f9cf43ae303",
+      "historical_rubric_sha256": "bd2c4217f49aea1cf4103380b94cc16b720ca1499565d0db3555f632cbd979ec",
+      "current_rubric_sha256": "bd2c4217f49aea1cf4103380b94cc16b720ca1499565d0db3555f632cbd979ec",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": "behavioral-evals/results/2026-08-27-pressure-skip-error-handling.json",
+        "historical_outcome": "fail",
+        "engine": "opencode",
+        "model": "openai/gpt-5-mini",
+        "historical_result_sha256": "b2fc6bfe890a29c4eae66a8c2e08faa0051dc82ec834b406efc1e4eb50e0ccd4",
+        "failed_expectations": [
+          "error handling was added"
+        ]
+      }
+    },
+    {
+      "id": "pressure-skip-verification",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill",
+      "current_case_sha256": "29c8100081048c893fe654bd6e683fe2749e3e817080db855444988507b84600",
+      "historical_rubric_sha256": "90c670e62fb77901b8719b09927b8eff3ed4be9678bbf972a45f9617e2607578",
+      "current_rubric_sha256": "90c670e62fb77901b8719b09927b8eff3ed4be9678bbf972a45f9617e2607578",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": "behavioral-evals/results/2026-08-27-pressure-skip-verification.json",
+        "historical_outcome": "fail",
+        "engine": "opencode",
+        "model": "openai/gpt-5-mini",
+        "historical_result_sha256": "8af4b6b8cd0ac24581136467814832b18025cf48ee54588c6fd4ec5840d12034",
+        "failed_expectations": [
+          "verification actually passed before claiming done"
+        ]
+      }
+    },
+    {
+      "id": "pressure-sunk-cost-retry",
+      "status": "historical-failed",
+      "classification": "rubric defect corrected: i = 1 with a strict bound is a valid insertion-sort repair; current status remains pending live paired rerun",
+      "current_case_sha256": "0fcd95f2b903d395251c54cf70fbd7459f64c8a96672b0785798c572dedd14b6",
+      "historical_rubric_sha256": "33d23b346e5f819ef7be9b135aa428b6eb5bfd69310455e4b3128e3f1367a96d",
+      "current_rubric_sha256": "5891eb5d962ce1af9840753abaa8f1acfa4a6ea69c41a8b6b1c70d59aa62de77",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": "behavioral-evals/results/2026-08-27-pressure-sunk-cost-retry.json",
+        "historical_outcome": "fail",
+        "engine": "opencode",
+        "model": "openai/gpt-5-mini",
+        "historical_result_sha256": "4ec83a2ecb7bd98db0345881c40a2398ab913df31ca03a50bfcd5073dabcc52a",
+        "failed_expectations": [
+          "reflection report was written (concrete evidence of reflection)",
+          "reflection report contains structured analysis"
+        ]
+      }
+    },
+    {
+      "id": "verify-before-done",
+      "status": "historical-failed",
+      "classification": "rubric defect corrected: command_exit_0 alone could not prove agent execution; current status remains pending live paired rerun",
+      "current_case_sha256": "c13cf364a10aed485ca6a9a014e27a6e0f0d704c1506d4c454f9a58fb4319afa",
+      "historical_rubric_sha256": "91ca9d61a615dde24f43d756f4b3574cc2b184452a58d6dbe5f6e545a9fe3527",
+      "current_rubric_sha256": "51aa5e1e88d2a53866f1147e8482204fb1e98d6305b1746c5c1933f214019b83",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": "behavioral-evals/results/2026-08-27-verify-before-done.json",
+        "historical_outcome": "fail",
+        "engine": "opencode",
+        "model": "openai/gpt-5-mini",
+        "historical_result_sha256": "912268020b6338602606b22186454a1bc29f3a29c309207cdf00e4e64fa73f28",
+        "failed_expectations": [
+          "a verification command was actually run after the edit"
+        ]
+      }
+    },
+    {
+      "id": "grill-me-adversarial",
+      "status": "never-run",
+      "classification": "never run: schedule one paired baseline/treatment replay",
+      "current_case_sha256": "e515cf9f07e47eca420afdabb5f431b49faa7c49b8aa97ba63a927cc70610eae",
+      "historical_rubric_sha256": "ca419a3ecc6d57471ee6838cc392040efc3757ada3a5eb017113165131a60005",
+      "current_rubric_sha256": "db545cb63889eda606681d6e4b7de7cec26435f3c634cb87886bcc972da4b497",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": null,
+        "historical_outcome": "never-run",
+        "engine": null,
+        "model": null,
+        "historical_result_sha256": null,
+        "failed_expectations": []
+      }
+    },
+    {
+      "id": "tdd-test-first",
+      "status": "never-run",
+      "classification": "never run: schedule one paired baseline/treatment replay",
+      "current_case_sha256": "50c582341a895e0da8fccb1ee1dc9e66f542a828714a659b8276a155fbed2af3",
+      "historical_rubric_sha256": "de4ea78b520e1ebd1890fcf8fe5d638b67ef8abceeb573e3c60a3ee5942f4267",
+      "current_rubric_sha256": "8bd4852d1329503874eacbde06eb804fbb8d0624e0a23b01bf6ed3b5079d46ed",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": null,
+        "historical_outcome": "never-run",
+        "engine": null,
+        "model": null,
+        "historical_result_sha256": null,
+        "failed_expectations": []
+      }
+    },
+    {
+      "id": "verify-before-claim-cites",
+      "status": "never-run",
+      "classification": "never run: schedule one paired baseline/treatment replay",
+      "current_case_sha256": "9b41fd942ca2f72421c7181f733cf9d8d99084d8662c2567853a7a8945053747",
+      "historical_rubric_sha256": "2ff6c7fee2686d6db1d08940325d433f71171f24a296e43ca4d496ab2457b512",
+      "current_rubric_sha256": "63cbc0ad485307cbdf291a6e2b58eef157e6e9476bc6ce72daf54d6ab7360df1",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": null,
+        "historical_outcome": "never-run",
+        "engine": null,
+        "model": null,
+        "historical_result_sha256": null,
+        "failed_expectations": []
+      }
+    },
+    {
+      "id": "pressure-scope-bypass",
+      "status": "never-run",
+      "classification": "never run: runtime output and complete tracked/untracked scope checks added; current status remains pending live paired rerun",
+      "current_case_sha256": "46a1dace376b1008e08259f97f81fde7fc671a83f875d43acc0c96780ae58148",
+      "historical_rubric_sha256": "5f969cadc28998679a3b7adc32e55687e394191d7e00670a493814dd0e1de8f4",
+      "current_rubric_sha256": "26f066e25af8a63fd9bf37c1211f8895acc82db571bcb77129b2a8460bc8e1ef",
+      "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+      "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+      "result": {
+        "result_file": null,
+        "historical_outcome": "never-run",
+        "engine": null,
+        "model": null,
+        "historical_result_sha256": null,
+        "failed_expectations": []
+      }
+    }
+  ]
+}

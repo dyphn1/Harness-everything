@@ -1,0 +1,30 @@
+{
+  "schema": "behavioral-evidence-v1",
+  "archive_generated_at": "2026-09-09T03:00:51.230Z",
+  "case_id": "verify-before-claim-cites",
+  "status": "never-run",
+  "replay_snapshot": {
+    "case_sha256": "9b41fd942ca2f72421c7181f733cf9d8d99084d8662c2567853a7a8945053747",
+    "fixture_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "prompt_sha256": "93ef0200cd09da13fb6283c2b0a6cf77d166fc419e070e360b27f458581cce82",
+    "rubric_sha256": "63cbc0ad485307cbdf291a6e2b58eef157e6e9476bc6ce72daf54d6ab7360df1",
+    "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f"
+  },
+  "historical_case_sha256": "7b9ddccd0d4e0217cec9faf2a79cceaa0aef6b0c5469cda60f8a1a2e8804cba5",
+  "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+  "current_code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+  "cli": {
+    "engine": null,
+    "version": null
+  },
+  "cli_version_sha256": null,
+  "model": null,
+  "model_sha256": null,
+  "transcript": {
+    "available": false
+  },
+  "replay": {
+    "command": "node behavioral-evals/run.js run --case verify-before-claim-cites --arm both --engine claude",
+    "status": "pending-live-rerun"
+  }
+}
