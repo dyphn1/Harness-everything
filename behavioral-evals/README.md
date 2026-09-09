@@ -87,6 +87,14 @@ the arm order, records a shared fixture/prompt fingerprint, and writes one
 paired result. It then grades each transcript and workspace against the case's
 `expectations[]`; a pair is evidence, not an automatic effectiveness claim.
 
+Use `trace_contains` for assistant text or intent only. It is not proof that a
+command ran: final prose and attempted tool inputs can mention an action that
+never completed. Use structured execution expectations instead, for example
+`tool_completed` with `command: "npm test"` (command prefixes may include
+additional arguments) or `tool_denied` when denial is the behavior under test.
+Legacy one-object Claude JSON and incomplete streams are graded inconclusive
+for execution evidence.
+
 Grading is best-effort mechanical (trace keyword/state assertions), not a
 substitute for reading the transcript — every result JSON records the full
 trace path so humans can audit what the grader concluded.

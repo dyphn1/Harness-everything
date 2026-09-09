@@ -7,6 +7,7 @@ const {
   gradeExecutionEvidence,
 } = require('../behavioral-evals/transcript-parser');
 const {
+  grade,
   pairVerdict,
   summarizePairResults,
 } = require('../behavioral-evals/run');
@@ -29,6 +30,10 @@ helper.check('2t. Denial grader passes only denied evidence', gradeExecutionEvid
 
 const oral = parseTranscript(readFixture('claude-oral-only.jsonl'), 'claude');
 helper.check('2t. Oral command mention has no attempted tool', oral.executionEvidence.counts.attempted === 0 && oral.executionEvidence.counts.completed === 0, JSON.stringify(oral.executionEvidence));
+const oralTraceGrade = grade({
+  expectations: [{ type: 'trace_contains', value: 'npm test' }],
+}, path.join(fixtures, 'unused-workspace'), path.join(fixtures, 'claude-oral-only.jsonl'), 'claude');
+helper.check('2t. Oral command prose cannot satisfy trace execution evidence', oralTraceGrade.status === 'inconclusive' && !oralTraceGrade.passed, JSON.stringify(oralTraceGrade));
 
 const opencode = parseTranscript(readFixture('opencode-success.jsonl'), 'opencode');
 helper.check('2t. Existing opencode JSONL remains supported', opencode.parseStatus === 'parsed' && opencode.format === 'opencode-jsonl', JSON.stringify(opencode));
@@ -76,6 +81,53 @@ helper.check('2t. Legacy JSON keeps readable final text', legacy.trace === 'Lega
 helper.check('2t. Legacy JSON does not claim tool visibility', legacy.executionEvidence.visibility === 'unavailable' && legacy.executionEvidence.counts.attempted === null, JSON.stringify(legacy.executionEvidence));
 helper.check('2t. Unavailable evidence is inconclusive', gradeExecutionEvidence({ type: 'tool_completed', value: 'Bash' }, legacy).status === 'inconclusive', JSON.stringify(gradeExecutionEvidence({ type: 'tool_completed', value: 'Bash' }, legacy)));
 helper.check('2t. Auto detection preserves legacy JSON', parseTranscriptFile(path.join(fixtures, 'claude-legacy.json')).format === 'claude-json', parseTranscriptFile(path.join(fixtures, 'claude-legacy.json')).format);
+
+const legacyTraceGrade = grade({
+  expectations: [{ type: 'trace_contains', value: 'Legacy final response' }],
+}, path.join(fixtures, 'unused-workspace'), path.join(fixtures, 'claude-legacy.json'), 'claude');
+helper.check('2t. Legacy final prose cannot produce a definitive trace grade', legacyTraceGrade.status === 'inconclusive' && !legacyTraceGrade.passed, JSON.stringify(legacyTraceGrade));
+
+const userText = parseTranscript([
+  JSON.stringify({ type: 'system', subtype: 'init' }),
+  JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text: 'tool output mentions npm test and zoom-out/SKILL.md' }] } }),
+  JSON.stringify({ type: 'result', subtype: 'success', result: 'Done' }),
+].join('\n'), 'claude');
+helper.check('2t. Claude user-event text is not agent trace', !userText.trace.includes('tool output mentions npm test'), userText.trace);
+
+const npmInstall = parseTranscript([
+  JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'npm-install', name: 'Bash', input: { command: 'npm install' } }] } }),
+  JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'npm-install', content: 'installed', is_error: false }] } }),
+  JSON.stringify({ type: 'result', subtype: 'success', result: 'Done' }),
+].join('\n'), 'claude');
+for (const expectation of [
+  { type: 'tool_executed', command: 'npm test' },
+  { type: 'tool_executed', command: 'rm -rf /' },
+  { type: 'tool_executed', tool: 'npm test' },
+]) {
+  const result = gradeExecutionEvidence(expectation, npmInstall);
+  helper.check(`2t. ${JSON.stringify(expectation)} does not match another completed command`, !result.pass, JSON.stringify(result));
+}
+
+const npmCoverage = parseTranscript([
+  JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'npm-coverage', name: 'Bash', input: { command: 'npm test --coverage' } }] } }),
+  JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'npm-coverage', content: 'passed', is_error: false }] } }),
+  JSON.stringify({ type: 'result', subtype: 'success', result: 'Done' }),
+].join('\n'), 'claude');
+helper.check('2t. Command targets match a command prefix with extra arguments', gradeExecutionEvidence({ type: 'tool_executed', command: 'npm test' }, npmCoverage).pass, JSON.stringify(gradeExecutionEvidence({ type: 'tool_executed', command: 'npm test' }, npmCoverage)));
+
+const todoPending = parseTranscript([
+  JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'todo-pending', name: 'TodoWrite', input: { todos: [{ status: 'pending', content: 'wait' }] } }] } }),
+  JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'todo-pending', content: 'saved', is_error: false }] } }),
+  JSON.stringify({ type: 'result', subtype: 'success', result: 'Done' }),
+].join('\n'), 'claude');
+const todoExpectation = { type: 'tool_completed', name: 'TodoWrite', input_contains: 'in_progress' };
+helper.check('2t. Tool input qualifiers do not match unrelated TodoWrite state', !gradeExecutionEvidence(todoExpectation, todoPending).pass, JSON.stringify(gradeExecutionEvidence(todoExpectation, todoPending)));
+
+const caseDir = path.join(__dirname, '..', 'behavioral-evals', 'cases');
+const staleGuidance = fs.readdirSync(caseDir)
+  .filter(file => file.endsWith('.yaml'))
+  .filter(file => /#52|trace only captures|final message only/i.test(fs.readFileSync(path.join(caseDir, file), 'utf8')));
+helper.check('2t. Behavioral cases do not retain the obsolete #52 trace limitation', staleGuidance.length === 0, staleGuidance.join(', '));
 
 helper.check('2t. Non-definitive arm cannot produce effectiveness', pairVerdict({ outcome: 'inconclusive' }, { outcome: 'pass' }) === 'INCONCLUSIVE', pairVerdict({ outcome: 'inconclusive' }, { outcome: 'pass' }));
 helper.check('2t. Session errors cannot produce effectiveness', pairVerdict({ outcome: 'session-error' }, { outcome: 'pass' }) === 'INCONCLUSIVE', pairVerdict({ outcome: 'session-error' }, { outcome: 'pass' }));

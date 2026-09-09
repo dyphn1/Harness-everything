@@ -83,13 +83,6 @@ function callIdentity(name, input) {
   return `${name || 'tool'}|${stableJson(input)}`;
 }
 
-function isEditOperation(name, input) {
-  const tool = String(name || '').toLowerCase();
-  if (/^(?:edit|write|apply_patch|create|delete|move|rename)(?:[-_]|$)/.test(tool)) return true;
-  const command = isObject(input) ? firstDefined(input.command, input.cmd, input.script) : input;
-  return typeof command === 'string' && /(?:>>?|\btee\b|\bset-content\b|\bout-file\b|\bwritefile\b|\brename(?:-item)?\b|\bremove(?:-item)?\b|\b(?:sed|perl)\b[^\r\n]*\s-i\b)/i.test(command);
-}
-
 function getCallId(value) {
   if (!isObject(value)) return null;
   return normalizeId(firstDefined(value.id, value.tool_use_id, value.callID, value.call_id, value.callId));
@@ -139,8 +132,6 @@ function ensureCall(context, details = {}) {
     denied: false,
     status: 'attempted',
     result_count: 0,
-    sequence: context.calls.length,
-    edit: isEditOperation(name, input),
     explicitId: Boolean(suppliedId),
     anonymousKey: suppliedId ? null : anonymousKey,
   };
@@ -158,7 +149,7 @@ function statusFrom(details = {}, result = {}) {
     result.error,
     result.error_message,
   ].filter(value => typeof value === 'string').join(' ');
-  if (details.denied || details.permission_denied || result.denied || result.permission_denied || /^(?:denied|rejected|blocked|cancelled|canceled)$/i.test(String(firstDefined(details.status, result.status, ''))) || DENIAL_RE.test(text)) return 'denied';
+  if (details.denied || details.permission_denied || result.denied || result.permission_denied || DENIAL_RE.test(text)) return 'denied';
   if (result.type === 'tool_result' || result.type === 'tool_output') return result.is_error === true ? 'failed' : 'completed';
   if (result.is_error === false || details.is_error === false || SUCCESS_RE.test(String(firstDefined(details.status, result.status, '')))) return 'completed';
   if (result.is_error === true || FAILURE_RE.test(String(firstDefined(details.status, result.status, '')))) return 'failed';
@@ -234,18 +225,18 @@ function setMetadata(context, value, { result = false } = {}) {
   if (result) metadata.result = clone(value);
 }
 
-function processContent(context, content, { partial = false } = {}) {
+function processContent(context, content, { partial = false, includeText = true } = {}) {
   if (Array.isArray(content)) {
-    for (const block of content) processContent(context, block, { partial });
+    for (const block of content) processContent(context, block, { partial, includeText });
     return;
   }
   if (typeof content === 'string') {
-    appendUnique(partial ? context.partialTextChunks : context.textChunks, content);
+    if (includeText) appendUnique(partial ? context.partialTextChunks : context.textChunks, content);
     return;
   }
   if (!isObject(content)) return;
   if (content.type === 'text') {
-    appendUnique(partial ? context.partialTextChunks : context.textChunks, content.text);
+    if (includeText) appendUnique(partial ? context.partialTextChunks : context.textChunks, content.text);
   } else if (content.type === 'tool_use' || content.type === 'tool_call') {
     context.sawRecognizedEvent = true;
     addToolCall(context, {
@@ -281,7 +272,10 @@ function processClaudeEvent(context, event) {
   if (type === 'user') {
     context.sawRecognizedEvent = true;
     const message = isObject(event.message) ? event.message : event;
-    processContent(context, message.content);
+    // User events carry tool results and may also carry tool-output prose.
+    // Keep the former for correlation, but never let user text become agent
+    // trace evidence.
+    processContent(context, message.content, { includeText: false });
     return;
   }
   if (type === 'result') {
@@ -407,8 +401,6 @@ function publicCall(call) {
     completed: call.completed,
     denied: call.denied,
     status: call.status,
-    sequence: call.sequence,
-    edit: call.edit,
   };
 }
 
@@ -491,7 +483,10 @@ function parseTranscript(raw, requestedEngine = 'auto') {
     context.finalResult = typeof legacy.result === 'string' ? legacy.result : null;
     setMetadata(context, legacy, { result: true });
     return finishContext(context, {
-      parseStatus: context.sawRecognizedEvent ? 'parsed' : 'unrecognized',
+      // The legacy one-object JSON contract contains final prose but no
+      // structured tool events. Keep the text readable while making every
+      // grader treat its evidence as unavailable.
+      parseStatus: context.sawRecognizedEvent ? 'unavailable' : 'unrecognized',
       rawLineCount: parsed.nonEmpty || 1,
     });
   }
@@ -521,16 +516,28 @@ function parseTranscriptFile(filePath, engine = 'auto') {
   return parseTranscript(fs.readFileSync(filePath, 'utf8'), engine);
 }
 
+function commandMatches(actual, expected) {
+  if (typeof actual !== 'string' || typeof expected !== 'string') return false;
+  const command = actual.trim();
+  const target = expected.trim();
+  if (!command || !target) return false;
+  if (command === target || command.startsWith(`${target} `)) return true;
+  // Script expectations often name the final path argument while the agent
+  // invokes it through `node <absolute-path>`.
+  return command.includes(`/${target}`) || command.includes(`\\${target}`);
+}
+
 function targetMatches(call, target) {
   if (target === undefined || target === null || target === '') return true;
   if (isObject(target)) {
     if (target.id !== undefined && call.id !== target.id) return false;
     if (target.name !== undefined && call.name !== target.name) return false;
-    if (target.command !== undefined && (!isObject(call.input) || call.input.command !== target.command)) return false;
+    if (target.command !== undefined && (!isObject(call.input) || !commandMatches(call.input.command, String(target.command)))) return false;
+    if (target.input_contains !== undefined && !stableJson(call.input).includes(String(target.input_contains))) return false;
     return true;
   }
   const value = String(target);
-  return call.id === value || call.name === value || (isObject(call.input) && call.input.command === value);
+  return call.id === value || call.name === value || (isObject(call.input) && commandMatches(call.input.command, value));
 }
 
 function gradeExecutionEvidence(expectation, parsedOrEvidence) {
@@ -547,23 +554,25 @@ function gradeExecutionEvidence(expectation, parsedOrEvidence) {
     : type.includes('completed') || type.includes('executed') || expectation.evidence === 'completed' ? 'completed'
       : 'attempted';
   const list = evidence[state] || [];
-  const target = expectation && expectation.tool !== undefined ? expectation.tool
-    : expectation && expectation.name !== undefined ? expectation.name
-      : expectation && typeof expectation.value === 'object' ? expectation.value
-        : expectation && typeof expectation.value === 'string' ? expectation.value : undefined;
-  const matches = list.filter(call => targetMatches(call, target));
-  const orderedMatches = expectation && expectation.after_edit
-    ? matches.filter(match => evidence.attempted.some(call => call.edit && call.sequence < match.sequence))
-    : matches;
+  const target = {};
+  if (expectation && isObject(expectation.value)) Object.assign(target, expectation.value);
+  if (expectation && expectation.tool !== undefined) target.name = expectation.tool;
+  if (expectation && expectation.name !== undefined) target.name = expectation.name;
+  if (expectation && expectation.command !== undefined) target.command = expectation.command;
+  if (expectation && expectation.input_contains !== undefined) target.input_contains = expectation.input_contains;
+  const targetValue = Object.keys(target).length
+    ? target
+    : expectation && typeof expectation.value === 'string' ? expectation.value : undefined;
+  const matches = list.filter(call => targetMatches(call, targetValue));
   const requestedCount = typeof expectation.count === 'number'
     ? expectation.count
     : typeof expectation.value === 'number' ? expectation.value : 1;
-  const pass = orderedMatches.length >= requestedCount;
+  const pass = matches.length >= requestedCount;
   return {
     pass,
     status: pass ? 'pass' : 'fail',
-    reason: pass ? `found ${orderedMatches.length} ${state} tool call(s)` : `expected ${requestedCount} ${state} tool call(s), found ${orderedMatches.length}`,
-    observed: orderedMatches,
+    reason: pass ? `found ${matches.length} ${state} tool call(s)` : `expected ${requestedCount} ${state} tool call(s), found ${matches.length}`,
+    observed: matches,
     state,
   };
 }
