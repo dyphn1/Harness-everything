@@ -10,6 +10,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { validate: validateCases } = require('./run');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -18,7 +19,7 @@ const PLUGIN_DIR = path.join(ROOT, 'opencode-plugin');
 
 // Minimal YAML subset parser (copied from run.js)
 function parseSimpleYaml(text) {
-  const lines = text.split('\n');
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
   let i = 0;
   function parseBlock(indent) {
     const obj = {};
@@ -300,7 +301,7 @@ function flag(name) {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 }
-if (args[0] === 'validate') validate(discoverCases());
+if (args[0] === 'validate') validateCases(discoverCases());
 else if (args[0] === 'run') {
   const filter = args.includes('--case') ? flag('--case') : undefined;
   runLive(filter);

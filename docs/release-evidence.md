@@ -10,7 +10,7 @@ The following evidence was collected on 2026-09-07 before the issue #20 integrat
 | --- | --- | --- | --- | --- |
 | 0.3.6 | `npm view harness-everything version dist-tags --json`: version and latest are `0.3.6` | `v0.3.6`, published 2026-09-01T03:50:44Z | [33466676632](https://github.com/dyphn1/Harness-everything/actions/runs/33466676632), commit `5aa74119d08ff241a7d6fe8f163a6a0d40c3c932` | `gate=success`, `publish=success` |
 
-The source capture for this row is the local review artifact `.git/issue-review-20260907/release-evidence.md`. It is historical evidence, not a release artifact shipped in the npm package.
+The source capture for this row is the local review artifact `.git/issue-review-20260907/release-evidence.md`. That review artifact is not expected to be present in every checkout; it is historical evidence, not a release artifact shipped in the npm package.
 
 ## Current review boundary
 

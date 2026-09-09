@@ -32,7 +32,7 @@ const RESULTS_DIR = path.join(__dirname, 'results');
 // Minimal YAML subset parser for our case files (flat maps, lists of maps,
 // block scalars via |). Avoids adding dependencies to this package.
 function parseSimpleYaml(text) {
-  const lines = text.split('\n');
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
   let i = 0;
   function parseBlock(indent) {
     const obj = {};
