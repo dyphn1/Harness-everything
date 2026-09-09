@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   getWorkspaceRoot,
+  getSessionId,
   getSessionDir,
   writeCurrentSession,
   pruneStaleSessions,
@@ -24,9 +25,9 @@ if (!process.stdin.isTTY) {
     // No payload piped in, or invalid JSON - fall back to 'default'.
   }
 }
-const sessionId = payload && payload.session_id;
+const sessionId = getSessionId(payload);
 
-const root = getWorkspaceRoot();
+const root = getWorkspaceRoot(payload);
 
 // Guard: only materialize state in a workspace that actually has Harness
 // installed. Without this, running a Claude session in any random folder
@@ -110,7 +111,7 @@ if (fs.existsSync(subagentScopeFile)) {
 try {
   const MARKER = 'Harness OS Guidance (Advisory)';
   const HOOK_ID = 'harness:pre:bootstrap';
-  const workspaceRoot = getWorkspaceRoot();
+  const workspaceRoot = getWorkspaceRoot(payload);
   const contains = (p, needle) => {
     try { return fs.readFileSync(p, 'utf8').includes(needle); } catch (e) { return false; }
   };
