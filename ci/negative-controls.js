@@ -7,11 +7,12 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 let passed = 0;
 let failed = 0;
+let fixtureCounter = 0;
 
 function test(name, fn) {
   try {
@@ -29,56 +30,85 @@ function assert(condition, msg) {
   if (!condition) throw new Error(msg || 'assertion failed');
 }
 
-// --- 1. Consistency gate rejects malformed frontmatter ---------------------
-test('consistency-check rejects unquoted colon in frontmatter', () => {
-  const fixture = path.join(ROOT, 'ci/fixtures/bad-frontmatter-colon/SKILL.md');
-  assert(fs.existsSync(fixture), `fixture not found: ${fixture}`);
-  const raw = fs.readFileSync(fixture, 'utf8');
-  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  assert(fmMatch, 'fixture has no frontmatter');
-  const fm = fmMatch[1];
-  const desc = (fm.match(/^description:\s*(.+)$/m) || [])[1] || '';
-  // Unquoted colon in value should be caught
-  assert(desc.includes(':') && !/^["']/.test(desc), 'description should contain unquoted colon');
+function runGate(script) {
+  const result = spawnSync(process.execPath, [path.join(ROOT, 'ci', script)], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: process.env,
+  });
+  return {
+    ...result,
+    output: `${result.stdout || ''}\n${result.stderr || ''}`,
+  };
+}
+
+function installFixture(source, label) {
+  const target = path.join(ROOT, `issue20-negative-${process.pid}-${++fixtureCounter}-${label}`);
+  assert(!fs.existsSync(target), `refusing to overwrite existing path: ${target}`);
+  fs.cpSync(path.join(ROOT, source), target, { recursive: true });
+  return target;
+}
+
+function removeFixtures(targets) {
+  for (const target of targets.reverse()) {
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+}
+
+function expectGateFailure(name, script, fixtures, matcher) {
+  test(name, () => {
+    const targets = [];
+    try {
+      for (const fixture of fixtures) targets.push(installFixture(fixture.source, fixture.label));
+      const result = runGate(script);
+      assert(result.status !== 0, `${script} unexpectedly passed (exit ${result.status})`);
+      assert(matcher.test(result.output), `${script} failed without the expected diagnostic:\n${result.output}`);
+      console.log(`   real gate: ${script} exited ${result.status}`);
+    } finally {
+      removeFixtures(targets);
+    }
+  });
+}
+
+expectGateFailure(
+  'consistency-check rejects malformed frontmatter',
+  'consistency-check.js',
+  [{ source: 'ci/fixtures/bad-frontmatter-colon', label: 'bad-frontmatter' }],
+  /frontmatter YAML syntax valid|YAMLException|unquoted colon/i
+);
+
+expectGateFailure(
+  'consistency-check rejects a missing frontmatter delimiter',
+  'consistency-check.js',
+  [{ source: 'eval-framework/fixtures/missing-delimiter', label: 'missing-delimiter' }],
+  /delimiter|frontmatter/i
+);
+
+expectGateFailure(
+  'description-collision rejects duplicate descriptions',
+  'description-collision.js',
+  [
+    { source: 'ci/fixtures/duplicate-description/skill-a', label: 'duplicate-a' },
+    { source: 'ci/fixtures/duplicate-description/skill-b', label: 'duplicate-b' },
+  ],
+  /COLLISION/i
+);
+
+expectGateFailure(
+  'consistency-check rejects an over-budget skill',
+  'consistency-check.js',
+  [{ source: 'eval-framework/fixtures/over-budget-skill', label: 'over-budget' }],
+  /exceeds hard limit|word count/i
+);
+
+test('normal repository passes the exercised gates', () => {
+  const consistency = runGate('consistency-check.js');
+  const collision = runGate('description-collision.js');
+  assert(consistency.status === 0, `consistency-check failed (exit ${consistency.status})`);
+  assert(collision.status === 0, `description-collision failed (exit ${collision.status})`);
+  console.log('   real gates: consistency-check.js and description-collision.js exited 0');
 });
 
-// --- 2. Collision gate rejects identical descriptions ----------------------
-test('collision detection rejects two skills with identical descriptions', () => {
-  const skillA = path.join(ROOT, 'ci/fixtures/duplicate-description/skill-a/SKILL.md');
-  const skillB = path.join(ROOT, 'ci/fixtures/duplicate-description/skill-b/SKILL.md');
-  assert(fs.existsSync(skillA) && fs.existsSync(skillB), 'duplicate fixtures not found');
-  const fmA = fs.readFileSync(skillA, 'utf8').match(/^---\r?\n([\s\S]*?)\r?\n---/)[1];
-  const fmB = fs.readFileSync(skillB, 'utf8').match(/^---\r?\n([\s\S]*?)\r?\n---/)[1];
-  const descA = (fmA.match(/^description:\s*(.+)$/m) || [])[1] || '';
-  const descB = (fmB.match(/^description:\s*(.+)$/m) || [])[1] || '';
-  assert(descA === descB && descA.length > 0, 'descriptions should be identical and non-empty');
-  // In a real run, collision detection would flag this
-});
-
-// --- 3. Token gate rejects oversized SKILL.md -----------------------------
-test('token-budget gate exists in consistency-check.js', () => {
-  const checkSrc = fs.readFileSync(path.join(ROOT, 'ci/consistency-check.js'), 'utf8');
-  assert(checkSrc.includes('TOKEN_HARD_LIMIT'), 'consistency-check.js should define TOKEN_HARD_LIMIT');
-  assert(checkSrc.includes('word count'), 'consistency-check.js should check word count');
-});
-
-// --- 4. YAML frontmatter validator exists ----------------------------------
-test('frontmatter syntax validator exists in consistency-check.js', () => {
-  const checkSrc = fs.readFileSync(path.join(ROOT, 'ci/consistency-check.js'), 'utf8');
-  assert(checkSrc.includes('validateFrontmatterSyntax'), 'consistency-check.js should have validateFrontmatterSyntax');
-  assert(checkSrc.includes('unquoted colon'), 'validator should check for unquoted colons');
-});
-
-// --- 5. Consistency check actually fails on the bad fixture ----------------
-test('consistency-check.js exits non-zero when fixtures are discoverable', () => {
-  // This tests that the gate logic works; the fixture is nested so won't be
-  // discovered by the normal scan, but the validator function itself catches it.
-  const checkSrc = fs.readFileSync(path.join(ROOT, 'ci/consistency-check.js'), 'utf8');
-  // The validator should call check() with false for unquoted colons
-  assert(checkSrc.includes("check(\n") || checkSrc.includes('check(`'), 'check() function is called');
-});
-
-// --- Summary ---------------------------------------------------------------
 console.log(`\nNegative control results: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
-console.log('All negative controls verified.');
+console.log('All negative controls verified by executing the real gates.');
