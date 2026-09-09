@@ -25,6 +25,17 @@ function run(cwd, script, env) {
   });
 }
 
+function filesRecursive(dir) {
+  if (!fs.existsSync(dir)) return [];
+  const files = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const target = path.join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...filesRecursive(target));
+    else files.push(target);
+  }
+  return files;
+}
+
 function nodeRequire(file) {
   return JSON.stringify(file.replace(/\\/g, '/'));
 }
@@ -123,7 +134,15 @@ const fableArgs = ['--requested', 'haiku', '--available', 'haiku', '--available-
 result = spawnSync(process.execPath, [fable, ...fableArgs], { cwd: outer, env: baseEnv, encoding: 'utf8' });
 check('standalone fable audit runs after install', result.status === 0, result.stderr || result.stdout);
 result = spawnSync(process.execPath, [fable, ...fableArgs], { cwd: scratch, env: baseEnv, encoding: 'utf8' });
-check('standalone fable audit follows its session binding across cwd changes', result.status === 0 && fs.existsSync(path.join(stateHome, 'workspaces')), result.stderr || result.stdout);
+const fableAudits = filesRecursive(stateHome).filter(file => file.endsWith(path.join('fable-mode', 'audit.jsonl')));
+const fableAuditRecords = fableAudits.length === 1
+  ? fs.readFileSync(fableAudits[0], 'utf8').trim().split(/\r?\n/).filter(Boolean)
+  : [];
+check(
+  'standalone fable audit follows its session binding across cwd changes',
+  result.status === 0 && fableAudits.length === 1 && fableAuditRecords.length === 2,
+  JSON.stringify({ audits: fableAudits, records: fableAuditRecords.length })
+);
 
 // Migration merges every platform source into an already-used destination,
 // preserves conflicting/unsupported entries, and succeeds on a later retry

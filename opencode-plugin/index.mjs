@@ -31,7 +31,7 @@
 
 import { homedir } from "node:os"
 import { join, dirname, resolve, basename } from "node:path"
-import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, realpathSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, realpathSync, readdirSync } from "node:fs"
 import { execSync } from "node:child_process"
 import { createHash } from "node:crypto"
 
@@ -56,7 +56,8 @@ function getWorkspaceKey(directory) {
   let real = resolve(directory)
   try { real = realpathSync(real) } catch { /* directory may not exist yet */ }
   const slug = basename(real).toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "workspace"
-  const hash = createHash("sha1").update(real).digest("hex").slice(0, 12)
+  const hashInput = process.platform === "win32" ? real.toLowerCase() : real
+  const hash = createHash("sha1").update(hashInput).digest("hex").slice(0, 12)
   return `${slug}-${hash}`
 }
 
@@ -72,17 +73,24 @@ function getStateDir(directory) {
 // just starts a fresh stream at the new location.
 function migrateLegacyFlatState(stateDir) {
   const legacyDir = join(homedir(), ".harness-state")
-  if (!existsSync(legacyDir) || existsSync(stateDir)) return
+  if (!existsSync(legacyDir)) return
   try {
     mkdirSync(stateDir, { recursive: true })
-    for (const name of ["edit-state.json", "circuit-breaker.json", "compliance.json"]) {
-      const src = join(legacyDir, name)
-      if (existsSync(src)) writeFileSync(join(stateDir, name), readFileSync(src))
+    let conflict = false
+    for (const entry of readdirSync(legacyDir, { withFileTypes: true })) {
+      if (!entry.isFile()) {
+        conflict = true
+        continue
+      }
+      const src = join(legacyDir, entry.name)
+      const destination = join(stateDir, entry.name)
+      if (!existsSync(destination)) writeFileSync(destination, readFileSync(src))
+      else if (!readFileSync(src).equals(readFileSync(destination))) conflict = true
     }
-    rmSync(legacyDir, { recursive: true, force: true })
+    if (!conflict) rmSync(legacyDir, { recursive: true, force: true })
   } catch {
-    // Best-effort - worst case the legacy dir lingers and this workspace
-    // just starts a fresh state stream at the new location.
+    // Best-effort - a failed or conflicting source remains available for
+    // recovery rather than being deleted before it is fully merged.
   }
 }
 

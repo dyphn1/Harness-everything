@@ -37,14 +37,11 @@
  */
 const fs = require('fs');
 const path = require('path');
-
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return process.cwd();
+let getWorkspaceRoot;
+try {
+  ({ getWorkspaceRoot } = require('../../scripts/lib/workspace'));
+} catch (err) {
+  getWorkspaceRoot = () => null;
 }
 
 function loadManifestHelper() {
@@ -248,6 +245,10 @@ Repo-local only: writes only to workspace-relative manifest homes (.claude/, .cu
 
 const command = process.argv[2] || 'check';
 const workspaceRoot = getWorkspaceRoot();
+if (!workspaceRoot) {
+  console.error('[to-spec/check-project-docs] Cannot inspect project docs without a resolved git workspace.');
+  process.exit(1);
+}
 
 if (command === 'check') {
   runCheck(workspaceRoot);

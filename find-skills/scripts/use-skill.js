@@ -22,8 +22,14 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
+let getStateHome;
+try {
+  ({ getStateHome } = require('../../scripts/lib/workspace'));
+} catch (err) {
+  getStateHome = () => path.join(os.homedir(), '.agents', 'harness-everything');
+}
 
-const CACHE_DIR = path.join(os.tmpdir(), 'harness-find-skills-cache');
+const CACHE_DIR = path.join(getStateHome(), 'cache', 'find-skills');
 const DEFAULT_MAX_AGE_HOURS = 6;
 
 // `source` is a third-party-supplied identifier (from a search result the

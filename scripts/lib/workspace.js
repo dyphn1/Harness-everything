@@ -14,20 +14,23 @@ const HOST_CONTEXT_KEYS = [
 ];
 const SESSION_REGISTRY_DIR = 'session-workspaces';
 const SESSION_REGISTRY_VERSION = 1;
+const UNBOUND_WORKSPACE_KEY = 'unbound-workspace';
 
-function findWorkspaceRoot(startPath) {
-  let dir = path.resolve(startPath || process.cwd());
+function findWorkspaceRoot(startPath, allowNonGit = false) {
+  if (typeof startPath !== 'string' || !startPath.trim()) return null;
+  let dir = path.resolve(startPath);
   while (true) {
     if (fs.existsSync(path.join(dir, '.git'))) return canonicalPath(dir);
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  return canonicalPath(startPath || process.cwd());
+  return allowNonGit ? canonicalPath(startPath) : null;
 }
 
 function canonicalPath(value) {
-  const resolved = path.resolve(value || process.cwd());
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const resolved = path.resolve(value);
   try { return fs.realpathSync(resolved); } catch (err) { return resolved; }
 }
 
@@ -142,7 +145,8 @@ function readWorkspaceSession(sessionId, context) {
 
 function bindWorkspaceSession(sessionId, workspaceRoot, context, force = false) {
   if (!sessionId) return null;
-  const root = findWorkspaceRoot(workspaceRoot);
+  const root = findWorkspaceRoot(workspaceRoot, true);
+  if (!root) return null;
   const hostId = getHostId(context);
   const target = sessionRegistryPath(sessionId, hostId);
   const record = {
@@ -191,9 +195,9 @@ function getWorkspaceRoot(context) {
   // binding even if the agent changes cwd or reports a nested repository.
   if (existing && !isIdentityReset(context)) return existing.workspaceRoot;
 
-  const candidate = explicit || process.env.HARNESS_WORKSPACE_ROOT ||
-    process.env.CLAUDE_PROJECT_DIR || process.env.CODEX_PROJECT_DIR || process.cwd();
-  const root = findWorkspaceRoot(candidate);
+  const hostRoot = explicit || process.env.HARNESS_WORKSPACE_ROOT ||
+    process.env.CLAUDE_PROJECT_DIR || process.env.CODEX_PROJECT_DIR;
+  const root = findWorkspaceRoot(hostRoot || process.cwd(), Boolean(hostRoot));
   if (sessionId) bindWorkspaceSession(sessionId, root, context, isIdentityReset(context));
   return root;
 }
@@ -214,11 +218,14 @@ function getStateHome() {
 // path (symlinks collapsed) hashed short, prefixed with a readable slug
 // purely so `~/.agents/harness-everything/workspaces/` stays eyeballable.
 function getWorkspaceKey(root) {
-  const resolved = path.resolve(typeof root === 'string' ? root : getWorkspaceRoot(root));
+  const workspaceRoot = typeof root === 'string' && root.trim() ? root : getWorkspaceRoot(root);
+  if (!workspaceRoot) return UNBOUND_WORKSPACE_KEY;
+  const resolved = path.resolve(workspaceRoot);
   let real = resolved;
   try { real = fs.realpathSync(resolved); } catch (err) { /* path may not exist yet (tests) */ }
   const slug = path.basename(real).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
-  const hash = crypto.createHash('sha1').update(real).digest('hex').slice(0, 12);
+  const hashInput = process.platform === 'win32' ? real.toLowerCase() : real;
+  const hash = crypto.createHash('sha1').update(hashInput).digest('hex').slice(0, 12);
   return `${slug}-${hash}`;
 }
 

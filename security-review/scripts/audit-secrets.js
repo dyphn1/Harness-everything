@@ -7,14 +7,11 @@
  */
 const fs = require('fs');
 const path = require('path');
-
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return process.cwd();
+let getWorkspaceRoot;
+try {
+  ({ getWorkspaceRoot } = require('../../scripts/lib/workspace'));
+} catch (err) {
+  getWorkspaceRoot = () => null;
 }
 
 const SECRET_PATTERNS = [
@@ -66,6 +63,10 @@ function scanFile(filePath, findings) {
 }
 
 const wsRoot = getWorkspaceRoot();
+if (!wsRoot) {
+  console.error('[security-review] Cannot scan a workspace outside a git repository.');
+  process.exit(1);
+}
 const findings = scanDir(wsRoot);
 
 if (process.argv.includes('--json')) {

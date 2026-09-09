@@ -43,7 +43,8 @@ helper.check(
   // exports HarnessEnforcement.
   const realWorkspace = fs.realpathSync(path.resolve(workspace));
   const slug = path.basename(realWorkspace).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
-  const hash = crypto.createHash('sha1').update(realWorkspace).digest('hex').slice(0, 12);
+  const hashInput = process.platform === 'win32' ? realWorkspace.toLowerCase() : realWorkspace;
+  const hash = crypto.createHash('sha1').update(hashInput).digest('hex').slice(0, 12);
   const stateHome = path.join(fakeHome, '.agents', 'harness-everything');
   const stateDir = path.join(stateHome, 'workspaces', `${slug}-${hash}`);
   const editStateFile = path.join(stateDir, 'edit-state.json');

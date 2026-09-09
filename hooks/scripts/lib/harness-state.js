@@ -81,20 +81,28 @@ function detectActivePlatform(wsRoot) {
 // failed/conflicting sources remain in place so a later invocation can retry.
 function migrateLegacyState(wsRoot, newStateDir) {
   const results = [];
+  if (!wsRoot) return results;
   let allPlatforms;
-  try { allPlatforms = require('./platforms'); } catch (err) { return results; }
+  try { allPlatforms = require('./platforms'); } catch (err) { allPlatforms = []; }
+  const legacySources = [path.join(wsRoot, '.harness', 'multi-agent')];
   const seen = new Set();
   for (const platform of allPlatforms) {
     if (typeof platform.getStateDir !== 'function') continue;
     let legacyDir;
     try { legacyDir = platform.getStateDir(wsRoot); } catch (err) { continue; }
+    if (legacyDir) legacySources.push(legacyDir);
+  }
+  for (const legacyDir of legacySources) {
     if (!legacyDir || path.resolve(legacyDir) === path.resolve(newStateDir)) continue;
     const legacyKey = path.resolve(legacyDir).toLowerCase();
     if (seen.has(legacyKey)) continue;
     seen.add(legacyKey);
     if (!fs.existsSync(legacyDir)) continue;
+    const target = path.basename(legacyDir) === 'multi-agent'
+      ? path.join(newStateDir, 'multi-agent')
+      : newStateDir;
     try {
-      mergeLegacyTree(legacyDir, newStateDir);
+      mergeLegacyTree(legacyDir, target);
       fs.rmSync(legacyDir, { recursive: true, force: true });
       try { appendMigrationMarker(newStateDir, legacyDir); } catch (markerError) {
         // The source has already been removed; a missing breadcrumb must not
