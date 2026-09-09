@@ -389,6 +389,7 @@ function parseJsonLines(raw) {
 function detectEngine(events, requested) {
   if (requested && requested !== 'auto') return requested;
   if (events.some(item => isObject(item.value) && isObject(item.value.part))) return 'opencode';
+  if (events.some(item => isObject(item.value) && typeof item.value.type === 'string' && item.value.type.toLowerCase().includes('tool'))) return 'opencode';
   if (events.some(item => isObject(item.value) && ['system', 'assistant', 'user', 'result', 'stream_event'].includes(item.value.type))) return 'claude';
   return requested || 'unknown';
 }
