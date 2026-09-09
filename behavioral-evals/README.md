@@ -65,6 +65,13 @@ and a Wilson 95% interval per category.
 # Validate case files (free, safe, no model calls)
 node behavioral-evals/run.js validate
 
+# Validate fixture boundaries and execution-evidence assertions
+node behavioral-evals/case-validator.js validate
+node ci/test-behavioral-case-validation.js
+
+# Archive sanitized historical evidence and regenerate the triage matrix
+node behavioral-evals/evidence-tool.js triage --out behavioral-evals/evidence/2026-09-07
+
 # Run all cases live against a headless Claude session (costs tokens)
 node behavioral-evals/run.js run --arm both
 
@@ -83,3 +90,9 @@ paired result. It then grades each transcript and workspace against the case's
 Grading is best-effort mechanical (trace keyword/state assertions), not a
 substitute for reading the transcript — every result JSON records the full
 trace path so humans can audit what the grader concluded.
+
+`behavioral-evals/evidence-tool.js` archives result metadata without retaining
+machine-specific workspace or transcript paths. Each archive includes the case
+fixture, replay command, fixture/prompt/rubric/code hashes, and engine/model
+provenance. Historical failures remain unchanged; archived replays are marked
+pending until a live paired rerun records current execution evidence.

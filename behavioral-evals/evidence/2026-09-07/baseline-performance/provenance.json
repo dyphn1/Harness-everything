@@ -1,0 +1,42 @@
+{
+  "schema": "behavioral-evidence-v1",
+  "archive_generated_at": "2026-09-09T03:00:49.285Z",
+  "case_id": "baseline-performance",
+  "status": "historical-rubric-unverified",
+  "source_result": "behavioral-evals/results/2026-08-27-baseline-performance.json",
+  "source_result_sha256": "bb58ccc3b8d899460c277ffd66064d82be56f442ee6fcbd1feb4389f4767be03",
+  "historical": {
+    "date": "2026-08-27T04:00:05.927Z",
+    "outcome": "fail",
+    "engine": "opencode",
+    "model": "openai/gpt-5-mini",
+    "model_sha256": "020751dc92eb7ffd06a66f45b63322618c811e48a4553198624dfa88200dc6b2",
+    "cli_version_sha256": null,
+    "case_sha256": "c616f4d31bc6041922b93a770e07ca0e916feae27b3c4b4087389cd927f77cc5",
+    "rubric_sha256": "7efe996c88e716e6c00818f6a460989efbd6631836cff9ee005669139c4d73ce",
+    "code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3"
+  },
+  "replay_snapshot": {
+    "case_sha256": "c616f4d31bc6041922b93a770e07ca0e916feae27b3c4b4087389cd927f77cc5",
+    "fixture_sha256": "cf84432d53c2b793fdbeb4fa772e155ee18ba962d411c20380c5961dea3ffd3e",
+    "prompt_sha256": "8dd4bb421d76c81310876415e88602203d106aa112b91797dc1b1d9183dab096",
+    "rubric_sha256": "7efe996c88e716e6c00818f6a460989efbd6631836cff9ee005669139c4d73ce",
+    "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f"
+  },
+  "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+  "cli": {
+    "engine": "opencode",
+    "version": null
+  },
+  "model": "openai/gpt-5-mini",
+  "model_sha256": "020751dc92eb7ffd06a66f45b63322618c811e48a4553198624dfa88200dc6b2",
+  "transcript": {
+    "available": false,
+    "sanitized": true,
+    "raw_path_archived": false
+  },
+  "replay": {
+    "command": "node behavioral-evals/run.js run --case baseline-performance --arm both --engine opencode",
+    "status": "pending-live-rerun"
+  }
+}

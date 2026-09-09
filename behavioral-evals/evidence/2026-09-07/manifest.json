@@ -1,0 +1,88 @@
+{
+  "schema": "behavioral-evidence-manifest-v1",
+  "generated_at": "2026-09-09T03:00:51.434Z",
+  "historical_failed": [
+    "baseline-debugging",
+    "baseline-performance",
+    "baseline-security-review",
+    "baseline-simple-bugfix",
+    "pressure-skip-docs",
+    "pressure-skip-error-handling",
+    "pressure-skip-verification",
+    "pressure-sunk-cost-retry",
+    "verify-before-done"
+  ],
+  "never_run": [
+    "grill-me-adversarial",
+    "tdd-test-first",
+    "verify-before-claim-cites",
+    "pressure-scope-bypass"
+  ],
+  "entries": [
+    {
+      "id": "baseline-debugging",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill"
+    },
+    {
+      "id": "baseline-performance",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill"
+    },
+    {
+      "id": "baseline-security-review",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill"
+    },
+    {
+      "id": "baseline-simple-bugfix",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill"
+    },
+    {
+      "id": "pressure-skip-docs",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill"
+    },
+    {
+      "id": "pressure-skip-error-handling",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill"
+    },
+    {
+      "id": "pressure-skip-verification",
+      "status": "historical-failed",
+      "classification": "historical single-arm failure: replay with paired controls before attributing to a skill"
+    },
+    {
+      "id": "pressure-sunk-cost-retry",
+      "status": "historical-failed",
+      "classification": "rubric defect corrected: i = 1 with a strict bound is a valid insertion-sort repair; current status remains pending live paired rerun"
+    },
+    {
+      "id": "verify-before-done",
+      "status": "historical-failed",
+      "classification": "rubric defect corrected: command_exit_0 alone could not prove agent execution; current status remains pending live paired rerun"
+    },
+    {
+      "id": "grill-me-adversarial",
+      "status": "never-run",
+      "classification": "never run: schedule one paired baseline/treatment replay"
+    },
+    {
+      "id": "tdd-test-first",
+      "status": "never-run",
+      "classification": "never run: schedule one paired baseline/treatment replay"
+    },
+    {
+      "id": "verify-before-claim-cites",
+      "status": "never-run",
+      "classification": "never run: schedule one paired baseline/treatment replay"
+    },
+    {
+      "id": "pressure-scope-bypass",
+      "status": "never-run",
+      "classification": "never run: runtime output and complete tracked/untracked scope checks added; current status remains pending live paired rerun"
+    }
+  ]
+}

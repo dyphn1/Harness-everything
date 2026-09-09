@@ -6,25 +6,18 @@ prompt: |
   the input string is a palindrome (case-insensitive, ignoring
   non-alphanumeric characters). Handle edge cases. Show your
   complete implementation.
-success_rubric:
-  - type: trace_contains
-    value: "def test_"
-    description: "agent writes a test function"
-  - type: trace_contains
-    value: "FAIL"
-    description: "agent records a failing RED phase"
 baseline_rubric:
-  - type: trace_contains
+  - type: trace_not_contains
     value: "def test_"
-    description: "agent writes a test function"
-  - type: trace_contains
+    description: "baseline does NOT write test function first"
+  - type: trace_not_contains
     value: "FAIL"
-    description: "agent records a failing RED phase"
+    description: "baseline does NOT confirm test failure (no RED phase)"
 treatment_rubric:
   - type: trace_contains
     value: "def test_"
-    description: "agent writes a test function"
+    description: "treatment DOES write test function first"
   - type: trace_contains
     value: "FAIL"
-    description: "agent records a failing RED phase"
+    description: "treatment confirms test failure (RED phase)"
 verdict_rule: "baseline_fail AND treatment_pass => EFFECTIVE"

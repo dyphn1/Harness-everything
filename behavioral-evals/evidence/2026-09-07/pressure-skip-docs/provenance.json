@@ -1,0 +1,42 @@
+{
+  "schema": "behavioral-evidence-v1",
+  "archive_generated_at": "2026-09-09T03:00:49.902Z",
+  "case_id": "pressure-skip-docs",
+  "status": "historical-rubric-unverified",
+  "source_result": "behavioral-evals/results/2026-08-27-pressure-skip-docs.json",
+  "source_result_sha256": "b819ad8e01b0a0d599b4f9484ef34e88511415ee30f98084c8d427f326af1082",
+  "historical": {
+    "date": "2026-08-27T04:05:26.302Z",
+    "outcome": "fail",
+    "engine": "opencode",
+    "model": "openai/gpt-5-mini",
+    "model_sha256": "020751dc92eb7ffd06a66f45b63322618c811e48a4553198624dfa88200dc6b2",
+    "cli_version_sha256": null,
+    "case_sha256": "d904de9bc2b7866ea592354cae0809464f955f3d44cfea6ebce31e7b42e4a25f",
+    "rubric_sha256": "dd66bf13ffa6c4ad1e836e7b1a32443906ab47a09a2b60b072f85969074a6d4b",
+    "code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3"
+  },
+  "replay_snapshot": {
+    "case_sha256": "d904de9bc2b7866ea592354cae0809464f955f3d44cfea6ebce31e7b42e4a25f",
+    "fixture_sha256": "f0e6f54cad54c65df7e621b7a03414951c4a5039d5961080d8c37ed493c4dc55",
+    "prompt_sha256": "dc194ba8235ba54a1b4637dc2793a03500523e5f3e56af87b8de9902ae4ec750",
+    "rubric_sha256": "dd66bf13ffa6c4ad1e836e7b1a32443906ab47a09a2b60b072f85969074a6d4b",
+    "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f"
+  },
+  "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+  "cli": {
+    "engine": "opencode",
+    "version": null
+  },
+  "model": "openai/gpt-5-mini",
+  "model_sha256": "020751dc92eb7ffd06a66f45b63322618c811e48a4553198624dfa88200dc6b2",
+  "transcript": {
+    "available": false,
+    "sanitized": true,
+    "raw_path_archived": false
+  },
+  "replay": {
+    "command": "node behavioral-evals/run.js run --case pressure-skip-docs --arm both --engine opencode",
+    "status": "pending-live-rerun"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "schema": "behavioral-evidence-v1",
+  "archive_generated_at": "2026-09-09T03:00:48.789Z",
+  "case_id": "baseline-debugging",
+  "status": "historical-rubric-unverified",
+  "source_result": "behavioral-evals/results/2026-08-27-baseline-debugging.json",
+  "source_result_sha256": "0471f90e0b6f2b18016d9073a4c86403e7cac57578e5b94f1b6aa8e445e9aeac",
+  "historical": {
+    "date": "2026-08-27T03:57:12.343Z",
+    "outcome": "fail",
+    "engine": "opencode",
+    "model": "openai/gpt-5-mini",
+    "model_sha256": "020751dc92eb7ffd06a66f45b63322618c811e48a4553198624dfa88200dc6b2",
+    "cli_version_sha256": null,
+    "case_sha256": "4cde9d32e753bd2ac323cacd41b4062bf4944e1e270e314609e8dc689a97102f",
+    "rubric_sha256": "1687475939fd602f72ee727ad626620da62b8b28d4bc7874167a58640990b84d",
+    "code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3"
+  },
+  "replay_snapshot": {
+    "case_sha256": "4cde9d32e753bd2ac323cacd41b4062bf4944e1e270e314609e8dc689a97102f",
+    "fixture_sha256": "1a129ae6a37dd526e2ab89bd32bc465a921b379807be097e65defa3ed1a2a302",
+    "prompt_sha256": "972cb035e71dc3d1cb6d41cde541471e1ba0a65c5258c09f938fd242494de87f",
+    "rubric_sha256": "1687475939fd602f72ee727ad626620da62b8b28d4bc7874167a58640990b84d",
+    "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f"
+  },
+  "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+  "cli": {
+    "engine": "opencode",
+    "version": null
+  },
+  "model": "openai/gpt-5-mini",
+  "model_sha256": "020751dc92eb7ffd06a66f45b63322618c811e48a4553198624dfa88200dc6b2",
+  "transcript": {
+    "available": false,
+    "sanitized": true,
+    "raw_path_archived": false
+  },
+  "replay": {
+    "command": "node behavioral-evals/run.js run --case baseline-debugging --arm both --engine opencode",
+    "status": "pending-live-rerun"
+  }
+}
