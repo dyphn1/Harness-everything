@@ -31,8 +31,8 @@ metadata:
 
 ## Route the Behavior
 
-Load `references/core-discipline.md` and the quality model, then only the unit or integration guide needed. Keep their applicability rules separate.
+Load `<this-skill-dir>/references/core-discipline.md` and the quality model, then only the unit or integration guide needed. Keep their applicability rules separate.
 
-Deep dive: references/core-discipline.md
+Deep dive: <this-skill-dir>/references/core-discipline.md
 
 After three failed GREEN attempts, invoke `zoom-out` before another edit.

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const helper = require('./test-helper');
-const { checkDisclosure } = require('./disclosure-check');
+const { checkDisclosure, pointerResolves } = require('./disclosure-check');
 
 console.log('\n[2t] Progressive-disclosure negative controls...');
 
@@ -56,6 +56,23 @@ helper.check('2t. missing Mermaid coverage fails', failures().some(f => f.check 
 fs.writeFileSync(workflow, '```mermaid\nflowchart TD\n```\n', 'utf8');
 helper.check('2t. empty Mermaid transition fails', failures().some(f => f.check === 'fixture-skill: meaningful Mermaid coverage'), JSON.stringify(failures()));
 fs.writeFileSync(workflow, '```mermaid\nflowchart TD\n  Start([Start]) --> Done([Done])\n```\n', 'utf8');
+
+// Regression: dashes inside a node label are not a transition.
+fs.writeFileSync(workflow, '```mermaid\nflowchart TD\n  Start[Start --- End]\n```\n', 'utf8');
+helper.check('2t. dashes inside a node label do not fake a transition', failures().some(f => f.check === 'fixture-skill: meaningful Mermaid coverage'), JSON.stringify(failures()));
+fs.writeFileSync(workflow, '```mermaid\nflowchart TD\n  Start([Start]) --> Done([Done])\n```\n', 'utf8');
+
+// Regression: a wildcard pointer must match a file, not merely a non-empty
+// directory, and a traversal must not escape the checked-out package.
+fs.rmSync(path.join(skill, 'references', 'guide.md'));
+fs.writeFileSync(path.join(skill, 'references', 'guide.txt'), '# Guide\n', 'utf8');
+helper.check('2t. wildcard Deep dive requires a matching file', !pointerResolves(root, 'fixture-skill', 'references/*.md', ['fixture-skill']), 'references/*.md unexpectedly resolved');
+fs.writeFileSync(path.join(skill, 'references', 'guide.md'), '# Guide\n', 'utf8');
+helper.check('2t. wildcard Deep dive resolves a matching file', pointerResolves(root, 'fixture-skill', 'references/*.md', ['fixture-skill']), 'references/*.md did not resolve');
+const outside = path.resolve(root, '..', 'outside-deep-dive-regression.md');
+fs.writeFileSync(outside, '# Outside\n', 'utf8');
+helper.check('2t. Deep dive traversal stays inside the package', !pointerResolves(root, 'fixture-skill', '../../outside-deep-dive-regression.md', ['fixture-skill']), 'outside traversal resolved');
+fs.rmSync(outside, { force: true });
 
 fs.rmSync(path.join(skill, 'references', 'guide.md'));
 helper.check('2t. dangling Deep dive pointer fails', failures().some(f => f.check === 'fixture-skill: Deep dive pointer resolves'), JSON.stringify(failures()));

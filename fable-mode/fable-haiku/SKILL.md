@@ -4,7 +4,7 @@ description: "Run staged fable work on Haiku for bulk mechanical tasks with expl
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.5
+  version: 0.3.7-beta
 ---
 
 # Fable Mode — Haiku
@@ -28,9 +28,9 @@ metadata:
 
 ## Run it
 
-1. Resolve `haiku` through `../scripts/model-selector.js`.
+1. Resolve `haiku` through `<this-skill-dir>/../scripts/model-selector.js`.
 2. Spawn `fable-worker-haiku` when available; otherwise use an inline fallback only when the audit record says so.
 3. Brief one bounded output path and a named check; workers do not spawn workers.
 4. Route synthesis blockers to Sonnet/Opus and cold-review unsupervised delivery with `fable-verifier`.
 
-Use `../references/model-matrix.md` for the audit fields and fallback policy.
+Use `<this-skill-dir>/../references/model-matrix.md` for the audit fields and fallback policy.

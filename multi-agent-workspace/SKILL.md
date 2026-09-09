@@ -26,13 +26,13 @@ metadata:
 ## Workflow
 
 1. Discover the target stack, source availability, requested platform, divisions, and agents.
-2. Run `node multi-agent-workspace/scripts/scaffold.js --workspace <root>` with explicit selections.
+2. Run `node <this-skill-dir>/scripts/scaffold.js --workspace <root>` with explicit selections.
 3. Resolve the router template and indexer from the installed skill; read the global manifest/handoff before delegating.
 4. Verify resolved document paths, the indexed memory, and selected roles.
 5. Record the handoff and continue through `fable-mode` verification gates.
 
 The source is optional: missing source yields an unavailable-catalog fallback. The resolver records provenance and a resolution kind (`explicit`, `inferred`, or `fallback`). Omitted `--workspace` uses the current repository root; explicit targets are used verbatim. Use `--allow-source-drift` to refresh a catalog at another revision. Read the references for migration and source rules.
 
-Deep dive: references/orchestration.md
-Deep dive: references/architecture-guide.md
-Deep dive: ../docs/workflows/multi-agent-workspace.md
+Deep dive: <this-skill-dir>/references/orchestration.md
+Deep dive: <this-skill-dir>/references/architecture-guide.md
+Deep dive: <skills-repo-root>/docs/workflows/multi-agent-workspace.md

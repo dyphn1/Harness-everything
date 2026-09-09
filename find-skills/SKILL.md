@@ -36,7 +36,7 @@ Treat the printed output as binding for this request, like a loaded skill — no
 5. Permanent install ONLY when the user says they will reuse it: `npx skills add <owner/repo[@skill]> --agent <agent> [-g] -y`
 6. Nothing exists? Help directly; suggest `npx skills init <name>` if recurring.
 
-Deep dive: references/discovery-flow.md
+Deep dive: <this-skill-dir>/references/discovery-flow.md
 
 ## USE FOR:
 - finding an external skill when none installed fits

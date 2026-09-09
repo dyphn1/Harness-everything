@@ -4,25 +4,17 @@
  * package. This is intentionally separate from markdown-link checking:
  * commands, deep-dive paths, and executable examples are also routing API.
  *
- * A path is relative to the file that names it. That is the default and needs
- * no ceremony - 'references/x.md' is this skill's own references/. Only a base
- * that is NOT the current file's directory needs a marker, so the common case
- * stays short and the exceptions are visible:
+ * Every checked path names its base explicitly. Use <this-skill-dir>/ for a
+ * file inside the skill that names it, <skills-repo-root>/ for this package,
+ * and <workspace>/ for the user's project:
  *
- *   references/x.md                 this skill's directory (default; './', '../' work)
- *   skill-creator/SKILL.md          another skill - a first segment that is
- *                                   itself a skill, which is a fact about the
- *                                   repo rather than a hidden allowlist
+ *   <this-skill-dir>/references/x.md this skill's directory
+ *   <skills-repo-root>/skill-creator/SKILL.md another skill in this package
  *   <skills-repo-root>/hooks/x.js   the root of this package
- *   <workspace>/tasks/todo.md       the USER's project - never checked here,
- *                                   as are the published WORKSPACE_NAMESPACES
- *                                   ('tasks/', '.github/', ...) below
+ *   <workspace>/tasks/todo.md       the USER's project - never checked here
  *
- * There is deliberately no allowlist of top-level directory names. 'ci/x.js'
- * used to silently resolve at the repo root while 'scripts/x.js' resolved
- * under the skill - two identical shapes with different bases, decided by a
- * list no author ever saw. Now both are skill-relative and the repo root is
- * spelled out.
+ * There is deliberately no allowlist of top-level directory names. A bare
+ * path is rejected instead of guessed as either skill-relative or repo-root.
  *
  * An unrecognised placeholder is a hard failure, not a silent skip: a typo
  * such as '<this_folder>/' used to make every path in a file invisible to
@@ -48,18 +40,6 @@ const GENERIC_PLACEHOLDERS = new Set([
   'skill',            // any skill, as a pattern
   'kebab-case-name',  // a skill yet to be created
 ]);
-// Top-level namespaces that belong to the USER's project, never to this
-// package, so a path starting here is theirs to create and nothing local can
-// be checked against it. Unlike the ROOT_PREFIXES list this replaces, a
-// skip-list cannot produce a wrong verdict - only a missing check - and it is
-// published in skill-style/references/style-guide.md rather than hidden.
-// `<workspace>/` says the same thing explicitly and always wins; prefer it for
-// anything outside these names.
-const WORKSPACE_NAMESPACES = new Set([
-  '.claude', '.github', '.cursor', '.codex', '.continue',
-  'tasks', 'memories', 'specs', 'docs', 'evals',
-]);
-
 function discoverSkills(root) {
   return fs.readdirSync(root, { withFileTypes: true })
     .filter(entry => entry.isDirectory() && !entry.name.startsWith('.') && fs.existsSync(path.join(root, entry.name, 'SKILL.md')))
@@ -119,19 +99,19 @@ function classifyReference(root, skillDir, reference) {
         ', or add <' + name + '> to GENERIC_PLACEHOLDERS if it names no file in this repo',
     };
   }
-  // A placeholder anywhere else makes the token a pattern, not a path.
-  if (ref.includes('<')) return { status: 'skip' };
-  if (ref.startsWith('./')) return { status: 'check', target: path.resolve(root, skillDir, ref.slice(2)) };
+  // A placeholder anywhere else is malformed, not a pattern to skip.
+  if (ref.includes('<')) return { status: 'invalid', reason: 'malformed placeholder; use an explicit supported base' };
+  if (ref.startsWith('./') || ref.startsWith('../')) {
+    return { status: 'invalid', reason: 'bare relative path; use <this-skill-dir>/' + ref.replace(/^\.\//, '') };
+  }
   if (ref === 'SKILL.md') return { status: 'check', target: path.resolve(root, skillDir, ref) };
   // A bare filename with no directory is prose ("edit CONTEXT.md", "Node.js"),
   // too ambiguous to attach a base to. Write it with a placeholder to check it.
   if (!ref.includes('/')) return { status: 'skip' };
-  // A first segment that is itself a skill is a fact about the repo, not a
-  // hardcoded list, so cross-skill references stay readable.
-  const first = ref.split('/')[0];
-  if (fs.existsSync(path.join(root, first, 'SKILL.md'))) return { status: 'check', target: path.resolve(root, ref) };
-  if (WORKSPACE_NAMESPACES.has(first)) return { status: 'skip' };
-  return { status: 'check', target: path.resolve(root, skillDir, ref) };
+  return {
+    status: 'invalid',
+    reason: 'bare path; use <this-skill-dir>/ for skill files, <skills-repo-root>/ for package files, or <workspace>/ for user-project files',
+  };
 }
 
 function resolveReference(root, skillDir, reference) {
