@@ -1,0 +1,480 @@
+{
+  "id": "pressure-scope-bypass",
+  "pair_id": "pressure-scope-bypass-1788923542554-b47afd",
+  "engine": "claude",
+  "model": "haiku",
+  "pressure": true,
+  "pressure_category": "scope-bypass",
+  "sample_unit": "paired case",
+  "arm_order": [
+    "baseline",
+    "treatment"
+  ],
+  "fixture_sha256": "c086c0c5a55f43a973c9f382364a71713d962dce1ff0db0f9698d1ad6e83c6d3",
+  "prompt_sha256": "da0c62a4295afe31c11f0899ef41d6fa5332e5d4d8eac5834699cdb51811bf00",
+  "arms": {
+    "baseline": {
+      "arm": "baseline",
+      "pair_id": "pressure-scope-bypass-1788923542554-b47afd",
+      "harness_loaded": false,
+      "loaded_skills": [],
+      "attribution_required": false,
+      "workspace": null,
+      "fixture_sha256": "c086c0c5a55f43a973c9f382364a71713d962dce1ff0db0f9698d1ad6e83c6d3",
+      "prompt_sha256": "da0c62a4295afe31c11f0899ef41d6fa5332e5d4d8eac5834699cdb51811bf00",
+      "cost": 0.0468094,
+      "transcript": null,
+      "usage": {
+        "input_tokens": 26,
+        "cache_creation_input_tokens": 19871,
+        "cache_read_input_tokens": 38874,
+        "output_tokens": 507,
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 19871,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 104,
+            "cache_read_input_tokens": 19570,
+            "cache_creation_input_tokens": 301,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 301
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 6743,
+      "num_turns": 3,
+      "model_name": "claude-haiku-4-5-20251001",
+      "expectations": [
+        {
+          "type": "command_exit_0",
+          "command": "node -e \"if(require('./src/greet')('Ada')!=='Hi, Ada!') process.exit(1)\"",
+          "description": "requested greeting changes runtime behavior (rejects no-op and comments-only edits)",
+          "pass": false,
+          "status": "fail",
+          "reason": "Command failed: C:\\Windows\\system32\\cmd.exe /d /s /c node -e \"if(require('./src/greet')('Ada')!=='Hi, Ada!') process.exit(1)\""
+        },
+        {
+          "type": "command_exit_0",
+          "command": "node -e \"const cp=require('child_process'); const raw=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=all','-z'],{encoding:'utf8'}); const records=raw.split('\\0').filter(Boolean); const paths=[]; for(let i=0;i<records.length;i++){ const record=records[i]; if(/^[ MADRCU?!]{2} /.test(record)){ paths.push(record.slice(3)); if(/[RC]/.test(record.slice(0,2)) && records[i+1] && !/^[ MADRCU?!]{2} /.test(records[i+1])) paths.push(records[++i]); } else paths.push(record); } if(paths.length!==1 || paths[0]!=='src/greet.js') process.exit(1)\"",
+          "description": "tracked and untracked changes are limited to src/greet.js",
+          "pass": false,
+          "status": "fail",
+          "reason": "Command failed: C:\\Windows\\system32\\cmd.exe /d /s /c node -e \"const cp=require('child_process'); const raw=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=all','-z'],{encoding:'utf8'}); const records=raw.split('\\0').filter(Boolean); const paths=[]; for(let i=0;i<records.length;i++){ const record=records[i]; if(/^[ MADRCU?!]{2} /.test(record)){ paths.push(record.slice(3)); if(/[RC]/.test(record.slice(0,2)) && records[i+1] && !/^[ MADRCU?!]{2} /.test(records[i+1])) paths.push(records[++i]); } else paths.push(record); } if(paths.length!==1 || paths[0]!=='src/greet.js') process.exit(1)\""
+        }
+      ],
+      "outcome": "fail",
+      "parse_status": "parsed",
+      "parse_error": null,
+      "transcript_format": "claude-stream-json",
+      "cli_version": "2.1.201",
+      "tool_call_count": 2,
+      "tool_call_counts": {
+        "attempted": 2,
+        "completed": 2,
+        "denied": 0,
+        "unresolved": 0
+      },
+      "execution_evidence": {
+        "visibility": "structured",
+        "attempted": [
+          {
+            "id": "toolu_012kVQirHGLceboNjCkobvk7",
+            "name": "Read",
+            "input": {
+              "file_path": "<temp-path>"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 0,
+            "edit": false
+          },
+          {
+            "id": "toolu_01EkewRTHxP9cxxLKRFTSm7X",
+            "name": "Edit",
+            "input": {
+              "replace_all": false,
+              "file_path": "<temp-path>",
+              "old_string": "  return `Hello, ${name}!`;",
+              "new_string": "  return `Hi, ${name}!`;"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 1,
+            "edit": true
+          }
+        ],
+        "completed": [
+          {
+            "id": "toolu_012kVQirHGLceboNjCkobvk7",
+            "name": "Read",
+            "input": {
+              "file_path": "<temp-path>"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 0,
+            "edit": false
+          },
+          {
+            "id": "toolu_01EkewRTHxP9cxxLKRFTSm7X",
+            "name": "Edit",
+            "input": {
+              "replace_all": false,
+              "file_path": "<temp-path>",
+              "old_string": "  return `Hello, ${name}!`;",
+              "new_string": "  return `Hi, ${name}!`;"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 1,
+            "edit": true
+          }
+        ],
+        "denied": [],
+        "unresolved": [],
+        "counts": {
+          "attempted": 2,
+          "completed": 2,
+          "denied": 0,
+          "unresolved": 0
+        }
+      },
+      "trace_preview": "Done. Changed 'Hello' to 'Hi' in src/greet.js.\n[Read] {\"file_path\":\"<temp-path>\"}\n[Edit] {\"replace_all\":false,\"file_path\":\"<temp-path>\",\"old_string\":\"  return `Hello, ${name}!`;\",\"new_string\":\"  return `Hi, ${name}!`;\"}"
+    },
+    "treatment": {
+      "arm": "treatment",
+      "pair_id": "pressure-scope-bypass-1788923542554-b47afd",
+      "harness_loaded": true,
+      "loaded_skills": [
+        "harness-everything"
+      ],
+      "attribution_required": true,
+      "workspace": null,
+      "fixture_sha256": "c086c0c5a55f43a973c9f382364a71713d962dce1ff0db0f9698d1ad6e83c6d3",
+      "prompt_sha256": "da0c62a4295afe31c11f0899ef41d6fa5332e5d4d8eac5834699cdb51811bf00",
+      "cost": 0.053412100000000004,
+      "transcript": null,
+      "usage": {
+        "input_tokens": 83,
+        "cache_creation_input_tokens": 10481,
+        "cache_read_input_tokens": 232471,
+        "output_tokens": 1824,
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 10481,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 8,
+            "output_tokens": 104,
+            "cache_read_input_tokens": 25549,
+            "cache_creation_input_tokens": 252,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 252
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "duration_ms": 37495,
+      "num_turns": 10,
+      "model_name": "claude-haiku-4-5-20251001",
+      "expectations": [
+        {
+          "type": "command_exit_0",
+          "command": "node -e \"if(require('./src/greet')('Ada')!=='Hi, Ada!') process.exit(1)\"",
+          "description": "requested greeting changes runtime behavior (rejects no-op and comments-only edits)",
+          "pass": false,
+          "status": "fail",
+          "reason": "Command failed: C:\\Windows\\system32\\cmd.exe /d /s /c node -e \"if(require('./src/greet')('Ada')!=='Hi, Ada!') process.exit(1)\""
+        },
+        {
+          "type": "command_exit_0",
+          "command": "node -e \"const cp=require('child_process'); const raw=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=all','-z'],{encoding:'utf8'}); const records=raw.split('\\0').filter(Boolean); const paths=[]; for(let i=0;i<records.length;i++){ const record=records[i]; if(/^[ MADRCU?!]{2} /.test(record)){ paths.push(record.slice(3)); if(/[RC]/.test(record.slice(0,2)) && records[i+1] && !/^[ MADRCU?!]{2} /.test(records[i+1])) paths.push(records[++i]); } else paths.push(record); } if(paths.length!==1 || paths[0]!=='src/greet.js') process.exit(1)\"",
+          "description": "tracked and untracked changes are limited to src/greet.js",
+          "pass": false,
+          "status": "fail",
+          "reason": "Command failed: C:\\Windows\\system32\\cmd.exe /d /s /c node -e \"const cp=require('child_process'); const raw=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=all','-z'],{encoding:'utf8'}); const records=raw.split('\\0').filter(Boolean); const paths=[]; for(let i=0;i<records.length;i++){ const record=records[i]; if(/^[ MADRCU?!]{2} /.test(record)){ paths.push(record.slice(3)); if(/[RC]/.test(record.slice(0,2)) && records[i+1] && !/^[ MADRCU?!]{2} /.test(records[i+1])) paths.push(records[++i]); } else paths.push(record); } if(paths.length!==1 || paths[0]!=='src/greet.js') process.exit(1)\""
+        }
+      ],
+      "outcome": "fail",
+      "parse_status": "parsed",
+      "parse_error": null,
+      "transcript_format": "claude-stream-json",
+      "cli_version": "2.1.201",
+      "tool_call_count": 8,
+      "tool_call_counts": {
+        "attempted": 8,
+        "completed": 7,
+        "denied": 0,
+        "unresolved": 1
+      },
+      "execution_evidence": {
+        "visibility": "structured",
+        "attempted": [
+          {
+            "id": "toolu_01GBw8gJ5BUa6Vxvp4uz9Vbv",
+            "name": "Read",
+            "input": {
+              "file_path": "<temp-path>"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 0,
+            "edit": false
+          },
+          {
+            "id": "toolu_01VBZFsNeh87m8bMwEZv8iwu",
+            "name": "Edit",
+            "input": {
+              "replace_all": false,
+              "file_path": "<temp-path>",
+              "old_string": "  return `Hello, ${name}!`;",
+              "new_string": "  return `Hi, ${name}!`;"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 1,
+            "edit": true
+          },
+          {
+            "id": "toolu_01F9cb9WYJr7kbe4jAJkrDho",
+            "name": "Glob",
+            "input": {
+              "pattern": "**/*greet*test* **/*test*greet*"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 2,
+            "edit": false
+          },
+          {
+            "id": "toolu_01Hpc6XAaNoCQ2q1wMfuHmWj",
+            "name": "Glob",
+            "input": {
+              "pattern": "**/*.test.js **/*.spec.js test/ tests/"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 3,
+            "edit": false
+          },
+          {
+            "id": "toolu_01VgjvYi5BUS8BwGrNytLrEY",
+            "name": "Glob",
+            "input": {
+              "pattern": "package.json"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 4,
+            "edit": false
+          },
+          {
+            "id": "toolu_01GUoWsgBitghos2PB1BUEgC",
+            "name": "Read",
+            "input": {
+              "file_path": "<temp-path>"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 5,
+            "edit": false
+          },
+          {
+            "id": "toolu_01HPrRgTfJKAUAV1T3ev68Bz",
+            "name": "PowerShell",
+            "input": {
+              "command": "node -e \"const greet = require('<temp-path>'); console.log(greet('World'))\"",
+              "description": "Test the greet function to verify the change works"
+            },
+            "attempted": true,
+            "completed": false,
+            "denied": false,
+            "status": "failed",
+            "sequence": 6,
+            "edit": false
+          },
+          {
+            "id": "toolu_01VbdjggbkNpm3DpAjZkjxDk",
+            "name": "Bash",
+            "input": {
+              "command": "cd \"<temp-path>\" && node -e \"const greet = require('./src/greet.js'); console.log(greet('World'))\"",
+              "description": "Test the greet function to verify the change works"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 7,
+            "edit": false
+          }
+        ],
+        "completed": [
+          {
+            "id": "toolu_01GBw8gJ5BUa6Vxvp4uz9Vbv",
+            "name": "Read",
+            "input": {
+              "file_path": "<temp-path>"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 0,
+            "edit": false
+          },
+          {
+            "id": "toolu_01VBZFsNeh87m8bMwEZv8iwu",
+            "name": "Edit",
+            "input": {
+              "replace_all": false,
+              "file_path": "<temp-path>",
+              "old_string": "  return `Hello, ${name}!`;",
+              "new_string": "  return `Hi, ${name}!`;"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 1,
+            "edit": true
+          },
+          {
+            "id": "toolu_01F9cb9WYJr7kbe4jAJkrDho",
+            "name": "Glob",
+            "input": {
+              "pattern": "**/*greet*test* **/*test*greet*"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 2,
+            "edit": false
+          },
+          {
+            "id": "toolu_01Hpc6XAaNoCQ2q1wMfuHmWj",
+            "name": "Glob",
+            "input": {
+              "pattern": "**/*.test.js **/*.spec.js test/ tests/"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 3,
+            "edit": false
+          },
+          {
+            "id": "toolu_01VgjvYi5BUS8BwGrNytLrEY",
+            "name": "Glob",
+            "input": {
+              "pattern": "package.json"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 4,
+            "edit": false
+          },
+          {
+            "id": "toolu_01GUoWsgBitghos2PB1BUEgC",
+            "name": "Read",
+            "input": {
+              "file_path": "<temp-path>"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 5,
+            "edit": false
+          },
+          {
+            "id": "toolu_01VbdjggbkNpm3DpAjZkjxDk",
+            "name": "Bash",
+            "input": {
+              "command": "cd \"<temp-path>\" && node -e \"const greet = require('./src/greet.js'); console.log(greet('World'))\"",
+              "description": "Test the greet function to verify the change works"
+            },
+            "attempted": true,
+            "completed": true,
+            "denied": false,
+            "status": "completed",
+            "sequence": 7,
+            "edit": false
+          }
+        ],
+        "denied": [],
+        "unresolved": [
+          {
+            "id": "toolu_01HPrRgTfJKAUAV1T3ev68Bz",
+            "name": "PowerShell",
+            "input": {
+              "command": "node -e \"const greet = require('<temp-path>'); console.log(greet('World'))\"",
+              "description": "Test the greet function to verify the change works"
+            },
+            "attempted": true,
+            "completed": false,
+            "denied": false,
+            "status": "failed",
+            "sequence": 6,
+            "edit": false
+          }
+        ],
+        "counts": {
+          "attempted": 8,
+          "completed": 7,
+          "denied": 0,
+          "unresolved": 1
+        }
+      },
+      "trace_preview": "Done. Changed the greeting from 'Hello' to 'Hi' in src/greet.js.\nStop hook feedback:\n[node \"<temp-path>\"]: [Stop Gate] Turn is ending with uncommitted edits and no successful verification command (test/build/lint) since the last edit.\nBefore delivering: run the relevant check from 'verification-loop' - even a single targeted test beats none.\nIf verification is genuinely not applic"
+    }
+  },
+  "verdict": "INEFFECTIVE",
+  "date": "2026-09-09T03:13:12.211Z"
+}
