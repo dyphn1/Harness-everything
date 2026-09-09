@@ -30,10 +30,10 @@
  */
 
 import { homedir } from "node:os"
-import { join, dirname, resolve, basename } from "node:path"
+import { join, dirname, resolve, basename, relative, isAbsolute } from "node:path"
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, realpathSync } from "node:fs"
 import { execSync } from "node:child_process"
-import { createHash } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 
 const EDIT_TOOLS = new Set(["edit", "write", "apply_patch"])
 
@@ -60,30 +60,41 @@ function getWorkspaceKey(directory) {
   return `${slug}-${hash}`
 }
 
-function getStateDir(directory) {
-  return join(getStateHome(), "workspaces", getWorkspaceKey(directory))
+function getStateRoot(directory) {
+  return join(getStateHome(), "workspaces", getWorkspaceKey(directory), "state")
 }
 
-// One-time move of the pre-fix flat `~/.harness-state/*.json` files into
-// this workspace's new keyed directory. That old location was never keyed
-// by workspace, so on a machine with multiple opencode projects there's no
-// way to know which project each legacy file belonged to - best-effort: the
-// first workspace to run after upgrading claims them once, everyone else
-// just starts a fresh stream at the new location.
-function migrateLegacyFlatState(stateDir) {
-  const legacyDir = join(homedir(), ".harness-state")
-  if (!existsSync(legacyDir) || existsSync(stateDir)) return
-  try {
-    mkdirSync(stateDir, { recursive: true })
-    for (const name of ["edit-state.json", "circuit-breaker.json", "compliance.json"]) {
-      const src = join(legacyDir, name)
-      if (existsSync(src)) writeFileSync(join(stateDir, name), readFileSync(src))
-    }
-    rmSync(legacyDir, { recursive: true, force: true })
-  } catch {
-    // Best-effort - worst case the legacy dir lingers and this workspace
-    // just starts a fresh state stream at the new location.
+function getSessionKey(sessionID) {
+  const id = String(sessionID || "default")
+  const windowsReserved = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i
+  if (
+    /^[A-Za-z0-9._-]+$/.test(id) &&
+    id !== "." &&
+    id !== ".." &&
+    id === id.trim() &&
+    !/[. ]$/.test(id) &&
+    !windowsReserved.test(id)
+  ) return id
+  return `session-${createHash("sha1").update(id).digest("hex").slice(0, 12)}`
+}
+
+function isWithin(parent, candidate) {
+  const relativePath = relative(resolve(parent), resolve(candidate))
+  return relativePath === "" || (
+    relativePath !== ".." &&
+    !relativePath.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) &&
+    !isAbsolute(relativePath)
+  )
+}
+
+function getSessionDir(directory, sessionID) {
+  const sessionsRoot = resolve(join(getStateRoot(directory), "sessions"))
+  const candidate = resolve(sessionsRoot, getSessionKey(sessionID))
+  if (!isWithin(sessionsRoot, candidate) || candidate === sessionsRoot) {
+    const fallback = `session-${createHash("sha1").update(String(sessionID || "default")).digest("hex").slice(0, 12)}`
+    return join(sessionsRoot, fallback)
   }
+  return candidate
 }
 
 function loadJSON(file, fallback) {
@@ -101,11 +112,70 @@ function saveJSON(file, data) {
 }
 
 function defaultEditState() {
-  return { lastEditTime: null, verificationPending: false, editsSinceVerification: 0, sessionStart: Date.now() }
+  return {
+    lastEditTime: null,
+    verificationPending: false,
+    editsSinceVerification: 0,
+    followUpPending: false,
+    followUpDeliveryPending: false,
+    followUpMessage: null,
+    lastFollowUpError: null,
+    sessionStart: Date.now(),
+  }
 }
 
 function defaultBreakerState() {
-  return { failures: {}, hardLock: false, lastReflection: null }
+  return {
+    failures: {},
+    hardLock: false,
+    lastReflection: null,
+    lastReflectionSignature: null,
+    reflectionPending: false,
+    reflectionRequestedAt: null,
+    reflectionToken: null,
+    reflectionSignature: null,
+  }
+}
+
+function normalizeEditState(state) {
+  return { ...defaultEditState(), ...(state || {}) }
+}
+
+function normalizeBreakerState(state) {
+  return { ...defaultBreakerState(), ...(state || {}), failures: (state && state.failures) || {} }
+}
+
+const REFLECTION_FILE = "zoom-out-report.md"
+const REFLECTION_SECTIONS = ["## Goal", "## Failed Attempts", "## Verified Facts", "## Diagnosis", "## Decision"]
+
+function reflectionReportPath(stateDir) {
+  return join(stateDir, REFLECTION_FILE)
+}
+
+function isValidReflection(reportFile, breaker) {
+  if (!breaker.reflectionPending || !breaker.reflectionToken || !existsSync(reportFile)) return false
+  try {
+    const report = readFileSync(reportFile, "utf8")
+    return REFLECTION_SECTIONS.every((section) => report.includes(section)) &&
+      /\b(?:RESUME|ESCALATE)\s*:/i.test(report) &&
+      report.includes(`Reflection token: ${breaker.reflectionToken}`)
+  } catch {
+    return false
+  }
+}
+
+function completeReflection(breakerFile, reportFile) {
+  const breaker = normalizeBreakerState(loadJSON(breakerFile, defaultBreakerState()))
+  if (!isValidReflection(reportFile, breaker)) return false
+  const completedAt = Math.max(Date.now(), (breaker.reflectionRequestedAt || 0) + 1)
+  breaker.lastReflection = completedAt
+  breaker.lastReflectionSignature = breaker.reflectionSignature
+  breaker.reflectionPending = false
+  breaker.reflectionRequestedAt = null
+  breaker.reflectionToken = null
+  breaker.reflectionSignature = null
+  saveJSON(breakerFile, breaker)
+  return true
 }
 
 function defaultCompliance() {
@@ -163,7 +233,7 @@ function runVerification(cwd) {
  * reflection was recorded).
  */
 function tripBreaker(breakerFile, signature) {
-  const breaker = loadJSON(breakerFile, defaultBreakerState())
+  const breaker = normalizeBreakerState(loadJSON(breakerFile, defaultBreakerState()))
 
   if (!breaker.failures[signature]) {
     breaker.failures[signature] = { count: 0, firstSeen: Date.now() }
@@ -173,13 +243,23 @@ function tripBreaker(breakerFile, signature) {
   entry.lastSeen = Date.now()
 
   if (entry.count >= 3) {
-    if (breaker.lastReflection && breaker.lastReflection > entry.firstSeen) {
+    if (
+      breaker.lastReflection &&
+      breaker.lastReflection > entry.firstSeen &&
+      breaker.lastReflectionSignature === signature
+    ) {
       breaker.hardLock = true
       saveJSON(breakerFile, breaker)
       return { action: "hard_lock", count: entry.count }
     }
+    if (!breaker.reflectionPending) {
+      breaker.reflectionPending = true
+      breaker.reflectionRequestedAt = Date.now()
+      breaker.reflectionToken = randomUUID().replace(/-/g, "")
+      breaker.reflectionSignature = signature
+    }
     saveJSON(breakerFile, breaker)
-    return { action: "force_reflection", count: entry.count }
+    return { action: "force_reflection", count: entry.count, reflectionToken: breaker.reflectionToken }
   }
 
   saveJSON(breakerFile, breaker)
@@ -193,85 +273,187 @@ function recordCompliance(complianceFile, mutate) {
 }
 
 export const HarnessEnforcement = async ({ client, directory }) => {
-  // Resolved once per session/workspace and closed over below - never a
-  // shared module-level binding, so concurrent sessions for different
-  // opencode projects in the same process can never cross-talk (issue #42
-  // item #4: the pre-fix flat ~/.harness-state had exactly that problem).
-  const stateDir = getStateDir(directory)
-  migrateLegacyFlatState(stateDir)
-  const editStateFile = join(stateDir, "edit-state.json")
-  const breakerFile = join(stateDir, "circuit-breaker.json")
-  const complianceFile = join(stateDir, "compliance.json")
+  // State is resolved per real workspace and per opencode session. The CJS
+  // hooks use the same workspaces/<key>/state/sessions/<id> contract, while
+  // the old flat plugin state is intentionally left untouched because it is
+  // impossible to attribute safely to one workspace or session.
+  const workspace = resolve(directory || process.cwd())
+  const activeVerifications = new Set()
+
+  function pathsFor(sessionID) {
+    const stateDir = getSessionDir(workspace, sessionID)
+    return {
+      stateDir,
+      editStateFile: join(stateDir, "edit-state.json"),
+      breakerFile: join(stateDir, "circuit-breaker.json"),
+      complianceFile: join(stateDir, "compliance.json"),
+      reflectionFile: reflectionReportPath(stateDir),
+    }
+  }
+
+  function resetSession(sessionID) {
+    const { stateDir } = pathsFor(sessionID)
+    const sessionsRoot = resolve(join(getStateRoot(workspace), "sessions"))
+    if (!isWithin(sessionsRoot, stateDir) || resolve(stateDir) === sessionsRoot) return
+    try { rmSync(stateDir, { recursive: true, force: true }) } catch { /* fail open */ }
+  }
+
+  function toolTarget(input, output) {
+    const args = { ...((output && output.args) || {}), ...((input && input.args) || {}) }
+    return args.filePath || args.file_path || args.path || args.filename || args.file || null
+  }
+
+  function isReflectionWrite(input, output, reportFile) {
+    if (!EDIT_TOOLS.has(input.tool)) return false
+    const target = toolTarget(input, output)
+    if (!target) return false
+    return resolve(workspace, target) === resolve(reportFile)
+  }
 
   return {
-    "tool.execute.before": async (input) => {
+    "tool.execute.before": async (input, output) => {
       if (!EDIT_TOOLS.has(input.tool)) return
-      const breaker = loadJSON(breakerFile, defaultBreakerState())
+      const { breakerFile, reflectionFile } = pathsFor(input.sessionID)
+      const breaker = normalizeBreakerState(loadJSON(breakerFile, defaultBreakerState()))
       if (breaker.hardLock) {
         throw new Error(
           `Harness circuit breaker hard-locked after a repeat failure post-reflection. ` +
-            `Delete "${breakerFile}" or start a new session to reset.`,
+          `Delete "${breakerFile}" or start a new session to reset.`,
+        )
+      }
+      if (breaker.reflectionPending && !isReflectionWrite(input, output, reflectionFile)) {
+        throw new Error(
+          `Harness reflection is required before another code edit. ` +
+            `Write a valid reflection report to "${reflectionFile}" first.`,
         )
       }
     },
 
-    "tool.execute.after": async (input) => {
+    "tool.execute.after": async (input, output) => {
       if (!EDIT_TOOLS.has(input.tool)) return
-      const state = loadJSON(editStateFile, defaultEditState())
+      const { editStateFile, breakerFile, complianceFile, reflectionFile } = pathsFor(input.sessionID)
+
+      // The reflection artifact is a protocol write, not a code edit. It is
+      // accepted only when it contains the current token and all required
+      // sections; this is the only path that records lastReflection.
+      if (isReflectionWrite(input, output, reflectionFile)) {
+        completeReflection(breakerFile, reflectionFile)
+        return
+      }
+
+      const state = normalizeEditState(loadJSON(editStateFile, defaultEditState()))
       state.lastEditTime = Date.now()
       state.verificationPending = true
+      state.followUpPending = false
+      state.followUpDeliveryPending = false
+      state.followUpMessage = null
+      state.lastFollowUpError = null
       state.editsSinceVerification++
       saveJSON(editStateFile, state)
       recordCompliance(complianceFile, (c) => c.totalEdits++)
     },
 
     event: async ({ event }) => {
-      if (event.type !== "session.idle") return
-      const state = loadJSON(editStateFile, defaultEditState())
-      if (!state.verificationPending || state.editsSinceVerification === 0) return
-
-      const { allPassed, skipped, results } = runVerification(directory)
-
-      if (skipped || allPassed) {
-        state.verificationPending = false
-        state.editsSinceVerification = 0
-        saveJSON(editStateFile, state)
-        recordCompliance(complianceFile, (c) => c.verifiedEdits++)
+      const properties = event && event.properties
+      const sessionID = properties && (properties.sessionID || (properties.info && properties.info.id))
+      if (event.type === "session.created") {
+        resetSession(sessionID)
         return
       }
-
-      const failing = results.find((r) => !r.success)
-      const signature = extractFailureSignature(`${failing.command}: ${failing.error || ""}`)
-      const trip = tripBreaker(breakerFile, signature)
-
-      const sessionID = event.properties.sessionID
-      let text
-      if (trip.action === "hard_lock") {
-        text =
-          `Harness: same verification failure ("${failing.command}") returned after a reflection was ` +
-          `already recorded. The circuit breaker is now hard-locked - edits are blocked until it is reset.`
-        recordCompliance(complianceFile, (c) => c.circuitBreakerTrips++)
-      } else if (trip.action === "force_reflection") {
-        text =
-          `Harness: "${failing.command}" has now failed 3 times with the same error. Stop and reflect ` +
-          `before retrying - write down the goal, what was tried, verified facts, a diagnosis, and a decision, ` +
-          `then resume with a different approach. Failure: ${failing.error || "(no output captured)"}`
-        recordCompliance(complianceFile, (c) => {
-          c.circuitBreakerTrips++
-          c.reflectionsForced++
-        })
-      } else {
-        text =
-          `Harness: verification failed (${trip.remaining} retries before a forced reflection). ` +
-          `"${failing.command}" - ${failing.error || "(no output captured)"}. Fix it and this will re-run automatically.`
+      if (event.type === "session.deleted") {
+        resetSession(sessionID)
+        return
       }
+      if (event.type !== "session.idle") return
+      if (activeVerifications.has(sessionID || "default")) return
 
+      const activeSession = sessionID || "default"
+      activeVerifications.add(activeSession)
       try {
-        await client.session.prompt({ path: { id: sessionID }, body: { parts: [{ type: "text", text }] } })
-      } catch {
-        // Best-effort: if the client can't reach the server, the state file
-        // still reflects the trip and the next tool.execute.before will
-        // enforce a hard lock once one exists.
+        const { editStateFile, breakerFile, complianceFile, reflectionFile } = pathsFor(activeSession)
+        // This fallback makes the lifecycle complete even if the host omits
+        // tool input args on the artifact's after hook.
+        completeReflection(breakerFile, reflectionFile)
+
+        const state = normalizeEditState(loadJSON(editStateFile, defaultEditState()))
+        if (state.followUpPending) return
+
+        if (state.followUpDeliveryPending && state.followUpMessage) {
+          try {
+            await client.session.prompt({
+              path: { id: activeSession },
+              body: { parts: [{ type: "text", text: state.followUpMessage }] },
+            })
+            state.followUpPending = true
+            state.followUpDeliveryPending = false
+            state.followUpMessage = null
+            state.lastFollowUpError = null
+            saveJSON(editStateFile, state)
+          } catch (error) {
+            state.lastFollowUpError = String(error && (error.message || error)).slice(0, 300)
+            saveJSON(editStateFile, state)
+          }
+          return
+        }
+
+        if (!state.verificationPending || state.editsSinceVerification === 0) return
+
+        const { allPassed, skipped, results } = runVerification(workspace)
+
+        if (skipped || allPassed) {
+          state.verificationPending = false
+          state.followUpPending = false
+          state.editsSinceVerification = 0
+          saveJSON(editStateFile, state)
+          recordCompliance(complianceFile, (c) => c.verifiedEdits++)
+          return
+        }
+
+        const failing = results.find((r) => !r.success)
+        const signature = extractFailureSignature(`${failing.command}: ${failing.error || ""}`)
+        const trip = tripBreaker(breakerFile, signature)
+        state.followUpPending = true
+        saveJSON(editStateFile, state)
+
+        let text
+        if (trip.action === "hard_lock") {
+          text =
+            `Harness: same verification failure ("${failing.command}") returned after a reflection was ` +
+            `already recorded. The circuit breaker is now hard-locked - edits are blocked until it is reset.`
+          recordCompliance(complianceFile, (c) => c.circuitBreakerTrips++)
+        } else if (trip.action === "force_reflection") {
+          const { stateDir } = pathsFor(activeSession)
+          text =
+            `Harness: "${failing.command}" has now failed 3 times with the same error. Stop and reflect ` +
+            `before retrying. Write a report to "${reflectionReportPath(stateDir)}" with sections ` +
+            `## Goal, ## Failed Attempts, ## Verified Facts, ## Diagnosis, and ## Decision. ` +
+            `The Decision must begin with RESUME: or ESCALATE:. Include reflection token: ${trip.reflectionToken}. ` +
+            `After the report is recorded, resume with a different approach. Failure: ${failing.error || "(no output captured)"}`
+          recordCompliance(complianceFile, (c) => {
+            c.circuitBreakerTrips++
+            c.reflectionsForced++
+          })
+        } else {
+          text =
+            `Harness: verification failed (${trip.remaining} retries before a forced reflection). ` +
+            `"${failing.command}" - ${failing.error || "(no output captured)"}. Fix it and this will re-run automatically.`
+        }
+
+        try {
+          await client.session.prompt({ path: { id: activeSession }, body: { parts: [{ type: "text", text }] } })
+        } catch (error) {
+          // A failed delivery is retryable on the next idle event, but the
+          // saved message means retrying does not run verification again or
+          // increment the circuit-breaker count.
+          const failedState = normalizeEditState(loadJSON(editStateFile, defaultEditState()))
+          failedState.followUpPending = false
+          failedState.followUpDeliveryPending = true
+          failedState.followUpMessage = text
+          failedState.lastFollowUpError = String(error && (error.message || error)).slice(0, 300)
+          saveJSON(editStateFile, failedState)
+        }
+      } finally {
+        activeVerifications.delete(activeSession)
       }
     },
   }
