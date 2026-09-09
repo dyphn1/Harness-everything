@@ -14,7 +14,7 @@
    - Resolve document zones through the shared resolver; preserve the provenance of explicit, inferred, and fallback paths.
    - Migrate authored decision, domain, and architecture records only after checking every destination conflict.
    - Keep runtime metadata, roles, state, logs, and memory indexes under the global workspace-keyed state root.
-   - Read the installed skill and indexer from the selected platform's skill directory; no generated router or executable is copied into the repository.
+   - Resolve the router template and indexer from the installed skill directory; render the router into the global runtime, never into the repository.
 4. If the source is unavailable, retain the explicit unavailable-catalog status and do not claim a complete roster.
 
 ## [Summarize & Verification Phase]

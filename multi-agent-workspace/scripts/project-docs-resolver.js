@@ -102,9 +102,9 @@ function pathIsDir(dir) {
 
 function parseContextMap(workspaceRoot, configuredMap) {
   const candidates = [];
+  candidates.push(path.join(workspaceRoot, 'CONTEXT-MAP.md'));
   const explicit = resolvePath(workspaceRoot, configuredMap);
   if (explicit) candidates.push(explicit);
-  candidates.push(path.join(workspaceRoot, 'CONTEXT-MAP.md'));
   const mapPath = candidates.find(pathIsFile);
   if (!mapPath) return null;
 
@@ -126,13 +126,16 @@ function parseContextMap(workspaceRoot, configuredMap) {
 
 function commonPath(paths) {
   if (!paths.length) return null;
-  const parts = paths.map(item => path.resolve(item).split(path.sep));
+  const resolved = paths.map(item => path.resolve(item));
+  const parts = resolved.map(item => comparisonPath(item).split(path.sep));
   const common = [];
   for (let i = 0; i < parts[0].length; i++) {
     if (parts.every(candidate => candidate[i] === parts[0][i])) common.push(parts[0][i]);
     else break;
   }
-  return common.length ? common.join(path.sep) || path.parse(paths[0]).root : path.dirname(paths[0]);
+  if (!common.length) return path.dirname(resolved[0]);
+  const selected = resolved[0].split(path.sep).slice(0, common.length).join(path.sep);
+  return selected || path.parse(resolved[0]).root;
 }
 
 function configuredZonePath(workspaceRoot, projectDocs, zone) {
@@ -193,8 +196,33 @@ function relativePath(workspaceRoot, absolute) {
   return relative || '.';
 }
 
+function realPathWithMissingSegments(value) {
+  let current = path.resolve(value);
+  const missing = [];
+  while (!fs.existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    missing.unshift(path.basename(current));
+    current = parent;
+  }
+  let existing;
+  try {
+    existing = fs.realpathSync.native ? fs.realpathSync.native(current) : fs.realpathSync(current);
+  } catch {
+    existing = current;
+  }
+  return path.join(existing, ...missing);
+}
+
+function comparisonPath(value) {
+  const normalized = path.normalize(value);
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
 function isWithinWorkspace(workspaceRoot, absolute) {
-  const relative = path.relative(path.resolve(workspaceRoot), path.resolve(absolute));
+  const realWorkspaceRoot = comparisonPath(realPathWithMissingSegments(workspaceRoot));
+  const realTarget = comparisonPath(realPathWithMissingSegments(absolute));
+  const relative = path.relative(realWorkspaceRoot, realTarget);
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
@@ -209,10 +237,10 @@ function resolveProjectDocs(workspaceRoot, options = {}) {
 
   for (const zone of ZONES) {
     const explicit = configuredZonePath(root, projectDocs, zone);
-    const inferred = explicit ? null : (zone === 'domain' && contextMap
+    const inferred = contextMap
       ? { path: contextMap.resolvedPath, source: 'context-map', resolution: 'explicit', mapPath: contextMap.path }
-      : inferredZonePath(root, projectDocs, zone));
-    const selected = explicit || inferred || {
+      : (explicit ? null : inferredZonePath(root, projectDocs, zone));
+    const selected = inferred || explicit || {
       path: fallbackZonePath(root, zone),
       source: 'fallback',
       resolution: 'fallback'
@@ -228,7 +256,7 @@ function resolveProjectDocs(workspaceRoot, options = {}) {
       origin: selected.source,
       ...(selected.field ? { field: selected.field } : {}),
       ...(selected.mapPath ? { mapPath: selected.mapPath } : {}),
-      ...(zone === 'domain' && contextMap ? { contextMap: contextMap.path, contextPaths: contextMap.links } : {})
+      ...(contextMap ? { contextMap: contextMap.path, contextPaths: contextMap.links } : {})
     };
   }
 

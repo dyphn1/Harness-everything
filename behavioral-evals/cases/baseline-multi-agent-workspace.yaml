@@ -1,4 +1,4 @@
-# Baseline case: Multi-agent workspace scaffold stays inside .harness/multi-agent/
+# Baseline case: Multi-agent workspace scaffold keeps generated state global
 #
 # The scaffold assertion uses structured completed-tool evidence. The
 # command_exit_0 directory check independently verifies the output location.
@@ -24,5 +24,5 @@ expectations:
     command: "scaffold.js"
     description: ran the multi-agent-workspace scaffold script rather than improvising
   - type: command_exit_0
-    command: "test -d .harness/multi-agent"
-    description: scaffold wrote only under the declared .harness/multi-agent/ path
+    command: "test ! -e .harness/multi-agent && test ! -e AGENTS.md"
+    description: scaffold wrote no generated router or runtime tree into the target workspace

@@ -19,6 +19,7 @@ const {
 const GENERATOR = 'harness-everything/multi-agent-workspace';
 const RUNTIME_ZONES = Object.freeze(['state', 'logs', 'roles']);
 const ALL_ZONES = Object.freeze(['state', 'logs', 'decisions', 'domain', 'architecture', 'roles']);
+const ROUTER_TEMPLATE = path.join(__dirname, '..', 'templates', 'AGENTS.md');
 
 function values(args, name) {
   const result = [];
@@ -86,6 +87,23 @@ function gitRevision(root) {
   catch { return null; }
 }
 
+function renderRouter(manifest) {
+  const values = {
+    RUNTIME_ROOT: manifest.runtime.root,
+    RUNTIME_STATE: manifest.runtime.state,
+    RUNTIME_LOGS: manifest.runtime.logs,
+    LAUNCHER: path.join(manifest.runtime.root, 'launcher.md'),
+    DECISION_PATH: manifest.paths.decision.path,
+    DOMAIN_PATH: manifest.paths.domain.path,
+    ARCHITECTURE_PATH: manifest.paths.architecture.path
+  };
+  const template = fs.readFileSync(ROUTER_TEMPLATE, 'utf8');
+  return template.replace(/\{\{([A-Z_]+)\}\}/g, (match, name) => {
+    if (!(name in values)) throw new Error(`router template placeholder is unknown: ${name}`);
+    return values[name];
+  });
+}
+
 function renderLauncher(manifest, selectedAgents) {
   const lines = [
     '# Multi-Agent Launcher', '',
@@ -137,6 +155,11 @@ function isSamePath(left, right) {
   return path.resolve(left) === path.resolve(right);
 }
 
+function migrationTargetKey(target) {
+  const resolved = path.normalize(path.resolve(target));
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
 function generatedLegacyArtifact(file, manifest) {
   const name = path.basename(file);
   if (name === 'manifest.json') {
@@ -174,6 +197,7 @@ function migrateLegacyWorkspace(workspaceRoot, resolution) {
   if (!fs.existsSync(legacyRoot)) return null;
   const legacyBoundary = path.resolve(legacyRoot);
   const copies = [];
+  const plannedTargets = new Map();
   for (const zone of DOCUMENT_ZONES) {
     const legacyZone = path.join(legacyRoot, zone === 'decision' ? 'decisions' : zone);
     const destination = resolution.paths[zone].path;
@@ -186,6 +210,11 @@ function migrateLegacyWorkspace(workspaceRoot, resolution) {
       if (!targetFromLegacy.startsWith('..') && !path.isAbsolute(targetFromLegacy)) {
         throw new Error(`migration destination is inside legacy workspace: ${path.relative(workspaceRoot, target).replace(/\\/g, '/')}`);
       }
+      const targetKey = migrationTargetKey(target);
+      if (plannedTargets.has(targetKey)) {
+        throw new Error(`migration conflict: multiple legacy records target ${path.relative(workspaceRoot, target).replace(/\\/g, '/')}`);
+      }
+      plannedTargets.set(targetKey, source);
       if (fs.existsSync(target) && !sameFile(source, target)) {
         throw new Error(`migration conflict: ${path.relative(workspaceRoot, target).replace(/\\/g, '/')}`);
       }
@@ -294,7 +323,7 @@ function scaffold(options) {
     selectedDivisions: selection.divisionIds,
     selectedAgents: selection.agents,
     execution: { generatedAt, resolver: 'project-docs-resolver', migration },
-    artifactPaths: ['manifest.json', 'handoff.json', 'memory-index.md', 'launcher.md', 'roles/']
+    artifactPaths: ['AGENTS.md', 'manifest.json', 'handoff.json', 'memory-index.md', 'launcher.md', 'roles/']
   };
   const catalogPayload = catalog
     ? { ...catalog, generatedBy: GENERATOR }
@@ -314,6 +343,7 @@ function scaffold(options) {
     nextAction: selection.agents.length ? 'dispatch selected specialists with bounded briefs' : 'select specialists or configure AGENCY_AGENTS_SOURCE'
   };
   const artifacts = [
+    { path: path.join(runtimeRoot, 'AGENTS.md'), content: renderRouter(manifest) },
     { path: path.join(runtimeRoot, 'manifest.json'), content: json(manifest) },
     { path: path.join(runtimeRoot, 'handoff.json'), content: json(handoff) },
     { path: path.join(runtimeRoot, 'launcher.md'), content: renderLauncher(manifest, selection.agents) },
