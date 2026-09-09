@@ -145,6 +145,39 @@ function normalizeBreakerState(state) {
   return { ...defaultBreakerState(), ...(state || {}), failures: (state && state.failures) || {} }
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+}
+
+function loadBreakerState(file) {
+  if (!existsSync(file)) return defaultBreakerState()
+  try {
+    const state = JSON.parse(readFileSync(file, "utf8"))
+    const finiteOrNull = (value) => value === undefined || value === null || Number.isFinite(value)
+    const stringOrNull = (value) => value === undefined || value === null || typeof value === "string"
+    if (
+      !isRecord(state) ||
+      (state.failures !== undefined && !isRecord(state.failures)) ||
+      (state.hardLock !== undefined && typeof state.hardLock !== "boolean") ||
+      (state.reflectionPending !== undefined && typeof state.reflectionPending !== "boolean") ||
+      !finiteOrNull(state.lastReflection) ||
+      !finiteOrNull(state.reflectionRequestedAt) ||
+      !stringOrNull(state.lastReflectionSignature) ||
+      !stringOrNull(state.reflectionToken) ||
+      !stringOrNull(state.reflectionSignature) ||
+      Object.values(state.failures || {}).some((entry) =>
+        !isRecord(entry) ||
+        (entry.count !== undefined && (!Number.isInteger(entry.count) || entry.count < 0)) ||
+        !finiteOrNull(entry.firstSeen) ||
+        !finiteOrNull(entry.lastSeen)
+      )
+    ) throw new Error("invalid breaker state shape")
+    return normalizeBreakerState(state)
+  } catch {
+    throw new Error(`Harness circuit breaker state is corrupt: "${file}" cannot be read safely.`)
+  }
+}
+
 const REFLECTION_FILE = "zoom-out-report.md"
 const REFLECTION_SECTIONS = ["## Goal", "## Failed Attempts", "## Verified Facts", "## Diagnosis", "## Decision"]
 
@@ -156,8 +189,16 @@ function isValidReflection(reportFile, breaker) {
   if (!breaker.reflectionPending || !breaker.reflectionToken || !existsSync(reportFile)) return false
   try {
     const report = readFileSync(reportFile, "utf8")
-    return REFLECTION_SECTIONS.every((section) => report.includes(section)) &&
-      /\b(?:RESUME|ESCALATE)\s*:/i.test(report) &&
+    const lines = report.split(/\r?\n/)
+    const sectionIndexes = new Map(
+      lines.map((line, index) => [line.trim(), index]).filter(([line]) => REFLECTION_SECTIONS.includes(line)),
+    )
+    if (!REFLECTION_SECTIONS.every((section) => sectionIndexes.has(section))) return false
+    const decisionStart = sectionIndexes.get("## Decision") + 1
+    const nextHeading = lines.findIndex((line, index) => index >= decisionStart && /^##\s+/.test(line.trim()))
+    const decisionLines = lines.slice(decisionStart, nextHeading === -1 ? lines.length : nextHeading)
+    const firstDecisionLine = decisionLines.find((line) => line.trim().length > 0)
+    return !!firstDecisionLine && /^(?:RESUME|ESCALATE)\s*:/i.test(firstDecisionLine.trim()) &&
       report.includes(`Reflection token: ${breaker.reflectionToken}`)
   } catch {
     return false
@@ -233,7 +274,7 @@ function runVerification(cwd) {
  * reflection was recorded).
  */
 function tripBreaker(breakerFile, signature) {
-  const breaker = normalizeBreakerState(loadJSON(breakerFile, defaultBreakerState()))
+  const breaker = loadBreakerState(breakerFile)
 
   if (!breaker.failures[signature]) {
     breaker.failures[signature] = { count: 0, firstSeen: Date.now() }
@@ -303,18 +344,26 @@ export const HarnessEnforcement = async ({ client, directory }) => {
     return args.filePath || args.file_path || args.path || args.filename || args.file || null
   }
 
+  function patchTargets(input, output) {
+    const args = { ...((output && output.args) || {}), ...((input && input.args) || {}) }
+    if (typeof args.patchText !== "string") return []
+    return [...args.patchText.matchAll(/^\*\*\*\s+(?:(?:Add|Update|Delete) File|Move to):[ \t]*([^\r\n]+)$/gm)]
+      .map((match) => match[1].trim())
+  }
+
   function isReflectionWrite(input, output, reportFile) {
     if (!EDIT_TOOLS.has(input.tool)) return false
     const target = toolTarget(input, output)
-    if (!target) return false
-    return resolve(workspace, target) === resolve(reportFile)
+    if (target && resolve(workspace, target) === resolve(reportFile)) return true
+    if (input.tool !== "apply_patch") return false
+    return patchTargets(input, output).some((patchTarget) => resolve(workspace, patchTarget) === resolve(reportFile))
   }
 
   return {
     "tool.execute.before": async (input, output) => {
       if (!EDIT_TOOLS.has(input.tool)) return
       const { breakerFile, reflectionFile } = pathsFor(input.sessionID)
-      const breaker = normalizeBreakerState(loadJSON(breakerFile, defaultBreakerState()))
+      const breaker = loadBreakerState(breakerFile)
       if (breaker.hardLock) {
         throw new Error(
           `Harness circuit breaker hard-locked after a repeat failure post-reflection. ` +

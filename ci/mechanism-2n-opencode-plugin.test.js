@@ -8,12 +8,38 @@ console.log('\n[2n] opencode enforcement plugin: real hook API and firing behavi
 
 const pluginDir = path.join(helper.root, 'opencode-plugin');
 const pluginFile = path.join(pluginDir, 'index.mjs');
+const pluginManifestFile = path.join(pluginDir, 'plugin.json');
 
 helper.check(
-  '2n. the old JSON-manifest plugin is gone (never invoked by opencode - see #37)',
-  !fs.existsSync(path.join(pluginDir, 'plugin.json')),
-  'opencode-plugin/plugin.json still exists'
+  '2n. the repository inventory manifest exists',
+  fs.existsSync(pluginManifestFile),
+  `${pluginManifestFile} missing`
 );
+
+if (fs.existsSync(pluginManifestFile)) {
+  const manifest = JSON.parse(fs.readFileSync(pluginManifestFile, 'utf8'));
+  const onDisk = fs.readdirSync(path.join(pluginDir, 'hooks'))
+    .filter((file) => file.endsWith('.js'))
+    .sort();
+  const declared = Object.values(manifest.hooks || {})
+    .map((file) => path.relative(path.join(pluginDir, 'hooks'), path.join(pluginDir, file)))
+    .sort();
+  helper.check(
+    '2n. every standalone hook file on disk is declared in the inventory manifest',
+    onDisk.every((file) => declared.includes(file)),
+    `undeclared: ${onDisk.filter((file) => !declared.includes(file)).join(', ')}`
+  );
+  helper.check(
+    '2n. every declared inventory hook path exists on disk',
+    declared.every((file) => onDisk.includes(file)),
+    `dangling: ${declared.filter((file) => !onDisk.includes(file)).join(', ')}`
+  );
+  helper.check(
+    '2n. no standalone hook is declared more than once',
+    new Set(declared).size === declared.length,
+    declared.join(', ')
+  );
+}
 
 helper.check(
   '2n. the plugin ships as a single self-contained module (installable by copying one file)',
@@ -178,7 +204,7 @@ helper.check(
   const reflectionFile = path.join(stateDir, 'zoom-out-report.md');
   fs.writeFileSync(
     reflectionFile,
-    `## Goal\nfix the fixture\n## Failed Attempts\nthree retries\n## Verified Facts\ntest remains red\n## Diagnosis\nthe fixture intentionally fails\n## Decision\nRESUME: change the fixture\nReflection token: ${reflectionToken}\n`,
+    `RESUME: misplaced\n## Goal\nfix the fixture\n## Failed Attempts\nthree retries\n## Verified Facts\ntest remains red\n## Diagnosis\nthe fixture intentionally fails\n## Decision\nA decision without a directive\nReflection token: ${reflectionToken}\n`,
     'utf8'
   );
   await hooks['tool.execute.after'](
@@ -187,9 +213,80 @@ helper.check(
   );
   breaker = JSON.parse(fs.readFileSync(breakerFile, 'utf8'));
   helper.check(
-    '2n. the reflection artifact completes the lifecycle and persists lastReflection',
+    '2n. a directive outside the Decision section does not complete reflection',
+    breaker.reflectionPending === true && breaker.lastReflection === null,
+    JSON.stringify(breaker)
+  );
+
+  fs.writeFileSync(
+    reflectionFile,
+    `## Goal\nfix the fixture\n## Failed Attempts\nthree retries\n## Verified Facts\ntest remains red\n## Diagnosis\nthe fixture intentionally fails\n## Decision\nRESUME: change the fixture\nReflection token: ${reflectionToken}\n`,
+    'utf8'
+  );
+  await hooks['tool.execute.after'](
+    { tool: 'apply_patch', sessionID: 's1', callID: 'reflection-patch' },
+    {
+      title: '',
+      output: '',
+      metadata: {},
+      args: { patchText: `*** Begin Patch\n*** Update File: ${reflectionFile}\n@@\n*** End Patch` }
+    }
+  );
+  breaker = JSON.parse(fs.readFileSync(breakerFile, 'utf8'));
+  helper.check(
+    '2n. apply_patch reflection completes the lifecycle and persists lastReflection',
     Number.isFinite(breaker.lastReflection) && breaker.lastReflection > 0 && breaker.reflectionPending === false,
     JSON.stringify(breaker)
+  );
+
+  const patchSessionDir = path.join(stateRoot, 'sessions', 'patch-only');
+  const patchBreakerFile = path.join(patchSessionDir, 'circuit-breaker.json');
+  const patchReflectionFile = path.join(patchSessionDir, 'zoom-out-report.md');
+  const patchReflectionToken = 'patch-reflection-token';
+  fs.mkdirSync(patchSessionDir, { recursive: true });
+  fs.writeFileSync(
+    patchBreakerFile,
+    JSON.stringify({
+      failures: { fixture: { count: 3, firstSeen: Date.now() - 1000 } },
+      hardLock: false,
+      lastReflection: null,
+      lastReflectionSignature: null,
+      reflectionPending: true,
+      reflectionRequestedAt: Date.now(),
+      reflectionToken: patchReflectionToken,
+      reflectionSignature: 'fixture'
+    }, null, 2),
+    'utf8'
+  );
+  fs.writeFileSync(
+    patchReflectionFile,
+    `## Goal\nfix the fixture\n## Failed Attempts\nthree retries\n## Verified Facts\ntest remains red\n## Diagnosis\nthe fixture intentionally fails\n## Decision\nRESUME: change the fixture\nReflection token: ${patchReflectionToken}\n`,
+    'utf8'
+  );
+  const patchText = `*** Begin Patch\n*** Update File: ${patchReflectionFile}\n@@\n*** End Patch`;
+  let patchBeforeAllowed = true;
+  try {
+    await hooks['tool.execute.before'](
+      { tool: 'apply_patch', sessionID: 'patch-only', callID: 'patch-before' },
+      { args: { patchText } }
+    );
+  } catch (error) {
+    patchBeforeAllowed = false;
+  }
+  helper.check(
+    '2n. apply_patch is allowed to write a pending reflection artifact',
+    patchBeforeAllowed,
+    'tool.execute.before blocked output.args.patchText'
+  );
+  await hooks['tool.execute.after'](
+    { tool: 'apply_patch', sessionID: 'patch-only', callID: 'patch-after' },
+    { title: '', output: '', metadata: {}, args: { patchText } }
+  );
+  const patchBreaker = JSON.parse(fs.readFileSync(patchBreakerFile, 'utf8'));
+  helper.check(
+    '2n. apply_patch output args complete a pending reflection',
+    patchBreaker.reflectionPending === false && Number.isFinite(patchBreaker.lastReflection),
+    JSON.stringify(patchBreaker)
   );
 
   // A repeated idle event after the follow-up is already pending is a no-op.
@@ -239,6 +336,24 @@ helper.check(
     '2n. a second session has an independent breaker stream',
     secondBreaker.hardLock === false && Object.values(secondBreaker.failures).some((entry) => entry.count === 1),
     JSON.stringify(secondBreaker)
+  );
+
+  const corruptSessionDir = path.join(stateRoot, 'sessions', 'corrupt');
+  const corruptBreakerFile = path.join(corruptSessionDir, 'circuit-breaker.json');
+  fs.mkdirSync(corruptSessionDir, { recursive: true });
+  fs.writeFileSync(corruptBreakerFile, '{not-json', 'utf8');
+  let corruptStateBlocked = false;
+  let corruptStateMessage = '';
+  try {
+    await hooks['tool.execute.before']({ tool: 'edit', sessionID: 'corrupt', callID: 'corrupt-edit' }, { args: {} });
+  } catch (error) {
+    corruptStateBlocked = true;
+    corruptStateMessage = String(error && error.message ? error.message : error);
+  }
+  helper.check(
+    '2n. corrupt breaker state fails closed before an edit',
+    corruptStateBlocked && /corrupt/i.test(corruptStateMessage),
+    corruptStateMessage || 'tool.execute.before allowed an edit with corrupt breaker state'
   );
 
   // A prompt transport failure is retryable without re-running verification

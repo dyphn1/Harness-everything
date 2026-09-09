@@ -26,8 +26,9 @@ The module follows opencode's V1 plugin contract directly: the named
 `HarnessEnforcement` export is an async factory receiving the opencode context
 (`client`, `directory`, `project`, `worktree`, and `$`) and returning the hook
 map. Copying this one `.mjs` file into `.opencode/plugins/` is enough for
-opencode to discover and invoke it; there is no manifest or sibling script to
-configure. The hook callbacks use the V1 `(input, output)` shape, including
+opencode to discover and invoke it; `plugin.json` is only a repository
+inventory and is not an opencode runtime manifest. The hook callbacks use the
+V1 `(input, output)` shape, including
 `output.args` when the host supplies tool arguments only in the result object.
 
 ### 1. Edit tracking (`tool.execute.after`)
@@ -96,6 +97,9 @@ Run it from the workspace under test, never from the Harness repo root - from
 there it would re-enter `npm test` from inside `npm test`. It is intentionally
 a separate copy of the logic, not a shared import, so `index.mjs` stays a
 single portable file for the installation step above.
+
+`plugin.json` records this standalone helper for repository parity checks; it
+does not configure opencode. The runtime module is `index.mjs`.
 
 ## State and reset contract
 
