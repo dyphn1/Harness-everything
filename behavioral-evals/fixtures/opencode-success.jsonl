@@ -1,0 +1,6 @@
+{"type":"step_start","timestamp":1000,"part":{"type":"step-start"}}
+{"type":"text","timestamp":1010,"part":{"type":"text","text":"I am checking the project."}}
+{"type":"tool_use","timestamp":1020,"part":{"type":"tool","tool":"bash","callID":"call-1","state":{"status":"running","input":{"command":"npm test"}}}}
+{"type":"tool_use","timestamp":1030,"part":{"type":"tool","tool":"bash","callID":"call-1","state":{"status":"completed","input":{"command":"npm test"},"output":"# skill output: zoom-out/SKILL.md"}}}
+{"type":"text","timestamp":1040,"part":{"type":"text","text":"The check completed."}}
+{"type":"step_finish","timestamp":1050,"part":{"type":"step-finish","tokens":{"input":50,"output":10},"cost":0.002}}

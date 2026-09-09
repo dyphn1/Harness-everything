@@ -16,5 +16,6 @@ const baseline = buildEngineInvocation('claude', prompt, 'C:/fixture with spaces
 helper.check('2j. Claude baseline excludes user customizations', baseline.args.includes('--safe-mode') && baseline.args.includes('--setting-sources') && baseline.args.includes('project,local'), JSON.stringify(baseline.args));
 const treatment = buildEngineInvocation('claude', prompt, 'C:/fixture with spaces', 16, 'treatment');
 helper.check('2j. Claude treatment keeps only project/local customizations', treatment.args.includes('--setting-sources') && treatment.args.includes('project,local') && !treatment.args.includes('--safe-mode'), JSON.stringify(treatment.args));
+helper.check('2j. Claude emits parseable verbose stream JSON', treatment.args.includes('--output-format') && treatment.args.includes('stream-json') && treatment.args.includes('--verbose') && !treatment.args.includes('json'), JSON.stringify(treatment.args));
 
 helper.finish();
