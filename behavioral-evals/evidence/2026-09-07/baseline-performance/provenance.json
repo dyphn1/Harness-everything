@@ -1,6 +1,6 @@
 {
   "schema": "behavioral-evidence-v1",
-  "archive_generated_at": "2026-09-09T03:00:49.285Z",
+  "archive_generated_at": "2026-09-09T17:03:50.633Z",
   "case_id": "baseline-performance",
   "status": "historical-rubric-unverified",
   "source_result": "behavioral-evals/results/2026-08-27-baseline-performance.json",
@@ -21,9 +21,9 @@
     "fixture_sha256": "cf84432d53c2b793fdbeb4fa772e155ee18ba962d411c20380c5961dea3ffd3e",
     "prompt_sha256": "8dd4bb421d76c81310876415e88602203d106aa112b91797dc1b1d9183dab096",
     "rubric_sha256": "7efe996c88e716e6c00818f6a460989efbd6631836cff9ee005669139c4d73ce",
-    "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f"
+    "code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473"
   },
-  "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+  "code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473",
   "cli": {
     "engine": "opencode",
     "version": null

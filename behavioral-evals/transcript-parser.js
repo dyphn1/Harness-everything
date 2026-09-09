@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 
-const DENIAL_RE = /permission\s+denied|not\s+allowed|rejected|forbidden|blocked\s+by|approval\s+required/i;
+const DENIAL_RE = /permission\s+denied|\bdenied\b|not\s+allowed|rejected|forbidden|blocked\s+by|approval\s+required/i;
 const SUCCESS_RE = /^(?:complete(?:d)?|success(?:ful)?|succeeded|ok|done|finished)$/i;
 const FAILURE_RE = /^(?:error|failed|failure|cancel(?:led)?)$/i;
 
@@ -362,7 +362,8 @@ function processOpencodeEvent(context, event) {
       output: firstDefined(state.output, part.output),
       content: firstDefined(state.output, part.output),
     };
-    const isResult = type.includes('result') || type.includes('output') || state.output !== undefined || state.status === 'completed';
+    const isDenied = type.includes('denied') || type.includes('rejected') || state.status === 'denied' || state.status === 'rejected';
+    const isResult = type.includes('result') || type.includes('output') || state.output !== undefined || state.status === 'completed' || isDenied;
     if (isResult) addToolResult(context, details, { ...state, output: details.output, content: details.content });
     else addToolCall(context, details);
   }

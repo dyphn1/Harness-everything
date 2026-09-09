@@ -352,29 +352,195 @@ function runHeadless(prompt, ws, maxTurns, engine, arm) {
 // Tool outputs embed installed skill text, so keyword graders over raw
 // transcripts produce false positives (a read of zoom-out/SKILL.md counts as
 // "invoked zoom-out"). Trace = assistant text + tool inputs only.
-function extractAgentTrace(transcriptPath, engine = 'auto') {
-  return parseTranscriptFile(transcriptPath, engine).trace;
+const COMPLETED_TOOL_STATUSES = new Set(['completed', 'complete', 'success', 'succeeded', 'done', 'finished']);
+const DENIED_TOOL_STATUSES = new Set(['denied', 'rejected', 'blocked', 'cancelled', 'canceled', 'error', 'failed']);
+
+function firstDefined(...values) {
+  return values.find(value => value !== undefined && value !== null);
 }
 
-// Compatibility view used by the behavioral-case regression harness. The
-// authoritative parser owns correlation and ordering; expose its normalized
-// calls as event-shaped records without reintroducing a second parser.
-function parseTranscriptEvents(transcriptPath, engine = 'auto') {
-  const parsed = parseTranscriptFile(transcriptPath, engine);
-  const tools = (parsed.executionEvidence && parsed.executionEvidence.attempted || []).map(call => ({
-    kind: 'tool',
-    tool: call.name,
-    input: call.input,
-    id: call.id,
-    attempted: call.attempted,
-    executed: call.completed,
-    denied: call.denied,
-    edit: call.edit === true,
-    sequence: call.sequence,
-  }));
-  const events = tools;
-  if (parsed.assistantText) events.push({ kind: 'text', text: parsed.assistantText, sequence: Number.MAX_SAFE_INTEGER });
-  return { raw: parsed.trace, structured: parsed.parseStatus === 'parsed', events };
+function eventPart(event) {
+  return event && event.part && typeof event.part === 'object' ? event.part : event;
+}
+
+function eventType(event) {
+  return String(event && event.type || '').toLowerCase();
+}
+
+function eventStatus(event, part) {
+  const state = part && part.state && typeof part.state === 'object' ? part.state : {};
+  return String(firstDefined(state.status, part && part.status, event && event.status, '')).toLowerCase();
+}
+
+function eventToolName(event, part) {
+  const state = part && part.state && typeof part.state === 'object' ? part.state : {};
+  return String(firstDefined(part && part.tool, part && part.name, state.tool, event && event.tool, event && event.name, 'tool'));
+}
+
+function eventInput(event, part) {
+  const state = part && part.state && typeof part.state === 'object' ? part.state : {};
+  return firstDefined(state.input, part && part.input, part && part.arguments, event && event.input, event && event.arguments);
+}
+
+function eventId(event, part) {
+  const state = part && part.state && typeof part.state === 'object' ? part.state : {};
+  return firstDefined(part && (part.callID || part.callId || part.id || part.tool_use_id), state.callID, state.callId, event && (event.callID || event.callId || event.id || event.tool_use_id));
+}
+
+function isToolEvent(event, part) {
+  const type = eventType(event);
+  const partType = String(part && part.type || '').toLowerCase();
+  return type.includes('tool') || partType === 'tool' || partType === 'tool_use' ||
+    eventToolName(event, part) !== 'tool' || eventInput(event, part) !== undefined;
+}
+
+function isEditOperation(tool, input) {
+  const name = String(tool || '').toLowerCase();
+  if (/(^|[-_])(edit|write|patch|create|delete|move|rename)([-_]|$)/.test(name) ||
+      /^(edit|write|apply_patch|create_file|delete_file|move_file|rename_file)$/.test(name)) return true;
+  const command = input && typeof input === 'object' ? firstDefined(input.command, input.cmd, input.script) : input;
+  return typeof command === 'string' &&
+    /(?:>>?|\btee\b|\bset-content\b|\bout-file\b|\bwritefile\b|\brename(?:-item)?\b|\bremove(?:-item)?\b|\b(?:sed|perl)\b[^\r\n]*\s-i\b)/i.test(command);
+}
+
+function executionState(status, type) {
+  const normalizedType = String(type || '').toLowerCase();
+  if (DENIED_TOOL_STATUSES.has(status) || normalizedType.includes('denied') || normalizedType.includes('rejected')) return 'denied';
+  if (status && !COMPLETED_TOOL_STATUSES.has(status)) return 'attempted';
+  if (COMPLETED_TOOL_STATUSES.has(status) || (!status && (normalizedType.includes('result') || normalizedType.includes('completed')))) return 'executed';
+  return 'attempted';
+}
+
+// Keep a second, event-oriented view for ordered execution and edit evidence.
+// transcript-parser.js remains the authoritative command-aware grader.
+function parseTranscriptEvents(transcriptPath) {
+  const raw = fs.readFileSync(transcriptPath, 'utf8');
+  const events = [];
+  const pendingById = new Map();
+  let sequence = 0;
+  const addText = text => {
+    if (typeof text === 'string' && text) events.push({ kind: 'text', text, sequence: sequence++ });
+  };
+  const addTool = (event, part) => {
+    const type = eventType(event);
+    const input = eventInput(event, part) ?? {};
+    const tool = eventToolName(event, part);
+    const id = eventId(event, part);
+    const state = executionState(eventStatus(event, part), type);
+    const existing = id && pendingById.get(String(id));
+    if (existing) {
+      if (input && Object.keys(input).length) existing.input = input;
+      existing.tool = tool !== 'tool' ? tool : existing.tool;
+      if (state === 'executed' || state === 'denied') existing.state = state;
+      existing.executed = existing.state === 'executed';
+      existing.denied = existing.state === 'denied';
+      return;
+    }
+    const item = {
+      kind: 'tool', tool, input, id: id === undefined ? null : String(id), state,
+      attempted: true, executed: state === 'executed', denied: state === 'denied',
+      edit: isEditOperation(tool, input), sequence: sequence++, raw_type: type,
+    };
+    events.push(item);
+    if (id !== undefined) pendingById.set(String(id), item);
+  };
+  const visit = (value, includeText = true) => {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) { value.forEach(item => visit(item, includeText)); return; }
+    const part = eventPart(value);
+    const type = eventType(value);
+    if (type === 'text' || String(part && part.type || '').toLowerCase() === 'text') {
+      if (includeText) addText(part && part.text !== undefined ? part.text : value.text);
+      if (value.part || !value.message) return;
+    }
+    if (value.part || isToolEvent(value, part)) {
+      if (isToolEvent(value, part)) addTool(value, part);
+      if (value.part) return;
+    }
+    if (value.message && value.message.content) visit(value.message.content, value.type !== 'user');
+    if (value.content && value.content !== value.message) visit(value.content, includeText);
+    if (!value.part && typeof value.result === 'string' && includeText) addText(value.result);
+  };
+  let structured = false;
+  for (const line of raw.split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      const value = JSON.parse(line);
+      const before = events.length;
+      visit(value);
+      if (events.length > before) structured = true;
+    } catch { /* malformed/non-JSON lines are retained only by the raw fallback */ }
+  }
+  if (!structured) {
+    try {
+      const value = JSON.parse(raw);
+      if (value && typeof value.result === 'string') addText(value.result);
+      else visit(value);
+    } catch { /* raw fallback handled by renderAgentTrace */ }
+  }
+  return { raw, structured: events.length > 0, events };
+}
+
+function renderAgentTrace(parsed) {
+  if (!parsed.structured) return parsed.raw;
+  return parsed.events.map(event => event.kind === 'text'
+    ? event.text
+    : `[${event.tool}] ${JSON.stringify(event.input ?? {})}`).join('\n');
+}
+
+function extractAgentEvents(transcriptPath) {
+  return parseTranscriptEvents(transcriptPath).events;
+}
+
+function extractAgentTrace(transcriptPath) {
+  return renderAgentTrace(parseTranscriptEvents(transcriptPath));
+}
+
+function normalizeCommand(command) {
+  return String(command || '').replace(/\s+/g, ' ').trim();
+}
+
+function toolTarget(expectation) {
+  if (expectation.value && typeof expectation.value === 'object') return expectation.value;
+  if (expectation.command !== undefined) return { command: expectation.command };
+  if (expectation.tool !== undefined) return { tool: expectation.tool };
+  if (expectation.name !== undefined) return { tool: expectation.name };
+  if (typeof expectation.value === 'string') return { command: expectation.value };
+  if (typeof expectation.value === 'number') return { tool: String(expectation.value) };
+  return {};
+}
+
+function toolMatches(event, target) {
+  if (!event || event.kind !== 'tool') return false;
+  const expectedTool = target.tool || target.name;
+  if (expectedTool && String(event.tool).toLowerCase() !== String(expectedTool).toLowerCase()) return false;
+  if (target.command !== undefined) {
+    const actual = event.input && typeof event.input === 'object'
+      ? firstDefined(event.input.command, event.input.cmd, event.input.script)
+      : event.input;
+    const expected = normalizeCommand(target.command);
+    const normalizedActual = normalizeCommand(actual);
+    if (!normalizedActual || !expected ||
+        !(normalizedActual === expected || normalizedActual.startsWith(`${expected} `) || normalizedActual.includes(` ${expected} `))) return false;
+  }
+  return true;
+}
+
+function gradeToolExpectation(events, expectation) {
+  const target = toolTarget(expectation);
+  const type = expectation.type === 'execution_evidence' ? 'tool_executed' : expectation.type;
+  return events.some(event => {
+    if (!toolMatches(event, target)) return false;
+    if (type === 'tool_executed' || type === 'tool_completed') {
+      if (!event.executed) return false;
+      if (expectation.after_edit && !events.some(previous => previous.kind === 'tool' && previous.edit && previous.executed && previous.sequence < event.sequence)) return false;
+    } else if (type === 'tool_denied') {
+      if (!event.denied) return false;
+    } else if (type === 'tool_attempted' || type === 'tool_call') {
+      if (!event.attempted) return false;
+    }
+    return true;
+  });
 }
 
 function extractSessionMetadata(transcriptPath, engine = 'auto') {
@@ -388,8 +554,16 @@ function extractSessionMetadata(transcriptPath, engine = 'auto') {
 }
 
 function runShellCommand(command, cwd) {
+  if (typeof command !== 'string' || !command.trim()) throw new Error('command must be non-empty');
   if (process.platform === 'win32') {
-    return execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', command], { cwd, stdio: 'ignore' });
+    const scriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'behavioral-shell-'));
+    const scriptPath = path.join(scriptDir, 'command.cmd');
+    try {
+      fs.writeFileSync(scriptPath, `@echo off\r\n${command}\r\n`, 'utf8');
+      return execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/c', scriptPath], { cwd, stdio: 'ignore' });
+    } finally {
+      fs.rmSync(scriptDir, { recursive: true, force: true });
+    }
   }
   return execFileSync('/bin/sh', ['-c', command], { cwd, stdio: 'ignore' });
 }
@@ -405,7 +579,8 @@ function isExecutionLikeTraceValue(value) {
 
 function grade(c, ws, transcriptPath, engine = 'auto') {
   const parsed = parseTranscriptFile(transcriptPath, engine);
-  const trace = parsed.trace;
+  const ordered = parseTranscriptEvents(transcriptPath);
+  const trace = renderAgentTrace(ordered);
   const results = [];
   for (const e of c.expectations) {
     let pass = false;
@@ -417,6 +592,11 @@ function grade(c, ws, transcriptPath, engine = 'auto') {
         pass = evidenceResult.pass;
         status = evidenceResult.status;
         reason = evidenceResult.reason;
+        if (pass && e.after_edit && !gradeToolExpectation(ordered.events, e)) {
+          pass = false;
+          status = 'fail';
+          reason = 'expected a completed edit before the matching tool execution';
+        }
       } else if (e.type === 'trace_contains' || e.type === 'trace_not_contains') {
         if (e.type === 'trace_contains' && isExecutionLikeTraceValue(e.value)) {
           status = 'inconclusive';
@@ -451,7 +631,7 @@ function grade(c, ws, transcriptPath, engine = 'auto') {
   // obligatory once the breaker actually trips) that would otherwise
   // produce meaningless failures.
   const gating = results.filter((r) => !r.informational);
-  const inconclusive = parsed.parseStatus !== 'parsed' || gating.some(result => result.status === 'inconclusive');
+  const inconclusive = gating.some(result => result.status === 'inconclusive');
   const passed = gating.length > 0 && !inconclusive && gating.every((g) => g.pass);
   return {
     results,
@@ -730,6 +910,7 @@ if (require.main === module) main();
 module.exports = {
   buildEngineInvocation,
   countToolCalls,
+  extractAgentEvents,
   extractAgentTrace,
   extractSessionMetadata,
   grade,

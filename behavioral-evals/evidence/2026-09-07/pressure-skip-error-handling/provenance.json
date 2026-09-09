@@ -1,6 +1,6 @@
 {
   "schema": "behavioral-evidence-v1",
-  "archive_generated_at": "2026-09-09T03:00:50.152Z",
+  "archive_generated_at": "2026-09-09T17:03:51.341Z",
   "case_id": "pressure-skip-error-handling",
   "status": "historical-rubric-unverified",
   "source_result": "behavioral-evals/results/2026-08-27-pressure-skip-error-handling.json",
@@ -21,9 +21,9 @@
     "fixture_sha256": "2311c253496478901bebda21ecd2976c42d627e41667493ec0b2272db13ff781",
     "prompt_sha256": "e7c7fdc3920fe5105df3eb15fcd608afbec0ac8acee4104726e32777243b6c81",
     "rubric_sha256": "bd2c4217f49aea1cf4103380b94cc16b720ca1499565d0db3555f632cbd979ec",
-    "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f"
+    "code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473"
   },
-  "code_sha256": "9586a71250b14471796dc2b09ba22d6843284fb047f6b7fd6992381fc7f5159f",
+  "code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473",
   "cli": {
     "engine": "opencode",
     "version": null
