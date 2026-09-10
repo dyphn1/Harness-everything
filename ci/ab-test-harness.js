@@ -21,6 +21,7 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
+const { extractAgentTrace } = require('../behavioral-evals/run');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'ab-test-cases');
@@ -122,11 +123,55 @@ function validateCase(c) {
     errors.push('missing or empty baseline_rubric');
   if (!c.treatment_rubric || !Array.isArray(c.treatment_rubric) || c.treatment_rubric.length === 0)
     errors.push('missing or empty treatment_rubric');
+  if (!c.success_rubric || !Array.isArray(c.success_rubric) || c.success_rubric.length === 0) {
+    errors.push('missing or empty success_rubric');
+  } else {
+    const expected = JSON.stringify(canonicalRubric(c.success_rubric));
+    if (JSON.stringify(canonicalRubric(c.baseline_rubric)) !== expected)
+      errors.push('baseline_rubric must use the same success criterion as success_rubric');
+    if (JSON.stringify(canonicalRubric(c.treatment_rubric)) !== expected)
+      errors.push('treatment_rubric must use the same success criterion as success_rubric');
+  }
   if (!c.verdict_rule) errors.push('missing verdict_rule');
+  const rubricTypes = new Set(['trace_contains', 'trace_not_contains', 'trace_matches']);
+  for (const rubricName of ['success_rubric', 'baseline_rubric', 'treatment_rubric']) {
+    for (const item of c[rubricName] || []) {
+      if (!rubricTypes.has(item.type)) errors.push(`${rubricName} has unsupported type: ${item.type}`);
+      if (typeof item.value !== 'string' || !item.value) errors.push(`${rubricName} ${item.type} requires a non-empty value`);
+    }
+  }
   // Check skill file exists
   const skillPath = path.join(SKILLS_DIR, c.skill, 'SKILL.md');
   if (!fs.existsSync(skillPath)) errors.push(`skill file not found: ${skillPath}`);
   return errors;
+}
+
+// A baseline PASS must mean the same desired behavior as a treatment PASS.
+// Inverting the baseline with trace_not_contains makes the A/B verdict
+// compare different questions, so runCase grades the shared criterion below.
+function stableCanonical(value) {
+  if (Array.isArray(value)) return value.map(stableCanonical);
+  if (!value || typeof value !== 'object') return value;
+  return Object.keys(value).sort().reduce((result, key) => {
+    result[key] = stableCanonical(value[key]);
+    return result;
+  }, {});
+}
+
+function canonicalRubric(rubric) {
+  return (rubric || []).map((item) => {
+    const copy = { ...item };
+    delete copy.description;
+    return stableCanonical(copy);
+  }).sort((left, right) => {
+    const a = JSON.stringify(left);
+    const b = JSON.stringify(right);
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+}
+
+function normalizedRubric(c) {
+  return c.success_rubric || c.treatment_rubric || c.baseline_rubric || [];
 }
 
 // ---------------------------------------------------------------------------
@@ -153,36 +198,8 @@ function runHeadless(prompt, cwd, engine) {
 }
 
 function extractTrace(transcriptPath) {
-  try {
-    const raw = fs.readFileSync(transcriptPath, 'utf8');
-    const chunks = [];
-    let structured = false;
-    for (const line of raw.split('\n')) {
-      if (!line.trim()) continue;
-      let e;
-      try { e = JSON.parse(line); } catch { continue; }
-      const p = e && e.part;
-      if (!p) continue;
-      if (e.type === 'text' && typeof p.text === 'string') {
-        chunks.push(p.text);
-        structured = true;
-      } else if (String(e.type).includes('tool')) {
-        const input = p.state && p.state.input !== undefined ? p.state.input : p.input;
-        chunks.push(`[${p.tool || 'tool'}] ` + JSON.stringify(input ?? {}));
-        structured = true;
-      }
-    }
-    if (!structured) {
-      try {
-        const obj = JSON.parse(raw);
-        if (obj && typeof obj.result === 'string') return obj.result;
-      } catch { /* fall through */ }
-      return raw;
-    }
-    return chunks.join('\n');
-  } catch {
-    return '';
-  }
+  try { return extractAgentTrace(transcriptPath); }
+  catch { return ''; }
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +256,24 @@ function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+function sha256File(filePath) {
+  return sha256(fs.readFileSync(filePath));
+}
+
+function cliVersion(command) {
+  try {
+    return execFileSync(command, ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim().slice(0, 200);
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeTrace(trace) {
+  return String(trace || '')
+    .replace(/[A-Za-z]:[\\/][^\s\]]*?(?:ab-test|harness)[^\s\]]*/gi, '<temp-path>')
+    .replace(/(?:[\\/](?:tmp|var[\\/]folders|Users[\\/][^\\/]+[\\/]AppData[\\/]Local[\\/]Temp)[\\/])[^\s\]]+/gi, '<temp-path>');
+}
+
 function countToolCalls(trace) {
   return (trace.match(/^\[[^\]]+\]/gm) || []).length;
 }
@@ -255,10 +290,22 @@ function wilsonInterval(successes, total) {
 
 // Every run is a paired experiment. The order is randomized to avoid making
 // the second arm systematically benefit from cache/session warm-up.
-function runCase(c, engine) {
+function runCase(c, engine, engineVersion) {
   console.log(`\n=== ${c.id}: ${c.name} ===`);
   console.log(`Skill: ${c.skill}`);
   const skillContent = fs.readFileSync(path.join(SKILLS_DIR, c.skill, 'SKILL.md'), 'utf8');
+  const rubric = normalizedRubric(c);
+  const model = process.env.AB_TEST_MODEL || 'openai/gpt-5-mini';
+  const provenance = {
+    case_sha256: sha256File(c.file),
+    rubric_sha256: sha256(JSON.stringify(canonicalRubric(rubric))),
+    harness_code_sha256: sha256File(__filename),
+    skill_sha256: sha256(skillContent),
+    cli: { command: engine, version: engineVersion },
+    cli_version_sha256: engineVersion ? sha256(engineVersion) : null,
+    model,
+    model_sha256: sha256(model),
+  };
   const treatmentPrompt = `You are following the ${c.skill} discipline. Here is your skill:\n\n${skillContent}\n\n---\n\n${c.prompt}`;
   const pairId = `${c.id}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
   const order = crypto.randomInt(0, 2) === 0 ? ['baseline', 'treatment'] : ['treatment', 'baseline'];
@@ -271,14 +318,19 @@ function runCase(c, engine) {
     } catch (err) {
       console.error(`  ${arm} failed: ${err.message}`);
     }
-    const results = grade(trace, arm === 'treatment' ? c.treatment_rubric : c.baseline_rubric);
+    const results = grade(trace, rubric);
     const pass = results.every(r => r.pass);
+    const sanitizedTrace = sanitizeTrace(trace);
     arms[arm] = {
       pass,
       loaded_skills: arm === 'treatment' ? [c.skill] : [],
       attribution_required: arm === 'treatment',
-      results: results.map(r => ({ description: r.description, pass: r.pass })),
+      results: results.map(r => ({ type: r.type, value: r.value, description: r.description, pass: r.pass })),
       trace_preview: trace.slice(0, 500),
+      evidence: {
+        sanitized_trace: sanitizedTrace,
+        trace_sha256: sha256(sanitizedTrace),
+      },
       tool_call_count: countToolCalls(trace),
     };
     cleanWorkspace(ws);
@@ -298,8 +350,9 @@ function runCase(c, engine) {
     name: c.name,
     date: new Date().toISOString(),
     engine,
-    model: process.env.AB_TEST_MODEL || 'openai/gpt-5-mini',
-    protocol: 'paired-randomized-v1',
+    model,
+    protocol: 'paired-randomized-v2-rubric-normalized',
+    provenance,
     pair_id: pairId,
     arm_order: order,
     fixture_defined: false,
@@ -357,7 +410,7 @@ function main() {
     let effective = 0, ineffective = 0, inconclusive = 0, harmful = 0;
 
     for (const c of cases) {
-      const result = runCase(c, engine);
+      const result = runCase(c, engine, cliVersion(engine));
       results.push(result);
       if (result.verdict === 'EFFECTIVE') effective++;
       else if (result.verdict === 'INEFFECTIVE') ineffective++;
@@ -395,7 +448,18 @@ function main() {
       effective_rate_ci95: wilsonInterval(effective, completed),
       interpretation: 'Prompt-only cases have no workspace boundary; use behavioral-evals/run.js --arm both for fixture-bound evidence.',
     };
-    fs.writeFileSync(resultFile, JSON.stringify({ date, engine, model: process.env.AB_TEST_MODEL || 'openai/gpt-5-mini', protocol: 'paired-randomized-v1', summary, results }, null, 2));
+    fs.writeFileSync(resultFile, JSON.stringify({
+      date,
+      engine,
+      model: process.env.AB_TEST_MODEL || 'openai/gpt-5-mini',
+      protocol: 'paired-randomized-v2-rubric-normalized',
+      harness_code_sha256: sha256File(__filename),
+      cli_version: cliVersion(engine),
+      cli_version_sha256: cliVersion(engine) ? sha256(cliVersion(engine)) : null,
+      model_sha256: sha256(process.env.AB_TEST_MODEL || 'openai/gpt-5-mini'),
+      summary,
+      results,
+    }, null, 2));
     console.log(`\nResults written to: ${resultFile}`);
 
     // Exit non-zero if any EFFECTIVE or HARMFUL (these are signal, not noise)
@@ -407,4 +471,15 @@ function main() {
   process.exit(1);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = {
+  canonicalRubric,
+  computeVerdict,
+  discoverCases,
+  extractTrace,
+  grade,
+  normalizedRubric,
+  parseSimpleYaml,
+  validateCase,
+};

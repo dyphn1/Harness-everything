@@ -27,3 +27,38 @@ graph TD
   CheckGate -->|Yes: Gate Passes| Transition["5. Transition Scaffolding to TDD Iteration"]
   Transition --> End([Macro Scaffolding Successfully Deployed])
 ```
+
+## Model and verifier decisions
+
+Fable keeps the requested model explicit. A missing worker or unavailable
+model is a recorded fallback or a blocked stage, never a silent downgrade.
+
+```mermaid
+flowchart LR
+  Request[Requested model] --> Select[model-selector.js]
+  Select -->|Available| Worker[Named fable worker]
+  Select -->|Unavailable + inline allowed| Fallback[Recorded inline fallback]
+  Select -->|Unavailable + no fallback| Blocked[Escalate blocked stage]
+  Worker --> Verify[Cold verifier]
+  Fallback --> Verify
+  Verify -->|Pass| Record[Record stage evidence]
+  Verify -->|Fail| Replan[Update blocker and replan]
+  Replan --> Select
+```
+
+## Stage contract state
+
+Each stage has one artifact and one pass condition. The audit record preserves
+the model choice, fallback reason, and verification result for later review.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Planned
+  Planned --> Running
+  Running --> Verifying
+  Verifying --> Passed: exit 0
+  Verifying --> Blocked: unresolved failure
+  Blocked --> Running: blocker fixed
+  Passed --> Recorded
+  Recorded --> [*]
+```

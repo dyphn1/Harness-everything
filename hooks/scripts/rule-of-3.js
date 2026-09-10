@@ -112,8 +112,8 @@ function blockForHumanDecision(state) {
 
 function main(payload) {
   try {
-    const root = getWorkspaceRoot();
-    const sessionDir = getSessionDir(root, payload && payload.session_id);
+    const root = getWorkspaceRoot(payload);
+    const sessionDir = getSessionDir(root, payload && (payload.session_id || payload.sessionId));
     const stateFile = path.join(sessionDir, 'rule-of-3-state.json');
     const reportFile = path.join(sessionDir, 'zoom-out-report.md');
 
@@ -151,22 +151,23 @@ function main(payload) {
   }
 }
 
-// Fast path: skip stdin entirely unless some session's breaker is actually
-// tripped (also keeps manual terminal runs instant).
-let tripped = false;
-try {
-  tripped = anySessionTripped(getWorkspaceRoot());
-} catch (err) {
-  tripped = false; // fail open
-}
-
-if (!tripped) {
-  process.exit(0);
+// Read the payload before the fast path. The session registry may point at a
+// different workspace than process.cwd() after an agent changes directory;
+// checking the cwd first would skip an active breaker in the bound session.
+function runForPayload(payload) {
+  let tripped = false;
+  try {
+    tripped = anySessionTripped(getWorkspaceRoot(payload));
+  } catch (err) {
+    tripped = false; // fail open
+  }
+  if (!tripped) process.exit(0);
+  main(payload);
 }
 
 if (process.stdin.isTTY) {
   // Manual run in a terminal - no payload is coming.
-  main(null);
+  runForPayload(null);
 } else {
   let raw = '';
   let finished = false;
@@ -175,7 +176,7 @@ if (process.stdin.isTTY) {
     finished = true;
     let payload = null;
     try { payload = JSON.parse(raw); } catch (err) { /* no payload */ }
-    main(payload);
+    runForPayload(payload);
   };
   // Claude Code closes stdin right after writing the payload; the timer is a
   // safety net so an odd caller that never closes stdin can't hang the hook.

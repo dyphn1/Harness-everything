@@ -40,3 +40,36 @@ After resolving a recurring Windows path error, the agent summarizes the cause, 
 - [ ] No raw transcript, secret, or one-off detail was persisted.
 - [ ] Rule/dynamic-skill classification and deduplication passed.
 - [ ] Self-regression passed before the memory or manifest changed.
+
+## Persistence boundary
+
+The host supplies selected evidence. `self-evolve` receives only that brief,
+then chooses a small rule or a reusable skill. It never scans transcript
+stores on its own.
+
+```mermaid
+flowchart LR
+  Host[Host evidence and root cause] --> Classify{Reusable procedure?}
+  Classify -->|No| Rule[Persist a concise rule]
+  Classify -->|Yes| Draft[Load skill-creator and draft a skill]
+  Rule --> Gate[Deduplicate and quality-check]
+  Draft --> Gate
+  Gate -->|Pass| Record[Write the selected memory or manifest]
+  Gate -->|Fail| Stop[Leave state unchanged]
+```
+
+## Persistence outcomes
+
+The decision is made from the lesson, not from transcript discovery. A long
+existing memory is split into a topic file and reached through a pointer.
+
+```mermaid
+flowchart TD
+  Lesson[Resolved lesson] --> Existing{Matching workspace memory?}
+  Existing -->|Short enough| Append[Append the defensive rule]
+  Existing -->|Too long| Split[Create topic memory and pointer]
+  Existing -->|No| Fallback[Choose the workspace fallback]
+  Fallback --> Append
+  Append --> Verify[Run the relevant gate]
+  Split --> Verify
+```

@@ -17,10 +17,10 @@ const RENUDGE_EVERY = 3;
 
 function main(payload) {
   try {
-    const root = getWorkspaceRoot();
+    const root = getWorkspaceRoot(payload);
     const head = execSync('git rev-parse HEAD', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 
-    const stateFile = path.join(getSessionDir(root, payload && payload.session_id), 'atomic-commit-state.json');
+    const stateFile = path.join(getSessionDir(root, payload && (payload.session_id || payload.sessionId)), 'atomic-commit-state.json');
 
     let state = { lastHead: head, editCount: 0 };
     if (fs.existsSync(stateFile)) {

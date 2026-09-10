@@ -29,8 +29,9 @@ process.stdin.on('end', () => {
 
 function processState(payload) {
   try {
-    const sessionId = payload && payload.session_id;
-    const stateFile = path.join(getSessionDir(getWorkspaceRoot(), sessionId), 'handoff-state.json');
+    const sessionId = payload && (payload.session_id || payload.sessionId);
+    const root = getWorkspaceRoot(payload);
+    const stateFile = path.join(getSessionDir(root, sessionId), 'handoff-state.json');
 
     // Merge into the existing state rather than replacing it, so the
     // failure/idle status and the Stop-gate milestones can coexist.

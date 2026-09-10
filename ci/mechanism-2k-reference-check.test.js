@@ -7,14 +7,29 @@ console.log('\n[2k] Skill reference checker negative control...');
 const root = helper.tempDir('.mechanism-test-reference-check');
 const skill = path.join(root, 'fixture-skill');
 fs.mkdirSync(skill, { recursive: true });
-fs.writeFileSync(path.join(skill, 'SKILL.md'), 'Run `scripts/missing.js` before editing.\n');
+fs.writeFileSync(path.join(skill, 'SKILL.md'), 'Run `<this-skill-dir>/scripts/missing.js` before editing.\n');
 let result = checkSkillReferences(root, ['fixture-skill']);
-helper.check('2k. dangling executable reference fails', result.failures.length === 1 && result.failures[0].reference === 'scripts/missing.js', JSON.stringify(result.failures));
+helper.check('2k. dangling executable reference fails', result.failures.length === 1 && result.failures[0].reference === '<this-skill-dir>/scripts/missing.js', JSON.stringify(result.failures));
 
 fs.mkdirSync(path.join(skill, 'scripts'), { recursive: true });
 fs.writeFileSync(path.join(skill, 'scripts', 'missing.js'), '');
 result = checkSkillReferences(root, ['fixture-skill']);
 helper.check('2k. existing executable reference passes', result.failures.length === 0, JSON.stringify(result.failures));
+
+// Regression: skill-local paths must say which base they use. A bare path
+// used to pass because the checker guessed the current skill directory.
+fs.mkdirSync(path.join(skill, 'references'), { recursive: true });
+fs.writeFileSync(path.join(skill, 'references', 'guide.md'), '');
+fs.writeFileSync(path.join(skill, 'SKILL.md'), 'Deep dive: `references/guide.md`\n');
+result = checkSkillReferences(root, ['fixture-skill']);
+helper.check(
+  '2k. bare skill-local paths fail the explicit marker rule',
+  result.failures.length === 1 && result.failures[0].reference === 'references/guide.md' && result.failures[0].target.includes('bare path'),
+  JSON.stringify(result.failures)
+);
+fs.writeFileSync(path.join(skill, 'SKILL.md'), 'Deep dive: `<this-skill-dir>/references/guide.md`\n');
+result = checkSkillReferences(root, ['fixture-skill']);
+helper.check('2k. explicit skill-local paths pass', result.failures.length === 0, JSON.stringify(result.failures));
 
 // --- placeholder heads are authoritative and unknown ones fail ------------
 // Regression: `<this-skill-dir>/hooks/x.js` used to jump to the repo root

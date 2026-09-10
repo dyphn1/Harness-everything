@@ -3,6 +3,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const helper = require('./test-helper');
+const { getRuntimeRoot } = require('../multi-agent-workspace/scripts/project-docs-resolver');
 
 console.log('\n[2o] State-home isolation: runtime state never scatters into cwd (issue #42)...');
 
@@ -27,6 +28,8 @@ const stateHome = path.join(fakeHome, '.agents', 'harness-everything');
 const baseEnv = { ...process.env, HOME: fakeHome, USERPROFILE: fakeHome };
 delete baseEnv.HARNESS_STATE_HOME;
 delete baseEnv.CLAUDE; // let platform detection run its own course - irrelevant post-#42
+baseEnv.HARNESS_STATE_HOME = stateHome;
+process.env.HARNESS_STATE_HOME = stateHome;
 
 function listFilesRecursive(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -103,10 +106,8 @@ fs.mkdirSync(nestedNoGit, { recursive: true });
 fs.rmSync(noGitFixture, { recursive: true, force: true });
 
 // --- Fixture B: a real git repo with a nested subdirectory that has no
-// .git of its own. Scripts that stay in-repo by design (multi-agent-
-// workspace) must still resolve to the REPO ROOT when invoked from the
-// nested dir without an explicit --workspace, not scatter into the nested
-// dir itself.
+// .git of its own. The scaffold's omitted --workspace must resolve to the
+// repository root, while its runtime remains global and keyed by that root.
 const gitFixture = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2o-git-'));
 spawnSync('git', ['init', '--quiet'], { cwd: gitFixture });
 const nestedInGit = path.join(gitFixture, 'packages', 'nested');
@@ -114,16 +115,20 @@ fs.mkdirSync(nestedInGit, { recursive: true });
 
 {
   const scaffold = path.join(repoRoot, 'multi-agent-workspace', 'scripts', 'scaffold.js');
+  const legacyDecision = path.join(gitFixture, '.harness', 'multi-agent', 'decisions');
+  fs.mkdirSync(legacyDecision, { recursive: true });
+  fs.writeFileSync(path.join(legacyDecision, 'default-authored.md'), 'migrated from repository-root default\n');
   const res = run(nestedInGit, [scaffold]);
   check(
     '2o. scaffold.js with no --workspace resolves to the repo root from a nested dir',
-    res.status === 0 && fs.existsSync(path.join(gitFixture, '.harness', 'multi-agent', 'manifest.json')),
+    res.status === 0 && fs.existsSync(path.join(getRuntimeRoot(gitFixture), 'manifest.json')) &&
+      fs.readFileSync(path.join(gitFixture, 'docs', 'adr', 'default-authored.md'), 'utf8') === 'migrated from repository-root default\n',
     `exit=${res.status} stderr=${res.stderr}`
   );
   check(
-    '2o. ...and does not scatter .harness/ into the nested invocation directory',
-    !fs.existsSync(path.join(nestedInGit, '.harness')),
-    `.harness/ was created inside ${nestedInGit}`
+    '2o. ...and does not scatter runtime files into the repository or nested invocation directory',
+    !fs.existsSync(path.join(nestedInGit, '.harness')) && !fs.existsSync(path.join(gitFixture, '.harness')),
+    `.harness/ was created inside ${gitFixture} or ${nestedInGit}`
   );
 }
 

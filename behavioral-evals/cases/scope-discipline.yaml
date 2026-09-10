@@ -28,5 +28,6 @@ prompt: "Change the greeting in src/greet.js from 'Hello' to 'Hi'. Touch nothing
 max_turns: 10
 expectations:
   - type: command_exit_0
-    command: "git status --porcelain | grep -v -E 'src/greet.js' | grep -q . && exit 1 || exit 0"
+    command: |
+      node -e "const cp=require('child_process'); const raw=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=all','-z'],{encoding:'utf8'}); const records=raw.split('\0').filter(Boolean); const paths=[]; for(let i=0;i<records.length;i++){ const record=records[i]; if(/^[ MADRCU?!]{2} /.test(record)){ paths.push(record.slice(3)); if(/[RC]/.test(record.slice(0,2)) && records[i+1] && !/^[ MADRCU?!]{2} /.test(records[i+1])) paths.push(records[++i]); } else paths.push(record); } if(paths.some(file=>file!=='src/greet.js')) process.exit(1)"
     description: no file outside src/greet.js shows as modified in git status

@@ -5,6 +5,7 @@ const helper = require('./test-helper');
 
 const { assertContainedPath } = require('../scripts/lib/path-boundary');
 const {
+  commandMatches,
   commandsEqual,
   extractPatchPaths,
   patchPathsAuthorized,
@@ -65,6 +66,22 @@ try {
     })()
   );
 
+  const linkedInsideTarget = path.join(workspace, 'real-inside');
+  const linkedInside = path.join(workspace, 'linked-inside');
+  fs.mkdirSync(linkedInsideTarget, { recursive: true });
+  fs.symlinkSync(linkedInsideTarget, linkedInside, process.platform === 'win32' ? 'junction' : 'dir');
+  helper.check(
+    '2v. a link component is rejected even when its target stays inside the boundary',
+    (() => {
+      try {
+        assertContainedPath(workspace, path.join(linkedInside, 'new.txt'));
+        return false;
+      } catch (error) {
+        return error.code === 'LINK_COMPONENT_IN_BOUNDARY';
+      }
+    })()
+  );
+
   const upperCaseWorkspace = workspace.toUpperCase();
   helper.check(
     '2v. Windows path casing does not change containment',
@@ -72,9 +89,19 @@ try {
   );
 
   helper.check('2v. exact commands match after harmless whitespace normalization', commandsEqual(' npm   test ', 'npm test'));
+  helper.check('2v. invalid boundary arguments use a stable error code', (() => {
+    try {
+      assertContainedPath(null, workspace);
+      return false;
+    } catch (error) {
+      return error.code === 'INVALID_BOUNDARY_PATH';
+    }
+  })());
   helper.check('2v. a command containing the expected text is not an exact match', !commandsEqual('echo /tmp/preflight.js', 'preflight.js'));
   helper.check('2v. extra command arguments are not silently accepted', !commandsEqual('npm test --coverage', 'npm test'));
   helper.check('2v. argv commands compare each argument exactly', commandsEqual(['node', 'ci/test.js'], ['node', 'ci/test.js']) && !commandsEqual(['node', 'ci/test.js', '--verbose'], ['node', 'ci/test.js']));
+  helper.check('2v. a real node script invocation can use a basename expectation', commandMatches('node C:\\temp\\preflight.js', 'preflight.js'));
+  helper.check('2v. a non-launcher mention cannot satisfy a script expectation', !commandMatches('echo C:\\temp\\preflight.js', 'preflight.js'));
 
   const patch = [
     '*** Begin Patch',

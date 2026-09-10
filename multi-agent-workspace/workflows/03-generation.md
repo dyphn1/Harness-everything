@@ -10,17 +10,15 @@
 2. Semantic Integrity: For Smart Merge, align updates with logical consistency, memory management, and verification guardrails while preserving original YAML frontmatter.
 
 ## [Action Phase: Generation]
-3. Template Iteration: Process selected agents iteratively to manage context usage:
-   - Read the corresponding template for each chosen role.
-   - If merging into an existing file, read the target file first to preserve custom configuration.
-   - Inject cognitive guardrails: role boundaries, shared memory references (`memory-keeper`), and outcome verification guidelines.
-   - Align generated prompts with target platform capabilities (e.g. VS Code Copilot, Cursor, Claude Code) and appropriate task-tracking frameworks.
-   - Substitute placeholders using the `Context Profile`. If a placeholder remains unresolved, insert a clear comment tag (e.g. `// TODO: Manual configuration needed`).
-   - Save generated files to paths defined in `guidelines/platform-<platform>.md`.
-4. Orchestrator Generation: Consult `guidelines/platform-<platform>.md` for Orchestrator requirements and update central prompts if necessary.
+3. Run `node multi-agent-workspace/scripts/scaffold.js --workspace <root>` with the selected source, divisions, agents, and platform.
+   - Resolve document zones through the shared resolver; preserve the provenance of explicit, inferred, and fallback paths.
+   - Migrate authored decision, domain, and architecture records only after checking every destination conflict.
+   - Keep runtime metadata, roles, state, logs, and memory indexes under the global workspace-keyed state root.
+   - Resolve the router template and indexer from the installed skill directory; render the router into the global runtime, never into the repository.
+4. If the source is unavailable, retain the explicit unavailable-catalog status and do not claim a complete roster.
 
 ## [Summarize & Verification Phase]
-5. Integrity Check: Verify generated files exist on disk before reporting completion.
+5. Integrity Check: Verify the global manifest, handoff, launcher, selected roles, memory index, and resolved document paths before reporting completion.
 
 ## [Record: Exit]
 6. Completion: Record successful subagent scaffolding.

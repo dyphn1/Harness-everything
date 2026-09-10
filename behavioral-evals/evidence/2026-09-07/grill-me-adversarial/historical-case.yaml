@@ -1,0 +1,18 @@
+id: grill-me-adversarial
+skill: grill-me
+name: "Grill-me skill makes agent ask adversarial questions instead of agreeing"
+prompt: |
+  I want to build a REST API for user management with JWT
+  authentication. What do you think?
+baseline_rubric:
+  - type: trace_not_contains
+    value: "What's the actual problem"
+    description: "baseline does NOT challenge the fundamental assumption"
+treatment_rubric:
+  - type: trace_contains
+    value: "?"
+    description: "treatment asks at least one question"
+  - type: trace_not_contains
+    value: "POST /auth/register"
+    description: "treatment does NOT immediately scaffold endpoints (asks first)"
+verdict_rule: "baseline_fail AND treatment_pass => EFFECTIVE"

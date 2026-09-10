@@ -1,6 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const helper = require('./test-helper');
 
 console.log('\n[2q] Global scope: canonical store reuses the pre-existing shared ~/.agents/skills (issue #49)...');
@@ -9,6 +10,26 @@ const skills = require('../scripts/lib/skills');
 const manifest = require('../scripts/lib/manifest');
 
 const harnessSourceDir = path.resolve(__dirname, '..');
+
+const installerHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2q-installer-home-'));
+const installerCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2q-installer-cwd-'));
+const installerResult = spawnSync(
+  process.execPath,
+  [path.join(harnessSourceDir, 'scripts', 'installer.js'), 'install', '--global', '--yes', '--no-skills', '--claude'],
+  {
+    cwd: installerCwd,
+    env: { ...process.env, HOME: installerHome, USERPROFILE: installerHome, APPDATA: path.join(installerHome, 'AppData', 'Roaming') },
+    encoding: 'utf8'
+  }
+);
+helper.check(
+  '2q. global installer works from a non-git directory',
+  installerResult.status === 0 && fs.existsSync(path.join(installerHome, '.claude', 'settings.json')),
+  `status=${installerResult.status} stdout=${installerResult.stdout} stderr=${installerResult.stderr}`
+);
+fs.rmSync(installerHome, { recursive: true, force: true });
+fs.rmSync(installerCwd, { recursive: true, force: true });
+
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2q-home-'));
 const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2q-ws-'));
 

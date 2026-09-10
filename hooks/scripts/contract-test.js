@@ -32,7 +32,8 @@ process.stdin.on('end', () => {
     const command = ((payload.tool_input && payload.tool_input.command) || '').trim();
     if (!command) process.exit(0);
 
-    const contractsDir = path.join(getStateRoot(getWorkspaceRoot()), 'contracts');
+    const root = getWorkspaceRoot(payload);
+    const contractsDir = path.join(getStateRoot(root), 'contracts');
     if (!fs.existsSync(contractsDir)) process.exit(0);
 
     const toolResponse = payload.tool_response || {};

@@ -21,17 +21,18 @@ metadata:
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Tier 3 workspace scaffold or specialist-selection request; optional `--agency-source`. |
-| **Expected Output** | Six zones, immutable router, selected-agent catalog, launcher, local indexer, and structured handoff. |
-| **State Mutations** | Writes only `.harness/multi-agent/` in the target workspace; never edits the external source. |
-| **Enforcement Gate** | Run `scripts/scaffold.js`; it validates source metadata, conflicts, revision drift, and generated artifacts. |
+| **State Mutations** | Writes derived metadata, roles, state, logs, launcher, router, handoff, and memory index under the global workspace-keyed Harness state home; writes decision, domain, and architecture records at resolver-selected committable repository paths. |
 
 ## Workflow
 
 1. Discover the target stack, source availability, requested platform, divisions, and agents.
-2. Run `node multi-agent-workspace/scripts/scaffold.js --workspace <root>` with explicit selections.
-3. Read the generated router and handoff before delegating. Pass each specialist only its declared scope.
-4. Run the generated `index_memory.js`; verify `manifest.json`, `memory-index.md`, and all six zones.
+2. Run `node <this-skill-dir>/scripts/scaffold.js --workspace <root>` with explicit selections.
+3. Resolve the router template and indexer from the installed skill; read the global manifest/handoff before delegating.
+4. Verify resolved document paths, the indexed memory, and selected roles.
 5. Record the handoff and continue through `fable-mode` verification gates.
 
-The source is optional: missing source produces an explicit unavailable-catalog fallback, never a fake complete roster. `--allow-source-drift` is required to refresh an existing catalog at a different source revision. See `references/orchestration.md` and `references/agency-agents.md` for migration and source rules.
+The source is optional: missing source yields an unavailable-catalog fallback. The resolver records provenance and a resolution kind (`explicit`, `inferred`, or `fallback`). Omitted `--workspace` uses the current repository root; explicit targets are used verbatim. Use `--allow-source-drift` to refresh a catalog at another revision. Read the references for migration and source rules.
+
+Deep dive: <this-skill-dir>/references/orchestration.md
+Deep dive: <this-skill-dir>/references/architecture-guide.md
+Deep dive: <skills-repo-root>/docs/workflows/multi-agent-workspace.md

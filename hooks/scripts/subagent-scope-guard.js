@@ -37,8 +37,8 @@ process.stdin.on('end', () => {
     const payload = JSON.parse(inputData);
     if (payload.tool_name !== 'Task') process.exit(0);
 
-    const root = getWorkspaceRoot();
-    const stateFile = path.join(getSessionDir(root, payload.session_id), 'subagent-scope-state.json');
+    const root = getWorkspaceRoot(payload);
+    const stateFile = path.join(getSessionDir(root, payload.session_id || payload.sessionId), 'subagent-scope-state.json');
 
     if (payload.hook_event_name === 'PreToolUse') {
       // Only set the baseline if one isn't already pending - parallel/nested

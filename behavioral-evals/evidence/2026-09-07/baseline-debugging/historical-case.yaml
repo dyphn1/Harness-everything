@@ -1,0 +1,31 @@
+# Baseline case: Debugging with proper isolation
+id: baseline-debugging
+name: Debugging with proper isolation
+discipline: tdd
+fixture:
+  files:
+    - path: array-utils.js
+      content: |
+        function unique(arr) {
+          return arr.filter((item, index) => arr.indexOf(item) === index);
+        }
+        module.exports = { unique };
+    - path: array-utils.test.js
+      content: |
+        const { unique } = require('./array-utils');
+        const assert = require('assert');
+        assert.deepEqual(unique([1, 2, 2, 3]), [1, 2, 3]);
+        assert.deepEqual(unique([]), []);
+        console.log('all tests pass');
+    - path: package.json
+      content: |
+        { "name": "array-utils", "scripts": { "test": "node array-utils.test.js" } }
+prompt: "The unique() function is failing on some edge cases. Debug and fix it."
+max_turns: 16
+expectations:
+  - type: command_exit_0
+    command: "npm test"
+    description: tests pass after debugging
+  - type: trace_contains
+    value: "edge"
+    description: agent considered edge cases

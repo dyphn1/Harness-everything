@@ -1,0 +1,23 @@
+id: tdd-test-first
+skill: tdd
+name: "TDD skill makes agent write test before implementation"
+prompt: |
+  Write a Python function `is_palindrome(s)` that returns True if
+  the input string is a palindrome (case-insensitive, ignoring
+  non-alphanumeric characters). Handle edge cases. Show your
+  complete implementation.
+baseline_rubric:
+  - type: trace_not_contains
+    value: "def test_"
+    description: "baseline does NOT write test function first"
+  - type: trace_not_contains
+    value: "FAIL"
+    description: "baseline does NOT confirm test failure (no RED phase)"
+treatment_rubric:
+  - type: trace_contains
+    value: "def test_"
+    description: "treatment DOES write test function first"
+  - type: trace_contains
+    value: "FAIL"
+    description: "treatment confirms test failure (RED phase)"
+verdict_rule: "baseline_fail AND treatment_pass => EFFECTIVE"

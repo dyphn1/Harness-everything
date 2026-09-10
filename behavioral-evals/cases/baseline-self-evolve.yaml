@@ -1,10 +1,7 @@
 # Baseline case: Self-evolve persists a root-cause rule after a resolved bug
 #
-# The trace_contains "persist-memory.js" expectation is blocked on #52: the
-# claude engine's trace only captures the final message, not tool calls, so
-# it can't reliably see the script invocation even when it happens. The
-# file_contains check on memories/repo/RULES.md is unaffected and is the
-# one that actually proves the rule got persisted.
+# The script assertion uses structured completed-tool evidence, and the
+# file_contains check independently proves that the rule was persisted.
 id: baseline-self-evolve
 name: Persist a defensive rule after a resolved recurring bug
 discipline: self-evolve
@@ -25,8 +22,8 @@ fixture:
 prompt: "Reflect on the root cause described in NOTES.md and persist a defensive rule for future sessions."
 max_turns: 14
 expectations:
-  - type: trace_contains
-    value: "persist-memory.js"
+  - type: tool_completed
+    command: "persist-memory.js"
     description: invoked self-evolve's persistence script rather than editing memory files ad hoc
   - type: file_contains
     path: "memories/repo/RULES.md"
