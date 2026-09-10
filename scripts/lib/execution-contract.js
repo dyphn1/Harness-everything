@@ -65,5 +65,6 @@ module.exports = {
   commandsEqual,
   extractPatchPaths,
   normalizeCommand,
+  normalizeRepoPath,
   patchPathsAuthorized,
 };
