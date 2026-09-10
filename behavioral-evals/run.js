@@ -27,6 +27,7 @@ const {
   gradeExecutionEvidence,
   parseTranscriptFile,
 } = require('./transcript-parser');
+const { commandMatches, normalizeRepoPath } = require('../scripts/lib/execution-contract');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -189,8 +190,16 @@ function validate(cases) {
 
 // --- live run mode -----------------------------------------------------------
 function buildWorkspace(c) {
+  if (!c || !c.fixture || !Array.isArray(c.fixture.files)) throw new Error('fixture.files must be a non-empty array');
+  const fixtureFiles = c.fixture.files.map((file, index) => {
+    const relative = normalizeRepoPath(file && file.path);
+    if (!relative || relative === '.git' || relative.startsWith('.git/')) {
+      throw new Error(`fixture.files[${index}] path must stay inside the generated workspace`);
+    }
+    return { ...file, path: relative };
+  });
   const ws = fs.mkdtempSync(path.join(os.tmpdir(), `harness-behavioral-${c.id}-`));
-  for (const f of c.fixture.files) {
+  for (const f of fixtureFiles) {
     const target = path.join(ws, f.path);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, typeof f.content === 'string' ? f.content.replace(/\n$/, '') + '\n' : String(f.content));
@@ -399,8 +408,11 @@ function isEditOperation(tool, input) {
   if (/(^|[-_])(edit|write|patch|create|delete|move|rename)([-_]|$)/.test(name) ||
       /^(edit|write|apply_patch|create_file|delete_file|move_file|rename_file)$/.test(name)) return true;
   const command = input && typeof input === 'object' ? firstDefined(input.command, input.cmd, input.script) : input;
-  return typeof command === 'string' &&
-    /(?:>>?|\btee\b|\bset-content\b|\bout-file\b|\bwritefile\b|\brename(?:-item)?\b|\bremove(?:-item)?\b|\b(?:sed|perl)\b[^\r\n]*\s-i\b)/i.test(command);
+  if (typeof command === 'string' && /(?:>>?|\btee\b|\bset-content\b|\bout-file\b|\bwritefile\b|\brename(?:-item)?\b|\bremove(?:-item)?\b|\b(?:sed|perl)\b[^\r\n]*\s-i\b)/i.test(command)) return true;
+  const target = input && typeof input === 'object'
+    ? firstDefined(input.file_path, input.filePath, input.path, input.filename)
+    : null;
+  return typeof target === 'string' && /\.(?:patch|diff)$/i.test(target);
 }
 
 function executionState(status, type) {
@@ -496,10 +508,6 @@ function extractAgentTrace(transcriptPath) {
   return renderAgentTrace(parseTranscriptEvents(transcriptPath));
 }
 
-function normalizeCommand(command) {
-  return String(command || '').replace(/\s+/g, ' ').trim();
-}
-
 function toolTarget(expectation) {
   if (expectation.value && typeof expectation.value === 'object') return expectation.value;
   if (expectation.command !== undefined) return { command: expectation.command };
@@ -518,10 +526,7 @@ function toolMatches(event, target) {
     const actual = event.input && typeof event.input === 'object'
       ? firstDefined(event.input.command, event.input.cmd, event.input.script)
       : event.input;
-    const expected = normalizeCommand(target.command);
-    const normalizedActual = normalizeCommand(actual);
-    if (!normalizedActual || !expected ||
-        !(normalizedActual === expected || normalizedActual.startsWith(`${expected} `) || normalizedActual.includes(` ${expected} `))) return false;
+    if (!commandMatches(actual, target.command)) return false;
   }
   return true;
 }
@@ -909,6 +914,7 @@ if (require.main === module) main();
 
 module.exports = {
   buildEngineInvocation,
+  buildWorkspace,
   countToolCalls,
   extractAgentEvents,
   extractAgentTrace,

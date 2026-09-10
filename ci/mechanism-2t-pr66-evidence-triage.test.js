@@ -73,6 +73,22 @@ function runChecks() {
     };
     check('empty command_exit_0 is rejected', validateCase(emptyCommandCase).some(error => /non-empty/.test(error)));
 
+    const crlfCase = parseSimpleYaml([
+      'id: crlf-fixture',
+      'prompt: |',
+      '  preserve',
+      '  both lines',
+      'max_turns: 1',
+      'fixture:',
+      '  files:',
+      '    - path: index.js',
+      '      content: ok',
+      'expectations:',
+      '  - type: trace_contains',
+      '    value: ok',
+    ].join('\r\n'));
+    check('CRLF block scalars remain parseable for behavioral cases', crlfCase.prompt === 'preserve\nboth lines', JSON.stringify(crlfCase));
+
     const transcriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr66-trace-'));
     tempPaths.push(transcriptDir);
     const runningTranscript = path.join(transcriptDir, 'running.jsonl');
@@ -121,6 +137,43 @@ function runChecks() {
     const abRow = rows.find(row => row.id === 'grill-me-adversarial');
     const abProvenance = JSON.parse(fs.readFileSync(path.join(triageOut, 'grill-me-adversarial', 'provenance.json'), 'utf8'));
     check('CI A/B replay uses the CI A/B runner', abRow && abProvenance.replay.command === 'node ci/ab-test-harness.js run --case grill-me-adversarial');
+
+    const invalidBaseOut = path.join(transcriptDir, 'invalid-base-out');
+    let invalidBaseRejected = false;
+    try {
+      execFileSync(process.execPath, [path.join(__dirname, '..', 'behavioral-evals', 'evidence-tool.js'), 'triage', '--out', invalidBaseOut], {
+        cwd: path.join(__dirname, '..'),
+        env: { ...process.env, EVIDENCE_BASE_REF: 'refs/heads/does-not-exist' },
+        stdio: 'ignore'
+      });
+    } catch {
+      invalidBaseRejected = true;
+    }
+    check('triage rejects an unresolvable historical base ref', invalidBaseRejected);
+
+    const archiveOutside = path.join(transcriptDir, 'archive-outside');
+    const archiveLinkOut = path.join(transcriptDir, 'archive-link-out');
+    fs.mkdirSync(archiveOutside, { recursive: true });
+    fs.mkdirSync(archiveLinkOut, { recursive: true });
+    const archiveLink = path.join(archiveLinkOut, 'archive-fixture');
+    fs.symlinkSync(archiveOutside, archiveLink, process.platform === 'win32' ? 'junction' : 'dir');
+    let archiveLinkRejected = false;
+    try {
+      archiveResult(resultPath, archiveLinkOut, casePath);
+    } catch {
+      archiveLinkRejected = true;
+    }
+    check('archive rejects an output junction or symlink escape', archiveLinkRejected && !fs.existsSync(path.join(archiveOutside, 'case.yaml')));
+
+    const falsePositiveTranscript = path.join(transcriptDir, 'false-positive-command.jsonl');
+    write(falsePositiveTranscript, JSON.stringify({
+      type: 'tool_use',
+      part: { type: 'tool', tool: 'Bash', callID: 'coverage', state: { status: 'completed', input: { command: 'npm test --coverage' } } }
+    }));
+    check(
+      'tool evidence does not treat an extended command as the exact command',
+      !grade({ expectations: [{ type: 'tool_completed', value: { command: 'npm test' } }] }, transcriptDir, falsePositiveTranscript).passed
+    );
   } finally {
     tempPaths.forEach(remove);
   }

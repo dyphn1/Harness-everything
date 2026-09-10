@@ -6,13 +6,20 @@ const os = require('os');
 const path = require('path');
 const { parseSimpleYaml } = require('../behavioral-evals/run');
 const { grade, parseTranscriptEvents } = require('../behavioral-evals/run');
-const { validateDirectory, negativeControls } = require('../behavioral-evals/case-validator');
+const { validateCase, validateDirectory, negativeControls } = require('../behavioral-evals/case-validator');
 const { canonicalRubric, extractTrace } = require('./ab-test-harness');
 
 const casesDir = path.join(__dirname, '..', 'behavioral-evals', 'cases');
 const failures = validateDirectory(casesDir, parseSimpleYaml);
 assert.deepStrictEqual(failures, [], failures.map(failure => `${failure.file}: ${failure.errors.join('; ')}`).join('\n'));
 assert.strictEqual(negativeControls().length, 0, 'negative controls must be rejected by the validator');
+assert.deepStrictEqual(validateCase({
+  id: 'tool-call-schema',
+  prompt: 'inspect the fixture',
+  max_turns: 1,
+  fixture: { files: [{ path: 'index.js', content: '' }] },
+  expectations: [{ type: 'tool_call', value: 'Bash' }]
+}), [], 'tool_call must remain part of the runner/validator schema');
 
 const transcriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'behavioral-case-validation-'));
 try {

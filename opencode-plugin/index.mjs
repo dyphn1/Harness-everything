@@ -116,6 +116,12 @@ function isWithin(parent, candidate) {
   )
 }
 
+function samePath(left, right) {
+  const a = resolve(left)
+  const b = resolve(right)
+  return process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b
+}
+
 function getSessionDir(directory, sessionID) {
   const sessionsRoot = resolve(join(getStateRoot(directory), "sessions"))
   const candidate = resolve(sessionsRoot, getSessionKey(sessionID))
@@ -383,10 +389,12 @@ export const HarnessEnforcement = async ({ client, directory }) => {
 
   function isReflectionWrite(input, output, reportFile) {
     if (!EDIT_TOOLS.has(input.tool)) return false
+    if (input.tool === "apply_patch") {
+      const targets = patchTargets(input, output)
+      return targets.length > 0 && targets.every((patchTarget) => samePath(resolve(workspace, patchTarget), reportFile))
+    }
     const target = toolTarget(input, output)
-    if (target && resolve(workspace, target) === resolve(reportFile)) return true
-    if (input.tool !== "apply_patch") return false
-    return patchTargets(input, output).some((patchTarget) => resolve(workspace, patchTarget) === resolve(reportFile))
+    return Boolean(target && samePath(resolve(workspace, target), reportFile))
   }
 
   return {

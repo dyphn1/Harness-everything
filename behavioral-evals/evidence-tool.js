@@ -17,6 +17,7 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { parseSimpleYaml } = require('./run');
+const { assertContainedPath } = require('../scripts/lib/path-boundary');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -45,6 +46,8 @@ const TRIAGE = {
   'pressure-sunk-cost-retry': 'rubric defect corrected: i = 1 with a strict bound is a valid insertion-sort repair; current status remains pending live paired rerun',
   'pressure-scope-bypass': 'never run: runtime output and complete tracked/untracked scope checks added; current status remains pending live paired rerun',
 };
+
+const validatedHistoricalRefs = new Set();
 
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -96,7 +99,21 @@ function findResult(id) {
   return files.length ? files[files.length - 1] : null;
 }
 
+function ensureHistoricalBaseRef(ref) {
+  if (validatedHistoricalRefs.has(ref)) return;
+  try {
+    execFileSync('git', ['rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`], {
+      cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    throw new Error(`historical base ref cannot be resolved: ${ref}`);
+  }
+  validatedHistoricalRefs.add(ref);
+}
+
 function gitFileAtRef(relativePath, ref = HISTORICAL_BASE_REF) {
+  ensureHistoricalBaseRef(ref);
   try {
     return execFileSync('git', ['show', `${ref}:${relativePath}`], {
       cwd: ROOT,
@@ -106,6 +123,13 @@ function gitFileAtRef(relativePath, ref = HISTORICAL_BASE_REF) {
   } catch {
     return null;
   }
+}
+
+function writeArchiveFile(archiveRoot, target, content) {
+  const contained = assertContainedPath(archiveRoot, target).target;
+  fs.mkdirSync(path.dirname(contained), { recursive: true });
+  fs.writeFileSync(contained, content, 'utf8');
+  return contained;
 }
 
 function codeHashes() {
@@ -159,6 +183,7 @@ function rubricForCase(caseData) {
 }
 
 function archiveResult(resultPath, outDir, caseFile = null, archiveName = null) {
+  ensureHistoricalBaseRef(HISTORICAL_BASE_REF);
   const record = readJson(resultPath);
   const id = record.id;
   if (!id) throw new Error(`result has no id: ${resultPath}`);
@@ -171,15 +196,13 @@ function archiveResult(resultPath, outDir, caseFile = null, archiveName = null) 
   if (!isSafeArchiveSegment(destinationName)) throw new Error(`archive destination is not a safe name: ${destinationName}`);
   const archiveRoot = path.resolve(outDir);
   const destination = path.resolve(archiveRoot, destinationName);
-  const relativeDestination = path.relative(archiveRoot, destination);
-  if (relativeDestination.startsWith('..') || path.isAbsolute(relativeDestination)) throw new Error(`archive destination escapes output directory: ${destinationName}`);
-  fs.mkdirSync(destination, { recursive: true });
+  const containedDestination = assertContainedPath(archiveRoot, destination).target;
   const archivedCaseText = archiveText(caseText);
-  fs.writeFileSync(path.join(destination, 'case.yaml'), archivedCaseText);
+  writeArchiveFile(archiveRoot, path.join(containedDestination, 'case.yaml'), archivedCaseText);
   const historicalCase = historicalCaseText(id);
   const archivedHistoricalCase = historicalCase ? archiveText(historicalCase) : null;
-  if (archivedHistoricalCase) fs.writeFileSync(path.join(destination, 'historical-case.yaml'), archivedHistoricalCase);
-  fs.writeFileSync(path.join(destination, 'result.sanitized.json'), JSON.stringify(sanitize(record), null, 2) + '\n');
+  if (archivedHistoricalCase) writeArchiveFile(archiveRoot, path.join(containedDestination, 'historical-case.yaml'), archivedHistoricalCase);
+  writeArchiveFile(archiveRoot, path.join(containedDestination, 'result.sanitized.json'), JSON.stringify(sanitize(record), null, 2) + '\n');
   const transcriptPaths = [];
   for (const arm of Object.values(record.arms || {})) if (arm && arm.transcript) transcriptPaths.push(arm.transcript);
   if (record.transcript) transcriptPaths.push(record.transcript);
@@ -187,7 +210,7 @@ function archiveResult(resultPath, outDir, caseFile = null, archiveName = null) 
   for (const transcriptPath of transcriptPaths) {
     if (!fs.existsSync(transcriptPath)) continue;
     const raw = fs.readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean).map(line => sanitizeString(line)).join('\n') + '\n';
-    fs.writeFileSync(path.join(destination, 'transcript.sanitized.jsonl'), raw);
+    writeArchiveFile(archiveRoot, path.join(containedDestination, 'transcript.sanitized.jsonl'), raw);
     transcriptAvailable = true;
     break;
   }
@@ -230,8 +253,8 @@ function archiveResult(resultPath, outDir, caseFile = null, archiveName = null) 
       status: 'pending-live-rerun',
     },
   };
-  fs.writeFileSync(path.join(destination, 'provenance.json'), JSON.stringify(provenance, null, 2) + '\n');
-  return { id, destination, provenance };
+  writeArchiveFile(archiveRoot, path.join(containedDestination, 'provenance.json'), JSON.stringify(provenance, null, 2) + '\n');
+  return { id, destination: containedDestination, provenance };
 }
 
 function historicalRubricHash(id) {
@@ -321,7 +344,10 @@ function markdownMatrix(rows) {
 }
 
 function triage(outDir) {
-  fs.mkdirSync(outDir, { recursive: true });
+  ensureHistoricalBaseRef(HISTORICAL_BASE_REF);
+  const archiveRoot = path.resolve(outDir);
+  assertContainedPath(archiveRoot, archiveRoot);
+  fs.mkdirSync(archiveRoot, { recursive: true });
   const ids = [...HISTORICAL_FAILED, ...NEVER_RUN.filter(id => !HISTORICAL_FAILED.includes(id))];
   const rows = [];
   for (const id of ids) {
@@ -355,13 +381,12 @@ function triage(outDir) {
       });
     } else {
       assertSafeCaseId(id);
-      const destination = path.resolve(outDir, id);
-      fs.mkdirSync(destination, { recursive: true });
-      fs.writeFileSync(path.join(destination, 'case.yaml'), archivedCaseText);
+      const destination = assertContainedPath(archiveRoot, path.resolve(archiveRoot, id)).target;
+      writeArchiveFile(archiveRoot, path.join(destination, 'case.yaml'), archivedCaseText);
       const historicalCase = historicalCaseText(id);
       const archivedHistoricalCase = historicalCase ? archiveText(historicalCase) : null;
-      if (archivedHistoricalCase) fs.writeFileSync(path.join(destination, 'historical-case.yaml'), archivedHistoricalCase);
-      fs.writeFileSync(path.join(destination, 'provenance.json'), JSON.stringify({
+      if (archivedHistoricalCase) writeArchiveFile(archiveRoot, path.join(destination, 'historical-case.yaml'), archivedHistoricalCase);
+      writeArchiveFile(archiveRoot, path.join(destination, 'provenance.json'), JSON.stringify({
         schema: 'behavioral-evidence-v1', archive_generated_at: new Date().toISOString(), case_id: id, status: 'never-run',
         replay_snapshot: {
           case_sha256: sha256(archivedCaseText), fixture_sha256: sha256(JSON.stringify(caseData.fixture || {})), prompt_sha256: sha256(caseData.prompt || ''),
@@ -377,9 +402,9 @@ function triage(outDir) {
       }, null, 2) + '\n');
     }
   }
-  fs.writeFileSync(path.join(outDir, 'triage-matrix.json'), JSON.stringify({ schema: 'behavioral-triage-v1', generated_at: new Date().toISOString(), rows }, null, 2) + '\n');
-  fs.writeFileSync(path.join(outDir, 'triage-matrix.md'), markdownMatrix(rows));
-  fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify({
+  writeArchiveFile(archiveRoot, path.join(archiveRoot, 'triage-matrix.json'), JSON.stringify({ schema: 'behavioral-triage-v1', generated_at: new Date().toISOString(), rows }, null, 2) + '\n');
+  writeArchiveFile(archiveRoot, path.join(archiveRoot, 'triage-matrix.md'), markdownMatrix(rows));
+  writeArchiveFile(archiveRoot, path.join(archiveRoot, 'manifest.json'), JSON.stringify({
     schema: 'behavioral-evidence-manifest-v1', generated_at: new Date().toISOString(),
     historical_failed: HISTORICAL_FAILED, never_run: NEVER_RUN, entries: rows.map(row => ({ id: row.id, status: row.status, classification: row.classification })),
   }, null, 2) + '\n');

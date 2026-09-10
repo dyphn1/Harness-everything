@@ -191,6 +191,22 @@ helper.check(
   junctionRun.stderr || junctionRun.stdout
 );
 
+const linkedLegacyTarget = helper.tempDir('.mechanism-test-multi-agent-linked-legacy');
+const linkedLegacyOutside = helper.tempDir('.mechanism-test-multi-agent-linked-legacy-outside');
+const linkedLegacyRoot = path.join(linkedLegacyTarget, '.harness', 'multi-agent');
+fs.mkdirSync(path.join(linkedLegacyOutside, 'decisions'), { recursive: true });
+fs.writeFileSync(path.join(linkedLegacyOutside, 'decisions', 'outside-authored.md'), 'outside authored\n');
+fs.mkdirSync(path.dirname(linkedLegacyRoot), { recursive: true });
+fs.symlinkSync(linkedLegacyOutside, linkedLegacyRoot, 'junction');
+const linkedLegacyRun = run(linkedLegacyTarget, []);
+helper.check(
+  '2l. legacy migration rejects a linked source before copying or deleting outside files',
+  linkedLegacyRun.status !== 0 &&
+    fs.existsSync(path.join(linkedLegacyOutside, 'decisions', 'outside-authored.md')) &&
+    !fs.existsSync(path.join(linkedLegacyTarget, 'docs', 'adr', 'outside-authored.md')),
+  linkedLegacyRun.stderr || linkedLegacyRun.stdout
+);
+
 const routerPath = path.join(root, 'multi-agent-workspace', 'templates', 'AGENTS.md');
 const runtimeRouter = path.join(getRuntimeRoot(fallback), 'AGENTS.md');
 const router = fs.existsSync(runtimeRouter) ? fs.readFileSync(runtimeRouter, 'utf8') : '';

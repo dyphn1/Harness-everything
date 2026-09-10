@@ -10,6 +10,7 @@
     "test": "node self-evolve/scripts/self-regression.js",
     "self-regression": "node self-evolve/scripts/self-regression.js",
     "test:mechanism": "node ci/mechanism-test.js",
+    "test:mutations": "node ci/mutation-check.js",
     "test:tdd-quality": "node ci/mechanism-2s-tdd-quality.test.js",
     "tdd:quality": "node tdd/scripts/quality-gate.js",
     "test:consistency": "node ci/consistency-check.js",

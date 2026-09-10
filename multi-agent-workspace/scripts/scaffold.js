@@ -15,6 +15,7 @@ const {
   readAgencyCatalog,
   resolveSelection
 } = require('./agency-catalog');
+const { assertContainedPath } = require('./path-boundary');
 
 const GENERATOR = 'harness-everything/multi-agent-workspace';
 const RUNTIME_ZONES = Object.freeze(['state', 'logs', 'roles']);
@@ -152,7 +153,9 @@ function sameFile(left, right) {
 }
 
 function isSamePath(left, right) {
-  return path.resolve(left) === path.resolve(right);
+  const a = path.resolve(left);
+  const b = path.resolve(right);
+  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 
 function migrationTargetKey(target) {
@@ -195,6 +198,10 @@ function removeEmptyParents(start, stop) {
 function migrateLegacyWorkspace(workspaceRoot, resolution) {
   const legacyRoot = path.join(workspaceRoot, '.harness', 'multi-agent');
   if (!fs.existsSync(legacyRoot)) return null;
+  // The legacy root is an input boundary, not an allowed link target. A
+  // junction here could make the migration read and delete authored files
+  // outside the workspace while every lexical path still looks local.
+  assertContainedPath(workspaceRoot, legacyRoot);
   const legacyBoundary = path.resolve(legacyRoot);
   const copies = [];
   const plannedTargets = new Map();
@@ -205,20 +212,22 @@ function migrateLegacyWorkspace(workspaceRoot, resolution) {
       if (path.basename(source) === '.gitkeep') continue;
       const relative = path.relative(legacyZone, source);
       const target = path.join(destination, relative);
-      if (isSamePath(source, target)) continue;
-      const targetFromLegacy = path.relative(legacyBoundary, target);
+      const containedSource = assertContainedPath(legacyRoot, source).target;
+      const containedTarget = assertContainedPath(workspaceRoot, target).target;
+      if (isSamePath(containedSource, containedTarget)) continue;
+      const targetFromLegacy = path.relative(legacyBoundary, containedTarget);
       if (!targetFromLegacy.startsWith('..') && !path.isAbsolute(targetFromLegacy)) {
-        throw new Error(`migration destination is inside legacy workspace: ${path.relative(workspaceRoot, target).replace(/\\/g, '/')}`);
+        throw new Error(`migration destination is inside legacy workspace: ${path.relative(workspaceRoot, containedTarget).replace(/\\/g, '/')}`);
       }
-      const targetKey = migrationTargetKey(target);
+      const targetKey = migrationTargetKey(containedTarget);
       if (plannedTargets.has(targetKey)) {
-        throw new Error(`migration conflict: multiple legacy records target ${path.relative(workspaceRoot, target).replace(/\\/g, '/')}`);
+        throw new Error(`migration conflict: multiple legacy records target ${path.relative(workspaceRoot, containedTarget).replace(/\\/g, '/')}`);
       }
-      plannedTargets.set(targetKey, source);
-      if (fs.existsSync(target) && !sameFile(source, target)) {
-        throw new Error(`migration conflict: ${path.relative(workspaceRoot, target).replace(/\\/g, '/')}`);
+      plannedTargets.set(targetKey, containedSource);
+      if (fs.existsSync(containedTarget) && !sameFile(containedSource, containedTarget)) {
+        throw new Error(`migration conflict: ${path.relative(workspaceRoot, containedTarget).replace(/\\/g, '/')}`);
       }
-      copies.push({ source, target });
+      copies.push({ source: containedSource, target: containedTarget });
     }
   }
 

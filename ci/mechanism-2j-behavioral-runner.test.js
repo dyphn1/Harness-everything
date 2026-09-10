@@ -1,5 +1,7 @@
 const helper = require('./test-helper');
-const { buildEngineInvocation } = require('../behavioral-evals/run');
+const os = require('os');
+const path = require('path');
+const { buildEngineInvocation, buildWorkspace } = require('../behavioral-evals/run');
 
 console.log('\n[2j] Behavioral runner argv integrity...');
 const prompt = "Add punctuation stripping to slug.js, then run npm test. Do not truncate this request.";
@@ -17,5 +19,18 @@ helper.check('2j. Claude baseline excludes user customizations', baseline.args.i
 const treatment = buildEngineInvocation('claude', prompt, 'C:/fixture with spaces', 16, 'treatment');
 helper.check('2j. Claude treatment keeps only project/local customizations', treatment.args.includes('--setting-sources') && treatment.args.includes('project,local') && !treatment.args.includes('--safe-mode'), JSON.stringify(treatment.args));
 helper.check('2j. Claude emits parseable verbose stream JSON', treatment.args.includes('--output-format') && treatment.args.includes('stream-json') && treatment.args.includes('--verbose') && !treatment.args.includes('json'), JSON.stringify(treatment.args));
+
+const traversalTarget = path.join(os.tmpdir(), `harness-behavioral-traversal-${process.pid}-${Date.now()}.txt`);
+let traversalRejected = false;
+try {
+  buildWorkspace({ id: 'fixture-traversal', fixture: { files: [{ path: `../${path.basename(traversalTarget)}`, content: 'path traversal proof' }] } });
+} catch {
+  traversalRejected = true;
+}
+helper.check(
+  '2j. behavioral fixtures reject paths outside the generated workspace',
+  traversalRejected && !require('fs').existsSync(traversalTarget),
+  traversalTarget
+);
 
 helper.finish();

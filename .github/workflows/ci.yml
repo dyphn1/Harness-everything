@@ -24,6 +24,8 @@ jobs:
         run: npm ci
       - name: Run hermetic self-regression suite
         run: npm test
+      - name: Run focused mutation checks
+        run: npm run test:mutations
 
   skill-quality:
     runs-on: ubuntu-latest

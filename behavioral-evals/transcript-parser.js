@@ -1,5 +1,7 @@
 'use strict';
 
+const { commandMatches } = require('../scripts/lib/execution-contract');
+
 const fs = require('fs');
 
 const DENIAL_RE = /permission\s+denied|\bdenied\b|not\s+allowed|rejected|forbidden|blocked\s+by|approval\s+required/i;
@@ -65,12 +67,22 @@ function makeContext(engine, format, visibility = 'structured') {
     streamToolIndexes: new Map(),
     streamToolInput: new Map(),
     nextAnonymousId: 1,
+    orderedEvents: [],
+    nextSequence: 0,
   };
 }
 
 function appendUnique(list, value) {
   if (typeof value !== 'string' || !value) return;
   if (list[list.length - 1] !== value) list.push(value);
+}
+
+function appendText(context, list, value) {
+  const before = list.length;
+  appendUnique(list, value);
+  if (list.length > before) {
+    context.orderedEvents.push({ kind: 'text', text: value, sequence: context.nextSequence++ });
+  }
 }
 
 function normalizeId(value) {
@@ -136,6 +148,8 @@ function ensureCall(context, details = {}) {
     anonymousKey: suppliedId ? null : anonymousKey,
   };
   context.calls.push(call);
+  call.sequence = context.nextSequence++;
+  context.orderedEvents.push({ kind: 'tool', call });
   context.callsById.set(id, call);
   if (!suppliedId) context.callsByAnonymousKey.set(anonymousKey, call);
   return call;
@@ -231,12 +245,12 @@ function processContent(context, content, { partial = false, includeText = true 
     return;
   }
   if (typeof content === 'string') {
-    if (includeText) appendUnique(partial ? context.partialTextChunks : context.textChunks, content);
+    if (includeText) appendText(context, partial ? context.partialTextChunks : context.textChunks, content);
     return;
   }
   if (!isObject(content)) return;
   if (content.type === 'text') {
-    if (includeText) appendUnique(partial ? context.partialTextChunks : context.textChunks, content.text);
+    if (includeText) appendText(context, partial ? context.partialTextChunks : context.textChunks, content.text);
   } else if (content.type === 'tool_use' || content.type === 'tool_call') {
     context.sawRecognizedEvent = true;
     addToolCall(context, {
@@ -309,11 +323,11 @@ function processClaudeStreamEvent(context, event) {
       if (event.index !== undefined) context.streamToolIndexes.set(event.index, call);
       context.streamToolInput.set(call.id, '');
     } else if (block.type === 'text' && typeof block.text === 'string') {
-      appendUnique(context.partialTextChunks, block.text);
+      appendText(context, context.partialTextChunks, block.text);
     }
   } else if (event.type === 'content_block_delta') {
     const delta = event.delta || {};
-    if (delta.type === 'text_delta') appendUnique(context.partialTextChunks, delta.text);
+    if (delta.type === 'text_delta') appendText(context, context.partialTextChunks, delta.text);
     if (delta.type === 'input_json_delta') {
       const call = context.streamToolIndexes.get(event.index);
       if (call) {
@@ -334,7 +348,7 @@ function processOpencodeEvent(context, event) {
   const type = String(event.type || part.type || '');
   if (type === 'text' || part.type === 'text') {
     context.sawRecognizedEvent = true;
-    appendUnique(context.textChunks, part.text);
+    appendText(context, context.textChunks, part.text);
     return;
   }
   if (type === 'step_start' || type === 'step-start' || part.type === 'step-start') {
@@ -355,16 +369,16 @@ function processOpencodeEvent(context, event) {
     context.sawRecognizedEvent = true;
     const state = isObject(part.state) ? part.state : {};
     const details = {
-      id: firstDefined(part.callID, part.callId, part.call_id, part.id),
-      name: firstDefined(part.tool, part.name),
-      input: firstDefined(state.input, part.input),
+      id: firstDefined(part.callID, part.callId, part.call_id, part.id, part.tool_use_id),
+      name: firstDefined(part.tool, part.name, part.tool_name),
+      input: firstDefined(state.input, part.input, part.tool_input, part.arguments),
       status: state.status || part.status,
-      output: firstDefined(state.output, part.output),
-      content: firstDefined(state.output, part.output),
+      output: firstDefined(state.output, part.output, part.result),
+      content: firstDefined(state.output, part.output, part.result),
     };
-    const isDenied = type.includes('denied') || type.includes('rejected') || state.status === 'denied' || state.status === 'rejected';
+    const isDenied = type.includes('denied') || type.includes('rejected') || state.status === 'denied' || state.status === 'rejected' || part.denied === true || part.permission_denied === true;
     const isResult = type.includes('result') || type.includes('output') || state.output !== undefined || state.status === 'completed' || isDenied;
-    if (isResult) addToolResult(context, details, { ...state, output: details.output, content: details.content });
+    if (isResult) addToolResult(context, details, { ...part, ...state, output: details.output, content: details.content });
     else addToolCall(context, details);
   }
 }
@@ -416,8 +430,10 @@ function finishContext(context, { parseStatus, parseError = null, rawLineCount =
   const completed = calls.filter(call => call.completed);
   const denied = calls.filter(call => call.denied);
   const unresolved = calls.filter(call => call.attempted && !call.completed && !call.denied);
-  const toolLines = attempted.map(call => `[${call.name || 'tool'}] ${JSON.stringify(call.input ?? {})}`);
-  const trace = [text, ...toolLines].filter(Boolean).join('\n');
+  const traceEvents = context.orderedEvents.map(event => event.kind === 'text'
+    ? event.text
+    : `[${event.call.name || 'tool'}] ${JSON.stringify(event.call.input ?? {})}`);
+  const trace = traceEvents.length ? traceEvents.join('\n') : text;
   const executionEvidence = {
     visibility: context.visibility,
     attempted,
@@ -518,23 +534,12 @@ function parseTranscriptFile(filePath, engine = 'auto') {
   return parseTranscript(fs.readFileSync(filePath, 'utf8'), engine);
 }
 
-function commandMatches(actual, expected) {
-  if (typeof actual !== 'string' || typeof expected !== 'string') return false;
-  const command = actual.trim();
-  const target = expected.trim();
-  if (!command || !target) return false;
-  if (command === target || command.startsWith(`${target} `)) return true;
-  // Script expectations often name the final path argument while the agent
-  // invokes it through `node <absolute-path>`.
-  return command.includes(`/${target}`) || command.includes(`\\${target}`);
-}
-
 function targetMatches(call, target) {
   if (target === undefined || target === null || target === '') return true;
   if (isObject(target)) {
     if (target.id !== undefined && call.id !== target.id) return false;
     if (target.name !== undefined && call.name !== target.name) return false;
-    if (target.command !== undefined && (!isObject(call.input) || !commandMatches(call.input.command, String(target.command)))) return false;
+    if (target.command !== undefined && (!isObject(call.input) || !commandMatches(call.input.command, target.command))) return false;
     if (target.input_contains !== undefined && !stableJson(call.input).includes(String(target.input_contains))) return false;
     return true;
   }

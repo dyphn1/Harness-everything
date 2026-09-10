@@ -7,10 +7,9 @@
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { validate: validateCases } = require('./run');
+const { buildWorkspace, validate: validateCases } = require('./run');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -103,16 +102,6 @@ function discoverCases() {
 function fail(msg) {
   console.error(`❌ ${msg}`);
   process.exit(1);
-}
-
-function buildWorkspace(c) {
-  const ws = fs.mkdtempSync(path.join(os.tmpdir(), `harness-behavioral-plugin-${c.id}-`));
-  for (const f of c.fixture.files) {
-    const target = path.join(ws, f.path);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, typeof f.content === 'string' ? f.content.replace(/\n$/, '') + '\n' : String(f.content));
-  }
-  return ws;
 }
 
 function gitSnapshot(ws) {

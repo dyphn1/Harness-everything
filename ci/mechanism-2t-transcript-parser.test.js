@@ -1,4 +1,5 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const helper = require('./test-helper');
 const {
@@ -8,6 +9,8 @@ const {
 } = require('../behavioral-evals/transcript-parser');
 const {
   grade,
+  extractAgentTrace,
+  parseTranscriptEvents,
   pairVerdict,
   summarizePairResults,
 } = require('../behavioral-evals/run');
@@ -113,7 +116,38 @@ const npmCoverage = parseTranscript([
   JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'npm-coverage', content: 'passed', is_error: false }] } }),
   JSON.stringify({ type: 'result', subtype: 'success', result: 'Done' }),
 ].join('\n'), 'claude');
-helper.check('2t. Command targets match a command prefix with extra arguments', gradeExecutionEvidence({ type: 'tool_executed', command: 'npm test' }, npmCoverage).pass, JSON.stringify(gradeExecutionEvidence({ type: 'tool_executed', command: 'npm test' }, npmCoverage)));
+helper.check('2t. Command targets reject extra arguments', !gradeExecutionEvidence({ type: 'tool_executed', command: 'npm test' }, npmCoverage).pass, JSON.stringify(gradeExecutionEvidence({ type: 'tool_executed', command: 'npm test' }, npmCoverage)));
+
+const generic = parseTranscript([
+  JSON.stringify({ type: 'tool_call', id: 'patch-1', name: 'apply_patch', input: { file_path: 'changes.patch' } }),
+  JSON.stringify({ type: 'tool_result', tool_use_id: 'patch-1', is_error: false, content: 'patched' }),
+  JSON.stringify({ type: 'tool_call', id: 'test-1', name: 'Bash', input: { command: 'npm test' } }),
+  JSON.stringify({ type: 'tool_result', tool_use_id: 'test-1', is_error: false, content: 'passed' }),
+  JSON.stringify({ type: 'text', text: 'finished' }),
+].join('\n'), 'auto');
+helper.check(
+  '2t. top-level tool calls and results remain structured evidence',
+  generic.parseStatus === 'parsed' && generic.executionEvidence.counts.completed === 2,
+  JSON.stringify(generic)
+);
+helper.check(
+  '2t. structured trace preserves tool-before-text event order',
+  generic.trace.indexOf('[apply_patch]') < generic.trace.indexOf('[Bash]') && generic.trace.indexOf('[Bash]') < generic.trace.indexOf('finished'),
+  generic.trace
+);
+
+const orderedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'behavioral-parser-order-'));
+const orderedTranscript = path.join(orderedDir, 'trace.jsonl');
+fs.writeFileSync(orderedTranscript, [
+  { type: 'tool_call', id: 'patch-file', name: 'tool', input: { file_path: 'changes.patch' }, status: 'completed' },
+  { type: 'tool_call', id: 'run-test', name: 'Bash', input: { command: 'npm test' }, status: 'completed' },
+  { type: 'text', text: 'finished' },
+].map(event => JSON.stringify(event)).join('\n'));
+const orderedEvents = parseTranscriptEvents(orderedTranscript);
+const orderedTrace = extractAgentTrace(orderedTranscript);
+helper.check('2t. bare patch filenames count as edits for after_edit grading', orderedEvents.events[0] && orderedEvents.events[0].edit === true, JSON.stringify(orderedEvents.events));
+helper.check('2t. runner trace keeps bare patch, bash, then final text order', orderedTrace.indexOf('[tool]') < orderedTrace.indexOf('[Bash]') && orderedTrace.indexOf('[Bash]') < orderedTrace.indexOf('finished'), orderedTrace);
+fs.rmSync(orderedDir, { recursive: true, force: true });
 
 const todoPending = parseTranscript([
   JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'todo-pending', name: 'TodoWrite', input: { todos: [{ status: 'pending', content: 'wait' }] } }] } }),

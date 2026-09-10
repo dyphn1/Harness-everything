@@ -16,6 +16,7 @@ const EXPECTATION_TYPES = new Set([
   'file_contains',
   'file_not_exists',
   'command_exit_0',
+  'tool_call',
   'tool_attempted',
   'tool_executed',
   'tool_completed',

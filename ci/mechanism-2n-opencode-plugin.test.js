@@ -300,6 +300,36 @@ helper.check(
     JSON.stringify(patchBreaker)
   );
 
+  const mixedPatchSessionDir = path.join(stateRoot, 'sessions', 'mixed-patch');
+  const mixedPatchBreakerFile = path.join(mixedPatchSessionDir, 'circuit-breaker.json');
+  const mixedPatchReflectionFile = path.join(mixedPatchSessionDir, 'zoom-out-report.md');
+  fs.mkdirSync(mixedPatchSessionDir, { recursive: true });
+  fs.writeFileSync(mixedPatchBreakerFile, JSON.stringify({
+    failures: { fixture: { count: 3, firstSeen: Date.now() - 1000 } },
+    hardLock: false,
+    lastReflection: null,
+    lastReflectionSignature: null,
+    reflectionPending: true,
+    reflectionRequestedAt: Date.now(),
+    reflectionToken: 'mixed-patch-token',
+    reflectionSignature: 'fixture'
+  }, null, 2));
+  fs.writeFileSync(mixedPatchReflectionFile, [
+    '## Goal', 'fix the fixture', '## Failed Attempts', 'three retries',
+    '## Verified Facts', 'test remains red', '## Diagnosis', 'the fixture intentionally fails',
+    '## Decision', 'RESUME: change the fixture', 'Reflection token: mixed-patch-token', ''
+  ].join('\n'));
+  let mixedPatchBlocked = false;
+  try {
+    await hooks['tool.execute.before'](
+      { tool: 'apply_patch', sessionID: 'mixed-patch', callID: 'mixed-before' },
+      { args: { patchText: `*** Begin Patch\n*** Update File: ${mixedPatchReflectionFile}\n@@\n*** Update File: ${path.join(workspace, 'unrelated.js')}\n@@\n*** End Patch` } }
+    );
+  } catch {
+    mixedPatchBlocked = true;
+  }
+  helper.check('2n. mixed apply_patch cannot bypass a pending reflection', mixedPatchBlocked, 'unrelated files were accepted with the reflection artifact');
+
   // A new code edit after a completed reflection is the post-reflection retry.
   await hooks['tool.execute.after']({ tool: 'edit', sessionID: 's1', callID: 'c5' }, { title: '', output: '', metadata: {} });
   await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 's1' } } });
