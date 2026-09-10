@@ -16,10 +16,10 @@ flowchart TD
     CheckADR -- No --> CheckMore
 
     ResolvePath -- projectDocs / docs/adr Exists --> WriteMain[Write to docs/adr/ or CONTEXT-MAP.md Location]
-    ResolvePath -- No Folder Found --> WritePlatform[Write to .github/harness-everything/adr/ or Delegate to to-spec]
+    ResolvePath -- No Folder Found --> WriteFallback[Write to committable docs/adr, docs/domain, or docs/architecture]
 
     WriteMain --> CheckMore{5. All Design Tree Branches Resolved?}
-    WritePlatform --> CheckMore
+    WriteFallback --> CheckMore
 
     CheckMore -- Unresolved Branches Remain --> Frontier
     CheckMore -- All Branches Resolved --> ToSpec[6. Hand off to to-spec for Outline Preview & Spec/ADR Publishing]
@@ -41,7 +41,7 @@ Inspect the workspace and resolve document locations dynamically:
 
 1. **Monorepo / Multi-Context**: If `CONTEXT-MAP.md` exists at the root, follow its context-specific mapping.
 2. **Project Configured / Inferred Location**: Run `node "to-spec/scripts/check-project-docs.js" check` or inspect if `docs/adr/` or `docs/` exists in the workspace.
-3. **Platform Fallback**: If no documentation directory exists, write ADRs under `.github/harness-everything/adr/` (or `.claude/harness-everything/adr/`, `.cursor/harness-everything/adr/`), or delegate formal document generation to `to-spec`.
+3. **Committable fallback**: If no documentation directory exists, use the shared resolver's `docs/adr/`, `docs/domain/`, and `docs/architecture/` paths, creating them lazily. Do not write ADRs under ignored platform homes.
 
 ```
 /
@@ -50,7 +50,9 @@ Inspect the workspace and resolve document locations dynamically:
 │   └── adr/                          ← System-wide ADR decisions
 │       ├── 0001-event-sourced-orders.md
 │       └── 0002-postgres-for-write-model.md
-└── .github/harness-everything/adr/   ← Fallback ADR storage if workspace has no docs/ directory
+├── docs/adr/                         ← Fallback ADR storage
+├── docs/domain/                      ← Fallback domain records
+└── docs/architecture/                ← Fallback architecture contracts
 ```
 
 Create files lazily — only when you have resolved terms or ADRs to write.

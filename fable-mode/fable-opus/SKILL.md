@@ -4,7 +4,7 @@ description: "Run staged fable orchestration on Opus for cross-stage synthesis, 
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.5
+  version: 0.3.7-beta
 ---
 
 # Fable Mode — Opus
@@ -28,9 +28,9 @@ metadata:
 
 ## Run it
 
-1. Resolve `opus` through `../scripts/model-selector.js`.
+1. Resolve `opus` through `<this-skill-dir>/../scripts/model-selector.js`.
 2. Spawn `fable-orchestrator` when the runtime exposes it; otherwise report the inline fallback explicitly.
 3. The orchestrator owns scope lock, at most two replans, stage contracts, named worker delegation, and escalation; it never produces artifacts itself.
 4. Cold-review high-stakes deliverables with `fable-verifier`; report every unverified stage.
 
-Use `../references/model-matrix.md` for the audit fields and fallback policy.
+Use `<this-skill-dir>/../references/model-matrix.md` for the audit fields and fallback policy.

@@ -21,8 +21,8 @@ function decide(payload) {
       process.exit(0);
     }
 
-    const root = getWorkspaceRoot();
-    const sessionDir = getSessionDir(root, payload && payload.session_id);
+    const root = getWorkspaceRoot(payload);
+    const sessionDir = getSessionDir(root, payload && (payload.session_id || payload.sessionId));
     const handoffFile = path.join(sessionDir, 'handoff-state.json');
     const gateFile = path.join(sessionDir, 'stop-gate-state.json');
 

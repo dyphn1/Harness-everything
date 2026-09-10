@@ -1,0 +1,30 @@
+{
+  "schema": "behavioral-evidence-v1",
+  "archive_generated_at": "2026-09-09T17:03:52.310Z",
+  "case_id": "grill-me-adversarial",
+  "status": "never-run",
+  "replay_snapshot": {
+    "case_sha256": "e515cf9f07e47eca420afdabb5f431b49faa7c49b8aa97ba63a927cc70610eae",
+    "fixture_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "prompt_sha256": "b3b123652c4fcee3b233d1cbb791067f0334222e84aa458a5ba3cad1ebd2662c",
+    "rubric_sha256": "db545cb63889eda606681d6e4b7de7cec26435f3c634cb87886bcc972da4b497",
+    "code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473"
+  },
+  "historical_case_sha256": "dc761b2f9c8cde58853b2d8f665a0f09de21e5f76b4a6920275596d056f3410e",
+  "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+  "current_code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473",
+  "cli": {
+    "engine": null,
+    "version": null
+  },
+  "cli_version_sha256": null,
+  "model": null,
+  "model_sha256": null,
+  "transcript": {
+    "available": false
+  },
+  "replay": {
+    "command": "node ci/ab-test-harness.js run --case grill-me-adversarial",
+    "status": "pending-live-rerun"
+  }
+}

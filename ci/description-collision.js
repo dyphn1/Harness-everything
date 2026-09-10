@@ -56,29 +56,38 @@ function jaccard(a, b) {
 
 function discoverSkills() {
   const out = [];
+  const parseErrors = [];
   for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
     if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
     const skillMd = path.join(ROOT, entry.name, 'SKILL.md');
     if (!fs.existsSync(skillMd)) continue;
     const raw = fs.readFileSync(skillMd, 'utf8');
     const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-    if (!fmMatch) continue;
+    if (!fmMatch) {
+      parseErrors.push(`${entry.name}: missing YAML frontmatter delimiters`);
+      continue;
+    }
     const fm = fmMatch[1];
     // Parser parity: use js-yaml to parse frontmatter
     let desc = '';
     try {
       const parsed = yaml.load(fm);
       desc = (parsed.description || '').trim();
-    } catch {
-      // Fallback to regex if YAML parse fails
-      desc = ((fm.match(/^description:\s*(.+)$/m) || [])[1] || '').trim();
+    } catch (error) {
+      parseErrors.push(`${entry.name}: invalid YAML frontmatter (${error.message})`);
+      continue;
     }
     out.push({ name: entry.name, desc });
   }
-  return out;
+  return { skills: out, parseErrors };
 }
 
-const skills = discoverSkills();
+const { skills, parseErrors } = discoverSkills();
+if (parseErrors.length > 0) {
+  console.error('\n❌ DESCRIPTION COLLISION CHECK FAILED: malformed skill frontmatter.');
+  for (const error of parseErrors) console.error(`  ${error}`);
+  process.exit(1);
+}
 if (skills.length < 2) {
   console.error('Not enough skills found to compare.');
   process.exit(1);

@@ -18,7 +18,7 @@ max_turns: 14
 expectations:
   - type: command_exit_0
     command: "grep -qil blocked .claude/tickets/*.md"
-    description: published tickets declare a blocking edge (checked in the ticket file itself, not chat text - the claude engine's trace only captures the final message, see #52)
+    description: published tickets declare a blocking edge, checked in the ticket file itself rather than chat text
   - type: command_exit_0
     command: "grep -qil signup .claude/tickets/*.md"
     description: tickets reference the actual work items from the plan

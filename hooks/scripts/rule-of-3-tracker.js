@@ -27,7 +27,8 @@ process.stdin.on('end', () => {
     const isFailure = explicitFailure || (exitCode === undefined && stderrSignal && looksLikeError);
     const errorText = (stderrSignal ? stderr : stdout) || '';
 
-    const stateFile = path.join(getSessionDir(getWorkspaceRoot(), payload.session_id), 'rule-of-3-state.json');
+    const root = getWorkspaceRoot(payload);
+    const stateFile = path.join(getSessionDir(root, payload.session_id || payload.sessionId), 'rule-of-3-state.json');
 
     let state = { count: 0, lastHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0 };
     if (fs.existsSync(stateFile)) {

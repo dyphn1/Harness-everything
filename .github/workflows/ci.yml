@@ -17,6 +17,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -24,6 +26,8 @@ jobs:
         run: npm ci
       - name: Run hermetic self-regression suite
         run: npm test
+      - name: Run focused mutation checks
+        run: npm run test:mutations
 
   skill-quality:
     runs-on: ubuntu-latest
@@ -102,6 +106,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20

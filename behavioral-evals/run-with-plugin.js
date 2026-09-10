@@ -7,9 +7,9 @@
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { buildWorkspace, validate: validateCases } = require('./run');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -18,7 +18,7 @@ const PLUGIN_DIR = path.join(ROOT, 'opencode-plugin');
 
 // Minimal YAML subset parser (copied from run.js)
 function parseSimpleYaml(text) {
-  const lines = text.split('\n');
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
   let i = 0;
   function parseBlock(indent) {
     const obj = {};
@@ -102,16 +102,6 @@ function discoverCases() {
 function fail(msg) {
   console.error(`❌ ${msg}`);
   process.exit(1);
-}
-
-function buildWorkspace(c) {
-  const ws = fs.mkdtempSync(path.join(os.tmpdir(), `harness-behavioral-plugin-${c.id}-`));
-  for (const f of c.fixture.files) {
-    const target = path.join(ws, f.path);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, typeof f.content === 'string' ? f.content.replace(/\n$/, '') + '\n' : String(f.content));
-  }
-  return ws;
 }
 
 function gitSnapshot(ws) {
@@ -300,7 +290,7 @@ function flag(name) {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 }
-if (args[0] === 'validate') validate(discoverCases());
+if (args[0] === 'validate') validateCases(discoverCases());
 else if (args[0] === 'run') {
   const filter = args.includes('--case') ? flag('--case') : undefined;
   runLive(filter);

@@ -9,8 +9,6 @@ metadata:
 
 # Skill Creator
 
-SKILL.md authoring and audit.
-
 ## USE FOR:
 - Create a skill from scratch
 - Audit/refactor a SKILL.md; check overlap between skills
@@ -39,11 +37,11 @@ SKILL.md authoring and audit.
 
 ## Dynamic Skill Generation Contract
 
-Only generalizable procedures/enforcement contracts qualify; simple constraints go to `memories/repo/RULES.md`.
+Only generalizable procedures/enforcement contracts qualify; simple constraints go to `<workspace>/memories/repo/RULES.md`.
 
-- Location: `.claude/harness-everything/skills/generated/<kebab-case-name>/SKILL.md`
+- Location: `<workspace>/.claude/harness-everything/skills/generated/<kebab-case-name>/SKILL.md`
 - Frontmatter: triggers (3-6 keywords), metadata type/generated/source/status: draft.
 - Gate: Quality Checklist first.
 - Lifecycle: draft → active after firing elsewhere; deprecate, don't delete; promote once proven general.
 
-Deep dive: references/*.md
+Deep dive: <this-skill-dir>/references/quality-checklist.md

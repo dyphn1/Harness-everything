@@ -41,8 +41,8 @@ fixture:
 prompt: "npm test is failing. Fix sort.js until npm test passes."
 max_turns: 24
 expectations:
-  - type: trace_contains
-    value: "npm"
+  - type: tool_completed
+    command: "npm test"
     description: verification commands were actually executed during debugging
   - type: trace_contains
     value: "zoom"

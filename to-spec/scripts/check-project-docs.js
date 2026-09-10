@@ -37,15 +37,10 @@
  */
 const fs = require('fs');
 const path = require('path');
-
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return process.cwd();
-}
+// Keep project-doc path decisions in the resolver carried by the installed
+// multi-agent-workspace skill. This script consumes the same contract.
+const { getWorkspaceRoot, getRepoManifestHomes, detectProjectDocsConventions } =
+  require('./project-docs-resolver');
 
 function loadManifestHelper() {
   const candidates = [
@@ -62,7 +57,26 @@ function loadManifestHelper() {
       }
     } catch (e) {}
   }
-  throw new Error('[to-spec/check-project-docs] Failed to locate manifest helper module (scripts/lib/manifest)');
+  // A standalone installed skill may not carry the package helper. Keep its
+  // manifest format compatible with the package's tiny helper instead of
+  // making document resolution depend on the source checkout.
+  return {
+    getManifestPath: home => path.join(home, 'harness-everything', 'manifest.json'),
+    readManifest: file => {
+      try {
+        const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+        if (!Array.isArray(data.skills)) data.skills = [];
+        if (!Array.isArray(data.agents)) data.agents = [];
+        return data;
+      } catch {
+        return { package: 'harness-everything', skills: [], agents: [] };
+      }
+    },
+    writeManifest: (file, data) => {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
+    }
+  };
 }
 const { getManifestPath, readManifest, writeManifest } = loadManifestHelper();
 
@@ -78,62 +92,13 @@ const FLAG_TO_FIELD = {
 // issue template or a multi-paragraph doc-location policy inline.
 const MAX_FIELD_LENGTH = 200;
 
-// Workspace-relative platform homes ONLY - no userHome/.agents or
-// userHome/.claude here (see file header). tier-router.js and
-// register-dynamic-skill.js include those two because self-evolved skills
-// are meant to travel with the user across projects; projectDocs must not.
-function getRepoManifestHomes(workspaceRoot) {
-  return [
-    path.join(workspaceRoot, '.claude'),
-    path.join(workspaceRoot, '.cursor'),
-    path.join(workspaceRoot, '.github'),
-    path.join(workspaceRoot, '.codex'),
-    path.join(workspaceRoot, '.continue'),
-  ];
-}
-
 function missingFields(projectDocs) {
   if (!projectDocs) return REQUIRED_FIELDS.slice();
   return REQUIRED_FIELDS.filter(f => !String(projectDocs[f] || '').trim());
 }
 
-/**
- * Heuristic workspace convention detector.
- * Automatically infers docLocation, tracker, and issueDefinition from standard directory layouts.
- */
 function detectWorkspaceConventions(workspaceRoot) {
-  const inferred = {};
-
-  // Detect docLocation
-  const docCandidates = ['docs/roadmaps', 'docs/reference', 'docs/specs', 'docs', 'doc'];
-  for (const dir of docCandidates) {
-    if (fs.existsSync(path.join(workspaceRoot, dir))) {
-      inferred.docLocation = `${dir}/`;
-      break;
-    }
-  }
-
-  // Detect tracker
-  if (fs.existsSync(path.join(workspaceRoot, '.github/ISSUE_TEMPLATE'))) {
-    inferred.tracker = 'GitHub Issues via .github/ISSUE_TEMPLATE/';
-  } else if (fs.existsSync(path.join(workspaceRoot, 'docs/roadmaps'))) {
-    inferred.tracker = 'docs/roadmaps/ local markdown tickets';
-  } else if (fs.existsSync(path.join(workspaceRoot, 'tasks/tickets'))) {
-    inferred.tracker = 'tasks/tickets/ local markdown tickets';
-  } else if (fs.existsSync(path.join(workspaceRoot, '.scratch'))) {
-    inferred.tracker = '.scratch/ local markdown workspace';
-  } else if (inferred.docLocation) {
-    inferred.tracker = `${inferred.docLocation}tickets/ local markdown tickets`;
-  }
-
-  // Detect issueDefinition
-  if (inferred.tracker && inferred.tracker.includes('ISSUE_TEMPLATE')) {
-    inferred.issueDefinition = '.github/ISSUE_TEMPLATE/ template structure';
-  } else if (inferred.tracker) {
-    inferred.issueDefinition = 'Title + acceptance criteria + Status: ready-for-agent';
-  }
-
-  return inferred;
+  return detectProjectDocsConventions(workspaceRoot);
 }
 
 function runCheck(workspaceRoot) {
@@ -247,12 +212,27 @@ Repo-local only: writes only to workspace-relative manifest homes (.claude/, .cu
 }
 
 const command = process.argv[2] || 'check';
-const workspaceRoot = getWorkspaceRoot();
+const commandArgs = process.argv.slice(3);
+const workspaceIndex = commandArgs.indexOf('--workspace');
+// An explicit workspace is authoritative. Only the omitted flag walks up to
+// the repository root; otherwise a nested target would silently resolve to
+// its containing checkout and inspect the wrong project configuration.
+if (workspaceIndex !== -1 && !commandArgs[workspaceIndex + 1]) {
+  console.error('[Project Docs Check] --workspace requires a path');
+  process.exit(1);
+}
+const workspaceRoot = workspaceIndex === -1
+  ? getWorkspaceRoot()
+  : path.resolve(commandArgs[workspaceIndex + 1]);
+if (!workspaceRoot) {
+  console.error('[to-spec/check-project-docs] Cannot inspect project docs without a resolved git workspace.');
+  process.exit(1);
+}
 
 if (command === 'check') {
   runCheck(workspaceRoot);
 } else if (command === 'init') {
-  runInit(workspaceRoot, process.argv.slice(3));
+  runInit(workspaceRoot, commandArgs);
 } else {
   console.error(`[Project Docs Check] Unknown command "${command}". Use 'check' or 'init'.`);
   process.exit(1);

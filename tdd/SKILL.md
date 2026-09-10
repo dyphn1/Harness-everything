@@ -31,19 +31,8 @@ metadata:
 
 ## Route the Behavior
 
-```mermaid
-flowchart TD
-  B[Behavior under test] --> X{Crosses process, filesystem, database, network, or service boundary?}
-  X -- No --> U[Unit profile]
-  X -- Yes --> I[Integration profile]
-  U --> R[RED -> GREEN -> REFACTOR]
-  I --> R
-  R --> S[Run tests + score evidence]
-  S --> P{Score 100 and all gates pass?}
-  P -- No --> R
-  P -- Yes --> D[Done]
-```
+Load `<this-skill-dir>/references/core-discipline.md` and the quality model, then only the unit or integration guide needed. Keep their applicability rules separate.
 
-Read [core discipline](references/core-discipline.md) and the [common quality contract](references/quality-model.md), then load only [unit testing](references/unit-testing.md) or [integration testing](references/integration-testing.md). If a task needs both, record separate requirements; never merge their applicability rules.
+Deep dive: <this-skill-dir>/references/core-discipline.md
 
 After three failed GREEN attempts, invoke `zoom-out` before another edit.

@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
+let getWorkspaceRoot;
+try {
+  ({ getWorkspaceRoot } = require('../../scripts/lib/workspace'));
+} catch (err) {
+  getWorkspaceRoot = () => null;
+}
 
-function getWorkspaceRoot() {
-  let dir = path.resolve(process.cwd());
-  while (dir !== path.parse(dir).root) {
-    if (fs.existsSync(path.join(dir, '.git'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return process.cwd();
+const workspaceRoot = getWorkspaceRoot();
+if (!workspaceRoot) {
+  console.error('[self-evolve] Cannot register a dynamic skill without a resolved git workspace.');
+  process.exit(1);
 }
 
 function loadManifestHelper() {
@@ -16,8 +19,8 @@ function loadManifestHelper() {
     path.join(__dirname, '../../scripts/lib/manifest'),
     path.join(__dirname, '../scripts/lib/manifest'),
     path.join(__dirname, '../../../scripts/lib/manifest'),
-    path.join(getWorkspaceRoot(), 'scripts/lib/manifest'),
-    path.join(getWorkspaceRoot(), 'harness-everything/scripts/lib/manifest'),
+    path.join(workspaceRoot, 'scripts/lib/manifest'),
+    path.join(workspaceRoot, 'harness-everything/scripts/lib/manifest'),
   ];
   for (const cand of candidates) {
     try {
@@ -33,7 +36,6 @@ const { getManifestPath, readManifest, writeManifest, recordGeneratedSkill } = l
 
 // Find user home folder
 const userHome = process.env.HOME || process.env.USERPROFILE || '';
-const workspaceRoot = getWorkspaceRoot();
 
 // List of all possible manifest.json home paths
 const manifestHomes = [

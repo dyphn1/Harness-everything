@@ -19,10 +19,10 @@ graph TD
   UpdateGlossary --> ResolveADRPath{Resolve ADR Storage Path}
   
   ResolveADRPath -->|docs/adr/ or CONTEXT-MAP.md Exists| WriteDocs["Write ADR to docs/adr/ or CONTEXT-MAP.md Location"]
-  ResolveADRPath -->|No Folder Found| WritePlatform["Write to .github/harness-everything/adr/ or Delegate to to-spec"]
+  ResolveADRPath -->|No Folder Found| WriteFallback["Write to committable docs/adr"]
   
   WriteDocs --> ToSpec["Hand off to to-spec for Outline Preview & Spec/ADR Publishing"]
-  WritePlatform --> ToSpec
+  WriteFallback --> ToSpec
   ToSpec --> End([Route to to-tickets / fable-mode / tdd])
 ```
 

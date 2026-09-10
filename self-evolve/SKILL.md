@@ -13,7 +13,7 @@ Record reusable root causes from resolved work.
 
 Boundary: the host agent supplies evidence and a generalized root cause; this skill classifies and persists it, and never scans host transcripts.
 
-Load `references/memory-resolution.md` on demand for the decision matrix, fallback paths, and dynamic-skill details.
+Deep dive: <this-skill-dir>/references/memory-resolution.md
 
 ## 📋 Skill Contract
 
@@ -28,8 +28,8 @@ Load `references/memory-resolution.md` on demand for the decision matrix, fallba
 
 1. Prefer existing `MEMORY.md`/`RULES.md`/`CLAUDE.md`/`AGENTS.md`.
 2. Route the lesson:
-   - Simple rule (constraint/tip) → run `node "<this-skill-dir>/scripts/persist-memory.js" "<generalized rule>"`. Appends to `memories/repo/RULES.md` (else `.github/harness-everything/memories/RULES.md`), self-gated on dedup + quality score.
-   - Reusable procedure → follow `skill-creator/SKILL.md`, then register via `register-dynamic-skill.js`.
+   - Simple rule (constraint/tip) → run `node "<this-skill-dir>/scripts/persist-memory.js" "<generalized rule>"`. Appends to `<workspace>/memories/repo/RULES.md` (else `<workspace>/.github/harness-everything/memories/RULES.md`), self-gated on dedup + quality score.
+   - Reusable procedure → follow `<skills-repo-root>/skill-creator/SKILL.md`, then register via `<this-skill-dir>/scripts/register-dynamic-skill.js`.
 3. Inside this repo only, run `self-regression.js` (`npm test`) before registering a dynamic skill or editing this repo's own files — irrelevant to a host workspace.
 
 ## USE FOR:

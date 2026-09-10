@@ -9,8 +9,6 @@ metadata:
 
 # Security Review & Code Hardening
 
-Hardens code against OWASP Top 10.
-
 ## USE FOR:
 - AuthN or authZ implementation
 - User input, uploads, new API endpoints
@@ -33,13 +31,12 @@ Hardens code against OWASP Top 10.
 
 ## Review Flow
 
-1. Threat-model (`STRIDE`) per security-review/guides/STRIDE-THREAT-MODEL.md; misuse-case every endpoint/input.
+1. Threat-model (`STRIDE`) per `<this-skill-dir>/guides/STRIDE-THREAT-MODEL.md`; misuse-case every endpoint/input.
 2. Scan secrets and injection risks:
    ```bash
    node "<this-skill-dir>/scripts/audit-secrets.js"
    ```
-   Fallback: grep scan.
-3. Fix findings per the boundary system; report to `docs/security-audit.md`, or `.github/harness-everything/security-audit.md` when docs/ is protected or absent.
+3. Fix findings per the boundary system; report to `<workspace>/docs/security-audit.md`, or `<workspace>/.github/harness-everything/security-audit.md` when docs/ is protected or absent.
 
 ## Three-Tier Boundary System
 
@@ -47,4 +44,4 @@ Hardens code against OWASP Top 10.
 - **Ask First**: CORS changes, auth/login flows, file uploads, rate limits.
 - **Never Do**: commit hardcoded secrets (`sk-`), log passwords/tokens, use eval() or unescaped innerHTML.
 
-Deep dive: references/security-checklist.md + security-review/guides/OWASP-PATTERNS.md
+Deep dive: <this-skill-dir>/references/security-checklist.md + <this-skill-dir>/guides/OWASP-PATTERNS.md

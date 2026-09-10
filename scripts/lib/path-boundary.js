@@ -68,7 +68,7 @@ function assertNoLinkComponents(root, candidate) {
 
 function assertContainedPath(root, candidate) {
   if (typeof root !== 'string' || typeof candidate !== 'string') {
-    throw boundaryError('INVALID_PATH', 'Boundary root and candidate must be strings');
+    throw boundaryError('INVALID_BOUNDARY_PATH', 'Boundary root and candidate must be strings');
   }
 
   assertNoLinkComponents(root, candidate);

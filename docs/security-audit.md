@@ -6,7 +6,9 @@ Date: 2026-09-10
 
 The audit covers `scripts/lib/path-boundary.js` and
 `scripts/lib/execution-contract.js`, which are shared by later verifier,
-workspace, installer, and plugin fixes.
+workspace, installer, and plugin fixes. The standalone consumers also have
+focused regressions for archive output, legacy migration, global installation,
+fixture construction, and reflection patch authorization.
 
 ## STRIDE and abuse cases
 
@@ -32,4 +34,5 @@ workspace, installer, and plugin fixes.
 
 `ci/mechanism-2v-verifier-boundaries.test.js` covers normal paths, traversal,
 junction/symlink escapes, missing leaves, Windows casing, exact commands, and
-all-or-nothing patch authorization.
+all-or-nothing patch authorization. `npm run test:mutations` then verifies that
+eight corresponding production protections are load-bearing.

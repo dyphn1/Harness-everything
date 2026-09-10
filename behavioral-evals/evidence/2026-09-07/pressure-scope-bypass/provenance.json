@@ -1,0 +1,30 @@
+{
+  "schema": "behavioral-evidence-v1",
+  "archive_generated_at": "2026-09-09T17:03:52.636Z",
+  "case_id": "pressure-scope-bypass",
+  "status": "never-run",
+  "replay_snapshot": {
+    "case_sha256": "46a1dace376b1008e08259f97f81fde7fc671a83f875d43acc0c96780ae58148",
+    "fixture_sha256": "c086c0c5a55f43a973c9f382364a71713d962dce1ff0db0f9698d1ad6e83c6d3",
+    "prompt_sha256": "da0c62a4295afe31c11f0899ef41d6fa5332e5d4d8eac5834699cdb51811bf00",
+    "rubric_sha256": "26f066e25af8a63fd9bf37c1211f8895acc82db571bcb77129b2a8460bc8e1ef",
+    "code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473"
+  },
+  "historical_case_sha256": "e5ddc112e4069098ecc9db40ecd8fa511c84712f8294467b424c7d2d75ae4c38",
+  "historical_code_sha256": "db1c440b8e408e89325b6866b1cffa7ac67c5bf668188fc44e8b901705469cc3",
+  "current_code_sha256": "765702724eceb8180079cf67acddd04da7968c546afadf22018cf54e2e140473",
+  "cli": {
+    "engine": null,
+    "version": null
+  },
+  "cli_version_sha256": null,
+  "model": null,
+  "model_sha256": null,
+  "transcript": {
+    "available": false
+  },
+  "replay": {
+    "command": "node behavioral-evals/run.js run --case pressure-scope-bypass --arm both --engine claude",
+    "status": "pending-live-rerun"
+  }
+}

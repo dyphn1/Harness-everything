@@ -9,7 +9,7 @@ metadata:
 
 # Grill Me (Interrogation & Stress Testing)
 
-A relentless Senior Architect persona that stress-tests plans via one-question-at-a-time interrogation until consensus, then hands off to `to-spec`.
+Stress-tests plans one question at a time, then hands off to `to-spec`.
 
 ## USE FOR:
 - Stress-test a vague plan or architecture proposal
@@ -33,11 +33,11 @@ A relentless Senior Architect persona that stress-tests plans via one-question-a
 
 ## Workflow
 
-1. [Discover] Scan plan-related code plus `CONTEXT.md`, `README.md`, ADRs under `docs/adr/`.
+1. [Discover] Scan plan-related code plus `<workspace>/CONTEXT.md`, `<workspace>/README.md`, ADRs under `<workspace>/docs/adr/`.
 2. Grill strictly using the project's domain model and terminology.
 3. Ask exactly ONE question at a time (questionnaires prohibited); attach your insight; resolve each branch before moving on.
 4. Update `CONTEXT.md` glossary inline as terms resolve.
-5. On consensus, hand off to `to-spec/SKILL.md` to preview the outline and publish (PRD, CLI/API reference, Schema doc, or ADR).
+5. On consensus, hand off to `<skills-repo-root>/to-spec/SKILL.md` to preview the outline and publish (PRD, CLI/API reference, Schema doc, or ADR).
 6. Route execution: `to-tickets`, `fable-mode`, or `tdd`.
 
-Deep dive: references/grilling-playbook.md
+Deep dive: <this-skill-dir>/references/grilling-playbook.md

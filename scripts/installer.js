@@ -35,7 +35,12 @@ const skills = require('./lib/skills');
 const { ensureWorkspaceGitignorePatterns, removeWorkspaceExcludePatterns, cleanEmptyDirs } = require('./lib/gitignore');
 
 const userHome = require('os').homedir();
-const workspaceRoot = getWorkspaceRoot();
+const detectedWorkspaceRoot = getWorkspaceRoot();
+// Global installs are valid outside a repository, but the module still needs
+// a non-null path while it evaluates local-detection helpers. Keep this
+// fallback private to global mode; main() rejects non-global work from a
+// directory whose workspace identity cannot be resolved.
+const workspaceRoot = detectedWorkspaceRoot || path.resolve(process.cwd());
 const harnessSourceDir = path.resolve(__dirname, '..');
 const packageVersion = require(path.join(harnessSourceDir, 'package.json')).version;
 
@@ -65,6 +70,9 @@ async function main() {
   // workspace - skill installation is an explicit user choice, never a
   // side effect of a background repair.
   const hasNoSkillsFlag = args.includes('--no-skills');
+  if (!detectedWorkspaceRoot && !hasGlobalFlag) {
+    throw new Error('cannot install locally outside a git workspace; pass --global for a user-wide install');
+  }
   const hasAnyPlatformFlag = hasClaudeFlag || hasCursorFlag || hasCopilotFlag || hasCodexFlag || hasContinueFlag || hasHermesFlag || hasAllFlag;
   // #49: default 'auto' tries a junction (Windows) / symlink (elsewhere) into
   // one canonical per-scope copy and silently falls back to an independent

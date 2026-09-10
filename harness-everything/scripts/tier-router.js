@@ -23,7 +23,7 @@ function loadRoutingConfig() {
   }
 }
 
-function run(userPrompt) {
+function run(userPrompt, context) {
   console.log(`[Tier Routing Pre-check]`);
 
   const promptLower = userPrompt.toLowerCase();
@@ -191,7 +191,7 @@ function run(userPrompt) {
     // there at install time), never from a copied skill folder, so it's safe
     // to import the canonical walk-up-to-.git resolver (issue #42).
     const { getWorkspaceRoot } = require('../../scripts/lib/workspace');
-    const workspaceRoot = getWorkspaceRoot();
+    const workspaceRoot = getWorkspaceRoot(context);
 
     const manifestPaths = [
       path.join(workspaceRoot, '.claude', 'harness-everything', 'manifest.json'),
@@ -304,6 +304,7 @@ function run(userPrompt) {
 }
 
 let userPrompt = process.argv[2] || '';
+let hookContext = null;
 
 if (process.argv[2]) {
   // If a command-line argument is passed, use it and execute immediately.
@@ -320,10 +321,11 @@ if (process.argv[2]) {
       if (inputData.trim()) {
         const payload = JSON.parse(inputData);
         if (typeof payload.prompt === 'string') userPrompt = payload.prompt;
+        hookContext = payload;
       }
     } catch (err) {
       // Not valid JSON on stdin - fall back to argv (useful for direct/manual testing).
     }
-    run(userPrompt);
+    run(userPrompt, hookContext);
   });
 }

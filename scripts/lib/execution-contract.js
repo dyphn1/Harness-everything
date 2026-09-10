@@ -18,6 +18,24 @@ function commandsEqual(actual, expected) {
   return left !== null && left === right;
 }
 
+function commandTokens(command) {
+  if (typeof command !== 'string') return [];
+  return command.match(/"[^"]*"|'[^']*'|\S+/g) || [];
+}
+
+function commandMatches(actual, expected) {
+  if (commandsEqual(actual, expected)) return true;
+  if (typeof actual !== 'string' || typeof expected !== 'string') return false;
+  const target = expected.trim();
+  if (!target || /\s/.test(target) || !/\.(?:c?js|mjs|py|sh|ps1|bat|cmd)$/i.test(target)) return false;
+  const expectedName = path.basename(target.replace(/\\/g, '/')).toLowerCase();
+  const tokens = commandTokens(actual).map((token) => token.replace(/^['"]|['"]$/g, ''));
+  if (tokens.length < 2) return false;
+  const launcher = path.basename(tokens[0].replace(/\\/g, '/')).toLowerCase();
+  if (!new Set(['node', 'node.exe', 'bun', 'bun.exe', 'deno', 'deno.exe', 'python', 'python.exe', 'python3', 'python3.exe', 'ruby', 'ruby.exe']).has(launcher)) return false;
+  return tokens.slice(1).some((token) => path.basename(token.replace(/\\/g, '/')).toLowerCase() === expectedName);
+}
+
 function normalizeRepoPath(value) {
   if (typeof value !== 'string') return null;
   const normalized = value.replace(/\\/g, '/').replace(/^\.\//, '');
@@ -43,8 +61,10 @@ function patchPathsAuthorized(patchText, allowedPaths) {
 }
 
 module.exports = {
+  commandMatches,
   commandsEqual,
   extractPatchPaths,
   normalizeCommand,
+  normalizeRepoPath,
   patchPathsAuthorized,
 };
