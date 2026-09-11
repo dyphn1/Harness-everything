@@ -3,6 +3,8 @@
 Adds hard enforcement gates for Harness skills in opencode, addressing the
 limitation that skills are otherwise advisory-only on that platform.
 
+> **Evidence boundary:** the plugin is implemented against opencode's real plugin API and covered by deterministic mechanism tests. **Live opencode plugin loading remains unverified** until a real host session artifact proves the host loaded and fired these hooks. See [`../docs/platform-capabilities.md`](../docs/platform-capabilities.md).
+
 ## Problem
 
 In Claude Code, Harness hooks ENFORCE rules (hard gate). In opencode, skills
@@ -129,5 +131,7 @@ opencode's plugin loader passes in - covering the edit → idle → follow-up �
 reflection-artifact → retry → hard-lock sequence, repeated-idle idempotency,
 session isolation, reset behavior, legacy-state migration, corrupt-state
 fail-closed behavior, and patch-based reflection writes.
+
 It does not launch a real opencode process; the test remains a deterministic
 hook-sequence check against the documented and source-verified hook signatures.
+A passing test is therefore mechanism evidence, not live-host loading evidence.
