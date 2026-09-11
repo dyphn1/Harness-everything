@@ -23,7 +23,7 @@ flowchart TD
     C --> K
 ```
 
-The OpenAI adapter intentionally enforces only the cross-cutting invariants. Tier-specific skills remain advisory; the model may choose, combine, reorder, or skip them.
+The local OpenAI adapter intentionally enforces only the cross-cutting invariants. Tier-specific skills remain advisory; the model may choose, combine, reorder, or skip them.
 
 ## Package layout
 
@@ -39,6 +39,11 @@ plugins/harness-everything/
 │   └── session-start.js
 └── skills/
     └── <26 canonical skills>
+
+submission/openai/
+├── listing.json
+├── test-cases.json
+└── README.md
 ```
 
 The package copies canonical root skill directories so ChatGPT/Codex receives the standard `skills/<name>/SKILL.md` layout. Do not edit packaged skill copies directly.
@@ -48,9 +53,10 @@ Run:
 ```bash
 npm run plugin:sync
 npm run test:plugin:openai
+npm run test:plugin:submission
 ```
 
-`plugin:sync` refreshes package copies from canonical skill directories. `test:plugin:openai` fails when the package drifts, a skill is missing/extra, the manifest/version is inconsistent, publication metadata is incomplete, the marketplace path is invalid, hooks are missing, or packaged routing stops being deterministic.
+`plugin:sync` refreshes package copies from canonical skill directories. `test:plugin:openai` fails when the package drifts, a skill is missing/extra, the manifest/version is inconsistent, publication metadata is incomplete, the marketplace path is invalid, hooks are missing, or packaged routing stops being deterministic. `test:plugin:submission` validates the public-review materials and reproducible skills bundle.
 
 ## Publication metadata contract
 
@@ -62,7 +68,7 @@ The `.codex-plugin/plugin.json` manifest includes the interface fields checked b
 - public website, privacy, and terms URLs;
 - up to three starter prompts, each below the UI length limit.
 
-Harness remains a **skill-only plugin**. It does not declare `apps` or `mcpServers`; those should only be introduced when a real external integration requires them. `PRIVACY.md` and `TERMS.md` describe the current local/hosted-data boundary.
+Harness remains a **skill-only plugin**. It does not declare `apps` or `mcpServers`; those should only be introduced when a real external integration requires them. `SUPPORT.md`, `PRIVACY.md`, and `TERMS.md` provide the public support and policy URLs used by the submission form.
 
 ## Install from this repository in a managed ChatGPT workspace
 
@@ -103,37 +109,65 @@ The same repository marketplace can be discovered from a checked-out repo in sup
 
 The local install may be copied into the host's plugin cache; after modifying the package, refresh the repository copy and restart/refresh the client before retesting.
 
-## Workspace distribution versus public Plugin Directory
+## Public Plugin Directory submission
 
-GitHub marketplace import is an immediately testable **workspace distribution** path. A workspace can make an imported plugin available or installed for eligible members, and workspace sharing can make owned plugins visible in that workspace's directory.
+OpenAI now documents a public submission path for **skills-only** plugins. This is separate from managed-workspace GitHub marketplace import.
 
-That is not the same as publishing to the universal public Plugin Directory. The public, self-service submission path for a third-party **skill-only plugin** is not documented in the same GitHub-import flow. Issue #75 tracks confirmation of the current OpenAI review/submission path from the live developer/admin UI or official support documentation.
+Build the upload artifact:
 
-Do not add a fake Apps SDK or MCP wrapper just to obtain a listing. Add an app or MCP server only when Harness has a real external data/action requirement.
+```bash
+npm run plugin:submission:build
+```
+
+This produces a deterministic `dist/openai-submission/harness-everything-skills.zip` plus a manifest containing every file hash and the final bundle SHA-256. The ZIP contains the exact packaged `skills/` tree and no MCP server or fake app wrapper.
+
+Submission flow:
+
+1. Open the OpenAI plugin submission portal.
+2. Select **Create plugin**.
+3. Choose **Skills only**.
+4. Use `submission/openai/listing.json` for listing fields, starter prompts, and release notes.
+5. Upload the generated skills ZIP.
+6. Enter the five positive and three negative reviewer cases from `submission/openai/test-cases.json`.
+7. Select the verified developer/business identity and production logo.
+8. Choose supported countries/regions, complete attestations, and submit for review.
+9. After approval, publish from the portal; only then does the plugin appear in the universal Plugins Directory.
+
+Official submission documentation: https://developers.openai.com/plugins/deploy/submission
+
+### Public skills-only boundary
+
+The public skills bundle contains reusable skills and their referenced scripts/templates/assets. It does **not** include the local `.codex-plugin` lifecycle hooks. Do not describe `SessionStart`, `UserPromptSubmit`, or other host-specific hooks as hard enforcement in the published skills-only artifact unless OpenAI exposes and validates a submission mechanism for them.
+
+The submitted review cases therefore measure skill/workflow behavior rather than depending on local hook execution.
 
 ## Publication smoke checklist
 
-Before a workspace import or public submission attempt:
+Before public submission:
 
 - `npm run plugin:sync` produces no unexpected changes;
 - `npm run test:plugin:openai` passes;
+- `npm run test:plugin:submission` passes on Ubuntu and Windows;
 - all 26 skills are present and byte-identical to canonical sources;
+- the generated skills ZIP is reproducible for the same revision;
 - marketplace and plugin names are `harness-everything` / **Harness Everything**;
 - version matches the canonical Claude manifest;
-- privacy and terms links are public and current;
+- support, privacy, and terms links are public and current;
+- the submission contains five positive and three negative reviewer cases;
 - no secrets, private endpoints, machine-specific absolute paths, app IDs, or MCP definitions are added accidentally;
-- `SessionStart` and `UserPromptSubmit` behavior is tested in a fresh host session;
-- import/sync results are saved as evidence in issue #75.
+- the publisher identity is verified and the submitter has Apps Management write access;
+- a production-ready logo and country/region availability are selected in the portal;
+- final reviewer-facing cases are run against the exact submitted skills tree.
 
 ## Current compatibility boundary
 
-This OpenAI package validates the architecture-critical layer:
+The repository package validates the architecture-critical local layer:
 
 - all 26 skills are discoverable from one plugin;
-- `SessionStart` injects the compact Cognitive OS policy;
-- `UserPromptSubmit` executes the invariant-first kernel before peer skill selection;
+- `SessionStart` injects the compact Cognitive OS policy locally;
+- `UserPromptSubmit` executes the invariant-first kernel locally before peer skill selection;
 - Linux and Windows hook commands are declared;
 - routing is deterministic for identical input;
 - the manifest carries the publication-facing interface fields expected by OpenAI's plugin evaluator.
 
-It does **not** claim full parity with every Claude-specific enforcement hook or the Claude `agents` manifest field. Those remain explicit compatibility work under issue #72 and must be proven with live host evidence before being labeled hard enforcement.
+The public skills-only submission intentionally makes a narrower claim: reusable skill behavior plus packaged scripts/templates/assets. It does **not** claim full parity with every Claude-specific enforcement hook, the local OpenAI hook adapter, or the Claude `agents` manifest field. Those require separate live host evidence before being labeled hard enforcement.
