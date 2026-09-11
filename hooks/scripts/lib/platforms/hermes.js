@@ -1,6 +1,8 @@
 const path = require('path');
 const fs = require('fs');
 
+const GLOBAL_MARKER = 'hermes-global.json';
+
 function appendHarnessSkillPatterns(patterns, skillsDir, prefix) {
   if (!fs.existsSync(skillsDir)) return;
   try {
@@ -50,7 +52,10 @@ module.exports = {
     return trimmedLine === pattern || trimmedLine === pattern.slice(0, -1);
   },
   isInstalled(workspaceRoot, userHome, isGlobal) {
-    if (isGlobal) return fs.existsSync(path.join(userHome, '.hermes', 'skills'));
+    if (isGlobal) {
+      return fs.existsSync(path.join(userHome, '.hermes', 'skills')) ||
+        fs.existsSync(path.join(userHome, '.agents', 'harness-everything', GLOBAL_MARKER));
+    }
     return fs.existsSync(path.join(workspaceRoot, '.hermes.md'));
   },
   getSkillsTarget({ workspaceRoot, userHome, isGlobal, manifest }) {
@@ -69,17 +74,35 @@ module.exports = {
       manifestPath: manifest.getManifestPath(hermesDir),
     };
   },
-  install({ isGlobal, targetWorkspaceRoot, advisory }) {
+  install({ isGlobal, targetWorkspaceRoot, advisory, userHome }) {
     if (!isGlobal) {
       const targetFile = path.join(targetWorkspaceRoot, '.hermes.md');
       advisory.injectAdvisoryText(targetFile, '# .hermes.md', '.hermes.md');
     } else {
+      // Hermes has no global advisory-context file. Keep a tiny Harness-owned
+      // marker in the existing global bookkeeping home so non-interactive
+      // uninstall can distinguish an intentional Hermes global install from
+      // an unrelated ~/.hermes directory without changing Hermes config.
+      const markerDir = path.join(userHome, '.agents', 'harness-everything');
+      fs.mkdirSync(markerDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(markerDir, GLOBAL_MARKER),
+        JSON.stringify({ package: 'harness-everything', platform: 'hermes' }, null, 2),
+        'utf8'
+      );
       console.log('  ℹ️  Hermes global skills install to ~/.hermes/skills/. Project advisory context remains project-scoped via .hermes.md.');
     }
   },
   uninstall({ removeLocal, removeGlobal, workspaceRoot, userHome, cleanEmptyDirs }) {
     const advisory = require('../../../../scripts/lib/advisory-text');
     if (removeLocal) advisory.removeAdvisoryText(path.join(workspaceRoot, '.hermes.md'));
-    if (removeGlobal && typeof cleanEmptyDirs === 'function') cleanEmptyDirs(path.join(userHome, '.hermes', 'skills'), [userHome]);
+    if (removeGlobal) {
+      const marker = path.join(userHome, '.agents', 'harness-everything', GLOBAL_MARKER);
+      if (fs.existsSync(marker)) fs.unlinkSync(marker);
+      if (typeof cleanEmptyDirs === 'function') {
+        cleanEmptyDirs(path.join(userHome, '.hermes', 'skills'), [userHome]);
+        cleanEmptyDirs(path.dirname(marker), [userHome]);
+      }
+    }
   }
 };
