@@ -14,11 +14,14 @@
   "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "Harness Everything",
-    "shortDescription": "Invariant-first engineering workflows for coding agents",
-    "longDescription": "Routes software work, preserves verification and failure-escalation invariants, and lets the agent choose the smallest useful skill set.",
+    "shortDescription": "Route, verify, and recover coding work",
+    "longDescription": "Routes software work, preserves verification and failure-escalation invariants, and lets the agent choose the smallest useful skill set without forcing a rigid workflow.",
     "developerName": "Miya Daniel",
-    "category": "Productivity",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
     "websiteURL": "https://github.com/dyphn1/Harness-everything",
+    "privacyPolicyURL": "https://github.com/dyphn1/Harness-everything/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/dyphn1/Harness-everything/blob/main/TERMS.md",
     "defaultPrompt": [
       "Route this software task with Harness and use only the skills that help.",
       "Review this change and verify it with objective evidence before claiming completion."
