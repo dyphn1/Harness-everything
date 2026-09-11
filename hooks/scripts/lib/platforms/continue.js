@@ -1,9 +1,10 @@
 const path = require('path');
 const fs = require('fs');
 
-// Continue's own skills location (.continue/skills/) is unchanged - it
-// already has an established home. Only bookkeeping that never had a home
-// (runtime state, install manifest) converges into .continue/harness-everything/.
+// Continue discovers project skills from `.continue/skills/` (and also reads
+// `.claude/skills/` for compatibility) and user skills from `~/.continue/skills/`.
+// Keep both scopes on Continue-native paths; the installer may still use the
+// shared canonical store internally and link into these targets in auto mode.
 module.exports = {
   name: 'continue',
   label: 'Continue.dev',
@@ -58,11 +59,11 @@ module.exports = {
   },
   getSkillsTarget({ workspaceRoot, userHome, isGlobal, manifest }) {
     if (isGlobal) {
-      const globalAgentsDir = path.join(userHome, '.agents');
+      const continueDir = path.join(userHome, '.continue');
       return {
-        path: path.join(globalAgentsDir, 'skills'),
-        label: '~/.agents/skills/',
-        manifestPath: manifest.getManifestPath(globalAgentsDir),
+        path: path.join(continueDir, 'skills'),
+        label: '~/.continue/skills/',
+        manifestPath: manifest.getManifestPath(continueDir),
       };
     } else {
       const continueDir = path.join(workspaceRoot, '.continue');
