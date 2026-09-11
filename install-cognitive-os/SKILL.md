@@ -1,38 +1,44 @@
 ---
 name: install-cognitive-os
-description: Defines the fundamental physical laws of behavior — Discover, Think, Try, Summarize, Record — for all Agents. Use this loop before acting on any task to ground progress in verified tool output.
+description: "Explain or explicitly apply the Harness cognitive policy: Discover, Think, Try, Summarize, Record. It provides cross-cutting behavior without requiring this skill to be selected before domain skills."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.5
+  version: 0.3.7
 ---
 
-# Agent Cognitive OS (Underlying Cognitive System)
+# Agent Cognitive OS
 
-## 📋 Skill Contract
+The Cognitive OS is policy, not a required peer-skill selection. Supported runtimes should establish the smaller Harness invariant contract before domain-skill execution; this skill remains its human-readable/manual entry point.
+
+## USE FOR:
+- Apply or explain Discover → Think → Try → Summarize → Record.
+- Debug Harness cognitive behavior.
+- Use the policy explicitly on hosts without automatic kernel context.
+
+## DO NOT USE FOR:
+- Skill authoring style (`skill-style`) or Git conventions.
+- Replacing domain expertise such as `tdd`, `security-review`, or `repo-docs`.
+
+## Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Always — the foundational loop; loaded before acting. |
-| **Expected Output** | Actions follow Discover → Think → Try → Summarize → Record; Summarize relies on objective verification. |
-| **State Mutations** | None directly — provides the meta-loop within which other skills manage state. |
-| **Enforcement Gate** | `[Record]` is grounded in verified tool output. A failing step returns to `[Think]`; repeated failures lead to `zoom-out`. |
-## USE FOR:
-- Structuring any multi-step task with the Discover > Think > Try > Summarize > Record loop
-- Grounding progress in verified tool output before recording state
+| **Input** | Explicit cognitive-loop use, or a host without automatic Harness kernel context. |
+| **Output** | Evidence-grounded work without a fixed domain-skill sequence. |
+| **State** | None directly. |
+| **Gate** | Completion claims need evidence; repeated same-signature failures require re-planning. |
 
-## DO NOT USE FOR:
-- Skill authoring style (use `skill-style`) or Git history conventions
-- Tasks already governed by a more specific domain skill's own gates
+## Core Loop
 
-## Core Loop: The State Machine
+1. `[Discover]` Verify relevant workspace state.
+2. `[Think]` Establish intent, scope, and failure modes.
+3. `[Try]` Make the smallest useful change and gather evidence.
+4. `[Summarize]` Ground conclusions in tool output; after 3 same-signature failures use `zoom-out`.
+5. `[Record]` Record milestones only when evidence supports them.
 
-1. `[Discover]` Verify workspace state first: confirm OS, shell, tooling (`environment-detection`); trace code references instead of assuming.
-2. `[Think]` Establish intent before modifying code; evaluate failure modes early.
-3. `[Try]` Apply minimal, focused changes; run commands to validate behavior.
-4. `[Summarize]` Base conclusions on actual tool outputs (`npm test`, linters, `<skills-repo-root>/harness-everything/scripts/verify-gate.js`, `npx github:dyphn1/Harness-everything verify`). On failure, use diagnostics to refine `[Think]`. After 3 consecutive failures, step back to `zoom-out`.
-5. `[Record]` Record milestones via the native host tracker or Markdown checklist once verification passes.
+Domain skills may define their own tactics and phases. They do not need to invoke this skill first as long as the Harness invariants remain satisfied.
 
-On advisory-only platforms hooks cannot block tool calls; gates are self-directed guidance.
+On advisory-only platforms, these rules are guidance rather than hard tool-call gates.
 
 Deep dive: <this-skill-dir>/references/cognitive-loop.md

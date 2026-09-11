@@ -20,6 +20,7 @@
     "test:collision": "node ci/description-collision.js",
     "test:routing:skills": "node ci/skill-routing-check.js",
     "test:routing": "node ci/routing-check.js",
+    "test:routing:invariants": "node ci/invariant-routing.test.js",
     "benchmark:scaffold": "node benchmarks/run.js scaffold",
     "benchmark:status": "node benchmarks/run.js status",
     "eval:behavioral": "node behavioral-evals/run.js run",

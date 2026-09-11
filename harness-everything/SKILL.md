@@ -1,42 +1,43 @@
 ---
 name: harness-everything
-description: "Triage new software requests into Tier 1/2/3 before work begins. USE FOR: \"triage a new software task\", \"route this coding request\". DO NOT USE FOR: \"chat or general Q&A\", \"non-software writing\", \"a skill is already indicated\"."
+description: "Route software/project work through the Harness kernel: classify Tier 1/2/3, establish mandatory invariants, then let the agent choose tactics and domain skills. Use for software triage, routing, and re-routing; not general Q&A or non-software writing."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.6
+  version: 0.3.7
 ---
 
 # Harness Everything
 
+Public/manual Harness kernel entry. Hook-capable hosts should run the kernel before peer/domain skill selection.
+
 ## USE FOR:
-- Triage new software tasks before implementation.
+- Software triage/re-routing, including work that already names or strongly matches another skill.
+- Inspecting Tier, invariants, or suggestions.
 
 ## DO NOT USE FOR:
-- Chat or general Q&A.
-- Non-software writing.
-- Requests that already name a skill.
+- General Q&A or non-software writing.
 
-## Skill Contract
+## Invariants
 
-| Component | Specification |
-| :--- | :--- |
-| **Trigger / Input** | New software request with no skill indicated. |
-| **Expected Output** | Print a Routing Checkpoint with tier and rationale. |
-| **State Mutations** | None; Tier 2/3 starts native TODO or Markdown tracking. |
-| **Enforcement Gate** | Run `<this-skill-dir>/scripts/tier-router.js` before edits. |
+1. **Route before execution** — establish scope/tier before mutation.
+2. **Verify before claim** — completion needs objective evidence.
+3. **Re-plan on repetition** — after 3 same-signature failures, stop micro-retrying and use `zoom-out`/fresh diagnosis.
+
+These rails are mandatory; Tier guidance is not a fixed pipeline.
 
 ## Workflow
 
-1. Unless a hook ran it, run `node "<this-skill-dir>/scripts/tier-router.js" "<prompt summary>"`.
-2. Print the checkpoint and execute the selected tier.
-3. On `[Self-Heal]` warnings, run the named self-heal script.
-4. After three same-signature failures, use `zoom-out`, then `self-evolve`.
+1. Reuse current-turn kernel output, or run `node "<this-skill-dir>/scripts/kernel-router.js" "<prompt summary>"`.
+2. Preserve the invariants.
+3. Treat suggested skills as advisory: choose, combine, reorder, or omit them as useful.
 
-## Routing
+## Tier Guidance
 
-- **Tier 1:** Trivial edits; direct edit only.
-- **Tier 2:** Standard changes; use `todo-driven-workflow`, `tdd`, and `verification-loop`.
-- **Tier 3:** Macro work; use `fable-mode` and `fable-discipline`, select Haiku/Sonnet/Opus via the model matrix, and delegate through `multi-agent-workspace`.
+- **Tier 1:** Prefer direct execution.
+- **Tier 2:** TODO tracking, TDD, and verification are common suggestions.
+- **Tier 3:** Fable/multi-agent skills are optional when macro planning or delegation helps.
+
+**Rule:** do not enforce workflow order; let the agent orchestrate itself inside the invariants.
 
 Deep dive: <this-skill-dir>/references/triage-and-tiers.md

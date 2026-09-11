@@ -18,11 +18,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node harness-everything/scripts/tier-router.js"
+            "command": "node harness-everything/scripts/kernel-router.js"
           }
         ],
-        "description": "Auto-route user requests using tier-router",
-        "id": "harness:pre:tier-router"
+        "description": "Establish Harness routing invariants before host/domain skill selection",
+        "id": "harness:pre:kernel-router"
       }
     ],
     "PreToolUse": [

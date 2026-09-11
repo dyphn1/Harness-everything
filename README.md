@@ -19,6 +19,8 @@ AI coding agents are highly capable, but they struggle with self-regulation, env
 
 Harness acts as an automated system supervisor. It remains completely silent and out of the way, intervening only when execution boundaries are violated or failures are detected.
 
+Harness deliberately follows a **minimal rails, maximum freedom** design: the runtime enforces only a few cross-cutting invariants — route before execution, verify before claim, and re-plan after repeated identical failure — while capable agents remain free to choose, combine, reorder, or skip domain skills according to the task.
+
 ### Comparison: Prompt vs. Skill vs. Harness
 
 | Dimension | Prompt-Only (Custom Instructions) | Skill-Only (Task Guides) | Harness (Behavior Layer) |
@@ -29,16 +31,16 @@ Harness acts as an automated system supervisor. It remains completely silent and
 | **System Audit** | Blindly assumes shell syntax | Requires manual shell check | **Preflight:** Proactively detects Windows/Unix paths, shell type, and package manager |
 | **Memory** | Resets on every new chat session | Static text rules | **Continuous Persistence:** Writes Write-Ahead Logs (WAL) for session recovery and immunizes workspace rules |
 
-The "Harness" column above is Claude Code's behavior; opencode gets the same hard-gate treatment via a plugin ([`opencode-plugin/`](opencode-plugin/), unverified in a live opencode session — see [#37](https://github.com/dyphn1/Harness-everything/issues/37)). On Cursor, Copilot, Codex, Continue.dev, and Hermes Agent — platforms with no hook/exit-code execution mechanism — Harness can only inject advisory text, which lands in the **Prompt-Only** column instead. See [Supported AI IDEs & Tools](#supported-ai-ides--tools) below.
+The "Harness" column above is Claude Code's behavior; opencode gets the same hard-gate treatment via a plugin ([`opencode-plugin/`](opencode-plugin/), unverified in a live opencode session — see [#37](https://github.com/dyphn1/Harness-everything/issues/37)). On Cursor, Copilot, Codex, Continue.dev, and Hermes Agent — platforms where the current Harness installer only provides advisory integration — Harness lands closer to the **Prompt-Only** column instead. OpenAI/Codex plugin hook packaging is tracked separately in [#72](https://github.com/dyphn1/Harness-everything/issues/72). See [Supported AI IDEs & Tools](#supported-ai-ides--tools) below.
 
 ### When should I use Harness?
 * You regularly use agentic coding tools (like Claude Code, Cursor, or Copilot) on medium-to-large codebases.
 * You develop on Windows or in mixed shells (Git Bash, WSL, PowerShell) where agents frequently get shell syntax wrong.
-* You want automated test-driven development (TDD) enforcement and safety guards to save token budgets.
+* You want lightweight routing, objective verification, and failure-loop safety without forcing every task through a rigid workflow.
 
 ### When should I NOT use Harness?
 * You only use chat interfaces for general questions without letting the AI run local commands or modify files.
-* Your project has no test suite, or you prefer unconstrained, free-form agent generation.
+* You deliberately want completely unconstrained execution with no routing, verification, or retry boundaries.
 
 ---
 
@@ -56,9 +58,10 @@ npx github:dyphn1/Harness-everything install
 ```
 
 ### Expected Behavior After Installation:
-1. **Hook Registration:** Harness registers native hooks (e.g., inside `.claude/settings.json` for Claude Code) to intercept session starts and tool use.
+1. **Hook Registration:** On supported hard-hook hosts, Harness registers lifecycle hooks. Prompt routing runs the invariant-first Harness Kernel before peer/domain skill execution.
 2. **Preflight Audit:** At session startup, a lightweight preflight script runs, printing a diagnostic environment block that tells the agent your exact OS, active shell, and package manager.
 3. **Guard Active:** The circuit breaker and context compactors are active in the background, consuming zero overhead unless triggered.
+4. **Agent Freedom Preserved:** Tier classification suggests useful skills, but does not impose a universal TODO/TDD/Fable sequence.
 
 ### What Gets Installed (and How to Remove It)
 
@@ -100,29 +103,30 @@ flowchart TD
     style A fill:#ffcdd2,stroke:#c62828,stroke-width:1px,color:#000000
 ```
 
-### With Harness (Guarded and Routed Execution)
+### With Harness (Invariant-First, Agent-Orchestrated Execution)
 ```mermaid
 flowchart TD
-    U([User Request]) --> H_Router[Harness Router]
-    H_Router -->|Tier 1: Trivial| T1[Direct Edit]
-    H_Router -->|Tier 2: Standard| T2["Native TODO / Markdown checklist"]
-    H_Router -->|Tier 3: Macro| T3[Fable Multi-Agent Flow]
-    
-    T2 & T3 --> Exec[Execute Code / Run Commands]
-    Exec --> Gate{verify-gate.js}
-    
-    Gate -->|Exit 1: Fix & retry| Exec
-    Gate -->|Exit 1 - Repeated| CB{Circuit Breaker rule-of-3.js}
-    CB -->|Fails 3x| ZO[Zoom Out: Ask Human / Reflect]
-    ZO -->|Fresh Diagnosis| Exec
-    Gate -->|Exit 0: Success| Done[Checklist item complete]
-    
-    Done --> SE[Self-Evolve: Update Rules]
-    style H_Router fill:#c8e6c9,stroke:#2e7d32,stroke-width:1px,color:#000000
+    U([User Request]) --> K[Harness Kernel<br/>classify scope + establish invariants]
+    K --> T{Tier recommendation}
+    T -->|Tier 1| A[Agent chooses smallest useful tactic / skill set]
+    T -->|Tier 2| A
+    T -->|Tier 3| A
+    A --> Exec[Execute Code / Run Commands]
+    Exec --> Gate{Objective evidence supports completion?}
+    Gate -->|No| Retry[Diagnose / iterate]
+    Retry --> CB{Same-signature failure x3?}
+    CB -->|No| Exec
+    CB -->|Yes| ZO[Zoom Out / Re-plan]
+    ZO --> Exec
+    Gate -->|Yes| Done[Evidence-backed completion]
+    Done --> SE[Optional Self-Evolve / Record]
+    style K fill:#c8e6c9,stroke:#2e7d32,stroke-width:1px,color:#000000
     style CB fill:#fff9c4,stroke:#fbc02d,stroke-width:1px,color:#000000
     style ZO fill:#ffcc80,stroke:#ef6c00,stroke-width:1px,color:#000000
     style Gate fill:#ffcdd2,stroke:#c62828,stroke-width:1px,color:#000000
 ```
+
+The Tier changes the **recommendations**, not the required order. Tier 2 may suggest `tdd`, `todo-driven-workflow`, or `verification-loop`; Tier 3 may suggest Fable or multi-agent capabilities. The model decides what actually helps.
 
 ---
 
@@ -130,28 +134,28 @@ flowchart TD
 
 Harness operates through six core cognitive concepts:
 
-1. **Router (`tier-router.js`):** Prevents over-engineering. Triages incoming tasks into Tiers: Tier 1 (Direct Edit, no plans), Tier 2 (Standard TDD enforcement), or Tier 3 (Macro Multi-Agent planning and delegation). It also scans every installed platform's `manifest.json` for skills `self-evolve` has generated dynamically, and auto-surfaces the ones whose keyword triggers match the current prompt — so a lesson learned in one session gets suggested again without the human having to remember it exists. If nothing matches at all — including nothing already kept from the open skills ecosystem — `find-skills` checks `npx skills list` live and, if still nothing, searches `skills.sh`/`npx skills`. With explicit approval it defaults to applying the result ephemerally (a content-addressed OS-temp cache, zero footprint after the OS reclaims it) and only permanently installs via `npx skills add` when the user says they'll reuse it — neither path is cached into `manifest.json` the way `generated[]` is, since third-party content isn't lifecycle-owned by Harness.
+1. **Kernel Router (`kernel-router.js` + `tier-router.js`):** `tier-router.js` remains the classifier, dynamic-skill detector, and knowledge-guide matcher. `kernel-router.js` is the public runtime boundary: it preserves the classifier result, removes legacy fixed-pipeline instructions, injects the three mandatory invariants, and presents domain skills as advisory suggestions. This prevents host peer-skill selection from bypassing Harness while preserving agent autonomy. If nothing matches at all — including nothing already kept from the open skills ecosystem — `find-skills` checks `npx skills list` live and, if still nothing, searches `skills.sh`/`npx skills` with explicit approval before installation.
 2. **Guard (`rule-of-3.js`):** The fail-safe circuit breaker. Tracks failure signatures across terminal runs. If a test or command fails 3 times with the same signature, it locks mutating tools and forces a `zoom-out` reflection: re-verify every assumption with read-only tools, write a fact-checked report, then resume on a fresh diagnosis. The human partner is pulled in only for genuine decisions — or when the same signature trips the breaker a second time. A companion `Stop` gate (`stop-gate.js`) bounces the end of a turn once per edit batch when edits were never followed by a successful verification command.
 3. **Memory (`state-persist.js`):** Session transaction logging. Stores a local Write-Ahead Log (WAL) of milestones, preventing agents from forgetting their current task state if a session limits out or restarts.
 4. **Reflection (`self-evolve`):** Long-term workspace immunization. Upon task completion, the agent reflects on the root cause of resolved issues, then judges whether the lesson is a simple rule or a reusable, complex pattern: simple rules are appended to local workspace rules (`RULES.md`); genuinely reusable patterns are instead packaged as a dynamic skill (via `skill-creator`'s Dynamic Skill Generation Contract) and registered in `manifest.json` so the Router picks it up in future sessions. Either path is validated by a hermetic self-regression suite before it's persisted.
 5. **Subagent Scope Guard (`subagent-scope-guard.js`):** Diffs the whole repo's `git status` before and after every subagent (`Task`) burst, not just the files it was briefed to touch. Catches a subagent that was told to only read/verify but edited files anyway — a real failure mode, not a hypothetical one.
-6. **Cognitive Laws (Agent Cognitive OS):** Six governing laws — Intent Precedence, State Handoff Awakening, Elimination & Prediction, Evidence Assertion, Adversarial Falsification, and Code-Documentation Alignment — are woven directly into the specific skill phase each one governs (e.g. Evidence Assertion inside `tdd`'s RED/GREEN/REFACTOR gates, State Handoff Awakening inside `zoom-out`'s reflection phase) rather than duplicated in one shared file. See the relevant skill's own `SKILL.md` for where a given law actually applies.
+6. **Cognitive Laws (Agent Cognitive OS):** The Cognitive OS is a policy layer, not a peer skill that must win host routing before domain work can begin. Its Discover → Think → Try → Summarize → Record loop remains available as an explicit/manual entry point, while runtime integrations establish the smaller cross-cutting invariants independently.
 
 ---
 
 ## Supported AI IDEs & Tools
 
-**Claude Code and opencode get hard-boundary hooks.** Every other platform below has no hook/exit-code execution mechanism, so `harness-everything` can only inject advisory text — same protection level as the "Prompt-Only" column in the comparison table above. There is no circuit breaker, no preflight audit, and no WAL on those platforms unless Claude Code or opencode is also driving the same repo.
+**Claude Code and opencode get hard-boundary hooks in the current packaged integrations.** Other installer targets below are currently advisory. Codex itself supports richer hook/plugin mechanisms in current OpenAI tooling, but Harness packaging for those mechanisms is being implemented and validated under [#72](https://github.com/dyphn1/Harness-everything/issues/72); until that adapter is shipped and tested, the existing `--codex` installer target remains advisory rather than being overclaimed as hard enforcement.
 
 [`opencode-plugin/`](opencode-plugin/) (`index.mjs`) implements a verification gate and a Rule of 3 breaker against opencode's real, source-verified plugin API (`tool.execute.before`/`.after`, the `session.idle` event) — a `plugin.json` JSON manifest previously assumed a mechanism opencode doesn't have and was never actually loaded; see [issue #37](https://github.com/dyphn1/Harness-everything/issues/37) for how that was found and replaced. `ci/mechanism-2n-opencode-plugin.test.js` drives the exported hooks directly against a mock context matching that API. What's *not* yet done: a live opencode session actually loading and firing the plugin — opencode requires Bun and wasn't installable in this repo's dev/CI environment, so that step is unverified.
 
 | AI Agent Tool | Integration Method | Local Target Location | Enforcement |
 |---|---|---|---|
-| **Claude Code** | Native Lifecycle Hooks (`PreToolUse`, `PostToolUse`, `SessionStart`) | `.claude/settings.json` (project) / `~/.claude/settings.json` (user)<br>*.claude/skills/* (Project Skills) / *~/.claude/skills/* (Global Skills) | **Hard** — hooks can block a tool call (`exit(2)`) |
+| **Claude Code** | Native Lifecycle Hooks (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`) | `.claude/settings.json` (project) / `~/.claude/settings.json` (user)<br>*.claude/skills/* (Project Skills) / *~/.claude/skills/* (Global Skills) | **Hard** for supported hook gates; prompt hook establishes kernel context |
 | **opencode** | Plugin module dropped in `.opencode/plugins/` ([`opencode-plugin/index.mjs`](opencode-plugin/index.mjs)) | `.opencode/plugins/` | **Hard, unverified live** — `tool.execute.before` throws to block edits once circuit-broken; verified against opencode's source, not yet against a running opencode session (see #37) |
 | **Cursor** | Native Project Rules | `.cursorrules` | Advisory only |
 | **Copilot Chat** | Custom Instructions | `.github/copilot-instructions.md` | Advisory only |
-| **Codex** | Custom Instructions (`AGENTS.md`, not `.codex/config.toml` — that file controls CLI/sandbox behavior, not prompt content) | `AGENTS.md` | Advisory only |
+| **Codex** | Current installer: `AGENTS.md`; OpenAI Plugin/hook adapter tracked in #72 | `AGENTS.md` today; plugin target pending | **Advisory in current installer**; do not claim hard parity until plugin adapter has live evidence |
 | **Continue.dev** | Native project rules (a dedicated Markdown file with YAML frontmatter, `alwaysApply: true`) | `.continue/rules/harness.md` (project) / `~/.continue/rules/harness.md` (user, via `--global`) | Advisory only |
 | **Hermes Agent** ([Nous Research](https://hermes-agent.nousresearch.com/)) | Auto-loaded project context file (Hermes also reads `AGENTS.md`/`CLAUDE.md`/`.cursorrules` from the same directory if present, truncated at ~20k chars) | `.hermes.md` (project only — Hermes has no documented global project-instructions equivalent, so `--global --hermes` is a documented no-op) | Advisory only |
 
@@ -181,11 +185,11 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 
 | Directory | Category | Description |
 |---|---|---|
-| `harness-everything` | **Core Runtime** | Bootstrap, tier-router, verify-gate, self-heal |
-| `hooks` | **Core Runtime** | Claude Code lifecycle hooks (circuit breaker, scope guard, stop gate, etc.) |
+| `harness-everything` | **Core Runtime** | Bootstrap, kernel-router, tier-router, verify-gate, self-heal |
+| `hooks` | **Core Runtime** | Claude Code lifecycle hooks (prompt routing, circuit breaker, scope guard, stop gate, etc.) |
 | `scripts` | **Core Runtime** | Installer, manifest, prompts, workspace utilities |
 | `bin` | **Core Runtime** | `harness` CLI entry point |
-| `ci` | **Quality Gates** | Consistency check, description collision, mechanism tests, negative controls |
+| `ci` | **Quality Gates** | Consistency check, description collision, mechanism tests, invariant-routing regression, negative controls |
 | `.github` | **CI/CD** | GitHub Actions workflows (ci.yml, release.yml, behavioral-evals.yml) |
 | `.claude-plugin` | **Distribution** | Plugin manifests for Claude Code marketplace |
 | `evals` | **Routing Evals** | 26 trigger/routing eval suites (waza format) |
@@ -196,26 +200,26 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `multi-agent-workspace` | **Skill (Tier 3)** | Scaffold six zones, select agency specialists, and generate bounded launchers |
 | `environment-detection` | **Foundation** | Preflight: detect OS, shell, package manager |
 | `eval-harness` | **Skill (Tier 2)** | Evaluate agent outputs against rubrics |
-| `fable-discipline` | **Skill (Tier 3)** | Enforce Fable execution guardrails |
-| `fable-mode` | **Skill (Tier 3)** | Multi-agent orchestration with milestone gates |
+| `fable-discipline` | **Skill (Tier 3)** | Fable execution guardrails when Fable is selected |
+| `fable-mode` | **Skill (Tier 3)** | Optional macro/multi-agent orchestration with milestone gates |
 | `find-skills` | **Meta** | Discover and install skills from open ecosystems |
 | `git-commit` | **Skill (Tier 1)** | Conventional commit messages with verification |
 | `grill-me` | **Skill (Tier 2)** | Adversarial plan interrogation before implementation |
 | `grill-with-docs` | **Skill (Tier 3)** | Domain-model and decision alignment before design publication |
 | `improve-codebase-architecture` | **Skill (Tier 2)** | Architectural refactoring with evidence |
-| `install-cognitive-os` | **Foundation** | Install Harness cognitive OS into workspace |
+| `install-cognitive-os` | **Foundation / Manual Entry** | Explain or explicitly apply the cognitive policy; runtime invariants do not depend on host selecting it |
 | `repo-docs` | **Skill (Tier 3)** | Generate repository documentation |
 | `rewrite-commits` | **Skill (Tier 1)** | Interactive rebase and commit history cleanup |
 | `security-review` | **Skill (Tier 2)** | OWASP/STRIDE security review |
 | `self-evolve` | **Skill (Tier 2)** | Workspace immunization via dynamic skills |
 | `skill-creator` | **Meta** | Create new skills from patterns |
 | `skill-style` | **Meta** | Skill authoring style guide |
-| `tdd` | **Skill (Tier 2)** | Test-driven development enforcement |
+| `tdd` | **Skill (Tier 2)** | Test-driven development when executable behavior benefits from it |
 | `to-spec` | **Advisory (Tier 2/3)** | Publish specs from settled conversations |
 | `to-tickets` | **Advisory (Tier 2/3)** | Decompose settled specs into tracked tickets |
-| `todo-driven-workflow` | **Foundation** | Native TODO or Markdown checklist discipline |
+| `todo-driven-workflow` | **Advisory Foundation** | Progress tracking when explicit multi-step state helps |
 | `using-git-worktrees` | **Skill (Tier 2)** | Git worktree concurrency patterns |
-| `verification-loop` | **Skill (Tier 2)** | Verify-before-complete enforcement |
+| `verification-loop` | **Skill (Tier 2)** | Select systematic verification evidence; kernel still requires evidence before completion |
 | `verify-before-claim` | **Always-on discipline** | Fact-audit before asserting claims |
 | `zoom-out` | **Circuit breaker** | Circuit-breaker reflection protocol |
 | `opencode-plugin` | **Platform Plugin** | Enforcement logic for opencode's real plugin API; live-session firing still unverified (#37) |
@@ -242,7 +246,7 @@ Maintainers should follow [RELEASING.md](RELEASING.md) for tag-driven npm releas
 
 **If you are an agent asked to verify a Harness install, start at [VERIFICATION.md](VERIFICATION.md), not here.** It gives exact commands with exact expected output — install artifact checks for every platform, mechanism-level checks (Claude Code only), the behavioral test prompts below, and an acceptance scorecard to fill in. Do not report "it works" from reading the code — every check there names a command to actually run.
 
-`npm test` (`self-evolve/scripts/self-regression.js`) runs deterministic syntax, CLI, routing-matrix, positive skill-route coverage, reference, behavioral-case, Fable model-mode, and mechanism checks (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone). The suite checks real exit codes and stderr, not just "the code looks right." It runs in CI on every push and pull request (`.github/workflows/ci.yml`); live model evaluations remain explicitly on-demand.
+`npm test` (`self-evolve/scripts/self-regression.js`) runs deterministic syntax, CLI, routing-matrix, positive skill-route coverage, **invariant-first routing regression**, reference, behavioral-case, Fable model-mode, and mechanism checks (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone). The suite checks real exit codes and stderr, not just "the code looks right." It runs in CI on every push and pull request (`.github/workflows/ci.yml`); live model evaluations remain explicitly on-demand.
 
 For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Benchmark SOP](BENCHMARK_SOP.md) — standardized, reproducible scenarios:
 *   **Test A:** Over-engineering defense (Tier 1 typo correction)
@@ -260,7 +264,7 @@ Mechanism tests prove the hooks enforce gates; only live sessions prove agents f
 
 ### Catalog hygiene
 
-`npm run test:consistency` keeps the distribution manifests, docs links, skill frontmatter, and routing-eval coverage in lockstep with what is actually on disk; `npm run test:references` checks every executable/deep-dive path named by `SKILL.md`; `npm run test:release` compares the skill catalog and references with `v0.3.3-beta`; and `harness verify-install` detects stale installed versions or file trees. `npm run test:collision` fails CI when two skills' descriptions overlap enough to confuse the router. The repository checks run on every push (`.github/workflows/ci.yml`).
+`npm run test:consistency` keeps the distribution manifests, docs links, skill frontmatter, and routing-eval coverage in lockstep with what is actually on disk; `npm run test:references` checks every executable/deep-dive path named by `SKILL.md`; `npm run test:release` compares the skill catalog and references with `v0.3.3-beta`; `npm run test:routing:invariants` guards the invariant-first architecture; and `harness verify-install` detects stale installed versions or file trees. `npm run test:collision` fails CI when two skills' descriptions overlap enough to confuse the router. The repository checks run on every push (`.github/workflows/ci.yml`).
 
 ---
 

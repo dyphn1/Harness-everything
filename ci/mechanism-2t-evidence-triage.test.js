@@ -28,14 +28,14 @@ function git(cwd, args) {
 }
 
 function makeGitWorkspace(greeting) {
-  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'pr66-shell-'));
-  write(path.join(workspace, 'package.json'), '{"name":"pr66-shell"}\n');
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-triage-shell-'));
+  write(path.join(workspace, 'package.json'), '{"name":"evidence-triage-shell"}\n');
   write(path.join(workspace, 'src', 'greet.js'), `module.exports = name => '${greeting}, ' + name + '!';\n`);
   write(path.join(workspace, 'src', 'format.js'), 'module.exports = value => value;\n');
-  write(path.join(workspace, 'README.md'), '# pr66\n');
+  write(path.join(workspace, 'README.md'), '# evidence triage\n');
   git(workspace, ['init', '-q']);
-  git(workspace, ['config', 'user.email', 'pr66@example.test']);
-  git(workspace, ['config', 'user.name', 'PR66 test']);
+  git(workspace, ['config', 'user.email', 'evidence-triage@example.test']);
+  git(workspace, ['config', 'user.name', 'Evidence triage test']);
   git(workspace, ['add', '.']);
   git(workspace, ['commit', '-qm', 'fixture']);
   return workspace;
@@ -57,7 +57,7 @@ function runChecks() {
       const workspace = makeGitWorkspace('Hello');
       tempPaths.push(workspace);
       if (caseId === 'pressure-scope-bypass') write(path.join(workspace, 'src', 'greet.js'), "module.exports = name => 'Hi, ' + name + '!';\n");
-      const transcriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr66-shell-trace-'));
+      const transcriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-triage-shell-trace-'));
       tempPaths.push(transcriptDir);
       const transcript = path.join(transcriptDir, 'empty.jsonl');
       write(transcript, '');
@@ -89,7 +89,7 @@ function runChecks() {
     ].join('\r\n'));
     check('CRLF block scalars remain parseable for behavioral cases', crlfCase.prompt === 'preserve\nboth lines', JSON.stringify(crlfCase));
 
-    const transcriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr66-trace-'));
+    const transcriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-triage-trace-'));
     tempPaths.push(transcriptDir);
     const runningTranscript = path.join(transcriptDir, 'running.jsonl');
     write(runningTranscript, JSON.stringify({
@@ -133,7 +133,19 @@ function runChecks() {
     check('triage preserves both repeated historical result files', repeated && repeated.result.result_files && repeated.result.result_files.length === 2);
     const exactMatch = rows.find(row => row.id === 'baseline-performance');
     check('triage matches result ids exactly', exactMatch && exactMatch.result.result_files && exactMatch.result.result_files.length === 1 && exactMatch.result.result_files[0].endsWith('2026-08-27-baseline-performance.json'));
-    check('historical and replay code hashes identify different snapshots', rows.every(row => row.historical_code_sha256 !== row.current_code_sha256));
+
+    const projectRoot = path.join(__dirname, '..');
+    const historicalBaseRef = process.env.EVIDENCE_BASE_REF || 'origin/main';
+    const currentRunBytes = fs.readFileSync(path.join(projectRoot, 'behavioral-evals', 'run.js'));
+    const historicalRunBytes = execFileSync('git', ['show', `${historicalBaseRef}:behavioral-evals/run.js`], {
+      cwd: projectRoot,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const expectedCurrentCodeSha = sha256(currentRunBytes);
+    const expectedHistoricalCodeSha = sha256(historicalRunBytes);
+    check('replay code hash matches current run.js bytes', rows.every(row => row.current_code_sha256 === expectedCurrentCodeSha));
+    check('historical code hash matches the configured base ref bytes', rows.every(row => row.historical_code_sha256 === expectedHistoricalCodeSha));
+
     const abRow = rows.find(row => row.id === 'grill-me-adversarial');
     const abProvenance = JSON.parse(fs.readFileSync(path.join(triageOut, 'grill-me-adversarial', 'provenance.json'), 'utf8'));
     check('CI A/B replay uses the CI A/B runner', abRow && abProvenance.replay.command === 'node ci/ab-test-harness.js run --case grill-me-adversarial');
@@ -185,4 +197,4 @@ if (failures.length) {
   failures.forEach(failure => console.error(`FAIL ${failure}`));
   process.exit(1);
 }
-console.log('PR #66 evidence-triage regressions passed.');
+console.log('Behavioral evidence-triage regressions passed.');

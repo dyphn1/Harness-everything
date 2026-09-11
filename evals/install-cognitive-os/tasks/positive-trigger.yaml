@@ -1,6 +1,6 @@
 id: positive-install-cognitive-os-001
 name: On-scope prompt triggers install-cognitive-os
-description: "Defines the fundamental physical laws of behavior — Discover, Think, Try, Summarize, Record — for all Agents. Use this loop before acting on any task to ground progress in verified tool output."
+description: "Explain or explicitly apply the Harness cognitive policy: Discover, Think, Try, Summarize, Record. It provides cross-cutting behavior without requiring this skill to be selected before domain skills."
 tags:
   - positive-trigger
 inputs:
