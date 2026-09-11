@@ -37,10 +37,10 @@ jobs:
           fetch-depth: 0
       - name: Install waza CLI
         run: curl -fsSL https://raw.githubusercontent.com/microsoft/waza/main/install.sh | bash
-      - name: Check every SKILL.md passes waza readiness gates
+      - name: Check every canonical SKILL.md passes waza readiness gates
         run: |
           fail=0
-          for dir in $(find . -name "SKILL.md" -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./ci/fixtures/*" -not -path "./eval-framework/fixtures/*" -exec dirname {} \; | sort); do
+          for dir in $(find . -name "SKILL.md" -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./plugins/*" -not -path "./ci/fixtures/*" -not -path "./eval-framework/fixtures/*" -exec dirname {} \; | sort); do
             out=$(waza check "$dir" 2>&1) || true
             echo "=== $dir"
             # Hard gates: spec compliance, token budget, trigger sections.
@@ -71,7 +71,7 @@ jobs:
             waza spec verify "$skill" "$eval" --fail --threshold 1 || fail=1
           done
           exit $fail
-      - name: Block SKILL.md token growth vs base branch
+      - name: Block canonical SKILL.md token growth vs base branch
         run: waza tokens compare "${{ github.event.pull_request.base.ref || 'HEAD' }}" --strict --threshold 10 --skills
 
   consistency:
@@ -97,6 +97,8 @@ jobs:
         run: npm run test:release
       - name: Skill description collision detection
         run: npm run test:collision
+      - name: OpenAI plugin package is in sync and runnable
+        run: npm run test:plugin:openai
 
   installer-e2e:
     strategy:
