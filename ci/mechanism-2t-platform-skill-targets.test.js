@@ -3,11 +3,12 @@ const os = require('os');
 const path = require('path');
 const helper = require('./test-helper');
 
-console.log('\n[2t] Platform-native skill targets + malformed config safety (issue #80)...');
+console.log('\n[2t] Platform-native skill targets + install ownership safety (issue #80)...');
 
 const platforms = require('../hooks/scripts/lib/platforms');
 const skills = require('../scripts/lib/skills');
 const manifest = require('../scripts/lib/manifest');
+const advisory = require('../scripts/lib/advisory-text');
 const root = path.resolve(__dirname, '..');
 const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2t-ws-'));
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2t-home-'));
@@ -74,6 +75,48 @@ copyAndAssert('hermes', true, path.join(home, '.hermes', 'skills'));
     fs.readFileSync(settings, 'utf8') === original,
     `got ${JSON.stringify(fs.readFileSync(settings, 'utf8'))}`
   );
+}
+
+// Dedicated/fixed filenames must not let Harness claim or delete an unrelated
+// pre-existing user file merely because the path matches.
+{
+  const continueRule = path.join(ws, '.continue', 'rules', 'harness.md');
+  fs.mkdirSync(path.dirname(continueRule), { recursive: true });
+  const original = '# user-owned rule\n';
+  fs.writeFileSync(continueRule, original, 'utf8');
+  let rejected = false;
+  try {
+    advisory.installContinueRule(continueRule, '.continue/rules/harness.md');
+  } catch (error) {
+    rejected = /Refusing to overwrite pre-existing non-Harness/.test(error.message);
+  }
+  helper.check('2t. Continue refuses to overwrite a user-owned harness.md', rejected, 'collision was not rejected');
+  helper.check('2t. Continue collision leaves original bytes unchanged', fs.readFileSync(continueRule, 'utf8') === original, 'user rule changed');
+}
+
+{
+  const promptsDir = path.join(home, 'prompts');
+  fs.mkdirSync(promptsDir, { recursive: true });
+  const getUserPromptsDir = () => promptsDir;
+  const cases = [
+    ['copilot', 'harness.instructions.md'],
+    ['codex', 'harness.agent.md'],
+  ];
+  for (const [name, fileName] of cases) {
+    const p = platform(name);
+    const target = path.join(promptsDir, fileName);
+    const original = `user-owned ${name}\n`;
+    fs.writeFileSync(target, original, 'utf8');
+    let rejected = false;
+    try {
+      p.install({ isGlobal: true, targetWorkspaceRoot: ws, getUserPromptsDir, advisory });
+    } catch (error) {
+      rejected = /Refusing to overwrite pre-existing non-Harness/.test(error.message);
+    }
+    helper.check(`2t. ${name} global install refuses a user-owned fixed prompt file`, rejected, 'collision was not rejected');
+    p.uninstall({ removeLocal: false, removeGlobal: true, workspaceRoot: ws, userHome: home, getUserPromptsDir, cleanEmptyDirs() {} });
+    helper.check(`2t. ${name} global uninstall preserves non-Harness file`, fs.readFileSync(target, 'utf8') === original, 'user-owned file was changed or deleted');
+  }
 }
 
 fs.rmSync(ws, { recursive: true, force: true });
