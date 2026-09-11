@@ -21,15 +21,17 @@ First identify **which Harness surface you are testing**. One host can have more
 
 | Surface | Artifact / location | What artifact presence proves |
 |---|---|---|
-| Claude Code | `.claude/settings.json`, Claude skills/agents | The Claude installer/plugin wrote its lifecycle-hook configuration and content |
+| Claude Code | `.claude/settings.json`, `.claude/skills/`, `.claude/agents/` | The Claude installer/plugin wrote its lifecycle-hook configuration and content |
 | OpenCode | `.opencode/plugins/` / `opencode-plugin/index.mjs` | The native plugin module exists; this alone does not prove live loading |
-| Codex — general installer | `AGENTS.md`, `.codex/skills/` as applicable | Advisory/instruction integration is installed |
+| Codex — general installer | `AGENTS.md`, repo-scoped `.agents/skills/` | Advisory/instruction integration and project Agent Skills are installed |
 | **Codex / local OpenAI plugin** | `.agents/plugins/marketplace.json`, `plugins/harness-everything/.codex-plugin/plugin.json`, packaged hooks/skills | The local OpenAI plugin package is structurally present |
 | **Public OpenAI Skills-only** | generated `dist/openai-submission/harness-everything-skills.zip` | The public-review bundle was generated; local `.codex-plugin` lifecycle hooks are intentionally not part of this artifact |
-| Cursor | `.cursorrules` | Advisory project rules exist |
-| Copilot Chat | `.github/copilot-instructions.md` | Advisory repository instructions exist |
-| Continue.dev | `.continue/rules/harness.md` | Advisory native rule exists |
-| Hermes Agent | `.hermes.md` | Advisory project context exists |
+| Cursor | `.cursorrules`, `.cursor/skills/` | Advisory project rules and project skills exist |
+| Copilot Chat | `.github/copilot-instructions.md`, `.github/skills/` | Advisory repository instructions and project skills exist |
+| Continue.dev | `.continue/rules/harness.md`, `.continue/skills/` | Advisory native rule and project skills exist |
+| Hermes Agent | `.hermes.md`, trusted project `.agents/skills/` | Advisory project context and discoverable project skills exist; Hermes trust policy still applies |
+
+For user/global skills, verify the host-native path rather than assuming every host consumes the shared Agent Skills directory: Claude uses `~/.claude/skills/`, Continue uses `~/.continue/skills/`, Hermes uses `~/.hermes/skills/`, and the supported shared Agent Skills targets use `~/.agents/skills/`.
 
 ### 1a. General installer checks
 
@@ -37,11 +39,22 @@ First identify **which Harness surface you are testing**. One host can have more
 # Advisory surfaces
 node -e "const fs=require('fs'); for (const p of ['.cursorrules','.github/copilot-instructions.md','AGENTS.md','.continue/rules/harness.md','.hermes.md']) if (fs.existsSync(p)) console.log(p)"
 
+# Project skill roots used by the general installer
+node -e "const fs=require('fs'); for (const p of ['.claude/skills','.cursor/skills','.github/skills','.agents/skills','.continue/skills']) if (fs.existsSync(p)) console.log(p)"
+
 # Claude hook configuration
 node -e "const fs=require('fs'); const p='.claude/settings.json'; if (fs.existsSync(p)) console.log(Object.keys(JSON.parse(fs.readFileSync(p,'utf8')).hooks||{}))"
 ```
 
 For an installer target that should be present, FAIL if its expected artifact is missing or does not contain Harness-owned guidance/configuration.
+
+Run the deterministic round-trip gate to verify that installation and removal preserve seeded user-owned files and skills:
+
+```bash
+node ci/installer-roundtrip.test.js
+```
+
+The CI installer matrix runs this check on Ubuntu, Windows, and macOS.
 
 ### 1b. Local OpenAI/Codex plugin package checks
 
@@ -129,7 +142,7 @@ npm run test:docs:capabilities
 npm run test:consistency
 ```
 
-The capability test checks the current-state documentation surfaces for stale pre-plugin claims, requires the Codex local-plugin vs public Skills-only distinction, and preserves the OpenCode live-unverified qualifier.
+The capability test checks the current-state documentation surfaces for stale platform paths and pre-plugin claims, requires the Codex local-plugin vs public Skills-only distinction, preserves the OpenCode live-unverified qualifier, and locks the Continue/Hermes native user skill targets.
 
 When changing platform integration behavior, update [docs/platform-capabilities.md](docs/platform-capabilities.md) and all affected current-state docs in the same PR.
 
@@ -197,7 +210,7 @@ npm run test:routing:invariants
 npm run test:routing:skills
 ```
 
-`kernel-router.js` is the public invariant-first entry point. `tier-router.js` remains the underlying classifier/guide-discovery helper.
+`kernel-router.js` is the public invariant-first entry point. `tier-router.js` remains the underlying classifier/guide-discovery helper. `test:routing:skills` executes the real router for every directly-routable skill and fails if a nested `SKILL.md` appears without an explicit parent/internal classification.
 
 ---
 
@@ -260,9 +273,11 @@ For a comprehensive audit:
 npm test
 npm run test:consistency
 npm run test:references
+npm run test:routing:skills
 npm run test:routing:invariants
 npm run test:plugin:openai
 npm run test:plugin:submission
+node ci/installer-roundtrip.test.js
 ```
 
 Do not accept "I read the code and it looks right" as evidence for a runtime or live-host claim.
