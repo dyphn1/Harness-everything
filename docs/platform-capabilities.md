@@ -8,23 +8,48 @@ The key distinction is between **what Harness packages**, **what the host can me
 
 | Surface | Skills | Native/runtime mechanism | Current claim boundary |
 | --- | --- | --- | --- |
-| **Claude Code** | Yes | Native lifecycle hooks (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`) | **Hard enforcement** for the supported gates covered by mechanism tests and live evidence. |
+| **Claude Code** | Yes — project `.claude/skills/`, user `~/.claude/skills/` | Native lifecycle hooks (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`) | **Hard enforcement** for the supported gates covered by mechanism tests and live evidence. |
 | **Codex / local OpenAI plugin** | Yes | `.codex-plugin` package with local `SessionStart` and `UserPromptSubmit` hooks | **Local invariant enforcement**: session policy + invariant-first routing are mechanically injected. Do not claim full Claude hook parity unless separate evidence exists. |
 | **OpenCode** | Yes | Native plugin API (`tool.execute.before`, `tool.execute.after`, `session.idle`) | **Hard-capable implementation with mechanism coverage; live plugin loading remains unverified.** Do not promote this to live-verified enforcement without a real host-session artifact. |
 | **Public OpenAI Skills-only plugin** | Yes | Public Skills-only bundle | **Skill/workflow behavior only.** The submitted artifact does **not** include the local `.codex-plugin` lifecycle hooks, so it must not claim `SessionStart`, `UserPromptSubmit`, or other local hooks as public hard enforcement. |
-| **Cursor** | Yes | Project rules/instructions | Advisory only. |
-| **Copilot Chat** | Yes | Repository custom instructions | Advisory only. |
-| **Continue.dev** | Yes | Native project rule file | Advisory only. |
-| **Hermes Agent** | Yes | Auto-loaded project context | Advisory only. |
+| **Cursor** | Yes — project `.cursor/skills/`, shared user `~/.agents/skills/` | Project rules/instructions | Advisory only. |
+| **Copilot Chat** | Yes — project `.github/skills/`, shared user `~/.agents/skills/` | Repository custom instructions | Advisory only. |
+| **Continue.dev** | Yes — project `.continue/skills/`, user `~/.continue/skills/` | Native project rule file | Advisory only. |
+| **Hermes Agent** | Yes — trusted project `.agents/skills/`, user `~/.hermes/skills/` | Auto-loaded project context | Advisory only. Project skill discovery still follows Hermes trust policy; Harness does not silently change trust settings. |
+
+## General installer skill placement
+
+The general installer must write or link each selected skill to a location that the target host actually discovers. The canonical `.agents/skills/` store is an implementation detail for deduplication; it is only a valid final target for hosts that consume that location natively.
+
+| General installer target | Project skills | User/global skills |
+| --- | --- | --- |
+| Claude Code | `.claude/skills/` | `~/.claude/skills/` |
+| Cursor | `.cursor/skills/` | `~/.agents/skills/` |
+| Copilot Chat | `.github/skills/` | `~/.agents/skills/` |
+| Codex | `.agents/skills/` | `~/.agents/skills/` |
+| Continue.dev | `.continue/skills/` | `~/.continue/skills/` |
+| Hermes Agent | `.agents/skills/` (subject to Hermes project trust) | `~/.hermes/skills/` |
+
+These targets apply to default link mode **and** explicit `--copy` mode. A canonical store must never hide a wrong platform target by making only the default link mode appear to work.
 
 ## Codex has two supported paths
 
 Do not collapse these into one capability claim:
 
-1. **Legacy/general installer target** — `npx github:dyphn1/Harness-everything install --codex` writes Codex-facing skills/instructions such as `AGENTS.md`. That path is advisory where the host is only consuming instructions.
+1. **Legacy/general installer target** — `npx github:dyphn1/Harness-everything install --codex` writes advisory `AGENTS.md` plus repo-scoped skills under `.agents/skills/`. That path is advisory where the host is only consuming instructions.
 2. **Local OpenAI plugin package** — `plugins/harness-everything/.codex-plugin/plugin.json` packages the Harness skills plus local lifecycle hooks. Those hooks mechanically establish the compact session policy and invariant-first routing contract in supported local plugin workflows.
 
 A statement such as "Codex is advisory only" is therefore incomplete. The correct claim depends on which installation surface is being discussed.
+
+## Install/uninstall ownership boundary
+
+The general installer may merge into shared files only through Harness-owned markers, and it may delete only artifacts that it can prove Harness owns. Dedicated filenames are not ownership proof by themselves.
+
+- malformed existing configuration must fail closed rather than be replaced;
+- a pre-existing non-Harness fixed-name file must not be overwritten or claimed;
+- uninstall removes only Harness-marked/manifest-tracked artifacts;
+- user-owned skills sharing `.agents/skills/` or another host skill directory must survive uninstall;
+- CI exercises install → verify → uninstall round trips on Linux, Windows, and macOS.
 
 ## Public OpenAI Skills-only boundary
 
