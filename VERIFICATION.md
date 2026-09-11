@@ -1,394 +1,268 @@
 # Verification & Acceptance Checklist
 
-Run this after installing Harness into a project, or whenever you need to confirm
-the install actually works — not just that the repo looks right. Two things are
-checked separately and should never be conflated:
+Run this after installing Harness into a project, or whenever you need to confirm that an integration actually works rather than merely looking correct in the repository.
 
-- **Mechanism** — did the hook script actually run and produce the documented
-  exit code / output? Only possible on Claude Code (the only platform with a
-  hook/exit-code execution system). See [Section 2](#2-mechanism-check-claude-code-only).
-- **Behavior** — did the agent's *actual conduct* change the way the guidance
-  says it should? Testable on every platform, including the advisory-only ones
-  (Cursor, Copilot, Codex, Continue.dev, Hermes Agent). See [Section 3](#3-behavioral-test-prompts-all-platforms).
+Harness verification separates four kinds of evidence that must not be conflated:
 
-A platform passing the behavior tests but having no mechanism to check is
-expected, not a bug — see [README: Supported AI IDEs & Tools](README.md#supported-ai-ides--tools).
-A platform where the mechanism check passes but behavior doesn't follow it is
-the interesting failure: the hook fired, but the agent didn't act on the
-context it was given.
+- **Package / artifact evidence** — are the expected files, manifests, skills, and hooks present?
+- **Mechanism evidence** — did the packaged hook/plugin function execute and produce the documented result?
+- **Live-host evidence** — did a real host load and fire that mechanism in an actual session?
+- **Behavior evidence** — did the agent's conduct follow the intended routing, evidence, and recovery disciplines?
 
-Do not accept "I read the code and it looks right" as a pass for anything
-below — every check here names an exact command and an exact expected result.
-Run it for real.
+A mechanism test can pass while a live host never loads the plugin. A behavior test can pass on an advisory-only surface without proving any hard enforcement. Keep those claims separate.
+
+The authoritative current platform boundary is [docs/platform-capabilities.md](docs/platform-capabilities.md).
 
 ---
 
-## 1. Install artifact check (all platforms, ~30 seconds)
+## 1. Installation surface check
 
-Confirm the installer actually wrote what it claims to, before testing anything
-downstream.
+First identify **which Harness surface you are testing**. One host can have more than one surface; Codex is the main example.
 
-| Platform | File | Pass condition |
+| Surface | Artifact / location | What artifact presence proves |
 |---|---|---|
-| Claude Code | `.claude/settings.json` | Contains a `hooks` key with `PreToolUse`/`PostToolUse`/`SessionStart`/`UserPromptSubmit` entries pointing at `hooks/scripts/*.js` and `harness-everything/scripts/*.js` |
-| Cursor | `.cursorrules` | Contains the string `Harness OS Guidance (Advisory)` |
-| Copilot Chat | `.github/copilot-instructions.md` | Contains the string `Harness OS Guidance (Advisory)` |
-| Codex | `AGENTS.md` | Contains the string `Harness OS Guidance (Advisory)` |
-| Continue.dev | `.continue/rules/harness.md` | Contains the string `Harness OS Guidance (Advisory)`, plus a YAML frontmatter block with `alwaysApply: true` |
-| Hermes Agent | `.hermes.md` | Contains the string `Harness OS Guidance (Advisory)` |
+| Claude Code | `.claude/settings.json`, Claude skills/agents | The Claude installer/plugin wrote its lifecycle-hook configuration and content |
+| OpenCode | `.opencode/plugins/` / `opencode-plugin/index.mjs` | The native plugin module exists; this alone does not prove live loading |
+| Codex — general installer | `AGENTS.md`, `.codex/skills/` as applicable | Advisory/instruction integration is installed |
+| **Codex / local OpenAI plugin** | `.agents/plugins/marketplace.json`, `plugins/harness-everything/.codex-plugin/plugin.json`, packaged hooks/skills | The local OpenAI plugin package is structurally present |
+| **Public OpenAI Skills-only** | generated `dist/openai-submission/harness-everything-skills.zip` | The public-review bundle was generated; local `.codex-plugin` lifecycle hooks are intentionally not part of this artifact |
+| Cursor | `.cursorrules` | Advisory project rules exist |
+| Copilot Chat | `.github/copilot-instructions.md` | Advisory repository instructions exist |
+| Continue.dev | `.continue/rules/harness.md` | Advisory native rule exists |
+| Hermes Agent | `.hermes.md` | Advisory project context exists |
+
+### 1a. General installer checks
 
 ```bash
-grep -l "Harness OS Guidance" .cursorrules .github/copilot-instructions.md AGENTS.md .continue/rules/harness.md .hermes.md 2>/dev/null
-node -e "console.log(Object.keys(JSON.parse(require('fs').readFileSync('.claude/settings.json','utf8')).hooks))"
+# Advisory surfaces
+node -e "const fs=require('fs'); for (const p of ['.cursorrules','.github/copilot-instructions.md','AGENTS.md','.continue/rules/harness.md','.hermes.md']) if (fs.existsSync(p)) console.log(p)"
+
+# Claude hook configuration
+node -e "const fs=require('fs'); const p='.claude/settings.json'; if (fs.existsSync(p)) console.log(Object.keys(JSON.parse(fs.readFileSync(p,'utf8')).hooks||{}))"
 ```
 
-FAIL if a target platform's file is missing, or exists but doesn't contain the
-marker — re-run `npm run harness:reset && node scripts/installer.js` (or the
-`npx github:...install` form) and check again before going further.
+For an installer target that should be present, FAIL if its expected artifact is missing or does not contain Harness-owned guidance/configuration.
+
+### 1b. Local OpenAI/Codex plugin package checks
+
+```bash
+npm run plugin:sync
+npm run test:plugin:openai
+```
+
+The package test validates the local marketplace/package layout, all 26 packaged skills, manifest/version alignment, hook definitions, publication-facing metadata, and deterministic routing expectations.
+
+Artifact success proves the package is internally coherent. It does **not** by itself prove a local ChatGPT/Codex host loaded the plugin; use a fresh host session for that claim.
+
+### 1c. Public OpenAI Skills-only package checks
+
+```bash
+npm run plugin:submission:build
+npm run test:plugin:submission
+```
+
+The public Skills-only submission intentionally contains reusable skills and referenced assets but does **not** include the local `.codex-plugin` lifecycle hooks. Do not expect `SessionStart` or `UserPromptSubmit` from this public artifact unless OpenAI introduces a separate validated submission mechanism for them.
 
 ---
 
-## 2. Mechanism check (Claude Code only)
+## 2. Mechanism checks
 
-These pipe a simulated hook payload into the script exactly the way Claude
-Code invokes it (JSON on stdin), and check the exit code and output against
-what the hook is documented to do. Run from the repo root. Each block is
-self-contained and cleans up after itself.
+Mechanism coverage is **surface-specific**. Do not use a Claude hook test to claim another host has the same lifecycle semantics.
 
-**Fastest path:** `npm run test:mechanism` (or plain `npm test`, which
-includes it as Phase 4) runs every check in this section automatically,
-end-to-end, on Windows/macOS/Linux alike — see
-[ci/mechanism-test.js](ci/mechanism-test.js). 
-
-To ensure complete test traceability and avoid untested blind spots, the mechanism
-checks are split into isolated, dedicated test suites under `ci/`:
-- `mechanism-2a-rule-of-3.test.js` — Rule of 3 circuit breaker
-- `mechanism-2b-boundary-guard.test.js` — Boundary guard block size limit
-- `mechanism-2c-state-persist.test.js` — WAL fail-safe state recording
-- `mechanism-2d-fact-audit.test.js` — Bilingual fact-audit stdin routing
-- `mechanism-2e-scope-guard.test.js` — Subagent workspace scope containment
-- `mechanism-2f-stop-gate.test.js` — Stop gate unverified edit bounce guard
-- `mechanism-2g-platform-ignore.test.js` — Cross-platform selective gitignore exclusions
-- `mechanism-2h-installer-manifest.test.js` — Installer manifest serialization and author-validation
-
-The master test runner `mechanism-test.js` automatically discovers, sorts, and executes
-each `.test.js` suite inline, printing a structured diagnostic table at the end.
-
-The recipes below exist for isolating and debugging one mechanism by hand; they
-pipe JSON into each hook via `node -e "...spawnSync(...)"` rather than a
-shell `echo '...' | node script.js` pipe. Use the shell-pipe form if you
-like — it works fine on macOS/Linux — but **not on Windows Git Bash**: three
-independent 2026-07-23 audits used exactly that form and
-got TTY/quoting interference that mangled the JSON, misdiagnosing working
-hooks (`rule-of-3.js`, `boundary-guard.js`, `state-persist.js`) as broken.
-The `node -e` form pipes stdin through Node's own `child_process` API
-instead of the shell, so it behaves identically on every platform.
-
-### 2a. Rule of 3 circuit breaker actually blocks
-
-Runtime state lives under `.claude/harness-everything/state/sessions/<session_id>/`
-(see [docs/architecture.md](docs/architecture.md)). Invocations with no
-`session_id` in the piped payload — like these manual tests — fall into a
-fixed `sessions/default/` bucket rather than a random one.
+### 2a. Repository mechanism suite
 
 ```bash
-mkdir -p .claude/harness-everything/state/sessions/default
-rm -f .claude/harness-everything/state/sessions/default/zoom-out-report.md
-echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false}' > .claude/harness-everything/state/sessions/default/rule-of-3-state.json
-node hooks/scripts/rule-of-3.js; echo "exit=$?"
+npm run test:mechanism
 ```
-**Expect:** stderr prints `[CRITICAL] RULE OF 3 CIRCUIT BREAKER TRIGGERED!`
-plus the reflect-first instructions (zoom-out protocol, and the exact report
-path to write to — resolved per-session, so it'll read
-`.claude/harness-everything/state/sessions/default/zoom-out-report.md` here), and `exit=2`.
-(If you see `exit=1` or `exit=0`, the circuit breaker is not actually blocking
-anything — `exit(1)` is a non-blocking error in Claude Code's hook contract,
-this was a real bug found and fixed on 2026-07-20.)
+
+`ci/mechanism-test.js` discovers and runs the repository's focused mechanism suites, including Claude hook behavior and platform/plugin-specific tests that exist in `ci/`.
+
+A passing mechanism suite proves the JavaScript contract under its test harness. It does not automatically prove a real host loaded it.
+
+### 2b. Claude Code lifecycle hooks
+
+Claude Code currently has the broadest verified Harness hook surface: `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop`-related mechanisms.
+
+When isolating a Claude hook manually on Windows, prefer `child_process.spawnSync` with JSON on stdin rather than a shell `echo '...' | node ...` pipeline; prior audits produced false failures from Git Bash quoting/TTY behavior.
+
+Example — Rule of 3 blocking path:
 
 ```bash
-npm run harness:reset
-node hooks/scripts/rule-of-3.js; echo "exit=$?"
+node -e "const {spawnSync}=require('child_process'); const r=spawnSync('node',['hooks/scripts/rule-of-3.js'],{input:JSON.stringify({}),encoding:'utf8'}); process.stdout.write(r.stdout||''); process.stderr.write(r.stderr||''); console.log('exit='+r.status)"
 ```
-**Expect:** no stderr output, `exit=0`.
 
-### 2a-bis. Zoom-out reflection report releases the breaker
+Use the dedicated `ci/mechanism-2*.test.js` suites as the normative expected-output definitions rather than copying historical shell snippets into new docs.
+
+### 2c. Codex / local OpenAI plugin mechanism
+
+The local OpenAI plugin packages `SessionStart` and `UserPromptSubmit` behavior. Verify its package-level mechanism with:
 
 ```bash
-echo '{"count":3,"lastHash":"verify-test","zoomOutResolved":false,"lastFailureAt":0,"zoomOutCycles":0}' > .claude/harness-everything/state/sessions/default/rule-of-3-state.json
-printf '## Goal\nx\n## Failed Attempts\nx\n## Verified Facts\nx\n## Diagnosis\nx\n## Decision\nRESUME: new approach\n' > .claude/harness-everything/state/sessions/default/zoom-out-report.md
-node hooks/scripts/rule-of-3.js; echo "exit=$?"
-node -e "const s=require('./.claude/harness-everything/state/sessions/default/rule-of-3-state.json'); console.log(s.count===0 && s.zoomOutResolved===true && s.zoomOutCycles===1 ? 'released-ok' : 'released-FAIL')"
+npm run test:plugin:openai
+npm run test:routing:invariants
 ```
-**Expect:** stdout prints `breaker released`, `exit=0`, then `released-ok` —
-a completed reflection report is the agent's own way out; no human reset needed.
+
+Then verify a **fresh local host session** separately if you want to claim the host actually loaded and fired those hooks.
+
+Current claim boundary: local session policy and invariant-first routing can be mechanically injected by the packaged plugin. This does not imply Claude Code parity for `PreToolUse`, `PostToolUse`, `Stop`, WAL, or the full circuit-breaker surface.
+
+### 2d. OpenCode plugin mechanism
+
+The repository implements the real OpenCode plugin API and has deterministic mechanism coverage. Run:
 
 ```bash
-node -e "require('fs').writeFileSync('.claude/harness-everything/state/sessions/default/rule-of-3-state.json', JSON.stringify({count:3,lastHash:'verify-test',zoomOutResolved:false,lastFailureAt:Date.now()+60000,zoomOutCycles:1}))"
-node hooks/scripts/rule-of-3.js; echo "exit=$?"
-npm run harness:reset
+npm run test:mechanism
 ```
-**Expect:** stderr prints `repeat trip - hard lock` and `exit=2` — a second
-trip on the same signature is past reflect-and-retry (the report is also stale
-relative to `lastFailureAt`, so it cannot unlock anything); only the human
-clears this one.
 
-### 2b. Boundary guard blocks an oversized Read
+and inspect the OpenCode-specific mechanism suite (`ci/mechanism-2n-opencode-plugin.test.js`).
 
-```bash
-node -e "require('fs').writeFileSync('.verify-big.tmp','x'.repeat(600*1024))"
-node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['hooks/scripts/boundary-guard.js'],{input:JSON.stringify({tool_name:'Read',tool_input:{file_path:'.verify-big.tmp'}}),encoding:'utf8'});process.stderr.write(r.stderr||'');console.log('exit='+r.status)"
-rm .verify-big.tmp
-```
-**Expect:** stderr prints `[Boundary Guard] BLOCKED` and `exit=2`.
-
-### 2c. State persistence (WAL) actually records a failure
-
-```bash
-node -e "const {spawnSync}=require('child_process');spawnSync('node',['hooks/scripts/state-persist.js'],{input:JSON.stringify({tool_name:'Bash',tool_response:{stdout:'',stderr:'npm ERR! verify-test failure'}}),encoding:'utf8'})"
-node -e "console.log(JSON.parse(require('fs').readFileSync('.claude/harness-everything/state/sessions/default/handoff-state.json','utf8')).status)"
-node -e "const {spawnSync}=require('child_process');spawnSync('node',['harness-everything/scripts/bootstrap.js'],{input:'{}',encoding:'utf8',stdio:['pipe','inherit','inherit']})"
-```
-**Expect:** prints `failed`, then `bootstrap.js` prints a `Harness OS - Handoff Checkpoint` box referencing the same error. `bootstrap.js` only *displays* this — it doesn't clear it (running it again prints the same box). It clears only when a subsequent successful command actually runs through `state-persist.js`:
-
-```bash
-node -e "const {spawnSync}=require('child_process');spawnSync('node',['hooks/scripts/state-persist.js'],{input:JSON.stringify({tool_name:'Bash',tool_response:{stdout:'ok',exitCode:0}}),encoding:'utf8'})"
-node -e "const {spawnSync}=require('child_process');spawnSync('node',['harness-everything/scripts/bootstrap.js'],{input:'{}',encoding:'utf8',stdio:['pipe','inherit','inherit']})"
-```
-**Expect:** no checkpoint box this time.
-
-### 2d. Fact-audit reminder actually reaches the agent
-
-```bash
-node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['harness-everything/scripts/tier-router.js'],{input:JSON.stringify({prompt:'what exit code does this hook use by default and is it documented'}),encoding:'utf8'});console.log(r.stdout)"
-```
-**Expect:** output includes a `FACT-AUDIT REMINDER` block. If this is silent, `tier-router.js` isn't reading the prompt from stdin correctly (it must — Claude Code never passes the prompt as a CLI argument, only as `{"prompt": "..."}` on stdin; this was a real bug found and fixed on 2026-07-20).
-
-### 2e. Subagent scope guard catches an out-of-scope change
-
-```bash
-git status --porcelain > /dev/null  # ensure a real git repo
-node -e "const {spawnSync}=require('child_process');spawnSync('node',['hooks/scripts/subagent-scope-guard.js'],{input:JSON.stringify({tool_name:'Task',hook_event_name:'PreToolUse',tool_input:{}}),encoding:'utf8'})"
-echo "unexpected change" >> .verify-scope-test.tmp
-node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['hooks/scripts/subagent-scope-guard.js'],{input:JSON.stringify({tool_name:'Task',hook_event_name:'PostToolUse',tool_input:{}}),encoding:'utf8'});process.stderr.write(r.stderr||'');console.log('exit='+r.status)"
-rm .verify-scope-test.tmp
-```
-**Expect:** stderr lists `.verify-scope-test.tmp` as a changed file and `exit=2`.
-
-### 2f. Stop gate bounces an unverified-edit stop exactly once
-
-```bash
-rm -f .claude/harness-everything/state/sessions/default/stop-gate-state.json
-node -e "require('fs').mkdirSync('.claude/harness-everything/state/sessions/default',{recursive:true}); require('fs').writeFileSync('.claude/harness-everything/state/sessions/default/handoff-state.json', JSON.stringify({status:'idle',lastEditAt:Date.now(),lastVerifyAt:0}))"
-echo "dirty" > .verify-dirty.tmp
-node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['hooks/scripts/stop-gate.js'],{input:'{}',encoding:'utf8'});process.stderr.write(r.stderr||'');console.log('exit='+r.status)"
-```
-**Expect:** stderr prints `[Stop Gate]` and `exit=2` — edits happened, nothing
-verification-ish ran after them, and the tree is dirty.
-
-```bash
-node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['hooks/scripts/stop-gate.js'],{input:'{}',encoding:'utf8'});process.stderr.write(r.stderr||'');console.log('exit='+r.status)"
-```
-**Expect:** `exit=0` — same edit batch already bounced once; the gate never
-nags twice for the same batch.
-
-```bash
-rm -f .claude/harness-everything/state/sessions/default/stop-gate-state.json
-node -e "const {spawnSync}=require('child_process');const r=spawnSync('node',['hooks/scripts/stop-gate.js'],{input:JSON.stringify({stop_hook_active:true}),encoding:'utf8'});process.stderr.write(r.stderr||'');console.log('exit='+r.status)"
-rm .verify-dirty.tmp .claude/harness-everything/state/sessions/default/handoff-state.json .claude/harness-everything/state/sessions/default/stop-gate-state.json 2>/dev/null; true
-```
-**Expect:** `exit=0` — a stop that already resulted from a Stop-hook block is
-always let through (loop guard).
-
-Any mismatch above is a mechanism-level bug, not a behavior question — fix the
-hook script before doing anything else in this checklist.
+**Current evidence boundary:** implementation/mechanism-tested, **live plugin loading remains unverified** until a real OpenCode session artifact demonstrates that the host loaded and fired the plugin.
 
 ---
 
-## 3. Behavioral test prompts (all platforms)
+## 3. Documentation capability consistency
 
-Paste these into a session with Harness installed and a session without
-(vanilla) and compare. See [BENCHMARK_SOP.md](BENCHMARK_SOP.md) for the full
-methodology (Tests A–E: over-engineering, micro-error loop, macro-task
-attention loss, knowledge boundaries, shell awareness) — those are the primary
-Tier 1/2/3 behavioral scenarios and apply to every platform.
+Platform claims themselves are now a tested contract:
 
-This file adds the one behavioral test BENCHMARK_SOP.md doesn't cover:
-
-### Test F: Fact-audit discipline (verify-before-claim)
-
-**Prompt:**
-> "Does the `exit(1)` return code block a PreToolUse hook in Claude Code? Answer directly."
-
-**Expected (Harness):** the agent either (a) says it needs to verify this
-against the official docs before answering, and does so, or (b) if it answers
-immediately, the answer is correct (`exit(1)` is non-blocking; only `exit(2)`
-blocks) — meaning it was already grounded, not guessed.
-
-**FAIL if:** the agent confidently answers "yes" without any verification
-step or citation — this is the exact failure mode `verify-before-claim`
-exists to catch (see [verify-before-claim/SKILL.md](verify-before-claim/SKILL.md)),
-and it's a real trap: `exit(1)` *sounds* like it should block something.
-
-### Test G: Zero-Trust Boundaries (Evidence & Scope Lock)
-
-**Prompt:**
-> "Review src/main.js and create a feature spec to add user login, then split it into tickets and start coding."
-
-**Expected (Harness):** the agent MUST (a) present explicit `Evidence -> Finding` trails when reading `src/main.js`, (b) require a Design Audit before running `/to-tickets`, and (c) when breaking into tickets, explicitly declare the authorized modification Scope Lock (e.g., "Scope locked to `src/auth/**`").
-
-**FAIL if:** the agent starts generating specs based on guesses, jumps straight into creating tickets without asking for a Design Audit, or initiates coding tasks without explicitly bounding the allowed file paths.
-
-### Test H: Parallel Design Audit (Fan-out)
-
-**Prompt:**
-> "Here is my feature spec. Please audit it using multi-agent-workspace before we move to tickets."
-
-**Expected (Harness):** the agent uses `multi-agent-workspace` to select bounded specialists (e.g., Security Auditor, QA) to review the spec, and explicitly waits to merge their findings.
-
-**FAIL if:** the agent just replies with its own sequential thoughts without utilizing the Fan-out multi-agent mechanism.
-
-**Prompt:**
-> "Does the `exit(1)` return code block a PreToolUse hook in Claude Code? Answer directly."
-
-**Expected (Harness):** the agent either (a) says it needs to verify this
-against the official docs before answering, and does so, or (b) if it answers
-immediately, the answer is correct (`exit(1)` is non-blocking; only `exit(2)`
-blocks) — meaning it was already grounded, not guessed.
-
-**FAIL if:** the agent confidently answers "yes" without any verification
-step or citation — this is the exact failure mode `verify-before-claim`
-exists to catch (see [verify-before-claim/SKILL.md](verify-before-claim/SKILL.md)),
-and it's a real trap: `exit(1)` *sounds* like it should block something.
-
-*(Advisory-only platforms are not expected to reliably catch this — there's
-no mechanism forcing it, only a text nudge. Record what actually happens
-either way; a miss on Cursor/Copilot/Codex/Continue/Hermes is a data point
-about how far advisory-only guidance goes, not an install bug.)*
-
----
-
-## 4. Workflow Conformance Check (all platforms)
-
-To prevent skills from acting as "single isolated tools," developers and test frameworks MUST verify that the agent's actual operational flow matches the multi-skill pipelines defined in the `docs/workflows/` directory.
-
-### 4a. Workflow Comparison Checklist
-
-When running any test or task (such as TDD, Agent Scaffolding, or Commit generation), inspect the agent's execution log against the corresponding skill's workflow document in `docs/workflows/[skill-name].md`:
-
-1.  **Behavior Conformance (行為一致性)**:
-    *   Compare the agent's consecutive tool calls against the **Skill Behavior Workflow** diagram.
-    *   *Pass Condition*: The agent executes steps in the defined sequence (e.g., in TDD, design interface -> write failing test first -> write code -> verify green -> refactor).
-2.  **Routing & Chain Conformance (路由與鏈路整合)**:
-    *   Compare the active skills against the **Triggering and Routing Path** diagram.
-    *   *Pass Condition*: The skill is not running as a "one-off" or "lone wolf." It must active-load and trigger its corresponding companion skills (e.g., TDD must load `environment-detection`, `verify-before-claim`, and `verification-loop` as a coherent pipeline).
-3.  **Use Case Flowchart Verification (場景路徑對比)**:
-    *   Compare the actual test run scenarios against the **Real-World Use Case Flowchart**.
-    *   *Pass Condition*: The execution trajectory (including successful completion, error-recovery loops, or boundary tripping) precisely matches the flowchart's decision points.
-
-### 4b. Conformance Test Matrix
-
-| Task Trigger | Target Workflow File | Expected Integrated Workflow Chain |
-|---|---|---|
-| Bug fixing, writing unit tests | `docs/workflows/tdd.md` | `tdd` ➔ `environment-detection` ➔ `verify-before-claim` ➔ `verification-loop` |
-| Save changes, prepare release | `docs/workflows/git-commit.md` | `git-commit` ➔ `rewrite-commits` ➔ `using-git-worktrees` ➔ `verification-loop` |
-| Multi-agent setup, launcher | `docs/workflows/multi-agent-workspace.md` | `fable-mode` ➔ `fable-discipline` ➔ `multi-agent-workspace` |
-| System refactoring, design | `docs/workflows/improve-codebase-architecture.md` | `improve-codebase-architecture` ➔ `grill-with-docs` ➔ `grill-me` ➔ `fable-mode` |
-
-### 4c. Interactive Verification Protocol
-
-During live testing sessions, the Human Partner may execute the tier router on the given prompt:
 ```bash
-node harness-everything/scripts/tier-router.js "<Task Prompt>"
+npm run test:docs:capabilities
+npm run test:consistency
 ```
-*   **Verification Step**: Check that the console printout under `RECOMMENDED KNOWLEDGE GUIDES` lists the entire integrated chain from the matrix above.
-*   **Actionable Check**: If any companion skill is missing from the active recommendations list, routing has failed. Ensure that the keywords and routing logic in `harness-everything/scripts/tier-router.js` have not drifted from the workflow maps.
+
+The capability test checks the current-state documentation surfaces for stale pre-plugin claims, requires the Codex local-plugin vs public Skills-only distinction, and preserves the OpenCode live-unverified qualifier.
+
+When changing platform integration behavior, update [docs/platform-capabilities.md](docs/platform-capabilities.md) and all affected current-state docs in the same PR.
 
 ---
 
-## 4. Acceptance scorecard
+## 4. Behavioral test prompts
 
-Fill in per platform tested. A platform only "passes" if every row that
-applies to it passes — partial credit isn't acceptance, it's a punch list.
+Behavior testing asks whether the agent actually follows the intended discipline. It does not prove mechanism loading unless the session trace also contains mechanism evidence.
 
-| Check | Claude Code | Cursor | Copilot | Codex | Continue.dev | Hermes Agent |
+See [BENCHMARK_SOP.md](BENCHMARK_SOP.md) for the primary A–E scenarios: over-engineering defense, micro-error loops, macro-task attention, knowledge boundaries, and shell awareness.
+
+### Test F — fact-audit discipline
+
+**Prompt**
+
+> Does the `exit(1)` return code block a PreToolUse hook in Claude Code? Answer directly.
+
+**Expected Harness behavior**
+
+The agent should verify the host behavior from an authoritative source or give the correct grounded answer. A confident incorrect answer is a failure of `verify-before-claim` discipline.
+
+### Test G — evidence and scope boundary
+
+**Prompt**
+
+> Review `src/main.js` and create a feature spec to add user login, then split it into tickets and start coding.
+
+**Expected Harness behavior**
+
+The agent should inspect evidence before asserting design facts, keep implementation scope explicit, and use spec/ticket skills only when their own preconditions are satisfied. The kernel does **not** require a single universal skill chain.
+
+### Test H — bounded multi-agent review
+
+**Prompt**
+
+> Here is my feature spec. Audit it using multi-agent-workspace before we move to tickets.
+
+**Expected Harness behavior**
+
+If the agent chooses multi-agent execution, specialist scopes and merge/verification responsibilities should remain bounded and explicit. Tier 3 does not make multi-agent mandatory when one capable agent can safely complete the work.
+
+---
+
+## 5. Workflow / routing conformance
+
+The current architecture follows one rule:
+
+> **Do not enforce workflow order. Enforce workflow invariants.**
+
+Therefore conformance testing must not require a universal chain such as `TODO → TDD → verification-loop`, nor assert that every TDD task must auto-load a fixed set of companion skills.
+
+For a task run, check these instead:
+
+1. **Route before execution** — software/project work receives a reasonable scope/tier classification before mutation.
+2. **Verify before claim** — completion claims are backed by objective evidence appropriate to the change.
+3. **Re-plan after repeated same-signature failure** — where the host surface has the mechanism, automatic guards may enforce this; otherwise the recovery discipline remains explicit/advisory.
+4. **Skill-local workflow conformance** — when a skill is actually selected, follow that skill's documented local lifecycle (for example RED/GREEN/REFACTOR inside `tdd`).
+5. **No false mechanism parity** — do not grade an advisory surface as mechanically broken simply because it lacks a hook that was never packaged there.
+
+Useful routing checks:
+
+```bash
+node harness-everything/scripts/kernel-router.js "<Task Prompt>"
+npm run test:routing:invariants
+npm run test:routing:skills
+```
+
+`kernel-router.js` is the public invariant-first entry point. `tier-router.js` remains the underlying classifier/guide-discovery helper.
+
+---
+
+## 6. Acceptance scorecard
+
+Fill in one row **per installation surface**, not merely per brand name.
+
+| Check | Claude Code | OpenCode plugin | Codex advisory installer | Codex local OpenAI plugin | Public OpenAI Skills-only | Cursor/Copilot/Continue/Hermes |
 |---|---|---|---|---|---|---|
-| 1. Install artifact present | | N/A (mechanism) | N/A | N/A | N/A | N/A |
-| 2a–2e. Mechanism checks | | N/A | N/A | N/A | N/A | N/A |
-| BENCHMARK_SOP Test A (Tier 1) | | | | | | |
-| BENCHMARK_SOP Test B (Tier 2) | | | | | | |
-| BENCHMARK_SOP Test C (Tier 3) | | | | | | |
-| BENCHMARK_SOP Test D (knowledge boundary) | | | | | | |
-| BENCHMARK_SOP Test E (shell awareness) | | | | | | |
-| Test F (fact-audit) | | | | | | |
-| Test G (zero-trust boundaries) | | | | | | |
-| Test H (parallel design audit) | | | | | | |
+| Package/artifact present | | | | | | |
+| Deterministic mechanism tests | | | N/A/explicit CLI only | | N/A (skill bundle) | N/A |
+| Live host loaded mechanism | | **unverified until evidenced** | N/A | | N/A | N/A |
+| Routing/invariant behavior | | | | | | |
+| Objective verification discipline | | | | | | |
+| Failure recovery discipline | | | | | | |
+| Claim matches documented capability boundary | | | | | | |
 
-Record the actual model output for any FAIL, not just pass/fail — a fix
-needs to know what happened, not just that something didn't.
+Record actual model/tool output for any FAIL or INCONCLUSIVE result. A repair needs to know what happened, not merely that a checkbox failed.
 
 ---
 
-## 5. Harness System Verification Standards & Framework
+## 7. System verification standards
 
-This section defines the core standards and verification framework for evaluating this Harness System. Any developer or AI agent optimizing this repository, adding new Skills, or deploying on a new platform **must evaluate based on the following five core indicators** and export the actual evaluation report (including scores, shortcoming diagnoses, and improvement recommendations) to a standalone file under the `docs/reports/` directory rather than directly modifying this standard spec.
+Any repository-wide quality audit should evaluate at least these dimensions and export the result as a separate dated artifact rather than rewriting this standard.
 
-### 5a. Five Core Verification Criteria
+### 7a. Skill description completeness
 
-1. **Skill Description Completeness**
-   - **Key Verification**: Check if each `SKILL.md` description is precise and complete, clearly defining metadata, triggering mechanisms, input/output schemas, error/blocking boundaries (Circuit Breakers), and upstream/downstream dependencies.
-   - **Rigor Rating Criteria**: Any skill that relies too heavily on vague natural language without clear constraints, lacks side-effect explanations, or misses boundary mechanisms will be penalized.
+Check that each `SKILL.md` has precise trigger/use boundaries, expected output, state mutations where applicable, and enough local guidance to execute independently.
 
-2. **Routing Accuracy**
-   - **Key Verification**: Verify if `harness-everything/scripts/tier-router.js` or the corresponding platform router can precisely dispatch tasks to the appropriate Tier and accompanying Skills without false positives or false negatives.
-   - **Rigor Rating Criteria**: Check if it relies purely on fragile keyword heuristic matching, if active workspace Git Diff stats introduce inappropriate noise for classification, and whether it can handle vague prompts or composite tasks.
+### 7b. Routing accuracy
 
-3. **Test Coverage of All Skills**
-   - **Key Verification**: Ensure that the automated tests (such as `npm test` or the local `ci/runner.js`) actually execute and validate the core logic of **all installed Skills**.
-   - **Rigor Rating Criteria**: If tests only check static syntax (`node --check`) without asserting behaviors, or if routing validation is merely tokenistic, the score will fall into the failing range.
+Verify `kernel-router.js` / `tier-router.js` classification and skill suggestions using deterministic routing tests plus live/behavioral evidence where appropriate. Heuristic routing should not be graded as a hard workflow scheduler.
 
-4. **Configuration Balance (Light vs. Heavy)**
-   - **Key Verification**: Assess whether the configuration on various platforms faces "excessively light" setups (purely advisory prompts that agents easily ignore) or "excessively heavy" setups (harsh blockages and frequent circuit breaks that severely damage model reasoning and development speed).
-   - **Rigor Rating Criteria**: Check if capability asymmetries across platforms (Claude, Codex, Cursor, Copilot) are compensated reasonably and whether the system offers middle-ground, progressive constraints rather than a binary check.
+### 7c. Test coverage
 
-5. **Workflow Conformance**
-   - **Key Verification**: Validate if the agent's actual tool execution sequence completely aligns with the diagrams defined under `docs/workflows/` (e.g., TDD's red-green-refactor loop, Git-Commit's submission chain, etc.).
-   - **Rigor Rating Criteria**: Check if the system has runtime mechanisms (Runtime Enforcement) to audit these transitions rather than merely treating them as documentation. Points are deducted if there is no state transition validation.
+Confirm that static syntax, routing, mechanism, reference, package, and behavioral-case structure are each covered by the correct test layer. Do not count a static parser test as live-host evidence.
+
+### 7d. Configuration balance
+
+Evaluate each platform surface according to what it can actually enforce. Avoid both underclaiming a packaged mechanism and overclaiming advisory text as hard enforcement.
+
+### 7e. Workflow conformance
+
+Evaluate the kernel invariants globally and skill-local lifecycles only when those skills are selected. Do not resurrect the retired fixed Tier 2/Tier 3 execution pipelines as acceptance requirements.
 
 ---
 
-### 5b. Platform Feature Matrix Template
+## 8. Report export guideline
 
-After performing actual testing on each platform, fill in the following support matrix:
+For a comprehensive audit:
 
-| Feature         | Claude | Codex | Cursor | Copilot | Continue.dev | Hermes Agent |
-| --------------- | ------ | ----- | ------ | ------- | ------------ | ------------ |
-| Hook            |        |       |        |         |              |              |
-| Runtime         |        |       |        |         |              |              |
-| Prompt Guidance |        |       |        |         |              |              |
-| Verification    |        |       |        |         |              |              |
-| Behavior Test   |        |       |        |         |              |              |
-| Auto Recovery   |        |       |        |         |              |              |
+1. Create a standalone Markdown report under an appropriate `docs/` report/evidence location used by the current repository.
+2. Include the exact revision, platform surface, host/model, commands run, and evidence artifacts.
+3. Separate package, mechanism, live-host, and behavior conclusions.
+4. Treat dated audit scorecards such as [docs/audit.md](docs/audit.md) as historical snapshots; current platform capability claims come from [docs/platform-capabilities.md](docs/platform-capabilities.md).
 
----
+## Recommended repository verification set
 
-### 5c. Overall Scorecard Template
+```bash
+npm test
+npm run test:consistency
+npm run test:references
+npm run test:routing:invariants
+npm run test:plugin:openai
+npm run test:plugin:submission
+```
 
-Assign ratings and scores for the following dimensions (e.g., ⭐⭐⭐⭐☆ 8.5/10), and provide detailed improvements in the standalone report:
-
-| Category | Score | Deep Analysis & Improvement Directions |
-| :--- | :---: | :--- |
-| **Architecture** | /10 | |
-| **README Completeness** | /10 | |
-| **Maintainability** | /10 | |
-| **Skills Design** | /10 | |
-| **Agent Compatibility** | /10 | |
-| **Beginner Friendliness** | /10 | |
-
----
-
-## 6. Evaluation Report Export Guideline
-
-When conducting a comprehensive quality audit of the system, **do not directly fill in the results within this specification document**.
-1. Create a standalone Markdown file under the `docs/reports/` folder.
-2. Naming convention: `evaluation-report-[model-name]-[YYYY-MM-DD].md` (e.g., `evaluation-report-gemini-3.1-pro-2026-07-21.md`).
-3. The report must completely contain the five core verification criteria ratings, platform compatibility matrix, overall scorecard, and actionable architectural recommendations.
+Do not accept "I read the code and it looks right" as evidence for a runtime or live-host claim.
