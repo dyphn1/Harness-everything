@@ -208,10 +208,10 @@ function getInstalledSkills(workspaceRoot, userHome, opts = {}) {
     { home: path.join(workspaceRoot, '.codex'), scope: 'local (Codex)' },
     { home: path.join(workspaceRoot, '.continue'), scope: 'local (Continue)' },
     { home: path.join(workspaceRoot, '.hermes'), scope: 'local (Hermes)' },
-    { home: path.join(userHome, '.claude'), scope: 'global (Claude)' },
-    { home: globalAgentsDir, scope: 'global (shared Agent Skills)' },
-    { home: path.join(userHome, '.continue'), scope: 'global (Continue)' },
-    { home: path.join(userHome, '.hermes'), scope: 'global (Hermes)' },
+    { home: path.join(userHome, '.claude'), scope: 'global' },
+    { home: globalAgentsDir, scope: 'global' },
+    { home: path.join(userHome, '.continue'), scope: 'global' },
+    { home: path.join(userHome, '.hermes'), scope: 'global' },
   ];
   for (const { home, scope } of manifestHomes) {
     results.push(...manifestTrackedSkills(manifest.getManifestPath(home), scope));
@@ -227,9 +227,9 @@ function getInstalledSkills(workspaceRoot, userHome, opts = {}) {
     { path: path.join(workspaceRoot, '.codex', 'skills'), scope: 'local (Codex legacy .codex path)', manifestPath: manifest.getManifestPath(path.join(workspaceRoot, '.codex')) },
     { path: path.join(workspaceRoot, '.agents', 'skills'), scope: 'local (shared Agent Skills)', manifestPath: manifest.getManifestPath(path.join(workspaceRoot, '.codex')) },
     { path: path.join(workspaceRoot, '.continue', 'skills'), scope: 'local (Continue)', manifestPath: manifest.getManifestPath(path.join(workspaceRoot, '.continue')) },
-    { path: path.join(globalAgentsDir, 'skills'), scope: 'global (shared Agent Skills)', manifestPath: manifest.getManifestPath(globalAgentsDir) },
-    { path: path.join(userHome, '.continue', 'skills'), scope: 'global (Continue)', manifestPath: manifest.getManifestPath(path.join(userHome, '.continue')) },
-    { path: path.join(userHome, '.hermes', 'skills'), scope: 'global (Hermes)', manifestPath: manifest.getManifestPath(path.join(userHome, '.hermes')) },
+    { path: path.join(globalAgentsDir, 'skills'), scope: 'global', manifestPath: manifest.getManifestPath(globalAgentsDir) },
+    { path: path.join(userHome, '.continue', 'skills'), scope: 'global', manifestPath: manifest.getManifestPath(path.join(userHome, '.continue')) },
+    { path: path.join(userHome, '.hermes', 'skills'), scope: 'global', manifestPath: manifest.getManifestPath(path.join(userHome, '.hermes')) },
   ];
 
   const known = new Set(results.flatMap(r => r.canonicalPath ? [r.dirPath, r.canonicalPath] : [r.dirPath]));
