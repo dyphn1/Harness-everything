@@ -43,7 +43,9 @@ const CURRENT_SURFACES = [
   'VERIFICATION.md',
   'docs/architecture.md',
   'docs/mechanism-first-skill-mesh.md',
+  'docs/philosophy.md',
   'docs/platform-capabilities.md',
+  'docs/reflection.md',
   'docs/routing.md',
   'docs/troubleshooting.md',
   'docs/openai-plugin.md',
@@ -105,6 +107,18 @@ requireText('VERIFICATION.md', [
   { name: 'Codex local plugin verification surface', re: /Codex \/ local OpenAI plugin/i },
   { name: 'public Skills-only verification boundary', re: /Public OpenAI Skills-only/i },
   { name: 'live-host evidence layer', re: /Live-host evidence/i },
+]);
+
+requireText('docs/philosophy.md', [
+  { name: 'platform-specific mechanism boundary', re: /platform-specific|installation surface/i },
+  { name: 'canonical capability link', re: /platform-capabilities\.md/ },
+  { name: 'automatic mechanism qualifier', re: /On surfaces that package|On integration surfaces that expose/i },
+]);
+
+requireText('docs/reflection.md', [
+  { name: 'runtime state vs durable learning distinction', re: /Runtime session state[\s\S]{0,500}Durable workspace learning/i },
+  { name: 'Codex local plugin WAL boundary', re: /Codex \/ local OpenAI plugin/i },
+  { name: 'public Skills-only hook exclusion', re: /public OpenAI \*\*Skills-only\*\* artifact has no local `\.codex-plugin` lifecycle hooks/i },
 ]);
 
 requireText('docs/routing.md', [
