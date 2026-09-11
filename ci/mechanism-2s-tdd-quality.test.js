@@ -180,11 +180,17 @@ fs.writeFileSync(inputPath, JSON.stringify(validEvidence()), 'utf8');
 const cli = spawnSync(process.execPath, [path.join(helper.root, 'tdd', 'scripts', 'quality-gate.js'), inputPath, '--output', outputPath], { encoding: 'utf8' });
 helper.check('2s. CLI emits per-requirement human scores and structured JSON', cli.status === 0 && /TDD Quality Gate: PASS/.test(cli.stdout) && /REQ-001 \[integration\]: PASS 100%/.test(cli.stdout) && fs.existsSync(outputPath));
 const failInputPath = path.join(tmp, 'non-conformant.json');
+const failOutputPath = path.join(tmp, 'non-conformant-report.json');
 const failEvidence = validEvidence();
 failEvidence.requirements[0].sourceConformance = 'NON_CONFORMANT';
 fs.writeFileSync(failInputPath, JSON.stringify(failEvidence), 'utf8');
-const failedCli = spawnSync(process.execPath, [path.join(helper.root, 'tdd', 'scripts', 'quality-gate.js'), failInputPath], { encoding: 'utf8' });
-helper.check('2s. CLI returns exit 1 and JSON for a valid FAIL report', failedCli.status === 1 && /TDD Quality Gate: FAIL/.test(failedCli.stdout) && /"result": "FAIL"/.test(failedCli.stdout));
+const failedCli = spawnSync(process.execPath, [path.join(helper.root, 'tdd', 'scripts', 'quality-gate.js'), failInputPath, '--output', failOutputPath], { encoding: 'utf8' });
+let failedReport = null;
+try { failedReport = JSON.parse(fs.readFileSync(failOutputPath, 'utf8')); } catch (e) { /* asserted below */ }
+helper.check(
+  '2s. CLI returns exit 1 and writes structured JSON for a valid FAIL report',
+  failedCli.status === 1 && /TDD Quality Gate: FAIL/.test(failedCli.stdout) && failedReport && failedReport.result === 'FAIL'
+);
 const malformedPath = path.join(tmp, 'malformed.json');
 fs.writeFileSync(malformedPath, '{', 'utf8');
 const malformedCli = spawnSync(process.execPath, [path.join(helper.root, 'tdd', 'scripts', 'quality-gate.js'), malformedPath], { encoding: 'utf8' });
