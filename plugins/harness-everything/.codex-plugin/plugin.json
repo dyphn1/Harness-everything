@@ -15,7 +15,7 @@
   "interface": {
     "displayName": "Harness Everything",
     "shortDescription": "Route, verify, and recover coding work",
-    "longDescription": "Routes software work, preserves verification and failure-escalation invariants, and lets the agent choose the smallest useful skill set without forcing a rigid workflow.",
+    "longDescription": "Harness Everything adds reusable software-engineering workflows for task routing, test-driven development, verification, security review, documentation, failure recovery, and related coding-agent work. It keeps a small set of cross-cutting invariants while allowing the agent to choose, combine, reorder, or skip domain skills as appropriate.",
     "developerName": "Miya Daniel",
     "category": "Developer Tools",
     "capabilities": ["Interactive", "Read", "Write"],
