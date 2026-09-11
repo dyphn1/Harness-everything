@@ -1,6 +1,6 @@
 # Harness Architecture
 
-This document describes the internal architecture, lifecycle, and integration boundaries of the Harness behavior layer.
+This document describes the internal architecture, lifecycle, and integration boundaries of the Harness behavior layer. The current cross-platform claim boundary is centralized in [platform-capabilities.md](platform-capabilities.md); host sections here must remain consistent with it.
 
 ---
 
@@ -100,9 +100,9 @@ The installer configures native lifecycle hooks and project skills.
 
 The prompt hook is intentionally lightweight: it does **not** prescribe TODO/TDD/Fable order. It gives the model the rails and lets the model orchestrate itself.
 
-### 2. opencode — plugin enforcement, live loading still unverified
+### 2. OpenCode — plugin enforcement, live loading still unverified
 
-`opencode-plugin/` maps supported enforcement behavior to opencode's plugin API. Source-level/mechanism tests exist, but live plugin loading remains tracked separately; do not overclaim it.
+`opencode-plugin/` maps supported enforcement behavior to OpenCode's real plugin API. Source-level/mechanism tests exist, but live plugin loading remains unverified; do not promote source/mechanism evidence into a live-host enforcement claim until a real OpenCode session artifact exists.
 
 ### 3. Cursor — advisory
 
@@ -112,11 +112,16 @@ The current installer uses `.cursorrules`. Without a Harness runtime hook adapte
 
 The current installer uses `.github/copilot-instructions.md`; same advisory limitation as Cursor.
 
-### 5. Codex — current installer advisory; Plugin adapter tracked in #72
+### 5. Codex — local OpenAI plugin plus advisory installer path
 
-The existing installer writes `AGENTS.md`, so that installed path remains advisory today. Current OpenAI tooling supports richer Plugin/hook mechanisms, but Harness should only claim hard behavior after the `.codex-plugin` adapter is packaged and verified. Issue #72 tracks that work.
+Codex has two distinct Harness integration surfaces and documentation must keep them separate:
 
-The invariant-first architecture is specifically designed to map cleanly onto a prompt hook: establish the kernel contract before host skill routing, then allow the model to select peer/domain skills freely.
+- The general `--codex` installer path writes Codex-facing skills/instructions such as `AGENTS.md`; where the host only consumes those instructions, that path is advisory.
+- The packaged local OpenAI plugin under `plugins/harness-everything/` includes `.codex-plugin/plugin.json`, all 26 canonical skills, and local `SessionStart` / `UserPromptSubmit` hooks. Those hooks mechanically inject the compact session policy and run the invariant-first kernel before peer/domain skill selection.
+
+The local plugin therefore has **mechanical invariant enforcement**, but it is intentionally narrower than Claude Code's full hook surface. Do not infer `PreToolUse`, `PostToolUse`, `Stop`, circuit-breaker, or full Claude parity unless those mechanisms are separately packaged and verified for the OpenAI host.
+
+The public OpenAI **Skills-only** submission is narrower again: it ships reusable skills and referenced assets, not the local `.codex-plugin` lifecycle hooks. Public reviewer/listing claims must describe skill/workflow behavior rather than local hook enforcement. See [openai-plugin.md](openai-plugin.md).
 
 ### 6. Continue.dev — advisory
 
@@ -167,7 +172,8 @@ Static configuration is not enough to claim that a host behaves correctly. Valid
 
 - syntax/reference/manifest checks prove package integrity,
 - `ci/invariant-routing.test.js` proves the kernel contract and documentation invariants,
-- mechanism tests prove supported hook behavior,
-- live host sessions are required before claiming platform-level hard-enforcement parity.
+- `ci/doc-capability-consistency.test.js` prevents current platform capability claims from drifting apart,
+- mechanism tests prove supported hook/plugin behavior,
+- live host sessions are required before promoting a source/mechanism-tested adapter to live host enforcement.
 
 The architecture and its Mermaid diagrams are part of that contract. Runtime changes that alter orchestration must update these documents in the same change.
