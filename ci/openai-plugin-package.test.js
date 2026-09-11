@@ -87,7 +87,7 @@ function route(prompt) {
   });
 }
 
-const prompt = 'Implement a new API behavior with tests and update multiple files.';
+const prompt = 'Fix a bug in an API endpoint and add a unit test.';
 const first = route(prompt);
 const second = route(prompt);
 assert.strictEqual(first.status, 0, first.stderr);
