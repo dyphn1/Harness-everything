@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "modes": {
+    "haiku": {
+      "role": "bulk mechanical / format conversion",
+      "agent": "fable-worker-haiku",
+      "aliases": ["haiku"]
+    },
+    "sonnet": {
+      "role": "non-trivial implementation / research synthesis / bounded stage reasoning",
+      "agent": "fable-worker-sonnet",
+      "aliases": ["sonnet", "sonnect"]
+    },
+    "opus": {
+      "role": "macro orchestration / cross-stage synthesis / high-stakes architecture and final decision",
+      "agent": "fable-orchestrator",
+      "aliases": ["opus"]
+    }
+  },
+  "fallbacks": {
+    "inline": {
+      "status": "fallback",
+      "effectiveModel": "host-model",
+      "reason": "requested model is unavailable; run inline on the declared host model"
+    },
+    "stop": {
+      "status": "blocked",
+      "effectiveModel": null,
+      "reason": "requested model is unavailable and inline fallback was not authorized"
+    }
+  }
+}

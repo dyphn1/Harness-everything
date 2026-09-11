@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dyphn1/Harness-everything/tdd/schemas/quality-report.schema.json",
+  "title": "Harness TDD quality report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "requirements", "dimensions", "mandatoryGates", "skippedTests", "naDeclarations", "scoring", "score", "result", "errors"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "requirements": { "type": "array", "items": { "$ref": "#/$defs/requirementResult" } },
+    "dimensions": { "$ref": "#/$defs/dimensions" },
+    "mandatoryGates": { "$ref": "#/$defs/gates" },
+    "skippedTests": { "type": "array" },
+    "naDeclarations": { "type": "array" },
+    "scoring": { "$ref": "#/$defs/scoring" },
+    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "result": { "enum": ["PASS", "FAIL"] },
+    "errors": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "count": {
+      "type": "object",
+      "required": ["applicable", "passed", "required", "percentage"],
+      "properties": {
+        "applicable": { "type": "boolean" },
+        "passed": { "type": "integer", "minimum": 0 },
+        "required": { "type": "integer", "minimum": 0 },
+        "percentage": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "required": ["positiveParameters", "negativeParameters", "inputCompleteness", "outputCompleteness", "errorHandling", "unexpectedInput", "determinism", "sourceTraceability"],
+      "properties": {
+        "positiveParameters": { "$ref": "#/$defs/count" },
+        "negativeParameters": { "$ref": "#/$defs/count" },
+        "inputCompleteness": { "$ref": "#/$defs/count" },
+        "outputCompleteness": { "$ref": "#/$defs/count" },
+        "errorHandling": { "$ref": "#/$defs/count" },
+        "unexpectedInput": { "$ref": "#/$defs/count" },
+        "determinism": { "$ref": "#/$defs/count" },
+        "sourceTraceability": { "$ref": "#/$defs/count" }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicableDimensionsExecuted", "sourceTraceabilityComplete", "noSourceMismatch", "noSourceConflict", "allRequiredInputOutputValidated", "allDeclaredErrorPathsTested", "integrationRepeated", "deterministicOutputs", "noSkippedOrFlakyTests", "qualityScoreComplete"],
+      "properties": {
+        "applicableDimensionsExecuted": { "type": "boolean" },
+        "sourceTraceabilityComplete": { "type": "boolean" },
+        "noSourceMismatch": { "type": "boolean" },
+        "noSourceConflict": { "type": "boolean" },
+        "allRequiredInputOutputValidated": { "type": "boolean" },
+        "allDeclaredErrorPathsTested": { "type": "boolean" },
+        "integrationRepeated": { "type": "boolean" },
+        "deterministicOutputs": { "type": "boolean" },
+        "noSkippedOrFlakyTests": { "type": "boolean" },
+        "qualityScoreComplete": { "type": "boolean" }
+      }
+    },
+    "scoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["weights", "method", "weightedPoints", "applicableWeight", "requiredScore"],
+      "properties": {
+        "weights": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["positiveParameters", "negativeParameters", "inputCompleteness", "outputCompleteness", "errorHandling", "unexpectedInput", "determinism", "sourceTraceability"],
+          "properties": {
+            "positiveParameters": { "const": 0.15 },
+            "negativeParameters": { "const": 0.15 },
+            "inputCompleteness": { "const": 0.15 },
+            "outputCompleteness": { "const": 0.15 },
+            "errorHandling": { "const": 0.15 },
+            "unexpectedInput": { "const": 0.10 },
+            "determinism": { "const": 0.10 },
+            "sourceTraceability": { "const": 0.05 }
+          }
+        },
+        "method": { "const": "weightedPoints / applicableWeight" },
+        "weightedPoints": { "type": "number", "minimum": 0, "maximum": 100 },
+        "applicableWeight": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "requiredScore": { "const": 100 }
+      }
+    },
+    "requirementResult": {
+      "type": "object",
+      "required": ["requirementId", "testProfile", "source", "additionalSources", "sourceConformance", "sourceValidity", "dimensions", "skippedTests", "flakyTests", "naDeclarations", "mandatoryGates", "scoring", "score", "result"],
+      "properties": {
+        "requirementId": { "type": ["string", "null"] },
+        "testProfile": { "enum": ["unit", "integration", null] },
+        "source": { "type": "object" },
+        "additionalSources": { "type": "array" },
+        "sourceConformance": { "enum": ["PASS", "NON_CONFORMANT", null] },
+        "sourceValidity": { "enum": ["VALID", "SOURCE_DEFECT", "SOURCE_CONFLICT", null] },
+        "sourceNotes": { "type": "string" },
+        "dimensions": { "$ref": "#/$defs/dimensions" },
+        "skippedTests": { "type": "array" },
+        "flakyTests": { "type": "array" },
+        "naDeclarations": { "type": "array" },
+        "mandatoryGates": { "$ref": "#/$defs/gates" },
+        "scoring": { "$ref": "#/$defs/scoring" },
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "result": { "enum": ["PASS", "FAIL"] }
+      }
+    }
+  }
+}

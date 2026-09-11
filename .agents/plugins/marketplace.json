@@ -1,0 +1,20 @@
+{
+  "name": "harness-everything-local",
+  "interface": {
+    "displayName": "Harness Everything Local"
+  },
+  "plugins": [
+    {
+      "name": "harness-everything",
+      "source": {
+        "source": "local",
+        "path": "./plugins/harness-everything"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

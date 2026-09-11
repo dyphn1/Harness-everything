@@ -1,0 +1,320 @@
+{
+  "_readme": "Data file for tier-router.js's keyword heuristic. Edit freely to tune routing - no code changes needed. Each guideGroups entry matches via 'keywords' (plain substring OR, case-insensitive) or 'regex' (JS RegExp source, tested with the 'i' flag); 'guides' is the exact text printed when it matches. Order of guideGroups is the print order. This file travels with tier-router.js on install/update since it lives in the same skill folder.",
+  "tiers": {
+    "tier3": [
+      "architecture",
+      "refactor",
+      "refactoring",
+      "rearchitect",
+      "decouple",
+      "new feature",
+      "build feature",
+      "create feature",
+      "implement feature",
+      "add feature",
+      "develop feature",
+      "feature implementation",
+      "deep analysis",
+      "system analysis",
+      "impact analysis",
+      "codebase analysis",
+      "implementation tickets",
+      "ticket breakdown",
+      "vertical slice",
+      "adr",
+      "prd",
+      "architectural decision",
+      "system design",
+      "subagent",
+      "sub-agent",
+      "multi-agent",
+      "fable",
+      "fable-mode",
+      "stage discipline",
+      "multi-stage",
+      "named workers",
+      "per-stage verification",
+      "架構",
+      "重構",
+      "深度重構",
+      "重寫",
+      "實作新功能",
+      "開發新功能",
+      "建立新功能",
+      "新增功能",
+      "建構新功能",
+      "新功能實作",
+      "新功能開發",
+      "新功能",
+      "深度分析",
+      "系統分析",
+      "架構分析",
+      "全盤分析",
+      "影響評估",
+      "深度評估",
+      "分析架構",
+      "調整 adr",
+      "修改 adr",
+      "新增 adr",
+      "架構決策",
+      "系統設計",
+      "設計文件",
+      "代碼重構",
+      "程式碼重構",
+      "架構重構",
+      "結構調整",
+      "元件解耦",
+      "模組解耦",
+      "子代理",
+      "多 agent",
+      "多代理",
+      "角色分工",
+      "系統架構師",
+      "挑戰者",
+      "verifier",
+      "qa 驗證",
+      "prd 驗證",
+      "球員兼裁判"
+    ],
+    "tier2": [
+      "test",
+      "api",
+      "integration",
+      "endpoint",
+      "bugfix",
+      "bug fix",
+      "unit test",
+      "測試",
+      "整合",
+      "端點",
+      "介面",
+      "單測",
+      "除錯",
+      "修復",
+      "fix bug",
+      "修復 bug",
+      "修正錯誤",
+      "解決問題",
+      "優化",
+      "optimize",
+      "improve",
+      "改善",
+      "升級",
+      "upgrade",
+      "更新",
+      "update",
+      "修改",
+      "modify",
+      "調整",
+      "adjust",
+      "feature"
+    ]
+  },
+  "guideGroups": [
+    {
+      "id": "tdd-test",
+      "keywords": [
+        "tdd", "test", "mock", "stub", "api", "endpoint", "integration", "debugging", "bug", "error", "fix", "lsp", "實作 lsp",
+        "測試", "單測", "模組測試", "端點", "介面", "除錯", "錯誤", "修復", "實作", "測試用例"
+      ],
+      "guides": [
+        "- tdd/SKILL.md (Test-Driven Development Red-Green-Refactor loop)",
+        "- tdd/guides/mocking.md (Mocking principles & isolation)",
+        "- tdd/guides/interface-design.md (Interface and contract design)",
+        "- tdd/guides/deep-modules.md (Testing deep nested modules)",
+        "- tdd/guides/tests.md (General test architecture)",
+        "- environment-detection/SKILL.md (Detect active shell/OS & preflight syntax before running commands)",
+        "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)",
+        "- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)"
+      ]
+    },
+    {
+      "id": "git-commit",
+      "keywords": [
+        "commit", "git", "save", "submodule", "pr", "pull request", "release", "quality gate", "ready to ship",
+        "commit message", "commit lint", "commit-lint", "angular-style", "提交", "版控", "合併", "分支", "發行", "規範", "提交訊息"
+      ],
+      "guides": [
+        "- git-commit/SKILL.md (Angular-style commit convention generation)",
+        "- git-commit/guides/ANGULAR_STYLE.md (Commit conventions reference)",
+        "- git-commit/guides/COMMIT_GENERATION.md (Commit generation patterns)",
+        "- git-commit/guides/LANGUAGE_DETECTION.md (Multi-language commits)",
+        "- git-commit/guides/MAIN_REPO.md (Commits in main repositories)",
+        "- git-commit/guides/SUBMODULES.md (Submodule commit handling)",
+        "- rewrite-commits/SKILL.md (Rewrite commit history safely to Angular style)",
+        "- using-git-worktrees/SKILL.md (Git Worktrees isolation for feature work, avoids workspace pollution)",
+        "- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)"
+      ]
+    },
+    {
+      "id": "docs",
+      "keywords": ["doc", "readme", "agents.md", "claude.md", "說明文件", "說明書", "專案說明", "文件記錄", "文件"],
+      "guides": [
+        "- repo-docs/SKILL.md (Automated README & AGENTS.md generation from project scans)",
+        "- repo-docs/templates/readme-template.md (Standard README template)",
+        "- repo-docs/templates/product-readme-template.md (Product README template)",
+        "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)"
+      ]
+    },
+    {
+      "id": "agent",
+      "keywords": [
+        "agent", "multi-agent", "launcher", "subagent", "sub-agent", "subAgent", "delegate", "orchestrate", "specialist", "stage discipline", "context discipline", "per-stage", "named workers", "stage contract", "stage contracts",
+        "workspace scaffolding", "scaffold workspace", "division of labor", "fable", "fable mode", "fable-mode", "fable-discipline", "fable-haiku", "fable-sonnet", "fable-opus", "macro", "orchestrator",
+        "harness-everything", "harness system", "harness-skills", "using-superpowers",
+        "代理", "多代理", "啟動器", "子代理", "委派", "指派", "分工", "協調", "任務分配", "規劃", "智慧體", "角色"
+      ],
+      "guides": [
+        "- fable-mode/SKILL.md (v3 staged execution, model selection, delegation, and verification)",
+        "- fable-discipline/SKILL.md (Shadow guard preventing context bloat and managing token limits)",
+        "- multi-agent-workspace/SKILL.md (Verified workspace scaffolding and bounded agency specialist selection)",
+        "- repo-docs/templates/agents-template.md (Agent onboarding instructions template)",
+        "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)"
+      ]
+    },
+    {
+      "id": "fable-model-mode",
+      "regex": "\\bfable(?:[- ]mode)?\\s+(?:on|with)\\s+(?:haiku|sonnet|sonnect|opus)\\b|\\bfable-(?:haiku|sonnet|opus)\\b",
+      "guides": [
+        "- fable-mode/model-matrix.json (Machine-readable Haiku/Sonnet/Opus roles and fallback policies)",
+        "- fable-mode/scripts/model-selector.js (Deterministic model selection and execution audit record)",
+        "- fable-mode/fable-haiku/SKILL.md (Haiku mode entrypoint)",
+        "- fable-mode/fable-sonnet/SKILL.md (Sonnet mode entrypoint)",
+        "- fable-mode/fable-opus/SKILL.md (Opus mode entrypoint)"
+      ]
+    },
+    {
+      "id": "arch-refactor",
+      "keywords": [
+        "refactor", "architecture", "structure", "couple", "seam", "adr", "design plan", "decision", "grill", "deepening", "deep module", "decoupling",
+        "srp", "single responsibility", "split object", "split class", "split function", "extract class", "extract method", "god class", "monolithic file", "decouple component",
+        "grill-me", "grill-with-docs", "重構", "架構", "結構", "解耦", "設計", "決策", "辯論", "質疑", "深模組化", "深模組", "重寫", "解耦設計", "結構優化",
+        "單一職責", "拆分物件", "拆分類別", "拆分函數", "拆分功能", "提取物件", "提取介面", "職責分離", "物件拆分", "檔案過大", "函式拆分"
+      ],
+      "guides": [
+        "- improve-codebase-architecture/SKILL.md (Codebase deepening, SRP object splitting & decoupling)",
+        "- improve-codebase-architecture/guides/DEEPENING.md (Deepening opportunities & depth rules)",
+        "- improve-codebase-architecture/guides/INTERFACE-DESIGN.md (Interface design principles)",
+        "- improve-codebase-architecture/guides/LANGUAGE.md (Language-specific patterns)",
+        "- improve-codebase-architecture/guides/HTML-REPORT.md (Mermaid dependency report generation)",
+        "- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)",
+        "- grill-me/SKILL.md (Challenger interview to stress-test your architecture plan)",
+        "- fable-mode/SKILL.md (v3 staged execution, model selection, delegation, and verification)"
+      ]
+    },
+    {
+      "id": "spec",
+      "keywords": [
+        "spec", "prd", "product requirement", "user stories", "problem statement", "write up the requirements",
+        "turn this into a spec", "cli reference", "cli help", "api reference", "design doc", "dev doc",
+        "file format", "schema doc", "document this schema", "document the endpoint", "document the command",
+        "規格", "規格書", "需求文件", "產品需求", "用戶故事", "需求規格", "設計文件", "檔案格式", "命令列說明"
+      ],
+      "guides": [
+        "- to-spec/SKILL.md (Synthesize the conversation into whichever doc shape fits - feature spec, CLI/API reference, schema doc, or dev doc - and publish it. Explicit-invoke, advisory only, never a gate; run grill-with-docs/grill-me first if decisions aren't settled yet)"
+      ]
+    },
+    {
+      "id": "tickets",
+      "keywords": [
+        "break this into tickets", "break into tickets", "vertical slice", "tracer bullet", "blocking edges",
+        "cut tickets", "ticket breakdown", "split into tickets", "implementation tickets", "publish tickets", "approved spec",
+        "拆票", "拆解任務", "拆成票", "任務拆解", "垂直切分", "阻塞關係"
+      ],
+      "guides": [
+        "- to-tickets/SKILL.md (Break a to-spec feature spec, plan, or conversation into tracer-bullet tickets with blocking edges. Explicit-invoke, reuses to-spec's own project-docs gate, never a second setup interview)"
+      ]
+    },
+    {
+      "id": "env",
+      "keywords": [
+        "shell", "terminal", "powershell", "bash", "cmd", "git bash", "git-bash", "env", "preflight", "command", "run", "worktree", "git worktree",
+        "終端機", "命令", "環境", "指令", "執行", "環境偵測", "環境認知", "os", "作業系統", "工作區"
+      ],
+      "guides": [
+        "- environment-detection/SKILL.md (Detect active shell/OS & preflight syntax before running commands)",
+        "- using-git-worktrees/SKILL.md (Git Worktrees isolation for feature work, avoids workspace pollution)"
+      ]
+    },
+    {
+      "id": "verify",
+      "keywords": [
+        "verify", "fact", "audit", "estimate", "benchmark", "performance", "speed", "scale", "token", "security", "secret", "owasp", "stride", "leak", "vulnerability", "score", "scorecard", "session log", "execution log", "agent performance",
+        "驗證", "查證", "核對", "效能", "評測", "性能", "估計", "下一步建議", "測試", "正確度", "得分", "自我檢討", "token 消耗", "安全", "資安", "金鑰", "洩漏", "漏洞", "弱點", "安全審查"
+      ],
+      "guides": [
+        "- security-review/SKILL.md (Security review, STRIDE threat modeling & secrets/SQLi audit)",
+        "- security-review/guides/STRIDE-THREAT-MODEL.md (STRIDE threat modeling & abuse case guidelines)",
+        "- security-review/guides/OWASP-PATTERNS.md (OWASP Top 10 hardening patterns)",
+        "- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)",
+        "- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)",
+        "- eval-harness/SKILL.md (AI performance evaluation metrics & anti-loop metrics)"
+      ]
+    },
+    {
+      "id": "cognitive-os",
+      "keywords": [
+        "cognitive os", "cognitive loop", "install cognitive", "evidence assertion", "state handoff"
+      ],
+      "guides": [
+        "- install-cognitive-os/SKILL.md (Foundational Discover > Think > Try > Summarize > Record loop)"
+      ]
+    },
+    {
+      "id": "skill-creator",
+      "keywords": [
+        "skill", "skill.md", "new skill", "write a skill", "self-evolve", "self-evolution", "generated", "manifest.json", "installer.js",
+        "自我進化", "自動產生", "動態索引", "註冊表", "進化"
+      ],
+      "guides": [
+        "- skill-creator/SKILL.md (Authoring, auditing, and testing workflow for SKILL.md files, incl. dynamic skill generation)",
+        "- skill-style/SKILL.md (Terse Skill Contract format spec that skill-creator builds on)",
+        "- self-evolve/SKILL.md (Self-evolution & memory compression loop)"
+      ]
+    },
+    {
+      "id": "find-skills",
+      "keywords": [
+        "find a skill", "is there a skill", "search for a skill", "install a skill", "find skills",
+        "skills.sh", "npx skills",
+        "找技能", "有沒有技能", "找找看有沒有", "安裝技能", "搜尋技能"
+      ],
+      "guides": [
+        "- find-skills/SKILL.md (Check static/generated skill coverage and \"npx skills list\" for anything already fetched first, then search skills.sh/npx skills and, only with explicit approval, install via npx skills add)"
+      ]
+    },
+    {
+      "id": "security",
+      "keywords": [
+        "security", "auth", "login", "vulnerability", "leak", "secrets", "password", "api key",
+        "安全性", "驗證", "登入", "漏洞", "洩漏", "機密", "金鑰", "防護"
+      ],
+      "guides": [
+        "- security-review/SKILL.md (Comprehensive security and vulnerability checklist)"
+      ]
+    },
+    {
+      "id": "stuck",
+      "keywords": [
+        "stuck", "fail", "loop", "error repeats", "infinite loop", "cease fire", "rule-of-3", "rule of 3",
+        "卡住", "失敗", "重複", "報錯", "死循環", "無限循環", "停下來", "退一步", "卡"
+      ],
+      "guides": [
+        "- zoom-out/SKILL.md (Reflect-first circuit breaker to rebuild full picture when stuck)"
+      ]
+    }
+  ],
+  "factAudit": {
+    "externalClaim": [
+      "does it support", "does support", "how does", "what's the default", "what is the default",
+      "exit code", "schema", "sdk", " api", "hook", "payload", "pricing", "rate limit",
+      "latest version", "current version", "deprecated", "breaking change", "changelog",
+      "spec", "documentation", "according to", "endpoint", "config option", "flag"
+    ],
+    "estimate": [
+      "benchmark", "performance", "how fast", "how long will", "how much memory",
+      "how many requests", "estimate", "roughly how", "big o", "complexity",
+      "will this scale", "throughput", "latency"
+    ]
+  }
+}
