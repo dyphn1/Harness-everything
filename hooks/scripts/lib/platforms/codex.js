@@ -1,13 +1,10 @@
 const path = require('path');
 const fs = require('fs');
 
-// Codex CLI's real project-scoped home is `.codex/` (it reads `.codex/skills/`
-// for project skills and `.codex/config.toml` for CLI/sandbox config, walking
-// up to the `.git` root exactly like AGENTS.md - see
-// https://developers.openai.com/codex/config-advanced and
-// https://www.agensi.io/learn/codex-cli-agents-md-complete-guide). Skills
-// stay at that native `.codex/skills/` location; only bookkeeping that never
-// had a home (runtime state, install manifest) converges into
+// Codex discovers project Agent Skills from repo-scoped `.agents/skills/`
+// (walking from cwd toward the repository root). Keep project skills at that
+// native shared location so every installer mode, including `--copy`, remains
+// discoverable. Codex-specific runtime/install bookkeeping still lives under
 // `.codex/harness-everything/`.
 module.exports = {
   name: 'codex',
@@ -19,11 +16,11 @@ module.exports = {
     return path.join(this.getHarnessDir(workspaceRoot), 'state');
   },
   getSkillsDir(workspaceRoot) {
-    return path.join(workspaceRoot, '.codex', 'skills');
+    return path.join(workspaceRoot, '.agents', 'skills');
   },
   getIgnorePatterns(workspaceRoot) {
     const patterns = ['.codex/harness-everything/'];
-    const skillsDir = path.join(workspaceRoot, '.codex', 'skills');
+    const skillsDir = path.join(workspaceRoot, '.agents', 'skills');
     if (fs.existsSync(skillsDir)) {
       try {
         const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
@@ -33,8 +30,8 @@ module.exports = {
             if (fs.existsSync(skillMdPath)) {
               const content = fs.readFileSync(skillMdPath, 'utf8');
               const authorLine = content.split('\n').find(line => line.trim().startsWith('author:'));
-              if (authorLine && (authorLine.includes('Miya Daniel'))) {
-                patterns.push(`.codex/skills/${entry.name}/`);
+              if (authorLine && authorLine.includes('Miya Daniel')) {
+                patterns.push(`.agents/skills/${entry.name}/`);
               }
             }
           }
@@ -47,7 +44,10 @@ module.exports = {
   },
   isMatch(pattern, trimmedLine) {
     if (trimmedLine === '.codex/' || trimmedLine === '.codex') {
-      return true;
+      return pattern === '.codex/harness-everything/';
+    }
+    if (trimmedLine === '.agents/' || trimmedLine === '.agents') {
+      return pattern.startsWith('.agents/skills/');
     }
     if (pattern === '.codex/harness-everything/') {
       return trimmedLine === '.codex/harness-everything' ||
@@ -72,8 +72,8 @@ module.exports = {
     } else {
       const codexDir = path.join(workspaceRoot, '.codex');
       return {
-        path: path.join(codexDir, 'skills'),
-        label: '.codex/skills/',
+        path: path.join(workspaceRoot, '.agents', 'skills'),
+        label: '.agents/skills/',
         manifestPath: manifest.getManifestPath(codexDir),
       };
     }
