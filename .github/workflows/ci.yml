@@ -99,6 +99,8 @@ jobs:
         run: npm run test:collision
       - name: OpenAI plugin package is in sync and runnable
         run: npm run test:plugin:openai
+      - name: OpenAI public submission artifacts are reproducible
+        run: npm run test:plugin:submission
 
   installer-e2e:
     strategy:
