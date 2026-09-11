@@ -1,57 +1,85 @@
 const path = require('path');
 const fs = require('fs');
 
+function appendHarnessSkillPatterns(patterns, skillsDir, prefix) {
+  if (!fs.existsSync(skillsDir)) return;
+  try {
+    for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const skillMdPath = path.join(skillsDir, entry.name, 'SKILL.md');
+      if (!fs.existsSync(skillMdPath)) continue;
+      const content = fs.readFileSync(skillMdPath, 'utf8');
+      const authorLine = content.split('\n').find(line => line.trim().startsWith('author:'));
+      if (authorLine && authorLine.includes('Miya Daniel')) patterns.push(`${prefix}/${entry.name}/`);
+    }
+  } catch (e) {
+    // Best effort only; ignore-pattern generation must not break installation.
+  }
+}
+
 module.exports = {
   name: 'hermes',
   label: 'Hermes Agent',
+  getHarnessDir(workspaceRoot) {
+    return path.join(workspaceRoot, '.hermes', 'harness-everything');
+  },
   getStateDir(workspaceRoot) {
     return path.join(workspaceRoot, '.hermes', 'harness-state');
   },
+  getSkillsDir(workspaceRoot) {
+    // Hermes discovers trusted project skills from `.agents/skills/` as well
+    // as `.hermes/skills/`. Use the shared Agent Skills location locally so
+    // explicit `--copy` and canonical auto mode are both discoverable.
+    return path.join(workspaceRoot, '.agents', 'skills');
+  },
   getIgnorePatterns(workspaceRoot) {
     const patterns = [];
-    if (fs.existsSync(path.join(workspaceRoot, '.hermes', 'harness-state'))) {
-      patterns.push('.hermes/harness-state/');
-    }
+    if (fs.existsSync(path.join(workspaceRoot, '.hermes', 'harness-state'))) patterns.push('.hermes/harness-state/');
+    if (fs.existsSync(path.join(workspaceRoot, '.hermes', 'harness-everything'))) patterns.push('.hermes/harness-everything/');
+    appendHarnessSkillPatterns(patterns, path.join(workspaceRoot, '.agents', 'skills'), '.agents/skills');
     return patterns;
   },
   isMatch(pattern, trimmedLine) {
-    if (pattern === '.hermes/harness-state/') {
-      return trimmedLine === '.hermes/' || 
-             trimmedLine === '.hermes' || 
-             trimmedLine === '.hermes/harness-state' ||
-             trimmedLine === '.hermes/harness-state/';
+    if (pattern === '.hermes/harness-state/' || pattern === '.hermes/harness-everything/') {
+      return trimmedLine === '.hermes/' ||
+             trimmedLine === '.hermes' ||
+             trimmedLine === pattern.slice(0, -1) ||
+             trimmedLine === pattern;
     }
+    if ((trimmedLine === '.agents/' || trimmedLine === '.agents') && pattern.startsWith('.agents/skills/')) return true;
     return trimmedLine === pattern || trimmedLine === pattern.slice(0, -1);
   },
   isInstalled(workspaceRoot, userHome, isGlobal) {
-    if (isGlobal) {
-      return false;
-    }
+    if (isGlobal) return fs.existsSync(path.join(userHome, '.hermes', 'skills'));
     return fs.existsSync(path.join(workspaceRoot, '.hermes.md'));
   },
   getSkillsTarget({ workspaceRoot, userHome, isGlobal, manifest }) {
     if (isGlobal) {
-      const globalAgentsDir = path.join(userHome, '.agents');
+      const hermesDir = path.join(userHome, '.hermes');
       return {
-        path: path.join(globalAgentsDir, 'skills'),
-        label: '~/.agents/skills/',
-        manifestPath: manifest.getManifestPath(globalAgentsDir),
+        path: path.join(hermesDir, 'skills'),
+        label: '~/.hermes/skills/',
+        manifestPath: manifest.getManifestPath(hermesDir),
       };
     }
-    return null;
+    const hermesDir = path.join(workspaceRoot, '.hermes');
+    return {
+      path: path.join(workspaceRoot, '.agents', 'skills'),
+      label: '.agents/skills/',
+      manifestPath: manifest.getManifestPath(hermesDir),
+    };
   },
   install({ isGlobal, targetWorkspaceRoot, advisory }) {
     if (!isGlobal) {
       const targetFile = path.join(targetWorkspaceRoot, '.hermes.md');
       advisory.injectAdvisoryText(targetFile, '# .hermes.md', '.hermes.md');
     } else {
-      console.log(`  ℹ️  Hermes Agent has no documented global instructions file (it reads .hermes.md from the current project directory only) - skipping global install for --hermes.`);
+      console.log('  ℹ️  Hermes global skills install to ~/.hermes/skills/. Project advisory context remains project-scoped via .hermes.md.');
     }
   },
-  uninstall({ removeLocal, removeGlobal, workspaceRoot, userHome }) {
+  uninstall({ removeLocal, removeGlobal, workspaceRoot, userHome, cleanEmptyDirs }) {
     const advisory = require('../../../../scripts/lib/advisory-text');
-    if (removeLocal) {
-      advisory.removeAdvisoryText(path.join(workspaceRoot, '.hermes.md'));
-    }
+    if (removeLocal) advisory.removeAdvisoryText(path.join(workspaceRoot, '.hermes.md'));
+    if (removeGlobal && typeof cleanEmptyDirs === 'function') cleanEmptyDirs(path.join(userHome, '.hermes', 'skills'), [userHome]);
   }
 };
