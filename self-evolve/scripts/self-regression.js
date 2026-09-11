@@ -75,7 +75,10 @@ const nextCheck = spawnSync('node', [cliPath, 'next', 'add a new login endpoint 
 if (nextCheck.status !== 0 || !nextCheck.stdout.toString().includes('RECOMMENDED TIER')) {
   console.error('  FAIL `harness next` did not produce a routing recommendation.');
   hasErrors = true;
-} else console.log('  PASS `harness next` produced a routing recommendation.');
+} else if (!nextCheck.stdout.toString().includes('REQUIRED HARNESS INVARIANTS')) {
+  console.error('  FAIL `harness next` did not establish the invariant-first kernel contract.');
+  hasErrors = true;
+} else console.log('  PASS `harness next` produced routing + invariant contract.');
 const verifyCheck = spawnSync('node', [cliPath, 'verify'], {
   cwd: projectRoot,
   env: { ...process.env, HARNESS_SKIP_PROJECT_CHECKS: '1' },
@@ -89,6 +92,7 @@ if (verifyCheck.status !== 0) {
 console.log('\n[Phase 2] Routing Verification Check...');
 runNode('routing matrix', path.join(projectRoot, 'ci', 'runner.js'));
 runNode('skill route coverage', path.join(projectRoot, 'ci', 'skill-routing-check.js'));
+runNode('invariant-first routing contract', path.join(projectRoot, 'ci', 'invariant-routing.test.js'));
 
 // 3. Static integrity gates; behavioral evals are validated, not executed.
 console.log('\n[Phase 3] Skill Reference and Behavioral Case Checks...');
