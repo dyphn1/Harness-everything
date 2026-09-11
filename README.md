@@ -75,12 +75,14 @@ The general installer only writes to your workspace (or, with `--global`, your h
 | File / Directory | Purpose |
 |---|---|
 | `.claude/settings.json` (merged) + `.claude/skills/` + `.claude/agents/` | Claude Code lifecycle hooks, project skills, and named Fable agents |
-| `.cursorrules` | Cursor advisory rules |
-| `.github/copilot-instructions.md` | Copilot Chat advisory instructions |
-| `AGENTS.md` | Codex advisory instructions for the general installer path |
-| `.continue/rules/harness.md` | Continue.dev advisory rules |
-| `.hermes.md` | Hermes Agent advisory context |
-| `.claude/harness-everything/` (or the per-platform equivalent) | Harness installer/runtime state owned by that integration |
+| `.cursorrules` + `.cursor/skills/` | Cursor advisory rules and project skills |
+| `.github/copilot-instructions.md` + `.github/skills/` | Copilot Chat advisory instructions and project skills |
+| `AGENTS.md` + `.agents/skills/` | Codex advisory instructions plus repo-scoped Agent Skills; Hermes can also consume trusted project skills from `.agents/skills/` |
+| `.continue/rules/harness.md` + `.continue/skills/` | Continue.dev advisory rule and project skills |
+| `.hermes.md` | Hermes Agent project advisory context |
+| `.claude/harness-everything/` (or the per-platform equivalent) | Harness installer/runtime bookkeeping owned by that integration |
+
+For `--global`, the installer uses each host's supported user-level skill location rather than assuming one shared directory works everywhere: shared Agent Skills remain under `~/.agents/skills/` where natively consumed, Continue uses `~/.continue/skills/`, Hermes uses `~/.hermes/skills/`, and Claude uses `~/.claude/skills/`.
 
 The repository also ships a separate local OpenAI/Codex plugin package under `plugins/harness-everything/` with marketplace metadata in `.agents/plugins/marketplace.json`. That package is not the same thing as the `--codex` advisory installer path. The public OpenAI Skills-only upload is narrower again; see [docs/openai-plugin.md](docs/openai-plugin.md).
 
@@ -158,15 +160,15 @@ The authoritative current matrix is [docs/platform-capabilities.md](docs/platfor
 
 | AI Agent Tool / Surface | Integration Method | Local Target Location | Enforcement claim |
 |---|---|---|---|
-| **Claude Code** | Native lifecycle hooks (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop`) | `.claude/settings.json` plus Claude skill/agent locations | **Hard** for the supported verified hook gates |
+| **Claude Code** | Native lifecycle hooks (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop`) | `.claude/settings.json`, `.claude/skills/`, `.claude/agents/` | **Hard** for the supported verified hook gates |
 | **OpenCode** | Native plugin module ([`opencode-plugin/index.mjs`](opencode-plugin/index.mjs)) | `.opencode/plugins/` | **Hard-capable, unverified live** — mechanism/source coverage exists; live host loading is not yet evidence-backed |
-| **Codex — general installer path** | Skills + `AGENTS.md` guidance | `AGENTS.md`, `.codex/skills/` and installer-owned state as applicable | **Advisory/instruction-oriented** where the host only consumes instructions |
+| **Codex — general installer path** | Skills + `AGENTS.md` guidance | `AGENTS.md` + repo-scoped `.agents/skills/` | **Advisory/instruction-oriented** where the host only consumes instructions |
 | **Codex / local OpenAI plugin** | `.codex-plugin` package with `SessionStart` + `UserPromptSubmit` hooks and 26 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanical invariant enforcement** for the packaged session/prompt hooks; not full Claude parity |
 | **Public OpenAI Skills-only plugin** | Public Skills-only bundle | Generated submission ZIP from `plugins/harness-everything/skills/` | **Skill/workflow behavior only**; no local `.codex-plugin` lifecycle hooks in the public artifact |
-| **Cursor** | Native Project Rules | `.cursorrules` | Advisory only |
-| **Copilot Chat** | Custom Instructions | `.github/copilot-instructions.md` | Advisory only |
-| **Continue.dev** | Native project rules (Markdown + YAML frontmatter) | `.continue/rules/harness.md` | Advisory only |
-| **Hermes Agent** | Auto-loaded project context | `.hermes.md` | Advisory only |
+| **Cursor** | Native Project Rules + project skills | `.cursorrules` + `.cursor/skills/` | Advisory only |
+| **Copilot Chat** | Custom Instructions + project skills | `.github/copilot-instructions.md` + `.github/skills/` | Advisory only |
+| **Continue.dev** | Native project rules + skills | `.continue/rules/harness.md` + `.continue/skills/`; global skills `~/.continue/skills/` | Advisory only |
+| **Hermes Agent** | Auto-loaded project context + skills | `.hermes.md` + trusted project `.agents/skills/`; global skills `~/.hermes/skills/` | Advisory only |
 
 For local OpenAI packaging, marketplace import, plugin tests, and the public Skills-only submission boundary, see [docs/openai-plugin.md](docs/openai-plugin.md).
 
@@ -262,7 +264,7 @@ Maintainers should follow [RELEASING.md](RELEASING.md) for tag-driven npm releas
 
 **If you are an agent asked to verify a Harness install, start at [VERIFICATION.md](VERIFICATION.md), not here.** It separates package/integrity checks, mechanism evidence, live-host evidence, and behavioral evidence so one kind of pass is not mistaken for another.
 
-`npm test` (`self-evolve/scripts/self-regression.js`) runs deterministic syntax, CLI, routing-matrix, positive skill-route coverage, **invariant-first routing regression**, reference, behavioral-case, Fable model-mode, and mechanism checks (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone). The suite checks real exit codes and stderr, not just "the code looks right." It runs in CI on every push and pull request (`.github/workflows/ci.yml`); live model evaluations remain explicitly on-demand.
+`npm test` (`self-evolve/scripts/self-regression.js`) runs deterministic syntax, CLI, routing-matrix, positive skill-route coverage, **invariant-first routing regression**, reference, behavioral-case, Fable model-mode, and mechanism checks (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone). The suite checks real exit codes and stderr, not just "the code looks right." It runs in CI on Ubuntu, Windows, and macOS for every push and pull request (`.github/workflows/ci.yml`); live model evaluations remain explicitly on-demand.
 
 For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Benchmark SOP](BENCHMARK_SOP.md) — standardized, reproducible scenarios:
 * **Test A:** Over-engineering defense (Tier 1 typo correction)
@@ -280,7 +282,7 @@ Mechanism tests prove individual packaged mechanisms; only real host/session evi
 
 ### Catalog hygiene
 
-`npm run test:consistency` keeps the distribution manifests, docs links, skill frontmatter, routing-eval coverage, and the cross-platform capability claims in lockstep with what is actually on disk; `npm run test:docs:capabilities` runs the platform-doc drift check directly. `npm run test:references` checks every executable/deep-dive path named by `SKILL.md`; `npm run test:release` compares release/catalog evidence; `npm run test:routing:invariants` guards the invariant-first architecture; and `harness verify-install` detects stale installed versions or file trees. `npm run test:collision` fails CI when two skills' descriptions overlap enough to confuse the router. The repository checks run on every push (`.github/workflows/ci.yml`).
+`npm run test:consistency` keeps the distribution manifests, docs links, skill frontmatter, routing-eval coverage, and the cross-platform capability claims in lockstep with what is actually on disk; `npm run test:docs:capabilities` runs the platform-doc drift check directly. `npm run test:references` checks every executable/deep-dive path named by `SKILL.md`; `npm run test:release` compares release/catalog evidence; `npm run test:routing:skills` recursively classifies nested skills and executes the real router for every directly-routable skill's positive cases; `npm run test:routing:invariants` guards the invariant-first architecture; and `harness verify-install` detects stale installed versions or file trees. The installer E2E gate performs install → verify-install → uninstall against seeded user-owned files on Ubuntu, Windows, and macOS so path and ownership symmetry regressions fail CI. `npm run test:collision` fails CI when two skills' descriptions overlap enough to confuse the router.
 
 ---
 
