@@ -1,99 +1,173 @@
 # Harness Architecture
 
-This document details the internal architecture, lifecycle, and integration touchpoints of the Harness behavior layer.
+This document describes the internal architecture, lifecycle, and integration boundaries of the Harness behavior layer.
 
 ---
 
 ## Architectural Overview
 
-Harness acts as a **system supervisor** wrapping around your AI development sessions. Instead of controlling the model's generation directly, it leverages native hook systems (like Claude Code's lifecycle hooks) and instruction files (like `.cursorrules` or `.github/copilot-instructions.md`) to inject contextual guardrails.
+Harness is a **system supervisor**, not a universal workflow engine. Skills remain independently useful, while runtime mechanisms establish a small cross-cutting contract around software work.
 
-At the skill layer, Harness is designed as a [mechanism-first skill mesh](mechanism-first-skill-mesh.md): each skill remains independently useful, while routers, gates, hooks, scripts, exit codes, and compact return values provide coordination at decision points.
+The architecture follows a mechanism-first skill mesh with a **minimal kernel**:
 
-The diagram below outlines the full lifecycle of a task under Harness:
+- classify scope before mutation,
+- require evidence before completion claims,
+- stop repeated same-signature micro-retries and re-plan,
+- leave domain skill selection, ordering, planning style, and delegation to the agent.
+
+> **Do not enforce workflow order. Enforce workflow invariants.**
+
+This is intentionally different from the older design where Tier 2 implied a fixed TDD/checklist pipeline and Tier 3 implied a mandatory Fable/multi-agent pipeline.
 
 ```mermaid
 flowchart TD
     subgraph User_Session [User Session]
-        U([User Request]) --> Boot[bootstrap.js: Session Start]
+        U([User Request]) --> Boot[bootstrap.js: Session Start / restore]
     end
 
-    subgraph OS_Kernel [Harness Engine]
-        Boot -->|Check Handoff Checkpoint| Preflight[preflight.js: Environment Audit]
-        Preflight --> Router{tier-router.js: Task Triage}
-        
-        Router -->|Tier 1: Trivial Task| T1[Direct Execution - No Plans]
-        Router -->|Tier 2: Standard Task| T2[tdd: Test-Driven Development]
-        Router -->|Tier 3: Macro Task| T3[fable-mode: Multi-Agent Spawn]
-        T2 & T3 --> TDW[todo-driven-workflow: Base Execution Checklist]
+    subgraph Kernel [Harness Kernel]
+        Boot --> Preflight[Environment / integration discovery]
+        Preflight --> KR[kernel-router.js]
+        KR --> TR[tier-router.js<br/>classifier + guide discovery]
+        TR --> Inv[Inject minimal invariants]
+        Inv --> Choice[Agent chooses useful skills / tactics]
     end
 
-    subgraph Defense_Safety [Circuit Breakers]
-        T1 & TDW --> Tools[Agent Tool Call]
-        Tools -->|PreToolUse| CG[context-compact.js: Bloat Warning]
-        Tools -->|PreToolUse| CB{rule-of-3.js: Circuit Breaker}
-        
-        CB -->|Fails 3x| ZO(zoom-out: Halt, Reflect & Fact-Check)
-        ZO -->|Fresh diagnosis: RESUME| Tools
-        CB -->|Succeeds| Done[Success / Finish]
+    subgraph Execution [Agent-Controlled Execution]
+        Choice --> Tools[Tool calls / edits / tests]
+        Tools --> Evidence{Evidence supports completion?}
+        Evidence -- Yes --> Done[Evidence-backed completion]
+        Evidence -- No --> Retry[Diagnose / iterate]
     end
 
-    subgraph Continuous_Learning [Continuous Learning]
-        ZO -->|Genuine human decision / 2nd trip| Human[Human Decision & Guidance]
-        Human --> SE[self-evolve: Deep Reflection]
-        Done -->|Complex Breakthrough| SE
-        SE --> RunSR[self-regression.js: CI Check]
-        RunSR -->|Pass 100%| Mem[(Long-term Memory / RULES.md)]
-        Mem -.->|Immunize| Preflight
+    subgraph Defense [Runtime Boundaries]
+        Retry --> CB{Same-signature failure x3?}
+        CB -- No --> Tools
+        CB -- Yes --> ZO[zoom-out / fresh diagnosis]
+        ZO --> Tools
     end
 
-    style OS_Kernel fill:#eceff1,stroke:#37474f,stroke-width:2px,color:#000000
-    style Defense_Safety fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000000
-    style Continuous_Learning fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px,color:#000000
+    subgraph Learning [Optional Learning / State]
+        Done --> Record[Record / self-evolve when useful]
+    end
+
+    style Kernel fill:#eceff1,stroke:#37474f,stroke-width:2px,color:#000000
+    style Defense fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000000
+    style Learning fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px,color:#000000
 ```
+
+### Router responsibilities
+
+`kernel-router.js` is the public runtime entry point. It delegates heuristic classification and dynamic guide/skill discovery to `tier-router.js`, then converts the result into the Harness contract:
+
+- recommended Tier + rationale,
+- required invariants,
+- advisory skill suggestions.
+
+The kernel deliberately suppresses the old fixed `BASE EXECUTION LOOP` wording so that a host selecting `tdd`, `security-review`, `repo-docs`, or another peer skill cannot accidentally replace or bypass the cross-cutting Harness contract.
+
+`harness-everything` remains the public/manual skill entry point for routing, debugging, and re-routing. `install-cognitive-os` remains the explanatory/manual entry point for the Discover → Think → Try → Summarize → Record policy. Automatic correctness must not depend on either one winning host peer-skill selection first.
 
 ---
 
-## Integration touchpoints
+## Integration Touchpoints
 
-Harness is designed to align with the unique capabilities of various AI IDEs and CLI tools — but those capabilities are not equivalent across platforms, and this repo does not pretend otherwise.
+Harness aligns to each host's real capabilities. Enforcement strength is platform-specific; shared skill text does not prove mechanism parity.
 
-**Self-healing:** integration touchpoints can drift — installed from one editor, opened in another. `harness-everything/scripts/self-heal.js` audits all six touchpoints below and re-runs the idempotent installer to backfill whatever is missing. On Claude Code, `bootstrap.js` performs the audit at SessionStart and reports missing touchpoints (repair is left to the model so an intentionally removed file isn't silently re-created every session); on hook-less platforms, the audit runs when `harness-everything` or `environment-detection`'s Discover phase loads. Only Claude Code has a hook system with exit-code-based blocking; every other platform below gets **advisory text only**, with the same protection level as the "Prompt-Only" column in the README's own comparison table. There is no `preflight.js` audit, no `Rule of 3` circuit breaker, and no WAL on those platforms — nothing runs the `.claude/harness-everything/state/*` runtime-state scripts unless Claude Code (or another hook-capable tool) is also driving the same repo.
+### Self-healing and placement
 
-**Placement rule:** a platform's own native file/folder (`.claude/settings.json`, `.cursorrules`, `.cursor/skills/`, …) is never moved — it lives exactly where that platform expects it. Anything Harness itself needs that has no native home converges into one exclusively-owned subfolder per platform: `<platform-dir>/harness-everything/`. Nothing else ever creates a directory literally named `harness-everything`, which is what lets the installer add or remove it as a unit — including on uninstall — without touching anything else already in that platform's directory (another tool's files, or skills the user installed by hand).
+`harness-everything/scripts/self-heal.js` audits supported integration touchpoints and can re-run the idempotent installer to repair missing pieces. If a user intentionally removed an integration, respect that choice.
 
-**Runtime state vs. installed skill content:** `<platform-dir>/harness-everything/` holds runtime state (pure runtime state: hook JSON, circuit-breaker counters, handoff/verification timestamps) kept apart in the `state/` subfolder. On the other hand, the actual installed skills go to each platform's native/expected skills directories (e.g., `.claude/skills/` for Claude, `.cursor/skills/` for Cursor, `.github/skills/` for Copilot, `.codex/skills/` for Codex, `.continue/skills/` for Continue, and `~/.agents/skills/` or `~/.claude/skills/` for Global scope) where they are dynamically discovered and processed. A `manifest.json` under `<platform-dir>/harness-everything/` (or global home) records exactly what the installer put where, per platform, so uninstall can match against the manifest files and perform precise cleanup without guessing. Both runtime state and skills directories are ignored via `.git/info/exclude` (local-only; the working tree's `.gitignore` is never modified), recorded by the installer at install time and removed by the uninstaller.
+A platform's native files stay where that platform expects them. Harness-owned runtime state converges under the platform's `harness-everything/` state directory, while skills remain in each platform's native skill location. `manifest.json` records installed artifacts so uninstall can remove only Harness-owned files.
 
-Claude's named Fable agents are copied to `.claude/agents/` (or `~/.claude/agents/` globally) so standalone installs expose the same agents as the plugin manifest. Agent files are tracked in the platform manifest; conflicting user-owned files are preserved and cause the model selector to report an explicit fallback.
+### Runtime state vs. skill content
 
-### 1. Claude Code (hook-enforced)
-Our installer configures native lifecycle hooks inside `.claude/settings.json`, and places project-level skills inside the native `.claude/skills/` directory where Claude Code natively auto-discovers and registers them.
-*   `SessionStart`: Runs `bootstrap.js` to restore previous handoffs, check environment variables, and initialize session state.
-*   `PreToolUse`: Triggers `rule-of-3.js`, `boundary-guard.js`, `depth-guard.js`, `context-compact.js`, and `subagent-scope-guard.js` to intercept tool invocations before they run, and can actually block one (`exit(2)`) — e.g. the Rule of 3 circuit breaker.
-*   `PostToolUse`: Records tool outcomes, updates the persistent transaction log (WAL) via `state-persist.js`, tracks repeat failures, and can only add advisory context back (the tool already ran; nothing here blocks it).
-*   `Stop`: Runs `stop-gate.js` — when a turn ends with uncommitted edits that were never followed by a successful verification command (test/build/lint), it bounces the stop back once per edit batch. This is the mechanical form of `verification-loop`'s pre-delivery gate; on every other platform that gate remains advisory prose.
+Runtime state includes hook metadata, circuit-breaker counters, handoff/verification timestamps, and WAL-style session state. Skill content is separate and independently discoverable. This separation lets a domain skill remain useful even when a host does not support Harness runtime hooks.
 
-### 2. Cursor (advisory only)
-The installer appends guidance to `.cursorrules`. Cursor has no hook/execution mechanism, so nothing in `.claude/harness-everything/state/` gets read or written by Cursor itself, and no tool call can be blocked — the model is simply asked (in the same file, every session) to self-regulate: discover the environment before acting, stop after 3 repeated failures instead of continuing to retry, and prefer small commits.
+---
 
-### 3. Copilot Chat (advisory only)
-Same mechanism and same limits as Cursor, via `.github/copilot-instructions.md`.
+## Host Adapters
 
-### 4. Codex (advisory only)
-Same mechanism and same limits again, via `AGENTS.md` — Codex's actual custom-instruction file, read automatically at session start (`.codex/config.toml` controls CLI/sandbox behavior, not prompt content, and was never a valid target for this).
+### 1. Claude Code — hook-enforced
 
-### 5. Continue.dev (advisory only)
-Continue's rules system reads individual Markdown files (with YAML frontmatter — `name`, `globs`, `alwaysApply`) from a `.continue/rules/` folder rather than one shared file, so the installer writes a dedicated `.continue/rules/harness.md` with `alwaysApply: true` instead of appending into an arbitrary pre-existing file. No hook/execution mechanism, same limits as Cursor. Global scope writes to `~/.continue/rules/harness.md`.
+The installer configures native lifecycle hooks and project skills.
 
-### 6. Hermes Agent (advisory only)
-[Hermes](https://hermes-agent.nousresearch.com/) (Nous Research) auto-injects project context into its system prompt from `.hermes.md`, `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` if present in the directory it's launched from (truncated at ~20k chars) — meaning a Codex or Cursor install already reaches Hermes for free. The installer still writes a dedicated `.hermes.md` for explicit coverage. No hook/execution mechanism. Project scope only: Hermes has no documented global project-instructions equivalent (its own settings live under `~/.hermes/`, which governs model/terminal/skills config, not per-project behavior text), so `--global --hermes` is a deliberate no-op rather than a guess.
+- `SessionStart`: `bootstrap.js` restores prior state and audits integrations.
+- `UserPromptSubmit`: `kernel-router.js` establishes routing + invariants before peer/domain skill execution.
+- `PreToolUse`: circuit breaker, boundary/depth/context guards, and subagent scope guards can block supported tool calls.
+- `PostToolUse`: records outcomes/state and tracks repeated failures.
+- `Stop`: `stop-gate.js` prevents an edit batch from being claimed complete without successful verification evidence.
+
+The prompt hook is intentionally lightweight: it does **not** prescribe TODO/TDD/Fable order. It gives the model the rails and lets the model orchestrate itself.
+
+### 2. opencode — plugin enforcement, live loading still unverified
+
+`opencode-plugin/` maps supported enforcement behavior to opencode's plugin API. Source-level/mechanism tests exist, but live plugin loading remains tracked separately; do not overclaim it.
+
+### 3. Cursor — advisory
+
+The current installer uses `.cursorrules`. Without a Harness runtime hook adapter, routing/verification/retry boundaries are self-directed guidance.
+
+### 4. Copilot Chat — advisory
+
+The current installer uses `.github/copilot-instructions.md`; same advisory limitation as Cursor.
+
+### 5. Codex — current installer advisory; Plugin adapter tracked in #72
+
+The existing installer writes `AGENTS.md`, so that installed path remains advisory today. Current OpenAI tooling supports richer Plugin/hook mechanisms, but Harness should only claim hard behavior after the `.codex-plugin` adapter is packaged and verified. Issue #72 tracks that work.
+
+The invariant-first architecture is specifically designed to map cleanly onto a prompt hook: establish the kernel contract before host skill routing, then allow the model to select peer/domain skills freely.
+
+### 6. Continue.dev — advisory
+
+The installer writes `.continue/rules/harness.md` with the platform's native rules format. No Harness hard-gate parity is claimed.
+
+### 7. Hermes Agent — advisory
+
+The installer writes `.hermes.md` for explicit project coverage. No hard-gate parity is claimed.
+
+---
+
+## Cognitive OS and Skill Mesh
+
+The Cognitive OS is a policy layer, not a parent skill that every domain skill must call.
+
+```mermaid
+flowchart LR
+    D[Discover] --> T[Think]
+    T --> Y[Try]
+    Y --> S[Summarize]
+    S --> R[Record]
+    S -- insufficient evidence --> T
+    Y -- same failure x3 --> Z[Zoom Out]
+    Z --> T
+```
+
+A domain skill may have its own lifecycle — for example RED/GREEN/REFACTOR inside `tdd` — without being forced into a global sequence. The only shared obligations are the kernel invariants.
+
+This separation solves the peer-skill routing problem: a strong host may correctly decide that a task primarily needs `tdd` or `security-review`; that choice is allowed. What it cannot silently erase is the routing/evidence/retry contract established by the runtime.
 
 ---
 
 ## Security Model & Data Locality
 
-Harness runs with a **zero-trust, fully local security model**:
+Harness runs with a local-first, zero-trust model:
 
-1. **No External APIs:** Harness does not send telemetry, code snippets, or configuration files to external servers. All processing is done locally via native Node.js scripts.
-2. **Credential Protection:** Harness never asks for or stores API keys or secrets. If any terminal command prompts for a password, Harness's rules immediately direct the model to halt and request manual entry by the human partner.
-3. **Execution Gating:** The hook scripts are written in standard CommonJS, ensuring they compile and run fast (<200ms) to prevent blocking terminal operations.
+1. **No Harness telemetry:** runtime scripts do not upload project code or state as a Harness service.
+2. **Credential protection:** scripts do not require storing user secrets; interactive credentials remain human-controlled.
+3. **Small hook surface:** hook scripts are local Node.js programs and should stay fast and auditable.
+4. **Explicit enforcement labels:** unsupported/advisory behavior must not be documented as hard enforcement.
+5. **Deterministic regression:** mechanism and routing behavior is tested with executable CI gates rather than inferred from documentation.
+
+---
+
+## Validation Boundary
+
+Static configuration is not enough to claim that a host behaves correctly. Validation is layered:
+
+- syntax/reference/manifest checks prove package integrity,
+- `ci/invariant-routing.test.js` proves the kernel contract and documentation invariants,
+- mechanism tests prove supported hook behavior,
+- live host sessions are required before claiming platform-level hard-enforcement parity.
+
+The architecture and its Mermaid diagrams are part of that contract. Runtime changes that alter orchestration must update these documents in the same change.
