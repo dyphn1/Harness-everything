@@ -62,6 +62,8 @@ const customSkill = write(
 
 const install = run(['install', '--all', '--copy', '-y']);
 check('install --all --copy succeeds', install.status === 0, `${install.stdout}\n${install.stderr}`);
+const verify = run(['verify-install']);
+check('verify-install succeeds after installation', verify.status === 0, `${verify.stdout}\n${verify.stderr}`);
 
 const targetChecks = [
   '.claude/skills/tdd/SKILL.md',
