@@ -91,17 +91,16 @@ Commands:
                      no flags and no interactive terminal available, it exits with an
                      error instead of silently doing nothing.
   self-regression    Run syntax and routing checks before committing changes (alias: test)
-  next "<prompt>"    Print the tier-router.js routing recommendation for a prompt.
-                     This is the mechanism hook/hookless platforms (Codex, Cursor,
-                     Copilot, Continue, Hermes) call explicitly at the start of a
-                     turn, since they have no hook to run it automatically.
+  next "<prompt>"    Print the Harness Kernel routing recommendation for a prompt:
+                     tier/rationale + mandatory invariants + advisory skill suggestions.
+                     Hookless platforms can call this explicitly at the start of software
+                     work; hosts with UserPromptSubmit hooks receive it automatically.
   verify-install     Compare installed Harness manifests and skill trees with
                      this package source; stale versions or missing files fail.
   verify             Run the pre-delivery verification gate (lint/test from the
                      nearest package.json). Exits non-zero if checks fail. This is
-                     the explicit stand-in for Claude Code's stop-gate hook on
-                     platforms with no hook mechanism - call it before declaring a
-                     task complete.
+                     the explicit stand-in for a hard stop gate on platforms where
+                     no equivalent hook is active - call it before declaring a task complete.
 
 Options:
   --help, -h         Show this help text
@@ -110,7 +109,6 @@ Options:
 
 function runInstaller(installArgs) {
   const installerPath = path.resolve(__dirname, '..', 'scripts', 'installer.js');
-  // Dynamic require or spawn
   if (fs.existsSync(installerPath)) {
     require(installerPath);
   } else {
@@ -135,9 +133,9 @@ function runSelfRegression() {
 // platform-specific directory (.codex/skills/, .cursor/skills/, ...) a copy
 // of the harness-everything skill also happens to be sitting in.
 function runNext(nextArgs) {
-  const routerPath = path.resolve(__dirname, '..', 'harness-everything', 'scripts', 'tier-router.js');
+  const routerPath = path.resolve(__dirname, '..', 'harness-everything', 'scripts', 'kernel-router.js');
   if (!fs.existsSync(routerPath)) {
-    console.error("[Error] Tier router script not found at harness-everything/scripts/tier-router.js");
+    console.error("[Error] Harness kernel router not found at harness-everything/scripts/kernel-router.js");
     process.exit(1);
   }
   const prompt = nextArgs.join(' ');
