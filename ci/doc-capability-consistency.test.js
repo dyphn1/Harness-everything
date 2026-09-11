@@ -85,7 +85,7 @@ requireText('docs/platform-capabilities.md', [
 requireText('README.md', [
   { name: 'local Codex plugin surface', re: /Codex \/ local OpenAI plugin|local OpenAI plugin/i },
   { name: 'public Skills-only distinction', re: /Public OpenAI[^\n]*Skills-only|public OpenAI \*\*Skills-only\*\*/i },
-  { name: 'OpenCode live-unverified qualifier', re: /OpenCode[^\n]*unverified live|OpenCode[^\n]*live loading remains unverified/i },
+  { name: 'OpenCode live-unverified qualifier', re: /OpenCode[^\n]*(?:live plugin loading|live loading) remains unverified/i },
   { name: 'canonical matrix link', re: /docs\/platform-capabilities\.md/ },
   { name: 'Codex repo Agent Skills path', re: /Codex[^\n]*`?\.agents\/skills\/?`?/i },
   { name: 'Continue native global skills path', re: /`~\/\.continue\/skills\/`/i },
@@ -102,7 +102,7 @@ requireText('AGENTS.md', [
 requireText('BENCHMARK_SOP.md', [
   { name: 'behavior vs mechanism separation', re: /behavior[^\n]{0,120}mechanism|mechanism\/live-host evidence/i },
   { name: 'Codex multi-surface distinction', re: /Codex \/ local OpenAI plugin|general Codex installer path/i },
-  { name: 'OpenCode live-unverified qualifier', re: /OpenCode[^\n]*live loading remains unverified/i },
+  { name: 'OpenCode live-unverified qualifier', re: /OpenCode[^\n]*(?:live plugin loading|live loading) remains unverified/i },
 ]);
 
 requireText('docs/architecture.md', [
@@ -115,6 +115,9 @@ requireText('VERIFICATION.md', [
   { name: 'Codex local plugin verification surface', re: /Codex \/ local OpenAI plugin/i },
   { name: 'public Skills-only verification boundary', re: /Public OpenAI Skills-only/i },
   { name: 'live-host evidence layer', re: /Live-host evidence/i },
+  { name: 'Codex repo Agent Skills path', re: /Codex[^\n]*`\.agents\/skills\/`/i },
+  { name: 'Continue native global skills path', re: /`~\/\.continue\/skills\/`/i },
+  { name: 'Hermes native global skills path', re: /`~\/\.hermes\/skills\/`/i },
 ]);
 
 requireText('docs/philosophy.md', [
