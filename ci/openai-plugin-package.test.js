@@ -43,6 +43,42 @@ assert.strictEqual(PLUGIN_MANIFEST.version, SOURCE_MANIFEST.version, 'OpenAI plu
 assert.strictEqual(PLUGIN_MANIFEST.skills, './skills/');
 assert.strictEqual(PLUGIN_MANIFEST.hooks, './hooks/hooks.json');
 assert.ok(!Object.prototype.hasOwnProperty.call(PLUGIN_MANIFEST, 'agents'), 'OpenAI manifest must not claim an undocumented agents field');
+assert.ok(!Object.prototype.hasOwnProperty.call(PLUGIN_MANIFEST, 'mcpServers'), 'skill-only package must not add MCP without a demonstrated requirement');
+assert.ok(!Object.prototype.hasOwnProperty.call(PLUGIN_MANIFEST, 'apps'), 'skill-only package must not claim a connected app');
+
+const requiredInterfaceFields = [
+  'displayName',
+  'shortDescription',
+  'longDescription',
+  'developerName',
+  'category',
+  'capabilities',
+  'websiteURL',
+  'privacyPolicyURL',
+  'termsOfServiceURL',
+  'defaultPrompt'
+];
+for (const field of requiredInterfaceFields) {
+  assert.ok(Object.prototype.hasOwnProperty.call(PLUGIN_MANIFEST.interface || {}, field), `OpenAI interface missing ${field}`);
+}
+assert.strictEqual(PLUGIN_MANIFEST.interface.displayName, 'Harness Everything');
+assert.strictEqual(PLUGIN_MANIFEST.interface.category, 'Developer Tools');
+assert.deepStrictEqual(PLUGIN_MANIFEST.interface.capabilities, ['Interactive', 'Read', 'Write']);
+assert.ok(Array.isArray(PLUGIN_MANIFEST.interface.defaultPrompt), 'defaultPrompt must be an array');
+assert.ok(PLUGIN_MANIFEST.interface.defaultPrompt.length > 0 && PLUGIN_MANIFEST.interface.defaultPrompt.length <= 3, 'defaultPrompt must contain 1-3 entries');
+for (const prompt of PLUGIN_MANIFEST.interface.defaultPrompt) {
+  assert.ok(prompt.length <= 128, `defaultPrompt exceeds 128 characters: ${prompt}`);
+}
+
+const publicationDocs = [
+  ['privacyPolicyURL', 'PRIVACY.md'],
+  ['termsOfServiceURL', 'TERMS.md']
+];
+for (const [field, filename] of publicationDocs) {
+  const value = PLUGIN_MANIFEST.interface[field];
+  assert.match(value, /^https:\/\/github\.com\/dyphn1\/Harness-everything\/blob\/main\//, `${field} must use a public HTTPS repository URL`);
+  assert.ok(fs.existsSync(path.join(ROOT, filename)), `${field} target document is missing: ${filename}`);
+}
 
 const skillNames = (SOURCE_MANIFEST.skills || []).map(entry => path.basename(entry)).sort();
 const packagedSkillNames = fs.readdirSync(path.join(PLUGIN, 'skills'), { withFileTypes: true })
@@ -58,9 +94,15 @@ for (const entry of SOURCE_MANIFEST.skills) {
 }
 
 const marketplace = JSON.parse(fs.readFileSync(path.join(ROOT, '.agents', 'plugins', 'marketplace.json'), 'utf8'));
+assert.strictEqual(marketplace.name, 'harness-everything', 'marketplace should use the publication name, not a local-only label');
+assert.strictEqual(marketplace.interface?.displayName, 'Harness Everything');
 const marketEntry = marketplace.plugins.find(plugin => plugin.name === 'harness-everything');
 assert.ok(marketEntry, 'repo marketplace must expose harness-everything');
+assert.strictEqual(marketEntry.source.source, 'local');
 assert.strictEqual(marketEntry.source.path, './plugins/harness-everything');
+assert.strictEqual(marketEntry.policy?.installation, 'AVAILABLE');
+assert.strictEqual(marketEntry.policy?.authentication, 'ON_INSTALL');
+assert.strictEqual(marketEntry.category, 'Developer Tools');
 assert.ok(fs.existsSync(path.join(ROOT, marketEntry.source.path, '.codex-plugin', 'plugin.json')), 'marketplace source must resolve to an installable plugin');
 
 const hooks = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8'));
@@ -104,4 +146,4 @@ assert.strictEqual(trivial.status, 0, trivial.stderr);
 assert.match(trivial.stdout, /RECOMMENDED TIER:\s*Tier 1/i);
 assert.match(trivial.stdout, /No mandatory domain skill/);
 
-console.log(`OpenAI plugin package verified: ${skillNames.length} skills, hooks, marketplace, deterministic routing.`);
+console.log(`OpenAI plugin package verified: ${skillNames.length} skills, publication metadata, hooks, marketplace, deterministic routing.`);
