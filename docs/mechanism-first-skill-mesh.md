@@ -2,7 +2,7 @@
 
 Harness is not intended to be a rigid workflow engine. Its skills should remain independently useful, while still coordinating through lightweight mechanisms that help the model and the software engineer work together with less drift, fewer loops, and better evidence.
 
-The preferred shape is a **mechanism-first skill mesh**: skills are autonomous, coordination is explicit, and enforcement happens at narrow decision points through scripts, hooks, exit codes, and compact return values.
+The preferred shape is a **mechanism-first skill mesh**: skills are autonomous, coordination is explicit, and enforcement happens at narrow decision points through scripts, hooks, exit codes, and compact return values. Platform-specific enforcement claims follow [platform-capabilities.md](platform-capabilities.md).
 
 ---
 
@@ -50,8 +50,8 @@ Example shape:
 ```text
 HARNESS_DECISION
 tier: 2
-load: todo-driven-workflow, verification-loop
-gate: verify-before-final
+required: route-before-execution, verify-before-claim, re-plan-after-repeat-failure
+suggest: todo-driven-workflow, verification-loop
 reason: user requested code changes
 ```
 
@@ -81,57 +81,59 @@ Harness should coordinate skills through small, composable patterns.
 
 ### Router Decision
 
-`harness-everything/scripts/tier-router.js` is the model-facing triage mechanism. It should return the smallest useful routing decision: tier, rationale, suggested skills, and any gate that should apply before editing or final delivery.
+`harness-everything/scripts/kernel-router.js` is the public invariant-first runtime entry point. It delegates classification and guide discovery to `tier-router.js`, then returns the recommended tier, rationale, required invariants, and advisory skill suggestions. It intentionally does not emit a mandatory global execution pipeline.
 
 ### Checklist State
 
-`todo-driven-workflow` should own task decomposition state when a task is Tier 2 or Tier 3. The state should be machine-readable when possible, but the model should not be forced into a single response format.
+`todo-driven-workflow` may own explicit task decomposition state when that helps a Tier 2 or Tier 3 task. It is a suggested tactic, not a universal prerequisite, and the model may use native host TODO tracking or a Markdown checklist instead.
 
 ### Verification Gate
 
-`verification-loop` and `verify-gate.js` should provide the delivery check. Hook-capable platforms can run it automatically before stop; hook-less platforms can run it as an explicit pre-final command.
+`verification-loop` and `verify-gate.js` provide reusable verification mechanisms. Hosts with a compatible stop/completion hook can invoke verification mechanically; instruction-only hosts can call the same verifier explicitly before final delivery.
 
 ### Recovery Gate
 
-`rule-of-3` and `zoom-out` should coordinate through failure signatures and recovery instructions. The key handoff is the observed failure signature, not a prose summary.
+`rule-of-3` and `zoom-out` coordinate through failure signatures and recovery instructions where the host exposes the required lifecycle/tool hooks. On hosts without those hooks, `zoom-out` remains usable as an explicit recovery discipline, but the automatic failure counter must not be implied.
 
 ### Skill Suggestion
 
-`self-evolve` and generated skills should feed the router through manifest metadata. The router should surface likely skills, but the model keeps final responsibility for selecting what actually applies.
+`self-evolve` and generated skills feed the router through manifest metadata. The router should surface likely skills, but the model keeps final responsibility for selecting what actually applies.
 
 ---
 
 ## Platform Strategy
 
-Harness should use the strongest mechanism each platform provides.
+Harness should use the strongest mechanism each installation surface actually provides.
 
 | Platform class | Preferred coordination style | Enforcement level |
 | --- | --- | --- |
-| Hook-capable platforms | Hooks run routers, guards, trackers, and stop gates automatically | Mechanical blocking is possible |
-| CLI/tool-capable but hook-less platforms | The model explicitly calls Harness scripts at decision points | Mechanism-guided, not automatically enforced |
-| Prompt-only platforms | Advisory instructions include command snippets and decision rules | Self-regulated by the model |
+| Hook/plugin-capable surfaces | Hooks/plugins run routers, guards, trackers, or completion gates automatically | Mechanical injection/blocking is possible for the mechanisms actually packaged |
+| CLI/tool-capable but hook-less surfaces | The model explicitly calls Harness scripts at decision points | Mechanism-guided, not automatically enforced |
+| Prompt-only surfaces | Advisory instructions include command snippets and decision rules | Self-regulated by the model |
 
-The same skills should work across all three classes. The difference is whether the mechanism is invoked automatically, explicitly, or only described.
+One host may expose more than one surface. Codex is the important example: the general `--codex` installer path is instruction/advisory oriented, while the **local OpenAI plugin** packages `SessionStart` and `UserPromptSubmit` hooks for mechanical session-policy and invariant routing. The public OpenAI **Skills-only** submission does not include those local lifecycle hooks.
+
+OpenCode is plugin-capable and has mechanism coverage, but live plugin loading remains unverified. Claude Code has the broadest currently verified Harness lifecycle-hook surface.
 
 ---
 
-## Guidance for Hook-Less Platforms
+## Guidance for Instruction-Only / Hook-Less Paths
 
 Do not recreate hooks with a rigid universal handoff template. Instead, make mechanisms easy to call.
 
 Implemented today, both wired into `bin/cli.js` and referenced by name in the advisory text each platform's installer writes (`scripts/lib/advisory-text.js`):
 
-- `npx github:dyphn1/Harness-everything next "<prompt>"`: wraps `tier-router.js`, printing the recommended tier, base execution loop, and matching knowledge guides for a prompt.
-- `npx github:dyphn1/Harness-everything verify`: wraps `verify-gate.js`, running the target project's own lint/test scripts and exiting non-zero on failure. This is the explicit, hookless stand-in for Claude Code's `stop-gate.js`.
+- `npx github:dyphn1/Harness-everything next "<prompt>"`: runs the Harness routing path and prints the recommended tier, invariant contract, and matching knowledge/skill suggestions.
+- `npx github:dyphn1/Harness-everything verify`: wraps `verify-gate.js`, running the target project's own lint/test scripts and exiting non-zero on failure. This is the explicit hook-less verification path; it is not equivalent to claiming that a host automatically runs a `Stop` hook.
 
-Both resolve their target scripts relative to the CLI's own package install, not the caller's cwd, so they work the same way regardless of which platform-specific directory (`.codex/skills/`, `.cursor/skills/`, `.github/skills/`, ...) a copy of the `harness-everything` skill also happens to be sitting in - a fixed relative path like `harness-everything/scripts/tier-router.js` would silently point at nothing depending on which platform installed it.
+Both resolve their target scripts relative to the CLI's own package install, not the caller's cwd, so they work the same way regardless of which platform-specific directory (`.codex/skills/`, `.cursor/skills/`, `.github/skills/`, ...) a copy of the `harness-everything` skill also happens to be sitting in — a fixed relative path like `harness-everything/scripts/tier-router.js` would silently point at nothing depending on which platform installed it.
 
-Not yet implemented - still aspirational, do not reference these as if they exist until they're built:
+Not yet implemented — still aspirational, do not reference these as if they exist until they're built:
 
-- `harness recover`: summarize repeated failure signatures and recommend `zoom-out` when needed. Blocked on hookless platforms not having anything that collects failure signatures the way `rule-of-3.js`'s `PostToolUse` hook does on Claude Code - the state to summarize doesn't exist yet.
+- `harness recover`: summarize repeated failure signatures and recommend `zoom-out` when needed. Hook-less paths do not collect failure signatures the way the Claude Code `PostToolUse` mechanism does, so there is no reliable state to summarize yet.
 - `harness skills`: list installed, generated, and matching skills for the current workspace.
 
-These commands let Codex, Cursor, Copilot, Continue, and Hermes receive high-signal mechanical feedback without forcing them into a single scripted conversation shape.
+These commands let instruction-only Codex installs, Cursor, Copilot, Continue, and Hermes receive high-signal mechanical feedback without forcing them into a single scripted conversation shape.
 
 ---
 

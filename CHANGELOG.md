@@ -12,11 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.7-beta] - Unreleased
 
 ### Changed
-- Prepare the next beta for the reviewed open-issue implementations (#20, #37, #42, #43, #44, #52, #56). Individual changes and verification evidence are recorded as they are integrated.
+- Prepare the next beta for the reviewed open-issue implementations (#20, #37, #42, #43, #44, #52, #56, #74, #78). Individual changes and verification evidence are recorded as they are integrated.
 
 ---
 
 ### Added
+- **OpenAI/Codex plugin packaging and public Skills-only submission** (#74): added the repository marketplace (`.agents/plugins/marketplace.json`), local `.codex-plugin` package, synchronized copies of all 26 canonical skills, local `SessionStart` / `UserPromptSubmit` invariant hooks, OpenAI package/submission tests, deterministic Skills-only ZIP generation, and reviewer listing/test-case inputs. The local plugin mechanism boundary is explicitly separate from the public Skills-only artifact, which does not include the local lifecycle hooks.
 - **Progressive disclosure and explicit skill paths** (#44): require short routed skill contracts, lazy-loaded workflow/reference detail, meaningful Mermaid coverage, and explicit `<this-skill-dir>/`, `<skills-repo-root>/`, or `<workspace>/` path bases.
 - **Behavioral-eval evidence triage** (`behavioral-evals/`, #56): added structural case validation, ordered execution-evidence grading, sanitized historical archives with current-versus-historical hashes, and paired-rerun status tracking for old failures and never-run cases.
 - **Shared verifier boundary contracts** (`scripts/lib/path-boundary.js`, `scripts/lib/execution-contract.js`): physical containment checks reject traversal and junction/symlink aliases, while execution evidence uses exact command/argv matching and all-or-nothing patch authorization. Deterministic mechanism coverage protects the contract for downstream verifier, workspace, installer, and plugin fixes.
@@ -45,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Changelog/tag consistency** (`ci/consistency-check.js`): every released changelog heading must have a matching git tag; versions that were never tagged must say so in the heading.
 
 ### Documentation
+- **Platform capability documentation consistency** (#78): centralized current enforcement/install/evidence claims in `docs/platform-capabilities.md`, aligned README/architecture/verification/mechanism/troubleshooting/audit/benchmark/agent/OpenCode documentation, and added `test:docs:capabilities` as a deterministic drift gate chained into `test:consistency` on Linux and Windows CI.
 - **opencode plugin status** (`README.md`, `opencode-plugin/README.md`): updated to describe the real `index.mjs` plugin and its installation (drop into `.opencode/plugins/`, no `opencode.json` entry needed). opencode is now listed alongside Claude Code as a hard-enforcement platform, flagged as unverified in a live session pending #37's remaining step.
 
 ---
@@ -70,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.5-beta] - 2026-09-01 (unreleased - never tagged; shipped in 0.3.6)
 
 ### Added
-- **Fable v3 model modes**: Added explicit Haiku, Sonnet, and Opus entrypoints, named agent distribution, a deterministic model matrix/selector, required stage audit records, and visible fallback or blocked escalation behavior.
+- **Fable v3 model modes**: Added explicit Haiku, Sonnet, and Opus entrypoints, named agent distribution, a deterministic model matrix/selector, required stage audit records, and visible inline fallback or blocked escalation behavior.
 - **Fable routing and contract coverage**: Added positive/negative mode routing evals and deterministic selector tests for model availability, alias normalization, audit persistence, and unsupported-runtime handling.
 
 ### Changed
