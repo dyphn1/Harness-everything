@@ -7,32 +7,21 @@ const fs = require('fs');
 module.exports = {
   name: 'copilot',
   label: 'GitHub Copilot',
-  getHarnessDir(workspaceRoot) {
-    return path.join(workspaceRoot, '.github', 'harness-everything');
-  },
-  getStateDir(workspaceRoot) {
-    return path.join(this.getHarnessDir(workspaceRoot), 'state');
-  },
-  getSkillsDir(workspaceRoot) {
-    return path.join(workspaceRoot, '.github', 'skills');
-  },
+  getHarnessDir(workspaceRoot) { return path.join(workspaceRoot, '.github', 'harness-everything'); },
+  getStateDir(workspaceRoot) { return path.join(this.getHarnessDir(workspaceRoot), 'state'); },
+  getSkillsDir(workspaceRoot) { return path.join(workspaceRoot, '.github', 'skills'); },
   getIgnorePatterns(workspaceRoot) {
     const patterns = ['.github/harness-everything/'];
     const skillsDir = path.join(workspaceRoot, '.github', 'skills');
     if (fs.existsSync(skillsDir)) {
       try {
-        const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (entry.isDirectory()) {
-            const skillMdPath = path.join(skillsDir, entry.name, 'SKILL.md');
-            if (fs.existsSync(skillMdPath)) {
-              const content = fs.readFileSync(skillMdPath, 'utf8');
-              const authorLine = content.split('\n').find(line => line.trim().startsWith('author:'));
-              if (authorLine && (authorLine.includes('Miya Daniel'))) {
-                patterns.push(`.github/skills/${entry.name}/`);
-              }
-            }
-          }
+        for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+          if (!entry.isDirectory()) continue;
+          const skillMdPath = path.join(skillsDir, entry.name, 'SKILL.md');
+          if (!fs.existsSync(skillMdPath)) continue;
+          const content = fs.readFileSync(skillMdPath, 'utf8');
+          const authorLine = content.split('\n').find(line => line.trim().startsWith('author:'));
+          if (authorLine && authorLine.includes('Miya Daniel')) patterns.push(`.github/skills/${entry.name}/`);
         }
       } catch (e) {
         // Fallback or ignore to prevent breaking execution
@@ -41,19 +30,14 @@ module.exports = {
     return patterns;
   },
   isMatch(pattern, trimmedLine) {
-    if (trimmedLine === '.github/' || trimmedLine === '.github') {
-      return true;
-    }
+    if (trimmedLine === '.github/' || trimmedLine === '.github') return true;
     if (pattern === '.github/harness-everything/') {
-      return trimmedLine === '.github/harness-everything' ||
-             trimmedLine === '.github/harness-everything/';
+      return trimmedLine === '.github/harness-everything' || trimmedLine === '.github/harness-everything/';
     }
     return trimmedLine === pattern || trimmedLine === pattern.slice(0, -1);
   },
   isInstalled(workspaceRoot, userHome, isGlobal) {
-    if (isGlobal) {
-      return false; // Handled via global userPromptsDir check
-    }
+    if (isGlobal) return false;
     return fs.existsSync(path.join(workspaceRoot, '.github', 'copilot-instructions.md'));
   },
   getSkillsTarget({ workspaceRoot, userHome, isGlobal, manifest }) {
@@ -64,42 +48,34 @@ module.exports = {
         label: '~/.agents/skills/',
         manifestPath: manifest.getManifestPath(globalAgentsDir),
       };
-    } else {
-      const githubDir = path.join(workspaceRoot, '.github');
-      return {
-        path: path.join(githubDir, 'skills'),
-        label: '.github/skills/',
-        manifestPath: manifest.getManifestPath(githubDir),
-      };
     }
+    const githubDir = path.join(workspaceRoot, '.github');
+    return {
+      path: path.join(githubDir, 'skills'),
+      label: '.github/skills/',
+      manifestPath: manifest.getManifestPath(githubDir),
+    };
   },
   install({ isGlobal, targetWorkspaceRoot, getUserPromptsDir, advisory }) {
     if (!isGlobal) {
       const targetFile = path.join(targetWorkspaceRoot, '.github', 'copilot-instructions.md');
       advisory.injectAdvisoryText(targetFile, '# Copilot Instructions', '.github/copilot-instructions.md');
-    } else {
-      try {
-        const promptsDir = getUserPromptsDir();
-        if (!fs.existsSync(promptsDir)) {
-          fs.mkdirSync(promptsDir, { recursive: true });
-        }
-        const vscodeInstFile = path.join(promptsDir, 'harness.instructions.md');
-        fs.writeFileSync(vscodeInstFile, advisory.buildCopilotGlobalContent(), 'utf8');
-        console.log(`  ✅ Installed global Copilot instructions to VS Code: ${vscodeInstFile}`);
-      } catch (err) {
-        console.warn(`  ⚠️ Failed to write VS Code user prompts folder: ${err.message}`);
-      }
+      return;
     }
+    const promptsDir = getUserPromptsDir();
+    if (!fs.existsSync(promptsDir)) fs.mkdirSync(promptsDir, { recursive: true });
+    const vscodeInstFile = path.join(promptsDir, 'harness.instructions.md');
+    advisory.assertHarnessOwnedOrAbsent(vscodeInstFile, 'global Copilot instructions');
+    fs.writeFileSync(vscodeInstFile, advisory.buildCopilotGlobalContent(), 'utf8');
+    console.log(`  ✅ Installed global Copilot instructions to VS Code: ${vscodeInstFile}`);
   },
   uninstall({ removeLocal, removeGlobal, workspaceRoot, userHome, getUserPromptsDir, cleanEmptyDirs }) {
     const advisory = require('../../../../scripts/lib/advisory-text');
-    if (removeLocal) {
-      advisory.removeAdvisoryText(path.join(workspaceRoot, '.github', 'copilot-instructions.md'));
-    }
+    if (removeLocal) advisory.removeAdvisoryText(path.join(workspaceRoot, '.github', 'copilot-instructions.md'));
     if (removeGlobal) {
       const promptsDir = getUserPromptsDir();
       const vscodeInstFile = path.join(promptsDir, 'harness.instructions.md');
-      if (fs.existsSync(vscodeInstFile)) {
+      if (fs.existsSync(vscodeInstFile) && advisory.hasHarnessMarker(fs.readFileSync(vscodeInstFile, 'utf8'))) {
         fs.unlinkSync(vscodeInstFile);
         console.log(`  ✅ Removed global Copilot instructions: ${vscodeInstFile}`);
       }
