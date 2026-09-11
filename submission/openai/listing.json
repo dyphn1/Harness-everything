@@ -1,0 +1,27 @@
+{
+  "format": "harness-openai-plugin-submission-source-v1",
+  "note": "Repository source of truth for manually completing the OpenAI plugin submission portal; this is not an OpenAI import schema.",
+  "submission_type": "skills_only",
+  "plugin_name": "Harness Everything",
+  "short_description": "Route, verify, and recover coding work",
+  "long_description": "Harness Everything adds reusable software-engineering workflows for task routing, test-driven development, verification, security review, documentation, failure recovery, and related coding-agent work. It keeps a small set of cross-cutting invariants while allowing the agent to choose, combine, reorder, or skip domain skills as appropriate.",
+  "category": "Developer Tools",
+  "website_url": "https://github.com/dyphn1/Harness-everything",
+  "support_url": "https://github.com/dyphn1/Harness-everything/blob/main/SUPPORT.md",
+  "privacy_policy_url": "https://github.com/dyphn1/Harness-everything/blob/main/PRIVACY.md",
+  "terms_url": "https://github.com/dyphn1/Harness-everything/blob/main/TERMS.md",
+  "starter_prompts": [
+    "Route this software task with Harness and use only the skills that help.",
+    "Review this change and verify it with objective evidence before claiming completion."
+  ],
+  "release_notes": "Initial public skills-only submission of Harness Everything. Includes 26 reusable engineering skills plus invariant-first routing and verification guidance. No remote MCP server, hosted backend, authentication, or external account is required by the plugin package.",
+  "availability": {
+    "selection": "manual_in_portal",
+    "guidance": "Select only countries or regions where the publisher, support process, privacy notice, and terms are ready for users."
+  },
+  "manual_requirements": {
+    "developer_identity": "Select the verified individual or business identity in the OpenAI Platform organization used for submission.",
+    "logo": "Upload a production-ready logo in the submission portal.",
+    "apps_management_write_access": "The submitter must have Apps Management write access in the publishing organization."
+  }
+}
