@@ -45,6 +45,46 @@ copyAndAssert('continue', true, path.join(home, '.continue', 'skills'));
 copyAndAssert('hermes', false, path.join(ws, '.agents', 'skills'));
 copyAndAssert('hermes', true, path.join(home, '.hermes', 'skills'));
 
+// Native global manifests must still be discoverable by the uninstaller and
+// use the exact `global` sentinel that prevents a local-only bulk sweep from
+// deleting user-home skills.
+{
+  const installed = skills.getInstalledSkills(ws, home);
+  const continueGlobal = installed.find(entry => entry.dirPath === path.join(home, '.continue', 'skills', 'tdd'));
+  const hermesGlobal = installed.find(entry => entry.dirPath === path.join(home, '.hermes', 'skills', 'tdd'));
+  helper.check('2t. Continue native global manifest is discoverable', !!continueGlobal, JSON.stringify(installed));
+  helper.check('2t. Hermes native global manifest is discoverable', !!hermesGlobal, JSON.stringify(installed));
+  helper.check('2t. native global skill scopes use the protected global sentinel',
+    continueGlobal && hermesGlobal && continueGlobal.scope === 'global' && hermesGlobal.scope === 'global',
+    JSON.stringify({ continue: continueGlobal && continueGlobal.scope, hermes: hermesGlobal && hermesGlobal.scope }));
+}
+
+// Hermes has no global advisory file, so it records an explicit Harness-owned
+// bookkeeping marker instead of mutating Hermes config just to make uninstall
+// detection possible.
+{
+  const hermes = platform('hermes');
+  const globalHarness = path.join(home, '.agents', 'harness-everything');
+  const marker = path.join(globalHarness, 'hermes-global.json');
+  hermes.install({
+    isGlobal: true,
+    targetWorkspaceRoot: path.join(home, '.agents'),
+    userHome: home,
+    advisory,
+  });
+  helper.check('2t. Hermes global install writes an owned detection marker', fs.existsSync(marker), marker);
+  hermes.uninstall({
+    removeLocal: false,
+    removeGlobal: true,
+    workspaceRoot: ws,
+    userHome: home,
+    cleanEmptyDirs(dir) {
+      try { if (fs.existsSync(dir) && fs.readdirSync(dir).length === 0) fs.rmdirSync(dir); } catch (e) { /* best effort */ }
+    },
+  });
+  helper.check('2t. Hermes global uninstall removes its detection marker', !fs.existsSync(marker), marker);
+}
+
 // A malformed user settings file must never be converted to `{}` and
 // overwritten. Installation fails before any mutation and preserves bytes.
 {
