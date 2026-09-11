@@ -1,6 +1,6 @@
 id: positive-trivial-tier1-001
 name: Trivial edit routes to Tier 1
-description: "Triage new software requests into Tier 1/2/3 before work begins. USE FOR: \"triage a new software task\", \"route this coding request\". DO NOT USE FOR: \"chat or general Q&A\", \"non-software writing\", \"a skill is already indicated\"."
+description: "Route software/project work through the Harness kernel: classify Tier 1/2/3, establish mandatory invariants, then let the agent choose tactics and domain skills. Use for software triage, routing, and re-routing; not general Q&A or non-software writing."
 tags:
   - positive-trigger
   - tier-1
