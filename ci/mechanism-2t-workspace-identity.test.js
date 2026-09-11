@@ -40,8 +40,11 @@ function nodeRequire(file) {
   return JSON.stringify(file.replace(/\\/g, '/'));
 }
 
-const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2t-identity-'));
-const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2t-home-'));
+// macOS exposes /var through the physical /private/var path. Canonicalize the
+// temp roots up front so expected fixture paths use the same identity contract
+// as workspace.js (realpath before hashing/binding) on every OS.
+const fixture = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2t-identity-')));
+const fakeHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2t-home-')));
 const stateHome = path.join(fakeHome, '.agents', 'harness-everything');
 const outer = path.join(fixture, 'outer-repo');
 const nested = path.join(outer, 'packages', 'nested');
