@@ -1,64 +1,85 @@
-# Workflow: Fable Mode
+# Workflow: Fable Mode (v3)
 
-> Macro-task planning and execution engine. Like all Harness workflows, this is not a straight line to success. It requires continuous verification and course correction.
+> Stage large, multi-source or multi-session work through an explicit stage map, named agents, failable per-stage checks, and skeptical delivery review. Fable is not the default path for ordinary Tier 2 work.
 
 ---
 
-## 1. Skill Behavior Workflow
+## 1. When Fable Mode Applies
 
-This section visualizes how `fable-mode` handles macro tasks. Subagent failure or integration crashes are expected realities, not edge cases.
-
-```mermaid
-graph TD
-  Start([Tier 3 Macro Task Triggered]) --> Discovery["1. Discovery & Architectural Plan"]
-  Discovery --> InitTodo["2. Delegate Roadmap to todo-driven-workflow"]
-  
-  InitTodo --> Delegate{3. Delegate Sub-tasks}
-  Delegate -->|Sub-agent Tool Available| SpawnSub["Spawn Sub-agent via multi-agent-workspace"]
-  Delegate -->|No Sub-agent Tool| InlinePersona["Inline Persona Role-Switch Fallback"]
-  
-  SpawnSub --> ScopeCheck["Monitor via hooks/scripts/subagent-scope-guard.js"]
-  InlinePersona --> ScopeCheck
-  
-  ScopeCheck --> VerifyStep["4. Integration Verification via harness-everything/scripts/verify-gate.js"]
-  VerifyStep --> CheckGate{Integration Verification Passed?}
-  
-  CheckGate -->|No: Integration Error| FixBlocker["Add Blocker Item to todo-driven-workflow & Fix"] --> VerifyStep
-  CheckGate -->|Yes: Gate Passes| Transition["5. Transition Scaffolding to TDD Iteration"]
-  Transition --> End([Macro Scaffolding Successfully Deployed])
-```
-
-## Model and verifier decisions
-
-Fable keeps the requested model explicit. A missing worker or unavailable
-model is a recorded fallback or a blocked stage, never a silent downgrade.
+Use `fable-mode` when the work is large enough that one undifferentiated execution loop would lose scope or evidence: multi-file architectural work, multi-source investigation, multi-session execution, or an explicit `fable on haiku|sonnet|opus` request.
 
 ```mermaid
-flowchart LR
-  Request[Requested model] --> Select[model-selector.js]
-  Select -->|Available| Worker[Named fable worker]
-  Select -->|Unavailable + inline allowed| Fallback[Recorded inline fallback]
-  Select -->|Unavailable + no fallback| Blocked[Escalate blocked stage]
-  Worker --> Verify[Cold verifier]
-  Fallback --> Verify
-  Verify -->|Pass| Record[Record stage evidence]
-  Verify -->|Fail| Replan[Update blocker and replan]
-  Replan --> Select
+flowchart TD
+  Request[User request] --> Scope{Large / multi-source / multi-session?}
+  Scope -->|No| Normal[Use the normal Harness execution path]
+  Scope -->|Yes| Discover[Discover runtime + authorized file scope]
+  Discover --> Map[Write numbered stage map]
+  Map --> Run[Execute one stage at a time]
 ```
 
-## Stage contract state
+`fable-mode` does **not** imply a mandatory `todo-driven-workflow → TDD` pipeline. Each stage chooses only the tactics and domain skills needed for its own artifact and pass condition.
 
-Each stage has one artifact and one pass condition. The audit record preserves
-the model choice, fallback reason, and verification result for later review.
+## 2. Stage Contract
+
+Every stage owns one concrete artifact and one explicit pass condition. A stage is not complete because an agent says it is complete; its named check must pass.
 
 ```mermaid
 stateDiagram-v2
   [*] --> Planned
-  Planned --> Running
-  Running --> Verifying
-  Verifying --> Passed: exit 0
-  Verifying --> Blocked: unresolved failure
-  Blocked --> Running: blocker fixed
-  Passed --> Recorded
+  Planned --> Running: artifact + pass condition defined
+  Running --> Verifying: stage work produced
+  Verifying --> Passed: named check passes
+  Verifying --> Blocked: check fails / unresolved dependency
+  Blocked --> Running: blocker resolved
+  Passed --> Reviewed: cold review when risk warrants it
+  Reviewed --> Recorded: audit record written
   Recorded --> [*]
 ```
+
+The stage record preserves the requested/effective model, fallback reason, stage brief, artifact, pass condition, verification command, and verifier result.
+
+## 3. Model Selection and Delegation
+
+Explicit model requests are resolved through `model-selector.js`. Fable never silently downgrades a requested model.
+
+```mermaid
+flowchart LR
+  Requested[Requested model] --> Selector[model-selector.js]
+  Selector -->|Available| Named[Named fable agent]
+  Selector -->|Fallback allowed| Fallback[Recorded fallback]
+  Selector -->|No valid fallback| Blocked[Escalate blocked stage]
+  Named --> Stage[Bounded stage brief]
+  Fallback --> Stage
+  Stage --> Verify[Named stage check]
+  Verify -->|High-stakes artifact| Cold[fable-verifier cold review]
+  Verify -->|Ordinary artifact| Record[Record evidence]
+  Cold --> Record
+```
+
+The intended role split is explicit rather than magical: Opus is suitable for orchestration, Sonnet for reasoning-heavy stage work, and Haiku for bounded mechanical work. Workers do not spawn workers.
+
+## 4. Scope and Context Discipline
+
+`fable-discipline` acts as the shadow guard while Fable is active. A worker receives the current stage contract and authorized scope, not the entire unresolved history.
+
+```mermaid
+flowchart TD
+  Stage[Current stage contract] --> Worker[Named worker]
+  Worker --> Scope{Stayed inside authorized scope?}
+  Scope -->|No| Block[Stop + report scope violation]
+  Scope -->|Yes| Check[Run stage verification]
+  Check -->|Fail| Diagnose[Record blocker / diagnose]
+  Diagnose --> Replan{Need full replan?}
+  Replan -->|No| Worker
+  Replan -->|Yes, max two| Map[Update stage map]
+  Map --> Worker
+  Check -->|Pass| Handoff[Compact evidence + handoff]
+```
+
+At most two full replans are allowed before unresolved blockers are escalated rather than hidden behind endless restructuring.
+
+## 5. Completion Boundary
+
+Fable completion means the planned stages have produced their artifacts, their checks have passed, and high-risk outputs have received skeptical review where required. It does not mean every possible companion skill was invoked.
+
+The canonical executable and policy details live in `fable-mode/SKILL.md`, `fable-mode/model-matrix.json`, `fable-mode/scripts/model-selector.js`, and `fable-mode/references/model-matrix.md`.

@@ -33,9 +33,6 @@ function requireText(rel, patterns) {
   }
 }
 
-// Current-state docs must never re-introduce pre-plugin platform claims.
-// Historical logs/changelogs are checked separately so legitimate dated history
-// is not rewritten merely to satisfy a string ban.
 const CURRENT_SURFACES = [
   'README.md',
   'AGENTS.md',
@@ -62,6 +59,7 @@ const STALE_PATTERNS = [
   /Only possible on Claude Code \(the only platform with a hook\/exit-code execution system\)/i,
   /On platforms with no hook system at all \(Cursor, Copilot, Codex/i,
   /hooks[^\n]{0,100}Hard enforcement, Claude Code only/i,
+  /Codex[^\n]{0,180}\.codex\/skills\//i,
 ];
 
 for (const rel of CURRENT_SURFACES) {
@@ -76,13 +74,23 @@ requireText('docs/platform-capabilities.md', [
   { name: 'public Skills-only boundary', re: /Public OpenAI Skills-only plugin/i },
   { name: 'OpenCode live-unverified boundary', re: /live plugin loading remains unverified/i },
   { name: 'general Codex installer boundary', re: /general `--codex` installer|Legacy\/general installer target/i },
+  { name: 'Codex project skill target', re: /Codex[^\n]*`\.agents\/skills\/`/i },
+  { name: 'Continue global skill target', re: /Continue\.dev[^\n]*`~\/\.continue\/skills\/`/i },
+  { name: 'Hermes global skill target', re: /Hermes Agent[^\n]*`~\/\.hermes\/skills\/`/i },
+  { name: 'Hermes trust boundary', re: /Hermes[^\n]{0,160}trust/i },
+  { name: 'installer ownership boundary', re: /Install\/uninstall ownership boundary/i },
+  { name: 'three-OS round-trip boundary', re: /Linux, Windows, and macOS/i },
 ]);
 
 requireText('README.md', [
   { name: 'local Codex plugin surface', re: /Codex \/ local OpenAI plugin|local OpenAI plugin/i },
   { name: 'public Skills-only distinction', re: /Public OpenAI[^\n]*Skills-only|public OpenAI \*\*Skills-only\*\*/i },
-  { name: 'OpenCode live-unverified qualifier', re: /OpenCode[^\n]*unverified live|OpenCode[^\n]*live loading remains unverified/i },
+  { name: 'OpenCode live-unverified qualifier', re: /OpenCode[^\n]*(?:live plugin loading|live loading) remains unverified/i },
   { name: 'canonical matrix link', re: /docs\/platform-capabilities\.md/ },
+  { name: 'Codex repo Agent Skills path', re: /Codex[^\n]*`?\.agents\/skills\/?`?/i },
+  { name: 'Continue native global skills path', re: /`~\/\.continue\/skills\/`/i },
+  { name: 'Hermes native global skills path', re: /`~\/\.hermes\/skills\/`/i },
+  { name: 'installer round-trip evidence', re: /install[^\n]{0,40}(?:→|->)[^\n]{0,40}verify[^\n]{0,40}(?:→|->)[^\n]{0,40}uninstall/i },
 ]);
 
 requireText('AGENTS.md', [
@@ -94,7 +102,7 @@ requireText('AGENTS.md', [
 requireText('BENCHMARK_SOP.md', [
   { name: 'behavior vs mechanism separation', re: /behavior[^\n]{0,120}mechanism|mechanism\/live-host evidence/i },
   { name: 'Codex multi-surface distinction', re: /Codex \/ local OpenAI plugin|general Codex installer path/i },
-  { name: 'OpenCode live-unverified qualifier', re: /OpenCode[^\n]*live plugin loading remains unverified/i },
+  { name: 'OpenCode live-unverified qualifier', re: /OpenCode[^\n]*(?:live plugin loading|live loading) remains unverified/i },
 ]);
 
 requireText('docs/architecture.md', [
@@ -107,6 +115,9 @@ requireText('VERIFICATION.md', [
   { name: 'Codex local plugin verification surface', re: /Codex \/ local OpenAI plugin/i },
   { name: 'public Skills-only verification boundary', re: /Public OpenAI Skills-only/i },
   { name: 'live-host evidence layer', re: /Live-host evidence/i },
+  { name: 'Codex repo Agent Skills path', re: /Codex[^\n]*`\.agents\/skills\/`/i },
+  { name: 'Continue native global skills path', re: /`~\/\.continue\/skills\/`/i },
+  { name: 'Hermes native global skills path', re: /`~\/\.hermes\/skills\/`/i },
 ]);
 
 requireText('docs/philosophy.md', [
@@ -144,15 +155,11 @@ requireText('opencode-plugin/README.md', [
   { name: 'live OpenCode evidence limitation', re: /Live opencode plugin loading remains unverified/i },
 ]);
 
-// Dated audit history may preserve old measurements, but it must be unmistakably
-// historical and point readers to the current matrix.
 requireText('docs/audit.md', [
   { name: 'historical snapshot boundary', re: /Historical snapshot boundary/i },
   { name: 'current platform matrix link', re: /platform-capabilities\.md/ },
 ]);
 
-// The user-visible release history must record both the OpenAI/Codex packaging
-// and this documentation consistency work in the current beta section.
 requireText('CHANGELOG.md', [
   { name: 'OpenAI/Codex plugin packaging release note', re: /OpenAI\/Codex plugin packaging/i },
   { name: 'platform capability documentation drift gate release note', re: /platform capability documentation consistency|documentation capability drift/i },

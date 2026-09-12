@@ -1,7 +1,6 @@
 // Prompt-injection-only guidance for platforms with no hook/execution
 // mechanism (Cursor, Copilot, Codex, Continue, Hermes). Single source of
-// truth for the advisory block - it used to be duplicated verbatim inside
-// installer.js's top level and again inside main().
+// truth for the advisory block.
 const fs = require('fs');
 const path = require('path');
 
@@ -37,13 +36,25 @@ const advisoryInstructions = [
   ``
 ].join('\n');
 
+function hasHarnessMarker(content) {
+  return typeof content === 'string' && content.includes(MARKER);
+}
+
+function assertHarnessOwnedOrAbsent(targetFile, label) {
+  if (!fs.existsSync(targetFile)) return;
+  const content = fs.readFileSync(targetFile, 'utf8');
+  if (!hasHarnessMarker(content)) {
+    throw new Error(`Refusing to overwrite pre-existing non-Harness ${label}: ${targetFile}`);
+  }
+}
+
 function injectAdvisoryText(targetFile, header, label) {
   const dir = path.dirname(targetFile);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
   if (fs.existsSync(targetFile)) {
     const content = fs.readFileSync(targetFile, 'utf8');
-    if (!content.includes(MARKER)) {
+    if (!hasHarnessMarker(content)) {
       fs.appendFileSync(targetFile, advisoryInstructions, 'utf8');
       console.log(`  ✅ Augmented existing ${label} with Harness guidance (advisory-only)`);
     }
@@ -61,11 +72,8 @@ function removeAdvisoryText(targetFile) {
     if (markerIndex !== -1) {
       let cleanContent = content;
       const hashMarkerIndex = content.lastIndexOf('#', markerIndex);
-      if (hashMarkerIndex !== -1) {
-        cleanContent = content.substring(0, hashMarkerIndex).trim() + '\n';
-      } else {
-        cleanContent = content.substring(0, markerIndex).trim() + '\n';
-      }
+      if (hashMarkerIndex !== -1) cleanContent = content.substring(0, hashMarkerIndex).trim() + '\n';
+      else cleanContent = content.substring(0, markerIndex).trim() + '\n';
 
       const lines = cleanContent.trim().split('\n').map(l => l.trim()).filter(l => l !== '');
       if (lines.length === 0 || (lines.length === 1 && (lines[0] === '# Cursor Project Rules' || lines[0] === '# AGENTS.md' || lines[0] === '# Copilot Instructions' || lines[0] === '# .hermes.md'))) {
@@ -81,17 +89,13 @@ function removeAdvisoryText(targetFile) {
   }
 }
 
-// Continue.dev reads project rules as individual Markdown files (with YAML
-// frontmatter) from a `.continue/rules/` folder rather than one shared file,
-// so - unlike the shared-file platforms above - Harness gets its own
-// dedicated `harness.md` rule file instead of appending into an arbitrary
-// pre-existing one.
+// Continue gets a dedicated rule file. If a user already owns that exact
+// path, do not replace it just because Harness chose the same filename.
 function installContinueRule(targetFile, label) {
   const dir = path.dirname(targetFile);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (fs.existsSync(targetFile) && fs.readFileSync(targetFile, 'utf8').includes(MARKER)) {
-    return;
-  }
+  assertHarnessOwnedOrAbsent(targetFile, label);
+  if (fs.existsSync(targetFile) && hasHarnessMarker(fs.readFileSync(targetFile, 'utf8'))) return;
   const content = [
     `---`,
     `name: Harness OS Guidance`,
@@ -108,7 +112,7 @@ function removeContinueRule(targetFile) {
   if (!fs.existsSync(targetFile)) return;
   try {
     const content = fs.readFileSync(targetFile, 'utf8');
-    if (content.includes(MARKER)) {
+    if (hasHarnessMarker(content)) {
       fs.unlinkSync(targetFile);
       console.log(`  ✅ Removed Harness rule file: ${targetFile}`);
     }
@@ -138,6 +142,7 @@ function buildCodexGlobalContent() {
     `---`,
     `# AGENTS.md`,
     ``,
+    `# ${MARKER}`,
     `This file is advisory only - this platform has no hook/execution mechanism to`,
     `enforce it mechanically (unlike Claude Code's hook-based circuit breaker). Treat`,
     `these as strong defaults, not guarantees.`,
@@ -158,6 +163,8 @@ function buildCodexGlobalContent() {
 module.exports = {
   MARKER,
   advisoryInstructions,
+  hasHarnessMarker,
+  assertHarnessOwnedOrAbsent,
   injectAdvisoryText,
   removeAdvisoryText,
   installContinueRule,

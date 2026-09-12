@@ -2,23 +2,6 @@
 // precisely those paths instead of sweeping shared directories that may also
 // hold content from other tools, the user's own manual additions, or
 // self-evolve's locally-generated skills.
-//
-// Deliberately does NOT track find-skills' third-party downloads the same
-// way: generated[] works because Harness owns the full lifecycle (authored,
-// quality-gated, and status-tracked by self-evolve/skill-creator). A skill
-// fetched via `npx skills add` is unaudited content Harness doesn't own or
-// control the lifecycle of - the `skills` CLI's own lock file is already the
-// live record of what's installed, so find-skills queries that directly
-// (`npx skills list`) instead of caching a second, driftable copy here.
-//
-// The manifest always lives at <platform-home>/harness-everything/manifest.json
-// - e.g. .claude/harness-everything/manifest.json, .cursor/harness-everything/
-// manifest.json, or (global scope) ~/.agents/harness-everything/manifest.json.
-// harness-everything/ is a subfolder this package exclusively owns inside a
-// directory that already belongs to that platform (or, for global scope, the
-// shared ~/.agents convention) - nothing else creates a directory literally
-// named "harness-everything" there, so nesting under it is what makes "the
-// manifest can only describe our own installs" actually true.
 const fs = require('fs');
 const path = require('path');
 
@@ -35,9 +18,7 @@ function getManifestPath(homeDir) {
 }
 
 function readManifest(manifestPath) {
-  if (!fs.existsSync(manifestPath)) {
-    return { package: PACKAGE_NAME, skills: [], agents: [] };
-  }
+  if (!fs.existsSync(manifestPath)) return { package: PACKAGE_NAME, skills: [], agents: [] };
   try {
     const data = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     if (!Array.isArray(data.skills)) data.skills = [];
@@ -53,10 +34,30 @@ function writeManifest(manifestPath, data) {
   fs.writeFileSync(manifestPath, JSON.stringify(data, null, 2), 'utf8');
 }
 
-// linkInfo: { kind?: 'symlink'|'junction'|'copy', canonicalPath?: string }.
-// Omitted entirely for a plain physical copy (today's/legacy behavior) - only
-// a link-based install records `kind` + `canonicalPath`, so old manifests and
-// callers that pass no 5th argument are unaffected.
+function isManifestEmpty(data) {
+  return (data.skills || []).length === 0 &&
+    (data.generated || []).length === 0 &&
+    (data.agents || []).length === 0;
+}
+
+// `references/` is copied by the installer into the same Harness-owned
+// bookkeeping directory as manifest.json. Once the manifest contains no
+// owned artifacts, both are package-owned leftovers and can be removed as a
+// unit without touching the platform home around them.
+function removeManifestArtifactsIfEmpty(manifestPath, data) {
+  if (!isManifestEmpty(data)) return false;
+  if (fs.existsSync(manifestPath)) fs.unlinkSync(manifestPath);
+  const harnessDir = path.dirname(manifestPath);
+  const referencesDir = path.join(harnessDir, 'references');
+  if (fs.existsSync(referencesDir)) fs.rmSync(referencesDir, { recursive: true, force: true });
+  try {
+    if (fs.existsSync(harnessDir) && fs.readdirSync(harnessDir).length === 0) fs.rmdirSync(harnessDir);
+  } catch (e) {
+    // Another owned runtime artifact may still live here; leave it intact.
+  }
+  return true;
+}
+
 function recordSkillInstall(manifestPath, packageVersion, skillId, dirPath, linkInfo = {}) {
   const data = readManifest(manifestPath);
   data.package = PACKAGE_NAME;
@@ -88,7 +89,6 @@ function recordAgentInstall(manifestPath, packageVersion, agentId, filePath) {
 function recordGeneratedSkill(manifestPath, skillId, dirPath, description, triggers = []) {
   const data = readManifest(manifestPath);
   if (!Array.isArray(data.generated)) data.generated = [];
-  
   data.updatedAt = new Date().toISOString();
   const idx = data.generated.findIndex(s => s.dirPath === dirPath || s.id === skillId);
   const entry = {
@@ -98,10 +98,8 @@ function recordGeneratedSkill(manifestPath, skillId, dirPath, description, trigg
     triggers: Array.isArray(triggers) ? triggers : [],
     generatedAt: new Date().toISOString()
   };
-  
   if (idx !== -1) data.generated[idx] = { ...data.generated[idx], ...entry };
   else data.generated.push(entry);
-  
   writeManifest(manifestPath, data);
 }
 
@@ -110,31 +108,21 @@ function removeGeneratedSkill(manifestPath, dirPath) {
   const data = readManifest(manifestPath);
   if (!Array.isArray(data.generated)) return;
   data.generated = data.generated.filter(s => s.dirPath !== dirPath);
-  writeManifest(manifestPath, data);
+  if (!removeManifestArtifactsIfEmpty(manifestPath, data)) writeManifest(manifestPath, data);
 }
 
-// Removes one skill entry, and - once no skills remain in it - deletes the
-// manifest file itself rather than leaving an empty bookkeeping file behind.
 function removeSkillFromManifest(manifestPath, dirPath) {
   if (!fs.existsSync(manifestPath)) return;
   const data = readManifest(manifestPath);
   data.skills = data.skills.filter(s => s.dirPath !== dirPath);
-  if (data.skills.length === 0 && (!data.generated || data.generated.length === 0) && (!data.agents || data.agents.length === 0)) {
-    fs.unlinkSync(manifestPath);
-  } else {
-    writeManifest(manifestPath, data);
-  }
+  if (!removeManifestArtifactsIfEmpty(manifestPath, data)) writeManifest(manifestPath, data);
 }
 
 function removeAgentFromManifest(manifestPath, filePath) {
   if (!fs.existsSync(manifestPath)) return;
   const data = readManifest(manifestPath);
   data.agents = data.agents.filter(agent => agent.filePath !== filePath);
-  if (data.skills.length === 0 && (!data.generated || data.generated.length === 0) && data.agents.length === 0) {
-    fs.unlinkSync(manifestPath);
-  } else {
-    writeManifest(manifestPath, data);
-  }
+  if (!removeManifestArtifactsIfEmpty(manifestPath, data)) writeManifest(manifestPath, data);
 }
 
 module.exports = {
