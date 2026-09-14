@@ -63,6 +63,38 @@
       "host_discovery_status": "Supported"
     }
   },
+  "action_gate": {
+    "policy_version": 1,
+    "mechanism_status": "Mechanism verified",
+    "rule_table": "hooks/scripts/action-gate-rules.json",
+    "audit_scope": "workspace-keyed global state / per-session action-gate records",
+    "hosts": {
+      "claude-code": {
+        "ask_decision": "Mechanism verified",
+        "permission_mode_matrix": "Unknown",
+        "fallback": "permissionDecision=ask",
+        "notes": "The documented PreToolUse schema supports ask, and deterministic Harness tests verify the emitted JSON. Real prompting behavior for every permission_mode, including bypassPermissions, is not promoted beyond Unknown without preserved live-host evidence."
+      },
+      "codex": {
+        "ask_decision": "Unknown",
+        "permission_mode_matrix": "Unknown",
+        "fallback": "exit-2-block",
+        "notes": "The local plugin packages the hook, but Harness has no preserved live evidence that Codex interprets Claude-style ask decisions equivalently. Matched actions therefore block rather than silently allow."
+      },
+      "chatgpt-openai-plugin": {
+        "ask_decision": "Unknown",
+        "permission_mode_matrix": "Unknown",
+        "fallback": "exit-2-block",
+        "notes": "Public skills-only distribution does not include local lifecycle hooks; local plugin hook semantics remain a separate host capability."
+      },
+      "other": {
+        "ask_decision": "Unknown",
+        "permission_mode_matrix": "Unknown",
+        "fallback": "exit-2-block",
+        "notes": "A matched action fails closed until that host has a Harness-verified ask-style decision contract."
+      }
+    }
+  },
   "platforms": [
     {
       "id": "codex",
@@ -114,7 +146,9 @@
       "official_sources": [
         "https://code.claude.com/docs/en/skills",
         "https://code.claude.com/docs/en/plugins",
-        "https://code.claude.com/docs/en/plugin-evals"
+        "https://code.claude.com/docs/en/plugin-evals",
+        "https://code.claude.com/docs/en/hooks",
+        "https://code.claude.com/docs/en/permissions"
       ],
       "capabilities": {
         "standaloneSkills": {"status": "Supported", "paths": {"project": [".claude/skills"], "global": ["~/.claude/skills"]}},
