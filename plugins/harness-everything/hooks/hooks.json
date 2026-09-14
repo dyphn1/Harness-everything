@@ -76,10 +76,10 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/action-gate.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\action-gate.js\"",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/codex-action-gate-post.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\codex-action-gate-post.js\"",
             "timeout": 15,
-            "statusMessage": "Recording Harness action-gate execution"
+            "statusMessage": "Recording Harness action-gate execution outcome"
           },
           {
             "type": "command",
@@ -130,20 +130,6 @@
             "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\subagent-scope-guard.js\"",
             "timeout": 15,
             "statusMessage": "Reviewing subagent scope changes"
-          }
-        ]
-      }
-    ],
-    "PostToolUseFailure": [
-      {
-        "matcher": "Bash|apply_patch",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/action-gate.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\action-gate.js\"",
-            "timeout": 15,
-            "statusMessage": "Recording failed Harness action-gate execution"
           }
         ]
       }
