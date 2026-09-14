@@ -16,7 +16,12 @@
     "verification"
   ],
   "hooks": "./hooks/hooks.json",
-  "agents": ["./fable-mode/agents"],
+  "agents": [
+    "./fable-mode/agents/fable-orchestrator.md",
+    "./fable-mode/agents/fable-verifier.md",
+    "./fable-mode/agents/fable-worker-haiku.md",
+    "./fable-mode/agents/fable-worker-sonnet.md"
+  ],
   "skills": [
     "./multi-agent-workspace",
     "./environment-detection",
