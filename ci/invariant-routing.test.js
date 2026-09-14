@@ -29,10 +29,12 @@ const tier2 = spawnSync(process.execPath, [kernel, 'add a login endpoint with te
 
 check(tier2.status === 0, 'kernel router exits successfully');
 check(/RECOMMENDED TIER:\s*Tier 2/i.test(tier2.stdout), 'classifier result is preserved');
+check(tier2.stdout.includes('"strategy":"iterative-single"'), 'Tier 2 structured plan selects iterative-single');
 check(tier2.stdout.includes('REQUIRED HARNESS INVARIANTS'), 'kernel emits mandatory invariants');
 check(tier2.stdout.includes('Route before execution'), 'route-before-execution invariant is present');
 check(tier2.stdout.includes('Verify before claim'), 'verify-before-claim invariant is present');
 check(tier2.stdout.includes('after 3 same-signature failures'), 'failure escalation invariant is present');
+check(tier2.stdout.includes('loop-budget:'), 'iterative-single loop budget invariant is present');
 check(tier2.stdout.includes('SUGGESTED SKILLS (ADVISORY'), 'domain skills are explicitly advisory');
 check(tier2.stdout.includes('tdd:'), 'Tier 2 can still recommend TDD');
 check(!tier2.stdout.includes('BASE EXECUTION LOOP'), 'legacy fixed base-execution-loop output is suppressed');
@@ -44,8 +46,9 @@ const tier3 = spawnSync(process.execPath, [kernel, 'audit the entire repository 
 });
 check(tier3.status === 0, 'Tier 3 kernel routing exits successfully');
 check(/RECOMMENDED TIER:\s*Tier 3/i.test(tier3.stdout), 'macro task remains Tier 3');
-check(tier3.stdout.includes('fable-mode / fable-discipline'), 'Tier 3 can still suggest Fable capabilities');
-check(tier3.stdout.includes('use selectively'), 'Tier 3 suggestions remain non-mandatory');
+check(tier3.stdout.includes('"strategy":"fable-staged"'), 'Tier 3 dependent/unproven work selects fable-staged');
+check(tier3.stdout.includes('fable-mode / fable-discipline'), 'Tier 3 selected plan suggests Fable capabilities');
+check(tier3.stdout.includes('suggested skills remain advisory'), 'Tier 3 suggestions remain non-mandatory');
 
 const harnessSkill = read('harness-everything/SKILL.md');
 check(!/Requests that already name a skill/i.test(harnessSkill), 'harness entrypoint no longer opts out when another skill is named');
