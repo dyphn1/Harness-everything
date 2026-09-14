@@ -27,6 +27,17 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/scripts/action-gate.js"
+          }
+        ],
+        "description": "Require explicit approval for destructive or external side effects",
+        "id": "harness:pre:action-gate"
+      },
+      {
         "matcher": "Bash|PowerShell|Edit|Write",
         "hooks": [
           {
@@ -87,6 +98,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node hooks/scripts/action-gate.js"
+          }
+        ],
+        "description": "Close any unexecuted action-gate approvals as rejected for this turn",
+        "id": "harness:stop:action-gate-audit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "node hooks/scripts/stop-gate.js"
           }
         ],
@@ -95,6 +116,17 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/scripts/action-gate.js"
+          }
+        ],
+        "description": "Record execution of an approved action-gate payload",
+        "id": "harness:post:action-gate-audit"
+      },
       {
         "matcher": "Bash|PowerShell",
         "hooks": [
@@ -149,6 +181,19 @@
         ],
         "description": "Diff the whole repo after a subagent burst finishes - catches scope creep past what the task briefed",
         "id": "harness:post:subagent-scope-guard"
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/scripts/action-gate.js"
+          }
+        ],
+        "description": "Record that an approved action-gate payload executed but failed",
+        "id": "harness:post-failure:action-gate-audit"
       }
     ]
   }

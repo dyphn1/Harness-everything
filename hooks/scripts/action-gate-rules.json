@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "rules": [
+    {
+      "id": "git-force-push",
+      "tools": ["Bash", "PowerShell"],
+      "pattern": "\\bgit\\s+push\\b[\\s\\S]*(?:--force(?:-with-lease)?|(?:^|\\s)-f(?:\\s|$))",
+      "flags": "i",
+      "reason": "Force-pushing can rewrite remote history.",
+      "scope": "always"
+    },
+    {
+      "id": "git-reset-hard",
+      "tools": ["Bash", "PowerShell"],
+      "pattern": "\\bgit\\s+reset\\s+--hard\\b",
+      "flags": "i",
+      "reason": "git reset --hard can discard local work.",
+      "scope": "always"
+    },
+    {
+      "id": "git-clean-force-delete",
+      "tools": ["Bash", "PowerShell"],
+      "pattern": "\\bgit\\s+clean\\b(?=[^\\r\\n]*\\s-(?:[^\\s]*f|f\\b))(?=[^\\r\\n]*\\s-(?:[^\\s]*d|d\\b))",
+      "flags": "i",
+      "reason": "git clean with force and directory deletion can remove untracked work.",
+      "scope": "always"
+    },
+    {
+      "id": "recursive-delete",
+      "tools": ["Bash"],
+      "pattern": "(?:^|[;&|\\n]\\s*)rm\\s+(?=[^\\r\\n;&|]*-(?:[^\\s]*r|r\\b))(?=[^\\r\\n;&|]*-(?:[^\\s]*f|f\\b))",
+      "flags": "i",
+      "reason": "Recursive forced deletion outside approved scratch space is destructive.",
+      "scope": "outside-scratch"
+    },
+    {
+      "id": "powershell-recursive-force-delete",
+      "tools": ["Bash", "PowerShell"],
+      "pattern": "\\bRemove-Item\\b(?=[^\\r\\n;|]*-(?:Recurse|r)\\b)(?=[^\\r\\n;|]*-(?:Force|fo)\\b)",
+      "flags": "i",
+      "reason": "PowerShell recursive forced deletion outside approved scratch space is destructive.",
+      "scope": "outside-scratch"
+    },
+    {
+      "id": "sql-destructive-ddl",
+      "tools": ["Bash", "PowerShell"],
+      "pattern": "\\b(?:DROP\\s+(?:TABLE|DATABASE|SCHEMA)|TRUNCATE(?:\\s+TABLE)?)\\b",
+      "flags": "i",
+      "reason": "Destructive SQL DDL can irreversibly remove production data or schema state.",
+      "scope": "always"
+    },
+    {
+      "id": "package-publish",
+      "tools": ["Bash", "PowerShell"],
+      "pattern": "\\b(?:npm|pnpm|yarn|cargo|twine)\\s+publish\\b",
+      "flags": "i",
+      "reason": "Publishing creates an external package/release side effect.",
+      "scope": "always"
+    },
+    {
+      "id": "github-release-create",
+      "tools": ["Bash", "PowerShell"],
+      "pattern": "\\bgh\\s+release\\s+create\\b",
+      "flags": "i",
+      "reason": "Creating a GitHub release is an external irreversible publication action.",
+      "scope": "always"
+    },
+    {
+      "id": "production-deploy",
+      "tools": ["Bash", "PowerShell"],
+      "pattern": "\\b(?:kubectl\\s+apply|helm\\s+(?:upgrade|install)|terraform\\s+apply|vercel\\s+deploy|fly\\s+deploy|gcloud\\s+run\\s+deploy|(?:npm|pnpm|yarn)\\s+(?:run\\s+)?deploy|deploy\\s+to\\s+(?:prod|production|live))\\b",
+      "flags": "i",
+      "reason": "Deployment changes an external environment and requires explicit approval.",
+      "scope": "always"
+    }
+  ]
+}

@@ -91,6 +91,8 @@ runNode('explicit parallel safety contract', path.join(projectRoot, 'ci', 'route
 runNode('workflow-plan consumers', path.join(projectRoot, 'ci', 'workflow-plan-consumers.test.js'));
 runNode('workflow-plan consumer edge contracts', path.join(projectRoot, 'ci', 'workflow-plan-consumers-edge.test.js'));
 runNode('phase 4 ensemble/memory evidence', path.join(projectRoot, 'ci', 'phase4-ensemble-memory.test.js'));
+runNode('phase 5 pre-action gate', path.join(projectRoot, 'ci', 'action-gate.test.js'));
+runNode('phase 5 platform evidence boundary', path.join(projectRoot, 'ci', 'action-gate-platform-doc.test.js'));
 
 console.log('\n[Phase 3] Skill Reference and Behavioral Case Checks...');
 runNode('skill reference check', path.join(projectRoot, 'ci', 'reference-check.js'));

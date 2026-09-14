@@ -36,6 +36,13 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/action-gate.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\action-gate.js\"",
+            "timeout": 15,
+            "statusMessage": "Checking Harness pre-action approval gate"
+          },
+          {
+            "type": "command",
             "command": "node \"$PLUGIN_ROOT/hooks/scripts/rule-of-3.js\"",
             "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\rule-of-3.js\"",
             "timeout": 15,
@@ -67,6 +74,13 @@
       {
         "matcher": "Bash|apply_patch",
         "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/action-gate.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\action-gate.js\"",
+            "timeout": 15,
+            "statusMessage": "Recording Harness action-gate execution"
+          },
           {
             "type": "command",
             "command": "node \"$PLUGIN_ROOT/hooks/scripts/rule-of-3-tracker.js\"",
@@ -120,6 +134,20 @@
         ]
       }
     ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/action-gate.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\action-gate.js\"",
+            "timeout": 15,
+            "statusMessage": "Recording failed Harness action-gate execution"
+          }
+        ]
+      }
+    ],
     "SubagentStart": [
       {
         "hooks": [
@@ -149,6 +177,13 @@
     "Stop": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/action-gate.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\action-gate.js\"",
+            "timeout": 15,
+            "statusMessage": "Closing unresolved Harness action approvals"
+          },
           {
             "type": "command",
             "command": "node \"$PLUGIN_ROOT/hooks/scripts/stop-gate.js\"",
