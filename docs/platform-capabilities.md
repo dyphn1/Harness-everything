@@ -9,7 +9,7 @@ The key distinction is between **what Harness packages**, **what the host can me
 | Surface | Skills | Native/runtime mechanism | Current claim boundary |
 | --- | --- | --- | --- |
 | **Claude Code** | Yes — project `.claude/skills/`, user `~/.claude/skills/` | Native lifecycle hooks (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`) | **Hard enforcement** for the supported gates covered by mechanism tests and live evidence. |
-| **Codex / local OpenAI plugin** | Yes | `.codex-plugin` package with local `SessionStart` and `UserPromptSubmit` hooks | **Local invariant enforcement**: session policy + invariant-first routing are mechanically injected. Do not claim full Claude hook parity unless separate evidence exists. |
+| **Codex / local OpenAI plugin** | Yes | `.codex-plugin` package with `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `SubagentStart`, `SubagentStop`, and `Stop` hooks | **Mechanism-tested local enforcement** for packaged session, routing, circuit-breaker, state, subagent-scope, and verification gates on supported local tools. Live host loading is not yet verified; do not claim Claude parity beyond this package evidence. |
 | **OpenCode** | Yes | Native plugin API (`tool.execute.before`, `tool.execute.after`, `session.idle`) | **Hard-capable implementation with mechanism coverage; live plugin loading remains unverified.** Do not promote this to live-verified enforcement without a real host-session artifact. |
 | **Public OpenAI Skills-only plugin** | Yes | Public Skills-only bundle | **Skill/workflow behavior only.** The submitted artifact does **not** include the local `.codex-plugin` lifecycle hooks, so it must not claim `SessionStart`, `UserPromptSubmit`, or other local hooks as public hard enforcement. |
 | **Cursor** | Yes — project `.cursor/skills/`, shared user `~/.agents/skills/` | Project rules/instructions | Advisory only. |
@@ -37,7 +37,9 @@ These targets apply to default link mode **and** explicit `--copy` mode. A canon
 Do not collapse these into one capability claim:
 
 1. **Legacy/general installer target** — `npx github:dyphn1/Harness-everything install --codex` writes advisory `AGENTS.md` plus repo-scoped skills under `.agents/skills/`. That path is advisory where the host is only consuming instructions.
-2. **Local OpenAI plugin package** — `plugins/harness-everything/.codex-plugin/plugin.json` packages the Harness skills plus local lifecycle hooks. Those hooks mechanically establish the compact session policy and invariant-first routing contract in supported local plugin workflows.
+2. **Local OpenAI plugin package** — `plugins/harness-everything/.codex-plugin/plugin.json` packages the Harness skills plus lifecycle hooks for session start, prompt routing, supported local tool calls, subagent lifecycle, and stop verification. Those hooks mechanically establish the compact session policy and invariant-first runtime contract in supported local plugin workflows.
+
+The package is tested at the mechanism layer and remains subject to the host's hook review/trust flow. A fresh host session is still required before claiming that a particular ChatGPT/Codex installation loaded and fired the hooks.
 
 A statement such as "Codex is advisory only" is therefore incomplete. The correct claim depends on which installation surface is being discussed.
 

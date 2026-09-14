@@ -23,7 +23,7 @@
     "test:routing": "node ci/routing-check.js",
     "test:routing:invariants": "node ci/invariant-routing.test.js",
     "plugin:sync": "node scripts/sync-openai-plugin.js",
-    "test:plugin:openai": "node ci/openai-plugin-package.test.js",
+    "test:plugin:openai": "node ci/openai-plugin-package.test.js && node ci/openai-plugin-runtime.test.js",
     "plugin:submission:build": "node scripts/build-openai-submission.js",
     "test:plugin:submission": "node ci/openai-plugin-submission.test.js",
     "benchmark:scaffold": "node benchmarks/run.js scaffold",

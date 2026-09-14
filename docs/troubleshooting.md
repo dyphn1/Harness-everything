@@ -156,7 +156,7 @@ Do not expect this Claude Code state file merely because Harness skills or an in
 
 ### Codex / local OpenAI plugin not appearing
 
-**Symptom:** The Harness plugin is missing from the local Plugins Directory, skills are stale, or `SessionStart` / `UserPromptSubmit` behavior does not reflect the current repository package.
+**Symptom:** The Harness plugin is missing from the local Plugins Directory, skills are stale, or packaged lifecycle behavior does not reflect the current repository package.
 
 **Checks:**
 ```bash
@@ -181,7 +181,7 @@ If those checks pass but the host still shows an older copy:
 3. Start a **new chat/session** before judging `SessionStart` or `UserPromptSubmit` behavior.
 4. Re-review/trust changed command hooks if the host asks again after hook definitions changed.
 
-The local plugin mechanically injects the session policy and invariant-first routing contract. It does **not** imply full Claude Code hook parity; lack of `PreToolUse`, `PostToolUse`, or `Stop` behavior on this surface is not evidence that the packaged prompt hooks failed.
+The local plugin mechanically injects the session policy and invariant-first routing contract, and its package includes mechanism-tested supported-tool, subagent, and stop adapters. If those events do not appear in a live session, verify the host loaded the current package and that changed command hooks were reviewed/trusted; package tests alone cannot prove host loading.
 
 See [openai-plugin.md](openai-plugin.md) for installation and validation details.
 

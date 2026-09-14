@@ -111,7 +111,7 @@ Harness should use the strongest mechanism each installation surface actually pr
 | CLI/tool-capable but hook-less surfaces | The model explicitly calls Harness scripts at decision points | Mechanism-guided, not automatically enforced |
 | Prompt-only surfaces | Advisory instructions include command snippets and decision rules | Self-regulated by the model |
 
-One host may expose more than one surface. Codex is the important example: the general `--codex` installer path is instruction/advisory oriented, while the **local OpenAI plugin** packages `SessionStart` and `UserPromptSubmit` hooks for mechanical session-policy and invariant routing. The public OpenAI **Skills-only** submission does not include those local lifecycle hooks.
+One host may expose more than one surface. Codex is the important example: the general `--codex` installer path is instruction/advisory oriented, while the **local OpenAI plugin** packages session, prompt, supported-tool, subagent, and stop hooks for mechanism-tested runtime enforcement. The public OpenAI **Skills-only** submission does not include those local lifecycle hooks.
 
 OpenCode is plugin-capable and has mechanism coverage, but live plugin loading remains unverified. Claude Code has the broadest currently verified Harness lifecycle-hook surface.
 
