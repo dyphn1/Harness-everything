@@ -7,10 +7,7 @@
   },
   "license": "Apache-2.0",
   "homepage": "https://github.com/dyphn1/Harness-everything#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/dyphn1/Harness-everything.git"
-  },
+  "repository": "https://github.com/dyphn1/Harness-everything",
   "keywords": [
     "agent-harness",
     "orchestration",
@@ -19,7 +16,12 @@
     "verification"
   ],
   "hooks": "./hooks/hooks.json",
-  "agents": "./fable-mode/agents",
+  "agents": [
+    "./fable-mode/agents/fable-orchestrator.md",
+    "./fable-mode/agents/fable-verifier.md",
+    "./fable-mode/agents/fable-worker-haiku.md",
+    "./fable-mode/agents/fable-worker-sonnet.md"
+  ],
   "skills": [
     "./multi-agent-workspace",
     "./environment-detection",

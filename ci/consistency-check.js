@@ -169,11 +169,10 @@ if (fs.existsSync(pluginJsonPath)) {
   );
   check('plugin.json hooks file exists', !plugin.hooks || fs.existsSync(path.join(ROOT, plugin.hooks)), plugin.hooks);
   if (plugin.agents) {
-    const agentsPath = path.join(ROOT, plugin.agents);
-    check('plugin.json agents path exists', fs.existsSync(agentsPath), plugin.agents);
-    if (fs.existsSync(agentsPath)) {
-      const agentFiles = fs.readdirSync(agentsPath).filter(name => name.endsWith('.md'));
-      check('plugin.json agents path contains agent definitions', agentFiles.length > 0, plugin.agents);
+    const agentEntries = Array.isArray(plugin.agents) ? plugin.agents : [plugin.agents];
+    for (const rel of agentEntries) {
+      check(`plugin.json agents entry is a .md file: ${rel}`, rel.endsWith('.md'), rel);
+      check(`plugin.json agents path exists: ${rel}`, fs.existsSync(path.join(ROOT, rel)), rel);
     }
   }
   for (const rel of plugin.skills || []) {
