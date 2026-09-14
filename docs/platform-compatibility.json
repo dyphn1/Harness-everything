@@ -76,10 +76,10 @@
         "notes": "The documented PreToolUse schema supports ask, and deterministic Harness tests verify the emitted JSON. Real prompting behavior for every permission_mode, including bypassPermissions, is not promoted beyond Unknown without preserved live-host evidence."
       },
       "codex": {
-        "ask_decision": "Unknown",
+        "ask_decision": "Unsupported",
         "permission_mode_matrix": "Unknown",
         "fallback": "exit-2-block",
-        "notes": "The local plugin packages the hook, but Harness has no preserved live evidence that Codex interprets Claude-style ask decisions equivalently. Matched actions therefore block rather than silently allow."
+        "notes": "Current Codex PreToolUse parses permissionDecision=ask but does not support it; Codex reports the hook failure and continues the tool call. Harness therefore uses exit 2 for matched destructive actions rather than relying on ask semantics."
       },
       "chatgpt-openai-plugin": {
         "ask_decision": "Unknown",
@@ -109,7 +109,7 @@
         "standaloneSkills": {"status": "Supported", "paths": {"project": [".agents/skills"], "global": ["~/.agents/skills"]}},
         "pluginSupport": {"status": "Mechanism verified", "paths": {"manifest": ["plugin.json", ".codex-plugin/plugin.json"]}},
         "bundledSkills": {"status": "Mechanism verified", "notes": "The local package contains a root skills/ tree."},
-        "hooksLifecycle": {"status": "Mechanism verified", "notes": "SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SubagentStop, and Stop are covered by package checks; non-managed hooks still require trust."},
+        "hooksLifecycle": {"status": "Mechanism verified", "notes": "Codex-supported SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SubagentStop, and Stop are covered by package checks; the plugin intentionally does not declare unsupported PostToolUseFailure. Non-managed hooks still require trust."},
         "projectScope": {"status": "Mechanism verified", "paths": {"skills": [".agents/skills"], "instructions": ["AGENTS.md"]}},
         "globalScope": {"status": "Mechanism verified", "paths": {"skills": ["~/.agents/skills"]}},
         "installUninstallSymmetry": {"status": "Mechanism verified", "notes": "Harness installer round-trip checks cover owned files and user-owned collisions."},
