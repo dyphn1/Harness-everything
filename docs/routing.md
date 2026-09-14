@@ -112,6 +112,41 @@ The classifier remains heuristic:
 - explicit user intent wins,
 - when overriding a materially different tier, record the reason briefly.
 
+## Pre-action `actionGate`
+
+The router may predict that a request needs `workflowPlan.actionGate`, but the Phase 5 enforcement hook deliberately **re-classifies the exact tool payload**. A missing or incorrect router prediction therefore cannot authorize a destructive command.
+
+The executable policy lives in `hooks/scripts/action-gate-rules.json`. A missing or invalid table activates built-in safety defaults and reports the degradation. A valid empty table remains empty so the CI negative control can detect accidental policy erasure.
+
+| Exact tool action | Harness result | Audit disposition before execution |
+|---|---|---|
+| Safe unmatched command such as `git status` | allow/no decision | no gate record |
+| Matched command on Claude Code | `permissionDecision: "ask"` | `pending-approval` |
+| Matched command on a host without Harness-verified ask semantics | block with exit 2 | `rejected` |
+| Approved payload reaches `PostToolUse` | continue | `executed` with exact payload SHA-256 |
+| Approved payload reaches `PostToolUseFailure` | continue | `executed` + failed execution outcome |
+| Pending approval never executes before `Stop` | no execution | `rejected` |
+| Hook internal error | Claude: `ask`; other/unverified host: exit 2 | fail closed |
+
+`rm -rf` and `Remove-Item -Recurse -Force` are exempt only when every parsed target is inside the OS temp directory, the current session scratch directory, or an explicitly supplied Harness scratch directory. An uncertain target is gated conservatively.
+
+```mermaid
+flowchart TD
+    P[PreToolUse exact payload] --> C{Matches action-gate rule?}
+    C -- No --> A[Allow without gate record]
+    C -- Yes --> X{Scratch-only destructive delete?}
+    X -- Yes --> A
+    X -- No --> H{Host has Harness-verified ask mechanism?}
+    H -- Claude Code --> Q[Emit permissionDecision: ask<br/>record pending-approval + payload hash]
+    H -- No / unknown --> B[Exit 2 block<br/>record rejected]
+    Q --> U{Did the exact tool payload execute?}
+    U -- PostToolUse --> E[record executed]
+    U -- PostToolUseFailure --> F[record executed + failure]
+    U -- no execution by Stop --> R[record rejected]
+```
+
+The deterministic suite verifies that the hook emits the same `ask` mechanism for every known `permission_mode` value, including `bypassPermissions`. That is **mechanism evidence only**. Real-host prompting/override behavior for each mode remains `Unknown` until preserved live evidence exists; package tests must not promote it to live support.
+
 ## Cognitive OS relationship
 
 `install-cognitive-os` remains the canonical explanatory/manual entry point for Discover → Think → Try → Summarize → Record. It is **not** required to win peer-skill selection before domain work begins. The runtime kernel establishes the smaller invariant contract independently; domain skills provide their own tactics inside that contract.
