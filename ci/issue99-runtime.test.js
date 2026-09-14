@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -39,6 +38,26 @@ function scriptFromClaudeCommand(command, pluginRoot) {
   const match = String(command).match(/^node\s+"([^"]+)"/);
   if (!match) return null;
   return match[1].replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, pluginRoot);
+}
+
+function probeHookModule(entry, script, cwd) {
+  if (entry.event === 'SessionStart') {
+    return spawnSync(process.execPath, [script], {
+      cwd,
+      encoding: 'utf8',
+      input: JSON.stringify({
+        hook_event_name: 'SessionStart',
+        session_id: 'issue99-cwd-probe',
+        cwd,
+      }),
+      env: { ...process.env, CLAUDE_PLUGIN_ROOT: ROOT },
+    });
+  }
+  return spawnSync(process.execPath, ['-e', 'require(process.argv[1])', script], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, CLAUDE_PLUGIN_ROOT: ROOT },
+  });
 }
 
 function readAudit(sessionDir, toolUseId) {
@@ -99,12 +118,11 @@ async function main() {
       const script = scriptFromClaudeCommand(entry.command, ROOT);
       check(Boolean(script) && fs.existsSync(script), `${entry.event} hook resolves from plugin root: ${path.relative(ROOT, script || '')}`);
       if (!script || !fs.existsSync(script)) continue;
-      const loaded = spawnSync(process.execPath, ['-e', 'require(process.argv[1])', script], {
-        cwd: tempRoot,
-        encoding: 'utf8',
-        env: { ...process.env, CLAUDE_PLUGIN_ROOT: ROOT },
-      });
-      check(loaded.status === 0 && !/MODULE_NOT_FOUND|Cannot find module/i.test(`${loaded.stdout}\n${loaded.stderr}`), `${entry.event} hook module loads from unrelated cwd`);
+      const loaded = probeHookModule(entry, script, tempRoot);
+      check(
+        loaded.status === 0 && !/MODULE_NOT_FOUND|Cannot find module/i.test(`${loaded.stdout}\n${loaded.stderr}`),
+        `${entry.event} hook resolves and starts from unrelated cwd`,
+      );
     }
 
     const targetWorkspace = path.join(tempRoot, 'installed-project');
