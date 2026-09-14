@@ -14,9 +14,25 @@ const {
  *
  * tier-router remains the human-readable classifier/guide detector. The
  * kernel consumes its versioned side-channel JSON contract instead of
- * scraping human-readable stdout. The structured workflow plan is still a
- * shadow plan in Phase 1; execution behavior stays advisory/invariant-first.
+ * scraping human-readable stdout. Phase 2 selects an execution topology, but
+ * the router still only emits a plan: executors retain responsibility for
+ * spawning agents, creating workspaces, running tools, and enforcing gates.
  */
+
+const INVARIANT_TEXT = {
+  'scope-lock': 'Stay inside the authorized task/repository scope.',
+  'verify-before-claim': 'Completion claims require objective evidence appropriate to the change.',
+  'replan-after-repeated-failure': 'After 3 same-signature failures, stop micro-retrying and zoom out/re-diagnose.',
+  'loop-budget': 'Stop iterative-single when its explicit iteration budget is exhausted.',
+  'objective-verification': 'Use an objective check for iterative work; self-critique alone is not verification.',
+  'stage-contracts': 'Fable stages must have explicit stage contracts and pass conditions.',
+  'cold-verification': 'Fable delivery requires a cold/independent verifier where specified.',
+  'parallel-scope-contract': 'Parallel work requires declared independent scopes and non-overlapping/read-only writes.',
+  'synthesis-barrier': 'Do not claim parallel completion until all workstreams reach the synthesis barrier.',
+  'handoff-contracts': 'Multi-agent workspace work uses orchestrator-owned handoff contracts; workers do not form a peer mesh.',
+  'workspace-state': 'Durable workspace state remains scoped to the workspace and existing state conventions.',
+  'pre-action-approval': 'Irreversible/external side effects require approval before the exact payload executes.',
+};
 
 function sanitizeClassifierOutput(stdout) {
   const lines = String(stdout || '').split(/\r?\n/);
@@ -58,8 +74,8 @@ function readStructuredContract(contractPath) {
   }
 }
 
-function printShadowPlan(plan) {
-  const shadow = {
+function printWorkflowPlan(plan) {
+  const visible = {
     schemaVersion: plan.schemaVersion,
     routingStatus: plan.routingStatus,
     tier: plan.tier,
@@ -67,37 +83,44 @@ function printShadowPlan(plan) {
     strategySelection: plan.strategySelection,
     actionGate: plan.actionGate,
     limits: plan.limits,
+    parallelism: plan.parallelism,
+    workspace: plan.workspace,
+    fallback: plan.fallback,
     reasonCodes: plan.reasonCodes,
   };
-  console.log(`\n=> ROUTER WORKFLOW PLAN (SHADOW JSON): ${JSON.stringify(shadow)}`);
+  console.log(`\n=> ROUTER WORKFLOW PLAN (JSON): ${JSON.stringify(visible)}`);
 }
 
 function printKernelContract(plan) {
   console.log('\n=> REQUIRED HARNESS INVARIANTS:');
-  console.log('   1. Route before execution: establish task scope/tier before mutating work.');
-  console.log('   2. Verify before claim: completion claims require objective evidence appropriate to the change.');
-  console.log('   3. Re-plan on repetition: after 3 same-signature failures, stop micro-retrying and zoom out/re-diagnose.');
+  for (const invariant of plan.requiredInvariants || []) {
+    console.log(`   - ${invariant}: ${INVARIANT_TEXT[invariant] || 'Required by the selected workflow plan.'}`);
+  }
 
-  console.log('\n=> SUGGESTED SKILLS (ADVISORY — choose only what helps):');
-  if (plan.tier === 'tier1') {
-    console.log('   - No mandatory domain skill. Prefer direct execution; load a focused skill only when it adds value.');
-  } else if (plan.tier === 'tier2') {
-    console.log('   - todo-driven-workflow: useful when the task benefits from explicit multi-step progress tracking.');
-    console.log('   - tdd: useful for behavioral changes where executable tests can drive the implementation.');
-    console.log('   - verification-loop: useful for selecting the right build/lint/test/diff evidence before delivery.');
-  } else if (plan.tier === 'tier3') {
-    console.log('   - fable-mode / fable-discipline: useful for macro planning or deliberate multi-agent decomposition.');
-    console.log('   - multi-agent-workspace: useful when bounded delegation materially improves the task.');
-    console.log('   - todo-driven-workflow / tdd / verification-loop: use selectively when they fit the work.');
+  console.log('\n=> SUGGESTED SKILLS (ADVISORY — no fixed workflow order):');
+  if (Array.isArray(plan.suggestedSkills) && plan.suggestedSkills.length > 0) {
+    for (const skill of plan.suggestedSkills) console.log(`   - ${skill}`);
+  } else if (plan.strategy === 'direct-single') {
+    console.log('   - No mandatory domain skill. Prefer the bounded direct path and load a focused skill only when it adds value.');
+  } else if (plan.strategySelection === 'deferred') {
+    console.log('   - Strategy is deferred/unclassified. Do not infer triviality; choose the smallest justified approach from task evidence.');
   } else {
-    console.log('   - Routing is unclassified. Do not infer triviality; choose the smallest justified approach from the task itself.');
+    console.log('   - No additional skill suggestion from the workflow plan.');
+  }
+
+  if (plan.actionGate && plan.actionGate.required) {
+    console.log(`\n=> ACTION GATE REQUIRED: ${plan.actionGate.reasonCodes.join(', ')}; disposition=${plan.actionGate.disposition}. The router only declares this requirement; execution must not bypass approval.`);
+  }
+
+  if (plan.fallback && plan.fallback.disposition !== 'none') {
+    console.log(`\n=> ROUTING FALLBACK: ${plan.fallback.disposition}/${plan.fallback.mode}; ${plan.fallback.reasonCodes.join(', ')}.`);
   }
 
   if (plan.routingStatus === 'degraded') {
-    console.log('\n=> ROUTING DEGRADATION: Structured routing is degraded. Keep the task unclassified unless independent evidence supports a stronger classification; do not silently downgrade to Tier 1.');
+    console.log('\n=> ROUTING DEGRADATION: Structured routing is degraded. Keep the strategy deferred unless independent evidence supports a route; do not silently downgrade to Tier 1/direct execution.');
   }
 
-  console.log('\n=> ORCHESTRATION POLICY: Do not enforce workflow order. Enforce the invariants above, then let the agent choose the smallest useful skill/tool set.');
+  console.log('\n=> ORCHESTRATION POLICY: Enforce the plan invariants, but do not turn suggested skills into a universal pipeline. The router plans; execution components execute.');
 }
 
 function run(prompt, stdinPayload) {
@@ -129,7 +152,7 @@ function run(prompt, stdinPayload) {
     // Temporary contract cleanup is best effort only.
   }
 
-  printShadowPlan(contract.workflowPlan);
+  printWorkflowPlan(contract.workflowPlan);
   printKernelContract(contract.workflowPlan);
 
   if (result.status !== 0) process.exit(result.status === null ? 1 : result.status);
