@@ -1,6 +1,8 @@
 const path = require('path');
 const fs = require('fs');
 
+const CLAUDE_PLUGIN_ROOT_TOKEN = '${CLAUDE_PLUGIN_ROOT}';
+
 // Removes legacy static-skill subfolders left behind by the pre-0.2.2 bug
 // that installed skills to .claude/harness-everything/skills/ instead of the
 // native .claude/skills/, WITHOUT touching skills/generated/ - self-evolve
@@ -22,6 +24,21 @@ function cleanupLegacySkillsDir(oldSkillsDir) {
   } catch (e) {
     console.warn(`  ⚠️ Failed to clean up legacy skills folder: ${e.message}`);
   }
+}
+
+function resolveClaudeHookCommand(command, harnessSourceDir) {
+  return command.replace(/^node\s+"?([^"\s]+)"?/, (match, scriptPath) => {
+    let abs;
+    if (scriptPath === CLAUDE_PLUGIN_ROOT_TOKEN || scriptPath.startsWith(`${CLAUDE_PLUGIN_ROOT_TOKEN}/`) || scriptPath.startsWith(`${CLAUDE_PLUGIN_ROOT_TOKEN}\\`)) {
+      const relative = scriptPath
+        .slice(CLAUDE_PLUGIN_ROOT_TOKEN.length)
+        .replace(/^[/\\]+/, '');
+      abs = path.join(harnessSourceDir, relative);
+    } else {
+      abs = path.isAbsolute(scriptPath) ? scriptPath : path.join(harnessSourceDir, scriptPath);
+    }
+    return `node "${abs}"`;
+  });
 }
 
 // Claude Code has native project-skill directory: .claude/skills/.
@@ -117,10 +134,7 @@ module.exports = {
           if (cloned.hooks) {
             cloned.hooks = cloned.hooks.map(h => {
               if (h.type === 'command' && h.command) {
-                h.command = h.command.replace(/^node\s+"?([^"\s]+)"?/, (m, scriptPath) => {
-                  const abs = path.isAbsolute(scriptPath) ? scriptPath : path.join(harnessSourceDir, scriptPath);
-                  return `node "${abs}"`;
-                });
+                h.command = resolveClaudeHookCommand(h.command, harnessSourceDir);
               }
               return h;
             });
@@ -147,5 +161,8 @@ module.exports = {
       claudeHooks.removeHarnessHooks(globalSettingsFile);
       cleanEmptyDirs(path.join(userHome, '.claude'), [userHome]);
     }
+  },
+  resolveHookCommand(command, harnessSourceDir) {
+    return resolveClaudeHookCommand(command, harnessSourceDir);
   }
 };
