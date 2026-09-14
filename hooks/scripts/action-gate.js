@@ -36,6 +36,10 @@ function toolNameOf(payload) {
   return String((payload && (payload.tool_name || payload.toolName)) || '');
 }
 
+function hookEventOf(payload) {
+  return String((payload && (payload.hook_event_name || payload.hookEventName)) || 'PreToolUse');
+}
+
 function toolInputOf(payload) {
   return (payload && (payload.tool_input || payload.toolInput || payload.input)) || {};
 }
@@ -124,18 +128,28 @@ function shellWords(text) {
   });
 }
 
-function deleteTargets(command, ruleId) {
-  let tail = '';
-  if (ruleId === 'recursive-delete') {
-    const match = String(command).match(/(?:^|[;&|\n]\s*)rm\s+([^;&|\n]+)/i);
-    tail = match ? match[1] : '';
-  } else if (ruleId === 'powershell-recursive-force-delete') {
-    const match = String(command).match(/\bRemove-Item\b([^;|\n]+)/i);
-    tail = match ? match[1] : '';
-  }
-  if (!tail) return [];
+function filterDeleteTargets(tail) {
   return shellWords(tail)
     .filter(token => token && !token.startsWith('-') && !/^(?:--|&&|\|\||[;&|])$/.test(token));
+}
+
+function deleteTargets(command, ruleId) {
+  const text = String(command || '');
+  const tails = [];
+  let regex = null;
+  if (ruleId === 'recursive-delete') {
+    regex = /(?:^|[;&|\n]\s*)rm\s+([^;&|\n]+)/ig;
+  } else if (ruleId === 'powershell-recursive-force-delete') {
+    regex = /\bRemove-Item\b([^;|\n]+)/ig;
+  }
+  if (!regex) return [];
+
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    tails.push(match[1]);
+    if (match[0].length === 0) regex.lastIndex++;
+  }
+  return tails.flatMap(filterDeleteTargets);
 }
 
 function pathApiFor(value) {
@@ -365,6 +379,21 @@ function rejectPendingAtStop(payload, options = {}) {
 }
 
 function internalErrorDecision(payload, err, options = {}) {
+  const event = hookEventOf(payload);
+  const reason = `[Harness actionGate:internal-error] ${err.message}.`;
+
+  // Only PreToolUse can make an authorization decision. Post/Stop failures are
+  // audit failures after the side effect (or while closing state) and must not
+  // emit a PreToolUse-shaped ask or overwrite a completed execution record.
+  if (event !== 'PreToolUse') {
+    return {
+      kind: 'audit-error',
+      exitCode: 0,
+      stdout: null,
+      stderr: `${reason} ${event} audit state was not modified.`,
+    };
+  }
+
   let host = 'unknown';
   try { host = detectHost(payload, options.host); } catch (_) { host = 'unknown'; }
   const exact = exactPayloadText(payload);
@@ -377,13 +406,14 @@ function internalErrorDecision(payload, err, options = {}) {
       commandHash: hashExact(exact),
     });
   } catch (_) { /* still fail closed below */ }
-  const reason = `[Harness actionGate:internal-error] ${err.message}. Fail-closed policy requires explicit approval.`;
-  if (hostSupportsAsk(host)) return { kind: 'ask', exitCode: 0, stdout: askOutput(reason), stderr: null };
-  return { kind: 'block', exitCode: 2, stdout: null, stderr: `${reason} Host '${host}' cannot be trusted to surface ask; blocking instead.` };
+
+  const approvalReason = `${reason} Fail-closed policy requires explicit approval.`;
+  if (hostSupportsAsk(host)) return { kind: 'ask', exitCode: 0, stdout: askOutput(approvalReason), stderr: null };
+  return { kind: 'block', exitCode: 2, stdout: null, stderr: `${approvalReason} Host '${host}' cannot be trusted to surface ask; blocking instead.` };
 }
 
 function processEvent(payload, options = {}) {
-  const event = String((payload && (payload.hook_event_name || payload.hookEventName)) || 'PreToolUse');
+  const event = hookEventOf(payload);
   if (event === 'PreToolUse') return evaluatePreToolUse(payload, options);
   if (event === 'PostToolUse') return finalizeExecution(payload, 'success', options);
   if (event === 'PostToolUseFailure') return finalizeExecution(payload, 'failure', options);
@@ -405,12 +435,16 @@ function runPayload(payload) {
   }
 }
 
+function setExitCodeIfDefined(code) {
+  if (Number.isInteger(code)) process.exitCode = code;
+}
+
 function readStdinAndRun() {
   if (process.stdin.isTTY) return runPayload(null);
   let raw = '';
   let finished = false;
   const finish = () => {
-    if (finished) return;
+    if (finished) return undefined;
     finished = true;
     let payload = {};
     try { payload = JSON.parse(raw || '{}'); } catch (err) {
@@ -418,16 +452,24 @@ function readStdinAndRun() {
     }
     return runPayload(payload);
   };
-  const timer = setTimeout(finish, 500);
+  const timeoutMsRaw = Number(process.env.HARNESS_ACTION_GATE_STDIN_TIMEOUT_MS);
+  const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? timeoutMsRaw : 500;
+  const timer = setTimeout(() => setExitCodeIfDefined(finish()), timeoutMs);
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', chunk => { raw += chunk; });
-  process.stdin.on('end', () => { clearTimeout(timer); process.exitCode = finish(); });
-  process.stdin.on('error', err => { clearTimeout(timer); process.exitCode = emitResult(internalErrorDecision({}, err)); });
+  process.stdin.on('end', () => {
+    clearTimeout(timer);
+    setExitCodeIfDefined(finish());
+  });
+  process.stdin.on('error', err => {
+    clearTimeout(timer);
+    setExitCodeIfDefined(emitResult(internalErrorDecision({}, err)));
+  });
   return 0;
 }
 
 if (require.main === module) {
-  process.exitCode = readStdinAndRun();
+  setExitCodeIfDefined(readStdinAndRun());
 }
 
 module.exports = {
@@ -441,11 +483,13 @@ module.exports = {
   exactPayloadText,
   finalizeExecution,
   hashExact,
+  hookEventOf,
   hostSupportsAsk,
   internalErrorDecision,
   isWithin,
   loadRuleTable,
   processEvent,
+  readStdinAndRun,
   rejectPendingAtStop,
   routerActionGateHint,
   scratchRoots,
