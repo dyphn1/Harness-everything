@@ -1,6 +1,10 @@
 {
   "format": "harness-openai-plugin-submission-source-v1",
   "note": "Repository source of truth for manually completing the OpenAI plugin submission portal; this is not an OpenAI import schema.",
+  "official_docs": [
+    "https://developers.openai.com/plugins/deploy/submission",
+    "https://developers.openai.com/plugins/build/plugins"
+  ],
   "submission_type": "skills_only",
   "plugin_name": "Harness Everything",
   "short_description": "Route, verify, and recover coding work",

@@ -10,6 +10,7 @@ const ROOT = path.resolve(__dirname, '..');
 const PLUGIN = path.join(ROOT, 'plugins', 'harness-everything');
 const SOURCE_MANIFEST = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude-plugin', 'plugin.json'), 'utf8'));
 const PLUGIN_MANIFEST = JSON.parse(fs.readFileSync(path.join(PLUGIN, '.codex-plugin', 'plugin.json'), 'utf8'));
+const PORTABLE_MANIFEST = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'plugin.json'), 'utf8'));
 
 function sha256(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
@@ -42,6 +43,20 @@ assert.strictEqual(PLUGIN_MANIFEST.name, 'harness-everything');
 assert.strictEqual(PLUGIN_MANIFEST.version, SOURCE_MANIFEST.version, 'OpenAI plugin version must match canonical plugin version');
 assert.strictEqual(PLUGIN_MANIFEST.skills, './skills/');
 assert.strictEqual(PLUGIN_MANIFEST.hooks, './hooks/hooks.json');
+assert.strictEqual(PORTABLE_MANIFEST.$schema, 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
+assert.strictEqual(PORTABLE_MANIFEST.name, PLUGIN_MANIFEST.name);
+assert.strictEqual(PORTABLE_MANIFEST.version, PLUGIN_MANIFEST.version);
+assert.strictEqual(PORTABLE_MANIFEST.description, PLUGIN_MANIFEST.description);
+assert.deepStrictEqual(PORTABLE_MANIFEST.author, PLUGIN_MANIFEST.author);
+assert.strictEqual(PORTABLE_MANIFEST.homepage, PLUGIN_MANIFEST.homepage);
+assert.strictEqual(PORTABLE_MANIFEST.repository, PLUGIN_MANIFEST.repository);
+assert.strictEqual(PORTABLE_MANIFEST.license, PLUGIN_MANIFEST.license);
+assert.deepStrictEqual(PORTABLE_MANIFEST.keywords, PLUGIN_MANIFEST.keywords);
+assert.ok(!Object.prototype.hasOwnProperty.call(PORTABLE_MANIFEST, 'skills'), 'portable plugin manifest must use the root skills/ convention');
+const portableOpenAI = PORTABLE_MANIFEST.extensions?.['com.openai'];
+assert.ok(portableOpenAI, 'portable plugin manifest must expose the OpenAI extension');
+assert.strictEqual(portableOpenAI.hooks, PLUGIN_MANIFEST.hooks);
+assert.deepStrictEqual(portableOpenAI.interface, PLUGIN_MANIFEST.interface, 'portable and compatibility interface metadata drifted');
 assert.ok(!Object.prototype.hasOwnProperty.call(PLUGIN_MANIFEST, 'agents'), 'OpenAI manifest must not claim an undocumented agents field');
 assert.ok(!Object.prototype.hasOwnProperty.call(PLUGIN_MANIFEST, 'mcpServers'), 'skill-only package must not add MCP without a demonstrated requirement');
 assert.ok(!Object.prototype.hasOwnProperty.call(PLUGIN_MANIFEST, 'apps'), 'skill-only package must not claim a connected app');

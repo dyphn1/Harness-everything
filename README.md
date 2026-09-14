@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-Harness is a lightweight, local behavior and orchestration runtime that wraps around your AI development sessions (Claude Code, Cursor, Copilot Chat, Codex, Continue.dev, Hermes Agent). It provides reactive hooks, routing boundaries, and circuit breakers designed to prevent infinite trial-and-error loops, costly over-engineering, and "lost-in-the-middle" context drift.
+Harness is a lightweight, local behavior and orchestration runtime that wraps around your AI development sessions (Claude Code, Cursor, GitHub Copilot agent surfaces, Codex, Continue.dev, Hermes Agent). It provides reactive hooks, routing boundaries, and circuit breakers designed to prevent infinite trial-and-error loops, costly over-engineering, and "lost-in-the-middle" context drift.
 
 ---
 
@@ -76,9 +76,9 @@ The general installer only writes to your workspace (or, with `--global`, your h
 |---|---|
 | `.claude/settings.json` (merged) + `.claude/skills/` + `.claude/agents/` | Claude Code lifecycle hooks, project skills, and named Fable agents |
 | `.cursorrules` + `.cursor/skills/` | Cursor advisory rules and project skills |
-| `.github/copilot-instructions.md` + `.github/skills/` | Copilot Chat advisory instructions and project skills |
+| `.github/copilot-instructions.md` + `.github/skills/` | GitHub Copilot agent-surface instructions and project skills |
 | `AGENTS.md` + `.agents/skills/` | Codex advisory instructions plus repo-scoped Agent Skills; Hermes can also consume trusted project skills from `.agents/skills/` |
-| `.continue/rules/harness.md` + `.continue/skills/` | Continue.dev advisory rule and project skills |
+| `.continue/rules/harness.md` + `.continue/skills/` | Continue.dev advisory rule and installer candidate skill path; standalone skill discovery is `Unknown` |
 | `.hermes.md` | Hermes Agent project advisory context |
 | `.claude/harness-everything/` (or the per-platform equivalent) | Harness installer/runtime bookkeeping owned by that integration |
 
@@ -166,9 +166,9 @@ The authoritative current matrix is [docs/platform-capabilities.md](docs/platfor
 | **Codex / local OpenAI plugin** | `.codex-plugin` package with `SessionStart` + `UserPromptSubmit` hooks and 26 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanical invariant enforcement** for the packaged session/prompt hooks; not full Claude parity |
 | **Public OpenAI Skills-only plugin** | Public Skills-only bundle | Generated submission ZIP from `plugins/harness-everything/skills/` | **Skill/workflow behavior only**; no local `.codex-plugin` lifecycle hooks in the public artifact |
 | **Cursor** | Native Project Rules + project skills | `.cursorrules` + `.cursor/skills/` | Advisory only |
-| **Copilot Chat** | Custom Instructions + project skills | `.github/copilot-instructions.md` + `.github/skills/` | Advisory only |
-| **Continue.dev** | Native project rules + skills | `.continue/rules/harness.md` + `.continue/skills/`; global skills `~/.continue/skills/` | Advisory only |
-| **Hermes Agent** | Auto-loaded project context + skills | `.hermes.md` + trusted project `.agents/skills/`; global skills `~/.hermes/skills/` | Advisory only |
+| **GitHub Copilot agent surfaces** | Agent Skills + repository custom instructions | `.github/copilot-instructions.md` + `.github/skills/` | Agent Skills path is documented; no live Harness session or plugin install is verified |
+| **Continue.dev** | Native project rules; skill path retained as an installer adapter candidate | `.continue/rules/harness.md` + `.continue/skills/`; global candidate `~/.continue/skills/` | Rules are documented; standalone `SKILL.md` discovery is `Unknown` |
+| **Hermes Agent** | Trusted project context + skills | `.hermes.md` + trusted project `.agents/skills/`; global skills `~/.hermes/skills/` | Skill path and installer contract are checked; project loading remains subject to trust |
 
 For local OpenAI packaging, marketplace import, plugin tests, and the public Skills-only submission boundary, see [docs/openai-plugin.md](docs/openai-plugin.md).
 

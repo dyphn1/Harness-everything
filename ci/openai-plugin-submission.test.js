@@ -12,6 +12,7 @@ const PLUGIN = path.join(ROOT, 'plugins', 'harness-everything');
 const listing = JSON.parse(fs.readFileSync(path.join(ROOT, 'submission', 'openai', 'listing.json'), 'utf8'));
 const tests = JSON.parse(fs.readFileSync(path.join(ROOT, 'submission', 'openai', 'test-cases.json'), 'utf8'));
 const plugin = JSON.parse(fs.readFileSync(path.join(PLUGIN, '.codex-plugin', 'plugin.json'), 'utf8'));
+const portablePlugin = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'plugin.json'), 'utf8'));
 
 function filesUnder(root, base = root, out = []) {
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -27,6 +28,10 @@ function sha256(file) {
 }
 
 assert.strictEqual(listing.submission_type, 'skills_only');
+assert.deepStrictEqual(listing.official_docs, [
+  'https://developers.openai.com/plugins/deploy/submission',
+  'https://developers.openai.com/plugins/build/plugins'
+]);
 assert.strictEqual(listing.plugin_name, plugin.interface.displayName);
 assert.strictEqual(listing.short_description, plugin.interface.shortDescription);
 assert.strictEqual(listing.long_description, plugin.interface.longDescription);
@@ -35,6 +40,7 @@ assert.strictEqual(listing.website_url, plugin.interface.websiteURL);
 assert.strictEqual(listing.privacy_policy_url, plugin.interface.privacyPolicyURL);
 assert.strictEqual(listing.terms_url, plugin.interface.termsOfServiceURL);
 assert.deepStrictEqual(listing.starter_prompts, plugin.interface.defaultPrompt);
+assert.strictEqual(portablePlugin.extensions?.['com.openai']?.interface?.displayName, listing.plugin_name);
 assert.match(listing.support_url, /^https:\/\/github\.com\/dyphn1\/Harness-everything\/blob\/main\/SUPPORT\.md$/);
 assert.ok(fs.existsSync(path.join(ROOT, 'SUPPORT.md')), 'public support page is missing');
 assert.ok(listing.release_notes && listing.release_notes.length >= 40, 'release notes are too thin for review');
@@ -77,6 +83,10 @@ try {
 
   const manifest = JSON.parse(fs.readFileSync(first.replace(/\.zip$/, '.manifest.json'), 'utf8'));
   const expectedFiles = filesUnder(path.join(PLUGIN, 'skills')).map(file => `skills/${file}`);
+  assert.strictEqual(manifest.source, 'plugins/harness-everything/skills');
+  assert.ok(manifest.files.every(file => file.path.startsWith('skills/')), 'public bundle must contain only skills/ paths');
+  assert.ok(manifest.files.every(file => !/(^|\/)(hooks|\.codex-plugin)(\/|$)/.test(file.path)), 'public bundle must exclude local hook package paths');
+  assert.ok(manifest.files.every(file => path.basename(file.path) !== 'plugin.json'), 'public bundle must exclude plugin manifests');
   assert.deepStrictEqual(manifest.files.map(file => file.path), expectedFiles, 'bundle manifest must contain exactly packaged skill files');
   assert.strictEqual(manifest.file_count, expectedFiles.length);
   assert.strictEqual(manifest.bundle_sha256, sha256(first));

@@ -12,11 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.7-beta] - Unreleased
 
 ### Changed
-- Prepare the next beta for the reviewed open-issue implementations (#20, #37, #42, #43, #44, #52, #56, #74, #78). Individual changes and verification evidence are recorded as they are integrated.
+- Prepare the next beta for the reviewed open-issue implementations (#20, #37, #42, #43, #44, #52, #56, #74, #75, #78, #82). Individual changes and verification evidence are recorded as they are integrated.
 
 ---
 
 ### Added
+- **Portable Agent Plugin compatibility and platform matrix** (#75, #82): added the portable root `plugin.json`, official-source compatibility data for standalone skills versus plugins across eight agent platforms, explicit installer-target contracts, conservative status vocabulary, and deterministic gates that keep package/mechanism evidence separate from live-host evidence.
 - **OpenAI/Codex plugin packaging and public Skills-only submission** (#74): added the repository marketplace (`.agents/plugins/marketplace.json`), local `.codex-plugin` package, synchronized copies of all 26 canonical skills, local `SessionStart` / `UserPromptSubmit` invariant hooks, OpenAI package/submission tests, deterministic Skills-only ZIP generation, and reviewer listing/test-case inputs. The local plugin mechanism boundary is explicitly separate from the public Skills-only artifact, which does not include the local lifecycle hooks.
 - **Progressive disclosure and explicit skill paths** (#44): require short routed skill contracts, lazy-loaded workflow/reference detail, meaningful Mermaid coverage, and explicit `<this-skill-dir>/`, `<skills-repo-root>/`, or `<workspace>/` path bases.
 - **Behavioral-eval evidence triage** (`behavioral-evals/`, #56): added structural case validation, ordered execution-evidence grading, sanitized historical archives with current-versus-historical hashes, and paired-rerun status tracking for old failures and never-run cases.

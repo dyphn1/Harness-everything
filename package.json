@@ -26,6 +26,7 @@
     "test:plugin:openai": "node ci/openai-plugin-package.test.js",
     "plugin:submission:build": "node scripts/build-openai-submission.js",
     "test:plugin:submission": "node ci/openai-plugin-submission.test.js",
+    "test:platform:compatibility": "node ci/mechanism-2w-platform-compatibility.test.js",
     "benchmark:scaffold": "node benchmarks/run.js scaffold",
     "benchmark:status": "node benchmarks/run.js status",
     "eval:behavioral": "node behavioral-evals/run.js run",

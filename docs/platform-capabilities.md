@@ -1,87 +1,71 @@
 # Platform Capability Matrix
 
-This document is the repository-wide source of truth for **current platform integration and enforcement claims**. Other current-state documents may summarize this table, but they must not contradict it.
+This is the repository-wide source of truth for current platform integration, installation, and enforcement claims. The machine-readable matrix is [platform-compatibility.json](platform-compatibility.json); this page explains its evidence boundaries and the most important operator-facing paths.
 
-The key distinction is between **what Harness packages**, **what the host can mechanically enforce**, and **what has been live-verified**. Shared skill text alone does not prove mechanism parity.
+## Evidence policy
 
-## Current capability matrix
+The matrix separates standalone Agent Skills from plugin support, bundled skills, lifecycle hooks, project/global scope, install/uninstall symmetry, assets/references, update/sync, and live-host verification. A package or deterministic mechanism test cannot be promoted to `Live verified` without a preserved real-host session, import report, or portal artifact.
 
-| Surface | Skills | Native/runtime mechanism | Current claim boundary |
+Statuses are intentionally explicit:
+
+- `Supported`: official/native host support and a verified Harness path.
+- `Mechanism verified`: the repository package, adapter, or installer contract passes; a real host run is not confirmed.
+- `Live verified`: preserved evidence shows a real host session or portal operation.
+- `Partial`: only part of the capability is available or verified.
+- `Unsupported`: official host documentation explicitly rules out the capability.
+- `Unknown`: the capability or its current host behavior was not established.
+
+All current `liveHostVerification` rows are `Unknown`. This checkout contains deterministic package and installer evidence, but no fresh host-session artifacts, managed-workspace import report, or public OpenAI approval record.
+
+## Current capability summary
+
+| Platform surface | Standalone skills | Plugin support | Hooks/lifecycle | Project scope | Global scope | Current evidence boundary |
+| --- | --- | --- | --- | --- | --- | --- |
+| Codex | `Supported` | `Mechanism verified` | `Mechanism verified` for the local OpenAI package | `.agents/skills/`, `AGENTS.md` | `~/.agents/skills/` | Local package hooks are mechanically checked; live loading and marketplace refresh remain `Unknown`. |
+| ChatGPT / OpenAI Plugin | `Unknown` for a repository-local standalone path | `Mechanism verified` | `Partial`: local Work/Codex hooks are separate from ordinary Chat | Managed workspace marketplace | Not established | The public Skills-only bundle is mechanically reproducible; import, approval, and live behavior remain `Unknown`. |
+| Claude Code | `Supported` | `Supported` | `Mechanism verified` for Harness configuration | `.claude/skills/` | `~/.claude/skills/` | Native Claude surfaces are documented and package/installer checks pass; fresh-host execution is not preserved here. |
+| OpenCode | `Supported` | `Mechanism verified` | `Mechanism verified` against `tool.execute.*` and `session.idle` | `.opencode/skills/`, `.agents/skills/`, `.opencode/plugins/` | `~/.config/opencode/skills/`, `~/.agents/skills/`, `~/.config/opencode/plugins/` | The real adapter API is tested, but live plugin loading remains unverified. |
+| GitHub Copilot agent surfaces | `Supported` | `Unknown` for a Harness-specific plugin install | `Unknown` | `.github/skills/`, `.agents/skills/`, repository instructions | `~/.copilot/skills/`, `~/.agents/skills/` | GitHub Agent Skills paths and installer behavior are checked; no live Copilot session or plugin install is preserved. |
+| Cursor | `Supported` | `Mechanism verified` for the portable package shape | `Unknown` for Harness | `.cursor/skills/`, `.agents/skills/` | `~/.cursor/skills/`, `~/.agents/skills/` | Official paths and package shape are checked; Cursor plugin loading and hooks remain unverified. |
+| Continue.dev | `Unknown` for standalone `SKILL.md` discovery | `Unknown` | `Unknown` | `.continue/rules/` is documented; `.continue/skills/` is only an installer candidate | `~/.continue/skills/` is only an installer candidate | The reviewed official docs establish rules, not an Agent Skills host contract. |
+| Hermes Agent | `Supported` | `Unknown` | `Unknown` | `.hermes/skills/` or trusted `.agents/skills/` | `~/.hermes/skills/` | Skill installation and ownership are tested; project loading still follows Hermes trust, and no live session is preserved. |
+
+The full ten-dimension entries and official source URLs are in [platform-compatibility.json](platform-compatibility.json). “Supported” in the standalone-skills column refers to the host’s documented skill surface plus the repository’s verified path contract; it does not mean that a live Harness session was run on every platform.
+
+## Installer target contract
+
+The general installer’s target paths are tested independently from host discovery. This prevents a successful file copy from being reported as proof that an agent will load the file.
+
+| Installer target | Project scope | User/global scope | Host-support note |
 | --- | --- | --- | --- |
-| **Claude Code** | Yes — project `.claude/skills/`, user `~/.claude/skills/` | Native lifecycle hooks (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`) | **Hard enforcement** for the supported gates covered by mechanism tests and live evidence. |
-| **Codex / local OpenAI plugin** | Yes | `.codex-plugin` package with local `SessionStart` and `UserPromptSubmit` hooks | **Local invariant enforcement**: session policy + invariant-first routing are mechanically injected. Do not claim full Claude hook parity unless separate evidence exists. |
-| **OpenCode** | Yes | Native plugin API (`tool.execute.before`, `tool.execute.after`, `session.idle`) | **Hard-capable implementation with mechanism coverage; live plugin loading remains unverified.** Do not promote this to live-verified enforcement without a real host-session artifact. |
-| **Public OpenAI Skills-only plugin** | Yes | Public Skills-only bundle | **Skill/workflow behavior only.** The submitted artifact does **not** include the local `.codex-plugin` lifecycle hooks, so it must not claim `SessionStart`, `UserPromptSubmit`, or other local hooks as public hard enforcement. |
-| **Cursor** | Yes — project `.cursor/skills/`, shared user `~/.agents/skills/` | Project rules/instructions | Advisory only. |
-| **Copilot Chat** | Yes — project `.github/skills/`, shared user `~/.agents/skills/` | Repository custom instructions | Advisory only. |
-| **Continue.dev** | Yes — project `.continue/skills/`, user `~/.continue/skills/` | Native project rule file | Advisory only. |
-| **Hermes Agent** | Yes — trusted project `.agents/skills/`, user `~/.hermes/skills/` | Auto-loaded project context | Advisory only. Project skill discovery still follows Hermes trust policy; Harness does not silently change trust settings. |
+| Claude Code | `.claude/skills/` | `~/.claude/skills/` | Official skill locations |
+| Cursor | `.cursor/skills/` | `~/.agents/skills/` | Official Agent Skills compatibility path |
+| GitHub Copilot agent surfaces | `.github/skills/` | `~/.agents/skills/` | Official project/global Agent Skills paths |
+| Codex | `.agents/skills/` | `~/.agents/skills/` | Official Agent Skills paths; `AGENTS.md` is separate instruction context |
+| Continue.dev | `.continue/skills/` | `~/.continue/skills/` | Installer adapter candidate; host discovery is `Unknown` from reviewed official docs |
+| Hermes Agent | `.agents/skills/` | `~/.hermes/skills/` | Project loading is subject to Hermes trust |
 
-## General installer skill placement
+These targets apply to both default link mode and explicit `--copy` mode. A canonical store is only a deduplication detail; it cannot make an unsupported host path supported. Install/uninstall tests also protect user-owned files and cover Linux, Windows, and macOS round-trip fixtures.
 
-The general installer must write or link each selected skill to a location that the target host actually discovers. The canonical `.agents/skills/` store is an implementation detail for deduplication; it is only a valid final target for hosts that consume that location natively.
+## Codex / local OpenAI plugin boundary
 
-| General installer target | Project skills | User/global skills |
-| --- | --- | --- |
-| Claude Code | `.claude/skills/` | `~/.claude/skills/` |
-| Cursor | `.cursor/skills/` | `~/.agents/skills/` |
-| Copilot Chat | `.github/skills/` | `~/.agents/skills/` |
-| Codex | `.agents/skills/` | `~/.agents/skills/` |
-| Continue.dev | `.continue/skills/` | `~/.continue/skills/` |
-| Hermes Agent | `.agents/skills/` (subject to Hermes project trust) | `~/.hermes/skills/` |
+Codex has two paths that must not be collapsed:
 
-These targets apply to default link mode **and** explicit `--copy` mode. A canonical store must never hide a wrong platform target by making only the default link mode appear to work.
+1. The general `--codex` installer writes advisory `AGENTS.md` plus repo-scoped skills under `.agents/skills/`.
+2. The local OpenAI plugin at `plugins/harness-everything/` packages the skills and local `SessionStart` / `UserPromptSubmit` hooks. Those hooks are mechanically checked, but no live plugin/session artifact is committed.
 
-## Codex has two supported paths
-
-Do not collapse these into one capability claim:
-
-1. **Legacy/general installer target** — `npx github:dyphn1/Harness-everything install --codex` writes advisory `AGENTS.md` plus repo-scoped skills under `.agents/skills/`. That path is advisory where the host is only consuming instructions.
-2. **Local OpenAI plugin package** — `plugins/harness-everything/.codex-plugin/plugin.json` packages the Harness skills plus local lifecycle hooks. Those hooks mechanically establish the compact session policy and invariant-first routing contract in supported local plugin workflows.
-
-A statement such as "Codex is advisory only" is therefore incomplete. The correct claim depends on which installation surface is being discussed.
+The public OpenAI Skills-only plugin is narrower again. Its ZIP contains the packaged `skills/` tree and referenced files, but not the local `.codex-plugin` lifecycle hooks. Public submission readiness is therefore a package/form contract, not evidence of public-directory approval or live hook execution.
 
 ## Install/uninstall ownership boundary
 
-The general installer may merge into shared files only through Harness-owned markers, and it may delete only artifacts that it can prove Harness owns. Dedicated filenames are not ownership proof by themselves.
+The general installer merges shared files only through Harness-owned markers and removes only manifest-tracked artifacts. Malformed configuration and pre-existing user-owned files fail closed. Install/uninstall round-trip coverage protects user skills and runs on Linux, Windows, and macOS fixtures.
 
-- malformed existing configuration must fail closed rather than be replaced;
-- a pre-existing non-Harness fixed-name file must not be overwritten or claimed;
-- uninstall removes only Harness-marked/manifest-tracked artifacts;
-- user-owned skills sharing `.agents/skills/` or another host skill directory must survive uninstall;
-- CI exercises install → verify → uninstall round trips on Linux, Windows, and macOS.
+## OpenCode boundary
 
-## Public OpenAI Skills-only boundary
+The OpenCode adapter uses the documented plugin API and has deterministic mechanism coverage. That proves the implementation contract only. **Live plugin loading remains unverified** until a real OpenCode session artifact demonstrates that the host loaded and fired the module.
 
-The public submission path is intentionally narrower than the local plugin package. The generated upload contains the packaged `skills/` tree and referenced skill assets; it does not ship the local `.codex-plugin` hook adapter.
+## Official sources
 
-Therefore:
+The matrix records the official documentation reviewed for each platform. Important source families include [OpenAI plugin packaging](https://developers.openai.com/plugins/build/plugins), [OpenAI public submission](https://developers.openai.com/plugins/deploy/submission), [Codex skills](https://learn.chatgpt.com/docs/build-skills), [Claude skills](https://code.claude.com/docs/en/skills), [OpenCode skills](https://opencode.ai/docs/skills), [GitHub Copilot Agent Skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills), [Cursor skills](https://cursor.com/docs/skills), [Continue rules](https://docs.continue.dev/customize/rules), and [Hermes skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills).
 
-- reviewer cases measure reusable skill/workflow behavior;
-- public listing text must not promise local hook enforcement;
-- local Codex plugin mechanism evidence must not be presented as evidence that the public Skills-only bundle runs those hooks.
-
-See [openai-plugin.md](openai-plugin.md) and [`../submission/openai/README.md`](../submission/openai/README.md).
-
-## OpenCode evidence boundary
-
-The OpenCode adapter uses the real plugin API and has deterministic mechanism coverage. That proves the implementation contract, but it is not the same as proving a real OpenCode host loaded and fired the plugin.
-
-Until a live session artifact exists, current documentation must retain an explicit **live loading unverified** qualifier.
-
-## Documentation policy
-
-When platform behavior changes, update this file and every affected current-state surface in the same PR. At minimum inspect:
-
-- `README.md`
-- `docs/architecture.md`
-- `VERIFICATION.md`
-- `docs/mechanism-first-skill-mesh.md`
-- `docs/troubleshooting.md`
-- `docs/audit.md` when its latest-status prose would otherwise be misleading
-- `docs/openai-plugin.md`
-- `submission/openai/README.md`
-- `opencode-plugin/README.md`
-- release/change notes when the change is user-visible
-
-`npm run test:docs:capabilities` enforces the current-state claim boundaries and is chained into `npm run test:consistency`.
+When a platform behavior changes, update this page, `docs/platform-compatibility.json`, and every affected current-state surface in the same change. `npm run test:docs:capabilities` and the compatibility mechanism suite enforce the repository-side contract; they do not replace manual live-host evidence.

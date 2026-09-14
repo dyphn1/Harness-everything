@@ -104,13 +104,13 @@ The prompt hook is intentionally lightweight: it does **not** prescribe TODO/TDD
 
 `opencode-plugin/` maps supported enforcement behavior to OpenCode's real plugin API. Source-level/mechanism tests exist, but live plugin loading remains unverified; do not promote source/mechanism evidence into a live-host enforcement claim until a real OpenCode session artifact exists.
 
-### 3. Cursor — advisory
+### 3. Cursor — skills plus advisory rules
 
-The current installer uses `.cursorrules`. Without a Harness runtime hook adapter, routing/verification/retry boundaries are self-directed guidance.
+The current installer uses `.cursor/skills/` plus `.cursorrules`. Cursor’s documented skill and plugin surfaces are separate from Harness runtime hooks; routing/verification/retry boundaries remain self-directed unless a compatible mechanism is independently verified.
 
-### 4. Copilot Chat — advisory
+### 4. GitHub Copilot agent surfaces — skills plus advisory instructions
 
-The current installer uses `.github/copilot-instructions.md`; same advisory limitation as Cursor.
+The current installer uses `.github/skills/` plus `.github/copilot-instructions.md`. GitHub’s Agent Skills paths are documented, but no Harness-specific plugin or live session is verified here.
 
 ### 5. Codex — local OpenAI plugin plus advisory installer path
 
@@ -123,13 +123,13 @@ The local plugin therefore has **mechanical invariant enforcement**, but it is i
 
 The public OpenAI **Skills-only** submission is narrower again: it ships reusable skills and referenced assets, not the local `.codex-plugin` lifecycle hooks. Public reviewer/listing claims must describe skill/workflow behavior rather than local hook enforcement. See [openai-plugin.md](openai-plugin.md).
 
-### 6. Continue.dev — advisory
+### 6. Continue.dev — rules documented, skill discovery unknown
 
-The installer writes `.continue/rules/harness.md` with the platform's native rules format. No Harness hard-gate parity is claimed.
+The installer writes `.continue/rules/harness.md` with the platform's native rules format and retains `.continue/skills/` as an adapter candidate. The reviewed official Continue documentation does not establish standalone `SKILL.md` discovery, so no skill-loading or hard-gate parity is claimed.
 
-### 7. Hermes Agent — advisory
+### 7. Hermes Agent — trusted skills plus advisory context
 
-The installer writes `.hermes.md` for explicit project coverage. No hard-gate parity is claimed.
+The installer writes `.hermes.md` for explicit project coverage and can install trusted project skills under `.agents/skills/` plus global skills under `~/.hermes/skills/`. Project skill loading remains subject to Hermes trust; no hard-gate parity is claimed.
 
 ---
 

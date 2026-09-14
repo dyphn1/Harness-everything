@@ -142,7 +142,7 @@ npm run test:docs:capabilities
 npm run test:consistency
 ```
 
-The capability test checks the current-state documentation surfaces for stale platform paths and pre-plugin claims, requires the Codex local-plugin vs public Skills-only distinction, preserves the OpenCode live-unverified qualifier, and locks the Continue/Hermes native user skill targets.
+The capability test checks the current-state documentation surfaces for stale platform paths and pre-plugin claims, requires the Codex local-plugin vs public Skills-only distinction, preserves the OpenCode live-unverified qualifier, and records the Hermes native user skill target plus the Continue installer candidate boundary.
 
 When changing platform integration behavior, update [docs/platform-capabilities.md](docs/platform-capabilities.md) and all affected current-state docs in the same PR.
 
