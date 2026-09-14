@@ -22,7 +22,7 @@ metadata:
 
 | Component | Specification |
 | :--- | :--- |
-| **State Mutations** | Runtime roles, state, logs, handoff, and memory index stay under the workspace-keyed Harness state home; authored decision/domain/architecture docs stay at resolver-selected repository paths. |
+| **State Mutations** | Writes derived metadata, roles, state, logs, launcher, router, handoff, and memory index under the global workspace-keyed Harness state home; writes decision, domain, and architecture records at resolver-selected committable repository paths. |
 
 ## Workflow
 
