@@ -1,10 +1,9 @@
 const path = require('path');
 const fs = require('fs');
 
-// Continue discovers project skills from `.continue/skills/` (and also reads
-// `.claude/skills/` for compatibility) and user skills from `~/.continue/skills/`.
-// Keep both scopes on Continue-native paths; the installer may still use the
-// shared canonical store internally and link into these targets in auto mode.
+// The reviewed official Continue documentation establishes `.continue/rules/`,
+// not a native `SKILL.md` discovery contract. Keep these paths as explicit
+// installer adapter targets without claiming that Continue will load them.
 module.exports = {
   name: 'continue',
   label: 'Continue.dev',

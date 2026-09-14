@@ -1,16 +1,17 @@
 # OpenAI Public Plugin Submission
 
-This directory contains repository-owned source material for the OpenAI public plugin submission portal. It is intentionally separate from `.codex-plugin/plugin.json`: the files here are review/form inputs and evidence, not an OpenAI import schema.
+This directory contains repository-owned source material for OpenAI’s public **Skills only** plugin submission portal. It is separate from both the local `.codex-plugin` package manifest and the managed-workspace marketplace manifests.
 
-## Build the skills bundle
+## Build the final skills bundle
 
 Run:
 
 ```bash
+npm run plugin:sync
 npm run plugin:submission:build
 ```
 
-The command writes:
+The builder writes:
 
 ```text
 dist/openai-submission/
@@ -18,40 +19,41 @@ dist/openai-submission/
 └── harness-everything-skills.manifest.json
 ```
 
-The ZIP contains the exact `plugins/harness-everything/skills/` tree under `skills/`. The manifest records every path, file hash, byte count, and the final bundle SHA-256. Running the builder twice against the same repository revision must produce the same bundle hash.
+The ZIP contains exactly the synchronized `plugins/harness-everything/skills/` tree under `skills/`. It does not contain the local `.codex-plugin` lifecycle hooks, MCP definitions, or app wrappers. The manifest records every file path, byte count, content hash, and final bundle SHA-256. Rebuilding the same revision must produce the same bundle hash.
 
-The generated `dist/openai-submission/` directory is not committed. Build it from the revision being submitted and preserve the generated manifest/hash as review evidence.
+## Official portal workflow
 
-## Portal workflow
+1. Select **Create plugin**.
+2. Choose **Skills only**.
+3. Provide the listing metadata from `listing.json`.
+4. Upload the final `harness-everything-skills.zip` bundle.
+5. Provide the starter prompts and exactly five positive plus three negative reviewer cases from `test-cases.json`.
+6. Select the verified developer/business identity, production logo, availability, and policy attestations.
+7. Confirm the submitter has **Apps Management: Write** access.
+8. Submit for review and publish only after approval.
 
-1. Open the OpenAI plugin submission portal.
-2. Select **Create plugin**.
-3. Choose **Skills only**.
-4. Copy the listing fields from `listing.json`.
-5. Select the verified developer/business identity for the publishing organization.
-6. Upload a production-ready logo and choose the listed category.
-7. Upload `harness-everything-skills.zip` in the Skills step.
-8. Copy the starter prompts from `listing.json`.
-9. Enter the five positive and three negative cases from `test-cases.json`.
-10. Choose availability only where publisher/support/legal coverage is ready.
-11. Copy the initial release notes from `listing.json`, complete policy attestations, and submit for review.
+Official documentation: [Submit a plugin](https://developers.openai.com/plugins/deploy/submission).
 
-Official submission documentation: https://developers.openai.com/plugins/deploy/submission
+The review cases follow the documented shape. Each positive case includes a prompt, expected skill/workflow behavior, expected result shape, and fixture/account data. Each negative case includes a prompt/scenario, expected refusal/clarification/safe fallback, and a reason not to complete.
 
 ## Public submission boundary
 
-The public **Skills only** bundle contains skills, scripts, templates, and assets referenced by those skills. It does not contain the local `.codex-plugin` lifecycle hooks. Therefore public review material must not claim that `SessionStart`, `UserPromptSubmit`, or other host-specific hooks are hard enforcement in the published skills-only artifact unless OpenAI adds and validates an explicit submission mechanism for them.
+The public **Skills only** bundle contains skills, scripts, templates, and assets referenced by those skills. It does not contain the local `.codex-plugin` lifecycle hooks. Therefore public review material must not claim that `SessionStart`, `UserPromptSubmit`, or other host-specific hooks provide hard enforcement in the published artifact.
 
-The skills themselves still provide routing, verification, failure-recovery, TDD, security-review, documentation, and other workflow guidance. Tests in `test-cases.json` are written against those reusable workflows rather than depending on local hook execution.
+The skills still provide routing, verification, failure recovery, TDD, security review, documentation, and other reusable workflow guidance. The test cases evaluate those workflows against the final skills tree rather than depending on local hook execution.
 
-## Manual requirements that CI cannot complete
+## Manual requirements and evidence boundary
 
-- Verify the developer or business identity in the OpenAI Platform organization used to publish.
-- Ensure the submitter has **Apps Management: Write** access.
-- Upload/confirm the production logo in the portal.
-- Choose country/region availability.
-- Run the reviewer-facing cases in the final host environment.
-- Submit for review, then publish only after approval.
+CI cannot complete these portal operations:
+
+- verify the developer or business identity;
+- confirm **Apps Management: Write** access;
+- upload or confirm a production logo;
+- select countries/regions and complete attestations;
+- run reviewer cases in the final host environment;
+- submit, receive approval, or publish to the public directory.
+
+The repository therefore claims a reproducible, review-ready submission artifact only. It does not claim public-directory approval, managed-workspace import success, or live host execution until those external artifacts are preserved.
 
 ## Repository checks
 
@@ -62,4 +64,4 @@ npm run test:plugin:openai
 npm run test:plugin:submission
 ```
 
-The submission check verifies listing/manifest alignment, public support/privacy/terms URLs, exactly five positive and three negative review cases, deterministic bundle generation, and exact file parity between the generated bundle manifest and the packaged skill tree.
+The checks verify listing/manifest alignment, official-source metadata, public support/privacy/terms URLs, exactly five positive and three negative review cases, deterministic bundle generation, and exact file parity between the generated bundle manifest and the packaged skill tree.

@@ -82,6 +82,13 @@ requireText('docs/platform-capabilities.md', [
   { name: 'three-OS round-trip boundary', re: /Linux, Windows, and macOS/i },
 ]);
 
+requireText('docs/platform-compatibility.json', [
+  { name: 'machine-readable matrix format', re: /harness-platform-compatibility-v1/ },
+  { name: 'ten-dimension coverage', re: /standaloneSkills[\s\S]*liveHostVerification/ },
+  { name: 'official OpenAI source', re: /https:\/\/developers\.openai\.com\/plugins\/deploy\/submission/ },
+  { name: 'Continue unknown discovery boundary', re: /"id": "continue"[\s\S]{0,3000}"status": "Unknown"/ },
+]);
+
 requireText('README.md', [
   { name: 'local Codex plugin surface', re: /Codex \/ local OpenAI plugin|local OpenAI plugin/i },
   { name: 'public Skills-only distinction', re: /Public OpenAI[^\n]*Skills-only|public OpenAI \*\*Skills-only\*\*/i },

@@ -21,7 +21,7 @@ function copyAndAssert(name, isGlobal, expectedPath) {
   const p = platform(name);
   const target = p.getSkillsTarget({ workspaceRoot: ws, userHome: home, isGlobal, manifest });
   helper.check(
-    `2t. ${name} ${isGlobal ? 'global' : 'local'} target is host-discoverable`,
+    `2t. ${name} ${isGlobal ? 'global' : 'local'} target matches the installer contract`,
     target && path.resolve(target.path) === path.resolve(expectedPath),
     `got ${target && target.path}; expected ${expectedPath}`
   );

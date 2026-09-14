@@ -1,6 +1,6 @@
 # OpenAI / ChatGPT Plugin Packaging
 
-Harness Everything ships an OpenAI plugin package under `plugins/harness-everything/` while the root skill directories remain the canonical source.
+Harness Everything ships an Agent Plugin package under `plugins/harness-everything/`. The root skill directories remain canonical; packaged copies are synchronized from them.
 
 ## Architecture
 
@@ -33,25 +33,19 @@ The local OpenAI adapter enforces cross-cutting invariants through the lifecycle
 ## Package layout
 
 ```text
-.agents/plugins/
-└── marketplace.json
-
 plugins/harness-everything/
-├── .codex-plugin/
-│   └── plugin.json
+├── plugin.json                 # portable Agent Plugin manifest
+├── .codex-plugin/plugin.json   # Codex compatibility manifest
 ├── hooks/
 │   ├── hooks.json
-│   └── session-start.js
-└── skills/
-    └── <26 canonical skills>
-
-submission/openai/
-├── listing.json
-├── test-cases.json
-└── README.md
+│   ├── session-start.js
+│   └── scripts/                # shared runtime hook dependencies
+└── skills/                     # 26 synchronized canonical skills
 ```
 
-The package copies canonical root skill directories so ChatGPT/Codex receives the standard `skills/<name>/SKILL.md` layout. It also carries the shared hook scripts under `hooks/scripts/` and their portable state dependencies under `hooks/scripts/lib/`; `hooks/session-start.js` is the OpenAI-specific JSON adapter. Do not edit generated packaged copies directly.
+The portable manifest follows the Agent Plugins schema and uses a root `skills/` directory. OpenAI-specific hook and interface metadata lives under `extensions.com.openai`; the compatibility manifest keeps the legacy `.codex-plugin` shape for clients that still expect it. These are two distribution manifests for the same package, not two different products.
+
+The package is intentionally skill-only: it does not declare `mcpServers` or `apps`. Hooks are a local package capability and require the host’s trust/review flow; they are not a claim that every OpenAI surface provides the same lifecycle enforcement.
 
 Run:
 
@@ -61,123 +55,64 @@ npm run test:plugin:openai
 npm run test:plugin:submission
 ```
 
-`plugin:sync` refreshes package copies from canonical skill directories and copies the shared hook runtime/dependencies into the package. Text parity is normalized to LF so the same package is reproducible from Windows and Unix checkouts. `test:plugin:openai` fails when the package drifts, a skill is missing/extra, the manifest/version is inconsistent, publication metadata is incomplete, the marketplace path is invalid, lifecycle hooks are missing, or packaged routing/runtime contracts stop being deterministic. `test:plugin:submission` validates the public-review materials and reproducible skills bundle.
+`plugin:sync` refreshes package copies from canonical skill directories and copies the shared hook runtime/dependencies into the package. Text parity is normalized to LF so the same package is reproducible from Windows and Unix checkouts. The checks compare both skill trees byte-for-byte, validate both manifest forms, execute local hook entry points, and verify deterministic routing/runtime behavior.
 
-## Publication metadata contract
+## Managed ChatGPT workspace import
 
-The `.codex-plugin/plugin.json` manifest includes the interface fields checked by OpenAI's plugin evaluator:
+OpenAI documents GitHub marketplace import for workspace administrators. The repository provides both `.agents/plugins/marketplace.json` and `.claude-plugin/marketplace.json`; the source entry resolves to `plugins/harness-everything/`.
 
-- display name and descriptions;
-- developer name and **Developer Tools** category;
-- `Interactive`, `Read`, and `Write` capabilities;
-- public website, privacy, and terms URLs;
-- up to three starter prompts, each below the UI length limit.
+Use the repository URL as the source, leave Path empty so the marketplace is read from the repository root, and select the intended branch (normally `main`). In ChatGPT, use **Workspace settings > Plugins > Add > Import marketplace**, review the import results, and set the workspace installation policy. OpenAI documents automatic daily synchronization and a **Sync now** action for later refreshes.
 
-Harness remains a **skill-only plugin**. It does not declare `apps` or `mcpServers`; those should only be introduced when a real external integration requires them. `SUPPORT.md`, `PRIVACY.md`, and `TERMS.md` provide the public support and policy URLs used by the submission form.
+This repository contains the marketplace/package artifacts and deterministic import-shape checks. It does not contain a managed-workspace import report or a fresh host smoke-test artifact, so those operations remain `Unknown` in the compatibility matrix.
 
-## Install from this repository in a managed ChatGPT workspace
+Official documentation: [Importing and syncing plugin marketplaces from GitHub](https://help.openai.com/en/articles/20001504-importing-and-syncing-plugin-marketplaces-from-github) and [Plugins in Codex](https://help.openai.com/en/articles/20001256-plugins-in-codex).
 
-OpenAI supports GitHub marketplace import from a repository-root `.agents/plugins/marketplace.json`.
+## Local Codex / OpenAI package
 
-Use:
+The local package path is distinct from the general `--codex` installer. The general installer writes advisory `AGENTS.md` and repo-scoped `.agents/skills/`; the plugin package additionally contains local session, prompt, supported-tool, subagent, and stop hooks.
 
-```text
-Source: https://github.com/dyphn1/Harness-everything
-Path:   <empty>
-Branch: main
-```
+The package tests prove the following repository-side contract:
 
-Then in ChatGPT:
+- the portable root manifest and `.codex-plugin` compatibility manifest agree on identity, version, interface, and hook entry point;
+- the root `skills/` tree contains exactly the 26 canonical skills;
+- Windows and POSIX hook commands resolve through `PLUGIN_ROOT`;
+- session start emits the compact policy and prompt submission invokes invariant-first routing;
+- supported local `Bash` and `apply_patch` calls receive the packaged guards and state tracking;
+- subagent lifecycle and stop verification contracts are covered;
+- identical routing input produces identical output.
 
-1. Open **Workspace settings > Plugins**.
-2. Select **Add > Import marketplace**.
-3. Enter the source/path/branch values above and authorize GitHub if prompted.
-4. Review the import report and open **Harness Everything**.
-5. Set the installation policy for the intended workspace roles.
-6. Run a fresh-chat smoke test before enabling it broadly.
-7. For later repository updates, open the imported marketplace and use **Sync now**; automatic daily sync may also update it.
+These are package/mechanism results. They do not prove that a live Codex or ChatGPT host loaded the package; a preserved host/session artifact is required for that claim. OpenAI’s current event/tool contract is documented in the [Codex/ChatGPT hooks reference](https://learn.chatgpt.com/docs/hooks).
 
-Official import documentation: https://help.openai.com/en/articles/20001504-importing-and-syncing-plugin-marketplaces-from-github
+## Public Skills-only submission
 
-Repository policy values such as `AVAILABLE` are useful marketplace metadata, but workspace administrators still control the effective installation policy after import.
+OpenAI’s public submission flow supports a **Skills only** plugin. This is separate from managed-workspace marketplace import and from the local hook-capable package.
 
-## Install locally in ChatGPT desktop / Codex
-
-The same repository marketplace can be discovered from a checked-out repo in supported desktop/Codex workflows.
-
-1. Open this repository in ChatGPT desktop / Work or Codex.
-2. Restart the host after pulling marketplace or plugin changes when required by the client.
-3. Open the **Plugins Directory** and choose **Harness Everything**.
-4. Install the plugin.
-5. Review and trust bundled command hooks when prompted. Changed hook definitions may require review again.
-6. Start a new chat for behavior tests.
-
-The local install may be copied into the host's plugin cache; after modifying the package, refresh the repository copy and restart/refresh the client before retesting.
-
-## Public Plugin Directory submission
-
-OpenAI now documents a public submission path for **skills-only** plugins. This is separate from managed-workspace GitHub marketplace import.
-
-Build the upload artifact:
+Build the final upload from the synchronized package:
 
 ```bash
 npm run plugin:submission:build
 ```
 
-This produces a deterministic `dist/openai-submission/harness-everything-skills.zip` plus a manifest containing every file hash and the final bundle SHA-256. The ZIP contains the exact packaged `skills/` tree and no MCP server or fake app wrapper.
+The generated ZIP contains only `skills/<name>/...` files from `plugins/harness-everything/skills/`. It does **not** include the local `.codex-plugin` lifecycle hooks, MCP definitions, or a fake app wrapper. The generated manifest records every path, byte count, file hash, and final bundle hash; repeated builds from the same revision must match.
 
-Submission flow:
+The submission source files in [`../submission/openai/`](../submission/openai/) model the official review inputs: listing metadata, starter prompts, release notes, exactly five positive cases, and exactly three negative cases. Positive cases specify the prompt, expected skill/workflow behavior, expected result shape, and fixture/account data. Negative cases specify the prompt/scenario, expected refusal/clarification/safe fallback, and why completion is not appropriate.
 
-1. Open the OpenAI plugin submission portal.
-2. Select **Create plugin**.
-3. Choose **Skills only**.
-4. Use `submission/openai/listing.json` for listing fields, starter prompts, and release notes.
-5. Upload the generated skills ZIP.
-6. Enter the five positive and three negative reviewer cases from `submission/openai/test-cases.json`.
-7. Select the verified developer/business identity and production logo.
-8. Choose supported countries/regions, complete attestations, and submit for review.
-9. After approval, publish from the portal; only then does the plugin appear in the universal Plugins Directory.
+The official portal flow is: **Create plugin → Skills only → upload the final skill bundle → provide review cases and listing metadata → complete identity, availability, policy, and access requirements → submit for review → publish after approval**. The repository cannot complete verified identity, logo upload, availability selection, Apps Management write access, review, approval, or public-directory publication.
 
-Official submission documentation: https://developers.openai.com/plugins/deploy/submission
+Official documentation: [Submit a plugin](https://developers.openai.com/plugins/deploy/submission) and [Build plugins](https://developers.openai.com/plugins/build/plugins).
 
-### Public skills-only boundary
+## Evidence boundary
 
-The public skills bundle contains reusable skills and their referenced scripts/templates/assets. It does **not** include the local `.codex-plugin` lifecycle hooks. Do not describe `SessionStart`, `UserPromptSubmit`, or other host-specific hooks as hard enforcement in the published skills-only artifact unless OpenAI exposes and validates a submission mechanism for them.
+The local plugin and public Skills-only artifact must not be conflated:
 
-The submitted review cases therefore measure skill/workflow behavior rather than depending on local hook execution.
+| Artifact | Repository evidence | Claim that is safe today |
+| --- | --- | --- |
+| Portable/root plugin package | Manifest, tree, hook, and routing mechanism tests | Package shape and local mechanism are verified |
+| Managed workspace marketplace | Marketplace JSON and source-path checks | Import-ready repository artifact; live import remains unverified |
+| Public Skills-only ZIP | Deterministic builder and 5+3 review-input checks | Reproducible skills bundle; approval and live public behavior remain unverified |
+
+See the [platform capability matrix](platform-capabilities.md) for the complete ten-dimension status table and official source URLs.
 
 ## Publication smoke checklist
 
-Before public submission:
-
-- `npm run plugin:sync` produces no unexpected changes;
-- `npm run test:plugin:openai` passes;
-- `npm run test:plugin:submission` passes on Ubuntu and Windows;
-- all 26 skills are present and content-identical to canonical sources after EOL normalization;
-- the generated skills ZIP is reproducible for the same revision;
-- marketplace and plugin names are `harness-everything` / **Harness Everything**;
-- version matches the canonical Claude manifest;
-- support, privacy, and terms links are public and current;
-- the submission contains five positive and three negative reviewer cases;
-- no secrets, private endpoints, machine-specific absolute paths, app IDs, or MCP definitions are added accidentally;
-- the publisher identity is verified and the submitter has Apps Management write access;
-- a production-ready logo and country/region availability are selected in the portal;
-- final reviewer-facing cases are run against the exact submitted skills tree.
-
-## Current compatibility boundary
-
-The repository package validates the architecture-critical local layer:
-
-- all 26 skills are discoverable from one plugin;
-- `SessionStart` injects the compact Cognitive OS policy locally;
-- `UserPromptSubmit` executes the invariant-first kernel locally before peer skill selection;
-- `PreToolUse` / `PostToolUse` cover `Bash` and `apply_patch` for the packaged circuit-breaker, context, state, atomic-change, and contract checks;
-- `SubagentStart` / `SubagentStop` record and report subagent scope changes;
-- `Stop` runs the one-bounce verification gate;
-- Linux and Windows hook commands are declared;
-- routing is deterministic for identical input;
-- the manifest carries the publication-facing interface fields expected by OpenAI's plugin evaluator.
-
-The local package's claims are mechanism-tested, not live-host-verified. Hooks may require host review/trust, and the package only covers the declared local tool/event mappings. The public skills-only submission intentionally makes a narrower claim: reusable skill behavior plus packaged scripts/templates/assets. It does **not** claim lifecycle hook enforcement because it excludes the local `.codex-plugin` hooks.
-
-OpenAI's current hook contract and supported event/tool schemas are documented in the [Codex/ChatGPT hooks reference](https://learn.chatgpt.com/docs/hooks). A fresh local host session is required to promote this package evidence to a live-host claim.
+Before public submission, run `plugin:sync`, both OpenAI package checks, and the platform compatibility check. Confirm all 26 skills are content-identical to canonical sources after EOL normalization, the ZIP is reproducible, public links are current, the publisher identity and Apps Management access are ready, and final reviewer-facing cases run against the exact submitted skills tree.
