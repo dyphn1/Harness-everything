@@ -11,6 +11,7 @@ const actionGate = require(path.join(ROOT, 'hooks', 'scripts', 'action-gate.js')
 const rulesPath = path.join(ROOT, 'hooks', 'scripts', 'action-gate-rules.json');
 const pluginScript = path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'action-gate.js');
 const pluginRules = path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'action-gate-rules.json');
+const codexPost = require(path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'codex-action-gate-post.js'));
 
 let failed = 0;
 function check(condition, message) {
@@ -187,7 +188,12 @@ try {
   const pluginHooks = JSON.parse(fs.readFileSync(path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'hooks.json'), 'utf8'));
   const pluginPre = pluginHooks.hooks.PreToolUse.find(group => group.matcher === 'Bash|apply_patch');
   check(pluginPre && pluginPre.hooks.some(hook => /action-gate\.js/.test(hook.command)), 'OpenAI plugin wires action-gate to Bash|apply_patch');
-  check(pluginHooks.hooks.PostToolUseFailure.some(group => group.matcher === 'Bash|apply_patch' && group.hooks.some(hook => /action-gate\.js/.test(hook.command))), 'OpenAI plugin records failed gated tool execution');
+  check(!Object.prototype.hasOwnProperty.call(pluginHooks.hooks, 'PostToolUseFailure'), 'Codex plugin does not declare unsupported PostToolUseFailure lifecycle event');
+  const pluginPost = pluginHooks.hooks.PostToolUse.find(group => group.matcher === 'Bash|apply_patch');
+  check(pluginPost && pluginPost.hooks.some(hook => /codex-action-gate-post\.js/.test(hook.command)), 'Codex plugin infers action-gate outcome from supported PostToolUse');
+  check(codexPost.inferOutcome({ tool_response: { exitCode: 0 } }) === 'success', 'Codex PostToolUse maps zero exit code to success');
+  check(codexPost.inferOutcome({ tool_response: { exit_code: 2, stderr: 'failed' } }) === 'failure', 'Codex PostToolUse maps non-zero exit code to failure');
+  check(codexPost.inferOutcome({ tool_response: { stderr: 'fatal: denied' } }) === 'failure', 'Codex PostToolUse conservatively recognizes failure stderr without exit code');
   check(pluginHooks.hooks.Stop.some(group => group.hooks.some(hook => /action-gate\.js/.test(hook.command))), 'OpenAI plugin closes pending approvals at Stop');
 
   check(fs.readFileSync(rulesPath, 'utf8') === fs.readFileSync(pluginRules, 'utf8'), 'canonical and plugin action-gate rule tables are byte-identical');
