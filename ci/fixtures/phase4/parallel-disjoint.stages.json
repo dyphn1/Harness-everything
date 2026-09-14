@@ -1,0 +1,32 @@
+{
+  "stages": [
+    {
+      "stageId": "security-doc",
+      "goal": "Write the security review artifact",
+      "agent": "fable-worker-sonnet",
+      "task": "Produce the security review only in its declared output scope.",
+      "inputs": ["src/auth"],
+      "expectedOutputs": ["docs/security/review.md"],
+      "outputPath": "docs/security/review.md",
+      "dependsOn": [],
+      "writeSet": ["docs/security"],
+      "checkCommand": null,
+      "passCondition": "security review artifact exists",
+      "failureReturn": "failure summary + evidence + missing prerequisite"
+    },
+    {
+      "stageId": "architecture-doc",
+      "goal": "Write the architecture review artifact",
+      "agent": "fable-worker-sonnet",
+      "task": "Produce the architecture review only in its declared output scope.",
+      "inputs": ["src"],
+      "expectedOutputs": ["docs/architecture/review.md"],
+      "outputPath": "docs/architecture/review.md",
+      "dependsOn": [],
+      "writeSet": ["docs/architecture"],
+      "checkCommand": null,
+      "passCondition": "architecture review artifact exists",
+      "failureReturn": "failure summary + evidence + missing prerequisite"
+    }
+  ]
+}
