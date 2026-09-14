@@ -60,12 +60,17 @@ function chooseCorrelatedContract(matches, payload, sessionId) {
   if (!Array.isArray(matches) || matches.length === 0) return { match: null, ambiguous: false };
   let candidates = matches;
   if (sessionId) {
-    const scoped = candidates.filter(({ contract }) => !contract.sessionId || contract.sessionId === sessionId);
-    if (scoped.length > 0) candidates = scoped;
+    candidates = candidates.filter(({ contract }) => !contract.sessionId || contract.sessionId === sessionId);
+    if (candidates.length === 0) return { match: null, ambiguous: false };
   }
 
   const workerId = getWorkerId(payload);
   if (workerId) {
+    const hasBoundWorker = candidates.some(({ contract }) => Boolean(contract.workerId));
+    if (hasBoundWorker) {
+      candidates = candidates.filter(({ contract }) => !contract.workerId || contract.workerId === workerId);
+      if (candidates.length === 0) return { match: null, ambiguous: false };
+    }
     const workerMatches = candidates.filter(({ contract }) => contract.workerId === workerId);
     if (workerMatches.length === 1) return { match: workerMatches[0], ambiguous: false };
     if (workerMatches.length > 1) return { match: null, ambiguous: true };
@@ -76,7 +81,8 @@ function chooseCorrelatedContract(matches, payload, sessionId) {
 }
 
 function normalizeChangedPath(statusLine) {
-  const raw = String(statusLine || '').length >= 3 ? String(statusLine).slice(3).trim() : String(statusLine || '').trim();
+  const text = String(statusLine || '');
+  const raw = /^..\s/.test(text) ? text.slice(3).trim() : text.trim();
   const renameTarget = raw.includes(' -> ') ? raw.split(' -> ').pop() : raw;
   return renameTarget.replace(/\\/g, '/').replace(/^\.\//, '');
 }

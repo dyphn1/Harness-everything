@@ -13,10 +13,6 @@ const fs = require('fs');
 const projectRoot = path.resolve(__dirname, '..', '..');
 let hasErrors = false;
 
-// This suite validates the Harness-everything meta-repo's own CI. It is not
-// a gate for self-evolve's ordinary rule persistence in a host workspace
-// (see self-evolve/SKILL.md Core Workflow step 3) and cannot resolve there —
-// skip gracefully instead of failing on missing sibling files/folders.
 let pkgName = null;
 try {
   pkgName = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')).name;
@@ -45,7 +41,6 @@ function runNode(label, script, args = [], options = {}) {
   return result;
 }
 
-// 1. Syntax-check every shipped JavaScript file.
 console.log('\n[Phase 1] Static Syntax Check...');
 const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'ci', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills', 'fable-mode', 'multi-agent-workspace'];
 const jsFiles = [];
@@ -68,7 +63,6 @@ for (const file of jsFiles) {
 }
 console.log(`  PASS syntax: ${jsFiles.length} JavaScript file(s)`);
 
-// 1b. Smoke-test the public CLI wrappers.
 console.log('\n[Phase 1b] CLI Command Smoke Test...');
 const cliPath = path.join(projectRoot, 'bin', 'cli.js');
 const nextCheck = spawnSync('node', [cliPath, 'next', 'add a new login endpoint with tests'], { cwd: projectRoot });
@@ -88,7 +82,6 @@ if (verifyCheck.status !== 0) {
   hasErrors = true;
 } else console.log('  PASS `harness verify` exited 0 on a skipped check.');
 
-// 2. Deterministic routing matrix and workflow-plan consumers.
 console.log('\n[Phase 2] Routing Verification Check...');
 runNode('routing matrix', path.join(projectRoot, 'ci', 'runner.js'));
 runNode('skill route coverage', path.join(projectRoot, 'ci', 'skill-routing-check.js'));
@@ -96,12 +89,11 @@ runNode('invariant-first routing contract', path.join(projectRoot, 'ci', 'invari
 runNode('workflow-plan structured contract', path.join(projectRoot, 'ci', 'router-workflow-plan.test.js'));
 runNode('explicit parallel safety contract', path.join(projectRoot, 'ci', 'router-phase2-safety.test.js'));
 runNode('workflow-plan consumers', path.join(projectRoot, 'ci', 'workflow-plan-consumers.test.js'));
+runNode('workflow-plan consumer edge contracts', path.join(projectRoot, 'ci', 'workflow-plan-consumers-edge.test.js'));
 
-// 3. Static integrity gates; behavioral evals are validated, not executed.
 console.log('\n[Phase 3] Skill Reference and Behavioral Case Checks...');
 runNode('skill reference check', path.join(projectRoot, 'ci', 'reference-check.js'));
 runNode('behavioral case validation', path.join(projectRoot, 'behavioral-evals', 'run.js'), ['validate']);
-// 3b. Run Fable model mode contract tests (selector + router separation)
 console.log('\n[Phase 3b] Fable Model Mode Contract Tests...');
 const fableModeTestPath = path.join(projectRoot, 'ci', 'fable-mode-test.js');
 if (fs.existsSync(fableModeTestPath)) {
@@ -116,7 +108,6 @@ if (fs.existsSync(fableModeTestPath)) {
   console.warn("  ⚠️  ci/fable-mode-test.js not found. Skipping Phase 3.");
 }
 
-// 4. Hook/mechanism checks.
 console.log('\n[Phase 4] Mechanism Test Suite (Claude Code hooks)...');
 runNode('mechanism suite', path.join(projectRoot, 'ci', 'mechanism-test.js'));
 
