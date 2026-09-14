@@ -77,7 +77,7 @@
         "standaloneSkills": {"status": "Supported", "paths": {"project": [".agents/skills"], "global": ["~/.agents/skills"]}},
         "pluginSupport": {"status": "Mechanism verified", "paths": {"manifest": ["plugin.json", ".codex-plugin/plugin.json"]}},
         "bundledSkills": {"status": "Mechanism verified", "notes": "The local package contains a root skills/ tree."},
-        "hooksLifecycle": {"status": "Mechanism verified", "notes": "SessionStart and UserPromptSubmit are covered by package checks; non-managed hooks still require trust."},
+        "hooksLifecycle": {"status": "Mechanism verified", "notes": "SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStart, SubagentStop, and Stop are covered by package checks; non-managed hooks still require trust."},
         "projectScope": {"status": "Mechanism verified", "paths": {"skills": [".agents/skills"], "instructions": ["AGENTS.md"]}},
         "globalScope": {"status": "Mechanism verified", "paths": {"skills": ["~/.agents/skills"]}},
         "installUninstallSymmetry": {"status": "Mechanism verified", "notes": "Harness installer round-trip checks cover owned files and user-owned collisions."},

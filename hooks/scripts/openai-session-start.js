@@ -9,7 +9,7 @@ const {
   getSessionDir,
   writeCurrentSession,
   pruneStaleSessions
-} = require('./scripts/lib/harness-state');
+} = require('./lib/harness-state');
 
 const POLICY = [
   'Harness Cognitive OS policy is active.',

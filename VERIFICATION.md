@@ -108,7 +108,7 @@ Use the dedicated `ci/mechanism-2*.test.js` suites as the normative expected-out
 
 ### 2c. Codex / local OpenAI plugin mechanism
 
-The local OpenAI plugin packages `SessionStart` and `UserPromptSubmit` behavior. Verify its package-level mechanism with:
+The local OpenAI plugin packages session/prompt routing, supported local tool guards and trackers, subagent scope adapters, and the stop verification gate. Verify its package-level mechanism with:
 
 ```bash
 npm run test:plugin:openai
@@ -117,7 +117,7 @@ npm run test:routing:invariants
 
 Then verify a **fresh local host session** separately if you want to claim the host actually loaded and fired those hooks.
 
-Current claim boundary: local session policy and invariant-first routing can be mechanically injected by the packaged plugin. This does not imply Claude Code parity for `PreToolUse`, `PostToolUse`, `Stop`, WAL, or the full circuit-breaker surface.
+Current claim boundary: these lifecycle mappings are mechanism-tested in the package, including `apply_patch` edit tracking and portable state dependencies. This does not prove a live ChatGPT/Codex host loaded them, and it does not imply coverage for host tools/events that are not listed in `plugins/harness-everything/hooks/hooks.json`.
 
 ### 2d. OpenCode plugin mechanism
 

@@ -117,9 +117,9 @@ The current installer uses `.github/skills/` plus `.github/copilot-instructions.
 Codex has two distinct Harness integration surfaces and documentation must keep them separate:
 
 - The general `--codex` installer path writes Codex-facing skills/instructions such as `AGENTS.md`; where the host only consumes those instructions, that path is advisory.
-- The packaged local OpenAI plugin under `plugins/harness-everything/` includes `.codex-plugin/plugin.json`, all 26 canonical skills, and local `SessionStart` / `UserPromptSubmit` hooks. Those hooks mechanically inject the compact session policy and run the invariant-first kernel before peer/domain skill selection.
+- The packaged local OpenAI plugin under `plugins/harness-everything/` includes `.codex-plugin/plugin.json`, all 26 canonical skills, and lifecycle hooks for `SessionStart`, `UserPromptSubmit`, supported local `PreToolUse` / `PostToolUse`, `SubagentStart` / `SubagentStop`, and `Stop`. Those hooks inject the compact session policy, run the invariant-first kernel, track supported edits and verification, and surface subagent scope changes.
 
-The local plugin therefore has **mechanical invariant enforcement**, but it is intentionally narrower than Claude Code's full hook surface. Do not infer `PreToolUse`, `PostToolUse`, `Stop`, circuit-breaker, or full Claude parity unless those mechanisms are separately packaged and verified for the OpenAI host.
+The local plugin therefore has **mechanism-tested local enforcement** for the packaged event/tool mappings. This is package evidence, not a live-host claim; the host's hook review/trust flow and a fresh session are still required. Do not infer broader Claude parity for events or tools that are not listed in the package.
 
 The public OpenAI **Skills-only** submission is narrower again: it ships reusable skills and referenced assets, not the local `.codex-plugin` lifecycle hooks. Public reviewer/listing claims must describe skill/workflow behavior rather than local hook enforcement. See [openai-plugin.md](openai-plugin.md).
 

@@ -31,7 +31,7 @@ Harness deliberately follows a **minimal rails, maximum freedom** design: the ru
 | **System Audit** | Blindly assumes shell syntax | Requires manual shell check | Uses environment detection and explicit verification paths instead of assuming one shell/runtime |
 | **Memory** | Resets on every new chat session | Static text rules | Stateful hook/plugin integrations can persist bounded runtime state; instruction-only integrations cannot |
 
-The exact "Harness" behavior depends on the installation surface. Claude Code has the broadest currently verified lifecycle-hook coverage. OpenCode has a real plugin implementation with deterministic mechanism tests, but **live loading remains unverified**. Codex has both an advisory `--codex` installer path and a **local OpenAI plugin** path with `SessionStart` / `UserPromptSubmit` invariant hooks. The public OpenAI **Skills-only** submission is narrower and does not include those local lifecycle hooks. See [Supported AI IDEs & Tools](#supported-ai-ides--tools) and [docs/platform-capabilities.md](docs/platform-capabilities.md).
+The exact "Harness" behavior depends on the installation surface. Claude Code has the broadest currently verified lifecycle-hook coverage. OpenCode has a real plugin implementation with deterministic mechanism tests, but **live loading remains unverified**. Codex has both an advisory `--codex` installer path and a **local OpenAI plugin** path with mechanism-tested session, prompt, supported-tool, subagent, and stop hooks. The public OpenAI **Skills-only** submission is narrower and does not include those local lifecycle hooks. See [Supported AI IDEs & Tools](#supported-ai-ides--tools) and [docs/platform-capabilities.md](docs/platform-capabilities.md).
 
 ### When should I use Harness?
 * You regularly use agentic coding tools (like Claude Code, Cursor, or Copilot) on medium-to-large codebases.
@@ -63,7 +63,7 @@ npx github:dyphn1/Harness-everything install
 ```
 
 ### Expected Behavior After Installation:
-1. **Use the selected surface's real mechanism:** Claude Code hooks, the local OpenAI plugin prompt/session hooks, OpenCode's plugin API, or advisory instructions depending on what you installed.
+1. **Use the selected surface's real mechanism:** Claude Code hooks, the local OpenAI plugin lifecycle hooks, OpenCode's plugin API, or advisory instructions depending on what you installed.
 2. **Preflight / session context where packaged:** Hook-capable surfaces can inject environment/session context automatically; advisory-only surfaces must not be described as if they do.
 3. **Verification boundary:** Completion claims require objective evidence; whether that boundary is mechanically invoked or explicitly called depends on the host surface.
 4. **Agent Freedom Preserved:** Tier classification suggests useful skills, but does not impose a universal TODO/TDD/Fable sequence.
@@ -163,7 +163,7 @@ The authoritative current matrix is [docs/platform-capabilities.md](docs/platfor
 | **Claude Code** | Native lifecycle hooks (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop`) | `.claude/settings.json`, `.claude/skills/`, `.claude/agents/` | **Hard** for the supported verified hook gates |
 | **OpenCode** | Native plugin module ([`opencode-plugin/index.mjs`](opencode-plugin/index.mjs)) | `.opencode/plugins/` | **Hard-capable, unverified live** — mechanism/source coverage exists; live host loading is not yet evidence-backed |
 | **Codex — general installer path** | Skills + `AGENTS.md` guidance | `AGENTS.md` + repo-scoped `.agents/skills/` | **Advisory/instruction-oriented** where the host only consumes instructions |
-| **Codex / local OpenAI plugin** | `.codex-plugin` package with `SessionStart` + `UserPromptSubmit` hooks and 26 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanical invariant enforcement** for the packaged session/prompt hooks; not full Claude parity |
+| **Codex / local OpenAI plugin** | `.codex-plugin` package with session, prompt, supported-tool, subagent, and stop hooks plus 26 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanism-tested local enforcement** for the packaged mappings; live host loading remains unverified |
 | **Public OpenAI Skills-only plugin** | Public Skills-only bundle | Generated submission ZIP from `plugins/harness-everything/skills/` | **Skill/workflow behavior only**; no local `.codex-plugin` lifecycle hooks in the public artifact |
 | **Cursor** | Native Project Rules + project skills | `.cursorrules` + `.cursor/skills/` | Advisory only |
 | **GitHub Copilot agent surfaces** | Agent Skills + repository custom instructions | `.github/copilot-instructions.md` + `.github/skills/` | Agent Skills path is documented; no live Harness session or plugin install is verified |

@@ -13,7 +13,14 @@ const PLUGIN_MANIFEST = JSON.parse(fs.readFileSync(path.join(PLUGIN, '.codex-plu
 const PORTABLE_MANIFEST = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'plugin.json'), 'utf8'));
 
 function sha256(file) {
-  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  const bytes = fs.readFileSync(file);
+  // Git stores text blobs with LF, while a Windows checkout may materialize
+  // canonical files with CRLF. Package parity compares canonical content, not
+  // platform checkout EOL bytes.
+  const normalized = bytes.includes(0)
+    ? bytes
+    : Buffer.from(bytes.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
+  return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
 function filesUnder(root, base = root, out = []) {
@@ -34,7 +41,7 @@ function assertTreesEqual(source, packaged, name) {
     assert.strictEqual(
       sha256(path.join(packaged, relative)),
       sha256(path.join(source, relative)),
-      `${name}/${relative}: packaged bytes drifted from canonical source`
+      `${name}/${relative}: packaged content drifted from canonical source`
     );
   }
 }
@@ -123,6 +130,11 @@ assert.ok(fs.existsSync(path.join(ROOT, marketEntry.source.path, '.codex-plugin'
 const hooks = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8'));
 assert.ok(hooks.hooks.SessionStart?.length, 'SessionStart hook missing');
 assert.ok(hooks.hooks.UserPromptSubmit?.length, 'UserPromptSubmit hook missing');
+assert.ok(hooks.hooks.PreToolUse?.length, 'PreToolUse hook missing');
+assert.ok(hooks.hooks.PostToolUse?.length, 'PostToolUse hook missing');
+assert.ok(hooks.hooks.SubagentStart?.length, 'SubagentStart hook missing');
+assert.ok(hooks.hooks.SubagentStop?.length, 'SubagentStop hook missing');
+assert.ok(hooks.hooks.Stop?.length, 'Stop hook missing');
 const hookText = JSON.stringify(hooks);
 assert.match(hookText, /PLUGIN_ROOT/, 'plugin hooks must resolve from PLUGIN_ROOT');
 assert.match(hookText, /commandWindows/, 'plugin hooks need a Windows command override');

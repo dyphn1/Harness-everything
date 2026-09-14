@@ -21,7 +21,7 @@ All current `liveHostVerification` rows are `Unknown`. This checkout contains de
 
 | Platform surface | Standalone skills | Plugin support | Hooks/lifecycle | Project scope | Global scope | Current evidence boundary |
 | --- | --- | --- | --- | --- | --- | --- |
-| Codex | `Supported` | `Mechanism verified` | `Mechanism verified` for the local OpenAI package | `.agents/skills/`, `AGENTS.md` | `~/.agents/skills/` | Local package hooks are mechanically checked; live loading and marketplace refresh remain `Unknown`. |
+| Codex | `Supported` | `Mechanism verified` | `Mechanism verified` for the local OpenAI package, including session, prompt, supported-tool, subagent, and stop hooks | `.agents/skills/`, `AGENTS.md` | `~/.agents/skills/` | Local package hooks are mechanically checked; live loading and marketplace refresh remain `Unknown`. |
 | ChatGPT / OpenAI Plugin | `Unknown` for a repository-local standalone path | `Mechanism verified` | `Partial`: local Work/Codex hooks are separate from ordinary Chat | Managed workspace marketplace | Not established | The public Skills-only bundle is mechanically reproducible; import, approval, and live behavior remain `Unknown`. |
 | Claude Code | `Supported` | `Supported` | `Mechanism verified` for Harness configuration | `.claude/skills/` | `~/.claude/skills/` | Native Claude surfaces are documented and package/installer checks pass; fresh-host execution is not preserved here. |
 | OpenCode | `Supported` | `Mechanism verified` | `Mechanism verified` against `tool.execute.*` and `session.idle` | `.opencode/skills/`, `.agents/skills/`, `.opencode/plugins/` | `~/.config/opencode/skills/`, `~/.agents/skills/`, `~/.config/opencode/plugins/` | The real adapter API is tested, but live plugin loading remains unverified. |
@@ -52,7 +52,9 @@ These targets apply to both default link mode and explicit `--copy` mode. A cano
 Codex has two paths that must not be collapsed:
 
 1. The general `--codex` installer writes advisory `AGENTS.md` plus repo-scoped skills under `.agents/skills/`.
-2. The local OpenAI plugin at `plugins/harness-everything/` packages the skills and local `SessionStart` / `UserPromptSubmit` hooks. Those hooks are mechanically checked, but no live plugin/session artifact is committed.
+2. The local OpenAI plugin at `plugins/harness-everything/` packages the skills plus lifecycle hooks for session start, prompt routing, supported local tool calls, subagent lifecycle, and stop verification. Those hooks are mechanically checked, but no live plugin/session artifact is committed.
+
+The package is tested at the mechanism layer and remains subject to the host’s hook review/trust flow. A fresh host session is still required before claiming that a particular ChatGPT/Codex installation loaded and fired the hooks.
 
 The public OpenAI Skills-only plugin is narrower again. Its ZIP contains the packaged `skills/` tree and referenced files, but not the local `.codex-plugin` lifecycle hooks. Public submission readiness is therefore a package/form contract, not evidence of public-directory approval or live hook execution.
 
@@ -66,6 +68,6 @@ The OpenCode adapter uses the documented plugin API and has deterministic mechan
 
 ## Official sources
 
-The matrix records the official documentation reviewed for each platform. Important source families include [OpenAI plugin packaging](https://developers.openai.com/plugins/build/plugins), [OpenAI public submission](https://developers.openai.com/plugins/deploy/submission), [Codex skills](https://learn.chatgpt.com/docs/build-skills), [Claude skills](https://code.claude.com/docs/en/skills), [OpenCode skills](https://opencode.ai/docs/skills), [GitHub Copilot Agent Skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills), [Cursor skills](https://cursor.com/docs/skills), [Continue rules](https://docs.continue.dev/customize/rules), and [Hermes skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills).
+The matrix records the official documentation reviewed for each platform. Important source families include [OpenAI plugin packaging](https://developers.openai.com/plugins/build/plugins), [OpenAI public submission](https://developers.openai.com/plugins/deploy/submission), [Codex skills](https://learn.chatgpt.com/docs/build-skills), [Codex hooks](https://learn.chatgpt.com/docs/hooks), [Claude skills](https://code.claude.com/docs/en/skills), [OpenCode skills](https://opencode.ai/docs/skills), [GitHub Copilot Agent Skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills), [Cursor skills](https://cursor.com/docs/skills), [Continue rules](https://docs.continue.dev/customize/rules), and [Hermes skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills).
 
 When a platform behavior changes, update this page, `docs/platform-compatibility.json`, and every affected current-state surface in the same change. `npm run test:docs:capabilities` and the compatibility mechanism suite enforce the repository-side contract; they do not replace manual live-host evidence.

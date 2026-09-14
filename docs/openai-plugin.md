@@ -2,13 +2,44 @@
 
 Harness Everything ships an Agent Plugin package under `plugins/harness-everything/`. The root skill directories remain canonical; packaged copies are synchronized from them.
 
+## Architecture
+
+```mermaid
+flowchart TD
+    U([User prompt]) --> H[UserPromptSubmit hook]
+    H --> K[Harness Kernel Router]
+    K --> I[Required invariants]
+    I --> A[Agent chooses useful domain skills]
+    A --> E[Execute / inspect / edit]
+    E --> P[PreToolUse guards]
+    P --> T[Supported local tool]
+    T --> Q[PostToolUse state and evidence]
+    Q --> V{Objective evidence?}
+    V -->|yes| D[Evidence-backed completion]
+    V -->|no| R[Diagnose and retry]
+    R --> F{Same-signature failure x3?}
+    F -->|no| E
+    F -->|yes| Z[Zoom out / re-plan]
+    Z --> E
+
+    S[SessionStart hook] --> C[Cognitive OS policy]
+    C --> K
+    G[SubagentStart / Stop] --> A
+    X[Stop hook] --> V
+```
+
+The local OpenAI adapter enforces cross-cutting invariants through the lifecycle events that it packages. Tier-specific skills remain advisory; the model may choose, combine, reorder, or skip them. Tool enforcement is limited to the host tool names declared in `hooks/hooks.json`.
+
 ## Package layout
 
 ```text
 plugins/harness-everything/
 ├── plugin.json                 # portable Agent Plugin manifest
 ├── .codex-plugin/plugin.json   # Codex compatibility manifest
-├── hooks/                      # local OpenAI/Codex hook adapter
+├── hooks/
+│   ├── hooks.json
+│   ├── session-start.js
+│   └── scripts/                # shared runtime hook dependencies
 └── skills/                     # 26 synchronized canonical skills
 ```
 
@@ -24,7 +55,7 @@ npm run test:plugin:openai
 npm run test:plugin:submission
 ```
 
-The checks compare the canonical and packaged skill trees byte-for-byte, validate both manifest forms, execute the local hook entry points, and verify deterministic routing.
+`plugin:sync` refreshes package copies from canonical skill directories and copies the shared hook runtime/dependencies into the package. Text parity is normalized to LF so the same package is reproducible from Windows and Unix checkouts. The checks compare both skill trees byte-for-byte, validate both manifest forms, execute local hook entry points, and verify deterministic routing/runtime behavior.
 
 ## Managed ChatGPT workspace import
 
@@ -38,17 +69,19 @@ Official documentation: [Importing and syncing plugin marketplaces from GitHub](
 
 ## Local Codex / OpenAI package
 
-The local package path is distinct from the general `--codex` installer. The general installer writes advisory `AGENTS.md` and repo-scoped `.agents/skills/`; the plugin package additionally contains local `SessionStart` and `UserPromptSubmit` hooks.
+The local package path is distinct from the general `--codex` installer. The general installer writes advisory `AGENTS.md` and repo-scoped `.agents/skills/`; the plugin package additionally contains local session, prompt, supported-tool, subagent, and stop hooks.
 
 The package tests prove the following repository-side contract:
 
 - the portable root manifest and `.codex-plugin` compatibility manifest agree on identity, version, interface, and hook entry point;
 - the root `skills/` tree contains exactly the 26 canonical skills;
 - Windows and POSIX hook commands resolve through `PLUGIN_ROOT`;
-- the session hook emits the compact policy and the prompt hook invokes invariant-first routing;
+- session start emits the compact policy and prompt submission invokes invariant-first routing;
+- supported local `Bash` and `apply_patch` calls receive the packaged guards and state tracking;
+- subagent lifecycle and stop verification contracts are covered;
 - identical routing input produces identical output.
 
-These are package/mechanism results. They do not prove that a live Codex or ChatGPT host loaded the package; a preserved host/session artifact is required for that claim.
+These are package/mechanism results. They do not prove that a live Codex or ChatGPT host loaded the package; a preserved host/session artifact is required for that claim. OpenAI’s current event/tool contract is documented in the [Codex/ChatGPT hooks reference](https://learn.chatgpt.com/docs/hooks).
 
 ## Public Skills-only submission
 
@@ -79,3 +112,7 @@ The local plugin and public Skills-only artifact must not be conflated:
 | Public Skills-only ZIP | Deterministic builder and 5+3 review-input checks | Reproducible skills bundle; approval and live public behavior remain unverified |
 
 See the [platform capability matrix](platform-capabilities.md) for the complete ten-dimension status table and official source URLs.
+
+## Publication smoke checklist
+
+Before public submission, run `plugin:sync`, both OpenAI package checks, and the platform compatibility check. Confirm all 26 skills are content-identical to canonical sources after EOL normalization, the ZIP is reproducible, public links are current, the publisher identity and Apps Management access are ready, and final reviewer-facing cases run against the exact submitted skills tree.
