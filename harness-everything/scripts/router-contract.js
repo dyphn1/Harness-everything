@@ -168,6 +168,11 @@ function requestedStrategyIsProhibited(strategy, prohibitions) {
   return false;
 }
 
+function hasValidatedParallelScope(taskShape) {
+  return taskShape.dependencyGraph === 'independent' &&
+    (taskShape.writeSetOverlap === 'read-only' || taskShape.writeSetOverlap === 'disjoint');
+}
+
 function selectWorkflowStrategy(input = {}) {
   const tier = TIERS.has(input.tier) ? input.tier : 'unclassified';
   const routingStatus = ROUTING_STATUSES.has(input.routingStatus) ? input.routingStatus : 'degraded';
@@ -193,6 +198,15 @@ function selectWorkflowStrategy(input = {}) {
       fallback.disposition = 'blocked';
       fallback.mode = 'blocked';
       fallback.reasonCodes.push('explicit-request-conflicts-with-prohibition');
+    } else if (strategy === 'fable-parallel' && !hasValidatedParallelScope(taskShape)) {
+      strategy = 'fable-staged';
+      fallback.disposition = 'reduced';
+      fallback.mode = 'serialized';
+      fallback.reasonCodes.push(
+        taskShape.writeSetOverlap === 'overlap'
+          ? 'parallel-write-set-overlap'
+          : 'parallel-preconditions-unproven',
+      );
     }
   } else if (routingStatus !== 'ok') {
     reasonCodes.push('routing-degraded-strategy-deferred');
@@ -210,10 +224,7 @@ function selectWorkflowStrategy(input = {}) {
     strategy = 'fable-multi-agent-workspace';
     strategySelection = 'selected';
     reasonCodes.push('durable-reusable-specialists');
-  } else if (
-    taskShape.dependencyGraph === 'independent' &&
-    (taskShape.writeSetOverlap === 'read-only' || taskShape.writeSetOverlap === 'disjoint')
-  ) {
+  } else if (hasValidatedParallelScope(taskShape)) {
     strategy = 'fable-parallel';
     strategySelection = 'selected';
     reasonCodes.push('independent-scopes-validated');
@@ -558,7 +569,12 @@ function validateRouterContract(contract) {
   if (!contract.taskShape || contract.taskShape.schemaVersion !== SCHEMA_VERSION) errors.push('taskShape schemaVersion is invalid');
   const workflowValidation = validateWorkflowPlan(contract.workflowPlan);
   errors.push(...workflowValidation.errors.map(error => `workflowPlan: ${error}`));
-  if (contract.workflowPlan && contract.workflowPlan.strategy === 'fable-parallel') {
+  if (
+    contract.workflowPlan &&
+    contract.workflowPlan.strategy === 'fable-parallel' &&
+    contract.workflowPlan.fallback &&
+    contract.workflowPlan.fallback.disposition !== 'blocked'
+  ) {
     if (contract.taskShape.dependencyGraph !== 'independent') errors.push('fable-parallel requires independent dependencyGraph');
     if (!['disjoint', 'read-only'].includes(contract.taskShape.writeSetOverlap)) errors.push('fable-parallel requires disjoint/read-only writeSet');
   }
