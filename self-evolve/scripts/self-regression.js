@@ -47,7 +47,7 @@ function runNode(label, script, args = [], options = {}) {
 
 // 1. Syntax-check every shipped JavaScript file.
 console.log('\n[Phase 1] Static Syntax Check...');
-const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'ci', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills', 'fable-mode'];
+const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'ci', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills', 'fable-mode', 'multi-agent-workspace'];
 const jsFiles = [];
 function walkDir(dir) {
   if (!fs.existsSync(dir)) return;
@@ -88,13 +88,14 @@ if (verifyCheck.status !== 0) {
   hasErrors = true;
 } else console.log('  PASS `harness verify` exited 0 on a skipped check.');
 
-// 2. Deterministic routing matrix.
+// 2. Deterministic routing matrix and workflow-plan consumers.
 console.log('\n[Phase 2] Routing Verification Check...');
 runNode('routing matrix', path.join(projectRoot, 'ci', 'runner.js'));
 runNode('skill route coverage', path.join(projectRoot, 'ci', 'skill-routing-check.js'));
 runNode('invariant-first routing contract', path.join(projectRoot, 'ci', 'invariant-routing.test.js'));
 runNode('workflow-plan structured contract', path.join(projectRoot, 'ci', 'router-workflow-plan.test.js'));
 runNode('explicit parallel safety contract', path.join(projectRoot, 'ci', 'router-phase2-safety.test.js'));
+runNode('workflow-plan consumers', path.join(projectRoot, 'ci', 'workflow-plan-consumers.test.js'));
 
 // 3. Static integrity gates; behavioral evals are validated, not executed.
 console.log('\n[Phase 3] Skill Reference and Behavioral Case Checks...');
