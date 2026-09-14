@@ -155,7 +155,7 @@ function validateParallelBatch(stages) {
   }
 }
 
-function topologicalBatches(stages) {
+function dependencyBatches(stages, validateWrites) {
   const byId = new Map(stages.map(stage => [stage.stageId, stage]));
   const remaining = new Set(byId.keys());
   const completed = new Set();
@@ -167,7 +167,7 @@ function topologicalBatches(stages) {
       .sort();
     if (ready.length === 0) throw new Error('unresolved or cyclic dependency graph');
     const batch = ready.map(stageId => byId.get(stageId));
-    validateParallelBatch(batch);
+    if (validateWrites) validateParallelBatch(batch);
     batches.push(batch.map(stage => stage.stageId));
     for (const stageId of ready) {
       remaining.delete(stageId);
@@ -177,9 +177,12 @@ function topologicalBatches(stages) {
   return batches;
 }
 
+function topologicalBatches(stages) {
+  return dependencyBatches(stages, true);
+}
+
 function sequentialBatches(stages) {
-  const parallelShape = topologicalBatches(stages);
-  return parallelShape.flat().map(stageId => [stageId]);
+  return dependencyBatches(stages, false).flat().map(stageId => [stageId]);
 }
 
 function validateRouterPlan(routerContract) {
@@ -218,9 +221,9 @@ function prepareRun({ routerContract, stages, workspaceRoot, runId, sessionId = 
   const runRoot = path.join(stateRoot, 'fable-runs', resolvedRunId);
   if (fs.existsSync(runRoot)) throw new Error(`runId already exists in this workspace: ${resolvedRunId}`);
 
-  let batches;
-  if (plan.strategy === 'fable-parallel') batches = topologicalBatches(normalizedStages);
-  else batches = sequentialBatches(normalizedStages);
+  const batches = plan.strategy === 'fable-parallel'
+    ? topologicalBatches(normalizedStages)
+    : sequentialBatches(normalizedStages);
 
   const createdAt = new Date().toISOString();
   const contractsDir = path.join(runRoot, 'contracts');
