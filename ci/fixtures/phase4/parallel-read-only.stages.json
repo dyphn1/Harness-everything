@@ -1,0 +1,32 @@
+{
+  "stages": [
+    {
+      "stageId": "security-audit",
+      "goal": "Audit authentication security without editing files",
+      "agent": "fable-worker-sonnet",
+      "task": "Inspect the authentication surface and return evidence-backed findings.",
+      "inputs": ["src/auth"],
+      "expectedOutputs": ["security findings"],
+      "outputPath": null,
+      "dependsOn": [],
+      "writeSet": [],
+      "checkCommand": null,
+      "passCondition": "evidence-backed findings returned",
+      "failureReturn": "failure summary + evidence + missing prerequisite"
+    },
+    {
+      "stageId": "architecture-audit",
+      "goal": "Audit architecture boundaries without editing files",
+      "agent": "fable-worker-sonnet",
+      "task": "Inspect architecture boundaries and return evidence-backed findings.",
+      "inputs": ["src"],
+      "expectedOutputs": ["architecture findings"],
+      "outputPath": null,
+      "dependsOn": [],
+      "writeSet": [],
+      "checkCommand": null,
+      "passCondition": "evidence-backed findings returned",
+      "failureReturn": "failure summary + evidence + missing prerequisite"
+    }
+  ]
+}
