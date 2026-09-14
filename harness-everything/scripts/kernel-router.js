@@ -8,6 +8,7 @@ const {
   createDegradedRouterContract,
   validateRouterContract,
 } = require('./router-contract');
+const { applyEnsemblePolicy } = require('./ensemble-policy');
 
 /**
  * Harness Kernel Router
@@ -17,6 +18,7 @@ const {
  * scraping human-readable stdout. Phase 2 selects an execution topology, but
  * the router still only emits a plan: executors retain responsibility for
  * spawning agents, creating workspaces, running tools, and enforcing gates.
+ * Phase 4 attaches ensemble-review only as a post-selection modifier.
  */
 
 const INVARIANT_TEXT = {
@@ -32,6 +34,8 @@ const INVARIANT_TEXT = {
   'handoff-contracts': 'Multi-agent workspace work uses orchestrator-owned handoff contracts; workers do not form a peer mesh.',
   'workspace-state': 'Durable workspace state remains scoped to the workspace and existing state conventions.',
   'pre-action-approval': 'Irreversible/external side effects require approval before the exact payload executes.',
+  'preserve-disagreement': 'Ensemble synthesis must retain unresolved minority positions and evidence gaps.',
+  'independent-ensemble-verifier': 'Ensemble delivery requires a verifier independent from the candidate identities; agreement alone is not proof.',
 };
 
 const SKILL_TEXT = {
@@ -82,6 +86,17 @@ function readStructuredContract(contractPath) {
   }
 }
 
+function resolvePrompt(prompt, stdinPayload) {
+  if (prompt) return prompt;
+  if (!stdinPayload) return '';
+  try {
+    const payload = JSON.parse(stdinPayload);
+    return typeof payload.prompt === 'string' ? payload.prompt : '';
+  } catch (_) {
+    return '';
+  }
+}
+
 function printWorkflowPlan(plan) {
   const visible = {
     schemaVersion: plan.schemaVersion,
@@ -93,6 +108,9 @@ function printWorkflowPlan(plan) {
     limits: plan.limits,
     parallelism: plan.parallelism,
     workspace: plan.workspace,
+    memory: plan.memory,
+    verification: plan.verification,
+    ensemble: plan.ensemble,
     fallback: plan.fallback,
     reasonCodes: plan.reasonCodes,
   };
@@ -124,6 +142,10 @@ function printKernelContract(plan) {
     console.log('   - Strategy is deferred/unclassified. Do not infer triviality; choose the smallest justified approach from task evidence.');
   } else {
     console.log('   - No additional skill suggestion from the workflow plan.');
+  }
+
+  if (plan.ensemble) {
+    console.log(`\n=> ENSEMBLE REVIEW: bounded to ${plan.ensemble.maxCandidates} candidates; synthesis=${plan.ensemble.synthesis}; verifier=${plan.ensemble.verifier}. Preserve minority positions and do not claim improvement without paired evidence.`);
   }
 
   if (plan.actionGate && plan.actionGate.required) {
@@ -164,6 +186,7 @@ function run(prompt, stdinPayload) {
   if (result.stderr) process.stderr.write(result.stderr);
 
   const contract = readStructuredContract(contractPath);
+  applyEnsemblePolicy(contract, resolvePrompt(prompt, stdinPayload));
   try {
     fs.rmSync(contractPath, { force: true });
   } catch (err) {
