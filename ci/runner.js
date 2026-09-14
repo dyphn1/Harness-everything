@@ -30,12 +30,14 @@ files.forEach(file => {
       env: { ...process.env, HARNESS_EVAL: 'true' }
     });
     
-    // Parse the output to find the recommended tier (accept the old
-    // "REQUIRED TIER" label too so the runner works across versions)
-    const tierMatch = output.match(/(?:RECOMMENDED|REQUIRED) TIER: (Tier \d+)/i) || output.match(/(Tier \d+)/i);
+    // Parse the human-readable classification. `Unclassified` is a first-class
+    // result: no matched signal must never be converted back into Tier 1 by
+    // the test harness itself.
+    const tierMatch = output.match(/(?:RECOMMENDED|REQUIRED) TIER:\s*(Tier \d+|Unclassified)/i)
+      || output.match(/\b(Tier \d+|Unclassified)\b/i);
     const actualTier = tierMatch ? tierMatch[1] : "Unknown";
     
-    if (actualTier.includes(data.expected_tier)) {
+    if (actualTier.toLowerCase().includes(String(data.expected_tier).toLowerCase())) {
       console.log(`  -> Result: PASS (Got ${actualTier})\n`);
       passed++;
     } else {
@@ -53,4 +55,3 @@ console.log(`--- Summary: ${passed} passed, ${failed} failed ---`);
 if (failed > 0) {
   process.exit(1);
 }
-
