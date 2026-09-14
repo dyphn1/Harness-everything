@@ -30,7 +30,7 @@
     "strategy": {
       "enum": ["direct-single", "iterative-single", "fable-staged", "fable-parallel", "fable-multi-agent-workspace", null]
     },
-    "strategySelection": { "enum": ["shadow", "selected"] },
+    "strategySelection": { "enum": ["shadow", "selected", "deferred"] },
     "patterns": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "requiredInvariants": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "suggestedSkills": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
@@ -105,10 +105,13 @@
     },
     "fallback": {
       "type": "object",
-      "required": ["onMissingSubagents"],
+      "required": ["onMissingSubagents", "disposition", "mode", "reasonCodes"],
       "additionalProperties": false,
       "properties": {
-        "onMissingSubagents": { "enum": ["visible-inline-or-stop"] }
+        "onMissingSubagents": { "enum": ["visible-inline-or-stop"] },
+        "disposition": { "enum": ["none", "reduced", "blocked"] },
+        "mode": { "enum": ["none", "inline", "serialized", "blocked"] },
+        "reasonCodes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
       }
     },
     "reasonCodes": {

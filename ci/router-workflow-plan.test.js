@@ -8,7 +8,10 @@ const { spawnSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const tierRouter = path.join(ROOT, 'harness-everything', 'scripts', 'tier-router.js');
 const kernelRouter = path.join(ROOT, 'harness-everything', 'scripts', 'kernel-router.js');
-const { validateRouterContract } = require(path.join(ROOT, 'harness-everything', 'scripts', 'router-contract.js'));
+const {
+  ITERATIVE_MAX_ITERATIONS,
+  validateRouterContract,
+} = require(path.join(ROOT, 'harness-everything', 'scripts', 'router-contract.js'));
 let failed = 0;
 
 function check(condition, message) {
@@ -20,14 +23,17 @@ function check(condition, message) {
   }
 }
 
-function runTier(prompt, extraEnv = {}) {
+function runTier(prompt, options = {}) {
   const contractPath = path.join(os.tmpdir(), `harness-router-test-${process.pid}-${Math.random().toString(16).slice(2)}.json`);
-  const result = spawnSync(process.execPath, [tierRouter, prompt], {
+  const context = options.context || null;
+  const args = context ? [tierRouter] : [tierRouter, prompt];
+  const result = spawnSync(process.execPath, args, {
     cwd: ROOT,
     encoding: 'utf8',
+    input: context ? JSON.stringify({ ...context, prompt }) : undefined,
     env: {
       ...process.env,
-      ...extraEnv,
+      ...(options.env || {}),
       HARNESS_ROUTER_CONTRACT_PATH: contractPath,
     },
   });
@@ -40,61 +46,206 @@ function runTier(prompt, extraEnv = {}) {
   return { result, contract };
 }
 
-console.log('=== Router Workflow Plan Contract ===');
+function validContract(run, label) {
+  check(run.result.status === 0, `${label}: tier router exits successfully`);
+  check(Boolean(run.contract), `${label}: structured contract exists`);
+  if (!run.contract) return false;
+  const validation = validateRouterContract(run.contract);
+  check(validation.valid, `${label}: contract validates (${validation.errors.join('; ') || 'no errors'})`);
+  return validation.valid;
+}
 
-const standard = runTier('add a login endpoint with tests and update the implementation');
-check(standard.result.status === 0, 'tier router exits successfully for a standard task');
-check(Boolean(standard.contract), 'tier router writes a structured side-channel contract');
-if (standard.contract) {
-  const validation = validateRouterContract(standard.contract);
-  check(validation.valid, `structured contract validates (${validation.errors.join('; ') || 'no errors'})`);
-  check(standard.contract.workflowPlan.tier === 'tier2', 'standard task is represented as tier2 in the structured plan');
-  check(standard.contract.workflowPlan.strategy === null, 'Phase 1 shadow plan does not prematurely select an execution strategy');
-  check(standard.contract.workflowPlan.strategySelection === 'shadow', 'strategy selection is explicitly marked shadow');
-  check(standard.contract.workflowPlan.actionGate.required === false, 'Phase 1 carries the actionGate field without enforcing Phase 2 policy');
-  check(Object.prototype.hasOwnProperty.call(standard.contract.workflowPlan.limits, 'maxIterations'), 'workflow plan carries explicit loop-budget field');
-  check(standard.contract.workflowPlan.limits.maxWorkers === 'fable-orchestrator-cap', 'worker cap has a single-source-of-truth marker');
+console.log('=== Router Workflow Plan Contract — Phase 2 ===');
+
+const direct = runTier('Update one README typo');
+if (validContract(direct, 'direct-single')) {
+  const plan = direct.contract.workflowPlan;
+  check(plan.tier === 'tier1', 'one-file trivial task remains tier1');
+  check(plan.strategy === 'direct-single', 'one-file trivial task selects direct-single');
+  check(plan.strategySelection === 'selected', 'direct-single is a selected strategy');
+  check(plan.workspace.required === false, 'direct-single does not require a workspace');
+  check(plan.parallelism.allowed === false, 'direct-single does not parallelize');
+}
+
+const iterative = runTier('Fix this checkout bug and add a regression test.');
+if (validContract(iterative, 'iterative-single')) {
+  const plan = iterative.contract.workflowPlan;
+  check(plan.tier === 'tier2', 'ordinary test-first bug fix is tier2');
+  check(plan.strategy === 'iterative-single', 'ordinary bug fix selects iterative-single');
+  check(plan.limits.maxIterations === ITERATIVE_MAX_ITERATIONS, 'iterative-single has an explicit loop budget');
+  check(plan.requiredInvariants.includes('objective-verification'), 'iterative-single carries objective verification invariant');
+  check(plan.requiredInvariants.includes('loop-budget'), 'iterative-single carries loop-budget invariant');
+  check(plan.suggestedSkills.includes('tdd'), 'TDD stays advisory rather than an invariant');
+  check(!plan.requiredInvariants.includes('tdd'), 'suggested skills are separated from mandatory invariants');
+}
+
+const staged = runTier('Refactor the entire authentication architecture in dependent stages.');
+if (validContract(staged, 'fable-staged')) {
+  const plan = staged.contract.workflowPlan;
+  check(plan.tier === 'tier3', 'multi-stage architecture work is tier3');
+  check(plan.strategy === 'fable-staged', 'dependent multi-stage work selects fable-staged');
+  check(plan.parallelism.allowed === false, 'dependent stages remain sequential');
+  check(plan.verification.mode === 'cold-verifier', 'fable-staged requires cold verification');
+}
+
+const parallelPrompt = 'Audit the entire repository with independent read-only security, architecture, and documentation workstreams.';
+const parallel = runTier(parallelPrompt);
+if (validContract(parallel, 'fable-parallel')) {
+  const shape = parallel.contract.taskShape;
+  const plan = parallel.contract.workflowPlan;
+  check(shape.dependencyGraph === 'independent', 'parallel task records independent dependency graph');
+  check(shape.writeSetOverlap === 'read-only', 'parallel audit records read-only write set');
+  check(plan.strategy === 'fable-parallel', 'independent read-only audits select fable-parallel');
+  check(plan.parallelism.allowed === true, 'fable-parallel exposes allowed=true');
+  check(plan.requiredInvariants.includes('synthesis-barrier'), 'parallel strategy requires synthesis barrier');
+}
+
+const sharedWrite = runTier('Audit the entire repository with independent agents in parallel editing the same file.');
+if (validContract(sharedWrite, 'shared-write serialization')) {
+  check(sharedWrite.contract.taskShape.writeSetOverlap === 'overlap', 'same-file writers are recorded as overlapping');
+  check(sharedWrite.contract.workflowPlan.strategy === 'fable-staged', 'same-file writers are serialized instead of fable-parallel');
+  check(sharedWrite.contract.workflowPlan.parallelism.allowed === false, 'overlapping writes cannot dispatch in parallel');
+}
+
+const workspace = runTier('Audit the entire repository as a durable multi-session effort with reusable specialists across security and architecture.');
+if (validContract(workspace, 'multi-agent workspace')) {
+  const plan = workspace.contract.workflowPlan;
+  check(plan.strategy === 'fable-multi-agent-workspace', 'durable reusable specialists select workspace topology');
+  check(plan.workspace.required === true, 'workspace topology marks workspace required');
+  check(plan.memory.read === 'workspace-index', 'workspace topology scopes reads through workspace index');
+  check(plan.memory.write === 'propose', 'workspace memory writes remain proposals');
 }
 
 const unknown = runTier('frobnicate the quux');
-check(unknown.result.status === 0, 'unmatched prompt still routes successfully');
-check(Boolean(unknown.contract), 'unmatched prompt still emits a contract');
-if (unknown.contract) {
-  check(unknown.contract.classification.tier === 'unclassified', 'no matched signal yields unclassified rather than Tier 1');
-  check(unknown.contract.classification.reasonCodes.includes('no-classification-signal'), 'unclassified result has deterministic reason code');
+if (validContract(unknown, 'unclassified')) {
+  check(unknown.contract.classification.tier === 'unclassified', 'no matched signal remains unclassified');
+  check(unknown.contract.workflowPlan.strategy === null, 'unclassified does not silently select direct-single');
+  check(unknown.contract.workflowPlan.strategySelection === 'deferred', 'unclassified strategy selection is deferred');
+  check(unknown.contract.workflowPlan.reasonCodes.includes('unclassified-strategy-deferred'), 'deferred selection has deterministic reason code');
+}
+
+const destructive = runTier('Drop the prod database table and force push to main.');
+if (validContract(destructive, 'actionGate')) {
+  const gate = destructive.contract.workflowPlan.actionGate;
+  check(gate.required === true, 'irreversible command intent requires actionGate independent of tier');
+  check(gate.reasonCodes.includes('irreversible-action'), 'actionGate records irreversible-action');
+  check(gate.disposition === 'pending-approval', 'actionGate closes at pending approval before execution');
+  check(destructive.contract.workflowPlan.requiredInvariants.includes('pre-action-approval'), 'actionGate adds pre-action invariant');
+}
+
+const external = runTier('Deploy to production and publish the package release.');
+if (validContract(external, 'external side effect')) {
+  check(external.contract.workflowPlan.actionGate.required === true, 'external side effect requires actionGate');
+  check(external.contract.workflowPlan.actionGate.reasonCodes.includes('external-side-effect'), 'external side effect reason is explicit');
+}
+
+const fableTypo = runTier('fix typo in the fable-mode readme');
+if (validContract(fableTypo, 'fable keyword trivial edit')) {
+  check(fableTypo.contract.classification.tier === 'tier1', 'fable keyword does not force Tier 3 on a trivial README typo');
+  check(fableTypo.contract.workflowPlan.strategy === 'direct-single', 'fable README typo remains direct-single');
 }
 
 const explicitFable = runTier('fable on opus audit the entire repository architecture');
-if (explicitFable.contract) {
-  check(explicitFable.contract.workflowPlan.modelSelection.requested === 'opus', 'explicit Fable model request survives into the structured plan');
-  check(explicitFable.result.stdout.includes('REQUESTED FABLE MODEL MODE: opus'), 'legacy human-readable Fable route remains present');
+if (validContract(explicitFable, 'explicit Fable model')) {
+  check(explicitFable.contract.workflowPlan.strategy === 'fable-staged', 'explicit Fable request selects Fable topology');
+  check(explicitFable.contract.workflowPlan.modelSelection.requested === 'opus', 'explicit Fable model stays delegated to model selector');
+  check(explicitFable.result.stdout.includes('REQUESTED FABLE MODEL MODE: opus'), 'legacy explicit Fable route remains visible');
 }
 
-const repeatA = runTier('add a login endpoint with tests and update the implementation');
-const repeatB = runTier('add a login endpoint with tests and update the implementation');
+const explicitOverride = runTier('Use iterative-single to audit the entire repository architecture.');
+if (validContract(explicitOverride, 'explicit strategy override')) {
+  check(explicitOverride.contract.workflowPlan.strategy === 'iterative-single', 'explicit user strategy overrides derived Tier 3 topology');
+  check(explicitOverride.contract.workflowPlan.reasonCodes.includes('explicit-strategy-request'), 'explicit strategy override is recorded');
+}
+
+const prohibitedParallel = runTier(`${parallelPrompt} Do not use parallel execution.`);
+if (validContract(prohibitedParallel, 'parallel prohibition')) {
+  check(prohibitedParallel.contract.workflowPlan.strategy === 'fable-staged', 'explicit no-parallel prohibition serializes derived parallel work');
+  check(prohibitedParallel.contract.workflowPlan.fallback.disposition === 'reduced', 'parallel prohibition is a visible reduced fallback');
+  check(prohibitedParallel.contract.workflowPlan.fallback.reasonCodes.includes('user-prohibited-parallelism'), 'parallel prohibition reason is recorded');
+}
+
+const noParallelCapability = runTier(parallelPrompt, {
+  context: { hostCapabilities: { parallelCalls: 'unavailable', subagents: 'available' } },
+});
+if (validContract(noParallelCapability, 'parallel capability fallback')) {
+  check(noParallelCapability.contract.workflowPlan.strategy === 'fable-staged', 'missing parallel capability serializes to fable-staged');
+  check(noParallelCapability.contract.workflowPlan.fallback.mode === 'serialized', 'parallel capability fallback is visibly serialized');
+  check(noParallelCapability.contract.workflowPlan.fallback.reasonCodes.includes('parallel-capability-unavailable'), 'missing parallel capability reason is recorded');
+}
+
+const concurrencyOne = runTier(parallelPrompt, {
+  context: { constraints: { concurrency: 1 }, hostCapabilities: { parallelCalls: 'available', subagents: 'available' } },
+});
+if (validContract(concurrencyOne, 'concurrency budget fallback')) {
+  check(concurrencyOne.contract.workflowPlan.strategy === 'fable-staged', 'concurrency=1 serializes fable-parallel');
+  check(concurrencyOne.contract.workflowPlan.fallback.reasonCodes.includes('concurrency-budget-serializes'), 'concurrency budget reason is recorded');
+}
+
+const noWorkspaceState = runTier('Audit the entire repository as a durable multi-session effort with reusable specialists across security and architecture.', {
+  context: { hostCapabilities: { state: 'unavailable', subagents: 'available' } },
+});
+if (validContract(noWorkspaceState, 'workspace state block')) {
+  check(noWorkspaceState.contract.workflowPlan.strategy === 'fable-multi-agent-workspace', 'workspace requirement remains explicit when state is unavailable');
+  check(noWorkspaceState.contract.workflowPlan.fallback.disposition === 'blocked', 'missing durable state blocks rather than silently downgrades');
+  check(noWorkspaceState.contract.workflowPlan.fallback.reasonCodes.includes('workspace-state-unavailable'), 'workspace block reason is recorded');
+}
+
+const unavailableModel = runTier('fable on opus audit the entire repository architecture', {
+  context: { hostCapabilities: { modelAvailability: 'unavailable', subagents: 'available' } },
+});
+if (validContract(unavailableModel, 'model capability block')) {
+  check(unavailableModel.contract.workflowPlan.modelSelection.requested === 'opus', 'router never remaps requested branded model');
+  check(unavailableModel.contract.workflowPlan.fallback.disposition === 'blocked', 'known unavailable model is visibly blocked');
+  check(unavailableModel.contract.workflowPlan.fallback.reasonCodes.includes('requested-model-capability-unavailable'), 'model capability block reason is recorded');
+}
+
+const hookUnavailable = runTier('Drop the prod database table.', {
+  context: { hostCapabilities: { hooks: 'unavailable' } },
+});
+if (validContract(hookUnavailable, 'actionGate capability block')) {
+  check(hookUnavailable.contract.workflowPlan.actionGate.required === true, 'actionGate requirement survives missing hook capability');
+  check(hookUnavailable.contract.workflowPlan.fallback.disposition === 'blocked', 'known missing action-gate hook blocks side effect');
+  check(hookUnavailable.contract.workflowPlan.fallback.reasonCodes.includes('action-gate-hook-unavailable'), 'missing hook capability is visible');
+}
+
+const guideDedup = runTier('security audit login authentication');
+const securityGuideCount = (guideDedup.result.stdout.match(/security-review\/SKILL\.md/g) || []).length;
+check(securityGuideCount === 1, 'duplicate guide matches emit security-review/SKILL.md exactly once by path');
+
+const repeatA = runTier('Fix this checkout bug and add a regression test.');
+const repeatB = runTier('Fix this checkout bug and add a regression test.');
 if (repeatA.contract && repeatB.contract) {
   check(JSON.stringify(repeatA.contract) === JSON.stringify(repeatB.contract), 'same normalized input produces byte-equivalent structured contracts');
 }
 
 const invalidConfigPath = path.join(os.tmpdir(), `harness-invalid-routing-${process.pid}.json`);
 fs.writeFileSync(invalidConfigPath, '{ invalid json', 'utf8');
-const degraded = runTier('frobnicate the quux', { HARNESS_ROUTING_CONFIG_PATH: invalidConfigPath });
+const degraded = runTier('frobnicate the quux', { env: { HARNESS_ROUTING_CONFIG_PATH: invalidConfigPath } });
 fs.rmSync(invalidConfigPath, { force: true });
-check(degraded.result.status === 0, 'invalid routing config degrades without crashing the hook');
-if (degraded.contract) {
+if (validContract(degraded, 'degraded routing')) {
   check(degraded.contract.routingStatus === 'degraded', 'invalid routing config emits routingStatus=degraded');
   check(degraded.contract.classification.tier === 'unclassified', 'invalid routing config never silently becomes Tier 1');
-  check(degraded.contract.classification.reasonCodes.includes('routing-config-invalid'), 'degraded route records routing-config-invalid reason');
+  check(degraded.contract.workflowPlan.strategy === null, 'degraded routing does not select a strategy');
+  check(degraded.contract.workflowPlan.reasonCodes.includes('routing-degraded-strategy-deferred'), 'degraded strategy deferral is explicit');
 }
 
 const kernelUnknown = spawnSync(process.execPath, [kernelRouter, 'frobnicate the quux'], {
   cwd: ROOT,
   encoding: 'utf8',
 });
-check(kernelUnknown.status === 0, 'kernel consumes structured contract successfully');
-check(kernelUnknown.stdout.includes('ROUTER WORKFLOW PLAN (SHADOW JSON)'), 'kernel emits the shadow-plan checkpoint');
-check(kernelUnknown.stdout.includes('"tier":"unclassified"'), 'kernel uses structured unclassified tier');
+check(kernelUnknown.status === 0, 'kernel consumes selected/deferred structured contract successfully');
+check(kernelUnknown.stdout.includes('ROUTER WORKFLOW PLAN (JSON)'), 'kernel emits the Phase 2 workflow-plan checkpoint');
+check(kernelUnknown.stdout.includes('"strategySelection":"deferred"'), 'kernel exposes deferred unclassified selection');
 check(!/RECOMMENDED TIER:\s*Tier 1/i.test(kernelUnknown.stdout), 'kernel does not expose a silent Tier 1 fallback for unmatched prompts');
+
+const kernelIterative = spawnSync(process.execPath, [kernelRouter, 'Fix this checkout bug and add a regression test.'], {
+  cwd: ROOT,
+  encoding: 'utf8',
+});
+check(kernelIterative.stdout.includes('"strategy":"iterative-single"'), 'kernel consumes strategy from structured plan');
+check(kernelIterative.stdout.includes('loop-budget:'), 'kernel prints dynamic plan invariants');
+check(kernelIterative.stdout.includes('   - tdd'), 'kernel prints advisory skills separately');
 
 for (const schemaPath of [
   'harness-everything/schemas/router-task-shape.schema.json',
@@ -109,5 +260,5 @@ for (const schemaPath of [
   }
 }
 
-console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: router workflow plan contract (${failed} failure${failed === 1 ? '' : 's'})`);
+console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: router workflow plan phase 2 (${failed} failure${failed === 1 ? '' : 's'})`);
 process.exit(failed === 0 ? 0 : 1);

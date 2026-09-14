@@ -22,7 +22,7 @@
   ],
   "properties": {
     "schemaVersion": { "const": 1 },
-    "scopeSize": { "enum": ["single-file", "repository-wide", "unknown"] },
+    "scopeSize": { "enum": ["single-file", "multi-file", "repository-wide", "unknown"] },
     "estimatedStages": { "type": ["integer", "null"], "minimum": 1 },
     "dependencyGraph": { "enum": ["independent", "sequential", "cyclic", "unknown"] },
     "writeSetOverlap": { "enum": ["disjoint", "overlap", "read-only", "unknown"] },
@@ -56,15 +56,43 @@
     },
     "explicitRequest": {
       "type": "object",
-      "required": ["fableModel"],
+      "required": ["fableModel", "strategy", "prohibitions"],
       "additionalProperties": false,
       "properties": {
-        "fableModel": { "enum": ["haiku", "sonnet", "opus", null] }
+        "fableModel": { "enum": ["haiku", "sonnet", "opus", null] },
+        "strategy": {
+          "enum": ["direct-single", "iterative-single", "fable-staged", "fable-parallel", "fable-multi-agent-workspace", null]
+        },
+        "prohibitions": {
+          "type": "array",
+          "items": { "enum": ["fable", "subagents", "parallel", "workspace", "memory", "ensemble"] },
+          "uniqueItems": true
+        }
       }
     },
     "observedSignals": {
       "type": "object",
-      "required": ["macroScope", "trivialDocsEdit", "tier3Keyword", "tier2Keyword", "multipleTasks", "multipleSentences", "specificFile", "question"],
+      "required": [
+        "macroScope",
+        "trivialDocsEdit",
+        "tier3Keyword",
+        "tier2Keyword",
+        "multipleTasks",
+        "multipleSentences",
+        "specificFile",
+        "question",
+        "independentWorkstreams",
+        "readOnly",
+        "disjointWrites",
+        "sharedWrite",
+        "dependentStages",
+        "multiSession",
+        "reusableSpecialists",
+        "crossDomain",
+        "highUncertainty",
+        "irreversibleAction",
+        "externalSideEffect"
+      ],
       "additionalProperties": false,
       "properties": {
         "macroScope": { "type": "boolean" },
@@ -74,7 +102,18 @@
         "multipleTasks": { "type": "boolean" },
         "multipleSentences": { "type": "boolean" },
         "specificFile": { "type": "boolean" },
-        "question": { "type": "boolean" }
+        "question": { "type": "boolean" },
+        "independentWorkstreams": { "type": "boolean" },
+        "readOnly": { "type": "boolean" },
+        "disjointWrites": { "type": "boolean" },
+        "sharedWrite": { "type": "boolean" },
+        "dependentStages": { "type": "boolean" },
+        "multiSession": { "type": "boolean" },
+        "reusableSpecialists": { "type": "boolean" },
+        "crossDomain": { "type": "boolean" },
+        "highUncertainty": { "type": "boolean" },
+        "irreversibleAction": { "type": "boolean" },
+        "externalSideEffect": { "type": "boolean" }
       }
     },
     "reasonCodes": {

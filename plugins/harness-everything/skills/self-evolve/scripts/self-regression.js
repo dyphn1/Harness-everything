@@ -94,6 +94,7 @@ runNode('routing matrix', path.join(projectRoot, 'ci', 'runner.js'));
 runNode('skill route coverage', path.join(projectRoot, 'ci', 'skill-routing-check.js'));
 runNode('invariant-first routing contract', path.join(projectRoot, 'ci', 'invariant-routing.test.js'));
 runNode('workflow-plan structured contract', path.join(projectRoot, 'ci', 'router-workflow-plan.test.js'));
+runNode('explicit parallel safety contract', path.join(projectRoot, 'ci', 'router-phase2-safety.test.js'));
 
 // 3. Static integrity gates; behavioral evals are validated, not executed.
 console.log('\n[Phase 3] Skill Reference and Behavioral Case Checks...');

@@ -52,8 +52,104 @@ function detectFableModel(prompt) {
   return requested === 'sonnect' ? 'sonnet' : requested;
 }
 
+function detectExplicitStrategy(prompt, requestedFableModel) {
+  if (/\bdirect[- ]single\b/i.test(prompt)) return 'direct-single';
+  if (/\biterative[- ]single\b/i.test(prompt)) return 'iterative-single';
+  if (/\bfable[- ]multi[- ]agent[- ]workspace\b|\bmulti[- ]agent workspace\b/i.test(prompt)) return 'fable-multi-agent-workspace';
+  if (/\bfable[- ]parallel\b|\bparallel fable\b/i.test(prompt)) return 'fable-parallel';
+  if (/\bfable[- ]staged\b|\bstaged fable\b/i.test(prompt)) return 'fable-staged';
+  if (requestedFableModel || /\b(?:use|run|enter)\s+fable(?:[- ]mode)?\b/i.test(prompt)) return 'fable-staged';
+  return null;
+}
+
+function detectProhibitions(prompt) {
+  const rules = [
+    ['fable', /\b(?:no|without|do not|don't)\s+(?:use\s+)?fable\b/i],
+    ['subagents', /\b(?:no|without|do not|don't)\s+(?:use\s+)?subagents?\b|\bsingle[- ]agent only\b/i],
+    ['parallel', /\b(?:no|without|do not|don't)\s+(?:use\s+)?parallel(?:ism| execution)?\b|\bdo not parallelize\b|\bserial only\b/i],
+    ['workspace', /\b(?:no|without|do not|don't)\s+(?:use\s+)?(?:multi[- ]agent )?workspace\b/i],
+    ['memory', /\b(?:no|without|do not|don't)\s+(?:use\s+)?memory\b/i],
+    ['ensemble', /\b(?:no|without|do not|don't)\s+(?:use\s+)?ensemble\b/i],
+  ];
+  return rules.filter(([, regex]) => regex.test(prompt)).map(([name]) => name);
+}
+
+function detectActionGateReasons(prompt) {
+  const reasons = [];
+  const irreversible = [
+    /\b(?:drop|truncate|wipe|purge|destroy)\b.*\b(?:database|db|table|production|prod|data)\b/i,
+    /\b(?:force[- ]push|push\s+--force(?:-with-lease)?|git\s+push\b[^\n]*--force(?:-with-lease)?)\b/i,
+    /\bgit\s+reset\s+--hard\b/i,
+    /\bdelete\b.*\b(?:production|prod|database|db|table|branch|release|data)\b/i,
+  ];
+  const external = [
+    /\bdeploy(?:ment|ing|ed)?\b.*\b(?:prod|production|live)\b|\bdeploy\s+to\s+(?:prod|production|live)\b/i,
+    /\b(?:npm|pnpm|yarn|cargo|pip|twine)\s+publish\b|\bpublish\s+(?:the\s+)?(?:package|release|artifact)\b/i,
+    /\b(?:send|email|message)\b.*\b(?:customer|client|user|users|external|production)\b/i,
+    /\b(?:charge|pay|payment|refund|transfer)\b.*\b(?:customer|account|money|funds|invoice)?\b/i,
+    /\bcreate\b.*\b(?:release|deployment)\b/i,
+  ];
+  if (irreversible.some(regex => regex.test(prompt))) reasons.push('irreversible-action');
+  if (external.some(regex => regex.test(prompt))) reasons.push('external-side-effect');
+  return reasons;
+}
+
 function addReason(reasonCodes, code) {
   if (code && !reasonCodes.includes(code)) reasonCodes.push(code);
+}
+
+function deduplicateGuidesByPath(guides) {
+  const byPath = new Map();
+  for (const guide of guides) {
+    const match = String(guide).match(/^\s*-\s+([^\s]+)/);
+    const key = match ? match[1].replace(/\\/g, '/') : String(guide).trim();
+    if (!byPath.has(key)) byPath.set(key, guide);
+  }
+  return Array.from(byPath.values());
+}
+
+function countDomainSignals(promptLower) {
+  const domains = [
+    /\bsecurity\b|安全|資安/i,
+    /\barchitecture\b|架構/i,
+    /\bdocumentation\b|\bdocs?\b|文件/i,
+    /\btests?\b|測試/i,
+    /\bfrontend\b|前端/i,
+    /\bbackend\b|後端/i,
+    /\bdatabase\b|資料庫/i,
+    /\binfrastructure\b|\bdevops\b|基礎設施/i,
+  ];
+  return domains.reduce((count, regex) => count + (regex.test(promptLower) ? 1 : 0), 0);
+}
+
+function plannerInputsFromContext(context, promptLower) {
+  const harness = context && typeof context.harness === 'object' ? context.harness : {};
+  const rawHost = (context && context.hostCapabilities) || harness.hostCapabilities || {};
+  const rawConstraints = (context && context.constraints) || harness.constraints || {};
+  const hostCapabilities = { ...rawHost };
+  const constraints = { ...rawConstraints };
+
+  const envCapabilityMap = {
+    subagents: process.env.HARNESS_HOST_SUBAGENTS,
+    parallelCalls: process.env.HARNESS_HOST_PARALLEL_CALLS,
+    hooks: process.env.HARNESS_HOST_HOOKS,
+    state: process.env.HARNESS_HOST_STATE,
+    modelAvailability: process.env.HARNESS_HOST_MODEL_AVAILABILITY,
+  };
+  for (const [key, value] of Object.entries(envCapabilityMap)) {
+    if (value) hostCapabilities[key] = value;
+  }
+
+  if (process.env.HARNESS_BUDGET_CONCURRENCY !== undefined) constraints.concurrency = process.env.HARNESS_BUDGET_CONCURRENCY;
+  if (process.env.HARNESS_BUDGET_COST !== undefined) constraints.cost = process.env.HARNESS_BUDGET_COST;
+  if (process.env.HARNESS_BUDGET_LATENCY !== undefined) constraints.latency = process.env.HARNESS_BUDGET_LATENCY;
+  if (process.env.HARNESS_BUDGET_TOKENS !== undefined) constraints.tokens = process.env.HARNESS_BUDGET_TOKENS;
+
+  const concurrencyMatch = promptLower.match(/\b(?:max(?:imum)?\s+)?(?:concurrency|workers?|agents?)\s*(?:=|:|of)?\s*(\d+)\b/i);
+  if (concurrencyMatch) constraints.concurrency = Number(concurrencyMatch[1]);
+  if (/\b(?:single worker|one worker|serial only)\b/i.test(promptLower)) constraints.concurrency = 1;
+
+  return { hostCapabilities, constraints };
 }
 
 function emitDynamicSkills(promptLower, context, recommendedGuides) {
@@ -144,7 +240,10 @@ function run(userPrompt, context) {
     /(?:評估|稽核|基準|壓力測試|比較).*(?:每個|所有|全部|整個|全套|技能|skill|檔案|版本)/i,
   ];
   const hasMacroSignal = macroSignals.some(signal => signal.test(userPrompt));
-  const isTrivialDocsEdit = /^(?:(?:please|help me)\s+)?(?:fix|update|correct|change)\b.*\b(?:readme|documentation|docs?)\b.*\b(?:typo|spelling|wording|one line|single line)\b/i.test(userPrompt.trim());
+  const hasTrivialEditVerb = /^(?:(?:please|help me)\s+)?(?:fix|update|correct|change)\b/i.test(userPrompt.trim());
+  const hasDocsTarget = /\b(?:readme|documentation|docs?)\b/i.test(userPrompt);
+  const hasTinyEditSignal = /\b(?:typo|spelling|wording|one line|single line)\b/i.test(userPrompt);
+  const isTrivialDocsEdit = !hasMacroSignal && hasTrivialEditVerb && hasDocsTarget && hasTinyEditSignal;
   const hasTier3Keyword = TIER3_KEYWORDS.some(keyword => matchKeyword(promptLower, keyword));
   const hasTier2Keyword = TIER2_KEYWORDS.some(keyword => matchKeyword(promptLower, keyword));
 
@@ -214,7 +313,7 @@ function run(userPrompt, context) {
     console.log(`   Resolve availability and record fallback status with fable-mode/scripts/model-selector.js.`);
   }
 
-  const recommendedGuides = [];
+  const allRecommendedGuides = [];
   for (const group of routingConfig.guideGroups) {
     let matched = false;
     if (typeof group.regex === 'string') {
@@ -222,8 +321,9 @@ function run(userPrompt, context) {
     } else if (Array.isArray(group.keywords)) {
       matched = group.keywords.some(keyword => promptLower.includes(keyword));
     }
-    if (matched && Array.isArray(group.guides)) recommendedGuides.push(...group.guides);
+    if (matched && Array.isArray(group.guides)) allRecommendedGuides.push(...group.guides);
   }
+  const recommendedGuides = deduplicateGuidesByPath(allRecommendedGuides);
 
   if (recommendedGuides.length > 0) {
     console.log(`\n=> RECOMMENDED KNOWLEDGE GUIDES (Auto-loaded based on keywords):`);
@@ -259,12 +359,36 @@ function run(userPrompt, context) {
     }
   }
 
+  const independentWorkstreams = /\bindependent(?:ly)?\b|\bparallel(?:ize|ise|ized|ised|ism)?\b/i.test(userPrompt);
+  const readOnly = /\bread[- ]only\b|\bno edits?\b|\bwithout (?:editing|edits|changes|modifications)\b/i.test(userPrompt);
+  const disjointWrites = /\bdisjoint\b|\bnon[- ]overlapping\b|\bseparate files?\b|\bdistinct files?\b/i.test(userPrompt);
+  const sharedWrite = /\bsame files?\b|\bshared mutable state\b|\boverlapping writes?\b|\bshared write[- ]set\b/i.test(userPrompt);
+  const dependentStages = /\bdependent\b|\bsequential\b|\bstaged?\b|\bafter\b.*\bthen\b/i.test(userPrompt);
+  const multiSession = /\bmulti[- ]session\b|\bmultiple sessions\b|\bacross sessions\b|\bdurable\b|\blong[- ]running\b|\bpersistent handoff\b/i.test(userPrompt);
+  const reusableSpecialists = /\breusable specialists?\b|\bpersistent roles?\b|\bspecialist catalog\b|\breusable roles?\b/i.test(userPrompt);
+  const crossDomain = countDomainSignals(promptLower) >= 2;
+  const highUncertainty = /\bhigh uncertainty\b|\bcompeting approaches\b|\bdesign comparison\b|\bcompare alternatives\b|\btrade[- ]offs?\b/i.test(userPrompt);
+  const actionGateReasonCodes = detectActionGateReasons(userPrompt);
+  const irreversibleAction = actionGateReasonCodes.includes('irreversible-action');
+  const externalSideEffect = actionGateReasonCodes.includes('external-side-effect');
+  const requestedStrategy = detectExplicitStrategy(userPrompt, requestedFableModel);
+  const prohibitions = detectProhibitions(userPrompt);
+  const plannerInputs = plannerInputsFromContext(context, promptLower);
+
   const contract = buildRouterContract({
     routingStatus: loadedConfig.routingStatus,
     recommendedTier,
     rationale,
     reasonCodes,
     requestedFableModel,
+    explicitRequest: {
+      fableModel: requestedFableModel,
+      strategy: requestedStrategy,
+      prohibitions,
+    },
+    hostCapabilities: plannerInputs.hostCapabilities,
+    constraints: plannerInputs.constraints,
+    actionGateReasonCodes,
     signals: {
       macroScope: hasMacroSignal,
       trivialDocsEdit: isTrivialDocsEdit,
@@ -274,8 +398,28 @@ function run(userPrompt, context) {
       multipleSentences: hasMultipleSentences,
       specificFile: mentionsSpecificFile,
       question: hasQuestionMarks,
+      independentWorkstreams,
+      readOnly,
+      disjointWrites,
+      sharedWrite,
+      dependentStages,
+      multiSession,
+      reusableSpecialists,
+      crossDomain,
+      highUncertainty,
+      irreversibleAction,
+      externalSideEffect,
+      highRisk: irreversibleAction || externalSideEffect,
     },
   });
+
+  console.log(`\n=> WORKFLOW STRATEGY: ${contract.workflowPlan.strategy || 'deferred'}`);
+  if (contract.workflowPlan.actionGate.required) {
+    console.log(`=> ACTION GATE: required (${contract.workflowPlan.actionGate.reasonCodes.join(', ')}); disposition=pending-approval`);
+  }
+  if (contract.workflowPlan.fallback.disposition !== 'none') {
+    console.log(`=> ROUTING FALLBACK: ${contract.workflowPlan.fallback.disposition}/${contract.workflowPlan.fallback.mode} (${contract.workflowPlan.fallback.reasonCodes.join(', ')})`);
+  }
 
   if (process.env.HARNESS_ROUTER_CONTRACT_PATH) {
     try {
@@ -285,7 +429,7 @@ function run(userPrompt, context) {
     }
   }
 
-  console.log(`\nTreat the tier above as the default route. If your own read of the task clearly disagrees, follow your read and say why in one line. An explicit instruction from the Human Partner always wins.`);
+  console.log(`\nTreat the tier and strategy above as the default route. Explicit Human Partner choices/prohibitions win and are recorded in the plan; unavailable capabilities must remain visible rather than being silently downgraded.`);
   return contract;
 }
 
