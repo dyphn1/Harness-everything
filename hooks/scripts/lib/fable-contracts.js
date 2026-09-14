@@ -96,7 +96,7 @@ function stagesForChangedPath(filePath, contractEntries) {
 
 function getActiveRunContracts(stateRoot, sessionId) {
   return listRunContracts(stateRoot).filter(({ contract }) => {
-    if (!['planned', 'running'].includes(contract.status)) return false;
+    if (!['pending', 'planned', 'running'].includes(contract.status)) return false;
     return !sessionId || !contract.sessionId || contract.sessionId === sessionId;
   });
 }
