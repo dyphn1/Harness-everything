@@ -3,6 +3,8 @@
 Issue #85 Phase 3 makes the stage map a machine-readable execution contract.
 The router still chooses only the execution topology. Fable owns the stage map,
 model selector, worker briefs, stage audit, replan budget, and cold verifier.
+Phase 4 adds an optional bounded ensemble modifier without creating a new base
+topology.
 
 Run state is stored under the existing workspace-keyed global Harness state
 root, never inside the repository:
@@ -12,6 +14,7 @@ root, never inside the repository:
   run.json
   contracts/<stageId>.json
   evidence/<stageId>.json
+  ensemble.json             # only when ensemble review executes
 ```
 
 `planId` is a deterministic content hash of the router contract. `runId` is
@@ -78,6 +81,60 @@ pairwise non-overlapping write sets. An invalid graph or overlap rejects the
 plan before workers are spawned. For `fable-staged` and
 `fable-multi-agent-workspace`, the same dependency graph is serialized unless
 a later validated plan explicitly allows parallelism.
+
+## Bounded ensemble evidence
+
+`workflowPlan.ensemble` is a modifier on a selected Fable topology, not a sixth
+execution strategy. The kernel may add it only for high-uncertainty/high-stakes
+work with comparable outputs (choice/ranking/verdict/recommendation) or when
+preserving disagreement is itself the deliverable. Creative generation,
+mechanical bulk work, explicit `no ensemble`, unavailable subagents, and blocked
+base plans do not receive the modifier.
+
+Current contract:
+
+```json
+{
+  "maxCandidates": 3,
+  "diversity": ["model", "prompt", "evidence"],
+  "synthesis": "preserve-disagreement",
+  "verifier": "independent",
+  "reasonCodes": ["ensemble-high-uncertainty-comparable-output"]
+}
+```
+
+Each candidate passed to `fable-mode/scripts/ensemble-review.js` records a
+bounded position, a model/prompt/evidence diversity fingerprint, objective
+verification status/evidence, and optional correctness/cost observations.
+Candidates with the same model+prompt+evidence fingerprint are not independent
+and are rejected. The verifier uses a distinct identity, declares
+`independent=true`, and supplies its own evidence.
+
+The synthesizer keeps every position and its evidence. A strict majority is
+only a proposal: any objective verification failure on the proposed position
+blocks selection, and verifier rejection/inconclusive/mismatch also blocks it.
+An accepted position therefore never deletes minority positions or evidence
+gaps.
+
+Run it after the candidate artifacts/checks exist:
+
+```bash
+node fable-mode/scripts/ensemble-review.js \
+  --plan-file <router-contract.json> \
+  --candidates-file <candidates.json> \
+  --verifier-file <verifier.json> \
+  --root <workspace> \
+  --run-id <runId> \
+  [--paired-evidence-file <paired-benchmark.json>]
+```
+
+The correlated result is written to `ensemble.json` under the same run root.
+Correctness is recorded separately from tool calls, tokens, elapsed time,
+retries, and failure mode so #71/#83 can consume the evidence without
+conflating quality with cost. Missing telemetry is allowed and never changes
+the strategy/result. No ensemble or multi-agent improvement claim is permitted
+unless paired evidence establishes the same engine/model/fixture/rubric/config,
+a sample count, effect estimate, and uncertainty.
 
 ## Verification evidence
 
