@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dyphn1/Harness-everything/harness-everything/schemas/router-task-shape.schema.json",
+  "title": "Harness Router Task Shape",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "scopeSize",
+    "estimatedStages",
+    "dependencyGraph",
+    "writeSetOverlap",
+    "domainDiversity",
+    "expectedDuration",
+    "reversibility",
+    "uncertainty",
+    "verificationRequirement",
+    "hostCapabilities",
+    "constraints",
+    "explicitRequest",
+    "observedSignals",
+    "reasonCodes"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "scopeSize": { "enum": ["single-file", "repository-wide", "unknown"] },
+    "estimatedStages": { "type": ["integer", "null"], "minimum": 1 },
+    "dependencyGraph": { "enum": ["independent", "sequential", "cyclic", "unknown"] },
+    "writeSetOverlap": { "enum": ["disjoint", "overlap", "read-only", "unknown"] },
+    "domainDiversity": { "enum": ["single-domain", "multi-domain", "unknown"] },
+    "expectedDuration": { "enum": ["one-turn", "multi-turn", "multi-session", "unknown"] },
+    "reversibility": { "enum": ["reversible", "irreversible", "external-side-effect", "unknown"] },
+    "uncertainty": { "enum": ["low", "medium", "high", "unknown"] },
+    "verificationRequirement": { "enum": ["basic", "objective", "independent", "unknown"] },
+    "hostCapabilities": {
+      "type": "object",
+      "required": ["subagents", "parallelCalls", "hooks", "state", "modelAvailability"],
+      "additionalProperties": false,
+      "properties": {
+        "subagents": { "enum": ["available", "unavailable", "unknown"] },
+        "parallelCalls": { "enum": ["available", "unavailable", "unknown"] },
+        "hooks": { "enum": ["available", "unavailable", "unknown"] },
+        "state": { "enum": ["available", "unavailable", "unknown"] },
+        "modelAvailability": { "enum": ["available", "partial", "unavailable", "unknown"] }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "required": ["cost", "latency", "tokens", "concurrency"],
+      "additionalProperties": false,
+      "properties": {
+        "cost": { "type": ["string", "number", "null"] },
+        "latency": { "type": ["string", "number", "null"] },
+        "tokens": { "type": ["string", "number", "null"] },
+        "concurrency": { "type": ["string", "number", "null"] }
+      }
+    },
+    "explicitRequest": {
+      "type": "object",
+      "required": ["fableModel"],
+      "additionalProperties": false,
+      "properties": {
+        "fableModel": { "enum": ["haiku", "sonnet", "opus", null] }
+      }
+    },
+    "observedSignals": {
+      "type": "object",
+      "required": ["macroScope", "trivialDocsEdit", "tier3Keyword", "tier2Keyword", "multipleTasks", "multipleSentences", "specificFile", "question"],
+      "additionalProperties": false,
+      "properties": {
+        "macroScope": { "type": "boolean" },
+        "trivialDocsEdit": { "type": "boolean" },
+        "tier3Keyword": { "type": "boolean" },
+        "tier2Keyword": { "type": "boolean" },
+        "multipleTasks": { "type": "boolean" },
+        "multipleSentences": { "type": "boolean" },
+        "specificFile": { "type": "boolean" },
+        "question": { "type": "boolean" }
+      }
+    },
+    "reasonCodes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

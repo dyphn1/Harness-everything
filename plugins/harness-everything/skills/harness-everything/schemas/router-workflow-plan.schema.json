@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dyphn1/Harness-everything/harness-everything/schemas/router-workflow-plan.schema.json",
+  "title": "Harness Router Workflow Plan",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "routingStatus",
+    "tier",
+    "strategy",
+    "strategySelection",
+    "patterns",
+    "requiredInvariants",
+    "suggestedSkills",
+    "actionGate",
+    "limits",
+    "parallelism",
+    "workspace",
+    "memory",
+    "verification",
+    "ensemble",
+    "modelSelection",
+    "fallback",
+    "reasonCodes"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "routingStatus": { "enum": ["ok", "degraded"] },
+    "tier": { "enum": ["tier1", "tier2", "tier3", "unclassified"] },
+    "strategy": {
+      "enum": ["direct-single", "iterative-single", "fable-staged", "fable-parallel", "fable-multi-agent-workspace", null]
+    },
+    "strategySelection": { "enum": ["shadow", "selected"] },
+    "patterns": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "requiredInvariants": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "suggestedSkills": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "actionGate": {
+      "type": "object",
+      "required": ["required", "reasonCodes", "approver", "disposition"],
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": "boolean" },
+        "reasonCodes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "approver": { "enum": ["rule-or-human", null] },
+        "disposition": { "enum": ["executed", "rejected", "pending-approval", null] }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "required": ["maxIterations", "maxRevisionRounds", "maxWorkers"],
+      "additionalProperties": false,
+      "properties": {
+        "maxIterations": { "type": ["integer", "null"], "minimum": 1 },
+        "maxRevisionRounds": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "maxWorkers": { "enum": ["fable-orchestrator-cap"] }
+      }
+    },
+    "parallelism": {
+      "type": "object",
+      "required": ["allowed", "requires", "reasonCodes"],
+      "additionalProperties": false,
+      "properties": {
+        "allowed": { "type": ["boolean", "null"] },
+        "requires": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "reasonCodes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "required": ["required", "reasonCodes"],
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": ["boolean", "null"] },
+        "reasonCodes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "memory": {
+      "type": "object",
+      "required": ["read", "scope", "write"],
+      "additionalProperties": false,
+      "properties": {
+        "read": { "enum": ["workspace-index", "none", null] },
+        "scope": { "enum": ["task-relevant-only"] },
+        "write": { "enum": ["none", "propose", "persist-via-self-evolve"] }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["mode", "independent"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["verify-before-claim", "objective", "cold-verifier"] },
+        "independent": { "type": ["boolean", "null"] }
+      }
+    },
+    "ensemble": { "type": ["object", "null"] },
+    "modelSelection": {
+      "type": "object",
+      "required": ["requested", "policy"],
+      "additionalProperties": false,
+      "properties": {
+        "requested": { "enum": ["haiku", "sonnet", "opus", null] },
+        "policy": { "enum": ["defer-to-fable-selector"] }
+      }
+    },
+    "fallback": {
+      "type": "object",
+      "required": ["onMissingSubagents"],
+      "additionalProperties": false,
+      "properties": {
+        "onMissingSubagents": { "enum": ["visible-inline-or-stop"] }
+      }
+    },
+    "reasonCodes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}
