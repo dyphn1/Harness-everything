@@ -1,5 +1,5 @@
 {
-  "name": "Small bugfix",
+  "name": "Small bugfix without matched routing signal",
   "prompt": "Fix the typo in the login screen",
-  "expected_tier": "Tier 1"
+  "expected_tier": "Unclassified"
 }

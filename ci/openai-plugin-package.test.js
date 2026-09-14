@@ -168,9 +168,15 @@ assert.match(first.stdout, /SUGGESTED SKILLS \(ADVISORY/);
 assert.doesNotMatch(first.stdout, /BASE EXECUTION LOOP/);
 assert.match(first.stdout, /Do not enforce workflow order/);
 
-const trivial = route('Fix one spelling typo in README documentation.');
+const trivial = route('Update one README typo');
 assert.strictEqual(trivial.status, 0, trivial.stderr);
 assert.match(trivial.stdout, /RECOMMENDED TIER:\s*Tier 1/i);
 assert.match(trivial.stdout, /No mandatory domain skill/);
+
+const unmatched = route('frobnicate the quux');
+assert.strictEqual(unmatched.status, 0, unmatched.stderr);
+assert.match(unmatched.stdout, /RECOMMENDED TIER:\s*Unclassified/i);
+assert.match(unmatched.stdout, /"tier":"unclassified"/i);
+assert.doesNotMatch(unmatched.stdout, /RECOMMENDED TIER:\s*Tier 1/i);
 
 console.log(`OpenAI plugin package verified: ${skillNames.length} skills, publication metadata, hooks, marketplace, deterministic routing.`);
