@@ -194,7 +194,7 @@ try {
   check(codexPost.inferOutcome({ tool_response: { exitCode: 0 } }) === 'success', 'Codex PostToolUse maps zero exit code to success');
   check(codexPost.inferOutcome({ tool_response: { exit_code: 2, stderr: 'failed' } }) === 'failure', 'Codex PostToolUse maps non-zero exit code to failure');
   check(codexPost.inferOutcome({ tool_response: { stderr: 'fatal: denied' } }) === 'failure', 'Codex PostToolUse conservatively recognizes failure stderr without exit code');
-  check(pluginHooks.hooks.Stop.some(group => group.hooks.some(hook => /action-gate\.js/.test(hook.command)), 'OpenAI plugin closes pending approvals at Stop');
+  check(pluginHooks.hooks.Stop.some(group => group.hooks.some(hook => /action-gate\.js/.test(hook.command))), 'OpenAI plugin closes pending approvals at Stop');
 
   check(fs.readFileSync(rulesPath, 'utf8') === fs.readFileSync(pluginRules, 'utf8'), 'canonical and plugin action-gate rule tables are byte-identical');
   check(fs.existsSync(pluginScript), 'OpenAI plugin packages action-gate runtime');
