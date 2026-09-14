@@ -11,7 +11,10 @@ flowchart TD
     K --> I[Required invariants]
     I --> A[Agent chooses useful domain skills]
     A --> E[Execute / inspect / edit]
-    E --> V{Objective evidence?}
+    E --> P[PreToolUse guards]
+    P --> T[Supported local tool]
+    T --> Q[PostToolUse state and evidence]
+    Q --> V{Objective evidence?}
     V -->|yes| D[Evidence-backed completion]
     V -->|no| R[Diagnose and retry]
     R --> F{Same-signature failure x3?}
@@ -21,9 +24,11 @@ flowchart TD
 
     S[SessionStart hook] --> C[Cognitive OS policy]
     C --> K
+    G[SubagentStart / Stop] --> A
+    X[Stop hook] --> V
 ```
 
-The local OpenAI adapter intentionally enforces only the cross-cutting invariants. Tier-specific skills remain advisory; the model may choose, combine, reorder, or skip them.
+The local OpenAI adapter enforces cross-cutting invariants through the lifecycle events that it packages. Tier-specific skills remain advisory; the model may choose, combine, reorder, or skip them. Tool enforcement is limited to the host tool names declared in `hooks/hooks.json`.
 
 ## Package layout
 
@@ -46,7 +51,7 @@ submission/openai/
 └── README.md
 ```
 
-The package copies canonical root skill directories so ChatGPT/Codex receives the standard `skills/<name>/SKILL.md` layout. Do not edit packaged skill copies directly.
+The package copies canonical root skill directories so ChatGPT/Codex receives the standard `skills/<name>/SKILL.md` layout. It also carries the shared hook scripts under `hooks/scripts/` and their portable state dependencies under `hooks/scripts/lib/`; `hooks/session-start.js` is the OpenAI-specific JSON adapter. Do not edit generated packaged copies directly.
 
 Run:
 
@@ -56,7 +61,7 @@ npm run test:plugin:openai
 npm run test:plugin:submission
 ```
 
-`plugin:sync` refreshes package copies from canonical skill directories. `test:plugin:openai` fails when the package drifts, a skill is missing/extra, the manifest/version is inconsistent, publication metadata is incomplete, the marketplace path is invalid, hooks are missing, or packaged routing stops being deterministic. `test:plugin:submission` validates the public-review materials and reproducible skills bundle.
+`plugin:sync` refreshes package copies from canonical skill directories and copies the shared hook runtime/dependencies into the package. Text parity is normalized to LF so the same package is reproducible from Windows and Unix checkouts. `test:plugin:openai` fails when the package drifts, a skill is missing/extra, the manifest/version is inconsistent, publication metadata is incomplete, the marketplace path is invalid, lifecycle hooks are missing, or packaged routing/runtime contracts stop being deterministic. `test:plugin:submission` validates the public-review materials and reproducible skills bundle.
 
 ## Publication metadata contract
 
@@ -148,7 +153,7 @@ Before public submission:
 - `npm run plugin:sync` produces no unexpected changes;
 - `npm run test:plugin:openai` passes;
 - `npm run test:plugin:submission` passes on Ubuntu and Windows;
-- all 26 skills are present and byte-identical to canonical sources;
+- all 26 skills are present and content-identical to canonical sources after EOL normalization;
 - the generated skills ZIP is reproducible for the same revision;
 - marketplace and plugin names are `harness-everything` / **Harness Everything**;
 - version matches the canonical Claude manifest;
@@ -166,8 +171,13 @@ The repository package validates the architecture-critical local layer:
 - all 26 skills are discoverable from one plugin;
 - `SessionStart` injects the compact Cognitive OS policy locally;
 - `UserPromptSubmit` executes the invariant-first kernel locally before peer skill selection;
+- `PreToolUse` / `PostToolUse` cover `Bash` and `apply_patch` for the packaged circuit-breaker, context, state, atomic-change, and contract checks;
+- `SubagentStart` / `SubagentStop` record and report subagent scope changes;
+- `Stop` runs the one-bounce verification gate;
 - Linux and Windows hook commands are declared;
 - routing is deterministic for identical input;
 - the manifest carries the publication-facing interface fields expected by OpenAI's plugin evaluator.
 
-The public skills-only submission intentionally makes a narrower claim: reusable skill behavior plus packaged scripts/templates/assets. It does **not** claim full parity with every Claude-specific enforcement hook, the local OpenAI hook adapter, or the Claude `agents` manifest field. Those require separate live host evidence before being labeled hard enforcement.
+The local package's claims are mechanism-tested, not live-host-verified. Hooks may require host review/trust, and the package only covers the declared local tool/event mappings. The public skills-only submission intentionally makes a narrower claim: reusable skill behavior plus packaged scripts/templates/assets. It does **not** claim lifecycle hook enforcement because it excludes the local `.codex-plugin` hooks.
+
+OpenAI's current hook contract and supported event/tool schemas are documented in the [Codex/ChatGPT hooks reference](https://learn.chatgpt.com/docs/hooks). A fresh local host session is required to promote this package evidence to a live-host claim.

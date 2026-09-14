@@ -29,6 +29,135 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/rule-of-3.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\rule-of-3.js\"",
+            "timeout": 15,
+            "statusMessage": "Checking Harness circuit breaker"
+          },
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/context-compact.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\context-compact.js\"",
+            "timeout": 15,
+            "statusMessage": "Checking Harness context size"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/subagent-scope-guard.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\subagent-scope-guard.js\"",
+            "timeout": 15,
+            "statusMessage": "Recording subagent scope baseline"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/rule-of-3-tracker.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\rule-of-3-tracker.js\"",
+            "timeout": 15,
+            "statusMessage": "Recording Harness failure evidence"
+          },
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/state-persist.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\state-persist.js\"",
+            "timeout": 15,
+            "statusMessage": "Saving Harness session state"
+          }
+        ]
+      },
+      {
+        "matcher": "apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/atomic-commit-check.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\atomic-commit-check.js\"",
+            "timeout": 15,
+            "statusMessage": "Checking atomic change boundaries"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/contract-test.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\contract-test.js\"",
+            "timeout": 15,
+            "statusMessage": "Checking Harness stage contract"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/subagent-scope-guard.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\subagent-scope-guard.js\"",
+            "timeout": 15,
+            "statusMessage": "Reviewing subagent scope changes"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/subagent-start.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\subagent-start.js\"",
+            "timeout": 15,
+            "statusMessage": "Loading Harness subagent scope"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/subagent-stop.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\subagent-stop.js\"",
+            "timeout": 15,
+            "statusMessage": "Checking subagent scope changes"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/stop-gate.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\stop-gate.js\"",
+            "timeout": 15,
+            "statusMessage": "Checking Harness verification gate"
+          }
+        ]
+      }
     ]
   }
 }

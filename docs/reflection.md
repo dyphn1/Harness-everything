@@ -21,7 +21,7 @@ On a surface that packages those mechanisms:
 * **Handoff checkpoint:** a session checkpoint can record pending/failed state for later recovery.
 * **Session-start recovery:** a compatible session-start hook can surface that checkpoint back to the agent.
 
-This is a runtime integration feature, not a property of every Harness skill installation. The **Codex / local OpenAI plugin** currently packages its own `SessionStart` and `UserPromptSubmit` invariant hooks, but that does not imply the full Claude `state-persist.js` / WAL / `PostToolUse` surface is present. The public OpenAI **Skills-only** artifact has no local `.codex-plugin` lifecycle hooks at all.
+This is a runtime integration feature, not a property of every Harness skill installation. The **Codex / local OpenAI plugin** packages the session/prompt hooks plus the supported-tool `state-persist.js` / circuit-breaker / `PostToolUse` runtime and stop/subagent adapters. That is mechanism-tested package coverage, not proof that a live host loaded every hook. The public OpenAI **Skills-only** artifact has no local `.codex-plugin` lifecycle hooks at all.
 
 ---
 
