@@ -209,9 +209,9 @@ if (validContract(hookUnavailable, 'actionGate capability block')) {
   check(hookUnavailable.contract.workflowPlan.fallback.reasonCodes.includes('action-gate-hook-unavailable'), 'missing hook capability is visible');
 }
 
-const guideDedup = runTier('fix the login bug and commit it');
-const verificationGuideCount = (guideDedup.result.stdout.match(/verification-loop\/SKILL\.md/g) || []).length;
-check(verificationGuideCount <= 1, 'guide recommendations are deduplicated by guide path');
+const guideDedup = runTier('security audit login authentication');
+const securityGuideCount = (guideDedup.result.stdout.match(/security-review\/SKILL\.md/g) || []).length;
+check(securityGuideCount === 1, 'duplicate guide matches emit security-review/SKILL.md exactly once by path');
 
 const repeatA = runTier('Fix this checkout bug and add a regression test.');
 const repeatB = runTier('Fix this checkout bug and add a regression test.');
