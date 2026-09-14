@@ -20,9 +20,9 @@ const {
  */
 
 const INVARIANT_TEXT = {
-  'scope-lock': 'Stay inside the authorized task/repository scope.',
-  'verify-before-claim': 'Completion claims require objective evidence appropriate to the change.',
-  'replan-after-repeated-failure': 'After 3 same-signature failures, stop micro-retrying and zoom out/re-diagnose.',
+  'scope-lock': 'Route before execution: stay inside the authorized task/repository scope.',
+  'verify-before-claim': 'Verify before claim: completion claims require objective evidence appropriate to the change.',
+  'replan-after-repeated-failure': 'Re-plan on repetition: after 3 same-signature failures, stop micro-retrying and zoom out/re-diagnose.',
   'loop-budget': 'Stop iterative-single when its explicit iteration budget is exhausted.',
   'objective-verification': 'Use an objective check for iterative work; self-critique alone is not verification.',
   'stage-contracts': 'Fable stages must have explicit stage contracts and pass conditions.',
@@ -32,6 +32,14 @@ const INVARIANT_TEXT = {
   'handoff-contracts': 'Multi-agent workspace work uses orchestrator-owned handoff contracts; workers do not form a peer mesh.',
   'workspace-state': 'Durable workspace state remains scoped to the workspace and existing state conventions.',
   'pre-action-approval': 'Irreversible/external side effects require approval before the exact payload executes.',
+};
+
+const SKILL_TEXT = {
+  'tdd': 'tdd: useful for behavioral changes where executable tests can drive the implementation.',
+  'verification-loop': 'verification-loop: useful for systematic build/lint/test/diff evidence before delivery.',
+  'fable-mode': 'fable-mode / fable-discipline: useful for macro planning or deliberate multi-agent decomposition.',
+  'fable-discipline': null,
+  'multi-agent-workspace': 'multi-agent-workspace: useful when durable bounded delegation, handoffs, or workspace memory are required.',
 };
 
 function sanitizeClassifierOutput(stdout) {
@@ -99,7 +107,17 @@ function printKernelContract(plan) {
 
   console.log('\n=> SUGGESTED SKILLS (ADVISORY — no fixed workflow order):');
   if (Array.isArray(plan.suggestedSkills) && plan.suggestedSkills.length > 0) {
-    for (const skill of plan.suggestedSkills) console.log(`   - ${skill}`);
+    const emitted = new Set();
+    for (const skill of plan.suggestedSkills) {
+      if (emitted.has(skill)) continue;
+      const text = Object.prototype.hasOwnProperty.call(SKILL_TEXT, skill) ? SKILL_TEXT[skill] : `${skill}: advisory for the selected topology.`;
+      if (text) console.log(`   - ${text}`);
+      emitted.add(skill);
+      if (skill === 'fable-mode') emitted.add('fable-discipline');
+    }
+    if (plan.strategy && plan.strategy.startsWith('fable-')) {
+      console.log('   - Use these selectively; Tier 3/Fable does not create a universal skill pipeline.');
+    }
   } else if (plan.strategy === 'direct-single') {
     console.log('   - No mandatory domain skill. Prefer the bounded direct path and load a focused skill only when it adds value.');
   } else if (plan.strategySelection === 'deferred') {
@@ -120,7 +138,7 @@ function printKernelContract(plan) {
     console.log('\n=> ROUTING DEGRADATION: Structured routing is degraded. Keep the strategy deferred unless independent evidence supports a route; do not silently downgrade to Tier 1/direct execution.');
   }
 
-  console.log('\n=> ORCHESTRATION POLICY: Enforce the plan invariants, but do not turn suggested skills into a universal pipeline. The router plans; execution components execute.');
+  console.log('\n=> ORCHESTRATION POLICY: Do not enforce workflow order. Enforce workflow invariants from the plan; suggested skills remain advisory. The router plans; execution components execute.');
 }
 
 function run(prompt, stdinPayload) {
