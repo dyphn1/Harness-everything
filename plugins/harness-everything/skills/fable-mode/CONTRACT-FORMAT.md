@@ -1,51 +1,108 @@
-# Stage Contract Format
+# Fable Stage Contract Format
 
-Stage contracts live in `.claude/harness-everything/state/contracts/` and make fable-orchestrator's
-"re-run or spot-check every stage's named check" discipline auditable instead
-of a verbal claim. The `contract-test.js` hook (PostToolUse: Bash) watches for
-the exact `checkCommand` running and fills in the result — you write the
-contract, the hook resolves it.
+Issue #85 Phase 3 makes the stage map a machine-readable execution contract.
+The router still chooses only the execution topology. Fable owns the stage map,
+model selector, worker briefs, stage audit, replan budget, and cold verifier.
 
-## When to write one
+Run state is stored under the existing workspace-keyed global Harness state
+root, never inside the repository:
 
-Right before you (the orchestrator) run the Bash command that re-verifies a
-stage's pass condition — one contract per stage, filed the moment you're about
-to spot-check it. Not for every Bash call, only the ones that *are* the named
-check.
+```text
+<workspace-state>/state/fable-runs/<runId>/
+  run.json
+  contracts/<stageId>.json
+  evidence/<stageId>.json
+```
 
-## File
+`planId` is a deterministic content hash of the router contract. `runId` is
+unique per orchestration. Two runs of the same plan therefore share a `planId`
+but never share mutable stage-contract files.
 
-`.claude/harness-everything/state/contracts/<stageId>.json`, created lazily. `stageId` is whatever you
-numbered the stage in your stage map (`stage-3`, `db-migration`, etc).
+## Stage schema v2
 
-## Schema
+Every planned stage declares dependency and write scope before dispatch:
 
 ```json
 {
   "stageId": "stage-3",
+  "goal": "implement one bounded objective",
   "agent": "fable-worker-sonnet",
-  "task": "one-line description of what the worker was assigned",
-  "outputPath": "path to the artifact the worker produced",
-  "checkCommand": "the exact shell command you are about to run to verify it",
-  "status": "pending"
+  "task": "self-contained task statement",
+  "inputs": ["relevant files", "upstream outputs"],
+  "expectedOutputs": ["artifact or evidence"],
+  "outputPath": "path/to/artifact-or-null",
+  "dependsOn": ["stage-1"],
+  "writeSet": ["src/auth", "tests/auth.test.js"],
+  "checkCommand": "node --test tests/auth.test.js",
+  "passCondition": "exit 0",
+  "failureReturn": "failure summary + evidence + missing prerequisite"
 }
 ```
 
-Write it with `status: "pending"` and the *exact* `checkCommand` string you're
-about to run — the hook matches verbatim, not fuzzily. Then run that command.
-The hook fills in `status` (`pass`/`fail`), `evidence` (tail of the command's
-output), and `verifiedAt` for you; you don't write those fields yourself.
+Rules:
 
-## Reading contracts back
+- `stageId`, `goal`, `agent`, and `task` are required.
+- `dependsOn` is always explicit. Use `[]` for a root stage.
+- `writeSet` is always explicit. Use `[]` for a read-only stage.
+- `writeSet` contains concrete repository-relative path scopes, not globs,
+  absolute paths, or `..` traversal.
+- a directory scope covers descendants; overlapping scopes cannot run in the
+  same parallel batch.
+- every `dependsOn` target must exist; self edges and cycles are invalid.
+- `checkCommand` is exact-match evidence when present. `passCondition` explains
+  what that command proves; it does not replace the command result.
+- workers do not widen their own `writeSet`. If scope must grow, return to the
+  orchestrator and produce a revised plan before dispatch.
 
-Before delivering, `Read` (or `Grep status` across) `.claude/harness-everything/state/contracts/*.json`.
-Any file still `"status": "pending"` means the named check was declared but
-never actually run — that stage's output hasn't been verified, whatever the
-worker's report claimed. Resolve it before building further on that stage.
+## Workflow-plan consumer
 
-## Not a blocking gate
+Before dispatch, write the router contract and stage array to files and run:
 
-The hook can only react after a Bash call finishes — it can't stop a bad stage
-from being built on in real time. It surfaces a failed check loudly (fed back
-to you immediately after the command runs), but the actual discipline is still
-yours: don't build on a stage whose contract is `pending` or `fail`.
+```bash
+node fable-mode/scripts/workflow-plan-consumer.js \
+  --plan-file <router-contract.json> \
+  --stages-file <stages.json> \
+  --root <workspace> \
+  --run-id <optional-stable-run-label> \
+  --session-id <optional-host-session-id>
+```
+
+The consumer validates the graph, derives `planId`, creates the isolated run
+root, and emits execution batches. It consumes only router-owned decisions:
+strategy, parallelism, verifier requirement, workspace/memory hints, limits,
+and requested-model metadata. It does **not** choose a model or execute a
+stage.
+
+For `fable-parallel`, every ready batch must have resolved dependencies and
+pairwise non-overlapping write sets. An invalid graph or overlap rejects the
+plan before workers are spawned. For `fable-staged` and
+`fable-multi-agent-workspace`, the same dependency graph is serialized unless
+a later validated plan explicitly allows parallelism.
+
+## Verification evidence
+
+`contract-test.js` watches Bash/PowerShell calls and resolves an exact
+`checkCommand` only when it can correlate the command to one run/stage. The
+result updates the stage contract and writes:
+
+```text
+evidence/<stageId>.json
+```
+
+with `planId`, `runId`, `stageId`, command, exit code, status, and captured
+evidence. If the same command is pending in multiple uncorrelated runs, the
+hook updates none of them and reports the ambiguity.
+
+Before delivery, every check-bearing contract in the run must be `pass` (not
+`pending`, `planned`, `running`, or `fail`). A failed check returns to the
+orchestrator for bounded re-planning.
+
+## Scope audit
+
+`subagent-scope-guard.js` snapshots active stage write sets at the beginning of
+a worker burst and compares the post-burst Git diff paths with that immutable
+snapshot. Expected paths are attributed to the matching stage; worker-level
+attribution is added when the host exposes a worker/subagent id and the stage
+contract records it. Ambiguous or out-of-scope changes exit 2. With no declared
+stage contracts, the older conservative behavior remains: every newly changed
+path requires review.
