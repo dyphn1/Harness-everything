@@ -15,7 +15,6 @@
     "tdd",
     "verification"
   ],
-  "hooks": "./hooks/hooks.json",
   "agents": [
     "./fable-mode/agents/fable-orchestrator.md",
     "./fable-mode/agents/fable-verifier.md",
