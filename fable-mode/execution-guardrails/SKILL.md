@@ -7,7 +7,7 @@ description: >-
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.8-beta
+  version: 0.3.8
 ---
 
 # Execution Guardrails
