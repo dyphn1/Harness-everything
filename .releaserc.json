@@ -8,6 +8,7 @@
       "@semantic-release/commit-analyzer",
       {
         "preset": "conventionalcommits",
+        "presetConfig": {},
         "releaseRules": [
           {
             "breaking": true,
@@ -38,6 +39,7 @@
       "@semantic-release/release-notes-generator",
       {
         "preset": "conventionalcommits",
+        "presetConfig": {},
         "parserOpts": {
           "noteKeywords": [
             "BREAKING CHANGE",
