@@ -4,7 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { isStableSemVer, syncReleaseVersion } = require('../scripts/sync-release-version');
+const { VERSION_TARGETS, isStableSemVer, syncReleaseVersion } = require('../scripts/sync-release-version');
 
 const ROOT = path.resolve(__dirname, '..');
 const config = JSON.parse(fs.readFileSync(path.join(ROOT, '.releaserc.json'), 'utf8'));
@@ -39,6 +39,19 @@ assert.ok(gitPlugin[1].assets.includes('opencode-plugin/plugin.json'));
 assert.ok(isStableSemVer('1.2.3'));
 for (const invalid of ['1.2.3-beta', '1.2.3+build', '01.2.3', '1.2', 'v1.2.3', '']) {
   assert.ok(!isStableSemVer(invalid), invalid);
+}
+
+// Normal CI gates every checked-in runtime/plugin manifest against package.json.
+// package-lock is intentionally release-owned: the synchronizer fixes its root
+// version when semantic-release prepares the actual release transaction.
+const packageVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
+assert.ok(isStableSemVer(packageVersion), `package.json must use stable SemVer, got ${packageVersion}`);
+for (const target of VERSION_TARGETS.filter(target => target.file !== 'package-lock.json')) {
+  const data = JSON.parse(fs.readFileSync(path.join(ROOT, target.file), 'utf8'));
+  const current = target.get(data);
+  const values = Array.isArray(current) ? current : [current];
+  assert.ok(values.every(value => value === packageVersion), `${target.file} must match package.json version ${packageVersion}`);
+  assert.ok(values.every(isStableSemVer), `${target.file} must not carry a prerelease/build suffix`);
 }
 
 function json(file, value) {
