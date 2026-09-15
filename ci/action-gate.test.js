@@ -2,16 +2,21 @@
 'use strict';
 
 const assert = require('assert');
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const actionGate = require(path.join(ROOT, 'hooks', 'scripts', 'action-gate.js'));
+const canonicalScript = path.join(ROOT, 'hooks', 'scripts', 'action-gate.js');
 const rulesPath = path.join(ROOT, 'hooks', 'scripts', 'action-gate-rules.json');
 const pluginScript = path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'action-gate.js');
 const pluginRules = path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'action-gate-rules.json');
 const codexPost = require(path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'codex-action-gate-post.js'));
+
+// The default Claude decision depends on this variable; a developer's shell must not leak it into the suite.
+delete process.env.HARNESS_ACTION_GATE_POLICY;
 
 let failed = 0;
 function check(condition, message) {
@@ -40,6 +45,20 @@ function readAudit(sessionDir, toolUseId) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
+function findAudit(dir, toolUseId) {
+  if (!fs.existsSync(dir)) return null;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const found = findAudit(full, toolUseId);
+      if (found) return found;
+    } else if (entry.name === `${toolUseId}.json` && path.basename(dir) === 'action-gate') {
+      return JSON.parse(fs.readFileSync(full, 'utf8'));
+    }
+  }
+  return null;
+}
+
 function cleanTemp(dir) {
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
 }
@@ -48,6 +67,18 @@ console.log('=== Issue #85 Phase 5 — Pre-action gate ===');
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-action-gate-'));
 const sessionDir = path.join(tempRoot, 'session');
 fs.mkdirSync(sessionDir, { recursive: true });
+const stateHome = path.join(tempRoot, 'state-home');
+
+// Runs the hook as a separate process the way the host does, with state kept inside the temp dir.
+function runHook(hookPayload, env = {}) {
+  const result = spawnSync(process.execPath, [canonicalScript], {
+    cwd: tempRoot,
+    input: JSON.stringify(hookPayload),
+    encoding: 'utf8',
+    env: { ...process.env, HARNESS_STATE_HOME: stateHome, HARNESS_ACTION_GATE_HOST: 'claude', HARNESS_ACTION_GATE_POLICY: '', ...env },
+  });
+  return { code: result.status, stdout: String(result.stdout || '').trim(), stderr: String(result.stderr || '') };
+}
 
 try {
   const table = actionGate.loadRuleTable(rulesPath);
@@ -68,24 +99,30 @@ try {
 
   const force = payload('git push --force origin main', { toolUseId: 'force-push' });
   const forceDecision = actionGate.evaluatePreToolUse(force, { host: 'claude', sessionDir, ruleTable: table });
-  check(forceDecision.kind === 'ask' && forceDecision.exitCode === 0, 'Claude force-push returns ask instead of block/allow');
-  check(forceDecision.stdout && forceDecision.stdout.hookSpecificOutput.permissionDecision === 'ask', 'ask decision uses Claude PreToolUse hookSpecificOutput');
-  check(forceDecision.stdout.hookSpecificOutput.permissionDecisionReason.includes('git-force-push'), 'ask reason names the matched rule');
+  check(forceDecision.kind === 'defer' && forceDecision.exitCode === 0 && forceDecision.stdout === null, 'Claude force-push defers to the host permission flow without forcing a prompt');
+  check(forceDecision.rule && forceDecision.rule.id === 'git-force-push', 'deferred decision still names the matched rule');
   const forceAudit = readAudit(sessionDir, 'force-push');
-  check(forceAudit.disposition === 'pending-approval', 'matched Claude action is audited as pending-approval');
+  check(forceAudit.disposition === 'deferred-to-host', 'matched Claude action is audited as deferred-to-host');
   check(forceAudit.matchedRule === 'git-force-push', 'audit records matched rule');
   check(forceAudit.commandHash === actionGate.hashExact('git push --force origin main'), 'audit hashes the exact command payload');
+
+  const askForce = actionGate.evaluatePreToolUse(payload('git push --force origin main', { toolUseId: 'force-push-ask' }), { host: 'claude', sessionDir, ruleTable: table, policy: 'always-ask' });
+  check(askForce.kind === 'ask' && askForce.exitCode === 0, 'always-ask policy restores the forced Claude prompt');
+  check(askForce.stdout && askForce.stdout.hookSpecificOutput.permissionDecision === 'ask', 'ask decision uses Claude PreToolUse hookSpecificOutput');
+  check(askForce.stdout.hookSpecificOutput.permissionDecisionReason.includes('git-force-push'), 'ask reason names the matched rule');
+  check(readAudit(sessionDir, 'force-push-ask').disposition === 'pending-approval', 'always-ask action is audited as pending-approval');
 
   const statusDecision = actionGate.evaluatePreToolUse(payload('git status', { toolUseId: 'status' }), { host: 'claude', sessionDir, ruleTable: table });
   check(statusDecision.kind === 'allow' && statusDecision.stdout === null, 'git status passes untouched');
   check(!fs.existsSync(path.join(sessionDir, 'action-gate', 'status.json')), 'safe unmatched command creates no gate audit record');
 
-  for (const mode of ['default', 'acceptEdits', 'plan', 'auto', 'dontAsk', 'bypassPermissions']) {
-    const result = actionGate.evaluatePreToolUse(
-      payload('git push --force-with-lease origin main', { permissionMode: mode, toolUseId: `mode-${mode}` }),
-      { host: 'claude', sessionDir, ruleTable: table },
-    );
-    check(result.kind === 'ask', `mechanism emits ask under permission_mode=${mode} (live host behavior remains unverified)`);
+  for (const mode of ['default', 'acceptEdits', 'plan', 'auto', 'dontAsk', 'bypassPermissions', null]) {
+    const label = mode || 'missing';
+    const modePayload = payload('git push --force-with-lease origin main', { permissionMode: mode, toolUseId: `mode-${label}` });
+    if (mode === null) delete modePayload.permission_mode;
+    const result = actionGate.evaluatePreToolUse(modePayload, { host: 'claude', sessionDir, ruleTable: table });
+    check(result.kind === 'defer' && result.exitCode === 0 && result.stdout === null, `permission_mode=${label} defers to the host without a forced prompt`);
+    check(readAudit(sessionDir, `mode-${label}`).permissionMode === mode, `audit records permission_mode=${label}`);
   }
 
   const routerFalse = payload('git reset --hard HEAD~1', {
@@ -93,7 +130,7 @@ try {
     extra: { workflowPlan: { actionGate: { required: false, reasonCodes: [], disposition: null } } },
   });
   const routerFalseDecision = actionGate.evaluatePreToolUse(routerFalse, { host: 'claude', sessionDir, ruleTable: table });
-  check(routerFalseDecision.kind === 'ask', 'command classification gates destructive action even when router hint says not required');
+  check(routerFalseDecision.kind === 'defer' && routerFalseDecision.rule.id === 'git-reset-hard', 'command classification gates destructive action even when router hint says not required');
   check(readAudit(sessionDir, 'router-false').routerActionGate.required === false, 'router actionGate hint is recorded without controlling enforcement');
 
   const routerTrueSafe = payload('git status', {
@@ -107,14 +144,14 @@ try {
     : '/opt/harness-project/build';
   const psDelete = payload(`Remove-Item -Recurse -Force "${nonScratchTarget}"`, { tool: 'PowerShell', toolUseId: 'ps-delete' });
   const psDeleteDecision = actionGate.evaluatePreToolUse(psDelete, { host: 'claude', sessionDir, ruleTable: table });
-  check(psDeleteDecision.kind === 'ask' && psDeleteDecision.rule.id === 'powershell-recursive-force-delete', 'PowerShell recursive force delete outside scratch is gated');
+  check(psDeleteDecision.kind === 'defer' && psDeleteDecision.rule.id === 'powershell-recursive-force-delete', 'PowerShell recursive force delete outside scratch is gated');
 
   const scratchTarget = path.join(sessionDir, 'scratch', 'build');
   const psScratch = payload(`Remove-Item -Recurse -Force "${scratchTarget}"`, { tool: 'PowerShell', toolUseId: 'ps-scratch' });
   check(actionGate.evaluatePreToolUse(psScratch, { host: 'claude', sessionDir, ruleTable: table }).kind === 'allow', 'PowerShell recursive force delete inside session scratch is exempt');
 
   const rmDelete = actionGate.evaluatePreToolUse(payload(`rm -rf "${nonScratchTarget}"`, { toolUseId: 'rm-delete' }), { host: 'claude', sessionDir, ruleTable: table });
-  check(rmDelete.kind === 'ask' && rmDelete.rule.id === 'recursive-delete', 'rm -rf outside scratch is gated');
+  check(rmDelete.kind === 'defer' && rmDelete.rule.id === 'recursive-delete', 'rm -rf outside scratch is gated');
   const rmScratch = actionGate.evaluatePreToolUse(payload(`rm -rf "${path.join(os.tmpdir(), 'harness-safe-scratch')}"`, { toolUseId: 'rm-scratch' }), { host: 'claude', sessionDir, ruleTable: table });
   check(rmScratch.kind === 'allow', 'rm -rf inside OS temp is exempt');
 
@@ -129,7 +166,7 @@ try {
   for (let i = 0; i < ruleCases.length; i++) {
     const [command, expected] = ruleCases[i];
     const result = actionGate.evaluatePreToolUse(payload(command, { toolUseId: `rule-${i}` }), { host: 'claude', sessionDir, ruleTable: table });
-    check(result.kind === 'ask' && result.rule.id === expected, `${command} matches ${expected}`);
+    check(result.kind === 'defer' && result.rule.id === expected, `${command} matches ${expected}`);
   }
 
   const codexDecision = actionGate.evaluatePreToolUse(payload('git push -f origin main', { toolUseId: 'codex-block' }), { host: 'codex', sessionDir, ruleTable: table });
@@ -137,8 +174,12 @@ try {
   check(codexDecision.stderr.includes('git-force-push'), 'non-ask host block reason names the matched rule');
   check(readAudit(sessionDir, 'codex-block').disposition === 'rejected', 'non-ask host block is audited as rejected');
 
-  const internalAsk = actionGate.internalErrorDecision(payload('git status', { toolUseId: 'internal-ask' }), new Error('synthetic failure'), { host: 'claude', sessionDir });
-  check(internalAsk.kind === 'ask' && internalAsk.stdout.hookSpecificOutput.permissionDecision === 'ask', 'internal action-gate error on Claude fails closed to ask');
+  const internalDefer = actionGate.internalErrorDecision(payload('git status', { toolUseId: 'internal-defer' }), new Error('synthetic failure'), { host: 'claude', sessionDir });
+  check(internalDefer.kind === 'defer' && internalDefer.exitCode === 0, 'internal action-gate error on Claude defers to the host instead of allowing or forcing a prompt');
+  check(Boolean(internalDefer.stdout) && !internalDefer.stdout.hookSpecificOutput && /internal-error/.test(internalDefer.stdout.systemMessage), 'internal error is shown to the user as a systemMessage without a permission decision');
+  check(readAudit(sessionDir, 'internal-defer').disposition === 'deferred-to-host', 'internal error on Claude is audited as deferred-to-host');
+  const internalAsk = actionGate.internalErrorDecision(payload('git status', { toolUseId: 'internal-ask' }), new Error('synthetic failure'), { host: 'claude', sessionDir, policy: 'always-ask' });
+  check(internalAsk.kind === 'ask' && internalAsk.stdout.hookSpecificOutput.permissionDecision === 'ask', 'internal action-gate error under always-ask fails closed to ask');
   const internalBlock = actionGate.internalErrorDecision(payload('git status', { toolUseId: 'internal-block' }), new Error('synthetic failure'), { host: 'codex', sessionDir });
   check(internalBlock.kind === 'block' && internalBlock.exitCode === 2, 'internal error on host without ask fails closed to block');
 
@@ -147,8 +188,8 @@ try {
   const degraded = actionGate.loadRuleTable(invalidPath);
   check(degraded.degraded === true && degraded.rules.length > 0, 'missing/invalid rule table visibly falls back to built-in defaults');
   const degradedDecision = actionGate.evaluatePreToolUse(payload('git push --force origin main', { toolUseId: 'degraded' }), { host: 'claude', sessionDir, ruleTable: degraded });
-  check(degradedDecision.kind === 'ask', 'built-in fallback still gates destructive action');
-  check(degradedDecision.stdout.hookSpecificOutput.permissionDecisionReason.includes('degraded'), 'fallback degradation is visible in the approval reason');
+  check(degradedDecision.kind === 'defer' && degradedDecision.rule.id === 'git-force-push', 'built-in fallback still classifies and audits destructive action');
+  check(Boolean(degradedDecision.stdout) && /degraded/.test(degradedDecision.stdout.systemMessage), 'fallback degradation is shown to the user as a systemMessage');
 
   const emptyPath = path.join(tempRoot, 'empty-rules.json');
   fs.writeFileSync(emptyPath, JSON.stringify({ schemaVersion: 1, rules: [] }), 'utf8');
@@ -159,7 +200,7 @@ try {
   const execPayload = payload('npm publish', { toolUseId: 'exec-ok' });
   actionGate.evaluatePreToolUse(execPayload, { host: 'claude', sessionDir, ruleTable: table });
   const execResult = actionGate.processEvent({ ...execPayload, hook_event_name: 'PostToolUse' }, { sessionDir });
-  check(execResult.record && execResult.record.disposition === 'executed', 'PostToolUse closes approved payload as executed');
+  check(execResult.record && execResult.record.disposition === 'executed', 'PostToolUse closes a deferred payload as executed');
   check(execResult.record.commandHash === actionGate.hashExact('npm publish'), 'executed audit keeps exact approved payload hash');
 
   const failPayload = payload('gh release create v9', { toolUseId: 'exec-fail' });
@@ -175,8 +216,18 @@ try {
   const pendingPayload = payload('terraform apply', { toolUseId: 'pending-stop' });
   actionGate.evaluatePreToolUse(pendingPayload, { host: 'claude', sessionDir, ruleTable: table });
   const stop = actionGate.processEvent({ session_id: 'phase5-test', hook_event_name: 'Stop', tool_name: 'Stop', tool_input: {} }, { sessionDir });
-  check(stop.rejected >= 1, 'Stop closes unexecuted pending approvals');
-  check(readAudit(sessionDir, 'pending-stop').disposition === 'rejected', 'unexecuted pending approval is audited as rejected');
+  check(stop.rejected >= 1, 'Stop closes unexecuted deferred and pending payloads');
+  check(readAudit(sessionDir, 'pending-stop').disposition === 'rejected', 'unexecuted deferred payload is audited as rejected');
+  check(readAudit(sessionDir, 'force-push-ask').disposition === 'rejected', 'unexecuted always-ask approval is audited as rejected');
+
+  const hookDefer = runHook(payload('git push --force origin main', { toolUseId: 'e2e-defer', sessionId: 'phase5-e2e', permissionMode: 'auto', cwd: tempRoot }));
+  check(hookDefer.code === 0 && hookDefer.stdout === '', 'hook process returns no decision for a matched command under the default policy');
+  const hookDeferAudit = findAudit(stateHome, 'e2e-defer');
+  check(hookDeferAudit && hookDeferAudit.disposition === 'deferred-to-host' && hookDeferAudit.permissionMode === 'auto', 'hook process audits the deferred command with its permission mode');
+  const hookAsk = runHook(payload('git push --force origin main', { toolUseId: 'e2e-ask', sessionId: 'phase5-e2e', cwd: tempRoot }), { HARNESS_ACTION_GATE_POLICY: 'always-ask' });
+  let hookAskJson = null;
+  try { hookAskJson = JSON.parse(hookAsk.stdout); } catch (_) { hookAskJson = null; }
+  check(hookAsk.code === 0 && hookAskJson && hookAskJson.hookSpecificOutput.permissionDecision === 'ask', 'HARNESS_ACTION_GATE_POLICY=always-ask makes the hook process emit ask');
 
   const canonicalHooks = JSON.parse(fs.readFileSync(path.join(ROOT, 'hooks', 'hooks.json'), 'utf8'));
   const canonicalPre = canonicalHooks.hooks.PreToolUse.find(group => group.id === 'harness:pre:action-gate');

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Action gate defers to Claude Code permission modes** (#107): on Claude Code, a matched destructive command no longer returns a forced `permissionDecision: "ask"`, which prompted even in auto mode. The gate returns no decision, so the session's permission mode, rules and auto-mode classifier decide. It still records the matched rule and the command SHA-256 (`deferred-to-host`, then `executed` or `rejected`). An internal error on Claude also defers and shows a `systemMessage` warning. `HARNESS_ACTION_GATE_POLICY=always-ask` restores the forced prompt. Hosts without an ask decision keep the exit-2 block.
+
 ## [0.3.7-beta] - Unreleased
 
 ### Changed

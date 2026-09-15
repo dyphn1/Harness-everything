@@ -13,6 +13,9 @@ const {
 const RULES_PATH = process.env.HARNESS_ACTION_GATE_RULES_PATH || path.join(__dirname, 'action-gate-rules.json');
 const ASK_CAPABLE_HOSTS = new Set(['claude']);
 const VALID_SCOPES = new Set(['always', 'outside-scratch']);
+const POLICY_ENV = 'HARNESS_ACTION_GATE_POLICY';
+const DEFER_POLICY = 'defer-to-host';
+const ALWAYS_ASK_POLICY = 'always-ask';
 
 // Fail-safe defaults are used only when the configured table is missing or
 // invalid. A valid-but-empty table stays empty so CI can catch policy erasure.
@@ -118,6 +121,18 @@ function detectHost(payload, override) {
 
 function hostSupportsAsk(host) {
   return ASK_CAPABLE_HOSTS.has(String(host || '').toLowerCase());
+}
+
+// A hook "ask" forces a prompt in every Claude Code permission mode, auto mode
+// included, so by default the gate returns no decision and leaves the call to
+// the session's permission flow (#107). always-ask restores the forced prompt.
+function gatePolicy(options = {}) {
+  const requested = options.policy || process.env[POLICY_ENV] || DEFER_POLICY;
+  return String(requested).toLowerCase() === ALWAYS_ASK_POLICY ? ALWAYS_ASK_POLICY : DEFER_POLICY;
+}
+
+function warningOutput(message) {
+  return { systemMessage: message };
 }
 
 function shellWords(text) {
@@ -291,6 +306,7 @@ function recordDecision(payload, rule, table, host, disposition, options = {}, e
     disposition,
     host,
     permissionMode: (payload && (payload.permission_mode || payload.permissionMode)) || null,
+    gatePolicy: gatePolicy(options),
     routerActionGate: routerActionGateHint(payload),
     ruleTableSource: table.source,
     degradedRuleTable: table.degraded,
@@ -320,9 +336,15 @@ function evaluatePreToolUse(payload, options = {}) {
 
   const host = detectHost(payload, options.host);
   const reason = decisionReason(rule, table);
-  if (hostSupportsAsk(host)) {
+  if (hostSupportsAsk(host) && gatePolicy(options) === ALWAYS_ASK_POLICY) {
     const record = recordDecision(payload, rule, table, host, 'pending-approval', { ...options, sessionDir: context.sessionDir });
     return { kind: 'ask', exitCode: 0, stdout: askOutput(reason), stderr: null, rule, table, record };
+  }
+  if (hostSupportsAsk(host)) {
+    const record = recordDecision(payload, rule, table, host, 'deferred-to-host', { ...options, sessionDir: context.sessionDir });
+    // No permissionDecision: the host's mode, rules and classifier decide. A
+    // degraded rule table still surfaces to the user as a systemMessage.
+    return { kind: 'defer', exitCode: 0, stdout: table.degraded ? warningOutput(reason) : null, stderr: null, rule, table, record };
   }
 
   const record = recordDecision(payload, rule, table, host, 'rejected', { ...options, sessionDir: context.sessionDir }, {
@@ -368,9 +390,11 @@ function rejectPendingAtStop(payload, options = {}) {
     const file = path.join(dir, entry.name);
     let record;
     try { record = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { continue; }
-    if (record.disposition !== 'pending-approval') continue;
+    if (record.disposition !== 'pending-approval' && record.disposition !== 'deferred-to-host') continue;
+    record.rejectionReason = record.disposition === 'deferred-to-host'
+      ? 'host-did-not-execute-before-stop'
+      : 'approval-not-executed-before-stop';
     record.disposition = 'rejected';
-    record.rejectionReason = 'approval-not-executed-before-stop';
     record.updatedAt = new Date().toISOString();
     atomicWriteJson(file, record);
     rejected++;
@@ -396,19 +420,26 @@ function internalErrorDecision(payload, err, options = {}) {
 
   let host = 'unknown';
   try { host = detectHost(payload, options.host); } catch (_) { host = 'unknown'; }
+  const askCapable = hostSupportsAsk(host);
+  const forceAsk = askCapable && gatePolicy(options) === ALWAYS_ASK_POLICY;
+  const disposition = !askCapable ? 'rejected' : (forceAsk ? 'pending-approval' : 'deferred-to-host');
   const exact = exactPayloadText(payload);
   const pseudoRule = { id: 'internal-error', reason: `Action-gate internal error: ${err.message}` };
   const table = { source: 'internal-error', degraded: true, degradationReason: err.message };
   try {
-    recordDecision(payload, pseudoRule, table, host, hostSupportsAsk(host) ? 'pending-approval' : 'rejected', options, {
+    recordDecision(payload, pseudoRule, table, host, disposition, options, {
       internalError: true,
-      rejectionReason: hostSupportsAsk(host) ? null : 'internal-error-on-host-without-verified-ask',
+      rejectionReason: askCapable ? null : 'internal-error-on-host-without-verified-ask',
       commandHash: hashExact(exact),
     });
-  } catch (_) { /* still fail closed below */ }
+  } catch (_) { /* the decision below does not depend on the audit write */ }
 
+  if (askCapable && !forceAsk) {
+    // Staying silent is not approval: the host's permission flow still decides.
+    return { kind: 'defer', exitCode: 0, stdout: warningOutput(`${reason} The host permission flow decides this call.`), stderr: null };
+  }
   const approvalReason = `${reason} Fail-closed policy requires explicit approval.`;
-  if (hostSupportsAsk(host)) return { kind: 'ask', exitCode: 0, stdout: askOutput(approvalReason), stderr: null };
+  if (askCapable) return { kind: 'ask', exitCode: 0, stdout: askOutput(approvalReason), stderr: null };
   return { kind: 'block', exitCode: 2, stdout: null, stderr: `${approvalReason} Host '${host}' cannot be trusted to surface ask; blocking instead.` };
 }
 
