@@ -1,6 +1,6 @@
 {
   "name": "harness-everything",
-  "version": "0.3.8-beta",
+  "version": "0.3.8",
   "description": "Harness OS: An Orchestrated Agent Operating System for AI-driven Development",
   "main": "harness-everything/scripts/bootstrap.js",
   "bin": {
@@ -16,7 +16,7 @@
     "test:consistency": "node ci/consistency-check.js && node ci/doc-capability-consistency.test.js",
     "test:docs:capabilities": "node ci/doc-capability-consistency.test.js",
     "test:references": "node ci/reference-check.js",
-    "test:release": "node ci/release-consistency-check.js",
+    "test:release": "node ci/release-consistency-check.js && node ci/mechanism-2x-release-automation.test.js",
     "test:install": "node scripts/verify-install.js",
     "test:collision": "node ci/description-collision.js",
     "test:routing:skills": "node ci/skill-routing-check.js",
@@ -50,6 +50,9 @@
   "homepage": "https://github.com/dyphn1/Harness-everything#readme",
   "bugs": {
     "url": "https://github.com/dyphn1/Harness-everything/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "js-yaml": "^5.4.1",
