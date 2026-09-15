@@ -46,6 +46,9 @@ jobs:
 
       # Keep release tooling out of the product dependency graph/package-lock.
       # Versions are pinned so release behavior cannot float between runs.
+      # release-notes-generator 14 uses conventional-changelog-writer 8;
+      # conventionalcommits 10 requires writer 9+, so keep the preset on 9.x
+      # until the stable release-notes-generator line upgrades its writer.
       - name: Install pinned release tooling
         run: >-
           npm install --no-save --package-lock=false --ignore-scripts
@@ -57,7 +60,7 @@ jobs:
           @semantic-release/github@12.0.9
           @semantic-release/npm@13.1.5
           @semantic-release/release-notes-generator@14.1.1
-          conventional-changelog-conventionalcommits@10.4.0
+          conventional-changelog-conventionalcommits@9.3.1
 
       - name: Calculate, prepare, and publish release
         env:
