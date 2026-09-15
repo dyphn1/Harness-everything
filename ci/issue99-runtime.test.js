@@ -160,7 +160,7 @@ async function main() {
 
     const chainedBash = makePayload(`rm -rf "${safeOne}" && rm -rf "${outside}"`, { toolUseId: 'bash-chain' });
     const chainedBashDecision = actionGate.evaluatePreToolUse(chainedBash, { host: 'claude', sessionDir, ruleTable: table });
-    check(chainedBashDecision.kind === 'ask' && chainedBashDecision.rule.id === 'recursive-delete', 'chained rm checks every target and gates the outside-scratch delete');
+    check(chainedBashDecision.kind === 'defer' && chainedBashDecision.rule.id === 'recursive-delete', 'chained rm checks every target and gates the outside-scratch delete');
 
     const safeBashDecision = actionGate.evaluatePreToolUse(
       makePayload(`rm -rf "${safeOne}" && rm -rf "${safeTwo}"`, { toolUseId: 'bash-safe-chain' }),
@@ -173,7 +173,7 @@ async function main() {
       { tool: 'PowerShell', toolUseId: 'ps-chain' },
     );
     const chainedPsDecision = actionGate.evaluatePreToolUse(chainedPs, { host: 'claude', sessionDir, ruleTable: table });
-    check(chainedPsDecision.kind === 'ask' && chainedPsDecision.rule.id === 'powershell-recursive-force-delete', 'chained Remove-Item checks every target and gates the outside-scratch delete');
+    check(chainedPsDecision.kind === 'defer' && chainedPsDecision.rule.id === 'powershell-recursive-force-delete', 'chained Remove-Item checks every target and gates the outside-scratch delete');
 
     const pre = makePayload('npm publish', { toolUseId: 'post-error-preserve' });
     actionGate.evaluatePreToolUse(pre, { host: 'claude', sessionDir, ruleTable: table });
