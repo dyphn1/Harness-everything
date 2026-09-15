@@ -2,44 +2,67 @@ name: Release
 
 on:
   push:
-    tags:
-      - '*'
+    branches: [main]
+  workflow_dispatch:
+
+# A release owns the version/tag transaction. Never cancel one release halfway
+# through because a newer main push arrived; the next queued run will analyze
+# from the tag produced by the first one.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
+  issues: write
+  pull-requests: write
   id-token: write
 
 jobs:
-  # The full PR gate, not a subset. The previous inline gate ran four npm
-  # scripts on ubuntu only, so a tag push could publish a tree that would have
-  # failed CI - notably the end-to-end installer check, the one gate that
-  # proves the published artifact actually installs (issue #39).
+  # Release publication is gated by exactly the same test matrix as a PR.
   gate:
     uses: ./.github/workflows/ci.yml
 
-  publish:
+  release:
     needs: gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout full release history
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+
+      # semantic-release 25 requires a newer Node runtime than the product's
+      # normal Node 20 CI matrix. This only changes the release runner.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          cache: npm
           registry-url: https://registry.npmjs.org
-      - name: Install dependencies for publishing
+
+      - name: Install project dependencies
         run: npm ci
-      - name: Release tag matches package version
-        run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          PKG=$(node -p "require('./package.json').version")
-          test "$TAG" = "$PKG" || { echo "::error::tag $GITHUB_REF_NAME does not match package version $PKG"; exit 1; }
-      - name: Skill catalog matches the tag being released
-        run: npm run test:release
+
+      # Keep release tooling out of the product dependency graph/package-lock.
+      # Versions are pinned so release behavior cannot float between runs.
+      - name: Install pinned release tooling
+        run: >-
+          npm install --no-save --package-lock=false --ignore-scripts
+          semantic-release@25.0.9
+          @semantic-release/changelog@7.0.0
+          @semantic-release/commit-analyzer@13.0.1
+          @semantic-release/exec@7.1.0
+          @semantic-release/git@11.0.1
+          @semantic-release/github@12.0.9
+          @semantic-release/npm@13.1.5
+          @semantic-release/release-notes-generator@14.1.1
+          conventional-changelog-conventionalcommits@10.4.0
+
+      - name: Calculate, prepare, and publish release
         env:
-          HARNESS_RELEASE_TAG: ${{ github.ref_name }}
-      - name: Publish to npm
-        run: npm publish --provenance --access public
-        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
+        run: npx --no-install semantic-release
