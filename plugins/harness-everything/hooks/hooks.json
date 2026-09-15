@@ -70,6 +70,19 @@
         ]
       }
     ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/codex-permission-request.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\codex-permission-request.js\"",
+            "timeout": 15,
+            "statusMessage": "Recording Codex native approval request"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Bash|apply_patch",
