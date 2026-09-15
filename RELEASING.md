@@ -26,7 +26,7 @@ A push to `main` runs the full reusable CI gate and then semantic-release. A man
 3. Analyze Conventional Commits since the latest stable release.
 4. Exit without publishing when there is no releasable commit.
 5. Calculate the next stable SemVer.
-6. Run `scripts/sync-release-version.js` to synchronize package, Claude, OpenAI/Codex, OpenCode, and lockfile version fields.
+6. Run `scripts/sync-release-version.js` to synchronize package, Claude, OpenAI/Codex, OpenCode, lockfile, and changed canonical skill version fields.
 7. Regenerate and verify plugin packages.
 8. Update `CHANGELOG.md` and create `chore(release): X.Y.Z [skip ci]`.
 9. Create tag `vX.Y.Z`, publish npm with provenance, and create the GitHub Release.
@@ -44,12 +44,15 @@ The following checked-in fields are release outputs and are synchronized togethe
 - `plugins/harness-everything/plugin.json`
 - `plugins/harness-everything/.codex-plugin/plugin.json`
 - `opencode-plugin/plugin.json`
+- `metadata.version` for canonical skills changed since the previous release tag; when a top-level skill changes, all nested sub-skill `SKILL.md` files inherit that same release version
 
-Use the synchronizer only for release preparation or testing:
+Unchanged skills keep the version of the release in which they last changed. This preserves useful per-skill provenance while removing manual version edits from normal PRs.
+
+The release workflow passes the previous stable tag explicitly:
 
 ```bash
-node scripts/sync-release-version.js 1.2.3
-node scripts/sync-release-version.js --check 1.2.3
+node scripts/sync-release-version.js 1.2.3 --base v1.2.2
+node scripts/sync-release-version.js --check 1.2.3 --base v1.2.2
 node scripts/sync-release-version.js --validate 1.2.3
 ```
 
