@@ -4,6 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { VERSION_TARGETS, isStableSemVer, syncReleaseVersion } = require('../scripts/sync-release-version');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -35,13 +36,16 @@ const execPlugin = config.plugins.find(plugin => Array.isArray(plugin) && plugin
 assert.ok(execPlugin, 'release preparation hook missing');
 assert.match(execPlugin[1].verifyReleaseCmd, /--validate \$\{nextRelease\.version\}/);
 assert.match(execPlugin[1].prepareCmd, /sync-release-version\.js \$\{nextRelease\.version\}/);
-assert.match(execPlugin[1].prepareCmd, /--check \$\{nextRelease\.version\}/);
+assert.match(execPlugin[1].prepareCmd, /--base \$\{lastRelease\.gitTag\}/, 'changed skills must be computed from the previous release tag');
+assert.match(execPlugin[1].prepareCmd, /--check \$\{nextRelease\.version\} --base \$\{lastRelease\.gitTag\}/);
 
 const gitPlugin = config.plugins.find(plugin => Array.isArray(plugin) && plugin[0] === '@semantic-release/git');
 assert.ok(gitPlugin, 'release commit plugin missing');
 assert.match(gitPlugin[1].message, /\[skip ci\]/);
 assert.ok(gitPlugin[1].assets.includes('package-lock.json'));
 assert.ok(gitPlugin[1].assets.includes('opencode-plugin/plugin.json'));
+assert.ok(gitPlugin[1].assets.includes('*/SKILL.md'));
+assert.ok(gitPlugin[1].assets.includes('*/**/SKILL.md'));
 
 assert.ok(isStableSemVer('1.2.3'));
 for (const invalid of ['1.2.3-beta', '1.2.3+build', '01.2.3', '1.2', 'v1.2.3', '']) {
@@ -66,6 +70,16 @@ function json(file, value) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function skill(file, name, version) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `---\nname: ${name}\nmetadata:\n  author: Test\n  version: ${version}\n---\n\n# ${name}\n`);
+}
+
+function versionOfSkill(file) {
+  const match = fs.readFileSync(file, 'utf8').match(/^  version:\s*(\S+)$/m);
+  return match && match[1];
+}
+
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-release-'));
   json(path.join(root, 'package.json'), { name: 'harness-everything', version: '0.3.8-beta' });
@@ -74,7 +88,7 @@ function fixture() {
     version: '0.3.7-beta',
     packages: { '': { name: 'harness-everything', version: '0.3.7-beta' } }
   });
-  json(path.join(root, '.claude-plugin/plugin.json'), { name: 'harness-everything', version: '0.3.8-beta' });
+  json(path.join(root, '.claude-plugin/plugin.json'), { name: 'harness-everything', version: '0.3.8-beta', skills: [] });
   json(path.join(root, '.claude-plugin/marketplace.json'), { plugins: [{ name: 'harness-everything', version: '0.3.8-beta' }] });
   json(path.join(root, 'plugins/harness-everything/plugin.json'), { name: 'harness-everything', version: '0.3.8-beta' });
   json(path.join(root, 'plugins/harness-everything/.codex-plugin/plugin.json'), { name: 'harness-everything', version: '0.3.8-beta' });
@@ -112,4 +126,32 @@ fs.rmSync(path.join(missing, 'opencode-plugin/plugin.json'));
 assert.throws(() => syncReleaseVersion(missing, '2.0.0'), /Missing release version target/);
 assert.strictEqual(fs.readFileSync(path.join(missing, 'package.json'), 'utf8'), packageBefore, 'validation failure must happen before writes');
 
-console.log('Release automation contract verified: stable SemVer rules, manifest sync, drift detection, idempotency, and fail-before-write behavior.');
+// A release bumps only canonical skills changed since the previous release tag.
+// Nested sub-skills inherit the parent version whenever any file under that
+// top-level skill changed, while untouched skills keep their last-change version.
+const changed = fixture();
+const sourceManifest = JSON.parse(fs.readFileSync(path.join(changed, '.claude-plugin/plugin.json'), 'utf8'));
+sourceManifest.skills = ['./alpha', './beta'];
+json(path.join(changed, '.claude-plugin/plugin.json'), sourceManifest);
+skill(path.join(changed, 'alpha/SKILL.md'), 'alpha', '0.1.0');
+skill(path.join(changed, 'alpha/nested/SKILL.md'), 'nested', '0.1.0');
+skill(path.join(changed, 'beta/SKILL.md'), 'beta', '0.1.0');
+execFileSync('git', ['init'], { cwd: changed, stdio: 'ignore' });
+execFileSync('git', ['config', 'user.email', 'release-test@example.com'], { cwd: changed });
+execFileSync('git', ['config', 'user.name', 'Release Test'], { cwd: changed });
+execFileSync('git', ['add', '.'], { cwd: changed });
+execFileSync('git', ['commit', '-m', 'feat: baseline'], { cwd: changed, stdio: 'ignore' });
+execFileSync('git', ['tag', 'v0.1.0'], { cwd: changed });
+fs.writeFileSync(path.join(changed, 'alpha/behavior.txt'), 'changed\n');
+execFileSync('git', ['add', '.'], { cwd: changed });
+execFileSync('git', ['commit', '-m', 'feat(alpha): change behavior'], { cwd: changed, stdio: 'ignore' });
+const changedFiles = syncReleaseVersion(changed, '0.2.0', { base: 'v0.1.0' });
+assert.ok(changedFiles.includes('alpha/SKILL.md'));
+assert.ok(changedFiles.includes('alpha/nested/SKILL.md'));
+assert.ok(!changedFiles.includes('beta/SKILL.md'));
+assert.strictEqual(versionOfSkill(path.join(changed, 'alpha/SKILL.md')), '0.2.0');
+assert.strictEqual(versionOfSkill(path.join(changed, 'alpha/nested/SKILL.md')), '0.2.0');
+assert.strictEqual(versionOfSkill(path.join(changed, 'beta/SKILL.md')), '0.1.0');
+syncReleaseVersion(changed, '0.2.0', { base: 'v0.1.0', checkOnly: true });
+
+console.log('Release automation contract verified: stable SemVer rules, changed-skill versioning, manifest sync, drift detection, idempotency, and fail-before-write behavior.');
