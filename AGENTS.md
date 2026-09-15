@@ -28,10 +28,11 @@ You are modifying **Harness**: an orchestrated agent operating system (skills + 
 1. **Every canonical SKILL.md keeps ≤ 500 tokens** (hard CI gate) and must contain `## USE FOR:` and `## DO NOT USE FOR:` sections. Deep detail goes in the skill's `references/` or `guides/`.
 2. **Descriptions are routing surfaces.** Two skills whose descriptions overlap enough that a router cannot distinguish them will fail `test:collision`. When adding a skill, differentiate its description from near neighbors deliberately.
 3. **A new canonical skill ships with a routing eval** (`evals/<skill>/eval.yaml` + positive/negative tasks). The positive task's `description:` field must carry the skill's exact frontmatter description — waza's deterministic matcher requires it verbatim.
-4. **Version policy:** skill frontmatter versions move in lockstep with releases. Skills modified after a release get bumped to that next version; nothing may exceed the package version's numeric base (`package.json`). Nested sub-skills (`<skill>/<sub>/SKILL.md`) are not routed independently — they inherit the parent skill's version and must always match it. The consistency check enforces both rules.
+4. **Release version policy:** normal PRs do not manually bump package/plugin versions. `semantic-release` determines the next stable SemVer from Conventional Commits on `main`, and `scripts/sync-release-version.js` owns distribution-version synchronization. Skill frontmatter versions remain release metadata and must never exceed the package version's numeric base. Nested sub-skills (`<skill>/<sub>/SKILL.md`) inherit the parent skill's version and must always match it.
 5. **Distribution manifests are generated facts, not opinions:** if you add/remove/rename a canonical skill, update/sync every distribution that copies or lists it. Run `npm run plugin:sync`, `npm run test:consistency`, and `npm run test:plugin:openai` rather than updating only `.claude-plugin/plugin.json`.
 6. **Platform capability claims are tested contracts.** If host integration behavior changes, update `docs/platform-capabilities.md` and every affected current-state surface in the same change. Never turn package/mechanism evidence into a live-host claim, and never describe public Skills-only behavior as if it includes local lifecycle hooks.
-7. **CHANGELOG.md is append-only history.** Every user-visible change gets an entry under the current `-beta` heading before merge.
+7. **CHANGELOG.md keeps pending human-authored notes under `[Unreleased]`.** Do not create new alpha/beta/rc release headings; semantic-release owns stable release headings, tags, and release notes.
+8. **Conventional Commit type is release input.** The final commit/squash title that lands on `main` must follow the convention. Breaking changes release major; `feat` releases minor; `fix`, `perf`, `refactor`, `build`, and `revert` release patch; `docs`, `test`, `ci`, `style`, and `chore` do not release by themselves.
 
 ## Verification Before You Claim Done
 
@@ -43,6 +44,7 @@ npm run test:mechanism         # mechanism suites alone
 npm run test:consistency       # manifests, versions, docs links, eval coverage + capability docs
 npm run test:docs:capabilities # platform documentation drift gate
 npm run test:references        # executable/deep-dive references
+npm run test:release           # release catalog + semantic-release/version-sync contract
 npm run test:collision         # description collision detection
 npm run test:routing:skills    # every positive skill route reaches its target
 npm run test:plugin:openai     # local OpenAI/Codex plugin package
