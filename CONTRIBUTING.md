@@ -18,6 +18,7 @@ All contributions must pass:
 npm test                    # self-regression
 npm run test:mechanism      # hook mechanism checks
 npm run test:consistency    # manifest, version, link checks
+npm run test:release        # release catalog + version automation contract
 npm run test:collision      # description collision detection
 ```
 
@@ -31,12 +32,24 @@ Each skill lives in its own top-level directory with a `SKILL.md`. See [AGENTS.m
 - Description must be unique (no collision with other skills)
 - Skill version must not exceed package.json version
 
+## Conventional Commits and Releases
+
+Harness uses Conventional Commit history on `main` as the release input. Normal pull requests do **not** manually bump package or plugin versions.
+
+- `BREAKING CHANGE:` or a breaking `!` => major release
+- `feat:` => minor release
+- `fix:`, `perf:`, `refactor:`, `build:`, `revert:` => patch release
+- `docs:`, `test:`, `ci:`, `style:`, `chore:` => no release by themselves
+
+If the repository uses squash merging, make the PR title a valid Conventional Commit because it becomes the commit semantic-release analyzes. See [RELEASING.md](RELEASING.md) for the complete automated release flow.
+
 ## Pull Requests
 
-1. Fork and create a feature branch
-2. Make changes and ensure all gates pass
-3. Update CHANGELOG.md under the `[Unreleased]` section
-4. Open a PR with a clear description of the change
+1. Fork and create a feature branch.
+2. Make changes and ensure all gates pass.
+3. Update `CHANGELOG.md` under `[Unreleased]` for user-visible changes.
+4. Do not manually bump release versions; release automation owns them.
+5. Open a PR with a Conventional Commit title that accurately represents its release impact.
 
 ## Reporting Issues
 
