@@ -16,7 +16,14 @@ assert.strictEqual(config.tagFormat, 'v${version}');
 const analyzer = config.plugins.find(plugin => Array.isArray(plugin) && plugin[0] === '@semantic-release/commit-analyzer');
 assert.ok(analyzer, 'commit analyzer configuration missing');
 const rules = new Map(analyzer[1].releaseRules.filter(rule => rule.type).map(rule => [rule.type, rule.release]));
-for (const [type, release] of Object.entries({ refactor: 'patch', build: 'patch', revert: 'patch' })) {
+for (const [type, release] of Object.entries({
+  feat: 'minor',
+  fix: 'patch',
+  perf: 'patch',
+  refactor: 'patch',
+  build: 'patch',
+  revert: 'patch'
+})) {
   assert.strictEqual(rules.get(type), release, `${type} release rule`);
 }
 for (const type of ['docs', 'test', 'ci', 'style', 'chore']) {
