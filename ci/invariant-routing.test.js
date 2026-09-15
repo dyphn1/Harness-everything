@@ -62,7 +62,7 @@ check(!/Tasks already governed by a more specific domain skill/i.test(cognitiveS
 const hooks = JSON.parse(read('hooks/hooks.json'));
 const promptHooks = hooks.hooks && hooks.hooks.UserPromptSubmit;
 const command = promptHooks && promptHooks[0] && promptHooks[0].hooks && promptHooks[0].hooks[0] && promptHooks[0].hooks[0].command;
-check(command === 'node harness-everything/scripts/kernel-router.js', 'UserPromptSubmit runs the Harness kernel before peer-skill execution');
+check(command === 'node "${CLAUDE_PLUGIN_ROOT}/harness-everything/scripts/kernel-router.js"', 'UserPromptSubmit anchors the Harness kernel to the Claude plugin root');
 
 const triageDoc = read('harness-everything/references/triage-and-tiers.md');
 check(triageDoc.includes('Do not enforce workflow order. Enforce workflow invariants.'), 'architecture reference records the invariant-first decision');

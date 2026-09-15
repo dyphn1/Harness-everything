@@ -93,6 +93,7 @@ runNode('workflow-plan consumer edge contracts', path.join(projectRoot, 'ci', 'w
 runNode('phase 4 ensemble/memory evidence', path.join(projectRoot, 'ci', 'phase4-ensemble-memory.test.js'));
 runNode('phase 5 pre-action gate', path.join(projectRoot, 'ci', 'action-gate.test.js'));
 runNode('phase 5 platform evidence boundary', path.join(projectRoot, 'ci', 'action-gate-platform-doc.test.js'));
+runNode('issue #99 runtime correctness', path.join(projectRoot, 'ci', 'issue99-runtime.test.js'));
 
 console.log('\n[Phase 3] Skill Reference and Behavioral Case Checks...');
 runNode('skill reference check', path.join(projectRoot, 'ci', 'reference-check.js'));
