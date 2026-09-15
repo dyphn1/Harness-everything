@@ -121,12 +121,13 @@ The executable policy lives in `hooks/scripts/action-gate-rules.json`. A missing
 | Exact tool action | Harness result | Audit disposition before execution |
 |---|---|---|
 | Safe unmatched command such as `git status` | allow/no decision | no gate record |
-| Matched command on Claude Code | `permissionDecision: "ask"` | `pending-approval` |
+| Matched command on Claude Code (default policy) | no decision: the session's permission mode, rules and auto-mode classifier decide | `deferred-to-host` |
+| Matched command on Claude Code with `HARNESS_ACTION_GATE_POLICY=always-ask` | `permissionDecision: "ask"` | `pending-approval` |
 | Matched command on a host without Harness-verified ask semantics | block with exit 2 | `rejected` |
-| Approved payload reaches `PostToolUse` | continue | `executed` with exact payload SHA-256 |
-| Approved payload reaches `PostToolUseFailure` | continue | `executed` + failed execution outcome |
-| Pending approval never executes before `Stop` | no execution | `rejected` |
-| Hook internal error | Claude: `ask`; other/unverified host: exit 2 | fail closed |
+| Payload reaches `PostToolUse` | continue | `executed` with exact payload SHA-256 |
+| Payload reaches `PostToolUseFailure` | continue | `executed` + failed execution outcome |
+| Deferred or pending payload never executes before `Stop` | no execution | `rejected` |
+| Hook internal error | Claude: no decision plus a `systemMessage` warning (`always-ask`: `ask`); other/unverified host: exit 2 | host decides on Claude; fail closed elsewhere |
 
 `rm -rf` and `Remove-Item -Recurse -Force` are exempt only when every parsed target is inside the OS temp directory, the current session scratch directory, or an explicitly supplied Harness scratch directory. An uncertain target is gated conservatively.
 
@@ -136,16 +137,30 @@ flowchart TD
     C -- No --> A[Allow without gate record]
     C -- Yes --> X{Scratch-only destructive delete?}
     X -- Yes --> A
-    X -- No --> H{Host has Harness-verified ask mechanism?}
-    H -- Claude Code --> Q[Emit permissionDecision: ask<br/>record pending-approval + payload hash]
+    X -- No --> H{Host has a native permission flow?}
+    H -- Claude Code --> Y{always-ask policy?}
+    Y -- No --> D[No decision: the permission mode decides<br/>record deferred-to-host + payload hash]
+    Y -- Yes --> Q[Emit permissionDecision: ask<br/>record pending-approval + payload hash]
     H -- No / unknown --> B[Exit 2 block<br/>record rejected]
-    Q --> U{Did the exact tool payload execute?}
+    D --> U{Did the exact tool payload execute?}
+    Q --> U
     U -- PostToolUse --> E[record executed]
     U -- PostToolUseFailure --> F[record executed + failure]
     U -- no execution by Stop --> R[record rejected]
 ```
 
-The deterministic suite verifies that the hook emits the same `ask` mechanism for every known `permission_mode` value, including `bypassPermissions`. That is **mechanism evidence only**. Real-host prompting/override behavior for each mode remains `Unknown` until preserved live evidence exists; package tests must not promote it to live support.
+On Claude Code the gate returns no decision by default. The [hooks reference](https://code.claude.com/docs/en/hooks) says a hook's `ask` "also forces a permission prompt in auto mode: the classifier can still deny the tool call, but it can't approve the call silently". A forced `ask` would therefore override the permission mode the user picked (#107).
+
+With no decision, the normal permission flow applies:
+
+- Manual and `acceptEdits` prompt unless a rule or the mode already allows the command.
+- Auto mode lets the classifier decide.
+- `dontAsk` denies anything that is not pre-approved.
+- Deny rules apply in every mode.
+
+Set `HARNESS_ACTION_GATE_POLICY=always-ask` to have Harness force its own prompt instead. Either way the gate classifies and audits every matched payload.
+
+The deterministic suite verifies two things: the deferred result for every known `permission_mode` value, and the `ask` JSON under `always-ask`. That is **mechanism evidence only** until preserved live evidence exists.
 
 ## Cognitive OS relationship
 

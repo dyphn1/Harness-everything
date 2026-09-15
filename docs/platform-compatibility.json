@@ -71,9 +71,9 @@
     "hosts": {
       "claude-code": {
         "ask_decision": "Mechanism verified",
-        "permission_mode_matrix": "Unknown",
-        "fallback": "permissionDecision=ask",
-        "notes": "The documented PreToolUse schema supports ask, and deterministic Harness tests verify the emitted JSON. Real prompting behavior for every permission_mode, including bypassPermissions, is not promoted beyond Unknown without preserved live-host evidence."
+        "permission_mode_matrix": "Mechanism verified",
+        "fallback": "defer-to-host",
+        "notes": "By default a matched command returns no permission decision, so the session's permission mode, rules and auto-mode classifier decide. The hooks reference documents that a hook ask forces a prompt even in auto mode (#107). Deterministic tests verify the deferred result for every permission_mode value and the ask JSON of the opt-in HARNESS_ACTION_GATE_POLICY=always-ask. Live evidence (2026-09-15, plugin 0.3.8-beta, auto mode) showed the earlier forced ask prompting the user; the deferred behavior has no preserved live evidence yet."
       },
       "codex": {
         "ask_decision": "Unsupported",
