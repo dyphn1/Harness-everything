@@ -1,0 +1,40 @@
+name: Regenerate lockfile for issue 117
+
+on:
+  push:
+    branches: [issue-117-lockfile-sync-v2]
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate-lockfile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Regenerate npm lockfile metadata
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Verify root engine mirror
+        run: >-
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json');
+          if (l.packages[''].engines.node !== p.engines.node) {
+            throw new Error('package-lock root engine does not match package.json');
+          }"
+      - name: Commit regenerated lockfile
+        run: |
+          git config user.email "ci@harness-everything"
+          git config user.name "Harness CI"
+          git add package-lock.json
+          if git diff --staged --quiet; then
+            echo "package-lock.json already synchronized"
+          else
+            git commit -m "build: sync lockfile Node engine"
+            git push origin HEAD:issue-117-lockfile-sync-v2
+          fi
