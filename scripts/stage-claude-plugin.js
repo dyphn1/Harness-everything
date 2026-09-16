@@ -8,8 +8,8 @@ const path = require('path');
 const projectRoot = path.resolve(__dirname, '..');
 const MARKETPLACE_PATH = '.claude-plugin/marketplace.json';
 
-function isSameOrAncestor(candidate, target) {
-  const relative = path.relative(candidate, target);
+function containsPath(parent, target) {
+  const relative = path.relative(parent, target);
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 }
 
@@ -26,8 +26,10 @@ function trackedFiles() {
 function stageClaudePlugin(outputDir, options = {}) {
   const outputRoot = path.resolve(outputDir);
 
-  if (isSameOrAncestor(outputRoot, projectRoot)) {
-    throw new Error(`Refusing to stage into the repository or one of its parent directories: ${outputRoot}`);
+  // The staging operation replaces its destination recursively. Keep it entirely
+  // outside the checkout so an accidental argument can never delete repo content.
+  if (containsPath(projectRoot, outputRoot) || containsPath(outputRoot, projectRoot)) {
+    throw new Error(`Refusing to stage inside the repository or one of its parent directories: ${outputRoot}`);
   }
 
   fs.rmSync(outputRoot, { recursive: true, force: true });
