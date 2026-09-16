@@ -13,7 +13,10 @@
     "test:mutations": "node ci/mutation-check.js",
     "test:tdd-quality": "node ci/mechanism-2s-tdd-quality.test.js",
     "tdd:quality": "node tdd/scripts/quality-gate.js",
-    "test:consistency": "node ci/consistency-check.js && node ci/doc-capability-consistency.test.js",
+    "repo:contract": "node scripts/repository-contract.js",
+    "docs:sync": "node scripts/sync-current-docs.js",
+    "test:repo-contract": "node ci/repository-contract.test.js",
+    "test:consistency": "node ci/consistency-check.js && node ci/doc-capability-consistency.test.js && node ci/repository-contract.test.js",
     "test:docs:capabilities": "node ci/doc-capability-consistency.test.js",
     "test:references": "node ci/reference-check.js",
     "test:release": "node ci/release-consistency-check.js && node ci/mechanism-2x-release-automation.test.js && node ci/mechanism-2x-release-commit-message.test.js",
@@ -39,7 +42,7 @@
     "commitlint": "commitlint --edit"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "author": "Miya Daniel",
   "license": "Apache-2.0",

@@ -14,7 +14,9 @@ The source capture for this row is the local review artifact `.git/issue-review-
 
 ## Current review boundary
 
-No evidence in the source capture proves that `0.3.7-beta` was tagged, published to npm, or released on GitHub. The release preparation commit and changelog heading must therefore remain separate from a release claim until a maintainer records the post-tag observations above.
+This file is an evidence ledger, not a source of truth for the current package version. Historical rows stay unchanged until all four observations for a newer release are deliberately collected. Current release/runtime configuration must be read from Git history, package metadata, the release workflow, and [repository-contract.md](repository-contract.md), rather than from prose such as the retired `0.3.7-beta` review note.
+
+A GitHub tag or source version alone is not enough to add a completed row here; keep using `not observed` when registry, workflow, or publication evidence has not been checked.
 
 ## Evidence entry template
 

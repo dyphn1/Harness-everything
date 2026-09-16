@@ -1,6 +1,6 @@
 # Harness OS Troubleshooting Guide
 
-This guide helps you resolve common issues with Harness OS installation and usage. Platform enforcement claims follow [platform-capabilities.md](platform-capabilities.md).
+This guide helps you resolve common issues with Harness OS installation and usage. Platform enforcement claims follow [platform-capabilities.md](platform-capabilities.md). Current Node/workflow values are generated in [repository-contract.md](repository-contract.md).
 
 ## Installation Issues
 
@@ -31,13 +31,19 @@ export PATH=~/.npm-global/bin:$PATH
 # Check your Node.js version
 node --version
 
-# Harness requires Node.js 18 or higher
-# Update using nvm (recommended):
-nvm install 18
-nvm use 18
+# Harness supports Node.js 22 or newer.
+# Node.js 24 is the primary/recommended development runtime.
+nvm install 24
+nvm use 24
 
-# Or download from https://nodejs.org/
+# To reproduce the minimum-runtime CI lane explicitly:
+nvm install 22
+nvm use 22
+
+# Or download a supported release from https://nodejs.org/
 ```
+
+The checked-in `.nvmrc` selects the primary runtime. If runtime/workflow files change, run `npm run docs:sync` followed by `npm run test:repo-contract` so generated current-state documentation cannot drift.
 
 ### Network Issues
 
@@ -264,6 +270,7 @@ For deterministic cross-platform mechanism checks, prefer:
 ```bash
 npm run test:mechanism
 npm run test:docs:capabilities
+npm run test:repo-contract
 ```
 
 When isolating a specific Claude hook, use the Windows-safe `spawnSync` recipes in [../VERIFICATION.md](../VERIFICATION.md) rather than assuming a shell `echo | node` pipeline behaves the same on every OS.

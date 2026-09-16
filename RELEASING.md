@@ -15,14 +15,25 @@ Harness releases are stable SemVer releases generated automatically from Convent
 
 There are no alpha, beta, or rc release channels. Historical prerelease tags remain history, but new releases come only from `main` and use `vX.Y.Z` tags.
 
-The migration baseline is the latest stable release tag, currently `v0.3.6`. Existing unreleased manifest strings do not determine the next version; Git history after that tag does.
+Do not hard-code a "current release baseline" in this guide. `semantic-release` discovers the latest stable tag from Git history on each run, and release evidence belongs in [docs/release-evidence.md](docs/release-evidence.md).
+
+## Runtime contract
+
+The release job uses the repository's primary Node runtime from the checked-in current-state policy: Node.js 24 today, with Node.js 22 retained as the minimum supported product runtime. The generated source-of-truth summary is [docs/repository-contract.md](docs/repository-contract.md).
+
+When changing Node versions, GitHub Action majors, or workflow triggers, run:
+
+```bash
+npm run docs:sync
+npm run test:repo-contract
+```
 
 ## Release flow
 
 A push to `main` runs the full reusable CI gate and then semantic-release. A manual `workflow_dispatch` run is available for a safe retry.
 
 1. Check out full Git history and tags.
-2. Run the same CI jobs used for pull requests.
+2. Run the same CI jobs used for pull requests, including the Node 22 minimum-runtime compatibility lane.
 3. Analyze Conventional Commits since the latest stable release.
 4. Exit without publishing when there is no releasable commit.
 5. Calculate the next stable SemVer.
