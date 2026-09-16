@@ -163,7 +163,7 @@ function installHarnessWithPlugin(ws) {
   // Install the real plugin where opencode actually looks for it.
   const opencodePluginsDir = path.join(ws, '.opencode', 'plugins');
   fs.mkdirSync(opencodePluginsDir, { recursive: true });
-  fs.copyFileSync(path.join(PLUGIN_DIR, 'index.mjs'), path.join(opencodePluginsDir, 'harness-enforcement.mjs'));
+  fs.copyFileSync(path.join(PLUGIN_DIR, 'index.mjs'), path.join(opencodePluginsDir, 'harness-enforcement.js'));
 
   // Also copy the plugin source to the harness source tree for reference.
   fs.cpSync(PLUGIN_DIR, path.join(src, 'opencode-plugin'), { recursive: true });

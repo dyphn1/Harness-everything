@@ -13,7 +13,7 @@ You are modifying **Harness**: an orchestrated agent operating system (skills + 
 | `<skill-name>/SKILL.md` | One canonical skill per top-level directory. Frontmatter: `name`, `description`, `metadata.author`, `metadata.version`. |
 | `hooks/` | Claude Code lifecycle hook scripts and shared mechanisms such as circuit breaker, scope guard, and stop gate. Do not infer that every host packages every hook. |
 | `harness-everything/scripts/` | Runtime: kernel/tier routing, verification, bootstrap, self-heal. |
-| `opencode-plugin/` | OpenCode native plugin implementation. Mechanism-tested; live plugin loading remains unverified until real host evidence exists. |
+| `opencode-plugin/` | OpenCode native plugin implementation. Mechanism-tested, with partial live-host evidence for project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS); see the evidence boundary below. |
 | `.agents/plugins/` + `plugins/harness-everything/` | Local OpenAI/Codex marketplace + `.codex-plugin` package with canonical skill copies and packaged session/prompt hooks. |
 | `submission/openai/` | Public OpenAI Skills-only listing/test inputs. The public artifact does not include local `.codex-plugin` lifecycle hooks. |
 | `evals/<skill>/` | Trigger/routing eval per skill (waza format). Required for every canonical routed skill. |
@@ -24,6 +24,10 @@ You are modifying **Harness**: an orchestrated agent operating system (skills + 
 | `docs/repository-contract.md` | Generated current-state Node/workflow/action/gate contract. Regenerate with `npm run docs:sync`; do not hand-edit. |
 | `.nvmrc` | Primary development/CI Node runtime. `package.json#engines.node` remains the minimum supported runtime. |
 | `docs/`, `references/` | Philosophy, architecture, workflow documentation, shared checklists. |
+
+## OpenCode evidence boundary
+
+The retained [OpenCode evidence](benchmarks/results/live-host/opencode-2026-09-16/README.md) supports only the scoped loading and state effects above. The final snapshot is post-reset (`hardLock: false`, `count: 1`). Hard lock is only an interactive observation with no retained blocked-tool trace; reflection was operator-seeded, then agent-rewritten. Agent-controlled state deletion resets the breaker, so do not claim durable hard enforcement or behavioral effectiveness. `.mjs` auto-discovery is broken on this host version. Global scope, npm-package installation, and other host versions remain unverified.
 
 ## Non-Negotiable Change Rules
 

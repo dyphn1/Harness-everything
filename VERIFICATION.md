@@ -22,7 +22,7 @@ First identify **which Harness surface you are testing**. One host can have more
 | Surface | Artifact / location | What artifact presence proves |
 |---|---|---|
 | Claude Code | `.claude/settings.json`, `.claude/skills/`, `.claude/agents/` | The Claude installer/plugin wrote its lifecycle-hook configuration and content |
-| OpenCode | `.opencode/plugins/` / `opencode-plugin/index.mjs` | The native plugin module exists; this alone does not prove live loading |
+| OpenCode | `.opencode/plugins/harness-enforcement.js` (copied from `opencode-plugin/index.mjs`) | The loadable plugin module exists under a `.js` name; this alone does not prove live loading |
 | Codex — general installer | `AGENTS.md`, repo-scoped `.agents/skills/` | Advisory/instruction integration and project Agent Skills are installed |
 | **Codex / local OpenAI plugin** | `.agents/plugins/marketplace.json`, `plugins/harness-everything/.codex-plugin/plugin.json`, packaged hooks/skills | The local OpenAI plugin package is structurally present |
 | **Public OpenAI Skills-only** | generated `dist/openai-submission/harness-everything-skills.zip` | The public-review bundle was generated; local `.codex-plugin` lifecycle hooks are intentionally not part of this artifact |
@@ -127,9 +127,9 @@ The repository implements the real OpenCode plugin API and has deterministic mec
 npm run test:mechanism
 ```
 
-and inspect the OpenCode-specific mechanism suite (`ci/mechanism-2n-opencode-plugin.test.js`).
+and inspect the OpenCode-specific mechanism suites (`ci/mechanism-2n-opencode-plugin.test.js` for hook behavior, `ci/mechanism-30-opencode-plugin-loadability.test.js` for install-filename loadability).
 
-**Current evidence boundary:** implementation/mechanism-tested, **live plugin loading remains unverified** until a real OpenCode session artifact demonstrates that the host loaded and fired the plugin.
+**Current evidence boundary:** deterministic mechanism coverage plus partial live-host evidence for project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS). See [retained evidence](benchmarks/results/live-host/opencode-2026-09-16/README.md). The final snapshot is post-reset (`hardLock: false`, `count: 1`), not a history of the enforcement sequence. Hard lock is only an interactive observation with no retained blocked-tool trace. Reflection was operator-seeded, then agent-rewritten; follow-up delivery is reported/state-consistent, without a retained transcript. Agent-controlled state deletion resets the breaker, so neither durable hard enforcement nor behavioral effectiveness is proven. `.mjs` auto-discovery is broken on this host version (issue #127). Global scope, npm-package installation, and other host versions remain unverified.
 
 ---
 
@@ -142,7 +142,7 @@ npm run test:docs:capabilities
 npm run test:consistency
 ```
 
-The capability test checks the current-state documentation surfaces for stale platform paths and pre-plugin claims, requires the Codex local-plugin vs public Skills-only distinction, preserves the OpenCode live-unverified qualifier, and records the Hermes native user skill target plus the Continue installer candidate boundary.
+The capability test checks the current-state documentation surfaces for stale platform paths and pre-plugin claims, requires the Codex local-plugin vs public Skills-only distinction, requires the OpenCode retained artifact path, host/version/OS and project `.js` scope, and explicit partial-evidence limitations, and records the Hermes native user skill target plus the Continue installer candidate boundary.
 
 When changing platform integration behavior, update [docs/platform-capabilities.md](docs/platform-capabilities.md) and all affected current-state docs in the same PR.
 
@@ -237,7 +237,7 @@ Fill in one row **per installation surface**, not merely per brand name.
 |---|---|---|---|---|---|---|
 | Package/artifact present | | | | | | |
 | Deterministic mechanism tests | | | N/A/explicit CLI only | | N/A (skill bundle) | N/A |
-| Live host loaded mechanism | | **unverified until evidenced** | N/A | | N/A | N/A |
+| Live host loaded mechanism | | **loading verified; lifecycle evidence partial** (project scope, OpenCode 1.18.31, macOS, `.js`) — [evidence](benchmarks/results/live-host/opencode-2026-09-16/README.md) | N/A | | N/A | N/A |
 | Routing/invariant behavior | | | | | | |
 | Objective verification discipline | | | | | | |
 | Failure recovery discipline | | | | | | |

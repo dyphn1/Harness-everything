@@ -15,7 +15,7 @@ Statuses are intentionally explicit:
 - `Unsupported`: official host documentation explicitly rules out the capability.
 - `Unknown`: the capability or its current host behavior was not established.
 
-All current `liveHostVerification` rows are `Unknown`. This checkout contains deterministic package and installer evidence, but no fresh host-session artifacts, managed-workspace import report, or public OpenAI approval record.
+All `liveHostVerification` rows except OpenCode are `Unknown`. OpenCode's row is `Partial`: retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS), not durable hard enforcement. No fresh artifacts exist yet for the other surfaces, managed-workspace import, or public OpenAI approval.
 
 ## Current capability summary
 
@@ -24,7 +24,7 @@ All current `liveHostVerification` rows are `Unknown`. This checkout contains de
 | Codex | `Supported` | `Mechanism verified` | `Mechanism verified` for the local OpenAI package, including session, prompt, supported-tool, subagent, and stop hooks | `.agents/skills/`, `AGENTS.md` | `~/.agents/skills/` | Local package hooks are mechanically checked; live loading and marketplace refresh remain `Unknown`. |
 | ChatGPT / OpenAI Plugin | `Unknown` for a repository-local standalone path | `Mechanism verified` | `Partial`: local Work/Codex hooks are separate from ordinary Chat | Managed workspace marketplace | Not established | The public Skills-only bundle is mechanically reproducible; import, approval, and live behavior remain `Unknown`. |
 | Claude Code | `Supported` | `Supported` | `Mechanism verified` for Harness configuration | `.claude/skills/` | `~/.claude/skills/` | Native Claude surfaces are documented and package/installer checks pass; fresh-host execution is not preserved here. |
-| OpenCode | `Supported` | `Mechanism verified` | `Mechanism verified` against `tool.execute.*` and `session.idle` | `.opencode/skills/`, `.agents/skills/`, `.opencode/plugins/` | `~/.config/opencode/skills/`, `~/.agents/skills/`, `~/.config/opencode/plugins/` | The real adapter API is tested, but live plugin loading remains unverified. |
+| OpenCode | `Supported` | `Partial` live-host loading for the project-scope, `.js`-filename install path on OpenCode 1.18.31 (macOS); other install paths remain `Mechanism verified` | `Partial` live-host evidence for project-scope `.js` loading and edit/verification state; hard lock reported only, with no retained blocked-tool trace and a post-reset final snapshot | `.opencode/skills/`, `.agents/skills/`, `.opencode/plugins/` | `~/.config/opencode/skills/`, `~/.agents/skills/`, `~/.config/opencode/plugins/` | [Retained evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md): loading and state effects verified in one host session; final snapshot post-reset; hard lock only an interactive observation; reflection operator-seeded, then agent-rewritten; no raw transcript or behavioral-effectiveness claim. `.mjs` auto-discovery broken (issue #127); global scope, npm-package installation, and other host versions remain unverified. |
 | GitHub Copilot agent surfaces | `Supported` | `Unknown` for a Harness-specific plugin install | `Unknown` | `.github/skills/`, `.agents/skills/`, repository instructions | `~/.copilot/skills/`, `~/.agents/skills/` | GitHub Agent Skills paths and installer behavior are checked; no live Copilot session or plugin install is preserved. |
 | Cursor | `Supported` | `Mechanism verified` for the portable package shape | `Unknown` for Harness | `.cursor/skills/`, `.agents/skills/` | `~/.cursor/skills/`, `~/.agents/skills/` | Official paths and package shape are checked; Cursor plugin loading and hooks remain unverified. |
 | Continue.dev | `Unknown` for standalone `SKILL.md` discovery | `Unknown` | `Unknown` | `.continue/rules/` is documented; `.continue/skills/` is only an installer candidate | `~/.continue/skills/` is only an installer candidate | The reviewed official docs establish rules, not an Agent Skills host contract. |
@@ -64,7 +64,7 @@ The general installer merges shared files only through Harness-owned markers and
 
 ## OpenCode boundary
 
-The OpenCode adapter uses the documented plugin API and has deterministic mechanism coverage. That proves the implementation contract only. **Live plugin loading remains unverified** until a real OpenCode session artifact demonstrates that the host loaded and fired the module.
+The OpenCode adapter uses the documented plugin API and has deterministic mechanism coverage. Retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS): [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The final snapshot is post-reset (`hardLock: false`, `count: 1`), not a history of the enforcement sequence. Hard lock is only an interactive observation with no retained blocked-tool trace. Reflection was operator-seeded, then agent-rewritten. Agent-controlled state deletion resets the breaker, so do not promote this into a durable hard-enforcement or behavioral-effectiveness claim. `.mjs` auto-discovery is broken on this host version (issue #127). Global scope, npm-package installation, and other host versions remain unverified.
 
 ## Official sources
 

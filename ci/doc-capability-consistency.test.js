@@ -72,7 +72,6 @@ for (const rel of CURRENT_SURFACES) {
 requireText('docs/platform-capabilities.md', [
   { name: 'local Codex plugin boundary', re: /Codex \/ local OpenAI plugin/i },
   { name: 'public Skills-only boundary', re: /Public OpenAI Skills-only plugin/i },
-  { name: 'OpenCode live-unverified boundary', re: /live plugin loading remains unverified/i },
   { name: 'general Codex installer boundary', re: /general `--codex` installer|Legacy\/general installer target/i },
   { name: 'Codex project skill target', re: /Codex[^\n]*`\.agents\/skills\/`/i },
   { name: 'Continue global skill target', re: /Continue\.dev[^\n]*`~\/\.continue\/skills\/`/i },
@@ -92,7 +91,6 @@ requireText('docs/platform-compatibility.json', [
 requireText('README.md', [
   { name: 'local Codex plugin surface', re: /Codex \/ local OpenAI plugin|local OpenAI plugin/i },
   { name: 'public Skills-only distinction', re: /Public OpenAI[^\n]*Skills-only|public OpenAI \*\*Skills-only\*\*/i },
-  { name: 'OpenCode live-unverified qualifier', re: /OpenCode[^\n]*(?:live plugin loading|live loading) remains unverified/i },
   { name: 'canonical matrix link', re: /docs\/platform-capabilities\.md/ },
   { name: 'Codex repo Agent Skills path', re: /Codex[^\n]*`?\.agents\/skills\/?`?/i },
   { name: 'Continue native global skills path', re: /`~\/\.continue\/skills\/`/i },
@@ -109,12 +107,10 @@ requireText('AGENTS.md', [
 requireText('BENCHMARK_SOP.md', [
   { name: 'behavior vs mechanism separation', re: /behavior[^\n]{0,120}mechanism|mechanism\/live-host evidence/i },
   { name: 'Codex multi-surface distinction', re: /Codex \/ local OpenAI plugin|general Codex installer path/i },
-  { name: 'OpenCode live-unverified qualifier', re: /OpenCode[^\n]*(?:live plugin loading|live loading) remains unverified/i },
 ]);
 
 requireText('docs/architecture.md', [
   { name: 'Codex local plugin host adapter', re: /Codex[^\n]*local OpenAI plugin/i },
-  { name: 'OpenCode live loading remains unverified', re: /live (plugin )?loading remains unverified/i },
 ]);
 
 requireText('VERIFICATION.md', [
@@ -158,9 +154,64 @@ requireText('submission/openai/README.md', [
   { name: 'submission excludes local hooks', re: /does not contain the local `\.codex-plugin` lifecycle hooks/i },
 ]);
 
+const OPENCODE_EVIDENCE = 'benchmarks/results/live-host/opencode-2026-09-16/README.md';
+const OPENCODE_SURFACES = [
+  'README.md',
+  'AGENTS.md',
+  'BENCHMARK_SOP.md',
+  'VERIFICATION.md',
+  'docs/architecture.md',
+  'docs/platform-capabilities.md',
+  'docs/platform-compatibility.json',
+  'opencode-plugin/README.md',
+];
+
+read(OPENCODE_EVIDENCE);
+for (const rel of OPENCODE_SURFACES) {
+  requireText(rel, [
+    { name: 'OpenCode retained artifact path', re: /benchmarks\/results\/live-host\/opencode-2026-09-16\/README\.md/ },
+    { name: 'OpenCode host/version/OS scope', re: /OpenCode 1\.18\.31[^\n]{0,40}macOS/i },
+    { name: 'OpenCode project .js scope', re: /project[- ]scope[^\n]{0,100}\.js/i },
+    { name: 'OpenCode loading and state evidence', re: /loading[^\n]{0,120}edit\/verification state/i },
+    { name: 'OpenCode post-reset snapshot boundary', re: /post-reset/i },
+    { name: 'OpenCode operator-seeded reflection boundary', re: /operator-seeded/i },
+    { name: 'OpenCode hard-lock observation boundary', re: /hard[- ]lock[^\n]{0,100}interactive observation/i },
+    { name: 'OpenCode missing blocked-tool trace', re: /no (?:retained )?blocked-tool trace/i },
+    { name: 'OpenCode unverified remainder', re: /Global scope, npm-package installation, and other (?:OpenCode|host) versions remain unverified/i },
+  ]);
+  const text = read(rel);
+  for (const re of [/fired the full (?:enforcement )?chain/i, /Hard, live-verified/i, /live (?:plugin )?loading remains unverified until/i]) {
+    if (re.test(text)) fail(`${rel}: contains unsupported OpenCode claim ${re}`);
+  }
+}
+
+const matrix = JSON.parse(read('docs/platform-compatibility.json'));
+const opencode = matrix.platforms.find(platform => platform.id === 'opencode');
+for (const dimension of ['hooksLifecycle', 'liveHostVerification']) {
+  if (opencode?.capabilities[dimension]?.status !== 'Partial') {
+    fail(`OpenCode ${dimension}: must remain Partial`);
+  }
+}
+if (opencode?.capabilities.liveHostVerification.evidence !== OPENCODE_EVIDENCE) {
+  fail('OpenCode liveHostVerification: missing exact retained artifact path');
+}
+for (const platform of matrix.platforms.filter(platform => platform.id !== 'opencode')) {
+  if (platform.capabilities.liveHostVerification.status !== 'Unknown') {
+    fail(`${platform.id}: liveHostVerification must remain Unknown without its own evidence`);
+  }
+}
+
+const capabilitySummaryCount = read('docs/platform-capabilities.md').match(/^## Current capability summary$/gm)?.length;
+if (capabilitySummaryCount !== 1) fail('docs/platform-capabilities.md: expected one current capability summary');
+
 requireText('opencode-plugin/README.md', [
-  { name: 'live OpenCode evidence limitation', re: /Live opencode plugin loading remains unverified/i },
+  { name: 'project install directory creation', re: /mkdir -p \.opencode\/plugins\s+cp opencode-plugin\/index\.mjs \.opencode\/plugins\/harness-enforcement\.js/ },
+  { name: 'global install directory creation', re: /mkdir -p ~\/\.config\/opencode\/plugins\s+cp opencode-plugin\/index\.mjs ~\/\.config\/opencode\/plugins\/harness-enforcement\.js/ },
+  { name: 'restart after installation', re: /restart OpenCode/i },
 ]);
+if (/package names, not local file paths/i.test(read('opencode-plugin/README.md'))) {
+  fail('opencode-plugin/README.md: incorrect local plugin path exclusion');
+}
 
 requireText('docs/audit.md', [
   { name: 'historical snapshot boundary', re: /Historical snapshot boundary/i },
