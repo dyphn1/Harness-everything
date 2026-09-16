@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.5.1](https://github.com/dyphn1/Harness-everything/compare/v0.5.0...v0.5.1) (2026-09-16)
+
+### Bug Fixes
+
+* **rule-of-3:** parse Claude failure hook payload ([83d3106](https://github.com/dyphn1/Harness-everything/commit/83d310653d19fd72f597d119eface1c3baf5a7bd))
+* **rule-of-3:** wire Claude failure hook to tracker ([11b3e9e](https://github.com/dyphn1/Harness-everything/commit/11b3e9e7a08b0394d2dd3dac78bd1464ae5881df))
+
 ## [0.5.0](https://github.com/dyphn1/Harness-everything/compare/v0.4.4...v0.5.0) (2026-09-16)
 
 ### Features
