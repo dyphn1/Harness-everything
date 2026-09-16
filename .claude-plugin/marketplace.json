@@ -1,5 +1,6 @@
 {
   "name": "harness-everything",
+  "description": "Harness Everything plugin marketplace for Claude Code.",
   "owner": {
     "name": "dyphn1",
     "url": "https://github.com/dyphn1"
