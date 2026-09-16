@@ -31,7 +31,7 @@ function validateCommandTarget(command, label) {
   assert.match(
     command,
     /^node\s+["']?\$\{CLAUDE_PLUGIN_ROOT\}\//,
-    `${label} must invoke Node directly from \\${CLAUDE_PLUGIN_ROOT}: ${command}`
+    `${label} must invoke Node directly from \${CLAUDE_PLUGIN_ROOT}: ${command}`
   );
 
   const targetPattern = /\$\{CLAUDE_PLUGIN_ROOT\}\/([^"'\s]+)/g;
