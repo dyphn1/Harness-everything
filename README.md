@@ -48,6 +48,8 @@ The exact "Harness" behavior depends on the installation surface. Claude Code ha
 
 Harness integrates directly into your workspace. There is no heavy daemon, no paid external APIs, and zero configuration required.
 
+**Runtime:** Harness supports **Node.js 22+**. Node.js **24** is the primary/recommended development and CI runtime (`.nvmrc`). The generated current-state runtime/workflow summary is [docs/repository-contract.md](docs/repository-contract.md).
+
 ```bash
 # Option A: Claude Code plugin (marketplace manifest included)
 #   /plugin marketplace add dyphn1/Harness-everything
@@ -200,18 +202,18 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 |---|---|---|
 | `harness-everything` | **Core Runtime** | Bootstrap, kernel-router, tier-router, verify-gate, self-heal |
 | `hooks` | **Core Runtime** | Claude Code lifecycle hooks (prompt routing, circuit breaker, scope guard, stop gate, etc.) |
-| `scripts` | **Core Runtime** | Installer, manifest, prompts, workspace utilities |
+| `scripts` | **Core Runtime** | Installer, manifest, prompts, workspace utilities, repository contract extraction/sync |
 | `bin` | **Core Runtime** | `harness` CLI entry point |
-| `ci` | **Quality Gates** | Consistency checks, description collision, mechanism tests, invariant-routing regression, documentation capability drift guard |
+| `ci` | **Quality Gates** | Consistency checks, description collision, mechanism tests, invariant-routing regression, documentation/runtime contract drift guards |
 | `.github` | **CI/CD** | GitHub Actions workflows (ci.yml, release.yml, behavioral-evals.yml) |
 | `.claude-plugin` | **Distribution** | Plugin manifests for Claude Code marketplace |
 | `.agents/plugins` | **Distribution** | OpenAI/Codex repository marketplace metadata |
 | `plugins/harness-everything` | **Distribution** | Local OpenAI/Codex plugin package plus canonical skill copies |
 | `submission/openai` | **Distribution / Review** | Public OpenAI Skills-only listing/test inputs |
 | `evals` | **Routing Evals** | 26 trigger/routing eval suites (waza format) |
-| `behavioral-evals` | **Behavioral Evals** | LLM-level discipline cases (headless agent sessions) |
+| `behavioral-evals` | **Behavioral Evals** | LLM-level discipline cases plus weekly structural validation workflow |
 | `benchmarks` | **Benchmarks** | BENCHMARK_SOP fixtures and recorded A/B results |
-| `docs` | **Documentation** | Philosophy, architecture, routing, reflection, platform capabilities, audit |
+| `docs` | **Documentation** | Philosophy, architecture, routing, reflection, platform capabilities, generated repository contract, audit |
 | `references` | **Documentation** | Shared checklists (security, performance, definition-of-done) |
 | `multi-agent-workspace` | **Skill (Tier 3)** | Scaffold six zones, select agency specialists, and generate bounded launchers |
 | `environment-detection` | **Foundation** | Preflight: detect OS, shell, package manager |
@@ -249,6 +251,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 * [Harness Philosophy](docs/philosophy.md): The core behavior-first, intervention-only design.
 * [Harness Architecture](docs/architecture.md): Lifecycle hooks, security model, and data locality.
 * [Platform Capability Matrix](docs/platform-capabilities.md): Canonical current enforcement/install/evidence boundary per surface.
+* [Repository Runtime & Workflow Contract](docs/repository-contract.md): Generated Node/action/workflow/gate state used by consistency CI.
 * [OpenAI / ChatGPT Plugin Packaging](docs/openai-plugin.md): Local Codex/OpenAI plugin packaging plus public Skills-only submission boundary.
 * [Harness Routing & Triage](docs/routing.md): Detailed trigger criteria for Tiers 1, 2, and 3.
 * [Harness Reflection & Memory](docs/reflection.md): WAL session handoffs and workspace rules immunization.
@@ -264,7 +267,7 @@ Maintainers should follow [RELEASING.md](RELEASING.md) for tag-driven npm releas
 
 **If you are an agent asked to verify a Harness install, start at [VERIFICATION.md](VERIFICATION.md), not here.** It separates package/integrity checks, mechanism evidence, live-host evidence, and behavioral evidence so one kind of pass is not mistaken for another.
 
-`npm test` (`self-evolve/scripts/self-regression.js`) runs deterministic syntax, CLI, routing-matrix, positive skill-route coverage, **invariant-first routing regression**, reference, behavioral-case, Fable model-mode, and mechanism checks (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone). The suite checks real exit codes and stderr, not just "the code looks right." It runs in CI on Ubuntu, Windows, and macOS for every push and pull request (`.github/workflows/ci.yml`); live model evaluations remain explicitly on-demand.
+`npm test` (`self-evolve/scripts/self-regression.js`) runs deterministic syntax, CLI, routing-matrix, positive skill-route coverage, **invariant-first routing regression**, reference, behavioral-case, Fable model-mode, and mechanism checks (`ci/mechanism-test.js`, `npm run test:mechanism` to run it alone). The suite checks real exit codes and stderr, not just "the code looks right." Primary CI runs on Node.js 24 across Ubuntu, Windows, and macOS for every push and pull request (`.github/workflows/ci.yml`), with a separate Node.js 22 compatibility lane for the advertised minimum runtime.
 
 For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Benchmark SOP](BENCHMARK_SOP.md) — standardized, reproducible scenarios:
 * **Test A:** Over-engineering defense (Tier 1 typo correction)
@@ -276,13 +279,13 @@ For a fuller vanilla-vs-Harness behavioral comparison, see [Harness Skills Bench
 
 Benchmark **results** are tracked in [benchmarks/](benchmarks/README.md) (`run.js scaffold` builds the fixture, `record` commits a schema-validated result bound to a session log). Until those cells are filled, effectiveness claims are unbacked by recorded evidence.
 
-### Behavioral evals (LLM-level, on demand)
+### Behavioral evals (LLM-level, on demand + weekly structural validation)
 
-Mechanism tests prove individual packaged mechanisms; only real host/session evidence proves the host actually loaded and fired them. [behavioral-evals/](behavioral-evals/README.md) runs discipline cases (including pressure variants like "we ship in 5 minutes, skip checks") against headless agent sessions (`claude -p`, OpenCode) in throwaway workspaces: `npm run eval:behavioral`. Token-costing by design — never wired into CI.
+Mechanism tests prove individual packaged mechanisms; only real host/session evidence proves the host actually loaded and fired them. [behavioral-evals/](behavioral-evals/README.md) runs discipline cases (including pressure variants like "we ship in 5 minutes, skip checks") against headless agent sessions (`claude -p`, OpenCode) in throwaway workspaces: `npm run eval:behavioral`. Live runs remain token-costing and can be invoked on demand. The weekly `behavioral-evals.yml` workflow always validates case structure and runs live cases only when the runner actually has the Claude CLI.
 
 ### Catalog hygiene
 
-`npm run test:consistency` keeps the distribution manifests, docs links, skill frontmatter, routing-eval coverage, and the cross-platform capability claims in lockstep with what is actually on disk; `npm run test:docs:capabilities` runs the platform-doc drift check directly. `npm run test:references` checks every executable/deep-dive path named by `SKILL.md`; `npm run test:release` compares release/catalog evidence; `npm run test:routing:skills` recursively classifies nested skills and executes the real router for every directly-routable skill's positive cases; `npm run test:routing:invariants` guards the invariant-first architecture; and `harness verify-install` detects stale installed versions or file trees. The installer E2E gate performs install → verify-install → uninstall against seeded user-owned files on Ubuntu, Windows, and macOS so path and ownership symmetry regressions fail CI. `npm run test:collision` fails CI when two skills' descriptions overlap enough to confuse the router.
+`npm run test:consistency` keeps distribution manifests, docs links, skill frontmatter, routing-eval coverage, platform capability claims, and the generated repository runtime/workflow contract in lockstep with what is actually on disk. `npm run test:repo-contract` runs the runtime/workflow drift gate directly, while `npm run docs:sync` regenerates [docs/repository-contract.md](docs/repository-contract.md) after an intentional change. `npm run test:docs:capabilities` runs the platform-doc drift check directly. `npm run test:references` checks every executable/deep-dive path named by `SKILL.md`; `npm run test:release` compares release/catalog evidence; `npm run test:routing:skills` recursively classifies nested skills and executes the real router for every directly-routable skill's positive cases; `npm run test:routing:invariants` guards the invariant-first architecture; and `harness verify-install` detects stale installed versions or file trees. The installer E2E gate performs install → verify-install → uninstall against seeded user-owned files on Ubuntu, Windows, and macOS so path and ownership symmetry regressions fail CI. `npm run test:collision` fails CI when two skills' descriptions overlap enough to confuse the router.
 
 ---
 
@@ -303,8 +306,9 @@ To contribute to Harness or modify any Skill behavior, ensure you run the local 
 ```bash
 npm run self-regression
 npm run test:consistency
+npm run test:repo-contract
 npm run test:plugin:openai
 npm run test:plugin:submission
 ```
 
-All script modifications must pass 100% cleanly before pushing to keep the runtime immunized against behavioral regression.
+After intentional runtime/workflow changes, run `npm run docs:sync` and commit the regenerated repository contract. All script modifications must pass 100% cleanly before pushing to keep the runtime immunized against behavioral regression.
