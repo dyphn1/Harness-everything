@@ -1,32 +1,38 @@
 const fs = require('fs');
 const path = require('path');
 const helper = require('./test-helper');
+const { isStableSemVer } = require('../scripts/sync-release-version');
 
 console.log('\n[2u] Issue #44 release metadata regression checks...');
 
-const packageJson = JSON.parse(fs.readFileSync(path.join(helper.root, 'package.json'), 'utf8'));
 const skillText = name => fs.readFileSync(path.join(helper.root, name, 'SKILL.md'), 'utf8');
 const versionOf = text => {
   const match = text.match(/^  version:\s*(\S+)$/m);
   return match && match[1];
 };
 
+// Skill metadata records the release in which that skill last changed; it is
+// intentionally not required to equal the current package version. The
+// changed-skill bump policy itself is exercised dynamically by
+// mechanism-2x-release-automation.test.js.
+const fableVersion = versionOf(skillText('fable-mode'));
 helper.check(
-  '2u. modified fable-mode skill uses the released package version',
-  versionOf(skillText('fable-mode')) === packageJson.version,
-  `fable-mode=${versionOf(skillText('fable-mode'))}, package=${packageJson.version}`
+  '2u. fable-mode carries stable release metadata',
+  isStableSemVer(fableVersion),
+  `fable-mode=${fableVersion}`
 );
 for (const nested of ['execution-guardrails', 'fable-haiku', 'fable-opus', 'fable-sonnet']) {
   helper.check(
     `2u. fable-mode/${nested} inherits the parent version`,
-    versionOf(skillText(path.join('fable-mode', nested))) === versionOf(skillText('fable-mode')),
-    `${nested}=${versionOf(skillText(path.join('fable-mode', nested)))}, parent=${versionOf(skillText('fable-mode'))}`
+    versionOf(skillText(path.join('fable-mode', nested))) === fableVersion,
+    `${nested}=${versionOf(skillText(path.join('fable-mode', nested)))}, parent=${fableVersion}`
   );
 }
+const todoVersion = versionOf(skillText('todo-driven-workflow'));
 helper.check(
-  '2u. modified todo-driven-workflow skill uses the released package version',
-  versionOf(skillText('todo-driven-workflow')) === packageJson.version,
-  `todo-driven-workflow=${versionOf(skillText('todo-driven-workflow'))}, package=${packageJson.version}`
+  '2u. todo-driven-workflow carries stable release metadata',
+  isStableSemVer(todoVersion),
+  `todo-driven-workflow=${todoVersion}`
 );
 
 const changelog = fs.readFileSync(path.join(helper.root, 'CHANGELOG.md'), 'utf8');
