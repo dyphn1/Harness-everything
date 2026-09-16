@@ -194,6 +194,17 @@
         ],
         "description": "Record that an approved action-gate payload executed but failed",
         "id": "harness:post-failure:action-gate-audit"
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/rule-of-3-tracker.js\""
+          }
+        ],
+        "description": "Track failed tool error signatures for Rule of 3",
+        "id": "harness:post-failure:rule-of-3-tracker"
       }
     ]
   }
