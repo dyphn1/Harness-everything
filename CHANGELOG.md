@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.4.4](https://github.com/dyphn1/Harness-everything/compare/v0.4.3...v0.4.4) (2026-09-16)
+
+### Bug Fixes
+
+* **codex:** use portable PLUGIN_ROOT hook placeholders ([cdad922](https://github.com/dyphn1/Harness-everything/commit/cdad922baae531b9bacbf975b6149a48bca947d5))
+
 ## [0.4.3](https://github.com/dyphn1/Harness-everything/compare/v0.4.2...v0.4.3) (2026-09-16)
 
 ### Bug Fixes
