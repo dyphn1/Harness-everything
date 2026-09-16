@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.5.2](https://github.com/dyphn1/Harness-everything/compare/v0.5.1...v0.5.2) (2026-09-16)
+
+### Bug Fixes
+
+* **release:** close semantic-release contract gaps ([79d2a76](https://github.com/dyphn1/Harness-everything/commit/79d2a76c931eaaa8928334877ca2b1195e06cce4))
+
 ## [0.5.1](https://github.com/dyphn1/Harness-everything/compare/v0.5.0...v0.5.1) (2026-09-16)
 
 ### Bug Fixes
