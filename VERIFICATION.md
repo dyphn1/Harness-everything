@@ -11,7 +11,7 @@ Harness verification separates four kinds of evidence that must not be conflated
 
 A mechanism test can pass while a live host never loads the plugin. A behavior test can pass on an advisory-only surface without proving any hard enforcement. Keep those claims separate.
 
-The authoritative current platform boundary is [docs/platform-capabilities.md](docs/platform-capabilities.md).
+The authoritative current platform boundary is [docs/platform-capabilities.md](docs/platform-capabilities.md). The generated current runtime/workflow boundary is [docs/repository-contract.md](docs/repository-contract.md).
 
 ---
 
@@ -146,6 +146,21 @@ The capability test checks the current-state documentation surfaces for stale pl
 
 When changing platform integration behavior, update [docs/platform-capabilities.md](docs/platform-capabilities.md) and all affected current-state docs in the same PR.
 
+### 3a. Repository runtime/workflow contract
+
+Runtime and workflow claims are extracted from `package.json`, `.nvmrc`, `Dockerfile`, and active `.github/workflows/*.yml` rather than being independently maintained in prose.
+
+```bash
+npm run repo:contract          # human-readable current state
+npm run repo:contract -- --json
+npm run docs:sync              # regenerate docs/repository-contract.md
+npm run test:repo-contract     # fail on drift
+```
+
+The contract gate requires Node.js 22 or newer as the supported floor, requires the primary `.nvmrc` runtime to match Docker and active primary workflows, keeps an explicit Node 22 CI compatibility lane, rejects GitHub Action majors below the supported floor, preserves the weekly behavioral-eval schedule, and checks that the generated contract document is current.
+
+After intentionally changing runtime/workflow configuration, regenerate the document and commit it in the same PR. Historical audit/evidence snapshots are not rewritten merely because the current contract changed.
+
 ---
 
 ## 4. Behavioral test prompts
@@ -271,13 +286,17 @@ For a comprehensive audit:
 
 ```bash
 npm test
+npm run test:mutations
 npm run test:consistency
+npm run test:repo-contract
 npm run test:references
+npm run test:release
 npm run test:routing:skills
 npm run test:routing:invariants
 npm run test:plugin:openai
 npm run test:plugin:submission
+npm run test:platform:compatibility
 node ci/installer-roundtrip.test.js
 ```
 
-Do not accept "I read the code and it looks right" as evidence for a runtime or live-host claim.
+Primary CI uses Node.js 24 across Ubuntu, Windows, and macOS; the dedicated Node.js 22 lane proves the advertised minimum remains viable. Do not accept "I read the code and it looks right" as evidence for a runtime or live-host claim.
