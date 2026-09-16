@@ -238,7 +238,7 @@ try {
 
   const pluginHooks = JSON.parse(fs.readFileSync(path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'hooks.json'), 'utf8'));
   const pluginPre = pluginHooks.hooks.PreToolUse.find(group => group.matcher === 'Bash|apply_patch');
-  check(pluginPre && pluginPre.hooks.some(hook => /action-gate\.js/.test(hook.command)), 'OpenAI plugin wires action-gate to Bash|apply_patch');
+  check(pluginPre && pluginPre.hooks.some(hook => /codex-action-gate-pre\.js/.test(hook.command)), 'OpenAI plugin wires the attribution-aware Codex action-gate adapter to Bash|apply_patch');
   check(!Object.prototype.hasOwnProperty.call(pluginHooks.hooks, 'PostToolUseFailure'), 'Codex plugin does not declare unsupported PostToolUseFailure lifecycle event');
   const pluginPost = pluginHooks.hooks.PostToolUse.find(group => group.matcher === 'Bash|apply_patch');
   check(pluginPost && pluginPost.hooks.some(hook => /codex-action-gate-post\.js/.test(hook.command)), 'Codex plugin infers action-gate outcome from supported PostToolUse');
