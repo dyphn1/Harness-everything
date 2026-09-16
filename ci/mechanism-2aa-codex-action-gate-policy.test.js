@@ -8,10 +8,13 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const actionGate = require(path.join(ROOT, 'hooks', 'scripts', 'action-gate.js'));
+const preAdapter = require(path.join(ROOT, 'hooks', 'scripts', 'codex-action-gate-pre.js'));
 const permissionRequest = require(path.join(ROOT, 'hooks', 'scripts', 'codex-permission-request.js'));
 
 const pluginRoot = path.join(ROOT, 'plugins', 'harness-everything');
 const pluginHooksPath = path.join(pluginRoot, 'hooks', 'hooks.json');
+const canonicalPre = path.join(ROOT, 'hooks', 'scripts', 'codex-action-gate-pre.js');
+const packagedPre = path.join(pluginRoot, 'hooks', 'scripts', 'codex-action-gate-pre.js');
 const canonicalPost = path.join(ROOT, 'hooks', 'scripts', 'codex-action-gate-post.js');
 const packagedPost = path.join(pluginRoot, 'hooks', 'scripts', 'codex-action-gate-post.js');
 const canonicalPermission = path.join(ROOT, 'hooks', 'scripts', 'codex-permission-request.js');
@@ -49,9 +52,14 @@ function commandPaths(hooks) {
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-codex-policy-'));
 const sessionDir = path.join(tempRoot, 'session');
+const attributionDir = path.join(tempRoot, 'attribution');
 fs.mkdirSync(sessionDir, { recursive: true });
 
 try {
+  assert.ok(fs.existsSync(canonicalPre), 'Codex PreToolUse adapter must live in canonical hooks/scripts');
+  assert.ok(fs.existsSync(packagedPre), 'Codex PreToolUse adapter must be packaged');
+  assert.strictEqual(fs.readFileSync(canonicalPre, 'utf8'), fs.readFileSync(packagedPre, 'utf8'), 'canonical and packaged Codex PreToolUse adapters must be byte-equivalent');
+
   assert.ok(fs.existsSync(canonicalPost), 'Codex PostToolUse adapter must live in canonical hooks/scripts so plugin:sync cannot delete it');
   assert.ok(fs.existsSync(packagedPost), 'Codex PostToolUse adapter must be packaged');
   assert.strictEqual(fs.readFileSync(canonicalPost, 'utf8'), fs.readFileSync(packagedPost, 'utf8'), 'canonical and packaged Codex PostToolUse adapters must be byte-equivalent');
@@ -63,6 +71,8 @@ try {
   const hookConfig = JSON.parse(fs.readFileSync(pluginHooksPath, 'utf8'));
   assert.ok(Array.isArray(hookConfig.hooks.PermissionRequest), 'Codex plugin must declare PermissionRequest');
   assert.ok(!Object.prototype.hasOwnProperty.call(hookConfig.hooks, 'PostToolUseFailure'), 'Codex plugin must not invent PostToolUseFailure');
+  const preCommands = hookConfig.hooks.PreToolUse.flatMap(group => (group.hooks || []).map(hook => hook.command || ''));
+  assert.ok(preCommands.some(command => command.includes('codex-action-gate-pre.js')), 'Codex PreToolUse must invoke the attribution-aware action-gate adapter');
   const permissionCommands = hookConfig.hooks.PermissionRequest.flatMap(group => (group.hooks || []).map(hook => hook.command || ''));
   assert.ok(permissionCommands.some(command => command.includes('codex-permission-request.js')), 'PermissionRequest must invoke the native approval observer');
 
@@ -77,6 +87,59 @@ try {
   assert.strictEqual(pre.exitCode, 2, 'Codex destructive PreToolUse must use the supported exit-2 block fallback');
   assert.strictEqual(pre.stdout, null, 'Codex PreToolUse must never emit permissionDecision=ask');
   assert.ok(pre.stderr.includes('git-force-push'), 'Codex block reason must identify the matched rule');
+
+  const attributedSafe = preAdapter.processPayload(payload('git status --short', {
+    toolUseId: 'codex-attribution-safe',
+    turnId: 'turn_attribution_user',
+  }), {
+    host: 'codex',
+    sessionDir,
+    ruleTable: table,
+    attributionDir,
+    runNonce: 'reviewer-user',
+  });
+  assert.strictEqual(attributedSafe.kind, 'allow', 'attribution must not change an otherwise-safe action-gate result');
+  assert.strictEqual(attributedSafe.attribution.enabled, true, 'explicit attribution mode must write hook-entry evidence');
+  assert.ok(attributedSafe.attribution.file && fs.existsSync(attributedSafe.attribution.file), 'hook-entry attribution artifact must exist');
+  const attribution = JSON.parse(fs.readFileSync(attributedSafe.attribution.file, 'utf8'));
+  assert.strictEqual(attribution.eventKind, 'codex-pretooluse-enter');
+  assert.strictEqual(attribution.detectedHost, 'codex');
+  assert.strictEqual(attribution.toolName, 'Bash');
+  assert.strictEqual(attribution.toolUseId, 'codex-attribution-safe');
+  assert.strictEqual(attribution.turnId, 'turn_attribution_user');
+  assert.strictEqual(attribution.runNonce, 'reviewer-user');
+  assert.strictEqual(attribution.payloadHash, actionGate.hashExact('git status --short'));
+  assert.ok(!Object.prototype.hasOwnProperty.call(attribution, 'command'), 'attribution evidence must not persist raw command text');
+  assert.ok(!Object.prototype.hasOwnProperty.call(attribution, 'toolInput'), 'attribution evidence must not persist raw tool input');
+  assert.ok(!Object.prototype.hasOwnProperty.call(attribution, 'cwd'), 'attribution evidence must not persist the working directory');
+
+  const attributedBlock = preAdapter.processPayload(payload('git push --force origin main', {
+    toolUseId: 'codex-attribution-block',
+    turnId: 'turn_attribution_auto_review',
+  }), {
+    host: 'codex',
+    sessionDir,
+    ruleTable: table,
+    attributionDir,
+    runNonce: 'reviewer-auto-review',
+  });
+  assert.strictEqual(attributedBlock.kind, 'block', 'attribution must not weaken the Codex hard-block fallback');
+  assert.strictEqual(attributedBlock.exitCode, 2);
+  assert.ok(attributedBlock.attribution.file && fs.existsSync(attributedBlock.attribution.file), 'destructive hook entry must be attributable before the block result');
+
+  const blockedParent = path.join(tempRoot, 'not-a-directory');
+  fs.writeFileSync(blockedParent, 'fixture', 'utf8');
+  const failedAttribution = preAdapter.processPayload(payload('git push --force origin main', {
+    toolUseId: 'codex-attribution-write-failure',
+  }), {
+    host: 'codex',
+    sessionDir,
+    ruleTable: table,
+    attributionDir: path.join(blockedParent, 'child'),
+  });
+  assert.strictEqual(failedAttribution.kind, 'block', 'attribution write failure must never authorize a destructive action');
+  assert.strictEqual(failedAttribution.exitCode, 2);
+  assert.ok(failedAttribution.attribution.error, 'diagnostic write failure should be observable to deterministic tests');
 
   const approvalPayload = payload('git push --force origin main', {
     event: 'PermissionRequest',
@@ -111,7 +174,7 @@ try {
   assert.strictEqual(error.stdout, null, 'PermissionRequest audit failure must not emit allow/deny/ask');
   assert.ok(/Native Codex approval flow remains authoritative/.test(error.stderr));
 
-  console.log('PASS: Codex action-gate uses supported hard blocking plus non-authorizing native PermissionRequest observation.');
+  console.log('PASS: Codex action-gate uses supported hard blocking, attributable PreToolUse entry evidence, and non-authorizing PermissionRequest observation.');
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 }
