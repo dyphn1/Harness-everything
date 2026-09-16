@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 
-// PostToolUse hooks in Claude Code typically receive the tool output via stdin
+// PostToolUse/PostToolUseFailure hooks in Claude Code receive their payload via stdin
 let inputData = '';
 
 process.stdin.on('data', chunk => {
@@ -14,18 +14,23 @@ process.stdin.on('data', chunk => {
 process.stdin.on('end', () => {
   try {
     const payload = JSON.parse(inputData);
+    const hookEventName = payload.hook_event_name || payload.hookEventName || '';
+    const isFailureEvent = hookEventName === 'PostToolUseFailure';
     const toolResponse = payload.tool_response || {};
     const stdout = toolResponse.stdout ?? payload.stdout ?? '';
     const stderr = toolResponse.stderr ?? payload.stderr ?? '';
-    const rawExitCode = toolResponse.exitCode ?? toolResponse.exit_code ?? payload.exitCode;
+    const failureText = typeof payload.error === 'string' ? payload.error : '';
+    const rawExitCode = toolResponse.exitCode ?? toolResponse.exit_code ?? payload.exitCode ?? payload.exit_code;
     const exitCode = typeof rawExitCode === 'number' ? rawExitCode : undefined;
 
     const explicitFailure = exitCode !== undefined && exitCode !== 0;
     const explicitSuccess = exitCode === 0;
     const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
     const looksLikeError = /\b(error|fail|failed|failure|exception|fatal|panic|traceback|denied|refused|cannot|unable)\b/i.test(stderr);
-    const isFailure = explicitFailure || (exitCode === undefined && stderrSignal && looksLikeError);
-    const errorText = (stderrSignal ? stderr : stdout) || '';
+    const isFailure = isFailureEvent || explicitFailure || (exitCode === undefined && stderrSignal && looksLikeError);
+    const errorText = isFailureEvent
+      ? (failureText || (stderrSignal ? stderr : stdout) || '')
+      : ((stderrSignal ? stderr : stdout) || failureText || '');
 
     const root = getWorkspaceRoot(payload);
     const stateFile = path.join(getSessionDir(root, payload.session_id || payload.sessionId), 'rule-of-3-state.json');
@@ -108,7 +113,7 @@ process.stdin.on('end', () => {
       state.lastFailureAt = Date.now();
 
       fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
-    } else if (explicitSuccess) {
+    } else if (!isFailureEvent && explicitSuccess) {
       // Only reset on a *confirmed* zero exit code, not merely "not a failure".
       if (state.count > 0 || state.zoomOutCycles > 0) {
         state.count = 0;
