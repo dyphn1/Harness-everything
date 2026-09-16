@@ -20,6 +20,7 @@
     "test:docs:capabilities": "node ci/doc-capability-consistency.test.js",
     "test:references": "node ci/reference-check.js",
     "test:release": "node ci/release-consistency-check.js && node ci/mechanism-2x-release-automation.test.js && node ci/mechanism-2x-release-commit-message.test.js",
+    "test:release:semantics": "node ci/semantic-release-analyzer.test.mjs",
     "test:install": "node scripts/verify-install.js",
     "test:collision": "node ci/description-collision.js",
     "test:routing:skills": "node ci/skill-routing-check.js",
