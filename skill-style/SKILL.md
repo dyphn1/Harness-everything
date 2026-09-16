@@ -4,7 +4,7 @@ description: Apply Harness style guidelines when writing or refactoring SKILL.md
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.6
+  version: 0.4.0
 ---
 
 # Skill Style

@@ -4,7 +4,7 @@ description: "Reflect-first circuit breaker - after 3 failures, stop edits, rebu
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.6
+  version: 0.4.0
 ---
 
 # Zoom Out (Circuit Breaker)

@@ -4,7 +4,7 @@ description: Conducts STRIDE threat modeling, scans secrets via audit scripts, a
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.4.0
 ---
 
 # Security Review & Code Hardening

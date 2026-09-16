@@ -1,6 +1,6 @@
 {
   "name": "harness-everything",
-  "version": "0.3.8",
+  "version": "0.4.0",
   "description": "Invariant-first engineering harness for routing, verification, and failure recovery while preserving agent autonomy.",
   "author": {
     "name": "Miya Daniel",
@@ -9,7 +9,12 @@
   "homepage": "https://github.com/dyphn1/Harness-everything",
   "repository": "https://github.com/dyphn1/Harness-everything",
   "license": "Apache-2.0",
-  "keywords": ["agent-harness", "orchestration", "tdd", "verification"],
+  "keywords": [
+    "agent-harness",
+    "orchestration",
+    "tdd",
+    "verification"
+  ],
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
   "interface": {
@@ -18,7 +23,11 @@
     "longDescription": "Harness Everything adds reusable software-engineering workflows for task routing, test-driven development, verification, security review, documentation, failure recovery, and related coding-agent work. It keeps a small set of cross-cutting invariants while allowing the agent to choose, combine, reorder, or skip domain skills as appropriate.",
     "developerName": "Miya Daniel",
     "category": "Developer Tools",
-    "capabilities": ["Interactive", "Read", "Write"],
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://github.com/dyphn1/Harness-everything",
     "privacyPolicyURL": "https://github.com/dyphn1/Harness-everything/blob/main/PRIVACY.md",
     "termsOfServiceURL": "https://github.com/dyphn1/Harness-everything/blob/main/TERMS.md",

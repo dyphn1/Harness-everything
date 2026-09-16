@@ -4,7 +4,7 @@ description: "Rewrite past Git history to comply with Angular Style conventions.
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.4
+  version: 0.4.0
 ---
 
 # Rewrite Commits

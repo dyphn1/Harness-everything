@@ -4,7 +4,7 @@ description: "Verify external framework/API claims and unmeasured perf/cost esti
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.6
+  version: 0.4.0
 ---
 
 # Verify Before Claim

@@ -4,7 +4,7 @@ description: "Extract root causes from resolved problems and persist them as def
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.6
+  version: 0.4.0
 ---
 
 # Self-evolve

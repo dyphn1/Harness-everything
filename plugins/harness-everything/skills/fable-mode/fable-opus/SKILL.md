@@ -4,7 +4,7 @@ description: "Run staged fable orchestration on Opus for cross-stage synthesis, 
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.3.8
+  version: 0.4.0
 ---
 
 # Fable Mode — Opus
