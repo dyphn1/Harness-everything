@@ -4,22 +4,51 @@ This document records the Codex-specific action-gate contract. It intentionally 
 
 ## Current official capability boundary
 
-Harness treats the current Codex hooks documentation as the release-behavior contract.
+Harness treats the current Codex hooks documentation as the release-behavior contract. Non-managed command hooks must be reviewed/trusted before they run, so plugin installed/enabled state alone is not live-hook evidence.
 
 ### PreToolUse
 
 For Codex, Harness may safely block a covered local tool call with a supported deny/block result or exit code 2. Harness must not emit `permissionDecision: "ask"`: Codex currently parses that value but does not support it as an authorization decision, so relying on it would be fail-open.
 
+The documented Codex `PreToolUse` payload includes `session_id`, `turn_id`, `tool_name`, `tool_use_id`, `tool_input`, and the current permission mode. Harness uses the stable identifiers only for audit/attribution and never treats them as authorization.
+
 The packaged action gate therefore keeps the existing fail-closed behavior for a destructive rule match:
 
 ```text
 covered local tool
-    -> PreToolUse
+    -> codex-action-gate-pre.js
+    -> PreToolUse attribution (only when explicitly enabled)
+    -> action-gate.js classifier
     -> Harness destructive rule match
     -> exit 2 / block
 ```
 
 An internal failure in this pre-action path also remains fail-closed.
+
+### Live PreToolUse attribution probe
+
+`codex-action-gate-pre.js` is a Codex-specific adapter around the shared action-gate core. Its attribution mode is disabled by default and does not change authorization semantics.
+
+Enable it only for live verification by setting:
+
+```text
+HARNESS_ACTION_GATE_ATTRIBUTION_DIR=<known output directory>
+HARNESS_ACTION_GATE_RUN_NONCE=<optional test-run label>
+```
+
+When the `PreToolUse` entry point actually runs, the adapter writes a small JSON artifact containing:
+
+- event kind (`codex-pretooluse-enter`);
+- timestamp;
+- detected host;
+- session / turn / tool-use identifiers when available;
+- tool name and permission mode;
+- SHA-256 of the exact tool payload;
+- optional run nonce.
+
+The artifact does **not** persist the raw command/tool input, working directory, or transcript path. If diagnostic writing fails, the adapter still delegates to the normal action-gate result; attribution failure cannot convert a destructive block into authorization.
+
+For the #110 live matrix, compare at least `approvals_reviewer = "user"` and `approvals_reviewer = "auto_review"` with distinct run nonces. A persisted entry artifact proves that the Codex PreToolUse adapter was launched for that invocation; the resulting action-gate exit/output still determines the Harness disposition.
 
 ### PermissionRequest
 
@@ -41,9 +70,15 @@ Codex uses the documented `PostToolUse` lifecycle for completion evidence, inclu
 
 `codex-action-gate-post.js` is kept in canonical `hooks/scripts/` and copied into the plugin package by `sync-openai-plugin.js`. This prevents a package sync from deleting the Codex-only adapter.
 
+## Approval reviewer boundary
+
+`approvals_reviewer = "auto_review"` changes who reviews **eligible approval requests**. The official configuration reference explicitly says it does not change sandboxing or actions already allowed inside the sandbox. The reviewer only sees actions that already need approval.
+
+Therefore a command that executes under `auto_review` is not, by itself, evidence that the Harness action-gate was bypassed. First preserve the PreToolUse attribution artifact and determine whether the Harness hook actually fired for that invocation.
+
 ## Native execpolicy prompt rules
 
-Codex rules/execpolicy can express native `prompt` decisions for command prefixes. That is a promising native confirmation path, but Harness does not automatically install or bundle those rules yet.
+Codex rules/execpolicy can express native `prompt` decisions for command prefixes. The current Rules documentation describes this mechanism as controlling commands Codex may run **outside the sandbox**, and the feature remains experimental. That is a promising native confirmation path, but Harness does not automatically install or bundle those rules yet.
 
 Reasons:
 
@@ -68,6 +103,7 @@ A future change may delegate selected destructive rules to Codex-native promptin
 The evidence must distinguish:
 
 ```text
+Harness PreToolUse entry attribution
 Harness PreToolUse block
 Codex execpolicy/native prompt
 PermissionRequest defer/allow/deny
@@ -78,7 +114,7 @@ Package and mechanism tests must not be promoted to `Live verified` in the compa
 
 ## Tool coverage
 
-Current Harness PreToolUse enforcement remains wired to the tool set explicitly covered by the package (`Bash|apply_patch`). Codex hooks can cover additional local function/MCP tools, but those tools must not be claimed as action-gated until Harness has a safe classifier/rule representation for their structured inputs. Hosted or specialized tool paths may have different hook behavior and remain outside this guarantee unless separately verified.
+Current Harness PreToolUse enforcement remains wired to the tool set explicitly covered by the package (`Bash|apply_patch`). Codex hooks can cover additional local function/MCP tools, but those tools must not be claimed as action-gated until Harness has a safe classifier/rule representation for their structured inputs. Hosted tools do not use the local function-tool hook path, and specialized tool paths may opt out; Codex documents tool hooks as a useful guardrail rather than a complete enforcement boundary.
 
 ## References
 

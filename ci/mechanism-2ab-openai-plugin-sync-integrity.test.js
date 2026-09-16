@@ -71,6 +71,7 @@ try {
     assert.ok(fs.existsSync(path.join(pluginRoot, relative)), `sync must preserve every hook target: ${relative}`);
   }
 
+  assert.ok(fs.existsSync(path.join(pluginRoot, 'hooks', 'scripts', 'codex-action-gate-pre.js')), 'sync must preserve the Codex PreToolUse adapter');
   assert.ok(fs.existsSync(path.join(pluginRoot, 'hooks', 'scripts', 'codex-action-gate-post.js')), 'sync must preserve the Codex PostToolUse adapter');
   assert.ok(fs.existsSync(path.join(pluginRoot, 'hooks', 'scripts', 'codex-permission-request.js')), 'sync must preserve the Codex PermissionRequest adapter');
 
