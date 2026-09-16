@@ -7,8 +7,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/session-start.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\session-start.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/session-start.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\session-start.js\"",
             "timeout": 15,
             "statusMessage": "Loading Harness cognitive policy",
             "additionalContextLimit": 800
@@ -21,8 +21,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/skills/harness-everything/scripts/kernel-router.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\skills\\harness-everything\\scripts\\kernel-router.js\"",
+            "command": "node \"${PLUGIN_ROOT}/skills/harness-everything/scripts/kernel-router.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\skills\\harness-everything\\scripts\\kernel-router.js\"",
             "timeout": 30,
             "statusMessage": "Routing with Harness invariants",
             "additionalContextLimit": 2500
@@ -36,22 +36,22 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/codex-action-gate-pre.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\codex-action-gate-pre.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/codex-action-gate-pre.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\codex-action-gate-pre.js\"",
             "timeout": 15,
             "statusMessage": "Checking Harness pre-action approval gate"
           },
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/rule-of-3.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\rule-of-3.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/rule-of-3.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\rule-of-3.js\"",
             "timeout": 15,
             "statusMessage": "Checking Harness circuit breaker"
           },
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/context-compact.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\context-compact.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/context-compact.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\context-compact.js\"",
             "timeout": 15,
             "statusMessage": "Checking Harness context size"
           }
@@ -62,8 +62,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/subagent-scope-guard.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\subagent-scope-guard.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/subagent-scope-guard.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\subagent-scope-guard.js\"",
             "timeout": 15,
             "statusMessage": "Recording subagent scope baseline"
           }
@@ -75,8 +75,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/codex-permission-request.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\codex-permission-request.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/codex-permission-request.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\codex-permission-request.js\"",
             "timeout": 15,
             "statusMessage": "Recording Codex native approval request"
           }
@@ -89,22 +89,22 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/codex-action-gate-post.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\codex-action-gate-post.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/codex-action-gate-post.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\codex-action-gate-post.js\"",
             "timeout": 15,
             "statusMessage": "Recording Harness action-gate execution outcome"
           },
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/rule-of-3-tracker.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\rule-of-3-tracker.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/rule-of-3-tracker.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\rule-of-3-tracker.js\"",
             "timeout": 15,
             "statusMessage": "Recording Harness failure evidence"
           },
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/state-persist.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\state-persist.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/state-persist.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\state-persist.js\"",
             "timeout": 15,
             "statusMessage": "Saving Harness session state"
           }
@@ -115,8 +115,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/atomic-commit-check.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\atomic-commit-check.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/atomic-commit-check.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\atomic-commit-check.js\"",
             "timeout": 15,
             "statusMessage": "Checking atomic change boundaries"
           }
@@ -127,8 +127,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/contract-test.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\contract-test.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/contract-test.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\contract-test.js\"",
             "timeout": 15,
             "statusMessage": "Checking Harness stage contract"
           }
@@ -139,8 +139,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/subagent-scope-guard.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\subagent-scope-guard.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/subagent-scope-guard.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\subagent-scope-guard.js\"",
             "timeout": 15,
             "statusMessage": "Reviewing subagent scope changes"
           }
@@ -152,8 +152,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/subagent-start.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\subagent-start.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/subagent-start.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\subagent-start.js\"",
             "timeout": 15,
             "statusMessage": "Loading Harness subagent scope"
           }
@@ -165,8 +165,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/subagent-stop.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\subagent-stop.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/subagent-stop.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\subagent-stop.js\"",
             "timeout": 15,
             "statusMessage": "Checking subagent scope changes"
           }
@@ -178,15 +178,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/action-gate.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\action-gate.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/action-gate.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\action-gate.js\"",
             "timeout": 15,
             "statusMessage": "Closing unresolved Harness action approvals"
           },
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/stop-gate.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\stop-gate.js\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/stop-gate.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\stop-gate.js\"",
             "timeout": 15,
             "statusMessage": "Checking Harness verification gate"
           }
