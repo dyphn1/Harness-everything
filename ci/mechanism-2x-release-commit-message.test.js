@@ -33,9 +33,16 @@ const longReleaseNote = `* **behavioral-evals:** ${'x'.repeat(110)} ([90e36c2](h
 const legacyMessage = `chore(release): 0.4.0 [skip ci]\n\n${longReleaseNote}\n`;
 fs.writeFileSync(legacyFile, legacyMessage);
 
+const commitlintPackageFile = require.resolve('@commitlint/cli/package.json');
+const commitlintPackage = JSON.parse(fs.readFileSync(commitlintPackageFile, 'utf8'));
+const commitlintBin = typeof commitlintPackage.bin === 'string'
+  ? commitlintPackage.bin
+  : commitlintPackage.bin && commitlintPackage.bin.commitlint;
+assert.ok(commitlintBin, '@commitlint/cli must expose a commitlint executable');
+const commitlintCli = path.resolve(path.dirname(commitlintPackageFile), commitlintBin);
+
 function commitlint(file) {
-  const executable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  return spawnSync(executable, ['--no-install', 'commitlint', '--edit', file], {
+  return spawnSync(process.execPath, [commitlintCli, '--edit', file], {
     cwd: ROOT,
     encoding: 'utf8'
   });
