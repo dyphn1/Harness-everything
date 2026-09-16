@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.5.0](https://github.com/dyphn1/Harness-everything/compare/v0.4.4...v0.5.0) (2026-09-16)
+
+### Features
+
+* **claude:** add plugin-only staging helper ([64e619b](https://github.com/dyphn1/Harness-everything/commit/64e619ba1add2678fac26152fe9e95a82517c03b))
+* **claude:** add strict host validation helper ([8d4ba18](https://github.com/dyphn1/Harness-everything/commit/8d4ba18396bd9ed305f26849f937f3e4e0d4d1ad))
+
+### Bug Fixes
+
+* **claude:** add strict marketplace description ([61129e5](https://github.com/dyphn1/Harness-everything/commit/61129e5078352ad8e0af343cba10255e9d31a0f5))
+* **claude:** correct hook validation diagnostic ([dd6681b](https://github.com/dyphn1/Harness-everything/commit/dd6681b5a073dcef19c17c9eda7ffbeb1cc5687f))
+* **claude:** keep staging output outside checkout ([10ac0da](https://github.com/dyphn1/Harness-everything/commit/10ac0da0c0e62537490d4051bb20c9095c601831))
+
 ## [0.4.4](https://github.com/dyphn1/Harness-everything/compare/v0.4.3...v0.4.4) (2026-09-16)
 
 ### Bug Fixes
