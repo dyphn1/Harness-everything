@@ -28,14 +28,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout full release history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      # semantic-release 25 requires a newer Node runtime than the product's
-      # normal Node 20 CI matrix. This only changes the release runner.
+      # Release tooling uses the repository's primary Node runtime.
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
