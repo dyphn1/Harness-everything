@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.4.3](https://github.com/dyphn1/Harness-everything/compare/v0.4.2...v0.4.3) (2026-09-16)
+
+### Bug Fixes
+
+* **codex:** add PreToolUse attribution adapter ([9c54688](https://github.com/dyphn1/Harness-everything/commit/9c54688efc647bb34311dae57abe8766567daf5b))
+* **codex:** package PreToolUse attribution adapter ([93cb459](https://github.com/dyphn1/Harness-everything/commit/93cb4592f2b3f1ebfbed71882dd0f25579b0b469))
+* **codex:** route PreToolUse through attribution adapter ([0ac9221](https://github.com/dyphn1/Harness-everything/commit/0ac922111912813635e9fbc747f7aaa22666bc94))
+
 ## [0.4.2](https://github.com/dyphn1/Harness-everything/compare/v0.4.1...v0.4.2) (2026-09-16)
 
 ## [0.4.1](https://github.com/dyphn1/Harness-everything/compare/v0.4.0...v0.4.1) (2026-09-16)
