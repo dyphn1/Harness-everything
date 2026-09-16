@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:24-alpine
 
 # Install bash and git since the scripts depend on them
 RUN apk add --no-cache bash git
