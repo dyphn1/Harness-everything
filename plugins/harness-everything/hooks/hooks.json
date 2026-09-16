@@ -36,8 +36,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$PLUGIN_ROOT/hooks/scripts/action-gate.js\"",
-            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\action-gate.js\"",
+            "command": "node \"$PLUGIN_ROOT/hooks/scripts/codex-action-gate-pre.js\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\scripts\\codex-action-gate-pre.js\"",
             "timeout": 15,
             "statusMessage": "Checking Harness pre-action approval gate"
           },
