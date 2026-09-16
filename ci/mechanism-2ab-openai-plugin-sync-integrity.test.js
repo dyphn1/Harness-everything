@@ -61,8 +61,12 @@ try {
         for (const field of ['command', 'commandWindows']) {
           const command = hook[field];
           if (typeof command !== 'string') continue;
-          const match = command.match(/(?:\$PLUGIN_ROOT|%PLUGIN_ROOT%)[\\/]([^"']+)/);
-          if (match) referenced.add(match[1].replace(/\\/g, '/'));
+          assert.match(command, /\$\{PLUGIN_ROOT\}/, `${field} must use the Codex portable \${PLUGIN_ROOT} placeholder`);
+          assert.doesNotMatch(command, /%PLUGIN_ROOT%/, `${field} must not depend on cmd.exe-style %PLUGIN_ROOT% expansion`);
+          assert.doesNotMatch(command, /\$PLUGIN_ROOT[\\/]/, `${field} must use the explicit \${PLUGIN_ROOT} placeholder form`);
+          const match = command.match(/\$\{PLUGIN_ROOT\}[\\/]([^"']+)/);
+          assert.ok(match, `${field} must reference a concrete file below \${PLUGIN_ROOT}`);
+          referenced.add(match[1].replace(/\\/g, '/'));
         }
       }
     }
@@ -75,7 +79,7 @@ try {
   assert.ok(fs.existsSync(path.join(pluginRoot, 'hooks', 'scripts', 'codex-action-gate-post.js')), 'sync must preserve the Codex PostToolUse adapter');
   assert.ok(fs.existsSync(path.join(pluginRoot, 'hooks', 'scripts', 'codex-permission-request.js')), 'sync must preserve the Codex PermissionRequest adapter');
 
-  console.log('PASS: OpenAI/Codex plugin sync is idempotent and preserves every referenced hook runtime file.');
+  console.log('PASS: OpenAI/Codex plugin sync is idempotent, uses portable plugin placeholders, and preserves every referenced hook runtime file.');
 } finally {
   fs.rmSync(tempBase, { recursive: true, force: true });
 }
