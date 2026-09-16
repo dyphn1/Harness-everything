@@ -8,6 +8,7 @@ This page is generated from checked-in runtime and workflow sources. Do not edit
 - Minimum supported Node.js: **22** (from `package.json#engines.node`: `>=22`)
 - Primary development/CI Node.js: **24** (from `.nvmrc`)
 - Docker verification Node.js: **24** (from `Dockerfile`)
+
 ## GitHub Actions runtime majors
 
 - `actions/checkout`: v7
