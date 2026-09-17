@@ -53,9 +53,10 @@ overlap reject dispatch instead of becoming a verbal warning.
 
 The stage map remains a living orchestration document only inside those
 constraints. When new information invalidates it, re-plan and create revised
-stage contracts before dispatching new work. Replan budget: at most two full
-replans per run; a third means the task is ambiguous at the requirements level —
-return the ambiguity to the caller instead of burning stages. Scope rule:
+stage contracts before dispatching new work. Replan budget comes from `workflowPlan.limits.maxReplans` and is accounted by
+the runtime controller. Re-enter through `workflow-disposition.js start`; a
+third full replan under the default budget is machine-blocked as
+`replan-budget-exhausted` instead of being only an orchestration reminder. Scope rule:
 deliver the task as specified; new scope discovered mid-run is surfaced as a
 recommendation at delivery, not silently built.
 
@@ -75,10 +76,11 @@ spawn workers.
 
 For `fable-parallel`, spawn only stages in the same validated execution batch;
 never invent an additional parallel edge. A stage depending on another stage is
-not in the same ready batch. Cap concurrent workers at four — this remains
-Fable's single source of truth for the numeric worker cap. For other Fable
-strategies, serialize the returned batches unless a later validated plan says
-otherwise.
+not in the same ready batch. Never exceed `workflowPlan.limits.maxWorkers`. The router plan is the numeric
+source of truth; `workflow-plan-consumer.js` chunks ready sets to that cap and
+runtime worker leases enforce it when the host exposes stable worker IDs. For
+other Fable strategies, serialize the returned batches unless a later validated
+plan says otherwise.
 
 **3. Verify with a check that can fail — external artifacts only.** Each stage
 defines a pass condition an external artifact satisfies: a test that runs, a file
