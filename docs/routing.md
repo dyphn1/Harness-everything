@@ -196,4 +196,4 @@ The deterministic suite verifies two things: the deferred result for every known
 
 ## Enforcement strength
 
-A lifecycle hook can mechanically inject the read-before-skip contract into context, but that alone does not prove the model actually read every suggested `SKILL.md`. Instruction-only integrations can only instruct the model. Do not label either case as live behavioral enforcement without retained host/session evidence; #82 owns that evidence boundary.
+A lifecycle hook can mechanically inject the read-before-skip contract into context, but that alone does not prove the model actually read every suggested `SKILL.md`. Instruction-only integrations can only instruct the model. Do not label either case as live behavioral enforcement without retained host/session evidence; #82 owns that evidence boundary. **Do not infer cross-host parity** from one host's mechanism or live evidence; each host needs its own retained evidence.
