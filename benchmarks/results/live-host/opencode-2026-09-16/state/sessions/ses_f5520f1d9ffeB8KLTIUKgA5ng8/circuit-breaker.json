@@ -1,0 +1,16 @@
+{
+  "failures": {
+    "npm test: > harness-live-sandbox@1.0.0 test > node test.js": {
+      "count": 1,
+      "firstSeen": 1789573913728,
+      "lastSeen": 1789573913728
+    }
+  },
+  "hardLock": false,
+  "lastReflection": null,
+  "lastReflectionSignature": null,
+  "reflectionPending": false,
+  "reflectionRequestedAt": null,
+  "reflectionToken": null,
+  "reflectionSignature": null
+}

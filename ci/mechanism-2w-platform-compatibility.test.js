@@ -70,11 +70,24 @@ for (const platform of matrix.platforms) {
     const capability = platform.capabilities[dimension];
     assert.ok(capability && STATUSES.has(capability.status), `${platform.id}/${dimension}: invalid status`);
   }
-  assert.strictEqual(
-    platform.capabilities.liveHostVerification.status,
-    'Unknown',
-    `${platform.id}: a live status requires a preserved host artifact before publication`
-  );
+  if (platform.id === 'opencode') {
+    const capability = platform.capabilities.liveHostVerification;
+    assert.strictEqual(capability.status, 'Partial');
+    assert.strictEqual(capability.evidence, 'benchmarks/results/live-host/opencode-2026-09-16/README.md');
+    const artifactRoot = path.dirname(path.join(ROOT, capability.evidence));
+    for (const file of ['README.md', 'probe-control.md', 'run-commands.md']) {
+      assert.ok(fs.statSync(path.join(artifactRoot, file)).size > 0, `Missing OpenCode evidence: ${file}`);
+    }
+    const session = path.join(artifactRoot, 'state', 'sessions', 'ses_f5520f1d9ffeB8KLTIUKgA5ng8');
+    const breaker = JSON.parse(fs.readFileSync(path.join(session, 'circuit-breaker.json'), 'utf8'));
+    const compliance = JSON.parse(fs.readFileSync(path.join(session, 'compliance.json'), 'utf8'));
+    assert.strictEqual(breaker.hardLock, false, 'Retained snapshot is post-reset, not hard-lock proof');
+    assert.ok(compliance.totalEdits > 0);
+    assert.ok(fs.statSync(path.join(session, 'edit-state.json')).size > 0);
+    assert.ok(fs.statSync(path.join(session, 'zoom-out-report.md')).size > 0);
+  } else {
+    assert.strictEqual(platform.capabilities.liveHostVerification.status, 'Unknown', `${platform.id}: no preserved live evidence`);
+  }
 }
 
 const installerTargetSpecs = {
@@ -142,7 +155,7 @@ try {
 const capabilityDocs = fs.readFileSync(path.join(ROOT, 'docs', 'platform-capabilities.md'), 'utf8');
 assert.match(capabilityDocs, /platform-compatibility\.json/);
 assert.match(capabilityDocs, /Continue\.dev[\s\S]*`Unknown` for standalone `SKILL\.md` discovery/);
-assert.match(capabilityDocs, /live plugin loading remains unverified/i);
-assert.match(capabilityDocs, /no fresh host-session artifacts/i);
+assert.match(capabilityDocs, /live-host evidence|Partial` live-host loading/i);
+assert.match(capabilityDocs, /No fresh artifacts exist yet|no fresh host-session artifacts/i);
 
 console.log('Platform compatibility verified: official-source matrix, installer targets, package manifests, and public bundle boundaries.');

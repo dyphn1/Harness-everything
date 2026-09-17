@@ -3,7 +3,7 @@
 Adds hard enforcement gates for Harness skills in opencode, addressing the
 limitation that skills are otherwise advisory-only on that platform.
 
-> **Evidence boundary:** the plugin is implemented against opencode's real plugin API and covered by deterministic mechanism tests. **Live opencode plugin loading remains unverified** until a real host session artifact proves the host loaded and fired these hooks. See [`../docs/platform-capabilities.md`](../docs/platform-capabilities.md).
+> **Evidence boundary:** the plugin is implemented against opencode's real plugin API and covered by deterministic mechanism tests. Live plugin loading remains unverified beyond one scoped surface: retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS) — [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The final snapshot is post-reset (`hardLock: false`, `count: 1`), not a history of the enforcement sequence. Hard lock is only an interactive observation with no retained blocked-tool trace. Reflection was operator-seeded, then agent-rewritten; agent-controlled state deletion resets the breaker, so no durable hard enforcement or behavioral effectiveness is claimed. Global scope, npm-package installation, and other host versions remain unverified. See [`../docs/platform-capabilities.md`](../docs/platform-capabilities.md).
 
 ## Problem
 
@@ -20,15 +20,18 @@ actually loads: a JS/TS file exporting a function that returns a hooks
 object (see https://opencode.ai/docs/plugins/). There is no manifest-to-script
 mechanism; an earlier version of this plugin assumed one (a `plugin.json`
 mapping event names to standalone scripts) and opencode never invoked it -
-see issue #37 for how that was found and fixed.
+see issue #37 for how that was found and fixed. **Naming caveat (issue
+#127):** opencode's discovery glob only matches `*.js`/`*.ts`, so the file
+must be copied to a `.js` name when installed - see Installation below.
 
 It implements three enforcement mechanisms across opencode's real hooks:
 
 The module follows opencode's V1 plugin contract directly: the named
 `HarnessEnforcement` export is an async factory receiving the opencode context
 (`client`, `directory`, `project`, `worktree`, and `$`) and returning the hook
-map. Copying this one `.mjs` file into `.opencode/plugins/` is enough for
-opencode to discover and invoke it; `plugin.json` is only a repository
+map. Copying this one file into `.opencode/plugins/` under a `.js` name is
+enough for opencode to discover and invoke it; `plugin.json` is only a
+repository
 inventory and is not an opencode runtime manifest. The hook callbacks use the
 V1 `(input, output)` shape, including
 `output.args` when the host supplies tool arguments only in the result object.
@@ -73,18 +76,30 @@ new breaker failure. A reflection artifact itself does not count as a code edit.
 
 ## Installation
 
-Copy `index.mjs` into opencode's plugin directory - it is self-contained, no
-sibling files required:
+Copy `index.mjs` into opencode's plugin directory **under a `.js` filename** -
+it is self-contained, no sibling files required:
 
 ```bash
-cp opencode-plugin/index.mjs .opencode/plugins/harness-enforcement.mjs   # project-level
+mkdir -p .opencode/plugins
+cp opencode-plugin/index.mjs .opencode/plugins/harness-enforcement.js   # project-level
 # or
-cp opencode-plugin/index.mjs ~/.config/opencode/plugins/harness-enforcement.mjs  # global
+mkdir -p ~/.config/opencode/plugins
+cp opencode-plugin/index.mjs ~/.config/opencode/plugins/harness-enforcement.js  # global
 ```
 
-opencode auto-loads any file dropped in those directories at startup - no
-`opencode.json` entry needed. (`opencode.json`'s `plugin` array is for npm
-package names, not local file paths.)
+Restart OpenCode after copying so the plugin is discovered at startup.
+
+The destination extension matters: opencode's plugin auto-discovery scans
+only `*.js` / `*.ts` files in those directories (`{plugin,plugins}/*.{ts,js}`
+in its v1 loader), so a `.mjs` copy is **silently never loaded** - no error,
+no hooks, no state. Verified live on opencode 1.18.31 with an extension A/B
+probe (see
+[`benchmarks/results/live-host/opencode-2026-09-16/probe-control.md`](../benchmarks/results/live-host/opencode-2026-09-16/probe-control.md)).
+
+opencode auto-loads `.js`/`.ts` files dropped in those directories at startup -
+no `opencode.json` entry needed. This procedure tests directory discovery;
+explicit local-file configuration and npm-package installation are separate
+installation surfaces and were not verified in this run.
 
 ## Manual verification CLI
 
@@ -135,3 +150,9 @@ fail-closed behavior, and patch-based reflection writes.
 It does not launch a real opencode process; the test remains a deterministic
 hook-sequence check against the documented and source-verified hook signatures.
 A passing test is therefore mechanism evidence, not live-host loading evidence.
+Live-host evidence and the install-filename loadability guard live elsewhere:
+the host session artifact is
+[`benchmarks/results/live-host/opencode-2026-09-16/`](../benchmarks/results/live-host/opencode-2026-09-16/),
+and `ci/mechanism-30-opencode-plugin-loadability.test.js` (npm script
+`test:opencode:loadability`) fails any change that reintroduces a
+silently-ignored install filename such as `harness-enforcement.mjs`.

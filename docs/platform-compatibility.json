@@ -172,15 +172,15 @@
       ],
       "capabilities": {
         "standaloneSkills": {"status": "Supported", "paths": {"project": [".opencode/skills", ".agents/skills", ".claude/skills"], "global": ["~/.config/opencode/skills", "~/.agents/skills", "~/.claude/skills"]}},
-        "pluginSupport": {"status": "Mechanism verified", "paths": {"project": [".opencode/plugins"], "global": ["~/.config/opencode/plugins"]}},
+        "pluginSupport": {"status": "Partial", "paths": {"project": [".opencode/plugins"], "global": ["~/.config/opencode/plugins"]}, "notes": "Live verified scoped: project-scope install of the plugin copied under a .js filename loads on OpenCode 1.18.31 (macOS) and edit/verification state effects are retained (benchmarks/results/live-host/opencode-2026-09-16/README.md). The host discovery silently ignores .mjs install names (issue #127). Global scope and npm-package installation remain mechanism-only."},
         "bundledSkills": {"status": "Partial", "notes": "Harness provides a standalone enforcement module; it is not an OpenCode bundled-skill package."},
-        "hooksLifecycle": {"status": "Mechanism verified", "notes": "tool.execute.before, tool.execute.after, and session.idle are covered against the documented plugin API."},
-        "projectScope": {"status": "Mechanism verified", "paths": {"skills": [".opencode/skills", ".agents/skills"], "plugins": [".opencode/plugins"]}},
+        "hooksLifecycle": {"status": "Partial", "notes": "Live-host evidence covers project-scope .js loading and edit/verification state (edit tracking, forced verification, breaker failure recording) on OpenCode 1.18.31 (macOS); hard lock is only an interactive observation with no retained blocked-tool trace and the final snapshot is post-reset (benchmarks/results/live-host/opencode-2026-09-16/README.md). Global scope, npm-package installation, and other host versions remain mechanism-tested."},
+        "projectScope": {"status": "Partial", "paths": {"skills": [".opencode/skills", ".agents/skills"], "plugins": [".opencode/plugins"]}, "notes": "Plugin loading at project scope and edit/verification state are live-verified via the retained host session artifact; standalone skill discovery remains path-contract verified."},
         "globalScope": {"status": "Mechanism verified", "paths": {"skills": ["~/.config/opencode/skills", "~/.agents/skills"], "plugins": ["~/.config/opencode/plugins"]}},
         "installUninstallSymmetry": {"status": "Unknown", "notes": "The adapter is manually copied; Harness does not own an OpenCode install/uninstall flow."},
         "assetsReferences": {"status": "Mechanism verified", "notes": "The adapter is self-contained and skill references are separately checked."},
         "updateSync": {"status": "Unknown", "notes": "No live OpenCode refresh or npm plugin update is preserved."},
-        "liveHostVerification": {"status": "Unknown", "notes": "The real OpenCode host has not loaded the module in a preserved session artifact."}
+        "liveHostVerification": {"status": "Partial", "evidence": "benchmarks/results/live-host/opencode-2026-09-16/README.md", "notes": "Retained evidence supports project-scope .js plugin loading and edit/verification state on OpenCode 1.18.31 (macOS), not durable hard enforcement: final snapshot is post-reset (hardLock: false), hard lock only an interactive observation with no retained blocked-tool trace, reflection operator-seeded, agent-controlled state deletion resets the breaker. Global scope, npm-package installation, and other host versions remain unverified."}
       }
     },
     {

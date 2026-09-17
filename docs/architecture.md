@@ -100,9 +100,9 @@ The installer configures native lifecycle hooks and project skills.
 
 The prompt hook is intentionally lightweight: it does **not** prescribe TODO/TDD/Fable order. It gives the model the rails and lets the model orchestrate itself.
 
-### 2. OpenCode — plugin enforcement, live loading still unverified
+### 2. OpenCode — plugin enforcement, scoped live verification
 
-`opencode-plugin/` maps supported enforcement behavior to OpenCode's real plugin API. Source-level/mechanism tests exist, but live plugin loading remains unverified; do not promote source/mechanism evidence into a live-host enforcement claim until a real OpenCode session artifact exists.
+`opencode-plugin/` maps supported enforcement behavior to OpenCode's real plugin API with deterministic mechanism coverage. Partial live-host evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS): [retained evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The final snapshot is post-reset (`hardLock: false`, `count: 1`), not a full enforcement history. Hard lock is only an interactive observation with no retained blocked-tool trace. Reflection was operator-seeded, then agent-rewritten; state-file deletion is an agent-controlled reset, not durable hard enforcement. This does not establish behavioral effectiveness. `.mjs` auto-discovery is broken on this host version (issue #127). Global scope, npm-package installation, and other host versions remain unverified.
 
 ### 3. Cursor — skills plus advisory rules
 
