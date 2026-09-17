@@ -40,6 +40,7 @@
     "eval:behavioral": "node behavioral-evals/run.js run",
     "eval:behavioral:validate": "node behavioral-evals/run.js validate",
     "eval:behavioral:plugin": "node behavioral-evals/run-with-plugin.js run",
+    "eval:opencode:hardlock-live": "node behavioral-evals/opencode-hardlock-live.js run",
     "test:ab": "node ci/ab-test-harness.js validate",
     "test:ab:run": "node ci/ab-test-harness.js run",
     "harness:reset": "node hooks/scripts/reset-circuit-breaker.js",
