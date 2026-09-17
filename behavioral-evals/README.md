@@ -104,3 +104,49 @@ machine-specific workspace or transcript paths. Each archive includes the case
 fixture, replay command, fixture/prompt/rubric/code hashes, and engine/model
 provenance. Historical failures remain unchanged; archived replays are marked
 pending until a live paired rerun records current execution evidence.
+
+## OpenCode hard-lock live evidence
+
+Issue #37 needs a stronger proof than the hermetic state-machine test: a real
+OpenCode host must show an attributed edit attempt being blocked after the same
+verification failure returns post-reflection. Run the dedicated probe on a
+machine with an authenticated `opencode` CLI:
+
+```bash
+npm run eval:opencode:hardlock-live
+
+# Optional explicit output/model
+node behavioral-evals/opencode-hardlock-live.js run \
+  --out benchmarks/results/live-host/opencode-hardlock-local \
+  --model opencode/union-alpha
+
+# Re-check a retained evidence directory without making a model call
+node behavioral-evals/opencode-hardlock-live.js verify \
+  benchmarks/results/live-host/opencode-hardlock-local
+```
+
+The runner uses an isolated temporary `HARNESS_STATE_HOME`, installs the
+canonical `opencode-plugin/index.mjs` as the auto-discoverable
+`.opencode/plugins/harness-enforcement.js`, and keeps the verification failure
+constant. It does **not** seed breaker/reflection state. The live agent must
+produce the reflection artifact through the host/plugin flow.
+
+A PASS requires all of the following evidence to agree:
+
+- a structured pre-lock edit attempt containing `PRELOCK_OK`, and that marker
+  must reach `probe.txt` (negative control showing edits were possible);
+- a preserved reflection artifact with the current token and `RESUME:` decision;
+- a post-reflection retry containing `POST_REFLECTION_RETRY`, which must reach
+  the file and drive the same failure signature to at least count 4;
+- a pre-reset `circuit-breaker.json` snapshot with `hardLock: true`;
+- a structured final edit attempt containing `SHOULD_NOT_LAND` plus the live
+  Harness hard-lock error in host output;
+- `SHOULD_NOT_LAND` must **not** appear in the final file, proving the attempted
+  edit was blocked before filesystem mutation.
+
+The runner archives raw transcript/stderr, sanitized host/model/plugin metadata,
+the final fixture files, the selected pre-reset state, the reflection artifact,
+and the complete isolated raw-state tree before deleting its temporary working
+directory. A failed/incomplete live run is retained as failed evidence rather
+than being counted as behavioral failure. This probe is intended to become the
+OpenCode plugin-arm preflight for the paired benchmark tracked by #71.
