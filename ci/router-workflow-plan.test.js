@@ -10,6 +10,9 @@ const tierRouter = path.join(ROOT, 'harness-everything', 'scripts', 'tier-router
 const kernelRouter = path.join(ROOT, 'harness-everything', 'scripts', 'kernel-router.js');
 const {
   ITERATIVE_MAX_ITERATIONS,
+  WORKFLOW_MAX_REVISION_ROUNDS,
+  FABLE_MAX_REPLANS,
+  FABLE_MAX_WORKERS,
   validateRouterContract,
 } = require(path.join(ROOT, 'harness-everything', 'scripts', 'router-contract.js'));
 let failed = 0;
@@ -73,6 +76,9 @@ if (validContract(iterative, 'iterative-single')) {
   check(plan.tier === 'tier2', 'ordinary test-first bug fix is tier2');
   check(plan.strategy === 'iterative-single', 'ordinary bug fix selects iterative-single');
   check(plan.limits.maxIterations === ITERATIVE_MAX_ITERATIONS, 'iterative-single has an explicit loop budget');
+  check(plan.limits.maxRevisionRounds === WORKFLOW_MAX_REVISION_ROUNDS, 'workflow exposes one numeric revision budget');
+  check(plan.limits.maxReplans === FABLE_MAX_REPLANS, 'workflow exposes one numeric replan budget');
+  check(plan.limits.maxWorkers === FABLE_MAX_WORKERS, 'workflow exposes one numeric worker cap');
   check(plan.requiredInvariants.includes('objective-verification'), 'iterative-single carries objective verification invariant');
   check(plan.requiredInvariants.includes('loop-budget'), 'iterative-single carries loop-budget invariant');
   check(plan.suggestedSkills.includes('tdd'), 'TDD stays advisory rather than an invariant');
