@@ -27,11 +27,35 @@ function pathApiFor(value) {
   return /^[A-Za-z]:[\\/]/.test(String(value || '')) ? path.win32 : path;
 }
 
+function canonicalPath(value) {
+  const text = String(value || '');
+  if (!text) return null;
+  const api = pathApiFor(text);
+  const resolved = api.resolve(text);
+
+  // realpath() is necessary on macOS where /var is a symlink to /private/var.
+  // New Write targets may not exist yet, so canonicalize the nearest existing
+  // ancestor and append the missing path segments without requiring creation.
+  const missing = [];
+  let cursor = resolved;
+  while (cursor && !fs.existsSync(cursor)) {
+    const parent = api.dirname(cursor);
+    if (!parent || parent === cursor) break;
+    missing.unshift(api.basename(cursor));
+    cursor = parent;
+  }
+  if (!cursor || !fs.existsSync(cursor)) return resolved;
+
+  let real = fs.realpathSync.native ? fs.realpathSync.native(cursor) : fs.realpathSync(cursor);
+  for (const segment of missing) real = api.join(real, segment);
+  return api.normalize(real);
+}
+
 function isWithin(target, root) {
   if (!target || !root) return false;
   const api = pathApiFor(target) === path.win32 || pathApiFor(root) === path.win32 ? path.win32 : path;
-  const resolvedTarget = api.resolve(target);
-  const resolvedRoot = api.resolve(root);
+  const resolvedTarget = canonicalPath(target);
+  const resolvedRoot = canonicalPath(root);
   const relative = api.relative(resolvedRoot, resolvedTarget);
   if (!relative) return true;
   return relative !== '..' && !relative.startsWith(`..${api.sep}`) && !api.isAbsolute(relative);
@@ -144,6 +168,7 @@ process.stdin.on('error', () => {
 
 module.exports = {
   absoluteTarget,
+  canonicalPath,
   editTargets,
   isWithin,
   patchTargets,
