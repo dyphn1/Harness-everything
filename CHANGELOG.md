@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.8.1](https://github.com/dyphn1/Harness-everything/compare/v0.8.0...v0.8.1) (2026-09-17)
+
+### Bug Fixes
+
+* **router:** enforce selected workflow lifecycle ([9f3394a](https://github.com/dyphn1/Harness-everything/commit/9f3394a3ff59aaa08428e12a9a2784e7541368c4))
+* **workflow:** Close lifecycle isolation gaps ([96b58e7](https://github.com/dyphn1/Harness-everything/commit/96b58e7ce2e52312880663e59380038e4bf5f985)), closes [#131](https://github.com/dyphn1/Harness-everything/issues/131)
+* **workflow:** Normalize Windows worktree paths ([18ee645](https://github.com/dyphn1/Harness-everything/commit/18ee645a1a7165d01d60a964947082ad0108b93c)), closes [#131](https://github.com/dyphn1/Harness-everything/issues/131)
+* **workflow:** require worktree isolation for major mutations ([9ba0098](https://github.com/dyphn1/Harness-everything/commit/9ba0098adc94fe141fca2c03f07d0883d9a56b9b))
+
 ## [Unreleased]
 
 ### Fixed
