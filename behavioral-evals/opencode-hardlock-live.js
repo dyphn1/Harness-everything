@@ -96,6 +96,9 @@ function verifyEvidence(evidenceDir) {
   try { metadata = readJson(metadataFile); } catch { /* reported below */ }
   check('metadata records isolated Harness state', metadata.stateIsolated === true, metadata.stateIsolation || null);
   check('metadata records .js auto-discovery destination', metadata.installedPluginName === INSTALLED_PLUGIN_NAME, metadata.installedPluginName || null);
+  check('installed plugin is byte-identical to the recorded canonical source',
+    typeof metadata.pluginSha256 === 'string' && metadata.pluginSha256.length === 64 && metadata.installedPluginSha256 === metadata.pluginSha256,
+    { source: metadata.pluginSha256 || null, installed: metadata.installedPluginSha256 || null });
 
   const combined = [transcriptFile, stderrFile]
     .filter((file) => fs.existsSync(file))
@@ -171,6 +174,9 @@ function defaultEvidenceDir() {
 
 function runLive(options = {}) {
   const evidenceDir = path.resolve(options.out || defaultEvidenceDir());
+  if (fs.existsSync(evidenceDir) && fs.readdirSync(evidenceDir).length > 0) {
+    throw new Error(`evidence output directory must be empty or absent: ${evidenceDir}`);
+  }
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-opencode-hardlock-'));
   const workspace = path.join(tempRoot, 'workspace');
   const stateHome = path.join(tempRoot, 'state-home');
@@ -191,7 +197,8 @@ function runLive(options = {}) {
     scripts: { test: "node -e \"console.log('HARNESS_LIVE_PROBE_RED'); process.exit(1)\"" },
   }, null, 2));
   fs.writeFileSync(path.join(workspace, 'opencode.json'), JSON.stringify({ $schema: 'https://opencode.ai/config.json' }, null, 2));
-  fs.copyFileSync(PLUGIN_SOURCE, path.join(workspace, '.opencode', 'plugins', INSTALLED_PLUGIN_NAME));
+  const installedPluginFile = path.join(workspace, '.opencode', 'plugins', INSTALLED_PLUGIN_NAME);
+  fs.copyFileSync(PLUGIN_SOURCE, installedPluginFile);
   fs.writeFileSync(path.join(evidenceDir, 'prompt.txt'), PROMPT + '\n', 'utf8');
 
   const args = ['run', '--format', 'json', '--auto', '--dir', workspace];
@@ -228,6 +235,7 @@ function runLive(options = {}) {
     installedPluginName: INSTALLED_PLUGIN_NAME,
     pluginSource: 'opencode-plugin/index.mjs',
     pluginSha256: sha256File(PLUGIN_SOURCE),
+    installedPluginSha256: sha256File(installedPluginFile),
     stateIsolated: true,
     stateIsolation: { env: 'HARNESS_STATE_HOME', location: 'temporary' },
     opencodeExitStatus: result.status,
