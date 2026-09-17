@@ -1,8 +1,8 @@
 # Task Triage & Tier Details
 
-Harness uses tiers to estimate scope and surface useful capabilities. A tier is **not** a fixed pipeline. The runtime enforces a very small set of cross-cutting invariants and leaves tactics, skill choice, ordering, and delegation to the agent.
+Harness uses tiers to estimate scope and surface useful capabilities. A tier is **not** a fixed pipeline. The runtime enforces a small set of cross-cutting invariants plus mandatory evaluation of router-suggested skills; execution choice, ordering, and delegation remain with the agent after that evaluation.
 
-> Architecture rule: **Do not enforce workflow order. Enforce workflow invariants.**
+> Architecture rule: **Do not enforce workflow order. Enforce workflow invariants and evaluate suggestions before skipping them.**
 
 ## 0. When Harness Routing Applies
 
@@ -12,19 +12,18 @@ flowchart TD
     S -- No --> B[Bypass Harness<br/>Answer naturally]
     S -- Yes --> K[Harness Kernel<br/>classify scope + inject invariants]
     K --> T{Tier recommendation}
-    T -- Tier 1 --> A1[Prefer direct execution]
-    T -- Tier 2 --> A2[Agent chooses useful domain skills]
-    T -- Tier 3 --> A3[Agent chooses planning / delegation if useful]
-    A1 --> E[Execute with agent-selected tactics]
-    A2 --> E
-    A3 --> E
+    T --> G{Suggested skills?}
+    G -- Yes --> R[Read each suggested SKILL.md<br/>evaluate basic flow + applicability]
+    G -- No --> C[Agent chooses smallest useful tactic]
+    R --> C
+    C --> E[Execute with agent-selected tactics]
     E --> V{Objective evidence supports completion?}
-    V -- No --> R[Diagnose / iterate]
-    R --> F{Same-signature failure x3?}
+    V -- No --> D[Diagnose / iterate]
+    D --> F{Same-signature failure x3?}
     F -- No --> E
     F -- Yes --> Z[Zoom out / re-plan]
     Z --> E
-    V -- Yes --> D([Claim completion])
+    V -- Yes --> O([Claim completion])
 ```
 
 ### Bypass Rules
@@ -43,16 +42,18 @@ The kernel exists to keep strong models free while protecting the few behaviors 
 1. **Route before execution** — establish task scope/tier before mutating software work.
 2. **Verify before claim** — completion claims require objective evidence appropriate to the change.
 3. **Re-plan on repetition** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
+4. **Evaluate before skip** — when the router suggests a skill, read that skill's complete `SKILL.md` entry/basic flow before omitting it.
 
-These are the rails. Everything else is agent judgment unless the user or an authoritative project document explicitly requires it.
+The fourth invariant is conditional: it applies when the router emits one or more suggestions. It makes **evaluation mandatory, not execution**.
 
 ### What is intentionally *not* mandatory
 
-- Loading `todo-driven-workflow` for every Tier 2/3 task.
-- Running TDD for changes where executable behavioral tests do not add value.
-- Entering Fable/multi-agent mode merely because the task is Tier 3.
+- Executing `todo-driven-workflow` for every Tier 2/3 task after its applicability has been evaluated.
+- Running TDD where the `tdd` flow has been read and executable behavioral tests do not add value.
+- Entering Fable/multi-agent mode merely because the task is Tier 3 after those suggested flows have been evaluated.
 - Following a universal `TODO → TDD → verification-loop` or `Fable → subagent → verification-loop` sequence.
 - Loading `install-cognitive-os` as a peer skill before every other skill.
+- Reading every optional deep-dive/reference linked by a suggested skill. Only material the skill entry explicitly requires to decide applicability joins the mandatory evaluation set.
 
 `install-cognitive-os` remains the human-readable/manual entry point for the cognitive policy. Supported runtime integrations should establish the kernel invariants without depending on that skill being selected first.
 
@@ -75,12 +76,23 @@ npx github:dyphn1/Harness-everything next "<brief prompt summary>"
 - the recommended tier and rationale,
 - a compact **Harness Routing Checkpoint**,
 - the **required Harness invariants**,
-- **suggested skills** marked advisory,
-- the policy that the agent may choose the smallest useful skill/tool set.
+- suggested skills under a **mandatory evaluation / advisory execution** contract,
+- the policy that the agent may choose the smallest useful skill/tool set after evaluating suggestions.
 
 If a host's `UserPromptSubmit` integration already ran the kernel this turn, reuse that output rather than running it twice. The checkpoint must still become user-visible for software/project work: use the host's visible hook rendering when it has one, otherwise include the checkpoint in the first progress/update message.
 
 The tier classifier is heuristic. Treat its result as the default route, not an oracle. A clear task reading or explicit user instruction may override it; record the reason when doing so.
+
+### Suggestion evaluation contract
+
+For every router-suggested skill:
+
+1. Resolve and read the complete `SKILL.md` entry.
+2. Evaluate `USE FOR`, `DO NOT USE FOR`, its workflow/basic flow, and any hard rules in the entry against the current task.
+3. If the entry explicitly requires another document to determine applicability, read that required material too. Ordinary deep-dive/reference links remain optional unless the entry makes them decision-critical.
+4. Only then choose `use`, `skip`, or `unresolved/unavailable`.
+
+A skill must not be skipped from only its name, frontmatter description, router summary, or a generic judgement such as “routine/common task.” Using one suggested skill does not waive evaluation of the other suggestions before they are skipped. A suggestion that cannot be resolved/read is not a valid skip; mark it `unresolved/unavailable`.
 
 ## 3. Tier Guidance
 
@@ -95,7 +107,8 @@ Typical shape:
 Default behavior:
 - prefer direct execution,
 - avoid large plans and unnecessary delegation,
-- load a focused skill only when it materially improves the result,
+- when the router emits no suggestions, proceed with the bounded direct path,
+- when it does emit a focused suggestion, evaluate that skill entry before omitting it,
 - still verify any completion claim with evidence appropriate to the change.
 
 ### Tier 2 — Standard
@@ -117,7 +130,7 @@ Common **suggestions**, not a pipeline:
 | Isolated workspace would reduce risk | `using-git-worktrees` |
 | Quantitative scoring/benchmarking is requested | `eval-harness` |
 
-The model decides which of these are useful and in what order. It may use none, one, or several while preserving the kernel invariants. If the router emitted one or more suggestions and the agent uses none of them, the visible checkpoint/progress update must include one brief skip reason; using at least one suggestion does not require explaining why the others were omitted.
+Every emitted suggestion is mandatory to **evaluate** by reading its skill entry/basic flow. After that, the model decides which skills are useful and in what order; it may execute none, one, or several while preserving the kernel invariants. Adopting one suggestion does not permit the others to be skipped without evaluation. If every suggestion is skipped after evaluation, the visible checkpoint/progress update must include one brief reason grounded in the evaluated flow mismatch.
 
 ### Tier 3 — Macro
 
@@ -138,7 +151,7 @@ Common **suggestions**, not a pipeline:
 | Settled intent needs a spec | `to-spec` |
 | Settled work needs tracer-bullet issues | `to-tickets` |
 
-Tier 3 does **not** automatically require multi-agent execution. A strong model may complete macro work directly when that is the safer/smaller choice. The same all-skipped rationale rule applies when the router emitted suggestions.
+Tier 3 does **not** automatically require multi-agent execution. It does require evaluation of the suggested entries before omission. A strong model may still complete macro work directly when, after reading those flows, direct execution is the safer/smaller choice. The same evaluated all-skipped rationale rule applies.
 
 ## 4. Cognitive OS Relationship
 
@@ -161,11 +174,11 @@ But this diagram describes a reasoning policy, not a peer-skill dependency graph
 
 | Host mode | Expected behavior |
 |---|---|
-| Lifecycle hook available | Run the Harness Kernel on prompt submission so routing context exists before domain-skill execution. Surface the emitted checkpoint through a host-visible hook surface when supported; otherwise the agent carries it into the first visible progress/update. Hard gates may enforce supported invariants at tool/stop boundaries. |
-| Advisory instructions only | Tell the agent to run/reuse `harness next` before software mutation, surface the checkpoint, and run `harness verify` before completion. The behavior is advisory, not a hard host gate. |
-| Manual use | Invoke `harness-everything` or `install-cognitive-os` explicitly to inspect/re-establish and surface the contract. |
+| Lifecycle hook available | Run the Harness Kernel on prompt submission so routing context exists before domain-skill execution. Surface the emitted checkpoint through a host-visible hook surface when supported; otherwise the agent carries it into the first visible progress/update. Suggested-skill execution stays agent-controlled, but each suggested skill must be evaluated before omission. Hard gates may enforce supported invariants at tool/stop boundaries. |
+| Advisory instructions only | Tell the agent to run/reuse `harness next` before software mutation, surface the checkpoint, read/evaluate each suggested skill before skipping it, and run `harness verify` before completion. The behavior is instruction-governed, not a hard host gate. |
+| Manual use | Invoke `harness-everything` or `install-cognitive-os` explicitly to inspect/re-establish and surface the contract; suggested skills still follow read-before-skip. |
 
-Never describe an advisory integration as hard enforcement. Platform-specific adapters may differ while preserving functional intent. Kernel emission alone is not proof that a host UI displayed the checkpoint; #82 live evidence owns that claim.
+Never describe an advisory integration as hard enforcement. Platform-specific adapters may differ while preserving functional intent. Kernel emission alone is not proof that a host UI displayed the checkpoint or that the host compelled the model to read a suggested skill; #82 live evidence owns those claims.
 
 ## 6. Routing Checkpoint
 
@@ -175,16 +188,17 @@ For software/project work, the kernel always emits a compact checkpoint and the 
 ## 🚦 Harness Routing Checkpoint
 - Tier: Tier X — <reason>
 - Strategy: <selected/deferred strategy>
-- Required invariants: route-before-execution; verify-before-claim; re-plan-after-3-same-failures
+- Required invariants: route-before-execution; verify-before-claim; re-plan-after-3-same-failures; evaluate-suggestions-before-skip (when suggestions exist)
 - Suggested skills: <deduplicated suggestions, or none>
-- Suggestion disposition: <using one or more | skipped all — brief reason>
+- Suggestion evaluation: <required before skip | no suggestions>
+- Suggestion disposition: <using one or more | skipped all after evaluation — brief reason | unresolved/unavailable>
 ```
 
-The checkpoint reports state; it does not prescribe a universal workflow. Suggested skills remain advisory. The only extra accountability rule is that a non-empty suggestion set cannot disappear silently: if every suggestion is skipped, state one brief reason. Do not add a skip explanation when at least one suggestion is used.
+The checkpoint reports state; it does not prescribe a universal workflow. Suggested skills are **mandatory to evaluate and advisory to execute**. A non-empty suggestion set cannot disappear silently or be rejected from summaries alone. When every suggestion is skipped after evaluation, state one brief reason grounded in the evaluated flows. When at least one is used, no prose explanation is required for each other omission, but read-before-skip still applies to every omitted suggestion.
 
 ## 7. Self-Healing and Dynamic Skills
 
-Existing self-heal, generated-skill discovery, knowledge-guide matching, and fact-audit behavior remain part of the classifier/runtime. They may recommend resources but should not silently convert recommendations into mandatory pipeline stages.
+Existing self-heal, generated-skill discovery, knowledge-guide matching, and fact-audit behavior remain part of the classifier/runtime. They may recommend resources; recommendations trigger mandatory applicability evaluation, not automatic execution or mandatory pipeline stages.
 
 If bootstrap reports missing integration touchpoints, use the existing self-heal command:
 
