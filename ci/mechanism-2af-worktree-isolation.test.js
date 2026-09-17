@@ -38,6 +38,13 @@ process.env.HOME = home;
 process.env.USERPROFILE = home;
 
 try {
+  if (process.platform === 'win32') {
+    const { key } = require('../hooks/scripts/lib/workflow-isolation');
+    const shortProgramFiles = path.join(process.env.SystemDrive || 'C:', 'PROGRA~1');
+    if (fs.existsSync(shortProgramFiles)) {
+      check(key(shortProgramFiles) === key(fs.realpathSync.native(shortProgramFiles)), 'Windows short and long path spellings identify the same physical directory');
+    }
+  }
   check(git(repo, ['init']).status === 0, 'fixture git repository initializes');
   fs.writeFileSync(path.join(repo, 'README.md'), 'fixture\n', 'utf8');
   check(git(repo, ['add', 'README.md']).status === 0, 'fixture file stages');
@@ -106,7 +113,7 @@ try {
   check(createLinked.status === 0, 'fixture linked worktree is created');
 
   const isolatedWrite = runGate('Write', linked, { file_path: path.join(linked, 'src.js'), content: 'x' });
-  check(isolatedWrite.status === 0, 'Tier 3 mutation is allowed after entering a linked worktree');
+  check(isolatedWrite.status === 0, `Tier 3 mutation is allowed after entering a linked worktree (${isolatedWrite.stderr.trim() || 'allowed'})`);
 
   check(runGate('Write', linked, { file_path: path.join(repo, 'src.js') }).status === 2, 'linked cwd cannot authorize a primary-tree target');
   check(runGate('Write', linked, { file_path: '../repo/src.js' }).status === 2, 'relative traversal cannot escape the worktree');

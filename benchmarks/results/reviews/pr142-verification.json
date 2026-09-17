@@ -12,7 +12,7 @@
     {
       "gate": "test",
       "exitCode": 0,
-      "seconds": 79.974
+      "seconds": 76.007
     },
     {
       "gate": "test:mutations",
@@ -27,7 +27,7 @@
     {
       "gate": "test:consistency",
       "exitCode": 0,
-      "seconds": 0.921
+      "seconds": 0.782
     },
     {
       "gate": "test:repo-contract",
@@ -67,7 +67,7 @@
     {
       "gate": "test:plugin:openai",
       "exitCode": 0,
-      "seconds": 4.382
+      "seconds": 4.225
     },
     {
       "gate": "test:plugin:submission",
@@ -90,5 +90,6 @@
     "passed": 57
   },
   "liveHost": "not run for this change",
-  "behavioralEffectiveness": "not measured for this change"
+  "behavioralEffectiveness": "not measured for this change",
+  "windowsPathRegression": "Native resolution equates Windows 8.3 and long path spellings; regression and final local self-regression passed."
 }

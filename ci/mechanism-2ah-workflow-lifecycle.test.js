@@ -73,7 +73,8 @@ try {
   const runFile = path.join(runRoot, 'run.json');
   const manifest = read(runFile);
   check(manifest.workflowId === active.workflowId && manifest.sessionId === sessionId, 'run is explicitly bound to workflow and session');
-  check(gate('Write', { file_path: path.join(linked, 'src.js') }).status === 0, 'entered workflow allows isolated artifact mutation');
+  const allowedMutation = gate('Write', { file_path: path.join(linked, 'src.js') });
+  check(allowedMutation.status === 0, 'entered workflow allows isolated artifact mutation: ' + allowedMutation.stderr);
   for (const invalid of [{ sessionId: null }, { workflowId: 'unrelated' }, { createdAt: 'invalid' }]) {
     write(runFile, { ...manifest, ...invalid });
     check(stop().status === 2, 'uncorrelated run cannot satisfy completion: ' + JSON.stringify(invalid));

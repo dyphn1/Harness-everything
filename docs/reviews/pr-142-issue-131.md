@@ -11,6 +11,7 @@ isolation. It is not a measured agent-performance benchmark.
 | --- | --- | --- |
 | Escape changed the whole workflow state and skipped isolation | Stage-scoped escape; isolation survives legacy escape and blocked states | `mechanism-2af-worktree-isolation.test.js`, `mechanism-2ah-workflow-lifecycle.test.js` |
 | Only cwd was checked | Registered linked checkout of the bound repo; direct/patch targets, move destinations, traversal, and links checked | `mechanism-2af-worktree-isolation.test.js` |
+| Windows runner used 8.3 paths while Git reported long names | Native physical-path resolution equates both spellings without relaxing isolation | Windows path regression and worktree suites |
 | Read-only shell prefixes accepted writes | Reject redirects, substitutions, chained commands and dangerous options; require isolated cwd for mutation/unknown commands | `mechanism-2af-worktree-isolation.test.js` |
 | Next prompt erased unresolved obligations | Stable workflow identity across steering prompts; stronger route requires replan | `mechanism-2ah-workflow-lifecycle.test.js` |
 | Same strategy/timestamp loosely matched any Fable run | Exact workflow, session and run correlation | `mechanism-2ah-workflow-lifecycle.test.js` |

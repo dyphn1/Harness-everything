@@ -12,7 +12,9 @@ function git(cwd, args) {
 
 function canonical(value) {
   const resolved = path.resolve(value);
-  try { return fs.realpathSync(resolved); }
+  // The JS resolver preserves Windows 8.3 spellings (RUNNER~1), while Git
+  // reports the long directory name. Native resolution gives one identity.
+  try { return fs.realpathSync.native(resolved); }
   catch (error) {
     if (error.code !== 'ENOENT') throw error;
     const parent = path.dirname(resolved);
