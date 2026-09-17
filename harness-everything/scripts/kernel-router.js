@@ -117,6 +117,32 @@ function printWorkflowPlan(plan) {
   console.log(`\n=> ROUTER WORKFLOW PLAN (JSON): ${JSON.stringify(visible)}`);
 }
 
+function uniqueSuggestedSkills(plan) {
+  if (!Array.isArray(plan.suggestedSkills)) return [];
+  return [...new Set(plan.suggestedSkills.filter(skill => typeof skill === 'string' && skill.trim()))];
+}
+
+function displayTier(tier) {
+  if (tier === 'tier1') return 'Tier 1';
+  if (tier === 'tier2') return 'Tier 2';
+  if (tier === 'tier3') return 'Tier 3';
+  return tier || 'unclassified';
+}
+
+function printRoutingCheckpoint(plan) {
+  const invariants = Array.isArray(plan.requiredInvariants) ? plan.requiredInvariants : [];
+  const suggestions = uniqueSuggestedSkills(plan);
+
+  console.log('\n=> HARNESS ROUTING CHECKPOINT (REQUIRED VISIBLE STATE):');
+  console.log(`   - Tier: ${displayTier(plan.tier)}`);
+  console.log(`   - Strategy: ${plan.strategy || 'deferred'}`);
+  console.log(`   - Required invariants: ${invariants.length ? invariants.join(', ') : 'none'}`);
+  console.log(`   - Suggested skills: ${suggestions.length ? suggestions.join(', ') : 'none'}`);
+  if (suggestions.length > 0) {
+    console.log('   - Suggestion disposition: suggestions are advisory; use any that add value. If all are skipped, state one brief reason in the first visible progress/update message.');
+  }
+}
+
 function printKernelContract(plan) {
   console.log('\n=> REQUIRED HARNESS INVARIANTS:');
   for (const invariant of plan.requiredInvariants || []) {
@@ -194,6 +220,7 @@ function run(prompt, stdinPayload) {
   }
 
   printWorkflowPlan(contract.workflowPlan);
+  printRoutingCheckpoint(contract.workflowPlan);
   printKernelContract(contract.workflowPlan);
 
   if (result.status !== 0) process.exit(result.status === null ? 1 : result.status);
