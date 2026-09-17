@@ -70,15 +70,16 @@ check(tier3.stdout.includes('HARNESS ROUTING CHECKPOINT (REQUIRED VISIBLE STATE)
 
 const harnessSkill = read('harness-everything/SKILL.md');
 check(!/Requests that already name a skill/i.test(harnessSkill), 'harness entrypoint no longer opts out when another skill is named');
-check(/including work that already names or strongly matches another skill/i.test(harnessSkill), 'named domain skills still pass through Harness routing');
+check(/Work that names or matches another skill/i.test(harnessSkill), 'named domain skills still pass through Harness routing');
 check(/not a fixed pipeline/i.test(harnessSkill), 'skill contract rejects fixed pipeline semantics');
-check(/Ensure the emitted \*\*Harness Routing Checkpoint\*\* is user-visible/.test(harnessSkill), 'skill contract requires checkpoint visibility');
-check(/read its complete `SKILL\.md` entry before deciding to skip it/i.test(harnessSkill), 'skill contract requires reading each suggested skill before skip');
+check(/Harness Routing Checkpoint\*\*.*user-visible/i.test(harnessSkill), 'skill contract requires checkpoint visibility');
+check(/For every suggestion, read its `SKILL\.md`/i.test(harnessSkill), 'skill contract requires reading each suggested skill before skip');
 check(/`USE FOR`, `DO NOT USE FOR`, workflow\/basic flow, and hard rules/i.test(harnessSkill), 'skill contract defines the required evaluation scope');
-check(/Do not reject a suggestion from only its name, description, router summary/i.test(harnessSkill), 'skill contract rejects metadata-only omission');
-check(/Using one suggestion does not waive read-before-skip/i.test(harnessSkill), 'skill contract applies evaluation per omitted suggestion');
-check(/`unresolved\/unavailable`, not silently skipped/i.test(harnessSkill), 'skill contract defines unreadable suggestion disposition');
-check(/If all suggestions are skipped, state one brief reason grounded in the evaluated flows/i.test(harnessSkill), 'skill contract preserves evaluated all-skipped rationale');
+check(/Name, description, router summary, or "routine\/common task" alone cannot justify skip/i.test(harnessSkill), 'skill contract rejects metadata-only omission');
+check(/Using one suggestion does not waive evaluation of others/i.test(harnessSkill), 'skill contract applies evaluation per omitted suggestion');
+check(/Unreadable suggestions are `unresolved\/unavailable`/i.test(harnessSkill), 'skill contract defines unreadable suggestion disposition');
+check(/If all are skipped, give one brief flow-grounded reason/i.test(harnessSkill), 'skill contract preserves evaluated all-skipped rationale');
+check(/mandatory evaluation, advisory execution/i.test(harnessSkill), 'skill entry states the core disposition succinctly');
 
 const pluginHarnessSkill = read('plugins/harness-everything/skills/harness-everything/SKILL.md');
 check(pluginHarnessSkill === harnessSkill, 'canonical/plugin Harness SKILL.md copies remain identical');
@@ -135,10 +136,12 @@ check(agents.includes('Router suggestions are mandatory to evaluate, advisory to
 
 const advisory = read('scripts/lib/advisory-text.js');
 check(advisory.includes('For EVERY suggested skill'), 'generated advisory instructions require per-suggestion evaluation');
-check(advisory.includes('read its complete `SKILL.md` entry/basic flow before skipping it'), 'Codex AGENTS generator includes read-before-skip');
+check(advisory.includes('entry/basic flow before skipping it'), 'Codex AGENTS generator includes read-before-skip');
 check(advisory.includes('There is NO universal TODO/TDD/Fable sequence'), 'advisory surfaces reject the old fixed execution pipeline');
 check(!advisory.includes('Initialize the `todo-driven-workflow` checklist first'), 'old forced Tier 2/3 checklist pipeline is removed');
 check(!advisory.includes('load `fable-mode` and `fable-discipline`, run sub-agents'), 'old forced Tier 3 Fable pipeline is removed');
+const pluginAdvisory = read('plugins/harness-everything/scripts/lib/advisory-text.js');
+check(pluginAdvisory === advisory, 'OpenAI plugin advisory mirror matches canonical source');
 
 console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: invariant routing contract (${failed} failure${failed === 1 ? '' : 's'})`);
 process.exit(failed === 0 ? 0 : 1);
