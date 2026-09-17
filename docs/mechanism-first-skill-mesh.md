@@ -1,170 +1,159 @@
 # Mechanism-First Skill Mesh
 
-Harness is not intended to be a rigid workflow engine. Its skills should remain independently useful, while still coordinating through lightweight mechanisms that help the model and the software engineer work together with less drift, fewer loops, and better evidence.
+Harness coordinates independently useful skills through a small workflow runtime. It does **not** make every skill part of one universal DAG, but it also does not leave selected execution topology to model discretion.
 
-The preferred shape is a **mechanism-first skill mesh**: skills are autonomous to execute, coordination is explicit, and enforcement happens at narrow decision points through scripts, hooks, exit codes, and compact return values. Router-suggested skills are **mandatory to evaluate before omission, but advisory to execute after evaluation**. Platform-specific enforcement claims follow [platform-capabilities.md](platform-capabilities.md).
+The preferred shape is:
 
----
+> **mandatory applicable workflow + local skill autonomy + narrow runtime mechanisms**
+
+Platform-specific enforcement claims remain bounded by [platform-capabilities.md](platform-capabilities.md).
 
 ## Design Intent
 
-Harness exists to improve engineering collaboration, not to replace model judgment with a fixed state machine.
+Each skill remains understandable/executable on its own, while the kernel provides an outer lifecycle contract.
 
-Each skill should be able to answer four questions on its own:
+A skill should answer:
 
-1. **When should I activate?** The trigger should be clear without requiring another skill to interpret it.
-2. **What do I protect?** The skill should describe the failure mode it prevents or the engineering habit it reinforces.
-3. **What mechanism do I expose?** When possible, the skill should provide a script, command, checklist primitive, verifier, or return-value contract that makes its guidance concrete.
-4. **What should I hand to nearby skills?** The skill may recommend a next skill, but it should not require a global handoff template to remain useful.
+1. **When should I activate?** Clear `USE FOR` / `DO NOT USE FOR` applicability.
+2. **What do I protect?** The failure mode or engineering discipline it addresses.
+3. **What workflow/mechanism do I expose?** A local flow, verifier, script, gate, or stable result when useful.
+4. **What evidence means I am done?** A check, artifact, or explicit blocked state.
 
-This keeps the system composable: `tdd` can run alone, `verification-loop` can run alone, `todo-driven-workflow` can run alone, and `harness-everything` can route among them when the task benefits from orchestration. The router may not execute every suggestion, but it may not discard suggestions without first reading/evaluating their actual `SKILL.md` flows.
+The router may surface several skills. Those suggestions must be evaluated from their actual `SKILL.md` flows before omission. They are **not** automatically all executed. Separately, the router selects one smallest sufficient outer topology; once selected, that topology is mandatory for the run.
 
----
+## Why Not One Global Skill Sequence?
 
-## Why Not a Single Handoff Block?
+A universal TODO/TDD/Fable sequence would:
 
-A universal handoff block makes workflow state easy to parse, but it also has costs:
+- add prompt/runtime overhead to small tasks;
+- confuse domain skills with orchestration topology;
+- suppress useful model judgment inside stages;
+- fail poorly on hosts that cannot enforce the same lifecycle APIs.
 
-- It encourages every platform and model to speak in the same rigid shape, even when a natural response would be clearer.
-- It can turn skills into a centralized workflow runner instead of a federation of local engineering disciplines.
-- It can make the model optimize for satisfying the template rather than making the best next engineering move.
-- It adds prompt weight on platforms where the mechanism cannot actually enforce the block.
+So Harness separates **topology** from **capabilities/domain skills**:
 
-Harness should avoid mandatory global handoff text. Local skills may still use concise reports when they need them, but the mesh should not depend on one universal response format. The routing checkpoint is a compact state/evaluation surface, not a global handoff protocol.
+```text
+tier / task shape
+      +
+selected execution topology
+      +
+applicable skills/capabilities
+      +
+required invariants/gates
+```
 
----
+The topology is the lifecycle contract. Skills are resolved for applicability within/around that contract.
 
 ## Mechanisms Over Prose
 
-LLMs are highly sensitive to tool results, command outputs, exit codes, and short structured decisions. Harness should prefer those signals over long textual handoffs.
+Prefer short structured state, tool results, exit codes, and objective evidence over stronger prompt wording.
 
-Good mechanism outputs are:
-
-- **Short:** the result should be easy for the model to keep in active attention.
-- **Actionable:** the output should name the next constraint, gate, or recommended skill.
-- **Non-authoritarian about execution:** the mechanism may require an evaluation step without forcing a universal workflow sequence.
-- **Portable:** hook-capable platforms can run the mechanism automatically; hook-less platforms can call the same script explicitly.
-
-Example shape:
+Example:
 
 ```text
 HARNESS_DECISION
 tier: 2
-required: route-before-execution, verify-before-claim, re-plan-after-repeat-failure, evaluate-suggestions-before-skip
-suggest: todo-driven-workflow, verification-loop
-suggestion_policy: mandatory-evaluation/advisory-execution
-reason: user requested code changes
+strategy: iterative-single
+workflow_state: active
+required: route-before-execution, objective-verification, loop-budget
+suggest: tdd, verification-loop
+suggestion_policy: evaluate-applicability
+escape_policy: workflow-uncovered-scope-only
 ```
 
-This is not a handoff block. It is a compact mechanical signal. The model remains free to decide how to present the work, explain trade-offs, and collaborate with the engineer after it has evaluated the suggested skill flows.
+This says what must happen without prescribing private reasoning or exact implementation tactics.
 
----
+Good mechanisms are:
+
+- **short** enough to remain salient;
+- **actionable** with an explicit next state;
+- **failable** when a requirement is unmet;
+- **bounded** by host capability/evidence;
+- **non-prescriptive about HOW** unless a safety/contract requirement needs it.
 
 ## Skill Autonomy Contract
 
-Every skill in the mesh should remain useful when loaded directly.
+Every skill should retain:
 
-Recommended contract:
+- an independent trigger;
+- a local workflow;
+- objective/failable checks where possible;
+- explicit neighbor links rather than hidden dependencies;
+- blocked/exit discipline.
 
-- **Independent trigger:** the skill description should identify the problem or situation that activates it.
-- **Local workflow:** the skill should contain enough guidance to execute without reading the whole Harness ecosystem.
-- **Mechanism hook:** if a script can make the skill more reliable, expose it as an optional or required command.
-- **Neighbor links:** when another skill is commonly needed, recommend it by name and explain why.
-- **Exit discipline:** if the skill reaches a blocking state, it should say what evidence is missing or what human decision is needed.
-
-The local workflow is why read-before-skip can work: the agent can inspect a suggested skill's complete entry and basic flow to judge applicability without loading the whole ecosystem. Optional deep references remain optional unless that entry explicitly makes one necessary to determine applicability.
-
----
+Read-before-omission exists so the agent can inspect this local contract without loading the entire ecosystem. If the skill flow applies, follow it; reading a skill is not permission to discard an applicable discipline because the model believes it already knows the answer.
 
 ## Coordination Patterns
 
-Harness should coordinate skills through small, composable patterns.
-
 ### Router Decision
 
-`harness-everything/scripts/kernel-router.js` is the public invariant-first runtime entry point. It delegates classification and guide discovery to `tier-router.js`, then returns the recommended tier, rationale, required invariants, and skill suggestions. Suggestions use a **mandatory evaluation / advisory execution** contract: before omission, read the complete suggested `SKILL.md` entry and evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules. It intentionally does not emit a mandatory global execution pipeline.
+`harness-everything/scripts/kernel-router.js` emits tier, strategy, invariants, skill suggestions, and an execution contract.
 
-A name, frontmatter description, router summary, tier label, or “routine task” judgement is not enough to skip a suggestion. Using one suggestion does not waive read-before-skip for the others. If a suggestion cannot be resolved/read, preserve `unresolved/unavailable` rather than silently converting it into “not applicable.”
+- Suggested skills: read and resolve applicability (`use`, `not-applicable`, `unresolved/unavailable`).
+- Selected topology: execute to resolution (`active` → verified/satisfied, blocked, or explicit evidence-backed escape).
 
-### Checklist State
+Names/descriptions/router summaries or “routine task” judgements cannot resolve applicability by themselves.
 
-`todo-driven-workflow` may own explicit task decomposition state when that helps a Tier 2 or Tier 3 task. It is not a universal prerequisite. When the router suggests it, however, the agent must evaluate its actual skill flow before deciding that native host TODO tracking, a Markdown checklist, or no explicit checklist is the better choice.
+### Fable Stage Contracts
+
+For `fable-*` strategies, Fable owns stage lifecycle: `dependsOn`, `writeSet`, validated batches, objective checks, synthesis, cold verification, and bounded re-planning. The parent cannot replace a selected Fable topology with direct editing on hook-capable paths that package the workflow gate.
 
 ### Verification Gate
 
-`verification-loop` and `verify-gate.js` provide reusable verification mechanisms. Hosts with a compatible stop/completion hook can invoke verification mechanically; instruction-only hosts can call the same verifier explicitly before final delivery. If `verification-loop` is router-suggested, read/evaluate its flow before omission even though the kernel already carries a verify-before-claim invariant.
+`verification-loop`, `verify-gate.js`, ordinary stop-gates, and Fable stage evidence provide objective completion signals. Verification is not an optional courtesy when selected/applicable workflow state requires it.
 
 ### Recovery Gate
 
-`rule-of-3` and `zoom-out` coordinate through failure signatures and recovery instructions where the host exposes the required lifecycle/tool hooks. On hosts without those hooks, `zoom-out` remains usable as an explicit recovery discipline, but the automatic failure counter must not be implied.
+Rule-of-3 stops repeated same-signature micro-retries and requires a new diagnosis. Fable verification failures return to bounded re-planning; budget exhaustion becomes blocked instead of endless iteration.
 
-### Skill Suggestion
+### Action Gate
 
-`self-evolve` and generated skills feed the router through manifest metadata. Once the router surfaces a likely skill, the suggestion becomes an evaluation obligation: inspect its real entry/basic flow before deciding whether it applies. This does **not** make execution mandatory and does not create a fixed pipeline.
+Irreversible/external side effects are orthogonal to topology and require their pre-action gate where supported. Workflow escape never widens permissions or bypasses action approval.
 
----
+### Self-Evolve
+
+Learning should consume verified lifecycle evidence (escape, re-plan, recovery, recurrence), not operate as a side door around the active workflow.
 
 ## Platform Strategy
 
-Harness should use the strongest mechanism each installation surface actually provides.
-
-| Platform class | Preferred coordination style | Enforcement level |
+| Platform class | Workflow contract | Mechanical enforcement |
 | --- | --- | --- |
-| Hook/plugin-capable surfaces | Hooks/plugins run routers, guards, trackers, or completion gates automatically; prompt routing can inject the read-before-skip contract | Mechanical injection/blocking is possible for packaged mechanisms; actual model compliance with skill evaluation still needs live behavioral evidence |
-| CLI/tool-capable but hook-less surfaces | The model explicitly calls Harness scripts at decision points and reads/evaluates suggested skills | Mechanism-guided/instruction-governed, not automatically enforced |
-| Prompt-only surfaces | Advisory instructions include command snippets and read-before-skip decision rules | Self-regulated by the model |
+| Hook/plugin-capable | Same selected-workflow contract | Supported transitions can be blocked/observed by packaged mechanisms |
+| CLI/tool-capable without lifecycle hooks | Same contract stated/called explicitly | Instruction/mechanism guided; no automatic blocking claim |
+| Prompt-only | Same semantic obligations | Self-regulated only |
 
-One host may expose more than one surface. Codex is the important example: the general `--codex` installer path is instruction/advisory oriented, while the **local OpenAI plugin** packages session, prompt, supported-tool, subagent, and stop hooks for mechanism-tested runtime enforcement. The public OpenAI **Skills-only** submission does not include those local lifecycle hooks.
+Contract semantics and enforcement evidence are separate. Claude currently packages the broadest Harness lifecycle surface. The local OpenAI/Codex plugin packages supported adapters but requires live-host evidence before parity claims. The public OpenAI Skills-only artifact carries skill/workflow knowledge without local lifecycle hooks. OpenCode has its own plugin path and evidence boundaries.
 
-OpenCode is plugin-capable and has partial live-host evidence for project-scope loading/state effects, but the read-before-skip behavioral contract still requires separate retained evidence before being called live-enforced. Claude Code has the broadest currently verified Harness lifecycle-hook surface.
+## Hook-Less Paths
 
----
+Two explicit commands provide high-signal state without pretending hooks exist:
 
-## Guidance for Instruction-Only / Hook-Less Paths
+```bash
+npx github:dyphn1/Harness-everything next "<prompt>"
+npx github:dyphn1/Harness-everything verify
+```
 
-Do not recreate hooks with a rigid universal handoff template. Instead, make mechanisms easy to call and make the evaluation requirement explicit.
-
-Implemented today, both wired into `bin/cli.js` and referenced by name in the advisory text each platform's installer writes (`scripts/lib/advisory-text.js`):
-
-- `npx github:dyphn1/Harness-everything next "<prompt>"`: runs the Harness routing path and prints the recommended tier, invariant contract, and matching knowledge/skill suggestions. Every suggested skill must then be read/evaluated before omission.
-- `npx github:dyphn1/Harness-everything verify`: wraps `verify-gate.js`, running the target project's own lint/test scripts and exiting non-zero on failure. This is the explicit hook-less verification path; it is not equivalent to claiming that a host automatically runs a `Stop` hook.
-
-Both resolve their target scripts relative to the CLI's own package install, not the caller's cwd, so they work the same way regardless of which platform-specific directory (`.codex/skills/`, `.cursor/skills/`, `.github/skills/`, ...) a copy of the `harness-everything` skill also happens to be sitting in — a fixed relative path like `harness-everything/scripts/tier-router.js` would silently point at nothing depending on which platform installed it.
-
-Not yet implemented — still aspirational, do not reference these as if they exist until they're built:
-
-- `harness recover`: summarize repeated failure signatures and recommend `zoom-out` when needed. Hook-less paths do not collect failure signatures the way the Claude Code `PostToolUse` mechanism does, so there is no reliable state to summarize yet.
-- `harness skills`: list installed, generated, and matching skills for the current workspace.
-
-These commands let instruction-only Codex installs, Cursor, Copilot, Continue, and Hermes receive high-signal mechanical feedback without forcing them into a single scripted conversation shape.
-
----
+`next` emits the routing/workflow contract. `verify` runs the explicit verification path. Instruction-only hosts must treat these requirements as real even though the host cannot mechanically prevent skipping them.
 
 ## Anti-Goals
 
 Harness should not become:
 
-- A centralized DAG runner where every skill depends on one global workflow file.
-- A mandatory response-template system that suppresses useful model variation.
-- A command-only framework where skills cannot be understood by reading `SKILL.md`.
-- A hidden daemon that performs broad actions without visible evidence.
-- A platform-specific product that only works well when Claude Code hooks are available.
-- A recommendation system whose suggestions are routinely ignored without inspecting the workflows they represent.
-
-The mesh should remain local, legible, and cooperative.
-
----
+- one global DAG containing every skill;
+- a mandatory response-template system;
+- a command-only framework whose skills are unreadable without runtime code;
+- a hidden daemon with broad authority;
+- a system that claims cross-host hard enforcement from package text;
+- a recommendation system where selected workflows can be rationalized away.
 
 ## Practical Authoring Rules
 
-When adding or revising a skill:
+1. Keep skills independently understandable/executable.
+2. Put applicability/basic flow in `SKILL.md`; deep detail belongs in references.
+3. Add mechanisms when they make behavior more reliable than prose.
+4. Make checks failable and evidence-based.
+5. Put gates at real transition boundaries: before mutation/side effects, after repeated failure, before completion, before persistence.
+6. Let the model choose HOW inside the contract.
+7. Treat workflow escape as a measured coverage gap, not convenience.
 
-1. Keep the skill independently executable.
-2. Put enough applicability and basic-flow information in `SKILL.md` for read-before-skip evaluation; do not hide the decision-critical contract only in optional deep references.
-3. Add a script only when a mechanism can make the behavior more reliable than prose.
-4. Keep script output compact and stable enough for models to react to.
-5. Prefer gates at natural decision points: before editing, after repeated failure, before final delivery, and before persistence.
-6. Let the model choose wording and presentation unless the skill truly needs a specific artifact format.
-7. Document neighboring skills as recommendations, not hidden execution dependencies, unless the dependency is required for safety. Router-surfaced recommendations still inherit mandatory evaluation before omission.
-
-The result should feel like an engineering co-pilot with good reflexes: autonomous where creativity matters, constrained where repeated mistakes are expensive, and explicit whenever evidence or applicability evaluation is needed.
+The result should feel like a capable engineer operating inside explicit lifecycle obligations rather than either a scripted automaton or an unconstrained model that can skip its own process.
