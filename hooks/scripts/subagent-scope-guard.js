@@ -30,6 +30,17 @@ const {
   getWorkerId,
   stagesForChangedPath,
 } = require('./lib/fable-contracts');
+const { loadWorkflow, recordBudgetEvent } = require('./lib/workflow-runtime');
+
+function accountWorker(payload, event) {
+  const context = loadWorkflow(payload);
+  const workflow = context.workflow;
+  if (!workflow || workflow.state !== 'running' || !String(workflow.strategy || '').startsWith('fable-')) return;
+  const workerId = getWorkerId(payload);
+  if (!workerId) return;
+  const type = event === 'PreToolUse' || event === 'SubagentStart' ? 'worker-acquire' : 'worker-release';
+  recordBudgetEvent(context, type, { workerId, evidence: event });
+}
 
 function gitStatus(root) {
   try {
@@ -112,6 +123,7 @@ process.stdin.on('end', () => {
     const stateFile = path.join(sessionDir, 'subagent-scope-state.json');
 
     if (event === 'PreToolUse' || event === 'SubagentStart') {
+      accountWorker(payload, event);
       if (!fs.existsSync(stateFile)) {
         const status = gitStatus(root);
         if (status !== null) {
@@ -126,6 +138,7 @@ process.stdin.on('end', () => {
     }
 
     if (event === 'PostToolUse' || event === 'SubagentStop') {
+      accountWorker(payload, event);
       if (!fs.existsSync(stateFile)) process.exit(0);
 
       let state;
@@ -182,9 +195,13 @@ process.stdin.on('end', () => {
     }
 
     process.exit(0);
-  } catch (_) {
-    // This is a post-execution visibility gate. Runtime errors fail open; the
-    // actionGate in Phase 5 has a stricter fail-ask policy for side effects.
+  } catch (error) {
+    if (error && error.code === 'HARNESS_WORKFLOW_BUDGET') {
+      console.error(`[Subagent Scope Guard] ${error.message}`);
+      process.exit(2);
+    }
+    // This is otherwise a post-execution visibility gate. Runtime errors fail open;
+    // actionGate has a stricter fail-ask policy for side effects.
     process.exit(0);
   }
 });
