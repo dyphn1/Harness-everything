@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.5.3](https://github.com/dyphn1/Harness-everything/compare/v0.5.2...v0.5.3) (2026-09-17)
+
+### Bug Fixes
+
+* **opencode:** Install discoverable plugin and guard loadability ([5645c08](https://github.com/dyphn1/Harness-everything/commit/5645c080c794b82afd50a0206cf35d2dd3fcd54c))
+
 ## [0.5.2](https://github.com/dyphn1/Harness-everything/compare/v0.5.1...v0.5.2) (2026-09-16)
 
 ### Bug Fixes
