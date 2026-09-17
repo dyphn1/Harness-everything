@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES } = require('./lib/workflow-runtime');
+const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, ensureWorkflowBudget, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun } = require('./lib/workflow-runtime');
 const { getWorkspaceRoot, readCurrentSession } = require('./lib/harness-state');
 const { atomicWriteJson, readJson } = require('./lib/fable-contracts');
 
@@ -38,13 +38,14 @@ function main() {
   if (args.command === 'start') {
     if (!workflow.workflowId || !workflow.workflowPlan) throw new Error('legacy workflow lacks a correlated plan; cannot start it implicitly');
     if (workflow.state === 'running') throw new Error('workflow already running; record a blocker before replanning');
-    const max = workflow.workflowPlan.limits?.maxRevisionRounds ?? 2;
-    if (workflow.revision > max) throw new Error('replan budget exhausted; workflow remains blocked');
+    const isReplan = workflow.revision > 0 || Boolean(workflow.runId);
+    if (isReplan) recordBudgetEvent(context, 'replan', { evidence: 'workflow-disposition:start' });
     const plan = workflow.pendingPlan || workflow.workflowPlan;
     if (!String(plan.strategy || '').startsWith('fable-')) {
       workflow.revision++;
       workflow.state = 'running';
       delete workflow.blockReason;
+      ensureWorkflowBudget(workflow);
       saveWorkflow(context);
       process.stdout.write(JSON.stringify({ state: workflow.state, workflowId: workflow.workflowId, revision: workflow.revision }) + '\n');
       return;
@@ -71,6 +72,11 @@ function main() {
     workflow.escapes = [];
     delete workflow.pendingPlan;
     delete workflow.blockReason;
+    ensureWorkflowBudget(workflow);
+  } else if (args.command === 'revision') {
+    recordBudgetEvent(context, 'revision', { evidence: args.evidence || 'workflow-disposition:revision' });
+  } else if (args.command === 'reset-budget') {
+    resetWorkflowBudget(context, args.evidence);
   } else if (args.command === 'escape') {
     if (!ALLOWED_ESCAPE_REASONS.has(args.reasonCode)) throw new Error('generic simple/routine/already-clear reasons are intentionally rejected');
     if (!args.scope?.trim()) throw new Error('--scope is required');
@@ -90,8 +96,9 @@ function main() {
     if (!args.evidence?.trim()) throw new Error('--evidence is required');
     workflow.state = 'blocked';
     workflow.blockReason = args.evidence.trim();
-  } else throw new Error('Usage: workflow-disposition.js <start|escape|block> --session-id <id> [--stage-id <id> --reason-code <reason> --scope <scope> --evidence <evidence>]');
+  } else throw new Error('Usage: workflow-disposition.js <start|revision|reset-budget|escape|block> --session-id <id> [--stage-id <id> --reason-code <reason> --scope <scope> --evidence <evidence>]');
   saveWorkflow(context);
+  syncBudgetToRun(context);
   process.stdout.write(JSON.stringify({ state: workflow.state, workflowId: workflow.workflowId, runId: workflow.runId, revision: workflow.revision, escapes: workflow.escapes }) + '\n');
 }
 try { main(); } catch (error) { console.error('[Workflow Disposition] ' + error.message); process.exitCode = 2; }
