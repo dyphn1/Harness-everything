@@ -24,13 +24,25 @@
             "command": "node \"${PLUGIN_ROOT}/skills/harness-everything/scripts/kernel-router.js\"",
             "commandWindows": "node \"${PLUGIN_ROOT}\\skills\\harness-everything\\scripts\\kernel-router.js\"",
             "timeout": 30,
-            "statusMessage": "Routing with Harness invariants",
+            "statusMessage": "Routing with Harness workflow contract",
             "additionalContextLimit": 2500
           }
         ]
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "Bash|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/workflow-gate.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\workflow-gate.js\"",
+            "timeout": 15,
+            "statusMessage": "Checking Harness workflow and worktree-isolation contract"
+          }
+        ]
+      },
       {
         "matcher": "Bash|apply_patch",
         "hooks": [
@@ -182,6 +194,13 @@
             "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\action-gate.js\"",
             "timeout": 15,
             "statusMessage": "Closing unresolved Harness action approvals"
+          },
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/workflow-stop-gate.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\workflow-stop-gate.js\"",
+            "timeout": 15,
+            "statusMessage": "Checking Harness workflow completion gate"
           },
           {
             "type": "command",

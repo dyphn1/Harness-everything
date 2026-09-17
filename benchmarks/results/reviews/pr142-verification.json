@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "baselineCommit": "8b99baec44745e171f078fe9eb3dac6fd812b5c8",
+  "reviewedRevision": "commit containing this report",
+  "evidenceLayer": "local deterministic mechanisms and packages",
+  "environment": {
+    "os": "win32",
+    "node": "v24.15.0",
+    "npm": "11.12.1"
+  },
+  "gates": [
+    {
+      "gate": "test",
+      "exitCode": 0,
+      "seconds": 76.007
+    },
+    {
+      "gate": "test:mutations",
+      "exitCode": 0,
+      "seconds": 5.309
+    },
+    {
+      "gate": "test:mechanism",
+      "exitCode": 0,
+      "seconds": 54.904
+    },
+    {
+      "gate": "test:consistency",
+      "exitCode": 0,
+      "seconds": 0.782
+    },
+    {
+      "gate": "test:repo-contract",
+      "exitCode": 0,
+      "seconds": 0.522
+    },
+    {
+      "gate": "test:docs:capabilities",
+      "exitCode": 0,
+      "seconds": 0.639
+    },
+    {
+      "gate": "test:references",
+      "exitCode": 0,
+      "seconds": 0.597
+    },
+    {
+      "gate": "test:release",
+      "exitCode": 0,
+      "seconds": 5.161
+    },
+    {
+      "gate": "test:collision",
+      "exitCode": 0,
+      "seconds": 0.481
+    },
+    {
+      "gate": "test:routing:skills",
+      "exitCode": 0,
+      "seconds": 2.926
+    },
+    {
+      "gate": "test:routing:invariants",
+      "exitCode": 0,
+      "seconds": 3.521
+    },
+    {
+      "gate": "test:plugin:openai",
+      "exitCode": 0,
+      "seconds": 4.225
+    },
+    {
+      "gate": "test:plugin:submission",
+      "exitCode": 0,
+      "seconds": 0.963
+    },
+    {
+      "gate": "test:platform:compatibility",
+      "exitCode": 0,
+      "seconds": 0.612
+    }
+  ],
+  "mechanismSuites": 44,
+  "lifecycleAssertions": {
+    "source": 50,
+    "openaiPackage": 50
+  },
+  "waza": {
+    "checks": 57,
+    "passed": 57
+  },
+  "liveHost": "not run for this change",
+  "behavioralEffectiveness": "not measured for this change",
+  "windowsPathRegression": "Native resolution equates Windows 8.3 and long path spellings; regression and final local self-regression passed."
+}

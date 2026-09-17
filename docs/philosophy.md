@@ -1,61 +1,68 @@
 # Harness Philosophy
 
-Harness is built on a single, core belief: **AI coding models are highly capable, but they struggle with self-regulation, attention drift, and environment awareness.**
+Harness is built on a simple observation: **strong AI coding models reason well, but can still self-authorize away process obligations when they believe the task is already clear.**
 
-Instead of replacing the model or restricting it with heavy, opinionated frameworks that stifle creativity, Harness acts as a **behavioral layer** — reusable skills plus the strongest lightweight runtime mechanisms each supported installation surface actually provides.
+Harness therefore separates reasoning freedom from workflow reliability. It does not prescribe the model's chain of thought or force one giant pipeline. Instead, it establishes the smallest applicable lifecycle contract and lets the model choose how to satisfy it.
 
-The current mechanism/enforcement boundary is platform-specific; see [Platform Capability Matrix](platform-capabilities.md). A skill-only or instruction-only install must not be described as if it automatically runs lifecycle hooks.
+The mechanism/enforcement boundary remains platform-specific; see [Platform Capability Matrix](platform-capabilities.md). A semantic contract can be mandatory even when an instruction-only host cannot mechanically block every violation, so contract strength and host enforcement evidence must be reported separately.
 
----
+## Core Philosophy: Constrain Lifecycle, Not Reasoning
 
-## The Core Philosophy: Intervene Only When Necessary
+1. **Reasoning autonomy remains high.** The model chooses implementation technique, tools, decomposition details, and tactics inside the selected workflow.
+2. **Applicable workflow is mandatory.** Once routing selects a topology, it must be executed to resolution. Model confidence, “simple”, “routine”, and “already clear” are not escape conditions.
+3. **Skill applicability is explicit.** Router-suggested skills are read/evaluated before omission. A suggestion can be `not-applicable` when its actual flow does not match; a selected topology is stronger and cannot simply be skipped.
+4. **Escape is conditional, not default.** If the selected workflow genuinely cannot represent part of the task, record the uncovered scope and evidence, then allow model-defined handling only for that uncovered portion.
+5. **Mechanisms beat stronger wording.** Important lifecycle transitions should use structured state, objective evidence, hooks/plugins, exit codes, and completion gates where the host supports them rather than escalating `MUST`/`CRITICAL` prose.
 
-Many AI development frameworks attempt to fully control the model's execution flow. They use rigid DAGs, forced chains, or complex state machines. While this works for trivial, repetitive tasks, it can suppress useful model judgment on complex, novel engineering work.
+This principle can be summarized as:
 
-Harness takes a different approach: preserve execution autonomy, but make important decisions informed rather than superficial.
+> **Mandatory applicable workflow; flexible reasoning/implementation inside it; evidence-backed escape only where the workflow does not cover the task.**
 
-1. **Model Autonomy is Paramount:** The model should have freedom to explore, choose useful skills/tools, and design its solution inside a small set of cross-cutting invariants.
-2. **Mandatory Evaluation, Advisory Execution:** When the router suggests a skill, the model must read/evaluate that skill's actual `SKILL.md` entry/basic flow before omitting it. Execution is still optional after evaluation. This prevents “advisory” from degenerating into “always ignored” without creating a fixed pipeline.
-3. **Context-Driven Guidance:** Harness uses high-context, low-friction signals — skills, rules, local checks, and hooks/plugins where the host supports and packages them — rather than one rigid global execution path.
-4. **Reactive Guardrails:** On integration surfaces that expose the required lifecycle/tool hooks, Harness can stay quiet until a boundary is violated or a repeated failure is detected. On advisory surfaces, the same principles remain guidance rather than automatic blocking.
-5. **Behavior-First, Not Prompt-First:** Harness is not a collection of magic prompts. Its skills remain independently useful, while supported runtime adapters can react to real tool/session outcomes and workspace conditions.
+The goal is not to make the model less capable. It is to prevent capability/confidence from silently deleting engineering obligations such as verification, bounded re-planning, stage checks, documentation checks, or safety gates when those obligations are applicable.
 
-The read-before-skip rule is intentionally narrow. It does not require every optional reference linked by a skill to be loaded, and it does not mean every suggestion must run. The agent reads the complete skill entry, evaluates `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules, follows any explicitly required applicability reference, and then decides whether execution adds value.
+## Why This Is Not a Rigid Global Pipeline
 
----
+Harness still rejects a universal `TODO → TDD → Fable → verification` sequence.
+
+The router chooses the **smallest sufficient topology**:
+
+- `direct-single` for bounded one-pass work;
+- `iterative-single` for ordinary bounded reason/act work with objective verification;
+- `fable-staged` for dependent multi-stage work;
+- `fable-parallel` only for validated independent workstreams;
+- `fable-multi-agent-workspace` when persistent roles/handoffs/memory are materially needed.
+
+Domain skills remain conditional on applicability. The contract says “execute the selected lifecycle”, not “execute every skill in the repository.”
 
 ## The 4 Pillars of AI Model Guidance
 
-To keep agents aligned and productive, Harness operates across four distinct domains. The **principle** applies everywhere; whether it is injected or enforced automatically depends on the selected host surface.
+### 1. Environment Alignment — Discovery over Assumption
 
-### 1. Environment Alignment (Discovery over Assumption)
+Discover OS, shell, package/runtime context, repository boundaries, and available host capabilities before relying on them. On surfaces that package preflight/session hooks this can be injected automatically; instruction-only hosts must do it explicitly.
 
-AI models often hallucinate terminal environments or make incorrect assumptions about the host operating system, shell, or package manager — especially on Windows or mixed-shell setups.
+### 2. Guardrails — Lifecycle Boundaries
 
-Harness requires environment assumptions to be discovered rather than guessed. On surfaces that package a session-start/preflight hook, that context can be injected automatically. On instruction/skill-only paths, the agent must discover it explicitly before relying on shell-specific commands.
+Circuit breakers, action gates, workflow gates, scope guards, and completion gates protect specific transitions. They should remain narrow and evidence-driven. On integration surfaces that expose the required lifecycle/tool hooks, Harness can mechanically block supported violations; elsewhere the same contract is instruction-governed and must not be mislabeled hard enforcement.
 
-### 2. Guardrails (The Circuit Breakers)
+### 3. Context Preservation — Progressive Disclosure
 
-When a model gets stuck on a subtle bug or compiler error, its natural tendency is to make micro-adjustments repeatedly.
+Load the smallest useful context. Read a suggested skill's complete entry before deciding applicability, but do not load the entire skill tree or every optional deep reference. Machine-visible workflow state should carry lifecycle facts instead of repeating large prompt blocks.
 
-The Harness recovery invariant is to stop same-signature micro-retries and re-plan after repeated failure. On hosts where the Rule-of-3 mechanism is actually packaged, a circuit breaker can track failures and block further mutation until a `zoom-out` diagnosis is performed. On other surfaces, `zoom-out` remains a reusable recovery discipline but there is no claim that an automatic counter/blocker exists.
+### 4. Self-Evolution — Learn from Workflow Evidence
 
-### 3. Context Preservation (Anti-Bloat Protection)
+`self-evolve` should learn from verified recovery and workflow gaps: escape events, repeated replans, verifier fail→pass transitions, and recurrence outcomes. It should improve future coverage rather than granting a shortcut around the current workflow. Durable learning remains distinct from runtime session state.
 
-As sessions grow, models can read too broadly or produce oversized output, degrading active context.
+## Mechanism-First Cooperation
 
-Harness uses narrow reads, explicit scope, compact evidence, and — where a compatible runtime adapter exists — boundary mechanisms that can react mechanically. Read-before-skip is bounded to the suggested skill entry and any applicability-critical material that entry explicitly requires; it does not justify indiscriminately loading the whole skills tree. Skill-only surfaces still receive the discipline, but not an imaginary background daemon or hook.
+Harness prefers a compact control loop:
 
-### 4. Self-Evolution (Continuous Workspace Memory)
+```text
+route -> select workflow -> execute -> verify
+                              | fail -> bounded re-plan
+                              | uncovered -> evidence-backed escape
+                              | pass -> complete
+```
 
-When a complex issue is resolved, Harness can turn the verified lesson into durable workspace knowledge through `self-evolve`: a concise rule or a reusable generated skill, when persistence is actually justified.
+This leaves creativity where stronger models benefit from it while making lifecycle obligations observable and testable.
 
-This long-term learning path is distinct from **runtime session state** such as WAL/checkpoint files. Runtime state exists only on integrations that package the corresponding state hooks; reusable rules/skills are project artifacts and can outlive a single host session.
-
----
-
-## A Non-Intrusive Cognitive Amplifier
-
-Harness does not require a heavy daemon or a proprietary service. The repository's mechanisms and skill content operate locally in the developer/host environment, while each platform gets only the enforcement strength its real integration supports.
-
-For skill-level coordination, see [Mechanism-First Skill Mesh](mechanism-first-skill-mesh.md). For the exact current platform/install/evidence boundary, see [Platform Capability Matrix](platform-capabilities.md).
+For skill-level coordination, see [Mechanism-First Skill Mesh](mechanism-first-skill-mesh.md). For current installation/enforcement/evidence status, see [Platform Capability Matrix](platform-capabilities.md).

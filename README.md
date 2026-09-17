@@ -68,7 +68,7 @@ npx github:dyphn1/Harness-everything install
 1. **Use the selected surface's real mechanism:** Claude Code hooks, the local OpenAI plugin lifecycle hooks, OpenCode's plugin API, or advisory instructions depending on what you installed.
 2. **Preflight / session context where packaged:** Hook-capable surfaces can inject environment/session context automatically; advisory-only surfaces must not be described as if they do.
 3. **Verification boundary:** Completion claims require objective evidence; whether that boundary is mechanically invoked or explicitly called depends on the host surface.
-4. **Mandatory evaluation, advisory execution:** Tier classification may suggest useful skills. Before skipping any suggested skill, the agent reads its complete `SKILL.md` entry/basic flow and evaluates applicability; execution remains agent-controlled afterward, so Harness still does not impose a universal TODO/TDD/Fable sequence.
+4. **Mandatory applicable workflow:** Evaluate each suggested skill's complete `SKILL.md` before omission, then resolve the selected topology with objective evidence. Reasoning and implementation remain flexible; escape applies only to a declared uncovered stage with evidence. Tier 3 / Fable mutation requires a verified Git worktree. See the [workflow runtime contract](docs/workflow-runtime.md) for entry, completion, and host limits. Harness does not impose one universal TODO/TDD/Fable sequence.
 
 ### What Gets Installed (and How to Remove It)
 

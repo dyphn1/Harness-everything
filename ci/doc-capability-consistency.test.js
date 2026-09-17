@@ -44,6 +44,7 @@ const CURRENT_SURFACES = [
   'docs/platform-capabilities.md',
   'docs/reflection.md',
   'docs/routing.md',
+  'docs/workflow-runtime.md',
   'docs/troubleshooting.md',
   'docs/openai-plugin.md',
   'submission/openai/README.md',
@@ -59,6 +60,8 @@ const STALE_PATTERNS = [
   /Only possible on Claude Code \(the only platform with a hook\/exit-code execution system\)/i,
   /On platforms with no hook system at all \(Cursor, Copilot, Codex/i,
   /hooks[^\n]{0,100}Hard enforcement, Claude Code only/i,
+  /mandatory evaluation\s*[,/]\s*advisory execution/i,
+  /Tier-specific skills remain advisory/i,
   /Codex[^\n]{0,180}\.codex\/skills\//i,
 ];
 

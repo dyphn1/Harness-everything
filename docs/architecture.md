@@ -1,150 +1,154 @@
 # Harness Architecture
 
-This document describes the internal architecture, lifecycle, and integration boundaries of the Harness behavior layer. The current cross-platform claim boundary is centralized in [platform-capabilities.md](platform-capabilities.md); host sections here must remain consistent with it.
-
----
+This document describes Harness runtime architecture and integration boundaries. Current host capability/evidence claims are centralized in [platform-capabilities.md](platform-capabilities.md); package wiring is not live-host proof.
 
 ## Architectural Overview
 
-Harness is a **system supervisor**, not a universal workflow engine. Skills remain independently useful, while runtime mechanisms establish a small cross-cutting contract around software work.
+Harness is a **behavior and workflow supervisor**, not one universal fixed workflow. The router chooses the smallest sufficient execution topology; once selected, that topology becomes a lifecycle contract. The model retains freedom over reasoning, tools, and implementation technique inside the contract.
 
-The architecture follows a mechanism-first skill mesh with a **minimal kernel**:
+The minimal kernel establishes:
 
-- classify scope before mutation,
-- when the router suggests skills, require the agent to read/evaluate each suggested `SKILL.md` before omission,
-- require evidence before completion claims,
-- stop repeated same-signature micro-retries and re-plan,
-- leave domain-skill execution, ordering, planning style, and delegation to the agent after evaluation.
+- scope/tier before mutation,
+- a selected workflow topology when task evidence supports one,
+- applicability evaluation for every suggested skill before omission,
+- objective evidence before completion,
+- bounded re-plan/recovery after repeated failure,
+- explicit blocked/degraded/escape state instead of silent workflow deletion.
 
-> **Do not enforce workflow order. Enforce workflow invariants.**
+> **Mandatory applicable workflow; flexible reasoning/implementation inside it.**
 >
-> **Mandatory evaluation, advisory execution:** a suggested skill must be read/evaluated before skip, but need not be executed when its flow does not apply.
+> A suggested skill can be `not-applicable` after evaluating its real flow. A selected topology cannot be replaced with a direct path merely because the model is confident. Escape is only for genuinely uncovered workflow scope and requires evidence.
 
-This is intentionally different from the older design where Tier 2 implied a fixed TDD/checklist pipeline and Tier 3 implied a mandatory Fable/multi-agent pipeline. It is also stronger than a pure recommendation system where the model can ignore suggestions from their names alone.
+This avoids both extremes: the old universal Tier-2/Tier-3 pipeline and a purely advisory system where the model can rationalize away verification, staging, documentation, or other applicable obligations.
 
 ```mermaid
 flowchart TD
-    subgraph User_Session [User Session]
-        U([User Request]) --> Boot[bootstrap.js: Session Start / restore]
-    end
-
-    subgraph Kernel [Harness Kernel]
-        Boot --> Preflight[Environment / integration discovery]
-        Preflight --> KR[kernel-router.js]
-        KR --> TR[tier-router.js<br/>classifier + guide discovery]
-        TR --> Inv[Inject invariants]
-        Inv --> Sug{Suggested skills?}
-        Sug -- Yes --> Eval[Read each suggested SKILL.md<br/>evaluate flow + applicability]
-        Sug -- No --> Choice[Agent chooses useful tactics]
-        Eval --> Choice
-    end
-
-    subgraph Execution [Agent-Controlled Execution]
-        Choice --> Tools[Tool calls / edits / tests]
-        Tools --> Evidence{Evidence supports completion?}
-        Evidence -- Yes --> Done[Evidence-backed completion]
-        Evidence -- No --> Retry[Diagnose / iterate]
-    end
-
-    subgraph Defense [Runtime Boundaries]
-        Retry --> CB{Same-signature failure x3?}
-        CB -- No --> Tools
-        CB -- Yes --> ZO[zoom-out / fresh diagnosis]
-        ZO --> Tools
-    end
-
-    subgraph Learning [Optional Learning / State]
-        Done --> Record[Record / self-evolve when useful]
-    end
-
-    style Kernel fill:#eceff1,stroke:#37474f,stroke-width:2px,color:#000000
-    style Defense fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000000
-    style Learning fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px,color:#000000
+    U([User Request]) --> B[Session bootstrap / environment]
+    B --> K[kernel-router.js]
+    K --> T[tier-router.js<br/>classification + task shape]
+    T --> P[Structured workflow plan]
+    P --> A{Strategy selected?}
+    A -- No / deferred --> D[Preserve invariants<br/>choose smallest justified workflow]
+    A -- Yes --> C[ACTIVE workflow contract]
+    C --> S{Suggested skills?}
+    S -- Yes --> E[Read SKILL.md<br/>resolve applicability]
+    S -- No --> X[Execute topology]
+    E --> X
+    X --> V{Required stage/check resolved?}
+    V -- Yes --> Done[Evidence-backed completion]
+    V -- No --> R[Diagnose / bounded re-plan]
+    R --> X
+    R -- topology cannot cover scope --> Esc[Evidence-backed escape<br/>uncovered scope only]
 ```
 
 ### Router responsibilities
 
-`kernel-router.js` is the public runtime entry point. It delegates heuristic classification and dynamic guide/skill discovery to `tier-router.js`, then converts the result into the Harness contract:
+`kernel-router.js` is the public runtime entry. It consumes the structured classifier contract and exposes:
 
-- recommended Tier + rationale,
-- baseline required invariants,
-- a conditional `evaluate-suggestions-before-skip` invariant whenever suggestions exist,
-- skill suggestions under a **mandatory evaluation / advisory execution** contract.
+- tier + rationale,
+- selected/deferred execution strategy,
+- required invariants,
+- suggested skills that require applicability evaluation,
+- the visible routing checkpoint,
+- a workflow execution contract.
 
-For each suggested skill, the agent must read the complete `SKILL.md` entry and evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules before omission. A skill name, description, router summary, tier label, or “routine task” judgement is not enough to justify skipping. If the entry explicitly requires another document to determine applicability, that required material joins the evaluation; optional deep-dive references do not automatically become mandatory.
+The router does not tell the model *how* to solve each stage. It decides what lifecycle shape is required. `direct-single`, `iterative-single`, `fable-staged`, `fable-parallel`, and `fable-multi-agent-workspace` remain deliberately small, non-overlapping topology choices.
 
-The kernel deliberately suppresses the old fixed `BASE EXECUTION LOOP` wording so that a host selecting `tdd`, `security-review`, `repo-docs`, or another peer skill cannot accidentally replace or bypass the cross-cutting Harness contract. Using one suggested skill also does not waive evaluation of the other omitted suggestions.
+### Skill applicability vs. topology execution
 
-`harness-everything` remains the public/manual skill entry point for routing, debugging, and re-routing. `install-cognitive-os` remains the explanatory/manual entry point for the Discover → Think → Try → Summarize → Record policy. Automatic correctness must not depend on either one winning host peer-skill selection first.
+Router suggestions remain useful domain/workflow knowledge, not a universal sequence. Before omission, the agent reads the complete `SKILL.md` entry and evaluates `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules. Name/description/router-summary or “routine task” is insufficient evidence.
 
----
+The selected topology is stronger. Once selected, it must be entered and resolved unless the runtime records a permitted workflow escape with uncovered scope + evidence. Covered obligations survive the escape.
+
+### Runtime workflow state
+
+On host paths that can persist it, `kernel-router.js` records session-scoped `workflow-run.json` with the selected strategy and lifecycle state. Prompt text is not persisted; only a content hash is retained for correlation.
+
+For selected Fable topologies on Claude:
+
+- `workflow-gate.js` checks supported shell/direct mutation, actual direct/patch targets, and registered Git worktree isolation before major-workflow mutation; Fable also requires a run bound to the workflow/session identity;
+- Fable owns stage contracts, `dependsOn`/`writeSet`, validated execution batches, objective per-stage checks, synthesis, cold verification, and bounded re-plans;
+- `workflow-stop-gate.js` rejects completion while correlated stage contracts remain unresolved;
+- `workflow-disposition.js` starts/replans within budget, records blockers, and permits only declared-stage evidence-backed escape (`workflow-uncovered-scope` or `host-capability-unavailable`). Covered obligations, isolation, and independent verification survive escape. See [runtime transitions and limitations](workflow-runtime.md).
+
+Other topologies use their own applicable mechanisms: loop budgets, regular verification stop-gates, action gates, and task-specific skills. Mechanism coverage is not assumed identical across hosts.
 
 ## Integration Touchpoints
 
-Harness aligns to each host's real capabilities. Enforcement strength is platform-specific; shared skill text does not prove mechanism parity.
-
-### Self-healing and placement
-
-`harness-everything/scripts/self-heal.js` audits supported integration touchpoints and can re-run the idempotent installer to repair missing pieces. If a user intentionally removed an integration, respect that choice.
-
-A platform's native files stay where that platform expects them. Harness-owned runtime state converges under the platform's `harness-everything/` state directory, while skills remain in each platform's native skill location. `manifest.json` records installed artifacts so uninstall can remove only Harness-owned files.
+Harness aligns to each host's actual lifecycle/tool APIs. Shared skill text defines a contract; only supported host mechanisms can mechanically block or observe particular transitions.
 
 ### Runtime state vs. skill content
 
-Runtime state includes hook metadata, circuit-breaker counters, handoff/verification timestamps, and WAL-style session state. Skill content is separate and independently discoverable. This separation lets a domain skill remain useful even when a host does not support Harness runtime hooks.
+Runtime state includes hook metadata, workflow lifecycle, circuit-breaker counters, handoff/verification evidence, and WAL-style session state. Skill content is independently discoverable and remains useful on instruction-only surfaces.
 
----
-
-## Host Adapters
-
-### 1. Claude Code — hook-enforced
+### Claude Code — hook-enforced mechanisms
 
 The installer configures native lifecycle hooks and project skills.
 
-- `SessionStart`: `bootstrap.js` restores prior state and audits integrations.
-- `UserPromptSubmit`: `kernel-router.js` establishes routing + invariants before peer/domain skill execution and tells the agent that every suggested skill must be evaluated before omission.
-- `PreToolUse`: circuit breaker, boundary/depth/context guards, and subagent scope guards can block supported tool calls.
-- `PostToolUse`: records outcomes/state and tracks repeated failures.
-- `Stop`: `stop-gate.js` prevents an edit batch from being claimed complete without successful verification evidence.
+- `SessionStart`: bootstrap/restoration.
+- `UserPromptSubmit`: kernel routing + active workflow contract.
+- `PreToolUse`: workflow bypass gate, action gate, rule-of-3, boundary/depth/context guards, subagent scope guard.
+- `PostToolUse`: outcomes, state, repeated-failure evidence, stage checks.
+- `Stop`: action-gate audit, selected-Fable completion gate, and ordinary verify-before-claim stop gate.
 
-The prompt hook is intentionally lightweight: it does **not** prescribe TODO/TDD/Fable order. It injects the routing rails and the read-before-skip requirement, then lets the model orchestrate execution after evaluation. Kernel emission by itself is not proof that the host/model actually read each skill; that requires retained live behavioral evidence.
+These hooks make some lifecycle obligations mechanically enforceable. They still do not prove a real session loaded/fired them; live evidence remains separate.
 
-### 2. OpenCode — plugin enforcement, scoped live verification
+### OpenCode — plugin enforcement, scoped live verification
 
-`opencode-plugin/` maps supported enforcement behavior to OpenCode's real plugin API with deterministic mechanism coverage. Partial live-host evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS): [retained evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The final snapshot is post-reset (`hardLock: false`, `count: 1`), not a full enforcement history. Hard lock is only an interactive observation with no retained blocked-tool trace. Reflection was operator-seeded, then agent-rewritten; state-file deletion is an agent-controlled reset, not durable hard enforcement. This does not establish behavioral effectiveness. `.mjs` auto-discovery is broken on this host version (issue #127). Global scope, npm-package installation, and other host versions remain unverified.
+The retained [OpenCode evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md) supports **project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS)**. The final snapshot is **post-reset**. Hard-lock is an **interactive observation** with **no retained blocked-tool trace**; reflection was **operator-seeded** and then agent-rewritten. Global scope, npm-package installation, and other OpenCode versions remain unverified.
 
-### 3. Cursor — skills plus advisory rules
+This evidence does not establish the new mandatory-workflow lifecycle on OpenCode. That requires its own adapter/evidence before parity is claimed.
 
-The current installer uses `.cursor/skills/` plus `.cursorrules`. Cursor’s documented skill and plugin surfaces are separate from Harness runtime hooks; routing/verification/retry boundaries and read-before-skip remain instruction-governed unless a compatible mechanism is independently verified.
+### Cursor — skills plus advisory rules
 
-### 4. GitHub Copilot agent surfaces — skills plus advisory instructions
+Cursor receives project skills and advisory rules. The semantic workflow contract can be stated, but unsupported lifecycle transitions are not mechanically enforced.
 
-The current installer uses `.github/skills/` plus `.github/copilot-instructions.md`. GitHub’s Agent Skills paths are documented, but no Harness-specific plugin or live session is verified here. The generated instructions include read-before-skip, but repository text alone is not live compliance evidence.
+### GitHub Copilot agent surfaces — skills plus advisory instructions
 
-### 5. Codex — local OpenAI plugin plus advisory installer path
+Copilot receives Agent Skills/repository instructions. No Harness-specific live hook-enforcement claim is made from repository text alone.
 
-Codex has two distinct Harness integration surfaces and documentation must keep them separate:
+### Codex / local OpenAI plugin
 
-- The general `--codex` installer path writes Codex-facing skills/instructions such as `AGENTS.md`; where the host only consumes those instructions, that path is advisory. The generated `AGENTS.md` tells the agent to evaluate every router-suggested skill entry before omission.
-- The packaged local OpenAI plugin under `plugins/harness-everything/` includes `.codex-plugin/plugin.json`, all 26 canonical skills, and lifecycle hooks for `SessionStart`, `UserPromptSubmit`, supported local `PreToolUse` / `PostToolUse`, `SubagentStart` / `SubagentStop`, and `Stop`. Those hooks inject the compact session policy, run the invariant-first kernel, track supported edits and verification, and surface subagent scope changes.
+Codex has multiple distinct Harness surfaces:
 
-The local plugin therefore has **mechanism-tested local enforcement** for the packaged event/tool mappings. This is package evidence, not a live-host claim; the host's hook review/trust flow and a fresh session are still required. Do not infer broader Claude parity for events or tools that are not listed in the package, and do not infer that mechanism-tested prompt injection proves the model complied with read-before-skip.
+- The general `--codex` installer writes repo-scoped `.agents/skills/` plus `AGENTS.md`; when consumed only as instructions, workflow enforcement is advisory/instruction-governed.
+- The **Codex / local OpenAI plugin** under `plugins/harness-everything/` packages canonical skills plus session/prompt/supported-tool/subagent/stop hooks. The package includes workflow-gate adapters, but this is mechanism/package evidence until a live Codex session proves loading/firing.
+- The public OpenAI **Skills-only** artifact excludes local `.codex-plugin` lifecycle hooks; it carries reusable workflow knowledge, not local hard gates.
 
-The public OpenAI **Skills-only** submission is narrower again: it ships reusable skills and referenced assets, not the local `.codex-plugin` lifecycle hooks. Public reviewer/listing claims must describe skill/workflow behavior rather than local hook enforcement. See [openai-plugin.md](openai-plugin.md).
+Do not infer Claude parity from package similarity.
 
-### 6. Continue.dev — rules documented, skill discovery unknown
+### Continue.dev — rules documented, standalone discovery uncertain
 
-The installer writes `.continue/rules/harness.md` with the platform's native rules format and retains `.continue/skills/` as an adapter candidate. The reviewed official Continue documentation does not establish standalone `SKILL.md` discovery, so no skill-loading or hard-gate parity is claimed.
+Continue uses native rule files; standalone skill discovery remains separately bounded by the capability matrix.
 
-### 7. Hermes Agent — trusted skills plus advisory context
+### Hermes Agent — trusted skills plus advisory context
 
-The installer writes `.hermes.md` for explicit project coverage and can install trusted project skills under `.agents/skills/` plus global skills under `~/.hermes/skills/`. Project skill loading remains subject to Hermes trust; no hard-gate parity is claimed.
+Hermes uses trusted project/global skill surfaces plus advisory context. Trust/loading and lifecycle enforcement remain host-specific.
 
----
+## Fable Execution Architecture
+
+Fable is the execution owner for selected `fable-*` topologies.
+
+```mermaid
+flowchart TD
+    P[Selected Fable plan] --> M[Stage map<br/>dependsOn + writeSet]
+    M --> B{Validated batch?}
+    B -- No --> Block[Blocked / re-plan]
+    B -- Yes --> W[Named workers]
+    W --> C[Objective stage checks]
+    C --> S[Synthesis barrier]
+    S --> V{Verification pass?}
+    V -- Yes --> D[Delivery evidence]
+    V -- No --> R{Re-plan budget remains?}
+    R -- Yes --> M
+    R -- No --> Block
+```
+
+The orchestrator controls lifecycle and completion; workers do not create peer-to-peer meshes or widen their own write scope. The model remains creative inside each bounded stage, while stage existence/checks/termination are contract state.
 
 ## Cognitive OS and Skill Mesh
 
-The Cognitive OS is a policy layer, not a parent skill that every domain skill must call.
+The Cognitive OS remains a reasoning policy:
 
 ```mermaid
 flowchart LR
@@ -157,32 +161,25 @@ flowchart LR
     Z --> T
 ```
 
-A domain skill may have its own lifecycle — for example RED/GREEN/REFACTOR inside `tdd` — without being forced into a global sequence. The shared obligations are the baseline kernel invariants plus read-before-skip when router suggestions exist.
+A domain skill may define RED/GREEN/REFACTOR or another local lifecycle. The selected Harness topology supplies the outer execution contract; domain skills supply tactics/stages when applicable.
 
-This separation solves the peer-skill routing problem: a strong host may correctly decide that a task primarily needs `tdd` or `security-review`; that choice is allowed. What it cannot silently erase is the routing/evidence/retry contract or dismiss other suggestions without evaluating their actual skill flows.
+## Security and Data Locality
 
----
-
-## Security Model & Data Locality
-
-Harness runs with a local-first, zero-trust model:
-
-1. **No Harness telemetry:** runtime scripts do not upload project code or state as a Harness service.
-2. **Credential protection:** scripts do not require storing user secrets; interactive credentials remain human-controlled.
-3. **Small hook surface:** hook scripts are local Node.js programs and should stay fast and auditable.
-4. **Explicit enforcement labels:** unsupported/advisory behavior must not be documented as hard enforcement.
-5. **Deterministic regression:** mechanism and routing behavior is tested with executable CI gates rather than inferred from documentation.
-
----
+1. **No Harness telemetry service:** project code/state is not uploaded by Harness runtime scripts.
+2. **Credential protection:** credentials remain human/host controlled.
+3. **Small mechanism surface:** hooks should remain fast and auditable.
+4. **Explicit enforcement labels:** instruction, mechanism, and live evidence are distinct.
+5. **Deterministic regression:** workflow/routing/hook contracts are executable CI gates.
+6. **No silent widening:** workflow escape cannot widen authorization, permissions, or external side effects.
 
 ## Validation Boundary
 
-Static configuration is not enough to claim that a host behaves correctly. Validation is layered:
+Validation is layered:
 
-- syntax/reference/manifest checks prove package integrity,
-- `ci/invariant-routing.test.js` proves the kernel, read-before-skip, and documentation contracts,
-- `ci/doc-capability-consistency.test.js` prevents current platform capability claims from drifting apart,
-- mechanism tests prove supported hook/plugin behavior,
-- live host sessions are required before promoting a source/mechanism-tested adapter to live host enforcement or claiming that agents actually followed the evaluation contract.
+- syntax/reference/package checks prove package integrity;
+- routing tests prove plan and workflow-contract semantics;
+- mechanism tests prove supported hook/plugin behavior;
+- live-host evidence proves a specific host actually loaded/fired the mechanism;
+- paired behavioral evaluation (#71) is required before claiming the new lifecycle improves outcomes.
 
-The architecture and its Mermaid diagrams are part of that contract. Runtime changes that alter orchestration must update these documents in the same change.
+The architecture diagrams are part of the contract. A runtime orchestration change must update these docs and tests in the same change.

@@ -12,26 +12,27 @@ metadata:
 Kernel routing entry.
 
 ## USE FOR:
-- Software/project triage, re-routing, and suggested-skill evaluation.
+- Software/project triage, routing, re-routing, and workflow selection.
 - Work that names or matches another skill.
 
 ## DO NOT USE FOR:
 - General Q&A or non-software writing.
 
 ## Invariants
-1. **Route before execution** — establish scope/tier.
+1. **Route before execution** — establish scope/tier and the smallest applicable workflow.
 2. **Verify before claim** — require objective evidence.
 3. **Re-plan on repetition** — after 3 same-signature failures, use `zoom-out`.
-4. **Evaluate before skip** — read each suggested skill's complete `SKILL.md`.
-
-Tier guidance is not a fixed pipeline.
+4. **Evaluate before omission** — read each suggested skill's `SKILL.md` before deciding applicability.
+5. **Resolve selected workflow** — model confidence is not an escape condition.
 
 ## Workflow
 1. Reuse kernel output, or run `node "<this-skill-dir>/scripts/kernel-router.js" "<prompt summary>"`.
-2. Make the **Harness Routing Checkpoint** user-visible.
-3. For every suggestion, read its `SKILL.md`; evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules. Name, description, router summary, or "routine/common task" alone cannot justify skip. Read extra material only when explicitly required for applicability.
-4. Execution is advisory after evaluation. Unreadable suggestions are `unresolved/unavailable`. Using one suggestion does not waive evaluation of others. If all are skipped, give one brief flow-grounded reason.
+2. Surface the **Harness Routing Checkpoint**.
+3. Read each suggested `SKILL.md`; evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules. "Simple", "routine", names, or summaries alone cannot justify omission.
+4. Execute the selected workflow topology to resolution. Suggested skills are conditional on applicability; the selected topology is not advisory.
+5. If the workflow genuinely cannot represent part of the task, use the explicit escape with uncovered scope + evidence. Covered obligations remain mandatory.
+6. Complete only after applicable workflow obligations and objective verification resolve.
 
-**Rule:** mandatory evaluation, advisory execution; no fixed workflow order.
+**Rule:** mandatory applicable workflow; flexible reasoning/implementation inside it; evidence-backed escape only for uncovered scope.
 
 Deep dive: <this-skill-dir>/references/triage-and-tiers.md

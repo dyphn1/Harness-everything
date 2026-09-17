@@ -70,8 +70,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Install waza CLI
-        run: curl -fsSL https://raw.githubusercontent.com/microsoft/waza/main/install.sh | bash
+      - name: Install pinned waza CLI
+        run: |
+          WAZA_VERSION=0.38.6
+          WAZA_SHA256=a799587795fd462411ca7c7af5faccee7e24f08e41d152c10738d31334d1c063
+          mkdir -p "$HOME/bin"
+          curl -fL --retry 3 --retry-all-errors \
+            -o "$HOME/bin/waza" \
+            "https://github.com/microsoft/waza/releases/download/v${WAZA_VERSION}/waza-linux-amd64"
+          echo "${WAZA_SHA256}  $HOME/bin/waza" | sha256sum -c -
+          chmod +x "$HOME/bin/waza"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+          "$HOME/bin/waza" --version
       - name: Check every canonical SKILL.md passes waza readiness gates
         run: |
           fail=0

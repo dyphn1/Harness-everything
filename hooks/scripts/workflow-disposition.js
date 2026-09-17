@@ -1,0 +1,97 @@
+#!/usr/bin/env node
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES } = require('./lib/workflow-runtime');
+const { getWorkspaceRoot, readCurrentSession } = require('./lib/harness-state');
+const { atomicWriteJson, readJson } = require('./lib/fable-contracts');
+
+const ALLOWED_ESCAPE_REASONS = new Set(['workflow-uncovered-scope', 'host-capability-unavailable']);
+
+function parseArgs(argv) {
+  const args = { command: argv[0] };
+  const flags = new Map([['--reason-code', 'reasonCode'], ['--scope', 'scope'], ['--evidence', 'evidence'], ['--session-id', 'sessionId'], ['--stage-id', 'stageId']]);
+  for (let i = 1; i < argv.length; i++) {
+    const key = flags.get(argv[i]);
+    if (!key || !argv[i + 1] || argv[i + 1].startsWith('--')) throw new Error('unknown or incomplete argument: ' + argv[i]);
+    args[key] = argv[++i];
+  }
+  return args;
+}
+
+function consumer() {
+  for (const relative of ['../../fable-mode/scripts/workflow-plan-consumer.js', '../../skills/fable-mode/scripts/workflow-plan-consumer.js']) {
+    const file = path.resolve(__dirname, relative);
+    if (fs.existsSync(file)) return require(file);
+  }
+  throw new Error('Fable consumer unavailable');
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const sessionId = args.sessionId || readCurrentSession(getWorkspaceRoot());
+  if (!sessionId) throw new Error('no active Harness session; pass --session-id explicitly');
+  const context = loadWorkflow({ session_id: sessionId });
+  const { workflow } = context;
+  if (!workflow || !OPEN_STATES.has(workflow.state)) throw new Error('no unresolved workflow contract exists for this session');
+  if (args.command === 'start') {
+    if (!workflow.workflowId || !workflow.workflowPlan) throw new Error('legacy workflow lacks a correlated plan; cannot start it implicitly');
+    if (workflow.state === 'running') throw new Error('workflow already running; record a blocker before replanning');
+    const max = workflow.workflowPlan.limits?.maxRevisionRounds ?? 2;
+    if (workflow.revision > max) throw new Error('replan budget exhausted; workflow remains blocked');
+    const plan = workflow.pendingPlan || workflow.workflowPlan;
+    if (!String(plan.strategy || '').startsWith('fable-')) {
+      workflow.revision++;
+      workflow.state = 'running';
+      delete workflow.blockReason;
+      saveWorkflow(context);
+      process.stdout.write(JSON.stringify({ state: workflow.state, workflowId: workflow.workflowId, revision: workflow.revision }) + '\n');
+      return;
+    }
+    const stages = readJson(path.join(context.sessionDir, 'workflow-stages.json'));
+    if (!Array.isArray(stages) || !stages.length) throw new Error('write a non-empty workflow-stages.json stage array at the session path first');
+    if (stages.some(stage => !stage.checkCommand || !stage.passCondition)) throw new Error('every required stage needs an objective checkCommand and passCondition');
+    if (plan.verification?.independent && !stages.some(stage => stage.agent === 'fable-verifier' && stage.writeSet?.length === 0 &&
+        stages.filter(other => other !== stage).every(other => stage.dependsOn?.includes(other.stageId)))) {
+      throw new Error('independent verification requires a read-only fable-verifier stage depending on all other stages');
+    }
+    const run = consumer().prepareRun({
+      routerContract: { workflowPlan: plan }, stages, workspaceRoot: context.root,
+      sessionId, workflowId: workflow.workflowId,
+    });
+    workflow.workflowPlan = plan;
+    workflow.strategy = plan.strategy;
+    workflow.tier = plan.tier;
+    workflow.verification = plan.verification;
+    workflow.mutationIsolation = plan.mutationIsolation || workflow.mutationIsolation;
+    workflow.runId = run.runId;
+    workflow.revision++;
+    workflow.state = 'running';
+    workflow.escapes = [];
+    delete workflow.pendingPlan;
+    delete workflow.blockReason;
+  } else if (args.command === 'escape') {
+    if (!ALLOWED_ESCAPE_REASONS.has(args.reasonCode)) throw new Error('generic simple/routine/already-clear reasons are intentionally rejected');
+    if (!args.scope?.trim()) throw new Error('--scope is required');
+    if (!args.evidence?.trim()) throw new Error('--evidence is required');
+    const match = matchingRun(context);
+    if (!match || !match.run.stageIds.includes(args.stageId)) throw new Error('--stage-id must name a stage in the correlated active run');
+    const contract = readJson(path.join(match.runRoot, 'contracts', args.stageId + '.json'));
+    if (contract?.agent === 'fable-verifier') throw new Error('independent verification cannot be escaped; record BLOCKED when unavailable');
+    const disposition = {
+      status: 'escaped', stageId: args.stageId, runId: match.run.runId,
+      reasonCode: args.reasonCode, uncoveredScope: args.scope.trim(), evidence: args.evidence.trim(), recordedAt: new Date().toISOString(),
+    };
+    workflow.escapes = [...(workflow.escapes || []).filter(item => item.stageId !== args.stageId), disposition];
+    atomicWriteJson(path.join(match.runRoot, 'escapes', args.stageId + '.json'), disposition);
+    // Scope-limited exception; never change the entire workflow to escaped.
+  } else if (args.command === 'block') {
+    if (!args.evidence?.trim()) throw new Error('--evidence is required');
+    workflow.state = 'blocked';
+    workflow.blockReason = args.evidence.trim();
+  } else throw new Error('Usage: workflow-disposition.js <start|escape|block> --session-id <id> [--stage-id <id> --reason-code <reason> --scope <scope> --evidence <evidence>]');
+  saveWorkflow(context);
+  process.stdout.write(JSON.stringify({ state: workflow.state, workflowId: workflow.workflowId, runId: workflow.runId, revision: workflow.revision, escapes: workflow.escapes }) + '\n');
+}
+try { main(); } catch (error) { console.error('[Workflow Disposition] ' + error.message); process.exitCode = 2; }

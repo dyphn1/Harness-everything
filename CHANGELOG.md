@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- Make selected workflows persist across follow-up prompts, bind Fable runs to workflow/session identities, and require correlated stage evidence before completion (#131, #142).
+- Enforce major-workflow Git worktree isolation at supported mutation hooks, check direct/patch targets and explicit shell paths, and retain isolation across scoped escape and blocked states.
+- Provide bounded run entry/replan and per-stage escape commands; expose unsupported hosts and shell-sandbox limits without upgrading live-host evidence.
+
 ## [0.8.0](https://github.com/dyphn1/Harness-everything/compare/v0.7.0...v0.8.0) (2026-09-17)
 
 ### Features
