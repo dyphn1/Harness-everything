@@ -21,11 +21,22 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/harness-everything/scripts/kernel-router.js\""
           }
         ],
-        "description": "Establish Harness routing invariants before host/domain skill selection",
+        "description": "Establish Harness routing invariants and an active workflow execution contract before host/domain skill selection",
         "id": "harness:pre:kernel-router"
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workflow-gate.js\""
+          }
+        ],
+        "description": "Prevent direct artifact mutation from bypassing an active Fable workflow contract",
+        "id": "harness:pre:workflow-gate"
+      },
       {
         "matcher": "Bash|PowerShell",
         "hooks": [
@@ -103,6 +114,16 @@
         ],
         "description": "Close any unexecuted action-gate approvals as rejected for this turn",
         "id": "harness:stop:action-gate-audit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workflow-stop-gate.js\""
+          }
+        ],
+        "description": "Prevent completion while a selected Fable workflow has not reached verified stage resolution",
+        "id": "harness:stop:workflow-completion-gate"
       },
       {
         "hooks": [
