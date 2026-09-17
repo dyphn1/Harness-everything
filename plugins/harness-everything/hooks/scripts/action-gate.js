@@ -20,15 +20,15 @@ const ALWAYS_ASK_POLICY = 'always-ask';
 // Fail-safe defaults are used only when the configured table is missing or
 // invalid. A valid-but-empty table stays empty so CI can catch policy erasure.
 const BUILTIN_RULES = [
-  ['git-force-push', ['Bash', 'PowerShell'], '\\bgit\\s+push\\b[\\s\\S]*(?:--force(?:-with-lease)?|(?:^|\\s)-f(?:\\s|$))', 'i', 'Force-pushing can rewrite remote history.', 'always'],
-  ['git-reset-hard', ['Bash', 'PowerShell'], '\\bgit\\s+reset\\s+--hard\\b', 'i', 'git reset --hard can discard local work.', 'always'],
-  ['git-clean-force-delete', ['Bash', 'PowerShell'], '\\bgit\\s+clean\\b(?=[^\\r\\n]*\\s-(?:[^\\s]*f|f\\b))(?=[^\\r\\n]*\\s-(?:[^\\s]*d|d\\b))', 'i', 'git clean with force and directory deletion can remove untracked work.', 'always'],
-  ['recursive-delete', ['Bash'], '(?:^|[;&|\\n]\\s*)rm\\s+(?=[^\\r\\n;&|]*-(?:[^\\s]*r|r\\b))(?=[^\\r\\n;&|]*-(?:[^\\s]*f|f\\b))', 'i', 'Recursive forced deletion outside approved scratch space is destructive.', 'outside-scratch'],
-  ['powershell-recursive-force-delete', ['Bash', 'PowerShell'], '\\bRemove-Item\\b(?=[^\\r\\n;|]*-(?:Recurse|r)\\b)(?=[^\\r\\n;|]*-(?:Force|fo)\\b)', 'i', 'PowerShell recursive forced deletion outside approved scratch space is destructive.', 'outside-scratch'],
-  ['sql-destructive-ddl', ['Bash', 'PowerShell'], '\\b(?:DROP\\s+(?:TABLE|DATABASE|SCHEMA)|TRUNCATE(?:\\s+TABLE)?)\\b', 'i', 'Destructive SQL DDL can irreversibly remove production data or schema state.', 'always'],
-  ['package-publish', ['Bash', 'PowerShell'], '\\b(?:npm|pnpm|yarn|cargo|twine)\\s+publish\\b', 'i', 'Publishing creates an external package/release side effect.', 'always'],
-  ['github-release-create', ['Bash', 'PowerShell'], '\\bgh\\s+release\\s+create\\b', 'i', 'Creating a GitHub release is an external irreversible publication action.', 'always'],
-  ['production-deploy', ['Bash', 'PowerShell'], '\\b(?:kubectl\\s+apply|helm\\s+(?:upgrade|install)|terraform\\s+apply|vercel\\s+deploy|fly\\s+deploy|gcloud\\s+run\\s+deploy|(?:npm|pnpm|yarn)\\s+(?:run\\s+)?deploy|deploy\\s+to\\s+(?:prod|production|live))\\b', 'i', 'Deployment changes an external environment and requires explicit approval.', 'always'],
+  ['git-force-push', ['Bash', 'PowerShell'], '(?:^|[;&|\\n]\\s*)git\\s+(?:(?:-C|-c)\\s+\\S+\\s+|-\\S+\\s+)*push\\b(?=[^\\r\\n;&|]*(?:--force(?:-with-lease)?\\b|-[A-Za-z]*f[A-Za-z]*\\b|\\s\\+[^\\s;&|]+))', 'i', 'Force-pushing can rewrite remote history.', 'always'],
+  ['git-reset-hard', ['Bash', 'PowerShell'], '(?:^|[;&|\\n]\\s*)git\\s+(?:(?:-C|-c)\\s+\\S+\\s+|-\\S+\\s+)*reset\\b[^\\r\\n;&|]*--hard\\b', 'i', 'git reset --hard can discard local work.', 'always'],
+  ['git-clean-force-delete', ['Bash', 'PowerShell'], '(?:^|[;&|\\n]\\s*)git\\s+(?:(?:-C|-c)\\s+\\S+\\s+|-\\S+\\s+)*clean\\b(?=[^\\r\\n;&|]*\\s-(?:[^\\s]*f|f\\b))(?=[^\\r\\n;&|]*\\s-(?:[^\\s]*d|d\\b))', 'i', 'git clean with force and directory deletion can remove untracked work.', 'always'],
+  ['recursive-delete', ['Bash'], '(?:^|[;&|\\n]\\s*)(?:(?:bash|sh)\\s+(?:-\\S+\\s+)*-c\\s+[\\"\']\\s*)?(?:sudo(?:\\s+-\\S+)*\\s+)?rm\\s+(?=[^\\r\\n;&|]*-(?:[^\\s]*r|r\\b))(?=[^\\r\\n;&|]*-(?:[^\\s]*f|f\\b))', 'i', 'Recursive forced deletion outside approved scratch space is destructive.', 'outside-scratch'],
+  ['powershell-recursive-force-delete', ['PowerShell'], '(?:^|[;&|\\n]\\s*)(?:Remove-Item|ri|rm)\\b(?=[^\\r\\n;|]*-(?:Recurse|r)\\b)(?=[^\\r\\n;|]*-(?:Force|fo)\\b)', 'i', 'PowerShell recursive forced deletion outside approved scratch space is destructive.', 'outside-scratch'],
+  ['sql-destructive-ddl', ['Bash', 'PowerShell'], '(?:^|[;&|\\n]\\s*)(?:(?:psql|mysql|sqlcmd|sqlite3)\\b[^\\r\\n;&|]*)?\\b(?:DROP\\s+(?:TABLE|DATABASE|SCHEMA)|TRUNCATE(?:\\s+TABLE)?)\\b', 'i', 'Destructive SQL DDL can irreversibly remove production data or schema state.', 'always'],
+  ['package-publish', ['Bash', 'PowerShell'], '(?:^|[;&|\\n]\\s*)(?:sudo\\s+)?(?:npm|pnpm|yarn|cargo|twine)\\s+publish\\b', 'i', 'Publishing creates an external package/release side effect.', 'always'],
+  ['github-release-create', ['Bash', 'PowerShell'], '(?:^|[;&|\\n]\\s*)gh\\s+release\\s+create\\b', 'i', 'Creating a GitHub release is an external irreversible publication action.', 'always'],
+  ['production-deploy', ['Bash', 'PowerShell'], '(?:^|[;&|\\n]\\s*)(?:kubectl\\s+apply|helm\\s+(?:upgrade|install)|terraform\\s+apply|vercel\\s+deploy|fly\\s+deploy|gcloud\\s+run\\s+deploy|(?:npm|pnpm|yarn)\\s+(?:run\\s+)?deploy|deploy\\s+to\\s+(?:prod|production|live))\\b', 'i', 'Deployment changes an external environment and requires explicit approval.', 'always'],
 ].map(([id, tools, pattern, flags, reason, scope]) => ({ id, tools, pattern, flags, reason, scope }));
 
 function hashExact(value) {
@@ -153,9 +153,15 @@ function deleteTargets(command, ruleId) {
   const tails = [];
   let regex = null;
   if (ruleId === 'recursive-delete') {
-    regex = /(?:^|[;&|\n]\s*)rm\s+([^;&|\n]+)/ig;
+    regex = /(?:^|[;&|\n]\s*)(?:sudo(?:\s+-\S+)*\s+)?rm\s+([^;&|\n]+)/ig;
+    const wrapper = /(?:^|[;&|\n]\s*)(?:bash|sh)\s+(?:-\S+\s+)*-c\s+(["'])([\s\S]*?)\1/ig;
+    let wrapped;
+    while ((wrapped = wrapper.exec(text)) !== null) {
+      tails.push(...deleteTargets(wrapped[2], ruleId));
+      if (wrapped[0].length === 0) wrapper.lastIndex++;
+    }
   } else if (ruleId === 'powershell-recursive-force-delete') {
-    regex = /\bRemove-Item\b([^;|\n]+)/ig;
+    regex = /(?:^|[;|\n]\s*)(?:Remove-Item|ri|rm)\b([^;|\n]+)/ig;
   }
   if (!regex) return [];
 
@@ -190,6 +196,10 @@ function isWithin(target, root) {
 
 function scratchRoots(payload, sessionDir) {
   const roots = [os.tmpdir(), path.join(sessionDir, 'scratch')];
+  // Git Bash/MSYS exposes the Windows temp area as /tmp (and sometimes
+  // /var/tmp). Treat those aliases as scratch on Windows instead of gating a
+  // harmless temp cleanup merely because the host path syntax differs.
+  if (process.platform === 'win32') roots.push('/tmp', '/var/tmp');
   const declared = payload && (payload.scratchpad_path || payload.scratchpadPath || (payload.harness && payload.harness.scratchpadPath));
   if (declared) roots.push(declared);
   if (process.env.HARNESS_SCRATCH_DIR) roots.push(process.env.HARNESS_SCRATCH_DIR);
