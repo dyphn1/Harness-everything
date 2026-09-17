@@ -12,12 +12,15 @@ The current mechanism/enforcement boundary is platform-specific; see [Platform C
 
 Many AI development frameworks attempt to fully control the model's execution flow. They use rigid DAGs, forced chains, or complex state machines. While this works for trivial, repetitive tasks, it can suppress useful model judgment on complex, novel engineering work.
 
-Harness takes the opposite approach:
+Harness takes a different approach: preserve execution autonomy, but make important decisions informed rather than superficial.
 
 1. **Model Autonomy is Paramount:** The model should have freedom to explore, choose useful skills/tools, and design its solution inside a small set of cross-cutting invariants.
-2. **Context-Driven Guidance:** Harness uses high-context, low-friction signals — skills, rules, local checks, and hooks/plugins where the host supports and packages them — rather than one rigid global execution path.
-3. **Reactive Guardrails:** On integration surfaces that expose the required lifecycle/tool hooks, Harness can stay quiet until a boundary is violated or a repeated failure is detected. On advisory surfaces, the same principles remain guidance rather than automatic blocking.
-4. **Behavior-First, Not Prompt-First:** Harness is not a collection of magic prompts. Its skills remain independently useful, while supported runtime adapters can react to real tool/session outcomes and workspace conditions.
+2. **Mandatory Evaluation, Advisory Execution:** When the router suggests a skill, the model must read/evaluate that skill's actual `SKILL.md` entry/basic flow before omitting it. Execution is still optional after evaluation. This prevents “advisory” from degenerating into “always ignored” without creating a fixed pipeline.
+3. **Context-Driven Guidance:** Harness uses high-context, low-friction signals — skills, rules, local checks, and hooks/plugins where the host supports and packages them — rather than one rigid global execution path.
+4. **Reactive Guardrails:** On integration surfaces that expose the required lifecycle/tool hooks, Harness can stay quiet until a boundary is violated or a repeated failure is detected. On advisory surfaces, the same principles remain guidance rather than automatic blocking.
+5. **Behavior-First, Not Prompt-First:** Harness is not a collection of magic prompts. Its skills remain independently useful, while supported runtime adapters can react to real tool/session outcomes and workspace conditions.
+
+The read-before-skip rule is intentionally narrow. It does not require every optional reference linked by a skill to be loaded, and it does not mean every suggestion must run. The agent reads the complete skill entry, evaluates `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules, follows any explicitly required applicability reference, and then decides whether execution adds value.
 
 ---
 
@@ -41,7 +44,7 @@ The Harness recovery invariant is to stop same-signature micro-retries and re-pl
 
 As sessions grow, models can read too broadly or produce oversized output, degrading active context.
 
-Harness uses narrow reads, explicit scope, compact evidence, and — where a compatible runtime adapter exists — boundary mechanisms that can react mechanically. Skill-only surfaces still receive the discipline, but not an imaginary background daemon or hook.
+Harness uses narrow reads, explicit scope, compact evidence, and — where a compatible runtime adapter exists — boundary mechanisms that can react mechanically. Read-before-skip is bounded to the suggested skill entry and any applicability-critical material that entry explicitly requires; it does not justify indiscriminately loading the whole skills tree. Skill-only surfaces still receive the discipline, but not an imaginary background daemon or hook.
 
 ### 4. Self-Evolution (Continuous Workspace Memory)
 
