@@ -60,9 +60,6 @@ try {
       tier,
       strategy,
       state: 'active',
-      // Escape suppresses the Fable-entry check so this suite isolates the
-      // independent worktree safety invariant.
-      disposition: { status: 'escaped' },
     }, null, 2)}\n`, 'utf8');
   }
 
@@ -82,7 +79,8 @@ try {
     });
   }
 
-  writeWorkflow('tier3', 'fable-staged');
+  // Tier 3 isolation is independent of the selected execution topology.
+  writeWorkflow('tier3', 'iterative-single');
 
   const primaryWrite = runGate('Write', repo, { file_path: path.join(repo, 'src.js'), content: 'x' });
   check(primaryWrite.status === 2, 'Tier 3 direct write is blocked in the primary working tree');
@@ -90,6 +88,10 @@ try {
 
   const primaryDelete = runGate('Bash', repo, { command: 'rm -rf src' });
   check(primaryDelete.status === 2, 'Tier 3 destructive shell mutation is blocked in the primary working tree');
+
+  for (const command of ['git status > tracked.txt', 'git log --output=tracked.txt', 'find . -delete', 'fd -x rm', 'rg --pre touch x', 'git show $(touch tracked.txt)', 'Get-Content (Remove-Item src)']) {
+    check(runGate('Bash', repo, { command }).status === 2, `shell side effect is not read-only: ${command}`);
+  }
 
   const chainedBypass = runGate('Bash', repo, { command: 'git status --short && rm -rf src' });
   check(chainedBypass.status === 2, 'read-only prefix cannot hide a chained mutation');
@@ -105,6 +107,29 @@ try {
 
   const isolatedWrite = runGate('Write', linked, { file_path: path.join(linked, 'src.js'), content: 'x' });
   check(isolatedWrite.status === 0, 'Tier 3 mutation is allowed after entering a linked worktree');
+
+  check(runGate('Write', linked, { file_path: path.join(repo, 'src.js') }).status === 2, 'linked cwd cannot authorize a primary-tree target');
+  check(runGate('Write', linked, { file_path: '../repo/src.js' }).status === 2, 'relative traversal cannot escape the worktree');
+  check(runGate('apply_patch', linked, `*** Begin Patch\n*** Add File: ${path.join(repo, 'src.js')}\n+x\n*** End Patch`).status === 2, 'raw patch targets are checked');
+  check(runGate('apply_patch', linked, { patch: `*** Begin Patch\n*** Update File: README.md\n*** Move to: ${path.join(repo, 'moved.md')}\n@@\n-fixture\n+x\n*** End Patch` }).status === 2, 'patch move destination cannot escape isolation');
+  check(runGate('exec_command', repo, { cmd: 'rm -rf src', workdir: repo }).status === 2, 'native shell alias cannot skip mutation gating');
+  check(runGate('Bash', linked, { command: `rm "${path.join(repo, 'README.md')}"` }).status === 2, 'explicit primary-tree shell target is blocked');
+  check(runGate('Bash', linked, { command: 'cd ../repo && node build.js' }).status === 2, 'shell directory change cannot hide the effective working directory');
+  check(runGate('Write', linked, {}).status === 2, 'unknown direct target is blocked');
+  const junction = path.join(linked, 'outside');
+  fs.symlinkSync(repo, junction, process.platform === 'win32' ? 'junction' : 'dir');
+  check(runGate('Write', linked, { file_path: path.join(junction, 'src.js') }).status === 2, 'symlink or junction escape is blocked');
+  fs.unlinkSync(junction);
+
+  const escaped = JSON.parse(fs.readFileSync(workflowFile, 'utf8'));
+  escaped.state = 'escaped';
+  fs.writeFileSync(workflowFile, JSON.stringify(escaped));
+  check(runGate('Write', repo, { file_path: path.join(repo, 'src.js') }).status === 2, 'legacy escaped state never waives isolation');
+  escaped.state = 'blocked';
+  fs.writeFileSync(workflowFile, JSON.stringify(escaped));
+  check(runGate('Write', linked, { file_path: path.join(linked, 'src.js') }).status === 2, 'blocked workflow cannot mutate even inside isolation');
+  fs.writeFileSync(workflowFile, '{broken');
+  check(runGate('Write', linked, { file_path: path.join(linked, 'src.js') }).status === 2, 'corrupt recorded workflow cannot silently authorize mutation');
 
   writeWorkflow('tier2', 'iterative-single');
   const tier2Write = runGate('Write', repo, { file_path: path.join(repo, 'small.js'), content: 'x' });

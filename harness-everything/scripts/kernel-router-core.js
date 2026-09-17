@@ -37,6 +37,7 @@ const INVARIANT_TEXT = {
   'pre-action-approval': 'Irreversible/external side effects require approval before the exact payload executes.',
   'preserve-disagreement': 'Ensemble synthesis must retain unresolved minority positions and evidence gaps.',
   'independent-ensemble-verifier': 'Ensemble delivery requires a verifier independent from the candidate identities; agreement alone is not proof.',
+  'isolated-worktree-before-mutation': 'Major engineering must mutate only inside a verified Git worktree; unavailable isolation means blocked.',
 };
 
 const SKILL_TEXT = {
@@ -114,6 +115,9 @@ function printWorkflowPlan(plan) {
     ensemble: plan.ensemble,
     fallback: plan.fallback,
     reasonCodes: plan.reasonCodes,
+    requiredInvariants: plan.requiredInvariants,
+    suggestedSkills: plan.suggestedSkills,
+    mutationIsolation: plan.mutationIsolation,
   };
   console.log(`\n=> ROUTER WORKFLOW PLAN (JSON): ${JSON.stringify(visible)}`);
 }
@@ -150,7 +154,7 @@ function printRoutingCheckpoint(plan) {
   if (suggestions.length > 0) {
     console.log('   - Suggestion evaluation: MANDATORY. Before skipping any listed skill, read its complete SKILL.md entry and evaluate USE FOR, DO NOT USE FOR, workflow/basic flow, and hard rules.');
     console.log('   - Skip evidence: do not reject from only the skill name, description, router summary, or a generic "routine/common task" judgement. If the entry cannot be resolved/read, mark it unresolved/unavailable rather than skipped.');
-    console.log('   - Suggestion disposition: execution is advisory after evaluation. Using one suggestion does not waive read-before-skip for other omitted suggestions. If all are skipped after evaluation, state one brief reason grounded in the evaluated flows in the first visible progress/update message.');
+    console.log('   - Suggestion disposition: individual skill applicability is conditional; the selected workflow is mandatory. Using one suggestion does not waive read-before-skip for other omitted suggestions. If all are not-applicable, state one brief flow-grounded reason.');
   }
 }
 
@@ -160,19 +164,19 @@ function printKernelContract(plan) {
     console.log(`   - ${invariant}: ${INVARIANT_TEXT[invariant] || 'Required by the selected workflow plan.'}`);
   }
 
-  console.log('\n=> SUGGESTED SKILLS (MANDATORY EVALUATION — ADVISORY EXECUTION):');
+  console.log('\n=> WORKFLOW SKILLS (EVALUATE APPLICABILITY — SELECTED WORKFLOW IS MANDATORY):');
   if (Array.isArray(plan.suggestedSkills) && plan.suggestedSkills.length > 0) {
     const emitted = new Set();
     for (const skill of plan.suggestedSkills) {
       if (emitted.has(skill)) continue;
-      const text = Object.prototype.hasOwnProperty.call(SKILL_TEXT, skill) ? SKILL_TEXT[skill] : `${skill}: advisory for the selected topology.`;
+      const text = Object.prototype.hasOwnProperty.call(SKILL_TEXT, skill) ? SKILL_TEXT[skill] : `${skill}: evaluate applicability inside the selected topology.`;
       if (text) console.log(`   - ${text}`);
       emitted.add(skill);
       if (skill === 'fable-mode') emitted.add('fable-discipline');
     }
     console.log('   - Read-before-skip: evaluate every suggested skill entry before omission; adopting one suggestion does not waive evaluation of the others.');
     if (plan.strategy && plan.strategy.startsWith('fable-')) {
-      console.log('   - Use these selectively after evaluation; Tier 3/Fable does not create a universal skill pipeline.');
+      console.log('   - Fable is not a universal pipeline, but a selected Fable topology must be entered and resolved before completion.');
     }
   } else if (plan.strategy === 'direct-single') {
     console.log('   - No domain skill was suggested. Prefer the bounded direct path and load a focused skill only when it adds value.');
@@ -198,10 +202,10 @@ function printKernelContract(plan) {
     console.log('\n=> ROUTING DEGRADATION: Structured routing is degraded. Keep the strategy deferred unless independent evidence supports a route; do not silently downgrade to Tier 1/direct execution.');
   }
 
-  console.log('\n=> ORCHESTRATION POLICY: Do not enforce workflow order. Enforce workflow invariants from the plan. Suggested-skill evaluation is mandatory; execution remains advisory after evaluation. The router plans; execution components execute.');
+  console.log('\n=> ORCHESTRATION POLICY: Mandatory applicable workflow. The selected topology is an execution contract; the model controls HOW to satisfy it. Escape requires explicit uncovered scope and evidence; covered obligations remain mandatory.');
 }
 
-function run(prompt, stdinPayload) {
+function route(prompt, stdinPayload) {
   const classifierPath = path.join(__dirname, 'tier-router.js');
   const contractPath = path.join(os.tmpdir(), `harness-router-${process.pid}-${crypto.randomUUID()}.json`);
   const args = prompt ? [classifierPath, prompt] : [classifierPath];
@@ -219,10 +223,6 @@ function run(prompt, stdinPayload) {
     process.exit(1);
   }
 
-  const sanitized = sanitizeClassifierOutput(result.stdout);
-  if (sanitized) console.log(sanitized);
-  if (result.stderr) process.stderr.write(result.stderr);
-
   const contract = readStructuredContract(contractPath);
   applyEnsemblePolicy(contract, resolvePrompt(prompt, stdinPayload));
   enforceSuggestionEvaluation(contract.workflowPlan);
@@ -232,13 +232,21 @@ function run(prompt, stdinPayload) {
     // Temporary contract cleanup is best effort only.
   }
 
-  printWorkflowPlan(contract.workflowPlan);
-  printRoutingCheckpoint(contract.workflowPlan);
-  printKernelContract(contract.workflowPlan);
+  return { contract, sanitized: sanitizeClassifierOutput(result.stdout), stderr: result.stderr, status: result.status };
+}
+
+function run(prompt, stdinPayload) {
+  const result = route(prompt, stdinPayload);
+  if (result.sanitized) console.log(result.sanitized);
+  if (result.stderr) process.stderr.write(result.stderr);
+  printWorkflowPlan(result.contract.workflowPlan);
+  printRoutingCheckpoint(result.contract.workflowPlan);
+  printKernelContract(result.contract.workflowPlan);
 
   if (result.status !== 0) process.exit(result.status === null ? 1 : result.status);
 }
 
+if (require.main === module) {
 const prompt = process.argv.slice(2).join(' ');
 if (prompt) {
   run(prompt, null);
@@ -250,3 +258,6 @@ if (prompt) {
   process.stdin.on('data', chunk => { input += chunk; });
   process.stdin.on('end', () => run('', input));
 }
+}
+
+module.exports = { route, printWorkflowPlan, printRoutingCheckpoint, printKernelContract };

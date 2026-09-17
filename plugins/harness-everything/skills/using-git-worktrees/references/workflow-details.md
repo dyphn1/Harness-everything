@@ -1,108 +1,67 @@
 # Using Git Worktrees — Full Workflow Reference
 
-## Decision Flow
+## Decide whether isolation is mandatory
 
-```mermaid
-flowchart TD
-    Start[Trigger: Need Workspace Isolation] --> CheckIso{1. Already in Worktree?}
+Tier 3 / Fable-class engineering requires Git isolation before the first source
+or artifact mutation. Read-only discovery may remain in the bound repository.
+Durable multi-agent workspace state is separate: a staged run may need no
+multi-agent workspace and still require Git isolation.
 
-    CheckIso -- Yes (GIT_DIR != GIT_COMMON) --> Setup[3. Run Project Setup & Dependencies]
-    CheckIso -- No (Normal Repo) --> CheckNative{2. Native Worktree Tool Available?}
+Ordinary feature work may honor an explicit preference to stay in place.
+Mandatory mode has no in-place fallback for a declined helper, unavailable
+native tool, sandbox denial, or creation failure; report `blocked`.
 
-    CheckNative -- Yes --> RunNative[Use Native Worktree Tool] --> Setup
-    CheckNative -- No --> RunGit[Try git worktree add .worktrees/branch]
+## Detect existing isolation
 
-    RunGit -- Success --> Setup
-    RunGit -- Fails / Denied --> WorkInPlace[Fallback: Work in Place in Current Directory] --> Setup
-
-    Setup --> RunBaseline[4. Verify Clean Test Baseline]
-    RunBaseline --> Done[Isolated Workspace Ready]
-```
-
-## Step 0 detail
-
-**Submodule guard:** `git-dir` differs from `git-common-dir` inside git submodules as well. Before concluding "already in a worktree," verify you are not in a submodule:
+Inspect absolute Git paths and the registered worktree list:
 
 ```bash
-# If this returns a path, you're in a submodule, not a worktree — treat as normal repo
+git rev-parse --absolute-git-dir
+git rev-parse --path-format=absolute --git-common-dir
 git rev-parse --show-superproject-working-tree
+git worktree list --porcelain
 ```
 
-Report with branch state:
-- On a branch: "Already in isolated workspace at `<path>` on branch `<name>`."
-- Detached HEAD: "Already in isolated workspace at `<path>` (detached HEAD, externally managed). Branch creation needed at finish time."
+Reuse a registered linked checkout of the bound repository; never nest another
+worktree inside it. A submodule or unrelated repository is not sufficient proof.
+Record the resolved directory and branch (or detached HEAD) in the handoff.
 
-Has the user already indicated their worktree preference in your instructions? If not, ask for consent before creating a worktree:
+## Create and enter
 
-> "Would you like me to set up an isolated worktree? It protects your current branch from changes."
-
-Honor any existing declared preference without asking. If the user declines consent, work in place and skip to project setup.
-
-## Step 1a detail — native tools
-
-The user has asked for an isolated workspace. Do you already have a way to create a worktree? It might be a tool with a name like `EnterWorktree`, `WorktreeCreate`, a `/worktree` command, or a `--worktree` flag. If you do, use it and skip to setup.
-
-Native tools handle directory placement, branch creation, and cleanup automatically. Using `git worktree add` when you have a native tool creates phantom state your harness can't see or manage.
-
-Only use the git fallback if you have no native worktree tool available.
-
-## Step 1b detail — directory selection priority
-
-Follow this priority order. Explicit user preference always beats observed filesystem state.
-
-1. **Check your instructions for a declared worktree directory preference.** If the user has already specified one, use it without asking.
-2. **Check for an existing project-local worktree directory:** Check if `.worktrees/` or `worktrees/` exists using cross-platform file system tools (`read_file` / `list_dir` or native shell test commands). If found, use it. If both exist, `.worktrees` wins.
-3. **If there is no other guidance available**, default to `.worktrees/` at the project root.
-
-### Safety verification (project-local directories only)
-
-**MUST verify directory is ignored before creating worktree:**
+Honor an existing directory preference. Prefer a host-native worktree facility
+when available, then verify that it is backed by a registered Git worktree.
+Otherwise use Git:
 
 ```bash
-git check-ignore -q .worktrees || git check-ignore -q worktrees
+git worktree add "<isolated-path>" -b "<task-branch>"
 ```
 
-**If NOT ignored:** Add to .gitignore, commit the change, then proceed.
+For mandatory mode, choose an already-ignored project-local path or an external
+sibling path. Verify the exact project-local candidate with `git check-ignore`.
+Do not edit/commit the primary tree's ignore file just to permit worktree setup.
+If the native facility fails, a permitted Git fallback is valid; if neither can
+establish isolation, stop mutable work as blocked.
 
-**Why critical:** Prevents accidentally committing worktree contents to repository.
+Set each subsequent tool's working-directory field to the isolated path and
+keep artifact targets inside it. Entering a worktree does not authorize an
+absolute edit, patch move, or shell target back into the primary checkout.
+Resolve symlinks/junctions when verifying target scope.
 
-### Create the worktree
+## Setup and baseline
 
-```bash
-# Determine path based on chosen location
-path="$LOCATION/$BRANCH_NAME"
+Install the detected dependencies inside the isolated checkout, then run the
+relevant baseline tests/build before implementation. Surface existing failures
+with exact output and distinguish them from regressions introduced by the task.
+Continue fixing task-relevant failures within the user's authorized scope.
 
-git worktree add "$path" -b "$BRANCH_NAME"
-cd "$path"
-```
+For active Fable workflows, enter the correlated run through the router's
+displayed controller before dependency installation or artifact mutation. The
+session's `workflow-stages.json` bootstrap file is runtime state; it is not an
+exception for source changes.
 
-**Sandbox fallback:** If `git worktree add` fails with a permission error (sandbox denial), tell the user the sandbox blocked worktree creation and you're working in the current directory instead. Then run setup and baseline tests in place.
+## Evidence boundary
 
-## Step 2 detail — project setup
-
-Auto-detect and run appropriate setup:
-
-```bash
-# Node.js
-if [ -f package.json ]; then npm install; fi
-
-# Rust
-if [ -f Cargo.toml ]; then cargo build; fi
-
-# Python
-if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-if [ -f pyproject.toml ]; then poetry install; fi
-
-# Go
-if [ -f go.mod ]; then go mod download; fi
-```
-
-## Step 3 detail — baseline report
-
-If tests fail: report failures, ask whether to proceed or investigate. If tests pass:
-
-```
-Worktree ready at <full-path>
-Tests passing (<N> tests, 0 failures)
-Ready to implement <feature-name>
-```
+The workflow gate checks registered Git identity, direct/patch target paths,
+known shell side effects, and explicit outside paths. It is not a filesystem
+sandbox for arbitrary script bodies or indirect side effects. Preserve the
+platform capability boundary and report unsupported hook/metadata paths.

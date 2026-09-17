@@ -59,7 +59,9 @@ Rules:
 
 ## Workflow-plan consumer
 
-Before dispatch, write the router contract and stage array to files and run:
+For a session with an active mandatory workflow, write the stage array to the router-displayed `workflow-stages.json` path and invoke its `workflow-disposition.js start --session-id <id>` command. This binds the run to the active `workflowId` and bound workspace even after entering a linked worktree. Every required stage needs an objective check, and an independent plan needs a read-only `fable-verifier` stage depending on all other stages. Stage results need observed worker identities and numeric exit codes; missing metadata is blocked/degraded, not success.
+
+For standalone use without an active session contract, write the router contract and stage array to files and run:
 
 ```bash
 node fable-mode/scripts/workflow-plan-consumer.js \

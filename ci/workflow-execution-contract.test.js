@@ -46,7 +46,7 @@ const disposition = fs.readFileSync(path.join(ROOT, 'hooks/scripts/workflow-disp
 check(disposition.includes("'workflow-uncovered-scope'"), 'escape supports workflow-uncovered-scope');
 check(disposition.includes("'host-capability-unavailable'"), 'escape supports host-capability-unavailable');
 check(disposition.includes('generic simple/routine/already-clear reasons are intentionally rejected'), 'generic confidence-based escape reasons are rejected');
-check(disposition.includes('--scope is required') && disposition.includes('--evidence is required'), 'escape requires scope and evidence');
+check(disposition.includes('--scope is required') && disposition.includes('--evidence is required') && disposition.includes('--stage-id must name'), 'escape requires a declared stage, scope and evidence');
 
 const hooks = JSON.parse(fs.readFileSync(path.join(ROOT, 'hooks/hooks.json'), 'utf8'));
 check((hooks.hooks.PreToolUse || []).some(entry => entry.id === 'harness:pre:workflow-gate'), 'Claude hook wiring includes pre-mutation workflow gate');

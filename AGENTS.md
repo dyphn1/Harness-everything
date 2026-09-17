@@ -41,6 +41,7 @@ The retained [OpenCode evidence](benchmarks/results/live-host/opencode-2026-09-1
 8. **CHANGELOG.md keeps pending human-authored notes under `[Unreleased]`.** Semantic-release owns stable headings/tags/release notes.
 9. **Conventional Commit type is release input.** Breaking→major; `feat`→minor; `fix`/`perf`/`refactor`/`build`/`revert`→patch; docs/test/ci/style/chore do not release by themselves.
 10. **Selected workflow is mandatory; reasoning inside it stays flexible.** Before omitting a suggested skill, read/evaluate its complete `SKILL.md` flow. Suggested skills may be `not-applicable` with a flow-grounded reason, but a selected topology must be executed to resolution. Do not bypass it because the task feels simple/routine/already clear. Escape is limited to genuinely uncovered workflow scope or host-capability loss and requires explicit scope + evidence. Do not turn this into one universal TODO/TDD/Fable sequence.
+11. **Major mutation requires Git worktree isolation.** Read-only discovery may stay in the bound repository. Tier 3 / Fable source and artifact changes must target a verified linked worktree belonging to that repository; creation failure means `blocked`. Worktree isolation is separate from durable multi-agent workspace state. Scoped escape never waives it. See [workflow-runtime.md](docs/workflow-runtime.md) for the tested boundary and limitations.
 
 ## Verification Before You Claim Done
 

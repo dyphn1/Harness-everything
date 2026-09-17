@@ -20,7 +20,9 @@ const {
   chooseCorrelatedContract,
   commandMatches,
   listRunContracts,
+  getWorkerId,
 } = require('./lib/fable-contracts');
+const { loadWorkflow, matchingRun } = require('./lib/workflow-runtime');
 
 function resultState(payload) {
   const toolResponse = payload.tool_response || payload.tool_result || {};
@@ -41,6 +43,7 @@ function updateRunContract(entry, payload, command, sessionId) {
   const observedAt = new Date().toISOString();
   const contract = {
     ...entry.contract,
+    workerId: entry.contract.workerId || getWorkerId(payload),
     status: failed ? 'fail' : 'pass',
     lastObservedCommand: command,
     lastObservedExitCode: exitCode ?? null,
@@ -103,8 +106,11 @@ process.stdin.on('end', () => {
     const root = getWorkspaceRoot(payload);
     const stateRoot = getStateRoot(root, payload);
     const sessionId = getSessionId(payload);
+    const workflowContext = loadWorkflow(payload);
+    const activeRun = workflowContext.workflow?.workflowId ? matchingRun(workflowContext) : null;
     const runMatches = listRunContracts(stateRoot).filter(({ contract }) =>
-      ['pending', 'planned', 'running'].includes(contract.status) && commandMatches(contract, command)
+      (contract.workflowId ? ['pending', 'planned', 'running', 'fail', 'pass'] : ['pending', 'planned', 'running']).includes(contract.status) && commandMatches(contract, command) &&
+      (!workflowContext.workflow?.workflowId || (activeRun && contract.runId === activeRun.run.runId && contract.sessionId === sessionId))
     );
 
     if (runMatches.length > 0) {
@@ -115,7 +121,23 @@ process.stdin.on('end', () => {
         process.exit(2);
       }
 
-      const contract = updateRunContract(resolution.match, payload, command, sessionId);
+      const entry = resolution.match;
+      if (entry.contract.workflowId) {
+        const worker = getWorkerId(payload);
+        if (!worker || (entry.contract.workerId && worker !== entry.contract.workerId)) {
+          console.error('[Contract Test] Active workflow check lacks a matching observed worker identity.');
+          process.exit(2);
+        }
+        for (const id of entry.contract.dependsOn || []) {
+          const dependency = JSON.parse(fs.readFileSync(path.join(entry.runRoot, 'contracts', `${id}.json`), 'utf8'));
+          const escaped = workflowContext.workflow.escapes?.some(item => item.stageId === id && item.runId === entry.contract.runId);
+          if (dependency.status !== 'pass' && !escaped) {
+            console.error('[Contract Test] Dependency has not passed: ' + id);
+            process.exit(2);
+          }
+        }
+      }
+      const contract = updateRunContract(entry, payload, command, sessionId);
       console.log(`[Contract Test] ${contract.planId}/${contract.runId}/${contract.stageId}: ${contract.status.toUpperCase()} ${contract.checkCommand}`);
       if (contract.status === 'fail') {
         console.error(`Evidence: ${contract.evidence || '(no output captured)'}`);

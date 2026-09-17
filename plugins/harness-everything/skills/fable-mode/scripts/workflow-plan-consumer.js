@@ -209,7 +209,7 @@ function atomicWriteJson(filePath, value) {
   fs.renameSync(tempPath, filePath);
 }
 
-function prepareRun({ routerContract, stages, workspaceRoot, runId, sessionId = null }) {
+function prepareRun({ routerContract, stages, workspaceRoot, runId, sessionId = null, workflowId = null }) {
   const plan = validateRouterPlan(routerContract);
   const normalizedStages = validateStageGraph(stages || []);
   if (normalizedStages.length === 0) throw new Error('at least one stage contract is required');
@@ -237,6 +237,7 @@ function prepareRun({ routerContract, stages, workspaceRoot, runId, sessionId = 
       planId,
       runId: resolvedRunId,
       sessionId: sessionId || null,
+      workflowId,
       workspaceRoot: root,
       ...stage,
       workerId: null,
@@ -252,6 +253,7 @@ function prepareRun({ routerContract, stages, workspaceRoot, runId, sessionId = 
     planId,
     runId: resolvedRunId,
     sessionId: sessionId || null,
+    workflowId,
     workspaceRoot: root,
     workspaceKey: getWorkspaceKey(root),
     strategy: plan.strategy,

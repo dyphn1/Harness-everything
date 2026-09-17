@@ -28,7 +28,7 @@ flowchart TD
     X[Stop hook] --> V
 ```
 
-The local OpenAI adapter enforces cross-cutting invariants through the lifecycle events that it packages. Tier-specific skills remain advisory; the model may choose, combine, reorder, or skip them. Tool enforcement is limited to the host tool names declared in `hooks/hooks.json`.
+The local OpenAI adapter enforces cross-cutting invariants through the lifecycle events that it packages. Suggested skills require applicability evaluation; the selected topology is mandatory with scoped, evidence-backed escape. The [workflow runtime](workflow-runtime.md) documents pending/running/satisfied/blocked state, Fable entry, worktree isolation, completion evidence, and degradation limits. Tool enforcement is limited to the host tool names declared in `hooks/hooks.json`.
 
 ## Package layout
 

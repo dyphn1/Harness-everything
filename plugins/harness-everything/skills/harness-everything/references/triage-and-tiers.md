@@ -95,7 +95,7 @@ Escape is an exception path, not an alternative default. Use it only when the se
 - `workflow-uncovered-scope` — the selected topology cannot represent a bounded part of the task;
 - `host-capability-unavailable` — the host lacks a capability required to execute the selected topology.
 
-Every escape must record the reason code, uncovered scope, and evidence explaining the coverage/capability gap. Covered workflow obligations remain mandatory. Host capability loss must be visible as degradation/blocked/escape evidence, never silently converted into optional execution.
+Every escape must name a declared stage in the correlated run and record the reason code, uncovered scope, and evidence explaining the coverage/capability gap. The entire workflow never becomes escaped; isolation and independent verification cannot be waived. Covered workflow obligations remain mandatory. Host capability loss must be visible as degradation/blocked/escape evidence, never silently converted into optional execution.
 
 ## 3. Tier Guidance
 
@@ -144,7 +144,7 @@ This describes a reasoning policy. The workflow contract governs lifecycle oblig
 | Advisory instructions only | Agent is instructed to establish and resolve the same contract, but the host cannot be described as mechanically enforcing it. |
 | Manual use | Invoke `harness-everything` / `harness next`, then execute the selected topology explicitly. |
 
-On Claude, an active selected Fable topology uses a PreToolUse workflow gate to prevent direct parent artifact mutation before a correlated Fable run exists, plus a Stop-time completion gate for unresolved stage contracts. Other selected topologies still rely on their applicable mechanisms (for example objective verification/stop gates) and shared contract text.
+On Claude and the local OpenAI package, supported mutation hooks require Fable entry and Tier 3/Fable Git worktree isolation. Follow-up prompts preserve unresolved state. The router displays a session `workflow-stages.json` path and `workflow-disposition.js start` command; declare stages there before entry. Stop checks expected stage contracts plus correlated exit-zero/worker evidence. A retry records `blocked`, never false success. Direct/patch paths and explicit shell targets are checked, but arbitrary scripts are not sandboxed. Other selected topologies still rely on their applicable mechanisms (for example objective verification/stop gates) and shared contract text.
 
 Never turn mechanism/package evidence into a cross-host live-enforcement claim. #82 owns host-specific retained evidence.
 
@@ -156,7 +156,7 @@ For software/project work, surface this state before or with the first progress 
 ## 🚦 Harness Routing Checkpoint
 - Tier: Tier X — <reason>
 - Strategy: <selected/deferred strategy>
-- Workflow state: <active | deferred | blocked | escaped>
+- Workflow state: <pending | running | satisfied | deferred | blocked>
 - Required invariants: <router invariants>
 - Suggested skills: <deduplicated suggestions or none>
 - Suggestion applicability: <use | not-applicable + reason | unresolved/unavailable>

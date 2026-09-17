@@ -66,10 +66,10 @@ On host paths that can persist it, `kernel-router.js` records session-scoped `wo
 
 For selected Fable topologies on Claude:
 
-- `workflow-gate.js` runs before parent artifact mutation and prevents direct `Edit`/`Write` bypass until a correlated Fable run exists;
+- `workflow-gate.js` checks supported shell/direct mutation, actual direct/patch targets, and registered Git worktree isolation before major-workflow mutation; Fable also requires a run bound to the workflow/session identity;
 - Fable owns stage contracts, `dependsOn`/`writeSet`, validated execution batches, objective per-stage checks, synthesis, cold verification, and bounded re-plans;
 - `workflow-stop-gate.js` rejects completion while correlated stage contracts remain unresolved;
-- `workflow-disposition.js` permits only narrow evidence-backed escape (`workflow-uncovered-scope` or `host-capability-unavailable`).
+- `workflow-disposition.js` starts/replans within budget, records blockers, and permits only declared-stage evidence-backed escape (`workflow-uncovered-scope` or `host-capability-unavailable`). Covered obligations, isolation, and independent verification survive escape. See [runtime transitions and limitations](workflow-runtime.md).
 
 Other topologies use their own applicable mechanisms: loop budgets, regular verification stop-gates, action gates, and task-specific skills. Mechanism coverage is not assumed identical across hosts.
 

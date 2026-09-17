@@ -83,6 +83,7 @@ function processState(payload) {
         const command = (payload.tool_input && payload.tool_input.command) || '';
         if (VERIFY_COMMAND_RE.test(command)) {
           state.lastVerifyAt = Date.now();
+          state.lastVerifyExitCode = exitCode ?? null;
         }
       }
 

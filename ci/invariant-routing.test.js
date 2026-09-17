@@ -37,11 +37,11 @@ check(tier2.stdout.includes('SELECTED WORKFLOW IS MANDATORY'), 'selected workflo
 check(tier2.stdout.includes('tdd:'), 'Tier 2 can still recommend TDD');
 check(!tier2.stdout.includes('BASE EXECUTION LOOP'), 'legacy fixed base-execution-loop output is suppressed');
 check(tier2.stdout.includes('Mandatory applicable workflow'), 'orchestration policy requires selected applicable workflow');
-check(tier2.stdout.includes('model controls HOW to satisfy its stages'), 'reasoning/implementation freedom remains inside workflow');
+check(tier2.stdout.includes('model controls HOW to satisfy it'), 'reasoning/implementation freedom remains inside workflow');
 check(tier2.stdout.includes('WORKFLOW EXECUTION CONTRACT (MANDATORY WHEN SELECTED)'), 'kernel emits workflow execution contract');
-check(tier2.stdout.includes('- State: active'), 'selected Tier 2 workflow is active');
-check(tier2.stdout.includes('Do not replace it with a direct path merely because the task feels clear, routine, or easy'), 'model confidence cannot bypass workflow');
-check(tier2.stdout.includes('Escape is exception-only for genuinely uncovered workflow scope'), 'workflow escape is exception-only');
+check(tier2.stdout.includes('- State: unpersisted'), 'manual route without host session does not claim persisted lifecycle');
+check(tier2.stdout.includes('Generic simple/routine/already-clear reasons cannot waive'), 'model confidence cannot bypass workflow');
+check(tier2.stdout.includes('Escape is limited to workflow-uncovered-scope or host-capability-unavailable'), 'workflow escape is exception-only');
 check(!tier2.stdout.includes('execution remains advisory after evaluation'), 'old advisory execution wording is absent');
 check(!tier2.stdout.includes('isolated-worktree-before-mutation'), 'Tier 2 does not inherit the major-workflow worktree invariant');
 
@@ -55,7 +55,7 @@ check(tier2.stdout.includes('Suggestion evaluation: MANDATORY'), 'checkpoint req
 check(tier2.stdout.includes('read its complete SKILL.md entry'), 'checkpoint requires reading skill entry');
 check(tier2.stdout.includes('name, description, router summary'), 'checkpoint rejects metadata-only omission');
 check(tier2.stdout.includes('routine/common task'), 'checkpoint rejects routine-task omission shortcut');
-check(tier2.stdout.includes('selected workflow topology is mandatory'), 'checkpoint distinguishes skill applicability from topology obligation');
+check(tier2.stdout.includes('selected workflow is mandatory'), 'checkpoint distinguishes skill applicability from topology obligation');
 
 const tier3 = spawnSync(process.execPath, [kernel, 'audit the entire repository architecture and coordinate multiple modules'], {
   cwd: ROOT,
@@ -65,12 +65,12 @@ check(tier3.status === 0, 'Tier 3 kernel routing exits successfully');
 check(/RECOMMENDED TIER:\s*Tier 3/i.test(tier3.stdout), 'macro task remains Tier 3');
 check(tier3.stdout.includes('"strategy":"fable-staged"'), 'Tier 3 task selects fable-staged');
 check(tier3.stdout.includes('fable-mode / fable-discipline'), 'Tier 3 plan exposes Fable capabilities');
-check(tier3.stdout.includes('when the router selects a Fable topology that topology must be entered and resolved before completion'), 'selected Fable topology is mandatory');
+check(tier3.stdout.includes('selected Fable topology must be entered and resolved before completion'), 'selected Fable topology is mandatory');
 check(tier3.stdout.includes('WORKFLOW EXECUTION CONTRACT (MANDATORY WHEN SELECTED)'), 'Tier 3 emits execution contract');
 check(tier3.stdout.includes('isolated-worktree-before-mutation'), 'Tier 3 structured plan carries the worktree isolation invariant');
 check(tier3.stdout.includes('using-git-worktrees'), 'Tier 3 structured plan surfaces the worktree workflow skill');
-check(tier3.stdout.includes('Git worktree isolation is mandatory before source/artifact mutation'), 'Tier 3 execution contract requires worktree isolation before mutation');
-check(tier3.stdout.includes('never fall back to the primary working tree'), 'Tier 3 worktree failure blocks instead of falling back in place');
+check(tier3.stdout.includes('mutations require Git worktree isolation'), 'Tier 3 execution contract requires worktree isolation before mutation');
+check(tier3.stdout.includes('unavailable isolation means BLOCKED'), 'Tier 3 worktree failure blocks instead of falling back in place');
 
 const harnessSkill = read('harness-everything/SKILL.md');
 check(/Work that names or matches another skill/i.test(harnessSkill), 'named domain skills still pass through Harness routing');
@@ -143,7 +143,7 @@ check(/selected topology is mandatory for the run/i.test(meshDoc), 'skill mesh d
 
 const capabilitiesDoc = read('docs/platform-capabilities.md');
 check(capabilitiesDoc.includes('repository/agent contract'), 'platform docs distinguish contract from host enforcement evidence');
-check(capabilitiesDoc.includes('does not change `platform-compatibility.json` status values'), 'routing change does not inflate compatibility status');
+check(capabilitiesDoc.includes('does not upgrade `platform-compatibility.json` live-host status values'), 'routing change does not inflate compatibility status');
 
 const advisory = read('scripts/lib/advisory-text.js');
 check(/For EVERY suggested skill/i.test(advisory), 'generated advisory instructions require per-suggestion applicability evaluation');

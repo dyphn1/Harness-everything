@@ -18,7 +18,7 @@ For software/project work, Harness establishes mandatory rails before mutation:
 2. **Verify before claim** — completion requires objective evidence appropriate to the change.
 3. **Re-plan after repeated failure** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
 4. **Evaluate before omission** — read every suggested skill's complete `SKILL.md` entry before deciding applicability.
-5. **Resolve selected workflow** — selected topology must reach a resolved state (`satisfied`, `blocked`, or explicit evidence-backed escape where supported).
+5. **Resolve selected workflow** - successful completion requires `satisfied`; `blocked` is a reportable incomplete outcome. Escape covers only a declared stage and preserves other obligations.
 
 The model owns tools, implementation technique, reasoning, and decomposition details inside those rails.
 
@@ -109,14 +109,15 @@ Policy lives in `hooks/scripts/action-gate-rules.json`. Matched actions are hand
 
 ## Workflow lifecycle gates
 
-Claude currently packages two additional workflow controls for selected Fable topologies:
+The [workflow runtime contract](workflow-runtime.md) defines the executable boundary:
 
-- `workflow-gate.js` at `PreToolUse(Edit|Write)` prevents the parent from bypassing an active Fable contract with direct artifact mutation before a correlated Fable run exists.
-- `workflow-stop-gate.js` checks correlated run/stage contracts before normal completion and rejects unresolved stage evidence.
+- `workflow-gate.js` checks shell/direct mutation, correlated Fable entry, and major-workflow Git isolation.
+- `workflow-stop-gate.js` checks manifest stage membership and observed verification evidence before `satisfied`.
+- `workflow-disposition.js` starts/replans the run, records a scoped stage escape, or reports `blocked`.
 
-`workflow-disposition.js` provides the explicit escape path. Its accepted escape reasons are intentionally narrow (`workflow-uncovered-scope`, `host-capability-unavailable`) and require scope + evidence; “simple”, “routine”, and “already clear” are not valid escape reasons.
+A follow-up prompt cannot erase unresolved obligations. Start from the router's displayed session stage-specification path; source mutation waits for entry and isolation. Replan is bounded. Escape requires `workflow-uncovered-scope` or `host-capability-unavailable`, a stage id, uncovered scope, and evidence. It never waives isolation or independent verification.
 
-Other strategies still use their own applicable mechanisms (loop budgets, objective verification, regular stop-gate, actionGate, etc.). Do not infer cross-host parity or hard enforcement from package/mechanism wiring; #82 owns live evidence.
+Direct/iterative verification milestones are checked, while semantic check quality and iteration budgeting remain executor obligations. Shell inspection does not contain arbitrary script side effects. Package/mechanism tests do not prove host loading or behavioral compliance; #82 owns retained live evidence.
 
 ## Cognitive OS relationship
 
@@ -131,3 +132,5 @@ A contract can be semantically mandatory even when a host cannot mechanically en
 - **live evidence:** whether a real host actually loaded/fired that mechanism.
 
 Instruction-only integrations receive the same workflow contract as guidance, but must not be labeled hard-enforced. Kernel emission alone does not prove model compliance. #82 owns host-specific retained evidence.
+
+Do not infer cross-host parity from shared runtime code or passing package tests.
