@@ -40,6 +40,14 @@ check(tier2.stdout.includes('tdd:'), 'Tier 2 can still recommend TDD');
 check(!tier2.stdout.includes('BASE EXECUTION LOOP'), 'legacy fixed base-execution-loop output is suppressed');
 check(tier2.stdout.includes('Do not enforce workflow order'), 'self-orchestration policy is explicit');
 
+const tier2Checkpoints = tier2.stdout.match(/HARNESS ROUTING CHECKPOINT \(REQUIRED VISIBLE STATE\)/g) || [];
+check(tier2Checkpoints.length === 1, 'Tier 2 emits exactly one required routing checkpoint');
+check(tier2.stdout.includes('- Tier: Tier 2'), 'checkpoint exposes the human-readable Tier 2');
+check(tier2.stdout.includes('- Strategy: iterative-single'), 'checkpoint exposes the selected strategy');
+check(/- Required invariants: .*verify-before-claim/.test(tier2.stdout), 'checkpoint exposes required invariants');
+check(/- Suggested skills: .*tdd/.test(tier2.stdout), 'checkpoint exposes deduplicated suggestions');
+check(tier2.stdout.includes('If all are skipped, state one brief reason'), 'non-empty suggestions carry an all-skipped rationale contract');
+
 const tier3 = spawnSync(process.execPath, [kernel, 'audit the entire repository architecture and coordinate multiple modules'], {
   cwd: ROOT,
   encoding: 'utf8',
@@ -49,11 +57,14 @@ check(/RECOMMENDED TIER:\s*Tier 3/i.test(tier3.stdout), 'macro task remains Tier
 check(tier3.stdout.includes('"strategy":"fable-staged"'), 'Tier 3 dependent/unproven work selects fable-staged');
 check(tier3.stdout.includes('fable-mode / fable-discipline'), 'Tier 3 selected plan suggests Fable capabilities');
 check(tier3.stdout.includes('suggested skills remain advisory'), 'Tier 3 suggestions remain non-mandatory');
+check(tier3.stdout.includes('HARNESS ROUTING CHECKPOINT (REQUIRED VISIBLE STATE)'), 'Tier 3 also emits the required routing checkpoint');
 
 const harnessSkill = read('harness-everything/SKILL.md');
 check(!/Requests that already name a skill/i.test(harnessSkill), 'harness entrypoint no longer opts out when another skill is named');
 check(/including work that already names or strongly matches another skill/i.test(harnessSkill), 'named domain skills still pass through Harness routing');
 check(/not a fixed pipeline/i.test(harnessSkill), 'skill contract rejects fixed pipeline semantics');
+check(/Ensure the emitted \*\*Harness Routing Checkpoint\*\* is user-visible/.test(harnessSkill), 'skill contract requires checkpoint visibility');
+check(/If suggestions are non-empty and you use none, state one brief skip reason/.test(harnessSkill), 'skill contract requires rationale only when all suggestions are skipped');
 
 const cognitiveSkill = read('install-cognitive-os/SKILL.md');
 check(/policy, not a required peer-skill selection/i.test(cognitiveSkill), 'Cognitive OS is defined as policy rather than peer-skill dependency');
@@ -69,6 +80,10 @@ check(triageDoc.includes('Do not enforce workflow order. Enforce workflow invari
 check(triageDoc.includes('A tier is **not** a fixed pipeline'), 'tier documentation rejects rigid orchestration');
 check(!triageDoc.includes('MUST load `todo-driven-workflow`'), 'documentation no longer mandates TODO as universal Tier 2/3 first step');
 check(triageDoc.includes('```mermaid'), 'updated architecture retains executable flowchart documentation');
+check(triageDoc.includes('the kernel always emits a compact checkpoint'), 'reference makes checkpoint emission mandatory');
+check(!triageDoc.includes('When a visible checkpoint is useful'), 'reference no longer makes checkpoint visibility optional');
+check(triageDoc.includes('if every suggestion is skipped, state one brief reason'), 'reference records the all-skipped rationale rule');
+check(triageDoc.includes('Kernel emission alone is not proof that a host UI displayed the checkpoint'), 'reference preserves the #82 host-evidence boundary');
 
 console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: invariant routing contract (${failed} failure${failed === 1 ? '' : 's'})`);
 process.exit(failed === 0 ? 0 : 1);
