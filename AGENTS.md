@@ -4,7 +4,7 @@ description: Operating guide for AI agents working inside the Harness-everything
 
 # AGENTS.md — Working in This Repository
 
-You are modifying **Harness**: an orchestrated agent operating system (skills + hooks/plugins + routing) for AI coding agents. Changes here ship to real agent sessions; a vague `SKILL.md`, stale manifest, or contradictory platform claim can misroute other people's agents. Precision is the product.
+You are modifying **Harness**: an orchestrated agent operating system (skills + hooks/plugins + routing) for AI coding agents. Changes here ship to real agent sessions; a vague `SKILL.md`, stale manifest, contradictory platform claim, or router suggestion that can be skipped without reading its flow can misroute other people's agents. Precision is the product.
 
 ## Repository Layout
 
@@ -40,6 +40,7 @@ The retained [OpenCode evidence](benchmarks/results/live-host/opencode-2026-09-1
 7. **Runtime/workflow claims are generated facts.** `package.json`, `.nvmrc`, `Dockerfile`, and active `.github/workflows/*.yml` are parsed by `scripts/repository-contract.js`. After changing them, run `npm run docs:sync`; `test:repo-contract` rejects stale generated docs, unsupported action majors, Node runtimes below the support floor, or loss of the Node 22 compatibility lane.
 8. **CHANGELOG.md keeps pending human-authored notes under `[Unreleased]`.** Do not create new alpha/beta/rc release headings; semantic-release owns stable release headings, tags, and release notes.
 9. **Conventional Commit type is release input.** The final commit/squash title that lands on `main` must follow the convention. Breaking changes release major; `feat` releases minor; `fix`, `perf`, `refactor`, `build`, and `revert` release patch; `docs`, `test`, `ci`, `style`, and `chore` do not release by themselves.
+10. **Router suggestions are mandatory to evaluate, advisory to execute.** Before skipping any suggested skill, read its complete `SKILL.md` entry and evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules. A name/description/router summary or “routine task” judgement is not enough. Using one suggestion does not waive read-before-skip for other omissions; unreadable suggestions are `unresolved/unavailable`, not silent skips. Do not turn this into a fixed TODO/TDD/Fable execution pipeline.
 
 ## Verification Before You Claim Done
 
@@ -56,6 +57,7 @@ npm run test:references          # executable/deep-dive references
 npm run test:release             # release catalog + semantic-release/version-sync contract
 npm run test:collision           # description collision detection
 npm run test:routing:skills      # every positive skill route reaches its target
+npm run test:routing:invariants  # kernel/read-before-skip routing contract
 npm run test:plugin:openai       # local OpenAI/Codex plugin package
 npm run test:plugin:submission   # public Skills-only submission inputs/bundle parity
 npm run test:platform:compatibility
