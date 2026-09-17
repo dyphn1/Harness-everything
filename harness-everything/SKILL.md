@@ -29,8 +29,9 @@ These rails are mandatory; Tier guidance is not a fixed pipeline.
 ## Workflow
 
 1. Reuse current-turn kernel output, or run `node "<this-skill-dir>/scripts/kernel-router.js" "<prompt summary>"`.
-2. Preserve the invariants.
-3. Treat suggested skills as advisory: choose, combine, reorder, or omit them as useful.
+2. Ensure the emitted **Harness Routing Checkpoint** is user-visible: reuse a host-visible rendering or include it in the first progress/update message.
+3. Preserve the invariants.
+4. Treat suggested skills as advisory: choose, combine, reorder, or omit them as useful. If suggestions are non-empty and you use none, state one brief skip reason with the visible checkpoint/progress update.
 
 ## Tier Guidance
 
@@ -38,6 +39,6 @@ These rails are mandatory; Tier guidance is not a fixed pipeline.
 - **Tier 2:** TODO tracking, TDD, and verification are common suggestions.
 - **Tier 3:** Fable/multi-agent skills are optional when macro planning or delegation helps.
 
-**Rule:** do not enforce workflow order; let the agent orchestrate itself inside the invariants.
+**Rule:** enforce checkpoint visibility and workflow invariants, not workflow order; let the agent orchestrate itself inside those rails.
 
 Deep dive: <this-skill-dir>/references/triage-and-tiers.md
