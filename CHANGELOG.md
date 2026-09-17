@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.8.0](https://github.com/dyphn1/Harness-everything/compare/v0.7.0...v0.8.0) (2026-09-17)
+
+### Features
+
+* **router:** require evaluation before skipping suggested skills ([#140](https://github.com/dyphn1/Harness-everything/issues/140)) ([b959cb9](https://github.com/dyphn1/Harness-everything/commit/b959cb94afff984c4e4507f0be7f6c62dfa89961)), closes [#131](https://github.com/dyphn1/Harness-everything/issues/131)
+
 ## [0.7.0](https://github.com/dyphn1/Harness-everything/compare/v0.6.1...v0.7.0) (2026-09-17)
 
 ### Features
