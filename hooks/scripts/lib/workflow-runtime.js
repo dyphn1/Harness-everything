@@ -34,6 +34,158 @@ function loadWorkflow(payload) {
 
 function saveWorkflow(context) { atomicWriteJson(context.file, context.workflow); }
 
+function budgetLimits(workflow) {
+  const limits = workflow?.workflowPlan?.limits || {};
+  return {
+    maxIterations: Number.isInteger(limits.maxIterations) && limits.maxIterations > 0 ? limits.maxIterations : null,
+    maxRevisionRounds: Number.isInteger(limits.maxRevisionRounds) && limits.maxRevisionRounds >= 0 ? limits.maxRevisionRounds : 0,
+    maxReplans: Number.isInteger(limits.maxReplans) && limits.maxReplans >= 0 ? limits.maxReplans : 0,
+    maxWorkers: Number.isInteger(limits.maxWorkers) && limits.maxWorkers > 0 ? limits.maxWorkers : 1,
+  };
+}
+
+function ensureWorkflowBudget(workflow) {
+  if (workflow.budget && workflow.budget.schemaVersion === 1) return workflow.budget;
+  const now = new Date().toISOString();
+  workflow.budget = {
+    schemaVersion: 1,
+    epoch: 0,
+    state: 'active',
+    limits: budgetLimits(workflow),
+    counters: { iterations: 0, revisionRounds: 0, replans: 0 },
+    activeWorkers: {},
+    reasonCode: null,
+    exhaustedAt: null,
+    resets: [],
+    events: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+  return workflow.budget;
+}
+
+function syncBudgetToRun(context) {
+  const match = matchingRun(context);
+  if (!match || !context.workflow?.budget) return;
+  const updated = {
+    ...match.run,
+    budget: JSON.parse(JSON.stringify(context.workflow.budget)),
+  };
+  atomicWriteJson(path.join(match.runRoot, 'run.json'), updated);
+}
+
+function persistBudget(context) {
+  saveWorkflow(context);
+  syncBudgetToRun(context);
+}
+
+function budgetError(message) {
+  const error = new Error(message);
+  error.code = 'HARNESS_WORKFLOW_BUDGET';
+  return error;
+}
+
+function appendBudgetEvent(budget, event) {
+  budget.events = [...(budget.events || []), event].slice(-64);
+  budget.updatedAt = event.observedAt;
+}
+
+function exhaustBudget(context, reasonCode, evidence) {
+  const budget = ensureWorkflowBudget(context.workflow);
+  const now = new Date().toISOString();
+  budget.state = 'budget-exhausted';
+  budget.reasonCode = reasonCode;
+  budget.exhaustedAt = now;
+  appendBudgetEvent(budget, { type: 'budget-exhausted', reasonCode, evidence: evidence || null, observedAt: now });
+  context.workflow.state = 'blocked';
+  context.workflow.blockReason = reasonCode;
+  persistBudget(context);
+  throw budgetError(`budget-exhausted: ${reasonCode}`);
+}
+
+function recordBudgetEvent(context, type, options = {}) {
+  const { workflow } = context;
+  if (!workflow) throw budgetError('no workflow available for budget accounting');
+  const budget = ensureWorkflowBudget(workflow);
+  if (budget.state !== 'active') throw budgetError(`workflow budget is ${budget.state}: ${budget.reasonCode || 'unavailable'}`);
+  const now = new Date().toISOString();
+  const evidence = options.evidence || null;
+
+  const consume = (counter, limitName, reasonCode) => {
+    const limit = budget.limits[limitName];
+    if (limit === null) return { applicable: false, value: budget.counters[counter] };
+    if (budget.counters[counter] >= limit) return exhaustBudget(context, reasonCode, evidence);
+    budget.counters[counter]++;
+    appendBudgetEvent(budget, { type, counter, value: budget.counters[counter], limit, evidence, observedAt: now });
+    persistBudget(context);
+    return { applicable: true, value: budget.counters[counter], limit };
+  };
+
+  if (type === 'iteration') return consume('iterations', 'maxIterations', 'iteration-budget-exhausted');
+  if (type === 'revision') return consume('revisionRounds', 'maxRevisionRounds', 'revision-budget-exhausted');
+  if (type === 'replan') return consume('replans', 'maxReplans', 'replan-budget-exhausted');
+
+  if (type === 'worker-acquire') {
+    const workerId = String(options.workerId || '').trim();
+    if (!SAFE_ID.test(workerId)) throw budgetError('worker-acquire requires a stable safe worker id');
+    if (budget.activeWorkers[workerId]) return { active: Object.keys(budget.activeWorkers).length, idempotent: true };
+    const active = Object.keys(budget.activeWorkers).length;
+    if (active >= budget.limits.maxWorkers) return exhaustBudget(context, 'worker-budget-exhausted', evidence || workerId);
+    budget.activeWorkers[workerId] = { acquiredAt: now, evidence };
+    appendBudgetEvent(budget, { type, workerId, active: active + 1, limit: budget.limits.maxWorkers, evidence, observedAt: now });
+    persistBudget(context);
+    return { active: active + 1, limit: budget.limits.maxWorkers };
+  }
+
+  if (type === 'worker-release') {
+    const workerId = String(options.workerId || '').trim();
+    if (!SAFE_ID.test(workerId)) throw budgetError('worker-release requires a stable safe worker id');
+    const existed = Boolean(budget.activeWorkers[workerId]);
+    delete budget.activeWorkers[workerId];
+    appendBudgetEvent(budget, { type, workerId, existed, active: Object.keys(budget.activeWorkers).length, evidence, observedAt: now });
+    persistBudget(context);
+    return { active: Object.keys(budget.activeWorkers).length, existed };
+  }
+
+  throw budgetError(`unknown workflow budget event: ${type}`);
+}
+
+function resetWorkflowBudget(context, evidence) {
+  const { workflow } = context;
+  if (!workflow) throw budgetError('no workflow available for budget reset');
+  const previous = ensureWorkflowBudget(workflow);
+  if (previous.state !== 'budget-exhausted' || workflow.state !== 'blocked') {
+    throw budgetError('budget reset is allowed only after explicit budget exhaustion');
+  }
+  if (!String(evidence || '').trim()) throw budgetError('budget reset requires audit evidence');
+  const now = new Date().toISOString();
+  const resets = [...(previous.resets || []), {
+    epoch: previous.epoch,
+    reasonCode: previous.reasonCode,
+    counters: previous.counters,
+    evidence: String(evidence).trim(),
+    resetAt: now,
+  }].slice(-16);
+  workflow.budget = {
+    schemaVersion: 1,
+    epoch: previous.epoch + 1,
+    state: 'active',
+    limits: budgetLimits(workflow),
+    counters: { iterations: 0, revisionRounds: 0, replans: 0 },
+    activeWorkers: {},
+    reasonCode: null,
+    exhaustedAt: null,
+    resets,
+    events: [{ type: 'budget-reset', evidence: String(evidence).trim(), observedAt: now }],
+    createdAt: previous.createdAt || now,
+    updatedAt: now,
+  };
+  workflow.state = 'pending';
+  delete workflow.blockReason;
+  persistBudget(context);
+  return workflow.budget;
+}
+
 function matchingRun(context) {
   const { workflow, root, sessionId } = context;
   if (!workflow || !SAFE_ID.test(workflow.runId || '') || !workflow.workflowId || !sessionId) return null;
@@ -99,4 +251,4 @@ function readHookInput(decide) {
   process.stdin.on('error', finish);
 }
 
-module.exports = { OPEN_STATES, SAFE_ID, isMajorWorkflow, loadWorkflow, saveWorkflow, matchingRun, unresolvedStages, readHookInput };
+module.exports = { OPEN_STATES, SAFE_ID, isMajorWorkflow, loadWorkflow, saveWorkflow, budgetLimits, ensureWorkflowBudget, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun, matchingRun, unresolvedStages, readHookInput };
