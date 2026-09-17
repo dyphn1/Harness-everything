@@ -94,47 +94,47 @@ const stopHooks = hooks.hooks && hooks.hooks.Stop || [];
 check(stopHooks.some(entry => entry.id === 'harness:stop:workflow-completion-gate'), 'Claude Stop includes Fable workflow completion gate');
 
 const triageDoc = read('harness-everything/references/triage-and-tiers.md');
-check(triageDoc.includes('Mandatory applicable workflow'), 'triage reference documents mandatory applicable workflow');
-check(triageDoc.includes('selected topology is execution contract'), 'triage reference makes topology a contract');
-check(triageDoc.includes('workflow-uncovered-scope'), 'triage reference documents narrow escape policy');
-check(triageDoc.includes('A tier is **not** a fixed TODO/TDD/Fable pipeline'), 'triage reference rejects universal tier pipeline');
-check(triageDoc.includes('```mermaid'), 'triage reference retains executable flowchart documentation');
-check(triageDoc.includes('Never turn mechanism/package evidence into cross-host live-enforcement claim'), 'triage reference preserves host evidence boundary');
+check(/Mandatory applicable workflow/i.test(triageDoc), 'triage reference documents mandatory applicable workflow');
+check(/topology becomes the run's execution contract/i.test(triageDoc), 'triage reference makes topology a contract');
+check(/workflow-uncovered-scope/i.test(triageDoc), 'triage reference documents narrow escape policy');
+check(/A tier is \*\*not\*\* a fixed TODO\/TDD\/Fable pipeline/i.test(triageDoc), 'triage reference rejects universal tier pipeline');
+check(/```mermaid/.test(triageDoc), 'triage reference retains executable flowchart documentation');
+check(/cross-host live-enforcement claim/i.test(triageDoc), 'triage reference preserves host evidence boundary');
 
 const routingDoc = read('docs/routing.md');
-check(routingDoc.includes('Mandatory applicable workflow'), 'routing docs use mandatory workflow policy');
-check(routingDoc.includes('workflow-gate.js'), 'routing docs describe PreToolUse workflow gate');
-check(routingDoc.includes('workflow-stop-gate.js'), 'routing docs describe completion gate');
-check(routingDoc.includes('workflow-disposition.js'), 'routing docs describe explicit escape mechanism');
+check(/Mandatory applicable workflow/i.test(routingDoc), 'routing docs use mandatory workflow policy');
+check(/workflow-gate\.js/.test(routingDoc), 'routing docs describe PreToolUse workflow gate');
+check(/workflow-stop-gate\.js/.test(routingDoc), 'routing docs describe completion gate');
+check(/workflow-disposition\.js/.test(routingDoc), 'routing docs describe explicit escape mechanism');
 check(!/mandatory to evaluate and advisory to execute/i.test(routingDoc), 'routing docs remove old advisory execution contract');
 
 const architectureDoc = read('docs/architecture.md');
-check(architectureDoc.includes('selected topology becomes a lifecycle contract'), 'architecture makes selected topology lifecycle contract');
-check(architectureDoc.includes('workflow-gate.js'), 'architecture includes workflow bypass gate');
+check(/topology becomes a lifecycle contract/i.test(architectureDoc), 'architecture makes selected topology lifecycle contract');
+check(/workflow-gate\.js/.test(architectureDoc), 'architecture includes workflow bypass gate');
 check(!/Mandatory evaluation, advisory execution/i.test(architectureDoc), 'architecture removes old advisory execution policy');
 
 const philosophyDoc = read('docs/philosophy.md');
-check(philosophyDoc.includes('Constrain Lifecycle, Not Reasoning'), 'philosophy separates lifecycle constraint from reasoning freedom');
-check(philosophyDoc.includes('Applicable workflow is mandatory'), 'philosophy states applicable workflow requirement');
+check(/Constrain Lifecycle, Not Reasoning/i.test(philosophyDoc), 'philosophy separates lifecycle constraint from reasoning freedom');
+check(/Applicable workflow is mandatory/i.test(philosophyDoc), 'philosophy states applicable workflow requirement');
 check(!/Mandatory Evaluation, Advisory Execution/i.test(philosophyDoc), 'philosophy removes old advisory execution policy');
 
 const meshDoc = read('docs/mechanism-first-skill-mesh.md');
-check(meshDoc.includes('mandatory applicable workflow + local skill autonomy'), 'skill mesh documents mandatory outer workflow and local skill autonomy');
-check(meshDoc.includes('selected topology is mandatory for the run'), 'skill mesh distinguishes selected topology from skill suggestions');
+check(/mandatory applicable workflow \+ local skill autonomy/i.test(meshDoc), 'skill mesh documents mandatory outer workflow and local skill autonomy');
+check(/selected topology is mandatory for the run/i.test(meshDoc), 'skill mesh distinguishes selected topology from skill suggestions');
 
 const capabilitiesDoc = read('docs/platform-capabilities.md');
 check(capabilitiesDoc.includes('repository/agent contract'), 'platform docs distinguish contract from host enforcement evidence');
 check(capabilitiesDoc.includes('does not change `platform-compatibility.json` status values'), 'routing change does not inflate compatibility status');
 
 const advisory = read('scripts/lib/advisory-text.js');
-check(advisory.includes('For EVERY suggested skill'), 'generated advisory instructions require per-suggestion applicability evaluation');
-check(advisory.includes('selected workflow topology is mandatory once applicable'), 'advisory surfaces carry mandatory workflow semantics');
-check(advisory.includes('No universal skill pipeline'), 'advisory surfaces reject universal skill pipeline');
-check(advisory.includes('workflow genuinely cannot cover part of the task'), 'advisory surfaces constrain workflow escape');
+check(/For EVERY suggested skill/i.test(advisory), 'generated advisory instructions require per-suggestion applicability evaluation');
+check(/selected workflow topology is mandatory once applicable/i.test(advisory), 'advisory surfaces carry mandatory workflow semantics');
+check(/No universal skill pipeline/i.test(advisory), 'advisory surfaces reject universal skill pipeline');
+check(/workflow genuinely cannot cover part of the task/i.test(advisory), 'advisory surfaces constrain workflow escape');
 check(read('plugins/harness-everything/scripts/lib/advisory-text.js') === advisory, 'OpenAI plugin advisory mirror matches canonical source');
 
 const agents = read('AGENTS.md');
-check(agents.includes('Selected workflow is mandatory; reasoning inside it stays flexible'), 'repository agent contract matches mandatory workflow policy');
+check(/Selected workflow is mandatory; reasoning inside it stays flexible/i.test(agents), 'repository agent contract matches mandatory workflow policy');
 check(!/Router suggestions are mandatory to evaluate, advisory to execute/i.test(agents), 'repository agent contract removes old advisory execution rule');
 
 console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: invariant routing contract (${failed} failure${failed === 1 ? '' : 's'})`);
