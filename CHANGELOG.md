@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.7.0](https://github.com/dyphn1/Harness-everything/compare/v0.6.1...v0.7.0) (2026-09-17)
+
+### Features
+
+* **router:** make routing checkpoint observable ([#139](https://github.com/dyphn1/Harness-everything/issues/139)) ([97dc06d](https://github.com/dyphn1/Harness-everything/commit/97dc06d6b07747ba5e9c328838b8d535c9585b00)), closes [#282](https://github.com/dyphn1/Harness-everything/issues/282)
+
 ## [0.6.1](https://github.com/dyphn1/Harness-everything/compare/v0.6.0...v0.6.1) (2026-09-17)
 
 ### Bug Fixes
