@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.6.1](https://github.com/dyphn1/Harness-everything/compare/v0.6.0...v0.6.1) (2026-09-17)
+
+### Bug Fixes
+
+* **hooks:** harden atomic commit and destructive action gates ([#132](https://github.com/dyphn1/Harness-everything/issues/132)) ([e7dee3a](https://github.com/dyphn1/Harness-everything/commit/e7dee3aed9bc2c2922151743e573f62ecdd60039)), closes [#90](https://github.com/dyphn1/Harness-everything/issues/90) [#100](https://github.com/dyphn1/Harness-everything/issues/100)
+
 ## [0.6.0](https://github.com/dyphn1/Harness-everything/compare/v0.5.3...v0.6.0) (2026-09-17)
 
 ### Features
