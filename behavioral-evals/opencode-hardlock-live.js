@@ -94,7 +94,7 @@ function verifyEvidence(evidenceDir) {
 
   let metadata = {};
   try { metadata = readJson(metadataFile); } catch { /* reported below */ }
-  check('metadata records isolated Harness state', metadata.stateIsolated === true, metadata.stateHome || null);
+  check('metadata records isolated Harness state', metadata.stateIsolated === true, metadata.stateIsolation || null);
   check('metadata records .js auto-discovery destination', metadata.installedPluginName === INSTALLED_PLUGIN_NAME, metadata.installedPluginName || null);
 
   const combined = [transcriptFile, stderrFile]
@@ -229,7 +229,7 @@ function runLive(options = {}) {
     pluginSource: 'opencode-plugin/index.mjs',
     pluginSha256: sha256File(PLUGIN_SOURCE),
     stateIsolated: true,
-    stateHome,
+    stateIsolation: { env: 'HARNESS_STATE_HOME', location: 'temporary' },
     opencodeExitStatus: result.status,
     opencodeSignal: result.signal || null,
     spawnError: result.error ? String(result.error.message || result.error) : null,
