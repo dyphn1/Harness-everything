@@ -11,13 +11,16 @@ Harness is a **system supervisor**, not a universal workflow engine. Skills rema
 The architecture follows a mechanism-first skill mesh with a **minimal kernel**:
 
 - classify scope before mutation,
+- when the router suggests skills, require the agent to read/evaluate each suggested `SKILL.md` before omission,
 - require evidence before completion claims,
 - stop repeated same-signature micro-retries and re-plan,
-- leave domain skill selection, ordering, planning style, and delegation to the agent.
+- leave domain-skill execution, ordering, planning style, and delegation to the agent after evaluation.
 
 > **Do not enforce workflow order. Enforce workflow invariants.**
+>
+> **Mandatory evaluation, advisory execution:** a suggested skill must be read/evaluated before skip, but need not be executed when its flow does not apply.
 
-This is intentionally different from the older design where Tier 2 implied a fixed TDD/checklist pipeline and Tier 3 implied a mandatory Fable/multi-agent pipeline.
+This is intentionally different from the older design where Tier 2 implied a fixed TDD/checklist pipeline and Tier 3 implied a mandatory Fable/multi-agent pipeline. It is also stronger than a pure recommendation system where the model can ignore suggestions from their names alone.
 
 ```mermaid
 flowchart TD
@@ -29,8 +32,11 @@ flowchart TD
         Boot --> Preflight[Environment / integration discovery]
         Preflight --> KR[kernel-router.js]
         KR --> TR[tier-router.js<br/>classifier + guide discovery]
-        TR --> Inv[Inject minimal invariants]
-        Inv --> Choice[Agent chooses useful skills / tactics]
+        TR --> Inv[Inject invariants]
+        Inv --> Sug{Suggested skills?}
+        Sug -- Yes --> Eval[Read each suggested SKILL.md<br/>evaluate flow + applicability]
+        Sug -- No --> Choice[Agent chooses useful tactics]
+        Eval --> Choice
     end
 
     subgraph Execution [Agent-Controlled Execution]
@@ -61,10 +67,13 @@ flowchart TD
 `kernel-router.js` is the public runtime entry point. It delegates heuristic classification and dynamic guide/skill discovery to `tier-router.js`, then converts the result into the Harness contract:
 
 - recommended Tier + rationale,
-- required invariants,
-- advisory skill suggestions.
+- baseline required invariants,
+- a conditional `evaluate-suggestions-before-skip` invariant whenever suggestions exist,
+- skill suggestions under a **mandatory evaluation / advisory execution** contract.
 
-The kernel deliberately suppresses the old fixed `BASE EXECUTION LOOP` wording so that a host selecting `tdd`, `security-review`, `repo-docs`, or another peer skill cannot accidentally replace or bypass the cross-cutting Harness contract.
+For each suggested skill, the agent must read the complete `SKILL.md` entry and evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules before omission. A skill name, description, router summary, tier label, or “routine task” judgement is not enough to justify skipping. If the entry explicitly requires another document to determine applicability, that required material joins the evaluation; optional deep-dive references do not automatically become mandatory.
+
+The kernel deliberately suppresses the old fixed `BASE EXECUTION LOOP` wording so that a host selecting `tdd`, `security-review`, `repo-docs`, or another peer skill cannot accidentally replace or bypass the cross-cutting Harness contract. Using one suggested skill also does not waive evaluation of the other omitted suggestions.
 
 `harness-everything` remains the public/manual skill entry point for routing, debugging, and re-routing. `install-cognitive-os` remains the explanatory/manual entry point for the Discover → Think → Try → Summarize → Record policy. Automatic correctness must not depend on either one winning host peer-skill selection first.
 
@@ -93,12 +102,12 @@ Runtime state includes hook metadata, circuit-breaker counters, handoff/verifica
 The installer configures native lifecycle hooks and project skills.
 
 - `SessionStart`: `bootstrap.js` restores prior state and audits integrations.
-- `UserPromptSubmit`: `kernel-router.js` establishes routing + invariants before peer/domain skill execution.
+- `UserPromptSubmit`: `kernel-router.js` establishes routing + invariants before peer/domain skill execution and tells the agent that every suggested skill must be evaluated before omission.
 - `PreToolUse`: circuit breaker, boundary/depth/context guards, and subagent scope guards can block supported tool calls.
 - `PostToolUse`: records outcomes/state and tracks repeated failures.
 - `Stop`: `stop-gate.js` prevents an edit batch from being claimed complete without successful verification evidence.
 
-The prompt hook is intentionally lightweight: it does **not** prescribe TODO/TDD/Fable order. It gives the model the rails and lets the model orchestrate itself.
+The prompt hook is intentionally lightweight: it does **not** prescribe TODO/TDD/Fable order. It injects the routing rails and the read-before-skip requirement, then lets the model orchestrate execution after evaluation. Kernel emission by itself is not proof that the host/model actually read each skill; that requires retained live behavioral evidence.
 
 ### 2. OpenCode — plugin enforcement, scoped live verification
 
@@ -106,20 +115,20 @@ The prompt hook is intentionally lightweight: it does **not** prescribe TODO/TDD
 
 ### 3. Cursor — skills plus advisory rules
 
-The current installer uses `.cursor/skills/` plus `.cursorrules`. Cursor’s documented skill and plugin surfaces are separate from Harness runtime hooks; routing/verification/retry boundaries remain self-directed unless a compatible mechanism is independently verified.
+The current installer uses `.cursor/skills/` plus `.cursorrules`. Cursor’s documented skill and plugin surfaces are separate from Harness runtime hooks; routing/verification/retry boundaries and read-before-skip remain instruction-governed unless a compatible mechanism is independently verified.
 
 ### 4. GitHub Copilot agent surfaces — skills plus advisory instructions
 
-The current installer uses `.github/skills/` plus `.github/copilot-instructions.md`. GitHub’s Agent Skills paths are documented, but no Harness-specific plugin or live session is verified here.
+The current installer uses `.github/skills/` plus `.github/copilot-instructions.md`. GitHub’s Agent Skills paths are documented, but no Harness-specific plugin or live session is verified here. The generated instructions include read-before-skip, but repository text alone is not live compliance evidence.
 
 ### 5. Codex — local OpenAI plugin plus advisory installer path
 
 Codex has two distinct Harness integration surfaces and documentation must keep them separate:
 
-- The general `--codex` installer path writes Codex-facing skills/instructions such as `AGENTS.md`; where the host only consumes those instructions, that path is advisory.
+- The general `--codex` installer path writes Codex-facing skills/instructions such as `AGENTS.md`; where the host only consumes those instructions, that path is advisory. The generated `AGENTS.md` tells the agent to evaluate every router-suggested skill entry before omission.
 - The packaged local OpenAI plugin under `plugins/harness-everything/` includes `.codex-plugin/plugin.json`, all 26 canonical skills, and lifecycle hooks for `SessionStart`, `UserPromptSubmit`, supported local `PreToolUse` / `PostToolUse`, `SubagentStart` / `SubagentStop`, and `Stop`. Those hooks inject the compact session policy, run the invariant-first kernel, track supported edits and verification, and surface subagent scope changes.
 
-The local plugin therefore has **mechanism-tested local enforcement** for the packaged event/tool mappings. This is package evidence, not a live-host claim; the host's hook review/trust flow and a fresh session are still required. Do not infer broader Claude parity for events or tools that are not listed in the package.
+The local plugin therefore has **mechanism-tested local enforcement** for the packaged event/tool mappings. This is package evidence, not a live-host claim; the host's hook review/trust flow and a fresh session are still required. Do not infer broader Claude parity for events or tools that are not listed in the package, and do not infer that mechanism-tested prompt injection proves the model complied with read-before-skip.
 
 The public OpenAI **Skills-only** submission is narrower again: it ships reusable skills and referenced assets, not the local `.codex-plugin` lifecycle hooks. Public reviewer/listing claims must describe skill/workflow behavior rather than local hook enforcement. See [openai-plugin.md](openai-plugin.md).
 
@@ -148,9 +157,9 @@ flowchart LR
     Z --> T
 ```
 
-A domain skill may have its own lifecycle — for example RED/GREEN/REFACTOR inside `tdd` — without being forced into a global sequence. The only shared obligations are the kernel invariants.
+A domain skill may have its own lifecycle — for example RED/GREEN/REFACTOR inside `tdd` — without being forced into a global sequence. The shared obligations are the baseline kernel invariants plus read-before-skip when router suggestions exist.
 
-This separation solves the peer-skill routing problem: a strong host may correctly decide that a task primarily needs `tdd` or `security-review`; that choice is allowed. What it cannot silently erase is the routing/evidence/retry contract established by the runtime.
+This separation solves the peer-skill routing problem: a strong host may correctly decide that a task primarily needs `tdd` or `security-review`; that choice is allowed. What it cannot silently erase is the routing/evidence/retry contract or dismiss other suggestions without evaluating their actual skill flows.
 
 ---
 
@@ -171,9 +180,9 @@ Harness runs with a local-first, zero-trust model:
 Static configuration is not enough to claim that a host behaves correctly. Validation is layered:
 
 - syntax/reference/manifest checks prove package integrity,
-- `ci/invariant-routing.test.js` proves the kernel contract and documentation invariants,
+- `ci/invariant-routing.test.js` proves the kernel, read-before-skip, and documentation contracts,
 - `ci/doc-capability-consistency.test.js` prevents current platform capability claims from drifting apart,
 - mechanism tests prove supported hook/plugin behavior,
-- live host sessions are required before promoting a source/mechanism-tested adapter to live host enforcement.
+- live host sessions are required before promoting a source/mechanism-tested adapter to live host enforcement or claiming that agents actually followed the evaluation contract.
 
 The architecture and its Mermaid diagrams are part of that contract. Runtime changes that alter orchestration must update these documents in the same change.
