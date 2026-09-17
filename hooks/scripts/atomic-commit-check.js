@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Atomic Commit Check (PostToolUse: apply_patch)
- * PostToolUse can't block - the edit/write already happened. So this counts
- * apply_patch calls since the last commit and, once the count crosses a
- * threshold, feeds a strong reminder back to Claude (exit 2) to commit the
- * completed chunk before piling on more changes. Resets whenever HEAD moves.
+ * Atomic Commit Check (PostToolUse: Edit/Write/apply_patch)
+ * PostToolUse can't block - the edit/write already happened. Count only edits
+ * whose targets resolve inside the current workspace. Once the count crosses
+ * the threshold, emit a strong reminder only when the Git worktree actually
+ * has uncommitted changes. Resets whenever HEAD moves.
  * Fails open on any error - this is a nudge, never a hard stop.
  */
 const { execSync } = require('child_process');
@@ -14,6 +14,66 @@ const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 
 const THRESHOLD = 6;
 const RENUDGE_EVERY = 3;
+
+function toolNameOf(payload) {
+  return String((payload && (payload.tool_name || payload.toolName)) || '');
+}
+
+function toolInputOf(payload) {
+  return (payload && (payload.tool_input || payload.toolInput || payload.input)) || {};
+}
+
+function pathApiFor(value) {
+  return /^[A-Za-z]:[\\/]/.test(String(value || '')) ? path.win32 : path;
+}
+
+function isWithin(target, root) {
+  if (!target || !root) return false;
+  const api = pathApiFor(target) === path.win32 || pathApiFor(root) === path.win32 ? path.win32 : path;
+  const resolvedTarget = api.resolve(target);
+  const resolvedRoot = api.resolve(root);
+  const relative = api.relative(resolvedRoot, resolvedTarget);
+  if (!relative) return true;
+  return relative !== '..' && !relative.startsWith(`..${api.sep}`) && !api.isAbsolute(relative);
+}
+
+function absoluteTarget(target, root) {
+  const text = String(target || '').trim();
+  if (!text) return null;
+  const api = pathApiFor(text) === path.win32 || pathApiFor(root) === path.win32 ? path.win32 : path;
+  return api.isAbsolute(text) ? api.normalize(text) : api.resolve(root, text);
+}
+
+function patchTargets(patchText) {
+  const targets = [];
+  const regex = /^\*\*\* (?:Add|Update|Delete) File:\s*(.+?)\s*$/gm;
+  let match;
+  while ((match = regex.exec(String(patchText || ''))) !== null) targets.push(match[1]);
+  return targets;
+}
+
+function editTargets(payload) {
+  const tool = toolNameOf(payload);
+  const input = toolInputOf(payload);
+  if (tool === 'Edit' || tool === 'Write') {
+    const target = input.file_path || input.filePath || input.path;
+    return target ? [String(target)] : [];
+  }
+  if (tool === 'apply_patch') {
+    return patchTargets(input.patch || input.command || input.content || '');
+  }
+  return [];
+}
+
+function touchesWorkspace(payload, root) {
+  const targets = editTargets(payload);
+  if (targets.length === 0) return false;
+  return targets.some(target => isWithin(absoluteTarget(target, root), root));
+}
+
+function writeState(stateFile, state) {
+  fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
+}
 
 function main(payload) {
   try {
@@ -33,17 +93,32 @@ function main(payload) {
       state.editCount = 0;
     }
 
+    // Host scratchpads, memory stores, temp files, and any other target outside
+    // the repository must not contribute to a repository commit reminder.
+    if (!touchesWorkspace(payload, root)) {
+      writeState(stateFile, state);
+      process.exit(0);
+    }
+
     state.editCount += 1;
-    fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
+    writeState(stateFile, state);
 
     const overThreshold = state.editCount >= THRESHOLD;
     const onNudgeBeat = overThreshold && (state.editCount - THRESHOLD) % RENUDGE_EVERY === 0;
 
     if (onNudgeBeat) {
       const statusRaw = execSync('git status --porcelain', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-      const changedFiles = statusRaw ? statusRaw.split('\n').length : 0;
-      console.error(`[Atomic Commit Check] ${state.editCount} apply_patch calls since the last commit (${changedFiles} files currently changed).`);
-      console.error(`If a logically complete chunk of work is done, commit it now before continuing - large uncommitted diffs are harder to review and harder to recover from.`);
+      if (!statusRaw) {
+        // Calls that produced no Git-visible change (or work already reverted)
+        // must not leave a stale counter that immediately re-nudges later.
+        state.editCount = 0;
+        writeState(stateFile, state);
+        process.exit(0);
+      }
+
+      const changedFiles = statusRaw.split('\n').length;
+      console.error(`[Atomic Commit Check] ${state.editCount} edits since the last commit (${changedFiles} files currently changed).`);
+      console.error('If a logically complete chunk of work is done, commit it now before continuing - large uncommitted diffs are harder to review and harder to recover from.');
       process.exit(2);
     }
 
@@ -66,3 +141,11 @@ process.stdin.on('error', () => {
   clearTimeout(timeout);
   main(null);
 });
+
+module.exports = {
+  absoluteTarget,
+  editTargets,
+  isWithin,
+  patchTargets,
+  touchesWorkspace,
+};
