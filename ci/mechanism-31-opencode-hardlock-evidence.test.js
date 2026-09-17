@@ -21,10 +21,13 @@ function makeEvidence() {
   const dir = helper.tempDir('.mechanism-test-opencode-live-evidence');
   fs.mkdirSync(path.join(dir, 'workspace'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'state'), { recursive: true });
+  const pluginHash = 'a'.repeat(64);
   writeJson(path.join(dir, 'metadata.json'), {
     schemaVersion: 1,
     stateIsolated: true,
     installedPluginName: INSTALLED_PLUGIN_NAME,
+    pluginSha256: pluginHash,
+    installedPluginSha256: pluginHash,
   });
   const toolEvent = (input) => JSON.stringify({
     type: 'tool',
@@ -72,6 +75,18 @@ try {
   const valid = makeEvidence();
   let result = verifyEvidence(valid);
   helper.check('31. complete attributed hard-lock evidence passes', result.passed, JSON.stringify(result.checks.filter((entry) => !entry.pass)));
+
+  const wrongPlugin = makeEvidence();
+  const metadataFile = path.join(wrongPlugin, 'metadata.json');
+  const metadata = JSON.parse(fs.readFileSync(metadataFile, 'utf8'));
+  metadata.installedPluginSha256 = 'b'.repeat(64);
+  writeJson(metadataFile, metadata);
+  result = verifyEvidence(wrongPlugin);
+  helper.check(
+    '31. evidence fails when the installed plugin hash differs from the canonical source hash',
+    !result.passed && result.checks.some((entry) => entry.name === 'installed plugin is byte-identical to the recorded canonical source' && !entry.pass),
+    JSON.stringify(result.checks),
+  );
 
   const landed = makeEvidence();
   fs.appendFileSync(path.join(landed, 'workspace', 'probe.txt'), `${BLOCKED_MARKER}\n`);
