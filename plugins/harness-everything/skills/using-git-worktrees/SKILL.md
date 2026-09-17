@@ -9,41 +9,39 @@ metadata:
 
 # Using Git Worktrees
 
-Use native tools first; git fallback.
+Use native worktree support first; raw Git is the fallback.
 
-## 📋 Skill Contract
+## Contract
 
-| Component | Specification |
-| :--- | :--- |
-| **Trigger / Input** | Isolation-needing feature work; pre-plan setup. |
-| **Expected Output** | Isolated workspace plus clean test baseline. |
-| **State Mutations** | Creates `.worktrees/<branch>`; updates `.gitignore` if needed. |
-| **Enforcement Gate** | Detect existing isolation first; seamless sandbox fallback. |
+- **Major workflow mode** — Tier 3 / Fable-class engineering must be isolated before source/artifact mutation. Reuse an existing linked worktree or create one. If isolation cannot be established, stop `BLOCKED`; never fall back to the primary working tree.
+- **Ordinary mode** — isolation-needing feature work may honor an explicit user preference to stay in place.
+- Never nest a worktree inside an already isolated worktree.
 
 ## Workflow
 
-**Step 0 — Detect existing isolation** (adapt per `environment-detection`):
+**Step 0 — Detect isolation** (adapt per `environment-detection`):
 ```bash
 git rev-parse --git-dir
 git rev-parse --git-common-dir
 git branch --show-current
 git rev-parse --show-superproject-working-tree
 ```
-Dirs differ and no superproject → already isolated; skip to Step 2; never nest. Superproject → submodule (normal repo). Else honor declared preference or ask consent; declined → in place.
+Different git/common dirs and no superproject => already isolated; continue to Step 2. A submodule is a normal repo for this check.
 
-**Step 1 — Create**: native tool (`EnterWorktree`, `/worktree`, `--worktree`) first — raw git creates phantom state. Else verify ignored via `git check-ignore -q .worktrees || git check-ignore -q worktrees`; unignored → add to .gitignore and commit. Then `git worktree add "$path" -b "$BRANCH_NAME"` at declared preference, existing `.worktrees/`/`worktrees/`, or default `.worktrees/`. Sandbox denial → work in place.
+**Step 1 — Create/enter**: prefer native `EnterWorktree`, `/worktree`, or `--worktree`. Otherwise use `git worktree add "$path" -b "$BRANCH_NAME"`. For major mode, choose an already-ignored or external/sibling path so setup does not require modifying the primary tree first. Creation/entry failure => `BLOCKED`. Only ordinary mode may continue in place after an explicit decline/unsupported environment.
 
-**Step 2 — Setup**: npm/cargo/pip/poetry/go.
+**Step 2 — Setup**: install project dependencies as needed.
 
-**Step 3 — Baseline**: run tests (`npm test`/`cargo test`/`pytest`/`go test ./...`); failures → report, ask.
+**Step 3 — Baseline**: run the relevant tests/build in the isolated tree before implementation; existing failures must be surfaced before mutation proceeds.
 
 Deep dive: <this-skill-dir>/references/workflow-details.md
 
 ## USE FOR:
+- Tier 3 / Fable-class mutable engineering
 - feature work needing isolation
 - pre-implementation-plan setup
-- native vs manual `git worktree add`
 
 ## DO NOT USE FOR:
 - nesting inside an existing worktree
-- branch/merge workflows
+- read-only analysis with no mutation
+- branch/merge workflows unrelated to workspace isolation

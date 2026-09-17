@@ -32,14 +32,14 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "apply_patch",
+        "matcher": "Bash|apply_patch",
         "hooks": [
           {
             "type": "command",
             "command": "node \"${PLUGIN_ROOT}/hooks/scripts/workflow-gate.js\"",
             "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\workflow-gate.js\"",
             "timeout": 15,
-            "statusMessage": "Checking Harness workflow contract"
+            "statusMessage": "Checking Harness workflow and worktree-isolation contract"
           }
         ]
       },

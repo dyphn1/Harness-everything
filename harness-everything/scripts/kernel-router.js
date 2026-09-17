@@ -51,6 +51,27 @@ function parseWorkflowPlan(stdout) {
   try { return JSON.parse(match[1]); } catch (_) { return null; }
 }
 
+function isMajorWorkflow(plan) {
+  return Boolean(plan && (plan.tier === 'tier3' || String(plan.strategy || '').startsWith('fable-')));
+}
+
+function augmentRuntimePlan(plan) {
+  if (!plan || !isMajorWorkflow(plan)) return plan;
+  const requiredInvariants = Array.isArray(plan.requiredInvariants) ? [...plan.requiredInvariants] : [];
+  const suggestedSkills = Array.isArray(plan.suggestedSkills) ? [...plan.suggestedSkills] : [];
+  if (!requiredInvariants.includes('isolated-worktree-before-mutation')) requiredInvariants.push('isolated-worktree-before-mutation');
+  if (!suggestedSkills.includes('using-git-worktrees')) suggestedSkills.push('using-git-worktrees');
+  return { ...plan, requiredInvariants, suggestedSkills };
+}
+
+function rewriteStructuredPlan(stdout, plan) {
+  if (!plan) return String(stdout || '');
+  return String(stdout || '').replace(
+    /(=> ROUTER WORKFLOW PLAN \(JSON\):\s*)\{[^\r\n]+\}/,
+    `$1${JSON.stringify(plan)}`,
+  );
+}
+
 function rewritePolicy(stdout) {
   return String(stdout || '')
     .split(/\r?\n/)
@@ -91,6 +112,7 @@ function persistWorkflow(plan, payload, promptText) {
     const blocked = Boolean(plan.fallback && plan.fallback.disposition === 'blocked');
     const selected = plan.strategySelection === 'selected' && Boolean(plan.strategy);
     const lifecycleState = blocked ? 'blocked' : selected ? 'active' : 'deferred';
+    const majorWorkflow = isMajorWorkflow(plan);
     const now = Date.now();
     const record = {
       schemaVersion: 1,
@@ -106,6 +128,12 @@ function persistWorkflow(plan, payload, promptText) {
       requiredInvariants: Array.isArray(plan.requiredInvariants) ? plan.requiredInvariants : [],
       suggestedSkills: Array.isArray(plan.suggestedSkills) ? plan.suggestedSkills : [],
       verification: plan.verification || null,
+      mutationIsolation: {
+        required: majorWorkflow,
+        mechanism: majorWorkflow ? 'git-worktree' : 'none',
+        transition: majorWorkflow ? 'before-first-mutation' : 'not-required',
+        onUnavailable: majorWorkflow ? 'blocked' : 'not-applicable',
+      },
       fallback: plan.fallback || null,
       state: lifecycleState,
       disposition: null,
@@ -139,6 +167,9 @@ function printExecutionContract(plan, persisted) {
     console.log('   - Execute the selected workflow to resolution. Do not replace it with a direct path merely because the task feels clear, routine, or easy.');
     console.log('   - Reasoning, tools, decomposition details, and implementation technique remain flexible inside the workflow contract.');
     console.log('   - Completion requires the workflow obligations and objective verification selected by the plan to resolve.');
+    if (isMajorWorkflow(plan)) {
+      console.log('   - Major-workflow mutation isolation: Git worktree isolation is mandatory before source/artifact mutation. Read-only discovery may stay in the bound repository; before the first mutation, enter an existing linked worktree or create one via using-git-worktrees. If isolation cannot be established, the mutation is BLOCKED — never fall back to the primary working tree.');
+    }
     const escape = workflowDispositionScript();
     console.log(`   - Escape is exception-only for genuinely uncovered workflow scope. Record it with evidence: node "${escape}" escape --reason-code workflow-uncovered-scope --scope "<uncovered scope>" --evidence "<why the selected workflow cannot represent it>"`);
   } else if (blocked) {
@@ -166,11 +197,12 @@ function run(rawInput) {
     process.exit(1);
   }
 
-  const plan = parseWorkflowPlan(child.stdout);
+  const plan = augmentRuntimePlan(parseWorkflowPlan(child.stdout));
   const promptText = resolvePrompt(argv, payload);
   const persisted = persistWorkflow(plan, payload, promptText);
-  process.stdout.write(rewritePolicy(child.stdout));
-  if (child.stdout && !child.stdout.endsWith('\n')) process.stdout.write('\n');
+  const rewritten = rewriteStructuredPlan(rewritePolicy(child.stdout), plan);
+  process.stdout.write(rewritten);
+  if (rewritten && !rewritten.endsWith('\n')) process.stdout.write('\n');
   if (child.stderr) process.stderr.write(child.stderr);
   printExecutionContract(plan, persisted);
 

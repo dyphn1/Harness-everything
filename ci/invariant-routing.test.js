@@ -43,6 +43,7 @@ check(tier2.stdout.includes('- State: active'), 'selected Tier 2 workflow is act
 check(tier2.stdout.includes('Do not replace it with a direct path merely because the task feels clear, routine, or easy'), 'model confidence cannot bypass workflow');
 check(tier2.stdout.includes('Escape is exception-only for genuinely uncovered workflow scope'), 'workflow escape is exception-only');
 check(!tier2.stdout.includes('execution remains advisory after evaluation'), 'old advisory execution wording is absent');
+check(!tier2.stdout.includes('isolated-worktree-before-mutation'), 'Tier 2 does not inherit the major-workflow worktree invariant');
 
 const tier2Checkpoints = tier2.stdout.match(/HARNESS ROUTING CHECKPOINT \(REQUIRED VISIBLE STATE\)/g) || [];
 check(tier2Checkpoints.length === 1, 'Tier 2 emits exactly one routing checkpoint');
@@ -66,6 +67,10 @@ check(tier3.stdout.includes('"strategy":"fable-staged"'), 'Tier 3 task selects f
 check(tier3.stdout.includes('fable-mode / fable-discipline'), 'Tier 3 plan exposes Fable capabilities');
 check(tier3.stdout.includes('when the router selects a Fable topology that topology must be entered and resolved before completion'), 'selected Fable topology is mandatory');
 check(tier3.stdout.includes('WORKFLOW EXECUTION CONTRACT (MANDATORY WHEN SELECTED)'), 'Tier 3 emits execution contract');
+check(tier3.stdout.includes('isolated-worktree-before-mutation'), 'Tier 3 structured plan carries the worktree isolation invariant');
+check(tier3.stdout.includes('using-git-worktrees'), 'Tier 3 structured plan surfaces the worktree workflow skill');
+check(tier3.stdout.includes('Git worktree isolation is mandatory before source/artifact mutation'), 'Tier 3 execution contract requires worktree isolation before mutation');
+check(tier3.stdout.includes('never fall back to the primary working tree'), 'Tier 3 worktree failure blocks instead of falling back in place');
 
 const harnessSkill = read('harness-everything/SKILL.md');
 check(/Work that names or matches another skill/i.test(harnessSkill), 'named domain skills still pass through Harness routing');
@@ -81,6 +86,12 @@ check(read('plugins/harness-everything/skills/harness-everything/scripts/kernel-
 check(read('plugins/harness-everything/skills/harness-everything/scripts/kernel-router-core.js') === read('harness-everything/scripts/kernel-router-core.js'), 'canonical/plugin kernel-router core copies remain identical');
 check(read('plugins/harness-everything/skills/harness-everything/references/triage-and-tiers.md') === read('harness-everything/references/triage-and-tiers.md'), 'canonical/plugin triage references remain identical');
 
+const worktreeSkill = read('using-git-worktrees/SKILL.md');
+check(/Major workflow mode/i.test(worktreeSkill), 'worktree skill defines mandatory major-workflow mode');
+check(/never fall back to the primary working tree/i.test(worktreeSkill), 'worktree skill blocks unsafe in-place fallback for major work');
+check(/Creation\/entry failure => `BLOCKED`/i.test(worktreeSkill), 'worktree skill makes isolation failure a blocked state');
+check(read('plugins/harness-everything/skills/using-git-worktrees/SKILL.md') === worktreeSkill, 'canonical/plugin worktree skill copies remain identical');
+
 const cognitiveSkill = read('install-cognitive-os/SKILL.md');
 check(/policy, not a required peer-skill selection/i.test(cognitiveSkill), 'Cognitive OS remains reasoning policy rather than peer dependency');
 
@@ -89,9 +100,17 @@ const promptHooks = hooks.hooks && hooks.hooks.UserPromptSubmit;
 const command = promptHooks && promptHooks[0] && promptHooks[0].hooks && promptHooks[0].hooks[0] && promptHooks[0].hooks[0].command;
 check(command === 'node "${CLAUDE_PLUGIN_ROOT}/harness-everything/scripts/kernel-router.js"', 'UserPromptSubmit anchors kernel to Claude plugin root');
 const preHooks = hooks.hooks && hooks.hooks.PreToolUse || [];
-check(preHooks.some(entry => entry.id === 'harness:pre:workflow-gate' && entry.matcher === 'Edit|Write'), 'Claude PreToolUse includes Fable workflow bypass gate');
+const workflowHook = preHooks.find(entry => entry.id === 'harness:pre:workflow-gate');
+check(Boolean(workflowHook), 'Claude PreToolUse includes workflow gate');
+check(workflowHook && /Bash/.test(workflowHook.matcher) && /PowerShell/.test(workflowHook.matcher) && /Edit/.test(workflowHook.matcher) && /Write/.test(workflowHook.matcher), 'Claude workflow gate covers shell and artifact mutation');
 const stopHooks = hooks.hooks && hooks.hooks.Stop || [];
 check(stopHooks.some(entry => entry.id === 'harness:stop:workflow-completion-gate'), 'Claude Stop includes Fable workflow completion gate');
+
+const openaiHooks = JSON.parse(read('plugins/harness-everything/hooks/hooks.json'));
+const openaiWorkflowHook = (openaiHooks.hooks && openaiHooks.hooks.PreToolUse || []).find(entry =>
+  (entry.hooks || []).some(hook => String(hook.command || '').includes('workflow-gate.js'))
+);
+check(openaiWorkflowHook && /Bash/.test(openaiWorkflowHook.matcher) && /apply_patch/.test(openaiWorkflowHook.matcher), 'Codex/OpenAI packaged workflow gate covers Bash and apply_patch');
 
 const triageDoc = read('harness-everything/references/triage-and-tiers.md');
 check(/Mandatory applicable workflow/i.test(triageDoc), 'triage reference documents mandatory applicable workflow');
