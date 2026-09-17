@@ -2,21 +2,27 @@
 
 Harness classifies software work into three tiers to prevent both over-engineering and under-planning. **The tier is a scope recommendation, not a workflow pipeline.**
 
-The current architecture follows one rule:
+The current architecture follows two coupled rules:
 
 > **Do not enforce workflow order. Enforce workflow invariants.**
+>
+> **Suggested skills are mandatory to evaluate and advisory to execute.**
 
-A strong model should be free to decide how to complete the task. Harness protects only the small set of behaviors that must not disappear when the host chooses a peer/domain skill directly.
+A strong model should remain free to decide how to complete the task, but it may not discard a router suggestion without first reading the suggested skill's actual entry/basic flow.
 
 ## Kernel invariants
 
-For software/project work, Harness establishes three mandatory rails before mutation:
+For software/project work, Harness establishes three baseline mandatory rails before mutation:
 
 1. **Route before execution** — establish task scope/tier.
 2. **Verify before claim** — completion requires objective evidence appropriate to the change.
 3. **Re-plan after repeated failure** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
 
-Skill selection, ordering, planning style, and delegation remain agent decisions unless the user or an authoritative project contract explicitly requires them.
+When the router emits one or more skill suggestions, it adds a fourth conditional invariant:
+
+4. **Evaluate before skip** — before omitting any suggested skill, read its complete `SKILL.md` entry and evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules against the task.
+
+Execution, ordering, planning style, and delegation remain agent decisions after evaluation unless the user or an authoritative project contract explicitly requires them.
 
 ## Public routing path
 
@@ -26,7 +32,8 @@ kernel-router.js
   ├─ preserves tier + rationale + dynamic-skill recommendations
   ├─ suppresses legacy fixed-pipeline wording
   ├─ emits required invariants
-  └─ emits advisory skill suggestions
+  ├─ requires evaluation of each suggested skill before omission
+  └─ leaves suggested-skill execution advisory after evaluation
 ```
 
 Use:
@@ -39,11 +46,30 @@ npx github:dyphn1/Harness-everything next "<prompt>"
 
 On a host where `UserPromptSubmit` is wired, reuse the hook output instead of running it twice.
 
+## Suggestion evaluation contract
+
+A router suggestion is not permission to make a decision from metadata alone. For **every** suggested skill:
+
+1. Resolve and read the complete `SKILL.md` entry.
+2. Evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules against the current task.
+3. If the entry explicitly requires another document to determine applicability, read that required material too. Ordinary deep-dive/reference links remain optional unless the entry makes them decision-critical.
+4. Choose `use`, `skip`, or `unresolved/unavailable` only after that evaluation.
+
+The following are not sufficient skip evidence by themselves:
+
+- the skill name,
+- the frontmatter description,
+- the router's one-line summary,
+- the tier label,
+- a generic judgement such as “routine/common task.”
+
+Using one suggested skill does not waive read-before-skip for the other suggestions. If a suggested skill cannot be resolved or read, mark it `unresolved/unavailable` rather than silently treating it as inapplicable. If every suggestion is skipped after evaluation, give one brief flow-grounded reason in the visible routing checkpoint/progress update.
+
 ## Non-software bypass
 
 General Q&A, translation, ordinary web search, and non-software writing bypass Harness routing. The model should answer directly and naturally.
 
-A software prompt that already says "use TDD", "security review", `repo-docs`, or another skill **does not bypass the kernel**. Host skill routing and Harness routing are different layers: the kernel establishes cross-cutting invariants; the host/model selects useful expertise.
+A software prompt that already says "use TDD", "security review", `repo-docs`, or another skill **does not bypass the kernel**. Host skill routing and Harness routing are different layers: the kernel establishes cross-cutting invariants; the host/model selects useful expertise after evaluating router suggestions.
 
 ## Three-tier recommendation model
 
@@ -53,14 +79,15 @@ flowchart TD
     S -- No --> B[Bypass Harness]
     S -- Yes --> K[Harness Kernel<br/>scope + invariants]
     K --> T{Tier recommendation}
-    T -- Tier 1 --> A[Agent self-orchestrates]
-    T -- Tier 2 --> A
-    T -- Tier 3 --> A
+    T --> G{Suggested skills?}
+    G -- Yes --> R[Read each suggested SKILL.md<br/>evaluate flow + applicability]
+    G -- No --> A[Agent self-orchestrates]
+    R --> A
     A --> E[Execute selected tactics / skills]
     E --> V{Evidence supports completion?}
     V -- Yes --> D([Done])
-    V -- No --> R[Diagnose and iterate]
-    R --> F{Same failure x3?}
+    V -- No --> X[Diagnose and iterate]
+    X --> F{Same failure x3?}
     F -- No --> E
     F -- Yes --> Z[Zoom out / re-plan]
     Z --> E
@@ -73,7 +100,8 @@ Typical triggers: typos, narrow single-file edits, straightforward cleanup, code
 Guidance:
 - prefer direct execution,
 - avoid large plans/delegation,
-- load a focused skill only when it adds value,
+- when there are no suggestions, use the bounded direct path,
+- if a focused skill is suggested, read/evaluate its entry before omitting it,
 - still gather enough evidence to support the completion claim.
 
 ### Tier 2 — Standard
@@ -88,7 +116,7 @@ Possible suggestions:
 - `using-git-worktrees` where isolation reduces workspace risk,
 - `eval-harness` for quantitative scoring.
 
-None of those imply a universal `TODO → TDD → verification-loop` sequence.
+Every emitted suggestion must be evaluated from its `SKILL.md` flow before omission. After evaluation, none of those imply a universal `TODO → TDD → verification-loop` sequence.
 
 ### Tier 3 — Macro
 
@@ -100,7 +128,7 @@ Possible suggestions:
 - `repo-docs` for project-level documentation,
 - `grill-with-docs`, `to-spec`, and `to-tickets` when design decisions/specs/issues genuinely help.
 
-Tier 3 does **not** automatically mean multi-agent. If one capable agent can complete the work safely and efficiently, direct execution is valid.
+Tier 3 does **not** automatically mean multi-agent. It does mean that any emitted Tier 3 suggestions are read/evaluated before omission. If one capable agent can complete the work safely and efficiently after that evaluation, direct execution remains valid.
 
 ## Classifier tuning
 
@@ -168,4 +196,4 @@ The deterministic suite verifies two things: the deferred result for every known
 
 ## Enforcement strength
 
-A lifecycle hook can mechanically inject/guard supported invariants. Instruction-only integrations can only advise the model. Do not label advisory behavior as hard enforcement, and do not infer cross-host parity from shared skill text alone.
+A lifecycle hook can mechanically inject the read-before-skip contract into context, but that alone does not prove the model actually read every suggested `SKILL.md`. Instruction-only integrations can only instruct the model. Do not label either case as live behavioral enforcement without retained host/session evidence; #82 owns that evidence boundary. **Do not infer cross-host parity** from one host's mechanism or live evidence; each host needs its own retained evidence.
