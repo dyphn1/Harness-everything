@@ -73,11 +73,12 @@ npx github:dyphn1/Harness-everything next "<brief prompt summary>"
 `kernel-router.js` delegates classification and guide discovery to `tier-router.js`, removes legacy fixed-pipeline instructions, and emits:
 
 - the recommended tier and rationale,
+- a compact **Harness Routing Checkpoint**,
 - the **required Harness invariants**,
 - **suggested skills** marked advisory,
 - the policy that the agent may choose the smallest useful skill/tool set.
 
-If a host's `UserPromptSubmit` integration already ran the kernel this turn, reuse that output rather than running it twice.
+If a host's `UserPromptSubmit` integration already ran the kernel this turn, reuse that output rather than running it twice. The checkpoint must still become user-visible for software/project work: use the host's visible hook rendering when it has one, otherwise include the checkpoint in the first progress/update message.
 
 The tier classifier is heuristic. Treat its result as the default route, not an oracle. A clear task reading or explicit user instruction may override it; record the reason when doing so.
 
@@ -116,7 +117,7 @@ Common **suggestions**, not a pipeline:
 | Isolated workspace would reduce risk | `using-git-worktrees` |
 | Quantitative scoring/benchmarking is requested | `eval-harness` |
 
-The model decides which of these are useful and in what order. It may use none, one, or several while preserving the kernel invariants.
+The model decides which of these are useful and in what order. It may use none, one, or several while preserving the kernel invariants. If the router emitted one or more suggestions and the agent uses none of them, the visible checkpoint/progress update must include one brief skip reason; using at least one suggestion does not require explaining why the others were omitted.
 
 ### Tier 3 — Macro
 
@@ -137,7 +138,7 @@ Common **suggestions**, not a pipeline:
 | Settled intent needs a spec | `to-spec` |
 | Settled work needs tracer-bullet issues | `to-tickets` |
 
-Tier 3 does **not** automatically require multi-agent execution. A strong model may complete macro work directly when that is the safer/smaller choice.
+Tier 3 does **not** automatically require multi-agent execution. A strong model may complete macro work directly when that is the safer/smaller choice. The same all-skipped rationale rule applies when the router emitted suggestions.
 
 ## 4. Cognitive OS Relationship
 
@@ -160,24 +161,26 @@ But this diagram describes a reasoning policy, not a peer-skill dependency graph
 
 | Host mode | Expected behavior |
 |---|---|
-| Lifecycle hook available | Run the Harness Kernel on prompt submission so routing context exists before domain-skill execution. Hard gates may enforce supported invariants at tool/stop boundaries. |
-| Advisory instructions only | Tell the agent to run/reuse `harness next` before software mutation and `harness verify` before completion. The behavior is advisory, not a hard gate. |
-| Manual use | Invoke `harness-everything` or `install-cognitive-os` explicitly to inspect/re-establish the contract. |
+| Lifecycle hook available | Run the Harness Kernel on prompt submission so routing context exists before domain-skill execution. Surface the emitted checkpoint through a host-visible hook surface when supported; otherwise the agent carries it into the first visible progress/update. Hard gates may enforce supported invariants at tool/stop boundaries. |
+| Advisory instructions only | Tell the agent to run/reuse `harness next` before software mutation, surface the checkpoint, and run `harness verify` before completion. The behavior is advisory, not a hard host gate. |
+| Manual use | Invoke `harness-everything` or `install-cognitive-os` explicitly to inspect/re-establish and surface the contract. |
 
-Never describe an advisory integration as hard enforcement. Platform-specific adapters may differ while preserving functional intent.
+Never describe an advisory integration as hard enforcement. Platform-specific adapters may differ while preserving functional intent. Kernel emission alone is not proof that a host UI displayed the checkpoint; #82 live evidence owns that claim.
 
 ## 6. Routing Checkpoint
 
-When a visible checkpoint is useful, keep it small:
+For software/project work, the kernel always emits a compact checkpoint and the execution surface must make it user-visible before or with the first progress update:
 
 ```markdown
 ## 🚦 Harness Routing Checkpoint
 - Tier: Tier X — <reason>
+- Strategy: <selected/deferred strategy>
 - Required invariants: route-before-execution; verify-before-claim; re-plan-after-3-same-failures
-- Suggested skills: <only the skills that appear useful>
+- Suggested skills: <deduplicated suggestions, or none>
+- Suggestion disposition: <using one or more | skipped all — brief reason>
 ```
 
-The checkpoint reports state; it does not prescribe a universal workflow.
+The checkpoint reports state; it does not prescribe a universal workflow. Suggested skills remain advisory. The only extra accountability rule is that a non-empty suggestion set cannot disappear silently: if every suggestion is skipped, state one brief reason. Do not add a skip explanation when at least one suggestion is used.
 
 ## 7. Self-Healing and Dynamic Skills
 
