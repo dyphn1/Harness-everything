@@ -90,13 +90,12 @@ A name, description, router summary, tier label, or generic "routine/common task
 
 ### Workflow escape contract
 
-Escape is an exception path, not an alternative default. Use it only when the selected topology genuinely cannot represent part of the task. Record:
+Escape is an exception path, not an alternative default. Use it only when the selected topology genuinely cannot represent part of the task. The permitted reason codes are:
 
-- a permitted reason code,
-- the uncovered scope,
-- evidence explaining the coverage gap.
+- `workflow-uncovered-scope` — the selected topology cannot represent a bounded part of the task;
+- `host-capability-unavailable` — the host lacks a capability required to execute the selected topology.
 
-Covered workflow obligations remain mandatory. Host capability loss must be visible as degradation/blocked/escape evidence, never silently converted into optional execution.
+Every escape must record the reason code, uncovered scope, and evidence explaining the coverage/capability gap. Covered workflow obligations remain mandatory. Host capability loss must be visible as degradation/blocked/escape evidence, never silently converted into optional execution.
 
 ## 3. Tier Guidance
 

@@ -19,7 +19,7 @@ A skill should answer:
 3. **What workflow/mechanism do I expose?** A local flow, verifier, script, gate, or stable result when useful.
 4. **What evidence means I am done?** A check, artifact, or explicit blocked state.
 
-The router may surface several skills. Those suggestions must be evaluated from their actual `SKILL.md` flows before omission. They are **not** automatically all executed. Separately, the router selects one smallest sufficient outer topology; once selected, that topology is mandatory for the run.
+The router may surface several skills. Those suggestions must be evaluated from their actual `SKILL.md` flows before omission. They are **not** automatically all executed. Separately, the router selects one smallest sufficient outer topology. **The selected topology is mandatory for the run.**
 
 ## Why Not One Global Skill Sequence?
 
