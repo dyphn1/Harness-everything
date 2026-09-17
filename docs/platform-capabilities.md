@@ -17,6 +17,12 @@ Statuses are intentionally explicit:
 
 All `liveHostVerification` rows except OpenCode are `Unknown`. OpenCode's row is `Partial`: retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS), not durable hard enforcement. No fresh artifacts exist yet for the other surfaces, managed-workspace import, or public OpenAI approval.
 
+### Routing contract vs. host evidence
+
+The repository routing contract now uses **mandatory evaluation / advisory execution** for skill suggestions: when the router suggests a skill, the agent is instructed to read that skill's complete `SKILL.md` entry/basic flow before omission. A name, description, router summary, tier label, or generic “routine task” judgement is not enough skip evidence; unreadable suggestions are `unresolved/unavailable`, not silent skips.
+
+This is a **repository/agent contract**, not an automatic upgrade to any platform row below. A hook can prove that the contract was injected into a session; it does not prove the model actually read every suggested skill. Instruction-only surfaces can carry the same rule without mechanically enforcing it. Promoting this behavior to live-host compliance requires retained host/session evidence under the #82 compatibility program. Because this change does not add or remove a host capability, it does not change `platform-compatibility.json` status values by itself.
+
 ## Current capability summary
 
 | Platform surface | Standalone skills | Plugin support | Hooks/lifecycle | Project scope | Global scope | Current evidence boundary |
@@ -47,14 +53,16 @@ The general installer’s target paths are tested independently from host discov
 
 These targets apply to both default link mode and explicit `--copy` mode. A canonical store is only a deduplication detail; it cannot make an unsupported host path supported. Install/uninstall tests also protect user-owned files and cover Linux, Windows, and macOS round-trip fixtures.
 
+The advisory installer text generated for Codex/Cursor/Copilot/Continue/Hermes carries the same read-before-skip rule. That proves only what Harness writes, not that the host/model complied with it.
+
 ## Codex / local OpenAI plugin boundary
 
 Codex has two paths that must not be collapsed:
 
-1. The general `--codex` installer writes advisory `AGENTS.md` plus repo-scoped skills under `.agents/skills/`.
+1. The general `--codex` installer writes advisory `AGENTS.md` plus repo-scoped skills under `.agents/skills/`. Its generated instructions require reading/evaluating every router-suggested skill before omission, but this remains instruction-governed.
 2. The local OpenAI plugin at `plugins/harness-everything/` packages the skills plus lifecycle hooks for session start, prompt routing, supported local tool calls, subagent lifecycle, and stop verification. Those hooks are mechanically checked, but no live plugin/session artifact is committed.
 
-The package is tested at the mechanism layer and remains subject to the host’s hook review/trust flow. A fresh host session is still required before claiming that a particular ChatGPT/Codex installation loaded and fired the hooks.
+The package is tested at the mechanism layer and remains subject to the host’s hook review/trust flow. A fresh host session is still required before claiming that a particular ChatGPT/Codex installation loaded and fired the hooks or that the model followed read-before-skip.
 
 The public OpenAI Skills-only plugin is narrower again. Its ZIP contains the packaged `skills/` tree and referenced files, but not the local `.codex-plugin` lifecycle hooks. Public submission readiness is therefore a package/form contract, not evidence of public-directory approval or live hook execution.
 
