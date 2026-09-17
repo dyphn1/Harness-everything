@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.6.0](https://github.com/dyphn1/Harness-everything/compare/v0.5.3...v0.6.0) (2026-09-17)
+
+### Features
+
+* **behavioral:** add paired benchmark contract ([42d52b3](https://github.com/dyphn1/Harness-everything/commit/42d52b3a6db89fa27cd2239726a22fe119299932))
+
 ## [0.5.3](https://github.com/dyphn1/Harness-everything/compare/v0.5.2...v0.5.3) (2026-09-17)
 
 ### Bug Fixes
