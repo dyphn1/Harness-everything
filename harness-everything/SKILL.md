@@ -9,36 +9,28 @@ metadata:
 
 # Harness Everything
 
-Kernel entry for software/project routing.
+Kernel routing entry.
 
 ## USE FOR:
-- Software triage/re-routing, including work that already names or strongly matches another skill.
-- Inspecting Tier, invariants, or suggestions.
+- Software/project triage, re-routing, and suggested-skill evaluation.
+- Work that names or matches another skill.
 
 ## DO NOT USE FOR:
 - General Q&A or non-software writing.
 
 ## Invariants
+1. **Route before execution** — establish scope/tier.
+2. **Verify before claim** — require objective evidence.
+3. **Re-plan on repetition** — after 3 same-signature failures, use `zoom-out`.
+4. **Evaluate before skip** — read each suggested skill's complete `SKILL.md`.
 
-1. **Route before execution** — establish scope/tier before mutation.
-2. **Verify before claim** — completion needs objective evidence.
-3. **Re-plan on repetition** — after 3 same-signature failures, stop micro-retrying and use `zoom-out`/fresh diagnosis.
-4. **Evaluate before skip** — read every suggested skill's complete `SKILL.md` entry before omission.
-
-These rails are mandatory; Tier guidance is not a fixed pipeline.
+Tier guidance is not a fixed pipeline.
 
 ## Workflow
-
-1. Reuse current-turn kernel output, or run `node "<this-skill-dir>/scripts/kernel-router.js" "<prompt summary>"`.
-2. Ensure the emitted **Harness Routing Checkpoint** is user-visible.
-3. Preserve the invariants.
-4. For every suggested skill, read its complete `SKILL.md` entry before deciding to skip it. Evaluate its `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules. Do not reject a suggestion from only its name, description, router summary, or "routine/common task". Read extra material only when the entry explicitly requires it to decide applicability.
-5. Execution remains advisory after evaluation. Unreadable suggestions are `unresolved/unavailable`, not silently skipped. Using one suggestion does not waive read-before-skip for other skipped suggestions. If all suggestions are skipped, state one brief reason grounded in the evaluated flows.
-
-## Tier Guidance
-
-- **Tier 1:** Prefer direct execution.
-- **Tier 2/3:** Evaluate suggested skills before omission; execute only those that add value.
+1. Reuse kernel output, or run `node "<this-skill-dir>/scripts/kernel-router.js" "<prompt summary>"`.
+2. Make the **Harness Routing Checkpoint** user-visible.
+3. For every suggestion, read its `SKILL.md`; evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules. Name, description, router summary, or "routine/common task" alone cannot justify skip. Read extra material only when explicitly required for applicability.
+4. Execution is advisory after evaluation. Unreadable suggestions are `unresolved/unavailable`. Using one suggestion does not waive evaluation of others. If all are skipped, give one brief flow-grounded reason.
 
 **Rule:** mandatory evaluation, advisory execution; no fixed workflow order.
 
