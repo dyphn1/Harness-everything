@@ -46,8 +46,7 @@ function workspaceFingerprint(cwd) {
     const relative = record.slice(tab + 1);
     const mode = meta[0];
     const oid = meta[1];
-    const stage = meta[2] || '0';
-    entries.set(stage + ':' + relative, { relative, mode, oid, stage });
+    entries.set(relative, { relative, mode, oid });
   }
 
   // Substitute current worktree content for tracked paths that differ from the
@@ -55,19 +54,17 @@ function workspaceFingerprint(cwd) {
   // visible workspace content did not change.
   for (const relative of gitRaw(root, ['diff-files', '--name-only', '-z']).split('\0').filter(Boolean)) {
     const value = hashWorktreePath(root, relative);
-    entries.set('0:' + relative, { relative, mode: value.mode, oid: value.oid, stage: '0' });
+    entries.set(relative, { relative, mode: value.mode, oid: value.oid });
   }
 
   for (const relative of gitRaw(root, ['ls-files', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean)) {
     const value = hashWorktreePath(root, relative);
-    entries.set('u:' + relative, { relative, mode: value.mode, oid: value.oid, stage: 'u' });
+    entries.set(relative, { relative, mode: value.mode, oid: value.oid });
   }
 
   const digest = crypto.createHash('sha256');
   digest.update('harness-workspace-fingerprint-v1\0');
-  for (const entry of [...entries.values()].sort((a, b) =>
-    a.relative.localeCompare(b.relative) || a.stage.localeCompare(b.stage))) {
-    digest.update(entry.stage); digest.update('\0');
+  for (const entry of [...entries.values()].sort((a, b) => a.relative.localeCompare(b.relative))) {
     digest.update(entry.relative); digest.update('\0');
     digest.update(entry.mode); digest.update('\0');
     digest.update(entry.oid); digest.update('\0');
