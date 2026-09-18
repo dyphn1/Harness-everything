@@ -106,6 +106,40 @@ try {
   const readOnly = runGate('Bash', repo, { command: 'git status --short' });
   check(readOnly.status === 0, 'read-only discovery remains allowed before isolation');
 
+  // #82-family follow-up: chaining/redirects that are hidden behind the old
+  // blanket metacharacter reject must stay blocked, but a compound command
+  // whose every segment is independently trusted read-only must not burn
+  // iteration budget or the mutation-timestamp just because it uses `;`,
+  // `&&`, `|`, or a non-writing `2>&1` redirect.
+  for (const command of [
+    'git status --short; git log --oneline -1',
+    'git status --short && git log --oneline -1',
+    'git log --oneline -1 | head -1',
+    'echo hello',
+    'echo hello; git status --short',
+    'git status --short 2>&1',
+    'gh issue view 1 --repo octocat/hello-world --json number,title 2>&1',
+    'gh pr list --repo octocat/hello-world --json number | head -1',
+    'gh repo view octocat/hello-world --json name',
+    'gh auth status',
+    'cat README.md | grep fixture',
+  ]) {
+    check(runGate('Bash', repo, { command }).status === 0, `trusted read-only chain remains allowed: ${command}`);
+  }
+
+  for (const command of [
+    'git status --short; rm -rf src',
+    'git status --short | rm -rf src',
+    'echo hi & rm -rf src',
+    'git status --short > tracked.txt',
+    'git status --short 2>tracked.txt',
+    'git worktree add "harness-chain-probe" -b harness-chain-probe; rm -rf src',
+    'gh issue comment 1 --body hi',
+    'gh issue close 1',
+  ]) {
+    check(runGate('Bash', repo, { command }).status === 2, `chained/redirected command is not read-only: ${command}`);
+  }
+
   const setup = runGate('Bash', repo, { command: `git worktree add "${linked}" -b harness-isolation-test` });
   check(setup.status === 0, 'git worktree creation is allowed as the isolation transition');
 
