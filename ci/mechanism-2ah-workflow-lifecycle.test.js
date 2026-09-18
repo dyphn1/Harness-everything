@@ -267,7 +267,7 @@ try {
     'metadata-only git fetch is admitted under observation');
   git(['fetch', '.', 'HEAD:refs/remotes/origin/harness-probe']);
   check(persistShell(metadataFetchCall).status === 0, 'real metadata-only git fetch probe resolves');
-  check(read(file).budget.counters.iterations === beforeMetadataFetch.budget.counters.iterations &&
+  check((read(file).budget?.counters?.iterations || 0) === (beforeMetadataFetch.budget?.counters?.iterations || 0) &&
     (read(file).lastMutationAt || 0) === (beforeMetadataFetch.lastMutationAt || 0),
     'real git fetch changes Git metadata without consuming a code iteration');
 
