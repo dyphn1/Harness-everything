@@ -96,12 +96,13 @@ try {
 
   const scannedFiles = walk(root);
   assert.ok(scannedFiles.includes(readmeFile), 'Tracked OpenCode README must remain in the repository scan');
+  const plantedTarget = '.opencode/plugins/' + 'negative-control.mjs';
   const planted = scanViolations(file => {
     const text = fs.readFileSync(file, 'utf8');
-    return file === readmeFile ? text + '\n.opencode/plugins/negative-control.mjs\n' : text;
+    return file === readmeFile ? text + '\n' + plantedTarget + '\n' : text;
   });
   assert.ok(
-    planted.some(item => item === `${path.relative(root, readmeFile)}: .opencode/plugins/negative-control.mjs`),
+    planted.some(item => item === `${path.relative(root, readmeFile)}: ${plantedTarget}`),
     'Scanner negative control must fail when a tracked file contains an unsupported .mjs install target'
   );
 
