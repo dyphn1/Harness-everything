@@ -33,12 +33,26 @@ function issueMemoryCapability(workflow) {
   return token;
 }
 
+// Host-generated background-task notifications arrive as UserPromptSubmit
+// hook payloads but are not user input (#168). Routing them like prompts
+// replaces the workflow contract mid-turn (e.g. deferred -> a new Tier-2).
+// A prompt that is entirely a notification envelope must never create or
+// replace a workflow; the current contract is kept unchanged.
+function isHostNotificationPrompt(prompt) {
+  const text = String(prompt || '').trim();
+  if (!text) return false;
+  return /^<task-notification[\s>][\s\S]*<\/task-notification>\s*$/i.test(text);
+}
+
 function persistWorkflow(plan, payload, prompt) {
   if (!payload || !(payload.session_id || payload.sessionId)) return null;
   const { runtime, hooksRoot } = loadRuntime();
   const context = runtime.loadWorkflow(payload);
   const { writeCurrentSession } = require(path.join(hooksRoot, 'lib/harness-state'));
   writeCurrentSession(context.root, context.sessionId);
+  if (isHostNotificationPrompt(prompt)) {
+    return { ...context, hooksRoot, retained: true, hostNotification: true };
+  }
   if (context.workflow && runtime.OPEN_STATES.has(context.workflow.state)) {
     if (!context.workflow.workflowPlan) throw new Error('legacy unresolved workflow needs explicit migration; refusing to replace its obligations');
     // Steering/status prompts cannot drop an unresolved execution contract.
@@ -98,11 +112,12 @@ function run(raw) {
   let failure = null;
   try {
     persisted = persistWorkflow(plan, payload, prompt);
-    if (persisted?.retained) plan = persisted.workflow.workflowPlan;
+    if (persisted?.retained && persisted.workflow) plan = persisted.workflow.workflowPlan;
   } catch (error) { failure = error; }
   if (result.sanitized) console.log(result.sanitized);
   if (result.stderr) process.stderr.write(result.stderr);
-  if (persisted?.retained) console.log('\n=> Retaining unresolved workflow from earlier prompts; the checkpoint below is the active execution contract.');
+  if (persisted?.hostNotification) console.log('\n=> Host notification — routing unchanged; keeping the active execution contract.');
+  else if (persisted?.retained) console.log('\n=> Retaining unresolved workflow from earlier prompts; the checkpoint below is the active execution contract.');
   core.printWorkflowPlan(plan);
   core.printRoutingCheckpoint(plan);
   core.printKernelContract(plan);
@@ -116,7 +131,7 @@ function run(raw) {
     console.log('   - Tier 3 / Fable source and artifact mutations require Git worktree isolation; unavailable isolation means BLOCKED.');
     console.log('   - Escape is limited to workflow-uncovered-scope or host-capability-unavailable, with stage, scope and evidence; other obligations remain mandatory.');
   }
-  if (persisted) {
+  if (persisted?.workflow) {
     const controller = path.join(persisted.hooksRoot, 'workflow-disposition.js');
     console.log('   - Workflow id: ' + persisted.workflow.workflowId);
     console.log('   - Memory write disposition: ' + (persisted.workflow.workflowPlan.memory?.write || 'none'));
@@ -133,9 +148,10 @@ function run(raw) {
   } else if (result.status !== 0) process.exitCode = result.status || 1;
 }
 
+if (typeof module !== 'undefined') module.exports = { isHostNotificationPrompt };
+
 if (process.argv.length > 2 || process.stdin.isTTY) run('');
-else {
-  let input = '';
+else {  let input = '';
   let finished = false;
   const finish = () => { if (finished) return; finished = true; clearTimeout(timeout); run(input); };
   const timeout = setTimeout(finish, 500);

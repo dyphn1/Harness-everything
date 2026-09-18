@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 const { loadWorkflow, saveWorkflow, peekMutationProbe, settleMutationProbe } = require('./lib/workflow-runtime');
-const { cwdOf, shellProbeKey, workspaceFingerprint } = require('./lib/workflow-isolation');
+const { cwdOf, shellProbeKey, workspaceFingerprint, directMutationInWorkspace } = require('./lib/workflow-isolation');
 const { observeTool } = require('./lib/telemetry');
 
 // Commands that count as "verification ran" for the Stop gate
@@ -107,8 +107,10 @@ function processState(payload) {
       }
 
       // Milestones for the Stop gate: when did the last mutation happen, and
-      // has any verification-ish command succeeded since.
-      if (toolName === 'Edit' || toolName === 'Write' || toolName === 'apply_patch' || observedMutation) {
+      // has any verification-ish command succeeded since. Direct-tool edits
+      // outside the workspace advance neither milestone (#165).
+      const isDirectTool = toolName === 'Edit' || toolName === 'Write' || toolName === 'apply_patch';
+      if ((isDirectTool && directMutationInWorkspace(payload, cwdOf(payload, root), root)) || observedMutation) {
         state.lastEditAt = Date.now();
       }
       if ((toolName === 'Bash' || toolName === 'PowerShell') && !isFailed) {

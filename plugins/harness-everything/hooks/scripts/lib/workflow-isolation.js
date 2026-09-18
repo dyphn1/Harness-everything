@@ -248,6 +248,35 @@ function mutationPaths(payload) {
   }
   return [input.file_path || input.filePath || input.path].filter(value => typeof value === 'string' && value.trim());
 }
+
+// Bound workspace root plus its linked worktrees. Git failures (e.g. a
+// non-git workspace) degrade to the root alone instead of throwing, so
+// Tier-2 accounting never blocks on this enumeration (#165; cf. #162).
+function worktreeRoots(root) {
+  const roots = [root];
+  try {
+    for (const field of git(root, ['worktree', 'list', '--porcelain', '-z']).split('\0')) {
+      if (field.startsWith('worktree ')) {
+        const candidate = field.slice('worktree '.length).trim();
+        if (candidate) roots.push(candidate);
+      }
+    }
+  } catch (_) { /* root alone */ }
+  return roots;
+}
+
+// Direct-tool (Edit/Write/apply_patch) targets count against the Tier-2
+// budget only when at least one target lies inside the workspace (#165).
+// Unknown targets (no parseable path) stay conservative and count.
+function directMutationInWorkspace(payload, cwd, root) {
+  const targets = mutationPaths(payload);
+  if (!targets.length) return true;
+  const roots = worktreeRoots(root);
+  return targets.some(target => {
+    const resolved = path.resolve(cwd, target);
+    return roots.some(candidate => within(candidate, resolved));
+  });
+}
 function assertTargets(payload, cwd, isolatedRoot) {
   const targets = mutationPaths(payload);
   if (!targets.length) throw new Error('mutation target is unknown; cannot verify worktree isolation');
@@ -274,4 +303,4 @@ function assertShellScope(command, cwd, isolatedRoot) {
   }
 }
 
-module.exports = { canonical, key, within, linkedWorktree, classifyShell, workspaceFingerprint, shellProbeKey, inputOf, cwdOf, commandOf, mutationPaths, assertTargets, assertShellScope };
+module.exports = { canonical, key, within, linkedWorktree, classifyShell, workspaceFingerprint, shellProbeKey, inputOf, cwdOf, commandOf, mutationPaths, worktreeRoots, directMutationInWorkspace, assertTargets, assertShellScope };

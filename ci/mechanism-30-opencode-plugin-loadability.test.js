@@ -40,13 +40,29 @@ function verifyInstall(text) {
   }
 }
 
+function isWorktreeRoot(dir) {
+  try {
+    return fs.existsSync(path.join(dir, '.git'));
+  } catch (_) {
+    return false;
+  }
+}
+
 function walk(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
-    if (['node_modules', '.git'].includes(entry.name) || entry.isSymbolicLink()) return [];
+    if (['node_modules', '.git', '.worktrees'].includes(entry.name) || entry.isSymbolicLink()) return [];
     const file = path.join(directory, entry.name);
     const relative = path.relative(root, file).split(path.sep).join('/');
     if (relative === 'benchmarks/results' || relative === 'CHANGELOG.md') return [];
-    return entry.isDirectory() ? walk(file) : [file];
+    if (relative === '.worktrees' || relative.startsWith('.worktrees/')) return [];
+    if (entry.isDirectory()) {
+      // Skip linked worktrees / nested checkouts: a `.git` file marks a
+      // linked worktree root, a `.git` dir marks a nested repo. Either way
+      // the content belongs to another checkout, not this one (#170).
+      if (isWorktreeRoot(file)) return [];
+      return walk(file);
+    }
+    return [file];
   });
 }
 
