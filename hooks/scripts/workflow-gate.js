@@ -4,7 +4,7 @@
 const path = require('path');
 const fs = require('fs');
 const { loadWorkflow, saveWorkflow, isMajorWorkflow, matchingRun, registerMutationProbe, recordBudgetEvent, readHookInput, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
-const { key, classifyShell, workspaceFingerprint, shellProbeKey, cwdOf, commandOf, mutationPaths, directMutationInWorkspace, linkedWorktree, assertTargets, assertShellScope } = require('./lib/workflow-isolation');
+const { key, classifyShell, isVerificationShell, workspaceFingerprint, shellProbeKey, cwdOf, commandOf, mutationPaths, directMutationInWorkspace, linkedWorktree, assertTargets, assertShellScope } = require('./lib/workflow-isolation');
 
 const DIRECT = new Set(['Edit', 'Write', 'apply_patch']);
 const SHELL = new Set(['Bash', 'PowerShell', 'exec_command']);
@@ -79,7 +79,11 @@ function decide(payload) {
     return;
   }
   const probeKey = shellProbeKey(payload, cwd);
-  registerMutationProbe(context, probeKey, fingerprint, workflow.strategy === 'iterative-single', cwd);
+  const iterative = workflow.strategy === 'iterative-single';
+  registerMutationProbe(context, probeKey, fingerprint, iterative, cwd, {
+    countIteration: iterative,
+    allowAtLimit: iterative && isVerificationShell(command),
+  });
 }
 
 readHookInput(decide);
