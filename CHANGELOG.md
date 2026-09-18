@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.11.1](https://github.com/dyphn1/Harness-everything/compare/v0.11.0...v0.11.1) (2026-09-18)
+
+### Bug Fixes
+
+* **workflow:** admit all trusted controller commands ([65ec5f3](https://github.com/dyphn1/Harness-everything/commit/65ec5f31e9d218d7c32e1d9ed82992814be79b9b))
+* **workflow:** share controller command contract ([b9ba2dc](https://github.com/dyphn1/Harness-everything/commit/b9ba2dc59a5c2dce10533aad79b9a5303b921506))
+* **workflow:** validate shared controller command set ([8d3247d](https://github.com/dyphn1/Harness-everything/commit/8d3247d51d8aa0f1cfa61328c1061cb239dfba6a))
+
 ## [0.11.0](https://github.com/dyphn1/Harness-everything/compare/v0.10.0...v0.11.0) (2026-09-18)
 
 ### Features
