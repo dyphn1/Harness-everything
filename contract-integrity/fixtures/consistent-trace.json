@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "1.0.0",
+  "mode": "strict",
+  "artifacts": [
+    {
+      "id": "ADR-001",
+      "kind": "ADR",
+      "path": "docs/adr/0001-api-contract.md",
+      "status": "ACTIVE",
+      "revision": 1,
+      "supersedes": [],
+      "evidenceRef": null
+    },
+    {
+      "id": "SPEC-001",
+      "kind": "SPEC",
+      "path": "docs/specs/api.md",
+      "status": "ACTIVE",
+      "revision": 1,
+      "supersedes": [],
+      "evidenceRef": null
+    },
+    {
+      "id": "TICKET-001",
+      "kind": "TICKET",
+      "path": "tickets/001.md",
+      "status": "ACTIVE",
+      "revision": 1,
+      "requirementId": "REQ-001",
+      "requirementRevision": 1,
+      "changeImpact": "implementation",
+      "supersedes": [],
+      "evidenceRef": null
+    },
+    {
+      "id": "TEST-001",
+      "kind": "TEST",
+      "path": "tests/api.test.js",
+      "status": "ACTIVE",
+      "revision": 1,
+      "requirementId": "REQ-001",
+      "requirementRevision": 1,
+      "supersedes": [],
+      "evidenceRef": "tests/api.test.js#contract"
+    },
+    {
+      "id": "IMPL-001",
+      "kind": "IMPLEMENTATION",
+      "path": "src/api.js",
+      "status": "ACTIVE",
+      "revision": 1,
+      "requirementId": "REQ-001",
+      "requirementRevision": 1,
+      "supersedes": [],
+      "evidenceRef": "commit:baseline"
+    }
+  ],
+  "requirements": [
+    {
+      "requirementId": "REQ-001",
+      "revision": 1,
+      "status": "CURRENT",
+      "specId": "SPEC-001",
+      "decisionIds": [
+        "ADR-001"
+      ],
+      "ticketIds": [
+        "TICKET-001"
+      ],
+      "testIds": [
+        "TEST-001"
+      ],
+      "implementationIds": [
+        "IMPL-001"
+      ],
+      "requiredProbeIds": [
+        "PROBE-001"
+      ],
+      "sourceValidity": "VALID",
+      "supersededBy": null
+    }
+  ],
+  "probes": [
+    {
+      "probeId": "PROBE-001",
+      "requirementId": "REQ-001",
+      "status": "KILLED",
+      "sourceSection": "docs/specs/api.md#REQ-001",
+      "evidenceRef": "probe:baseline-red",
+      "workspaceIsolation": "isolated",
+      "failureClass": "contract"
+    }
+  ]
+}
