@@ -63,7 +63,6 @@ function decide(payload) {
   const fingerprint = workspaceFingerprint(cwd);
   const probeKey = shellProbeKey(payload, cwd);
   registerMutationProbe(context, probeKey, fingerprint, workflow.strategy === 'iterative-single');
-  saveWorkflow(context);
 }
 
 readHookInput(decide);
