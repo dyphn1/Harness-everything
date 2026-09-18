@@ -323,6 +323,17 @@ try {
   check(read(file).budget.counters.iterations === ++observedDirectIterations,
     'linked-worktree Write consumes exactly one iteration');
 
+  // Keep the #165 regression fixture from consuming the budget used by the
+  // pre-existing lifecycle/exhaustion assertions below.
+  fs.unlinkSync(internalTarget);
+  fs.unlinkSync(linkedTarget);
+  fs.unlinkSync(file);
+  if (fs.existsSync(handoffFile)) fs.unlinkSync(handoffFile);
+  check(route('Fix this checkout bug with a regression test').status === 0 &&
+    read(file).strategy === 'iterative-single' &&
+    (read(file).budget?.counters?.iterations || 0) === 0,
+    '#165 regression fixture resets into a fresh Tier-2 lifecycle baseline');
+
   // #155/#157 regression lock: read-only shell composition, including quoted
   // and escaped separator characters inside arguments, must never look like an
   // iterative mutation or advance the mutation clock.
