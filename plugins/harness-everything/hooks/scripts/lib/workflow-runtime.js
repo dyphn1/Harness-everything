@@ -7,6 +7,7 @@ const { atomicWriteJson, readJson } = require('./fable-contracts');
 
 const OPEN_STATES = new Set(['pending', 'active', 'running', 'failed', 'blocked', 'escaped']);
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const WORKFLOW_CONTROLLER_COMMANDS = new Set(['start', 'revision', 'reset-budget', 'escape', 'block']);
 
 function isMajorWorkflow(workflow) {
   return Boolean(workflow && (workflow.mutationIsolation?.required || workflow.tier === 'tier3' || String(workflow.strategy || '').startsWith('fable-')));
@@ -251,4 +252,4 @@ function readHookInput(decide) {
   process.stdin.on('error', finish);
 }
 
-module.exports = { OPEN_STATES, SAFE_ID, isMajorWorkflow, loadWorkflow, saveWorkflow, budgetLimits, ensureWorkflowBudget, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun, matchingRun, unresolvedStages, readHookInput };
+module.exports = { OPEN_STATES, SAFE_ID, WORKFLOW_CONTROLLER_COMMANDS, isMajorWorkflow, loadWorkflow, saveWorkflow, budgetLimits, ensureWorkflowBudget, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun, matchingRun, unresolvedStages, readHookInput };

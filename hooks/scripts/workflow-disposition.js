@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, ensureWorkflowBudget, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun } = require('./lib/workflow-runtime');
+const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, ensureWorkflowBudget, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
 const { getWorkspaceRoot, readCurrentSession } = require('./lib/harness-state');
 const { atomicWriteJson, readJson } = require('./lib/fable-contracts');
 
@@ -20,6 +20,10 @@ function parseArgs(argv) {
   return args;
 }
 
+function usage() {
+  return `Usage: workflow-disposition.js <${[...WORKFLOW_CONTROLLER_COMMANDS].join('|')}> --session-id <id> [--stage-id <id> --reason-code <reason> --scope <scope> --evidence <evidence>]`;
+}
+
 function consumer() {
   for (const relative of ['../../fable-mode/scripts/workflow-plan-consumer.js', '../../skills/fable-mode/scripts/workflow-plan-consumer.js']) {
     const file = path.resolve(__dirname, relative);
@@ -30,6 +34,7 @@ function consumer() {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (!WORKFLOW_CONTROLLER_COMMANDS.has(args.command)) throw new Error(usage());
   const sessionId = args.sessionId || readCurrentSession(getWorkspaceRoot());
   if (!sessionId) throw new Error('no active Harness session; pass --session-id explicitly');
   const context = loadWorkflow({ session_id: sessionId });
@@ -96,7 +101,7 @@ function main() {
     if (!args.evidence?.trim()) throw new Error('--evidence is required');
     workflow.state = 'blocked';
     workflow.blockReason = args.evidence.trim();
-  } else throw new Error('Usage: workflow-disposition.js <start|revision|reset-budget|escape|block> --session-id <id> [--stage-id <id> --reason-code <reason> --scope <scope> --evidence <evidence>]');
+  } else throw new Error(usage());
   saveWorkflow(context);
   syncBudgetToRun(context);
   process.stdout.write(JSON.stringify({ state: workflow.state, workflowId: workflow.workflowId, runId: workflow.runId, revision: workflow.revision, escapes: workflow.escapes }) + '\n');
