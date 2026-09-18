@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.11.0](https://github.com/dyphn1/Harness-everything/compare/v0.10.0...v0.11.0) (2026-09-18)
+
+### Features
+
+* **contract-integrity:** add trace reconciliation audit ([bb99f7a](https://github.com/dyphn1/Harness-everything/commit/bb99f7a8c29e14bd718a896ef30c7b820dcb2d7c))
+* **contract-integrity:** bind evidence to current living spec ([77f203a](https://github.com/dyphn1/Harness-everything/commit/77f203a1f59d968d1a4075e3441e2113adeb0942))
+* **contract-integrity:** define trace and probe schema ([d688f8a](https://github.com/dyphn1/Harness-everything/commit/d688f8a7dba66e3e7faa8e33fd3d659b09982143))
+* **contract-integrity:** expose audit and regression scripts ([fa33f11](https://github.com/dyphn1/Harness-everything/commit/fa33f118b4a1995ce02feb69e76b0145d6b7e5d2))
+
+### Bug Fixes
+
+* **contract-integrity:** align runtime validation with schema ([b4d702a](https://github.com/dyphn1/Harness-everything/commit/b4d702a248f7f088e4ce97dee21b92250390a451))
+
 ## [0.10.0](https://github.com/dyphn1/Harness-everything/compare/v0.9.0...v0.10.0) (2026-09-18)
 
 ### Features
