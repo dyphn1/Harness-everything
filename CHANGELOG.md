@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.11.2](https://github.com/dyphn1/Harness-everything/compare/v0.11.1...v0.11.2) (2026-09-18)
+
+### Bug Fixes
+
+* **workflow:** classify major workflow from active plan ([b1eae14](https://github.com/dyphn1/Harness-everything/commit/b1eae14ca5157c73ba9cf7c0f2e4b0ed122e9f77))
+* **workflow:** keep pending plan isolation inert ([8b522c2](https://github.com/dyphn1/Harness-everything/commit/8b522c26589e2140bd0971365ad0569c18da6d3f))
+
 ## [0.11.1](https://github.com/dyphn1/Harness-everything/compare/v0.11.0...v0.11.1) (2026-09-18)
 
 ### Bug Fixes
