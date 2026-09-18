@@ -113,6 +113,24 @@ try {
   check(gate('Write', { file_path: path.join(linked, 'src.js') }).status === 2, 'blocked state still prohibits mutation');
   for (let i = 0; i < 3; i++) { check(control('start').status === 0, 'bounded replan attempt ' + i); control('block', '--evidence', 'fixture blocker'); }
   check(control('start').status === 2 && read(file).state === 'blocked', 'exhausted replan budget remains blocked');
+  check(read(file).budget?.state === 'budget-exhausted' && read(file).budget?.reasonCode === 'replan-budget-exhausted', 'Fable replan exhaustion is auditable before recovery');
+  const dispositionPath = path.join(runtimeRoot, 'hooks/scripts/workflow-disposition.js');
+  const resetCommand = `node "${dispositionPath}" reset-budget --session-id ${sessionId} --evidence fixture-fable-budget-reset`;
+  check(gate('Bash', { command: resetCommand }, repo).status === 0, 'blocked Fable workflow admits trusted reset-budget controller through gate');
+  check(gate('Bash', { command: resetCommand + ' && echo bypass' }, repo).status === 2, 'controller shell chaining is not exempted');
+  check(gate('Bash', { command: resetCommand + ' | echo bypass' }, repo).status === 2, 'controller pipe composition is not exempted');
+  check(gate('Bash', { command: `node "${dispositionPath}" reset-budget --session-id ${sessionId} --evidence $(echo bypass)` }, repo).status === 2, 'controller command substitution is not exempted');
+  check(gate('Bash', { command: `node "${path.join(runtimeRoot, 'hooks/scripts/not-workflow-disposition.js')}" reset-budget --session-id ${sessionId} --evidence wrong-path` }, repo).status === 2, 'wrong controller script path is not exempted');
+  check(control('reset-budget', '--evidence', 'fixture-fable-budget-reset').status === 0, 'reset-budget executes after gate admission');
+  const fableReset = read(file);
+  check(fableReset.state === 'pending' && fableReset.budget?.state === 'active' && fableReset.budget?.epoch === 1, 'budget reset returns Fable workflow to pending with audited epoch');
+  check(gate('Write', { file_path: path.join(repo, 'still-primary.js') }, repo).status === 2, 'budget reset does not weaken primary-tree worktree isolation');
+  const restartCommand = `node "${dispositionPath}" start --session-id ${sessionId}`;
+  check(gate('Bash', { command: restartCommand }, repo).status === 0, 'trusted start controller remains admitted after reset');
+  check(control('start').status === 0 && read(file).state === 'running', 'Fable workflow resumes after audited budget reset');
+  const revisionCommand = `node "${dispositionPath}" revision --session-id ${sessionId} --evidence fixture-revision`;
+  check(gate('Bash', { command: revisionCommand }, repo).status === 0, 'revision controller is admitted through workflow gate');
+  check(control('revision', '--evidence', 'fixture-revision').status === 0 && read(file).budget?.counters?.revisionRounds === 1, 'revision controller reaches budget accounting');
   fs.writeFileSync(file, '{broken');
   check(route('continue').status === 2 && fs.readFileSync(file, 'utf8') === '{broken', 'router cannot overwrite unreadable unresolved state');
   check(stop().status === 2, 'malformed state cannot silently pass completion');
@@ -120,7 +138,22 @@ try {
   check(gate('Write', { file_path: path.join(linked, 'src.js') }).status === 2 && stop().status === 2, 'partial JSON state cannot bypass workflow gates');
   fs.unlinkSync(file);
   check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single', 'bounded fix selects iterative lifecycle');
-  check(gate('Write', { file_path: path.join(repo, 'small.js') }, repo).status === 0, 'ordinary iterative mutation does not require isolation');
+  const iterationLimit = read(file).workflowPlan.limits.maxIterations;
+  check(Number.isInteger(iterationLimit) && iterationLimit > 0, 'iterative route exposes a numeric iteration budget');
+  for (let i = 0; i < iterationLimit; i++) {
+    check(gate('Write', { file_path: path.join(repo, `small-${i}.js`) }, repo).status === 0, `iterative mutation ${i + 1}/${iterationLimit} stays within budget`);
+  }
+  check(gate('Write', { file_path: path.join(repo, 'small-overflow.js') }, repo).status === 2, 'iteration beyond maxIterations is blocked');
+  const iterativeExhausted = read(file);
+  check(iterativeExhausted.state === 'blocked' && iterativeExhausted.budget?.state === 'budget-exhausted' &&
+    iterativeExhausted.budget?.reasonCode === 'iteration-budget-exhausted', 'iterative exhaustion records blocked budget state');
+  const iterativeResetCommand = `node "${dispositionPath}" reset-budget --session-id ${sessionId} --evidence fixture-iteration-budget-reset`;
+  check(gate('Bash', { command: iterativeResetCommand }, repo).status === 0, 'iteration-exhausted workflow admits reset-budget through gate');
+  check(control('reset-budget', '--evidence', 'fixture-iteration-budget-reset').status === 0, 'iteration budget reset executes');
+  check(read(file).state === 'pending' && read(file).budget?.epoch === 1 && read(file).budget?.counters?.iterations === 0, 'iteration budget reset is audited and clears counters');
+  const iterativeStartCommand = `node "${dispositionPath}" start --session-id ${sessionId}`;
+  check(gate('Bash', { command: iterativeStartCommand }, repo).status === 0, 'iterative workflow restart is admitted through gate');
+  check(control('start').status === 0 && read(file).state === 'running', 'iteration-exhausted workflow resumes after reset');
   check(stop().status === 2, 'direct/iterative route cannot complete unverified mutation');
   check(stop({ stop_hook_active: true }).status === 0 && read(file).state === 'blocked', 'iterative retry reports incomplete state');
   check(control('start').status === 0, 'blocked iterative route can resume without a Fable stage map');
