@@ -162,6 +162,23 @@ function settleMutationProbe(context, key, afterFingerprint, tool) {
   });
 }
 
+function settleMutationProbeConservative(context, key, tool, evidence = 'unobservable-workspace') {
+  return withMutationProbeLock(context, () => {
+    const file = mutationProbeFile(context, key);
+    const probe = readJson(file);
+    if (!probe || probe.schemaVersion !== 1) return null;
+    refreshWorkflowForProbe(context);
+    fs.unlinkSync(file);
+    context.workflow.lastMutationAt = Date.now();
+    if (probe.reserveIteration && context.workflow.strategy === 'iterative-single') {
+      recordBudgetEvent(context, 'iteration', { evidence: String(tool || 'shell') + ':' + evidence });
+    } else {
+      saveWorkflow(context);
+    }
+    return { changed: true, probe, conservative: true };
+  });
+}
+
 function discardMutationProbe(context, key) {
   return withMutationProbeLock(context, () => {
     const file = mutationProbeFile(context, key);
@@ -396,4 +413,4 @@ function readHookInput(decide) {
   process.stdin.on('error', finish);
 }
 
-module.exports = { OPEN_STATES, SAFE_ID, WORKFLOW_CONTROLLER_COMMANDS, isMajorWorkflow, loadWorkflow, saveWorkflow, budgetLimits, ensureWorkflowBudget, mutationProbeReservations, assertIterationCapacity, registerMutationProbe, peekMutationProbe, settleMutationProbe, discardMutationProbe, clearMutationProbes, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun, matchingRun, unresolvedStages, readHookInput };
+module.exports = { OPEN_STATES, SAFE_ID, WORKFLOW_CONTROLLER_COMMANDS, isMajorWorkflow, loadWorkflow, saveWorkflow, budgetLimits, ensureWorkflowBudget, mutationProbeReservations, assertIterationCapacity, registerMutationProbe, peekMutationProbe, settleMutationProbe, settleMutationProbeConservative, discardMutationProbe, clearMutationProbes, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun, matchingRun, unresolvedStages, readHookInput };
