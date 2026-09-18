@@ -51,6 +51,7 @@ observed -> proposed -> screened -> evaluated
 - `verifier-fail-pass` can pass deterministic grounding checks because the retained contract records an objective fail→pass transition, but this still does not prove future behavioral improvement.
 - Identical runtime evidence is idempotent and maps to one candidate ID.
 - Runtime hooks can create candidates but cannot call the durable memory writer directly.
+- Record later evidence explicitly with `lesson-candidate.js observe --outcome retrieved|validated|regressed|superseded --evidence "<ref>"`; outcome transitions never happen merely because a rule exists.
 
 ## Memory Governance Rules
 
