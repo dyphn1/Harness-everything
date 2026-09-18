@@ -249,7 +249,7 @@ function classifyLineage(requirement, map) {
   return { statuses: unique(statuses), reasons: unique(reasons), links };
 }
 
-function protectionForRequirement(requirement, probesById) {
+function protectionForRequirement(requirement, probesById, currentSpec = null) {
   const expected = requirement.requiredProbeIds || [];
   if (expected.length === 0) {
     return {
@@ -274,6 +274,13 @@ function protectionForRequirement(requirement, probesById) {
     const probe = probesById.get(id);
     if (!probe || probe.requirementId !== requirement.requirementId) {
       missing.push(id);
+      continue;
+    }
+    const sourceMatchesCurrentSpec = currentSpec && typeof probe.sourceSection === 'string' &&
+      (probe.sourceSection === currentSpec.path || probe.sourceSection.startsWith(`${currentSpec.path}#`));
+    if (!sourceMatchesCurrentSpec) {
+      invalid++;
+      reasonCodes.push('probe-source-not-current-spec');
       continue;
     }
     if (probe.status === 'KILLED' && probe.failureClass === 'contract' && probe.workspaceIsolation === 'isolated' && text(probe.evidenceRef)) killed++;
@@ -346,9 +353,16 @@ function evaluateTrace(trace, options = {}) {
   for (const requirement of trace?.requirements || []) {
     const lineage = classifyLineage(requirement, map);
     links.push(...lineage.links);
-    const protection = protectionForRequirement(requirement, probesById);
+    const currentSpec = map.get(requirement.specId) || null;
+    const protection = protectionForRequirement(requirement, probesById, currentSpec);
     const quality = completeness.byId.get(requirement.requirementId) || { score: 0, result: 'NOT_EVALUATED' };
     const statuses = [...lineage.statuses];
+    const qualityDetail = completeness.report?.requirements?.find(item => item.requirementId === requirement.requirementId) || null;
+    if (qualityDetail && currentSpec && qualityDetail.source?.status === 'AUTHORITATIVE' &&
+        qualityDetail.source.path !== currentSpec.path) {
+      statuses.push('STALE_TEST');
+      lineage.reasons.push('tdd-source-not-current-spec');
+    }
     if (requirement.status === 'CURRENT' && protection.status === 'NOT_EVALUATED') statuses.push('NOT_EVALUATED');
     if (requirement.status === 'CURRENT' && quality.result === 'NOT_EVALUATED') statuses.push('NOT_EVALUATED');
     const blocking = statuses.filter(status => !['CONSISTENT','INTENTIONAL_SUPERSESSION'].includes(status));
