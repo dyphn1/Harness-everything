@@ -234,6 +234,7 @@ function run(userPrompt, context) {
   console.log(`[Tier Routing Pre-check]`);
 
   const promptLower = userPrompt.toLowerCase();
+  const memoryPersistenceRequested = detectMemoryPersistenceRequest(userPrompt);
   const loadedConfig = loadRoutingConfig();
   const routingConfig = loadedConfig.config;
   const TIER3_KEYWORDS = routingConfig.tiers.tier3 || [];
@@ -259,7 +260,12 @@ function run(userPrompt, context) {
   let rationale = 'No structural/testing signals matched; unclassified is not equivalent to trivial.';
   const reasonCodes = [...loadedConfig.reasonCodes, 'no-classification-signal'];
 
-  if (isTrivialDocsEdit) {
+  if (memoryPersistenceRequested && !hasMacroSignal && !hasTier3Keyword && !hasTier2Keyword) {
+    recommendedTier = 'Tier 1 (Trivial)';
+    rationale = 'Explicit bounded self-evolve memory persistence request.';
+    reasonCodes.splice(loadedConfig.reasonCodes.length);
+    addReason(reasonCodes, 'memory-persistence-requested');
+  } else if (isTrivialDocsEdit) {
     recommendedTier = 'Tier 1 (Trivial)';
     rationale = 'Single documentation typo detected - direct edit, no checklist required.';
     reasonCodes.splice(loadedConfig.reasonCodes.length);
@@ -382,7 +388,6 @@ function run(userPrompt, context) {
   const requestedStrategy = detectExplicitStrategy(userPrompt, requestedFableModel);
   const prohibitions = detectProhibitions(userPrompt);
   const plannerInputs = plannerInputsFromContext(context, promptLower);
-  const memoryPersistenceRequested = detectMemoryPersistenceRequest(userPrompt);
 
   const contract = buildRouterContract({
     routingStatus: loadedConfig.routingStatus,
