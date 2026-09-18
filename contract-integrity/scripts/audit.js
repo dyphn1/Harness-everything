@@ -36,6 +36,18 @@ function round(value) {
 function unique(values) {
   return [...new Set(values)];
 }
+function safeRelativePath(value) {
+  const p = text(value);
+  if (!p || path.isAbsolute(p) || p.includes('\\0')) return false;
+  const normalized = p.replace(/\\/g, '/');
+  return normalized !== '..' && !normalized.startsWith('../') && !normalized.includes('/../');
+}
+function rejectUnknownKeys(value, allowed, errors, location) {
+  if (!isObject(value)) return;
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) errors.push(`${location} contains unknown field: ${key}`);
+  }
+}
 function readJson(file) {
   return JSON.parse(fs.readFileSync(path.resolve(file), 'utf8'));
 }
@@ -59,11 +71,12 @@ function validateTrace(input) {
   for (const [index, artifact] of input.artifacts.entries()) {
     const p = `artifacts[${index}]`;
     if (!isObject(artifact)) { errors.push(`${p} must be an object`); continue; }
+    rejectUnknownKeys(artifact, new Set(['id','kind','path','status','revision','requirementId','requirementRevision','changeImpact','supersedes','evidenceRef']), errors, p);
     if (!text(artifact.id)) errors.push(`${p}.id is required`);
     else if (artifactIds.has(artifact.id)) errors.push(`duplicate artifact id: ${artifact.id}`);
     else artifactIds.add(artifact.id);
     if (!ARTIFACT_KINDS.has(artifact.kind)) errors.push(`${p}.kind is invalid`);
-    if (!text(artifact.path)) errors.push(`${p}.path is required`);
+    if (!safeRelativePath(artifact.path)) errors.push(`${p}.path must be a repo-relative non-traversing path`);
     if (!ARTIFACT_STATUSES.has(artifact.status)) errors.push(`${p}.status is invalid`);
     if (!Number.isInteger(artifact.revision) || artifact.revision < 1) errors.push(`${p}.revision must be >= 1`);
     if (artifact.requirementRevision != null && (!Number.isInteger(artifact.requirementRevision) || artifact.requirementRevision < 1)) {
@@ -82,6 +95,7 @@ function validateTrace(input) {
   for (const [index, requirement] of input.requirements.entries()) {
     const p = `requirements[${index}]`;
     if (!isObject(requirement)) { errors.push(`${p} must be an object`); continue; }
+    rejectUnknownKeys(requirement, new Set(['requirementId','revision','status','specId','decisionIds','ticketIds','testIds','implementationIds','requiredProbeIds','sourceValidity','supersededBy']), errors, p);
     if (!text(requirement.requirementId)) errors.push(`${p}.requirementId is required`);
     else if (requirementIds.has(requirement.requirementId)) errors.push(`duplicate requirementId: ${requirement.requirementId}`);
     else requirementIds.add(requirement.requirementId);
@@ -101,6 +115,7 @@ function validateTrace(input) {
   for (const [index, probe] of input.probes.entries()) {
     const p = `probes[${index}]`;
     if (!isObject(probe)) { errors.push(`${p} must be an object`); continue; }
+    rejectUnknownKeys(probe, new Set(['probeId','requirementId','status','sourceSection','evidenceRef','workspaceIsolation','failureClass']), errors, p);
     if (!text(probe.probeId)) errors.push(`${p}.probeId is required`);
     else if (probeIds.has(probe.probeId)) errors.push(`duplicate probeId: ${probe.probeId}`);
     else probeIds.add(probe.probeId);
