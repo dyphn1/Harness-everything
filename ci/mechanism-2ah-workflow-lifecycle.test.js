@@ -175,8 +175,11 @@ try {
   check(stop().status === 2, 'direct/iterative route cannot complete unverified mutation');
   check(stop({ stop_hook_active: true }).status === 0 && read(file).state === 'blocked', 'iterative retry reports incomplete state');
   check(control('start').status === 0, 'blocked iterative route can resume without a Fable stage map');
+  // Issue #153: a host is not guaranteed to report a numeric exit code at
+  // all (state-persist.js's own isFailed logic already treats "no exit code
+  // and no stderr" as success), so this must resolve rather than deadlock.
   node('hooks/scripts/state-persist.js', { ...payload, tool_name: 'Bash', tool_input: { command: 'npm test' }, tool_response: { stdout: 'no code' } });
-  check(stop().status === 2, 'verification without numeric exit status is unknown');
+  check(stop().status === 0 && read(file).state === 'satisfied', 'verification without a host-reported numeric exit status still resolves completion');
   node('hooks/scripts/state-persist.js', { ...payload, tool_name: 'Bash', tool_input: { command: 'npm test' }, tool_response: { exitCode: 0, stdout: 'passed' } });
   check(stop().status === 0 && read(file).state === 'satisfied', 'observed iterative verification resolves completion');
   console.log(`PASS: workflow lifecycle (${passed} assertions)`);
