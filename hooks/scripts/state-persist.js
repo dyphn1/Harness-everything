@@ -97,8 +97,13 @@ function processState(payload) {
         state.tool = toolName;
         state.exitCode = exitCode;
         state.errorSummary = output.trim();
-      } else if (exitCode === 0 && state.status === 'failed') {
-        // Clear failed state or mark as idle/resolved
+      } else if (!isFailed && state.status === 'failed') {
+        // Clear failed state or mark as idle/resolved.
+        // NOTE (#166, follows #153): Claude Code Bash PostToolUse payloads
+        // carry no numeric exit code, so `exitCode === 0` never holds there.
+        // A non-failure PostToolUse (no failure event, no non-zero code, no
+        // stderr signal) counts as success; hosts that report exit codes
+        // behave as before via `isFailed`.
         state.lastResolved = { tool: state.tool, timestamp: state.timestamp };
         state.status = 'idle';
         state.timestamp = new Date().toISOString();
