@@ -47,7 +47,6 @@ function persistWorkflow(plan, payload, prompt) {
       context.workflow.state = 'blocked';
       context.workflow.pendingPlan = plan;
       context.workflow.blockReason = 'stronger-route-requires-replan';
-      context.workflow.mutationIsolation = plan.mutationIsolation;
     }
     context.workflow.lastPromptHash = crypto.createHash('sha256').update(prompt).digest('hex').slice(0, 24);
     const memoryCapability = issueMemoryCapability(context.workflow);
