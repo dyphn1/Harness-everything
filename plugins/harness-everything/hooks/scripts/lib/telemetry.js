@@ -199,7 +199,7 @@ function hostDuration(payload) {
     response.duration_ms, response.durationMs, response.elapsed_ms, response.elapsedMs,
     payload && payload.duration_ms, payload && payload.durationMs,
   ];
-  return finiteDuration(candidates.find(v => Number.isFinite(Number(v))));
+  return finiteDuration(candidates.find(v => v !== null && v !== undefined && Number.isFinite(Number(v))));
 }
 
 function recordSkillHook(payload) {
