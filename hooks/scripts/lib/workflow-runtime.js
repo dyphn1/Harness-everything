@@ -43,15 +43,62 @@ function loadWorkflow(payload) {
 
 function saveWorkflow(context) { atomicWriteJson(context.file, context.workflow); }
 
-function mutationProbeReservations(workflow) {
-  const pending = workflow?.mutationProbes?.pending;
-  if (!pending || typeof pending !== 'object') return 0;
+const MUTATION_PROBE_KEY = /^[a-f0-9]{64}$/;
+const MUTATION_PROBE_WAIT = new Int32Array(new SharedArrayBuffer(4));
+
+function mutationProbeDir(context) {
+  return path.join(context.sessionDir, 'mutation-probes');
+}
+
+function mutationProbeFile(context, key) {
+  if (!MUTATION_PROBE_KEY.test(String(key || ''))) throw new Error('invalid mutation probe identity');
+  return path.join(mutationProbeDir(context), key + '.json');
+}
+
+function withMutationProbeLock(context, callback) {
+  fs.mkdirSync(context.sessionDir, { recursive: true });
+  const lockDir = path.join(context.sessionDir, '.mutation-probes.lock');
+  let acquired = false;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    try {
+      fs.mkdirSync(lockDir);
+      acquired = true;
+      break;
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      try {
+        const stat = fs.statSync(lockDir);
+        if (Date.now() - stat.mtimeMs > 30000) {
+          fs.rmSync(lockDir, { recursive: true, force: true });
+          continue;
+        }
+      } catch (_) { /* retry below */ }
+      Atomics.wait(MUTATION_PROBE_WAIT, 0, 0, 10);
+    }
+  }
+  if (!acquired) throw new Error('cannot acquire mutation probe lock');
+  try { return callback(); }
+  finally { fs.rmSync(lockDir, { recursive: true, force: true }); }
+}
+
+function mutationProbeReservations(context) {
+  const dir = mutationProbeDir(context);
+  let files = [];
+  try { files = fs.readdirSync(dir).filter(file => /^[a-f0-9]{64}\.json$/.test(file)); }
+  catch (_) { return 0; }
   let count = 0;
-  for (const queue of Object.values(pending)) {
-    if (!Array.isArray(queue)) continue;
-    count += queue.filter(item => item && item.reserveIteration === true).length;
+  for (const file of files) {
+    const probe = readJson(path.join(dir, file));
+    if (probe?.schemaVersion === 1 && probe.reserveIteration === true) count++;
   }
   return count;
+}
+
+function refreshWorkflowForProbe(context) {
+  const latest = readJson(context.file);
+  if (!latest || latest.sessionId !== context.sessionId) throw new Error('cannot refresh workflow for mutation probe');
+  context.workflow = latest;
+  return latest;
 }
 
 function assertIterationCapacity(context, evidence) {
@@ -61,7 +108,7 @@ function assertIterationCapacity(context, evidence) {
   if (budget.state !== 'active') throw budgetError(`workflow budget is ${budget.state}: ${budget.reasonCode || 'unavailable'}`);
   const limit = budget.limits.maxIterations;
   if (limit === null) return { applicable: false, value: budget.counters.iterations, reserved: 0 };
-  const reserved = mutationProbeReservations(workflow);
+  const reserved = mutationProbeReservations(context);
   if (budget.counters.iterations + reserved >= limit) {
     return exhaustBudget(context, 'iteration-budget-exhausted', evidence || 'untrusted-shell-capacity');
   }
@@ -69,31 +116,65 @@ function assertIterationCapacity(context, evidence) {
 }
 
 function registerMutationProbe(context, key, fingerprint, reserveIteration) {
-  if (!/^[a-f0-9]{64}$/.test(String(key || '')) || !/^[a-f0-9]{64}$/.test(String(fingerprint || ''))) {
+  if (!MUTATION_PROBE_KEY.test(String(key || '')) || !MUTATION_PROBE_KEY.test(String(fingerprint || ''))) {
     throw new Error('invalid mutation probe identity');
   }
-  if (reserveIteration) assertIterationCapacity(context, 'shell:untrusted');
-  const workflow = context.workflow;
-  if (!workflow.mutationProbes || workflow.mutationProbes.schemaVersion !== 1) {
-    workflow.mutationProbes = { schemaVersion: 1, pending: {} };
-  }
-  const pending = workflow.mutationProbes.pending;
-  const queue = Array.isArray(pending[key]) ? pending[key] : [];
-  if (queue.length >= 8) throw new Error('too many pending mutation probes for one shell command');
-  const total = Object.values(pending).reduce((sum, value) => sum + (Array.isArray(value) ? value.length : 0), 0);
-  if (total >= 64) throw new Error('too many pending mutation probes');
-  queue.push({ fingerprint, reserveIteration: Boolean(reserveIteration), observedAt: Date.now() });
-  pending[key] = queue;
-  return queue[queue.length - 1];
+  return withMutationProbeLock(context, () => {
+    refreshWorkflowForProbe(context);
+    if (reserveIteration) assertIterationCapacity(context, 'shell:untrusted');
+    const dir = mutationProbeDir(context);
+    fs.mkdirSync(dir, { recursive: true });
+    const file = mutationProbeFile(context, key);
+    if (fs.existsSync(file)) throw new Error('mutation probe is already pending for this tool call');
+    const probe = {
+      schemaVersion: 1,
+      fingerprint,
+      reserveIteration: Boolean(reserveIteration),
+      observedAt: Date.now(),
+    };
+    atomicWriteJson(file, probe);
+    return probe;
+  });
 }
 
-function takeMutationProbe(context, key) {
-  const pending = context.workflow?.mutationProbes?.pending;
-  if (!pending || !Array.isArray(pending[key]) || !pending[key].length) return null;
-  const probe = pending[key].shift();
-  if (!pending[key].length) delete pending[key];
-  if (!Object.keys(pending).length) delete context.workflow.mutationProbes;
-  return probe;
+function peekMutationProbe(context, key) {
+  return readJson(mutationProbeFile(context, key));
+}
+
+function settleMutationProbe(context, key, afterFingerprint, tool) {
+  if (!MUTATION_PROBE_KEY.test(String(afterFingerprint || ''))) throw new Error('invalid mutation probe fingerprint');
+  return withMutationProbeLock(context, () => {
+    const file = mutationProbeFile(context, key);
+    const probe = readJson(file);
+    if (!probe || probe.schemaVersion !== 1) return null;
+    refreshWorkflowForProbe(context);
+    fs.unlinkSync(file);
+    const changed = afterFingerprint !== probe.fingerprint;
+    if (changed) {
+      context.workflow.lastMutationAt = Date.now();
+      if (probe.reserveIteration && context.workflow.strategy === 'iterative-single') {
+        recordBudgetEvent(context, 'iteration', { evidence: String(tool || 'shell') + ':observed-workspace-mutation' });
+      } else {
+        saveWorkflow(context);
+      }
+    }
+    return { changed, probe };
+  });
+}
+
+function discardMutationProbe(context, key) {
+  return withMutationProbeLock(context, () => {
+    const file = mutationProbeFile(context, key);
+    if (!fs.existsSync(file)) return false;
+    fs.unlinkSync(file);
+    return true;
+  });
+}
+
+function clearMutationProbes(context) {
+  return withMutationProbeLock(context, () => {
+    fs.rmSync(mutationProbeDir(context), { recursive: true, force: true });
+  });
 }
 
 function budgetLimits(workflow) {
@@ -176,7 +257,7 @@ function recordBudgetEvent(context, type, options = {}) {
   const consume = (counter, limitName, reasonCode) => {
     const limit = budget.limits[limitName];
     if (limit === null) return { applicable: false, value: budget.counters[counter] };
-    const reserved = type === 'iteration' ? mutationProbeReservations(workflow) : 0;
+    const reserved = type === 'iteration' ? mutationProbeReservations(context) : 0;
     if (budget.counters[counter] + reserved >= limit) return exhaustBudget(context, reasonCode, evidence);
     budget.counters[counter]++;
     appendBudgetEvent(budget, { type, counter, value: budget.counters[counter], limit, evidence, observedAt: now });
@@ -229,7 +310,7 @@ function resetWorkflowBudget(context, evidence) {
     evidence: String(evidence).trim(),
     resetAt: now,
   }].slice(-16);
-  delete workflow.mutationProbes;
+  clearMutationProbes(context);
   workflow.budget = {
     schemaVersion: 1,
     epoch: previous.epoch + 1,
@@ -315,4 +396,4 @@ function readHookInput(decide) {
   process.stdin.on('error', finish);
 }
 
-module.exports = { OPEN_STATES, SAFE_ID, WORKFLOW_CONTROLLER_COMMANDS, isMajorWorkflow, loadWorkflow, saveWorkflow, budgetLimits, ensureWorkflowBudget, mutationProbeReservations, assertIterationCapacity, registerMutationProbe, takeMutationProbe, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun, matchingRun, unresolvedStages, readHookInput };
+module.exports = { OPEN_STATES, SAFE_ID, WORKFLOW_CONTROLLER_COMMANDS, isMajorWorkflow, loadWorkflow, saveWorkflow, budgetLimits, ensureWorkflowBudget, mutationProbeReservations, assertIterationCapacity, registerMutationProbe, peekMutationProbe, settleMutationProbe, discardMutationProbe, clearMutationProbes, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun, matchingRun, unresolvedStages, readHookInput };
