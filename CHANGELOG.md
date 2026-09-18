@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.11.7](https://github.com/dyphn1/Harness-everything/compare/v0.11.6...v0.11.7) (2026-09-18)
+
+### Bug Fixes
+
+* Claude success path, rule-of-3 category, worktree scan ([fd8c9e7](https://github.com/dyphn1/Harness-everything/commit/fd8c9e79261a18a79883029f7179d94c18ec302e)), closes [#153](https://github.com/dyphn1/Harness-everything/issues/153) [#166](https://github.com/dyphn1/Harness-everything/issues/166) [#167](https://github.com/dyphn1/Harness-everything/issues/167) [#170](https://github.com/dyphn1/Harness-everything/issues/170)
+* fail closed on unbound host notifications ([48faf8c](https://github.com/dyphn1/Harness-everything/commit/48faf8caff38e2cc77d2eae0169d6ba62767d7de))
+* fail closed on unbound host notifications ([fea7201](https://github.com/dyphn1/Harness-everything/commit/fea72018ba74b6dc2cf6d273b4116a3503fdcda2))
+* Host notification routing and out-of-workspace edit accounting ([508a321](https://github.com/dyphn1/Harness-everything/commit/508a32141389612f8fc1c92f89ebe4fde88cee1e)), closes [#172](https://github.com/dyphn1/Harness-everything/issues/172) [#165](https://github.com/dyphn1/Harness-everything/issues/165) [#168](https://github.com/dyphn1/Harness-everything/issues/168)
+* ignore host notifications before routing ([ad355fd](https://github.com/dyphn1/Harness-everything/commit/ad355fdd98f45747b467d034adc4bf6fbcf1404b))
+* ignore host notifications before routing ([ea96577](https://github.com/dyphn1/Harness-everything/commit/ea96577d6f2916261a3a4484bfdb5358c828d475))
+* integrate Claude PostToolUse semantics ([6c3b447](https://github.com/dyphn1/Harness-everything/commit/6c3b447e7112c8a8984ad304de37c8819f17be27))
+* integrate Claude PostToolUse semantics ([a7077e9](https://github.com/dyphn1/Harness-everything/commit/a7077e9240b76a53367198c32a9d0c2645fbbc32))
+
 ## [0.11.6](https://github.com/dyphn1/Harness-everything/compare/v0.11.5...v0.11.6) (2026-09-18)
 
 ### Bug Fixes
