@@ -14,6 +14,25 @@ function loadRuntime() {
   throw new Error('workflow runtime unavailable in this installation');
 }
 
+function issueMemoryCapability(workflow) {
+  if (!workflow || !workflow.workflowPlan || workflow.workflowPlan.memory?.write === 'none') {
+    if (workflow) delete workflow.memoryAuthorization;
+    return null;
+  }
+  const token = crypto.randomBytes(24).toString('base64url');
+  workflow.memoryAuthorization = {
+    schemaVersion: 1,
+    capabilityHash: crypto.createHash('sha256').update(token, 'utf8').digest('hex'),
+    writerRole: 'coordinator',
+    sessionId: workflow.sessionId,
+    workflowId: workflow.workflowId,
+    writeDisposition: workflow.workflowPlan.memory.write,
+    issuedAt: new Date().toISOString(),
+    usedAt: null,
+  };
+  return token;
+}
+
 function persistWorkflow(plan, payload, prompt) {
   if (!payload || !(payload.session_id || payload.sessionId)) return null;
   const { runtime, hooksRoot } = loadRuntime();
@@ -31,8 +50,9 @@ function persistWorkflow(plan, payload, prompt) {
       context.workflow.mutationIsolation = plan.mutationIsolation;
     }
     context.workflow.lastPromptHash = crypto.createHash('sha256').update(prompt).digest('hex').slice(0, 24);
+    const memoryCapability = issueMemoryCapability(context.workflow);
     runtime.saveWorkflow(context);
-    return { ...context, hooksRoot, retained: true };
+    return { ...context, hooksRoot, retained: true, memoryCapability };
   }
   const selected = plan.strategySelection === 'selected' && Boolean(plan.strategy);
   const now = Date.now();
@@ -61,8 +81,9 @@ function persistWorkflow(plan, payload, prompt) {
       reasoningPolicy: 'model-controls-how',
     },
   };
+  const memoryCapability = issueMemoryCapability(context.workflow);
   runtime.saveWorkflow(context);
-  return { ...context, hooksRoot, retained: false };
+  return { ...context, hooksRoot, retained: false, memoryCapability };
 }
 
 function run(raw) {
@@ -99,6 +120,8 @@ function run(raw) {
   if (persisted) {
     const controller = path.join(persisted.hooksRoot, 'workflow-disposition.js');
     console.log('   - Workflow id: ' + persisted.workflow.workflowId);
+    console.log('   - Memory write disposition: ' + (persisted.workflow.workflowPlan.memory?.write || 'none'));
+    if (persisted.memoryCapability) console.log('   - Memory capability (single-use, workflow/session-bound): ' + persisted.memoryCapability);
     console.log('   - Stage specification: ' + path.join(persisted.sessionDir, 'workflow-stages.json'));
     console.log('   - Enter/replan: node "' + controller + '" start --session-id "' + persisted.sessionId + '"');
     console.log('   - Escape one declared stage: node "' + controller + '" escape --session-id "' + persisted.sessionId + '" --stage-id "<id>" --reason-code workflow-uncovered-scope --scope "<uncovered scope>" --evidence "<evidence>"');
