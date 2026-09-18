@@ -297,7 +297,7 @@ Mechanism tests prove individual packaged mechanisms; only real host/session evi
 
 Harness audits itself on a dated cycle by running its own test suite and VERIFICATION.md recipes — never by reading the code and assuming it works. The full scorecards, methodology, and per-cycle change log live in [docs/audit.md](docs/audit.md). Audit scorecards are historical snapshots; current platform capability claims live in [docs/platform-capabilities.md](docs/platform-capabilities.md).
 
-**Latest local audit baseline — 2026-09-01**: 26/26 on-disk skills, 26/26 routing-eval directories, and the local npm gates were green for that audit snapshot. Waza remained a CI-only gate in that checkout because its installer was not available as an npm package; run it on an LF-normalized export as documented by CI.
+**Latest local audit baseline — 2026-09-18** (macOS, Node.js 24; see [docs/audit.md](docs/audit.md)): 26/26 on-disk skills, 26/26 routing-eval directories, 34/34 positive routes, 275/275 invariant checks, and all 26 canonical skills within the 500-token limit. Deterministic gates were green except the pre-existing `mechanism-30` failure caused by leftover `.worktrees` fixtures (reproduced on the clean tree). Waza full-matrix spec verify and live model sessions remain on-demand evidence; run waza on an LF-normalized export as documented by CI.
 
 Measure on an LF export, not a Windows working tree — CRLF can inflate waza's token counts and trigger false budget failures.
 
