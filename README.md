@@ -82,6 +82,7 @@ The general installer only writes to your workspace (or, with `--global`, your h
 | `AGENTS.md` + `.agents/skills/` | Codex advisory instructions plus repo-scoped Agent Skills; Hermes can also consume trusted project skills from `.agents/skills/` |
 | `.continue/rules/harness.md` + `.continue/skills/` | Continue.dev advisory rule and installer candidate skill path; standalone skill discovery is `Unknown` |
 | `.hermes.md` | Hermes Agent project advisory context |
+| `.opencode/plugins/harness-enforcement.js` (manual copy, not installer-owned) | OpenCode enforcement plugin — the general installer has no `--opencode` path; copy `opencode-plugin/index.mjs` under a `.js` name per [opencode-plugin/README.md](opencode-plugin/README.md) |
 | `.claude/harness-everything/` (or the per-platform equivalent) | Harness installer/runtime bookkeeping owned by that integration |
 
 For `--global`, the installer uses each host's supported user-level skill location rather than assuming one shared directory works everywhere: shared Agent Skills remain under `~/.agents/skills/` where natively consumed, Continue uses `~/.continue/skills/`, Hermes uses `~/.hermes/skills/`, and Claude uses `~/.claude/skills/`.
@@ -263,7 +264,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 
 Fable model selection is documented in [fable-mode/references/model-matrix.md](fable-mode/references/model-matrix.md); the explicit entrypoints are `fable-haiku`, `fable-sonnet`, and `fable-opus`.
 
-Maintainers should follow [RELEASING.md](RELEASING.md) for tag-driven npm releases and record observations in [docs/release-evidence.md](docs/release-evidence.md). The issue #20 coordination decisions and evidence boundaries are captured in [docs/issue-20-rollup.md](docs/issue-20-rollup.md).
+Maintainers should follow [RELEASING.md](RELEASING.md) for tag-driven npm releases and record observations in [docs/release-evidence.md](docs/release-evidence.md). Issue #20 is closed (2026-09-10); its coordination history lives in git.
 
 ---
 
