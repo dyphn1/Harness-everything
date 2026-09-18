@@ -4,7 +4,7 @@
 const path = require('path');
 const fs = require('fs');
 const { loadWorkflow, saveWorkflow, isMajorWorkflow, matchingRun, registerMutationProbe, recordBudgetEvent, readHookInput, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
-const { key, classifyShell, workspaceFingerprint, shellProbeKey, cwdOf, commandOf, mutationPaths, linkedWorktree, assertTargets, assertShellScope } = require('./lib/workflow-isolation');
+const { key, classifyShell, workspaceFingerprint, shellProbeKey, cwdOf, commandOf, mutationPaths, directMutationInWorkspace, linkedWorktree, assertTargets, assertShellScope } = require('./lib/workflow-isolation');
 
 const DIRECT = new Set(['Edit', 'Write', 'apply_patch']);
 const SHELL = new Set(['Bash', 'PowerShell', 'exec_command']);
@@ -48,6 +48,10 @@ function decide(payload) {
     throw new Error('selected Fable workflow has no correlated run. Write workflow-stages.json at the displayed session path, then use workflow-disposition.js start.');
   }
   if (DIRECT.has(tool)) {
+    // Bookkeeping outside the workspace (scratchpad, memory files, temp
+    // notes) is not a workspace mutation: it consumes no Tier-2 iteration
+    // and advances no mutation milestone (#165).
+    if (!directMutationInWorkspace(payload, cwd, root)) return;
     if (workflow.strategy === 'iterative-single') {
       recordBudgetEvent(context, 'iteration', { evidence: `${tool}:direct-mutation` });
     }

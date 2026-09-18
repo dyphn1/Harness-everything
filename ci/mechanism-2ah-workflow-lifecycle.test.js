@@ -35,6 +35,14 @@ function git(args) {
 }
 const route = prompt => node('harness-everything/scripts/kernel-router.js', { ...payload, prompt });
 const gate = (tool, input, cwd = linked) => node('hooks/scripts/workflow-gate.js', { ...payload, cwd, tool_name: tool, tool_input: input });
+const persistDirect = (tool, input, cwd = repo, response = {}) => node('hooks/scripts/state-persist.js', {
+  ...payload,
+  cwd,
+  hook_event_name: 'PostToolUse',
+  tool_name: tool,
+  tool_input: input,
+  tool_response: response,
+});
 let toolUseSeq = 0;
 function beginShell(command, cwd = repo) {
   const toolUseId = 'toolu_fixture_' + (++toolUseSeq);
@@ -87,6 +95,20 @@ try {
   git(['init']); fs.writeFileSync(path.join(repo, 'README.md'), 'fixture\n'); git(['add', '.']);
   git(['-c', 'user.name=Harness Test', '-c', 'user.email=harness@example.invalid', 'commit', '-m', 'fixture']);
   git(['worktree', 'add', linked, '-b', 'isolated']);
+  const taskNotification = '<task-notification><summary>Background command "Run full test suite" failed with exit code 1</summary></task-notification>';
+  const unboundNotification = node('harness-everything/scripts/kernel-router.js', { cwd: repo, prompt: taskNotification });
+  check(unboundNotification.status === 0 &&
+    unboundNotification.stdout.includes('ignored for routing') &&
+    !unboundNotification.stdout.includes('WORKFLOW EXECUTION CONTRACT'),
+    'host notification without session binding is a routing no-op');
+  const noWorkflowNotification = route(taskNotification);
+  check(noWorkflowNotification.status === 0 && !fs.existsSync(file),
+    'host notification with no active workflow creates no contract');
+  check(noWorkflowNotification.stdout.includes('ignored for routing') &&
+    !noWorkflowNotification.stdout.includes('iterative-single') &&
+    !noWorkflowNotification.stdout.includes('WORKFLOW EXECUTION CONTRACT'),
+    'host notification with no active workflow emits no notification-derived routing contract');
+
   const routed = route('Refactor the entire repository architecture in dependent stages.');
   check(routed.status === 0, 'prompt hook creates workflow');
   const initial = read(file);
@@ -149,6 +171,15 @@ try {
   check(stop().status === 2, 'verification predating a new mutation is stale');
   write(file, mutationState);
   check(stop().status === 0 && read(file).state === 'satisfied', 'all covered stages and verifier resolve workflow to satisfied');
+  const satisfiedWorkflow = read(file);
+  const satisfiedNotification = route(taskNotification);
+  check(satisfiedNotification.status === 0 &&
+    read(file).workflowId === satisfiedWorkflow.workflowId &&
+    read(file).state === 'satisfied',
+    'satisfied workflow followed by host notification keeps the same satisfied contract');
+  check(!satisfiedNotification.stdout.includes('Run full test suite') &&
+    satisfiedNotification.stdout.includes('routing unchanged'),
+    'satisfied host notification text is not routed as new work');
   check(route('Refactor the entire repository architecture in dependent stages.').status === 0 && read(file).workflowId !== initial.workflowId, 'next completed-task boundary creates a fresh workflow');
   check(stop({ stop_hook_active: true }).status === 0 && read(file).state === 'blocked', 'Stop retry reports blocked instead of faking completion');
   check(gate('Write', { file_path: path.join(linked, 'src.js') }).status === 2, 'blocked state still prohibits mutation');
@@ -196,8 +227,116 @@ try {
   check(gate('Write', { file_path: path.join(repo, 'premature-primary.js') }, repo).status === 2, 'activated Tier 3 plan still blocks primary-tree mutation');
   fs.unlinkSync(file);
   check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single', 'fresh bounded fix returns to Tier 2 iterative lifecycle');
+  let tier2 = read(file);
+  const tier2WorkflowId = tier2.workflowId;
+  write(file, { ...tier2, state: 'deferred' });
+  const deferredNotification = route(taskNotification);
+  check(deferredNotification.status === 0 &&
+    read(file).workflowId === tier2WorkflowId &&
+    read(file).state === 'deferred',
+    'deferred workflow followed by host notification keeps the same deferred contract');
+  check(!deferredNotification.stdout.includes('Run full test suite') &&
+    deferredNotification.stdout.includes('routing unchanged'),
+    'deferred host notification text is not routed as new work');
+  write(file, tier2);
+
   const iterationLimit = read(file).workflowPlan.limits.maxIterations;
   check(Number.isInteger(iterationLimit) && iterationLimit > 0, 'iterative route exposes a numeric iteration budget');
+
+  // #165: direct Edit/Write/apply_patch accounting follows workspace effects.
+  // Bookkeeping outside the repository must not consume Tier-2 iterations or
+  // advance workflow/Stop-gate mutation milestones.
+  const handoffFile = path.join(sessionDir, 'handoff-state.json');
+  const outsideTarget = path.join(temp, 'scratch-note.txt');
+  const beforeOutside = read(file);
+  const beforeOutsideIterations = beforeOutside.budget?.counters?.iterations || 0;
+  const beforeOutsideMutationAt = beforeOutside.lastMutationAt || 0;
+  const beforeOutsideEditAt = fs.existsSync(handoffFile) ? (read(handoffFile).lastEditAt || 0) : 0;
+  for (let i = 0; i < 3; i++) {
+    check(gate('Write', { file_path: outsideTarget }, repo).status === 0,
+      'out-of-workspace Write is admitted without Tier-2 mutation accounting');
+    fs.writeFileSync(outsideTarget, 'scratch ' + i + '\n');
+    const outsideResponse = i === 0
+      ? { stderr: 'warning: successful bookkeeping write emitted diagnostic text' }
+      : {};
+    check(persistDirect('Write', { file_path: outsideTarget }, repo, outsideResponse).status === 0,
+      'out-of-workspace Write post-tool state persists without mutation milestone');
+  }
+  const afterOutside = read(file);
+  const afterOutsideHandoff = read(handoffFile);
+  check((afterOutside.budget?.counters?.iterations || 0) === beforeOutsideIterations &&
+    (afterOutside.lastMutationAt || 0) === beforeOutsideMutationAt &&
+    (afterOutsideHandoff.lastEditAt || 0) === beforeOutsideEditAt &&
+    afterOutsideHandoff.status !== 'failed',
+    'out-of-workspace Writes leave iterations/milestones unchanged and PostToolUse stderr is not a failure');
+  check(stop().status === 0, 'out-of-workspace-only bookkeeping does not force verification before Stop');
+
+  check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single',
+    'real follow-up user prompt after notification/accounting checks routes normally');
+  let observedDirectIterations = read(file).budget?.counters?.iterations || 0;
+  const internalTarget = path.join(repo, 'direct-inside.txt');
+  const beforeInternalMutationAt = read(file).lastMutationAt || 0;
+  check(gate('Write', { file_path: internalTarget }, repo).status === 0, 'in-workspace Write is admitted');
+  fs.writeFileSync(internalTarget, 'inside\n');
+  check(persistDirect('Write', { file_path: internalTarget }, repo).status === 0, 'in-workspace Write post-tool state persists');
+  check(read(file).budget.counters.iterations === ++observedDirectIterations &&
+    read(file).lastMutationAt >= beforeInternalMutationAt &&
+    read(handoffFile).lastEditAt > beforeOutsideEditAt,
+    'in-workspace Write consumes exactly one iteration and advances mutation milestones');
+
+  const mixedPatch = [
+    '*** Begin Patch',
+    `*** Update File: ${outsideTarget}`,
+    '@@',
+    '-scratch',
+    '+scratch updated',
+    `*** Update File: ${path.join(repo, 'README.md')}`,
+    '@@',
+    '-fixture',
+    '+fixture updated',
+    '*** End Patch',
+  ].join('\n');
+  check(gate('apply_patch', { patch: mixedPatch }, repo).status === 0, 'mixed apply_patch is admitted');
+  check(persistDirect('apply_patch', { patch: mixedPatch }, repo).status === 0, 'mixed apply_patch post-tool state persists');
+  check(read(file).budget.counters.iterations === ++observedDirectIterations,
+    'mixed apply_patch counts exactly once when any target is inside the workspace');
+
+  const pureOutsidePatch = [
+    '*** Begin Patch',
+    `*** Update File: ${outsideTarget}`,
+    '@@',
+    '-scratch updated',
+    '+scratch external only',
+    '*** End Patch',
+  ].join('\n');
+  const beforePureOutside = read(file);
+  const beforePureOutsideEditAt = read(handoffFile).lastEditAt || 0;
+  check(gate('apply_patch', { patch: pureOutsidePatch }, repo).status === 0, 'pure external apply_patch is admitted');
+  check(persistDirect('apply_patch', { patch: pureOutsidePatch }, repo).status === 0, 'pure external apply_patch post-tool state persists');
+  check(read(file).budget.counters.iterations === observedDirectIterations &&
+    read(file).lastMutationAt === beforePureOutside.lastMutationAt &&
+    (read(handoffFile).lastEditAt || 0) === beforePureOutsideEditAt,
+    'pure external apply_patch consumes no iteration and advances no mutation milestone');
+
+  const linkedTarget = path.join(linked, 'direct-linked.txt');
+  check(gate('Write', { file_path: linkedTarget }, linked).status === 0,
+    'Write inside a linked worktree is treated as workspace mutation');
+  fs.writeFileSync(linkedTarget, 'linked\n');
+  check(persistDirect('Write', { file_path: linkedTarget }, linked).status === 0,
+    'linked-worktree Write post-tool state persists');
+  check(read(file).budget.counters.iterations === ++observedDirectIterations,
+    'linked-worktree Write consumes exactly one iteration');
+
+  // Keep the #165 regression fixture from consuming the budget used by the
+  // pre-existing lifecycle/exhaustion assertions below.
+  fs.unlinkSync(internalTarget);
+  fs.unlinkSync(linkedTarget);
+  fs.unlinkSync(file);
+  if (fs.existsSync(handoffFile)) fs.unlinkSync(handoffFile);
+  check(route('Fix this checkout bug with a regression test').status === 0 &&
+    read(file).strategy === 'iterative-single' &&
+    (read(file).budget?.counters?.iterations || 0) === 0,
+    '#165 regression fixture resets into a fresh Tier-2 lifecycle baseline');
 
   // #155/#157 regression lock: read-only shell composition, including quoted
   // and escaped separator characters inside arguments, must never look like an
