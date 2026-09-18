@@ -43,16 +43,34 @@ function linkedWorktree(cwd, boundRoot) {
   return worktrees.some(field => field.startsWith('worktree ') && key(field.slice(9)) === key(top)) ? top : null;
 }
 
-// A conservative read subset, not a general shell sandbox.
+// A conservative read subset, not a general shell sandbox. Chaining (`;`, `&&`,
+// `||`, `|`) and the `2>&1`/`1>&2` fd-duplication redirect are permitted only
+// when every resulting segment independently matches the trusted read-only set
+// below; any other metacharacter (substitution, grouping, a lone `&`, a file
+// redirect, `<`) still forces mutation-or-unknown for the whole command.
+const SHELL_SEPARATOR_RE = /\s*(?:&&|\|\||;|\|)\s*/;
+const SAFE_FD_REDIRECT_RE = /[12]>&[12]/g;
+const DANGEROUS_FLAG_RE = /\s(?:--(?:output|ext-diff|textconv|exec|pre|pre-glob|pager|open|batch|filters)|-[xoO])(?:\b|=)|\s-(?:exec|execdir|delete|fprint|fprintf)\b/i;
+const READ_ONLY_PREFIX_RE = /^(?:git\s+(?:status|rev-parse|diff|log|show|ls-files|check-ignore)(?:\s|$)|git\s+branch\s+--show-current$|git\s+worktree\s+list(?:\s|$)|gh\s+(?:issue|pr)\s+(?:view|list)(?:\s|$)|gh\s+repo\s+view(?:\s|$)|gh\s+auth\s+status(?:\s|$)|(?:pwd|ls|dir|cat|type|head|tail|wc|stat|rg|grep|echo|Get-Location|Get-ChildItem|Get-Content|Select-String|Test-Path)(?:\s|$))/i;
+
+function isReadOnlySegment(segment) {
+  return READ_ONLY_PREFIX_RE.test(segment) && !DANGEROUS_FLAG_RE.test(segment);
+}
+
 function classifyShell(command) {
   const text = String(command || '').trim();
-  if (!text || /[;&|`\r\n<>$(){}\x00]/.test(text)) return 'mutation-or-unknown';
-  if (/^git\s+worktree\s+add\s+/i.test(text) && !/\s--(?:force|checkout|detach)(?:\s|=|$)/i.test(text)) return 'worktree-setup';
-  if (/\s(?:--(?:output|ext-diff|textconv|exec|pre|pre-glob|pager|open|batch|filters)|-[xoO])(?:\b|=)|\s-(?:exec|execdir|delete|fprint|fprintf)\b/i.test(text)) return 'mutation-or-unknown';
-  if (/^git\s+(?:status|rev-parse|diff|log|show|ls-files|check-ignore)(?:\s|$)/i.test(text) ||
-      /^git\s+branch\s+--show-current$/i.test(text) || /^git\s+worktree\s+list(?:\s|$)/i.test(text) ||
-      /^(?:pwd|ls|dir|cat|type|head|tail|wc|stat|rg|Get-Location|Get-ChildItem|Get-Content|Select-String|Test-Path)(?:\s|$)/i.test(text)) return 'read-only';
-  return 'mutation-or-unknown';
+  if (!text || /[`$(){}\r\n\x00]/.test(text)) return 'mutation-or-unknown';
+  // Strip the safe `2>&1`/`1>&2` fd-duplication redirect first: it contains a
+  // literal `&` that must not be mistaken for a lone backgrounding `&`.
+  const withoutSafeRedirects = text.replace(SAFE_FD_REDIRECT_RE, ' ');
+  if (/&/.test(withoutSafeRedirects.replace(/&&/g, ''))) return 'mutation-or-unknown';
+  if (/[<>]/.test(withoutSafeRedirects)) return 'mutation-or-unknown';
+  const segments = text.split(SHELL_SEPARATOR_RE).map(segment => segment.replace(SAFE_FD_REDIRECT_RE, '').trim());
+  if (segments.length === 1) {
+    if (/^git\s+worktree\s+add\s+/i.test(segments[0]) && !/\s--(?:force|checkout|detach)(?:\s|=|$)/i.test(segments[0])) return 'worktree-setup';
+    return isReadOnlySegment(segments[0]) ? 'read-only' : 'mutation-or-unknown';
+  }
+  return segments.every(segment => segment && isReadOnlySegment(segment)) ? 'read-only' : 'mutation-or-unknown';
 }
 
 function inputOf(payload) { return payload?.tool_input ?? payload?.toolInput ?? payload?.input ?? {}; }
