@@ -47,7 +47,9 @@
     "test:ab:run": "node ci/ab-test-harness.js run",
     "harness:reset": "node hooks/scripts/reset-circuit-breaker.js",
     "prepare": "husky install",
-    "commitlint": "commitlint --edit"
+    "commitlint": "commitlint --edit",
+    "test:contract-integrity": "node ci/contract-integrity.test.js",
+    "contract:integrity": "node contract-integrity/scripts/audit.js"
   },
   "engines": {
     "node": ">=22"
