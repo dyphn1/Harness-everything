@@ -1,64 +1,71 @@
 # Workflow: Eval Harness
 
-> Evaluates AI developer agent performance based on accuracy, resource efficiency, and anti-loop metrics.
+> Score an agent execution log or conversation history on correctness, token efficiency, anti-loop focus, and environment awareness, and save the result as a scorecard when a benchmark is requested.
 
----
+Source of truth: `eval-harness/SKILL.md`.
 
 ## 1. Skill Behavior Workflow
 
-This section visualizes how the `eval-harness` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
+```mermaid
+graph TD
+  BenchReq([Benchmark request with log or history]) --> ParseLog[Parse actions errors tokens timing]
+  ParseLog --> ScoreDims[Score four dimensions 0-10 via scoring-rubric]
+  ScoreDims --> RunEval[Run scripts evaluate.js with scores and insights]
+  RunEval --> EvalOk{Evaluate script succeeded?}
+  EvalOk -->|yes| SavedCard([Scorecard saved])
+  EvalOk -->|no or missing| MdFallback[Write evals scorecard.md fallback]
+  MdFallback --> SavedCard
+```
 
 ```mermaid
 graph TD
-  Start([Trigger: Benchmark / Evaluate Log]) --> ParseLog["1. Parse Log: Actions, Error Loops, Token Indicator"]
-  ParseLog --> CalcRubric["2. Calculate Scores across 4 Dimensions (0-10)"]
-  CalcRubric --> CheckScript{3. Is evaluate.js Executable?}
-  
-  CheckScript -->|Yes| RunScript["Run node eval-harness/scripts/evaluate.js"]
-  CheckScript -->|No / Fails| FileFallback{"4. Markdown File Fallback"}
-  
-  FileFallback -->|evals/ Exists| WriteEvals["Save Scorecard to evals/scorecard.md"]
-  FileFallback -->|No evals/ Folder| WritePlatform["Save Scorecard to .github/harness-everything/evals/scorecard.md"]
-  
-  RunScript --> End([Evaluation Scorecard Logged])
-  WriteEvals --> End
-  WritePlatform --> End
+  ScoreStart[Start scoring] --> Correctness[Score correctness 0-10]
+  ScoreStart --> Efficiency[Score efficiency 0-10]
+  ScoreStart --> AntiLoop[Score anti-loop focus 0-10]
+  ScoreStart --> EnvAware[Score environment awareness 0-10]
+  Correctness --> CombineScores[Combine into four-dimension card]
+  Efficiency --> CombineScores
+  AntiLoop --> CombineScores
+  EnvAware --> CombineScores
+  CombineScores --> EmitCard[Emit via script or markdown fallback]
 ```
-
----
 
 ## 2. Triggering and Routing Path
 
-This diagram illustrates how the `eval-harness` skill is triggered through user requests or developer actions, and how it integrates or chains together with other companion skills in the Harness OS ecosystem to form unified workflows.
-
 ```mermaid
 graph LR
-  Router["harness-everything / tier-router.js"] -->|Analyzes performance metrics| EH["eval-harness / SKILL.md"]
-  EH -->|Synthesizes lessons learned for| Evolve["self-evolve / SKILL.md"]
-  EH -->|Detects error loops triggering| ZoomOut["zoom-out / SKILL.md"]
+  UserBench[User asks to run benchmark] --> EvalSkill[eval-harness SKILL]
+  LogInput[Execution log or conversation history provided] --> EvalSkill
+  EvalSkill --> RubricStep[Apply references scoring-rubric.md]
+  RubricStep --> ScriptStep[Run scripts evaluate.js]
+  ScriptStep --> OutputLoc[Write to workspace evals or github fallback dir]
 ```
 
----
+## 3. Real-World Use Case
 
-## 3. Real-World Use Case Flowchart
+A reviewer wants to compare two runs of a file-migration task.
 
-Here we model concrete real-world scenarios and use cases of the `eval-harness` skill, illustrating standard success paths, error handling, or recovery loops.
+1. Collect the execution log with tool calls, errors, tokens, and timing.
+2. Score correctness, efficiency, anti-loop focus, and environment awareness 0–10 using `eval-harness/references/scoring-rubric.md`.
+3. Run `node <skill-dir>/scripts/evaluate.js <A> <B> <C> <D> "insights"`.
+4. On script failure or absence, write `<workspace>/evals/scorecard.md`, or `<workspace>/.github/harness-everything/evals/` if needed.
+5. Leave the evaluated code unchanged; output is only the scorecard and insights.
 
 ```mermaid
 graph TD
-  Start["Agent session finishes implementing a complete backend server"] --> Trigger["eval-harness skill executed"]
-  Trigger --> Gather["Collects: 15 minutes elapsed, 32 tool calls, 45,000 tokens consumed"]
-  Gather --> Score["Scores: Correctness 10/10, Resource Efficiency 9/10, Anti-loop 10/10"]
-  Score --> Output["Generates benchmark report summarizing optimal execution speed and zero looping errors"]
-  Output --> Done([Benchmark logged for project history])
+  ReviewAsk[Reviewer asks to score migration run] --> GatherLog[Gather execution log]
+  GatherLog --> ApplyRubric[Score four dimensions with rubric]
+  ApplyRubric --> TryScript[Try evaluate.js]
+  TryScript --> ScriptOk{Script ok?}
+  ScriptOk -->|yes| DoneScore([Scorecard emitted])
+  ScriptOk -->|no| WriteMd[Write scorecard.md fallback]
+  WriteMd --> DoneScore
 ```
-
----
 
 ## 4. Verification Check
 
-To ensure that the `eval-harness` skill is operating in strict compliance with Harness OS design laws, verify the following:
-
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+- [ ] Input included both a benchmark request and an execution log or conversation history; tasks without a log were declined
+- [ ] All four dimensions were scored 0–10 using `eval-harness/references/scoring-rubric.md`: correctness, efficiency, anti-loop focus, environment awareness
+- [ ] `eval-harness/scripts/evaluate.js` was run with four scores plus insights; markdown fallback was used only if the script failed or was missing
+- [ ] Scorecard was written under `<workspace>/evals/` or `<workspace>/.github/harness-everything/evals/`
+- [ ] No evaluated code was written or fixed, and no general review was substituted for dimension scoring

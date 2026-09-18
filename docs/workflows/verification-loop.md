@@ -1,71 +1,66 @@
 # Workflow: Verification Loop
 
-> Comprehensive pre-PR quality gate executing builds, linting, type-checking, test suites, and security scans before claiming a task complete.
+> Run the objective gates — build, types, lint, tests, security, diff — and only claim done when the evidence-backed report passes.
 
----
+Source of truth: `verification-loop/SKILL.md`.
+
+Contract summary from SKILL.md — Trigger: completed implementation or change awaiting delivery. Output: evidence-backed verification report and delivery decision. USE FOR: verify a feature or change before delivery, run quality gates before a PR. DO NOT USE FOR: fixing failures without re-running the loop, writing new features or tests (use `tdd`).
 
 ## 1. Skill Behavior Workflow
 
-This section visualizes how the `verification-loop` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
-
 ```mermaid
 graph TD
-  Start([Pre-PR Quality Check Triggered]) --> RunBuild["1. Phase 1: Build Verification"]
-  RunBuild --> RunTypeCheck["2. Phase 2: Type Check (tsc / pyright)"]
-  RunTypeCheck --> RunLint["3. Phase 3: Lint Check"]
-  RunLint --> RunTests["4. Phase 4: Test Suite Execution"]
-  RunTests --> RunSecurity["5. Phase 5: Security & Secret Scan"]
-  RunSecurity --> DiffReview["6. Phase 6: Diff Review"]
-  
-  DiffReview --> CheckScript{7. Is verify-gate.js / Template Available?}
-  CheckScript -->|Yes| ScriptReport["Run harness-everything/scripts/verify-gate.js & Fill Template"]
-  CheckScript -->|No| DirectReport["Output Verification Report Inline"]
-  
-  ScriptReport --> CheckGate{All Verification Gates Passed?}
-  DirectReport --> CheckGate
-  
-  CheckGate -->|No| FixIssues["Fix Issues in Code & Re-verify"] --> RunBuild
-  CheckGate -->|Yes| End([Pre-PR Verification Gate Cleared])
+  Start[Completed Change Awaiting Delivery] --> Build[Gate1 Build npm run build]
+  Build --> Types[Gate2 Types tsc noEmit or pyright]
+  Types --> Lint[Gate3 Lint npm run lint or ruff]
+  Lint --> Tests[Gate4 Tests npm run test coverage]
+  Tests --> Security[Gate5 Security Secrets StrayLogs]
+  Security --> Diff[Gate6 Diff git diff stat]
+  Diff --> Report[Fill verification-report template]
+  Report --> Decision{All Gates Pass?}
+  Decision -->|yes| Deliver([Delivery Decision Ready])
+  Decision -->|no| Fix[Fix Cause Rerun From First Affected Gate]
+  Fix --> Build
 ```
-
----
 
 ## 2. Triggering and Routing Path
 
-This diagram illustrates how the `verification-loop` skill is triggered through user requests or developer actions, and how it integrates or chains together with other companion skills in the Harness OS ecosystem to form unified workflows.
-
 ```mermaid
-graph LR
-  Router["harness-everything / tier-router.js"] -->|Pre-PR checks / gate| VerLoop["verification-loop / SKILL.md"]
-  VerLoop -->|Guards finalize step in| Todo["todo-driven-workflow / SKILL.md"]
-  VerLoop -->|Requires test environment setup from| Env["environment-detection / SKILL.md"]
-  VerLoop -->|Precedes safe commit push in| GitCommit["git-commit / SKILL.md"]
+graph TD
+  VerifyReq[Run Full Verification Loop Request] --> Skill[verification-loop SKILL]
+  DeliveryReq[Verify Before Delivery Request] --> Skill
+  PRReq[Quality Gates Before PR] --> Skill
+  DesignOnly[Design Discussion No Completed Work] --> Decline[Do Not Route]
+  PlanOnly[Planning Without Code Changes] --> Decline
+  NewWork[Write New Features Tests] --> TDD[tdd SKILL]
+  Skill --> Gates[Build Type Lint Test Security Diff]
 ```
 
----
-
-## 3. Real-World Use Case Flowchart
-
-Here we model concrete real-world scenarios and use cases of the `verification-loop` skill, illustrating standard success paths, error handling, or recovery loops.
+## 3. Real-World Use Case
 
 ```mermaid
 graph TD
-  Start["Feature code written; ready to claim task complete"] --> Trigger["verification-loop skill runs"]
-  Trigger --> Build["Run 'npm run build' -> Succeeded"]
-  Build --> Type["Run 'npm run typecheck' -> Found 2 type mismatches in routes.ts"]
-  Type --> FixT["Fix incorrect type casting in routes.ts"]
-  FixT --> Recheck["Re-run typecheck -> Succeeded"]
-  Recheck --> Lint["Run 'npm run lint' -> Clean"]
-  Lint --> Tests["Run 'npm run test' -> 24 tests passed"]
-  Tests --> Done([Verification loop complete; safe to open PR])
+  Done[Feature Implemented Awaiting PR] --> B[Run npm run build]
+  B -->|pass| T[Run npx tsc noEmit]
+  T -->|fail| FixT[Fix Type Errors]
+  FixT --> B
+  T -->|pass| L[Run npm run lint]
+  L -->|pass| TS[Run npm run test coverage]
+  TS -->|pass| Sec[Check Secrets And Stray Logs]
+  Sec --> D[Check git diff stat For Unintended Changes]
+  D --> R[Fill templates verification-report template md]
+  R --> PR[Report Evidence And Delivery Decision]
 ```
 
----
+Template: `verification-loop/templates/verification-report.template.md`. Deep dive: `verification-loop/references/verification-phases.md`.
 
 ## 4. Verification Check
 
-To ensure that the `verification-loop` skill is operating in strict compliance with Harness OS design laws, verify the following:
-
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+- [ ] No completion was claimed until every applicable gate passed
+- [ ] Build gate ran (`npm run build`) with evidence recorded
+- [ ] Type gate ran (`npx tsc --noEmit` or `pyright .`) with evidence recorded
+- [ ] Lint gate ran (`npm run lint` or `ruff check .`) with evidence recorded
+- [ ] Test and coverage gate ran (`npm run test -- --coverage`) with evidence recorded
+- [ ] Security gate checked secrets and stray logs with evidence recorded
+- [ ] Diff gate checked `git diff --stat` and unintended changes with evidence recorded
+- [ ] `templates/verification-report.template.md` was filled with evidence, and any failure was fixed then rerun from the first affected gate rather than patched without a rerun

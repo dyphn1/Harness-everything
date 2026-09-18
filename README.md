@@ -82,6 +82,7 @@ The general installer only writes to your workspace (or, with `--global`, your h
 | `AGENTS.md` + `.agents/skills/` | Codex advisory instructions plus repo-scoped Agent Skills; Hermes can also consume trusted project skills from `.agents/skills/` |
 | `.continue/rules/harness.md` + `.continue/skills/` | Continue.dev advisory rule and installer candidate skill path; standalone skill discovery is `Unknown` |
 | `.hermes.md` | Hermes Agent project advisory context |
+| `.opencode/plugins/harness-enforcement.js` (manual copy, not installer-owned) | OpenCode enforcement plugin — the general installer has no `--opencode` path; copy `opencode-plugin/index.mjs` under a `.js` name per [opencode-plugin/README.md](opencode-plugin/README.md) |
 | `.claude/harness-everything/` (or the per-platform equivalent) | Harness installer/runtime bookkeeping owned by that integration |
 
 For `--global`, the installer uses each host's supported user-level skill location rather than assuming one shared directory works everywhere: shared Agent Skills remain under `~/.agents/skills/` where natively consumed, Continue uses `~/.continue/skills/`, Hermes uses `~/.hermes/skills/`, and Claude uses `~/.claude/skills/`.
@@ -212,11 +213,14 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `plugins/harness-everything` | **Distribution** | Local OpenAI/Codex plugin package plus canonical skill copies |
 | `submission/openai` | **Distribution / Review** | Public OpenAI Skills-only listing/test inputs |
 | `evals` | **Routing Evals** | 26 trigger/routing eval suites (waza format) |
+| `eval-framework` | **Quality Gates** | Negative-control fixtures for consistency/collision gates (not a skill) |
+| `contract-integrity` | **Quality Gates** | ADR→spec→ticket→test→implementation trace audit (Phase 1; not a directly routed skill) |
+| `telemetry` | **Quality Gates** | Local JSONL operational evidence layer with report/benchmark scripts (not a skill) |
 | `behavioral-evals` | **Behavioral Evals** | LLM-level discipline cases plus weekly structural validation workflow |
 | `benchmarks` | **Benchmarks** | BENCHMARK_SOP fixtures and recorded A/B results |
 | `docs` | **Documentation** | Philosophy, architecture, routing, reflection, platform capabilities, generated repository contract, audit |
 | `references` | **Documentation** | Shared checklists (security, performance, definition-of-done) |
-| `multi-agent-workspace` | **Skill (Tier 3)** | Scaffold six zones, select agency specialists, and generate bounded launchers |
+| `multi-agent-workspace` | **Skill (Tier 3)** | Scaffold a verified multi-agent workspace and select bounded specialists from an external catalog without vendoring the full roster |
 | `environment-detection` | **Foundation** | Preflight: detect OS, shell, package manager |
 | `eval-harness` | **Skill (Tier 2)** | Evaluate agent outputs against rubrics |
 | `fable-discipline` | **Skill (Tier 3)** | Fable execution guardrails when Fable is selected |
@@ -260,7 +264,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 
 Fable model selection is documented in [fable-mode/references/model-matrix.md](fable-mode/references/model-matrix.md); the explicit entrypoints are `fable-haiku`, `fable-sonnet`, and `fable-opus`.
 
-Maintainers should follow [RELEASING.md](RELEASING.md) for tag-driven npm releases and record observations in [docs/release-evidence.md](docs/release-evidence.md). The issue #20 coordination decisions and evidence boundaries are captured in [docs/issue-20-rollup.md](docs/issue-20-rollup.md).
+Maintainers should follow [RELEASING.md](RELEASING.md) for tag-driven npm releases and record observations in [docs/release-evidence.md](docs/release-evidence.md). Issue #20 is closed (2026-09-10); its coordination history lives in git.
 
 ---
 
@@ -294,7 +298,7 @@ Mechanism tests prove individual packaged mechanisms; only real host/session evi
 
 Harness audits itself on a dated cycle by running its own test suite and VERIFICATION.md recipes — never by reading the code and assuming it works. The full scorecards, methodology, and per-cycle change log live in [docs/audit.md](docs/audit.md). Audit scorecards are historical snapshots; current platform capability claims live in [docs/platform-capabilities.md](docs/platform-capabilities.md).
 
-**Latest local audit baseline — 2026-09-01**: 26/26 on-disk skills, 26/26 routing-eval directories, and the local npm gates were green for that audit snapshot. Waza remained a CI-only gate in that checkout because its installer was not available as an npm package; run it on an LF-normalized export as documented by CI.
+**Latest local audit baseline — 2026-09-18** (macOS, Node.js 24; see [docs/audit.md](docs/audit.md)): 26/26 on-disk skills, 26/26 routing-eval directories, 34/34 positive routes, 275/275 invariant checks, and all 26 canonical skills within the 500-token limit. Deterministic gates were green except the pre-existing `mechanism-30` failure caused by leftover `.worktrees` fixtures (reproduced on the clean tree). Waza full-matrix spec verify and live model sessions remain on-demand evidence; run waza on an LF-normalized export as documented by CI.
 
 Measure on an LF export, not a Windows working tree — CRLF can inflate waza's token counts and trigger false budget failures.
 

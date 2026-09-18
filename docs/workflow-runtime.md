@@ -63,6 +63,19 @@ have effects a hook cannot infer. OS/host sandboxing is needed to contain them.
 Agent-writable state is also not tamper-proof. These mechanisms prevent tested
 bypasses; they do not establish durable containment against a malicious agent.
 
+## Mutation probes
+
+Shell-effect accounting is keyed per tool call, not per command text. The gate
+registers a pending probe per shell tool-use identity (`workflow-isolation.js`),
+`state-persist.js` settles probes in a single ordered handler, and
+`workflow-mutation-denied.js` discards the probe when that shell execution is
+denied — a denial is never recorded as an observed mutation. Staging-insensitive
+fingerprinting keeps the comparison on visible content, so metadata-only Git
+operations do not register as workspace effects. These lifecycle semantics are
+covered by deterministic workflow mechanism tests (`ci/mechanism-2ah-*`); live
+host loading and behavioral improvement still require separately retained host
+traces and paired evaluations.
+
 ## Escape, replan, and completion
 
 Escape names one stage in the correlated run and records the uncovered scope,

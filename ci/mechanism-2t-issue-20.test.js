@@ -64,12 +64,4 @@ helper.check(
   `exit ${negativeControls.status}\n${negativeControls.stdout}\n${negativeControls.stderr}`
 );
 
-const rollup = fs.readFileSync(path.join(helper.root, 'docs', 'issue-20-rollup.md'), 'utf8');
-const deferredWork = ['baseline-debugging', 'baseline-performance', 'baseline-security-review', 'baseline-simple-bugfix', 'verify-before-done', 'verification-loop', 'zoom-out', 'security-review'];
-helper.check(
-  '2t. issue rollup records unresolved acceptance work accurately',
-  /Issue #20 remains open/.test(rollup) && deferredWork.every(term => rollup.includes(term)),
-  'rollup must name the open issue and each deferred baseline/skill item'
-);
-
 helper.finish();

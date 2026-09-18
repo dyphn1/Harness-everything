@@ -1,67 +1,63 @@
 # Workflow: Using Git Worktrees
 
-> Manages isolated workspace environments in parallel using native Git Worktrees, enabling developers to switch contexts safely without stashing or losing unsaved progress.
+> Start isolated when feature work needs it: prefer native worktree entry before implementation plans, with raw git worktree as fallback.
 
----
+Source of truth: `using-git-worktrees/SKILL.md`.
+
+Contract summary from SKILL.md — USE FOR: Tier 3 / Fable-class mutable engineering, feature work needing isolation, pre-implementation-plan setup. DO NOT USE FOR: nesting inside an existing worktree, read-only analysis with no mutation, branch/merge workflows unrelated to workspace isolation.
 
 ## 1. Skill Behavior Workflow
 
-This section visualizes how the `using-git-worktrees` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
-
 ```mermaid
 graph TD
-  Start([Trigger: Need Workspace Isolation]) --> CheckIso{1. Already in Worktree? GIT_DIR != GIT_COMMON}
-  CheckIso -->|Yes| Setup["3. Project Setup & Dependency Install"]
-  CheckIso -->|No| CheckNative{2. Native Worktree Tool Available?}
-  
-  CheckNative -->|Yes| RunNative["Use Native Worktree Tool"] --> Setup
-  CheckNative -->|No| RunGit["Try git worktree add .worktrees/branch"]
-  
-  RunGit -->|Success| Setup
-  RunGit -->|Fails / Sandbox Denied| WorkInPlace["Fallback: Work in Place in Current Directory"] --> Setup
-  
-  Setup --> RunBaseline["4. Verify Clean Test Baseline"]
-  RunBaseline --> End([Isolated Workspace Ready])
+  Detect[Step0 Detect Isolation] --> Isolated{Already Isolated?}
+  Isolated -->|git-dir differs from git-common-dir, no superproject| Setup[Step2 Setup Dependencies]
+  Isolated -->|same dirs or needs isolation| NestGuard{Nesting Check}
+  NestGuard -->|inside existing worktree| BlockedA[BLOCKED Never Nest]
+  NestGuard -->|top-level repo| Create[Step1 Create Enter Worktree]
+  Create -->|native EnterWorktree or worktree flag| Setup
+  Create -->|fallback git worktree add| Setup
+  Create -->|creation-entry failure| BlockedB[BLOCKED Major Mode]
+  Setup --> Baseline[Step3 Baseline Tests and Build]
+  Baseline --> Ready([Isolated Workspace Ready])
 ```
-
----
 
 ## 2. Triggering and Routing Path
 
-This diagram illustrates how the `using-git-worktrees` skill is triggered through user requests or developer actions, and how it integrates or chains together with other companion skills in the Harness OS ecosystem to form unified workflows.
-
 ```mermaid
-graph LR
-  Router["harness-everything / tier-router.js"] -->|Keyword: worktree / isolate / checkout| WT["using-git-worktrees / SKILL.md"]
-  WT -->|Maintains isolation before running tests in| TDDSkill["tdd / SKILL.md"]
-  WT -->|Protects terminal environment testing in| EnvSkill["environment-detection / SKILL.md"]
+graph TD
+  Tier3[Tier3 Fable Mutable Engineering] --> Skill[using-git-worktrees SKILL]
+  Feature[Feature Work Needing Isolation] --> Skill
+  PrePlan[Pre-Implementation Plan Setup] --> Skill
+  Skill --> SkillDetect[Detect Adapted Per environment-detection]
+  ReadOnly[Read-Only Analysis No Mutation] --> Decline[Do Not Route]
+  Nested[Nesting Inside Existing Worktree] --> Decline
+  BranchOnly[Branch Merge Unrelated To Isolation] --> Decline
+  SkillDetect --> IsolatedPath[Reuse Or Create Linked Worktree]
 ```
 
----
-
-## 3. Real-World Use Case Flowchart
-
-Here we model concrete real-world scenarios and use cases of the `using-git-worktrees` skill, illustrating standard success paths, error handling, or recovery loops.
+## 3. Real-World Use Case
 
 ```mermaid
 graph TD
-  Start["Working on deep feature 'feat-billing' (unstaged edits)"] --> Interrupt["Urgent production hotfix required!"]
-  Interrupt --> Trigger["using-git-worktrees skill invoked"]
-  Trigger --> CreateWT["Add worktree: 'git worktree add ../hotfix-auth hotfix-branch'"]
-  CreateWT --> OpenWT["Open separate workspace editor in ../hotfix-auth"]
-  OpenWT --> FixBug["Fix auth bug & run verification test"]
-  FixBug --> CommitWT["Commit fix and push branch"]
-  CommitWT --> CloseWT["Close editor, run 'git worktree prune'"]
-  CloseWT --> Resume["Return to original billing workspace with all unsaved files exactly where they were"]
-  Resume --> Done([Context switched safely with zero stashing friction])
+  Request[Feature Branch Requested With Clean Isolation] --> Detect2[Run git rev-parse git-dir common-dir branch superproject]
+  Detect2 -->|not isolated| Enter[Enter Native Worktree Else git worktree add]
+  Enter --> Setup2[Install Dependencies As Needed]
+  Setup2 --> Base2[Run Relevant Tests and Build Before Mutation]
+  Base2 -->|pre-existing failures| Surface[Surface Failures Before Implementation]
+  Base2 -->|clean| Implement[Proceed With Implementation]
+  Surface --> Implement
 ```
 
----
+Ordinary-mode note: only ordinary isolation-needing work may honor an explicit user preference to stay in place after a decline or unsupported environment. Major mode never falls back to the primary tree.
+
+Deep dive: `using-git-worktrees/references/workflow-details.md`.
 
 ## 4. Verification Check
 
-To ensure that the `using-git-worktrees` skill is operating in strict compliance with Harness OS design laws, verify the following:
-
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+- [ ] Tier 3 / Fable-class source or artifact mutation occurs only in a verified isolated worktree; otherwise state is `BLOCKED`
+- [ ] No worktree is nested inside an already isolated worktree
+- [ ] Isolation detection used `git rev-parse --git-dir`, `git rev-parse --git-common-dir`, `git branch --show-current`, and `git rev-parse --show-superproject-working-tree`; a submodule counted as a normal repo
+- [ ] Entry preferred native `EnterWorktree`, `/worktree`, or `--worktree` before `git worktree add "$path" -b "$BRANCH_NAME"`; major mode chose an already-ignored or external/sibling path
+- [ ] Creation or entry failure yields `BLOCKED` in major mode; in-place continuation happened only in ordinary mode after explicit decline or unsupported environment
+- [ ] Dependencies were installed as needed, then relevant tests/build ran in the isolated tree with pre-existing failures surfaced before mutation

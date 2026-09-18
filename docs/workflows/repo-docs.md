@@ -1,64 +1,53 @@
 # Workflow: Repo Docs
 
-> Generates high-quality, professional README.md and AGENTS.md files based on actual workspace structures and product-archetype templates.
+> Creates or refreshes reader-focused README.md and AGENTS.md from real repository scans, carefully blending discovered facts with existing custom notes for projects missing docs or needing better agent onboarding.
 
----
+Source of truth: `repo-docs/SKILL.md`.
 
 ## 1. Skill Behavior Workflow
 
-This section visualizes how the `repo-docs` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
-
 ```mermaid
 graph TD
-  Start([Generate / Update Repository Docs]) --> AuditProjectStructure["Audit workspace directory tree & build configs"]
-  AuditProjectStructure --> CheckExisting{Existing README / AGENTS File Found?}
-  
-  CheckExisting -->|Yes| ReadOld["Read Existing File & Extract Bespoke Notes (env vars, URLs, gotchas)"]
-  CheckExisting -->|No| ClassifyProductArchetype["Classify repository archetype"]
-  
-  ReadOld --> ClassifyProductArchetype
-  ClassifyProductArchetype --> LoadTemplates["Load standard README and AGENTS templates"]
-  LoadTemplates --> SmartMerge["Smartly Merge Codebase Facts + Bespoke Notes + Template Structure"]
-  SmartMerge --> FormatMarkdown["Format documents following clean layout rules"]
-  FormatMarkdown --> WriteFiles["Save / Merge README.md and AGENTS.md at Root or .github/"]
-  WriteFiles --> End([Professional onboarding documentation created without losing history])
+  MissingDocs["Input: missing docs or request to update README.md and AGENTS.md"] --> ScanConfigs["Scan configs such as package.json and Cargo.toml as Source of Truth; never fabricate"]
+  ScanConfigs --> ReadExisting["Read existing docs fully first; extract bespoke notes: env vars, URLs, gotchas"]
+  ReadExisting --> PickTemplate["Pick template from repo-docs/templates/ else built-in structure"]
+  PickTemplate --> DraftDocs["Draft README as user journey; AGENTS.md as conventions and build/test commands"]
+  DraftDocs --> VerifyCmds["Verify commands run; mark doubts with TODO Pending confirmation; ask via grill-me"]
+  VerifyCmds --> WriteRoot["Write to root; if protected use .github/AGENTS.md or docs/README.md"]
 ```
-
----
 
 ## 2. Triggering and Routing Path
 
-This diagram illustrates how the `repo-docs` skill is triggered through user requests or developer actions, and how it integrates or chains together with other companion skills in the Harness OS ecosystem to form unified workflows.
-
 ```mermaid
 graph LR
-  Router["harness-everything / tier-router.js"] -->|Keyword: doc / readme / agents-template| RepoDocs["repo-docs / SKILL.md"]
-  RepoDocs -->|Integrates frontmatter constraints into| BMAS["multi-agent-workspace / SKILL.md"]
-  RepoDocs -->|Leverages ADR details generated in| GWD["grill-with-docs / SKILL.md"]
+  UndocProject["Trigger: undocumented project needs README"] --> RepoDocs["repo-docs / SKILL.md"]
+  StructuralChange["Trigger: structural change needs AGENTS.md refresh"] --> RepoDocs
+  RepoDocs --> GrillMe["grill-me: clarify doubts marked TODO Pending confirmation"]
+  RepoDocs --> WriteOut["Write README.md and AGENTS.md to root or fallback locations"]
 ```
 
----
-
-## 3. Real-World Use Case Flowchart
-
-Here we model concrete real-world scenarios and use cases of the `repo-docs` skill, illustrating standard success paths, error handling, or recovery loops.
+## 3. Real-World Use Case
 
 ```mermaid
 graph TD
-  Start["New library lacks onboarding docs and setup details"] --> Trigger["repo-docs skill invoked"]
-  Trigger --> Scan["Scans folders: discovers it's a TypeScript utility package"]
-  Scan --> MatchTemplate["Loads library archetype README template"]
-  MatchTemplate --> GenDocs["Outputs README.md with TypeScript usage examples, badges, and structure"]
-  GenDocs --> GenOnboarding["Outputs AGENTS.md defining the developer agent rules for the repo"]
-  GenOnboarding --> Done([Clean, standardized documentation committed])
+  BareRepo["New TypeScript utility package with no onboarding docs"] --> ScanProj["Scan package.json and directory tree"]
+  ScanProj --> PreserveNotes["Read existing stub docs; preserve custom env vars and gotchas"]
+  PreserveNotes --> SelectTemplate["Select library README template from repo-docs/templates/"]
+  SelectTemplate --> MergeDraft["Merge scan facts plus bespoke notes into README journey and AGENTS conventions"]
+  MergeDraft --> VerifyStep["Verify build and test commands; mark unconfirmed items TODO Pending confirmation"]
+  VerifyStep --> PublishDocs["Write README.md and AGENTS.md to root or fallback"]
 ```
 
----
+Concrete example: an undocumented utility repo is scanned for its real entry points and scripts, its bespoke environment notes are preserved, a template from `repo-docs/templates/` shapes the draft, commands are verified, and the merged README and AGENTS files are written without blind overwrites.
+
+Deep detail: `repo-docs/references/process-guide.md`.
 
 ## 4. Verification Check
 
-To ensure that the `repo-docs` skill is operating in strict compliance with Harness OS design laws, verify the following:
-
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+- [ ] Configs scanned as Source of Truth; no facts fabricated without repo evidence
+- [ ] Existing docs read fully first; bespoke notes preserved and never overwritten blindly
+- [ ] Template picked from `repo-docs/templates/` or built-in structure applied
+- [ ] `README.md` covers the user journey; `AGENTS.md` covers conventions and build/test commands
+- [ ] Commands verified to run; unresolved doubts marked `// TODO: Pending confirmation` and clarified with `grill-me`
+- [ ] Written to root, or to `<workspace>/.github/AGENTS.md` and `<workspace>/docs/README.md` when root is protected
+- [ ] Not used for marketing copy, fabrication without scanning, or non-repository wikis

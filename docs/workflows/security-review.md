@@ -1,77 +1,58 @@
 # Workflow: Security Review
 
-> Automated security scanning, threat modeling, and input-validation reviews to identify potential security holes and enforce robust safety guardrails.
+> Runs STRIDE threat modeling, scans secrets with the audit script, and hardens code against OWASP Top 10 risks using three-tier boundary controls — for auth, inputs, uploads, secrets, and pre-deploy audits.
+
+Source of truth: `security-review/SKILL.md`.
 
 ---
 
 ## 1. Skill Behavior Workflow
 
-This section visualizes how the `security-review` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
+```mermaid
+graph TD
+  ThreatModel["Threat-model with STRIDE per guides/STRIDE-THREAT-MODEL.md; misuse-case every endpoint and input"] --> SecretScan["Scan secrets and injection risks with audit script"]
+  SecretScan --> FixHarden["Fix findings per boundary system"]
+  FixHarden --> AuditReport["Write audit report to docs or platform dir"]
+  AuditReport --> DoneSecure["Codebase hardened; report recorded"]
+```
 
 ```mermaid
 graph TD
-  Start([Code Refactoring / Feature Done / Security Audit]) --> STRIDE["1. STRIDE Threat Modeling & Abuse Case Design"]
-  STRIDE --> CheckScript{2. Is audit-secrets.js Executable?}
-  
-  CheckScript -->|Yes| RunAudit["Run node security-review/scripts/audit-secrets.js"]
-  CheckScript -->|No / Fails| GrepFallback["Scan Workspace Secrets & Inputs via grep_search"]
-  
-  RunAudit --> CheckVun{3. Detect Vulnerabilities or Leaks?}
-  GrepFallback --> CheckVun
-  
-  CheckVun -->|Hardcoded Secrets| FixSecrets["Always Do: Refactor to process.env & .env.local"]
-  CheckVun -->|SQL Concatenation| FixSQL["Always Do: Refactor to Parameterized Queries / ORM"]
-  CheckVun -->|Unvalidated Input| FixInput["Always Do: Add Zod Schema Validation"]
-  CheckVun -->|High-Risk Auth Shift| AskUser["Ask First: Require User Approval for Auth Shift"]
-  
-  FixSecrets --> CompileSecurityReport["4. Compile Security Audit Report"]
-  FixSQL --> CompileSecurityReport
-  FixInput --> CompileSecurityReport
-  AskUser -->|Approved| CompileSecurityReport
-  CheckVun -->|Clean| CompileSecurityReport
-  
-  CompileSecurityReport --> ResolveReportPath{5. Resolve Audit Report Path}
-  ResolveReportPath -->|docs/ Exists| WriteDocs["Save to docs/security-audit.md"]
-  ResolveReportPath -->|Protected / No Folder| WritePlatform["Save to .github/harness-everything/security-audit.md"]
-  
-  WriteDocs --> End([Codebase hardened and verified secure])
-  WritePlatform --> End
+  ScanCmd["Run node security-review/scripts/audit-secrets.js"] --> ScanGate["Gate: secret scan via script or grep before concluding"]
+  ScanGate --> AlwaysDo["Always Do: parameterize SQL, Zod-validate inputs, httpOnly cookies, secrets to process.env"]
+  AlwaysDo --> NeverDo["Never Do: no hardcoded secrets, no password logging, no eval or unescaped innerHTML"]
+  NeverDo --> ReportPath["Report to docs/security-audit.md or .github/harness-everything/security-audit.md"]
 ```
-
----
 
 ## 2. Triggering and Routing Path
 
-This diagram illustrates how the `security-review` skill is triggered through user requests or developer actions, and how it integrates or chains together with other companion skills in the Harness OS ecosystem to form unified workflows.
+```mermaid
+graph LR
+  AuthReq["AuthN or authZ implementation"] --> SecSkill["security-review / SKILL.md"]
+  InputReq["User input, uploads, new API endpoints"] --> SecSkill
+  SecretReq["Secrets, credentials, payment features"] --> SecSkill
+  AuditReq["Security audit before production deploy"] --> SecSkill
+```
 
 ```mermaid
 graph LR
-  Router["harness-everything / tier-router.js"] -->|Pre-flight / Quality PR reviews| SecReview["security-review / SKILL.md"]
-  SecReview -->|Informs security tests written in| TDD["tdd / SKILL.md"]
-  SecReview -->|Integrated as mandatory PR gate in| VerLoop["verification-loop / SKILL.md"]
+  SecSkill2["security-review / SKILL.md"] -->|Produces| ThreatOut["Threat model + scan + hardened code + audit report"]
+  PerfReq["Performance profiling"] -->|Out of scope| NotSec["Not security-review"]
+  A11yReq["Accessibility or UI styling fixes"] -->|Out of scope| NotSec
+  PlainReview["Code review without security scope"] -->|Out of scope| NotSec
 ```
 
----
+## 3. Real-World Use Case
 
-## 3. Real-World Use Case Flowchart
-
-Here we model concrete real-world scenarios and use cases of the `security-review` skill, illustrating standard success paths, error handling, or recovery loops.
-
-```mermaid
-graph TD
-  Start["New search feature: executes system shell query using raw user input string"] --> Trigger["security-review skill runs"]
-  Trigger --> Scan["Flags potential command injection vulnerability in search.js"]
-  Scan --> Propose["Propose input sanitization and switching to child_process.execFile with argument array"]
-  Propose --> Implement["Refactor code to use safe argument arrays instead of raw string shell execution"]
-  Implement --> Done([Critical remote code execution vulnerability resolved])
-```
-
----
+A new profile endpoint accepts a username and avatar upload before a production deploy. The skill threat-models it with STRIDE, misuse-cases the input and upload path, runs `node "security-review/scripts/audit-secrets.js"`, finds an unvalidated input and a hardcoded secret, fixes them per the boundary system (Zod validation, secret moved to `process.env`, parameterized query), and writes the report to `<workspace>/docs/security-audit.md`, falling back to `<workspace>/.github/harness-everything/security-audit.md` when `docs/` is protected or absent.
 
 ## 4. Verification Check
 
-To ensure that the `security-review` skill is operating in strict compliance with Harness OS design laws, verify the following:
-
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+- [ ] STRIDE threat model completed per `security-review/guides/STRIDE-THREAT-MODEL.md`, with misuse-case for every endpoint and input
+- [ ] Secret and injection scan run via `security-review/scripts/audit-secrets.js`, or grep, before concluding
+- [ ] OWASP patterns checked per `security-review/guides/OWASP-PATTERNS.md` and `security-review/references/security-checklist.md`
+- [ ] Always Do applied: parameterized SQL, Zod-validated inputs, httpOnly cookies, secrets in `process.env`
+- [ ] Ask First respected: CORS changes, auth and login flows, file uploads, rate limits
+- [ ] Never Do respected: no committed hardcoded secrets, no logged passwords or tokens, no `eval()` or unescaped `innerHTML`
+- [ ] Audit report written to `<workspace>/docs/security-audit.md`, or `<workspace>/.github/harness-everything/security-audit.md` when docs is protected or absent
+- [ ] Scope kept to auth, inputs, uploads, endpoints, secrets, and audits — not general review, performance, or UI styling
