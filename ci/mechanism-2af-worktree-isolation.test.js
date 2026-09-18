@@ -123,6 +123,14 @@ try {
     'gh repo view octocat/hello-world --json name',
     'gh auth status',
     'cat README.md | grep fixture',
+    'grep -n "fixture\\|missing" README.md | head -20',
+    "grep -n 'fixture|missing' README.md | head -20",
+    'echo "fixture|missing" | grep fixture',
+    'git log --grep="fix|feat" | head -5',
+    "grep 'fixture;missing' README.md | head -1",
+    'grep fixture\\|missing README.md | head -1',
+    'echo "2>&1"',
+    'echo "safe; rm -rf src"',
   ]) {
     check(runGate('Bash', repo, { command }).status === 0, `trusted read-only chain remains allowed: ${command}`);
   }
@@ -136,6 +144,10 @@ try {
     'git worktree add "harness-chain-probe" -b harness-chain-probe; rm -rf src',
     'gh issue comment 1 --body hi',
     'gh issue close 1',
+    'git status --short || rm -rf src',
+    'grep "unterminated README.md | head -1',
+    "grep 'unterminated README.md | head -1",
+    'echo safe | rm -rf src',
   ]) {
     check(runGate('Bash', repo, { command }).status === 2, `chained/redirected command is not read-only: ${command}`);
   }
