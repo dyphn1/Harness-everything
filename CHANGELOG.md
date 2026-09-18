@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.11.6](https://github.com/dyphn1/Harness-everything/compare/v0.11.5...v0.11.6) (2026-09-18)
+
+### Bug Fixes
+
+* **workflow:** avoid workflow rewrite after probe registration ([b9f2e06](https://github.com/dyphn1/Harness-everything/commit/b9f2e065114d70e927b6f75e7c0f7899d9e8392f))
+* **workflow:** correlate mutation probes by tool-use identity ([86cd1a1](https://github.com/dyphn1/Harness-everything/commit/86cd1a1c6eaef6518936160b0c35f94a3e652cae))
+* **workflow:** defer shell mutation accounting to observer ([c543fd0](https://github.com/dyphn1/Harness-everything/commit/c543fd0c41e18f05c21235ce4ffcf28864200940))
+* **workflow:** discard denied shell mutation probes ([7a8757c](https://github.com/dyphn1/Harness-everything/commit/7a8757cab821e524ccdd17e416e013bfbadc4f39))
+* **workflow:** fingerprint observed workspace effects ([9d8e316](https://github.com/dyphn1/Harness-everything/commit/9d8e316eb97ec7bbcd0e46ceb51491af90e57e9f))
+* **workflow:** fingerprint visible content independent of staging ([a1f370e](https://github.com/dyphn1/Harness-everything/commit/a1f370e64a97b04bee4d8df23e3ffdc7552377b8))
+* **workflow:** isolate mutation probes per tool call ([70d6052](https://github.com/dyphn1/Harness-everything/commit/70d6052ef02fce1125da9a20a14a4ad65d09ba93))
+* **workflow:** make mutation observation single-handler ordered ([ea166e1](https://github.com/dyphn1/Harness-everything/commit/ea166e1a94cdd1725cd7242feb5b0716a4dce8b8))
+* **workflow:** normalize deleted paths in fingerprint ([e5019da](https://github.com/dyphn1/Harness-everything/commit/e5019daee870e806d77d92c741a9624cd6c9bfe0))
+* **workflow:** observe shell effects before state persistence ([5271655](https://github.com/dyphn1/Harness-everything/commit/5271655627344eb71ffeb8dd36b007709862b9d0))
+* **workflow:** observe shell workspace mutations ([c547b39](https://github.com/dyphn1/Harness-everything/commit/c547b396bf2e3829b83ed03abeca594b7391f542))
+* **workflow:** remove parallel standalone mutation observer ([20027f6](https://github.com/dyphn1/Harness-everything/commit/20027f68f5b63719ea7a96a524f49c7103586644))
+* **workflow:** reserve shell mutation probes ([e7273f6](https://github.com/dyphn1/Harness-everything/commit/e7273f66010d5b0c740b87b8dbc020c8de616fe7))
+* **workflow:** settle mutation probes inside state persistence ([88feaf4](https://github.com/dyphn1/Harness-everything/commit/88feaf4ee3accbd8504b745fd4e79e548c31bd6d))
+
 ## [0.11.5](https://github.com/dyphn1/Harness-everything/compare/v0.11.4...v0.11.5) (2026-09-18)
 
 ### Bug Fixes
