@@ -96,6 +96,11 @@ try {
   git(['-c', 'user.name=Harness Test', '-c', 'user.email=harness@example.invalid', 'commit', '-m', 'fixture']);
   git(['worktree', 'add', linked, '-b', 'isolated']);
   const taskNotification = '<task-notification><summary>Background command "Run full test suite" failed with exit code 1</summary></task-notification>';
+  const unboundNotification = node('harness-everything/scripts/kernel-router.js', { cwd: repo, prompt: taskNotification });
+  check(unboundNotification.status === 0 &&
+    unboundNotification.stdout.includes('ignored for routing') &&
+    !unboundNotification.stdout.includes('WORKFLOW EXECUTION CONTRACT'),
+    'host notification without session binding is a routing no-op');
   const noWorkflowNotification = route(taskNotification);
   check(noWorkflowNotification.status === 0 && !fs.existsSync(file),
     'host notification with no active workflow creates no contract');
