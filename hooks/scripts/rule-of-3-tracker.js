@@ -17,6 +17,7 @@ process.stdin.on('end', () => {
     const payload = JSON.parse(inputData);
     const hookEventName = payload.hook_event_name || payload.hookEventName || '';
     const isFailureEvent = hookEventName === 'PostToolUseFailure';
+    const isSuccessEvent = hookEventName === 'PostToolUse';
     const toolResponse = payload.tool_response || {};
     const stdout = toolResponse.stdout ?? payload.stdout ?? '';
     const stderr = toolResponse.stderr ?? payload.stderr ?? '';
@@ -25,10 +26,10 @@ process.stdin.on('end', () => {
     const exitCode = typeof rawExitCode === 'number' ? rawExitCode : undefined;
 
     const explicitFailure = exitCode !== undefined && exitCode !== 0;
-    const explicitSuccess = exitCode === 0;
     const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
     const looksLikeError = /\b(error|fail|failed|failure|exception|fatal|panic|traceback|denied|refused|cannot|unable)\b/i.test(stderr);
-    const isFailure = isFailureEvent || explicitFailure || (exitCode === undefined && stderrSignal && looksLikeError);
+    const isFailure = isFailureEvent || explicitFailure ||
+      (!isSuccessEvent && exitCode === undefined && stderrSignal && looksLikeError);
     const errorText = isFailureEvent
       ? (failureText || (stderrSignal ? stderr : stdout) || '')
       : ((stderrSignal ? stderr : stdout) || failureText || '');
@@ -119,9 +120,9 @@ process.stdin.on('end', () => {
       fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
     } else if (!isFailure) {
       // NOTE (#166, follows #153): Claude Code PostToolUse success payloads
-      // carry no numeric exit code, so `explicitSuccess` (exitCode === 0) never
-      // holds there. Any non-failure PostToolUse counts as success; hosts that
-      // report exit codes behave as before via `isFailure`.
+      // carry no numeric exit code. The lifecycle event is authoritative:
+      // PostToolUse is success unless a numeric non-zero status contradicts it;
+      // hosts without lifecycle event names keep the conservative stderr fallback.
       // A successful action after an accepted zoom-out is an objective recovery
       // boundary. Emit only IDs/hashes/category; never copy command/output text.
       if ((state.zoomOutCycles || 0) > 0 && state.lastHash) {
