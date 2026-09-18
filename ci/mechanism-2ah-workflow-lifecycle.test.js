@@ -239,12 +239,12 @@ try {
     'failed shell command that changed workspace still consumes one iteration');
 
   const beforeStageOnly = read(file);
-  const stageOnly = 'git add README.md';
+  const stageOnly = 'git add README.md observed-untracked.txt';
   check(gate('Bash', { command: stageOnly }, repo).status === 0, 'staging-only git command is observed instead of pre-counted');
-  git(['add', 'README.md']);
+  git(['add', 'README.md', 'observed-untracked.txt']);
   check(observeShell(stageOnly).status === 0, 'staging-only probe resolves');
   check(read(file).budget.counters.iterations === beforeStageOnly.budget.counters.iterations,
-    'git add does not double-count unchanged visible workspace content');
+    'git add does not double-count tracked or previously-untracked visible content');
 
   const beforeCommitOnly = read(file);
   const commitOnly = 'git commit -m observed-fixture';
