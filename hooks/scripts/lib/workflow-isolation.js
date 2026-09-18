@@ -20,7 +20,7 @@ function hashWorktreePath(root, relative) {
   let stat;
   try { stat = fs.lstatSync(target); }
   catch (error) {
-    if (error.code === 'ENOENT') return { mode: 'deleted', oid: 'deleted' };
+    if (error.code === 'ENOENT') return null;
     throw error;
   }
   if (stat.isDirectory()) {
@@ -54,7 +54,8 @@ function workspaceFingerprint(cwd) {
   // visible workspace content did not change.
   for (const relative of gitRaw(root, ['diff-files', '--name-only', '-z']).split('\0').filter(Boolean)) {
     const value = hashWorktreePath(root, relative);
-    entries.set(relative, { relative, mode: value.mode, oid: value.oid });
+    if (value) entries.set(relative, { relative, mode: value.mode, oid: value.oid });
+    else entries.delete(relative);
   }
 
   for (const relative of gitRaw(root, ['ls-files', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean)) {
