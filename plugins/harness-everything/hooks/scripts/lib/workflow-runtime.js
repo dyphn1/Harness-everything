@@ -9,8 +9,16 @@ const OPEN_STATES = new Set(['pending', 'active', 'running', 'failed', 'blocked'
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const WORKFLOW_CONTROLLER_COMMANDS = new Set(['start', 'revision', 'reset-budget', 'escape', 'block']);
 
+function activeWorkflowPlan(workflow) {
+  if (!workflow) return null;
+  const plan = workflow.workflowPlan;
+  if (plan && typeof plan === 'object' && plan.strategy === workflow.strategy) return plan;
+  return workflow;
+}
+
 function isMajorWorkflow(workflow) {
-  return Boolean(workflow && (workflow.mutationIsolation?.required || workflow.tier === 'tier3' || String(workflow.strategy || '').startsWith('fable-')));
+  const active = activeWorkflowPlan(workflow);
+  return Boolean(active && (active.mutationIsolation?.required || active.tier === 'tier3' || String(active.strategy || '').startsWith('fable-')));
 }
 
 function loadWorkflow(payload) {
