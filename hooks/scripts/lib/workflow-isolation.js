@@ -76,10 +76,18 @@ function workspaceFingerprint(cwd) {
 function shellProbeKey(payload, cwd) {
   const toolUseId = String(payload?.tool_use_id || payload?.toolUseId || '').trim();
   const tool = String(payload?.tool_name || payload?.tool || '');
+  if (toolUseId) {
+    // Host tool-use identity is stable across Pre/Post payload cwd drift.
+    return crypto.createHash('sha256')
+      .update('harness-shell-probe-v3\0')
+      .update(toolUseId).update('\0')
+      .update(tool)
+      .digest('hex');
+  }
+  // Compatibility fallback for hosts that do not expose tool_use_id.
   const command = commandOf(payload);
   return crypto.createHash('sha256')
-    .update('harness-shell-probe-v2\0')
-    .update(toolUseId || 'no-tool-use-id').update('\0')
+    .update('harness-shell-probe-v2-fallback\0')
     .update(tool).update('\0')
     .update(key(cwd)).update('\0')
     .update(command)
