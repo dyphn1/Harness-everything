@@ -1,13 +1,89 @@
 'use strict';
 
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-function git(cwd, args) {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true, timeout: 5000 });
+function gitRaw(cwd, args) {
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true, timeout: 5000, maxBuffer: 16 * 1024 * 1024 });
   if (result.status !== 0) throw new Error('cannot verify Git worktree isolation');
-  return result.stdout.trim();
+  return result.stdout;
+}
+
+function git(cwd, args) {
+  return gitRaw(cwd, args).trim();
+}
+
+function hashWorktreePath(root, relative) {
+  const target = path.join(root, relative);
+  let stat;
+  try { stat = fs.lstatSync(target); }
+  catch (error) {
+    if (error.code === 'ENOENT') return { mode: 'deleted', oid: 'deleted' };
+    throw error;
+  }
+  if (stat.isDirectory()) {
+    const result = spawnSync('git', ['-C', target, 'rev-parse', 'HEAD'], { encoding: 'utf8', windowsHide: true, timeout: 5000 });
+    return { mode: '160000', oid: result.status === 0 ? result.stdout.trim() : 'directory' };
+  }
+  const mode = stat.isSymbolicLink() ? '120000' : ((stat.mode & 0o111) ? '100755' : '100644');
+  const result = spawnSync('git', ['hash-object', '--path=' + relative, '--', relative], {
+    cwd: root, encoding: 'utf8', windowsHide: true, timeout: 5000,
+  });
+  if (result.status !== 0) throw new Error('cannot fingerprint workspace content');
+  return { mode, oid: result.stdout.trim() };
+}
+
+function workspaceFingerprint(cwd) {
+  const root = canonical(git(cwd, ['rev-parse', '--show-toplevel']));
+  const entries = new Map();
+  for (const record of gitRaw(root, ['ls-files', '-s', '-z']).split('\0')) {
+    if (!record) continue;
+    const tab = record.indexOf('\t');
+    if (tab < 0) throw new Error('cannot fingerprint workspace index');
+    const meta = record.slice(0, tab).trim().split(/\s+/);
+    const relative = record.slice(tab + 1);
+    const mode = meta[0];
+    const oid = meta[1];
+    const stage = meta[2] || '0';
+    entries.set(stage + ':' + relative, { relative, mode, oid, stage });
+  }
+
+  // Substitute current worktree content for tracked paths that differ from the
+  // index. This keeps the fingerprint stable across git add / git commit when
+  // visible workspace content did not change.
+  for (const relative of gitRaw(root, ['diff-files', '--name-only', '-z']).split('\0').filter(Boolean)) {
+    const value = hashWorktreePath(root, relative);
+    entries.set('0:' + relative, { relative, mode: value.mode, oid: value.oid, stage: '0' });
+  }
+
+  for (const relative of gitRaw(root, ['ls-files', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean)) {
+    const value = hashWorktreePath(root, relative);
+    entries.set('u:' + relative, { relative, mode: value.mode, oid: value.oid, stage: 'u' });
+  }
+
+  const digest = crypto.createHash('sha256');
+  digest.update('harness-workspace-fingerprint-v1\0');
+  for (const entry of [...entries.values()].sort((a, b) =>
+    a.relative.localeCompare(b.relative) || a.stage.localeCompare(b.stage))) {
+    digest.update(entry.stage); digest.update('\0');
+    digest.update(entry.relative); digest.update('\0');
+    digest.update(entry.mode); digest.update('\0');
+    digest.update(entry.oid); digest.update('\0');
+  }
+  return digest.digest('hex');
+}
+
+function shellProbeKey(payload, cwd) {
+  const tool = String(payload?.tool_name || payload?.tool || '');
+  const command = commandOf(payload);
+  return crypto.createHash('sha256')
+    .update('harness-shell-probe-v1\0')
+    .update(tool).update('\0')
+    .update(key(cwd)).update('\0')
+    .update(command)
+    .digest('hex');
 }
 
 function canonical(value) {
@@ -144,9 +220,9 @@ function splitShellSegments(text) {
 
 function classifyShell(command) {
   const text = String(command || '').trim();
-  if (!text) return 'mutation-or-unknown';
+  if (!text) return 'untrusted';
   const segments = splitShellSegments(text);
-  if (!segments) return 'mutation-or-unknown';
+  if (!segments) return 'untrusted';
   if (segments.length === 1) {
     if (/^git\s+worktree\s+add\s+/i.test(segments[0]) && !/\s--(?:force|checkout|detach)(?:\s|=|$)/i.test(segments[0])) return 'worktree-setup';
     return isReadOnlySegment(segments[0]) ? 'read-only' : 'mutation-or-unknown';
@@ -198,4 +274,4 @@ function assertShellScope(command, cwd, isolatedRoot) {
   }
 }
 
-module.exports = { canonical, key, within, linkedWorktree, classifyShell, inputOf, cwdOf, commandOf, mutationPaths, assertTargets, assertShellScope };
+module.exports = { canonical, key, within, linkedWorktree, classifyShell, workspaceFingerprint, shellProbeKey, inputOf, cwdOf, commandOf, mutationPaths, assertTargets, assertShellScope };
