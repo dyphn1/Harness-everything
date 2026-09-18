@@ -106,16 +106,28 @@ function run(raw) {
     try { payload = JSON.parse(raw); } catch (_) { console.error('[Workflow Router] Invalid hook payload; lifecycle persistence unavailable.'); }
   }
   const prompt = promptArg || (typeof payload?.prompt === 'string' ? payload.prompt : '');
-  const result = core.route(promptArg, raw || null);
-  let plan = result.contract.workflowPlan;
+  const hostNotification = isHostNotificationPrompt(prompt);
+  // Host-generated notifications are lifecycle events, not user-authored task
+  // input. Never feed their text into the router: when there is an active
+  // contract we retain it below; when there is none, the event is a no-op.
+  const result = hostNotification ? null : core.route(promptArg, raw || null);
+  let plan = result?.contract?.workflowPlan || null;
   let persisted = null;
   let failure = null;
   try {
     persisted = persistWorkflow(plan, payload, prompt);
     if (persisted?.retained && persisted.workflow) plan = persisted.workflow.workflowPlan;
   } catch (error) { failure = error; }
-  if (result.sanitized) console.log(result.sanitized);
-  if (result.stderr) process.stderr.write(result.stderr);
+  if (persisted?.hostNotification && !persisted.workflow) {
+    console.log('\n=> Host notification — no active execution contract; ignored for routing.');
+    if (failure) {
+      console.error('[Workflow Router] ' + failure.message);
+      process.exitCode = 2;
+    }
+    return;
+  }
+  if (result?.sanitized) console.log(result.sanitized);
+  if (result?.stderr) process.stderr.write(result.stderr);
   if (persisted?.hostNotification) console.log('\n=> Host notification — routing unchanged; keeping the active execution contract.');
   else if (persisted?.retained) console.log('\n=> Retaining unresolved workflow from earlier prompts; the checkpoint below is the active execution contract.');
   core.printWorkflowPlan(plan);
@@ -145,7 +157,7 @@ function run(raw) {
   if (failure) {
     console.error('[Workflow Router] ' + failure.message);
     process.exitCode = 2;
-  } else if (result.status !== 0) process.exitCode = result.status || 1;
+  } else if (result && result.status !== 0) process.exitCode = result.status || 1;
 }
 
 if (typeof module !== 'undefined') module.exports = { isHostNotificationPrompt };
