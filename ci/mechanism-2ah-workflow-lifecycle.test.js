@@ -509,7 +509,7 @@ try {
   });
   check(driftNoEffectPost.status === 0 && probeFiles().length === 0,
     '#161 Post with drifted cwd settles the Pre-time probe');
-  check(read(file).budget.counters.iterations === driftNoEffectBefore.budget.counters.iterations,
+  check((read(file).budget?.counters?.iterations || 0) === (driftNoEffectBefore.budget?.counters?.iterations || 0),
     '#161 cwd-drift no-effect shell consumes zero iterations');
 
   const driftMutationBefore = read(file);
@@ -527,7 +527,7 @@ try {
   });
   const driftMutationAfter = read(file);
   check(driftMutationPost.status === 0 && probeFiles().length === 0 &&
-    driftMutationAfter.budget.counters.iterations === driftMutationBefore.budget.counters.iterations + 1 &&
+    (driftMutationAfter.budget?.counters?.iterations || 0) === (driftMutationBefore.budget?.counters?.iterations || 0) + 1 &&
     driftMutationAfter.lastMutationAt >= (driftMutationBefore.lastMutationAt || 0),
     '#161 cwd-drift real mutation is observed exactly once');
 
