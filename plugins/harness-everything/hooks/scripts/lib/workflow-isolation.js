@@ -74,10 +74,12 @@ function workspaceFingerprint(cwd) {
 }
 
 function shellProbeKey(payload, cwd) {
+  const toolUseId = String(payload?.tool_use_id || payload?.toolUseId || '').trim();
   const tool = String(payload?.tool_name || payload?.tool || '');
   const command = commandOf(payload);
   return crypto.createHash('sha256')
-    .update('harness-shell-probe-v1\0')
+    .update('harness-shell-probe-v2\0')
+    .update(toolUseId || 'no-tool-use-id').update('\0')
     .update(tool).update('\0')
     .update(key(cwd)).update('\0')
     .update(command)
