@@ -264,6 +264,21 @@ try {
   check(read(file).budget.counters.iterations === beforeCommitOnly.budget.counters.iterations,
     'pure commit of already-accounted content does not consume another code iteration');
 
+  const deleteTracked = 'node delete-tracked.js';
+  check(gate('Bash', { command: deleteTracked }, repo).status === 0, 'unknown tracked-file deletion is admitted under observation');
+  fs.unlinkSync(path.join(repo, 'observed-untracked.txt'));
+  check(observeShell(deleteTracked).status === 0, 'tracked-file deletion is observed');
+  check(read(file).budget.counters.iterations === ++observedIterations,
+    'tracked-file deletion consumes exactly one iteration');
+
+  const beforeStageDelete = read(file);
+  const stageDelete = 'git add -u observed-untracked.txt';
+  check(gate('Bash', { command: stageDelete }, repo).status === 0, 'staging-only deletion is observed instead of pre-counted');
+  git(['add', '-u', 'observed-untracked.txt']);
+  check(observeShell(stageDelete).status === 0, 'staging deletion probe resolves');
+  check(read(file).budget.counters.iterations === beforeStageDelete.budget.counters.iterations,
+    'git add -u does not double-count an already-observed deletion');
+
   observedIterations = read(file).budget.counters.iterations;
   for (let i = observedIterations; i < iterationLimit; i++) {
     check(gate('Write', { file_path: path.join(repo, `small-${i}.js`) }, repo).status === 0, `confirmed mutation ${i + 1}/${iterationLimit} stays within budget`);
