@@ -16,6 +16,8 @@ const VALID_SCOPES = new Set(['always', 'outside-scratch']);
 const POLICY_ENV = 'HARNESS_ACTION_GATE_POLICY';
 const DEFER_POLICY = 'defer-to-host';
 const ALWAYS_ASK_POLICY = 'always-ask';
+const STRUCTURED_GATED_ACTIONS = new Set(['delete', 'publish', 'deploy', 'send', 'mutate']);
+const STRUCTURED_SAFE_ACTIONS = new Set(['read']);
 
 // Fail-safe defaults are used only when the configured table is missing or
 // invalid. A valid-but-empty table stays empty so CI can catch policy erasure.
@@ -47,12 +49,113 @@ function toolInputOf(payload) {
   return (payload && (payload.tool_input || payload.toolInput || payload.input)) || {};
 }
 
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (!value || typeof value !== 'object') return value;
+  return Object.keys(value).sort().reduce((acc, key) => {
+    acc[key] = stableValue(value[key]);
+    return acc;
+  }, {});
+}
+
 function exactPayloadText(payload) {
   const input = toolInputOf(payload);
   const tool = toolNameOf(payload);
   if (tool === 'Bash' || tool === 'PowerShell') return String(input.command || '');
   if (tool === 'apply_patch') return String(input.patch || input.command || input.content || '');
-  return JSON.stringify(input);
+  return JSON.stringify(stableValue(input));
+}
+
+function explicitActionDescriptor(payload) {
+  const input = toolInputOf(payload);
+  const candidates = [
+    payload && (payload.action_descriptor || payload.actionDescriptor),
+    input && (input.action_descriptor || input.actionDescriptor),
+    payload && payload.harness && (payload.harness.action_descriptor || payload.harness.actionDescriptor),
+  ];
+  return candidates.find(value => value && typeof value === 'object' && !Array.isArray(value)) || null;
+}
+
+function inferToolFamily(tool, explicit) {
+  if (explicit && ['shell', 'mcp', 'local-function'].includes(explicit.toolFamily)) return explicit.toolFamily;
+  if (tool === 'Bash' || tool === 'PowerShell') return 'shell';
+  if (/^mcp(?:__|_)/i.test(tool)) return 'mcp';
+  return 'local-function';
+}
+
+function inferStructuredAction(tool, explicit) {
+  const requested = explicit && String(explicit.action || '').toLowerCase();
+  if (['read', 'delete', 'publish', 'deploy', 'send', 'mutate', 'unknown'].includes(requested)) return requested;
+  const name = String(tool || '').toLowerCase();
+  if (/(?:^|[_-])(get|list|read|search|find|fetch|show|inspect)(?:$|[_-])/.test(name)) return 'read';
+  if (/(?:delete|remove|destroy|drop|purge)/.test(name)) return 'delete';
+  if (/(?:publish|release_create|create_release|release-publish)/.test(name)) return 'publish';
+  if (/(?:deploy|apply_production|promote)/.test(name)) return 'deploy';
+  if (/(?:send|email|message|notify|post_message)/.test(name)) return 'send';
+  if (/(?:create|update|write|edit|mutate|set_|add_|merge|close_)/.test(name)) return 'mutate';
+  return 'unknown';
+}
+
+function safeResource(input, explicit) {
+  const direct = explicit && explicit.resource;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim().slice(0, 200);
+  for (const [key, value] of Object.entries(input || {})) {
+    if (/token|secret|password|credential|authorization|api[_-]?key/i.test(key)) continue;
+    if (!/resource|path|target|repo|repository|channel|issue|file|name|id$/i.test(key)) continue;
+    if (typeof value === 'string' || typeof value === 'number') return String(value).slice(0, 200);
+  }
+  return null;
+}
+
+function normalizeActionDescriptor(payload) {
+  const tool = toolNameOf(payload);
+  const input = toolInputOf(payload);
+  const explicit = explicitActionDescriptor(payload);
+  const toolFamily = inferToolFamily(tool, explicit);
+  const action = inferStructuredAction(tool, explicit);
+  const classification = STRUCTURED_GATED_ACTIONS.has(action)
+    ? 'gated'
+    : (STRUCTURED_SAFE_ACTIONS.has(action) ? 'safe' : 'unknown');
+  const reasonCodes = [];
+  if (explicit) reasonCodes.push('explicit-structured-action');
+  else if (action !== 'unknown') reasonCodes.push('tool-identity-inference');
+  else reasonCodes.push('structured-action-unknown');
+  return {
+    schemaVersion: 1,
+    toolFamily,
+    toolName: tool,
+    action,
+    resource: safeResource(input, explicit),
+    payloadHash: hashExact(exactPayloadText(payload)),
+    classification,
+    reasonCodes,
+  };
+}
+
+function structuredRule(payload) {
+  const descriptor = normalizeActionDescriptor(payload);
+  if (descriptor.toolFamily === 'shell') return { descriptor, rule: null };
+  if (descriptor.classification === 'safe') return { descriptor, rule: null };
+  if (descriptor.classification === 'gated') {
+    return {
+      descriptor,
+      rule: {
+        id: `structured-${descriptor.action}`,
+        reason: `Structured ${descriptor.action} action requires pre-action authorization.`,
+      },
+    };
+  }
+  const hint = routerActionGateHint(payload);
+  if (hint && hint.required) {
+    return {
+      descriptor,
+      rule: {
+        id: 'structured-unknown-required',
+        reason: 'The workflow requires an action gate, but this structured tool action is unknown.',
+      },
+    };
+  }
+  return { descriptor, rule: null };
 }
 
 function validateRule(rule) {
@@ -306,11 +409,13 @@ function recordDecision(payload, rule, table, host, disposition, options = {}, e
   const exact = exactPayloadText(payload);
   const commandHash = hashExact(exact);
   const now = new Date().toISOString();
+  const descriptor = normalizeActionDescriptor(payload);
   const record = {
     schemaVersion: 1,
     toolName: toolNameOf(payload),
     toolUseId: (payload && (payload.tool_use_id || payload.toolUseId)) || null,
     commandHash,
+    actionDescriptor: descriptor,
     matchedRule: rule.id,
     ruleReason: rule.reason,
     disposition,
@@ -332,7 +437,8 @@ function recordDecision(payload, rule, table, host, disposition, options = {}, e
 function evaluatePreToolUse(payload, options = {}) {
   const context = sessionContext(payload, options.sessionDir);
   const table = options.ruleTable || loadRuleTable(options.rulePath || RULES_PATH);
-  const rule = classify(payload, table.rules, context.sessionDir);
+  const structured = structuredRule(payload);
+  const rule = structured.rule || classify(payload, table.rules, context.sessionDir);
   if (!rule) {
     return {
       kind: 'allow',
@@ -341,6 +447,7 @@ function evaluatePreToolUse(payload, options = {}) {
       stderr: table.degraded ? `[Harness actionGate] ${table.degradationReason}; built-in defaults active.` : null,
       rule: null,
       table,
+      descriptor: structured.descriptor,
     };
   }
 
@@ -535,4 +642,6 @@ module.exports = {
   routerActionGateHint,
   scratchRoots,
   validateRuleTable,
+  normalizeActionDescriptor,
+  structuredRule,
 };

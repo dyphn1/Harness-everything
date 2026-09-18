@@ -38,7 +38,7 @@
         "id": "harness:pre:workflow-gate"
       },
       {
-        "matcher": "Bash|PowerShell",
+        "matcher": "Bash|PowerShell|mcp__.*",
         "hooks": [
           {
             "type": "command",
@@ -138,7 +138,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|PowerShell",
+        "matcher": "Bash|PowerShell|mcp__.*",
         "hooks": [
           {
             "type": "command",
@@ -206,7 +206,7 @@
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "Bash|PowerShell",
+        "matcher": "Bash|PowerShell|mcp__.*",
         "hooks": [
           {
             "type": "command",
