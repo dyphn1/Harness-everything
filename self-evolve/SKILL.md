@@ -20,8 +20,8 @@ Deep dive: <this-skill-dir>/references/memory-resolution.md
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Resolved struggle, zoom-out recovery, or explicit request. |
-| **Expected Output** | Persisted rule in existing memory or registered dynamic skill. |
-| **State Mutations** | Updates the selected workspace memory or generated-skill manifest. |
+| **Expected Output** | Authorized persisted rule, session-scoped review candidate, or registered dynamic skill. |
+| **State Mutations** | Depending on `memory.write`, updates only session candidate state or authorized workspace memory metadata/RULES; dynamic skills use the generated-skill manifest. |
 | **Enforcement Gate** | Router-issued single-use workflow capability + `memory.write` disposition, then `persist-memory.js` secret/prompt-injection screening + source provenance + retention/scope metadata + conservative dedup/quality gate; `self-regression.js` remains for dynamic-skill registration only. |
 
 ## Core Workflow
