@@ -139,17 +139,10 @@
           },
           {
             "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/workflow-mutation-observer.js\"",
-            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\workflow-mutation-observer.js\"",
-            "timeout": 15,
-            "statusMessage": "Observing Harness workspace mutation"
-          },
-          {
-            "type": "command",
             "command": "node \"${PLUGIN_ROOT}/hooks/scripts/state-persist.js\"",
             "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\state-persist.js\"",
             "timeout": 15,
-            "statusMessage": "Saving Harness session state"
+            "statusMessage": "Saving Harness state and observed mutation"
           }
         ]
       },
