@@ -3,7 +3,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { loadWorkflow, saveWorkflow, isMajorWorkflow, matchingRun, readHookInput } = require('./lib/workflow-runtime');
+const { loadWorkflow, saveWorkflow, isMajorWorkflow, matchingRun, recordBudgetEvent, readHookInput } = require('./lib/workflow-runtime');
 const { key, classifyShell, cwdOf, commandOf, mutationPaths, linkedWorktree, assertTargets, assertShellScope } = require('./lib/workflow-isolation');
 
 const DIRECT = new Set(['Edit', 'Write', 'apply_patch']);
@@ -45,6 +45,9 @@ function decide(payload) {
   if (workflow.state === 'satisfied') throw new Error('workflow is already satisfied; submit a new task before further mutation');
   if (String(workflow.strategy || '').startsWith('fable-') && !matchingRun(context)) {
     throw new Error('selected Fable workflow has no correlated run. Write workflow-stages.json at the displayed session path, then use workflow-disposition.js start.');
+  }
+  if (workflow.strategy === 'iterative-single') {
+    recordBudgetEvent(context, 'iteration', { evidence: `${tool}:${commandClass}` });
   }
   workflow.lastMutationAt = Date.now();
   saveWorkflow(context);

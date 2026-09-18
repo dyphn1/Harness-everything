@@ -155,20 +155,23 @@ function validateParallelBatch(stages) {
   }
 }
 
-function dependencyBatches(stages, validateWrites) {
+function dependencyBatches(stages, validateWrites, maxBatchSize = Infinity) {
   const byId = new Map(stages.map(stage => [stage.stageId, stage]));
   const remaining = new Set(byId.keys());
   const completed = new Set();
   const batches = [];
+  const boundedSize = Number.isInteger(maxBatchSize) && maxBatchSize > 0 ? maxBatchSize : Infinity;
 
   while (remaining.size > 0) {
     const ready = [...remaining]
       .filter(stageId => byId.get(stageId).dependsOn.every(dep => completed.has(dep)))
       .sort();
     if (ready.length === 0) throw new Error('unresolved or cyclic dependency graph');
-    const batch = ready.map(stageId => byId.get(stageId));
-    if (validateWrites) validateParallelBatch(batch);
-    batches.push(batch.map(stage => stage.stageId));
+    const readyStages = ready.map(stageId => byId.get(stageId));
+    if (validateWrites) validateParallelBatch(readyStages);
+    for (let offset = 0; offset < readyStages.length; offset += boundedSize) {
+      batches.push(readyStages.slice(offset, offset + boundedSize).map(stage => stage.stageId));
+    }
     for (const stageId of ready) {
       remaining.delete(stageId);
       completed.add(stageId);
@@ -177,8 +180,8 @@ function dependencyBatches(stages, validateWrites) {
   return batches;
 }
 
-function topologicalBatches(stages) {
-  return dependencyBatches(stages, true);
+function topologicalBatches(stages, maxWorkers) {
+  return dependencyBatches(stages, true, maxWorkers);
 }
 
 function sequentialBatches(stages) {
@@ -222,7 +225,7 @@ function prepareRun({ routerContract, stages, workspaceRoot, runId, sessionId = 
   if (fs.existsSync(runRoot)) throw new Error(`runId already exists in this workspace: ${resolvedRunId}`);
 
   const batches = plan.strategy === 'fable-parallel'
-    ? topologicalBatches(normalizedStages)
+    ? topologicalBatches(normalizedStages, plan.limits && plan.limits.maxWorkers)
     : sequentialBatches(normalizedStages);
 
   const createdAt = new Date().toISOString();

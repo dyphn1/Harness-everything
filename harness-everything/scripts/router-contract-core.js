@@ -5,6 +5,9 @@ const path = require('path');
 
 const SCHEMA_VERSION = 1;
 const ITERATIVE_MAX_ITERATIONS = 8;
+const WORKFLOW_MAX_REVISION_ROUNDS = 2;
+const FABLE_MAX_REPLANS = 2;
+const FABLE_MAX_WORKERS = 4;
 const TIERS = new Set(['tier1', 'tier2', 'tier3', 'unclassified']);
 const ROUTING_STATUSES = new Set(['ok', 'degraded']);
 const STRATEGIES = new Set([
@@ -457,8 +460,9 @@ function buildWorkflowPlan(input = {}) {
     },
     limits: {
       maxIterations: meta.maxIterations,
-      maxRevisionRounds: 2,
-      maxWorkers: 'fable-orchestrator-cap',
+      maxRevisionRounds: WORKFLOW_MAX_REVISION_ROUNDS,
+      maxReplans: FABLE_MAX_REPLANS,
+      maxWorkers: FABLE_MAX_WORKERS,
     },
     parallelism: {
       allowed: meta.parallelAllowed,
@@ -553,6 +557,9 @@ function validateWorkflowPlan(plan) {
   if (plan.actionGate && plan.actionGate.required && plan.actionGate.disposition !== 'pending-approval') errors.push('required actionGate must be pending-approval before execution');
   if (!plan.limits || !Object.prototype.hasOwnProperty.call(plan.limits, 'maxIterations')) errors.push('limits.maxIterations is required');
   if (plan.strategy === 'iterative-single' && (!Number.isInteger(plan.limits.maxIterations) || plan.limits.maxIterations < 1)) errors.push('iterative-single requires maxIterations');
+  if (!Number.isInteger(plan.limits?.maxRevisionRounds) || plan.limits.maxRevisionRounds < 0) errors.push('limits.maxRevisionRounds must be a non-negative integer');
+  if (!Number.isInteger(plan.limits?.maxReplans) || plan.limits.maxReplans < 0) errors.push('limits.maxReplans must be a non-negative integer');
+  if (!Number.isInteger(plan.limits?.maxWorkers) || plan.limits.maxWorkers < 1) errors.push('limits.maxWorkers must be a positive integer');
   if (plan.strategy === 'fable-parallel' && (!plan.parallelism || plan.parallelism.allowed !== true)) errors.push('fable-parallel requires parallelism.allowed=true');
   if (!plan.fallback || !['none', 'reduced', 'blocked'].includes(plan.fallback.disposition)) errors.push('fallback.disposition is invalid');
   if (!Array.isArray(plan.reasonCodes)) errors.push('reasonCodes must be an array');
@@ -597,6 +604,9 @@ function writeRouterContract(contractPath, contract) {
 module.exports = {
   SCHEMA_VERSION,
   ITERATIVE_MAX_ITERATIONS,
+  WORKFLOW_MAX_REVISION_ROUNDS,
+  FABLE_MAX_REPLANS,
+  FABLE_MAX_WORKERS,
   buildRouterContract,
   buildTaskShape,
   buildWorkflowPlan,

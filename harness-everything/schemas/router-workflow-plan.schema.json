@@ -47,12 +47,13 @@
     },
     "limits": {
       "type": "object",
-      "required": ["maxIterations", "maxRevisionRounds", "maxWorkers"],
+      "required": ["maxIterations", "maxRevisionRounds", "maxReplans", "maxWorkers"],
       "additionalProperties": false,
       "properties": {
         "maxIterations": { "type": ["integer", "null"], "minimum": 1 },
         "maxRevisionRounds": { "type": "integer", "minimum": 0, "maximum": 2 },
-        "maxWorkers": { "enum": ["fable-orchestrator-cap"] }
+        "maxReplans": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "maxWorkers": { "type": "integer", "minimum": 1, "maximum": 4 }
       }
     },
     "parallelism": {

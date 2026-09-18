@@ -22,7 +22,7 @@ const {
   listRunContracts,
   getWorkerId,
 } = require('./lib/fable-contracts');
-const { loadWorkflow, matchingRun } = require('./lib/workflow-runtime');
+const { loadWorkflow, matchingRun, recordBudgetEvent } = require('./lib/workflow-runtime');
 
 function resultState(payload) {
   const toolResponse = payload.tool_response || payload.tool_result || {};
@@ -140,6 +140,9 @@ process.stdin.on('end', () => {
       const contract = updateRunContract(entry, payload, command, sessionId);
       console.log(`[Contract Test] ${contract.planId}/${contract.runId}/${contract.stageId}: ${contract.status.toUpperCase()} ${contract.checkCommand}`);
       if (contract.status === 'fail') {
+        if (workflowContext.workflow?.workflowId) {
+          recordBudgetEvent(workflowContext, 'revision', { evidence: `${contract.stageId}:${contract.evidence || 'verification-failed'}` });
+        }
         console.error(`Evidence: ${contract.evidence || '(no output captured)'}`);
         console.error(`Do not build on this stage's output until it passes. Artifact: ${contract.outputPath || '(no path recorded)'}`);
         process.exit(2);
