@@ -1,60 +1,67 @@
 # Workflow: Install Cognitive OS
 
-> Automates the installation of the Agent Cognitive Loop (Think > Try > Summarize > Record) into the user's active workspace and environment configs.
+> Explain or explicitly apply the Harness cognitive policy: Discover, Think, Try, Summarize, Record. This skill is a human-readable/manual entry point, not an installer and not a required peer-skill selection.
+
+Source of truth: `install-cognitive-os/SKILL.md`. Deep dive: `install-cognitive-os/references/cognitive-loop.md`.
+
+The runtime invariant contract is established by supported host integrations independently of this skill. Domain skills never need to invoke this skill first as long as Harness invariants remain satisfied.
 
 ---
 
 ## 1. Skill Behavior Workflow
 
-This section visualizes how the `install-cognitive-os` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
-
 ```mermaid
 graph TD
-  Start([Bootstrap Hook Triggered]) --> DetectTargetEnv["Scan for active IDE / Client config paths"]
-  DetectTargetEnv --> InjectAdvisoryRules["Append advisory rules to .cursorrules, .github/copilot-instructions.md, or AGENTS.md"]
-  InjectAdvisoryRules --> InstallHooks["Configure Claude Code settings.json hook pre-flights"]
-  InstallHooks --> DeployScripts["Deploy core bootstrap.js, self-heal.js, and tier-router.js scripts"]
-  DeployScripts --> RunVerification["Execute self-heal audit test to confirm platform integrations"]
-  RunVerification --> End([Harness cognitive guardrails fully established])
+  Start([Explicit request OR host without kernel context]) --> Discover["Discover: verify relevant workspace state with read-only tools"]
+  Discover --> Think["Think: establish intent, scope, and failure modes"]
+  Think --> Try["Try: make the smallest useful change and gather evidence"]
+  Try --> Summarize["Summarize: ground conclusions in tool output"]
+  Summarize --> FailCheck{Same-signature failure x3?}
+  FailCheck -->|Yes| ZoomOut["zoom-out: stop edits, rebuild facts, report RESUME or ESCALATE"]
+  FailCheck -->|No| Record["Record: persist milestones only when evidence supports them"]
+  ZoomOut --> Think
+  Record --> End([Evidence-grounded work, no fixed domain sequence])
 ```
+
+This skill writes no installer state, deploys no hooks, and copies no skill directories. Workspace installation is owned by the general installer (`node scripts/installer.js`), not by this skill.
 
 ---
 
 ## 2. Triggering and Routing Path
 
-This diagram illustrates how the `install-cognitive-os` skill is triggered through user requests or developer actions, and how it integrates or chains together with other companion skills in the Harness OS ecosystem to form unified workflows.
-
 ```mermaid
 graph LR
-  BootstrapCmd["Bootstrap CLI Command / npm install"] --> InstallSkill["install-cognitive-os / SKILL.md"]
-  InstallSkill -->|Deploys core router script| Router["harness-everything / scripts / tier-router.js"]
-  InstallSkill -->|Establishes memory loop configs for| Evolve["self-evolve / SKILL.md"]
-  InstallSkill -->|Guards all file edits using| Todo["todo-driven-workflow / SKILL.md"]
-  InstallSkill -->|Enforces Always-On Normalization for all responses| ADHD["Always-On ADHD-Friendly Output Shaping"]
+  Trigger["Explain policy / Apply loop manually / Debug cognitive behavior"] --> Skill["install-cognitive-os / SKILL.md"]
+  Skill -->|No kernel context| Manual["Run Discover → Think → Try → Summarize → Record explicitly"]
+  Skill -->|Kernel present| Policy["Treat as policy reference; domain skill proceeds directly"]
+  Manual --> Gates["Gates: evidence before claims; re-plan after x3 same-signature failures"]
+  Policy --> Gates
+
+  style Skill fill:#d35400,stroke:#e67e22,stroke-width:2px,color:#ffffff
+  style Gates fill:#1abc9c,stroke:#16a085,stroke-width:2px,color:#ffffff
 ```
 
 ---
 
 ## 3. Real-World Use Case Flowchart
 
-Here we model concrete real-world scenarios and use cases of the `install-cognitive-os` skill, illustrating standard success paths, error handling, or recovery loops.
-
 ```mermaid
 graph TD
-  Start["Fresh repository checkout"] --> Trigger["Run 'node scripts/installer.js install --all --yes'"]
-  Trigger --> Scan["Detects Cursor editor rules and GitHub action configurations"]
-  Scan --> BuildAdvisory["Appends mandatory routing checkpoint and cognitive compliance blocks to .cursorrules"]
-  BuildAdvisory --> CopySkills["Copies all current skills into .cursor/skills/ and .github/skills/"]
-  CopySkills --> CheckHeal["Runs preflight audit to confirm 100% path coverage"]
-  CheckHeal --> Done([Harness OS environment setup is complete and active])
-```
+  Case1["User on advisory-only host: 'walk me through the loop'"] --> Explain["Explain Discover → Think → Try → Summarize → Record with a small example"]
+  Explain --> Done1([User can apply the loop manually])
 
----
+  Case2["Host without automatic kernel context"] --> Apply["Apply the five steps explicitly to the task at hand"]
+  Apply --> Done2([Work proceeds with evidence gates, no hook installation claimed])
+
+  Case3["User asks for domain work: 'implement feature X test-first'"] --> Direct["Proceed directly with tdd; this skill is NOT a prerequisite"]
+  Direct --> Done3([Domain skill executes under Harness invariants])
+```
 
 ## 4. Verification Check
 
 To ensure that the `install-cognitive-os` skill is operating in strict compliance with Harness OS design laws, verify the following:
 
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+- [ ] **Policy, not installation**: no hook deployment, file copying, or config mutation claimed as this skill's effect.
+- [ ] **Full five-step loop**: Discover → Think → Try → Summarize → Record applied in order, not the truncated four-step variant.
+- [ ] **Evidence gates honored**: completion claims need evidence; repeated same-signature failures require re-planning via `zoom-out`.
+- [ ] **No prerequisite fabrication**: domain skills (`tdd`, `security-review`, `repo-docs`) proceed without selecting this skill first.

@@ -73,6 +73,23 @@ For selected Fable topologies on Claude:
 
 Other topologies use their own applicable mechanisms: loop budgets, regular verification stop-gates, action gates, and task-specific skills. Mechanism coverage is not assumed identical across hosts.
 
+### Scoped runtime advisories and capabilities
+
+Two kernel mechanisms adjust plans without changing the mandatory-workflow contract:
+
+- **Ensemble policy (`harness-everything/scripts/ensemble-policy.js`):** an advisory plan annotation, not a separate topology. It is selected only when uncertainty is high (or stakes are high) **and** the task asks for comparable outputs or preserves explicit disagreement **and** the selected strategy is already `fable-*`. Creative generation, mechanical bulk work, an explicit user prohibition, unavailable subagents, or a blocked base plan force exclusion. When selected, the plan caps at 3 candidates with `preserve-disagreement` synthesis, an independent verifier, and `parallel-self-consistency` pattern invariants. Covered by deterministic mechanism tests; no live-host effectiveness claim follows from the annotation alone.
+- **Single-use memory capability (`kernel-router.js#issueMemoryCapability`):** when the selected plan permits memory writes, the router issues one capability token bound to `sessionId`/`workflowId` with a stored SHA-256 hash (`memoryAuthorization`, coordinator-only writer role, `usedAt` tracking). Plans with `memory.write === 'none'` receive no capability. This binds a memory write to the workflow that authorized it; it is not a general credential and proves nothing about a live host honoring the binding.
+
+### PreToolUse guard trio and denied-mutation probes
+
+On the Claude hook path, three narrowly scoped `PreToolUse` guards sit alongside the workflow/action gates:
+
+- `boundary-guard.js` (Grep/Glob/Read): hard-blocks whole-file reads over 512KB without `offset`/`limit` and searches inside known noise directories (`node_modules`, `.git`, build output, etc.). Fails open on parse/lookup errors.
+- `depth-guard.js` (Write): blocks overwriting an existing file that was never Read earlier in the session transcript. New files are unaffected. Fails open on parse/lookup errors.
+- `context-compact.js`: estimates working-tree context pressure from `git status`/`git diff --numstat` so later stages can compact or halt before lost-in-the-middle degradation.
+
+Shell mutation accounting is per-tool-call: `workflow-isolation.js` fingerprints observed effects per tool-use identity, `state-persist.js` settles probes in a single ordered handler, and `workflow-mutation-denied.js` discards probes for denied shell executions so a denial never counts as an observed mutation. See [runtime transitions and limitations](workflow-runtime.md). These are mechanism-tested behaviors on the packaged hook surface, not proof that a live session loaded or fired them.
+
 ## Integration Touchpoints
 
 Harness aligns to each host's actual lifecycle/tool APIs. Shared skill text defines a contract; only supported host mechanisms can mechanically block or observe particular transitions.

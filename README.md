@@ -212,11 +212,14 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `plugins/harness-everything` | **Distribution** | Local OpenAI/Codex plugin package plus canonical skill copies |
 | `submission/openai` | **Distribution / Review** | Public OpenAI Skills-only listing/test inputs |
 | `evals` | **Routing Evals** | 26 trigger/routing eval suites (waza format) |
+| `eval-framework` | **Quality Gates** | Negative-control fixtures for consistency/collision gates (not a skill) |
+| `contract-integrity` | **Quality Gates** | ADR→spec→ticket→test→implementation trace audit (Phase 1; not a directly routed skill) |
+| `telemetry` | **Quality Gates** | Local JSONL operational evidence layer with report/benchmark scripts (not a skill) |
 | `behavioral-evals` | **Behavioral Evals** | LLM-level discipline cases plus weekly structural validation workflow |
 | `benchmarks` | **Benchmarks** | BENCHMARK_SOP fixtures and recorded A/B results |
 | `docs` | **Documentation** | Philosophy, architecture, routing, reflection, platform capabilities, generated repository contract, audit |
 | `references` | **Documentation** | Shared checklists (security, performance, definition-of-done) |
-| `multi-agent-workspace` | **Skill (Tier 3)** | Scaffold six zones, select agency specialists, and generate bounded launchers |
+| `multi-agent-workspace` | **Skill (Tier 3)** | Scaffold a verified multi-agent workspace and select bounded specialists from an external catalog without vendoring the full roster |
 | `environment-detection` | **Foundation** | Preflight: detect OS, shell, package manager |
 | `eval-harness` | **Skill (Tier 2)** | Evaluate agent outputs against rubrics |
 | `fable-discipline` | **Skill (Tier 3)** | Fable execution guardrails when Fable is selected |
