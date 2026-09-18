@@ -47,7 +47,10 @@
     "test:ab:run": "node ci/ab-test-harness.js run",
     "harness:reset": "node hooks/scripts/reset-circuit-breaker.js",
     "prepare": "husky install",
-    "commitlint": "commitlint --edit"
+    "commitlint": "commitlint --edit",
+    "test:telemetry": "node ci/telemetry.test.js",
+    "telemetry:report": "node telemetry/scripts/report.js",
+    "telemetry:benchmark": "node telemetry/scripts/benchmark.js"
   },
   "engines": {
     "node": ">=22"

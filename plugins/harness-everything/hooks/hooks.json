@@ -92,6 +92,18 @@
             "statusMessage": "Checking Harness structured MCP action gate"
           }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/telemetry-adapter.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\telemetry-adapter.js\"",
+            "timeout": 10,
+            "statusMessage": "Recording local Harness skill telemetry"
+          }
+        ]
       }
     ],
     "PermissionRequest": [
@@ -181,6 +193,18 @@
             "statusMessage": "Recording Harness structured MCP action outcome"
           }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/telemetry-adapter.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\telemetry-adapter.js\"",
+            "timeout": 10,
+            "statusMessage": "Recording local Harness skill telemetry"
+          }
+        ]
       }
     ],
     "SubagentStart": [
@@ -232,6 +256,17 @@
             "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\stop-gate.js\"",
             "timeout": 15,
             "statusMessage": "Checking Harness verification gate"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/scripts/telemetry-adapter.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\telemetry-adapter.js\"",
+            "timeout": 10,
+            "statusMessage": "Recording local Harness skill telemetry"
           }
         ]
       }
