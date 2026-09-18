@@ -256,15 +256,19 @@ try {
     check(gate('Write', { file_path: outsideTarget }, repo).status === 0,
       'out-of-workspace Write is admitted without Tier-2 mutation accounting');
     fs.writeFileSync(outsideTarget, 'scratch ' + i + '\n');
-    check(persistDirect('Write', { file_path: outsideTarget }, repo).status === 0,
+    const outsideResponse = i === 0
+      ? { stderr: 'warning: successful bookkeeping write emitted diagnostic text' }
+      : {};
+    check(persistDirect('Write', { file_path: outsideTarget }, repo, outsideResponse).status === 0,
       'out-of-workspace Write post-tool state persists without mutation milestone');
   }
   const afterOutside = read(file);
   const afterOutsideHandoff = read(handoffFile);
   check((afterOutside.budget?.counters?.iterations || 0) === beforeOutsideIterations &&
     (afterOutside.lastMutationAt || 0) === beforeOutsideMutationAt &&
-    (afterOutsideHandoff.lastEditAt || 0) === beforeOutsideEditAt,
-    'out-of-workspace Writes leave iterations, lastMutationAt, and lastEditAt unchanged');
+    (afterOutsideHandoff.lastEditAt || 0) === beforeOutsideEditAt &&
+    afterOutsideHandoff.status !== 'failed',
+    'out-of-workspace Writes leave iterations/milestones unchanged and PostToolUse stderr is not a failure');
   check(stop().status === 0, 'out-of-workspace-only bookkeeping does not force verification before Stop');
 
   check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single',
