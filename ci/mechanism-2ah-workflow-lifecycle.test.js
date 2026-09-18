@@ -234,11 +234,13 @@ try {
   ];
   for (const command of untrustedReads) {
     const before = read(file);
-    check(gate('Bash', { command }, repo).status === 0, 'untrusted read/query is admitted under observation: ' + command);
-    const probed = read(file);
-    check(probed.mutationProbes && !JSON.stringify(probed.mutationProbes).includes(command),
+    const call = beginShell(command);
+    check(call.result.status === 0, 'untrusted read/query is admitted under observation: ' + command);
+    const probes = probeFiles();
+    check(probes.length === 1 && !fs.readFileSync(path.join(probeDir, probes[0]), 'utf8').includes(command),
       'mutation probe persists only opaque identity, not raw command text');
-    check(observeShell(command).status === 0, 'no-effect shell probe resolves: ' + command);
+    check(persistShell(call).status === 0, 'no-effect shell probe resolves through state-persist: ' + command);
+    check(probeFiles().length === 0, 'completed shell call removes its mutation probe');
     const after = read(file);
     check((after.budget?.counters?.iterations || 0) === (before.budget?.counters?.iterations || 0),
       'no-effect untrusted shell command consumes no iteration');
@@ -246,42 +248,59 @@ try {
       'no-effect untrusted shell command does not advance lastMutationAt');
   }
 
+  const deniedCall = beginShell('node denied-by-auto-mode.js');
+  check(deniedCall.result.status === 0 && probeFiles().length === 1,
+    'auto-mode candidate reserves mutation capacity before permission decision');
+  check(denyShell(deniedCall).status === 0 && probeFiles().length === 0,
+    'PermissionDenied releases the exact tool-use mutation probe');
+  const parallelA = beginShell('node repeated-read-only-wrapper.js');
+  const parallelB = beginShell('node repeated-read-only-wrapper.js');
+  check(parallelA.result.status === 0 && parallelB.result.status === 0 && probeFiles().length === 2,
+    'identical concurrent shell commands receive distinct tool-use probes');
+  check(denyShell(parallelA).status === 0 && persistShell(parallelB).status === 0 && probeFiles().length === 0,
+    'parallel tool-use probes settle independently without reservation leakage');
+
   const metadataFetch = 'git fetch . HEAD:refs/remotes/origin/harness-probe';
   const beforeMetadataFetch = read(file);
-  check(gate('Bash', { command: metadataFetch }, repo).status === 0,
+  const metadataFetchCall = beginShell(metadataFetch);
+  check(metadataFetchCall.result.status === 0,
     'metadata-only git fetch is admitted under observation');
   git(['fetch', '.', 'HEAD:refs/remotes/origin/harness-probe']);
-  check(observeShell(metadataFetch).status === 0, 'real metadata-only git fetch probe resolves');
+  check(persistShell(metadataFetchCall).status === 0, 'real metadata-only git fetch probe resolves');
   check(read(file).budget.counters.iterations === beforeMetadataFetch.budget.counters.iterations &&
     (read(file).lastMutationAt || 0) === (beforeMetadataFetch.lastMutationAt || 0),
     'real git fetch changes Git metadata without consuming a code iteration');
 
   let observedIterations = read(file).budget?.counters?.iterations || 0;
   const mutateTracked = 'node mutate-tracked.js';
-  check(gate('Bash', { command: mutateTracked }, repo).status === 0, 'unknown tracked-file mutator is admitted under observation');
+  const mutateTrackedCall = beginShell(mutateTracked);
+  check(mutateTrackedCall.result.status === 0, 'unknown tracked-file mutator is admitted under observation');
   fs.writeFileSync(path.join(repo, 'README.md'), 'fixture changed once\n');
-  check(observeShell(mutateTracked).status === 0, 'tracked-file mutation is observed');
+  check(persistShell(mutateTrackedCall).status === 0, 'tracked-file mutation is observed');
   check(read(file).budget.counters.iterations === ++observedIterations, 'tracked-file mutation consumes exactly one iteration');
   const firstObservedAt = read(file).lastMutationAt;
 
   const mutateDirty = 'node mutate-dirty-again.js';
-  check(gate('Bash', { command: mutateDirty }, repo).status === 0, 'unknown already-dirty mutator is admitted under observation');
+  const mutateDirtyCall = beginShell(mutateDirty);
+  check(mutateDirtyCall.result.status === 0, 'unknown already-dirty mutator is admitted under observation');
   fs.writeFileSync(path.join(repo, 'README.md'), 'fixture changed twice\n');
-  check(observeShell(mutateDirty).status === 0, 'already-dirty content change is observed');
+  check(persistShell(mutateDirtyCall).status === 0, 'already-dirty content change is observed');
   check(read(file).budget.counters.iterations === ++observedIterations && read(file).lastMutationAt >= firstObservedAt,
     'already-dirty content change consumes one new iteration');
 
   const createUntracked = 'node create-untracked.js';
-  check(gate('Bash', { command: createUntracked }, repo).status === 0, 'unknown untracked-file mutator is admitted under observation');
+  const createUntrackedCall = beginShell(createUntracked);
+  check(createUntrackedCall.result.status === 0, 'unknown untracked-file mutator is admitted under observation');
   fs.writeFileSync(path.join(repo, 'observed-untracked.txt'), 'one\n');
-  check(observeShell(createUntracked).status === 0, 'untracked-file creation is observed');
+  check(persistShell(createUntrackedCall).status === 0, 'untracked-file creation is observed');
   check(read(file).budget.counters.iterations === ++observedIterations, 'untracked-file creation consumes exactly one iteration');
 
   const failedMutation = 'node fail-after-write.js';
-  check(gate('Bash', { command: failedMutation }, repo).status === 0, 'failing shell mutator is admitted under observation');
+  const failedMutationCall = beginShell(failedMutation);
+  check(failedMutationCall.result.status === 0, 'failing shell mutator is admitted under observation');
   fs.writeFileSync(path.join(repo, 'observed-failed.txt'), 'written before failure\n');
-  check(observeShell(failedMutation, { exitCode: 7, stderr: 'fixture failure' }).status === 0,
-    'failed shell command still reports workspace mutation');
+  check(persistShell(failedMutationCall, { error: 'Exit code 7\nfixture failure' }, 'PostToolUseFailure').status === 0,
+    'failed shell command still reports workspace mutation through failure lifecycle');
   check(read(file).budget.counters.iterations === ++observedIterations,
     'failed shell command that changed workspace still consumes one iteration');
 
