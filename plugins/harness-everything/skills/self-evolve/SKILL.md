@@ -1,6 +1,6 @@
 ---
 name: self-evolve
-description: "Extract reusable lessons from verified recovery and persist them through governed memory or dynamic-skill workflows."
+description: "Extract root causes from resolved problems and persist them as defensive memory rules or dynamic skills; use after struggles, zoom-outs, or explicit request."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
