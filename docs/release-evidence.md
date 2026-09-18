@@ -9,6 +9,9 @@ The following evidence was collected on 2026-09-07 before the issue #20 integrat
 | Version | Registry observation | GitHub release | Workflow run | Gate and publish result |
 | --- | --- | --- | --- | --- |
 | 0.3.6 | `npm view harness-everything version dist-tags --json`: version and latest are `0.3.6` | `v0.3.6`, published 2026-09-01T03:50:44Z | [33466676632](https://github.com/dyphn1/Harness-everything/actions/runs/33466676632), commit `5aa74119d08ff241a7d6fe8f163a6a0d40c3c932` | `gate=success`, `publish=success` |
+| 0.11.6 | `npm view harness-everything version dist-tags --json` (collected 2026-09-18): version and latest are `0.11.6` | `v0.11.6`, published 2026-09-18T12:51:58Z | [35346673284](https://github.com/dyphn1/Harness-everything/actions/runs/35346673284), commit `23d87db8230dcb524651dc67e932f54aa6f5c737` | `gate=success` (12/12 jobs incl. skill-quality, runtime-floor, self-regression x3 OS, consistency x3 OS, installer-e2e x3 OS, release-semantics), `publish=success` (job `release`) |
+
+Intermediate versions between 0.3.6 and 0.11.6 were published via the same tag-driven workflow but were not individually ledgered here; the rows above are the two deliberately collected observations. A registry/GitHub listing alone is still not a completed row — each field must be a command output or inspectable URL.
 
 The source capture for this row is the local review artifact `.git/issue-review-20260907/release-evidence.md`. That review artifact is not expected to be present in every checkout; it is historical evidence, not a release artifact shipped in the npm package.
 

@@ -1,69 +1,59 @@
-# Workflow: Grill with Docs
+# Workflow: Grill With Docs
 
-> Decision tracking, Glossary alignment, and ADR-driven (Architecture Decision Record) grilling to eliminate technical drift between code and documentation.
+> Tests a plan against the recorded domain language and past decisions, tightens fuzzy terminology into canonical terms, and writes CONTEXT.md and ADR updates inline as choices settle.
 
----
+Source of truth: `grill-with-docs/SKILL.md`.
 
 ## 1. Skill Behavior Workflow
 
-This section visualizes how the `grill-with-docs` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
-
 ```mermaid
 graph TD
-  Start([Plan Proposed against Domain]) --> CheckCoreValidity{Plan vague or unverified?}
-  CheckCoreValidity -->|Yes| RecommendGrillMe["Recommend running grill-me first"]
-  CheckCoreValidity -->|No| ReadDomainModel["Read CONTEXT.md and existing ADRs"]
-  RecommendGrillMe --> EndVague([Postponed until plan is hardened])
-  ReadDomainModel --> ChallengeDrift["Examine plan for term drift or architectural violations"]
-  ChallengeDrift --> UpdateGlossary["Refine and match terminology with current Glossary"]
-  UpdateGlossary --> ResolveADRPath{Resolve ADR Storage Path}
-  
-  ResolveADRPath -->|docs/adr/ or CONTEXT-MAP.md Exists| WriteDocs["Write ADR to docs/adr/ or CONTEXT-MAP.md Location"]
-  ResolveADRPath -->|No Folder Found| WriteFallback["Write to committable docs/adr"]
-  
-  WriteDocs --> ToSpec["Hand off to to-spec for Outline Preview & Spec/ADR Publishing"]
-  WriteFallback --> ToSpec
-  ToSpec --> End([Route to to-tickets / fable-mode / tdd])
+  PlanInput["Plan needing domain alignment"] --> ResolveStorage["Resolve storage with project-docs-resolver.js; CONTEXT-MAP.md root wins"]
+  ResolveStorage --> ChallengeTerms["Challenge glossary conflicts; sharpen fuzzy terms to canonical ones"]
+  ChallengeTerms --> ScenarioTest["Stress-test relationships with concrete scenarios; cross-check claims against code"]
+  ScenarioTest --> InlineUpdate["Update context glossary inline, never batched; zero implementation details"]
+  InlineUpdate --> ADRGate{"ADR warranted: hard to reverse plus surprising without context plus real trade-off?"}
+  ADRGate -->|Yes| WriteADR["Offer and write ADR at resolved location"]
+  ADRGate -->|No| SkipADR["Skip ADR; keep pure glossary"]
+  WriteADR --> Handoff["Hand off aligned design to to-spec"]
+  SkipADR --> Handoff
 ```
-
----
 
 ## 2. Triggering and Routing Path
 
-This diagram illustrates how the `grill-with-docs` skill is triggered through user requests or developer actions, and how it integrates or chains together with other companion skills in the Harness OS ecosystem to form unified workflows.
-
 ```mermaid
 graph LR
-  Router["harness-everything / tier-router.js"] -->|Keyword: adr / decision / glossary| GWD["grill-with-docs / SKILL.md"]
-  GrillMe["grill-me / SKILL.md"] -->|Hardened plan ready for formalization| GWD
-  GWD -->|Aligns documentation during macro work in| Fable["fable-mode / SKILL.md"]
-  GWD -->|Triggers todo tasks tracked by| Todo["todo-driven-workflow / SKILL.md"]
-  GWD -->|Hands off to generate specifications| ToSpec["to-spec / SKILL.md"]
+  DomainStress["Input: stress-testing a plan against domain language and documented decisions"] --> GWD["grill-with-docs / SKILL.md"]
+  GWD --> GrillMe["grill-me for unverified design"]
+  GWD --> ToSpec["to-spec for aligned design"]
+  ToSpec --> ToTickets["to-tickets for execution"]
+  ToSpec --> FableMode["fable-mode for execution"]
+  ToSpec --> TDD["tdd for execution"]
 ```
 
----
-
-## 3. Real-World Use Case Flowchart
-
-Here we model concrete real-world scenarios and use cases of the `grill-with-docs` skill, illustrating standard success paths, error handling, or recovery loops.
+## 3. Real-World Use Case
 
 ```mermaid
 graph TD
-  Start["Requirement: Change notification retry rate limits"] --> Trigger["grill-with-docs skill invoked"]
-  Trigger --> ReadDocs["Analyzes docs/adr/003-rate-limiting.md"]
-  ReadDocs --> CheckDrift["Finds that proposed change violates the maximum overload protection limit"]
-  CheckDrift --> RefinePlan["Plan updated to stay within the 003-rate-limiting contract"]
-  RefinePlan --> CreateADR["Create docs/adr/008-notification-retries.md"]
-  CreateADR --> SyncCode["Modify code and inject aligned TODO tags directly in code to maintain truth"]
-  SyncCode --> Done([Zero architectural drift achieved])
+  RetryProposal["Proposal: change notification retry limits"] --> ResolveDocs["Resolve docs location; read CONTEXT.md and rate-limit ADR"]
+  ResolveDocs --> Conflict["Find glossary conflict: retry versus backoff"]
+  Conflict --> Scenario["Scenario test: burst retry against overload protection limit"]
+  Scenario --> GlossaryFix["Inline glossary fix to canonical terms"]
+  GlossaryFix --> ADRDecision["ADR offered because limit change is hard to reverse and involves trade-off"]
+  ADRDecision --> AlignedHandoff["Aligned design to to-spec; execution to to-tickets, fable-mode, or tdd"]
 ```
 
----
+Concrete example: a retry-limit change is checked against the existing rate-limiting ADR and code. Fuzzy retry language is sharpened, the glossary is fixed inline, and only because the decision is hard to reverse and surprising without context is an ADR written. An unverified design would go to `grill-me` first instead.
+
+Deep detail: `grill-with-docs/references/session-playbook.md`. Formats: `grill-with-docs/ADR-FORMAT.md`, `grill-with-docs/CONTEXT-FORMAT.md`.
 
 ## 4. Verification Check
 
-To ensure that the `grill-with-docs` skill is operating in strict compliance with Harness OS design laws, verify the following:
-
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+- [ ] Storage resolved with `multi-agent-workspace/scripts/project-docs-resolver.js`; `<workspace>/CONTEXT-MAP.md` root wins
+- [ ] Fuzzy terms sharpened to canonical ones; glossary stays pure with zero implementation details
+- [ ] Relationships tested with concrete scenarios and claims cross-checked against code
+- [ ] Context glossary updated inline, never batched
+- [ ] ADR offered only when hard to reverse plus surprising without context plus a real trade-off
+- [ ] ADRs meet the 3-part bar; handoff to `to-spec` after alignment
+- [ ] Routing respected: unverified design to `grill-me`; aligned design to `to-spec`; execution to `to-tickets`, `fable-mode`, or `tdd`
+- [ ] Not used for verifying unstable designs without a grilling pass, and not used for spec publishing without grilling

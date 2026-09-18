@@ -1,64 +1,59 @@
 # Workflow: Skill Style
 
-> Guidelines and style rules for authoring, refactoring, and maintaining SKILL.md files to enforce clean frontmatter and logical boundaries.
+> Applies the Harness writing standard to SKILL.md files — covering new skills, structure reviews, naming and frontmatter conventions, tone, formatting, and progressive disclosure across the catalog.
+
+Source of truth: `skill-style/SKILL.md`.
 
 ---
 
 ## 1. Skill Behavior Workflow
 
-This section visualizes how the `skill-style` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
+```mermaid
+graph TD
+  TriggerEdit["Trigger: creating, reviewing, or refactoring a Harness SKILL.md"] --> FrontAccurate["Keep frontmatter accurate and description routeable"]
+  FrontAccurate --> OrderCheck["Include in order: title, introduction, Skill Contract, usage, actionable rules"]
+  OrderCheck --> ImperativeGate["Use imperative language and name the enforcing command or gate"]
+  ImperativeGate --> OverlapCheck["Avoid overlap with OS-layer routing or domain expertise"]
+  OverlapCheck --> ConsistencyGate["Gate: npm run test:consistency plus style-guide review"]
+  ConsistencyGate --> ConciseOut["Output: concise, complete, non-overlapping SKILL.md"]
+```
 
 ```mermaid
 graph TD
-  Start([Authoring / Editing a SKILL.md]) --> ParseFrontmatter["Parse and validate YAML Frontmatter: name, description"]
-  ParseFrontmatter --> ValidateBoundary["Check for explicit physical boundaries & state checkpoints"]
-  ValidateBoundary --> VerifyCognitiveLoop["Verify integration with Cognitive Loop laws"]
-  VerifyCognitiveLoop --> CheckFormatting["Ensure clean markdown layout and bullet-style rules"]
-  CheckFormatting --> FormatApproved{Complies with STYLE.md?}
-  FormatApproved -->|No| FixSkillFile["Refactor and clean file formatting"]
-  FormatApproved -->|Yes| SaveSkillFile["Commit clean, validated SKILL.md"]
-  FixSkillFile --> SaveSkillFile
-  SaveSkillFile --> End([Skill document aligned with professional guidelines])
+  StyleGuide["Deep dive: skill-style/references/style-guide.md"] --> ToneFormat["Standardize tone, formatting, and progressive disclosure"]
+  ToneFormat --> NoMutate["State mutations: none; writing and review standard only"]
+  NoMutate --> OverlapAvoid["No overlap with existing catalog entries"]
 ```
-
----
 
 ## 2. Triggering and Routing Path
 
-This diagram illustrates how `skill-style` is reached — as of the `skill-creator` split, it is no longer the first stop. `tier-router.js`'s `/\bskill\b|skill\.md|new skill|write a skill/` match now recommends `skill-creator` first (the full authoring/audit/testing workflow) and `skill-style` second (the terse Skill Contract table shape it builds on) — see `harness-everything/scripts/tier-router.js`.
+```mermaid
+graph LR
+  NewSkillReq["Creating a new SKILL.md file"] --> StyleSkill["skill-style / SKILL.md"]
+  RefactorReq["Refactoring or reviewing an existing SKILL.md"] --> StyleSkill
+  ToneReq["Deciding tone, structure, or enforcement style"] --> StyleSkill
+  OverlapReq["Checking overlap with an existing skill"] --> StyleSkill
+```
 
 ```mermaid
 graph LR
-  Router["harness-everything / tier-router.js"] -->|Keyword: skill / skill.md / new skill| Creator["skill-creator / SKILL.md"]
-  Creator -->|Builds on the table shape defined in| SkillStyle["skill-style / SKILL.md"]
-  SkillStyle -->|Audits format correctness of| OtherSkills["Any SKILL.md in the workspace"]
-  SkillStyle -->|Pre-PR validation gate integration| VerLoop["verification-loop / SKILL.md"]
+  StyleSkill2["skill-style / SKILL.md"] -->|For intent interviews, drafting, prompt tests| CreatorSkill["skill-creator / SKILL.md"]
+  DynRoute["Routing rules for dynamically generated mid-session skills"] -->|Owned by| SelfEvolve["self-evolve"]
+  NonHarness["Non-Harness skill formats outside harness-everything"] -->|Out of scope| NotStyle["Not skill-style"]
 ```
 
----
+## 3. Real-World Use Case
 
-## 3. Real-World Use Case Flowchart
-
-§1 already walks the linear audit steps for a single file. This section instead shows the case that motivated splitting `skill-creator` out of this skill in the first place: a developer who needs the *fuller* workflow, not just the table shape.
-
-```mermaid
-graph TD
-  Start["Developer: 'help me write a new skill for deploying to AWS'"] --> Router["tier-router.js recommends skill-creator + skill-style"]
-  Router --> Creator["skill-creator: capture intent, draft, test against real prompts (§2)"]
-  Creator --> StyleCheck["skill-style: does the draft's Skill Contract table match the required shape?"]
-  StyleCheck -->|Missing/malformed table| Fix["Fix table shape per skill-style, re-run skill-creator's Quality Checklist"]
-  StyleCheck -->|Table shape OK| Checklist["skill-creator §3 Quality Checklist: no-op / duplication / negation / progressive-disclosure checks"]
-  Fix --> Checklist
-  Checklist --> Register["Register in harness-everything §5 + tier-router.js (skill-creator §2 Step 4)"]
-  Register --> Done([deploy-aws/SKILL.md committed, consistent with the rest of the repo])
-```
-
----
+An author drafts a new `backup-restore` SKILL.md and runs a style pass. They tighten the frontmatter description for routing, reorder the file to title, introduction, Skill Contract, usage, and actionable rules, rewrite vague advice in imperative language naming `npm run test:consistency` as the gate, remove duplicated routing already owned elsewhere, and check `skill-style/references/style-guide.md`. Intent interviewing and prompt testing are handed to `skill-creator/SKILL.md` per the Core Rules.
 
 ## 4. Verification Check
 
-To ensure that the `skill-style` skill is operating in strict compliance with Harness OS design laws, verify the following:
-
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+- [ ] Frontmatter accurate and description routeable
+- [ ] File includes in order: title, introduction, Skill Contract, usage, and actionable rules
+- [ ] Imperative language used with the enforcing command or gate named (`npm run test:consistency` plus style-guide review)
+- [ ] No overlap with OS-layer routing or domain expertise; catalog overlap checked
+- [ ] Tone, formatting, and progressive disclosure standardized per `skill-style/references/style-guide.md`
+- [ ] State mutations are none — treated as a writing and review standard only
+- [ ] Intent interviews, drafting, and prompt tests routed to `skill-creator/SKILL.md`, not handled here
+- [ ] Routing rules for dynamically generated mid-session skills left to `self-evolve`
+- [ ] Not applied to non-Harness skill formats outside `harness-everything`

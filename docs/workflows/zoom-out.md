@@ -1,74 +1,62 @@
 # Workflow: Zoom Out
 
-> High-level reflection report generation to break out of error loops, analyze failure patterns, and backtrack to alternative paths.
+> Reflect-first breaker after three failures: stop edits, rebuild the full picture with read-only tools, write a fact-check report, then resume or escalate.
 
----
+Source of truth: `zoom-out/SKILL.md`.
+
+Contract summary from SKILL.md — Trigger: three same-signature failures or an explicit loop/rethink request. Output: fact-checked report ending in `RESUME` or `ESCALATE`. State: writes the session `zoom-out-report.md`; reset may clear breaker state. Gate: `hooks/scripts/rule-of-3.js` plus a valid report; reset only after the second cycle. USE FOR: "you are stuck in a loop", "the same error keeps failing", "rethink your assumptions". DO NOT USE FOR: routine single-failure debugging, greenfield planning without failures.
 
 ## 1. Skill Behavior Workflow
 
-This section visualizes how the `zoom-out` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
-
 ```mermaid
 graph TD
-  Start([3 Consecutive Failures / Goal Drift Triggered]) --> CeaseFire["1. Phase 1: Cease Fire - Stop Code Edits Immediately"]
-  CeaseFire --> Rebuild["2. Phase 2: Rebuild Full Picture using Read-Only Tools"]
-  Rebuild --> CheckPath{3. Resolve Reflection Report Path}
-  
-  CheckPath -->|Session Path Provided| WriteSession["Copy template to Session zoom-out-report.md"]
-  CheckPath -->|Template / Path Unavailable| WritePlatform["Write to .github/harness-everything/zoom-out-report.md or Inline"]
-  
-  WriteSession --> DecisionGate{4. Phase 4: Decision Gate}
-  WritePlatform --> DecisionGate
-  
-  DecisionGate -->|Untried Path Identified| Resume["RESUME: Execute Fresh Diagnosis in TDD / Fable"]
-  DecisionGate -->|Requirement Conflict / Access Gap| Escalate["ESCALATE: Present 2-3 Options + Recommendation to Human"]
-  
-  Resume --> Resolved{5. Problem Cracking Succeeds?}
-  Resolved -->|Yes| SelfEvolve["Call self-evolve to Persist Insight"]
-  Resolved -->|No: 3 More Failures| Escalate
-  SelfEvolve --> End([Reflection Completed & Lessons Persisted])
-  Escalate --> End
+  Third[Third Same Signature Failure] --> Stop[Stop Edits No User Ask Yet]
+  Stop --> ReadOnly[ReadOnly Restate Goal Check Files Config Logs]
+  ReadOnly --> Fill[Fill zoom-out-report template]
+  Fill --> Decide{RESUME or ESCALATE?}
+  Decide -->|untried path| Resume[RESUME On Untried Path]
+  Decide -->|genuine user decision| Escalate[ESCALATE With Options]
+  Resume --> Again{Repeated Breaker Cycle?}
+  Again -->|second cycle| Reset[npm run harness reset]
+  Reset --> Evolve[Record Insight With self-evolve]
+  Again -->|no| Done([Report Complete])
+  Escalate --> Done
 ```
-
----
 
 ## 2. Triggering and Routing Path
 
-This diagram illustrates how the `zoom-out` skill is triggered through user requests or developer actions, and how it integrates or chains together with other companion skills in the Harness OS ecosystem to form unified workflows.
-
 ```mermaid
-graph LR
-  RuleOf3["Rule of 3 Circuit Breaker"] -->|Tripped!| ZoomOut["zoom-out / SKILL.md"]
-  ZoomOut -->|Halts execution for| ActiveWork["Active workspace edits"]
-  ZoomOut -->|Asks for human direction via| AskQuestions["host user-input mechanism"]
-  ZoomOut -->|Unlocks workspace state after| HumanReset["Human Partner Response"]
+graph TD
+  LoopReq[Stuck In Loop Request] --> Skill[zoom-out SKILL]
+  SameErr[Same Error Keeps Failing] --> Skill
+  Rethink[Rethink Assumptions Request] --> Skill
+  ThreeFail[Three Same Signature Failures] --> Breaker[hooks scripts rule-of-3 js]
+  Breaker --> Skill
+  SingleFail[Routine Single Failure] --> DirectFix[Fix Directly]
+  Greenfield[Greenfield Planning No Failures] --> Fable[fable-mode SKILL]
+  Skill --> ReportGate[Valid Report RESUME or ESCALATE]
 ```
 
----
-
-## 3. Real-World Use Case Flowchart
-
-Here we model concrete real-world scenarios and use cases of the `zoom-out` skill, illustrating standard success paths, error handling, or recovery loops.
+## 3. Real-World Use Case
 
 ```mermaid
 graph TD
-  Start["Attempting to fix Python import error; fails 3 times consecutively with same trace"] --> Trigger["Rule of 3 circuit breaker trips"]
-  Trigger --> Lock["Workspace writes locked"]
-  Trigger --> Awaken["Awaken: Stop error-fixing; review imports design & requirements (Law 2)"]
-  Awaken --> Collect["Collect error traces and diff history"]
-  Collect --> WriteReport["Create the session zoom-out-report.md detailing the import cyclic dependency"]
-  WriteReport --> Present["Present options to human: Option A - Merge imports, Option B - Extract shared modules"]
-  Present --> UserChoice["User select: 'Option B'"]
-  UserChoice --> Unlock["Unlock workspace and execute Option B"]
-  Unlock --> Done([Error loop successfully broken and resolved])
+  Fail[Same Test Fails Three Times Same Signature] --> Halt[Stop Edits Rebuild Picture ReadOnly]
+  Halt --> Inspect[Restate Goal Check Files Config Logs]
+  Inspect --> Write[Fill templates zoom-out-report template md]
+  Write --> Choice{Untried Path Exists?}
+  Choice -->|yes| Resume2[RESUME On Untried Path]
+  Choice -->|no| Esc2[ESCALATE With Options]
+  Resume2 -->|repeated cycle| Reset2[npm run harness reset Then self-evolve]
 ```
 
----
+Template: `zoom-out/templates/zoom-out-report.template.md`. Enforcement: `hooks/scripts/rule-of-3.js`. Deep dive: `zoom-out/references/circuit-breaker.md`.
 
 ## 4. Verification Check
 
-To ensure that the `zoom-out` skill is operating in strict compliance with Harness OS design laws, verify the following:
-
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+- [ ] After three same-signature failures, edits stopped and the same approach was not retried
+- [ ] Goal, files, configuration, and logs were rechecked with read-only tools before any resume
+- [ ] `templates/zoom-out-report.template.md` was filled and the session `zoom-out-report.md` ends in `RESUME` or `ESCALATE`
+- [ ] Resume targeted only an untried path; genuine user decisions were escalated with options
+- [ ] Reset via `npm run harness:reset` happened only after the second cycle, with the insight recorded via `self-evolve`
+- [ ] Routine single-failure debugging and greenfield planning without failures were not routed here

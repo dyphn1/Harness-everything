@@ -1,64 +1,61 @@
 # Workflow: Verify Before Claim
 
-> Fact-audit discipline requiring empirical verification of external claims, SDK configurations, defaults, and unmeasured performance estimates.
+> Check external framework, SDK, CLI, and API claims plus any unmeasured performance or cost numbers against an authoritative source, then deliver a cited claim, a real measurement, or a labeled estimate.
 
----
+Source of truth: `verify-before-claim/SKILL.md`.
+
+Contract summary from SKILL.md — Trigger: external behavior, version/config/exit-code claim, or unmeasured number. Output: official citation, real measurement, or explicitly labeled estimate. State mutation: none; evidence travels with the claim. Gate: official source or real measurement; unresolved claims stay inconclusive. USE FOR: stating how an external framework, SDK, CLI tool, or API behaves; quoting performance, cost, latency, or timing numbers; answering "does X support Y" or version-specific questions; citing defaults, exit codes, config flags, pricing, or rate limits. DO NOT USE FOR: claims about this repository's own code, facts the user supplied directly, generic CS knowledge such as Big-O.
 
 ## 1. Skill Behavior Workflow
 
-This section visualizes how the `verify-before-claim` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
-
 ```mermaid
 graph TD
-  Start([About to Assert External Framework / API Behavior or Perf Number]) --> CheckScope{Claim Scope Check}
-  CheckScope -->|Internal Repo Code| ReadSource["Read Local Source Code -> State Facts"]
-  CheckScope -->|External Framework / API / Number| CheckNet{Web Fetch / Search / Measurement Available?}
-  
-  CheckNet -->|Yes| FetchDocs["WebFetch Official Docs / Measure Real Execution"]
-  CheckNet -->|No / Offline| EstimateFallback["Explicitly Label Response as Unverified Estimate"]
-  
-  FetchDocs --> CiteDocs["Quote Authoritative Source / State Measured Data"]
-  ReadSource --> End([Verified Output Delivered])
-  CiteDocs --> End
-  EstimateFallback --> End
+  Claim[External Claim Or Unmeasured Number] --> Scope{Claim Scope?}
+  Scope -->|this repo own code| Local[Read Local Source Report Observed Facts]
+  Scope -->|external behavior or number| Official[Consult Official Docs First]
+  Official --> Numbers{Needs Number?}
+  Numbers -->|yes| Measure[Real Measurement Or Labeled Estimate]
+  Numbers -->|no| Cite[Return Cited Claim]
+  Measure --> Output[Claim With Evidence]
+  Cite --> Output
+  Local --> Output2[Fact From Source]
+  Official -->|contradiction or missing evidence| Inconclusive[Report Inconclusive]
 ```
-
----
 
 ## 2. Triggering and Routing Path
 
-This diagram illustrates how the `verify-before-claim` skill is triggered through user requests or developer actions, and how it integrates or chains together with other companion skills in the Harness OS ecosystem to form unified workflows.
-
 ```mermaid
-graph LR
-  Router["harness-everything / tier-router.js"] -->|Requires fact checking or estimates| VBC["verify-before-claim / SKILL.md"]
-  VBC -->|Empirical verification helper| RunCode["Run a real Node/terminal measurement"]
-  VBC -->|Secures quality of decisions in| GWD["grill-with-docs / SKILL.md"]
-  VBC -->|Verifies assertions in testing suite| TDD["tdd / SKILL.md"]
+graph TD
+  ExtBehave[State External Framework SDK CLI API Behavior] --> Skill[verify-before-claim SKILL]
+  PerfNum[Quote Perf Cost Latency Timing] --> Skill
+  SupportQ[Does X Support Y Version Question] --> Skill
+  ConfigQ[Cite Default ExitCode Flag Pricing Limit] --> Skill
+  OwnCode[Claim About This Repo Own Code] --> LocalSrc[Read Actual Source]
+  UserFact[Fact User Supplied Directly] --> Decline[Do Not Route]
+  GenericCS[Generic CS Knowledge BigO] --> Decline
+  Skill --> Cited[Cited Claim Or Measurement Or Estimate]
 ```
 
----
+## 3. Real-World Use Case
 
-## 3. Real-World Use Case Flowchart
-
-Here we model concrete real-world scenarios and use cases of the `verify-before-claim` skill, illustrating standard success paths, error handling, or recovery loops.
+A developer is about to assert a version-specific SDK default and a latency number in a design note. The skill routes the default to official documentation for a citation, routes the latency claim to a real measurement, and labels the value an estimate when no run exists. If sources contradict each other or no authoritative source exists, the result is reported as inconclusive rather than asserted as certain, even under time pressure.
 
 ```mermaid
 graph TD
-  Start["Developer assumes: 'Node.js fs.rmSync returns boolean upon success'"] --> Trigger["verify-before-claim skill triggered"]
-  Trigger --> ReadDocs["Checks Node.js documentation via WebSearch"]
-  ReadDocs --> FindTrue["Discovers fs.rmSync returns 'undefined' on success, and throws on failure"]
-  FindTrue --> TestCode["Executes quick Node snippet to confirm empirical behavior"]
-  TestCode --> UpdateCode["Refactors proposed catch-blocks to handle exceptions instead of checking booleans"]
-  UpdateCode --> Done([Potential production runtime crash prevented])
+  Draft[Draft Asserts SDK Default And Latency] --> CheckDocs[Check Official Docs For Default]
+  CheckDocs --> CheckNum[Require Real Measurement For Number]
+  CheckNum -->|measured| Cited2[Cited Default Plus Measured Number]
+  CheckNum -->|no run| Labeled[Labeled Estimate]
+  CheckDocs -->|conflict or gap| Inconc[Inconclusive Report]
 ```
 
----
+Deep dive: `verify-before-claim/references/verification-guide.md`.
 
 ## 4. Verification Check
 
-To ensure that the `verify-before-claim` skill is operating in strict compliance with Harness OS design laws, verify the following:
-
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+- [ ] Local-repository claims were settled by reading the actual source, not by external citation
+- [ ] External framework, SDK, CLI, or API behavior used official documentation first with a citation
+- [ ] Performance, cost, latency, or timing numbers came from a real measurement or were explicitly labeled as estimates
+- [ ] Defaults, exit codes, config flags, pricing, and rate limits were cited rather than asserted from memory
+- [ ] Contradictions or missing evidence were reported as inconclusive
+- [ ] No unverified external fact was claimed as certain, even under time pressure

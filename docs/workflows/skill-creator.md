@@ -1,80 +1,63 @@
 # Workflow: Skill Creator
 
-> Authors, audits, and evolves SKILL.md files against a single quality bar — the Skill Contract format plus predictability/pruning/progressive-disclosure principles from external skill-writing research — and is the required gate for skills `self-evolve` generates dynamically.
+> Authors, audits, and refactors SKILL.md files against the Skill Contract quality bar — for new skills, SKILL.md refactors, overlap checks, and packaging insights as dynamic skills.
+
+Source of truth: `skill-creator/SKILL.md`.
 
 ---
 
 ## 1. Skill Behavior Workflow
 
-This section visualizes how the `skill-creator` skill executes internally, detailing the sequence of operations, state transitions, and evaluation steps.
+```mermaid
+graph TD
+  NewReq["Trigger: new skill, SKILL.md audit, or self-evolve packaging"] --> DupGrep["Grep registry for near-duplicates; when-to-fire sentence becomes description"]
+  DupGrep --> DraftContract["Draft Contract table first, then USE FOR and DO NOT USE FOR, then steps or flat reference"]
+  DraftContract --> PushRef["Push branch-only detail to references/"]
+  PushRef --> ABTest["A/B-test via multi-agent-workspace subagents; read both transcripts"]
+  ABTest --> QualityGate["Quality Checklist gate before registering"]
+  QualityGate --> RegisterOut["Output: SKILL.md passing Quality Checklist; writes SKILL.md and updates registry or generated folder"]
+```
 
 ```mermaid
 graph TD
-  Start([New skill request / existing SKILL.md to audit / self-evolve dynamic-generation call after LLM selection]) --> Intent["Capture intent: what it does, the one canonical description sentence, which Tier, does an existing skill already own this ground"]
-  Intent --> Draft["Draft: Skill Contract table first, then body sized by information hierarchy (steps vs flat reference vs guides/references)"]
-  Draft --> Test["Test 2-3 realistic prompts via multi-agent-workspace: with-skill subagent vs baseline subagent"]
-  Test --> Checklist{"Quality Checklist (§3): SSOT, no duplication >5 lines, every MUST has a real gate, no no-ops, info hierarchy, leading words reused, checkable completion criteria, human-facing description"}
-  Checklist -->|Fails| Prune["Prune and rewrite the failing item"]
-  Prune --> Checklist
-  Checklist -->|Passes| Route{Static or dynamic?}
-  Route -->|Static| Register["Register: harness-everything §5 row + tier-router.js keyword line"]
-  Route -->|Dynamic, from self-evolve| DynamicContract["§4 Dynamic Skill Generation Contract: write to .claude/harness-everything/skills/generated/<name>/ & register-dynamic-skill.js to manifest.json, metadata.type=dynamic, status=draft"]
-  Register --> End([Skill live in the repo, single source of truth for its own description])
-  DynamicContract --> End
+  DynamicReq["Dynamic path: only generalizable procedures qualify"] --> SimpleRule["Simple constraints go to memories/repo/RULES.md"]
+  SimpleRule --> DynLoc["Location: workspace/.claude/harness-everything/skills/generated/kebab-case-name/SKILL.md"]
+  DynLoc --> DynFront["Frontmatter: triggers, type generated, source, status draft"]
+  DynFront --> DynLife["Lifecycle: draft to active after firing elsewhere; deprecate, do not delete; promote once proven general"]
 ```
-
----
 
 ## 2. Triggering and Routing Path
 
-This diagram illustrates how `skill-creator` is triggered through user requests or developer actions, and how it integrates or chains together with other companion skills in the Harness OS ecosystem to form unified workflows.
+```mermaid
+graph LR
+  CreateReq["Create a skill from scratch"] --> CreatorSkill["skill-creator / SKILL.md"]
+  AuditReq["Audit or refactor a SKILL.md; check overlap"] --> CreatorSkill
+  PackageReq["Packaging a session insight as a dynamic skill"] --> CreatorSkill
+  CreatorSkill --> ChecklistOut["Gate: Quality Checklist, incl. USE FOR and DO NOT USE FOR"]
+```
 
 ```mermaid
 graph LR
-  Router["harness-everything / tier-router.js"] -->|Keyword: skill / skill.md / new skill / write a skill| Creator["skill-creator / SKILL.md"]
-  Creator -->|Table shape spec| SkillStyle["skill-style / SKILL.md"]
-  Creator -->|With/without test subagents| Launcher["multi-agent-workspace / SKILL.md"]
-  Creator -->|Registers new static skills into| Registry["harness-everything / SKILL.md §5"]
-  Evolve["self-evolve / SKILL.md §4"] -->|LLM decides to promote insight| Creator
-  Creator -->|Writes dynamic skills to| Generated[".claude/harness-everything/skills/generated/"]
-  Generated -->|Registered in| Manifest["manifest.json 'generated' registry"]
-  Manifest -->|Matched & auto-loaded by| Router
+  CreatorSkill2["skill-creator / SKILL.md"] -->|A-B tests with| MultiAgent["multi-agent-workspace subagents"]
+  NonSkillDocs["Non-skill project docs"] -->|Use instead| RepoDocs["repo-docs or to-spec"]
+  ThirdParty["Third-party skill discovery"] -->|Use instead| FindSkills["find-skills"]
+  StyleOnly["Code style outside SKILL.md files"] -->|Out of scope| NotCreator["Not skill-creator"]
 ```
 
----
+## 3. Real-World Use Case
 
-## 3. Real-World Use Case Flowchart
-
-Here we model concrete real-world scenarios and use cases of the `skill-creator` skill, illustrating standard success paths, error handling, or recovery loops — one for a human-directed static skill, one for `self-evolve`'s dynamic path.
-
-```mermaid
-graph TD
-  Start1["Developer: 'I want a skill for deploying to AWS'"] --> Intent1["skill-creator §2 Step 1: capture intent, one canonical description sentence"]
-  Intent1 --> Draft1["Draft Skill Contract table + steps, push detail to deploy-aws/guides/"]
-  Draft1 --> Test1["Spawn with/without subagents via multi-agent-workspace on 2-3 realistic prompts"]
-  Test1 --> Check1{Quality Checklist passes?}
-  Check1 -->|No| Fix1["Fix flagged item, re-test"]
-  Fix1 --> Check1
-  Check1 -->|Yes| Reg1["Add row to harness-everything §5 + one line to tier-router.js"]
-  Reg1 --> Done1([deploy-aws/SKILL.md live as a static, reviewed skill])
-
-  Start2["zoom-out recovery ends: root cause found for a recurring connection-pool exhaustion bug"] --> Decide2{"LLM: Does it warrant a standalone complex skill?"}
-  Decide2 -->|No: Simple Tip| Save2["persist-memory.js writes simple rule to RULES.md"]
-  Decide2 -->|Yes: Complex Skill| Trigger2["self-evolve §3 Step 3: Promote to Dynamic Skill"]
-  Trigger2 --> Load2["self-evolve MUST load skill-creator §4 before writing anything"]
-  Load2 --> Gate2{Quality Checklist §3 passes?}
-  Gate2 -->|No| Reject2["Do not persist — this checklist is the only review a dynamic skill gets"]
-  Gate2 -->|Yes| Write2["Write .claude/harness-everything/skills/generated/orm-transaction-batching/SKILL.md & run register-dynamic-skill.js"]
-  Write2 --> Done2([Dynamic skill available next session via manifest registration and tier-router.js scan])
-  Save2 --> Done3([Simple memory rule available in RULES.md])
-```
-
----
+A team wants a new `deploy-preview` skill. The author greps the registry for near-duplicates, writes the when-to-fire sentence as the description, drafts the Contract table first with its enforcement gate, then `USE FOR` and `DO NOT USE FOR`, then the steps, pushing long detail to `references/`. They A/B-test via `multi-agent-workspace` subagents, read both transcripts, run the Quality Checklist (`skill-creator/references/quality-checklist.md`), and only then register. A separate small tip discovered mid-session does not qualify as a dynamic skill and goes to `<workspace>/memories/repo/RULES.md`.
 
 ## 4. Verification Check
 
-To ensure that the `skill-creator` skill is operating in strict compliance with Harness OS design laws, verify the following:
-
-- [ ] **Physical Boundary Verification**: The skill boundaries are respected and do not leak context.
-- [ ] **State Checkpoint Verification**: The active state is established, validated, and recorded at the beginning and end of each execution branch.
-- [ ] **Cognitive Alignment**: The skill conforms to the **Think > Try > Summarize > Record** cognitive loop.
+- [ ] Registry grep for near-duplicates completed; description written as the when-to-fire sentence
+- [ ] Contract table drafted first to force the enforcement gate
+- [ ] `USE FOR` and `DO NOT USE FOR` present before steps or flat reference
+- [ ] Branch-only detail pushed to `references/` (e.g. `skill-creator/references/quality-checklist.md`)
+- [ ] A/B-tested via `multi-agent-workspace` subagents and both transcripts read
+- [ ] Quality Checklist passed before registering, including `USE FOR` / `DO NOT USE FOR` consistency
+- [ ] Output is a SKILL.md passing the Quality Checklist; `<skill>/SKILL.md` written and registry or generated folder updated
+- [ ] Dynamic path gated by Quality Checklist first; location, frontmatter triggers, generated type, and draft status correct
+- [ ] Dynamic lifecycle respected: draft to active after firing elsewhere; deprecate, do not delete; promote once proven general
+- [ ] Only generalizable procedures kept as skills; simple constraints sent to `<workspace>/memories/repo/RULES.md`
+- [ ] Not misused for non-skill docs, third-party discovery, or code style outside SKILL.md files
