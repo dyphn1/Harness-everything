@@ -185,10 +185,14 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workflow-mutation-observer.js\""
+          },
+          {
+            "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/state-persist.js\""
           }
         ],
-        "description": "Save skill transition state",
+        "description": "Observe workspace mutation before saving skill transition state",
         "id": "harness:post:state-persist"
       },
       {
@@ -258,6 +262,17 @@
         ],
         "description": "Track failed tool error signatures for Rule of 3",
         "id": "harness:post-failure:rule-of-3-tracker"
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workflow-mutation-observer.js\""
+          }
+        ],
+        "description": "Observe workspace effects from failed shell commands",
+        "id": "harness:post-failure:workflow-mutation-observer"
       },
       {
         "matcher": "Skill",
