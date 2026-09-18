@@ -23,6 +23,7 @@ const {
   getWorkerId,
 } = require('./lib/fable-contracts');
 const { loadWorkflow, matchingRun, recordBudgetEvent } = require('./lib/workflow-runtime');
+const { createLearningOpportunity } = require('./lib/learning-opportunity');
 
 function resultState(payload) {
   const toolResponse = payload.tool_response || payload.tool_result || {};
@@ -137,7 +138,26 @@ process.stdin.on('end', () => {
           }
         }
       }
+      const previousStatus = entry.contract.status;
+      const previousVerifiedAt = entry.contract.verifiedAt || entry.contract.updatedAt || null;
       const contract = updateRunContract(entry, payload, command, sessionId);
+      if (previousStatus === 'fail' && contract.status === 'pass') {
+        createLearningOpportunity(payload, {
+          triggerType: 'verifier-fail-pass',
+          sourceEventIds: [
+            `verifier-fail:${contract.runId}:${contract.stageId}:${previousVerifiedAt || 'unknown'}`,
+            `verifier-pass:${contract.runId}:${contract.stageId}:${contract.verifiedAt}`,
+          ],
+          evidence: {
+            planId: contract.planId,
+            runId: contract.runId,
+            stageId: contract.stageId,
+            previousStatus: 'fail',
+            currentStatus: 'pass',
+            verificationEvidenceRef: contract.verificationEvidence,
+          },
+        });
+      }
       console.log(`[Contract Test] ${contract.planId}/${contract.runId}/${contract.stageId}: ${contract.status.toUpperCase()} ${contract.checkCommand}`);
       if (contract.status === 'fail') {
         if (workflowContext.workflow?.workflowId) {
