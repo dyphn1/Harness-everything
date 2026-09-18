@@ -157,6 +157,19 @@
         "id": "harness:stop:skill-telemetry"
       }
     ],
+    "PermissionDenied": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workflow-mutation-denied.js\""
+          }
+        ],
+        "description": "Release reserved mutation capacity when Claude auto mode denies a shell tool call",
+        "id": "harness:permission-denied:mutation-probe"
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Bash|PowerShell|mcp__.*",
@@ -185,14 +198,10 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workflow-mutation-observer.js\""
-          },
-          {
-            "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/state-persist.js\""
           }
         ],
-        "description": "Observe workspace mutation before saving skill transition state",
+        "description": "Persist tool outcome, observed workspace mutation, and verification milestones",
         "id": "harness:post:state-persist"
       },
       {
@@ -268,11 +277,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workflow-mutation-observer.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/state-persist.js\""
           }
         ],
-        "description": "Observe workspace effects from failed shell commands",
-        "id": "harness:post-failure:workflow-mutation-observer"
+        "description": "Persist failed shell outcome and any workspace mutation that occurred before failure",
+        "id": "harness:post-failure:state-persist"
       },
       {
         "matcher": "Skill",
