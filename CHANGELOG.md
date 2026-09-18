@@ -2,6 +2,45 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.10.0](https://github.com/dyphn1/Harness-everything/compare/v0.9.0...v0.10.0) (2026-09-18)
+
+### Features
+
+* **self-evolve:** add lesson candidate lifecycle ([b53a7a9](https://github.com/dyphn1/Harness-everything/commit/b53a7a9435d27ea75cf02b6b38522306cb71bdb3))
+* **self-evolve:** add lesson candidate lifecycle ([2ee8c21](https://github.com/dyphn1/Harness-everything/commit/2ee8c21904546bd6049b6a8cfaa19caaff584795))
+* **self-evolve:** add runtime learning opportunity emitter ([21223a2](https://github.com/dyphn1/Harness-everything/commit/21223a24ba740b6903fd6aa8bbc0b29da7c2355e))
+* **self-evolve:** add runtime learning opportunity emitter ([59803a5](https://github.com/dyphn1/Harness-everything/commit/59803a5005385abf209fc8d8e9a3050cf1ebc758))
+* **self-evolve:** correlate retrieval to lesson candidate ([3041df3](https://github.com/dyphn1/Harness-everything/commit/3041df3ffce37a7917db4911e9bb61a96ee0d619))
+* **self-evolve:** correlate retrieval to lesson candidate ([d8e2a1f](https://github.com/dyphn1/Harness-everything/commit/d8e2a1f0acbe4e8c0afd34ce745a3359fc073ea3))
+* **self-evolve:** define lesson candidate schema ([69cbb57](https://github.com/dyphn1/Harness-everything/commit/69cbb57e2a9798e4c4fe2e42c38a83bf4b3be762))
+* **self-evolve:** define lesson candidate schema ([a99db38](https://github.com/dyphn1/Harness-everything/commit/a99db38a68be95fdbc1d24cbb8571b10c0c9831a))
+* **self-evolve:** emit Rule-of-3 recovery candidates ([3635add](https://github.com/dyphn1/Harness-everything/commit/3635add62786bc4f73895a11ef2b12de7752333d))
+* **self-evolve:** emit Rule-of-3 recovery candidates ([618260d](https://github.com/dyphn1/Harness-everything/commit/618260de246fd01cfa6c8a4da413a6f00522fe8e))
+* **self-evolve:** emit verifier recovery candidates ([c125143](https://github.com/dyphn1/Harness-everything/commit/c125143f5c6f2487f0271cef40933547794cf95e))
+* **self-evolve:** emit verifier recovery candidates ([46bd554](https://github.com/dyphn1/Harness-everything/commit/46bd554865ba82ac2d52a1d8980f88448e288955))
+* **self-evolve:** retain promotion writer provenance ([fee88e5](https://github.com/dyphn1/Harness-everything/commit/fee88e51a7c87d03fe60ff95ae93298a3db71b82))
+* **self-evolve:** retain promotion writer provenance ([1bc4b94](https://github.com/dyphn1/Harness-everything/commit/1bc4b94bcdade65fd4e094a5ed965b84b311c2b5))
+* **telemetry:** add fail-open skill lifecycle adapter ([4de5ca7](https://github.com/dyphn1/Harness-everything/commit/4de5ca7e2b4b97af73bc65304fe22a667c0d5525))
+* **telemetry:** add local overhead benchmark ([85284eb](https://github.com/dyphn1/Harness-everything/commit/85284ebd376b5116c2e859d428cf441d633bbbf6))
+* **telemetry:** add normalized aggregation report ([a317478](https://github.com/dyphn1/Harness-everything/commit/a3174785770a6a8c8a3884fd02e10a8abc620c33))
+* **telemetry:** add OpenCode lifecycle adapter ([a3c400d](https://github.com/dyphn1/Harness-everything/commit/a3c400d32511f321bfbbd34e4c67ad71af1df4fd))
+* **telemetry:** add privacy-safe local JSONL sink ([ca6f8d0](https://github.com/dyphn1/Harness-everything/commit/ca6f8d0154330609692f3b9ec9d12e99b6a497f1))
+* **telemetry:** define normalized event schema ([fa69e5d](https://github.com/dyphn1/Harness-everything/commit/fa69e5d2ae1f1cc5dc7e2a1b49cc90b697e72894))
+* **telemetry:** expose report benchmark and test scripts ([c235a7e](https://github.com/dyphn1/Harness-everything/commit/c235a7e81ac285de68e1b41f7089b3a062cf6a98))
+* **telemetry:** observe tools from existing state hook ([aa81a70](https://github.com/dyphn1/Harness-everything/commit/aa81a70d19927179a7861e5f6e3d0e5a80a1eec1))
+* **telemetry:** package mechanism-only Codex skill adapter ([00b45f1](https://github.com/dyphn1/Harness-everything/commit/00b45f1dcfeee99a087ed9c8d6dcc64307965607))
+* **telemetry:** wire Claude skill lifecycle ([840a9b1](https://github.com/dyphn1/Harness-everything/commit/840a9b15dc4c08e67386baaeb20cf58bfb04ef4a))
+
+### Bug Fixes
+
+* **self-evolve:** keep recovery capture non-blocking ([d507daf](https://github.com/dyphn1/Harness-everything/commit/d507daff7386d1d917c63cd9efdfd65916aa264a))
+* **self-evolve:** keep recovery capture non-blocking ([6a478e7](https://github.com/dyphn1/Harness-everything/commit/6a478e7b6c7fbdad3f6beccd1a8fc3ad1c6b34b1))
+* **self-evolve:** keep verifier capture non-blocking ([bce9de5](https://github.com/dyphn1/Harness-everything/commit/bce9de56c2fbbb65a4bec930eac0efd550c2f8b9))
+* **self-evolve:** keep verifier capture non-blocking ([b517a52](https://github.com/dyphn1/Harness-everything/commit/b517a5252d6023dfe5bd7e8d1eb5d0d11bb039f2))
+* **self-evolve:** preserve validated routing trigger semantics ([7dc07cc](https://github.com/dyphn1/Harness-everything/commit/7dc07cc1112d88e5234380f0b0351a7b7556b307))
+* **self-evolve:** preserve validated routing trigger semantics ([15080ab](https://github.com/dyphn1/Harness-everything/commit/15080ab1df41bf3e11909526ee2c8f03a438479d))
+* **telemetry:** keep unavailable host duration null ([0cdc0f1](https://github.com/dyphn1/Harness-everything/commit/0cdc0f136336314709bfffed02f305a01e76a6e5))
+
 ## [0.9.0](https://github.com/dyphn1/Harness-everything/compare/v0.8.1...v0.9.0) (2026-09-18)
 
 ### Features
