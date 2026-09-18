@@ -76,7 +76,24 @@ if (validContract(iterative, 'iterative-single')) {
   check(plan.requiredInvariants.includes('objective-verification'), 'iterative-single carries objective verification invariant');
   check(plan.requiredInvariants.includes('loop-budget'), 'iterative-single carries loop-budget invariant');
   check(plan.suggestedSkills.includes('tdd'), 'TDD stays advisory rather than an invariant');
+  check(plan.memory.write === 'none', 'ordinary iterative work cannot write durable memory');
   check(!plan.requiredInvariants.includes('tdd'), 'suggested skills are separated from mandatory invariants');
+}
+
+const memoryPersist = runTier('Persist this lesson as memory after resolving the checkout regression.');
+if (validContract(memoryPersist, 'self-evolve persistence')) {
+  const plan = memoryPersist.contract.workflowPlan;
+  check(plan.strategy === 'direct-single', 'bounded explicit persistence request receives a selected workflow');
+  check(plan.memory.write === 'persist-via-self-evolve', 'explicit persistence request authorizes only self-evolve durable write');
+  check(plan.requiredInvariants.includes('memory-write-authorization'), 'durable memory route carries runtime authorization invariant');
+  check(plan.suggestedSkills.includes('self-evolve'), 'durable memory route suggests self-evolve explicitly');
+  check(memoryPersist.contract.taskShape.observedSignals.memoryPersistenceRequested === true, 'persistence intent is recorded in task shape');
+}
+
+const memoryProhibited = runTier('Persist this lesson as memory. Do not use memory.');
+if (validContract(memoryProhibited, 'memory prohibition')) {
+  check(memoryProhibited.contract.workflowPlan.memory.write === 'none', 'explicit memory prohibition overrides persistence intent');
+  check(memoryProhibited.contract.workflowPlan.reasonCodes.includes('memory-persistence-prohibited'), 'memory prohibition conflict is auditable');
 }
 
 const staged = runTier('Refactor the entire authentication architecture in dependent stages.');
