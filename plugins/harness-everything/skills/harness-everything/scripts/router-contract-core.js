@@ -157,6 +157,7 @@ function buildTaskShape(input = {}) {
       highUncertainty: Boolean(signals.highUncertainty),
       irreversibleAction: Boolean(signals.irreversibleAction),
       externalSideEffect: Boolean(signals.externalSideEffect),
+      memoryPersistenceRequested: Boolean(signals.memoryPersistenceRequested),
     },
     reasonCodes: uniqueReasonCodes(input.reasonCodes),
   };
@@ -421,6 +422,14 @@ function buildWorkflowPlan(input = {}) {
 
   const requiredInvariants = [...meta.requiredInvariants];
   const patterns = [...meta.patterns];
+  const suggestedSkills = [...meta.suggestedSkills];
+  const memoryPersistenceRequested = Boolean(taskShape.observedSignals && taskShape.observedSignals.memoryPersistenceRequested);
+  const memoryProhibited = Boolean(taskShape.explicitRequest && taskShape.explicitRequest.prohibitions && taskShape.explicitRequest.prohibitions.includes('memory'));
+  const memoryWrite = memoryProhibited ? 'none' : (memoryPersistenceRequested ? 'persist-via-self-evolve' : meta.memoryWrite);
+  if (memoryPersistenceRequested && !memoryProhibited) {
+    requiredInvariants.push('memory-write-authorization');
+    suggestedSkills.push('self-evolve');
+  }
   if (actionGateRequired) {
     requiredInvariants.push('pre-action-approval');
     patterns.push('verifier-gated');
@@ -441,6 +450,8 @@ function buildWorkflowPlan(input = {}) {
     ...selection.reasonCodes,
     ...fallback.reasonCodes,
     ...actionGateReasonCodes,
+    ...(memoryPersistenceRequested ? ['memory-persistence-requested'] : []),
+    ...(memoryPersistenceRequested && memoryProhibited ? ['memory-persistence-prohibited'] : []),
   ]);
 
   return {
@@ -451,7 +462,7 @@ function buildWorkflowPlan(input = {}) {
     strategySelection: selection.strategySelection,
     patterns: Array.from(new Set(patterns)),
     requiredInvariants: Array.from(new Set(requiredInvariants)),
-    suggestedSkills: Array.from(new Set(meta.suggestedSkills)),
+    suggestedSkills: Array.from(new Set(suggestedSkills)),
     actionGate: {
       required: actionGateRequired,
       reasonCodes: actionGateReasonCodes,
@@ -476,7 +487,7 @@ function buildWorkflowPlan(input = {}) {
     memory: {
       read: meta.memoryRead,
       scope: 'task-relevant-only',
-      write: meta.memoryWrite,
+      write: memoryWrite,
     },
     verification: {
       mode: meta.verificationMode,
