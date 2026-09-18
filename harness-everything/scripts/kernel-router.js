@@ -118,7 +118,7 @@ function run(raw) {
     persisted = persistWorkflow(plan, payload, prompt);
     if (persisted?.retained && persisted.workflow) plan = persisted.workflow.workflowPlan;
   } catch (error) { failure = error; }
-  if (persisted?.hostNotification && !persisted.workflow) {
+  if (hostNotification && !persisted?.workflow) {
     console.log('\n=> Host notification — no active execution contract; ignored for routing.');
     if (failure) {
       console.error('[Workflow Router] ' + failure.message);
