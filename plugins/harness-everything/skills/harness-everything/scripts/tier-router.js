@@ -74,6 +74,14 @@ function detectProhibitions(prompt) {
   return rules.filter(([, regex]) => regex.test(prompt)).map(([name]) => name);
 }
 
+function detectMemoryPersistenceRequest(prompt) {
+  const text = String(prompt || '');
+  return /^\s*self-evolve\b/i.test(text) ||
+    /\b(?:run|use|invoke|execute)\s+(?:the\s+)?self-evolve\b/i.test(text) ||
+    /\b(?:persist|save|record|remember)\b.{0,40}\b(?:lesson|memory|rule|insight)\b/i.test(text) ||
+    /(?:執行|使用).{0,8}自我進化|(?:記住|保存|持久化|記錄).{0,20}(?:教訓|記憶|規則|經驗)/i.test(text);
+}
+
 function detectActionGateReasons(prompt) {
   const reasons = [];
   const irreversible = [
@@ -374,6 +382,7 @@ function run(userPrompt, context) {
   const requestedStrategy = detectExplicitStrategy(userPrompt, requestedFableModel);
   const prohibitions = detectProhibitions(userPrompt);
   const plannerInputs = plannerInputsFromContext(context, promptLower);
+  const memoryPersistenceRequested = detectMemoryPersistenceRequest(userPrompt);
 
   const contract = buildRouterContract({
     routingStatus: loadedConfig.routingStatus,
@@ -409,11 +418,15 @@ function run(userPrompt, context) {
       highUncertainty,
       irreversibleAction,
       externalSideEffect,
+      memoryPersistenceRequested,
       highRisk: irreversibleAction || externalSideEffect,
     },
   });
 
   console.log(`\n=> WORKFLOW STRATEGY: ${contract.workflowPlan.strategy || 'deferred'}`);
+  if (contract.workflowPlan.memory.write !== 'none') {
+    console.log(`=> MEMORY WRITE: ${contract.workflowPlan.memory.write}`);
+  }
   if (contract.workflowPlan.actionGate.required) {
     console.log(`=> ACTION GATE: required (${contract.workflowPlan.actionGate.reasonCodes.join(', ')}); disposition=pending-approval`);
   }
