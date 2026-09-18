@@ -2,6 +2,40 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.9.0](https://github.com/dyphn1/Harness-everything/compare/v0.8.1...v0.9.0) (2026-09-18)
+
+### Features
+
+* **action-gate:** classify structured tool actions ([3502f42](https://github.com/dyphn1/Harness-everything/commit/3502f4200401be029250ac503ea283f90fd5552d))
+* **action-gate:** package isolated MCP adapters ([81133db](https://github.com/dyphn1/Harness-everything/commit/81133db7fffc417fdc01530db01235dcfb32f3c7))
+* **action-gate:** wire Claude MCP lifecycle ([27c9e72](https://github.com/dyphn1/Harness-everything/commit/27c9e72171f7a69d1f0797356feae71d50fa02b9))
+* **memory:** add deterministic scoped retrieval ([2fb175c](https://github.com/dyphn1/Harness-everything/commit/2fb175c98274bf031fd54d6d3cace321a040d63e))
+* **memory:** add deterministic scoped retrieval ([bfa158b](https://github.com/dyphn1/Harness-everything/commit/bfa158b2e519460b45cbf85796549816a32c826f))
+* **memory:** detect explicit persistence intent ([f438543](https://github.com/dyphn1/Harness-everything/commit/f438543f2e27ef50f419fd52d51fc606e72bac61))
+* **memory:** detect explicit persistence intent ([7b37cee](https://github.com/dyphn1/Harness-everything/commit/7b37ceeab58c239ab81f6310fcc6543e64c6f194))
+* **memory:** enforce workflow-authorized persistence ([987ecd1](https://github.com/dyphn1/Harness-everything/commit/987ecd1c3e5bfc2564a2c8eb3280b717041c1cb9))
+* **memory:** issue workflow-bound write capability ([93c001f](https://github.com/dyphn1/Harness-everything/commit/93c001facc11c30a97d83bcc6d1debbdd5dba25d))
+* **memory:** issue workflow-bound write capability ([0034f1a](https://github.com/dyphn1/Harness-everything/commit/0034f1a58724f6cf76c3bbecc06dab7b43f6c464))
+* **memory:** route bounded persistence requests ([bfabb4a](https://github.com/dyphn1/Harness-everything/commit/bfabb4a27aa9db9545136a450b76037241b1becd))
+* **memory:** route bounded persistence requests ([1451b7a](https://github.com/dyphn1/Harness-everything/commit/1451b7a9f64cadb857223899dffa14ca427dfda4))
+* **memory:** route explicit persistence authorization ([ea275cc](https://github.com/dyphn1/Harness-everything/commit/ea275cc1b60b7211607095d21136f50f49f602d6))
+* **memory:** route explicit persistence authorization ([3fb9e23](https://github.com/dyphn1/Harness-everything/commit/3fb9e23e01361128f75df8d2aea9ef9e916e74d7))
+* **memory:** schema persistence intent signal ([50dfb83](https://github.com/dyphn1/Harness-everything/commit/50dfb830ff0bb4e548d36115a55fda16d7e77f8b))
+* **memory:** schema persistence intent signal ([4fdd410](https://github.com/dyphn1/Harness-everything/commit/4fdd410309974def42dbd13f9a46e94ca57673b3))
+* **memory:** surface authorization invariant ([88f87a2](https://github.com/dyphn1/Harness-everything/commit/88f87a2be9942a00fd85e0e383dcc015ef101313))
+* **memory:** surface authorization invariant ([00c7588](https://github.com/dyphn1/Harness-everything/commit/00c7588bbf5fbdefdc472e2a0e27a40b2c0ba91e))
+* **runtime:** account failed verification rounds ([4bb3ea1](https://github.com/dyphn1/Harness-everything/commit/4bb3ea1a45661672e932ae758d77482a453c46ad))
+* **runtime:** add run-scoped budget accounting ([b1dc987](https://github.com/dyphn1/Harness-everything/commit/b1dc9875701c81dcd4d92ac8a882a6e16fadb909))
+* **runtime:** cap parallel dispatch batches ([0c587bc](https://github.com/dyphn1/Harness-everything/commit/0c587bc963370e50698626b647a0a69c96e63aec))
+* **runtime:** cap parallel dispatch batches ([42f396f](https://github.com/dyphn1/Harness-everything/commit/42f396fb6f4e3d8f91d3b7b1027cdd3c3543a65e))
+* **runtime:** enforce iterative mutation budget ([8b54044](https://github.com/dyphn1/Harness-everything/commit/8b54044f27cf05608a8e192857e0362e3ff5a207))
+* **runtime:** enforce replan and revision budgets ([3fae99b](https://github.com/dyphn1/Harness-everything/commit/3fae99bb28e5f2354465936fba11e8f7406be4fd))
+* **runtime:** enforce worker concurrency budget ([5a7de6d](https://github.com/dyphn1/Harness-everything/commit/5a7de6daa4292047c5a623b338551324689e84bd))
+* **runtime:** make workflow limits numeric ([9295ee2](https://github.com/dyphn1/Harness-everything/commit/9295ee2f9ad043abce8dc07e9b88a1210f152286))
+* **runtime:** make workflow limits numeric ([2409f5b](https://github.com/dyphn1/Harness-everything/commit/2409f5bce4dd338bf9f7496d0a4a00498a9ca1e4))
+* **runtime:** schema numeric workflow budgets ([7fa7a55](https://github.com/dyphn1/Harness-everything/commit/7fa7a556bebf38257c4fdf8d0837acba5ae630ce))
+* **runtime:** schema numeric workflow budgets ([9cc26a1](https://github.com/dyphn1/Harness-everything/commit/9cc26a1d352eeab03dc8dc973850476f7d60b080))
+
 ## [0.8.1](https://github.com/dyphn1/Harness-everything/compare/v0.8.0...v0.8.1) (2026-09-17)
 
 ### Bug Fixes
