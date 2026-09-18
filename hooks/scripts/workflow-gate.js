@@ -79,7 +79,7 @@ function decide(payload) {
     return;
   }
   const probeKey = shellProbeKey(payload, cwd);
-  registerMutationProbe(context, probeKey, fingerprint, workflow.strategy === 'iterative-single');
+  registerMutationProbe(context, probeKey, fingerprint, workflow.strategy === 'iterative-single', cwd);
 }
 
 readHookInput(decide);
