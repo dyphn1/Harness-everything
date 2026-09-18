@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.11.3](https://github.com/dyphn1/Harness-everything/compare/v0.11.2...v0.11.3) (2026-09-18)
+
+### Bug Fixes
+
+* **workflow:** Resolve verification-after-edit-missing without a host exit code ([e5dae03](https://github.com/dyphn1/Harness-everything/commit/e5dae03799cca594ac3e4f9d0facca6209dec3c8)), closes [#153](https://github.com/dyphn1/Harness-everything/issues/153)
+
 ## [0.11.2](https://github.com/dyphn1/Harness-everything/compare/v0.11.1...v0.11.2) (2026-09-18)
 
 ### Bug Fixes
