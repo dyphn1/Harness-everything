@@ -188,9 +188,25 @@ function promoteCandidate(input) {
   }
 
   const persisted = /\[Success\] Memory persisted/.test(String(result.stdout || ''));
+  let promotionWriter = null;
+  if (persisted) {
+    const index = readJson(path.join(input.workspace, 'memories', 'repo', 'memory-index.json'));
+    const record = index && Array.isArray(index.records)
+      ? index.records.find(item => item.source === `lesson-candidate:${candidate.candidateId}`)
+      : null;
+    if (record && record.writer) {
+      promotionWriter = {
+        sessionId: record.writer.sessionId || null,
+        workflowId: record.writer.workflowId || null,
+        runId: record.writer.runId || null,
+        role: record.writer.role || null,
+      };
+    }
+  }
   candidate.persistence = {
     disposition: persisted ? 'persisted' : 'proposed',
     authorizedBy: 'workflow-memory-capability',
+    promotionWriter,
     observedAt: new Date().toISOString(),
   };
   if (persisted) pushState(candidate, 'persisted', 'accepted-and-authorized-memory-write');
