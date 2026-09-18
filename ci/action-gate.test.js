@@ -176,6 +176,18 @@ try {
   const inferredMutationDecision = actionGate.evaluatePreToolUse(inferredMutation, { host: 'claude', sessionDir, ruleTable: table });
   check(inferredMutationDecision.kind === 'defer' && inferredMutationDecision.rule.id === 'structured-mutate', 'obvious structured mutation is classified from tool identity');
 
+  const localDelete = {
+    ...mcpDelete,
+    tool_name: 'local_delete_record',
+    tool_use_id: 'local-delete',
+    tool_input: {
+      record_id: 'record-456',
+      actionDescriptor: { toolFamily: 'local-function', action: 'delete', resource: 'record:456' },
+    },
+  };
+  const localDeleteDecision = actionGate.evaluatePreToolUse(localDelete, { host: 'claude', sessionDir, ruleTable: table });
+  check(localDeleteDecision.kind === 'defer' && localDeleteDecision.rule.id === 'structured-delete', 'non-shell local-function destructive fixture uses the same structured gate');
+
   const opaqueRequired = {
     ...mcpDelete,
     tool_name: 'mcp__demo__opaque_action',
@@ -301,8 +313,12 @@ try {
   check(canonicalHooks.hooks.Stop.some(group => group.id === 'harness:stop:action-gate-audit'), 'Claude hook manifest closes unresolved approvals on Stop');
 
   const pluginHooks = JSON.parse(fs.readFileSync(path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'hooks.json'), 'utf8'));
-  const pluginPre = pluginHooks.hooks.PreToolUse.find(group => group.matcher === 'Bash|apply_patch|mcp__.*' && group.hooks.some(hook => /codex-action-gate-pre\.js/.test(hook.command)));
-  check(pluginPre && pluginPre.hooks.some(hook => /codex-action-gate-pre\.js/.test(hook.command)), 'OpenAI plugin wires the attribution-aware Codex action-gate adapter to Bash|apply_patch');
+  const pluginPre = pluginHooks.hooks.PreToolUse.find(group => group.matcher === 'Bash|apply_patch' && group.hooks.some(hook => /codex-action-gate-pre\.js/.test(hook.command)));
+  check(pluginPre && pluginPre.hooks.some(hook => /codex-action-gate-pre\.js/.test(hook.command)), 'OpenAI plugin preserves the attribution-aware Codex shell action-gate adapter');
+  const pluginMcpPre = pluginHooks.hooks.PreToolUse.find(group => group.matcher === 'mcp__.*' && group.hooks.some(hook => /codex-action-gate-pre\.js/.test(hook.command)));
+  const pluginMcpPost = pluginHooks.hooks.PostToolUse.find(group => group.matcher === 'mcp__.*' && group.hooks.some(hook => /codex-action-gate-post\.js/.test(hook.command)));
+  check(Boolean(pluginMcpPre), 'OpenAI plugin packages an isolated structured MCP pre-action adapter without widening unrelated hooks');
+  check(Boolean(pluginMcpPost), 'OpenAI plugin packages an isolated structured MCP post-action audit adapter');
   check(!Object.prototype.hasOwnProperty.call(pluginHooks.hooks, 'PostToolUseFailure'), 'Codex plugin does not declare unsupported PostToolUseFailure lifecycle event');
   const pluginPost = pluginHooks.hooks.PostToolUse.find(group => group.matcher === 'Bash|apply_patch');
   check(pluginPost && pluginPost.hooks.some(hook => /codex-action-gate-post\.js/.test(hook.command)), 'Codex plugin infers action-gate outcome from supported PostToolUse');
