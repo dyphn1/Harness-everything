@@ -306,32 +306,36 @@ try {
 
   const beforeStageOnly = read(file);
   const stageOnly = 'git add README.md observed-untracked.txt';
-  check(gate('Bash', { command: stageOnly }, repo).status === 0, 'staging-only git command is observed instead of pre-counted');
+  const stageOnlyCall = beginShell(stageOnly);
+  check(stageOnlyCall.result.status === 0, 'staging-only git command is observed instead of pre-counted');
   git(['add', 'README.md', 'observed-untracked.txt']);
-  check(observeShell(stageOnly).status === 0, 'staging-only probe resolves');
+  check(persistShell(stageOnlyCall).status === 0, 'staging-only probe resolves');
   check(read(file).budget.counters.iterations === beforeStageOnly.budget.counters.iterations,
     'git add does not double-count tracked or previously-untracked visible content');
 
   const beforeCommitOnly = read(file);
   const commitOnly = 'git commit -m observed-fixture';
-  check(gate('Bash', { command: commitOnly }, repo).status === 0, 'pure commit is observed instead of pre-counted');
+  const commitOnlyCall = beginShell(commitOnly);
+  check(commitOnlyCall.result.status === 0, 'pure commit is observed instead of pre-counted');
   git(['-c', 'user.name=Harness Test', '-c', 'user.email=harness@example.invalid', 'commit', '-m', 'observed-fixture']);
-  check(observeShell(commitOnly).status === 0, 'pure commit probe resolves');
+  check(persistShell(commitOnlyCall).status === 0, 'pure commit probe resolves');
   check(read(file).budget.counters.iterations === beforeCommitOnly.budget.counters.iterations,
     'pure commit of already-accounted content does not consume another code iteration');
 
   const deleteTracked = 'node delete-tracked.js';
-  check(gate('Bash', { command: deleteTracked }, repo).status === 0, 'unknown tracked-file deletion is admitted under observation');
+  const deleteTrackedCall = beginShell(deleteTracked);
+  check(deleteTrackedCall.result.status === 0, 'unknown tracked-file deletion is admitted under observation');
   fs.unlinkSync(path.join(repo, 'observed-untracked.txt'));
-  check(observeShell(deleteTracked).status === 0, 'tracked-file deletion is observed');
+  check(persistShell(deleteTrackedCall).status === 0, 'tracked-file deletion is observed');
   check(read(file).budget.counters.iterations === ++observedIterations,
     'tracked-file deletion consumes exactly one iteration');
 
   const beforeStageDelete = read(file);
   const stageDelete = 'git add -u observed-untracked.txt';
-  check(gate('Bash', { command: stageDelete }, repo).status === 0, 'staging-only deletion is observed instead of pre-counted');
+  const stageDeleteCall = beginShell(stageDelete);
+  check(stageDeleteCall.result.status === 0, 'staging-only deletion is observed instead of pre-counted');
   git(['add', '-u', 'observed-untracked.txt']);
-  check(observeShell(stageDelete).status === 0, 'staging deletion probe resolves');
+  check(persistShell(stageDeleteCall).status === 0, 'staging deletion probe resolves');
   check(read(file).budget.counters.iterations === beforeStageDelete.budget.counters.iterations,
     'git add -u does not double-count an already-observed deletion');
 
@@ -361,11 +365,11 @@ try {
   // #153 + #159 ordering: when one shell command mutates and then verifies,
   // observed mutation must land before state-persist records verification.
   const mutateAndVerify = 'node mutate.js && npm test';
-  check(gate('Bash', { command: mutateAndVerify }, repo).status === 0, 'combined mutation+verification command is admitted under observation');
+  const mutateAndVerifyCall = beginShell(mutateAndVerify);
+  check(mutateAndVerifyCall.result.status === 0, 'combined mutation+verification command is admitted under observation');
   fs.writeFileSync(path.join(repo, 'README.md'), 'fixture verified mutation\n');
-  check(observeShell(mutateAndVerify, { stdout: 'tests passed' }).status === 0,
-    'combined command records observed mutation before verification');
-  node('hooks/scripts/state-persist.js', { ...payload, tool_name: 'Bash', tool_input: { command: mutateAndVerify }, tool_response: { stdout: 'no code' } });
+  check(persistShell(mutateAndVerifyCall, { stdout: 'tests passed' }).status === 0,
+    'single state-persist handler records mutation before verification');
   check(stop().status === 0 && read(file).state === 'satisfied',
     'verification without a host-reported numeric exit status resolves after same-command mutation');
   node('hooks/scripts/state-persist.js', { ...payload, tool_name: 'Bash', tool_input: { command: 'npm test' }, tool_response: { exitCode: 0, stdout: 'passed' } });
