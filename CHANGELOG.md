@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.11.5](https://github.com/dyphn1/Harness-everything/compare/v0.11.4...v0.11.5) (2026-09-18)
+
+### Bug Fixes
+
+* **workflow:** lex shell separators safely ([df1a92c](https://github.com/dyphn1/Harness-everything/commit/df1a92ca6129ea96390e463ebcaef769604742e2))
+
 ## [0.11.4](https://github.com/dyphn1/Harness-everything/compare/v0.11.3...v0.11.4) (2026-09-18)
 
 ### Bug Fixes
