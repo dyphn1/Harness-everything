@@ -40,13 +40,29 @@ function verifyInstall(text) {
   }
 }
 
+function isWorktreeRoot(dir) {
+  try {
+    return fs.existsSync(path.join(dir, '.git'));
+  } catch (_) {
+    return false;
+  }
+}
+
 function walk(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
-    if (['node_modules', '.git'].includes(entry.name) || entry.isSymbolicLink()) return [];
+    if (['node_modules', '.git', '.worktrees'].includes(entry.name) || entry.isSymbolicLink()) return [];
     const file = path.join(directory, entry.name);
     const relative = path.relative(root, file).split(path.sep).join('/');
     if (relative === 'benchmarks/results' || relative === 'CHANGELOG.md') return [];
-    return entry.isDirectory() ? walk(file) : [file];
+    if (relative === '.worktrees' || relative.startsWith('.worktrees/')) return [];
+    if (entry.isDirectory()) {
+      // Skip linked worktrees / nested checkouts: a `.git` file marks a
+      // linked worktree root, a `.git` dir marks a nested repo. Either way
+      // the content belongs to another checkout, not this one (#170).
+      if (isWorktreeRoot(file)) return [];
+      return walk(file);
+    }
+    return [file];
   });
 }
 
@@ -68,12 +84,28 @@ try {
   }
   assert.deepStrictEqual(invalidTargets('opencode-plugin/index.mjs .opencode/plugins/example.js'), []);
 
-  const violations = [];
-  for (const file of walk(root).filter(file => /\.(?:md|js|mjs|json|jsonc|yml|yaml|txt)$/.test(file))) {
+  const scanViolations = (readText = file => fs.readFileSync(file, 'utf8')) => {
+    const violations = [];
+    for (const file of walk(root).filter(file => /\.(?:md|js|mjs|json|jsonc|yml|yaml|txt)$/.test(file))) {
+      const text = readText(file);
+      for (const target of invalidTargets(text)) violations.push(`${path.relative(root, file)}: ${target}`);
+    }
+    return violations;
+  };
+  assert.deepStrictEqual(scanViolations(), [], 'Unsupported OpenCode install destinations; only .js/.ts are auto-discovered');
+
+  const scannedFiles = walk(root);
+  assert.ok(scannedFiles.includes(readmeFile), 'Tracked OpenCode README must remain in the repository scan');
+  const plantedTarget = '.opencode/plugins/' + 'negative-control.mjs';
+  const planted = scanViolations(file => {
     const text = fs.readFileSync(file, 'utf8');
-    for (const target of invalidTargets(text)) violations.push(`${path.relative(root, file)}: ${target}`);
-  }
-  assert.deepStrictEqual(violations, [], 'Unsupported OpenCode install destinations; only .js/.ts are auto-discovered');
+    return file === readmeFile ? text + '\n' + plantedTarget + '\n' : text;
+  });
+  assert.ok(
+    planted.some(item => item === `${path.relative(root, readmeFile)}: ${plantedTarget}`),
+    'Scanner negative control must fail when a tracked file contains an unsupported .mjs install target'
+  );
+
   const readme = fs.readFileSync(readmeFile, 'utf8');
   for (const destination of ['.opencode/plugins/harness-enforcement.js', '~/.config/opencode/plugins/harness-enforcement.js']) {
     assert.ok(readme.includes(`cp opencode-plugin/index.mjs ${destination}`));

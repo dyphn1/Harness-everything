@@ -68,6 +68,77 @@ helper.check(
   `Got exit=${successResult.code}, state=${JSON.stringify(resetState)}`
 );
 
+helper.runHook('rule-of-3-tracker.js', claudeFailurePayload);
+const claudeNoExitSuccess = helper.runHook('rule-of-3-tracker.js', {
+  hook_event_name: 'PostToolUse',
+  tool_name: 'Bash',
+  tool_input: { command: 'echo recovered' },
+  tool_response: {
+    stdout: 'recovered',
+    stderr: 'warning: successful command emitted an error-like diagnostic',
+  },
+  session_id: helper.SESSION_ID,
+});
+const noExitResetState = helper.readState('rule-of-3-state.json');
+helper.check(
+  '2a-claude-success-no-exit. PostToolUse without exitCode resets even with stderr diagnostics',
+  claudeNoExitSuccess.code === 0 &&
+    noExitResetState.count === 0 &&
+    noExitResetState.zoomOutResolved === true,
+  `Got exit=${claudeNoExitSuccess.code}, state=${JSON.stringify(noExitResetState)}`
+);
+
+helper.writeState('rule-of-3-state.json', {
+  count: 0, lastHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0,
+});
+helper.runHook('rule-of-3-tracker.js', {
+  hook_event_name: 'PostToolUseFailure',
+  tool_name: 'Bash',
+  tool_input: { command: 'diff -rq hooks cache-hooks' },
+  error: 'Exit code 1\nworkflow-mutation-denied.js\nFiles hooks/a.js and cache-hooks/a.js differ',
+  session_id: helper.SESSION_ID,
+});
+const deniedFilenameState = helper.readState('rule-of-3-state.json');
+helper.check(
+  '2a-category-negative. File name containing denied stays unknown/threshold 3',
+  deniedFilenameState.category === 'unknown' && deniedFilenameState.threshold === 3,
+  `State=${JSON.stringify(deniedFilenameState)}`
+);
+
+helper.writeState('rule-of-3-state.json', {
+  count: 0, lastHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0,
+});
+helper.runHook('rule-of-3-tracker.js', {
+  hook_event_name: 'PostToolUseFailure',
+  tool_name: 'Bash',
+  tool_input: { command: 'cat protected.txt' },
+  error: 'EACCES: permission denied, open protected.txt',
+  session_id: helper.SESSION_ID,
+});
+const permissionState = helper.readState('rule-of-3-state.json');
+helper.check(
+  '2a-category-permission. Real EACCES is permission/threshold 2',
+  permissionState.category === 'permission' && permissionState.threshold === 2,
+  `State=${JSON.stringify(permissionState)}`
+);
+
+helper.writeState('rule-of-3-state.json', {
+  count: 0, lastHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0,
+});
+helper.runHook('rule-of-3-tracker.js', {
+  hook_event_name: 'PostToolUseFailure',
+  tool_name: 'Bash',
+  tool_input: { command: 'node slow.js' },
+  error: 'TimeoutError: operation timed out',
+  session_id: helper.SESSION_ID,
+});
+const timeoutState = helper.readState('rule-of-3-state.json');
+helper.check(
+  '2a-category-timeout. Real timeout is timeout/threshold 2',
+  timeoutState.category === 'timeout' && timeoutState.threshold === 2,
+  `State=${JSON.stringify(timeoutState)}`
+);
+
 helper.writeState('rule-of-3-state.json', { count: 3, lastHash: 'mech-test', zoomOutResolved: false });
 const tripResult = helper.runHook('rule-of-3.js', { session_id: helper.SESSION_ID });
 helper.check(

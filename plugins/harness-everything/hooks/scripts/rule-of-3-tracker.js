@@ -17,6 +17,7 @@ process.stdin.on('end', () => {
     const payload = JSON.parse(inputData);
     const hookEventName = payload.hook_event_name || payload.hookEventName || '';
     const isFailureEvent = hookEventName === 'PostToolUseFailure';
+    const isSuccessEvent = hookEventName === 'PostToolUse';
     const toolResponse = payload.tool_response || {};
     const stdout = toolResponse.stdout ?? payload.stdout ?? '';
     const stderr = toolResponse.stderr ?? payload.stderr ?? '';
@@ -25,10 +26,10 @@ process.stdin.on('end', () => {
     const exitCode = typeof rawExitCode === 'number' ? rawExitCode : undefined;
 
     const explicitFailure = exitCode !== undefined && exitCode !== 0;
-    const explicitSuccess = exitCode === 0;
     const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
     const looksLikeError = /\b(error|fail|failed|failure|exception|fatal|panic|traceback|denied|refused|cannot|unable)\b/i.test(stderr);
-    const isFailure = isFailureEvent || explicitFailure || (exitCode === undefined && stderrSignal && looksLikeError);
+    const isFailure = isFailureEvent || explicitFailure ||
+      (!isSuccessEvent && exitCode === undefined && stderrSignal && looksLikeError);
     const errorText = isFailureEvent
       ? (failureText || (stderrSignal ? stderr : stdout) || '')
       : ((stderrSignal ? stderr : stdout) || failureText || '');
@@ -47,19 +48,22 @@ process.stdin.on('end', () => {
       const filePath = payload.tool_input?.file_path || payload.tool_input?.filePath || '';
       const command = payload.tool_input?.command || '';
 
-      // Categorize failure type for context-aware thresholds
+      // Categorize failure type for context-aware thresholds.
+      // NOTE (#167): match anchored diagnostic phrases, not bare substrings.
+      // A bare `denied`/`timeout` substring matches file names such as
+      // `workflow-mutation-denied.js` and misclassifies the failure.
       let category = 'unknown';
-      if (/SyntaxError|Unexpected token|Syntax Error/i.test(errorText)) {
+      if (/\bSyntaxError\b|Unexpected token|Syntax Error/i.test(errorText)) {
         category = 'syntax';
-      } else if (/ENOENT|not found|No such file|找不到|不存在/i.test(errorText)) {
+      } else if (/\bENOENT\b|\bnot found\b|No such file|找不到|不存在/i.test(errorText)) {
         category = 'environment';
-      } else if (/timeout|timed out|超時|逾時/i.test(errorText)) {
+      } else if (/\bETIMEDOUT\b|TimeoutError|\btimeout\b|\btimed out\b|\btiming out\b|超時|逾時/i.test(errorText)) {
         category = 'timeout';
       } else if (/test.*fail|assertion|AssertionError|測試.*失敗|斷言.*錯誤/i.test(errorText)) {
         category = 'test';
-      } else if (/permission|denied|EACCES|權限/i.test(errorText)) {
+      } else if (/\bpermission denied\b|\bEACCES\b|\bEPERM\b|權限.*(拒絕|不足|被拒)|拒絕.*權限/i.test(errorText)) {
         category = 'permission';
-      } else if (/dependency|module not found|Cannot find module|模組.*找不到/i.test(errorText)) {
+      } else if (/\bdependency\b|\bmodule not found\b|Cannot find module|模組.*找不到/i.test(errorText)) {
         category = 'dependency';
       }
 
@@ -114,7 +118,11 @@ process.stdin.on('end', () => {
       state.lastFailureAt = Date.now();
 
       fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
-    } else if (!isFailureEvent && explicitSuccess) {
+    } else if (!isFailure) {
+      // NOTE (#166, follows #153): Claude Code PostToolUse success payloads
+      // carry no numeric exit code. The lifecycle event is authoritative:
+      // PostToolUse is success unless a numeric non-zero status contradicts it;
+      // hosts without lifecycle event names keep the conservative stderr fallback.
       // A successful action after an accepted zoom-out is an objective recovery
       // boundary. Emit only IDs/hashes/category; never copy command/output text.
       if ((state.zoomOutCycles || 0) > 0 && state.lastHash) {
