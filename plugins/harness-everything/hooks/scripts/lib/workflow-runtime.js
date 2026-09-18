@@ -47,7 +47,6 @@ function saveWorkflow(context) { atomicWriteJson(context.file, context.workflow)
 const MUTATION_PROBE_KEY = /^[a-f0-9]{64}$/;
 const MUTATION_PROBE_WAIT = new Int32Array(new SharedArrayBuffer(4));
 const MUTATION_PROBE_RESERVATION_GRACE_MS = 1000;
-const MUTATION_PROBE_CLEANUP_MS = 10 * 60 * 1000;
 
 function mutationProbeDir(context) {
   return path.join(context.sessionDir, 'mutation-probes');
@@ -145,16 +144,10 @@ function reclaimStaleMutationProbes(context, keepKey) {
     if (!Number.isFinite(observedAt) || now - observedAt < MUTATION_PROBE_RESERVATION_GRACE_MS) continue;
     const countsIteration = probeCountsIteration(probe);
     if (!probe.observationCwd) {
-      // Legacy probes cannot be safely re-observed. Release only their budget
-      // lease; reset-budget/normal cleanup may remove the observation record.
-      if (probe.reserveIteration) {
-        atomicWriteJson(file, {
-          ...probe,
-          countIteration: countsIteration,
-          reserveIteration: false,
-          reservationReleasedAt: now,
-        });
-      }
+      // Legacy probes predate stored observation roots and cannot be safely
+      // re-observed. Once outside the in-flight grace window they must not
+      // reserve capacity forever.
+      fs.unlinkSync(file);
       continue;
     }
     let currentFingerprint;
@@ -180,18 +173,10 @@ function reclaimStaleMutationProbes(context, keepKey) {
       }
       continue;
     }
-    if (now - observedAt >= MUTATION_PROBE_CLEANUP_MS) {
-      fs.unlinkSync(file);
-      continue;
-    }
-    if (probe.reserveIteration) {
-      atomicWriteJson(file, {
-        ...probe,
-        countIteration: countsIteration,
-        reserveIteration: false,
-        reservationReleasedAt: now,
-      });
-    }
+    // No visible workspace effect after the grace window: this probe was
+    // orphaned by a denial/block/missing Post event. Discard it so it cannot
+    // reserve capacity or later attribute an unrelated mutation (#161).
+    fs.unlinkSync(file);
   }
 }
 
