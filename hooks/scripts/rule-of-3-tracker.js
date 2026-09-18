@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
+const { createLearningOpportunity } = require('./lib/learning-opportunity');
 
 // PostToolUse/PostToolUseFailure hooks in Claude Code receive their payload via stdin
 let inputData = '';
@@ -114,6 +115,24 @@ process.stdin.on('end', () => {
 
       fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
     } else if (!isFailureEvent && explicitSuccess) {
+      // A successful action after an accepted zoom-out is an objective recovery
+      // boundary. Emit only IDs/hashes/category; never copy command/output text.
+      if ((state.zoomOutCycles || 0) > 0 && state.lastHash) {
+        const toolEventId = payload.tool_use_id || payload.toolUseId || `success-${Date.now()}`;
+        createLearningOpportunity(payload, {
+          triggerType: 'rule-of-3-recovery',
+          sourceEventIds: [
+            `rule-of-3:${state.lastHash}:${state.lastFailureAt || 0}`,
+            `tool:${toolEventId}`,
+          ],
+          evidence: {
+            failureSignature: state.lastHash,
+            failureCategory: state.category || 'unknown',
+            zoomOutCycles: state.zoomOutCycles,
+            recovered: true,
+          },
+        });
+      }
       // Only reset on a *confirmed* zero exit code, not merely "not a failure".
       if (state.count > 0 || state.zoomOutCycles > 0) {
         state.count = 0;
