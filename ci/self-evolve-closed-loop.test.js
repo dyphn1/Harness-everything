@@ -21,6 +21,9 @@ const {
   observeCandidate,
   promoteCandidate,
 } = require(path.join(ROOT, 'self-evolve/scripts/lesson-candidate.js'));
+const {
+  retrieveMemoryRecords,
+} = require(path.join(ROOT, 'multi-agent-workspace/scripts/index_memory.js'));
 
 let failed = 0;
 function check(condition, message, detail = '') {
@@ -212,13 +215,14 @@ try {
   check(Boolean(noAuth) && /authorization/.test(noAuth.message), 'accepted lesson cannot bypass #134 workflow authorization');
 
   // Issue a real router capability and promote the accepted lesson.
+  const promotionSession = 'loop-promotion-session';
   const kernel = spawnSync(process.execPath, [
     path.join(ROOT, 'harness-everything/scripts/kernel-router.js'),
   ], {
     cwd: workspace,
     encoding: 'utf8',
     input: JSON.stringify({
-      session_id: verifierSession,
+      session_id: promotionSession,
       cwd: workspace,
       prompt: 'Persist this lesson as memory after resolving the verified recovery.',
     }),
@@ -246,6 +250,19 @@ try {
   const memoryIndex = JSON.parse(fs.readFileSync(memoryIndexFile, 'utf8'));
   const memoryRecord = memoryIndex.records.find(record => record.source === `lesson-candidate:${verifierCandidate.candidateId}`);
   check(Boolean(memoryRecord), 'durable memory retains lesson-candidate provenance for later retrieval correlation');
+  check(memoryRecord.writer.sessionId === promotionSession, 'durable memory distinguishes promotion authorization session from originating recovery session');
+
+  const afterPromotion = listCandidates({ workspace, sessionId: verifierSession })
+    .find(candidate => candidate.candidateId === verifierCandidate.candidateId);
+  check(afterPromotion.persistence.promotionWriter.sessionId === promotionSession, 'lesson lifecycle retains authorized promotion writer provenance');
+
+  const retrievedMemory = retrieveMemoryRecords({
+    workspace,
+    task: 'repair path recovery test',
+    requirement: 'REQ-141',
+    role: 'coordinator',
+  });
+  check(retrievedMemory.included.some(record => record.origin?.lessonCandidateId === verifierCandidate.candidateId), 'later scoped retrieval correlates durable memory back to originating lesson candidate');
 
   // Outcome transitions require explicit evidence and preserve distinct states.
   observeCandidate({
