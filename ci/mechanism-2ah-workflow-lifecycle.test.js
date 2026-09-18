@@ -17,6 +17,7 @@ const env = { ...process.env, HARNESS_STATE_HOME: path.join(temp, 'state'), HARN
 process.env.HARNESS_STATE_HOME = env.HARNESS_STATE_HOME;
 const state = require(path.join(runtimeRoot, 'hooks/scripts/lib/harness-state'));
 const workflowRuntime = require(path.join(runtimeRoot, 'hooks/scripts/lib/workflow-runtime'));
+const workflowIsolation = require(path.join(runtimeRoot, 'hooks/scripts/lib/workflow-isolation'));
 const sessionId = 'workflow-lifecycle';
 const payload = { session_id: sessionId, cwd: repo };
 const sessionDir = state.getSessionDir(repo, sessionId);
@@ -85,6 +86,28 @@ const probeFiles = () => {
 };
 const stop = extra => node('hooks/scripts/workflow-stop-gate.js', { ...payload, ...extra });
 const control = (...args) => node('hooks/scripts/workflow-disposition.js', null, [args[0], '--session-id', sessionId, ...args.slice(1)]);
+function fixtureSession(fixtureSessionId) {
+  const fixturePayload = { session_id: fixtureSessionId, cwd: repo };
+  const fixtureSessionDir = state.getSessionDir(repo, fixtureSessionId);
+  const fixtureFile = path.join(fixtureSessionDir, 'workflow-run.json');
+  return {
+    payload: fixturePayload,
+    file: fixtureFile,
+    sessionDir: fixtureSessionDir,
+    route: prompt => node('harness-everything/scripts/kernel-router.js', { ...fixturePayload, prompt }),
+    gate: (tool, input, extra = {}) => node('hooks/scripts/workflow-gate.js', { ...fixturePayload, ...extra, tool_name: tool, tool_input: input }),
+    persist: (tool, input, response = {}, extra = {}) => node('hooks/scripts/state-persist.js', {
+      ...fixturePayload,
+      ...extra,
+      hook_event_name: 'PostToolUse',
+      tool_name: tool,
+      tool_input: input,
+      tool_response: response,
+    }),
+    stop: extra => node('hooks/scripts/workflow-stop-gate.js', { ...fixturePayload, ...extra }),
+    control: (...args) => node('hooks/scripts/workflow-disposition.js', null, [args[0], '--session-id', fixtureSessionId, ...args.slice(1)]),
+  };
+}
 const stages = [
   { stageId: 'build', goal: 'fix', agent: 'fable-worker', task: 'fix bounded module', dependsOn: [], writeSet: ['src'], checkCommand: 'node test-build.js', passCondition: 'exit 0' },
   { stageId: 'optional', goal: 'external scope', agent: 'fable-worker', task: 'external task', dependsOn: [], writeSet: [], checkCommand: 'node external.js', passCondition: 'exit 0' },
@@ -92,6 +115,78 @@ const stages = [
 ];
 
 try {
+  // #162: Tier-2 shell accounting must degrade conservatively when a workspace
+  // is not a Git repository. Lack of a Git fingerprint is not an isolation
+  // violation for a non-major workflow.
+  const nonGit = fixtureSession('workflow-non-git');
+  check(nonGit.route('Fix this checkout bug with a regression test').status === 0 &&
+    read(nonGit.file).strategy === 'iterative-single',
+    '#162 non-git fixture routes to Tier 2 iterative workflow');
+  check(nonGit.control('start').status === 0 && read(nonGit.file).state === 'running',
+    '#162 non-git Tier 2 workflow starts normally');
+  let nonGitIterations = read(nonGit.file).budget?.counters?.iterations || 0;
+  for (const [index, command] of ['npm --version', 'node -e "process.exit(0)"', 'cd .', 'git init -q'].entries()) {
+    const toolUseId = 'toolu_non_git_pre_' + index;
+    const admitted = nonGit.gate('Bash', { command }, { tool_use_id: toolUseId });
+    check(admitted.status === 0, '#162 non-git Tier 2 admits untrusted shell: ' + command);
+    const afterGate = read(nonGit.file);
+    check(afterGate.budget.counters.iterations === ++nonGitIterations &&
+      afterGate.lastMutationAt > 0 &&
+      afterGate.budget.events.at(-1)?.evidence === 'shell:unobservable-workspace',
+      '#162 unobservable non-git shell is conservatively counted once: ' + command);
+    check(nonGit.persist('Bash', { command }, { stdout: 'fixture success' }, { tool_use_id: toolUseId }).status === 0,
+      '#162 non-git shell PostToolUse stays fail-open without a probe: ' + command);
+  }
+
+  // A probe may have been created while Git was observable and become
+  // unobservable before PostToolUse (for example .git disappears). Tier 2
+  // must settle it conservatively instead of blocking the workflow.
+  const lostObservationId = 'toolu_non_git_post_fallback';
+  const lostObservationPayload = {
+    ...nonGit.payload,
+    tool_name: 'Bash',
+    tool_use_id: lostObservationId,
+    tool_input: { command: 'node lost-observation.js' },
+  };
+  const lostObservationContext = workflowRuntime.loadWorkflow(lostObservationPayload);
+  const lostObservationKey = workflowIsolation.shellProbeKey(lostObservationPayload, repo);
+  workflowRuntime.registerMutationProbe(lostObservationContext, lostObservationKey, 'f'.repeat(64), true);
+  const beforeLostObservation = read(nonGit.file);
+  check(nonGit.persist('Bash', { command: 'node lost-observation.js' }, { stdout: 'fixture success' },
+    { tool_use_id: lostObservationId }).status === 0,
+    '#162 Tier 2 PostToolUse degrades when workspace observation becomes unavailable');
+  const afterLostObservation = read(nonGit.file);
+  check(afterLostObservation.state === 'running' &&
+    afterLostObservation.budget.counters.iterations === beforeLostObservation.budget.counters.iterations + 1 &&
+    afterLostObservation.lastMutationAt >= (beforeLostObservation.lastMutationAt || 0),
+    '#162 lost post-observation is settled as one conservative mutation without blocking');
+
+  const nonGitTarget = path.join(repo, 'non-git-edit.txt');
+  check(nonGit.gate('Write', { file_path: nonGitTarget }).status === 0,
+    '#162 direct edit remains available in non-git Tier 2');
+  fs.writeFileSync(nonGitTarget, 'changed\n');
+  check(nonGit.persist('Write', { file_path: nonGitTarget }).status === 0,
+    '#162 direct non-git edit persists mutation milestone');
+  const verifyId = 'toolu_non_git_verify';
+  check(nonGit.gate('Bash', { command: 'node run-test.js' }, { tool_use_id: verifyId }).status === 0,
+    '#162 verification shell is admitted in non-git Tier 2');
+  check(nonGit.persist('Bash', { command: 'node run-test.js' }, { stdout: 'tests passed' },
+    { tool_use_id: verifyId }).status === 0,
+    '#162 non-git verification result is persisted');
+  check(nonGit.stop().status === 0 && read(nonGit.file).state === 'satisfied',
+    '#162 edit then verification can satisfy Stop in non-git Tier 2');
+
+  const nonGitMajor = fixtureSession('workflow-non-git-major');
+  check(nonGitMajor.route('Refactor the entire authentication architecture across all services without fable').status === 0 &&
+    read(nonGitMajor.file).tier === 'tier3',
+    '#162 non-git major fixture routes to Tier 3');
+  check(nonGitMajor.control('start').status === 0 && read(nonGitMajor.file).state === 'running',
+    '#162 non-Fable Tier 3 controller can enter running state before mutation');
+  const majorBlocked = nonGitMajor.gate('Bash', { command: 'node mutate.js' }, { tool_use_id: 'toolu_non_git_major' });
+  check(majorBlocked.status === 2 && /Git worktree isolation/i.test(majorBlocked.stderr),
+    '#162 non-git Tier 3 remains fail-closed with an isolation-specific error');
+
+  fs.unlinkSync(nonGitTarget);
   git(['init']); fs.writeFileSync(path.join(repo, 'README.md'), 'fixture\n'); git(['add', '.']);
   git(['-c', 'user.name=Harness Test', '-c', 'user.email=harness@example.invalid', 'commit', '-m', 'fixture']);
   git(['worktree', 'add', linked, '-b', 'isolated']);
