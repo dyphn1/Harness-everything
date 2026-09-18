@@ -48,6 +48,9 @@
     "harness:reset": "node hooks/scripts/reset-circuit-breaker.js",
     "prepare": "husky install",
     "commitlint": "commitlint --edit",
+    "test:telemetry": "node ci/telemetry.test.js",
+    "telemetry:report": "node telemetry/scripts/report.js",
+    "telemetry:benchmark": "node telemetry/scripts/benchmark.js",
     "test:contract-integrity": "node ci/contract-integrity.test.js",
     "contract:integrity": "node contract-integrity/scripts/audit.js"
   },

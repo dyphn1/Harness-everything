@@ -4,7 +4,7 @@ Details moved from SKILL.md. Read when you need the full decision matrix or the 
 
 ## Responsibility Boundary
 
-The host agent owns access to the current session and any history explicitly exposed by the host. It selects authorized evidence and states a generalized root cause before invoking this skill. `self-evolve` classifies, deduplicates, validates, and persists that result. It MUST NOT scan global transcript stores, persist raw transcripts, or act as a transcript daemon.
+Harness may observe only its own structured runtime events. Rule-of-3 recovery and verifier fail→pass transitions can create privacy-minimal lesson candidates automatically; raw prompts, commands, tool output, source text, and global host transcripts are not copied into those candidates. The agent or Human Partner still supplies the generalized rule before evaluation. `self-evolve` MUST NOT scan global transcript stores, persist raw transcripts, or act as a transcript daemon.
 
 ## Triggers
 
@@ -16,23 +16,42 @@ The host agent owns access to the current session and any history explicitly exp
 
 ```mermaid
 flowchart TD
-    Start[Evidence-backed lesson] --> Route[Harness router memory.write]
-    Route -->|none| Reject[Reject durable write]
-    Route -->|propose| Capability[Issue single-use workflow/session capability]
-    Route -->|persist-via-self-evolve| Capability
-    Capability --> Screen[Secret + injection + quality screening]
-    Screen --> Similarity{Possible duplicate/paraphrase?}
-    Similarity -->|yes| Candidate[Session-scoped review candidate]
-    Similarity -->|no| Disposition{Effective disposition}
-    Disposition -->|propose / active Fable run| Candidate
-    Disposition -->|persist-via-self-evolve| Durable[RULES.md + memory-index.json]
+    Runtime[Harness-owned recovery evidence] --> Opportunity[Learning opportunity]
+    Opportunity --> Candidate[Lesson candidate: proposed]
+    Candidate --> Screen[Generalized rule + safety/quality screening]
+    Screen --> Eval{Evidence class}
+    Eval -->|objective verifier fail→pass| Accepted[accepted for governed promotion]
+    Eval -->|linear recovery / insufficient replay| Hold[inconclusive]
+    Eval -->|unsafe/weak| Reject[rejected]
+    Accepted --> Auth[#134 single-use memory capability]
+    Auth --> Durable[RULES.md + memory-index.json]
     Durable --> Retrieve[Scoped deterministic retrieval]
-    Retrieve --> Untrusted[Return as untrusted data/context]
+    Retrieve --> Outcome[retrieved → validated / regressed / superseded]
 ```
 
-For a simple rule, persist only the generalized constraint or tip. The router-issued capability is opaque, single-use, and bound to one workflow/session. Do not replace it with a free-form `--role` or `--session-id` claim. Active Fable runs remain candidate-only; durable promotion should happen through a later authorized coordinator/self-evolve path.
+The versioned candidate contract is `<this-skill-dir>/schemas/lesson-candidate.schema.json`. Runtime creation records only structured IDs/hashes/status transitions. Candidate states are distinct from effectiveness claims: `accepted` means the evidence is grounded enough to permit governed memory promotion, while `evaluation.improvementClaim` remains false until #71/later recurrence evidence supports a behavioral claim.
+
+For a simple rule, inspect/list the session candidate, evaluate it with a generalized constraint or tip, and promote only an `accepted` candidate. The router-issued capability is opaque, single-use, and bound to the authorizing workflow/session; that promotion session may differ from the original recovery session and both provenances remain recorded. Do not replace the capability with a free-form `--role` or `--session-id` claim. Active Fable runs remain candidate-only; durable promotion happens through a later authorized coordinator/self-evolve path.
 
 For a reusable multi-step procedure, load `skill-creator/SKILL.md`, create the draft skill, and use `register-dynamic-skill.js` to update each platform's `manifest.json` `generated[]` registry. The host agent remains responsible for deciding which evidence is relevant; these scripts do not discover session history.
+
+## Candidate Lifecycle
+
+```text
+observed -> proposed -> screened -> evaluated
+                              -> accepted -> persisted -> retrieved
+                              |                         -> validated
+                              |                         -> regressed
+                              |                         -> superseded
+                              -> rejected
+                              -> inconclusive
+```
+
+- `rule-of-3-recovery` is intentionally non-replayable from one linear trace and remains `inconclusive` until paired/later recurrence evidence exists.
+- `verifier-fail-pass` can pass deterministic grounding checks because the retained contract records an objective fail→pass transition, but this still does not prove future behavioral improvement.
+- Identical runtime evidence is idempotent and maps to one candidate ID.
+- Runtime hooks can create candidates but cannot call the durable memory writer directly.
+- Record later evidence explicitly with `lesson-candidate.js observe --outcome retrieved|validated|regressed|superseded --evidence "<ref>"`; outcome transitions never happen merely because a rule exists.
 
 ## Memory Governance Rules
 

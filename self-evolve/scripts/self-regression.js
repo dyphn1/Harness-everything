@@ -42,7 +42,7 @@ function runNode(label, script, args = [], options = {}) {
 }
 
 console.log('\n[Phase 1] Static Syntax Check...');
-const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'contract-integrity', 'ci', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills', 'fable-mode', 'multi-agent-workspace'];
+const foldersToScan = ['harness-everything', 'hooks', 'environment-detection', 'self-evolve', 'telemetry', 'contract-integrity', 'ci', 'eval-harness', 'scripts', 'bin', 'to-spec', 'to-tickets', 'find-skills', 'fable-mode', 'multi-agent-workspace'];
 const jsFiles = [];
 function walkDir(dir) {
   if (!fs.existsSync(dir)) return;
@@ -92,8 +92,10 @@ runNode('explicit parallel safety contract', path.join(projectRoot, 'ci', 'route
 runNode('workflow-plan consumers', path.join(projectRoot, 'ci', 'workflow-plan-consumers.test.js'));
 runNode('workflow-plan consumer edge contracts', path.join(projectRoot, 'ci', 'workflow-plan-consumers-edge.test.js'));
 runNode('phase 4 ensemble/memory evidence', path.join(projectRoot, 'ci', 'phase4-ensemble-memory.test.js'));
+runNode('self-evolve closed loop phase 1-3', path.join(projectRoot, 'ci', 'self-evolve-loop.test.js'));
 runNode('phase 5 pre-action gate', path.join(projectRoot, 'ci', 'action-gate.test.js'));
 runNode('phase 5 platform evidence boundary', path.join(projectRoot, 'ci', 'action-gate-platform-doc.test.js'));
+runNode('cross-agent telemetry', path.join(projectRoot, 'ci', 'telemetry.test.js'));
 runNode('contract integrity phase 1', path.join(projectRoot, 'ci', 'contract-integrity.test.js'));
 runNode('issue #99 runtime correctness', path.join(projectRoot, 'ci', 'issue99-runtime.test.js'));
 

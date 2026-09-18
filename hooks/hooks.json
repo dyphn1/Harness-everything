@@ -102,6 +102,17 @@
         ],
         "description": "Snapshot repo state before a subagent burst starts",
         "id": "harness:pre:subagent-scope-guard"
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/telemetry-adapter.js\""
+          }
+        ],
+        "description": "Record privacy-safe Harness skill load start telemetry",
+        "id": "harness:pre:skill-telemetry"
       }
     ],
     "Stop": [
@@ -134,6 +145,16 @@
         ],
         "description": "Pre-delivery gate - bounce the end of a turn once per edit batch when edits were never verified",
         "id": "harness:stop:stop-gate"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/telemetry-adapter.js\""
+          }
+        ],
+        "description": "Close Harness skill active-window telemetry at the turn boundary",
+        "id": "harness:stop:skill-telemetry"
       }
     ],
     "PostToolUse": [
@@ -202,6 +223,17 @@
         ],
         "description": "Diff the whole repo after a subagent burst finishes - catches scope creep past what the task briefed",
         "id": "harness:post:subagent-scope-guard"
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/telemetry-adapter.js\""
+          }
+        ],
+        "description": "Record privacy-safe Harness skill load completion telemetry",
+        "id": "harness:post:skill-telemetry"
       }
     ],
     "PostToolUseFailure": [
@@ -226,6 +258,17 @@
         ],
         "description": "Track failed tool error signatures for Rule of 3",
         "id": "harness:post-failure:rule-of-3-tracker"
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/telemetry-adapter.js\""
+          }
+        ],
+        "description": "Record failed Harness skill loading without prompt/tool arguments",
+        "id": "harness:post-failure:skill-telemetry"
       }
     ]
   }

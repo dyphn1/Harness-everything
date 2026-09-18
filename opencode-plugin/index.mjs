@@ -31,7 +31,7 @@
 
 import { homedir } from "node:os"
 import { join, dirname, resolve, basename, relative, isAbsolute } from "node:path"
-import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, realpathSync, readdirSync } from "node:fs"
+import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, rmSync, realpathSync, readdirSync } from "node:fs"
 import { execSync } from "node:child_process"
 import { createHash, randomUUID } from "node:crypto"
 
@@ -348,6 +348,80 @@ function recordCompliance(complianceFile, mutate) {
   saveJSON(complianceFile, compliance)
 }
 
+const TELEMETRY_SCHEMA_VERSION = 1
+const TELEMETRY_EVENT_TYPES = new Set(["skill.invoke", "skill.loaded", "skill.complete", "tool.observed"])
+
+function telemetryEnabled() {
+  const value = String(process.env.HARNESS_TELEMETRY || "local").toLowerCase()
+  return !["0", "false", "off", "disabled", "none"].includes(value)
+}
+
+function telemetryLocalId(prefix, value) {
+  const text = String(value || "").trim()
+  if (!text) return null
+  return `${prefix}-${createHash("sha256").update(text).digest("hex").slice(0, 16)}`
+}
+
+function telemetrySkillName(value) {
+  const text = String(value || "").trim()
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(text) ? text.toLowerCase() : null
+}
+
+function telemetryToolName(value) {
+  const text = String(value || "").trim()
+  return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}$/.test(text) ? text : null
+}
+
+function telemetrySkillVersion(workspace, skillName) {
+  if (!skillName) return null
+  const candidates = [
+    join(workspace, ".claude", "skills", skillName, "SKILL.md"),
+    join(workspace, ".agents", "skills", skillName, "SKILL.md"),
+  ]
+  for (const file of candidates) {
+    try {
+      const source = readFileSync(file, "utf8")
+      const metadata = source.match(/metadata:\s*[\s\S]{0,300}?version:\s*["']?([^\s"'\n]+)["']?/i)
+      if (metadata) return metadata[1].slice(0, 40)
+    } catch {}
+  }
+  return null
+}
+
+function appendTelemetry(workspace, input) {
+  try {
+    if (!telemetryEnabled()) return false
+    if (!TELEMETRY_EVENT_TYPES.has(input.event)) return false
+    const file = join(getStateRoot(workspace), "telemetry", "events.jsonl")
+    mkdirSync(dirname(file), { recursive: true })
+    appendFileSync(file, JSON.stringify({
+      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      eventId: randomUUID(),
+      event: input.event,
+      host: "opencode",
+      observedAt: new Date().toISOString(),
+      sessionId: telemetryLocalId("session", input.sessionID || "default"),
+      turnId: telemetryLocalId("turn", input.turnID),
+      agentId: telemetryLocalId("agent", input.agentID),
+      invocationId: input.invocationId || null,
+      skillName: input.skillName || null,
+      skillVersion: input.skillVersion || null,
+      toolName: input.toolName || null,
+      status: ["unknown", "success", "failure", "aborted"].includes(input.status) ? input.status : "unknown",
+      retryCount: Number.isInteger(input.retryCount) && input.retryCount >= 0 ? input.retryCount : 0,
+      timing: {
+        skillLoadDurationMs: Number.isFinite(input.skillLoadDurationMs) ? input.skillLoadDurationMs : null,
+        activeWindowMs: Number.isFinite(input.activeWindowMs) ? input.activeWindowMs : null,
+        attributedToolDurationMs: Number.isFinite(input.attributedToolDurationMs) ? input.attributedToolDurationMs : null,
+      },
+      reasonCodes: [...new Set((input.reasonCodes || []).map(value => String(value).slice(0, 80)).filter(Boolean))].slice(0, 16),
+    }) + "\n", "utf8")
+    return true
+  } catch {
+    return false
+  }
+}
+
 export const HarnessEnforcement = async ({ client, directory }) => {
   // State is resolved per real workspace and per opencode session. The CJS
   // hooks use the same workspaces/<key>/state/sessions/<id> contract, while
@@ -356,6 +430,139 @@ export const HarnessEnforcement = async ({ client, directory }) => {
   const workspace = resolve(directory || process.cwd())
   migrateLegacyFlatState(getStateDir(workspace))
   const activeVerifications = new Set()
+  const telemetryToolStarts = new Map()
+  const telemetryPendingSkills = new Map()
+  const telemetryActiveSkills = new Map()
+
+  function telemetryCallId(input) {
+    const direct = input && (input.callID || input.callId || input.toolCallID || input.toolCallId)
+    if (direct) return telemetryLocalId("call", direct)
+    return `fifo:${String(input && input.sessionID || "default")}:${String(input && input.tool || "unknown")}`
+  }
+
+  function telemetryBefore(input) {
+    try {
+      if (!telemetryEnabled()) return
+      const key = telemetryCallId(input)
+      const queue = telemetryToolStarts.get(key) || []
+      queue.push(Date.now())
+      telemetryToolStarts.set(key, queue)
+
+      if (input.tool !== "skill") return
+      const skillName = telemetrySkillName(input.args && (input.args.skill || input.args.name || input.args.skillName))
+      if (!skillName) return
+      const invocationId = randomUUID()
+      const pending = telemetryPendingSkills.get(key) || []
+      pending.push({
+        invocationId,
+        skillName,
+        skillVersion: telemetrySkillVersion(workspace, skillName),
+        startedAt: Date.now(),
+        sessionID: input.sessionID,
+      })
+      telemetryPendingSkills.set(key, pending)
+      appendTelemetry(workspace, {
+        event: "skill.invoke",
+        sessionID: input.sessionID,
+        agentID: input.agentID,
+        invocationId,
+        skillName,
+        skillVersion: pending[pending.length - 1].skillVersion,
+        status: "unknown",
+        reasonCodes: ["opencode-skill-tool-before"],
+      })
+    } catch {}
+  }
+
+  function telemetryAfter(input) {
+    try {
+      if (!telemetryEnabled()) return
+      const key = telemetryCallId(input)
+      const starts = telemetryToolStarts.get(key) || []
+      const startedAt = starts.shift()
+      if (starts.length) telemetryToolStarts.set(key, starts)
+      else telemetryToolStarts.delete(key)
+      const duration = Number.isFinite(startedAt) ? Math.max(0, Date.now() - startedAt) : null
+
+      if (input.tool === "skill") {
+        const pending = telemetryPendingSkills.get(key) || []
+        const load = pending.shift()
+        if (pending.length) telemetryPendingSkills.set(key, pending)
+        else telemetryPendingSkills.delete(key)
+        if (load) {
+          const activeKey = String(load.sessionID || "default")
+          const active = telemetryActiveSkills.get(activeKey) || new Map()
+          active.set(load.invocationId, {
+            ...load,
+            loadedAt: Date.now(),
+            skillLoadDurationMs: duration,
+            attributedToolDurationMs: 0,
+            attributedToolCount: 0,
+          })
+          telemetryActiveSkills.set(activeKey, active)
+          appendTelemetry(workspace, {
+            event: "skill.loaded",
+            sessionID: load.sessionID,
+            invocationId: load.invocationId,
+            skillName: load.skillName,
+            skillVersion: load.skillVersion,
+            status: "unknown",
+            skillLoadDurationMs: duration,
+            reasonCodes: ["opencode-after-no-normalized-status"],
+          })
+        }
+        return
+      }
+
+      const active = telemetryActiveSkills.get(String(input.sessionID || "default"))
+      if (!active || active.size === 0) return
+      for (const entry of active.values()) {
+        if (Number.isFinite(duration)) {
+          entry.attributedToolDurationMs += duration
+          entry.attributedToolCount++
+        }
+        appendTelemetry(workspace, {
+          event: "tool.observed",
+          sessionID: input.sessionID,
+          agentID: input.agentID,
+          invocationId: entry.invocationId,
+          skillName: entry.skillName,
+          skillVersion: entry.skillVersion,
+          toolName: telemetryToolName(input.tool),
+          status: "unknown",
+          attributedToolDurationMs: duration,
+          reasonCodes: [
+            Number.isFinite(duration) ? "opencode-adapter-duration" : "tool-duration-unavailable",
+            "skill-active-window-overlap",
+          ],
+        })
+      }
+    } catch {}
+  }
+
+  function telemetryCloseSession(sessionID, status = "unknown", reasonCode = "opencode-session-idle") {
+    try {
+      const key = String(sessionID || "default")
+      const active = telemetryActiveSkills.get(key)
+      if (!active) return
+      const stoppedAt = Date.now()
+      for (const entry of active.values()) {
+        appendTelemetry(workspace, {
+          event: "skill.complete",
+          sessionID,
+          invocationId: entry.invocationId,
+          skillName: entry.skillName,
+          skillVersion: entry.skillVersion,
+          status,
+          skillLoadDurationMs: entry.skillLoadDurationMs,
+          activeWindowMs: Math.max(0, stoppedAt - entry.loadedAt),
+          attributedToolDurationMs: entry.attributedToolCount ? entry.attributedToolDurationMs : null,
+          reasonCodes: [reasonCode],
+        })
+      }
+      telemetryActiveSkills.delete(key)
+    } catch {}
+  }
 
   function pathsFor(sessionID) {
     const stateDir = getSessionDir(workspace, sessionID)
@@ -399,6 +606,7 @@ export const HarnessEnforcement = async ({ client, directory }) => {
 
   return {
     "tool.execute.before": async (input, output) => {
+      telemetryBefore(input)
       if (!EDIT_TOOLS.has(input.tool)) return
       const { breakerFile, reflectionFile } = pathsFor(input.sessionID)
       const breaker = loadBreakerState(breakerFile)
@@ -417,6 +625,7 @@ export const HarnessEnforcement = async ({ client, directory }) => {
     },
 
     "tool.execute.after": async (input, output) => {
+      telemetryAfter(input)
       if (!EDIT_TOOLS.has(input.tool)) return
       const { editStateFile, breakerFile, complianceFile, reflectionFile } = pathsFor(input.sessionID)
 
@@ -444,14 +653,17 @@ export const HarnessEnforcement = async ({ client, directory }) => {
       const properties = event && event.properties
       const sessionID = properties && (properties.sessionID || (properties.info && properties.info.id))
       if (event.type === "session.created") {
+        telemetryCloseSession(sessionID, "aborted", "opencode-session-recreated")
         resetSession(sessionID)
         return
       }
       if (event.type === "session.deleted") {
+        telemetryCloseSession(sessionID, "aborted", "opencode-session-deleted")
         resetSession(sessionID)
         return
       }
       if (event.type !== "session.idle") return
+      telemetryCloseSession(sessionID, "unknown", "opencode-session-idle")
       if (activeVerifications.has(sessionID || "default")) return
 
       const activeSession = sessionID || "default"

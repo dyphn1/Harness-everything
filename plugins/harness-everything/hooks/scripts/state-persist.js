@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
+const { observeTool } = require('./lib/telemetry');
 
 // Commands that count as "verification ran" for the Stop gate
 // (hooks/scripts/stop-gate.js). Recall over precision: under-blocking the
@@ -88,6 +89,10 @@ function processState(payload) {
       }
 
       fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
+      // Reuse this already-running post-tool hook instead of spawning another
+      // process for every tool solely for telemetry. The observer is fail-open
+      // and stores no command/args/output content.
+      observeTool(payload);
     } else {
       // No standard input payload, or invalid JSON. Just maintain a heartbeat timestamp
       if (!fs.existsSync(stateFile)) {
