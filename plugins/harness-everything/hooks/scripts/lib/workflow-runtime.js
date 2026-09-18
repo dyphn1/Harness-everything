@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir, getSessionId, getStateRoot } = require('./harness-state');
 const { atomicWriteJson, readJson } = require('./fable-contracts');
+const { workspaceFingerprint } = require('./workflow-isolation');
 
 const OPEN_STATES = new Set(['pending', 'active', 'running', 'failed', 'blocked', 'escaped']);
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -45,6 +46,8 @@ function saveWorkflow(context) { atomicWriteJson(context.file, context.workflow)
 
 const MUTATION_PROBE_KEY = /^[a-f0-9]{64}$/;
 const MUTATION_PROBE_WAIT = new Int32Array(new SharedArrayBuffer(4));
+const MUTATION_PROBE_RESERVATION_GRACE_MS = 1000;
+const MUTATION_PROBE_CLEANUP_MS = 10 * 60 * 1000;
 
 function mutationProbeDir(context) {
   return path.join(context.sessionDir, 'mutation-probes');
@@ -81,15 +84,26 @@ function withMutationProbeLock(context, callback) {
   finally { fs.rmSync(lockDir, { recursive: true, force: true }); }
 }
 
+function probeCountsIteration(probe) {
+  return Boolean(probe && (probe.countIteration === true ||
+    (probe.countIteration === undefined && probe.reserveIteration === true)));
+}
+
 function mutationProbeReservations(context) {
   const dir = mutationProbeDir(context);
   let files = [];
   try { files = fs.readdirSync(dir).filter(file => /^[a-f0-9]{64}\.json$/.test(file)); }
   catch (_) { return 0; }
+  const now = Date.now();
   let count = 0;
   for (const file of files) {
     const probe = readJson(path.join(dir, file));
-    if (probe?.schemaVersion === 1 && probe.reserveIteration === true) count++;
+    if (probe?.schemaVersion !== 1 || probe.reserveIteration !== true) continue;
+    const observedAt = Number(probe.observedAt);
+    // Reservations are leases, not permanent budget claims. A stale probe is
+    // still retained for mutation observation/reclamation, but no longer
+    // consumes pre-execution capacity (#161).
+    if (!Number.isFinite(observedAt) || now - observedAt < MUTATION_PROBE_RESERVATION_GRACE_MS) count++;
   }
   return count;
 }
@@ -115,12 +129,79 @@ function assertIterationCapacity(context, evidence) {
   return { applicable: true, value: budget.counters.iterations, reserved, limit };
 }
 
-function registerMutationProbe(context, key, fingerprint, reserveIteration) {
+function reclaimStaleMutationProbes(context, keepKey) {
+  const dir = mutationProbeDir(context);
+  let files = [];
+  try { files = fs.readdirSync(dir).filter(file => /^[a-f0-9]{64}\.json$/.test(file)); }
+  catch (_) { return; }
+  const now = Date.now();
+  for (const name of files) {
+    const staleKey = name.slice(0, -'.json'.length);
+    if (staleKey === keepKey) continue;
+    const file = path.join(dir, name);
+    const probe = readJson(file);
+    if (!probe || probe.schemaVersion !== 1) continue;
+    const observedAt = Number(probe.observedAt);
+    if (!Number.isFinite(observedAt) || now - observedAt < MUTATION_PROBE_RESERVATION_GRACE_MS) continue;
+    const countsIteration = probeCountsIteration(probe);
+    if (!probe.observationCwd) {
+      // Legacy probes cannot be safely re-observed. Release only their budget
+      // lease; reset-budget/normal cleanup may remove the observation record.
+      if (probe.reserveIteration) {
+        atomicWriteJson(file, {
+          ...probe,
+          countIteration: countsIteration,
+          reserveIteration: false,
+          reservationReleasedAt: now,
+        });
+      }
+      continue;
+    }
+    let currentFingerprint;
+    try {
+      currentFingerprint = workspaceFingerprint(probe.observationCwd);
+    } catch (_) {
+      fs.unlinkSync(file);
+      context.workflow.lastMutationAt = now;
+      if (countsIteration && context.workflow.strategy === 'iterative-single') {
+        recordBudgetEvent(context, 'iteration', { evidence: 'shell:reclaimed-unobservable-workspace' });
+      } else {
+        saveWorkflow(context);
+      }
+      continue;
+    }
+    if (currentFingerprint !== probe.fingerprint) {
+      fs.unlinkSync(file);
+      context.workflow.lastMutationAt = now;
+      if (countsIteration && context.workflow.strategy === 'iterative-single') {
+        recordBudgetEvent(context, 'iteration', { evidence: 'shell:reclaimed-stale-workspace-mutation' });
+      } else {
+        saveWorkflow(context);
+      }
+      continue;
+    }
+    if (now - observedAt >= MUTATION_PROBE_CLEANUP_MS) {
+      fs.unlinkSync(file);
+      continue;
+    }
+    if (probe.reserveIteration) {
+      atomicWriteJson(file, {
+        ...probe,
+        countIteration: countsIteration,
+        reserveIteration: false,
+        reservationReleasedAt: now,
+      });
+    }
+  }
+}
+
+function registerMutationProbe(context, key, fingerprint, reserveIteration, observationCwd) {
   if (!MUTATION_PROBE_KEY.test(String(key || '')) || !MUTATION_PROBE_KEY.test(String(fingerprint || ''))) {
     throw new Error('invalid mutation probe identity');
   }
   return withMutationProbeLock(context, () => {
     refreshWorkflowForProbe(context);
+    reclaimStaleMutationProbes(context, key);
     if (reserveIteration) assertIterationCapacity(context, 'shell:untrusted');
     const dir = mutationProbeDir(context);
     fs.mkdirSync(dir, { recursive: true });
@@ -130,6 +211,8 @@ function registerMutationProbe(context, key, fingerprint, reserveIteration) {
       schemaVersion: 1,
       fingerprint,
       reserveIteration: Boolean(reserveIteration),
+      countIteration: Boolean(reserveIteration),
+      observationCwd: observationCwd ? path.resolve(observationCwd) : null,
       observedAt: Date.now(),
     };
     atomicWriteJson(file, probe);
@@ -152,7 +235,7 @@ function settleMutationProbe(context, key, afterFingerprint, tool) {
     const changed = afterFingerprint !== probe.fingerprint;
     if (changed) {
       context.workflow.lastMutationAt = Date.now();
-      if (probe.reserveIteration && context.workflow.strategy === 'iterative-single') {
+      if (probeCountsIteration(probe) && context.workflow.strategy === 'iterative-single') {
         recordBudgetEvent(context, 'iteration', { evidence: String(tool || 'shell') + ':observed-workspace-mutation' });
       } else {
         saveWorkflow(context);
@@ -170,7 +253,7 @@ function settleMutationProbeConservative(context, key, tool, evidence = 'unobser
     refreshWorkflowForProbe(context);
     fs.unlinkSync(file);
     context.workflow.lastMutationAt = Date.now();
-    if (probe.reserveIteration && context.workflow.strategy === 'iterative-single') {
+    if (probeCountsIteration(probe) && context.workflow.strategy === 'iterative-single') {
       recordBudgetEvent(context, 'iteration', { evidence: String(tool || 'shell') + ':' + evidence });
     } else {
       saveWorkflow(context);
