@@ -147,8 +147,10 @@ function retrieveMemoryRecords({ workspace, task = '', requirement = '', role = 
       continue;
     }
 
+    const lessonCandidateMatch = String(record.source || '').match(/^lesson-candidate:(lesson-[a-f0-9]{24})$/);
     included.push({
       ...record,
+      origin: lessonCandidateMatch ? { lessonCandidateId: lessonCandidateMatch[1] } : null,
       trust: 'untrusted-data',
       retrieval: {
         reasonCodes: [
