@@ -79,9 +79,10 @@ function processState(payload) {
       const exitCode = typeof rawExitCode === 'number' ? rawExitCode : undefined;
       const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
       const hookEvent = payload.hook_event_name || payload.hookEventName || '';
+      const isSuccessEvent = hookEvent === 'PostToolUse';
       const isFailed = hookEvent === 'PostToolUseFailure' ||
         (exitCode !== undefined && exitCode !== 0) ||
-        (exitCode === undefined && stderrSignal);
+        (!isSuccessEvent && exitCode === undefined && stderrSignal);
       const toolName = payload.tool_name || payload.tool || 'command';
       const observedMutation = observeWorkspaceMutation(payload, root);
 
