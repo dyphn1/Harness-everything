@@ -209,6 +209,16 @@ try {
       'no-effect untrusted shell command does not advance lastMutationAt');
   }
 
+  const metadataFetch = 'git fetch . HEAD:refs/remotes/origin/harness-probe';
+  const beforeMetadataFetch = read(file);
+  check(gate('Bash', { command: metadataFetch }, repo).status === 0,
+    'metadata-only git fetch is admitted under observation');
+  git(['fetch', '.', 'HEAD:refs/remotes/origin/harness-probe']);
+  check(observeShell(metadataFetch).status === 0, 'real metadata-only git fetch probe resolves');
+  check(read(file).budget.counters.iterations === beforeMetadataFetch.budget.counters.iterations &&
+    (read(file).lastMutationAt || 0) === (beforeMetadataFetch.lastMutationAt || 0),
+    'real git fetch changes Git metadata without consuming a code iteration');
+
   let observedIterations = read(file).budget?.counters?.iterations || 0;
   const mutateTracked = 'node mutate-tracked.js';
   check(gate('Bash', { command: mutateTracked }, repo).status === 0, 'unknown tracked-file mutator is admitted under observation');
