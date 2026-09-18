@@ -35,9 +35,46 @@ function git(args) {
 }
 const route = prompt => node('harness-everything/scripts/kernel-router.js', { ...payload, prompt });
 const gate = (tool, input, cwd = linked) => node('hooks/scripts/workflow-gate.js', { ...payload, cwd, tool_name: tool, tool_input: input });
-const observeShell = (command, response = {}, cwd = repo) => node('hooks/scripts/workflow-mutation-observer.js', {
-  ...payload, cwd, tool_name: 'Bash', tool_input: { command }, tool_response: response,
-});
+let toolUseSeq = 0;
+function beginShell(command, cwd = repo) {
+  const toolUseId = 'toolu_fixture_' + (++toolUseSeq);
+  const input = { ...payload, cwd, tool_name: 'Bash', tool_use_id: toolUseId, tool_input: { command } };
+  return { command, cwd, toolUseId, result: node('hooks/scripts/workflow-gate.js', input) };
+}
+function persistShell(call, response = {}, hookEvent = 'PostToolUse') {
+  const input = {
+    ...payload,
+    cwd: call.cwd,
+    hook_event_name: hookEvent,
+    tool_name: 'Bash',
+    tool_use_id: call.toolUseId,
+    tool_input: { command: call.command },
+  };
+  if (hookEvent === 'PostToolUseFailure') {
+    input.error = response.error || 'Exit code 1\nfixture failure';
+    input.is_interrupt = Boolean(response.is_interrupt);
+  } else {
+    input.tool_response = response;
+  }
+  return node('hooks/scripts/state-persist.js', input);
+}
+function denyShell(call) {
+  return node('hooks/scripts/workflow-mutation-denied.js', {
+    ...payload,
+    cwd: call.cwd,
+    hook_event_name: 'PermissionDenied',
+    permission_mode: 'auto',
+    tool_name: 'Bash',
+    tool_use_id: call.toolUseId,
+    tool_input: { command: call.command },
+    reason: 'Blocked by classifier',
+  });
+}
+const probeDir = path.join(sessionDir, 'mutation-probes');
+const probeFiles = () => {
+  try { return fs.readdirSync(probeDir).filter(name => /^[a-f0-9]{64}\.json$/.test(name)); }
+  catch (_) { return []; }
+};
 const stop = extra => node('hooks/scripts/workflow-stop-gate.js', { ...payload, ...extra });
 const control = (...args) => node('hooks/scripts/workflow-disposition.js', null, [args[0], '--session-id', sessionId, ...args.slice(1)]);
 const stages = [
