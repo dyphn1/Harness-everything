@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.11.4](https://github.com/dyphn1/Harness-everything/compare/v0.11.3...v0.11.4) (2026-09-18)
+
+### Bug Fixes
+
+* **workflow:** Stop classifyShell misclassifying safe read-only chains as mutations ([96d687a](https://github.com/dyphn1/Harness-everything/commit/96d687ab4437ab19e3a743d1b9bf5113cfe52525)), closes [82/#149](https://github.com/82/Harness-everything/issues/149) [#155](https://github.com/dyphn1/Harness-everything/issues/155) [#82](https://github.com/dyphn1/Harness-everything/issues/82) [#133](https://github.com/dyphn1/Harness-everything/issues/133) [#149](https://github.com/dyphn1/Harness-everything/issues/149) [#153](https://github.com/dyphn1/Harness-everything/issues/153)
+
 ## [0.11.3](https://github.com/dyphn1/Harness-everything/compare/v0.11.2...v0.11.3) (2026-09-18)
 
 ### Bug Fixes
