@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "1.0.0",
+  "mode": "strict",
+  "artifacts": [
+    {
+      "id": "ADR-001",
+      "kind": "ADR",
+      "path": "docs/adr/0001-api-contract.md",
+      "status": "SUPERSEDED",
+      "revision": 1,
+      "supersedes": [],
+      "evidenceRef": null
+    },
+    {
+      "id": "ADR-002",
+      "kind": "ADR",
+      "path": "docs/adr/0002-api-contract-v2.md",
+      "status": "ACTIVE",
+      "revision": 2,
+      "supersedes": [
+        "ADR-001"
+      ],
+      "evidenceRef": "decision:approved-v2"
+    },
+    {
+      "id": "SPEC-001",
+      "kind": "SPEC",
+      "path": "docs/specs/api.md",
+      "status": "ACTIVE",
+      "revision": 2,
+      "supersedes": [],
+      "evidenceRef": "spec:REQ-001-v2"
+    },
+    {
+      "id": "TICKET-001",
+      "kind": "TICKET",
+      "path": "tickets/001.md",
+      "status": "ACTIVE",
+      "revision": 2,
+      "requirementId": "REQ-001",
+      "requirementRevision": 2,
+      "changeImpact": "architecture",
+      "supersedes": [],
+      "evidenceRef": "feedback:approved-v2"
+    },
+    {
+      "id": "TEST-001",
+      "kind": "TEST",
+      "path": "tests/api.test.js",
+      "status": "ACTIVE",
+      "revision": 2,
+      "requirementId": "REQ-001",
+      "requirementRevision": 2,
+      "supersedes": [],
+      "evidenceRef": "tests/api.test.js#contract-v2"
+    },
+    {
+      "id": "IMPL-001",
+      "kind": "IMPLEMENTATION",
+      "path": "src/api.js",
+      "status": "ACTIVE",
+      "revision": 2,
+      "requirementId": "REQ-001",
+      "requirementRevision": 2,
+      "supersedes": [],
+      "evidenceRef": "commit:implemented-v2"
+    }
+  ],
+  "requirements": [
+    {
+      "requirementId": "REQ-001",
+      "revision": 2,
+      "status": "CURRENT",
+      "specId": "SPEC-001",
+      "decisionIds": [
+        "ADR-002"
+      ],
+      "ticketIds": [
+        "TICKET-001"
+      ],
+      "testIds": [
+        "TEST-001"
+      ],
+      "implementationIds": [
+        "IMPL-001"
+      ],
+      "requiredProbeIds": [
+        "PROBE-001"
+      ],
+      "sourceValidity": "VALID",
+      "supersededBy": null
+    }
+  ],
+  "probes": [
+    {
+      "probeId": "PROBE-001",
+      "requirementId": "REQ-001",
+      "status": "KILLED",
+      "sourceSection": "docs/specs/api.md#REQ-001-v2",
+      "evidenceRef": "probe:v2-red",
+      "workspaceIsolation": "isolated",
+      "failureClass": "contract"
+    }
+  ]
+}
