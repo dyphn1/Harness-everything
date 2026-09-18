@@ -16,6 +16,7 @@ fs.mkdirSync(repo);
 const env = { ...process.env, HARNESS_STATE_HOME: path.join(temp, 'state'), HARNESS_WORKSPACE_ROOT: repo };
 process.env.HARNESS_STATE_HOME = env.HARNESS_STATE_HOME;
 const state = require(path.join(runtimeRoot, 'hooks/scripts/lib/harness-state'));
+const workflowRuntime = require(path.join(runtimeRoot, 'hooks/scripts/lib/workflow-runtime'));
 const sessionId = 'workflow-lifecycle';
 const payload = { session_id: sessionId, cwd: repo };
 const sessionDir = state.getSessionDir(repo, sessionId);
@@ -138,6 +139,23 @@ try {
   check(gate('Write', { file_path: path.join(linked, 'src.js') }).status === 2 && stop().status === 2, 'partial JSON state cannot bypass workflow gates');
   fs.unlinkSync(file);
   check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single', 'bounded fix selects iterative lifecycle');
+  const activeTier2 = read(file);
+  check(activeTier2.tier === 'tier2' && activeTier2.mutationIsolation?.required === false && !workflowRuntime.isMajorWorkflow(activeTier2), 'Tier 2 iterative workflow starts non-major');
+  check(route('Refactor the entire repository architecture in dependent stages.').status === 0, 'stronger Tier 3 route is retained for explicit replan');
+  const queuedTier3 = read(file);
+  check(queuedTier3.state === 'blocked' && queuedTier3.pendingPlan?.tier === 'tier3' && queuedTier3.pendingPlan?.mutationIsolation?.required === true, 'stronger Tier 3 plan is queued as pending only');
+  check(queuedTier3.workflowPlan?.tier === 'tier2' && queuedTier3.strategy === 'iterative-single' &&
+    queuedTier3.mutationIsolation?.required === false, 'pending Tier 3 plan does not overwrite active Tier 2 fields');
+  check(!workflowRuntime.isMajorWorkflow(queuedTier3), 'major-workflow classification follows the authoritative active plan, not pending metadata');
+  write(spec, stages);
+  check(control('start').status === 0, 'explicit replan activates queued Tier 3 plan');
+  const promotedTier3 = read(file);
+  check(promotedTier3.workflowPlan?.tier === 'tier3' && promotedTier3.strategy.startsWith('fable-') &&
+    promotedTier3.mutationIsolation?.required === true && !promotedTier3.pendingPlan, 'pending Tier 3 isolation becomes active atomically on start');
+  check(workflowRuntime.isMajorWorkflow(promotedTier3), 'major-workflow classification flips only after explicit activation');
+  check(gate('Write', { file_path: path.join(repo, 'premature-primary.js') }, repo).status === 2, 'activated Tier 3 plan still blocks primary-tree mutation');
+  fs.unlinkSync(file);
+  check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single', 'fresh bounded fix returns to Tier 2 iterative lifecycle');
   const iterationLimit = read(file).workflowPlan.limits.maxIterations;
   check(Number.isInteger(iterationLimit) && iterationLimit > 0, 'iterative route exposes a numeric iteration budget');
   for (let i = 0; i < iterationLimit; i++) {
