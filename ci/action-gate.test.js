@@ -139,6 +139,70 @@ try {
   });
   check(actionGate.evaluatePreToolUse(routerTrueSafe, { host: 'claude', sessionDir, ruleTable: table }).kind === 'allow', 'safe command is not gated solely because prompt router predicted risk');
 
+  const mcpDelete = {
+    session_id: 'phase5-test',
+    hook_event_name: 'PreToolUse',
+    tool_name: 'mcp__demo__delete_record',
+    tool_use_id: 'mcp-delete',
+    tool_input: {
+      record_id: 'record-123',
+      api_token: 'SHOULD_NOT_BE_PERSISTED',
+      actionDescriptor: { toolFamily: 'mcp', action: 'delete', resource: 'record:123' },
+    },
+    cwd: ROOT,
+  };
+  const mcpDeleteDecision = actionGate.evaluatePreToolUse(mcpDelete, { host: 'claude', sessionDir, ruleTable: table });
+  check(mcpDeleteDecision.kind === 'defer' && mcpDeleteDecision.rule.id === 'structured-delete', 'structured MCP delete is gated before execution');
+  const mcpDeleteAudit = readAudit(sessionDir, 'mcp-delete');
+  check(mcpDeleteAudit.actionDescriptor.toolFamily === 'mcp' && mcpDeleteAudit.actionDescriptor.action === 'delete', 'audit retains normalized structured action identity');
+  check(mcpDeleteAudit.actionDescriptor.payloadHash === actionGate.hashExact(actionGate.exactPayloadText(mcpDelete)), 'structured action audit binds to exact payload hash');
+  check(!JSON.stringify(mcpDeleteAudit).includes('SHOULD_NOT_BE_PERSISTED'), 'structured action audit does not persist raw secret arguments');
+
+  const mcpRead = {
+    ...mcpDelete,
+    tool_name: 'mcp__demo__get_record',
+    tool_use_id: 'mcp-read',
+    tool_input: { record_id: 'record-123' },
+  };
+  const mcpReadDecision = actionGate.evaluatePreToolUse(mcpRead, { host: 'claude', sessionDir, ruleTable: table });
+  check(mcpReadDecision.kind === 'allow' && mcpReadDecision.descriptor.classification === 'safe', 'read-only MCP fixture passes without a false gate');
+
+  const inferredMutation = {
+    ...mcpDelete,
+    tool_name: 'mcp__demo__update_issue',
+    tool_use_id: 'mcp-update',
+    tool_input: { issue_id: 135, title: 'changed' },
+  };
+  const inferredMutationDecision = actionGate.evaluatePreToolUse(inferredMutation, { host: 'claude', sessionDir, ruleTable: table });
+  check(inferredMutationDecision.kind === 'defer' && inferredMutationDecision.rule.id === 'structured-mutate', 'obvious structured mutation is classified from tool identity');
+
+  const opaqueRequired = {
+    ...mcpDelete,
+    tool_name: 'mcp__demo__opaque_action',
+    tool_use_id: 'mcp-opaque-required',
+    tool_input: { value: 1 },
+    workflowPlan: { actionGate: { required: true, reasonCodes: ['external-side-effect'], disposition: 'pending-approval' } },
+  };
+  const opaqueRequiredDecision = actionGate.evaluatePreToolUse(opaqueRequired, { host: 'claude', sessionDir, ruleTable: table });
+  check(opaqueRequiredDecision.kind === 'defer' && opaqueRequiredDecision.rule.id === 'structured-unknown-required', 'unknown structured action fails closed when workflow requires a gate');
+
+  const opaqueSafe = { ...opaqueRequired, tool_use_id: 'mcp-opaque-unrequired' };
+  delete opaqueSafe.workflowPlan;
+  check(actionGate.evaluatePreToolUse(opaqueSafe, { host: 'claude', sessionDir, ruleTable: table }).kind === 'allow', 'unknown structured action is not fabricated as destructive without a gate requirement');
+
+  const integrityPre = {
+    ...mcpDelete,
+    tool_use_id: 'mcp-integrity',
+    tool_input: { actionDescriptor: { toolFamily: 'mcp', action: 'delete', resource: 'record:A' }, record_id: 'A' },
+  };
+  actionGate.evaluatePreToolUse(integrityPre, { host: 'claude', sessionDir, ruleTable: table });
+  const integrityPost = actionGate.processEvent({
+    ...integrityPre,
+    hook_event_name: 'PostToolUse',
+    tool_input: { actionDescriptor: { toolFamily: 'mcp', action: 'delete', resource: 'record:B' }, record_id: 'B' },
+  }, { sessionDir });
+  check(integrityPost.record && integrityPost.record.disposition === 'integrity-violation', 'changed structured payload cannot reuse a prior approval/audit decision');
+
   const nonScratchTarget = process.platform === 'win32'
     ? 'C:\\workspace\\harness-project\\build'
     : '/opt/harness-project/build';
@@ -231,13 +295,13 @@ try {
 
   const canonicalHooks = JSON.parse(fs.readFileSync(path.join(ROOT, 'hooks', 'hooks.json'), 'utf8'));
   const canonicalPre = canonicalHooks.hooks.PreToolUse.find(group => group.id === 'harness:pre:action-gate');
-  check(canonicalPre && canonicalPre.matcher === 'Bash|PowerShell', 'Claude hook manifest wires action-gate to Bash|PowerShell');
+  check(canonicalPre && canonicalPre.matcher === 'Bash|PowerShell|mcp__.*', 'Claude hook manifest wires action-gate to shell and MCP pre-action surfaces');
   check(canonicalHooks.hooks.PostToolUse.some(group => group.id === 'harness:post:action-gate-audit'), 'Claude hook manifest audits successful tool execution');
   check(canonicalHooks.hooks.PostToolUseFailure.some(group => group.id === 'harness:post-failure:action-gate-audit'), 'Claude hook manifest audits failed tool execution');
   check(canonicalHooks.hooks.Stop.some(group => group.id === 'harness:stop:action-gate-audit'), 'Claude hook manifest closes unresolved approvals on Stop');
 
   const pluginHooks = JSON.parse(fs.readFileSync(path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'hooks.json'), 'utf8'));
-  const pluginPre = pluginHooks.hooks.PreToolUse.find(group => group.matcher === 'Bash|apply_patch' && group.hooks.some(hook => /codex-action-gate-pre\.js/.test(hook.command)));
+  const pluginPre = pluginHooks.hooks.PreToolUse.find(group => group.matcher === 'Bash|apply_patch|mcp__.*' && group.hooks.some(hook => /codex-action-gate-pre\.js/.test(hook.command)));
   check(pluginPre && pluginPre.hooks.some(hook => /codex-action-gate-pre\.js/.test(hook.command)), 'OpenAI plugin wires the attribution-aware Codex action-gate adapter to Bash|apply_patch');
   check(!Object.prototype.hasOwnProperty.call(pluginHooks.hooks, 'PostToolUseFailure'), 'Codex plugin does not declare unsupported PostToolUseFailure lifecycle event');
   const pluginPost = pluginHooks.hooks.PostToolUse.find(group => group.matcher === 'Bash|apply_patch');
