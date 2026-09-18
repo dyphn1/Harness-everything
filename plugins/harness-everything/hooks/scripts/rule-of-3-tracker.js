@@ -119,19 +119,23 @@ process.stdin.on('end', () => {
       // boundary. Emit only IDs/hashes/category; never copy command/output text.
       if ((state.zoomOutCycles || 0) > 0 && state.lastHash) {
         const toolEventId = payload.tool_use_id || payload.toolUseId || `success-${Date.now()}`;
-        createLearningOpportunity(payload, {
-          triggerType: 'rule-of-3-recovery',
-          sourceEventIds: [
-            `rule-of-3:${state.lastHash}:${state.lastFailureAt || 0}`,
-            `tool:${toolEventId}`,
-          ],
-          evidence: {
-            failureSignature: state.lastHash,
-            failureCategory: state.category || 'unknown',
-            zoomOutCycles: state.zoomOutCycles,
-            recovered: true,
-          },
-        });
+        try {
+          createLearningOpportunity(payload, {
+            triggerType: 'rule-of-3-recovery',
+            sourceEventIds: [
+              `rule-of-3:${state.lastHash}:${state.lastFailureAt || 0}`,
+              `tool:${toolEventId}`,
+            ],
+            evidence: {
+              failureSignature: state.lastHash,
+              failureCategory: state.category || 'unknown',
+              zoomOutCycles: state.zoomOutCycles,
+              recovered: true,
+            },
+          });
+        } catch (_) {
+          // Learning capture is additive and must never break recovery tracking.
+        }
       }
       // Only reset on a *confirmed* zero exit code, not merely "not a failure".
       if (state.count > 0 || state.zoomOutCycles > 0) {
