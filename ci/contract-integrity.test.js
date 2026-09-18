@@ -187,6 +187,14 @@ try {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
+const unknownField = clone(baseline);
+unknownField.artifacts[0].agentScore = 100;
+check(validateTrace(unknownField).some(error => /unknown field: agentScore/.test(error)), 'runtime rejects fields that the JSON schema does not permit');
+
+const absolutePath = clone(baseline);
+absolutePath.artifacts[0].path = path.resolve(ROOT, 'docs/adr/0001-api-contract.md');
+check(validateTrace(absolutePath).some(error => /repo-relative/.test(error)), 'trace report rejects machine-specific absolute artifact paths');
+
 const schema = JSON.parse(fs.readFileSync(path.join(ROOT, 'contract-integrity/schemas/trace.schema.json'), 'utf8'));
 check(schema.properties?.probes?.items?.properties?.status?.enum?.includes('SURVIVED'), 'versioned trace schema includes probe disposition vocabulary');
 check(schema.properties?.requirements?.items?.properties?.requiredProbeIds?.uniqueItems === true, 'schema prevents duplicate required-probe padding');
