@@ -84,12 +84,27 @@ try {
   }
   assert.deepStrictEqual(invalidTargets('opencode-plugin/index.mjs .opencode/plugins/example.js'), []);
 
-  const violations = [];
-  for (const file of walk(root).filter(file => /\.(?:md|js|mjs|json|jsonc|yml|yaml|txt)$/.test(file))) {
+  const scanViolations = (readText = file => fs.readFileSync(file, 'utf8')) => {
+    const violations = [];
+    for (const file of walk(root).filter(file => /\.(?:md|js|mjs|json|jsonc|yml|yaml|txt)$/.test(file))) {
+      const text = readText(file);
+      for (const target of invalidTargets(text)) violations.push(`${path.relative(root, file)}: ${target}`);
+    }
+    return violations;
+  };
+  assert.deepStrictEqual(scanViolations(), [], 'Unsupported OpenCode install destinations; only .js/.ts are auto-discovered');
+
+  const scannedFiles = walk(root);
+  assert.ok(scannedFiles.includes(readmeFile), 'Tracked OpenCode README must remain in the repository scan');
+  const planted = scanViolations(file => {
     const text = fs.readFileSync(file, 'utf8');
-    for (const target of invalidTargets(text)) violations.push(`${path.relative(root, file)}: ${target}`);
-  }
-  assert.deepStrictEqual(violations, [], 'Unsupported OpenCode install destinations; only .js/.ts are auto-discovered');
+    return file === readmeFile ? text + '\n.opencode/plugins/negative-control.mjs\n' : text;
+  });
+  assert.ok(
+    planted.some(item => item === `${path.relative(root, readmeFile)}: .opencode/plugins/negative-control.mjs`),
+    'Scanner negative control must fail when a tracked file contains an unsupported .mjs install target'
+  );
+
   const readme = fs.readFileSync(readmeFile, 'utf8');
   for (const destination of ['.opencode/plugins/harness-enforcement.js', '~/.config/opencode/plugins/harness-enforcement.js']) {
     assert.ok(readme.includes(`cp opencode-plugin/index.mjs ${destination}`));
