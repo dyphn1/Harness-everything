@@ -2,6 +2,8 @@
 const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
+const { loadWorkflow, saveWorkflow, peekMutationProbe, settleMutationProbe } = require('./lib/workflow-runtime');
+const { cwdOf, shellProbeKey, workspaceFingerprint } = require('./lib/workflow-isolation');
 const { observeTool } = require('./lib/telemetry');
 
 // Commands that count as "verification ran" for the Stop gate
@@ -28,7 +30,31 @@ process.stdin.on('end', () => {
   }
 });
 
+function observeWorkspaceMutation(payload, root) {
+  const toolName = payload && (payload.tool_name || payload.tool);
+  if (toolName !== 'Bash' && toolName !== 'PowerShell' && toolName !== 'exec_command') return false;
+  const context = loadWorkflow(payload);
+  if (!context.workflow || context.workflow.state === 'deferred') return false;
+  const cwd = cwdOf(payload, root);
+  const probeKey = shellProbeKey(payload, cwd);
+  if (!peekMutationProbe(context, probeKey)) return false;
+  let after;
+  try {
+    after = workspaceFingerprint(cwd);
+  } catch (error) {
+    context.workflow.state = 'blocked';
+    context.workflow.blockReason = 'mutation-observation-failed';
+    saveWorkflow(context);
+    const critical = new Error('cannot verify whether shell execution changed workspace content');
+    critical.code = 'HARNESS_MUTATION_OBSERVATION';
+    throw critical;
+  }
+  const result = settleMutationProbe(context, probeKey, after, toolName);
+  return Boolean(result && result.changed);
+}
+
 function processState(payload) {
+  let exitCodeForHook = 0;
   try {
     const sessionId = payload && (payload.session_id || payload.sessionId);
     const root = getWorkspaceRoot(payload);
@@ -48,12 +74,16 @@ function processState(payload) {
       // it's actually a number; fall back to a stderr signal otherwise.
       const toolResponse = payload.tool_response || {};
       const stdout = toolResponse.stdout ?? payload.stdout ?? '';
-      const stderr = toolResponse.stderr ?? payload.stderr ?? '';
+      const stderr = toolResponse.stderr ?? payload.stderr ?? payload.error ?? '';
       const rawExitCode = toolResponse.exitCode ?? toolResponse.exit_code ?? payload.exitCode;
       const exitCode = typeof rawExitCode === 'number' ? rawExitCode : undefined;
       const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
-      const isFailed = (exitCode !== undefined && exitCode !== 0) || (exitCode === undefined && stderrSignal);
+      const hookEvent = payload.hook_event_name || payload.hookEventName || '';
+      const isFailed = hookEvent === 'PostToolUseFailure' ||
+        (exitCode !== undefined && exitCode !== 0) ||
+        (exitCode === undefined && stderrSignal);
       const toolName = payload.tool_name || payload.tool || 'command';
+      const observedMutation = observeWorkspaceMutation(payload, root);
 
       if (isFailed) {
         // Truncate output to avoid state bloat
@@ -78,9 +108,10 @@ function processState(payload) {
 
       // Milestones for the Stop gate: when did the last mutation happen, and
       // has any verification-ish command succeeded since.
-      if (toolName === 'Edit' || toolName === 'Write' || toolName === 'apply_patch') {
+      if (toolName === 'Edit' || toolName === 'Write' || toolName === 'apply_patch' || observedMutation) {
         state.lastEditAt = Date.now();
-      } else if ((toolName === 'Bash' || toolName === 'PowerShell') && !isFailed) {
+      }
+      if ((toolName === 'Bash' || toolName === 'PowerShell') && !isFailed) {
         const command = (payload.tool_input && payload.tool_input.command) || '';
         if (VERIFY_COMMAND_RE.test(command)) {
           state.lastVerifyAt = Date.now();
@@ -100,7 +131,11 @@ function processState(payload) {
       }
     }
   } catch (err) {
-    // Fail silently in hooks
+    if (err && (err.code === 'HARNESS_MUTATION_OBSERVATION' || err.code === 'HARNESS_WORKFLOW_BUDGET')) {
+      console.error('[State Persist] ' + err.message);
+      exitCodeForHook = 2;
+    }
+    // Non-critical persistence/telemetry failures remain fail-open.
   }
-  process.exit(0);
+  process.exit(exitCodeForHook);
 }

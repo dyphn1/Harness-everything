@@ -157,6 +157,19 @@
         "id": "harness:stop:skill-telemetry"
       }
     ],
+    "PermissionDenied": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workflow-mutation-denied.js\""
+          }
+        ],
+        "description": "Release reserved mutation capacity when Claude auto mode denies a shell tool call",
+        "id": "harness:permission-denied:mutation-probe"
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Bash|PowerShell|mcp__.*",
@@ -188,7 +201,7 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/state-persist.js\""
           }
         ],
-        "description": "Save skill transition state",
+        "description": "Persist tool outcome, observed workspace mutation, and verification milestones",
         "id": "harness:post:state-persist"
       },
       {
@@ -258,6 +271,17 @@
         ],
         "description": "Track failed tool error signatures for Rule of 3",
         "id": "harness:post-failure:rule-of-3-tracker"
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/state-persist.js\""
+          }
+        ],
+        "description": "Persist failed shell outcome and any workspace mutation that occurred before failure",
+        "id": "harness:post-failure:state-persist"
       },
       {
         "matcher": "Skill",

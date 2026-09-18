@@ -3,8 +3,8 @@
 
 const path = require('path');
 const fs = require('fs');
-const { loadWorkflow, saveWorkflow, isMajorWorkflow, matchingRun, recordBudgetEvent, readHookInput, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
-const { key, classifyShell, cwdOf, commandOf, mutationPaths, linkedWorktree, assertTargets, assertShellScope } = require('./lib/workflow-isolation');
+const { loadWorkflow, saveWorkflow, isMajorWorkflow, matchingRun, registerMutationProbe, recordBudgetEvent, readHookInput, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
+const { key, classifyShell, workspaceFingerprint, shellProbeKey, cwdOf, commandOf, mutationPaths, linkedWorktree, assertTargets, assertShellScope } = require('./lib/workflow-isolation');
 
 const DIRECT = new Set(['Edit', 'Write', 'apply_patch']);
 const SHELL = new Set(['Bash', 'PowerShell', 'exec_command']);
@@ -27,8 +27,8 @@ function decide(payload) {
   const cwd = cwdOf(payload, root);
   const command = commandOf(payload);
   const commandClass = SHELL.has(tool) ? classifyShell(command) : 'direct-mutation';
-  if (commandClass === 'read-only' || commandClass === 'worktree-setup') return;
   if (SHELL.has(tool) && isController(command, cwd)) return;
+  if (commandClass === 'read-only' || commandClass === 'worktree-setup') return;
   // Only the stage specification is allowed before run entry. Other runtime
   // state, including workflow-run.json, cannot use this bootstrap exception.
   const targets = DIRECT.has(tool) ? mutationPaths(payload) : [];
@@ -47,11 +47,22 @@ function decide(payload) {
   if (String(workflow.strategy || '').startsWith('fable-') && !matchingRun(context)) {
     throw new Error('selected Fable workflow has no correlated run. Write workflow-stages.json at the displayed session path, then use workflow-disposition.js start.');
   }
-  if (workflow.strategy === 'iterative-single') {
-    recordBudgetEvent(context, 'iteration', { evidence: `${tool}:${commandClass}` });
+  if (DIRECT.has(tool)) {
+    if (workflow.strategy === 'iterative-single') {
+      recordBudgetEvent(context, 'iteration', { evidence: `${tool}:direct-mutation` });
+    }
+    workflow.lastMutationAt = Date.now();
+    saveWorkflow(context);
+    return;
   }
-  workflow.lastMutationAt = Date.now();
-  saveWorkflow(context);
+
+  // Shell safety and shell mutation accounting are intentionally separate.
+  // `untrusted` means "not proven read-only", not "a mutation occurred".
+  // Capture an opaque pre-execution workspace fingerprint; the post-tool
+  // observer consumes an iteration only when workspace content actually changed.
+  const fingerprint = workspaceFingerprint(cwd);
+  const probeKey = shellProbeKey(payload, cwd);
+  registerMutationProbe(context, probeKey, fingerprint, workflow.strategy === 'iterative-single');
 }
 
 readHookInput(decide);
