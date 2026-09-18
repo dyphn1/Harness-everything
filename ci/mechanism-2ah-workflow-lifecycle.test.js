@@ -35,6 +35,9 @@ function git(args) {
 }
 const route = prompt => node('harness-everything/scripts/kernel-router.js', { ...payload, prompt });
 const gate = (tool, input, cwd = linked) => node('hooks/scripts/workflow-gate.js', { ...payload, cwd, tool_name: tool, tool_input: input });
+const observeShell = (command, response = {}, cwd = repo) => node('hooks/scripts/workflow-mutation-observer.js', {
+  ...payload, cwd, tool_name: 'Bash', tool_input: { command }, tool_response: response,
+});
 const stop = extra => node('hooks/scripts/workflow-stop-gate.js', { ...payload, ...extra });
 const control = (...args) => node('hooks/scripts/workflow-disposition.js', null, [args[0], '--session-id', sessionId, ...args.slice(1)]);
 const stages = [
@@ -183,10 +186,84 @@ try {
   check((afterReadOnly.lastMutationAt || 0) === readOnlyMutationAt,
     'read-only shell composition does not advance lastMutationAt');
 
-  for (let i = 0; i < iterationLimit; i++) {
-    check(gate('Write', { file_path: path.join(repo, `small-${i}.js`) }, repo).status === 0, `iterative mutation ${i + 1}/${iterationLimit} stays within budget`);
+  // #159: safety classification is not mutation evidence. Commands that are
+  // not proven read-only are admitted under an opaque workspace probe while
+  // capacity remains, then accounted only if the visible workspace changed.
+  const untrustedReads = [
+    'git fetch origin --quiet 2>&1; git status; git log --oneline -1',
+    'git remote -v',
+    'gh run view 1 --json status',
+    'node -e "console.log(42)"',
+  ];
+  for (const command of untrustedReads) {
+    const before = read(file);
+    check(gate('Bash', { command }, repo).status === 0, 'untrusted read/query is admitted under observation: ' + command);
+    const probed = read(file);
+    check(probed.mutationProbes && !JSON.stringify(probed.mutationProbes).includes(command),
+      'mutation probe persists only opaque identity, not raw command text');
+    check(observeShell(command).status === 0, 'no-effect shell probe resolves: ' + command);
+    const after = read(file);
+    check((after.budget?.counters?.iterations || 0) === (before.budget?.counters?.iterations || 0),
+      'no-effect untrusted shell command consumes no iteration');
+    check((after.lastMutationAt || 0) === (before.lastMutationAt || 0),
+      'no-effect untrusted shell command does not advance lastMutationAt');
   }
-  check(gate('Write', { file_path: path.join(repo, 'small-overflow.js') }, repo).status === 2, 'iteration beyond maxIterations is blocked');
+
+  let observedIterations = read(file).budget?.counters?.iterations || 0;
+  const mutateTracked = 'node mutate-tracked.js';
+  check(gate('Bash', { command: mutateTracked }, repo).status === 0, 'unknown tracked-file mutator is admitted under observation');
+  fs.writeFileSync(path.join(repo, 'README.md'), 'fixture changed once\n');
+  check(observeShell(mutateTracked).status === 0, 'tracked-file mutation is observed');
+  check(read(file).budget.counters.iterations === ++observedIterations, 'tracked-file mutation consumes exactly one iteration');
+  const firstObservedAt = read(file).lastMutationAt;
+
+  const mutateDirty = 'node mutate-dirty-again.js';
+  check(gate('Bash', { command: mutateDirty }, repo).status === 0, 'unknown already-dirty mutator is admitted under observation');
+  fs.writeFileSync(path.join(repo, 'README.md'), 'fixture changed twice\n');
+  check(observeShell(mutateDirty).status === 0, 'already-dirty content change is observed');
+  check(read(file).budget.counters.iterations === ++observedIterations && read(file).lastMutationAt >= firstObservedAt,
+    'already-dirty content change consumes one new iteration');
+
+  const createUntracked = 'node create-untracked.js';
+  check(gate('Bash', { command: createUntracked }, repo).status === 0, 'unknown untracked-file mutator is admitted under observation');
+  fs.writeFileSync(path.join(repo, 'observed-untracked.txt'), 'one\n');
+  check(observeShell(createUntracked).status === 0, 'untracked-file creation is observed');
+  check(read(file).budget.counters.iterations === ++observedIterations, 'untracked-file creation consumes exactly one iteration');
+
+  const failedMutation = 'node fail-after-write.js';
+  check(gate('Bash', { command: failedMutation }, repo).status === 0, 'failing shell mutator is admitted under observation');
+  fs.writeFileSync(path.join(repo, 'observed-failed.txt'), 'written before failure\n');
+  check(observeShell(failedMutation, { exitCode: 7, stderr: 'fixture failure' }).status === 0,
+    'failed shell command still reports workspace mutation');
+  check(read(file).budget.counters.iterations === ++observedIterations,
+    'failed shell command that changed workspace still consumes one iteration');
+
+  const beforeStageOnly = read(file);
+  const stageOnly = 'git add README.md';
+  check(gate('Bash', { command: stageOnly }, repo).status === 0, 'staging-only git command is observed instead of pre-counted');
+  git(['add', 'README.md']);
+  check(observeShell(stageOnly).status === 0, 'staging-only probe resolves');
+  check(read(file).budget.counters.iterations === beforeStageOnly.budget.counters.iterations,
+    'git add does not double-count unchanged visible workspace content');
+
+  const beforeCommitOnly = read(file);
+  const commitOnly = 'git commit -m observed-fixture';
+  check(gate('Bash', { command: commitOnly }, repo).status === 0, 'pure commit is observed instead of pre-counted');
+  git(['-c', 'user.name=Harness Test', '-c', 'user.email=harness@example.invalid', 'commit', '-m', 'observed-fixture']);
+  check(observeShell(commitOnly).status === 0, 'pure commit probe resolves');
+  check(read(file).budget.counters.iterations === beforeCommitOnly.budget.counters.iterations,
+    'pure commit of already-accounted content does not consume another code iteration');
+
+  observedIterations = read(file).budget.counters.iterations;
+  for (let i = observedIterations; i < iterationLimit; i++) {
+    check(gate('Write', { file_path: path.join(repo, `small-${i}.js`) }, repo).status === 0, `confirmed mutation ${i + 1}/${iterationLimit} stays within budget`);
+  }
+  check(gate('Bash', { command: 'git status --short' }, repo).status === 0,
+    'proven read-only diagnosis remains allowed at the iteration limit');
+  check(gate('Bash', { command: 'git remote -v' }, repo).status === 2,
+    'untrusted shell command is blocked before execution once actual mutation budget is full');
+  check(gate('Write', { file_path: path.join(repo, 'small-overflow.js') }, repo).status === 2,
+    'blocked exhausted workflow still rejects direct mutation');
   const iterativeExhausted = read(file);
   check(iterativeExhausted.state === 'blocked' && iterativeExhausted.budget?.state === 'budget-exhausted' &&
     iterativeExhausted.budget?.reasonCode === 'iteration-budget-exhausted', 'iterative exhaustion records blocked budget state');
@@ -200,11 +277,16 @@ try {
   check(stop().status === 2, 'direct/iterative route cannot complete unverified mutation');
   check(stop({ stop_hook_active: true }).status === 0 && read(file).state === 'blocked', 'iterative retry reports incomplete state');
   check(control('start').status === 0, 'blocked iterative route can resume without a Fable stage map');
-  // Issue #153: a host is not guaranteed to report a numeric exit code at
-  // all (state-persist.js's own isFailed logic already treats "no exit code
-  // and no stderr" as success), so this must resolve rather than deadlock.
-  node('hooks/scripts/state-persist.js', { ...payload, tool_name: 'Bash', tool_input: { command: 'npm test' }, tool_response: { stdout: 'no code' } });
-  check(stop().status === 0 && read(file).state === 'satisfied', 'verification without a host-reported numeric exit status still resolves completion');
+  // #153 + #159 ordering: when one shell command mutates and then verifies,
+  // observed mutation must land before state-persist records verification.
+  const mutateAndVerify = 'node mutate.js && npm test';
+  check(gate('Bash', { command: mutateAndVerify }, repo).status === 0, 'combined mutation+verification command is admitted under observation');
+  fs.writeFileSync(path.join(repo, 'README.md'), 'fixture verified mutation\n');
+  check(observeShell(mutateAndVerify, { stdout: 'tests passed' }).status === 0,
+    'combined command records observed mutation before verification');
+  node('hooks/scripts/state-persist.js', { ...payload, tool_name: 'Bash', tool_input: { command: mutateAndVerify }, tool_response: { stdout: 'no code' } });
+  check(stop().status === 0 && read(file).state === 'satisfied',
+    'verification without a host-reported numeric exit status resolves after same-command mutation');
   node('hooks/scripts/state-persist.js', { ...payload, tool_name: 'Bash', tool_input: { command: 'npm test' }, tool_response: { exitCode: 0, stdout: 'passed' } });
   check(stop().status === 0 && read(file).state === 'satisfied', 'observed iterative verification resolves completion');
   console.log(`PASS: workflow lifecycle (${passed} assertions)`);
