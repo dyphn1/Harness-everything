@@ -232,6 +232,8 @@ try {
   fs.unlinkSync(file);
   check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single',
     '#163 fixture starts from a Tier 2 iterative workflow');
+  check(control('start').status === 0 && read(file).state === 'running',
+    '#163 fixture activates Tier 2 before a stronger route arrives');
   check(route('Refactor the entire authentication architecture across all services and migrate the database schema without fable').status === 0,
     '#163 stronger Tier 3 route without Fable is retained for explicit replan');
   const queuedNonFableTier3 = read(file);
