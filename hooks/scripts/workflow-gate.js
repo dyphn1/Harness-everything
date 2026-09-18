@@ -3,7 +3,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { loadWorkflow, saveWorkflow, isMajorWorkflow, matchingRun, recordBudgetEvent, readHookInput } = require('./lib/workflow-runtime');
+const { loadWorkflow, saveWorkflow, isMajorWorkflow, matchingRun, recordBudgetEvent, readHookInput, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
 const { key, classifyShell, cwdOf, commandOf, mutationPaths, linkedWorktree, assertTargets, assertShellScope } = require('./lib/workflow-isolation');
 
 const DIRECT = new Set(['Edit', 'Write', 'apply_patch']);
@@ -12,8 +12,9 @@ const SHELL = new Set(['Bash', 'PowerShell', 'exec_command']);
 function isController(command, cwd) {
   // One trusted local executable, literal arguments, no shell evaluation.
   if (/[;&|`\r\n<>$(){}]/.test(command)) return false;
-  const match = command.match(/^node\s+(?:"([^"]+)"|'([^']+)'|(\S+))\s+(start|escape|block)\b/);
-  return Boolean(match && key(path.resolve(cwd, match[1] || match[2] || match[3])) === key(path.join(__dirname, 'workflow-disposition.js')));
+  const match = command.match(/^node\s+(?:"([^"]+)"|'([^']+)'|(\S+))\s+([A-Za-z][A-Za-z0-9-]*)\b/);
+  return Boolean(match && WORKFLOW_CONTROLLER_COMMANDS.has(match[4]) &&
+    key(path.resolve(cwd, match[1] || match[2] || match[3])) === key(path.join(__dirname, 'workflow-disposition.js')));
 }
 
 function decide(payload) {
