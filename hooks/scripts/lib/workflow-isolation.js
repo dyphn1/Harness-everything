@@ -43,13 +43,12 @@ function linkedWorktree(cwd, boundRoot) {
   return worktrees.some(field => field.startsWith('worktree ') && key(field.slice(9)) === key(top)) ? top : null;
 }
 
-// A conservative read subset, not a general shell sandbox. Chaining (`;`, `&&`,
-// `||`, `|`) and the `2>&1`/`1>&2` fd-duplication redirect are permitted only
-// when every resulting segment independently matches the trusted read-only set
-// below; any other metacharacter (substitution, grouping, a lone `&`, a file
-// redirect, `<`) still forces mutation-or-unknown for the whole command.
-const SHELL_SEPARATOR_RE = /\s*(?:&&|\|\||;|\|)\s*/;
-const SAFE_FD_REDIRECT_RE = /[12]>&[12]/g;
+// A conservative read subset, not a general shell sandbox. Top-level chaining
+// (`;`, `&&`, `||`, `|`) and the `2>&1`/`1>&2` fd-duplication redirect
+// are permitted only when every resulting segment independently matches the
+// trusted read-only set below. The scanner is deliberately lexical rather than
+// a raw regex split so quoted/escaped separator characters remain arguments.
+// Unsupported shell syntax still fails closed.
 const DANGEROUS_FLAG_RE = /\s(?:--(?:output|ext-diff|textconv|exec|pre|pre-glob|pager|open|batch|filters)|-[xoO])(?:\b|=)|\s-(?:exec|execdir|delete|fprint|fprintf)\b/i;
 const READ_ONLY_PREFIX_RE = /^(?:git\s+(?:status|rev-parse|diff|log|show|ls-files|check-ignore)(?:\s|$)|git\s+branch\s+--show-current$|git\s+worktree\s+list(?:\s|$)|gh\s+(?:issue|pr)\s+(?:view|list)(?:\s|$)|gh\s+repo\s+view(?:\s|$)|gh\s+auth\s+status(?:\s|$)|(?:pwd|ls|dir|cat|type|head|tail|wc|stat|rg|grep|echo|Get-Location|Get-ChildItem|Get-Content|Select-String|Test-Path)(?:\s|$))/i;
 
@@ -57,20 +56,102 @@ function isReadOnlySegment(segment) {
   return READ_ONLY_PREFIX_RE.test(segment) && !DANGEROUS_FLAG_RE.test(segment);
 }
 
+function splitShellSegments(text) {
+  const segments = [];
+  let current = '';
+  let quote = null;
+
+  const push = () => {
+    const segment = current.trim();
+    if (!segment) return false;
+    segments.push(segment);
+    current = '';
+    return true;
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (quote === "'") {
+      current += ch;
+      if (ch === "'") quote = null;
+      continue;
+    }
+
+    if (quote === '"') {
+      if (ch === '$' || ch === '`') return null;
+      current += ch;
+      if (ch === '"') {
+        quote = null;
+      } else if (ch === '\\') {
+        if (i + 1 >= text.length) return null;
+        current += text[++i];
+      }
+      continue;
+    }
+
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      current += ch;
+      continue;
+    }
+
+    if (ch === '\\') {
+      if (i + 1 >= text.length) return null;
+      current += ch + text[++i];
+      continue;
+    }
+
+    if (ch === '$' || ch === '`' || ch === '(' || ch === ')' || ch === '{' || ch === '}' ||
+        ch === '\r' || ch === '\n' || ch === '\x00') return null;
+
+    // Only treat fd duplication as syntax at a token boundary. Quoted text such
+    // as "2>&1" was handled above and remains literal argument content.
+    if ((ch === '1' || ch === '2') && text[i + 1] === '>' && text[i + 2] === '&' &&
+        (text[i + 3] === '1' || text[i + 3] === '2') &&
+        (i === 0 || /\s/.test(text[i - 1])) &&
+        (i + 4 === text.length || /[\s;|&]/.test(text[i + 4]))) {
+      current += ' ';
+      i += 3;
+      continue;
+    }
+
+    if (ch === '>' || ch === '<') return null;
+
+    if (ch === ';') {
+      if (!push()) return null;
+      continue;
+    }
+
+    if (ch === '|') {
+      if (!push()) return null;
+      if (text[i + 1] === '|') i++;
+      continue;
+    }
+
+    if (ch === '&') {
+      if (text[i + 1] !== '&' || !push()) return null;
+      i++;
+      continue;
+    }
+
+    current += ch;
+  }
+
+  if (quote || !push()) return null;
+  return segments;
+}
+
 function classifyShell(command) {
   const text = String(command || '').trim();
-  if (!text || /[`$(){}\r\n\x00]/.test(text)) return 'mutation-or-unknown';
-  // Strip the safe `2>&1`/`1>&2` fd-duplication redirect first: it contains a
-  // literal `&` that must not be mistaken for a lone backgrounding `&`.
-  const withoutSafeRedirects = text.replace(SAFE_FD_REDIRECT_RE, ' ');
-  if (/&/.test(withoutSafeRedirects.replace(/&&/g, ''))) return 'mutation-or-unknown';
-  if (/[<>]/.test(withoutSafeRedirects)) return 'mutation-or-unknown';
-  const segments = text.split(SHELL_SEPARATOR_RE).map(segment => segment.replace(SAFE_FD_REDIRECT_RE, '').trim());
+  if (!text) return 'mutation-or-unknown';
+  const segments = splitShellSegments(text);
+  if (!segments) return 'mutation-or-unknown';
   if (segments.length === 1) {
     if (/^git\s+worktree\s+add\s+/i.test(segments[0]) && !/\s--(?:force|checkout|detach)(?:\s|=|$)/i.test(segments[0])) return 'worktree-setup';
     return isReadOnlySegment(segments[0]) ? 'read-only' : 'mutation-or-unknown';
   }
-  return segments.every(segment => segment && isReadOnlySegment(segment)) ? 'read-only' : 'mutation-or-unknown';
+  return segments.every(isReadOnlySegment) ? 'read-only' : 'mutation-or-unknown';
 }
 
 function inputOf(payload) { return payload?.tool_input ?? payload?.toolInput ?? payload?.input ?? {}; }

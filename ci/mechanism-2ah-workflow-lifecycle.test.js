@@ -158,6 +158,31 @@ try {
   check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single', 'fresh bounded fix returns to Tier 2 iterative lifecycle');
   const iterationLimit = read(file).workflowPlan.limits.maxIterations;
   check(Number.isInteger(iterationLimit) && iterationLimit > 0, 'iterative route exposes a numeric iteration budget');
+
+  // #155/#157 regression lock: read-only shell composition, including quoted
+  // and escaped separator characters inside arguments, must never look like an
+  // iterative mutation or advance the mutation clock.
+  const beforeReadOnly = read(file);
+  const readOnlyIterations = beforeReadOnly.budget?.counters?.iterations || 0;
+  const readOnlyMutationAt = beforeReadOnly.lastMutationAt || 0;
+  const quotedReadOnly = [
+    'git status --short; git log --oneline -1',
+    'gh issue view 1 --repo octocat/hello-world --json number,title 2>&1',
+    'grep -n "fixture\\|missing" README.md | head -20',
+    "grep -n 'fixture|missing' README.md | head -20",
+    'echo "fixture|missing" | grep fixture',
+    "grep 'fixture;missing' README.md | head -1",
+  ];
+  for (let i = 0; i < iterationLimit + 2; i++) {
+    const command = quotedReadOnly[i % quotedReadOnly.length];
+    check(gate('Bash', { command }, repo).status === 0, 'quoted/escaped read-only shell command stays outside iteration budget: ' + command);
+  }
+  const afterReadOnly = read(file);
+  check((afterReadOnly.budget?.counters?.iterations || 0) === readOnlyIterations,
+    'read-only shell composition does not consume iterative budget');
+  check((afterReadOnly.lastMutationAt || 0) === readOnlyMutationAt,
+    'read-only shell composition does not advance lastMutationAt');
+
   for (let i = 0; i < iterationLimit; i++) {
     check(gate('Write', { file_path: path.join(repo, `small-${i}.js`) }, repo).status === 0, `iterative mutation ${i + 1}/${iterationLimit} stays within budget`);
   }
