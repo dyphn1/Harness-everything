@@ -84,6 +84,13 @@ const probeFiles = () => {
   try { return fs.readdirSync(probeDir).filter(name => /^[a-f0-9]{64}\.json$/.test(name)); }
   catch (_) { return []; }
 };
+function ageProbeFiles(ms = 2000) {
+  for (const name of probeFiles()) {
+    const target = path.join(probeDir, name);
+    const probe = read(target);
+    write(target, { ...probe, observedAt: Date.now() - ms });
+  }
+}
 const stop = extra => node('hooks/scripts/workflow-stop-gate.js', { ...payload, ...extra });
 const control = (...args) => node('hooks/scripts/workflow-disposition.js', null, [args[0], '--session-id', sessionId, ...args.slice(1)]);
 function fixtureSession(fixtureSessionId) {
@@ -481,6 +488,86 @@ try {
     check((after.lastMutationAt || 0) === (before.lastMutationAt || 0),
       'no-effect untrusted shell command does not advance lastMutationAt');
   }
+
+  // #161: Post payload cwd may differ from Pre payload cwd after a shell
+  // command changes directories. Stable tool_use_id identity plus the stored
+  // Pre-time observation cwd must settle the original probe.
+  const driftCwd = path.join(repo, 'hooks');
+  fs.mkdirSync(driftCwd, { recursive: true });
+  const driftNoEffectBefore = read(file);
+  const driftNoEffect = beginShell('cd hooks && node -e "process.exit(0)"', repo);
+  check(driftNoEffect.result.status === 0 && probeFiles().length === 1,
+    '#161 cwd-drift no-effect call registers one probe');
+  const driftNoEffectPost = node('hooks/scripts/state-persist.js', {
+    ...payload,
+    cwd: driftCwd,
+    hook_event_name: 'PostToolUse',
+    tool_name: 'Bash',
+    tool_use_id: driftNoEffect.toolUseId,
+    tool_input: { command: driftNoEffect.command },
+    tool_response: { stdout: 'ok' },
+  });
+  check(driftNoEffectPost.status === 0 && probeFiles().length === 0,
+    '#161 Post with drifted cwd settles the Pre-time probe');
+  check(read(file).budget.counters.iterations === driftNoEffectBefore.budget.counters.iterations,
+    '#161 cwd-drift no-effect shell consumes zero iterations');
+
+  const driftMutationBefore = read(file);
+  const driftMutation = beginShell('cd hooks && node mutate-from-subdir.js', repo);
+  check(driftMutation.result.status === 0, '#161 cwd-drift mutator is admitted under observation');
+  fs.writeFileSync(path.join(repo, 'drift-mutated.txt'), 'changed under cwd drift\n');
+  const driftMutationPost = node('hooks/scripts/state-persist.js', {
+    ...payload,
+    cwd: driftCwd,
+    hook_event_name: 'PostToolUse',
+    tool_name: 'Bash',
+    tool_use_id: driftMutation.toolUseId,
+    tool_input: { command: driftMutation.command },
+    tool_response: { stdout: 'changed' },
+  });
+  const driftMutationAfter = read(file);
+  check(driftMutationPost.status === 0 && probeFiles().length === 0 &&
+    driftMutationAfter.budget.counters.iterations === driftMutationBefore.budget.counters.iterations + 1 &&
+    driftMutationAfter.lastMutationAt >= (driftMutationBefore.lastMutationAt || 0),
+    '#161 cwd-drift real mutation is observed exactly once');
+
+  // Simulate default-mode denial / sibling PreToolUse blocking: Pre fires but
+  // neither PostToolUse nor PermissionDenied follows. Age each orphan beyond
+  // the short in-flight grace period so the next real Pre can reclaim it
+  // deterministically without sleeping in CI.
+  const orphanStartIterations = read(file).budget.counters.iterations;
+  for (let i = 0; i < iterationLimit; i++) {
+    const orphan = beginShell('node rejected-before-exec-' + i + '.js', repo);
+    check(orphan.result.status === 0, '#161 Pre-only orphan ' + (i + 1) + ' is initially admitted');
+    ageProbeFiles();
+  }
+  check(workflowRuntime.mutationProbeReservations(workflowRuntime.loadWorkflow(payload)) === 0,
+    '#161 stale Pre-only probes no longer reserve iteration capacity');
+  const harmlessAfterOrphans = beginShell('node harmless-after-orphans.js', repo);
+  check(harmlessAfterOrphans.result.status === 0 && probeFiles().length === 1,
+    '#161 next harmless untrusted shell is admitted after maxIterations Pre-only orphans');
+  check(persistShell(harmlessAfterOrphans).status === 0 && probeFiles().length === 0,
+    '#161 orphan reclamation leaves only the live probe and it settles normally');
+  check(read(file).budget.counters.iterations === orphanStartIterations,
+    '#161 rejected/no-effect orphan sequence consumes zero iterations');
+
+  // If an orphan really did mutate the workspace, reclaim must account for it
+  // once rather than silently dropping evidence.
+  const staleMutation = beginShell('node orphaned-mutator.js', repo);
+  check(staleMutation.result.status === 0, '#161 stale-mutator probe is registered');
+  ageProbeFiles();
+  const staleMutationBefore = read(file);
+  fs.writeFileSync(path.join(repo, 'stale-probe-mutated.txt'), 'changed before missing Post\n');
+  const reclaimTrigger = beginShell('node reclaim-trigger.js', repo);
+  const reclaimed = read(file);
+  check(reclaimTrigger.result.status === 0 &&
+    reclaimed.budget.counters.iterations === staleMutationBefore.budget.counters.iterations + 1 &&
+    reclaimed.lastMutationAt >= (staleMutationBefore.lastMutationAt || 0),
+    '#161 stale probe with workspace change is reclaimed as exactly one mutation');
+  check(persistShell(reclaimTrigger).status === 0 &&
+    read(file).budget.counters.iterations === reclaimed.budget.counters.iterations &&
+    probeFiles().length === 0,
+    '#161 reclaimed stale mutation is not double-counted by the trigger Post');
 
   const deniedCall = beginShell('node denied-by-auto-mode.js');
   check(deniedCall.result.status === 0 && probeFiles().length === 1,
