@@ -51,6 +51,9 @@ const {
   observeCandidate,
   promoteCandidate,
 } = require(path.join(ROOT, 'self-evolve/scripts/lesson-candidate.js'));
+const {
+  createLearningOpportunity,
+} = require(path.join(ROOT, 'hooks/scripts/lib/learning-opportunity.js'));
 const { retrieveMemoryRecords } = require(path.join(ROOT, 'multi-agent-workspace/scripts/index_memory.js'));
 
 console.log('=== #141 Self-Evolve Closed Loop Phase 1-3 ===');
@@ -215,11 +218,13 @@ try {
   check(promoted.ok === true && promoted.persisted === true, 'accepted candidate persists only through #134 authorized memory path', promoted.stderr);
   const promotedCandidate = loadCandidate({ workspace, sessionId: verifySession, candidateId: verifyCandidate.candidateId }).candidate;
   check(promotedCandidate.state === 'persisted' && promotedCandidate.persistence.authorizedBy === 'workflow-memory-capability', 'candidate lifecycle records governed persistence');
+  check(promotedCandidate.persistence.promotionWriter?.sessionId === promotionSession, 'candidate distinguishes originating recovery session from authorized promotion session');
 
   const memoryIndexFile = path.join(workspace, 'memories', 'repo', 'memory-index.json');
   const memoryIndex = JSON.parse(fs.readFileSync(memoryIndexFile, 'utf8'));
   const stored = memoryIndex.records.find(record => record.source === `lesson-candidate:${verifyCandidate.candidateId}`);
   check(Boolean(stored), 'durable memory retains originating lesson-candidate provenance');
+  check(stored?.writer?.sessionId === promotionSession, 'durable memory records the actual #134 promotion writer provenance');
 
   const retrieval = retrieveMemoryRecords({
     workspace,
@@ -243,7 +248,17 @@ try {
   }).candidate;
   check(retrievedState.state === 'retrieved' && retrievedState.outcome.evidenceRef === 'retrieval-fixture:REQ-141', 'later retrieval can advance the candidate lifecycle with evidence');
 
-  const rejectedSeed = require(path.join(ROOT, 'hooks/scripts/lib/learning-opportunity.js')).createLearningOpportunity({
+  const duplicate = createLearningOpportunity({
+    session_id: ruleSession,
+    cwd: workspace,
+  }, {
+    triggerType: ruleCandidate.trigger.type,
+    sourceEventIds: ruleCandidate.trigger.sourceEventIds,
+    evidence: ruleCandidate.evidence,
+  });
+  check(duplicate.created === false, 'same runtime evidence is idempotent and cannot duplicate a lesson candidate');
+
+  const rejectedSeed = createLearningOpportunity({
     session_id: 'lesson-rejected-session',
     cwd: workspace,
   }, {
@@ -272,12 +287,16 @@ try {
   check(sourceHook.includes('createLearningOpportunity') && verifierHook.includes('createLearningOpportunity'), 'negative-control anchors require both runtime emitters');
   check(!sourceHook.includes('persistMemory(') && !verifierHook.includes('persistMemory('), 'runtime recovery hooks cannot directly persist memory');
 
+  const lessonSchema = JSON.parse(fs.readFileSync(path.join(ROOT, 'self-evolve/schemas/lesson-candidate.schema.json'), 'utf8'));
+  check(lessonSchema.properties?.state?.enum?.includes('inconclusive') && lessonSchema.properties?.trigger?.properties?.type?.enum?.includes('verifier-fail-pass'), 'versioned lesson schema covers lifecycle and trigger vocabulary');
+
   for (const [canonical, mirror] of [
     ['hooks/scripts/lib/learning-opportunity.js', 'plugins/harness-everything/hooks/scripts/lib/learning-opportunity.js'],
     ['hooks/scripts/rule-of-3-tracker.js', 'plugins/harness-everything/hooks/scripts/rule-of-3-tracker.js'],
     ['hooks/scripts/contract-test.js', 'plugins/harness-everything/hooks/scripts/contract-test.js'],
     ['self-evolve/scripts/lesson-candidate.js', 'plugins/harness-everything/skills/self-evolve/scripts/lesson-candidate.js'],
     ['multi-agent-workspace/scripts/index_memory.js', 'plugins/harness-everything/skills/multi-agent-workspace/scripts/index_memory.js'],
+    ['self-evolve/schemas/lesson-candidate.schema.json', 'plugins/harness-everything/skills/self-evolve/schemas/lesson-candidate.schema.json'],
   ]) {
     check(
       fs.readFileSync(path.join(ROOT, canonical), 'utf8') === fs.readFileSync(path.join(ROOT, mirror), 'utf8'),
