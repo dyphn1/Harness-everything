@@ -79,9 +79,10 @@ function processState(payload) {
       const exitCode = typeof rawExitCode === 'number' ? rawExitCode : undefined;
       const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
       const hookEvent = payload.hook_event_name || payload.hookEventName || '';
+      const isSuccessEvent = hookEvent === 'PostToolUse';
       const isFailed = hookEvent === 'PostToolUseFailure' ||
         (exitCode !== undefined && exitCode !== 0) ||
-        (exitCode === undefined && stderrSignal);
+        (!isSuccessEvent && exitCode === undefined && stderrSignal);
       const toolName = payload.tool_name || payload.tool || 'command';
       const observedMutation = observeWorkspaceMutation(payload, root);
 
@@ -101,9 +102,9 @@ function processState(payload) {
         // Clear failed state or mark as idle/resolved.
         // NOTE (#166, follows #153): Claude Code Bash PostToolUse payloads
         // carry no numeric exit code, so `exitCode === 0` never holds there.
-        // A non-failure PostToolUse (no failure event, no non-zero code, no
-        // stderr signal) counts as success; hosts that report exit codes
-        // behave as before via `isFailed`.
+        // A PostToolUse event with no numeric non-zero exit status counts as
+        // success even when stderr contains diagnostics. Hosts that omit the
+        // lifecycle event name retain the conservative stderr fallback.
         state.lastResolved = { tool: state.tool, timestamp: state.timestamp };
         state.status = 'idle';
         state.timestamp = new Date().toISOString();
