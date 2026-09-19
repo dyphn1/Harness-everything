@@ -124,6 +124,30 @@ const badPlaceholder = classifyReportedLink(ROOT, 'repo-docs', {
 check(badPlaceholder.category === 'local',
   'unknown placeholder remains a real local-link problem');
 
+const repoScopeLink = classifyReportedLink(ROOT, 'multi-agent-workspace', {
+  source: 'workflows/01-init.md',
+  target: '../../README.md#supported-ai-ides--tools',
+  reason: 'link escapes skill directory',
+});
+check(repoScopeLink.category === 'resolved-contract' && repoScopeLink.issue.resolved === 'README.md',
+  'existing repo-scope relative link is resolved by the Harness repository contract');
+
+const missingRepoScopeLink = classifyReportedLink(ROOT, 'multi-agent-workspace', {
+  source: 'workflows/01-init.md',
+  target: '../../definitely-missing.md',
+  reason: 'link escapes skill directory',
+});
+check(missingRepoScopeLink.category === 'local',
+  'missing repo-scope relative link remains a hard local-link problem');
+
+const templateLink = classifyReportedLink(ROOT, 'repo-docs', {
+  source: 'templates/multi-skills-readme-template.md',
+  target: './skills/category/{skill-name}/SKILL.md',
+  reason: 'target does not exist',
+});
+check(templateLink.category === 'template',
+  'links inside generated-document templates remain visible template advisories');
+
 const synthetic = normalizeReport(ROOT, {
   timestamp: new Date(0).toISOString(),
   skills: [{
