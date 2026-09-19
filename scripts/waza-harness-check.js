@@ -138,14 +138,20 @@ function classifyReportedLink(root, skillName, issue) {
   return { category: 'local', issue: { ...issue, target } };
 }
 
-function nonLinkReady(skill) {
+function nonLinkFailureReasons(skill) {
+  const reasons = [];
   const compliance = skill?.compliance?.level;
-  const specPassed = (skill?.specCompliance || []).every(item => item.passed !== false);
-  const schemaPassed = !skill?.schema || skill.schema.valid !== false;
-  return READY_COMPLIANCE.has(compliance) &&
-    skill?.tokenBudget?.exceeded !== true &&
-    specPassed &&
-    schemaPassed;
+  if (!READY_COMPLIANCE.has(compliance)) reasons.push('compliance:' + (compliance || 'missing'));
+  if (skill?.tokenBudget?.exceeded === true) reasons.push('token-budget-exceeded');
+  for (const item of skill?.specCompliance || []) {
+    if (item.passed === false) reasons.push('spec:' + (item.name || 'unnamed'));
+  }
+  if (skill?.schema && skill.schema.valid === false) reasons.push('schema-invalid');
+  return reasons;
+}
+
+function nonLinkReady(skill) {
+  return nonLinkFailureReasons(skill).length === 0;
 }
 
 function normalizeSkillReport(root, skill) {
@@ -188,6 +194,7 @@ function normalizeSkillReport(root, skill) {
       wazaReady: Boolean(skill.ready),
       harnessReady,
       localLinksPassed,
+      nonLinkFailures: nonLinkFailureReasons(skill),
       resolvedPlaceholderOrphans,
       resolvedContractLinks,
       templateAdvisories,
@@ -240,6 +247,8 @@ function printText(report) {
     const icon = h.localLinksPassed ? 'PASS' : 'FAIL';
     process.stdout.write(
       `${icon} ${skill.name}: local-links=${h.localLinksPassed ? 'ok' : 'broken'}` +
+      ` harness-ready=${h.harnessReady ? 'yes' : 'no'}` +
+      ` nonlink=${h.nonLinkFailures.length ? h.nonLinkFailures.join(',') : 'ok'}` +
       ` resolved-placeholder-orphans=${h.resolvedPlaceholderOrphans.length}` +
       ` network-advisories=${h.networkAdvisories.length}` +
       ` template-advisories=${h.templateAdvisories.length}\n`
@@ -344,6 +353,7 @@ module.exports = {
   markdownLinkTargets,
   harnessReachableReferenceFiles,
   classifyReportedLink,
+  nonLinkFailureReasons,
   nonLinkReady,
   normalizeSkillReport,
   normalizeReport,
