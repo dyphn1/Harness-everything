@@ -599,13 +599,15 @@ function markdown(report) {
 }
 
 function parseArgs(argv) {
-  const args = { input: null, tddEvidence: null, output: null, markdown: null };
+  const args = { input: null, tddEvidence: null, output: null, markdown: null, workspace: null, verifyFresh: null };
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i];
     if (!args.input && !token.startsWith('--')) args.input = token;
     else if (token === '--tdd-evidence') args.tddEvidence = argv[++i];
     else if (token === '--output') args.output = argv[++i];
     else if (token === '--markdown') args.markdown = argv[++i];
+    else if (token === '--workspace') args.workspace = argv[++i];
+    else if (token === '--verify-fresh') args.verifyFresh = argv[++i];
     else throw new Error(`unknown argument: ${token}`);
   }
   return args;
@@ -616,7 +618,7 @@ function runCli(argv) {
   try { args = parseArgs(argv.slice(2)); }
   catch (error) { console.error(`Contract Integrity: FAIL\n- ${error.message}`); return 2; }
   if (!args.input) {
-    console.error('Usage: node contract-integrity/scripts/audit.js <trace.json> [--tdd-evidence <#58-evidence.json>] [--output report.json] [--markdown report.md]');
+    console.error('Usage: node contract-integrity/scripts/audit.js <trace.json> [--tdd-evidence <#58-evidence.json>] [--workspace <root>] [--output report.json] [--markdown report.md] [--verify-fresh prior-report.json]');
     return 2;
   }
 
@@ -630,7 +632,30 @@ function runCli(argv) {
     return 2;
   }
 
+  if (args.verifyFresh) {
+    let prior;
+    try { prior = readJson(args.verifyFresh); }
+    catch (error) {
+      console.error(`Contract Integrity Freshness: FAIL\n- ${error.message}`);
+      return 2;
+    }
+    const freshness = verifyFreshReport(prior, args, trace);
+    console.log(`Contract Integrity Freshness: ${freshness.authorizesCompletion ? 'PASS' : 'FAIL'}`);
+    for (const reason of freshness.reasons) console.error(`- ${reason}`);
+    return freshness.authorizesCompletion ? 0 : 1;
+  }
+
   const report = evaluateTrace(trace, { tddEvidence });
+  report.provenance = buildProvenance(args, trace);
+  if (args.workspace) {
+    const missing = report.provenance.artifacts.filter(item => item.missing);
+    if (trace.mode === 'strict' && missing.length) {
+      report.result = 'FAIL';
+      report.completionGate = 'FAIL';
+      report.gateEligible = false;
+      report.errors.push(...missing.map(item => `provenance artifact missing from workspace: ${item.id} -> ${item.path}`));
+    }
+  }
   console.log(`Contract Integrity: ${report.result}`);
   console.log(`Scores: completeness=${report.scores.completenessScore} protection=${report.scores.protectionScore} integrity=${report.scores.contractIntegrityScore}`);
   console.log(`Gate: ${report.completionGate}`);
@@ -656,10 +681,13 @@ if (require.main === module) process.exit(runCli(process.argv));
 module.exports = {
   DRIFT,
   VERSION,
+  buildProvenance,
   classifyLineage,
   evaluateTrace,
   markdown,
+  repairGuidance,
   protectionForRequirement,
   runCli,
   validateTrace,
+  verifyFreshReport,
 };
