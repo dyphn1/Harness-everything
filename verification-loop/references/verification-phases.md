@@ -10,8 +10,14 @@ flowchart TD
     Lint --> Test[4. Phase 4: Test Suite Execution]
     Test --> Security[5. Phase 5: Security & Secret Scan]
     Security --> Diff[6. Phase 6: Diff Review]
+    Diff --> Contract{7. Contract lineage applicable?}
+    Contract -- Yes --> Reconcile[Run contract-integrity strict reconciliation]
+    Contract -- No --> CheckScript
+    Reconcile --> ContractResult{PASS?}
+    ContractResult -- No --> Fix
+    ContractResult -- Yes --> CheckScript
     
-    Diff --> CheckScript{7. Is verify-gate.js / Template Available?}
+    Diff --> CheckScript{8. Is verify-gate.js / Template Available?}
     
     CheckScript -- Yes --> RunScript[Run harness-everything/scripts/verify-gate.js / Fill verification-report.template.md]
     CheckScript -- No --> DirectReport[Output Verification Report Inline in Response]
@@ -92,6 +98,24 @@ Review each changed file for:
 - Unintended changes
 - Missing error handling
 - Potential edge cases
+
+## Phase 7: Contract Reconciliation
+
+This phase is applicable when any of the following is true:
+
+- the task/spec/ticket cites stable `REQ-*` identities;
+- an ADR/spec/ticket change is classified as `behavior` or `architecture`;
+- the project has a contract-integrity trace for the affected scope.
+
+Use the current trace plus current #58 TDD evidence:
+
+```bash
+node "<this-skill-dir>/scripts/contract-integrity-audit.js" <trace.json> --tdd-evidence <tdd-evidence.json> --output <report.json> --markdown <report.md>
+```
+
+Delivery requires strict **PASS**. Treat `FAIL`, `AUDIT`, `NOT_EVALUATED`, source conflicts/defects, stale spec/test/implementation lineage, surviving required probes, and audit-only output as **NOT READY**. Do not downgrade the gate merely because build/tests are otherwise green.
+
+If this phase is not applicable, record `NOT_APPLICABLE` with a one-line reason. Never use `NOT_APPLICABLE` to hide known requirement lineage.
 
 ## Output Format
 

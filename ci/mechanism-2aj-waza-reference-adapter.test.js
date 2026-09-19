@@ -100,6 +100,36 @@ for (const skill of skills) {
 check(skillsWithPlaceholderReferences > 0, 'at least one canonical skill uses the Harness placeholder reference contract');
 check(totalResolved > 0, 'adapter resolves canonical placeholder-orphan advisories');
 
+const nestedReferenceContract = {
+  'fable-mode': ['references/execution-phases.md'],
+  'harness-everything': ['references/router-workflow-plan.md', 'references/skill-registry.md'],
+  'multi-agent-workspace': ['references/agency-agents.md'],
+  'skill-creator': [
+    'references/authoring-workflow.md',
+    'references/testing-workflow.md',
+    'references/quality-principles.md',
+    'references/dynamic-generation-contract.md',
+  ],
+  tdd: ['references/quality-model.md', 'references/unit-testing.md', 'references/integration-testing.md'],
+};
+for (const [skill, expected] of Object.entries(nestedReferenceContract)) {
+  const reachable = harnessReachableReferenceFiles(ROOT, skill);
+  for (const reference of expected) {
+    check(reachable.has(reference), skill + ' nested reference remains reachable: ' + reference);
+  }
+  const normalized = normalizeSkillReport(ROOT, {
+    name: skill,
+    path: path.join(ROOT, skill),
+    ready: false,
+    compliance: { level: 'High' },
+    tokenBudget: { exceeded: false },
+    specCompliance: [],
+    links: { passed: false, orphanedFiles: expected },
+  });
+  check(normalized.harnessCompatibility.remainingOrphanedFiles.length === 0,
+    skill + ' nested reference advisories are resolved through the reachable reference graph');
+}
+
 const fableContract = classifyReportedLink(ROOT, 'fable-mode', {
   source: 'SKILL.md',
   target: '<skills-repo-root>/harness-everything/scripts/verify-gate.js',

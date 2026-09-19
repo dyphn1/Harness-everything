@@ -36,5 +36,3 @@ Kernel routing entry.
 **Rule:** mandatory applicable workflow; flexible reasoning/implementation inside it; evidence-backed escape only for uncovered scope.
 
 Deep dive: <this-skill-dir>/references/triage-and-tiers.md
-Deep dive: <this-skill-dir>/references/router-workflow-plan.md
-Deep dive: <this-skill-dir>/references/skill-registry.md

@@ -34,8 +34,5 @@ metadata:
 Load `<this-skill-dir>/references/core-discipline.md` and the quality model, then only the unit or integration guide needed. Keep their applicability rules separate.
 
 Deep dive: <this-skill-dir>/references/core-discipline.md
-Deep dive: <this-skill-dir>/references/quality-model.md
-Deep dive: <this-skill-dir>/references/unit-testing.md
-Deep dive: <this-skill-dir>/references/integration-testing.md
 
 After three failed GREEN attempts, invoke `zoom-out` before another edit.

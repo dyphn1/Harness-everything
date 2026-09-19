@@ -56,4 +56,18 @@ A description of the things that are out of scope for this spec.
 
 Any further notes about the feature.
 
+## Contract Requirements
+
+For every normative behavior this document owns, assign a stable requirement identity:
+
+```md
+### REQ-001 — <short behavior name>
+**Status:** CURRENT
+**Revision:** 1
+**Decision lineage:** ADR-0001 (or None)
+<observable behavior / acceptance boundary>
+```
+
+Do not recycle requirement IDs. When approved behavior changes, increment the revision and reconcile the living spec before implementation completion.
+
 </spec-template>

@@ -6,11 +6,26 @@ const path = require('path');
 const { getWorkspaceRoot, getStateRoot, getSessionDir } = require('./harness-state');
 
 const TELEMETRY_SCHEMA_VERSION = 1;
+const LESSON_EVENT_TYPES = new Set([
+  'learning_opportunity',
+  'lesson_proposed',
+  'lesson_screened',
+  'lesson_evaluated',
+  'lesson_accepted',
+  'lesson_rejected',
+  'lesson_inconclusive',
+  'lesson_persisted',
+  'lesson_retrieved',
+  'lesson_validated',
+  'lesson_regressed',
+  'lesson_superseded',
+]);
 const EVENT_TYPES = new Set([
   'skill.invoke',
   'skill.loaded',
   'skill.complete',
   'tool.observed',
+  ...LESSON_EVENT_TYPES,
 ]);
 const STATUSES = new Set(['unknown', 'success', 'failure', 'aborted']);
 const FORBIDDEN_KEYS = new Set([
@@ -100,6 +115,29 @@ function normalizeEvent(input) {
 
 function telemetryFile(root, payload) {
   return path.join(getStateRoot(root || getWorkspaceRoot(payload), payload), 'telemetry', 'events.jsonl');
+}
+
+function emitLessonTelemetry(input = {}) {
+  const event = String(input.event || '');
+  if (!LESSON_EVENT_TYPES.has(event)) {
+    return { ok: false, error: `unsupported lesson telemetry event: ${event}`, overheadMs: 0 };
+  }
+  const invocationId = localId('lesson', input.candidateId);
+  if (!invocationId) {
+    return { ok: false, error: 'lesson telemetry requires candidateId', overheadMs: 0 };
+  }
+  return emitTelemetry({
+    event,
+    host: ['claude', 'codex', 'opencode', 'unknown'].includes(input.host)
+      ? input.host
+      : detectHost(input.payload || {}),
+    observedAt: input.observedAt || nowIso(),
+    sessionId: localId('session', input.sessionId),
+    invocationId,
+    skillName: 'self-evolve',
+    status: STATUSES.has(input.status) ? input.status : 'unknown',
+    reasonCodes: input.reasonCodes || [],
+  }, { root: input.root, payload: input.payload });
 }
 
 function emitTelemetry(input, options = {}) {
@@ -361,9 +399,11 @@ function readEvents(file) {
 module.exports = {
   EVENT_TYPES,
   FORBIDDEN_KEYS,
+  LESSON_EVENT_TYPES,
   STATUSES,
   TELEMETRY_SCHEMA_VERSION,
   detectHost,
+  emitLessonTelemetry,
   emitTelemetry,
   hostDuration,
   localId,

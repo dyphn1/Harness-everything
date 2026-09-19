@@ -48,6 +48,19 @@ Give each ticket its **blocking edges** — the other tickets that must complete
 
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change — rename a column, retype a shared symbol — whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket — green is promised only there.
 
+# Contract lineage and change impact
+
+When a ticket comes from an authoritative spec, it must carry the exact source requirement identity and revision. A ticket may refine implementation scope, but it never silently rewrites the approved contract.
+
+Every ticket must classify its impact:
+
+- **none** — bookkeeping/non-behavioral work; explain why no contract changes.
+- **implementation** — implementation changes while approved behavior and architectural rationale stay unchanged.
+- **behavior** — caller/user-visible behavior changes. Update the living spec requirement and revision first, then obtain requirement-linked RED evidence before accepting implementation.
+- **architecture** — a hard-to-reverse decision/rationale changes. Publish a new/superseding ADR, update the living spec requirement/revision, then obtain RED evidence.
+
+If the impact classification changes during implementation, stop treating the original ticket as completion authority. Reconcile the source artifacts first, then update the ticket's source revision.
+
 # Ticket Templates
 
 <local-ticket-template>
@@ -58,9 +71,15 @@ Give each ticket its **blocking edges** — the other tickets that must complete
 
 **Blocked by:** the numbers/titles of the tickets that gate this one, or "None — can start immediately".
 
+**Source requirements:** `REQ-001@rev1` (add every requirement this ticket changes or proves).
+
+**Change impact:** `none | implementation | behavior | architecture`
+
+**Impact rationale:** one sentence explaining why this classification is correct.
+
 **Status:** ready-for-agent
 
-- [ ] Acceptance criterion 1
+- [ ] [REQ-001] Acceptance criterion 1
 - [ ] Acceptance criterion 2
 
 </local-ticket-template>

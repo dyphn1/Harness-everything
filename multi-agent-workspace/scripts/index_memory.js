@@ -5,6 +5,18 @@ const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getRuntimeRoot, resolveProjectDocs } = require('./project-docs-resolver');
 
+let emitLessonTelemetry = () => ({ ok: false, unavailable: true });
+for (const relative of [
+  '../../hooks/scripts/lib/telemetry.js',
+  '../../../hooks/scripts/lib/telemetry.js',
+]) {
+  const candidate = path.resolve(__dirname, relative);
+  if (fs.existsSync(candidate)) {
+    ({ emitLessonTelemetry } = require(candidate));
+    break;
+  }
+}
+
 function option(args, ...names) {
   for (const name of names) {
     const index = args.indexOf(name);
@@ -163,6 +175,22 @@ function retrieveMemoryRecords({ workspace, task = '', requirement = '', role = 
         requirementHits,
         roleMatch,
       },
+    });
+  }
+
+  for (const record of included) {
+    if (!record.origin?.lessonCandidateId) continue;
+    emitLessonTelemetry({
+      event: 'lesson_retrieved',
+      root,
+      sessionId: record.writer?.sessionId || null,
+      candidateId: record.origin.lessonCandidateId,
+      observedAt: new Date(nowMs).toISOString(),
+      status: 'success',
+      reasonCodes: [
+        'scoped-memory-retrieval',
+        ...(record.retrieval?.reasonCodes || []),
+      ],
     });
   }
 
