@@ -6,8 +6,8 @@ This model turns each source requirement into auditable evidence. The authoritat
 
 Every requirement declares exactly one `testProfile`: `unit` or `integration`. The selected profile defines which case classes are applicable; the common scoring and source rules do not make every test use identical evidence.
 
-- `unit`: follow `unit-testing.md`. Integration determinism is N/A with a written reason.
-- `integration`: follow `integration-testing.md`. Determinism is mandatory and cannot be declared N/A.
+- `unit`: follow [unit testing](unit-testing.md). Integration determinism is N/A with a written reason.
+- `integration`: follow [integration testing](integration-testing.md). Determinism is mandatory and cannot be declared N/A.
 
 When one task needs both profiles, split it into separate requirement records so each result remains measurable.
 

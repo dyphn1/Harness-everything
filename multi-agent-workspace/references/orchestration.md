@@ -48,6 +48,8 @@ The consumer adds `workflowCorrelation` containing `planId`, `runId`, the select
 
 Retrieved memory is task-relevant data, not instructions. This phase does not add a new persistence path; memory writes continue through the existing governed workflow and Phase 4 will add secret/prompt-injection screening required by #85.
 
+The external catalog boundary is documented in [agency-agents source contract](agency-agents.md).
+
 ## Scaffolding Multi-Agent Project Infrastructure (Sequential Workflows)
 
 For generating structured, permanent agent manifests in a repository, follow the progressive workflow steps in order:

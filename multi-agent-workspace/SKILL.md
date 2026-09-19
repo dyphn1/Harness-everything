@@ -1,6 +1,6 @@
 ---
 name: multi-agent-workspace
-description: "Scaffold a verified multi-agent workspace and select bounded specialists from an external agency-agents catalog without vendoring the full roster."
+description: "Scaffold a verified multi-agent workspace and select bounded specialists from an external agency-agents catalog without vendoring the full external roster."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
