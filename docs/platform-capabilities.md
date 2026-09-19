@@ -64,6 +64,22 @@ Codex has two paths that must not be collapsed:
 
 The package is tested at the mechanism layer and remains subject to the host’s hook review/trust flow. A fresh host session is still required before claiming that a particular ChatGPT/Codex installation loaded and fired the hooks or that the model followed read-before-skip.
 
+### Explicit Codex user-hook compatibility fallback
+
+Current Codex documentation supports plugin-bundled hooks, so native plugin mounting remains the preferred path. Some host/source combinations have nevertheless failed to expose enabled plugin hooks for review/entry attribution (#122 and upstream Codex reports). Harness therefore provides an **explicit compatibility fallback**, not an automatic replacement for native plugin hooks:
+
+```bash
+harness codex-hooks install
+harness codex-hooks status
+harness codex-hooks uninstall
+```
+
+The fallback copies the current packaged runtime into `$CODEX_HOME/harness-everything/compat-hooks/` and merges absolute-path entries into `$CODEX_HOME/hooks.json`. It does **not** modify `config.toml`, trust hashes, approval policy, or hook enablement. Codex must still show/review/trust the resulting non-managed hooks through its normal `/hooks` flow.
+
+Ownership is deliberately strict: update/uninstall removes only exact entries recorded in the Harness compatibility manifest. If an installed Harness entry was edited after installation, the operation fails closed rather than overwriting or deleting that user-modified entry. Unrelated pre-existing and later-added user hooks are preserved.
+
+This fallback solves only plugin-source discovery/mounting. It does not claim to repair a Codex carrier that fails to dispatch `PreToolUse` at all; those host-level execution-path limitations remain a live compatibility boundary.
+
 The public OpenAI Skills-only plugin is narrower again. Its ZIP contains the packaged `skills/` tree and referenced files, but not the local `.codex-plugin` lifecycle hooks. Public submission readiness is therefore a package/form contract, not evidence of public-directory approval or live hook execution.
 
 ## Install/uninstall ownership boundary
