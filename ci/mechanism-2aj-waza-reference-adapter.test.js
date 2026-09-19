@@ -11,6 +11,7 @@ const {
   classifyReportedLink,
   normalizeSkillReport,
   normalizeReport,
+  runCanonicalWazaChecks,
 } = require('../scripts/waza-harness-check');
 
 let passed = 0;
@@ -22,6 +23,40 @@ function check(value, message) {
 
 const skills = discoverSkills(ROOT);
 check(skills.length >= 20, 'discovers the canonical Harness skill set');
+
+const invoked = [];
+const fakeSpawn = (command, args, options) => {
+  invoked.push({ command, args, cwd: options.cwd });
+  const skillPath = args[1];
+  const name = path.basename(skillPath);
+  return {
+    status: 0,
+    stdout: JSON.stringify({
+      timestamp: new Date(0).toISOString(),
+      skills: [{
+        name,
+        path: path.join(skillPath, 'SKILL.md'),
+        ready: true,
+        compliance: { level: 'High' },
+        tokenBudget: { exceeded: false },
+        specCompliance: [],
+        links: { passed: true },
+      }],
+    }),
+    stderr: '',
+  };
+};
+const scoped = runCanonicalWazaChecks(ROOT, 'waza', fakeSpawn);
+check(scoped.skills.length === skills.length && invoked.length === skills.length,
+  'adapter invokes Waza exactly once per canonical top-level skill');
+check(invoked.every((call, index) =>
+  call.command === 'waza' &&
+  call.args[0] === 'check' &&
+  call.args[1] === path.join(ROOT, skills[index]) &&
+  call.args[2] === '--format' &&
+  call.args[3] === 'json' &&
+  call.cwd === ROOT),
+  'Waza receives explicit canonical skill paths instead of recursive workspace discovery');
 
 let skillsWithPlaceholderReferences = 0;
 let totalResolved = 0;
