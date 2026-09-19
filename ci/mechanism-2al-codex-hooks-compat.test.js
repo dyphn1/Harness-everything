@@ -158,6 +158,15 @@ try {
   check(!fs.existsSync(path.join(emptyHome, 'hooks.json')),
     'uninstall removes hooks.json only when Harness created it and no user entries remain');
 
+  const removedConfigHome = path.join(root, 'removed-config-codex');
+  fs.mkdirSync(removedConfigHome, { recursive: true });
+  fs.writeFileSync(path.join(removedConfigHome, 'hooks.json'), JSON.stringify(original, null, 2) + '\n', 'utf8');
+  compat.install({ codexHome: removedConfigHome });
+  fs.rmSync(path.join(removedConfigHome, 'hooks.json'), { force: true });
+  const removedConfigResult = compat.uninstall({ codexHome: removedConfigHome });
+  check(removedConfigResult.status === 'uninstalled' && !fs.existsSync(path.join(removedConfigHome, 'hooks.json')),
+    'uninstall never recreates a user hooks.json that was removed after compatibility install');
+
   const malformedHome = path.join(root, 'malformed-codex');
   fs.mkdirSync(malformedHome, { recursive: true });
   const malformed = path.join(malformedHome, 'hooks.json');
