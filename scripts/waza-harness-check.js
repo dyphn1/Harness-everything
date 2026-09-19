@@ -231,6 +231,47 @@ function printText(report) {
   );
 }
 
+function runCanonicalWazaChecks(root, waza, spawn = spawnSync) {
+  const skillNames = discoverSkills(root);
+  const skills = [];
+  let timestamp = null;
+
+  for (const skillName of skillNames) {
+    const skillPath = path.join(root, skillName);
+    const result = spawn(waza, ['check', skillPath, '--format', 'json'], {
+      cwd: root,
+      encoding: 'utf8',
+      windowsHide: true,
+      env: { ...process.env, WAZA_NO_UPDATE_CHECK: '1' },
+    });
+    if (result.error) {
+      throw new Error('cannot execute waza for ' + skillName + ': ' + result.error.message);
+    }
+    if (result.status !== 0) {
+      const detail = String(result.stderr || result.stdout || '').trim();
+      throw new Error('waza check failed for ' + skillName + ' with exit ' + result.status +
+        (detail ? ': ' + detail : ''));
+    }
+
+    let raw;
+    try {
+      raw = JSON.parse(result.stdout);
+    } catch (error) {
+      throw new Error('invalid waza JSON output for ' + skillName + ': ' + error.message);
+    }
+    if (!Array.isArray(raw.skills) || raw.skills.length !== 1) {
+      throw new Error('waza check for ' + skillName + ' did not return exactly one skill report');
+    }
+    timestamp = timestamp || raw.timestamp || null;
+    skills.push(raw.skills[0]);
+  }
+
+  return {
+    timestamp: timestamp || new Date().toISOString(),
+    skills,
+  };
+}
+
 function main() {
   let args;
   try {
@@ -252,27 +293,11 @@ function main() {
     process.exit(1);
   }
 
-  const result = spawnSync(args.waza, ['check', '--format', 'json'], {
-    cwd: args.root,
-    encoding: 'utf8',
-    windowsHide: true,
-    env: { ...process.env, WAZA_NO_UPDATE_CHECK: '1' },
-  });
-  if (result.error) {
-    console.error('[Waza Harness Adapter] cannot execute waza: ' + result.error.message);
-    process.exit(2);
-  }
-  if (result.status !== 0) {
-    if (result.stdout) process.stdout.write(result.stdout);
-    if (result.stderr) process.stderr.write(result.stderr);
-    process.exit(result.status ?? 2);
-  }
-
   let raw;
   try {
-    raw = JSON.parse(result.stdout);
+    raw = runCanonicalWazaChecks(args.root, args.waza);
   } catch (error) {
-    console.error('[Waza Harness Adapter] invalid waza JSON output: ' + error.message);
+    console.error('[Waza Harness Adapter] ' + error.message);
     process.exit(2);
   }
 
@@ -294,4 +319,5 @@ module.exports = {
   nonLinkReady,
   normalizeSkillReport,
   normalizeReport,
+  runCanonicalWazaChecks,
 };
