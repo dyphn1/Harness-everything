@@ -94,6 +94,14 @@ function harnessReachableReferenceFiles(root, skillName) {
 function classifyReportedLink(root, skillName, issue) {
   const target = unwrapMarkdownDestination(decodeTarget(issue && issue.target));
   if (!target) return { category: 'local', issue };
+  const source = slash(issue && issue.source || 'SKILL.md');
+
+  // Files under templates/ describe paths that exist only after generation.
+  // Keep Waza's finding visible, but do not confuse template output paths with
+  // broken links in the checked-in skill itself.
+  if (source === 'templates' || source.startsWith('templates/')) {
+    return { category: 'template', issue: { ...issue, target } };
+  }
 
   if (/^<[^>]+>\//.test(target)) {
     const classified = classifyReference(root, skillName, target);
@@ -107,6 +115,26 @@ function classifyReportedLink(root, skillName, issue) {
       };
     }
   }
+
+  // Waza intentionally treats links that escape a skill directory as scope
+  // findings. Harness permits those links only when they resolve to a real
+  // checked-in path inside this repository. Missing/outside paths remain hard
+  // local failures.
+  const targetPath = target.split('#', 1)[0];
+  if (/^\.\.?(?:\/|$)/.test(targetPath)) {
+    const repoRoot = path.resolve(root);
+    const sourceFile = path.resolve(repoRoot, skillName, source);
+    const resolved = path.resolve(path.dirname(sourceFile), targetPath);
+    const relative = path.relative(repoRoot, resolved);
+    const insideRepo = relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative);
+    if (insideRepo && fs.existsSync(resolved)) {
+      return {
+        category: 'resolved-contract',
+        issue: { ...issue, target, resolved: slash(relative) },
+      };
+    }
+  }
+
   return { category: 'local', issue: { ...issue, target } };
 }
 
