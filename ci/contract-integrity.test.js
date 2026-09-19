@@ -39,7 +39,7 @@ function req(report, id = 'REQ-001') {
   return report.requirements.find(item => item.requirementId === id);
 }
 
-console.log('=== Contract Integrity Phase 1 (#84) ===');
+console.log('=== Contract Integrity Phase 1-2 (#84) ===');
 
 const baseline = fixture('consistent-trace.json');
 const baselineTdd = tddEvidence();
@@ -199,5 +199,71 @@ const schema = JSON.parse(fs.readFileSync(path.join(ROOT, 'contract-integrity/sc
 check(schema.properties?.probes?.items?.properties?.status?.enum?.includes('SURVIVED'), 'versioned trace schema includes probe disposition vocabulary');
 check(schema.properties?.requirements?.items?.properties?.requiredProbeIds?.uniqueItems === true, 'schema prevents duplicate required-probe padding');
 
-console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: #84 contract integrity phase 1 (${failed} failure${failed === 1 ? '' : 's'})`);
+// Phase 2: existing documentation workflows carry the Phase-1 trace vocabulary
+// end-to-end instead of introducing another directly routed skill.
+const doc = relative => fs.readFileSync(path.join(ROOT, relative), 'utf8');
+const adrFormat = doc('grill-with-docs/ADR-FORMAT.md');
+check(/Once an ADR is \*\*accepted\*\*/.test(adrFormat) && /superseded by ADR-NNNN/.test(adrFormat) &&
+  /Affected requirements: REQ-001/.test(adrFormat),
+  'ADR guidance preserves accepted history and requires supersession/requirement lineage');
+
+for (const template of [
+  'to-spec/templates/feature-spec.md',
+  'to-spec/templates/cli-reference.md',
+  'to-spec/templates/schema-doc.md',
+  'to-spec/templates/dev-doc.md',
+]) {
+  const text = doc(template);
+  check(/REQ-001/.test(text) && /\*\*Status:\*\* CURRENT/.test(text) &&
+    /\*\*Revision:\*\* 1/.test(text) && /\*\*Decision lineage:\*\*/.test(text),
+    template + ' carries stable requirement id/status/revision/decision lineage');
+}
+
+const specProcess = doc('to-spec/references/process.md');
+check(/Never recycle a `REQ-\*` ID/.test(specProcess) &&
+  /Behavior changes increment the requirement revision/.test(specProcess) &&
+  /changeImpact: architecture/.test(specProcess),
+  'to-spec process reconciles behavior/architecture changes back to current contract sources');
+
+const ticketProcess = doc('to-tickets/references/publishing-and-templates.md');
+check(/\*\*Source requirements:\*\* `REQ-001@rev1`/.test(ticketProcess) &&
+  /\*\*Change impact:\*\*/.test(ticketProcess) &&
+  /\*\*behavior\*\*/.test(ticketProcess) && /\*\*architecture\*\*/.test(ticketProcess),
+  'ticket templates require source requirement revision and change-impact classification');
+check(/living spec requirement and revision first/.test(ticketProcess) &&
+  /new\/superseding ADR/.test(ticketProcess),
+  'behavior/architecture ticket drift is routed back to living spec/ADR before completion');
+
+const verifySkill = doc('verification-loop/SKILL.md');
+const verifyPhases = doc('verification-loop/references/verification-phases.md');
+const verifyReport = doc('verification-loop/templates/verification-report.template.md');
+check(/contract-integrity\/scripts\/audit\.js/.test(verifySkill) &&
+  /strict \*\*PASS\*\*/.test(verifyPhases) &&
+  /`AUDIT`/.test(verifyPhases) && /`NOT_EVALUATED`/.test(verifyPhases),
+  'verification-loop makes current contract reconciliation a non-compensating delivery gate');
+check(/Contract:\s+\[PASS\/FAIL\/NOT_APPLICABLE\]/.test(verifyReport) &&
+  /AUDIT or NOT_EVALUATED is NOT READY/.test(verifyReport),
+  'verification report cannot hide unresolved contract state behind green build/tests');
+
+check(!fs.existsSync(path.join(ROOT, 'contract-integrity', 'SKILL.md')),
+  'Phase 2 integrates existing routed skills instead of adding a colliding contract-integrity routing surface');
+
+for (const relative of [
+  'grill-with-docs/ADR-FORMAT.md',
+  'to-spec/references/process.md',
+  'to-spec/templates/feature-spec.md',
+  'to-spec/templates/cli-reference.md',
+  'to-spec/templates/schema-doc.md',
+  'to-spec/templates/dev-doc.md',
+  'to-tickets/references/publishing-and-templates.md',
+  'verification-loop/SKILL.md',
+  'verification-loop/references/verification-phases.md',
+  'verification-loop/templates/verification-report.template.md',
+]) {
+  const mirror = path.join(ROOT, 'plugins/harness-everything/skills', relative);
+  check(fs.existsSync(mirror) && doc(relative) === fs.readFileSync(mirror, 'utf8'),
+    'Phase 2 OpenAI package mirror matches canonical: ' + relative);
+}
+
+console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: #84 contract integrity phase 1-2 (${failed} failure${failed === 1 ? '' : 's'})`);
 process.exit(failed === 0 ? 0 : 1);
