@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const { evaluateEvidence } = require('../../tdd/scripts/quality-gate');
 
 const VERSION = '1.0.0';
@@ -55,6 +57,118 @@ function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
   if (!isObject(value)) return value;
   return Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])]));
+}
+
+function sha256File(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+
+function gitRevision(workspace) {
+  if (!workspace) return null;
+  const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: workspace,
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  return result.status === 0 ? String(result.stdout || '').trim() || null : null;
+}
+
+function artifactFingerprints(trace, workspace) {
+  if (!workspace) return [];
+  const root = path.resolve(workspace);
+  return (trace?.artifacts || []).map(artifact => {
+    const full = path.resolve(root, artifact.path);
+    const inside = full === root || full.startsWith(root + path.sep);
+    if (!inside || !fs.existsSync(full) || !fs.statSync(full).isFile()) {
+      return { id: artifact.id, path: artifact.path, sha256: null, missing: true };
+    }
+    return { id: artifact.id, path: artifact.path, sha256: sha256File(full), missing: false };
+  });
+}
+
+function buildProvenance(args, trace) {
+  const workspace = args.workspace ? path.resolve(args.workspace) : null;
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    auditVersion: VERSION,
+    nodeVersion: process.version,
+    command: 'node contract-integrity/scripts/audit.js <trace> [--tdd-evidence <evidence>] [--workspace <workspace>]',
+    gitRevision: gitRevision(workspace || process.cwd()),
+    workspaceIsolation: unique((trace?.probes || []).map(probe => probe.workspaceIsolation).filter(Boolean)),
+    inputs: {
+      trace: { sha256: sha256File(path.resolve(args.input)) },
+      tddEvidence: args.tddEvidence ? { sha256: sha256File(path.resolve(args.tddEvidence)) } : null,
+    },
+    artifacts: artifactFingerprints(trace, workspace),
+  };
+}
+
+function verifyFreshReport(report, args, trace) {
+  const reasons = [];
+  if (!isObject(report?.provenance) || !isObject(report.provenance.inputs)) {
+    return { fresh: false, authorizesCompletion: false, reasons: ['report-provenance-missing'] };
+  }
+  const currentTraceHash = sha256File(path.resolve(args.input));
+  if (report.provenance.inputs.trace?.sha256 !== currentTraceHash) reasons.push('trace-changed-since-audit');
+  const currentTddHash = args.tddEvidence ? sha256File(path.resolve(args.tddEvidence)) : null;
+  const reportedTddHash = report.provenance.inputs.tddEvidence?.sha256 || null;
+  if (currentTddHash !== reportedTddHash) reasons.push('tdd-evidence-changed-since-audit');
+
+  if (Array.isArray(report.provenance.artifacts) && report.provenance.artifacts.length > 0) {
+    if (!args.workspace) reasons.push('workspace-required-for-artifact-freshness');
+    else {
+      const current = new Map(artifactFingerprints(trace, args.workspace).map(item => [item.id, item]));
+      for (const prior of report.provenance.artifacts) {
+        const now = current.get(prior.id);
+        if (!now || now.missing || prior.missing || now.sha256 !== prior.sha256) {
+          reasons.push(`artifact-changed-since-audit:${prior.id}`);
+        }
+      }
+    }
+  }
+  return {
+    fresh: reasons.length === 0,
+    authorizesCompletion: reasons.length === 0 && report.completionGate === 'PASS' && report.result === 'PASS',
+    reasons: unique(reasons),
+  };
+}
+
+function repairGuidance(requirements) {
+  const priorityOrder = { BLOCKER: 0, HIGH: 1, MEDIUM: 2 };
+  const recommendations = [];
+  const add = (priority, req, code, action) => recommendations.push({
+    priority,
+    requirementId: req.requirementId,
+    sourceRef: req.sourceRef || null,
+    code,
+    action,
+  });
+
+  for (const req of requirements) {
+    if (req.lifecycleStatus !== 'CURRENT') continue;
+    if (req.drift.includes('SOURCE_CONFLICT')) add('BLOCKER', req, 'resolve-source-conflict', 'Resolve the authoritative source conflict before changing tests or implementation.');
+    if (req.drift.includes('SOURCE_DEFECT')) add('BLOCKER', req, 'repair-source-defect', 'Repair or explicitly supersede the defective authoritative source before completion.');
+    if (req.protection.status === 'SURVIVED') add('BLOCKER', req, 'strengthen-weak-oracle', 'Strengthen the requirement-linked observable assertion so every required contract probe is killed for the expected reason.');
+    if (req.drift.includes('STALE_SPEC')) add('HIGH', req, 'update-living-spec', 'Update the living specification and requirement revision before accepting behavior that moved ahead of the contract.');
+    if (req.drift.includes('STALE_TEST')) add('HIGH', req, 'refresh-requirement-tests', 'Update requirement-linked tests and RED evidence against the current living specification.');
+    if (req.drift.includes('STALE_IMPLEMENTATION')) add('HIGH', req, 'refresh-implementation-evidence', 'Attach implementation evidence for the current requirement revision and rerun verification.');
+    if (req.drift.includes('UNTRACED_CHANGE')) add('HIGH', req, 'repair-contract-lineage', 'Restore ADR/spec/ticket/test/implementation lineage for this requirement before completion.');
+    if (req.protection.status === 'NOT_EVALUATED') add('HIGH', req, 'execute-required-probes', 'Execute every predeclared required contract probe in an isolated supported adapter or retain NOT_EVALUATED.');
+    if (req.completeness.result !== 'PASS' || req.completeness.score < 100) add('HIGH', req, 'complete-tdd-evidence', 'Repair the existing #58 completeness evidence; do not compensate with protection score.');
+  }
+
+  const seen = new Set();
+  return recommendations
+    .filter(item => {
+      const key = `${item.requirementId}:${item.code}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority] ||
+      String(a.requirementId).localeCompare(String(b.requirementId)) ||
+      a.code.localeCompare(b.code));
 }
 
 function validateTrace(input) {
