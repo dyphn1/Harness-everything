@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.12.2](https://github.com/dyphn1/Harness-everything/compare/v0.12.1...v0.12.2) (2026-09-19)
+
+### Bug Fixes
+
+* **workflow:** admit observation-only verification at limit ([08b859e](https://github.com/dyphn1/Harness-everything/commit/08b859ef27c04a07d9a0a6faeeed52f3da986378))
+* **workflow:** admit observation-only verification at limit ([8924a3c](https://github.com/dyphn1/Harness-everything/commit/8924a3cc80455592accbe81e3f2df0f4479a2d8b))
+* **workflow:** allow verification probe at iteration limit ([7ce511e](https://github.com/dyphn1/Harness-everything/commit/7ce511e29ca368371d996f4cbeff02298d97434c))
+* **workflow:** allow verification probe at iteration limit ([07e6ed0](https://github.com/dyphn1/Harness-everything/commit/07e6ed0b369e38f274ac099af590b12373b1ad1c))
+
 ## [0.12.1](https://github.com/dyphn1/Harness-everything/compare/v0.12.0...v0.12.1) (2026-09-19)
 
 ### Bug Fixes
