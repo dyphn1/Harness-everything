@@ -257,6 +257,7 @@ function uninstall(options = {}) {
   const prior = readManifest(p.manifestFile);
   if (!prior) return { status: 'not-installed', codexHome, removed: 0, trustChanged: false };
 
+  const hooksFileExists = fs.existsSync(p.hooksFile);
   const config = readHooksFile(p.hooksFile);
   const removal = removePriorEntries(config, prior);
   if (removal.drift.length) {
@@ -271,7 +272,9 @@ function uninstall(options = {}) {
   const next = { ...removal.config, hooks: remainingHooks };
   const otherTopLevelKeys = Object.keys(next).filter(key => key !== 'hooks');
 
-  if (prior.createdHooksFile && otherTopLevelKeys.length === 0 && Object.keys(remainingHooks).length === 0) {
+  if (!hooksFileExists) {
+    // The user or host already removed the config. Uninstall must not recreate it.
+  } else if (prior.createdHooksFile && otherTopLevelKeys.length === 0 && Object.keys(remainingHooks).length === 0) {
     fs.rmSync(p.hooksFile, { force: true });
   } else {
     atomicWriteJson(p.hooksFile, next);
