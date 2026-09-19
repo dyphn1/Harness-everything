@@ -173,4 +173,21 @@ check(compatibility.networkAdvisories.length === 1 && compatibility.templateAdvi
 check(compatibility.harnessReady === true,
   'normalized readiness remains green when only false-orphan/network/template advisories remain');
 
+const nonLinkFailure = normalizeSkillReport(ROOT, {
+  name: 'repo-docs',
+  path: path.join(ROOT, 'repo-docs'),
+  ready: false,
+  compliance: { level: 'Medium' },
+  tokenBudget: { exceeded: true },
+  specCompliance: [{ name: 'frontmatter', passed: false }],
+  schema: { valid: false },
+  links: { passed: true },
+});
+check(nonLinkFailure.harnessCompatibility.harnessReady === false &&
+  nonLinkFailure.harnessCompatibility.nonLinkFailures.includes('compliance:Medium') &&
+  nonLinkFailure.harnessCompatibility.nonLinkFailures.includes('token-budget-exceeded') &&
+  nonLinkFailure.harnessCompatibility.nonLinkFailures.includes('spec:frontmatter') &&
+  nonLinkFailure.harnessCompatibility.nonLinkFailures.includes('schema-invalid'),
+  'non-link readiness failures remain explicit machine-readable blockers');
+
 console.log('PASS: Waza/Harness reference adapter (' + passed + ' assertions across ' + skills.length + ' skills)');
