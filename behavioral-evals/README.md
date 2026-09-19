@@ -87,6 +87,43 @@ the arm order, records a shared fixture/prompt fingerprint, and writes one
 paired result. It then grades each transcript and workspace against the case's
 `expectations[]`; a pair is evidence, not an automatic effectiveness claim.
 
+### Paired effect runner
+
+The stricter paired runner separates three interventions:
+
+```bash
+# incremental skill-text effect
+node behavioral-evals/paired-benchmark.js run \
+  --effect skill-text --engine claude --model <model> \
+  --min-effect-pp <predeclared-threshold>
+
+# OpenCode plugin-enforcement effect (requires retained hard-lock preflight)
+node behavioral-evals/paired-benchmark.js run \
+  --effect plugin-enforcement --engine opencode --model <model> \
+  --min-effect-pp <predeclared-threshold> \
+  --opencode-preflight <evidence-dir>
+
+# accepted self-evolve lesson retrieval/exposure effect
+node behavioral-evals/paired-benchmark.js run \
+  --effect lesson-retrieval --engine claude --model <model> \
+  --min-effect-pp <predeclared-threshold> \
+  --case self-evolve-retrieval-recurrence --repeats <n>
+```
+
+For `lesson-retrieval`, both arms load identical Harness skill text and use
+an identical accepted-memory fixture in an external temporary memory store.
+Both arms execute the real scoped `index_memory.js --retrieve` path. Only the
+treatment arm receives the returned lesson as explicitly **untrusted memory
+context**; the control receives the original user task unchanged. The pair is
+excluded unless candidate IDs/retrieval-set fingerprints match across arms and
+the treatment context hash matches the predeclared pair contract.
+
+This measures the incremental effect of **retrieval exposure**, not persistence
+quality. The fixture seeds a previously accepted lesson because persistence is
+tested separately by #141/#134. A live treatment/control result is still
+required before claiming that self-evolve improves behavior, recurrence, cost,
+or execution efficiency.
+
 Use `trace_contains` for assistant text or intent only. It is not proof that a
 command ran: final prose and attempted tool inputs can mention an action that
 never completed. Use structured execution expectations instead, for example

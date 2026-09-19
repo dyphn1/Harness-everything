@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, ensureWorkflowBudget, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
+const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, budgetLimits, ensureWorkflowBudget, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
 const { getWorkspaceRoot, readCurrentSession } = require('./lib/harness-state');
 const { atomicWriteJson, readJson } = require('./lib/fable-contracts');
 
@@ -32,6 +32,20 @@ function consumer() {
   throw new Error('Fable consumer unavailable');
 }
 
+function activatePlan(workflow, plan) {
+  workflow.workflowPlan = plan;
+  workflow.strategy = plan.strategy;
+  workflow.strategySelection = plan.strategySelection;
+  workflow.tier = plan.tier;
+  workflow.requiredInvariants = plan.requiredInvariants || [];
+  workflow.suggestedSkills = plan.suggestedSkills || [];
+  workflow.verification = plan.verification;
+  workflow.mutationIsolation = plan.mutationIsolation || { required: false };
+  const budget = ensureWorkflowBudget(workflow);
+  budget.limits = budgetLimits(workflow);
+  budget.updatedAt = new Date().toISOString();
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!WORKFLOW_CONTROLLER_COMMANDS.has(args.command)) throw new Error(usage());
@@ -47,10 +61,12 @@ function main() {
     if (isReplan) recordBudgetEvent(context, 'replan', { evidence: 'workflow-disposition:start' });
     const plan = workflow.pendingPlan || workflow.workflowPlan;
     if (!String(plan.strategy || '').startsWith('fable-')) {
+      activatePlan(workflow, plan);
       workflow.revision++;
       workflow.state = 'running';
+      workflow.escapes = [];
+      delete workflow.pendingPlan;
       delete workflow.blockReason;
-      ensureWorkflowBudget(workflow);
       saveWorkflow(context);
       process.stdout.write(JSON.stringify({ state: workflow.state, workflowId: workflow.workflowId, revision: workflow.revision }) + '\n');
       return;
@@ -66,18 +82,13 @@ function main() {
       routerContract: { workflowPlan: plan }, stages, workspaceRoot: context.root,
       sessionId, workflowId: workflow.workflowId,
     });
-    workflow.workflowPlan = plan;
-    workflow.strategy = plan.strategy;
-    workflow.tier = plan.tier;
-    workflow.verification = plan.verification;
-    workflow.mutationIsolation = plan.mutationIsolation || workflow.mutationIsolation;
+    activatePlan(workflow, plan);
     workflow.runId = run.runId;
     workflow.revision++;
     workflow.state = 'running';
     workflow.escapes = [];
     delete workflow.pendingPlan;
     delete workflow.blockReason;
-    ensureWorkflowBudget(workflow);
   } else if (args.command === 'revision') {
     recordBudgetEvent(context, 'revision', { evidence: args.evidence || 'workflow-disposition:revision' });
   } else if (args.command === 'reset-budget') {

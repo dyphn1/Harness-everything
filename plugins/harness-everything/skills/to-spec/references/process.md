@@ -60,6 +60,32 @@ What "confirm" means depends on the shape picked:
 
 Skip this step only if the conversation already pinned down the relevant surface explicitly (e.g. a prior `grill-with-docs` pass already fixed the schema).
 
+## Stable contract identity
+
+When the published artifact is an authoritative behavior contract, every normative requirement must have a stable identity instead of relying on prose position.
+
+Use this compact shape in the selected template:
+
+```md
+## Contract Requirements
+
+### REQ-001 — <short behavior name>
+**Status:** CURRENT
+**Revision:** 1
+**Decision lineage:** ADR-0001 (or `None`)
+<normative behavior and observable acceptance boundary>
+```
+
+Rules:
+
+- Never recycle a `REQ-*` ID for different behavior.
+- Behavior changes increment the requirement revision and update the living spec **before** implementation is accepted.
+- Superseded behavior remains traceable; do not erase the old requirement history merely because a ticket changed.
+- If a ticket is classified `changeImpact: architecture`, publish the new/superseding ADR first and link it from the affected requirement.
+- If the document is informative rather than authoritative, say so explicitly and link the authoritative requirement instead of inventing a parallel source of truth.
+
+The detailed ADR -> spec -> ticket -> test -> implementation lineage belongs in the structured contract trace; keep the human spec concise.
+
 ## Publishing details
 
 Write the doc using the adapted template at the resolved storage path:

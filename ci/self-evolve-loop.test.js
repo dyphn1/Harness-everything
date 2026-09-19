@@ -55,8 +55,10 @@ const {
   createLearningOpportunity,
 } = require(path.join(ROOT, 'hooks/scripts/lib/learning-opportunity.js'));
 const { retrieveMemoryRecords } = require(path.join(ROOT, 'multi-agent-workspace/scripts/index_memory.js'));
+const telemetry = require(path.join(ROOT, 'hooks/scripts/lib/telemetry.js'));
+const { buildReport } = require(path.join(ROOT, 'telemetry/scripts/report.js'));
 
-console.log('=== #141 Self-Evolve Closed Loop Phase 1-3 ===');
+console.log('=== #141 Self-Evolve Closed Loop Phase 1-4 Mechanism ===');
 
 try {
   const tracker = path.join(ROOT, 'hooks/scripts/rule-of-3-tracker.js');
@@ -248,6 +250,15 @@ try {
   }).candidate;
   check(retrievedState.state === 'retrieved' && retrievedState.outcome.evidenceRef === 'retrieval-fixture:REQ-141', 'later retrieval can advance the candidate lifecycle with evidence');
 
+  const validatedState = observeCandidate({
+    workspace,
+    sessionId: verifySession,
+    candidateId: verifyCandidate.candidateId,
+    outcome: 'validated',
+    evidence: 'paired-or-later-outcome-fixture:REQ-141',
+  }).candidate;
+  check(validatedState.state === 'validated', 'later outcome evidence can advance a retrieved lesson to validated');
+
   const duplicate = createLearningOpportunity({
     session_id: ruleSession,
     cwd: workspace,
@@ -287,6 +298,30 @@ try {
   check(sourceHook.includes('createLearningOpportunity') && verifierHook.includes('createLearningOpportunity'), 'negative-control anchors require both runtime emitters');
   check(!sourceHook.includes('persistMemory(') && !verifierHook.includes('persistMemory('), 'runtime recovery hooks cannot directly persist memory');
 
+  const telemetryEvents = telemetry.readEvents(telemetry.telemetryFile(workspace, { cwd: workspace }));
+  const telemetryReport = buildReport(telemetryEvents);
+  const lessonEvents = new Set(telemetryEvents.filter(event => !event.invalid).map(event => event.event));
+  for (const expected of [
+    'learning_opportunity', 'lesson_proposed', 'lesson_screened', 'lesson_evaluated',
+    'lesson_accepted', 'lesson_rejected', 'lesson_inconclusive', 'lesson_persisted',
+    'lesson_retrieved', 'lesson_validated',
+  ]) {
+    check(lessonEvents.has(expected), 'self-evolve lifecycle emits telemetry event: ' + expected);
+  }
+  check(telemetryReport.selfEvolve.funnel.opportunities >= 3 &&
+    telemetryReport.selfEvolve.funnel.accepted >= 1 &&
+    telemetryReport.selfEvolve.funnel.inconclusive >= 1 &&
+    telemetryReport.selfEvolve.funnel.rejected >= 1 &&
+    telemetryReport.selfEvolve.funnel.persisted >= 1 &&
+    telemetryReport.selfEvolve.funnel.retrieved >= 1 &&
+    telemetryReport.selfEvolve.funnel.validated >= 1,
+    'telemetry report exposes opportunity -> disposition -> persisted -> retrieved -> validated funnel');
+  const telemetryText = fs.readFileSync(telemetry.telemetryFile(workspace, { cwd: workspace }), 'utf8');
+  check(!telemetryText.includes('Always verify recovery.test.js') &&
+    !telemetryText.includes('retrieval-fixture:REQ-141') &&
+    !telemetryText.includes('SECRET_OUTPUT_SHOULD_NOT_BE_RETAINED'),
+    'lesson telemetry excludes generalized rules, evidence refs, and raw runtime output');
+
   const lessonSchema = JSON.parse(fs.readFileSync(path.join(ROOT, 'self-evolve/schemas/lesson-candidate.schema.json'), 'utf8'));
   check(lessonSchema.properties?.state?.enum?.includes('inconclusive') && lessonSchema.properties?.trigger?.properties?.type?.enum?.includes('verifier-fail-pass'), 'versioned lesson schema covers lifecycle and trigger vocabulary');
 
@@ -307,5 +342,5 @@ try {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 }
 
-console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: #141 self-evolve closed loop phase 1-3 (${failed} failure${failed === 1 ? '' : 's'})`);
+console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: #141 self-evolve closed loop phase 1-4 mechanism (${failed} failure${failed === 1 ? '' : 's'})`);
 process.exit(failed === 0 ? 0 : 1);

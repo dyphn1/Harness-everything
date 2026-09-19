@@ -4,36 +4,155 @@
   "title": "Harness Telemetry Event",
   "type": "object",
   "required": [
-    "schemaVersion", "eventId", "event", "host", "observedAt",
-    "sessionId", "turnId", "agentId", "invocationId", "skillName",
-    "skillVersion", "toolName", "status", "retryCount", "timing", "reasonCodes"
+    "schemaVersion",
+    "eventId",
+    "event",
+    "host",
+    "observedAt",
+    "sessionId",
+    "turnId",
+    "agentId",
+    "invocationId",
+    "skillName",
+    "skillVersion",
+    "toolName",
+    "status",
+    "retryCount",
+    "timing",
+    "reasonCodes"
   ],
   "properties": {
-    "schemaVersion": { "const": 1 },
-    "eventId": { "type": "string", "minLength": 1 },
-    "event": { "enum": ["skill.invoke", "skill.loaded", "skill.complete", "tool.observed"] },
-    "host": { "enum": ["claude", "codex", "opencode", "unknown"] },
-    "observedAt": { "type": "string", "format": "date-time" },
-    "sessionId": { "type": ["string", "null"] },
-    "turnId": { "type": ["string", "null"] },
-    "agentId": { "type": ["string", "null"] },
-    "invocationId": { "type": ["string", "null"] },
-    "skillName": { "type": ["string", "null"] },
-    "skillVersion": { "type": ["string", "null"] },
-    "toolName": { "type": ["string", "null"] },
-    "status": { "enum": ["unknown", "success", "failure", "aborted"] },
-    "retryCount": { "type": "integer", "minimum": 0 },
+    "schemaVersion": {
+      "const": 1
+    },
+    "eventId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event": {
+      "enum": [
+        "skill.invoke",
+        "skill.loaded",
+        "skill.complete",
+        "tool.observed",
+        "learning_opportunity",
+        "lesson_proposed",
+        "lesson_screened",
+        "lesson_evaluated",
+        "lesson_accepted",
+        "lesson_rejected",
+        "lesson_inconclusive",
+        "lesson_persisted",
+        "lesson_retrieved",
+        "lesson_validated",
+        "lesson_regressed",
+        "lesson_superseded"
+      ]
+    },
+    "host": {
+      "enum": [
+        "claude",
+        "codex",
+        "opencode",
+        "unknown"
+      ]
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sessionId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "turnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "agentId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "invocationId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "skillName": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "skillVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "toolName": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "unknown",
+        "success",
+        "failure",
+        "aborted"
+      ]
+    },
+    "retryCount": {
+      "type": "integer",
+      "minimum": 0
+    },
     "timing": {
       "type": "object",
-      "required": ["skillLoadDurationMs", "activeWindowMs", "attributedToolDurationMs"],
+      "required": [
+        "skillLoadDurationMs",
+        "activeWindowMs",
+        "attributedToolDurationMs"
+      ],
       "properties": {
-        "skillLoadDurationMs": { "type": ["number", "null"], "minimum": 0 },
-        "activeWindowMs": { "type": ["number", "null"], "minimum": 0 },
-        "attributedToolDurationMs": { "type": ["number", "null"], "minimum": 0 }
+        "skillLoadDurationMs": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "activeWindowMs": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "attributedToolDurationMs": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
       },
       "additionalProperties": false
     },
-    "reasonCodes": { "type": "array", "items": { "type": "string" } }
+    "reasonCodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
   },
   "additionalProperties": false
 }
