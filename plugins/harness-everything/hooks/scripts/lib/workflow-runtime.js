@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir, getSessionId, getStateRoot } = require('./harness-state');
 const { atomicWriteJson, readJson } = require('./fable-contracts');
+const { workspaceFingerprint } = require('./workflow-isolation');
 
 const OPEN_STATES = new Set(['pending', 'active', 'running', 'failed', 'blocked', 'escaped']);
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -45,6 +46,25 @@ function saveWorkflow(context) { atomicWriteJson(context.file, context.workflow)
 
 const MUTATION_PROBE_KEY = /^[a-f0-9]{64}$/;
 const MUTATION_PROBE_WAIT = new Int32Array(new SharedArrayBuffer(4));
+const MUTATION_PROBE_DEFAULT_TIMEOUT_MS = 120000;
+const MUTATION_PROBE_RECLAIM_GRACE_MS = 5000;
+const MUTATION_PROBE_MAX_TIMEOUT_MS = 30 * 60 * 1000;
+
+function mutationProbeLeaseMs(timeoutMs) {
+  const parsed = Number(timeoutMs);
+  const executionMs = Number.isFinite(parsed) && parsed > 0
+    ? Math.min(parsed, MUTATION_PROBE_MAX_TIMEOUT_MS)
+    : MUTATION_PROBE_DEFAULT_TIMEOUT_MS;
+  return executionMs + MUTATION_PROBE_RECLAIM_GRACE_MS;
+}
+
+function mutationProbeExpired(probe, now = Date.now()) {
+  const reclaimAfterAt = Number(probe?.reclaimAfterAt);
+  if (Number.isFinite(reclaimAfterAt)) return now >= reclaimAfterAt;
+  const observedAt = Number(probe?.observedAt);
+  return Number.isFinite(observedAt) &&
+    now - observedAt >= mutationProbeLeaseMs(null);
+}
 
 function mutationProbeDir(context) {
   return path.join(context.sessionDir, 'mutation-probes');
@@ -81,15 +101,25 @@ function withMutationProbeLock(context, callback) {
   finally { fs.rmSync(lockDir, { recursive: true, force: true }); }
 }
 
+function probeCountsIteration(probe) {
+  return Boolean(probe && (probe.countIteration === true ||
+    (probe.countIteration === undefined && probe.reserveIteration === true)));
+}
+
 function mutationProbeReservations(context) {
   const dir = mutationProbeDir(context);
   let files = [];
   try { files = fs.readdirSync(dir).filter(file => /^[a-f0-9]{64}\.json$/.test(file)); }
   catch (_) { return 0; }
+  const now = Date.now();
   let count = 0;
   for (const file of files) {
     const probe = readJson(path.join(dir, file));
-    if (probe?.schemaVersion === 1 && probe.reserveIteration === true) count++;
+    if (probe?.schemaVersion !== 1 || probe.reserveIteration !== true) continue;
+    // A reservation remains active for the host/tool execution timeout plus
+    // a grace period. This prevents a genuinely in-flight command from being
+    // reclaimed merely because it ran longer than an arbitrary short delay.
+    if (!mutationProbeExpired(probe, now)) count++;
   }
   return count;
 }
@@ -115,22 +145,78 @@ function assertIterationCapacity(context, evidence) {
   return { applicable: true, value: budget.counters.iterations, reserved, limit };
 }
 
-function registerMutationProbe(context, key, fingerprint, reserveIteration) {
+function reclaimStaleMutationProbes(context, keepKey) {
+  const dir = mutationProbeDir(context);
+  let files = [];
+  try { files = fs.readdirSync(dir).filter(file => /^[a-f0-9]{64}\.json$/.test(file)); }
+  catch (_) { return; }
+  const now = Date.now();
+  for (const name of files) {
+    const staleKey = name.slice(0, -'.json'.length);
+    if (staleKey === keepKey) continue;
+    const file = path.join(dir, name);
+    const probe = readJson(file);
+    if (!probe || probe.schemaVersion !== 1) continue;
+    if (!mutationProbeExpired(probe, now)) continue;
+    const countsIteration = probeCountsIteration(probe);
+    if (!probe.observationCwd) {
+      // Legacy probes predate stored observation roots and cannot be safely
+      // re-observed. Once outside the in-flight grace window they must not
+      // reserve capacity forever.
+      fs.unlinkSync(file);
+      continue;
+    }
+    let currentFingerprint;
+    try {
+      currentFingerprint = workspaceFingerprint(probe.observationCwd);
+    } catch (_) {
+      fs.unlinkSync(file);
+      context.workflow.lastMutationAt = now;
+      if (countsIteration && context.workflow.strategy === 'iterative-single') {
+        recordBudgetEvent(context, 'iteration', { evidence: 'shell:reclaimed-unobservable-workspace' });
+      } else {
+        saveWorkflow(context);
+      }
+      continue;
+    }
+    if (currentFingerprint !== probe.fingerprint) {
+      fs.unlinkSync(file);
+      context.workflow.lastMutationAt = now;
+      if (countsIteration && context.workflow.strategy === 'iterative-single') {
+        recordBudgetEvent(context, 'iteration', { evidence: 'shell:reclaimed-stale-workspace-mutation' });
+      } else {
+        saveWorkflow(context);
+      }
+      continue;
+    }
+    // No visible workspace effect after the grace window: this probe was
+    // orphaned by a denial/block/missing Post event. Discard it so it cannot
+    // reserve capacity or later attribute an unrelated mutation (#161).
+    fs.unlinkSync(file);
+  }
+}
+
+function registerMutationProbe(context, key, fingerprint, reserveIteration, observationCwd, timeoutMs) {
   if (!MUTATION_PROBE_KEY.test(String(key || '')) || !MUTATION_PROBE_KEY.test(String(fingerprint || ''))) {
     throw new Error('invalid mutation probe identity');
   }
   return withMutationProbeLock(context, () => {
     refreshWorkflowForProbe(context);
+    reclaimStaleMutationProbes(context, key);
     if (reserveIteration) assertIterationCapacity(context, 'shell:untrusted');
     const dir = mutationProbeDir(context);
     fs.mkdirSync(dir, { recursive: true });
     const file = mutationProbeFile(context, key);
     if (fs.existsSync(file)) throw new Error('mutation probe is already pending for this tool call');
+    const observedAt = Date.now();
     const probe = {
       schemaVersion: 1,
       fingerprint,
       reserveIteration: Boolean(reserveIteration),
-      observedAt: Date.now(),
+      countIteration: Boolean(reserveIteration),
+      observationCwd: observationCwd ? path.resolve(observationCwd) : null,
+      observedAt,
+      reclaimAfterAt: observedAt + mutationProbeLeaseMs(timeoutMs),
     };
     atomicWriteJson(file, probe);
     return probe;
@@ -152,7 +238,7 @@ function settleMutationProbe(context, key, afterFingerprint, tool) {
     const changed = afterFingerprint !== probe.fingerprint;
     if (changed) {
       context.workflow.lastMutationAt = Date.now();
-      if (probe.reserveIteration && context.workflow.strategy === 'iterative-single') {
+      if (probeCountsIteration(probe) && context.workflow.strategy === 'iterative-single') {
         recordBudgetEvent(context, 'iteration', { evidence: String(tool || 'shell') + ':observed-workspace-mutation' });
       } else {
         saveWorkflow(context);
@@ -170,7 +256,7 @@ function settleMutationProbeConservative(context, key, tool, evidence = 'unobser
     refreshWorkflowForProbe(context);
     fs.unlinkSync(file);
     context.workflow.lastMutationAt = Date.now();
-    if (probe.reserveIteration && context.workflow.strategy === 'iterative-single') {
+    if (probeCountsIteration(probe) && context.workflow.strategy === 'iterative-single') {
       recordBudgetEvent(context, 'iteration', { evidence: String(tool || 'shell') + ':' + evidence });
     } else {
       saveWorkflow(context);

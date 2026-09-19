@@ -9,6 +9,15 @@ const { key, classifyShell, workspaceFingerprint, shellProbeKey, cwdOf, commandO
 const DIRECT = new Set(['Edit', 'Write', 'apply_patch']);
 const SHELL = new Set(['Bash', 'PowerShell', 'exec_command']);
 
+function shellTimeoutMs(payload) {
+  const input = payload?.tool_input || payload?.input || {};
+  for (const value of [input.timeout_ms, input.timeoutMs, input.timeout, payload.timeout_ms, payload.timeoutMs]) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
 function isController(command, cwd) {
   // One trusted local executable, literal arguments, no shell evaluation.
   if (/[;&|`\r\n<>$(){}]/.test(command)) return false;
@@ -79,7 +88,14 @@ function decide(payload) {
     return;
   }
   const probeKey = shellProbeKey(payload, cwd);
-  registerMutationProbe(context, probeKey, fingerprint, workflow.strategy === 'iterative-single');
+  registerMutationProbe(
+    context,
+    probeKey,
+    fingerprint,
+    workflow.strategy === 'iterative-single',
+    cwd,
+    shellTimeoutMs(payload)
+  );
 }
 
 readHookInput(decide);

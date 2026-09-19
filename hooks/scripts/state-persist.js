@@ -37,10 +37,12 @@ function observeWorkspaceMutation(payload, root) {
   if (!context.workflow || context.workflow.state === 'deferred') return false;
   const cwd = cwdOf(payload, root);
   const probeKey = shellProbeKey(payload, cwd);
-  if (!peekMutationProbe(context, probeKey)) return false;
+  const probe = peekMutationProbe(context, probeKey);
+  if (!probe) return false;
+  const observationCwd = probe.observationCwd || cwd;
   let after;
   try {
-    after = workspaceFingerprint(cwd);
+    after = workspaceFingerprint(observationCwd);
   } catch (error) {
     if (!isMajorWorkflow(context.workflow)) {
       const conservative = settleMutationProbeConservative(context, probeKey, toolName, 'unobservable-workspace');
