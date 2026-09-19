@@ -499,6 +499,7 @@ function evaluateTrace(trace, options = {}) {
       requirementId: requirement.requirementId,
       revision: requirement.revision,
       lifecycleStatus: requirement.status,
+      sourceRef: currentSpec ? `${currentSpec.path}#${requirement.requirementId}` : null,
       drift: unique(statuses),
       reasonCodes: lineage.reasons,
       completeness: quality,
@@ -543,6 +544,7 @@ function evaluateTrace(trace, options = {}) {
     },
     driftCounts,
     requirements: reportRequirements,
+    repairGuidance: repairGuidance(reportRequirements),
     graph: {
       nodes: [
         ...(trace?.artifacts || []).map(artifact => ({ id: artifact.id, kind: artifact.kind, status: artifact.status, path: artifact.path })),
@@ -572,8 +574,21 @@ function markdown(report) {
   for (const req of report.requirements) {
     lines.push(`| ${req.requirementId} | ${req.revision} | ${req.drift.join(', ')} | ${req.completeness.score} | ${req.protection.status} | ${req.gateEligible ? 'PASS' : 'FAIL'} |`);
   }
+  if (report.repairGuidance?.length) {
+    lines.push('', '## Repair Guidance', '');
+    for (const item of report.repairGuidance) {
+      lines.push(`- **${item.priority}** ${item.requirementId}${item.sourceRef ? ` (${item.sourceRef})` : ''}: ${item.action} [${item.code}]`);
+    }
+  }
   if (report.errors.length) {
     lines.push('', '## Errors', '', ...report.errors.map(error => `- ${error}`));
+  }
+  if (report.provenance) {
+    lines.push('', '## Provenance', '');
+    lines.push(`- Audit version: ${report.provenance.auditVersion}`);
+    lines.push(`- Git revision: ${report.provenance.gitRevision || 'unknown'}`);
+    lines.push(`- Trace SHA-256: ${report.provenance.inputs?.trace?.sha256 || 'unknown'}`);
+    lines.push(`- TDD evidence SHA-256: ${report.provenance.inputs?.tddEvidence?.sha256 || 'none'}`);
   }
   lines.push('', '## Evidence boundary', '');
   lines.push('- Completeness is derived by the existing #58 evaluator; aggregate scores supplied by agents are ignored.');
