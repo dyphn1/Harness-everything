@@ -68,6 +68,7 @@ if (validContract(direct, 'direct-single')) {
   check(plan.strategySelection === 'selected', 'direct-single is a selected strategy');
   check(plan.workspace.required === false, 'direct-single does not require a workspace');
   check(plan.parallelism.allowed === false, 'direct-single does not parallelize');
+  check(plan.memory.read === 'workspace-index', 'selected direct work can retrieve only task-scoped project memory');
 }
 
 const iterative = runTier('Fix this checkout bug and add a regression test.');
@@ -82,7 +83,9 @@ if (validContract(iterative, 'iterative-single')) {
   check(plan.requiredInvariants.includes('objective-verification'), 'iterative-single carries objective verification invariant');
   check(plan.requiredInvariants.includes('loop-budget'), 'iterative-single carries loop-budget invariant');
   check(plan.suggestedSkills.includes('tdd'), 'TDD stays advisory rather than an invariant');
+  check(plan.memory.read === 'workspace-index', 'ordinary iterative work can retrieve task-scoped project memory');
   check(plan.memory.write === 'none', 'ordinary iterative work cannot write durable memory');
+  check(plan.reasonCodes.includes('scoped-memory-read-enabled'), 'selected workflow records the scoped-memory read disposition');
   check(!plan.requiredInvariants.includes('tdd'), 'suggested skills are separated from mandatory invariants');
 }
 
@@ -98,7 +101,9 @@ if (validContract(memoryPersist, 'self-evolve persistence')) {
 
 const memoryProhibited = runTier('Persist this lesson as memory. Do not use memory.');
 if (validContract(memoryProhibited, 'memory prohibition')) {
+  check(memoryProhibited.contract.workflowPlan.memory.read === 'none', 'explicit memory prohibition disables scoped retrieval');
   check(memoryProhibited.contract.workflowPlan.memory.write === 'none', 'explicit memory prohibition overrides persistence intent');
+  check(memoryProhibited.contract.workflowPlan.reasonCodes.includes('memory-read-prohibited'), 'memory read prohibition is auditable');
   check(memoryProhibited.contract.workflowPlan.reasonCodes.includes('memory-persistence-prohibited'), 'memory prohibition conflict is auditable');
 }
 
@@ -144,6 +149,7 @@ if (validContract(unknown, 'unclassified')) {
   check(unknown.contract.classification.tier === 'unclassified', 'no matched signal remains unclassified');
   check(unknown.contract.workflowPlan.strategy === null, 'unclassified does not silently select direct-single');
   check(unknown.contract.workflowPlan.strategySelection === 'deferred', 'unclassified strategy selection is deferred');
+  check(unknown.contract.workflowPlan.memory.read === 'none', 'deferred/unclassified work does not inject project memory');
   check(unknown.contract.workflowPlan.reasonCodes.includes('unclassified-strategy-deferred'), 'deferred selection has deterministic reason code');
 }
 
