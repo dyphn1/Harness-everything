@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const core = require('./kernel-router-core');
+const { renderMemoryContext, selectMemoryContext } = require('./memory-context');
 
 function loadRuntime() {
   for (const prefix of ['../..', '../../..']) {
@@ -114,10 +115,29 @@ function run(raw) {
   let plan = result?.contract?.workflowPlan || null;
   let persisted = null;
   let failure = null;
+  let memoryContext = null;
+  let memoryFailure = null;
   try {
     persisted = persistWorkflow(plan, payload, prompt);
     if (persisted?.retained && persisted.workflow) plan = persisted.workflow.workflowPlan;
   } catch (error) { failure = error; }
+
+  // A new routed task may receive only deterministically scope-matched project
+  // memory. Steering/status prompts that retain an unresolved workflow do not
+  // cause repeated retrieval/exposure, and host notifications never do.
+  if (!hostNotification && persisted && !persisted.retained && plan?.memory?.read === 'workspace-index') {
+    try {
+      memoryContext = selectMemoryContext({
+        plan,
+        workspace: persisted.root,
+        task: prompt,
+      });
+    } catch (error) {
+      // Memory is optional untrusted context. A malformed/unavailable index
+      // fails closed for memory exposure without breaking the user's task.
+      memoryFailure = error;
+    }
+  }
   if (hostNotification && !persisted?.workflow) {
     console.log('\n=> Host notification — no active execution contract; ignored for routing.');
     if (failure) {
@@ -133,6 +153,9 @@ function run(raw) {
   core.printWorkflowPlan(plan);
   core.printRoutingCheckpoint(plan);
   core.printKernelContract(plan);
+  const renderedMemory = renderMemoryContext(memoryContext);
+  if (renderedMemory) console.log(renderedMemory);
+  else if (memoryFailure) console.error('[Memory Context] retrieval unavailable; no memory exposed: ' + memoryFailure.message);
   console.log('\n=> WORKFLOW EXECUTION CONTRACT (MANDATORY WHEN SELECTED):');
   console.log('   - State: ' + (persisted?.workflow.state || (plan.strategy ? 'unpersisted' : 'deferred')));
   console.log('   - Selected workflow: ' + (plan.strategy || 'deferred'));
