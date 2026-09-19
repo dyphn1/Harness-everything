@@ -79,9 +79,11 @@ function decide(payload) {
   try {
     fingerprint = workspaceFingerprint(cwd);
   } catch (error) {
-    if (isMajorWorkflow(workflow)) throw error;
+    const fingerprintLimited = error && error.code === 'HARNESS_FINGERPRINT_LIMIT';
+    if (isMajorWorkflow(workflow) && !fingerprintLimited) throw error;
+    const evidence = fingerprintLimited ? 'shell:fingerprint-limit' : 'shell:unobservable-workspace';
     if (workflow.strategy === 'iterative-single') {
-      recordBudgetEvent(context, 'iteration', { evidence: 'shell:unobservable-workspace' });
+      recordBudgetEvent(context, 'iteration', { evidence });
     }
     workflow.lastMutationAt = Date.now();
     saveWorkflow(context);

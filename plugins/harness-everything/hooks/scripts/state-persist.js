@@ -39,8 +39,10 @@ function observeWorkspaceMutation(payload, root) {
   try {
     after = workspaceFingerprint(observationCwd);
   } catch (error) {
-    if (!isMajorWorkflow(context.workflow)) {
-      const conservative = settleMutationProbeConservative(context, probeKey, toolName, 'unobservable-workspace');
+    const fingerprintLimited = error && error.code === 'HARNESS_FINGERPRINT_LIMIT';
+    if (!isMajorWorkflow(context.workflow) || fingerprintLimited) {
+      const evidence = fingerprintLimited ? 'fingerprint-limit' : 'unobservable-workspace';
+      const conservative = settleMutationProbeConservative(context, probeKey, toolName, evidence);
       return Boolean(conservative && conservative.changed);
     }
     context.workflow.state = 'blocked';
