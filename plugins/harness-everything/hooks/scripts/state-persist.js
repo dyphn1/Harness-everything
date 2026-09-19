@@ -2,14 +2,9 @@
 const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
-const { loadWorkflow, saveWorkflow, peekMutationProbe, settleMutationProbe } = require('./lib/workflow-runtime');
-const { cwdOf, shellProbeKey, workspaceFingerprint, directMutationInWorkspace } = require('./lib/workflow-isolation');
+const { loadWorkflow, saveWorkflow, isMajorWorkflow, peekMutationProbe, settleMutationProbe, settleMutationProbeConservative } = require('./lib/workflow-runtime');
+const { cwdOf, shellProbeKey, isVerificationShell, workspaceFingerprint, directMutationInWorkspace } = require('./lib/workflow-isolation');
 const { observeTool } = require('./lib/telemetry');
-
-// Commands that count as "verification ran" for the Stop gate
-// (hooks/scripts/stop-gate.js). Recall over precision: under-blocking the
-// gate is the correct failure direction, so a broad net is fine.
-const VERIFY_COMMAND_RE = /\b(test|spec|jest|vitest|mocha|pytest|rspec|phpunit|tsc|eslint|lint|build|compile|verify|check)\b/i;
 
 let inputData = '';
 const timeout = setTimeout(() => {
@@ -37,11 +32,19 @@ function observeWorkspaceMutation(payload, root) {
   if (!context.workflow || context.workflow.state === 'deferred') return false;
   const cwd = cwdOf(payload, root);
   const probeKey = shellProbeKey(payload, cwd);
-  if (!peekMutationProbe(context, probeKey)) return false;
+  const probe = peekMutationProbe(context, probeKey);
+  if (!probe) return false;
+  const observationCwd = probe.observationCwd || cwd;
   let after;
   try {
-    after = workspaceFingerprint(cwd);
+    after = workspaceFingerprint(observationCwd);
   } catch (error) {
+    const fingerprintLimited = error && error.code === 'HARNESS_FINGERPRINT_LIMIT';
+    if (!isMajorWorkflow(context.workflow) || fingerprintLimited) {
+      const evidence = fingerprintLimited ? 'fingerprint-limit' : 'unobservable-workspace';
+      const conservative = settleMutationProbeConservative(context, probeKey, toolName, evidence);
+      return Boolean(conservative && conservative.changed);
+    }
     context.workflow.state = 'blocked';
     context.workflow.blockReason = 'mutation-observation-failed';
     saveWorkflow(context);
@@ -121,7 +124,7 @@ function processState(payload) {
       }
       if ((toolName === 'Bash' || toolName === 'PowerShell') && !isFailed) {
         const command = (payload.tool_input && payload.tool_input.command) || '';
-        if (VERIFY_COMMAND_RE.test(command)) {
+        if (isVerificationShell(command)) {
           state.lastVerifyAt = Date.now();
           state.lastVerifyExitCode = exitCode ?? null;
         }

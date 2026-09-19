@@ -19,7 +19,7 @@ This page is generated from checked-in runtime and workflow sources. Do not edit
 | Workflow | Node.js versions | Explicit triggers | npm quality gates |
 | --- | --- | --- | --- |
 | `behavioral-evals.yml` | 24 | schedule, workflow_dispatch | n/a |
-| `ci.yml` | 22, 24 | workflow_call | `test`, `test:mutations`, `test:release:semantics`, `test:consistency`, `test:references`, `test:release`, `test:collision`, `test:plugin:openai`, `test:plugin:submission`, `test:platform:compatibility` |
+| `ci.yml` | 22, 24 | workflow_call | `test`, `test:mutations`, `test:release:semantics`, `waza:check`, `test:consistency`, `test:references`, `test:release`, `test:collision`, `test:plugin:openai`, `test:plugin:submission`, `test:platform:compatibility` |
 | `release.yml` | 24 | workflow_dispatch | n/a |
 
 ## Drift prevention

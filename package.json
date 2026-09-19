@@ -1,6 +1,6 @@
 {
   "name": "harness-everything",
-  "version": "0.11.7",
+  "version": "0.13.0",
   "description": "Harness OS: An Orchestrated Agent Operating System for AI-driven Development",
   "main": "harness-everything/scripts/bootstrap.js",
   "bin": {
@@ -52,7 +52,9 @@
     "telemetry:report": "node telemetry/scripts/report.js",
     "telemetry:benchmark": "node telemetry/scripts/benchmark.js",
     "test:contract-integrity": "node ci/contract-integrity.test.js",
-    "contract:integrity": "node contract-integrity/scripts/audit.js"
+    "contract:integrity": "node contract-integrity/scripts/audit.js",
+    "waza:check": "node scripts/waza-harness-check.js",
+    "test:waza:compat": "node ci/mechanism-2aj-waza-reference-adapter.test.js"
   },
   "engines": {
     "node": ">=22"

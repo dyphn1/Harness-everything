@@ -126,6 +126,39 @@ try {
   check(symlinkRejected && fs.readFileSync(outsideTarget, 'utf8') === 'SAFE',
     'replace probe rejects symlink/junction escape without mutating outside the isolated workspace');
 
+  const linkedProject = path.join(temp, 'linked-project');
+  fs.mkdirSync(linkedProject, { recursive: true });
+  fs.writeFileSync(path.join(linkedProject, 'package.json'), JSON.stringify({
+    name: 'linked-project',
+    scripts: { contract: 'node test.js' },
+  }), 'utf8');
+  fs.writeFileSync(path.join(linkedProject, 'test.js'), [
+    "const fs = require('fs');",
+    "const path = require('path');",
+    "fs.writeFileSync(path.join(__dirname, 'linked-dir', 'outside.txt'), 'MUTATED', 'utf8');",
+  ].join('\n'), 'utf8');
+  fs.symlinkSync(outsideDir, path.join(linkedProject, 'linked-dir'),
+    process.platform === 'win32' ? 'junction' : 'dir');
+  const linkedPlan = {
+    schemaVersion: '1.0.0',
+    adapter: 'node-npm-v1',
+    script: 'contract',
+    probes: [{
+      probeId: 'PROBE-LINK',
+      requirementId: 'REQ-LINK',
+      sourceSection: 'Linked workspace',
+      strategy: 'env',
+      expectedFailureContains: 'unused',
+      env: { HARNESS_CONTRACT_PROBE: 'link' },
+    }],
+  };
+  const linkedReport = executePlan(linkedProject, linkedPlan);
+  check(linkedReport.result === 'NOT_EVALUATED' &&
+    linkedReport.baseline.workspaceIsolation === 'not-isolated' &&
+    linkedReport.probes.every(probe => probe.workspaceIsolation === 'not-isolated') &&
+    fs.readFileSync(outsideTarget, 'utf8') === 'SAFE',
+    'workspace copy rejects source symlinks/junctions before project code can mutate an outside target');
+
   const dependent = path.join(temp, 'dependent');
   fs.cpSync(FIXTURE, dependent, { recursive: true });
   const pkg = json(path.join(dependent, 'package.json'));

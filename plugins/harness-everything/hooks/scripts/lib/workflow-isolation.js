@@ -5,8 +5,15 @@ const crypto = require('crypto');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-function gitRaw(cwd, args) {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true, timeout: 5000, maxBuffer: 16 * 1024 * 1024 });
+function gitRaw(cwd, args, options = {}) {
+  const result = spawnSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: options.timeout ?? 5000,
+    maxBuffer: options.maxBuffer ?? (16 * 1024 * 1024),
+    ...(options.input === undefined ? {} : { input: options.input }),
+  });
   if (result.status !== 0) throw new Error('cannot verify Git worktree isolation');
   return result.stdout;
 }
@@ -15,30 +22,73 @@ function git(cwd, args) {
   return gitRaw(cwd, args).trim();
 }
 
-function hashWorktreePath(root, relative) {
-  const target = path.join(root, relative);
-  let stat;
-  try { stat = fs.lstatSync(target); }
-  catch (error) {
-    if (error.code === 'ENOENT') return null;
-    throw error;
-  }
-  if (stat.isDirectory()) {
-    const result = spawnSync('git', ['-C', target, 'rev-parse', 'HEAD'], { encoding: 'utf8', windowsHide: true, timeout: 5000 });
-    return { mode: '160000', oid: result.status === 0 ? result.stdout.trim() : 'directory' };
-  }
-  const mode = stat.isSymbolicLink() ? '120000' : ((stat.mode & 0o111) ? '100755' : '100644');
-  const result = spawnSync('git', ['hash-object', '--path=' + relative, '--', relative], {
-    cwd: root, encoding: 'utf8', windowsHide: true, timeout: 5000,
-  });
-  if (result.status !== 0) throw new Error('cannot fingerprint workspace content');
-  return { mode, oid: result.stdout.trim() };
+function fingerprintLimitError(count, maxPaths) {
+  const error = new Error('workspace fingerprint path limit exceeded');
+  error.code = 'HARNESS_FINGERPRINT_LIMIT';
+  error.count = count;
+  error.maxPaths = maxPaths;
+  return error;
 }
 
-function workspaceFingerprint(cwd) {
+function hashWorktreePaths(root, relatives) {
+  const values = new Map();
+  const batch = [];
+  for (const relative of relatives) {
+    const target = path.join(root, relative);
+    let stat;
+    try { stat = fs.lstatSync(target); }
+    catch (error) {
+      if (error.code === 'ENOENT') {
+        values.set(relative, null);
+        continue;
+      }
+      throw error;
+    }
+    if (stat.isDirectory()) {
+      const result = spawnSync('git', ['-C', target, 'rev-parse', 'HEAD'], {
+        encoding: 'utf8', windowsHide: true, timeout: 5000,
+      });
+      values.set(relative, { mode: '160000', oid: result.status === 0 ? result.stdout.trim() : 'directory' });
+      continue;
+    }
+    const mode = stat.isSymbolicLink() ? '120000' : ((stat.mode & 0o111) ? '100755' : '100644');
+    // --stdin-paths is line-delimited. Rare pathnames containing a newline use
+    // the legacy one-file call so the fingerprint remains exact.
+    if (/[\r\n]/.test(relative)) {
+      const one = spawnSync('git', ['hash-object', '--path=' + relative, '--', relative], {
+        cwd: root, encoding: 'utf8', windowsHide: true, timeout: 5000,
+      });
+      if (one.status !== 0) throw new Error('cannot fingerprint workspace content');
+      values.set(relative, { mode, oid: one.stdout.trim() });
+      continue;
+    }
+    batch.push({ relative, mode });
+  }
+
+  if (batch.length > 0) {
+    const hashed = spawnSync('git', ['hash-object', '--stdin-paths'], {
+      cwd: root,
+      input: batch.map(item => item.relative).join('\n') + '\n',
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 15000,
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    if (hashed.status !== 0) throw new Error('cannot fingerprint workspace content');
+    const oids = hashed.stdout.split(/\r?\n/).filter(Boolean);
+    if (oids.length !== batch.length) throw new Error('cannot fingerprint workspace content');
+    for (let i = 0; i < batch.length; i++) {
+      values.set(batch[i].relative, { mode: batch[i].mode, oid: oids[i] });
+    }
+  }
+  return values;
+}
+
+function workspaceFingerprint(cwd, options = {}) {
   const root = canonical(git(cwd, ['rev-parse', '--show-toplevel']));
   const entries = new Map();
-  for (const record of gitRaw(root, ['ls-files', '-s', '-z']).split('\0')) {
+  const largeGitRead = { timeout: 15000, maxBuffer: 64 * 1024 * 1024 };
+  for (const record of gitRaw(root, ['ls-files', '-s', '-z'], largeGitRead).split('\0')) {
     if (!record) continue;
     const tab = record.indexOf('\t');
     if (tab < 0) throw new Error('cannot fingerprint workspace index');
@@ -49,18 +99,25 @@ function workspaceFingerprint(cwd) {
     entries.set(relative, { relative, mode, oid });
   }
 
+  const changed = gitRaw(root, ['diff-files', '--name-only', '-z'], largeGitRead).split('\0').filter(Boolean);
+  const untracked = gitRaw(root, ['ls-files', '--others', '--exclude-standard', '-z'], largeGitRead).split('\0').filter(Boolean);
+  const observedPaths = [...new Set([...changed, ...untracked])];
+  const maxPaths = Number.isInteger(options.maxPaths) && options.maxPaths > 0 ? options.maxPaths : 5000;
+  if (observedPaths.length > maxPaths) throw fingerprintLimitError(observedPaths.length, maxPaths);
+  const worktreeValues = hashWorktreePaths(root, observedPaths);
+
   // Substitute current worktree content for tracked paths that differ from the
   // index. This keeps the fingerprint stable across git add / git commit when
   // visible workspace content did not change.
-  for (const relative of gitRaw(root, ['diff-files', '--name-only', '-z']).split('\0').filter(Boolean)) {
-    const value = hashWorktreePath(root, relative);
+  for (const relative of changed) {
+    const value = worktreeValues.get(relative);
     if (value) entries.set(relative, { relative, mode: value.mode, oid: value.oid });
     else entries.delete(relative);
   }
 
-  for (const relative of gitRaw(root, ['ls-files', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean)) {
-    const value = hashWorktreePath(root, relative);
-    entries.set(relative, { relative, mode: value.mode, oid: value.oid });
+  for (const relative of untracked) {
+    const value = worktreeValues.get(relative);
+    if (value) entries.set(relative, { relative, mode: value.mode, oid: value.oid });
   }
 
   const digest = crypto.createHash('sha256');
@@ -76,10 +133,18 @@ function workspaceFingerprint(cwd) {
 function shellProbeKey(payload, cwd) {
   const toolUseId = String(payload?.tool_use_id || payload?.toolUseId || '').trim();
   const tool = String(payload?.tool_name || payload?.tool || '');
+  if (toolUseId) {
+    // Host tool-use identity is stable across Pre/Post payload cwd drift.
+    return crypto.createHash('sha256')
+      .update('harness-shell-probe-v3\0')
+      .update(toolUseId).update('\0')
+      .update(tool)
+      .digest('hex');
+  }
+  // Compatibility fallback for hosts that do not expose tool_use_id.
   const command = commandOf(payload);
   return crypto.createHash('sha256')
-    .update('harness-shell-probe-v2\0')
-    .update(toolUseId || 'no-tool-use-id').update('\0')
+    .update('harness-shell-probe-v2-fallback\0')
     .update(tool).update('\0')
     .update(key(cwd)).update('\0')
     .update(command)
@@ -127,6 +192,11 @@ function linkedWorktree(cwd, boundRoot) {
 // Unsupported shell syntax still fails closed.
 const DANGEROUS_FLAG_RE = /\s(?:--(?:output|ext-diff|textconv|exec|pre|pre-glob|pager|open|batch|filters)|-[xoO])(?:\b|=)|\s-(?:exec|execdir|delete|fprint|fprintf)\b/i;
 const READ_ONLY_PREFIX_RE = /^(?:git\s+(?:status|rev-parse|diff|log|show|ls-files|check-ignore)(?:\s|$)|git\s+branch\s+--show-current$|git\s+worktree\s+list(?:\s|$)|gh\s+(?:issue|pr)\s+(?:view|list)(?:\s|$)|gh\s+repo\s+view(?:\s|$)|gh\s+auth\s+status(?:\s|$)|(?:pwd|ls|dir|cat|type|head|tail|wc|stat|rg|grep|echo|Get-Location|Get-ChildItem|Get-Content|Select-String|Test-Path)(?:\s|$))/i;
+const VERIFY_COMMAND_RE = /\b(test|spec|jest|vitest|mocha|pytest|rspec|phpunit|tsc|eslint|lint|build|compile|verify|check)\b/i;
+
+function isVerificationShell(command) {
+  return VERIFY_COMMAND_RE.test(String(command || ''));
+}
 
 function isReadOnlySegment(segment) {
   return READ_ONLY_PREFIX_RE.test(segment) && !DANGEROUS_FLAG_RE.test(segment);
@@ -303,4 +373,4 @@ function assertShellScope(command, cwd, isolatedRoot) {
   }
 }
 
-module.exports = { canonical, key, within, linkedWorktree, classifyShell, workspaceFingerprint, shellProbeKey, inputOf, cwdOf, commandOf, mutationPaths, worktreeRoots, directMutationInWorkspace, assertTargets, assertShellScope };
+module.exports = { canonical, key, within, linkedWorktree, classifyShell, isVerificationShell, workspaceFingerprint, shellProbeKey, inputOf, cwdOf, commandOf, mutationPaths, worktreeRoots, directMutationInWorkspace, assertTargets, assertShellScope };

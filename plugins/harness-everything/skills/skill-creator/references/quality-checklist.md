@@ -14,3 +14,5 @@ A skill isn't done until every line here is true. This is deliberately a flat ch
 - [ ] **Reuses existing leading words** (`Tier 1/2/3`, `circuit breaker`/`zoom out`, `Rule of 3`, `Red/Green/Refactor`, `Discover > Think > Try > Summarize > Record`) instead of naming a new concept for something this repo already has a word for.
 - [ ] **Completion criteria are checkable** — tied to an exit code, a file's existence, a grep result, or explicit human confirmation, not "when it feels done."
 - [ ] **Description reads as a human-facing sentence**, not just a trigger-phrase list — `scripts/installer.js`'s interactive picker prints it next to a checkbox for a person deciding whether to install this skill; that's its real first reader in this architecture (audit report §2.1).
+
+Related guides: [authoring workflow](authoring-workflow.md), [testing workflow](testing-workflow.md), [quality principles](quality-principles.md), and [dynamic generation contract](dynamic-generation-contract.md).
