@@ -203,6 +203,58 @@ try {
   git(['init']); fs.writeFileSync(path.join(repo, 'README.md'), 'fixture\n'); git(['add', '.']);
   git(['-c', 'user.name=Harness Test', '-c', 'user.email=harness@example.invalid', 'commit', '-m', 'fixture']);
   git(['worktree', 'add', linked, '-b', 'isolated']);
+
+  // #164: the mutation budget is an edit budget, not a reason to make the
+  // final edit unverifiable. At the exact limit a verification-shaped shell
+  // gets observation-only admission. No-effect verification may complete the
+  // workflow; a verification command that mutates still exhausts after Post.
+  const finalVerify = fixtureSession('workflow-final-iteration-verify');
+  check(finalVerify.route('Fix this checkout bug with a regression test').status === 0 &&
+    finalVerify.control('start').status === 0,
+    '#164 final-iteration verification fixture starts Tier 2');
+  const finalVerifyLimit = read(finalVerify.file).workflowPlan.limits.maxIterations;
+  for (let i = 0; i < finalVerifyLimit; i++) {
+    check(finalVerify.gate('Write', { file_path: path.join(repo, 'final-verify-' + i + '.txt') }).status === 0,
+      '#164 confirmed mutation fills iteration budget ' + (i + 1) + '/' + finalVerifyLimit);
+  }
+  check(read(finalVerify.file).budget.counters.iterations === finalVerifyLimit,
+    '#164 fixture reaches the exact mutation limit while still running');
+  const finalVerifyId = 'toolu_final_iteration_verify';
+  check(finalVerify.gate('Bash', { command: 'node run-test.js' }, { tool_use_id: finalVerifyId }).status === 0,
+    '#164 no-effect verification shell is admitted at the exact mutation limit');
+  check(finalVerify.persist('Bash', { command: 'node run-test.js' }, { stdout: 'tests passed' },
+    { tool_use_id: finalVerifyId }).status === 0,
+    '#164 no-effect verification settles without exhausting the budget');
+  check(read(finalVerify.file).budget.counters.iterations === finalVerifyLimit &&
+    read(finalVerify.file).state === 'running',
+    '#164 no-effect verification preserves the full mutation count and running state');
+  check(finalVerify.stop().status === 0 && read(finalVerify.file).state === 'satisfied',
+    '#164 verification after the final allowed edit can satisfy Stop');
+
+  const finalMutator = fixtureSession('workflow-final-iteration-mutator');
+  check(finalMutator.route('Fix this checkout bug with a regression test').status === 0 &&
+    finalMutator.control('start').status === 0,
+    '#164 at-limit mutator fixture starts Tier 2');
+  const finalMutatorLimit = read(finalMutator.file).workflowPlan.limits.maxIterations;
+  for (let i = 0; i < finalMutatorLimit; i++) {
+    check(finalMutator.gate('Write', { file_path: path.join(repo, 'final-mutator-' + i + '.txt') }).status === 0,
+      '#164 mutator fixture fills iteration budget ' + (i + 1) + '/' + finalMutatorLimit);
+  }
+  const finalMutatorId = 'toolu_final_iteration_mutator';
+  check(finalMutator.gate('Bash', { command: 'node run-test-and-mutate.js' }, { tool_use_id: finalMutatorId }).status === 0,
+    '#164 verification-shaped command receives observation-only admission at limit');
+  const finalOverflowTarget = path.join(repo, 'final-iteration-overflow.txt');
+  fs.writeFileSync(finalOverflowTarget, 'mutation beyond limit\n');
+  check(finalMutator.persist('Bash', { command: 'node run-test-and-mutate.js' }, { stdout: 'changed' },
+    { tool_use_id: finalMutatorId }).status === 2,
+    '#164 at-limit verification-shaped command that mutates is rejected on observation');
+  const finalMutatorState = read(finalMutator.file);
+  check(finalMutatorState.state === 'blocked' &&
+    finalMutatorState.budget?.state === 'budget-exhausted' &&
+    finalMutatorState.budget?.reasonCode === 'iteration-budget-exhausted',
+    '#164 observed mutation beyond the limit leaves an auditable blocked workflow');
+  fs.unlinkSync(finalOverflowTarget);
+
   const taskNotification = '<task-notification><summary>Background command "Run full test suite" failed with exit code 1</summary></task-notification>';
   const unboundNotification = node('harness-everything/scripts/kernel-router.js', { cwd: repo, prompt: taskNotification });
   check(unboundNotification.status === 0 &&

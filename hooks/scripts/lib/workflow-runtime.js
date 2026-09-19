@@ -196,14 +196,30 @@ function reclaimStaleMutationProbes(context, keepKey) {
   }
 }
 
-function registerMutationProbe(context, key, fingerprint, reserveIteration, observationCwd, timeoutMs) {
+function registerMutationProbe(context, key, fingerprint, reserveIteration, observationCwd, options = {}) {
   if (!MUTATION_PROBE_KEY.test(String(key || '')) || !MUTATION_PROBE_KEY.test(String(fingerprint || ''))) {
     throw new Error('invalid mutation probe identity');
   }
   return withMutationProbeLock(context, () => {
     refreshWorkflowForProbe(context);
     reclaimStaleMutationProbes(context, key);
-    if (reserveIteration) assertIterationCapacity(context, 'shell:untrusted');
+    let activeReservation = Boolean(reserveIteration);
+    let atLimitAllowance = false;
+    if (activeReservation) {
+      const budget = ensureWorkflowBudget(context.workflow);
+      const limit = budget.limits.maxIterations;
+      const reserved = mutationProbeReservations(context);
+      if (options.allowAtLimit === true && budget.state === 'active' && limit !== null &&
+          budget.counters.iterations === limit && reserved === 0) {
+        // Verification-shaped commands get observation-only admission at the
+        // exact mutation limit. If they mutate, settlement still records the
+        // mutation and exhausts the budget after execution (#164).
+        activeReservation = false;
+        atLimitAllowance = true;
+      } else {
+        assertIterationCapacity(context, 'shell:untrusted');
+      }
+    }
     const dir = mutationProbeDir(context);
     fs.mkdirSync(dir, { recursive: true });
     const file = mutationProbeFile(context, key);
@@ -212,11 +228,12 @@ function registerMutationProbe(context, key, fingerprint, reserveIteration, obse
     const probe = {
       schemaVersion: 1,
       fingerprint,
-      reserveIteration: Boolean(reserveIteration),
-      countIteration: Boolean(reserveIteration),
+      reserveIteration: activeReservation,
+      countIteration: options.countIteration === undefined ? Boolean(reserveIteration) : Boolean(options.countIteration),
+      atLimitAllowance,
       observationCwd: observationCwd ? path.resolve(observationCwd) : null,
       observedAt,
-      reclaimAfterAt: observedAt + mutationProbeLeaseMs(timeoutMs),
+      reclaimAfterAt: observedAt + mutationProbeLeaseMs(options.timeoutMs),
     };
     atomicWriteJson(file, probe);
     return probe;

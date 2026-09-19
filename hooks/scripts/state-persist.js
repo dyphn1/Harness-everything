@@ -3,13 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 const { loadWorkflow, saveWorkflow, isMajorWorkflow, peekMutationProbe, settleMutationProbe, settleMutationProbeConservative } = require('./lib/workflow-runtime');
-const { cwdOf, shellProbeKey, workspaceFingerprint, directMutationInWorkspace } = require('./lib/workflow-isolation');
+const { cwdOf, shellProbeKey, isVerificationShell, workspaceFingerprint, directMutationInWorkspace } = require('./lib/workflow-isolation');
 const { observeTool } = require('./lib/telemetry');
-
-// Commands that count as "verification ran" for the Stop gate
-// (hooks/scripts/stop-gate.js). Recall over precision: under-blocking the
-// gate is the correct failure direction, so a broad net is fine.
-const VERIFY_COMMAND_RE = /\b(test|spec|jest|vitest|mocha|pytest|rspec|phpunit|tsc|eslint|lint|build|compile|verify|check)\b/i;
 
 let inputData = '';
 const timeout = setTimeout(() => {
@@ -127,7 +122,7 @@ function processState(payload) {
       }
       if ((toolName === 'Bash' || toolName === 'PowerShell') && !isFailed) {
         const command = (payload.tool_input && payload.tool_input.command) || '';
-        if (VERIFY_COMMAND_RE.test(command)) {
+        if (isVerificationShell(command)) {
           state.lastVerifyAt = Date.now();
           state.lastVerifyExitCode = exitCode ?? null;
         }
