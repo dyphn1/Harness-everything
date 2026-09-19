@@ -107,17 +107,18 @@ function copyWorkspace(source) {
   return { root, workspace: destination };
 }
 
-function npmExecutable() {
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
-}
-
 function runScript(workspace, plan, extraEnv = {}) {
   const timeout = plan.timeoutMs || DEFAULT_TIMEOUT_MS;
-  const result = spawnSync(npmExecutable(), ['run', plan.script], {
+  // On Windows npm is normally a .cmd shim, which child_process cannot
+  // execute directly without a command shell. The script name is restricted
+  // to a safe identifier by validatePlan(), and no user-provided shell text is
+  // interpolated into the command.
+  const result = spawnSync('npm', ['run', plan.script], {
     cwd: workspace,
     encoding: 'utf8',
     timeout,
     windowsHide: true,
+    shell: process.platform === 'win32',
     env: { ...process.env, CI: '1', ...extraEnv },
   });
   const stdout = String(result.stdout || '');
