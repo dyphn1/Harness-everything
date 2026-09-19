@@ -96,6 +96,7 @@ function buildProvenance(args, trace) {
     command: 'node contract-integrity/scripts/audit.js <trace> [--tdd-evidence <evidence>] [--workspace <workspace>]',
     gitRevision: gitRevision(workspace || process.cwd()),
     workspaceIsolation: unique((trace?.probes || []).map(probe => probe.workspaceIsolation).filter(Boolean)),
+    workspace: workspace ? { root: workspace } : null,
     inputs: {
       trace: { sha256: sha256File(path.resolve(args.input)) },
       tddEvidence: args.tddEvidence ? { sha256: sha256File(path.resolve(args.tddEvidence)) } : null,
@@ -115,15 +116,38 @@ function verifyFreshReport(report, args, trace) {
   const reportedTddHash = report.provenance.inputs.tddEvidence?.sha256 || null;
   if (currentTddHash !== reportedTddHash) reasons.push('tdd-evidence-changed-since-audit');
 
-  if (Array.isArray(report.provenance.artifacts) && report.provenance.artifacts.length > 0) {
-    if (!args.workspace) reasons.push('workspace-required-for-artifact-freshness');
-    else {
+  const tracedArtifacts = Array.isArray(trace?.artifacts) ? trace.artifacts : [];
+  if (tracedArtifacts.length > 0) {
+    if (!args.workspace) {
+      reasons.push('workspace-required-for-artifact-freshness');
+    } else {
+      const reportedRoot = report.provenance.workspace?.root;
+      if (!reportedRoot) {
+        reasons.push('report-workspace-unbound');
+      } else if (path.resolve(reportedRoot) !== path.resolve(args.workspace)) {
+        reasons.push('workspace-changed-since-audit');
+      }
+
+      const priorArtifacts = Array.isArray(report.provenance.artifacts) ? report.provenance.artifacts : [];
+      const prior = new Map();
+      for (const item of priorArtifacts) {
+        if (item?.id && !prior.has(item.id)) prior.set(item.id, item);
+        else if (item?.id) reasons.push(`artifact-fingerprint-duplicate:${item.id}`);
+      }
       const current = new Map(artifactFingerprints(trace, args.workspace).map(item => [item.id, item]));
-      for (const prior of report.provenance.artifacts) {
-        const now = current.get(prior.id);
-        if (!now || now.missing || prior.missing || now.sha256 !== prior.sha256) {
-          reasons.push(`artifact-changed-since-audit:${prior.id}`);
+      for (const artifact of tracedArtifacts) {
+        const before = prior.get(artifact.id);
+        const now = current.get(artifact.id);
+        if (!before || before.path !== artifact.path || before.missing || !before.sha256) {
+          reasons.push(`artifact-fingerprint-missing:${artifact.id}`);
+          continue;
         }
+        if (!now || now.missing || now.sha256 !== before.sha256) {
+          reasons.push(`artifact-changed-since-audit:${artifact.id}`);
+        }
+      }
+      if (priorArtifacts.length !== tracedArtifacts.length) {
+        reasons.push('artifact-fingerprint-set-incomplete');
       }
     }
   }
