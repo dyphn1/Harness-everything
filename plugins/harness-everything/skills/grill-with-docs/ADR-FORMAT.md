@@ -22,6 +22,28 @@ Only include these when they add genuine value. Most ADRs won't need them.
 - **Considered Options** — only when the rejected alternatives are worth remembering
 - **Consequences** — only when non-obvious downstream effects need to be called out
 
+## Decision lifecycle and contract lineage
+
+Once an ADR is **accepted**, keep its decision and rationale historically stable. Do not rewrite an accepted ADR to make a later design look as though it was always the decision.
+
+Use compact metadata when the ADR participates in a behavior contract:
+
+```md
+ADR-ID: ADR-0001
+Status: proposed | accepted | deprecated | superseded by ADR-0002
+Affected requirements: REQ-001, REQ-004
+```
+
+When a later change materially changes the decision or its rationale:
+
+1. create a new sequential ADR;
+2. state the new decision and why the prior trade-off changed;
+3. mark the earlier ADR `superseded by ADR-NNNN`;
+4. update the living spec requirements affected by that decision;
+5. let the structured contract trace carry detailed ticket/test/implementation lineage.
+
+A ticket or implementation note never silently becomes the new architectural source of truth. If only implementation changes and the approved behavior/decision does not, keep the accepted ADR unchanged.
+
 ## Numbering
 
 Scan `docs/adr/` for the highest existing number and increment by one.

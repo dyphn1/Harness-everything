@@ -102,6 +102,32 @@ async function main() {
     check(report.skills[0].invocationCount === 1 && report.skills[0].toolEventCount === 1, 'aggregation retains invocation and attributed-tool counts');
     check(report.semantics.activeWindowMs.includes('not CPU'), 'report documents active-window semantics instead of calling it runtime');
 
+    const lessonId = 'lesson-0123456789abcdef01234567';
+    for (const event of ['learning_opportunity', 'lesson_proposed', 'lesson_screened', 'lesson_evaluated', 'lesson_accepted', 'lesson_persisted', 'lesson_retrieved']) {
+      const emitted = telemetry.emitLessonTelemetry({
+        event,
+        root: workspace,
+        sessionId: session,
+        candidateId: lessonId,
+        status: 'success',
+        reasonCodes: ['fixture-lifecycle'],
+      });
+      check(emitted.ok === true, 'lesson lifecycle telemetry accepts privacy-safe event: ' + event);
+    }
+    const lifecycleEvents = telemetry.readEvents(file);
+    const lifecycleReport = buildReport(lifecycleEvents);
+    check(lifecycleReport.skills.length === 1 && lifecycleReport.skills[0].skillName === 'tdd',
+      'lesson lifecycle events do not contaminate skill execution aggregates');
+    check(lifecycleReport.selfEvolve.candidateCount === 1 &&
+      lifecycleReport.selfEvolve.funnel.opportunities === 1 &&
+      lifecycleReport.selfEvolve.funnel.accepted === 1 &&
+      lifecycleReport.selfEvolve.funnel.persisted === 1 &&
+      lifecycleReport.selfEvolve.funnel.retrieved === 1,
+      'report projects one correlated self-evolve opportunity -> accepted -> persisted -> retrieved funnel');
+    const lifecycleSerialized = fs.readFileSync(file, 'utf8');
+    check(!lifecycleSerialized.includes(lessonId) && !lifecycleSerialized.includes(session),
+      'lesson telemetry hashes candidate/session identities instead of retaining raw IDs');
+
     const forbidden = telemetry.emitTelemetry({
       event: 'skill.invoke',
       host: 'claude',
@@ -173,7 +199,11 @@ async function main() {
     }
 
     const schema = JSON.parse(fs.readFileSync(path.join(ROOT, 'telemetry/schemas/event.schema.json'), 'utf8'));
-    check(schema.properties?.timing?.properties?.activeWindowMs && schema.properties?.event?.enum?.includes('tool.observed'), 'versioned telemetry schema preserves separate timing vocabulary');
+    check(schema.properties?.timing?.properties?.activeWindowMs &&
+      schema.properties?.event?.enum?.includes('tool.observed') &&
+      schema.properties?.event?.enum?.includes('learning_opportunity') &&
+      schema.properties?.event?.enum?.includes('lesson_retrieved'),
+      'versioned telemetry schema preserves timing plus self-evolve lifecycle vocabulary');
 
   } finally {
     if (priorHome === undefined) delete process.env.HARNESS_STATE_HOME;

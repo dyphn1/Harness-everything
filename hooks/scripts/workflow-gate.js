@@ -9,6 +9,15 @@ const { key, classifyShell, isVerificationShell, workspaceFingerprint, shellProb
 const DIRECT = new Set(['Edit', 'Write', 'apply_patch']);
 const SHELL = new Set(['Bash', 'PowerShell', 'exec_command']);
 
+function shellTimeoutMs(payload) {
+  const input = payload?.tool_input || payload?.input || {};
+  for (const value of [input.timeout_ms, input.timeoutMs, input.timeout, payload.timeout_ms, payload.timeoutMs]) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
 function isController(command, cwd) {
   // One trusted local executable, literal arguments, no shell evaluation.
   if (/[;&|`\r\n<>$(){}]/.test(command)) return false;
@@ -85,6 +94,7 @@ function decide(payload) {
   registerMutationProbe(context, probeKey, fingerprint, iterative, cwd, {
     countIteration: iterative,
     allowAtLimit: iterative && isVerificationShell(command),
+    timeoutMs: shellTimeoutMs(payload),
   });
 }
 

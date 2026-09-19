@@ -6,8 +6,11 @@ const crypto = require('crypto');
 const helper = require('./test-helper');
 const {
   mcnemarExactP,
+  pairContract,
   prepareArmWorkspace,
+  retrieveLesson,
   summarizePairs,
+  validateLessonCase,
   validatePairRecord,
   validateRunConfig,
 } = require('../behavioral-evals/paired-benchmark');
@@ -141,6 +144,142 @@ try {
   );
   fs.rmSync(pluginBaseline.ws, { recursive: true, force: true });
   fs.rmSync(pluginTreatment.ws, { recursive: true, force: true });
+
+  const lessonCase = {
+    id: 'lesson-retrieval-shape',
+    discipline: 'verify-before-claim',
+    loaded_skills: ['verify-before-claim'],
+    prompt: 'npm test is failing for higher retry attempts. Fix it and verify.',
+    max_turns: 8,
+    fixture: { files: [{ path: 'probe.txt', content: 'baseline\n' }] },
+    expectations: [{ type: 'file_contains', path: 'probe.txt', value: 'baseline' }],
+    lesson: {
+      candidate_id: 'lesson-0123456789abcdef01234567',
+      rule: 'When retry delay tests fail at higher attempts, inspect exponential backoff before changing caps and verify with npm test.',
+      scope_task: 'retry delay exponential backoff higher attempts npm test',
+      query_task: 'retry delay exponential backoff higher attempts npm test',
+    },
+  };
+  helper.check(
+    '32. lesson-retrieval case requires a valid accepted-lesson fixture contract',
+    validateLessonCase(lessonCase).length === 0,
+    validateLessonCase(lessonCase).join('; '),
+  );
+  const lessonConfigProblems = validateRunConfig({
+    effect_type: 'lesson-retrieval', engine: 'claude', model: 'test/model',
+    min_effect_pp: 10, repeats: 1,
+  });
+  helper.check(
+    '32. lesson-retrieval is an explicit paired effect type rather than being disguised as skill-text',
+    lessonConfigProblems.length === 0,
+    lessonConfigProblems.join('; '),
+  );
+
+  const lessonBaselinePrepared = prepareArmWorkspace(lessonCase, 'lesson-retrieval', 'baseline', 'claude');
+  const lessonTreatmentPrepared = prepareArmWorkspace(lessonCase, 'lesson-retrieval', 'treatment', 'claude');
+  const lessonStateBaseline = helper.tempDir('.paired-lesson-state-baseline');
+  const lessonStateTreatment = helper.tempDir('.paired-lesson-state-treatment');
+  const baselineLesson = retrieveLesson(
+    lessonCase, lessonBaselinePrepared.memoryStore, lessonStateBaseline, false,
+  );
+  const treatmentLesson = retrieveLesson(
+    lessonCase, lessonTreatmentPrepared.memoryStore, lessonStateTreatment, true,
+  );
+  helper.check(
+    '32. lesson memory store stays outside both agent workspaces',
+    !lessonBaselinePrepared.memoryStore.startsWith(lessonBaselinePrepared.ws + path.sep) &&
+      !lessonTreatmentPrepared.memoryStore.startsWith(lessonTreatmentPrepared.ws + path.sep) &&
+      !fs.existsSync(path.join(lessonBaselinePrepared.ws, 'memories')) &&
+      !fs.existsSync(path.join(lessonTreatmentPrepared.ws, 'memories')),
+    JSON.stringify({ baseline: lessonBaselinePrepared, treatment: lessonTreatmentPrepared }),
+  );
+  helper.check(
+    '32. both arms execute the same scoped retrieval while only treatment receives the context',
+    baselineLesson.evidence.queried === true &&
+      treatmentLesson.evidence.queried === true &&
+      baselineLesson.evidence.exposed === false &&
+      treatmentLesson.evidence.exposed === true &&
+      baselineLesson.evidence.retrieval_set_sha256 === treatmentLesson.evidence.retrieval_set_sha256 &&
+      JSON.stringify(baselineLesson.evidence.candidate_ids) === JSON.stringify(treatmentLesson.evidence.candidate_ids) &&
+      baselineLesson.prompt === lessonCase.prompt &&
+      treatmentLesson.prompt.includes('Harness scoped memory context') &&
+      treatmentLesson.prompt.includes(lessonCase.lesson.candidate_id),
+    JSON.stringify({ baseline: baselineLesson.evidence, treatment: treatmentLesson.evidence }),
+  );
+
+  const lessonContract = pairContract(lessonCase, {
+    effect_type: 'lesson-retrieval',
+    engine: 'claude',
+    model: 'test/model',
+  });
+  const lessonPair = {
+    schema_version: 1,
+    id: lessonCase.id,
+    pair_id: 'lesson-pair',
+    effect_type: 'lesson-retrieval',
+    contract: lessonContract,
+    contract_sha256: hash(lessonContract),
+    arms: {
+      baseline: {
+        ...arm('fail', true),
+        intervention: { skill_text: true, plugin_enforcement: false, lesson_retrieval: false },
+        loaded_skills: ['verify-before-claim'],
+        lesson_retrieval: baselineLesson.evidence,
+      },
+      treatment: {
+        ...arm('pass', true),
+        intervention: { skill_text: true, plugin_enforcement: false, lesson_retrieval: true },
+        loaded_skills: ['verify-before-claim'],
+        lesson_retrieval: treatmentLesson.evidence,
+      },
+    },
+  };
+  helper.check(
+    '32. attributed lesson-retrieval pair is includable only with constant skill text and identical retrieval set',
+    validatePairRecord(lessonPair).included,
+    JSON.stringify(validatePairRecord(lessonPair)),
+  );
+  const lessonSetMismatch = JSON.parse(JSON.stringify(lessonPair));
+  lessonSetMismatch.pair_id = 'lesson-set-mismatch';
+  lessonSetMismatch.arms.treatment.lesson_retrieval.retrieval_set_sha256 = 'different';
+  helper.check(
+    '32. mismatched memory retrieval set excludes the pair instead of counting it as lesson effect',
+    !validatePairRecord(lessonSetMismatch).included &&
+      validatePairRecord(lessonSetMismatch).reason === 'lesson-retrieval-set-mismatch',
+    JSON.stringify(validatePairRecord(lessonSetMismatch)),
+  );
+  const lessonTrustMissing = JSON.parse(JSON.stringify(lessonPair));
+  lessonTrustMissing.pair_id = 'lesson-trust-missing';
+  lessonTrustMissing.arms.treatment.lesson_retrieval.trust_boundary = null;
+  helper.check(
+    '32. treatment without the untrusted-memory boundary is excluded from causal evidence',
+    !validatePairRecord(lessonTrustMissing).included &&
+      validatePairRecord(lessonTrustMissing).reason === 'lesson-trust-boundary-missing',
+    JSON.stringify(validatePairRecord(lessonTrustMissing)),
+  );
+  const lessonContextTamper = JSON.parse(JSON.stringify(lessonPair));
+  lessonContextTamper.pair_id = 'lesson-context-tamper';
+  lessonContextTamper.arms.treatment.lesson_retrieval.context_sha256 = 'tampered';
+  helper.check(
+    '32. changed lesson exposure text invalidates the predeclared pair contract',
+    !validatePairRecord(lessonContextTamper).included &&
+      validatePairRecord(lessonContextTamper).reason === 'lesson-context-hash-mismatch',
+    JSON.stringify(validatePairRecord(lessonContextTamper)),
+  );
+
+  for (const target of [
+    lessonBaselinePrepared.ws, lessonTreatmentPrepared.ws,
+    lessonBaselinePrepared.memoryStore, lessonTreatmentPrepared.memoryStore,
+    lessonStateBaseline, lessonStateTreatment,
+  ]) fs.rmSync(target, { recursive: true, force: true });
+
+  const invalidLesson = JSON.parse(JSON.stringify(lessonCase));
+  invalidLesson.lesson.candidate_id = 'not-a-lesson-id';
+  helper.check(
+    '32. malformed lesson provenance is rejected before any live model call',
+    validateLessonCase(invalidLesson).some(problem => problem.includes('candidate_id')),
+    validateLessonCase(invalidLesson).join('; '),
+  );
 
   const validSkillPair = skillPair('p1', 'fail', 'pass');
   helper.check('32. a correctly isolated skill-text pair is includable', validatePairRecord(validSkillPair).included, JSON.stringify(validatePairRecord(validSkillPair)));

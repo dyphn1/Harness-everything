@@ -45,9 +45,15 @@ const persistDirect = (tool, input, cwd = repo, response = {}) => node('hooks/sc
   tool_response: response,
 });
 let toolUseSeq = 0;
-function beginShell(command, cwd = repo) {
+function beginShell(command, cwd = repo, extraToolInput = {}) {
   const toolUseId = 'toolu_fixture_' + (++toolUseSeq);
-  const input = { ...payload, cwd, tool_name: 'Bash', tool_use_id: toolUseId, tool_input: { command } };
+  const input = {
+    ...payload,
+    cwd,
+    tool_name: 'Bash',
+    tool_use_id: toolUseId,
+    tool_input: { command, ...extraToolInput },
+  };
   return { command, cwd, toolUseId, result: node('hooks/scripts/workflow-gate.js', input) };
 }
 function persistShell(call, response = {}, hookEvent = 'PostToolUse') {
@@ -84,11 +90,11 @@ const probeFiles = () => {
   try { return fs.readdirSync(probeDir).filter(name => /^[a-f0-9]{64}\.json$/.test(name)); }
   catch (_) { return []; }
 };
-function ageProbeFiles(ms = 2000) {
+function ageProbeFiles(ms = 60000) {
   for (const name of probeFiles()) {
     const target = path.join(probeDir, name);
     const probe = read(target);
-    write(target, { ...probe, observedAt: Date.now() - ms });
+    write(target, { ...probe, observedAt: Date.now() - ms, reclaimAfterAt: Date.now() - 1 });
   }
 }
 const stop = extra => node('hooks/scripts/workflow-stop-gate.js', { ...payload, ...extra });
@@ -379,6 +385,48 @@ try {
     promotedTier3.mutationIsolation?.required === true && !promotedTier3.pendingPlan, 'pending Tier 3 isolation becomes active atomically on start');
   check(workflowRuntime.isMajorWorkflow(promotedTier3), 'major-workflow classification flips only after explicit activation');
   check(gate('Write', { file_path: path.join(repo, 'premature-primary.js') }, repo).status === 2, 'activated Tier 3 plan still blocks primary-tree mutation');
+
+  // #163: a queued Tier-3 plan can intentionally remain single-agent when
+  // Fable is prohibited. Explicit start must still promote the whole plan,
+  // including isolation and budget metadata, before any mutation is admitted.
+  fs.unlinkSync(file);
+  check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single',
+    '#163 fixture starts from a Tier 2 iterative workflow');
+  check(control('start').status === 0 && read(file).state === 'running',
+    '#163 fixture activates Tier 2 before a stronger route arrives');
+  check(route('Refactor the entire authentication architecture across all services and migrate the database schema without fable').status === 0,
+    '#163 stronger Tier 3 route without Fable is retained for explicit replan');
+  const queuedNonFableTier3 = read(file);
+  check(queuedNonFableTier3.state === 'blocked' &&
+    queuedNonFableTier3.pendingPlan?.tier === 'tier3' &&
+    queuedNonFableTier3.pendingPlan?.strategy === 'iterative-single' &&
+    queuedNonFableTier3.pendingPlan?.mutationIsolation?.required === true,
+    '#163 queued Tier 3 plan remains non-Fable but still requires isolation');
+  write(file, {
+    ...queuedNonFableTier3,
+    budget: {
+      ...queuedNonFableTier3.budget,
+      limits: { ...queuedNonFableTier3.budget.limits, maxIterations: 1 },
+    },
+  });
+  check(control('start').status === 0, '#163 explicit start activates queued non-Fable Tier 3 plan');
+  const promotedNonFableTier3 = read(file);
+  check(promotedNonFableTier3.workflowPlan?.tier === 'tier3' &&
+    promotedNonFableTier3.tier === 'tier3' &&
+    promotedNonFableTier3.strategy === 'iterative-single' &&
+    promotedNonFableTier3.mutationIsolation?.required === true &&
+    !promotedNonFableTier3.pendingPlan,
+    '#163 non-Fable Tier 3 plan replaces all authoritative active-plan fields');
+  check(promotedNonFableTier3.budget?.limits?.maxIterations === promotedNonFableTier3.workflowPlan?.limits?.maxIterations &&
+    promotedNonFableTier3.budget?.limits?.maxIterations !== 1,
+    '#163 plan activation re-derives budget limits from the promoted plan');
+  check(workflowRuntime.isMajorWorkflow(promotedNonFableTier3),
+    '#163 non-Fable Tier 3 promotion enables major-workflow isolation');
+  check(gate('Write', { file_path: path.join(repo, 'non-fable-primary.js') }, repo).status === 2,
+    '#163 promoted non-Fable Tier 3 blocks primary-tree mutation');
+  check(gate('Write', { file_path: path.join(linked, 'non-fable-linked.js') }, linked).status === 0,
+    '#163 promoted non-Fable Tier 3 admits linked-worktree mutation');
+
   fs.unlinkSync(file);
   check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single', 'fresh bounded fix returns to Tier 2 iterative lifecycle');
   let tier2 = read(file);
@@ -583,9 +631,35 @@ try {
     driftMutationAfter.lastMutationAt >= (driftMutationBefore.lastMutationAt || 0),
     '#161 cwd-drift real mutation is observed exactly once');
 
+  // A live command may legitimately run longer than the old 1s grace period.
+  // Its probe must remain reserved until the declared tool timeout expires.
+  const longRunningStateBefore = read(file);
+  const longRunningBefore = longRunningStateBefore.budget.counters.iterations;
+  const longRunningA = beginShell('node long-running-mutator.js', repo, { timeout: 60000 });
+  check(longRunningA.result.status === 0 && probeFiles().length === 1,
+    '#161 long-running call registers one timeout-bound probe');
+  {
+    const target = path.join(probeDir, probeFiles()[0]);
+    const probe = read(target);
+    write(target, { ...probe, observedAt: Date.now() - 2000 });
+  }
+  const concurrentB = beginShell('node concurrent-observer.js', repo, { timeout: 60000 });
+  check(concurrentB.result.status === 0 && probeFiles().length === 2,
+    '#161 a second Pre does not reclaim an in-flight probe merely because it is older than 1s');
+  fs.writeFileSync(path.join(repo, 'long-running-mutated.txt'), 'changed by long-running A\n');
+  check(persistShell(longRunningA).status === 0 &&
+    read(file).budget.counters.iterations === longRunningBefore + 1,
+    '#161 long-running A still settles and records its later mutation');
+  check(denyShell(concurrentB).status === 0 && probeFiles().length === 0,
+    '#161 concurrent non-mutating probe can be denied independently after A settles');
+  fs.rmSync(path.join(repo, 'long-running-mutated.txt'), { force: true });
+  write(file, longRunningStateBefore);
+  check(read(file).budget.counters.iterations === longRunningBefore,
+    '#161 long-running regression restores the shared fixture budget before later boundary tests');
+
   // Simulate default-mode denial / sibling PreToolUse blocking: Pre fires but
-  // neither PostToolUse nor PermissionDenied follows. Age each orphan beyond
-  // the short in-flight grace period so the next real Pre can reclaim it
+  // neither PostToolUse nor PermissionDenied follows. Force each orphan past
+  // its timeout-bound reclaim deadline so the next real Pre can reclaim it
   // deterministically without sleeping in CI.
   const orphanStartIterations = read(file).budget.counters.iterations;
   for (let i = 0; i < iterationLimit; i++) {

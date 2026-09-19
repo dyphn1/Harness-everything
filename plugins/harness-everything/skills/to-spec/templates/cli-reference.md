@@ -28,4 +28,18 @@ Every distinct exit code or error response: what triggers it, what the caller sh
 
 Other commands/endpoints this one is commonly paired with, supersedes, or is superseded by.
 
+## Contract Requirements
+
+For every normative behavior this document owns, assign a stable requirement identity:
+
+```md
+### REQ-001 — <short behavior name>
+**Status:** CURRENT
+**Revision:** 1
+**Decision lineage:** ADR-0001 (or None)
+<observable command/API behavior or error contract>
+```
+
+Do not recycle requirement IDs. A changed caller-visible contract increments the revision before implementation completion.
+
 </spec-template>

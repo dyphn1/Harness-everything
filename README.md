@@ -255,6 +255,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 
 * [Harness Philosophy](docs/philosophy.md): The core behavior-first, intervention-only design.
 * [Harness Architecture](docs/architecture.md): Lifecycle hooks, security model, and data locality.
+* [Enforcement and Lock Diagnostic Flows](docs/enforcement-locks.md): Identify which gate blocked progress, why it fired, and how to recover.
 * [Platform Capability Matrix](docs/platform-capabilities.md): Canonical current enforcement/install/evidence boundary per surface.
 * [Repository Runtime & Workflow Contract](docs/repository-contract.md): Generated Node/action/workflow/gate state used by consistency CI.
 * [OpenAI / ChatGPT Plugin Packaging](docs/openai-plugin.md): Local Codex/OpenAI plugin packaging plus public Skills-only submission boundary.
