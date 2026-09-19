@@ -28,4 +28,18 @@ What breaks for existing consumers, if anything, and what the mitigation is (dua
 
 One realistic, complete example instance of the schema.
 
+## Contract Requirements
+
+For every normative schema behavior this document owns, assign a stable requirement identity:
+
+```md
+### REQ-001 — <short behavior name>
+**Status:** CURRENT
+**Revision:** 1
+**Decision lineage:** ADR-0001 (or None)
+<observable validation, compatibility, or migration contract>
+```
+
+Do not recycle requirement IDs. A changed schema/validation contract increments the revision before implementation completion.
+
 </spec-template>

@@ -41,6 +41,7 @@ and rerun from the first affected gate.
 4. Tests and coverage: `npm run test -- --coverage`.
 5. Security scan: secrets and stray logs.
 6. Diff review: `git diff --stat` and unintended-change checks.
-7. Fill `<this-skill-dir>/templates/verification-report.template.md` with evidence.
+7. Contract reconciliation when the work cites `REQ-*` / ADR/spec/ticket lineage or a contract-integrity trace exists: run the strict `<this-skill-dir>/scripts/contract-integrity-audit.js` gate with current #58 evidence. `AUDIT`, `NOT_EVALUATED`, stale source binding, or drift is **not ready** for delivery.
+8. Fill `<this-skill-dir>/templates/verification-report.template.md` with evidence.
 
 Deep dive: `<this-skill-dir>/references/verification-phases.md`
