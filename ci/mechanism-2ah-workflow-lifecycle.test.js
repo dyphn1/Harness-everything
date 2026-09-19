@@ -45,9 +45,15 @@ const persistDirect = (tool, input, cwd = repo, response = {}) => node('hooks/sc
   tool_response: response,
 });
 let toolUseSeq = 0;
-function beginShell(command, cwd = repo) {
+function beginShell(command, cwd = repo, extraToolInput = {}) {
   const toolUseId = 'toolu_fixture_' + (++toolUseSeq);
-  const input = { ...payload, cwd, tool_name: 'Bash', tool_use_id: toolUseId, tool_input: { command } };
+  const input = {
+    ...payload,
+    cwd,
+    tool_name: 'Bash',
+    tool_use_id: toolUseId,
+    tool_input: { command, ...extraToolInput },
+  };
   return { command, cwd, toolUseId, result: node('hooks/scripts/workflow-gate.js', input) };
 }
 function persistShell(call, response = {}, hookEvent = 'PostToolUse') {
@@ -84,11 +90,11 @@ const probeFiles = () => {
   try { return fs.readdirSync(probeDir).filter(name => /^[a-f0-9]{64}\.json$/.test(name)); }
   catch (_) { return []; }
 };
-function ageProbeFiles(ms = 2000) {
+function ageProbeFiles(ms = 60000) {
   for (const name of probeFiles()) {
     const target = path.join(probeDir, name);
     const probe = read(target);
-    write(target, { ...probe, observedAt: Date.now() - ms });
+    write(target, { ...probe, observedAt: Date.now() - ms, reclaimAfterAt: Date.now() - 1 });
   }
 }
 const stop = extra => node('hooks/scripts/workflow-stop-gate.js', { ...payload, ...extra });
@@ -531,9 +537,30 @@ try {
     driftMutationAfter.lastMutationAt >= (driftMutationBefore.lastMutationAt || 0),
     '#161 cwd-drift real mutation is observed exactly once');
 
+  // A live command may legitimately run longer than the old 1s grace period.
+  // Its probe must remain reserved until the declared tool timeout expires.
+  const longRunningBefore = read(file).budget.counters.iterations;
+  const longRunningA = beginShell('node long-running-mutator.js', repo, { timeout: 60000 });
+  check(longRunningA.result.status === 0 && probeFiles().length === 1,
+    '#161 long-running call registers one timeout-bound probe');
+  {
+    const target = path.join(probeDir, probeFiles()[0]);
+    const probe = read(target);
+    write(target, { ...probe, observedAt: Date.now() - 2000 });
+  }
+  const concurrentB = beginShell('node concurrent-observer.js', repo, { timeout: 60000 });
+  check(concurrentB.result.status === 0 && probeFiles().length === 2,
+    '#161 a second Pre does not reclaim an in-flight probe merely because it is older than 1s');
+  fs.writeFileSync(path.join(repo, 'long-running-mutated.txt'), 'changed by long-running A\n');
+  check(persistShell(longRunningA).status === 0 &&
+    read(file).budget.counters.iterations === longRunningBefore + 1,
+    '#161 long-running A still settles and records its later mutation');
+  check(denyShell(concurrentB).status === 0 && probeFiles().length === 0,
+    '#161 concurrent non-mutating probe can be denied independently after A settles');
+
   // Simulate default-mode denial / sibling PreToolUse blocking: Pre fires but
-  // neither PostToolUse nor PermissionDenied follows. Age each orphan beyond
-  // the short in-flight grace period so the next real Pre can reclaim it
+  // neither PostToolUse nor PermissionDenied follows. Force each orphan past
+  // its timeout-bound reclaim deadline so the next real Pre can reclaim it
   // deterministically without sleeping in CI.
   const orphanStartIterations = read(file).budget.counters.iterations;
   for (let i = 0; i < iterationLimit; i++) {
