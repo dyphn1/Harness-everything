@@ -425,6 +425,11 @@ function buildWorkflowPlan(input = {}) {
   const suggestedSkills = [...meta.suggestedSkills];
   const memoryPersistenceRequested = Boolean(taskShape.observedSignals && taskShape.observedSignals.memoryPersistenceRequested);
   const memoryProhibited = Boolean(taskShape.explicitRequest && taskShape.explicitRequest.prohibitions && taskShape.explicitRequest.prohibitions.includes('memory'));
+  // Durable project memory is useful to ordinary later tasks too, not only
+  // multi-agent workspace topology (#141). Retrieval remains scoped and
+  // deterministic; deferred/unclassified work and explicit memory
+  // prohibitions never read it.
+  const memoryRead = memoryProhibited || !selection.strategy ? 'none' : 'workspace-index';
   const memoryWrite = memoryProhibited ? 'none' : (memoryPersistenceRequested ? 'persist-via-self-evolve' : meta.memoryWrite);
   if (memoryPersistenceRequested && !memoryProhibited) {
     requiredInvariants.push('memory-write-authorization');
@@ -450,6 +455,8 @@ function buildWorkflowPlan(input = {}) {
     ...selection.reasonCodes,
     ...fallback.reasonCodes,
     ...actionGateReasonCodes,
+    ...(memoryRead === 'workspace-index' ? ['scoped-memory-read-enabled'] : []),
+    ...(memoryProhibited ? ['memory-read-prohibited'] : []),
     ...(memoryPersistenceRequested ? ['memory-persistence-requested'] : []),
     ...(memoryPersistenceRequested && memoryProhibited ? ['memory-persistence-prohibited'] : []),
   ]);
@@ -485,7 +492,7 @@ function buildWorkflowPlan(input = {}) {
       reasonCodes: uniqueReasonCodes(meta.workspaceReasonCodes),
     },
     memory: {
-      read: meta.memoryRead,
+      read: memoryRead,
       scope: 'task-relevant-only',
       write: memoryWrite,
     },
