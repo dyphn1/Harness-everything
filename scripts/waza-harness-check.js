@@ -24,10 +24,15 @@ function decodeTarget(value) {
   catch (_) { return raw; }
 }
 
+function unwrapMarkdownDestination(value) {
+  const target = String(value || '').trim();
+  return target.startsWith('<') && target.endsWith('>') ? target.slice(1, -1) : target;
+}
+
 function markdownLinkTargets(text) {
   const targets = [];
   for (const match of String(text || '').matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
-    const target = match[1].trim().replace(/^<|>$/g, '');
+    const target = unwrapMarkdownDestination(match[1]);
     if (target) targets.push(target);
   }
   return targets;
@@ -87,7 +92,7 @@ function harnessReachableReferenceFiles(root, skillName) {
 }
 
 function classifyReportedLink(root, skillName, issue) {
-  const target = decodeTarget(issue && issue.target).replace(/^<|>$/g, '');
+  const target = unwrapMarkdownDestination(decodeTarget(issue && issue.target));
   if (!target) return { category: 'local', issue };
 
   if (/^<[^>]+>\//.test(target)) {
@@ -282,6 +287,7 @@ function main() {
 if (require.main === module) main();
 
 module.exports = {
+  unwrapMarkdownDestination,
   markdownLinkTargets,
   harnessReachableReferenceFiles,
   classifyReportedLink,
