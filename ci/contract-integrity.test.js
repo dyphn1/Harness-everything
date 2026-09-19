@@ -292,6 +292,28 @@ try {
   fs.writeFileSync(tracePath, JSON.stringify(baseline), 'utf8');
   fs.writeFileSync(tddPath, JSON.stringify(baselineTdd), 'utf8');
 
+  const unboundReportPath = path.join(freshRoot, 'report-unbound.json');
+  const unboundAudit = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    tracePath,
+    '--tdd-evidence', tddPath,
+    '--output', unboundReportPath,
+  ], { encoding: 'utf8' });
+  check(unboundAudit.status === 0, 'strict audit may emit a PASS report without workspace binding for immediate inspection');
+  const emptyWorkspace = path.join(freshRoot, 'empty-workspace');
+  fs.mkdirSync(emptyWorkspace, { recursive: true });
+  const unboundFreshness = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    tracePath,
+    '--tdd-evidence', tddPath,
+    '--workspace', emptyWorkspace,
+    '--verify-fresh', unboundReportPath,
+  ], { encoding: 'utf8' });
+  check(unboundFreshness.status === 1 &&
+    /report-workspace-unbound/.test(unboundFreshness.stderr) &&
+    /artifact-fingerprint-missing:/.test(unboundFreshness.stderr),
+    'report created without workspace fingerprints cannot later authorize freshness against a supplied workspace');
+
   const audit = spawnSync(process.execPath, [
     path.join(ROOT, 'contract-integrity/scripts/audit.js'),
     tracePath,
