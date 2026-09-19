@@ -131,6 +131,7 @@ function run(raw) {
         plan,
         workspace: persisted.root,
         task: prompt,
+        sessionId: persisted.sessionId,
       });
     } catch (error) {
       // Memory is optional untrusted context. A malformed/unavailable index
