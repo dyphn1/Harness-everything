@@ -18,7 +18,7 @@ function compactRule(value) {
   return String(value || '').replace(/[\r\n\0]+/g, ' ').trim().slice(0, MAX_RULE_CHARS);
 }
 
-function selectMemoryContext({ plan, workspace, task, maxRecords = MAX_RECORDS }) {
+function selectMemoryContext({ plan, workspace, task, sessionId = '', maxRecords = MAX_RECORDS }) {
   if (plan?.memory?.read !== 'workspace-index') {
     return { applicable: false, reason: 'memory-read-disabled', records: [] };
   }
@@ -27,7 +27,7 @@ function selectMemoryContext({ plan, workspace, task, maxRecords = MAX_RECORDS }
   }
 
   const retrieveMemoryRecords = loadRetriever();
-  const retrieval = retrieveMemoryRecords({ workspace, task: String(task) });
+  const retrieval = retrieveMemoryRecords({ workspace, task: String(task), sessionId });
   const records = retrieval.included
     .filter(record => typeof record.ruleText === 'string' && record.ruleText.trim())
     .slice(0, Math.max(0, Math.min(Number(maxRecords) || MAX_RECORDS, MAX_RECORDS)))
