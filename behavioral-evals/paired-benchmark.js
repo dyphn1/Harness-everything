@@ -384,7 +384,7 @@ function runArm(c, context, arm, pairDir) {
     }
   } catch (error) {
     fs.rmSync(prepared.ws, { recursive: true, force: true });
-    fs.rmSync(prepared.memoryStore || '', { recursive: true, force: true });
+    if (prepared.memoryStore) fs.rmSync(prepared.memoryStore, { recursive: true, force: true });
     fs.rmSync(stateHome, { recursive: true, force: true });
     return {
       arm,
@@ -571,7 +571,7 @@ function pairContract(c, context) {
     lesson_fixture_sha256: context.effect_type === 'lesson-retrieval' ? sha256(stableJson(c.lesson)) : null,
     lesson_context_sha256: context.effect_type === 'lesson-retrieval'
       ? sha256(lessonContextFromRetrieval({ included: [{
-          ruleText: c.lesson.rule,
+          ruleText: String(c.lesson.rule || '').trim(),
           origin: { lessonCandidateId: c.lesson.candidate_id },
         }] }))
       : null,
