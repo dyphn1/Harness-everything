@@ -115,7 +115,7 @@ function readMemoryIndex(workspace) {
   return { indexFile, index };
 }
 
-function retrieveMemoryRecords({ workspace, task = '', requirement = '', role = '', now = new Date().toISOString() }) {
+function retrieveMemoryRecords({ workspace, task = '', requirement = '', role = '', sessionId = '', now = new Date().toISOString() }) {
   const root = path.resolve(workspace || getWorkspaceRoot());
   const { indexFile, index } = readMemoryIndex(root);
   const taskTerms = normalizeTerms(task);
@@ -183,7 +183,7 @@ function retrieveMemoryRecords({ workspace, task = '', requirement = '', role = 
     emitLessonTelemetry({
       event: 'lesson_retrieved',
       root,
-      sessionId: record.writer?.sessionId || null,
+      sessionId: String(sessionId || '').trim() || record.writer?.sessionId || null,
       candidateId: record.origin.lessonCandidateId,
       observedAt: new Date(nowMs).toISOString(),
       status: 'success',
