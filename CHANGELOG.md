@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.13.0](https://github.com/dyphn1/Harness-everything/compare/v0.12.3...v0.13.0) (2026-09-19)
+
+### Features
+
+* **waza:** expose non-link readiness failures ([f9c7d24](https://github.com/dyphn1/Harness-everything/commit/f9c7d242eece2af76fd68a6686eaa9521dcce443))
+
+### Bug Fixes
+
+* **waza:** add Harness reference adapter ([5223690](https://github.com/dyphn1/Harness-everything/commit/52236905be8a3660b89bf43396ea3d7bca984126))
+* **waza:** align reference adapter with main ([87b634d](https://github.com/dyphn1/Harness-everything/commit/87b634df1d5d7de57b1c5ca45e8505423764e240))
+* **waza:** normalize template and repo-scope links ([25558ca](https://github.com/dyphn1/Harness-everything/commit/25558caaa39b8bafb4a825c1299ff746ffbae91b))
+* **waza:** preserve Harness placeholder delimiters ([f697ae8](https://github.com/dyphn1/Harness-everything/commit/f697ae83b6de54718b2e969041adfaa20b5e8efc))
+* **waza:** scope checks to canonical skills ([de7b78b](https://github.com/dyphn1/Harness-everything/commit/de7b78b1702b412466337a1ea84ec524cf864e60))
+
 ## [0.12.3](https://github.com/dyphn1/Harness-everything/compare/v0.12.2...v0.12.3) (2026-09-19)
 
 ### Bug Fixes
