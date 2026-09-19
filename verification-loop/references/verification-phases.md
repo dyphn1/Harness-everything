@@ -113,7 +113,7 @@ Use the current trace plus current #58 TDD evidence:
 node "<this-skill-dir>/scripts/contract-integrity-audit.js" <trace.json> --tdd-evidence <tdd-evidence.json> --output <report.json> --markdown <report.md>
 ```
 
-Delivery requires strict **PASS**. Treat `FAIL`, `NOT_EVALUATED`, source conflicts/defects, stale spec/test/implementation lineage, surviving required probes, and audit-only output as **NOT READY**. Do not downgrade the gate merely because build/tests are otherwise green.
+Delivery requires strict **PASS**. Treat `FAIL`, `AUDIT`, `NOT_EVALUATED`, source conflicts/defects, stale spec/test/implementation lineage, surviving required probes, and audit-only output as **NOT READY**. Do not downgrade the gate merely because build/tests are otherwise green.
 
 If this phase is not applicable, record `NOT_APPLICABLE` with a one-line reason. Never use `NOT_APPLICABLE` to hide known requirement lineage.
 
