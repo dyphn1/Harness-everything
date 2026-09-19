@@ -179,6 +179,28 @@ try {
   check(removedConfigResult.status === 'uninstalled' && !fs.existsSync(path.join(removedConfigHome, 'hooks.json')),
     'uninstall never recreates a user hooks.json that was removed after compatibility install');
 
+  const preexistingHome = path.join(root, 'preexisting-identical-codex');
+  fs.mkdirSync(preexistingHome, { recursive: true });
+  const sourceHash = compat.treeHash(compat.SOURCE_PLUGIN_ROOT);
+  const preexistingPaths = compat.pathsFor(preexistingHome, sourceHash);
+  const preexistingEntries = compat.sourceHookEntries(preexistingPaths.runtimeDir);
+  const preexistingHooks = {};
+  for (const record of preexistingEntries) {
+    preexistingHooks[record.event] = preexistingHooks[record.event] || [];
+    preexistingHooks[record.event].push(JSON.parse(JSON.stringify(record.entry)));
+  }
+  fs.writeFileSync(path.join(preexistingHome, 'hooks.json'),
+    JSON.stringify({ hooks: preexistingHooks }, null, 2) + '\n', 'utf8');
+  const preexistingBefore = fs.readFileSync(path.join(preexistingHome, 'hooks.json'), 'utf8');
+  const preexistingInstall = compat.install({ codexHome: preexistingHome });
+  const preexistingManifest = read(path.join(preexistingHome, 'harness-everything', 'compat-hooks', 'manifest.json'));
+  check(preexistingInstall.status === 'installed' && preexistingManifest.entries.length === 0,
+    'byte-identical pre-existing user hooks are reused but never recorded as Harness-owned');
+  const preexistingRemoved = compat.uninstall({ codexHome: preexistingHome });
+  check(preexistingRemoved.removed === 0 &&
+    fs.readFileSync(path.join(preexistingHome, 'hooks.json'), 'utf8') === preexistingBefore,
+    'uninstall preserves byte-identical hooks that predated compatibility install');
+
   const malformedHome = path.join(root, 'malformed-codex');
   fs.mkdirSync(malformedHome, { recursive: true });
   const malformed = path.join(malformedHome, 'hooks.json');
