@@ -46,7 +46,7 @@ function saveWorkflow(context) { atomicWriteJson(context.file, context.workflow)
 
 const MUTATION_PROBE_KEY = /^[a-f0-9]{64}$/;
 const MUTATION_PROBE_WAIT = new Int32Array(new SharedArrayBuffer(4));
-const MUTATION_PROBE_DEFAULT_TIMEOUT_MS = 30000;
+const MUTATION_PROBE_DEFAULT_TIMEOUT_MS = 120000;
 const MUTATION_PROBE_RECLAIM_GRACE_MS = 5000;
 const MUTATION_PROBE_MAX_TIMEOUT_MS = 30 * 60 * 1000;
 
