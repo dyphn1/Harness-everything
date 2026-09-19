@@ -45,3 +45,7 @@ Only generalizable procedures/enforcement contracts qualify; simple constraints 
 - Lifecycle: draft → active after firing elsewhere; deprecate, don't delete; promote once proven general.
 
 Deep dive: <this-skill-dir>/references/quality-checklist.md
+Deep dive: <this-skill-dir>/references/authoring-workflow.md
+Deep dive: <this-skill-dir>/references/testing-workflow.md
+Deep dive: <this-skill-dir>/references/quality-principles.md
+Deep dive: <this-skill-dir>/references/dynamic-generation-contract.md
