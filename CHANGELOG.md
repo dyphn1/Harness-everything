@@ -2,6 +2,38 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.12.0](https://github.com/dyphn1/Harness-everything/compare/v0.11.7...v0.12.0) (2026-09-19)
+
+### Features
+
+* **contract:** add portable verification audit wrapper ([8b3e75f](https://github.com/dyphn1/Harness-everything/commit/8b3e75f3f0b3235196ab530edb528463705a95a6))
+* **contract:** package shared audit runtime ([52035c9](https://github.com/dyphn1/Harness-everything/commit/52035c9dab050cf715b4e4d46b3fddf5ba099e0d))
+* **contract:** sync portable verification wrapper ([3370f27](https://github.com/dyphn1/Harness-everything/commit/3370f2734388a9909ba7c809d3aef910eeee31c0))
+* **eval:** add paired lesson retrieval intervention ([e239c8c](https://github.com/dyphn1/Harness-everything/commit/e239c8c7f9f4e92b2108aad670058bd319171b2d))
+* **self-evolve:** emit candidate lifecycle telemetry ([0b4e684](https://github.com/dyphn1/Harness-everything/commit/0b4e684e670906ed696dfde0c04cb0c08c707c75))
+* **self-evolve:** emit learning opportunity telemetry ([a3734c4](https://github.com/dyphn1/Harness-everything/commit/a3734c4830586f2b0d22b43e570a2410048c72b9))
+* **self-evolve:** observe scoped lesson retrieval ([bd95230](https://github.com/dyphn1/Harness-everything/commit/bd95230d50f774310cc9b687680e1434806bdc00))
+* **self-evolve:** sync candidate telemetry mirror ([aafd760](https://github.com/dyphn1/Harness-everything/commit/aafd7607e41eae8735bd939e1fb21ed6b9aee8b8))
+* **self-evolve:** sync learning telemetry mirror ([bd9fff6](https://github.com/dyphn1/Harness-everything/commit/bd9fff63c616982bb8f59ba361e72afb45856342))
+* **self-evolve:** sync retrieval telemetry mirror ([7b5d090](https://github.com/dyphn1/Harness-everything/commit/7b5d0905bfdff62bed6f2a300232cb9d04b4e226))
+* **telemetry:** add lesson lifecycle events ([212060b](https://github.com/dyphn1/Harness-everything/commit/212060b86cea664faca67ff84d6d5694b42b06dd))
+* **telemetry:** extend lesson lifecycle schema ([818e58f](https://github.com/dyphn1/Harness-everything/commit/818e58f74ff074cffa0420a5117f517c2340a54f))
+* **telemetry:** report self-evolve lifecycle funnel ([01b8dcf](https://github.com/dyphn1/Harness-everything/commit/01b8dcfdbac11b8447b3800f04418ed8063d283b))
+* **telemetry:** sync lesson event runtime mirror ([abdf0a6](https://github.com/dyphn1/Harness-everything/commit/abdf0a6727d30ec9aa46e074aa46d110de7185da))
+
+### Bug Fixes
+
+* **contract:** sync packaged audit runtime ([cd6be16](https://github.com/dyphn1/Harness-everything/commit/cd6be1641bc23eb63196f1f5a3eb3d83bb3a0e2b))
+* **eval:** harden lesson retrieval fixture cleanup ([a9aa1d4](https://github.com/dyphn1/Harness-everything/commit/a9aa1d4ff0458d4d1be1a852965c73c027960a6f))
+* **workflow:** activate pending Tier-3 plans atomically ([5589e8b](https://github.com/dyphn1/Harness-everything/commit/5589e8b98656e1b70501364bcd36650c255cdde1))
+* **workflow:** activate pending Tier-3 plans atomically ([f0590a4](https://github.com/dyphn1/Harness-everything/commit/f0590a4ce87bacc2276ae19fdb2c0ced74d0e07a))
+* **workflow:** allow Tier-2 shell outside Git workspaces ([30a4a9a](https://github.com/dyphn1/Harness-everything/commit/30a4a9a0deec098d0fdb3b638c3c6e28d441c318))
+* **workflow:** allow Tier-2 shell outside Git workspaces ([1581c54](https://github.com/dyphn1/Harness-everything/commit/1581c5406540fcc2fc1158824bf7c0bbe610beea))
+* **workflow:** degrade Tier-2 post-observation failures ([033777f](https://github.com/dyphn1/Harness-everything/commit/033777f9b4d683354577d5c7f549265e2df2f11b))
+* **workflow:** degrade Tier-2 post-observation failures ([2aafd67](https://github.com/dyphn1/Harness-everything/commit/2aafd67eaf4edac9878cc277767e90625bb79fdf))
+* **workflow:** settle unobservable Tier-2 probes conservatively ([2022a59](https://github.com/dyphn1/Harness-everything/commit/2022a5956a2a9037d585a02ef22085eebf3580c5))
+* **workflow:** settle unobservable Tier-2 probes conservatively ([b78be63](https://github.com/dyphn1/Harness-everything/commit/b78be63c05b75160fa709285857489606972f1dc))
+
 ## [0.11.7](https://github.com/dyphn1/Harness-everything/compare/v0.11.6...v0.11.7) (2026-09-18)
 
 ### Bug Fixes
