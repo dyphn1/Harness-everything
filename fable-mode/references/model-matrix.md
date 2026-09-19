@@ -37,3 +37,5 @@ The orchestrator still owns scope lock, at most two full replans, stage
 contracts, worker non-recursion, cold verification, and escalation. The native
 host TODO tracker or a Markdown checklist records stage progress; no CLI TODO
 state machine is part of this contract.
+
+See [execution phases](execution-phases.md) for the staged run contract.

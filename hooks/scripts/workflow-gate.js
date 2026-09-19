@@ -4,10 +4,19 @@
 const path = require('path');
 const fs = require('fs');
 const { loadWorkflow, saveWorkflow, isMajorWorkflow, matchingRun, registerMutationProbe, recordBudgetEvent, readHookInput, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
-const { key, classifyShell, workspaceFingerprint, shellProbeKey, cwdOf, commandOf, mutationPaths, directMutationInWorkspace, linkedWorktree, assertTargets, assertShellScope } = require('./lib/workflow-isolation');
+const { key, classifyShell, isVerificationShell, workspaceFingerprint, shellProbeKey, cwdOf, commandOf, mutationPaths, directMutationInWorkspace, linkedWorktree, assertTargets, assertShellScope } = require('./lib/workflow-isolation');
 
 const DIRECT = new Set(['Edit', 'Write', 'apply_patch']);
 const SHELL = new Set(['Bash', 'PowerShell', 'exec_command']);
+
+function shellTimeoutMs(payload) {
+  const input = payload?.tool_input || payload?.input || {};
+  for (const value of [input.timeout_ms, input.timeoutMs, input.timeout, payload.timeout_ms, payload.timeoutMs]) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
 
 function isController(command, cwd) {
   // One trusted local executable, literal arguments, no shell evaluation.
@@ -62,11 +71,31 @@ function decide(payload) {
 
   // Shell safety and shell mutation accounting are intentionally separate.
   // `untrusted` means "not proven read-only", not "a mutation occurred".
-  // Capture an opaque pre-execution workspace fingerprint; the post-tool
-  // observer consumes an iteration only when workspace content actually changed.
-  const fingerprint = workspaceFingerprint(cwd);
+  // Capture an opaque pre-execution workspace fingerprint when possible. A
+  // non-major workflow may run outside Git, where mutation observation is an
+  // accounting aid rather than an isolation boundary; degrade conservatively
+  // instead of blocking the user's command (#162).
+  let fingerprint;
+  try {
+    fingerprint = workspaceFingerprint(cwd);
+  } catch (error) {
+    const fingerprintLimited = error && error.code === 'HARNESS_FINGERPRINT_LIMIT';
+    if (isMajorWorkflow(workflow) && !fingerprintLimited) throw error;
+    const evidence = fingerprintLimited ? 'shell:fingerprint-limit' : 'shell:unobservable-workspace';
+    if (workflow.strategy === 'iterative-single') {
+      recordBudgetEvent(context, 'iteration', { evidence });
+    }
+    workflow.lastMutationAt = Date.now();
+    saveWorkflow(context);
+    return;
+  }
   const probeKey = shellProbeKey(payload, cwd);
-  registerMutationProbe(context, probeKey, fingerprint, workflow.strategy === 'iterative-single');
+  const iterative = workflow.strategy === 'iterative-single';
+  registerMutationProbe(context, probeKey, fingerprint, iterative, cwd, {
+    countIteration: iterative,
+    allowAtLimit: iterative && isVerificationShell(command),
+    timeoutMs: shellTimeoutMs(payload),
+  });
 }
 
 readHookInput(decide);

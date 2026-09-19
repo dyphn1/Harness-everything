@@ -6,6 +6,18 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { contentHash, scoreRuleQuality, screenMemoryForPersistence } = require('./persist-memory');
 
+let emitLessonTelemetry = () => ({ ok: false, unavailable: true });
+for (const relative of [
+  '../../hooks/scripts/lib/telemetry.js',
+  '../../../hooks/scripts/lib/telemetry.js',
+]) {
+  const candidate = path.resolve(__dirname, relative);
+  if (fs.existsSync(candidate)) {
+    ({ emitLessonTelemetry } = require(candidate));
+    break;
+  }
+}
+
 let getWorkspaceRoot;
 let getWorkspaceStateDir;
 try {
@@ -67,6 +79,24 @@ function pushState(candidate, state, reasonCode, evidenceRef = null) {
     reasonCode,
     evidenceRef: evidenceRef || null,
   }].slice(-32);
+}
+
+function emitCandidateLifecycle(input, candidate, event, state, status = 'unknown') {
+  const history = [...(candidate.history || [])].reverse().find(item => item.state === state);
+  const reasonCodes = [
+    history && history.reasonCode,
+    candidate.trigger && candidate.trigger.type ? `trigger:${candidate.trigger.type}` : null,
+    ...(candidate.evaluation && Array.isArray(candidate.evaluation.reasonCodes) ? candidate.evaluation.reasonCodes : []),
+  ].filter(Boolean);
+  return emitLessonTelemetry({
+    event,
+    root: input.workspace,
+    sessionId: input.sessionId || (candidate.provenance && candidate.provenance.sessionId),
+    candidateId: candidate.candidateId,
+    observedAt: history && history.observedAt,
+    status,
+    reasonCodes,
+  });
 }
 
 function replayability(candidate) {
@@ -134,6 +164,8 @@ function evaluateCandidate(input) {
     };
     pushState(candidate, 'rejected', 'candidate-screening-or-quality-failed');
     atomicWriteJson(file, candidate);
+    emitCandidateLifecycle(input, candidate, 'lesson_screened', 'screened', screening.allowed ? 'success' : 'failure');
+    emitCandidateLifecycle(input, candidate, 'lesson_rejected', 'rejected', 'failure');
     return { file, candidate };
   }
 
@@ -150,6 +182,15 @@ function evaluateCandidate(input) {
   pushState(candidate, 'evaluated', replay.reasonCode);
   pushState(candidate, disposition, disposition === 'accepted' ? 'eligible-for-governed-promotion' : 'paired-or-later-evidence-required');
   atomicWriteJson(file, candidate);
+  emitCandidateLifecycle(input, candidate, 'lesson_screened', 'screened', 'success');
+  emitCandidateLifecycle(input, candidate, 'lesson_evaluated', 'evaluated', 'success');
+  emitCandidateLifecycle(
+    input,
+    candidate,
+    disposition === 'accepted' ? 'lesson_accepted' : 'lesson_inconclusive',
+    disposition,
+    disposition === 'accepted' ? 'success' : 'unknown',
+  );
   return { file, candidate };
 }
 
@@ -212,6 +253,7 @@ function promoteCandidate(input) {
   if (persisted) pushState(candidate, 'persisted', 'accepted-and-authorized-memory-write');
   else pushState(candidate, 'accepted', 'memory-governance-held-as-review-candidate');
   atomicWriteJson(file, candidate);
+  if (persisted) emitCandidateLifecycle(input, candidate, 'lesson_persisted', 'persisted', 'success');
   return { ok: true, exitCode: 0, persisted, stdout: result.stdout, stderr: result.stderr, candidate };
 }
 
@@ -234,6 +276,16 @@ function observeCandidate(input) {
   };
   pushState(candidate, next, `lesson-${next}`, evidenceRef);
   atomicWriteJson(file, candidate);
+  // Retrieval telemetry is emitted by the actual scoped retrieval path so the
+  // funnel measures exposure, not an operator-authored lifecycle annotation.
+  if (next !== 'retrieved') {
+    const event = {
+      validated: 'lesson_validated',
+      regressed: 'lesson_regressed',
+      superseded: 'lesson_superseded',
+    }[next];
+    if (event) emitCandidateLifecycle(input, candidate, event, next, next === 'regressed' ? 'failure' : 'success');
+  }
   return { file, candidate };
 }
 

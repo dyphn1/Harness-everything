@@ -93,17 +93,29 @@ function discoverProject(workspace, plan) {
 }
 
 function copyWorkspace(source) {
+  const sourceRoot = path.resolve(source);
+  if (fs.lstatSync(sourceRoot).isSymbolicLink()) {
+    throw new Error('source workspace contains a symbolic link/reparse-point root');
+  }
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-contract-probe-'));
   const destination = path.join(root, 'workspace');
-  fs.cpSync(source, destination, {
-    recursive: true,
-    filter: src => {
-      const relative = path.relative(source, src).replace(/\\/g, '/');
-      if (!relative) return true;
-      const head = relative.split('/')[0];
-      return !['.git', 'node_modules', '.harness'].includes(head);
-    },
-  });
+  try {
+    fs.cpSync(sourceRoot, destination, {
+      recursive: true,
+      filter: src => {
+        if (fs.lstatSync(src).isSymbolicLink()) {
+          throw new Error('source workspace contains a symbolic link/reparse-point component');
+        }
+        const relative = path.relative(sourceRoot, src).replace(/\\/g, '/');
+        if (!relative) return true;
+        const head = relative.split('/')[0];
+        return !['.git', 'node_modules', '.harness'].includes(head);
+      },
+    });
+  } catch (error) {
+    fs.rmSync(root, { recursive: true, force: true });
+    throw error;
+  }
   return { root, workspace: destination };
 }
 
@@ -143,13 +155,38 @@ function runScript(workspace, plan, extraEnv = {}) {
   };
 }
 
+function isolatedRegularFile(workspace, relativeTarget) {
+  const root = path.resolve(workspace);
+  const target = path.resolve(root, relativeTarget);
+  const lexical = path.relative(root, target);
+  if (lexical === '..' || lexical.startsWith('..' + path.sep) || path.isAbsolute(lexical)) {
+    throw new Error('replace target escaped isolated workspace');
+  }
+
+  let current = root;
+  for (const segment of lexical.split(path.sep).filter(Boolean)) {
+    current = path.join(current, segment);
+    if (!fs.existsSync(current)) throw new Error('replace target does not exist');
+    const stat = fs.lstatSync(current);
+    if (stat.isSymbolicLink()) {
+      throw new Error('replace target contains symbolic link/reparse-point component');
+    }
+  }
+
+  const realRoot = fs.realpathSync(root);
+  const realTarget = fs.realpathSync(target);
+  const resolved = path.relative(realRoot, realTarget);
+  if (resolved === '..' || resolved.startsWith('..' + path.sep) || path.isAbsolute(resolved)) {
+    throw new Error('replace target resolved outside isolated workspace');
+  }
+  if (!fs.lstatSync(realTarget).isFile()) throw new Error('replace target does not exist');
+  return realTarget;
+}
+
 function applyProbe(workspace, probe) {
   if (probe.strategy === 'env') return { env: { ...probe.env }, mutation: 'environment-only' };
 
-  const target = path.resolve(workspace, probe.target);
-  const root = path.resolve(workspace);
-  if (target !== root && !target.startsWith(root + path.sep)) throw new Error('replace target escaped isolated workspace');
-  if (!fs.existsSync(target) || !fs.statSync(target).isFile()) throw new Error('replace target does not exist');
+  const target = isolatedRegularFile(workspace, probe.target);
   const source = fs.readFileSync(target, 'utf8');
   const first = source.indexOf(probe.find);
   const last = source.lastIndexOf(probe.find);
@@ -163,14 +200,14 @@ function evidenceRef(probe, run) {
   return `probe:${probe.probeId}:output-sha256:${run.outputHash}`;
 }
 
-function notEvaluatedProbe(probe, reason, failureClass = 'infrastructure') {
+function notEvaluatedProbe(probe, reason, failureClass = 'infrastructure', workspaceIsolation = 'isolated') {
   return {
     probeId: probe.probeId,
     requirementId: probe.requirementId,
     status: 'NOT_EVALUATED',
     sourceSection: probe.sourceSection,
     evidenceRef: null,
-    workspaceIsolation: 'isolated',
+    workspaceIsolation,
     failureClass,
     adapterReason: reason,
   };
@@ -215,6 +252,24 @@ function executePlan(workspace, plan) {
         errors: [],
       };
     }
+  } catch (error) {
+    const reason = String(error.message || error);
+    return {
+      schemaVersion: VERSION,
+      adapter: ADAPTER,
+      result: 'NOT_EVALUATED',
+      discovery: discovered,
+      baseline: {
+        status: 'NOT_EVALUATED',
+        evidenceRef: null,
+        workspaceIsolation: 'not-isolated',
+        failureClass: 'infrastructure',
+        adapterReason: reason,
+      },
+      probes: plan.probes.map(probe =>
+        notEvaluatedProbe(probe, reason, 'infrastructure', 'not-isolated')),
+      errors: [],
+    };
   } finally {
     if (baselineIsolation?.root) fs.rmSync(baselineIsolation.root, { recursive: true, force: true });
   }
@@ -267,7 +322,12 @@ function executePlan(workspace, plan) {
         });
       }
     } catch (error) {
-      results.push(notEvaluatedProbe(probe, String(error.message || error), 'infrastructure'));
+      results.push(notEvaluatedProbe(
+        probe,
+        String(error.message || error),
+        'infrastructure',
+        isolated ? 'isolated' : 'not-isolated',
+      ));
     } finally {
       if (isolated?.root) fs.rmSync(isolated.root, { recursive: true, force: true });
     }

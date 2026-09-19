@@ -14,6 +14,8 @@ Supported project shape:
 - probes are predeclared in a local JSON plan and tied to stable `REQ-*` IDs and authoritative source sections;
 - every baseline and probe run executes in a fresh temporary copy; the source workspace is never mutated.
 
+Source workspaces containing symbolic-link or junction entries are rejected before project code runs. The v1 adapter does not claim isolation when a copied path could retain an external filesystem target.
+
 Supported probe strategies:
 
 1. **`env`** — explicit project-owned fault injection via environment variables.

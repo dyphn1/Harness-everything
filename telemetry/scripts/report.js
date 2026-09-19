@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const {
+  LESSON_EVENT_TYPES,
   readEvents,
   telemetryFile,
 } = require('../../hooks/scripts/lib/telemetry');
@@ -28,8 +29,20 @@ function buildReport(events) {
   const valid = events.filter(event => event && !event.invalid);
   const invalid = events.filter(event => event && event.invalid);
   const groups = new Map();
+  const lessonCandidateIds = new Set();
+  const lessonEvents = {};
+  const lessonCandidatesByEvent = new Map();
 
   for (const event of valid) {
+    if (LESSON_EVENT_TYPES.has(event.event)) {
+      lessonEvents[event.event] = (lessonEvents[event.event] || 0) + 1;
+      if (event.invocationId) {
+        lessonCandidateIds.add(event.invocationId);
+        if (!lessonCandidatesByEvent.has(event.event)) lessonCandidatesByEvent.set(event.event, new Set());
+        lessonCandidatesByEvent.get(event.event).add(event.invocationId);
+      }
+      continue;
+    }
     const key = `${event.host}::${event.skillName || '(unknown)'}`;
     if (!groups.has(key)) groups.set(key, {
       host: event.host,
@@ -80,11 +93,34 @@ function buildReport(events) {
     attributedToolDurationMs: metric(g.attributedToolDurations),
   })).sort((a, b) => `${a.host}/${a.skillName}`.localeCompare(`${b.host}/${b.skillName}`));
 
+  const uniqueLessonCount = event => lessonCandidatesByEvent.get(event)?.size || 0;
+  const selfEvolve = {
+    candidateCount: lessonCandidateIds.size,
+    eventCount: Object.values(lessonEvents).reduce((sum, value) => sum + value, 0),
+    funnel: {
+      opportunities: uniqueLessonCount('learning_opportunity'),
+      proposed: uniqueLessonCount('lesson_proposed'),
+      screened: uniqueLessonCount('lesson_screened'),
+      evaluated: uniqueLessonCount('lesson_evaluated'),
+      accepted: uniqueLessonCount('lesson_accepted'),
+      rejected: uniqueLessonCount('lesson_rejected'),
+      inconclusive: uniqueLessonCount('lesson_inconclusive'),
+      persisted: uniqueLessonCount('lesson_persisted'),
+      retrieved: uniqueLessonCount('lesson_retrieved'),
+      validated: uniqueLessonCount('lesson_validated'),
+      regressed: uniqueLessonCount('lesson_regressed'),
+      superseded: uniqueLessonCount('lesson_superseded'),
+    },
+    events: lessonEvents,
+    semantics: 'Counts are privacy-safe lifecycle observations. Acceptance/persistence/retrieval counts do not by themselves prove behavioral improvement.',
+  };
+
   return {
     schemaVersion: 1,
     eventCount: valid.length,
     invalidEventCount: invalid.length,
     skills,
+    selfEvolve,
     semantics: {
       skillLoadDurationMs: 'PreToolUse(Skill) to correlated PostToolUse(Skill); framework/load latency only.',
       activeWindowMs: 'Successful skill load to host Stop/turn boundary; context exposure window, not CPU time.',
@@ -104,6 +140,12 @@ function markdown(report) {
     const pair = value => value.count ? `${value.p50}/${value.p95}` : '-';
     lines.push(`| ${row.host} | ${row.skillName || '(unknown)'} | ${row.invocationCount} | ${row.completeEvents} | ${row.status.failure} | ${pair(row.skillLoadDurationMs)} | ${pair(row.activeWindowMs)} | ${pair(row.attributedToolDurationMs)} |`);
   }
+  lines.push('', '## Self-Evolve Lifecycle Funnel', '');
+  const f = report.selfEvolve.funnel;
+  lines.push('| Opportunity | Proposed | Accepted | Rejected | Inconclusive | Persisted | Retrieved | Validated | Regressed |');
+  lines.push('| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |');
+  lines.push(`| ${f.opportunities} | ${f.proposed} | ${f.accepted} | ${f.rejected} | ${f.inconclusive} | ${f.persisted} | ${f.retrieved} | ${f.validated} | ${f.regressed} |`);
+  lines.push('', '> Lesson funnel counts are lifecycle evidence, not proof that a persisted lesson improved behavior.');
   lines.push('', `Events: ${report.eventCount}; invalid lines: ${report.invalidEventCount}.`);
   lines.push('', '> Active window is not CPU/runtime. Attributed tool time is observational and non-exclusive when skills overlap.');
   return `${lines.join('\n')}\n`;

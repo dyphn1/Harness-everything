@@ -8,6 +8,7 @@ const {
   getSessionId,
   getSessionDir,
 } = require('./harness-state');
+const { emitLessonTelemetry } = require('./telemetry');
 
 const SCHEMA_VERSION = 1;
 const TRIGGERS = new Set(['rule-of-3-recovery', 'verifier-fail-pass']);
@@ -134,6 +135,27 @@ function createLearningOpportunity(payload, input = {}) {
     updatedAt: observedAt,
   };
   atomicWriteJson(file, candidate);
+  const lifecycleReasonCodes = [...candidate.trigger.reasonCodes, `trigger:${triggerType}`];
+  emitLessonTelemetry({
+    event: 'learning_opportunity',
+    root,
+    payload,
+    sessionId,
+    candidateId,
+    observedAt,
+    status: 'success',
+    reasonCodes: lifecycleReasonCodes,
+  });
+  emitLessonTelemetry({
+    event: 'lesson_proposed',
+    root,
+    payload,
+    sessionId,
+    candidateId,
+    observedAt,
+    status: 'success',
+    reasonCodes: lifecycleReasonCodes,
+  });
   return { created: true, file, candidate };
 }
 
