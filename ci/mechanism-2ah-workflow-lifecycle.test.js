@@ -539,7 +539,8 @@ try {
 
   // A live command may legitimately run longer than the old 1s grace period.
   // Its probe must remain reserved until the declared tool timeout expires.
-  const longRunningBefore = read(file).budget.counters.iterations;
+  const longRunningStateBefore = read(file);
+  const longRunningBefore = longRunningStateBefore.budget.counters.iterations;
   const longRunningA = beginShell('node long-running-mutator.js', repo, { timeout: 60000 });
   check(longRunningA.result.status === 0 && probeFiles().length === 1,
     '#161 long-running call registers one timeout-bound probe');
@@ -557,6 +558,10 @@ try {
     '#161 long-running A still settles and records its later mutation');
   check(denyShell(concurrentB).status === 0 && probeFiles().length === 0,
     '#161 concurrent non-mutating probe can be denied independently after A settles');
+  fs.rmSync(path.join(repo, 'long-running-mutated.txt'), { force: true });
+  write(file, longRunningStateBefore);
+  check(read(file).budget.counters.iterations === longRunningBefore,
+    '#161 long-running regression restores the shared fixture budget before later boundary tests');
 
   // Simulate default-mode denial / sibling PreToolUse blocking: Pre fires but
   // neither PostToolUse nor PermissionDenied follows. Force each orphan past
