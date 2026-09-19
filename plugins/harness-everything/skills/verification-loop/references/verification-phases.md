@@ -110,10 +110,18 @@ This phase is applicable when any of the following is true:
 Use the current trace plus current #58 TDD evidence:
 
 ```bash
-node "<this-skill-dir>/scripts/contract-integrity-audit.js" <trace.json> --tdd-evidence <tdd-evidence.json> --output <report.json> --markdown <report.md>
+node "<this-skill-dir>/scripts/contract-integrity-audit.js" <trace.json> --tdd-evidence <tdd-evidence.json> --workspace <workspace> --output <report.json> --markdown <report.md>
 ```
 
 Delivery requires strict **PASS**. Treat `FAIL`, `AUDIT`, `NOT_EVALUATED`, source conflicts/defects, stale spec/test/implementation lineage, surviving required probes, and audit-only output as **NOT READY**. Do not downgrade the gate merely because build/tests are otherwise green.
+
+If an existing JSON report is being reused rather than regenerated immediately, verify its content fingerprints first:
+
+```bash
+node "<this-skill-dir>/scripts/contract-integrity-audit.js" <trace.json> --tdd-evidence <tdd-evidence.json> --workspace <workspace> --verify-fresh <report.json>
+```
+
+Any trace, #58 evidence, spec, test, ticket, ADR, or implementation artifact change makes the prior report stale and unable to authorize completion.
 
 If this phase is not applicable, record `NOT_APPLICABLE` with a one-line reason. Never use `NOT_APPLICABLE` to hide known requirement lineage.
 
