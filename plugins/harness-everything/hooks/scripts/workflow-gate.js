@@ -62,9 +62,22 @@ function decide(payload) {
 
   // Shell safety and shell mutation accounting are intentionally separate.
   // `untrusted` means "not proven read-only", not "a mutation occurred".
-  // Capture an opaque pre-execution workspace fingerprint; the post-tool
-  // observer consumes an iteration only when workspace content actually changed.
-  const fingerprint = workspaceFingerprint(cwd);
+  // Capture an opaque pre-execution workspace fingerprint when possible. A
+  // non-major workflow may run outside Git, where mutation observation is an
+  // accounting aid rather than an isolation boundary; degrade conservatively
+  // instead of blocking the user's command (#162).
+  let fingerprint;
+  try {
+    fingerprint = workspaceFingerprint(cwd);
+  } catch (error) {
+    if (isMajorWorkflow(workflow)) throw error;
+    if (workflow.strategy === 'iterative-single') {
+      recordBudgetEvent(context, 'iteration', { evidence: 'shell:unobservable-workspace' });
+    }
+    workflow.lastMutationAt = Date.now();
+    saveWorkflow(context);
+    return;
+  }
   const probeKey = shellProbeKey(payload, cwd);
   registerMutationProbe(context, probeKey, fingerprint, workflow.strategy === 'iterative-single');
 }

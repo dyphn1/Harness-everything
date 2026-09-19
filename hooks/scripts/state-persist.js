@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
-const { loadWorkflow, saveWorkflow, peekMutationProbe, settleMutationProbe } = require('./lib/workflow-runtime');
+const { loadWorkflow, saveWorkflow, isMajorWorkflow, peekMutationProbe, settleMutationProbe, settleMutationProbeConservative } = require('./lib/workflow-runtime');
 const { cwdOf, shellProbeKey, workspaceFingerprint, directMutationInWorkspace } = require('./lib/workflow-isolation');
 const { observeTool } = require('./lib/telemetry');
 
@@ -42,6 +42,10 @@ function observeWorkspaceMutation(payload, root) {
   try {
     after = workspaceFingerprint(cwd);
   } catch (error) {
+    if (!isMajorWorkflow(context.workflow)) {
+      const conservative = settleMutationProbeConservative(context, probeKey, toolName, 'unobservable-workspace');
+      return Boolean(conservative && conservative.changed);
+    }
     context.workflow.state = 'blocked';
     context.workflow.blockReason = 'mutation-observation-failed';
     saveWorkflow(context);
