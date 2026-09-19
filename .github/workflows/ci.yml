@@ -82,6 +82,8 @@ jobs:
           chmod +x "$HOME/bin/waza"
           echo "$HOME/bin" >> "$GITHUB_PATH"
           "$HOME/bin/waza" --version
+      - name: Run Harness Waza adapter against canonical skills
+        run: npm run waza:check
       - name: Check every canonical SKILL.md passes waza readiness gates
         run: |
           fail=0
