@@ -10,7 +10,7 @@ const { spawnSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const FIXTURE = path.join(ROOT, 'contract-integrity', 'fixtures', 'node-probe-project');
 const ADAPTER = path.join(ROOT, 'contract-integrity', 'scripts', 'node-probe-adapter.js');
-const { executePlan, validatePlan } = require(ADAPTER);
+const { applyProbe, executePlan, validatePlan } = require(ADAPTER);
 const { evaluateTrace } = require(path.join(ROOT, 'contract-integrity', 'scripts', 'audit.js'));
 
 let failed = 0;
@@ -104,6 +104,25 @@ check(ambiguous.probes[0].status === 'NOT_EVALUATED' &&
 
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-contract-adapter-test-'));
 try {
+  const symlinkWorkspace = path.join(temp, 'symlink-workspace');
+  fs.mkdirSync(symlinkWorkspace, { recursive: true });
+  const outsideTarget = path.join(temp, 'outside.txt');
+  fs.writeFileSync(outsideTarget, 'SAFE', 'utf8');
+  fs.symlinkSync(outsideTarget, path.join(symlinkWorkspace, 'linked.txt'));
+  let symlinkRejected = false;
+  try {
+    applyProbe(symlinkWorkspace, {
+      strategy: 'replace',
+      target: 'linked.txt',
+      find: 'SAFE',
+      replace: 'MUTATED',
+    });
+  } catch (error) {
+    symlinkRejected = /symbolic link|reparse-point|outside isolated workspace/.test(String(error.message || error));
+  }
+  check(symlinkRejected && fs.readFileSync(outsideTarget, 'utf8') === 'SAFE',
+    'replace probe rejects symlink/reparse escape without mutating outside the isolated workspace');
+
   const dependent = path.join(temp, 'dependent');
   fs.cpSync(FIXTURE, dependent, { recursive: true });
   const pkg = json(path.join(dependent, 'package.json'));
