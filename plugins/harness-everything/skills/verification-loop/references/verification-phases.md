@@ -110,7 +110,7 @@ This phase is applicable when any of the following is true:
 Use the current trace plus current #58 TDD evidence:
 
 ```bash
-node "<skills-repo-root>/contract-integrity/scripts/audit.js" <trace.json> --tdd-evidence <tdd-evidence.json> --output <report.json> --markdown <report.md>
+node "<this-skill-dir>/scripts/contract-integrity-audit.js" <trace.json> --tdd-evidence <tdd-evidence.json> --output <report.json> --markdown <report.md>
 ```
 
 Delivery requires strict **PASS**. Treat `FAIL`, `NOT_EVALUATED`, source conflicts/defects, stale spec/test/implementation lineage, surviving required probes, and audit-only output as **NOT READY**. Do not downgrade the gate merely because build/tests are otherwise green.
