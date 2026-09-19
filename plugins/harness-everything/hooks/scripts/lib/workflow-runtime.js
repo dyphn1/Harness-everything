@@ -46,7 +46,25 @@ function saveWorkflow(context) { atomicWriteJson(context.file, context.workflow)
 
 const MUTATION_PROBE_KEY = /^[a-f0-9]{64}$/;
 const MUTATION_PROBE_WAIT = new Int32Array(new SharedArrayBuffer(4));
-const MUTATION_PROBE_RESERVATION_GRACE_MS = 1000;
+const MUTATION_PROBE_DEFAULT_TIMEOUT_MS = 30000;
+const MUTATION_PROBE_RECLAIM_GRACE_MS = 5000;
+const MUTATION_PROBE_MAX_TIMEOUT_MS = 30 * 60 * 1000;
+
+function mutationProbeLeaseMs(timeoutMs) {
+  const parsed = Number(timeoutMs);
+  const executionMs = Number.isFinite(parsed) && parsed > 0
+    ? Math.min(parsed, MUTATION_PROBE_MAX_TIMEOUT_MS)
+    : MUTATION_PROBE_DEFAULT_TIMEOUT_MS;
+  return executionMs + MUTATION_PROBE_RECLAIM_GRACE_MS;
+}
+
+function mutationProbeExpired(probe, now = Date.now()) {
+  const reclaimAfterAt = Number(probe?.reclaimAfterAt);
+  if (Number.isFinite(reclaimAfterAt)) return now >= reclaimAfterAt;
+  const observedAt = Number(probe?.observedAt);
+  return Number.isFinite(observedAt) &&
+    now - observedAt >= mutationProbeLeaseMs(null);
+}
 
 function mutationProbeDir(context) {
   return path.join(context.sessionDir, 'mutation-probes');
@@ -98,11 +116,10 @@ function mutationProbeReservations(context) {
   for (const file of files) {
     const probe = readJson(path.join(dir, file));
     if (probe?.schemaVersion !== 1 || probe.reserveIteration !== true) continue;
-    const observedAt = Number(probe.observedAt);
-    // Reservations are leases, not permanent budget claims. A stale probe is
-    // still retained for mutation observation/reclamation, but no longer
-    // consumes pre-execution capacity (#161).
-    if (!Number.isFinite(observedAt) || now - observedAt < MUTATION_PROBE_RESERVATION_GRACE_MS) count++;
+    // A reservation remains active for the host/tool execution timeout plus
+    // a grace period. This prevents a genuinely in-flight command from being
+    // reclaimed merely because it ran longer than an arbitrary short delay.
+    if (!mutationProbeExpired(probe, now)) count++;
   }
   return count;
 }
@@ -140,8 +157,7 @@ function reclaimStaleMutationProbes(context, keepKey) {
     const file = path.join(dir, name);
     const probe = readJson(file);
     if (!probe || probe.schemaVersion !== 1) continue;
-    const observedAt = Number(probe.observedAt);
-    if (!Number.isFinite(observedAt) || now - observedAt < MUTATION_PROBE_RESERVATION_GRACE_MS) continue;
+    if (!mutationProbeExpired(probe, now)) continue;
     const countsIteration = probeCountsIteration(probe);
     if (!probe.observationCwd) {
       // Legacy probes predate stored observation roots and cannot be safely
@@ -180,7 +196,7 @@ function reclaimStaleMutationProbes(context, keepKey) {
   }
 }
 
-function registerMutationProbe(context, key, fingerprint, reserveIteration, observationCwd) {
+function registerMutationProbe(context, key, fingerprint, reserveIteration, observationCwd, timeoutMs) {
   if (!MUTATION_PROBE_KEY.test(String(key || '')) || !MUTATION_PROBE_KEY.test(String(fingerprint || ''))) {
     throw new Error('invalid mutation probe identity');
   }
@@ -192,13 +208,15 @@ function registerMutationProbe(context, key, fingerprint, reserveIteration, obse
     fs.mkdirSync(dir, { recursive: true });
     const file = mutationProbeFile(context, key);
     if (fs.existsSync(file)) throw new Error('mutation probe is already pending for this tool call');
+    const observedAt = Date.now();
     const probe = {
       schemaVersion: 1,
       fingerprint,
       reserveIteration: Boolean(reserveIteration),
       countIteration: Boolean(reserveIteration),
       observationCwd: observationCwd ? path.resolve(observationCwd) : null,
-      observedAt: Date.now(),
+      observedAt,
+      reclaimAfterAt: observedAt + mutationProbeLeaseMs(timeoutMs),
     };
     atomicWriteJson(file, probe);
     return probe;
