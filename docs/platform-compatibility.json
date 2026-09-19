@@ -106,69 +106,16 @@
         "https://learn.chatgpt.com/docs/agent-configuration/agents-md"
       ],
       "capabilities": {
-        "standaloneSkills": {
-          "status": "Supported",
-          "paths": {
-            "project": [
-              ".agents/skills"
-            ],
-            "global": [
-              "~/.agents/skills"
-            ]
-          }
-        },
-        "pluginSupport": {
-          "status": "Mechanism verified",
-          "paths": {
-            "manifest": [
-              "plugin.json",
-              ".codex-plugin/plugin.json"
-            ]
-          }
-        },
-        "bundledSkills": {
-          "status": "Mechanism verified",
-          "notes": "The local package contains a root skills/ tree."
-        },
-        "hooksLifecycle": {
-          "status": "Mechanism verified",
-          "notes": "Codex officially supports plugin-bundled hooks and the local package is mechanism-tested. Harness also provides an explicit user-config compatibility fallback that copies the packaged runtime and merges exact-owned entries into $CODEX_HOME/hooks.json without changing trust/config.toml. Neither path is promoted to live verified until a real host exposes and executes the hooks."
-        },
-        "projectScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              ".agents/skills"
-            ],
-            "instructions": [
-              "AGENTS.md"
-            ]
-          }
-        },
-        "globalScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              "~/.agents/skills"
-            ]
-          }
-        },
-        "installUninstallSymmetry": {
-          "status": "Mechanism verified",
-          "notes": "General Harness installer ownership is mechanism-tested. The optional codex-hooks compatibility fallback separately has exact-entry update/uninstall ownership tests and preserves unrelated user hooks; live Codex trust/dispatch still requires host evidence."
-        },
-        "assetsReferences": {
-          "status": "Mechanism verified",
-          "notes": "Packaged skill references are checked and remain inside the package."
-        },
-        "updateSync": {
-          "status": "Unknown",
-          "notes": "A real marketplace refresh has not been run in a Codex host."
-        },
-        "liveHostVerification": {
-          "status": "Unknown",
-          "notes": "No preserved Codex plugin/session artifact proves current bundled-hook entry. Native plugin mounting is preferred; the explicit user-hook fallback is mechanism-verified only and does not solve host carriers that bypass hook dispatch."
-        }
+        "standaloneSkills": {"status": "Supported", "paths": {"project": [".agents/skills"], "global": ["~/.agents/skills"]}},
+        "pluginSupport": {"status": "Mechanism verified", "paths": {"manifest": ["plugin.json", ".codex-plugin/plugin.json"]}},
+        "bundledSkills": {"status": "Mechanism verified", "notes": "The local package contains a root skills/ tree."},
+        "hooksLifecycle": {"status": "Mechanism verified", "notes": "Codex officially supports plugin-bundled hooks and the local package is mechanism-tested. Harness also provides an explicit user-config compatibility fallback that copies the packaged runtime and merges exact-owned entries into $CODEX_HOME/hooks.json without changing trust/config.toml. Neither path is promoted to live verified until a real host exposes and executes the hooks."},
+        "projectScope": {"status": "Mechanism verified", "paths": {"skills": [".agents/skills"], "instructions": ["AGENTS.md"]}},
+        "globalScope": {"status": "Mechanism verified", "paths": {"skills": ["~/.agents/skills"]}},
+        "installUninstallSymmetry": {"status": "Mechanism verified", "notes": "General Harness installer ownership is mechanism-tested. The optional codex-hooks compatibility fallback separately has exact-entry update/uninstall ownership tests and preserves unrelated user hooks; live Codex trust/dispatch still requires host evidence."},
+        "assetsReferences": {"status": "Mechanism verified", "notes": "Packaged skill references are checked and remain inside the package."},
+        "updateSync": {"status": "Unknown", "notes": "A real marketplace refresh has not been run in a Codex host."},
+        "liveHostVerification": {"status": "Unknown", "notes": "No preserved Codex plugin/session artifact proves current bundled-hook entry. Native plugin mounting is preferred; the explicit user-hook fallback is mechanism-verified only and does not solve host carriers that bypass hook dispatch."}
       }
     },
     {
@@ -181,55 +128,16 @@
         "https://developers.openai.com/plugins/deploy/submission"
       ],
       "capabilities": {
-        "standaloneSkills": {
-          "status": "Unknown",
-          "notes": "The reviewed OpenAI docs establish plugin skills and personal skills, not a repository-local standalone path for ChatGPT."
-        },
-        "pluginSupport": {
-          "status": "Mechanism verified",
-          "paths": {
-            "marketplace": [
-              ".agents/plugins/marketplace.json",
-              ".claude-plugin/marketplace.json"
-            ],
-            "manifest": [
-              "plugin.json",
-              ".codex-plugin/plugin.json"
-            ]
-          }
-        },
-        "bundledSkills": {
-          "status": "Mechanism verified",
-          "notes": "The public submission builder produces a skills-only ZIP."
-        },
-        "hooksLifecycle": {
-          "status": "Partial",
-          "notes": "Local Codex/ChatGPT Work hooks are separate from ordinary Chat, and the public skills-only bundle excludes local hooks."
-        },
-        "projectScope": {
-          "status": "Partial",
-          "notes": "GitHub marketplace import is a managed-workspace flow; local project installation is not live verified."
-        },
-        "globalScope": {
-          "status": "Unknown",
-          "notes": "No public evidence establishes a user-global scope for this package."
-        },
-        "installUninstallSymmetry": {
-          "status": "Unknown",
-          "notes": "No live install/uninstall report has been preserved."
-        },
-        "assetsReferences": {
-          "status": "Mechanism verified",
-          "notes": "The skills-only builder includes referenced skill files and excludes host hooks."
-        },
-        "updateSync": {
-          "status": "Mechanism verified",
-          "notes": "The repository has supported marketplace manifests; GitHub Sync now remains a manual live check."
-        },
-        "liveHostVerification": {
-          "status": "Unknown",
-          "notes": "No import report, fresh-workspace smoke log, or public approval artifact is committed."
-        }
+        "standaloneSkills": {"status": "Unknown", "notes": "The reviewed OpenAI docs establish plugin skills and personal skills, not a repository-local standalone path for ChatGPT."},
+        "pluginSupport": {"status": "Mechanism verified", "paths": {"marketplace": [".agents/plugins/marketplace.json", ".claude-plugin/marketplace.json"], "manifest": ["plugin.json", ".codex-plugin/plugin.json"]}},
+        "bundledSkills": {"status": "Mechanism verified", "notes": "The public submission builder produces a skills-only ZIP."},
+        "hooksLifecycle": {"status": "Partial", "notes": "Local Codex/ChatGPT Work hooks are separate from ordinary Chat, and the public skills-only bundle excludes local hooks."},
+        "projectScope": {"status": "Partial", "notes": "GitHub marketplace import is a managed-workspace flow; local project installation is not live verified."},
+        "globalScope": {"status": "Unknown", "notes": "No public evidence establishes a user-global scope for this package."},
+        "installUninstallSymmetry": {"status": "Unknown", "notes": "No live install/uninstall report has been preserved."},
+        "assetsReferences": {"status": "Mechanism verified", "notes": "The skills-only builder includes referenced skill files and excludes host hooks."},
+        "updateSync": {"status": "Mechanism verified", "notes": "The repository has supported marketplace manifests; GitHub Sync now remains a manual live check."},
+        "liveHostVerification": {"status": "Unknown", "notes": "No import report, fresh-workspace smoke log, or public approval artifact is committed."}
       }
     },
     {
@@ -243,74 +151,16 @@
         "https://code.claude.com/docs/en/permissions"
       ],
       "capabilities": {
-        "standaloneSkills": {
-          "status": "Supported",
-          "paths": {
-            "project": [
-              ".claude/skills"
-            ],
-            "global": [
-              "~/.claude/skills"
-            ]
-          }
-        },
-        "pluginSupport": {
-          "status": "Supported",
-          "paths": {
-            "manifest": [
-              ".claude-plugin/plugin.json"
-            ],
-            "skills": [
-              "skills/"
-            ]
-          }
-        },
-        "bundledSkills": {
-          "status": "Mechanism verified",
-          "notes": "The local Claude package layout and canonical skill copies are validated."
-        },
-        "hooksLifecycle": {
-          "status": "Mechanism verified",
-          "notes": "Claude hook configuration and command contracts are covered by deterministic tests."
-        },
-        "projectScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              ".claude/skills"
-            ],
-            "hooks": [
-              ".claude/settings.json"
-            ]
-          }
-        },
-        "globalScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              "~/.claude/skills"
-            ],
-            "hooks": [
-              "~/.claude/settings.json"
-            ]
-          }
-        },
-        "installUninstallSymmetry": {
-          "status": "Mechanism verified",
-          "notes": "Owned settings, skills, agents, and user files are covered by round-trip tests."
-        },
-        "assetsReferences": {
-          "status": "Mechanism verified",
-          "notes": "Skill-local references, scripts, and templates are checked."
-        },
-        "updateSync": {
-          "status": "Unknown",
-          "notes": "A live marketplace update has not been run in Claude Code."
-        },
-        "liveHostVerification": {
-          "status": "Unknown",
-          "notes": "No fresh Claude Code plugin session artifact is committed for this revision."
-        }
+        "standaloneSkills": {"status": "Supported", "paths": {"project": [".claude/skills"], "global": ["~/.claude/skills"]}},
+        "pluginSupport": {"status": "Supported", "paths": {"manifest": [".claude-plugin/plugin.json"], "skills": ["skills/"]}},
+        "bundledSkills": {"status": "Mechanism verified", "notes": "The local Claude package layout and canonical skill copies are validated."},
+        "hooksLifecycle": {"status": "Mechanism verified", "notes": "Claude hook configuration and command contracts are covered by deterministic tests."},
+        "projectScope": {"status": "Mechanism verified", "paths": {"skills": [".claude/skills"], "hooks": [".claude/settings.json"]}},
+        "globalScope": {"status": "Mechanism verified", "paths": {"skills": ["~/.claude/skills"], "hooks": ["~/.claude/settings.json"]}},
+        "installUninstallSymmetry": {"status": "Mechanism verified", "notes": "Owned settings, skills, agents, and user files are covered by round-trip tests."},
+        "assetsReferences": {"status": "Mechanism verified", "notes": "Skill-local references, scripts, and templates are checked."},
+        "updateSync": {"status": "Unknown", "notes": "A live marketplace update has not been run in Claude Code."},
+        "liveHostVerification": {"status": "Unknown", "notes": "No fresh Claude Code plugin session artifact is committed for this revision."}
       }
     },
     {
@@ -321,83 +171,16 @@
         "https://opencode.ai/docs/plugins/"
       ],
       "capabilities": {
-        "standaloneSkills": {
-          "status": "Supported",
-          "paths": {
-            "project": [
-              ".opencode/skills",
-              ".agents/skills",
-              ".claude/skills"
-            ],
-            "global": [
-              "~/.config/opencode/skills",
-              "~/.agents/skills",
-              "~/.claude/skills"
-            ]
-          }
-        },
-        "pluginSupport": {
-          "status": "Partial",
-          "paths": {
-            "project": [
-              ".opencode/plugins"
-            ],
-            "global": [
-              "~/.config/opencode/plugins"
-            ]
-          },
-          "notes": "Live verified scoped: project-scope install of the plugin copied under a .js filename loads on OpenCode 1.18.31 (macOS) and edit/verification state effects are retained (benchmarks/results/live-host/opencode-2026-09-16/README.md). The host discovery silently ignores .mjs install names (issue #127). Global scope and npm-package installation remain mechanism-only."
-        },
-        "bundledSkills": {
-          "status": "Partial",
-          "notes": "Harness provides a standalone enforcement module; it is not an OpenCode bundled-skill package."
-        },
-        "hooksLifecycle": {
-          "status": "Partial",
-          "notes": "Live-host evidence covers project-scope .js loading and edit/verification state (edit tracking, forced verification, breaker failure recording) on OpenCode 1.18.31 (macOS); hard lock is only an interactive observation with no retained blocked-tool trace and the final snapshot is post-reset (benchmarks/results/live-host/opencode-2026-09-16/README.md). Global scope, npm-package installation, and other host versions remain mechanism-tested."
-        },
-        "projectScope": {
-          "status": "Partial",
-          "paths": {
-            "skills": [
-              ".opencode/skills",
-              ".agents/skills"
-            ],
-            "plugins": [
-              ".opencode/plugins"
-            ]
-          },
-          "notes": "Plugin loading at project scope and edit/verification state are live-verified via the retained host session artifact; standalone skill discovery remains path-contract verified."
-        },
-        "globalScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              "~/.config/opencode/skills",
-              "~/.agents/skills"
-            ],
-            "plugins": [
-              "~/.config/opencode/plugins"
-            ]
-          }
-        },
-        "installUninstallSymmetry": {
-          "status": "Unknown",
-          "notes": "The adapter is manually copied; Harness does not own an OpenCode install/uninstall flow."
-        },
-        "assetsReferences": {
-          "status": "Mechanism verified",
-          "notes": "The adapter is self-contained and skill references are separately checked."
-        },
-        "updateSync": {
-          "status": "Unknown",
-          "notes": "No live OpenCode refresh or npm plugin update is preserved."
-        },
-        "liveHostVerification": {
-          "status": "Partial",
-          "evidence": "benchmarks/results/live-host/opencode-2026-09-16/README.md",
-          "notes": "Retained evidence supports project-scope .js plugin loading and edit/verification state on OpenCode 1.18.31 (macOS), not durable hard enforcement: final snapshot is post-reset (hardLock: false), hard lock only an interactive observation with no retained blocked-tool trace, reflection operator-seeded, agent-controlled state deletion resets the breaker. Global scope, npm-package installation, and other host versions remain unverified."
-        }
+        "standaloneSkills": {"status": "Supported", "paths": {"project": [".opencode/skills", ".agents/skills", ".claude/skills"], "global": ["~/.config/opencode/skills", "~/.agents/skills", "~/.claude/skills"]}},
+        "pluginSupport": {"status": "Partial", "paths": {"project": [".opencode/plugins"], "global": ["~/.config/opencode/plugins"]}, "notes": "Live verified scoped: project-scope install of the plugin copied under a .js filename loads on OpenCode 1.18.31 (macOS) and edit/verification state effects are retained (benchmarks/results/live-host/opencode-2026-09-16/README.md). The host discovery silently ignores .mjs install names (issue #127). Global scope and npm-package installation remain mechanism-only."},
+        "bundledSkills": {"status": "Partial", "notes": "Harness provides a standalone enforcement module; it is not an OpenCode bundled-skill package."},
+        "hooksLifecycle": {"status": "Partial", "notes": "Live-host evidence covers project-scope .js loading and edit/verification state (edit tracking, forced verification, breaker failure recording) on OpenCode 1.18.31 (macOS); hard lock is only an interactive observation with no retained blocked-tool trace and the final snapshot is post-reset (benchmarks/results/live-host/opencode-2026-09-16/README.md). Global scope, npm-package installation, and other host versions remain mechanism-tested."},
+        "projectScope": {"status": "Partial", "paths": {"skills": [".opencode/skills", ".agents/skills"], "plugins": [".opencode/plugins"]}, "notes": "Plugin loading at project scope and edit/verification state are live-verified via the retained host session artifact; standalone skill discovery remains path-contract verified."},
+        "globalScope": {"status": "Mechanism verified", "paths": {"skills": ["~/.config/opencode/skills", "~/.agents/skills"], "plugins": ["~/.config/opencode/plugins"]}},
+        "installUninstallSymmetry": {"status": "Unknown", "notes": "The adapter is manually copied; Harness does not own an OpenCode install/uninstall flow."},
+        "assetsReferences": {"status": "Mechanism verified", "notes": "The adapter is self-contained and skill references are separately checked."},
+        "updateSync": {"status": "Unknown", "notes": "No live OpenCode refresh or npm plugin update is preserved."},
+        "liveHostVerification": {"status": "Partial", "evidence": "benchmarks/results/live-host/opencode-2026-09-16/README.md", "notes": "Retained evidence supports project-scope .js plugin loading and edit/verification state on OpenCode 1.18.31 (macOS), not durable hard enforcement: final snapshot is post-reset (hardLock: false), hard lock only an interactive observation with no retained blocked-tool trace, reflection operator-seeded, agent-controlled state deletion resets the breaker. Global scope, npm-package installation, and other host versions remain unverified."}
       }
     },
     {
@@ -409,68 +192,16 @@
         "https://docs.github.com/en/copilot/concepts/agents"
       ],
       "capabilities": {
-        "standaloneSkills": {
-          "status": "Supported",
-          "paths": {
-            "project": [
-              ".github/skills",
-              ".agents/skills"
-            ],
-            "global": [
-              "~/.copilot/skills",
-              "~/.agents/skills"
-            ]
-          }
-        },
-        "pluginSupport": {
-          "status": "Unknown",
-          "notes": "Copilot documents installable plugins, but this repository has no Copilot-specific plugin manifest or live install evidence."
-        },
-        "bundledSkills": {
-          "status": "Unknown",
-          "notes": "The portable package is not verified in a Copilot plugin host."
-        },
-        "hooksLifecycle": {
-          "status": "Unknown",
-          "notes": "Copilot plugin hooks are not part of the Harness package tested here."
-        },
-        "projectScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              ".github/skills",
-              ".agents/skills"
-            ],
-            "instructions": [
-              ".github/copilot-instructions.md"
-            ]
-          }
-        },
-        "globalScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              "~/.copilot/skills",
-              "~/.agents/skills"
-            ]
-          }
-        },
-        "installUninstallSymmetry": {
-          "status": "Mechanism verified",
-          "notes": "Harness-owned project/global skill and instruction files have round-trip coverage."
-        },
-        "assetsReferences": {
-          "status": "Mechanism verified",
-          "notes": "The Agent Skills layout permits referenced scripts/resources; repository references are checked."
-        },
-        "updateSync": {
-          "status": "Unknown",
-          "notes": "No Copilot skill reload or plugin marketplace refresh has been run here."
-        },
-        "liveHostVerification": {
-          "status": "Unknown",
-          "notes": "No Copilot agent session artifact is committed."
-        }
+        "standaloneSkills": {"status": "Supported", "paths": {"project": [".github/skills", ".agents/skills"], "global": ["~/.copilot/skills", "~/.agents/skills"]}},
+        "pluginSupport": {"status": "Unknown", "notes": "Copilot documents installable plugins, but this repository has no Copilot-specific plugin manifest or live install evidence."},
+        "bundledSkills": {"status": "Unknown", "notes": "The portable package is not verified in a Copilot plugin host."},
+        "hooksLifecycle": {"status": "Unknown", "notes": "Copilot plugin hooks are not part of the Harness package tested here."},
+        "projectScope": {"status": "Mechanism verified", "paths": {"skills": [".github/skills", ".agents/skills"], "instructions": [".github/copilot-instructions.md"]}},
+        "globalScope": {"status": "Mechanism verified", "paths": {"skills": ["~/.copilot/skills", "~/.agents/skills"]}},
+        "installUninstallSymmetry": {"status": "Mechanism verified", "notes": "Harness-owned project/global skill and instruction files have round-trip coverage."},
+        "assetsReferences": {"status": "Mechanism verified", "notes": "The Agent Skills layout permits referenced scripts/resources; repository references are checked."},
+        "updateSync": {"status": "Unknown", "notes": "No Copilot skill reload or plugin marketplace refresh has been run here."},
+        "liveHostVerification": {"status": "Unknown", "notes": "No Copilot agent session artifact is committed."}
       }
     },
     {
@@ -482,72 +213,16 @@
         "https://prod.cursor.com/help/customization/rules"
       ],
       "capabilities": {
-        "standaloneSkills": {
-          "status": "Supported",
-          "paths": {
-            "project": [
-              ".agents/skills",
-              ".cursor/skills"
-            ],
-            "global": [
-              "~/.agents/skills",
-              "~/.cursor/skills"
-            ]
-          }
-        },
-        "pluginSupport": {
-          "status": "Mechanism verified",
-          "notes": "The package now includes a portable root plugin.json; Cursor-specific loading is not live verified."
-        },
-        "bundledSkills": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              "skills/<name>/SKILL.md"
-            ]
-          }
-        },
-        "hooksLifecycle": {
-          "status": "Unknown",
-          "notes": "Cursor plugin hooks use Cursor-specific components; Harness does not claim their execution."
-        },
-        "projectScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              ".agents/skills",
-              ".cursor/skills"
-            ],
-            "rules": [
-              ".cursor/rules"
-            ]
-          }
-        },
-        "globalScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              "~/.agents/skills",
-              "~/.cursor/skills"
-            ]
-          }
-        },
-        "installUninstallSymmetry": {
-          "status": "Unknown",
-          "notes": "The Harness installer manages skill files, not Cursor's plugin marketplace installation."
-        },
-        "assetsReferences": {
-          "status": "Mechanism verified",
-          "notes": "Portable skill files and referenced resources are present and checked."
-        },
-        "updateSync": {
-          "status": "Unknown",
-          "notes": "No Cursor local-plugin reload or marketplace refresh has been run here."
-        },
-        "liveHostVerification": {
-          "status": "Unknown",
-          "notes": "No Cursor session artifact is committed."
-        }
+        "standaloneSkills": {"status": "Supported", "paths": {"project": [".agents/skills", ".cursor/skills"], "global": ["~/.agents/skills", "~/.cursor/skills"]}},
+        "pluginSupport": {"status": "Mechanism verified", "notes": "The package now includes a portable root plugin.json; Cursor-specific loading is not live verified."},
+        "bundledSkills": {"status": "Mechanism verified", "paths": {"skills": ["skills/<name>/SKILL.md"]}},
+        "hooksLifecycle": {"status": "Unknown", "notes": "Cursor plugin hooks use Cursor-specific components; Harness does not claim their execution."},
+        "projectScope": {"status": "Mechanism verified", "paths": {"skills": [".agents/skills", ".cursor/skills"], "rules": [".cursor/rules"]}},
+        "globalScope": {"status": "Mechanism verified", "paths": {"skills": ["~/.agents/skills", "~/.cursor/skills"]}},
+        "installUninstallSymmetry": {"status": "Unknown", "notes": "The Harness installer manages skill files, not Cursor's plugin marketplace installation."},
+        "assetsReferences": {"status": "Mechanism verified", "notes": "Portable skill files and referenced resources are present and checked."},
+        "updateSync": {"status": "Unknown", "notes": "No Cursor local-plugin reload or marketplace refresh has been run here."},
+        "liveHostVerification": {"status": "Unknown", "notes": "No Cursor session artifact is committed."}
       }
     },
     {
@@ -558,50 +233,16 @@
         "https://docs.continue.dev/customize/deep-dives/rules"
       ],
       "capabilities": {
-        "standaloneSkills": {
-          "status": "Unknown",
-          "notes": "The reviewed Continue documentation establishes .continue/rules, not an Agent Skills discovery path."
-        },
-        "pluginSupport": {
-          "status": "Unknown",
-          "notes": "No compatible Continue plugin package or official plugin discovery path was verified."
-        },
-        "bundledSkills": {
-          "status": "Unknown",
-          "notes": "The installer target .continue/skills is retained as an adapter candidate, not a host-supported claim."
-        },
-        "hooksLifecycle": {
-          "status": "Unknown",
-          "notes": "No official lifecycle hook contract was identified in the reviewed Continue sources."
-        },
-        "projectScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "rules": [
-              ".continue/rules"
-            ]
-          }
-        },
-        "globalScope": {
-          "status": "Unknown",
-          "notes": "A global skill/plugin scope is not established by the reviewed sources."
-        },
-        "installUninstallSymmetry": {
-          "status": "Mechanism verified",
-          "notes": "Harness rule-file ownership and collision behavior are tested; skill loading remains unknown."
-        },
-        "assetsReferences": {
-          "status": "Unknown",
-          "notes": "No official Continue skill package contract was verified."
-        },
-        "updateSync": {
-          "status": "Unknown",
-          "notes": "No Continue refresh mechanism was verified."
-        },
-        "liveHostVerification": {
-          "status": "Unknown",
-          "notes": "No Continue session artifact is committed."
-        }
+        "standaloneSkills": {"status": "Unknown", "notes": "The reviewed Continue documentation establishes .continue/rules, not an Agent Skills discovery path."},
+        "pluginSupport": {"status": "Unknown", "notes": "No compatible Continue plugin package or official plugin discovery path was verified."},
+        "bundledSkills": {"status": "Unknown", "notes": "The installer target .continue/skills is retained as an adapter candidate, not a host-supported claim."},
+        "hooksLifecycle": {"status": "Unknown", "notes": "No official lifecycle hook contract was identified in the reviewed Continue sources."},
+        "projectScope": {"status": "Mechanism verified", "paths": {"rules": [".continue/rules"]}},
+        "globalScope": {"status": "Unknown", "notes": "A global skill/plugin scope is not established by the reviewed sources."},
+        "installUninstallSymmetry": {"status": "Mechanism verified", "notes": "Harness rule-file ownership and collision behavior are tested; skill loading remains unknown."},
+        "assetsReferences": {"status": "Unknown", "notes": "No official Continue skill package contract was verified."},
+        "updateSync": {"status": "Unknown", "notes": "No Continue refresh mechanism was verified."},
+        "liveHostVerification": {"status": "Unknown", "notes": "No Continue session artifact is committed."}
       }
     },
     {
@@ -613,66 +254,16 @@
         "https://hermes-agent.nousresearch.com/docs/guides/work-with-skills"
       ],
       "capabilities": {
-        "standaloneSkills": {
-          "status": "Supported",
-          "paths": {
-            "project": [
-              ".hermes/skills",
-              ".agents/skills"
-            ],
-            "global": [
-              "~/.hermes/skills"
-            ]
-          }
-        },
-        "pluginSupport": {
-          "status": "Unknown",
-          "notes": "Hermes documents plugins as an extension surface, but no compatible Harness plugin package is verified."
-        },
-        "bundledSkills": {
-          "status": "Mechanism verified",
-          "notes": "The installer writes the documented skill tree; project skills remain subject to Hermes trust."
-        },
-        "hooksLifecycle": {
-          "status": "Unknown",
-          "notes": "No Hermes lifecycle hook contract is claimed by Harness."
-        },
-        "projectScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              ".hermes/skills",
-              ".agents/skills"
-            ],
-            "trust": [
-              "hermes skills trust"
-            ]
-          }
-        },
-        "globalScope": {
-          "status": "Mechanism verified",
-          "paths": {
-            "skills": [
-              "~/.hermes/skills"
-            ]
-          }
-        },
-        "installUninstallSymmetry": {
-          "status": "Mechanism verified",
-          "notes": "Harness-owned Hermes skill and detection-marker round trips are tested."
-        },
-        "assetsReferences": {
-          "status": "Mechanism verified",
-          "notes": "Skill-local references and scripts are retained in the installed tree and checked."
-        },
-        "updateSync": {
-          "status": "Unknown",
-          "notes": "Hermes bundled-skill update behavior is documented, but Harness source refresh is not live verified."
-        },
-        "liveHostVerification": {
-          "status": "Unknown",
-          "notes": "No Hermes session artifact is committed."
-        }
+        "standaloneSkills": {"status": "Supported", "paths": {"project": [".hermes/skills", ".agents/skills"], "global": ["~/.hermes/skills"]}},
+        "pluginSupport": {"status": "Unknown", "notes": "Hermes documents plugins as an extension surface, but no compatible Harness plugin package is verified."},
+        "bundledSkills": {"status": "Mechanism verified", "notes": "The installer writes the documented skill tree; project skills remain subject to Hermes trust."},
+        "hooksLifecycle": {"status": "Unknown", "notes": "No Hermes lifecycle hook contract is claimed by Harness."},
+        "projectScope": {"status": "Mechanism verified", "paths": {"skills": [".hermes/skills", ".agents/skills"], "trust": ["hermes skills trust"]}},
+        "globalScope": {"status": "Mechanism verified", "paths": {"skills": ["~/.hermes/skills"]}},
+        "installUninstallSymmetry": {"status": "Mechanism verified", "notes": "Harness-owned Hermes skill and detection-marker round trips are tested."},
+        "assetsReferences": {"status": "Mechanism verified", "notes": "Skill-local references and scripts are retained in the installed tree and checked."},
+        "updateSync": {"status": "Unknown", "notes": "Hermes bundled-skill update behavior is documented, but Harness source refresh is not live verified."},
+        "liveHostVerification": {"status": "Unknown", "notes": "No Hermes session artifact is committed."}
       }
     }
   ]
