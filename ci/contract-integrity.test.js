@@ -237,7 +237,7 @@ check(/living spec requirement and revision first/.test(ticketProcess) &&
 const verifySkill = doc('verification-loop/SKILL.md');
 const verifyPhases = doc('verification-loop/references/verification-phases.md');
 const verifyReport = doc('verification-loop/templates/verification-report.template.md');
-check(/contract-integrity\/scripts\/audit\.js/.test(verifySkill) &&
+check(/scripts\/contract-integrity-audit\.js/.test(verifySkill) &&
   /strict \*\*PASS\*\*/.test(verifyPhases) &&
   /`AUDIT`/.test(verifyPhases) && /`NOT_EVALUATED`/.test(verifyPhases),
   'verification-loop makes current contract reconciliation a non-compensating delivery gate');
