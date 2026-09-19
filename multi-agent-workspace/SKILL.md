@@ -36,3 +36,4 @@ The consumer adds plan/run correlation only. It does not spawn workers, choose m
 Deep dive: <this-skill-dir>/references/orchestration.md
 Deep dive: <this-skill-dir>/references/architecture-guide.md
 Deep dive: <skills-repo-root>/docs/workflows/multi-agent-workspace.md
+Deep dive: <this-skill-dir>/references/agency-agents.md
