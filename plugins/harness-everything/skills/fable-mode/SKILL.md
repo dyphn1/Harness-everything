@@ -37,3 +37,4 @@ metadata:
 6. Record requested/effective model, fallback reason, stage brief, pass condition, verification command, and verifier result for every stage. Escalate unresolved blockers.
 
 Deep dive: <this-skill-dir>/references/model-matrix.md
+Deep dive: <this-skill-dir>/references/execution-phases.md
