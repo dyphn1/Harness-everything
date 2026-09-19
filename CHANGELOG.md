@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.12.1](https://github.com/dyphn1/Harness-everything/compare/v0.12.0...v0.12.1) (2026-09-19)
+
+### Bug Fixes
+
+* **workflow:** bind probe lease to tool timeout ([bb8c598](https://github.com/dyphn1/Harness-everything/commit/bb8c598792530f7a06f8514c51dc9905fc78935c))
+* **workflow:** bind probe lease to tool timeout ([025d6eb](https://github.com/dyphn1/Harness-everything/commit/025d6eb899be92598836ddc0c25c2eced8d4d190))
+* **workflow:** discard unchanged stale probe orphans ([aa8d238](https://github.com/dyphn1/Harness-everything/commit/aa8d238199285b7338edf6b87495cd7454a440ac))
+* **workflow:** discard unchanged stale probe orphans ([49fa840](https://github.com/dyphn1/Harness-everything/commit/49fa8409eb337a8acb5f6149323298b0b82027e8))
+* **workflow:** keep active mutation probes leased ([c62831f](https://github.com/dyphn1/Harness-everything/commit/c62831f64d6b5e3991b4cde34a0bf263c7cab2e7))
+* **workflow:** keep active mutation probes leased ([23f8b3d](https://github.com/dyphn1/Harness-everything/commit/23f8b3d646747f7e538061490a1a9bbf05fb8c39))
+* **workflow:** key shell probes by stable tool-use identity ([4d24ca6](https://github.com/dyphn1/Harness-everything/commit/4d24ca6f538f1c1ca0d3165c1b8adce930a8d9d4))
+* **workflow:** key shell probes by stable tool-use identity ([56c24b4](https://github.com/dyphn1/Harness-everything/commit/56c24b49748d9bd74cc3fe634cce291a691baa15))
+* **workflow:** persist probe observation cwd ([51c5894](https://github.com/dyphn1/Harness-everything/commit/51c58945dbed392424e4690f6be78ad68db8ecbf))
+* **workflow:** persist probe observation cwd ([9e361f1](https://github.com/dyphn1/Harness-everything/commit/9e361f1233f08f2f74c376c38e5d34dab017cbae))
+* **workflow:** reclaim stale mutation-probe reservations ([fe613ec](https://github.com/dyphn1/Harness-everything/commit/fe613ec7cdea09e8b535e60f8a1a6468f649006d))
+* **workflow:** reclaim stale mutation-probe reservations ([62f44d0](https://github.com/dyphn1/Harness-everything/commit/62f44d0f455ea3baf14b864aa33b1c868c6ef945))
+* **workflow:** settle probes from their pre-tool workspace ([e16f7da](https://github.com/dyphn1/Harness-everything/commit/e16f7da4a2290afb1603e9c82b775b4fc6872acb))
+* **workflow:** settle probes from their pre-tool workspace ([a7cce6c](https://github.com/dyphn1/Harness-everything/commit/a7cce6c5d7369bd40565978534c09687c8101408))
+* **workflow:** use conservative default probe timeout ([e4d4e0f](https://github.com/dyphn1/Harness-everything/commit/e4d4e0f0f31d9feed068eb98abcba961c4ee078a))
+* **workflow:** use conservative default probe timeout ([1393450](https://github.com/dyphn1/Harness-everything/commit/13934502a715b1cfa3b8caa76a300b38f0059afd))
+
 ## [0.12.0](https://github.com/dyphn1/Harness-everything/compare/v0.11.7...v0.12.0) (2026-09-19)
 
 ### Features
