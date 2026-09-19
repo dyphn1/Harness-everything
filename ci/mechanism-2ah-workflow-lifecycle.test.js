@@ -225,6 +225,48 @@ try {
     promotedTier3.mutationIsolation?.required === true && !promotedTier3.pendingPlan, 'pending Tier 3 isolation becomes active atomically on start');
   check(workflowRuntime.isMajorWorkflow(promotedTier3), 'major-workflow classification flips only after explicit activation');
   check(gate('Write', { file_path: path.join(repo, 'premature-primary.js') }, repo).status === 2, 'activated Tier 3 plan still blocks primary-tree mutation');
+
+  // #163: a queued Tier-3 plan can intentionally remain single-agent when
+  // Fable is prohibited. Explicit start must still promote the whole plan,
+  // including isolation and budget metadata, before any mutation is admitted.
+  fs.unlinkSync(file);
+  check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single',
+    '#163 fixture starts from a Tier 2 iterative workflow');
+  check(control('start').status === 0 && read(file).state === 'running',
+    '#163 fixture activates Tier 2 before a stronger route arrives');
+  check(route('Refactor the entire authentication architecture across all services and migrate the database schema without fable').status === 0,
+    '#163 stronger Tier 3 route without Fable is retained for explicit replan');
+  const queuedNonFableTier3 = read(file);
+  check(queuedNonFableTier3.state === 'blocked' &&
+    queuedNonFableTier3.pendingPlan?.tier === 'tier3' &&
+    queuedNonFableTier3.pendingPlan?.strategy === 'iterative-single' &&
+    queuedNonFableTier3.pendingPlan?.mutationIsolation?.required === true,
+    '#163 queued Tier 3 plan remains non-Fable but still requires isolation');
+  write(file, {
+    ...queuedNonFableTier3,
+    budget: {
+      ...queuedNonFableTier3.budget,
+      limits: { ...queuedNonFableTier3.budget.limits, maxIterations: 1 },
+    },
+  });
+  check(control('start').status === 0, '#163 explicit start activates queued non-Fable Tier 3 plan');
+  const promotedNonFableTier3 = read(file);
+  check(promotedNonFableTier3.workflowPlan?.tier === 'tier3' &&
+    promotedNonFableTier3.tier === 'tier3' &&
+    promotedNonFableTier3.strategy === 'iterative-single' &&
+    promotedNonFableTier3.mutationIsolation?.required === true &&
+    !promotedNonFableTier3.pendingPlan,
+    '#163 non-Fable Tier 3 plan replaces all authoritative active-plan fields');
+  check(promotedNonFableTier3.budget?.limits?.maxIterations === promotedNonFableTier3.workflowPlan?.limits?.maxIterations &&
+    promotedNonFableTier3.budget?.limits?.maxIterations !== 1,
+    '#163 plan activation re-derives budget limits from the promoted plan');
+  check(workflowRuntime.isMajorWorkflow(promotedNonFableTier3),
+    '#163 non-Fable Tier 3 promotion enables major-workflow isolation');
+  check(gate('Write', { file_path: path.join(repo, 'non-fable-primary.js') }, repo).status === 2,
+    '#163 promoted non-Fable Tier 3 blocks primary-tree mutation');
+  check(gate('Write', { file_path: path.join(linked, 'non-fable-linked.js') }, linked).status === 0,
+    '#163 promoted non-Fable Tier 3 admits linked-worktree mutation');
+
   fs.unlinkSync(file);
   check(route('Fix this checkout bug with a regression test').status === 0 && read(file).strategy === 'iterative-single', 'fresh bounded fix returns to Tier 2 iterative lifecycle');
   let tier2 = read(file);
