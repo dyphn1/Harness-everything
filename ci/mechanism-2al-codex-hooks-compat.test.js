@@ -158,6 +158,18 @@ try {
   check(!fs.existsSync(path.join(emptyHome, 'hooks.json')),
     'uninstall removes hooks.json only when Harness created it and no user entries remain');
 
+  const duplicateHome = path.join(root, 'duplicate-codex');
+  fs.mkdirSync(duplicateHome, { recursive: true });
+  compat.install({ codexHome: duplicateHome });
+  const duplicateConfig = read(path.join(duplicateHome, 'hooks.json'));
+  duplicateConfig.hooks.PreToolUse.push(JSON.parse(JSON.stringify(duplicateConfig.hooks.PreToolUse[0])));
+  fs.writeFileSync(path.join(duplicateHome, 'hooks.json'), JSON.stringify(duplicateConfig, null, 2) + '\n', 'utf8');
+  const duplicateBytes = fs.readFileSync(path.join(duplicateHome, 'hooks.json'), 'utf8');
+  let duplicateRefused = false;
+  try { compat.uninstall({ codexHome: duplicateHome }); } catch (error) { duplicateRefused = /modified/.test(error.message); }
+  check(duplicateRefused && fs.readFileSync(path.join(duplicateHome, 'hooks.json'), 'utf8') === duplicateBytes,
+    'extra identical Harness hook is treated as user config drift, not silently deleted');
+
   const removedConfigHome = path.join(root, 'removed-config-codex');
   fs.mkdirSync(removedConfigHome, { recursive: true });
   fs.writeFileSync(path.join(removedConfigHome, 'hooks.json'), JSON.stringify(original, null, 2) + '\n', 'utf8');
