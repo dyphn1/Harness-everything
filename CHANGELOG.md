@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.12.3](https://github.com/dyphn1/Harness-everything/compare/v0.12.2...v0.12.3) (2026-09-19)
+
+### Bug Fixes
+
+* **workflow:** degrade oversized fingerprints conservatively ([ea90f30](https://github.com/dyphn1/Harness-everything/commit/ea90f30a4495e6144017373463c5279fae563252))
+* **workflow:** degrade oversized fingerprints conservatively ([a618d22](https://github.com/dyphn1/Harness-everything/commit/a618d2216955ab3594ecb31b45635dea94e9b109))
+* **workflow:** settle oversized fingerprint probes conservatively ([aafce50](https://github.com/dyphn1/Harness-everything/commit/aafce508551d6564afc884da17555ed71f989836))
+* **workflow:** settle oversized fingerprint probes conservatively ([3092dd6](https://github.com/dyphn1/Harness-everything/commit/3092dd60ed19de97c096f57278c26813f77c3ff7))
+
+### Performance Improvements
+
+* **workflow:** batch workspace content hashing ([ad0fc18](https://github.com/dyphn1/Harness-everything/commit/ad0fc18260c5a716d7711cb4b83cf9f5059dd21d))
+* **workflow:** batch workspace content hashing ([2cdd6e3](https://github.com/dyphn1/Harness-everything/commit/2cdd6e3dc568c9d6007ca10de76b06b47ff39880))
+
 ## [0.12.2](https://github.com/dyphn1/Harness-everything/compare/v0.12.1...v0.12.2) (2026-09-19)
 
 ### Bug Fixes
