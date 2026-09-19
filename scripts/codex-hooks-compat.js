@@ -223,10 +223,14 @@ function install(options = {}) {
 
   ensureRuntime(p.runtimeDir, sourceHash);
   const generated = sourceHookEntries(p.runtimeDir);
+  const ownedEntries = [];
   const next = { ...base, hooks: { ...base.hooks } };
   for (const record of generated) {
     const list = Array.isArray(next.hooks[record.event]) ? [...next.hooks[record.event]] : [];
-    if (!list.some(entry => entryHash(entry) === record.hash)) list.push(record.entry);
+    if (!list.some(entry => entryHash(entry) === record.hash)) {
+      list.push(record.entry);
+      ownedEntries.push(record);
+    }
     next.hooks[record.event] = list;
   }
 
@@ -241,7 +245,7 @@ function install(options = {}) {
     hooksFile: p.hooksFile,
     createdHooksFile: prior ? Boolean(prior.createdHooksFile) : !existedBefore,
     installedAt: new Date().toISOString(),
-    entries: generated.map(({ event, hash, entry }) => ({ event, hash, entry })),
+    entries: ownedEntries.map(({ event, hash, entry }) => ({ event, hash, entry })),
   };
   atomicWriteJson(p.manifestFile, manifest);
 
