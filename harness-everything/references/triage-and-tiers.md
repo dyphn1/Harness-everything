@@ -177,3 +177,5 @@ node "<this-skill-dir>/scripts/self-heal.js" --check
 ```
 
 Respect an explicit user choice to remove/disable an integration.
+
+Related contracts: [router workflow plan](router-workflow-plan.md) and [skill registry](skill-registry.md).

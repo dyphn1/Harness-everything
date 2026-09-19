@@ -112,6 +112,23 @@ for (const entry of SOURCE_MANIFEST.skills) {
   assertTreesEqual(source, path.join(PLUGIN, 'skills', name), name);
 }
 
+const packagedContractAudit = path.join(PLUGIN, 'contract-integrity', 'scripts', 'audit.js');
+assert.ok(fs.existsSync(packagedContractAudit), 'OpenAI package must include shared contract-integrity runtime outside skills/');
+const packagedAuditSource = fs.readFileSync(packagedContractAudit, 'utf8');
+assert.match(packagedAuditSource, /skills\/tdd\/scripts\/quality-gate/, 'packaged contract audit must resolve #58 evaluator from packaged tdd skill');
+assert.doesNotMatch(packagedAuditSource, /\.\.\/\.\.\/tdd\/scripts\/quality-gate/, 'packaged contract audit must not retain canonical repo-only TDD import');
+const packagedAudit = require(packagedContractAudit);
+assert.strictEqual(typeof packagedAudit.runCli, 'function', 'packaged contract audit runtime must load and export runCli');
+
+const verificationContractWrapper = path.join(PLUGIN, 'skills', 'verification-loop', 'scripts', 'contract-integrity-audit.js');
+assert.ok(fs.existsSync(verificationContractWrapper), 'verification-loop must package its contract audit wrapper');
+const verificationWrapper = require(verificationContractWrapper);
+assert.strictEqual(
+  verificationWrapper.resolveAuditRuntime(),
+  packagedContractAudit,
+  'packaged verification-loop wrapper must resolve the plugin-root contract audit runtime'
+);
+
 const marketplace = JSON.parse(fs.readFileSync(path.join(ROOT, '.agents', 'plugins', 'marketplace.json'), 'utf8'));
 assert.strictEqual(marketplace.name, 'harness-everything', 'marketplace should use the publication name, not a local-only label');
 assert.strictEqual(marketplace.interface?.displayName, 'Harness Everything');

@@ -24,4 +24,18 @@ What this decision costs, even though it was the right call.
 
 How this ships (flag, gradual, all-at-once) and how to undo it if it's wrong.
 
+## Contract Requirements
+
+If this document owns normative behavior, assign stable requirement identities:
+
+```md
+### REQ-001 — <short behavior name>
+**Status:** CURRENT
+**Revision:** 1
+**Decision lineage:** ADR-0001 (or None)
+<observable behavior / acceptance boundary>
+```
+
+If this document is informative only, say so and link the authoritative requirement instead. Do not create a second source of truth.
+
 </spec-template>

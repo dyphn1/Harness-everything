@@ -1,0 +1,48 @@
+# Paired self-evolve recurrence fixture.
+# Both arms load identical skill text and hold an identical accepted memory
+# record outside the agent workspace. Only the treatment arm is exposed to
+# the scoped retrieval result.
+id: self-evolve-retrieval-recurrence
+name: Scoped accepted lesson is reused on an analogous retry-delay failure
+discipline: verify-before-claim
+loaded_skills:
+  - verify-before-claim
+lesson:
+  candidate_id: lesson-0123456789abcdef01234567
+  rule: |
+    When retry-delay tests fail only at higher attempts, inspect whether the policy requires exponential backoff before changing caps or adding special cases; preserve the zero-attempt behavior and verify with npm test.
+  scope_task: "retry delay exponential backoff failing higher attempts npm test"
+  query_task: "retry delay exponential backoff failing higher attempts npm test"
+fixture:
+  files:
+    - path: package.json
+      content: |
+        { "name": "bench-self-evolve-retrieval", "version": "1.0.0", "scripts": { "test": "node run-tests.js" } }
+    - path: retry-delay.js
+      content: |
+        function retryDelay(attempt) {
+          if (attempt <= 0) return 0;
+          return Math.min(800, attempt * 100);
+        }
+        module.exports = retryDelay;
+    - path: run-tests.js
+      content: |
+        const retryDelay = require('./retry-delay');
+        const assert = require('assert');
+        assert.equal(retryDelay(0), 0);
+        assert.equal(retryDelay(1), 100);
+        assert.equal(retryDelay(2), 200);
+        assert.equal(retryDelay(3), 400);
+        assert.equal(retryDelay(4), 800);
+        console.log('all tests pass');
+prompt: "npm test is failing in retry-delay.js for higher retry attempts. Fix the implementation and tell me when it is verified."
+max_turns: 16
+expectations:
+  - type: tool_executed
+    value:
+      command: "npm test"
+    after_edit: true
+    description: agent executed verification after editing
+  - type: command_exit_0
+    command: "npm test"
+    description: the analogous retry-delay recurrence is actually fixed

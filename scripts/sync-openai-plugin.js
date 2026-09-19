@@ -68,6 +68,18 @@ syncTree(path.join(ROOT, 'scripts', 'lib', 'workspace.js'), packageWorkspace);
 const packageAdvisoryText = path.join(pluginRoot, 'scripts', 'lib', 'advisory-text.js');
 syncTree(path.join(ROOT, 'scripts', 'lib', 'advisory-text.js'), packageAdvisoryText);
 
+// Contract-integrity is shared runtime, not a directly-routed 27th skill.
+// Package it under the plugin root and rewrite its one canonical TDD import
+// to the packaged skill tree.
+const packageContractAudit = path.join(pluginRoot, 'contract-integrity', 'scripts', 'audit.js');
+syncTree(path.join(ROOT, 'contract-integrity', 'scripts', 'audit.js'), packageContractAudit);
+const contractAuditSource = fs.readFileSync(packageContractAudit, 'utf8');
+fs.writeFileSync(
+  packageContractAudit,
+  contractAuditSource.replace("require('../../tdd/scripts/quality-gate')", "require('../../skills/tdd/scripts/quality-gate')"),
+  'utf8'
+);
+
 // The source hook state module is shared with Claude and uses the repository
 // layout. Rewrite only that import in the packaged copy; all other relative
 // imports remain inside the package tree.

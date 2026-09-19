@@ -4,7 +4,7 @@ description: "Route software/project work through the Harness kernel: classify T
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.11.7
+  version: 0.13.0
 ---
 
 # Harness Everything
