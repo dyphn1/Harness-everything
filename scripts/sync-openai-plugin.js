@@ -71,8 +71,11 @@ syncTree(path.join(ROOT, 'scripts', 'lib', 'advisory-text.js'), packageAdvisoryT
 // Contract-integrity is shared runtime, not a directly-routed 27th skill.
 // Package it under the plugin root and rewrite its one canonical TDD import
 // to the packaged skill tree.
-const packageContractAudit = path.join(pluginRoot, 'contract-integrity', 'scripts', 'audit.js');
+const packageContractRoot = path.join(pluginRoot, 'contract-integrity');
+const packageContractAudit = path.join(packageContractRoot, 'scripts', 'audit.js');
 syncTree(path.join(ROOT, 'contract-integrity', 'scripts', 'audit.js'), packageContractAudit);
+syncTree(path.join(ROOT, 'contract-integrity', 'scripts', 'node-probe-adapter.js'), path.join(packageContractRoot, 'scripts', 'node-probe-adapter.js'));
+syncTree(path.join(ROOT, 'contract-integrity', 'ADAPTERS.md'), path.join(packageContractRoot, 'ADAPTERS.md'));
 const contractAuditSource = fs.readFileSync(packageContractAudit, 'utf8');
 fs.writeFileSync(
   packageContractAudit,
