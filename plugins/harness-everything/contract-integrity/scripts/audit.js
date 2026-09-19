@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const { evaluateEvidence } = require('../../skills/tdd/scripts/quality-gate');
 
 const VERSION = '1.0.0';
@@ -55,6 +57,118 @@ function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
   if (!isObject(value)) return value;
   return Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])]));
+}
+
+function sha256File(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+
+function gitRevision(workspace) {
+  if (!workspace) return null;
+  const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: workspace,
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  return result.status === 0 ? String(result.stdout || '').trim() || null : null;
+}
+
+function artifactFingerprints(trace, workspace) {
+  if (!workspace) return [];
+  const root = path.resolve(workspace);
+  return (trace?.artifacts || []).map(artifact => {
+    const full = path.resolve(root, artifact.path);
+    const inside = full === root || full.startsWith(root + path.sep);
+    if (!inside || !fs.existsSync(full) || !fs.statSync(full).isFile()) {
+      return { id: artifact.id, path: artifact.path, sha256: null, missing: true };
+    }
+    return { id: artifact.id, path: artifact.path, sha256: sha256File(full), missing: false };
+  });
+}
+
+function buildProvenance(args, trace) {
+  const workspace = args.workspace ? path.resolve(args.workspace) : null;
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    auditVersion: VERSION,
+    nodeVersion: process.version,
+    command: 'node contract-integrity/scripts/audit.js <trace> [--tdd-evidence <evidence>] [--workspace <workspace>]',
+    gitRevision: gitRevision(workspace || process.cwd()),
+    workspaceIsolation: unique((trace?.probes || []).map(probe => probe.workspaceIsolation).filter(Boolean)),
+    inputs: {
+      trace: { sha256: sha256File(path.resolve(args.input)) },
+      tddEvidence: args.tddEvidence ? { sha256: sha256File(path.resolve(args.tddEvidence)) } : null,
+    },
+    artifacts: artifactFingerprints(trace, workspace),
+  };
+}
+
+function verifyFreshReport(report, args, trace) {
+  const reasons = [];
+  if (!isObject(report?.provenance) || !isObject(report.provenance.inputs)) {
+    return { fresh: false, authorizesCompletion: false, reasons: ['report-provenance-missing'] };
+  }
+  const currentTraceHash = sha256File(path.resolve(args.input));
+  if (report.provenance.inputs.trace?.sha256 !== currentTraceHash) reasons.push('trace-changed-since-audit');
+  const currentTddHash = args.tddEvidence ? sha256File(path.resolve(args.tddEvidence)) : null;
+  const reportedTddHash = report.provenance.inputs.tddEvidence?.sha256 || null;
+  if (currentTddHash !== reportedTddHash) reasons.push('tdd-evidence-changed-since-audit');
+
+  if (Array.isArray(report.provenance.artifacts) && report.provenance.artifacts.length > 0) {
+    if (!args.workspace) reasons.push('workspace-required-for-artifact-freshness');
+    else {
+      const current = new Map(artifactFingerprints(trace, args.workspace).map(item => [item.id, item]));
+      for (const prior of report.provenance.artifacts) {
+        const now = current.get(prior.id);
+        if (!now || now.missing || prior.missing || now.sha256 !== prior.sha256) {
+          reasons.push(`artifact-changed-since-audit:${prior.id}`);
+        }
+      }
+    }
+  }
+  return {
+    fresh: reasons.length === 0,
+    authorizesCompletion: reasons.length === 0 && report.completionGate === 'PASS' && report.result === 'PASS',
+    reasons: unique(reasons),
+  };
+}
+
+function repairGuidance(requirements) {
+  const priorityOrder = { BLOCKER: 0, HIGH: 1, MEDIUM: 2 };
+  const recommendations = [];
+  const add = (priority, req, code, action) => recommendations.push({
+    priority,
+    requirementId: req.requirementId,
+    sourceRef: req.sourceRef || null,
+    code,
+    action,
+  });
+
+  for (const req of requirements) {
+    if (req.lifecycleStatus !== 'CURRENT') continue;
+    if (req.drift.includes('SOURCE_CONFLICT')) add('BLOCKER', req, 'resolve-source-conflict', 'Resolve the authoritative source conflict before changing tests or implementation.');
+    if (req.drift.includes('SOURCE_DEFECT')) add('BLOCKER', req, 'repair-source-defect', 'Repair or explicitly supersede the defective authoritative source before completion.');
+    if (req.protection.status === 'SURVIVED') add('BLOCKER', req, 'strengthen-weak-oracle', 'Strengthen the requirement-linked observable assertion so every required contract probe is killed for the expected reason.');
+    if (req.drift.includes('STALE_SPEC')) add('HIGH', req, 'update-living-spec', 'Update the living specification and requirement revision before accepting behavior that moved ahead of the contract.');
+    if (req.drift.includes('STALE_TEST')) add('HIGH', req, 'refresh-requirement-tests', 'Update requirement-linked tests and RED evidence against the current living specification.');
+    if (req.drift.includes('STALE_IMPLEMENTATION')) add('HIGH', req, 'refresh-implementation-evidence', 'Attach implementation evidence for the current requirement revision and rerun verification.');
+    if (req.drift.includes('UNTRACED_CHANGE')) add('HIGH', req, 'repair-contract-lineage', 'Restore ADR/spec/ticket/test/implementation lineage for this requirement before completion.');
+    if (req.protection.status === 'NOT_EVALUATED') add('HIGH', req, 'execute-required-probes', 'Execute every predeclared required contract probe in an isolated supported adapter or retain NOT_EVALUATED.');
+    if (req.completeness.result !== 'PASS' || req.completeness.score < 100) add('HIGH', req, 'complete-tdd-evidence', 'Repair the existing #58 completeness evidence; do not compensate with protection score.');
+  }
+
+  const seen = new Set();
+  return recommendations
+    .filter(item => {
+      const key = `${item.requirementId}:${item.code}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority] ||
+      String(a.requirementId).localeCompare(String(b.requirementId)) ||
+      a.code.localeCompare(b.code));
 }
 
 function validateTrace(input) {
@@ -385,6 +499,7 @@ function evaluateTrace(trace, options = {}) {
       requirementId: requirement.requirementId,
       revision: requirement.revision,
       lifecycleStatus: requirement.status,
+      sourceRef: currentSpec ? `${currentSpec.path}#${requirement.requirementId}` : null,
       drift: unique(statuses),
       reasonCodes: lineage.reasons,
       completeness: quality,
@@ -429,6 +544,7 @@ function evaluateTrace(trace, options = {}) {
     },
     driftCounts,
     requirements: reportRequirements,
+    repairGuidance: repairGuidance(reportRequirements),
     graph: {
       nodes: [
         ...(trace?.artifacts || []).map(artifact => ({ id: artifact.id, kind: artifact.kind, status: artifact.status, path: artifact.path })),
@@ -458,8 +574,21 @@ function markdown(report) {
   for (const req of report.requirements) {
     lines.push(`| ${req.requirementId} | ${req.revision} | ${req.drift.join(', ')} | ${req.completeness.score} | ${req.protection.status} | ${req.gateEligible ? 'PASS' : 'FAIL'} |`);
   }
+  if (report.repairGuidance?.length) {
+    lines.push('', '## Repair Guidance', '');
+    for (const item of report.repairGuidance) {
+      lines.push(`- **${item.priority}** ${item.requirementId}${item.sourceRef ? ` (${item.sourceRef})` : ''}: ${item.action} [${item.code}]`);
+    }
+  }
   if (report.errors.length) {
     lines.push('', '## Errors', '', ...report.errors.map(error => `- ${error}`));
+  }
+  if (report.provenance) {
+    lines.push('', '## Provenance', '');
+    lines.push(`- Audit version: ${report.provenance.auditVersion}`);
+    lines.push(`- Git revision: ${report.provenance.gitRevision || 'unknown'}`);
+    lines.push(`- Trace SHA-256: ${report.provenance.inputs?.trace?.sha256 || 'unknown'}`);
+    lines.push(`- TDD evidence SHA-256: ${report.provenance.inputs?.tddEvidence?.sha256 || 'none'}`);
   }
   lines.push('', '## Evidence boundary', '');
   lines.push('- Completeness is derived by the existing #58 evaluator; aggregate scores supplied by agents are ignored.');
@@ -470,13 +599,15 @@ function markdown(report) {
 }
 
 function parseArgs(argv) {
-  const args = { input: null, tddEvidence: null, output: null, markdown: null };
+  const args = { input: null, tddEvidence: null, output: null, markdown: null, workspace: null, verifyFresh: null };
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i];
     if (!args.input && !token.startsWith('--')) args.input = token;
     else if (token === '--tdd-evidence') args.tddEvidence = argv[++i];
     else if (token === '--output') args.output = argv[++i];
     else if (token === '--markdown') args.markdown = argv[++i];
+    else if (token === '--workspace') args.workspace = argv[++i];
+    else if (token === '--verify-fresh') args.verifyFresh = argv[++i];
     else throw new Error(`unknown argument: ${token}`);
   }
   return args;
@@ -487,7 +618,7 @@ function runCli(argv) {
   try { args = parseArgs(argv.slice(2)); }
   catch (error) { console.error(`Contract Integrity: FAIL\n- ${error.message}`); return 2; }
   if (!args.input) {
-    console.error('Usage: node contract-integrity/scripts/audit.js <trace.json> [--tdd-evidence <#58-evidence.json>] [--output report.json] [--markdown report.md]');
+    console.error('Usage: node contract-integrity/scripts/audit.js <trace.json> [--tdd-evidence <#58-evidence.json>] [--workspace <root>] [--output report.json] [--markdown report.md] [--verify-fresh prior-report.json]');
     return 2;
   }
 
@@ -501,7 +632,30 @@ function runCli(argv) {
     return 2;
   }
 
+  if (args.verifyFresh) {
+    let prior;
+    try { prior = readJson(args.verifyFresh); }
+    catch (error) {
+      console.error(`Contract Integrity Freshness: FAIL\n- ${error.message}`);
+      return 2;
+    }
+    const freshness = verifyFreshReport(prior, args, trace);
+    console.log(`Contract Integrity Freshness: ${freshness.authorizesCompletion ? 'PASS' : 'FAIL'}`);
+    for (const reason of freshness.reasons) console.error(`- ${reason}`);
+    return freshness.authorizesCompletion ? 0 : 1;
+  }
+
   const report = evaluateTrace(trace, { tddEvidence });
+  report.provenance = buildProvenance(args, trace);
+  if (args.workspace) {
+    const missing = report.provenance.artifacts.filter(item => item.missing);
+    if (trace.mode === 'strict' && missing.length) {
+      report.result = 'FAIL';
+      report.completionGate = 'FAIL';
+      report.gateEligible = false;
+      report.errors.push(...missing.map(item => `provenance artifact missing from workspace: ${item.id} -> ${item.path}`));
+    }
+  }
   console.log(`Contract Integrity: ${report.result}`);
   console.log(`Scores: completeness=${report.scores.completenessScore} protection=${report.scores.protectionScore} integrity=${report.scores.contractIntegrityScore}`);
   console.log(`Gate: ${report.completionGate}`);
@@ -527,10 +681,13 @@ if (require.main === module) process.exit(runCli(process.argv));
 module.exports = {
   DRIFT,
   VERSION,
+  buildProvenance,
   classifyLineage,
   evaluateTrace,
   markdown,
+  repairGuidance,
   protectionForRequirement,
   runCli,
   validateTrace,
+  verifyFreshReport,
 };
