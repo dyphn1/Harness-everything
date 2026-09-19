@@ -120,6 +120,16 @@ assert.doesNotMatch(packagedAuditSource, /\.\.\/\.\.\/tdd\/scripts\/quality-gate
 const packagedAudit = require(packagedContractAudit);
 assert.strictEqual(typeof packagedAudit.runCli, 'function', 'packaged contract audit runtime must load and export runCli');
 
+const packagedProbeAdapter = path.join(PLUGIN, 'contract-integrity', 'scripts', 'node-probe-adapter.js');
+const packagedAdapterDocs = path.join(PLUGIN, 'contract-integrity', 'ADAPTERS.md');
+assert.ok(fs.existsSync(packagedProbeAdapter) && fs.existsSync(packagedAdapterDocs),
+  'OpenAI package must include shared contract-probe adapter runtime and support boundary docs');
+const packagedAdapter = require(packagedProbeAdapter);
+assert.strictEqual(packagedAdapter.ADAPTER, 'node-npm-v1',
+  'packaged contract-probe adapter must load without becoming a routed skill');
+assert.match(fs.readFileSync(packagedAdapterDocs, 'utf8'), /does \*\*not\*\* claim generic mutation-testing support/,
+  'packaged adapter docs must preserve the narrow support boundary');
+
 const verificationContractWrapper = path.join(PLUGIN, 'skills', 'verification-loop', 'scripts', 'contract-integrity-audit.js');
 assert.ok(fs.existsSync(verificationContractWrapper), 'verification-loop must package its contract audit wrapper');
 const verificationWrapper = require(verificationContractWrapper);
