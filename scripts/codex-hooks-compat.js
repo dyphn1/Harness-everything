@@ -138,24 +138,34 @@ function containsPath(entry, target) {
 function removePriorEntries(config, prior) {
   const priorByEvent = new Map();
   for (const record of prior.entries || []) {
-    if (!priorByEvent.has(record.event)) priorByEvent.set(record.event, new Set());
-    priorByEvent.get(record.event).add(record.hash);
+    if (!priorByEvent.has(record.event)) priorByEvent.set(record.event, new Map());
+    const counts = priorByEvent.get(record.event);
+    counts.set(record.hash, (counts.get(record.hash) || 0) + 1);
   }
 
   const drift = [];
   const removed = [];
   const nextHooks = { ...config.hooks };
-  for (const [event, hashes] of priorByEvent) {
+  for (const [event, expectedCounts] of priorByEvent) {
+    const remaining = new Map(expectedCounts);
     const entries = Array.isArray(nextHooks[event]) ? nextHooks[event] : [];
     const kept = [];
     for (const entry of entries) {
       const hash = entryHash(entry);
-      if (hashes.has(hash)) {
+      const count = remaining.get(hash) || 0;
+      if (count > 0) {
         removed.push({ event, hash });
+        remaining.set(hash, count - 1);
         continue;
       }
       if (prior.runtimeDir && containsPath(entry, prior.runtimeDir)) {
-        drift.push({ event, hash, reason: 'Harness compatibility hook was modified after install' });
+        drift.push({
+          event,
+          hash,
+          reason: expectedCounts.has(hash)
+            ? 'unexpected duplicate Harness compatibility hook'
+            : 'Harness compatibility hook was modified after install',
+        });
       }
       kept.push(entry);
     }
