@@ -106,14 +106,17 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-contract-adapter-tes
 try {
   const symlinkWorkspace = path.join(temp, 'symlink-workspace');
   fs.mkdirSync(symlinkWorkspace, { recursive: true });
-  const outsideTarget = path.join(temp, 'outside.txt');
+  const outsideDir = path.join(temp, 'outside-dir');
+  fs.mkdirSync(outsideDir, { recursive: true });
+  const outsideTarget = path.join(outsideDir, 'outside.txt');
   fs.writeFileSync(outsideTarget, 'SAFE', 'utf8');
-  fs.symlinkSync(outsideTarget, path.join(symlinkWorkspace, 'linked.txt'));
+  fs.symlinkSync(outsideDir, path.join(symlinkWorkspace, 'linked-dir'),
+    process.platform === 'win32' ? 'junction' : 'dir');
   let symlinkRejected = false;
   try {
     applyProbe(symlinkWorkspace, {
       strategy: 'replace',
-      target: 'linked.txt',
+      target: path.join('linked-dir', 'outside.txt'),
       find: 'SAFE',
       replace: 'MUTATED',
     });
@@ -121,7 +124,7 @@ try {
     symlinkRejected = /symbolic link|reparse-point|outside isolated workspace/.test(String(error.message || error));
   }
   check(symlinkRejected && fs.readFileSync(outsideTarget, 'utf8') === 'SAFE',
-    'replace probe rejects symlink/reparse escape without mutating outside the isolated workspace');
+    'replace probe rejects symlink/junction escape without mutating outside the isolated workspace');
 
   const dependent = path.join(temp, 'dependent');
   fs.cpSync(FIXTURE, dependent, { recursive: true });
