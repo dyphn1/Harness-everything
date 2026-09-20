@@ -103,9 +103,13 @@ process.stdin.on('end', () => {
       state.lastFailureAt = Date.now();
 
       fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
-    } else if (!isFailure && state.lastOperationHash === operationHash) {
-      // Unrelated successes must not erase a repeated-failure signature.
-      // A success for the same operation is the objective recovery boundary.
+    } else if (!isFailure) {
+      let stateChanged = false;
+
+      // The first confirmed success after an accepted zoom-out is useful
+      // learning evidence even when it is not the same command that failed.
+      // Consume only the recovery-cycle marker here; do not erase the
+      // repeated-failure signature or count for an unrelated operation.
       if ((state.zoomOutCycles || 0) > 0 && state.lastHash) {
         const toolEventId = payload.tool_use_id || payload.toolUseId || `success-${Date.now()}`;
         try {
@@ -125,8 +129,13 @@ process.stdin.on('end', () => {
         } catch (_) {
           // Learning capture is additive and must never break recovery tracking.
         }
+        state.zoomOutCycles = 0;
+        stateChanged = true;
       }
-      if (state.count > 0 || state.zoomOutCycles > 0 || state.lastHash) {
+
+      // Only a success for the same operation resolves its tracked signature.
+      if (state.lastOperationHash && state.lastOperationHash === operationHash &&
+          (state.count > 0 || state.lastHash)) {
         state.count = 0;
         state.lastHash = null;
         state.lastOperationHash = null;
@@ -134,6 +143,10 @@ process.stdin.on('end', () => {
         state.zoomOutCycles = 0;
         state.lastFailureAt = 0;
         delete state.category;
+        stateChanged = true;
+      }
+
+      if (stateChanged) {
         fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
       }
     }
