@@ -1,13 +1,13 @@
-# Harness Enforcement Plugin for opencode
+# Harness Guidance + Rule-of-3 Plugin for opencode
 
-Adds hard enforcement gates for Harness skills in opencode, addressing the
+Adds lifecycle guidance, verification reminders, and the Rule-of-3 zoom-out boundary in opencode, addressing the
 limitation that skills are otherwise advisory-only on that platform.
 
-> **Evidence boundary:** the plugin is implemented against opencode's real plugin API and covered by deterministic mechanism tests. Live plugin loading remains unverified beyond one scoped surface: retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS) — [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The final snapshot is post-reset (`hardLock: false`, `count: 1`), not a history of the enforcement sequence. Hard lock is only an interactive observation with no retained blocked-tool trace. Reflection was operator-seeded, then agent-rewritten; agent-controlled state deletion resets the breaker, so no durable hard enforcement or behavioral effectiveness is claimed. Global scope, npm-package installation, and other host versions remain unverified. See [`../docs/platform-capabilities.md`](../docs/platform-capabilities.md).
+> **Evidence boundary:** the plugin is implemented against opencode's real plugin API and covered by deterministic mechanism tests. Live plugin loading remains unverified beyond one scoped surface: retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS) — [live-host evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md). The retained snapshot predates #190 and is historical evidence only. Current behavior has no permanent post-reflection hard lock; only the third matching verification failure pauses edits for reflection. Reflection was operator-seeded, then agent-rewritten, so no behavioral-effectiveness claim is made. Global scope, npm-package installation, and other host versions remain unverified. See [`../docs/platform-capabilities.md`](../docs/platform-capabilities.md).
 
 ## Problem
 
-In Claude Code, Harness hooks ENFORCE rules (hard gate). In opencode, skills
+Harness now keeps workflow/productivity rules advisory on both Claude Code and opencode. Explicit permission boundaries and the third-failure Rule-of-3 reflection are the intentional blocking exceptions. In opencode, skills
 only SUGGEST rules (soft guidance). This means:
 - Under pressure, agents can bypass skills
 - Verification can be skipped
@@ -24,7 +24,7 @@ see issue #37 for how that was found and fixed. **Naming caveat (issue
 #127):** opencode's discovery glob only matches `*.js`/`*.ts`, so the file
 must be copied to a `.js` name when installed - see Installation below.
 
-It implements three enforcement mechanisms across opencode's real hooks:
+It implements three lifecycle mechanisms across opencode's real hooks:
 
 The module follows opencode's V1 plugin contract directly: the named
 `HarnessEnforcement` export is an async factory receiving the opencode context
@@ -41,7 +41,7 @@ V1 `(input, output)` shape, including
 Fires after every `edit`, `write` or `apply_patch` tool call and marks
 verification as pending.
 
-### 2. Verification gate (`event`, on `session.idle`)
+### 2. Verification reminder (`event`, on `session.idle`)
 
 opencode has no "before complete" hook to block the way Claude Code's Stop
 hook does. `session.idle` - fired when the agent's turn ends - is the closest
@@ -52,7 +52,7 @@ and on failure calls `client.session.prompt()` to push a synthetic follow-up
 message into the session - forcing the agent to keep working instead of
 actually stopping.
 
-### 3. Circuit breaker (`tool.execute.before` + the verification gate above)
+### 3. Rule-of-3 zoom-out boundary (`tool.execute.before` + the verification observer above)
 
 Enforces Rule of 3 on repeated verification failures (same failing command +
 truncated error, not arbitrary tool failures - `tool.execute.after` has no
@@ -64,8 +64,7 @@ normalized success/failure field to key a signature on for tools in general):
   edit hook and records `lastReflection`
 - the same signature failing again after that reflection was recorded
   hard-locks the breaker
-- once hard-locked, `tool.execute.before` throws on any `edit`/`write`/
-  `apply_patch` call, blocking further edits until the state file is cleared
+- after a valid reflection, the signature count resets; another three matching failures trigger another zoom-out
   or a new session starts
 
 Idle handling is bounded: after a failed verification, the plugin records that
@@ -143,7 +142,7 @@ their patch target names the report file.
 `ci/mechanism-2n-opencode-plugin.test.js` imports `index.mjs` and drives its
 exported hooks directly with a mock `client`/`event` context - the same shape
 opencode's plugin loader passes in - covering the edit → idle → follow-up →
-reflection-artifact → retry → hard-lock sequence, repeated-idle idempotency,
+reflection-artifact → retry → fresh three-failure cycle, repeated-idle idempotency,
 session isolation, reset behavior, legacy-state migration, corrupt-state
 fail-closed behavior, and patch-based reflection writes.
 

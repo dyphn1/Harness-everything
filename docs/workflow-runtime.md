@@ -1,122 +1,92 @@
-# Selected workflow runtime
+# Workflow Runtime
 
-The selected applicable topology is mandatory. This contract governs lifecycle
-obligations; agents still choose tools, reasoning, and implementation inside it.
-Skill suggestions require individual applicability evaluation, not one universal
-skill sequence. Git mutation isolation and durable multi-agent workspace state
-are separate concerns.
+Harness uses workflow state to **observe, explain, and remind**. It is not a numeric-budget scheduler.
 
-## State and entry
+## Product rule
 
-`UserPromptSubmit` records `workflow-run.json` in the bound workspace's global
-Harness session state. It includes a unique `workflowId`, complete plan, prompt
-hash (no prompt text), revision count, and scoped exceptions. Unresolved work
-survives follow-up/status prompts; a weaker route cannot erase it. A stronger
-route blocks mutation until an explicit replan. A new task after `satisfied`
-gets a new identity. Invalid recorded state fails closed with a diagnostic.
+The runtime follows **minimal rails, maximum freedom**:
 
-```text
-pending -> running -> satisfied
-              |          (only after required evidence)
-              -> blocked -> start/replan (within budget)
-```
+- routing selects a useful topology and suggested skills;
+- workflow state records useful evidence and unresolved obligations;
+- verification hooks remind when evidence is missing;
+- worktree/isolation checks warn when a safer execution shape is available;
+- iteration, revision, replan, and worker counts are planning hints only.
 
-`blocked` is a reportable incomplete outcome, never successful completion.
-`deferred` means no topology has been selected. Legacy `active`/`escaped` records
-remain subject to isolation and cannot supply a correlated run implicitly.
+None of those cognitive workflow conditions should trap a session or require a reset command.
 
-For Fable, write a stage array in the exact `workflow-stages.json` path displayed
-by the router. This one file is allowed as runtime bootstrap data before entry;
-the exception does not authorize changing workflow state or source artifacts.
-Use the [stage schema](../fable-mode/CONTRACT-FORMAT.md); each stage needs an
-objective `checkCommand` and `passCondition`. If the plan requires independent
-verification, declare a read-only `fable-verifier` stage depending on every
-other stage. Then run the displayed controller with the host session id:
+The two intentionally separate hard boundaries are:
+
+1. **Rule of 3** — the third matching failure pauses mutation until a zoom-out reflection is written;
+2. **user/host permission and dangerous-action approval** — authorization boundaries such as the action gate.
+
+## Runtime flow
 
 ```text
-node "<hooks>/workflow-disposition.js" start --session-id "<session>"
+route
+  -> selected workflow guidance
+  -> execute freely
+  -> observe edits / verification / stage evidence
+  -> emit reminders when evidence is weak
+  -> complete or continue
+
+same failure signature x3
+  -> zoom-out reflection required
+  -> reflection accepted
+  -> normal execution resumes
 ```
 
-The controller prepares the existing Fable consumer's run at the **bound** state
-root, even when tool execution has moved to a linked worktree. The run records
-both `workflowId` and `sessionId`; matching only strategy or creation time is
-insufficient. `start` creates contracts, not agents. Fable retains ownership of
-worker dispatch, dependency/write-set scheduling, and synthesis.
+There is no `budget-exhausted -> blocked -> reset-budget` lifecycle.
 
-## Isolation boundary
+## Numeric guidance
 
-Before Tier 3 or Fable source/artifact mutation, the gate verifies a registered
-linked Git worktree with the same common Git directory as the bound repository.
-It checks the tool's execution directory and actual Edit/Write/apply_patch paths,
-including move destinations, relative traversal, and symlink/junction resolution.
-Unknown direct targets, Git metadata, and nested repositories are rejected.
-Read-only discovery and a literal `git worktree add` transition remain available
-before entry. Prefer an already-ignored path or sibling path for setup; never
-edit the primary tree's ignore file just to establish mandatory isolation.
+Router plans may still expose values such as:
 
-Shell recognition is conservative: redirects, substitutions, chained commands,
-and side-effect options are not accepted as read-only. Mutation-capable shell
-execution requires an isolated working-directory field, with explicit outside
-paths and directory changes rejected. **This is not a filesystem sandbox**:
-arbitrary scripts, aliases/configuration, indirect variable paths, and races can
-have effects a hook cannot infer. OS/host sandboxing is needed to contain them.
-Agent-writable state is also not tamper-proof. These mechanisms prevent tested
-bypasses; they do not establish durable containment against a malicious agent.
+- `maxIterations`
+- `maxRevisionRounds`
+- `maxReplans`
+- `maxWorkers`
 
-## Mutation probes
+These are **advisory defaults**, useful for prompts, diagnostics, or planning. Runtime hooks do not maintain authoritative counters, reserve mutation capacity, or reject the Nth event.
 
-Shell-effect accounting is keyed per tool call, not per command text. The gate
-registers a pending probe per shell tool-use identity (`workflow-isolation.js`),
-`state-persist.js` settles probes in a single ordered handler, and
-`workflow-mutation-denied.js` discards the probe when that shell execution is
-denied — a denial is never recorded as an observed mutation. Staging-insensitive
-fingerprinting keeps the comparison on visible content, so metadata-only Git
-operations do not register as workspace effects. These lifecycle semantics are
-covered by deterministic workflow mechanism tests (`ci/mechanism-2ah-*`); live
-host loading and behavioral improvement still require separately retained host
-traces and paired evaluations.
+A long loop should produce a message such as:
 
-## Escape, replan, and completion
+> Iterative work is getting long; verify assumptions or consider re-planning.
 
-Escape names one stage in the correlated run and records the uncovered scope,
-evidence, and `workflow-uncovered-scope` or `host-capability-unavailable` reason:
+It should not create a lock.
 
-```text
-node "<hooks>/workflow-disposition.js" escape --session-id "<session>" --stage-id "<stage>" --reason-code workflow-uncovered-scope --scope "<uncovered scope>" --evidence "<evidence>"
-node "<hooks>/workflow-disposition.js" block --session-id "<session>" --evidence "<blocker>"
-```
+## Mutation observation
 
-An escape never resolves the whole run, waives isolation, or removes independent
-verification. Covered stages remain mandatory. Unavailable required verification
-means blocked. The controller permits the initial run plus the plan's
-`maxRevisionRounds` replans; exhaustion stays blocked. Previous run evidence is
-retained, but cannot satisfy a replacement run.
+The previous mutation-probe subsystem and `.mutation-probes.lock` were removed by #190. Shell classification is now best-effort evidence for reminders. A false positive/negative must not deadlock work.
 
-`contract-test.js` records exact check commands, observed worker/session identity,
-numeric exit code, and run/plan/stage evidence. A failed check can recover on a
-later observed pass. A dependent check cannot pass before its prerequisites.
-Stop enumerates the manifest's expected stages, so deleting a contract does not
-make the run complete. A `pass` label without matching exit-zero evidence fails.
-The independent verifier must have a distinct observed identity and evidence
-after the latest mutation/check. This proves attribution, not reasoning quality.
+Direct edits can still update `lastMutationAt`. Shell outcomes can update handoff evidence heuristically. Missing or ambiguous evidence degrades reminder quality, not execution availability.
 
-Unresolved Stop exits 2. If the host marks a Stop retry, the contract becomes
-`blocked` with diagnostics instead of looping indefinitely or recording success.
-Direct/iterative routes use observed edit/verification milestones; iteration
-counting and semantic check quality remain executor obligations, not proven by
-these gates. Broad verification-command recognition is a heuristic.
+## Completion
 
-## Host evidence
+`workflow-stop-gate.js` and `stop-gate.js` are reminder surfaces. When verification or Fable stage evidence is incomplete they report the missing evidence and return success to the host.
 
-Claude's manifest carries the shell/direct-mutation and Stop hooks. The local
-OpenAI package carries the same runtime for its declared `Bash|apply_patch`
-surface. Package tests exercise both layouts. Missing worker/exit metadata keeps
-Fable completion unresolved; it must be reported as degraded/blocked, not passed.
-Manual CLI routing without a session cannot persist lifecycle state.
+A workflow may retain `blocked` as a descriptive status recorded by the controller or legacy state, but workflow hooks do not use that value as a persistent execution lock.
 
-OpenCode and instruction-only/public Skills-only surfaces do not gain these
-runtime gates from this change. An absent/disabled hook or deleted state cannot
-be detected as an active contract by that same hook. No host compatibility status
-is upgraded: see [platform capabilities](platform-capabilities.md). Live hook
-loading, enforced host transitions, and behavioral improvement need separately
-retained host traces and paired evaluations.
+## Fable and worktrees
+
+Fable stage graphs, dependencies, write sets, and objective checks remain useful planning/evidence structures. `maxWorkers` no longer chunks ready stages as a hard concurrency cap.
+
+For major work, a linked worktree remains strongly recommended. Missing isolation is surfaced prominently, but Harness-owned cognitive workflow hooks do not turn it into a self-deadlocking runtime state.
+
+## Legacy state
+
+Existing sessions may contain `budget.state = "budget-exhausted"`, old counters, or mutation-probe files from earlier versions. Current runtime code treats the budget API as advisory compatibility only and creates no new mutation-probe state.
+
+Starting a fresh session remains the cleanest way to discard old evidence, but it is no longer required to recover from numeric budget exhaustion.
+
+## Testing contract
+
+Regression tests should prove:
+
+- reminders fire when relevant;
+- commands/Stop remain available;
+- no mutation-probe lock or reservation state is created;
+- `exec_command` verification can update `lastVerifyAt`;
+- Rule of 3 trips exactly at three matching failures;
+- a valid reflection resets the cycle;
+- a later three-failure cycle requests another reflection rather than a permanent hard lock;
+- permission/dangerous-action boundaries remain separate and intact.

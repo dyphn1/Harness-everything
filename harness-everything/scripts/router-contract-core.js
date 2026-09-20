@@ -349,7 +349,7 @@ function planMetadataForStrategy(strategy) {
     return {
       ...base,
       patterns: ['router', 'react'],
-      requiredInvariants: [...base.requiredInvariants, 'loop-budget', 'objective-verification'],
+      requiredInvariants: [...base.requiredInvariants, 'loop-awareness', 'objective-verification'],
       suggestedSkills: ['tdd', 'verification-loop'],
       maxIterations: ITERATIVE_MAX_ITERATIONS,
       parallelAllowed: false,

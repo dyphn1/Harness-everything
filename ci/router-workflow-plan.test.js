@@ -75,12 +75,12 @@ if (validContract(iterative, 'iterative-single')) {
   const plan = iterative.contract.workflowPlan;
   check(plan.tier === 'tier2', 'ordinary test-first bug fix is tier2');
   check(plan.strategy === 'iterative-single', 'ordinary bug fix selects iterative-single');
-  check(plan.limits.maxIterations === ITERATIVE_MAX_ITERATIONS, 'iterative-single has an explicit loop budget');
-  check(plan.limits.maxRevisionRounds === WORKFLOW_MAX_REVISION_ROUNDS, 'workflow exposes one numeric revision budget');
-  check(plan.limits.maxReplans === FABLE_MAX_REPLANS, 'workflow exposes one numeric replan budget');
-  check(plan.limits.maxWorkers === FABLE_MAX_WORKERS, 'workflow exposes one numeric worker cap');
+  check(plan.limits.maxIterations === ITERATIVE_MAX_ITERATIONS, 'iterative-single retains an advisory iteration guidance value');
+  check(plan.limits.maxRevisionRounds === WORKFLOW_MAX_REVISION_ROUNDS, 'workflow exposes an advisory revision guidance value');
+  check(plan.limits.maxReplans === FABLE_MAX_REPLANS, 'workflow exposes an advisory replan guidance value');
+  check(plan.limits.maxWorkers === FABLE_MAX_WORKERS, 'workflow exposes an advisory worker guidance value');
   check(plan.requiredInvariants.includes('objective-verification'), 'iterative-single carries objective verification invariant');
-  check(plan.requiredInvariants.includes('loop-budget'), 'iterative-single carries loop-budget invariant');
+  check(plan.requiredInvariants.includes('loop-awareness'), 'iterative-single carries loop-awareness guidance');
   check(plan.suggestedSkills.includes('tdd'), 'TDD stays advisory rather than an invariant');
   check(plan.memory.write === 'none', 'ordinary iterative work cannot write durable memory');
   check(!plan.requiredInvariants.includes('tdd'), 'suggested skills are separated from mandatory invariants');
@@ -267,7 +267,7 @@ const kernelIterative = spawnSync(process.execPath, [kernelRouter, 'Fix this che
   encoding: 'utf8',
 });
 check(kernelIterative.stdout.includes('"strategy":"iterative-single"'), 'kernel consumes strategy from structured plan');
-check(kernelIterative.stdout.includes('loop-budget:'), 'kernel prints dynamic plan invariants');
+check(kernelIterative.stdout.includes('loop-awareness:'), 'kernel prints dynamic plan guidance');
 check(kernelIterative.stdout.includes('   - tdd'), 'kernel prints advisory skills separately');
 
 for (const schemaPath of [
