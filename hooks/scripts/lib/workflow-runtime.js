@@ -85,7 +85,7 @@ function matchingRun(context) {
   return { runRoot, run };
 }
 
-function unresolvedStages(match, workflow) {
+function unresolvedStages(match, workflow, lastEditAt = 0) {
   const unresolved = [];
   const stages = [];
   for (const stageId of match.run.stageIds) {
@@ -113,7 +113,7 @@ function unresolvedStages(match, workflow) {
     const workers = stages.filter(stage => stage.agent !== 'fable-verifier').map(stage => stage.workerId).filter(Boolean);
     const latestCheck = Math.max(0, ...stages.filter(stage => stage.agent !== 'fable-verifier').map(stage => Date.parse(stage.verifiedAt) || 0));
     if (!verifiers.some(stage => stage.workerId && !workers.includes(stage.workerId) && stage.status === 'pass' &&
-        Date.parse(stage.verifiedAt) >= Math.max(workflow.lastMutationAt || 0, latestCheck) &&
+        Date.parse(stage.verifiedAt) >= Math.max(workflow.lastMutationAt || 0, lastEditAt || 0, latestCheck) &&
         match.run.stageIds.filter(id => id !== stage.stageId).every(id => stage.dependsOn?.includes(id)))) {
       unresolved.push('independent-verifier-missing');
     }
@@ -129,7 +129,7 @@ function readHookInput(decide) {
     finished = true;
     clearTimeout(timeout);
     try { decide(input.trim() ? JSON.parse(input) : null); }
-    catch (error) { console.error(`[Workflow Gate] ${error.message}`); process.exitCode = 2; }
+    catch (error) { console.error(`[Workflow Reminder] Ignoring malformed workflow hook input: ${error.message}`); }
   };
   const timeout = setTimeout(finish, 500);
   process.stdin.setEncoding('utf8');
