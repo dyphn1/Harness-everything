@@ -164,6 +164,106 @@ for (const [rel, pattern] of retiredClaims) {
   check(`${rel}: retired enforcement claim absent (${pattern})`, !pattern.test(text), 'stale pre-#190 contract wording');
 }
 
+// The per-file entries above only freeze the files a past fix touched, so the
+// same retired wording survived elsewhere (#204: docs/workflows/zoom-out.md,
+// docker-verify.sh). Scan the whole agent-facing surface instead: docs, routed
+// skills, shared references, the OpenCode README, root shell/container entry
+// points, and the packaged plugin copies that ship to other hosts.
+const RETIRED_CLAIM_DIRS = [
+  'docs',
+  'zoom-out',
+  'fable-mode',
+  'harness-everything/references',
+  'plugins/harness-everything',
+];
+const RETIRED_CLAIM_EXTENSIONS = new Set(['.md', '.sh', '.js', '.mjs']);
+
+// Files that legitimately keep the retired wording: retained pre-#190
+// live-host evidence, release history, capability docs whose hard-lock lines
+// are explicitly labelled historical/reported-only, code that strips the
+// retired state field, and the CI guards that assert its absence.
+const RETIRED_CLAIM_ALLOWLIST = [
+  /^benchmarks\/results\/live-host\/opencode-2026-09-16\//,
+  /^CHANGELOG\.md$/,
+  /^docs\/platform-capabilities\.md$/,
+  /^opencode-plugin\/index\.mjs$/,
+  /^ci\//,
+  /^behavioral-evals\/[^/]+\.js$/,
+];
+
+// A line that denies the retired behavior or dates it ("no permanent hard
+// lock", "historical hard-lock evidence", "predates #190") is the correct
+// wording, not drift. Only the broad hard-lock family needs this escape; the
+// assertive patterns below are wrong in any context, so they never get it.
+const HISTORICAL_CONTEXT =
+  /pre-#190|\b(?:no|not|never|without|remove[sd]?|retired|historical|predates|former(?:ly)?|legacy|post-reset|no longer)\b|rather than|instead of/i;
+
+const RETIRED_CLAIM_SCAN = [
+  { label: 'hard-lock escalation', pattern: /hard[\s-]?lock/i, historicalAllowed: true },
+  { label: 'reset gated on a second cycle', pattern: /only after the (?:second|repeated) cycle/i },
+  { label: 'cycle-escalation reset branch', pattern: /\|\s*(?:second|repeated|repeat) cycle\s*\|\s*reset/i },
+  { label: 'machine-blocked disposition', pattern: /machine[\s-]blocked/i },
+  { label: 'replan budget', pattern: /replan[\s-]budget/i },
+  { label: 'runtime worker leases', pattern: /worker lease/i },
+  { label: 'retired loop-budget invariant', pattern: /\bloop-budget\b/i },
+  { label: 'explicit iteration budget', pattern: /explicit iteration budget/i },
+];
+
+function collectRetiredClaimTargets() {
+  const targets = new Set();
+  const walk = (dir) => {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!entry.name.startsWith('.') && entry.name !== 'node_modules') walk(p);
+      } else if (RETIRED_CLAIM_EXTENSIONS.has(path.extname(entry.name))) {
+        targets.add(p);
+      }
+    }
+  };
+  for (const dir of RETIRED_CLAIM_DIRS) walk(path.join(ROOT, dir));
+  for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
+    if (entry.isFile() && (entry.name.endsWith('.sh') || entry.name === 'Dockerfile')) {
+      targets.add(path.join(ROOT, entry.name));
+    }
+  }
+  const behavioralDir = path.join(ROOT, 'behavioral-evals');
+  if (fs.existsSync(behavioralDir)) {
+    for (const entry of fs.readdirSync(behavioralDir, { withFileTypes: true })) {
+      if (entry.isFile() && entry.name.endsWith('.md')) targets.add(path.join(behavioralDir, entry.name));
+    }
+  }
+  const opencodeReadme = path.join(ROOT, 'opencode-plugin', 'README.md');
+  if (fs.existsSync(opencodeReadme)) targets.add(opencodeReadme);
+  return [...targets].sort();
+}
+
+const retiredClaimTargets = collectRetiredClaimTargets();
+const retiredClaimHits = new Map(RETIRED_CLAIM_SCAN.map((rule) => [rule.label, []]));
+for (const file of retiredClaimTargets) {
+  const rel = path.relative(ROOT, file).split(path.sep).join('/');
+  if (RETIRED_CLAIM_ALLOWLIST.some((allowed) => allowed.test(rel))) continue;
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+  lines.forEach((line, index) => {
+    for (const rule of RETIRED_CLAIM_SCAN) {
+      if (!rule.pattern.test(line)) continue;
+      if (rule.historicalAllowed && HISTORICAL_CONTEXT.test(line)) continue;
+      retiredClaimHits.get(rule.label).push(`${rel}:${index + 1}`);
+    }
+  });
+}
+for (const rule of RETIRED_CLAIM_SCAN) {
+  const hits = retiredClaimHits.get(rule.label);
+  check(
+    `retired-claim scan: ${rule.label} absent across the agent-facing surface`,
+    hits.length === 0,
+    `stale pre-#190 contract wording at ${hits.join(', ')}`
+  );
+}
+console.log(`Scanned ${retiredClaimTargets.length} file(s) for retired advisory-contract claims.`);
+
 // --- 3+4. Distribution manifests -----------------------------------------
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const pluginJsonPath = path.join(ROOT, '.claude-plugin', 'plugin.json');
