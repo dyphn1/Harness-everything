@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.16.4](https://github.com/dyphn1/Harness-everything/compare/v0.16.3...v0.16.4) (2026-09-20)
+
+### Bug Fixes
+
+* **repo:** close issues 205-207 ([423ff63](https://github.com/dyphn1/Harness-everything/commit/423ff638f08cdaa14d4ab0856bfe2d2bc6b050db)), closes [#205](https://github.com/dyphn1/Harness-everything/issues/205) [#206](https://github.com/dyphn1/Harness-everything/issues/206) [#205](https://github.com/dyphn1/Harness-everything/issues/205) [#206](https://github.com/dyphn1/Harness-everything/issues/206) [#207](https://github.com/dyphn1/Harness-everything/issues/207)
+
 ## [0.16.3](https://github.com/dyphn1/Harness-everything/compare/v0.16.2...v0.16.3) (2026-09-20)
 
 ### Bug Fixes
