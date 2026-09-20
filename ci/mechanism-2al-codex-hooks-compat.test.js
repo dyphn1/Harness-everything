@@ -248,6 +248,21 @@ try {
     !fs.existsSync(failedManifestPath),
     'failed manifest commit rolls hooks.json back byte-identically');
 
+  const linkedOwnerHome = path.join(root, 'linked-owner-codex');
+  const linkedOwnerOutside = path.join(root, 'linked-owner-outside');
+  fs.mkdirSync(path.join(linkedOwnerHome, 'harness-everything'), { recursive: true });
+  fs.mkdirSync(linkedOwnerOutside, { recursive: true });
+  fs.symlinkSync(
+    linkedOwnerOutside,
+    path.join(linkedOwnerHome, 'harness-everything', 'compat-hooks'),
+    process.platform === 'win32' ? 'junction' : 'dir'
+  );
+  let linkedOwnerRefused = false;
+  try { compat.install({ codexHome: linkedOwnerHome }); }
+  catch (error) { linkedOwnerRefused = /linked|outside/.test(error.message); }
+  check(linkedOwnerRefused && fs.readdirSync(linkedOwnerOutside).length === 0,
+    'linked compatibility owner path cannot redirect writes outside Codex home');
+
   const malformedHome = path.join(root, 'malformed-codex');
   fs.mkdirSync(malformedHome, { recursive: true });
   const malformed = path.join(malformedHome, 'hooks.json');

@@ -101,6 +101,43 @@ function isPathInside(root, candidate) {
   return relative !== '' && relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative);
 }
 
+function assertOwnedPath(codexHome, target, label) {
+  const home = path.resolve(codexHome);
+  const resolvedTarget = path.resolve(target);
+  if (!samePath(home, resolvedTarget) && !isPathInside(home, resolvedTarget)) {
+    throw new Error('refusing outside Codex home ' + label + ': ' + target);
+  }
+  if (!fs.existsSync(home)) return;
+
+  const realpath = fs.realpathSync.native || fs.realpathSync;
+  const physicalHome = realpath(home);
+  const relative = path.relative(home, resolvedTarget);
+  let current = home;
+  for (const segment of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, segment);
+    if (!fs.existsSync(current)) break;
+    if (fs.lstatSync(current).isSymbolicLink()) {
+      throw new Error('refusing linked ' + label + ': ' + current);
+    }
+    const physical = realpath(current);
+    if (!samePath(physicalHome, physical) && !isPathInside(physicalHome, physical)) {
+      throw new Error('refusing outside Codex home ' + label + ': ' + current);
+    }
+  }
+}
+
+function assertCompatibilityPaths(paths) {
+  for (const [label, target] of [
+    ['hooks file', paths.hooksFile],
+    ['compatibility owner', paths.ownerRoot],
+    ['compatibility manifest', paths.manifestFile],
+    ['compatibility runtime root', paths.runtimeRoot],
+    ['compatibility runtime', paths.runtimeDir],
+  ]) {
+    if (target) assertOwnedPath(paths.codexHome, target, label);
+  }
+}
+
 function readManifest(file, expectedPaths = null) {
   if (!fs.existsSync(file)) return null;
   const data = readJsonObject(file, null);
@@ -123,6 +160,7 @@ function readManifest(file, expectedPaths = null) {
     expectedPaths.runtimeRoot,
     data.packageVersion + '-' + data.sourcePluginSha256.slice(0, 12)
   );
+  assertOwnedPath(expectedPaths.codexHome, data.runtimeDir, 'manifest runtime');
   if (!samePath(data.hooksFile, expectedPaths.hooksFile) ||
       !isPathInside(expectedPaths.runtimeRoot, data.runtimeDir) ||
       !samePath(data.runtimeDir, expectedRuntimeDir) ||
@@ -277,6 +315,7 @@ function install(options = {}) {
   const codexHome = path.resolve(options.codexHome || defaultCodexHome(options.env));
   const sourceHash = treeHash(SOURCE_PLUGIN_ROOT);
   const p = pathsFor(codexHome, sourceHash);
+  assertCompatibilityPaths(p);
   const existedBefore = fs.existsSync(p.hooksFile);
   const hooksBefore = existedBefore ? fs.readFileSync(p.hooksFile) : null;
   const runtimeExistedBefore = fs.existsSync(p.runtimeDir);
@@ -293,6 +332,7 @@ function install(options = {}) {
   }
 
   ensureRuntime(p.runtimeDir, sourceHash);
+  assertCompatibilityPaths(p);
   const generated = sourceHookEntries(p.runtimeDir);
   const ownedEntries = [];
   const next = { ...base, hooks: { ...base.hooks } };
@@ -318,6 +358,7 @@ function install(options = {}) {
     entries: ownedEntries.map(({ event, hash, entry }) => ({ event, hash, entry })),
   };
   try {
+    assertCompatibilityPaths(p);
     atomicWriteJson(p.hooksFile, next);
     atomicWriteJson(p.manifestFile, manifest);
   } catch (error) {
@@ -352,6 +393,7 @@ function install(options = {}) {
 function uninstall(options = {}) {
   const codexHome = path.resolve(options.codexHome || defaultCodexHome(options.env));
   const p = pathsFor(codexHome);
+  assertCompatibilityPaths(p);
   const prior = readManifest(p.manifestFile, p);
   if (!prior) return { status: 'not-installed', codexHome, removed: 0, trustChanged: false };
 
@@ -399,6 +441,7 @@ function uninstall(options = {}) {
 function status(options = {}) {
   const codexHome = path.resolve(options.codexHome || defaultCodexHome(options.env));
   const p = pathsFor(codexHome);
+  assertCompatibilityPaths(p);
   const prior = readManifest(p.manifestFile, p);
   if (!prior) return { installed: false, codexHome, hooksFile: p.hooksFile, trustChanged: false };
   const config = readHooksFile(p.hooksFile);
