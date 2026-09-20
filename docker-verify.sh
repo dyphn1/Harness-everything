@@ -86,24 +86,63 @@ if ! node -e "const s=require('./.claude/harness-everything/state/sessions/defau
 fi
 echo "✅ PASS: Valid reflection report released the breaker (self-recovery)."
 
-# Second trip on the same signature must hard-lock even though a report exists
-# (the report is stale relative to lastFailureAt, and the cycle budget is spent).
-node -e "require('fs').writeFileSync('.claude/harness-everything/state/sessions/default/rule-of-3-state.json', JSON.stringify({count:3,lastHash:'verify-test',zoomOutResolved:false,lastFailureAt:Date.now()+60000,zoomOutCycles:1}))"
+# 3a-ter. Re-trip: three more failures on the same signature after a released
+# cycle ask for ANOTHER zoom-out. #190 retired the second-stage escalation, so
+# the contract is exit 2 plus the reflection-required message the hook actually
+# prints - never a permanent lock (ci/mechanism-2a-rule-of-3.test.js:58-64).
+echo -e "\n---> Running 3a-ter: Re-trip requests another zoom-out"
+# Seed through the hooks' own resolver: since #42 runtime state lives in the
+# global, workspace-keyed state root ($HARNESS_STATE_HOME or
+# ~/.agents/harness-everything/...), and a repo-relative seed only reaches the
+# hook while the one-time legacy migration can still move it.
+STATE_DIR=$(node -e "process.stdout.write(require('./hooks/scripts/lib/harness-state').getSessionDir(null, 'default'))")
+RETRIP_AT=$(node -e "process.stdout.write(String(Date.now()))")
+node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({count:3,lastHash:'verify-test',zoomOutResolved:false,lastFailureAt:Number(process.argv[2]),zoomOutCycles:1}))" "$STATE_DIR/rule-of-3-state.json" "$RETRIP_AT"
 set +e
 node hooks/scripts/rule-of-3.js 2>rule-of-3-err.log
 EXIT_CODE=$?
 set -e
 if [ "$EXIT_CODE" -ne 2 ]; then
-  echo "❌ FAIL: Second trip did not hard-lock (expected 2, got $EXIT_CODE)"
+  echo "❌ FAIL: Re-trip did not request another zoom-out (expected 2, got $EXIT_CODE)"
   cat rule-of-3-err.log
   exit 1
 fi
-if ! grep -q "hard lock" rule-of-3-err.log; then
-  echo "❌ FAIL: Second-trip output did not contain hard-lock escalation message"
+if ! grep -q "RULE OF 3 CIRCUIT BREAKER TRIGGERED" rule-of-3-err.log; then
+  echo "❌ FAIL: Re-trip output did not contain the circuit-breaker trigger message"
   cat rule-of-3-err.log
   exit 1
 fi
-echo "✅ PASS: Second trip on the same signature hard-locked for human decision."
+if ! grep -q "ACTION REQUIRED (reflect first)" rule-of-3-err.log; then
+  echo "❌ FAIL: Re-trip output did not demand reflection"
+  cat rule-of-3-err.log
+  exit 1
+fi
+# Negative guard: the retired escalation wording must never come back (#190).
+if grep -qi "hard lock" rule-of-3-err.log; then # this must never match
+  echo "❌ FAIL: Re-trip printed the retired hard-lock escalation, which no longer exists"
+  cat rule-of-3-err.log
+  exit 1
+fi
+echo "✅ PASS: Re-trip asked for another zoom-out, with no retired escalation wording."
+
+# A fresh report, written after the re-trip failure, releases the breaker again.
+printf '## Goal\nx\n## Failed Attempts\nx\n## Verified Facts\nx\n## Diagnosis\nx\n## Decision\nRESUME: second untried approach\n' > "$STATE_DIR/zoom-out-report.md"
+set +e
+node hooks/scripts/rule-of-3.js
+EXIT_CODE=$?
+set -e
+if [ "$EXIT_CODE" -ne 0 ]; then
+  echo "❌ FAIL: Fresh reflection report did not release the re-tripped breaker (expected 0, got $EXIT_CODE)"
+  exit 1
+fi
+if ! node -e "const s=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); process.exit(s.count===0 && s.zoomOutResolved===true && s.zoomOutCycles===2 ? 0 : 1)" "$STATE_DIR/rule-of-3-state.json"; then
+  echo "❌ FAIL: Breaker state not updated after the second report release"
+  cat "$STATE_DIR/rule-of-3-state.json"
+  exit 1
+fi
+echo "✅ PASS: A fresh report released the re-tripped breaker (advisory re-trip, not an escalation)."
+
+# harness:reset stays an optional manual clear, not a required escalation step.
 npm run harness:reset
 
 

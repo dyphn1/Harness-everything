@@ -77,11 +77,12 @@ spawn workers.
 
 For `fable-parallel`, spawn only stages in the same validated execution batch;
 never invent an additional parallel edge. A stage depending on another stage is
-not in the same ready batch. Never exceed `workflowPlan.limits.maxWorkers`. The router plan is the numeric
-source of truth; `workflow-plan-consumer.js` chunks ready sets to that cap and
-runtime worker leases enforce it when the host exposes stable worker IDs. For
-other Fable strategies, serialize the returned batches unless a later validated
-plan says otherwise.
+not in the same ready batch. Treat `workflowPlan.limits.maxWorkers` as a
+planning cap you are expected to respect: it is advisory. `workflow-plan-consumer.js`
+returns every dependency-ready stage without chunking to that cap, and nothing
+leases or counts workers at runtime, so exceeding it is your own judgement call,
+not a blocked action. For other Fable strategies, serialize the returned batches
+unless a later validated plan says otherwise.
 
 **3. Verify with a check that can fail — external artifacts only.** Each stage
 defines a pass condition an external artifact satisfies: a test that runs, a file
