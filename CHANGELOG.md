@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.16.0](https://github.com/dyphn1/Harness-everything/compare/v0.15.0...v0.16.0) (2026-09-20)
+
+### Features
+
+* **codex:** add explicit hooks compatibility installer ([3fb622b](https://github.com/dyphn1/Harness-everything/commit/3fb622b57eef3a9ee5110529bcd2cdc8c81b6a75))
+* **codex:** expose explicit hook fallback CLI ([83e4cf1](https://github.com/dyphn1/Harness-everything/commit/83e4cf1eadd77585d4681bb73acbf360efd63509))
+
+### Bug Fixes
+
+* **codex:** contain compatibility runtime paths ([1ffcc0d](https://github.com/dyphn1/Harness-everything/commit/1ffcc0d984e7dbfd2dd987a03b189fb950e83de8))
+* **codex:** do not recreate removed hooks config ([ee62a1d](https://github.com/dyphn1/Harness-everything/commit/ee62a1d9f466a2e585e4737576a7289ae12087d5))
+* **codex:** fail closed on duplicate compat hooks ([29920d0](https://github.com/dyphn1/Harness-everything/commit/29920d07e76a73c84c35440b60453c3e0b648b29))
+* **codex:** harden compatibility hook ownership ([3ff5c14](https://github.com/dyphn1/Harness-everything/commit/3ff5c1456e6c44398ef661763057c93bcfcbb57c))
+* **codex:** record only inserted hook ownership ([90e0c9b](https://github.com/dyphn1/Harness-everything/commit/90e0c9bbfd4672955473d33f2e33832f760bf294))
+
 ## [0.15.0](https://github.com/dyphn1/Harness-everything/compare/v0.14.0...v0.15.0) (2026-09-20)
 
 ### Features
