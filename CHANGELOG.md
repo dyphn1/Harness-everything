@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.16.2](https://github.com/dyphn1/Harness-everything/compare/v0.16.1...v0.16.2) (2026-09-20)
+
+### Bug Fixes
+
+* **runtime:** align post-190 advisory contracts ([562f067](https://github.com/dyphn1/Harness-everything/commit/562f067e97319aa7fc2e7145a55a24652c4499c0))
+
 ## [0.16.1](https://github.com/dyphn1/Harness-everything/compare/v0.16.0...v0.16.1) (2026-09-20)
 
 ### Bug Fixes
