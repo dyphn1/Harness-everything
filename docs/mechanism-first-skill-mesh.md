@@ -55,7 +55,7 @@ HARNESS_DECISION
 tier: 2
 strategy: iterative-single
 workflow_state: active
-required: route-before-execution, objective-verification, loop-budget
+required: scope-lock, objective-verification, loop-awareness
 suggest: tdd, verification-loop
 suggestion_policy: evaluate-applicability
 escape_policy: workflow-uncovered-scope-only

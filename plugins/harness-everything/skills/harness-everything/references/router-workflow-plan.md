@@ -110,7 +110,7 @@ This does not choose a topology and does not itself enforce the gate. Phase 5 ow
 
 Examples:
 
-- `objective-verification` and `loop-budget` are mandatory for `iterative-single`;
+- `loop-awareness` and `objective-verification` are mandatory for `iterative-single`, on top of the base `scope-lock`, `verify-before-claim`, and `replan-after-repeated-failure`;
 - `tdd` and `verification-loop` remain advisory skill suggestions;
 - `stage-contracts` and `cold-verification` are mandatory for Fable topologies;
 - `multi-agent-workspace` is suggested only when the selected topology actually requires durable workspace behavior.
