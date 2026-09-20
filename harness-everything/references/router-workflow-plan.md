@@ -54,14 +54,14 @@ If the structured contract is missing or invalid, the kernel emits a degraded/un
 | Strategy | Selection rule | Key invariants |
 |---|---|---|
 | `direct-single` | Tier 1 bounded/trivial task | scope lock, verify before claim |
-| `iterative-single` | Tier 2 ordinary diagnosis/TDD/tool loop | objective verification, explicit iteration budget |
+| `iterative-single` | Tier 2 ordinary diagnosis/TDD/tool loop | objective verification, advisory iteration guidance |
 | `fable-staged` | Tier 3 dependent work or parallel independence not proven | stage contracts, cold verifier |
 | `fable-parallel` | Tier 3 with explicit independent workstreams and read-only/disjoint write scope | stage contracts, parallel scope contract, synthesis barrier |
 | `fable-multi-agent-workspace` | durable multi-session task needing reusable specialists | workspace state, handoffs, stage contracts, cold verifier |
 
 Tier 3 alone never implies a persistent workspace. Likewise, an `independent` label alone is insufficient for `fable-parallel`: the write set must also be `read-only` or `disjoint`.
 
-The Phase 2 `iterative-single` loop budget is **8 iterations**. This is a policy bound chosen for control, not a measured optimum. It is separate from the rule-of-3 repeated-failure breaker.
+The Phase 2 `iterative-single` plan exposes **8 iterations** as advisory planning guidance, not a machine-enforced stop. Continue when evidence justifies it; the separate rule-of-3 repeated-failure reflection gate remains the hard boundary.
 
 ## Explicit user choice and prohibitions
 

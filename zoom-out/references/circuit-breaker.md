@@ -21,7 +21,7 @@ flowchart TD
 
     Resume --> Resolved{5. Problem Cracking Succeeds?}
     Resolved -- Yes --> SelfEvolve[Call self-evolve to Persist Insight]
-    Resolved -- No (3 More Failures) --> Escalate
+    Resolved -- No (3 More Matching Failures) --> CeaseFire
 ```
 
 ## 1. Triggers
@@ -50,7 +50,7 @@ A complete report automatically releases the circuit breaker on hook-enabled sys
 ## 5. Phase 4 — Decision Gate: Resume or Escalate
 
 - **RESUME**: Selected when the fresh diagnosis identifies a clear, untried path within existing authority.
-- **ESCALATE**: Reserved for true decision points belonging to the user (conflicting requirements, destructive migration, missing credentials/access, or repeated breaker trips).
+- **ESCALATE**: Reserved for true decision points belonging to the user (conflicting requirements, destructive migration, missing credentials/access, or repeated breaker trips that expose a genuine decision or access gap).
 Hand the human a **decision**, not a plea:
 
 > "Goal: [...]. I falsified paths X, Y, Z — verified facts: [...].
@@ -61,6 +61,6 @@ Hand the human a **decision**, not a plea:
 Banned: "I have tried everything and failed, please help." That reports incapability, not a decision.
 
 ## 7. Recovery
-- **Self-recovery path**: a valid report ending in `RESUME` releases the breaker — reload the appropriate execution mode (`tdd`, `fable-mode`) and execute the new diagnosis. If the SAME failure signature accumulates 3 more failures, the breaker hard-locks and the decision goes to the human.
-- **Human path**: after the human answers an `ESCALATE`, or clears a hard lock (`npm run harness:reset` in their own terminal, or a new session / `/clear`), continue under their direction.
+- **Self-recovery path**: a valid report ending in `RESUME` releases the breaker — reload the appropriate execution mode (`tdd`, `fable-mode`) and execute the new diagnosis. If the SAME failure signature accumulates 3 more failures, start another zoom-out/reflection cycle.
+- **Human path**: after the human answers an `ESCALATE`, continue under their direction. `npm run harness:reset` (or a new session / `/clear`) is an optional manual state clear for recovery or maintenance; it is not required merely because the breaker re-tripped.
 - Either way, once the problem is ultimately cracked, feed the insight to `self-evolve`.
