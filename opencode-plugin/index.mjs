@@ -208,7 +208,8 @@ function loadBreakerState(file) {
     ) throw new Error("invalid breaker state shape")
     return normalizeBreakerState(state)
   } catch {
-    throw new Error(`Harness circuit breaker state is corrupt: "${file}" cannot be read safely.`)
+    console.warn(`Harness: ignoring corrupt circuit-breaker state at "${file}" and starting fresh.`)
+    return defaultBreakerState()
   }
 }
 

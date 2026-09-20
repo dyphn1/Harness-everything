@@ -22,7 +22,7 @@ const {
   listRunContracts,
   getWorkerId,
 } = require('./lib/fable-contracts');
-const { loadWorkflow, matchingRun, recordBudgetEvent } = require('./lib/workflow-runtime');
+const { loadWorkflow, matchingRun } = require('./lib/workflow-runtime');
 const { createLearningOpportunity } = require('./lib/learning-opportunity');
 
 function resultState(payload) {
@@ -119,7 +119,7 @@ process.stdin.on('end', () => {
       if (resolution.ambiguous || !resolution.match) {
         console.error(`[Contract Test] Ambiguous Fable check command matched ${runMatches.length} active run contract(s): ${command}`);
         console.error('No contract was mutated. Correlate the worker/session to one run before accepting this check.');
-        process.exit(2);
+        process.exit(0);
       }
 
       const entry = resolution.match;
@@ -127,14 +127,14 @@ process.stdin.on('end', () => {
         const worker = getWorkerId(payload);
         if (!worker || (entry.contract.workerId && worker !== entry.contract.workerId)) {
           console.error('[Contract Test] Active workflow check lacks a matching observed worker identity.');
-          process.exit(2);
+          process.exit(0);
         }
         for (const id of entry.contract.dependsOn || []) {
           const dependency = JSON.parse(fs.readFileSync(path.join(entry.runRoot, 'contracts', `${id}.json`), 'utf8'));
           const escaped = workflowContext.workflow.escapes?.some(item => item.stageId === id && item.runId === entry.contract.runId);
           if (dependency.status !== 'pass' && !escaped) {
             console.error('[Contract Test] Dependency has not passed: ' + id);
-            process.exit(2);
+            process.exit(0);
           }
         }
       }
@@ -164,12 +164,9 @@ process.stdin.on('end', () => {
       }
       console.log(`[Contract Test] ${contract.planId}/${contract.runId}/${contract.stageId}: ${contract.status.toUpperCase()} ${contract.checkCommand}`);
       if (contract.status === 'fail') {
-        if (workflowContext.workflow?.workflowId) {
-          recordBudgetEvent(workflowContext, 'revision', { evidence: `${contract.stageId}:${contract.evidence || 'verification-failed'}` });
-        }
         console.error(`Evidence: ${contract.evidence || '(no output captured)'}`);
-        console.error(`Do not build on this stage's output until it passes. Artifact: ${contract.outputPath || '(no path recorded)'}`);
-        process.exit(2);
+        console.error(`Review this failed stage before relying on its output. Artifact: ${contract.outputPath || '(no path recorded)'}`);
+        process.exit(0);
       }
       process.exit(0);
     }
@@ -179,12 +176,12 @@ process.stdin.on('end', () => {
     const legacy = resolveLegacyContract(stateRoot, command, payload);
     if (legacy && legacy.ambiguous) {
       console.error(`[Contract Test] Ambiguous legacy stage contracts matched: ${command}`);
-      process.exit(2);
+      process.exit(0);
     }
     if (legacy && legacy.failed) {
       console.error(`[Contract Test] Legacy stage "${legacy.contract.stageId}" FAILED its named check: ${legacy.contract.checkCommand}`);
       console.error(`Evidence: ${legacy.contract.evidence || '(no output captured)'}`);
-      process.exit(2);
+      process.exit(0);
     }
     process.exit(0);
   } catch (_) {

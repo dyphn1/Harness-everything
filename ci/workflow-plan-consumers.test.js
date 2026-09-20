@@ -92,7 +92,7 @@ const runA = prepareRun({
   sessionId: 'phase3-session',
 });
 check(JSON.stringify(runA.execution.batches) === JSON.stringify([['architecture', 'security'], ['synthesis']]), 'parallel plan emits dependency-safe ready batches');
-check(runA.execution.limits.maxWorkers === 4, 'run manifest retains the numeric worker cap');
+check(runA.execution.limits.maxWorkers === 4, 'run manifest retains maxWorkers as an advisory planning hint');
 check(fs.existsSync(path.join(runA.runRoot, 'contracts', 'security.json')), 'run-scoped stage contract is written');
 check(fs.existsSync(path.join(runA.runRoot, 'contracts', 'synthesis.json')), 'downstream stage has its own contract');
 
@@ -119,9 +119,9 @@ const wideRun = prepareRun({
   runId: 'phase3-wide-parallel',
   sessionId: 'wide-session',
 });
-check(wideRun.execution.batches.length === 2, 'ready set larger than worker cap is deterministically chunked');
-check(wideRun.execution.batches.every(batch => batch.length <= 4), 'no dispatchable batch exceeds maxWorkers=4');
-check(wideRun.execution.batches.flat().length === 6, 'worker-cap chunking preserves every ready stage');
+check(wideRun.execution.batches.length === 1, 'ready set is not hard-chunked by the advisory maxWorkers hint');
+check(wideRun.execution.batches[0].length === 6, 'all dependency-ready stages remain dispatchable');
+check(wideRun.execution.batches.flat().length === 6, 'advisory worker guidance preserves every ready stage');
 
 const stagedRun = prepareRun({
   routerContract: stagedContract,

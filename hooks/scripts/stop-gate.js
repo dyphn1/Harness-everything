@@ -54,8 +54,8 @@ function decide(payload) {
     console.error(`[Stop Gate] Turn is ending with uncommitted edits and no successful verification command (test/build/lint) since the last edit.`);
     console.error(`Before delivering: run the relevant check from 'verification-loop' - even a single targeted test beats none.`);
     console.error(`If verification is genuinely not applicable (docs-only change, analysis-only turn, the Human Partner told you to stop), state that explicitly in your reply and stop again.`);
-    console.error(`This gate bounces at most once per edit batch.`);
-    process.exit(2);
+    console.error(`This reminder is emitted at most once per edit batch; it never blocks Stop.`);
+    process.exit(0);
   } catch (err) {
     // Fail open - a broken gate must never trap the session.
     process.exit(0);

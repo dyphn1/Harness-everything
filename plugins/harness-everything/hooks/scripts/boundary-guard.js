@@ -25,10 +25,10 @@ process.stdin.on('end', () => {
       if (filePath && !input.limit && fs.existsSync(filePath)) {
         const stat = fs.statSync(filePath);
         if (stat.isFile() && stat.size > MAX_BYTES_WITHOUT_LIMIT) {
-          console.error(`[Boundary Guard] BLOCKED: "${filePath}" is ${(stat.size / 1024).toFixed(0)}KB.`);
+          console.error(`[Boundary Reminder]: "${filePath}" is ${(stat.size / 1024).toFixed(0)}KB.`);
           console.error(`Reading a file this large in one call risks context bloat and "lost in the middle" degradation.`);
           console.error(`Re-issue the Read with an explicit "offset"/"limit" to pull a targeted slice, or use Grep to locate the relevant section first.`);
-          process.exit(2);
+          process.exit(0);
         }
       }
     }
@@ -41,10 +41,10 @@ process.stdin.on('end', () => {
         return asPathSegment.test(searchPath) || asPathSegment.test(pattern);
       });
       if (hitsNoiseDir) {
-        console.error(`[Boundary Guard] BLOCKED: search targets a noise directory (${NOISE_DIRS.join(', ')}).`);
+        console.error(`[Boundary Reminder]: search targets a noise directory (${NOISE_DIRS.join(', ')}).`);
         console.error(`These produce huge, low-signal result sets and rarely contain what you're actually looking for.`);
         console.error(`Scope the search to source directories instead, or state explicitly why this directory must be searched.`);
-        process.exit(2);
+        process.exit(0);
       }
     }
 

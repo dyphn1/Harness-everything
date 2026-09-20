@@ -174,7 +174,7 @@ process.stdin.on('end', () => {
           console.error(`[Subagent Scope Guard] ambiguous scope ${entry.statusLine}; matches ${entry.stages.map(stage => `${stage.runId}/${stage.stageId}`).join(', ')}`);
         }
         for (const entry of classified.outOfScope) {
-          console.error(`[Subagent Scope Guard] OUT-OF-SCOPE ${entry.statusLine}${entry.workerId ? ` worker=${entry.workerId}` : ''}`);
+          console.error(`[Subagent Scope Reminder] OUT-OF-SCOPE ${entry.statusLine}${entry.workerId ? ` worker=${entry.workerId}` : ''}`);
         }
       }
 
@@ -189,7 +189,7 @@ process.stdin.on('end', () => {
         : classified.ambiguous.length > 0 || classified.outOfScope.length > 0;
       if (violated) {
         console.error('Do not "git add -A"; stage files explicitly so unexpected paths stay visible.');
-        process.exit(2);
+        process.exit(0);
       }
       process.exit(0);
     }
@@ -198,7 +198,7 @@ process.stdin.on('end', () => {
   } catch (error) {
     if (error && error.code === 'HARNESS_WORKFLOW_BUDGET') {
       console.error(`[Subagent Scope Guard] ${error.message}`);
-      process.exit(2);
+      process.exit(0);
     }
     // This is otherwise a post-execution visibility gate. Runtime errors fail open;
     // actionGate has a stricter fail-ask policy for side effects.

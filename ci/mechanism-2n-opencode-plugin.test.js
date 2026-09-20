@@ -158,7 +158,7 @@ helper.check(
   const sig = Object.keys(breaker.failures)[0];
   helper.check(
     '2n. two failures on the same signature: still allowed, not yet tripped',
-    breaker.failures[sig].count === 2 && breaker.hardLock === false,
+    breaker.failures[sig].count === 2 && breaker.hardLock === undefined,
     JSON.stringify(breaker)
   );
   helper.check('2n. each failed verification sends exactly one follow-up prompt', promptCalls.length === 2, `${promptCalls.length} prompt(s) sent`);
@@ -235,8 +235,8 @@ helper.check(
   );
   breaker = JSON.parse(fs.readFileSync(breakerFile, 'utf8'));
   helper.check(
-    '2n. apply_patch reflection completes the lifecycle and persists lastReflection',
-    Number.isFinite(breaker.lastReflection) && breaker.lastReflection > 0 && breaker.reflectionPending === false,
+    '2n. apply_patch reflection completes the lifecycle, resets the signature count, and persists lastReflection',
+    Number.isFinite(breaker.lastReflection) && breaker.lastReflection > 0 && breaker.reflectionPending === false && breaker.failures[sig].count === 0,
     JSON.stringify(breaker)
   );
 
@@ -330,42 +330,27 @@ helper.check(
   }
   helper.check('2n. mixed apply_patch cannot bypass a pending reflection', mixedPatchBlocked, 'unrelated files were accepted with the reflection artifact');
 
-  // A new code edit after a completed reflection is the post-reflection retry.
+  // A fresh failure after reflection starts a new three-failure cycle.
   await hooks['tool.execute.after']({ tool: 'edit', sessionID: 's1', callID: 'c5' }, { title: '', output: '', metadata: {} });
   await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 's1' } } });
   breaker = JSON.parse(fs.readFileSync(breakerFile, 'utf8'));
-  helper.check('2n. the same failure returning after a reflection hard-locks the breaker', breaker.hardLock === true, JSON.stringify(breaker));
-  helper.check(
-    '2n. the hard-lock prompt says locked',
-    /lock/i.test(promptCalls[promptCalls.length - 1].body.parts[0].text),
-    promptCalls[promptCalls.length - 1].body.parts[0].text
-  );
-
-  // --- circuit breaker enforcement (tool.execute.before) ---
-  let blocked = false;
+  helper.check('2n. first post-reflection failure starts again at count=1', breaker.failures[sig].count === 1 && breaker.reflectionPending === false, JSON.stringify(breaker));
+  let postReflectionEditAllowed = true;
   try {
     await hooks['tool.execute.before']({ tool: 'edit', sessionID: 's1', callID: 'c6' }, { args: {} });
   } catch {
-    blocked = true;
+    postReflectionEditAllowed = false;
   }
-  helper.check('2n. hard-locked breaker throws on the next edit attempt', blocked, 'tool.execute.before did not throw');
-
-  let readBlocked = false;
-  try {
-    await hooks['tool.execute.before']({ tool: 'read', sessionID: 's1', callID: 'c7' }, { args: {} });
-  } catch {
-    readBlocked = true;
-  }
-  helper.check('2n. a hard lock only blocks edit-shaped tools, not read', !readBlocked, 'tool.execute.before blocked a read');
+  helper.check('2n. no permanent post-reflection hard lock remains', postReflectionEditAllowed, 'tool.execute.before unexpectedly blocked after one fresh failure');
 
   // The same workspace can host independent sessions. Session s2 starts with
-  // a fresh breaker and cannot inherit s1's hard lock.
+  // a fresh breaker and cannot inherit s1 state.
   await hooks['tool.execute.after']({ tool: 'edit', sessionID: 's2', callID: 's2-c1', args: {} }, { title: '', output: '', metadata: {} });
   await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 's2' } } });
   const secondBreaker = JSON.parse(fs.readFileSync(path.join(secondSessionDir, 'circuit-breaker.json'), 'utf8'));
   helper.check(
     '2n. a second session has an independent breaker stream',
-    secondBreaker.hardLock === false && Object.values(secondBreaker.failures).some((entry) => entry.count === 1),
+    secondBreaker.hardLock === undefined && Object.values(secondBreaker.failures).some((entry) => entry.count === 1),
     JSON.stringify(secondBreaker)
   );
 
@@ -382,9 +367,9 @@ helper.check(
     corruptStateMessage = String(error && error.message ? error.message : error);
   }
   helper.check(
-    '2n. corrupt breaker state fails closed before an edit',
-    corruptStateBlocked && /corrupt/i.test(corruptStateMessage),
-    corruptStateMessage || 'tool.execute.before allowed an edit with corrupt breaker state'
+    '2n. corrupt breaker state fails open instead of becoming a cognitive lock',
+    !corruptStateBlocked,
+    corruptStateMessage || 'corrupt state was ignored as expected'
   );
 
   // A prompt transport failure is retryable without re-running verification
