@@ -53,12 +53,13 @@ overlap reject dispatch instead of becoming a verbal warning.
 
 The stage map remains a living orchestration document only inside those
 constraints. When new information invalidates it, re-plan and create revised
-stage contracts before dispatching new work. Replan budget comes from `workflowPlan.limits.maxReplans` and is accounted by
-the runtime controller. Re-enter through `workflow-disposition.js start`; a
-third full replan under the default budget is machine-blocked as
-`replan-budget-exhausted` instead of being only an orchestration reminder. Scope rule:
-deliver the task as specified; new scope discovered mid-run is surfaced as a
-recommendation at delivery, not silently built.
+stage contracts before dispatching new work. `workflowPlan.limits.maxReplans`
+is advisory orchestration guidance, not a machine-enforced counter. Re-enter
+through `workflow-disposition.js start`; after repeated replans, consider a
+zoom-out/reflection and keep the reason explicit, but do not block execution
+solely because an advisory count was reached. Scope rule: deliver the task as
+specified; new scope discovered mid-run is surfaced as a recommendation at
+delivery, not silently built.
 
 **2. Delegate by name and validated batch.** Every artifact-producing stage goes
 to a named agent via the Task tool:

@@ -97,7 +97,7 @@ node behavioral-evals/paired-benchmark.js run \
   --effect skill-text --engine claude --model <model> \
   --min-effect-pp <predeclared-threshold>
 
-# OpenCode plugin-enforcement effect (requires retained hard-lock preflight)
+# OpenCode plugin-enforcement effect (requires retained reflection-gate preflight)
 node behavioral-evals/paired-benchmark.js run \
   --effect plugin-enforcement --engine opencode --model <model> \
   --min-effect-pp <predeclared-threshold> \
@@ -142,48 +142,54 @@ fixture, replay command, fixture/prompt/rubric/code hashes, and engine/model
 provenance. Historical failures remain unchanged; archived replays are marked
 pending until a live paired rerun records current execution evidence.
 
-## OpenCode hard-lock live evidence
+## OpenCode Rule-of-3 reflection-gate live evidence
 
-Issue #37 needs a stronger proof than the hermetic state-machine test: a real
-OpenCode host must show an attributed edit attempt being blocked after the same
-verification failure returns post-reflection. Run the dedicated probe on a
-machine with an authenticated `opencode` CLI:
+The paired OpenCode plugin benchmark needs a real-host preflight from the exact
+plugin revision being measured. The current boundary is the Rule-of-3
+reflection gate: the third same-signature verification failure pauses code
+edits until a valid tokenized reflection report is written. A completed report
+resets that signature's count; three more matching failures request another
+reflection rather than creating a permanent second-stage lock.
+
+Run the dedicated probe on a machine with an authenticated `opencode` CLI:
 
 ```bash
-npm run eval:opencode:hardlock-live
+npm run eval:opencode:reflection-gate-live
 
 # Optional explicit output/model
-node behavioral-evals/opencode-hardlock-live.js run \
-  --out benchmarks/results/live-host/opencode-hardlock-local \
+node behavioral-evals/opencode-reflection-gate-live.js run \
+  --out benchmarks/results/live-host/opencode-reflection-gate-local \
   --model opencode/union-alpha
 
-# Re-check a retained evidence directory without making a model call
-node behavioral-evals/opencode-hardlock-live.js verify \
-  benchmarks/results/live-host/opencode-hardlock-local
+# Re-check retained evidence without making a model call
+node behavioral-evals/opencode-reflection-gate-live.js verify \
+  benchmarks/results/live-host/opencode-reflection-gate-local
 ```
 
 The runner uses an isolated temporary `HARNESS_STATE_HOME`, installs the
 canonical `opencode-plugin/index.mjs` as the auto-discoverable
 `.opencode/plugins/harness-enforcement.js`, and keeps the verification failure
-constant. It does **not** seed breaker/reflection state. The live agent must
-produce the reflection artifact through the host/plugin flow.
+constant. It does **not** seed breaker/reflection state.
 
-A PASS requires all of the following evidence to agree:
+A PASS requires the evidence to agree that:
 
-- a structured pre-lock edit attempt containing `PRELOCK_OK`, and that marker
-  must reach `probe.txt` (negative control showing edits were possible);
-- a preserved reflection artifact with the current token and `RESUME:` decision;
-- a post-reflection retry containing `POST_REFLECTION_RETRY`, which must reach
-  the file and drive the same failure signature to at least count 4;
-- a pre-reset `circuit-breaker.json` snapshot with `hardLock: true`;
-- a structured final edit attempt containing `SHOULD_NOT_LAND` plus the live
-  Harness hard-lock error in host output;
-- `SHOULD_NOT_LAND` must **not** appear in the final file, proving the attempted
-  edit was blocked before filesystem mutation.
+- three matching failures reach the first reflection boundary;
+- while `reflectionPending` is true, a structured code-edit attempt is rejected
+  and its marker never reaches the filesystem;
+- a valid tokenized `RESUME:` reflection is preserved and releases the gate;
+- after the reflection resets the failure count, three more matching failures
+  reach a second `reflectionPending` state for the same signature;
+- the selected breaker snapshot contains no retired `hardLock` field, and
+  compliance records at least two forced reflections;
+- the installed plugin bytes and retained plugin SHA-256 match the canonical
+  source used by the paired benchmark.
 
 The runner archives raw transcript/stderr, sanitized host/model/plugin metadata,
-the final fixture files, the selected pre-reset state, the reflection artifact,
-and the complete isolated raw-state tree before deleting its temporary working
-directory. A failed/incomplete live run is retained as failed evidence rather
-than being counted as behavioral failure. This probe is intended to become the
-OpenCode plugin-arm preflight for the paired benchmark tracked by #71.
+the final fixture files, selected breaker/compliance state, the first reflection
+artifact, and the isolated raw-state tree before deleting its temporary working
+directory. Failed/incomplete live runs remain failed evidence rather than being
+counted as behavioral failures.
+
+Historical hard-lock evidence captured before #190 remains retained as
+historical evidence (see `docs/platform-capabilities.md`); it is not accepted as
+the current OpenCode paired-benchmark preflight.

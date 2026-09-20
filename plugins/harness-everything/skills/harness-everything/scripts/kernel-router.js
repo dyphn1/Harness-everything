@@ -120,10 +120,7 @@ function run(raw) {
   } catch (error) { failure = error; }
   if (hostNotification && !persisted?.workflow) {
     console.log('\n=> Host notification — no active execution contract; ignored for routing.');
-    if (failure) {
-      console.error('[Workflow Router] ' + failure.message);
-      process.exitCode = 2;
-    }
+    if (failure) console.error('[Workflow Reminder] routing state was not persisted: ' + failure.message);
     return;
   }
   if (result?.sanitized) console.log(result.sanitized);

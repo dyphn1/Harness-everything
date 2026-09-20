@@ -62,10 +62,8 @@ normalized success/failure field to key a signature on for tools in general):
 - the follow-up asks for a tokenized `zoom-out-report.md` artifact with the
   required reflection sections; the artifact is accepted through the real
   edit hook and records `lastReflection`
-- the same signature failing again after that reflection was recorded
-  hard-locks the breaker
 - after a valid reflection, the signature count resets; another three matching failures trigger another zoom-out
-  or a new session starts
+- `npm run harness:reset` remains an optional manual state clear; a repeated cycle does not create a permanent second-stage lock
 
 Idle handling is bounded: after a failed verification, the plugin records that
 the follow-up is pending and ignores repeated `session.idle` events until a new

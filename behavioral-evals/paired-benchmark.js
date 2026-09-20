@@ -11,7 +11,7 @@ const {
   grade,
   parseSimpleYaml,
 } = require('./run');
-const { verifyEvidence: verifyOpenCodeHardlockEvidence } = require('./opencode-hardlock-live');
+const { verifyEvidence: verifyOpenCodeReflectionEvidence } = require('./opencode-reflection-gate-live');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -522,9 +522,9 @@ function validatePreflight(preflightDir) {
   if (!preflightDir) return { passed: false, reason: 'plugin-enforcement requires --opencode-preflight <evidence-dir>' };
   const absolute = path.resolve(preflightDir);
   let verification;
-  try { verification = verifyOpenCodeHardlockEvidence(absolute); }
+  try { verification = verifyOpenCodeReflectionEvidence(absolute); }
   catch (error) { return { passed: false, reason: `preflight unreadable: ${error.message}` }; }
-  if (!verification.passed) return { passed: false, reason: 'OpenCode hard-lock preflight evidence does not pass verification' };
+  if (!verification.passed) return { passed: false, reason: 'OpenCode reflection-gate preflight evidence does not pass verification' };
   let metadata;
   try { metadata = JSON.parse(fs.readFileSync(path.join(absolute, 'metadata.json'), 'utf8')); }
   catch (error) { return { passed: false, reason: `preflight metadata unreadable: ${error.message}` }; }

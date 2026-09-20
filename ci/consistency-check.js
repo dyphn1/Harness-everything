@@ -144,6 +144,26 @@ for (const failure of disclosure.failures) {
 }
 console.log(`Checked disclosure for ${disclosure.skills.length} skill(s) and ${disclosure.workflows.length} workflow doc(s).`);
 
+// --- 2c. Advisory-contract drift guard ------------------------------------
+const retiredClaims = [
+  ['zoom-out/references/circuit-breaker.md', /breaker hard-locks/i],
+  ['zoom-out/references/circuit-breaker.md', /clears a hard lock/i],
+  ['zoom-out/SKILL.md', /reset only after the second cycle/i],
+  ['zoom-out/SKILL.md', /Clear a repeated breaker cycle with/i],
+  ['opencode-plugin/README.md', /hard-locks the breaker/i],
+  ['fable-mode/agents/fable-orchestrator.md', /machine-blocked as/i],
+  ['fable-mode/agents/fable-orchestrator.md', /replan-budget-exhausted/i],
+  ['harness-everything/references/router-workflow-plan.md', /explicit iteration budget/i],
+  ['harness-everything/references/router-workflow-plan.md', /policy bound chosen for control/i],
+  ['behavioral-evals/PAIRED-BENCHMARK.md', /retained hard-lock preflight/i],
+  ['behavioral-evals/README.md', /## OpenCode hard-lock live evidence/i],
+  ['behavioral-evals/README.md', /pre-reset .*hardLock/i],
+];
+for (const [rel, pattern] of retiredClaims) {
+  const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  check(`${rel}: retired enforcement claim absent (${pattern})`, !pattern.test(text), 'stale pre-#190 contract wording');
+}
+
 // --- 3+4. Distribution manifests -----------------------------------------
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const pluginJsonPath = path.join(ROOT, '.claude-plugin', 'plugin.json');

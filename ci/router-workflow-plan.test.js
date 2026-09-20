@@ -262,6 +262,25 @@ check(kernelUnknown.stdout.includes('ROUTER WORKFLOW PLAN (JSON)'), 'kernel emit
 check(kernelUnknown.stdout.includes('"strategySelection":"deferred"'), 'kernel exposes deferred unclassified selection');
 check(!/RECOMMENDED TIER:\s*Tier 1/i.test(kernelUnknown.stdout), 'kernel does not expose a silent Tier 1 fallback for unmatched prompts');
 
+const notificationStateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-router-notification-fail-open-'));
+const notificationStateFile = path.join(notificationStateHome, 'not-a-directory');
+fs.writeFileSync(notificationStateFile, 'x', 'utf8');
+const kernelNotificationPersistFailure = spawnSync(process.execPath, [kernelRouter], {
+  cwd: ROOT,
+  encoding: 'utf8',
+  input: JSON.stringify({
+    session_id: 'router-host-notification-fail-open',
+    cwd: ROOT,
+    hook_event_name: 'UserPromptSubmit',
+    prompt: '<task-notification><task-id>background-1</task-id><status>completed</status></task-notification>',
+  }),
+  env: { ...process.env, HARNESS_STATE_HOME: notificationStateFile, HARNESS_WORKSPACE_ROOT: ROOT },
+});
+check(kernelNotificationPersistFailure.status === 0, 'host notification persistence failure stays fail-open');
+check(kernelNotificationPersistFailure.stdout.includes('Host notification — no active execution contract; ignored for routing.'), 'host notification remains a routing no-op when state persistence fails');
+check(kernelNotificationPersistFailure.stderr.includes('routing state was not persisted'), 'host notification persistence failure remains visible as a reminder');
+fs.rmSync(notificationStateHome, { recursive: true, force: true });
+
 const kernelIterative = spawnSync(process.execPath, [kernelRouter, 'Fix this checkout bug and add a regression test.'], {
   cwd: ROOT,
   encoding: 'utf8',

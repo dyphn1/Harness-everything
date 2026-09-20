@@ -32,7 +32,7 @@ text constant.
   enforcement module installed as `.opencode/plugins/harness-enforcement.js`.
 
 This experiment currently supports OpenCode only. It requires a retained
-hard-lock preflight produced by `opencode-hardlock-live.js`. The preflight must
+Rule-of-3 reflection-gate preflight produced by `opencode-reflection-gate-live.js`. The preflight must
 still pass verification and its plugin SHA-256 must equal the current canonical
 `opencode-plugin/index.mjs`; changing the plugin invalidates the old preflight.
 
@@ -150,7 +150,7 @@ First produce the #37 attribution evidence from the exact plugin revision being
 measured:
 
 ```bash
-npm run eval:opencode:hardlock-live
+npm run eval:opencode:reflection-gate-live
 ```
 
 Then pass that evidence directory into the paired study:
@@ -161,7 +161,7 @@ npm run eval:paired -- \
   --engine opencode \
   --model <provider/model> \
   --min-effect-pp <N> \
-  --opencode-preflight benchmarks/results/live-host/opencode-hardlock-<timestamp> \
+  --opencode-preflight benchmarks/results/live-host/opencode-reflection-gate-<timestamp> \
   --repeats 3
 ```
 
