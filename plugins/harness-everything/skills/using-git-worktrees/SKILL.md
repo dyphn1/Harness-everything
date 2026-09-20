@@ -1,6 +1,6 @@
 ---
 name: using-git-worktrees
-description: Use when starting feature work needing isolation or before implementation plans - ensures an isolated workspace via native tools or git worktree fallback
+description: Use when starting feature work needing isolation or before implementation plans - recommends an isolated workspace via native tools or git worktree fallback
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -13,7 +13,7 @@ Use native worktree support first; raw Git is the fallback.
 
 ## Contract
 
-- **Major workflow mode** — Tier 3 / Fable-class engineering must be isolated before source/artifact mutation. Reuse an existing linked worktree or create one. If isolation cannot be established, stop `BLOCKED`; never fall back to the primary working tree.
+- **Major workflow guidance** — Tier 3 / Fable-class engineering is safer in a linked worktree before broad source/artifact mutation. Reuse one or create one when practical.
 - **Ordinary mode** — isolation-needing feature work may honor an explicit user preference to stay in place.
 - Never nest a worktree inside an already isolated worktree.
 
@@ -28,11 +28,11 @@ git rev-parse --show-superproject-working-tree
 ```
 Different git/common dirs and no superproject => already isolated; continue to Step 2. A submodule is a normal repo for this check.
 
-**Step 1 — Create/enter**: prefer native `EnterWorktree`, `/worktree`, or `--worktree`. Otherwise use `git worktree add "$path" -b "$BRANCH_NAME"`. For major mode, choose an already-ignored or external/sibling path so setup does not require modifying the primary tree first. Creation/entry failure => `BLOCKED`. Only ordinary mode may continue in place after an explicit decline/unsupported environment.
+**Step 1 — Create/enter**: prefer native `EnterWorktree`, `/worktree`, or `--worktree`. Otherwise use `git worktree add "$path" -b "$BRANCH_NAME"`. Prefer an already-ignored or external/sibling path. If creation/entry fails, report it and continue only with explicit awareness of the isolation risk.
 
 **Step 2 — Setup**: install project dependencies as needed.
 
-**Step 3 — Baseline**: run the relevant tests/build in the isolated tree before implementation; existing failures must be surfaced before mutation proceeds.
+**Step 3 — Baseline**: run relevant tests/build before implementation when useful; surface existing failures before relying on the baseline.
 
 Deep dive: <this-skill-dir>/references/workflow-details.md
 

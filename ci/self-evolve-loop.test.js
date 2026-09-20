@@ -168,7 +168,10 @@ try {
     tool_use_id: 'verify-fail-1',
     tool_response: { exitCode: 1, stderr: 'fixture assertion failed' },
   });
-  check(firstFail.status === 2, 'first verifier failure remains authoritative and blocks stage acceptance');
+  check(firstFail.status === 0, 'first verifier failure remains authoritative without blocking the hook');
+
+  const failedContract = JSON.parse(fs.readFileSync(path.join(prepared.runRoot, 'contracts', 'verify-recovery.json'), 'utf8'));
+  check(failedContract.status === 'fail', 'failed verifier evidence remains authoritative in the stage contract');
 
   const laterPass = run(contractHook, {
     ...basePayload,

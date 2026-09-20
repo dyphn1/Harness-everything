@@ -235,7 +235,7 @@ const ambiguousResult = spawnSync(process.execPath, [contractHook], {
   encoding: 'utf8',
   env: { ...process.env, HARNESS_STATE_HOME: stateHome },
 });
-check(ambiguousResult.status === 2, 'ambiguous same-command correlation blocks acceptance');
+check(ambiguousResult.status === 0 && /ambiguous|multiple/i.test(ambiguousResult.stderr), 'ambiguous same-command correlation is reported without blocking');
 for (const runId of ['ambiguous-a', 'ambiguous-b']) {
   const manifest = JSON.parse(fs.readFileSync(path.join(getWorkspaceStateRoot(workspace), 'fable-runs', runId, 'contracts', 'same-check.json'), 'utf8'));
   check(manifest.status === 'planned', `${runId} remains unmodified after ambiguous check`);
@@ -280,7 +280,7 @@ check(inScope.status === 0 && /in-scope/.test(inScope.stdout), 'declared in-scop
 check(runScope('PreToolUse').status === 0, 'next burst starts from rolled-forward baseline');
 fs.writeFileSync(path.join(gitWorkspace, 'docs', 'oops.txt'), 'unexpected\n');
 const outOfScope = runScope('PostToolUse');
-check(outOfScope.status === 2 && /OUT-OF-SCOPE/.test(outOfScope.stderr), 'undeclared worker edit is rejected by scope guard');
+check(outOfScope.status === 0 && /OUT-OF-SCOPE/.test(outOfScope.stderr), 'undeclared worker edit is reported without blocking');
 
 const contractDoc = fs.readFileSync(path.join(ROOT, 'fable-mode', 'CONTRACT-FORMAT.md'), 'utf8');
 const orchestratorDoc = fs.readFileSync(path.join(ROOT, 'fable-mode', 'agents', 'fable-orchestrator.md'), 'utf8');

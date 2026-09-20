@@ -162,8 +162,8 @@ assert.ok(hooks.hooks.Stop?.length, 'Stop hook missing');
 const hookText = JSON.stringify(hooks);
 assert.match(hookText, /PLUGIN_ROOT/, 'plugin hooks must resolve from PLUGIN_ROOT');
 assert.match(hookText, /commandWindows/, 'plugin hooks need a Windows command override');
-assert.match(hookText, /workflow-gate\.js/, 'plugin hooks must package workflow bypass enforcement');
-assert.match(hookText, /workflow-stop-gate\.js/, 'plugin hooks must package workflow completion enforcement');
+assert.match(hookText, /workflow-gate\.js/, 'plugin hooks must package workflow guidance');
+assert.match(hookText, /workflow-stop-gate\.js/, 'plugin hooks must package workflow completion reminders');
 
 const session = spawnSync(process.execPath, [path.join(PLUGIN, 'hooks', 'session-start.js')], { encoding: 'utf8' });
 assert.strictEqual(session.status, 0, session.stderr);
@@ -194,11 +194,11 @@ assert.match(first.stdout, /WORKFLOW SKILLS \(EVALUATE APPLICABILITY .*SELECTED 
 assert.match(first.stdout, /evaluate-suggestions-before-skip/);
 assert.match(first.stdout, /read its complete SKILL\.md entry/);
 assert.doesNotMatch(first.stdout, /BASE EXECUTION LOOP/);
-assert.match(first.stdout, /ORCHESTRATION POLICY: Mandatory applicable workflow/);
-assert.match(first.stdout, /WORKFLOW EXECUTION CONTRACT \(MANDATORY WHEN SELECTED\)/);
+assert.match(first.stdout, /ORCHESTRATION POLICY: Selected topology is planning guidance/);
+assert.match(first.stdout, /WORKFLOW GUIDANCE \(ADVISORY WHEN SELECTED\)/);
 assert.match(first.stdout, /Selected workflow: iterative-single/);
-assert.match(first.stdout, /Completion requires the workflow obligations and objective verification/);
-assert.doesNotMatch(first.stdout, /execution remains advisory after evaluation/);
+assert.match(first.stdout, /Before claiming completion, review unresolved workflow evidence and objective verification/);
+assert.doesNotMatch(first.stdout, /budget-exhausted|reset-budget/);
 
 const trivial = route('Update one README typo');
 assert.strictEqual(trivial.status, 0, trivial.stderr);
@@ -213,4 +213,4 @@ assert.match(unmatched.stdout, /RECOMMENDED TIER:\s*Unclassified/i);
 assert.match(unmatched.stdout, /"tier":"unclassified"/i);
 assert.doesNotMatch(unmatched.stdout, /RECOMMENDED TIER:\s*Tier 1/i);
 
-console.log(`OpenAI plugin package verified: ${skillNames.length} skills, publication metadata, hooks, marketplace, deterministic mandatory-workflow routing.`);
+console.log(`OpenAI plugin package verified: ${skillNames.length} skills, publication metadata, hooks, marketplace, deterministic guidance-first routing.`);

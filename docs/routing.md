@@ -4,21 +4,21 @@ Harness classifies software work and selects the smallest sufficient execution t
 
 The current architecture follows two coupled rules:
 
-> **Mandatory applicable workflow; flexible reasoning/implementation inside it.**
+> **Guidance-first workflow; flexible reasoning/implementation and execution.**
 >
-> **Skill applicability is evaluated explicitly; workflow escape is exception-only and evidence-backed.**
+> **Skill applicability is evaluated explicitly; skipped guidance should have a concise evidence-based reason.**
 
 A strong model remains free to decide *how* to perform the work. It may not decide that an applicable selected lifecycle can be skipped because the task feels simple or already understood.
 
 ## Kernel invariants
 
-For software/project work, Harness establishes mandatory rails before mutation:
+For software/project work, Harness establishes routing context and lightweight rails before broad mutation:
 
 1. **Route before execution** — establish scope/tier and the smallest justified topology.
 2. **Verify before claim** — completion requires objective evidence appropriate to the change.
 3. **Re-plan after repeated failure** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
 4. **Evaluate before omission** — read every suggested skill's complete `SKILL.md` entry before deciding applicability.
-5. **Resolve selected workflow** - successful completion requires `satisfied`; `blocked` is a reportable incomplete outcome. Escape covers only a declared stage and preserves other obligations.
+5. **Review selected workflow** — use it as planning guidance and surface unresolved evidence before claiming completion.
 
 The model owns tools, implementation technique, reasoning, and decomposition details inside those rails.
 
@@ -30,8 +30,8 @@ kernel-router.js
   ├─ preserves tier + rationale + dynamic-skill recommendations
   ├─ emits required invariants + structured workflow plan
   ├─ requires applicability evaluation for suggested skills
-  ├─ activates the selected workflow execution contract
-  └─ exposes explicit blocked/degraded/escape state instead of silent downgrade
+  ├─ records the selected workflow guidance
+  └─ exposes warnings/degraded/escape evidence instead of silently hiding limitations
 ```
 
 Use:
@@ -97,7 +97,7 @@ No universal `TODO → TDD → verification-loop` order is implied. But when a s
 
 Typical triggers: repository-wide refactors, architecture/migration work, broad synthesis, or bounded delegation. The router may select `fable-staged`, `fable-parallel`, or `fable-multi-agent-workspace`.
 
-A selected Fable topology is mandatory for that run. `fable-parallel` dispatches only validated independent batches; `fable-staged` preserves ordered stage contracts; workspace mode preserves durable handoffs/roles while Fable owns staged execution.
+A selected Fable topology is structured guidance for that run; dependency/write-set validation remains useful evidence, while missing workflow state does not hard-block execution.
 
 Tier 3 does **not** automatically mean multi-agent. The smallest sufficient topology still wins.
 
@@ -107,25 +107,25 @@ Tier 3 does **not** automatically mean multi-agent. The smallest sufficient topo
 
 Policy lives in `hooks/scripts/action-gate-rules.json`. Matched actions are handled according to host capability and configured policy; approved/executed payload identity is audited. `HARNESS_ACTION_GATE_POLICY=always-ask` forces Claude's ask path where supported. Unsupported host behavior must remain visible rather than being described as equivalent hard enforcement.
 
-## Workflow lifecycle gates
+## Workflow lifecycle reminders
 
 The [workflow runtime contract](workflow-runtime.md) defines the executable boundary:
 
-- `workflow-gate.js` checks shell/direct mutation, correlated Fable entry, and major-workflow Git isolation.
-- `workflow-stop-gate.js` checks manifest stage membership and observed verification evidence before `satisfied`.
+- `workflow-gate.js` observes shell/direct mutation, Fable correlation, and major-workflow Git isolation and emits reminders.
+- `workflow-stop-gate.js` reports unresolved stage/verification evidence without rejecting Stop.
 - `workflow-disposition.js` starts/replans the run, records a scoped stage escape, or reports `blocked`.
 
-A follow-up prompt cannot erase unresolved obligations. Start from the router's displayed session stage-specification path; source mutation waits for entry and isolation. Replan is bounded. Escape requires `workflow-uncovered-scope` or `host-capability-unavailable`, a stage id, uncovered scope, and evidence. It never waives isolation or independent verification.
+Follow-up prompts retain useful evidence, but unresolved cognitive workflow state does not lock mutation or completion.
 
 Direct/iterative verification milestones are checked, while semantic check quality and iteration budgeting remain executor obligations. Shell inspection does not contain arbitrary script side effects. Package/mechanism tests do not prove host loading or behavioral compliance; #82 owns retained live evidence.
 
 ## Cognitive OS relationship
 
-`install-cognitive-os` remains the explanatory/manual entry point for Discover → Think → Try → Summarize → Record. It is a reasoning policy, not a peer skill that must be selected before domain work. The selected workflow contract governs lifecycle obligations; the model retains freedom inside it.
+`install-cognitive-os` remains the explanatory/manual entry point for Discover → Think → Try → Summarize → Record. It is a reasoning policy, not a peer skill that must be selected before domain work. The selected workflow guidance informs lifecycle choices; the model retains execution freedom.
 
-## Enforcement strength
+## Guidance and enforcement strength
 
-A contract can be semantically mandatory even when a host cannot mechanically enforce every transition. Keep those claims separate:
+Workflow guidance is intentionally non-blocking across hosts. Keep that separate from Rule-of-3 and explicit permission enforcement.
 
 - **contract:** what the agent is required to do;
 - **mechanism:** which transitions a packaged hook/plugin can block or observe;

@@ -7,11 +7,11 @@ const temp=fs.mkdtempSync(path.join(os.tmpdir(),'harness-worktree-guidance-')),h
 fs.mkdirSync(home,{recursive:true});fs.mkdirSync(repo,{recursive:true});
 const env={...process.env,HOME:home,USERPROFILE:home,HARNESS_STATE_HOME:path.join(home,'state'),HARNESS_WORKSPACE_ROOT:repo,CLAUDE:'1'};
 function git(cwd,args){return spawnSync('git',args,{cwd,encoding:'utf8'});}
-function runGate(tool,cwd,input={}){return spawnSync(process.execPath,[GATE],{cwd:ROOT,env,input:JSON.stringify({session_id:'worktree-guidance',cwd,tool_name:tool,tool_input:input}),encoding:'utf8'});}
+function runGate(tool,cwd,input={}){return spawnSync(process.execPath,[GATE],{cwd:ROOT,env,input:JSON.stringify({session_id:'worktree-guidance',host_id:'mechanism-test',cwd,tool_name:tool,tool_input:input}),encoding:'utf8'});}
 try{
  check(git(repo,['init']).status===0,'fixture repository initializes');
  fs.writeFileSync(path.join(repo,'README.md'),'fixture\n');git(repo,['add','README.md']);git(repo,['-c','user.name=Harness','-c','user.email=h@example.invalid','commit','-m','init']);
- const state=require(path.join(ROOT,'hooks/scripts/lib/harness-state'));const dir=state.getSessionDir(repo,'worktree-guidance');
+ const workspace=require(path.join(ROOT,'scripts/lib/workspace')); const state=require(path.join(ROOT,'hooks/scripts/lib/harness-state')); const context={session_id:'worktree-guidance',host_id:'mechanism-test',cwd:repo}; workspace.bindWorkspaceSession('worktree-guidance',repo,context,true); const dir=state.getSessionDir(repo,'worktree-guidance',context);
  fs.writeFileSync(path.join(dir,'workflow-run.json'),JSON.stringify({schemaVersion:1,sessionId:'worktree-guidance',tier:'tier3',strategy:'iterative-single',state:'active'}));
  const primary=runGate('Write',repo,{file_path:path.join(repo,'src.js'),content:'x'});
  check(primary.status===0,'Tier-3 primary-tree mutation is not hard-blocked',primary.stderr);
