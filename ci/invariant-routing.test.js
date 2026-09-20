@@ -43,7 +43,7 @@ for(const p of ['docs/routing.md','docs/architecture.md','docs/philosophy.md','d
  const t=read(p); check(/guidance/i.test(t),'current doc '+p+' describes guidance');
 }
 const advisory=read('scripts/lib/advisory-text.js');
-check(/workflow topology is planning guidance/i.test(advisory),'installer advisory text keeps workflow non-blocking');
+check(/selected workflow topology.*planning guidance/i.test(advisory),'installer advisory text keeps workflow non-blocking');
 check(/Rule of 3/i.test(advisory)&&/Permission boundaries are separate/i.test(advisory),'installer text preserves Rule-of-3 and permission boundaries');
 check(read('plugins/harness-everything/scripts/lib/advisory-text.js')===advisory,'OpenAI advisory mirror matches');
 
