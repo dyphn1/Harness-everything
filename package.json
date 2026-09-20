@@ -54,7 +54,9 @@
     "test:contract-integrity": "node ci/contract-integrity.test.js",
     "contract:integrity": "node contract-integrity/scripts/audit.js",
     "waza:check": "node scripts/waza-harness-check.js",
-    "test:waza:compat": "node ci/mechanism-2aj-waza-reference-adapter.test.js"
+    "test:waza:compat": "node ci/mechanism-2aj-waza-reference-adapter.test.js",
+    "codex:hooks": "node scripts/codex-hooks-compat.js",
+    "test:codex:hooks-compat": "node ci/mechanism-2al-codex-hooks-compat.test.js"
   },
   "engines": {
     "node": ">=22"

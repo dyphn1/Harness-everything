@@ -37,6 +37,9 @@ switch (command) {
   case 'verify-install':
     runInstallVerification(args.slice(1));
     break;
+  case 'codex-hooks':
+    runCodexHooksCompat(args.slice(1));
+    break;
   default:
     console.error(`[Error] Unknown command: "${command}"`);
     showHelp();
@@ -97,6 +100,10 @@ Commands:
                      work; hosts with UserPromptSubmit hooks receive it automatically.
   verify-install     Compare installed Harness manifests and skill trees with
                      this package source; stale versions or missing files fail.
+  codex-hooks        Explicit Codex user-hook compatibility fallback for hosts
+                     that fail to mount enabled plugin-bundled hooks.
+                     Usage: harness codex-hooks <install|status|uninstall>
+                     Does not trust hooks or modify Codex config.toml.
   verify             Run the pre-delivery verification gate (lint/test from the
                      nearest package.json). Exits non-zero if checks fail. This is
                      the explicit stand-in for a hard stop gate on platforms where
@@ -160,5 +167,15 @@ function runInstallVerification(verifyArgs) {
     process.exit(1);
   }
   const result = spawnSync('node', [script, ...verifyArgs], { stdio: 'inherit' });
+  process.exit(result.status === null ? 1 : result.status);
+}
+
+function runCodexHooksCompat(compatArgs) {
+  const script = path.resolve(__dirname, '..', 'scripts', 'codex-hooks-compat.js');
+  if (!fs.existsSync(script)) {
+    console.error('[Error] Codex hooks compatibility script not found.');
+    process.exit(1);
+  }
+  const result = spawnSync('node', [script, ...compatArgs], { stdio: 'inherit' });
   process.exit(result.status === null ? 1 : result.status);
 }
