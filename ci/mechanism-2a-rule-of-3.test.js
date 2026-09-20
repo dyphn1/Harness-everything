@@ -5,12 +5,21 @@ const helper = require('./test-helper');
 console.log('\n[2a] Rule of 3 circuit breaker...');
 
 const hooksConfig = JSON.parse(fs.readFileSync(path.join(helper.root, 'hooks', 'hooks.json'), 'utf8'));
+const preRuleHook = (hooksConfig.hooks.PreToolUse || []).find(entry => entry.id === 'harness:pre:rule-of-3');
+const successTrackerHook = (hooksConfig.hooks.PostToolUse || []).find(entry => entry.id === 'harness:post:rule-of-3-tracker');
 const failureTrackerHook = (hooksConfig.hooks.PostToolUseFailure || []).find(entry => entry.id === 'harness:post-failure:rule-of-3-tracker');
+const matcherHas = (entry, tool) => Boolean(entry && String(entry.matcher || '').split('|').includes(tool));
 helper.check(
   '2a-wiring. PostToolUseFailure invokes the Rule-of-3 tracker',
-  failureTrackerHook && failureTrackerHook.matcher === 'Bash|PowerShell' &&
+  matcherHas(failureTrackerHook, 'Bash') && matcherHas(failureTrackerHook, 'PowerShell') &&
+    matcherHas(failureTrackerHook, 'apply_patch') &&
     failureTrackerHook.hooks?.some(hook => hook.command.includes('rule-of-3-tracker.js')),
   JSON.stringify(failureTrackerHook)
+);
+helper.check(
+  '2a-wiring. apply_patch is covered before and after execution',
+  matcherHas(preRuleHook, 'apply_patch') && matcherHas(successTrackerHook, 'apply_patch') && matcherHas(failureTrackerHook, 'apply_patch'),
+  JSON.stringify({ preRuleHook, successTrackerHook, failureTrackerHook })
 );
 
 const failure = {
@@ -71,5 +80,37 @@ helper.runHook('rule-of-3-tracker.js', {
 });
 const third = helper.runHook('rule-of-3.js', { session_id: helper.SESSION_ID });
 helper.check('2a-category-three. third permission failure trips normally', third.code === 2, third.stderr);
+
+helper.writeState('rule-of-3-state.json', { count: 0, lastHash: null, lastOperationHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0 });
+const repeatedFailure = {
+  hook_event_name: 'PostToolUseFailure',
+  tool_name: 'Bash',
+  tool_input: { command: 'node flaky.js' },
+  error: 'Error: flaky failure',
+  session_id: helper.SESSION_ID,
+};
+helper.runHook('rule-of-3-tracker.js', repeatedFailure);
+helper.runHook('rule-of-3-tracker.js', repeatedFailure);
+helper.runHook('rule-of-3-tracker.js', {
+  hook_event_name: 'PostToolUse',
+  tool_name: 'Bash',
+  tool_input: { command: 'git status --short' },
+  tool_response: { exitCode: 0, stdout: '' },
+  session_id: helper.SESSION_ID,
+});
+state = helper.readState('rule-of-3-state.json');
+helper.check('2a-interleaved. unrelated success preserves the matching failure count', state.count === 2 && state.lastHash, JSON.stringify(state));
+helper.runHook('rule-of-3-tracker.js', repeatedFailure);
+state = helper.readState('rule-of-3-state.json');
+helper.check('2a-interleaved-three. third matching failure still arms zoom-out after unrelated success', state.count === 3 && state.zoomOutResolved === false, JSON.stringify(state));
+helper.runHook('rule-of-3-tracker.js', {
+  hook_event_name: 'PostToolUse',
+  tool_name: 'Bash',
+  tool_input: { command: 'node flaky.js' },
+  tool_response: { exitCode: 0, stdout: 'recovered' },
+  session_id: helper.SESSION_ID,
+});
+state = helper.readState('rule-of-3-state.json');
+helper.check('2a-resolved. same-operation success clears the resolved signature', state.count === 0 && state.lastHash === null && state.lastOperationHash === null, JSON.stringify(state));
 
 helper.finish();
