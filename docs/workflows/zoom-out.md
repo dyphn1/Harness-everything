@@ -4,7 +4,7 @@
 
 Source of truth: `zoom-out/SKILL.md`.
 
-Contract summary from SKILL.md — Trigger: three same-signature failures or an explicit loop/rethink request. Output: fact-checked report ending in `RESUME` or `ESCALATE`. State: writes the session `zoom-out-report.md`; reset may clear breaker state. Gate: `hooks/scripts/rule-of-3.js` plus a valid report; reset only after the second cycle. USE FOR: "you are stuck in a loop", "the same error keeps failing", "rethink your assumptions". DO NOT USE FOR: routine single-failure debugging, greenfield planning without failures.
+Contract summary from SKILL.md — Trigger: three same-signature failures or an explicit loop/rethink request. Output: fact-checked report ending in `RESUME` or `ESCALATE`. State: writes the session `zoom-out-report.md`; reset may clear breaker state. Gate: `hooks/scripts/rule-of-3.js` plus a valid report; a later three-failure cycle requests another reflection. USE FOR: "you are stuck in a loop", "the same error keeps failing", "rethink your assumptions". DO NOT USE FOR: routine single-failure debugging, greenfield planning without failures.
 
 ## 1. Skill Behavior Workflow
 
@@ -16,9 +16,9 @@ graph TD
   Fill --> Decide{RESUME or ESCALATE?}
   Decide -->|untried path| Resume[RESUME On Untried Path]
   Decide -->|genuine user decision| Escalate[ESCALATE With Options]
-  Resume --> Again{Repeated Breaker Cycle?}
-  Again -->|second cycle| Reset[npm run harness reset]
-  Reset --> Evolve[Record Insight With self-evolve]
+  Resume --> Again{Three More Matching Failures?}
+  Again -->|yes| Cycle[Another Zoom-Out Cycle]
+  Cycle --> Evolve[Record Insight With self-evolve]
   Again -->|no| Done([Report Complete])
   Escalate --> Done
 ```
@@ -47,7 +47,7 @@ graph TD
   Write --> Choice{Untried Path Exists?}
   Choice -->|yes| Resume2[RESUME On Untried Path]
   Choice -->|no| Esc2[ESCALATE With Options]
-  Resume2 -->|repeated cycle| Reset2[npm run harness reset Then self-evolve]
+  Resume2 -->|three more matching failures| Cycle2[Another Zoom-Out Cycle Then self-evolve]
 ```
 
 Template: `zoom-out/templates/zoom-out-report.template.md`. Enforcement: `hooks/scripts/rule-of-3.js`. Deep dive: `zoom-out/references/circuit-breaker.md`.
@@ -58,5 +58,5 @@ Template: `zoom-out/templates/zoom-out-report.template.md`. Enforcement: `hooks/
 - [ ] Goal, files, configuration, and logs were rechecked with read-only tools before any resume
 - [ ] `templates/zoom-out-report.template.md` was filled and the session `zoom-out-report.md` ends in `RESUME` or `ESCALATE`
 - [ ] Resume targeted only an untried path; genuine user decisions were escalated with options
-- [ ] Reset via `npm run harness:reset` happened only after the second cycle, with the insight recorded via `self-evolve`
+- [ ] A later three-failure cycle ran another zoom-out; `npm run harness:reset` was used only as an optional manual clear, with the insight recorded via `self-evolve`
 - [ ] Routine single-failure debugging and greenfield planning without failures were not routed here
