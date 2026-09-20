@@ -265,5 +265,159 @@ for (const relative of [
     'Phase 2 OpenAI package mirror matches canonical: ' + relative);
 }
 
-console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: #84 contract integrity phase 1-2 (${failed} failure${failed === 1 ? '' : 's'})`);
+// Phase 4: reports carry actionable requirement-scoped repair guidance and
+// content fingerprints so stale completion evidence cannot be reused.
+check(driftReport.repairGuidance.some(item =>
+  item.requirementId === 'REQ-001' && item.code === 'update-living-spec' &&
+  item.sourceRef === 'docs/specs/api.md#REQ-001'),
+  'stale-spec drift emits requirement-scoped living-spec repair guidance');
+check(paddedReport.repairGuidance.some(item =>
+  item.requirementId === 'REQ-001' && item.code === 'strengthen-weak-oracle' && item.priority === 'BLOCKER'),
+  'surviving required probe emits BLOCKER weak-oracle guidance');
+check(/Repair Guidance/.test(markdown(driftReport)) && /REQ-001/.test(markdown(driftReport)),
+  'Markdown keeps repair guidance concise and tied to requirement identity');
+
+const freshRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-contract-freshness-'));
+try {
+  const workspace = path.join(freshRoot, 'workspace');
+  fs.mkdirSync(workspace, { recursive: true });
+  for (const artifact of baseline.artifacts) {
+    const file = path.join(workspace, artifact.path);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, artifact.id + ': fixture content\n', 'utf8');
+  }
+  const tracePath = path.join(freshRoot, 'trace.json');
+  const tddPath = path.join(freshRoot, 'tdd.json');
+  const reportPath = path.join(freshRoot, 'report.json');
+  fs.writeFileSync(tracePath, JSON.stringify(baseline), 'utf8');
+  fs.writeFileSync(tddPath, JSON.stringify(baselineTdd), 'utf8');
+
+  const unboundReportPath = path.join(freshRoot, 'report-unbound.json');
+  const unboundAudit = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    tracePath,
+    '--tdd-evidence', tddPath,
+    '--output', unboundReportPath,
+  ], { encoding: 'utf8' });
+  check(unboundAudit.status === 0, 'strict audit may emit a PASS report without workspace binding for immediate inspection');
+  const emptyWorkspace = path.join(freshRoot, 'empty-workspace');
+  fs.mkdirSync(emptyWorkspace, { recursive: true });
+  const unboundFreshness = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    tracePath,
+    '--tdd-evidence', tddPath,
+    '--workspace', emptyWorkspace,
+    '--verify-fresh', unboundReportPath,
+  ], { encoding: 'utf8' });
+  check(unboundFreshness.status === 1 &&
+    /report-workspace-unbound/.test(unboundFreshness.stderr) &&
+    /artifact-fingerprint-missing:/.test(unboundFreshness.stderr),
+    'report created without workspace fingerprints cannot later authorize freshness against a supplied workspace');
+
+  const audit = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    tracePath,
+    '--tdd-evidence', tddPath,
+    '--workspace', workspace,
+    '--output', reportPath,
+  ], { encoding: 'utf8' });
+  check(audit.status === 0, 'strict audit with existing workspace artifacts produces fresh PASS report', audit.stderr);
+  const freshReport = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  check(freshReport.provenance?.inputs?.trace?.sha256 &&
+    freshReport.provenance?.inputs?.tddEvidence?.sha256 &&
+    freshReport.provenance?.artifacts?.length === baseline.artifacts.length &&
+    freshReport.provenance.artifacts.every(item => item.sha256 && item.missing === false),
+    'report provenance records trace/TDD hashes plus current artifact hashes');
+
+  const verifyFresh = () => spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    tracePath,
+    '--tdd-evidence', tddPath,
+    '--workspace', workspace,
+    '--verify-fresh', reportPath,
+  ], { encoding: 'utf8' });
+
+  const current = verifyFresh();
+  check(current.status === 0 && /Freshness: PASS/.test(current.stdout),
+    'unchanged PASS report can authorize completion');
+
+  const failingTracePath = path.join(freshRoot, 'trace-failing.json');
+  const failingReportPath = path.join(freshRoot, 'report-failing.json');
+  const failingTrace = clone(baseline);
+  failingTrace.probes[0].status = 'SURVIVED';
+  failingTrace.probes[0].failureClass = 'none';
+  fs.writeFileSync(failingTracePath, JSON.stringify(failingTrace), 'utf8');
+  const failingAudit = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    failingTracePath,
+    '--tdd-evidence', tddPath,
+    '--workspace', workspace,
+    '--output', failingReportPath,
+  ], { encoding: 'utf8' });
+  check(failingAudit.status === 1, 'surviving required probe produces a reusable FAIL report fixture');
+  const forgedReport = JSON.parse(fs.readFileSync(failingReportPath, 'utf8'));
+  forgedReport.result = 'PASS';
+  forgedReport.completionGate = 'PASS';
+  fs.writeFileSync(failingReportPath, JSON.stringify(forgedReport), 'utf8');
+  const forgedFreshness = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    failingTracePath,
+    '--tdd-evidence', tddPath,
+    '--workspace', workspace,
+    '--verify-fresh', failingReportPath,
+  ], { encoding: 'utf8' });
+  check(forgedFreshness.status === 1 && /current-audit-not-pass/.test(forgedFreshness.stderr),
+    'freshness verification re-derives the current gate instead of trusting forged PASS fields');
+
+  const linkedWorkspace = path.join(freshRoot, 'linked-workspace');
+  fs.mkdirSync(linkedWorkspace, { recursive: true });
+  for (const artifact of baseline.artifacts.filter(item => item.id !== 'IMPL-001')) {
+    const file = path.join(linkedWorkspace, artifact.path);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, artifact.id + ': fixture content\n', 'utf8');
+  }
+  const outsideImpl = path.join(freshRoot, 'outside-implementation');
+  fs.mkdirSync(outsideImpl, { recursive: true });
+  fs.writeFileSync(path.join(outsideImpl, 'api.js'), 'IMPL-001: fixture content\n', 'utf8');
+  fs.symlinkSync(outsideImpl, path.join(linkedWorkspace, 'src'),
+    process.platform === 'win32' ? 'junction' : 'dir');
+  const linkedAudit = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    tracePath,
+    '--tdd-evidence', tddPath,
+    '--workspace', linkedWorkspace,
+  ], { encoding: 'utf8' });
+  check(linkedAudit.status === 2 && /linked-path: IMPL-001/.test(linkedAudit.stderr),
+    'workspace-aware audit rejects artifact paths that resolve through a symlink or junction');
+
+  const testArtifact = path.join(workspace, 'tests/api.test.js');
+  fs.appendFileSync(testArtifact, 'changed after audit\n', 'utf8');
+  const staleTestReport = verifyFresh();
+  check(staleTestReport.status === 1 &&
+    /artifact-changed-since-audit:TEST-001/.test(staleTestReport.stderr),
+    'test artifact change invalidates previously passing report');
+  fs.writeFileSync(testArtifact, 'TEST-001: fixture content\n', 'utf8');
+
+  fs.writeFileSync(tddPath, JSON.stringify({ ...baselineTdd, changedAfterAudit: true }), 'utf8');
+  const staleEvidence = verifyFresh();
+  check(staleEvidence.status === 1 &&
+    /tdd-evidence-changed-since-audit/.test(staleEvidence.stderr),
+    '#58 evidence change invalidates previously passing report');
+
+  fs.writeFileSync(tddPath, JSON.stringify(baselineTdd), 'utf8');
+  fs.rmSync(path.join(workspace, 'src/api.js'));
+  const missingArtifactAudit = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    tracePath,
+    '--tdd-evidence', tddPath,
+    '--workspace', workspace,
+  ], { encoding: 'utf8' });
+  check(missingArtifactAudit.status === 2 &&
+    /provenance artifact missing from workspace: IMPL-001/.test(missingArtifactAudit.stderr),
+    'strict workspace-aware audit fails closed when traced implementation evidence is missing');
+} finally {
+  fs.rmSync(freshRoot, { recursive: true, force: true });
+}
+
+console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: #84 contract integrity phase 1-4 mechanism (${failed} failure${failed === 1 ? '' : 's'})`);
 process.exit(failed === 0 ? 0 : 1);
