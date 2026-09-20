@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.16.1](https://github.com/dyphn1/Harness-everything/compare/v0.16.0...v0.16.1) (2026-09-20)
+
+### Bug Fixes
+
+* **runtime:** decouple recovery learning from rule reset ([7260e03](https://github.com/dyphn1/Harness-everything/commit/7260e031873eef03b895ffef76c490c8da18201b))
+* **runtime:** fail open advisory workflow hooks ([b0f8bec](https://github.com/dyphn1/Harness-everything/commit/b0f8bec15baaf1fa64a960f2a4890fd89fb22653))
+* **runtime:** preserve rule-of-3 failure evidence ([ce9fc6c](https://github.com/dyphn1/Harness-everything/commit/ce9fc6c97a231cae4fada49645506db54a56ecc8))
+
 ## [0.16.0](https://github.com/dyphn1/Harness-everything/compare/v0.15.0...v0.16.0) (2026-09-20)
 
 ### Features
