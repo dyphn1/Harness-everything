@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, budgetLimits, ensureWorkflowBudget, recordBudgetEvent, resetWorkflowBudget, syncBudgetToRun, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
+const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
 const { getWorkspaceRoot, readCurrentSession } = require('./lib/harness-state');
 const { atomicWriteJson, readJson } = require('./lib/fable-contracts');
 
@@ -41,9 +41,6 @@ function activatePlan(workflow, plan) {
   workflow.suggestedSkills = plan.suggestedSkills || [];
   workflow.verification = plan.verification;
   workflow.mutationIsolation = plan.mutationIsolation || { required: false };
-  const budget = ensureWorkflowBudget(workflow);
-  budget.limits = budgetLimits(workflow);
-  budget.updatedAt = new Date().toISOString();
 }
 
 function main() {
@@ -57,8 +54,6 @@ function main() {
   if (args.command === 'start') {
     if (!workflow.workflowId || !workflow.workflowPlan) throw new Error('legacy workflow lacks a correlated plan; cannot start it implicitly');
     if (workflow.state === 'running') throw new Error('workflow already running; record a blocker before replanning');
-    const isReplan = workflow.revision > 0 || Boolean(workflow.runId);
-    if (isReplan) recordBudgetEvent(context, 'replan', { evidence: 'workflow-disposition:start' });
     const plan = workflow.pendingPlan || workflow.workflowPlan;
     if (!String(plan.strategy || '').startsWith('fable-')) {
       activatePlan(workflow, plan);
@@ -90,9 +85,7 @@ function main() {
     delete workflow.pendingPlan;
     delete workflow.blockReason;
   } else if (args.command === 'revision') {
-    recordBudgetEvent(context, 'revision', { evidence: args.evidence || 'workflow-disposition:revision' });
-  } else if (args.command === 'reset-budget') {
-    resetWorkflowBudget(context, args.evidence);
+    console.error('[Workflow Reminder] Revision requested; no hard revision budget is enforced.');
   } else if (args.command === 'escape') {
     if (!ALLOWED_ESCAPE_REASONS.has(args.reasonCode)) throw new Error('generic simple/routine/already-clear reasons are intentionally rejected');
     if (!args.scope?.trim()) throw new Error('--scope is required');
@@ -114,7 +107,6 @@ function main() {
     workflow.blockReason = args.evidence.trim();
   } else throw new Error(usage());
   saveWorkflow(context);
-  syncBudgetToRun(context);
   process.stdout.write(JSON.stringify({ state: workflow.state, workflowId: workflow.workflowId, runId: workflow.runId, revision: workflow.revision, escapes: workflow.escapes }) + '\n');
 }
 try { main(); } catch (error) { console.error('[Workflow Disposition] ' + error.message); process.exitCode = 2; }

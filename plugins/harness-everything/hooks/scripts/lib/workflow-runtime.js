@@ -4,11 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const { getWorkspaceRoot, getSessionDir, getSessionId, getStateRoot } = require('./harness-state');
 const { atomicWriteJson, readJson } = require('./fable-contracts');
-const { workspaceFingerprint } = require('./workflow-isolation');
 
 const OPEN_STATES = new Set(['pending', 'active', 'running', 'failed', 'blocked', 'escaped']);
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-const WORKFLOW_CONTROLLER_COMMANDS = new Set(['start', 'revision', 'reset-budget', 'escape', 'block']);
+const WORKFLOW_CONTROLLER_COMMANDS = new Set(['start', 'revision', 'escape', 'block']);
 
 function activeWorkflowPlan(workflow) {
   if (!workflow) return null;
@@ -44,412 +43,35 @@ function loadWorkflow(payload) {
 
 function saveWorkflow(context) { atomicWriteJson(context.file, context.workflow); }
 
-const MUTATION_PROBE_KEY = /^[a-f0-9]{64}$/;
-const MUTATION_PROBE_WAIT = new Int32Array(new SharedArrayBuffer(4));
-const MUTATION_PROBE_DEFAULT_TIMEOUT_MS = 120000;
-const MUTATION_PROBE_RECLAIM_GRACE_MS = 5000;
-const MUTATION_PROBE_MAX_TIMEOUT_MS = 30 * 60 * 1000;
-
-function mutationProbeLeaseMs(timeoutMs) {
-  const parsed = Number(timeoutMs);
-  const executionMs = Number.isFinite(parsed) && parsed > 0
-    ? Math.min(parsed, MUTATION_PROBE_MAX_TIMEOUT_MS)
-    : MUTATION_PROBE_DEFAULT_TIMEOUT_MS;
-  return executionMs + MUTATION_PROBE_RECLAIM_GRACE_MS;
-}
-
-function mutationProbeExpired(probe, now = Date.now()) {
-  const reclaimAfterAt = Number(probe?.reclaimAfterAt);
-  if (Number.isFinite(reclaimAfterAt)) return now >= reclaimAfterAt;
-  const observedAt = Number(probe?.observedAt);
-  return Number.isFinite(observedAt) &&
-    now - observedAt >= mutationProbeLeaseMs(null);
-}
-
-function mutationProbeDir(context) {
-  return path.join(context.sessionDir, 'mutation-probes');
-}
-
-function mutationProbeFile(context, key) {
-  if (!MUTATION_PROBE_KEY.test(String(key || ''))) throw new Error('invalid mutation probe identity');
-  return path.join(mutationProbeDir(context), key + '.json');
-}
-
-function withMutationProbeLock(context, callback) {
-  fs.mkdirSync(context.sessionDir, { recursive: true });
-  const lockDir = path.join(context.sessionDir, '.mutation-probes.lock');
-  let acquired = false;
-  for (let attempt = 0; attempt < 200; attempt++) {
-    try {
-      fs.mkdirSync(lockDir);
-      acquired = true;
-      break;
-    } catch (error) {
-      if (error.code !== 'EEXIST') throw error;
-      try {
-        const stat = fs.statSync(lockDir);
-        if (Date.now() - stat.mtimeMs > 30000) {
-          fs.rmSync(lockDir, { recursive: true, force: true });
-          continue;
-        }
-      } catch (_) { /* retry below */ }
-      Atomics.wait(MUTATION_PROBE_WAIT, 0, 0, 10);
-    }
-  }
-  if (!acquired) throw new Error('cannot acquire mutation probe lock');
-  try { return callback(); }
-  finally { fs.rmSync(lockDir, { recursive: true, force: true }); }
-}
-
-function probeCountsIteration(probe) {
-  return Boolean(probe && (probe.countIteration === true ||
-    (probe.countIteration === undefined && probe.reserveIteration === true)));
-}
-
-function mutationProbeReservations(context) {
-  const dir = mutationProbeDir(context);
-  let files = [];
-  try { files = fs.readdirSync(dir).filter(file => /^[a-f0-9]{64}\.json$/.test(file)); }
-  catch (_) { return 0; }
-  const now = Date.now();
-  let count = 0;
-  for (const file of files) {
-    const probe = readJson(path.join(dir, file));
-    if (probe?.schemaVersion !== 1 || probe.reserveIteration !== true) continue;
-    // A reservation remains active for the host/tool execution timeout plus
-    // a grace period. This prevents a genuinely in-flight command from being
-    // reclaimed merely because it ran longer than an arbitrary short delay.
-    if (!mutationProbeExpired(probe, now)) count++;
-  }
-  return count;
-}
-
-function refreshWorkflowForProbe(context) {
-  const latest = readJson(context.file);
-  if (!latest || latest.sessionId !== context.sessionId) throw new Error('cannot refresh workflow for mutation probe');
-  context.workflow = latest;
-  return latest;
-}
-
-function assertIterationCapacity(context, evidence) {
-  const { workflow } = context;
-  if (!workflow) throw budgetError('no workflow available for iteration capacity');
-  const budget = ensureWorkflowBudget(workflow);
-  if (budget.state !== 'active') throw budgetError(`workflow budget is ${budget.state}: ${budget.reasonCode || 'unavailable'}`);
-  const limit = budget.limits.maxIterations;
-  if (limit === null) return { applicable: false, value: budget.counters.iterations, reserved: 0 };
-  const reserved = mutationProbeReservations(context);
-  if (budget.counters.iterations + reserved >= limit) {
-    return exhaustBudget(context, 'iteration-budget-exhausted', evidence || 'untrusted-shell-capacity');
-  }
-  return { applicable: true, value: budget.counters.iterations, reserved, limit };
-}
-
-function reclaimStaleMutationProbes(context, keepKey) {
-  const dir = mutationProbeDir(context);
-  let files = [];
-  try { files = fs.readdirSync(dir).filter(file => /^[a-f0-9]{64}\.json$/.test(file)); }
-  catch (_) { return; }
-  const now = Date.now();
-  for (const name of files) {
-    const staleKey = name.slice(0, -'.json'.length);
-    if (staleKey === keepKey) continue;
-    const file = path.join(dir, name);
-    const probe = readJson(file);
-    if (!probe || probe.schemaVersion !== 1) continue;
-    if (!mutationProbeExpired(probe, now)) continue;
-    const countsIteration = probeCountsIteration(probe);
-    if (!probe.observationCwd) {
-      // Legacy probes predate stored observation roots and cannot be safely
-      // re-observed. Once outside the in-flight grace window they must not
-      // reserve capacity forever.
-      fs.unlinkSync(file);
-      continue;
-    }
-    let currentFingerprint;
-    try {
-      currentFingerprint = workspaceFingerprint(probe.observationCwd);
-    } catch (_) {
-      fs.unlinkSync(file);
-      context.workflow.lastMutationAt = now;
-      if (countsIteration && context.workflow.strategy === 'iterative-single') {
-        recordBudgetEvent(context, 'iteration', { evidence: 'shell:reclaimed-unobservable-workspace' });
-      } else {
-        saveWorkflow(context);
-      }
-      continue;
-    }
-    if (currentFingerprint !== probe.fingerprint) {
-      fs.unlinkSync(file);
-      context.workflow.lastMutationAt = now;
-      if (countsIteration && context.workflow.strategy === 'iterative-single') {
-        recordBudgetEvent(context, 'iteration', { evidence: 'shell:reclaimed-stale-workspace-mutation' });
-      } else {
-        saveWorkflow(context);
-      }
-      continue;
-    }
-    // No visible workspace effect after the grace window: this probe was
-    // orphaned by a denial/block/missing Post event. Discard it so it cannot
-    // reserve capacity or later attribute an unrelated mutation (#161).
-    fs.unlinkSync(file);
-  }
-}
-
-function registerMutationProbe(context, key, fingerprint, reserveIteration, observationCwd, options = {}) {
-  if (!MUTATION_PROBE_KEY.test(String(key || '')) || !MUTATION_PROBE_KEY.test(String(fingerprint || ''))) {
-    throw new Error('invalid mutation probe identity');
-  }
-  return withMutationProbeLock(context, () => {
-    refreshWorkflowForProbe(context);
-    reclaimStaleMutationProbes(context, key);
-    let activeReservation = Boolean(reserveIteration);
-    let atLimitAllowance = false;
-    if (activeReservation) {
-      const budget = ensureWorkflowBudget(context.workflow);
-      const limit = budget.limits.maxIterations;
-      const reserved = mutationProbeReservations(context);
-      if (options.allowAtLimit === true && budget.state === 'active' && limit !== null &&
-          budget.counters.iterations === limit && reserved === 0) {
-        // Verification-shaped commands get observation-only admission at the
-        // exact mutation limit. If they mutate, settlement still records the
-        // mutation and exhausts the budget after execution (#164).
-        activeReservation = false;
-        atLimitAllowance = true;
-      } else {
-        assertIterationCapacity(context, 'shell:untrusted');
-      }
-    }
-    const dir = mutationProbeDir(context);
-    fs.mkdirSync(dir, { recursive: true });
-    const file = mutationProbeFile(context, key);
-    if (fs.existsSync(file)) throw new Error('mutation probe is already pending for this tool call');
-    const observedAt = Date.now();
-    const probe = {
-      schemaVersion: 1,
-      fingerprint,
-      reserveIteration: activeReservation,
-      countIteration: options.countIteration === undefined ? Boolean(reserveIteration) : Boolean(options.countIteration),
-      atLimitAllowance,
-      observationCwd: observationCwd ? path.resolve(observationCwd) : null,
-      observedAt,
-      reclaimAfterAt: observedAt + mutationProbeLeaseMs(options.timeoutMs),
-    };
-    atomicWriteJson(file, probe);
-    return probe;
-  });
-}
-
-function peekMutationProbe(context, key) {
-  return readJson(mutationProbeFile(context, key));
-}
-
-function settleMutationProbe(context, key, afterFingerprint, tool) {
-  if (!MUTATION_PROBE_KEY.test(String(afterFingerprint || ''))) throw new Error('invalid mutation probe fingerprint');
-  return withMutationProbeLock(context, () => {
-    const file = mutationProbeFile(context, key);
-    const probe = readJson(file);
-    if (!probe || probe.schemaVersion !== 1) return null;
-    refreshWorkflowForProbe(context);
-    fs.unlinkSync(file);
-    const changed = afterFingerprint !== probe.fingerprint;
-    if (changed) {
-      context.workflow.lastMutationAt = Date.now();
-      if (probeCountsIteration(probe) && context.workflow.strategy === 'iterative-single') {
-        recordBudgetEvent(context, 'iteration', { evidence: String(tool || 'shell') + ':observed-workspace-mutation' });
-      } else {
-        saveWorkflow(context);
-      }
-    }
-    return { changed, probe };
-  });
-}
-
-function settleMutationProbeConservative(context, key, tool, evidence = 'unobservable-workspace') {
-  return withMutationProbeLock(context, () => {
-    const file = mutationProbeFile(context, key);
-    const probe = readJson(file);
-    if (!probe || probe.schemaVersion !== 1) return null;
-    refreshWorkflowForProbe(context);
-    fs.unlinkSync(file);
-    context.workflow.lastMutationAt = Date.now();
-    if (probeCountsIteration(probe) && context.workflow.strategy === 'iterative-single') {
-      recordBudgetEvent(context, 'iteration', { evidence: String(tool || 'shell') + ':' + evidence });
-    } else {
-      saveWorkflow(context);
-    }
-    return { changed: true, probe, conservative: true };
-  });
-}
-
-function discardMutationProbe(context, key) {
-  return withMutationProbeLock(context, () => {
-    const file = mutationProbeFile(context, key);
-    if (!fs.existsSync(file)) return false;
-    fs.unlinkSync(file);
-    return true;
-  });
-}
-
-function clearMutationProbes(context) {
-  return withMutationProbeLock(context, () => {
-    fs.rmSync(mutationProbeDir(context), { recursive: true, force: true });
-  });
-}
-
+// Numeric workflow limits are planning hints only. Exact runtime budget/probe
+// enforcement was retired in #190 because it introduced locks, shared-state
+// races, parser exceptions, and recovery states disproportionate to its value.
 function budgetLimits(workflow) {
   const limits = workflow?.workflowPlan?.limits || {};
   return {
-    maxIterations: Number.isInteger(limits.maxIterations) && limits.maxIterations > 0 ? limits.maxIterations : null,
-    maxRevisionRounds: Number.isInteger(limits.maxRevisionRounds) && limits.maxRevisionRounds >= 0 ? limits.maxRevisionRounds : 0,
-    maxReplans: Number.isInteger(limits.maxReplans) && limits.maxReplans >= 0 ? limits.maxReplans : 0,
-    maxWorkers: Number.isInteger(limits.maxWorkers) && limits.maxWorkers > 0 ? limits.maxWorkers : 1,
+    maxIterations: Number.isInteger(limits.maxIterations) ? limits.maxIterations : null,
+    maxRevisionRounds: Number.isInteger(limits.maxRevisionRounds) ? limits.maxRevisionRounds : null,
+    maxReplans: Number.isInteger(limits.maxReplans) ? limits.maxReplans : null,
+    maxWorkers: Number.isInteger(limits.maxWorkers) ? limits.maxWorkers : null,
   };
 }
-
-function ensureWorkflowBudget(workflow) {
-  if (workflow.budget && workflow.budget.schemaVersion === 1) return workflow.budget;
-  const now = new Date().toISOString();
-  workflow.budget = {
-    schemaVersion: 1,
-    epoch: 0,
-    state: 'active',
-    limits: budgetLimits(workflow),
-    counters: { iterations: 0, revisionRounds: 0, replans: 0 },
-    activeWorkers: {},
-    reasonCode: null,
-    exhaustedAt: null,
-    resets: [],
-    events: [],
-    createdAt: now,
-    updatedAt: now,
-  };
-  return workflow.budget;
-}
-
-function syncBudgetToRun(context) {
-  const match = matchingRun(context);
-  if (!match || !context.workflow?.budget) return;
-  const updated = {
-    ...match.run,
-    budget: JSON.parse(JSON.stringify(context.workflow.budget)),
-  };
-  atomicWriteJson(path.join(match.runRoot, 'run.json'), updated);
-}
-
-function persistBudget(context) {
-  saveWorkflow(context);
-  syncBudgetToRun(context);
-}
-
-function budgetError(message) {
-  const error = new Error(message);
-  error.code = 'HARNESS_WORKFLOW_BUDGET';
-  return error;
-}
-
-function appendBudgetEvent(budget, event) {
-  budget.events = [...(budget.events || []), event].slice(-64);
-  budget.updatedAt = event.observedAt;
-}
-
-function exhaustBudget(context, reasonCode, evidence) {
-  const budget = ensureWorkflowBudget(context.workflow);
-  const now = new Date().toISOString();
-  budget.state = 'budget-exhausted';
-  budget.reasonCode = reasonCode;
-  budget.exhaustedAt = now;
-  appendBudgetEvent(budget, { type: 'budget-exhausted', reasonCode, evidence: evidence || null, observedAt: now });
-  context.workflow.state = 'blocked';
-  context.workflow.blockReason = reasonCode;
-  persistBudget(context);
-  throw budgetError(`budget-exhausted: ${reasonCode}`);
-}
-
+function ensureWorkflowBudget(workflow) { return { schemaVersion: 2, state: 'advisory', limits: budgetLimits(workflow) }; }
+// Compatibility stubs: no files, reservations, counters, locks, or blocks.
+function mutationProbeReservations() { return 0; }
+function assertIterationCapacity() { return { applicable: false, advisory: true, reserved: 0 }; }
+function registerMutationProbe() { return null; }
+function peekMutationProbe() { return null; }
+function settleMutationProbe() { return null; }
+function settleMutationProbeConservative() { return null; }
+function discardMutationProbe() { return false; }
+function clearMutationProbes() { return false; }
 function recordBudgetEvent(context, type, options = {}) {
-  const { workflow } = context;
-  if (!workflow) throw budgetError('no workflow available for budget accounting');
-  const budget = ensureWorkflowBudget(workflow);
-  if (budget.state !== 'active') throw budgetError(`workflow budget is ${budget.state}: ${budget.reasonCode || 'unavailable'}`);
-  const now = new Date().toISOString();
-  const evidence = options.evidence || null;
-
-  const consume = (counter, limitName, reasonCode) => {
-    const limit = budget.limits[limitName];
-    if (limit === null) return { applicable: false, value: budget.counters[counter] };
-    const reserved = type === 'iteration' ? mutationProbeReservations(context) : 0;
-    if (budget.counters[counter] + reserved >= limit) return exhaustBudget(context, reasonCode, evidence);
-    budget.counters[counter]++;
-    appendBudgetEvent(budget, { type, counter, value: budget.counters[counter], limit, evidence, observedAt: now });
-    persistBudget(context);
-    return { applicable: true, value: budget.counters[counter], limit };
-  };
-
-  if (type === 'iteration') return consume('iterations', 'maxIterations', 'iteration-budget-exhausted');
-  if (type === 'revision') return consume('revisionRounds', 'maxRevisionRounds', 'revision-budget-exhausted');
-  if (type === 'replan') return consume('replans', 'maxReplans', 'replan-budget-exhausted');
-
-  if (type === 'worker-acquire') {
-    const workerId = String(options.workerId || '').trim();
-    if (!SAFE_ID.test(workerId)) throw budgetError('worker-acquire requires a stable safe worker id');
-    if (budget.activeWorkers[workerId]) return { active: Object.keys(budget.activeWorkers).length, idempotent: true };
-    const active = Object.keys(budget.activeWorkers).length;
-    if (active >= budget.limits.maxWorkers) return exhaustBudget(context, 'worker-budget-exhausted', evidence || workerId);
-    budget.activeWorkers[workerId] = { acquiredAt: now, evidence };
-    appendBudgetEvent(budget, { type, workerId, active: active + 1, limit: budget.limits.maxWorkers, evidence, observedAt: now });
-    persistBudget(context);
-    return { active: active + 1, limit: budget.limits.maxWorkers };
-  }
-
-  if (type === 'worker-release') {
-    const workerId = String(options.workerId || '').trim();
-    if (!SAFE_ID.test(workerId)) throw budgetError('worker-release requires a stable safe worker id');
-    const existed = Boolean(budget.activeWorkers[workerId]);
-    delete budget.activeWorkers[workerId];
-    appendBudgetEvent(budget, { type, workerId, existed, active: Object.keys(budget.activeWorkers).length, evidence, observedAt: now });
-    persistBudget(context);
-    return { active: Object.keys(budget.activeWorkers).length, existed };
-  }
-
-  throw budgetError(`unknown workflow budget event: ${type}`);
+  return { advisory: true, type, limits: budgetLimits(context && context.workflow), evidence: options.evidence || null };
 }
-
 function resetWorkflowBudget(context, evidence) {
-  const { workflow } = context;
-  if (!workflow) throw budgetError('no workflow available for budget reset');
-  const previous = ensureWorkflowBudget(workflow);
-  if (previous.state !== 'budget-exhausted' || workflow.state !== 'blocked') {
-    throw budgetError('budget reset is allowed only after explicit budget exhaustion');
-  }
-  if (!String(evidence || '').trim()) throw budgetError('budget reset requires audit evidence');
-  const now = new Date().toISOString();
-  const resets = [...(previous.resets || []), {
-    epoch: previous.epoch,
-    reasonCode: previous.reasonCode,
-    counters: previous.counters,
-    evidence: String(evidence).trim(),
-    resetAt: now,
-  }].slice(-16);
-  clearMutationProbes(context);
-  workflow.budget = {
-    schemaVersion: 1,
-    epoch: previous.epoch + 1,
-    state: 'active',
-    limits: budgetLimits(workflow),
-    counters: { iterations: 0, revisionRounds: 0, replans: 0 },
-    activeWorkers: {},
-    reasonCode: null,
-    exhaustedAt: null,
-    resets,
-    events: [{ type: 'budget-reset', evidence: String(evidence).trim(), observedAt: now }],
-    createdAt: previous.createdAt || now,
-    updatedAt: now,
-  };
-  workflow.state = 'pending';
-  delete workflow.blockReason;
-  persistBudget(context);
-  return workflow.budget;
+  return { retired: true, state: 'advisory', limits: budgetLimits(context && context.workflow), evidence: evidence || null };
 }
+function syncBudgetToRun() { return false; }
 
 function matchingRun(context) {
   const { workflow, root, sessionId } = context;

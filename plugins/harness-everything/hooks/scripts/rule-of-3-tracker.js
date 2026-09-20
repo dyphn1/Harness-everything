@@ -79,22 +79,7 @@ process.stdin.on('end', () => {
       const contextString = `${category}:${filePath}:${command}:${normalized.slice(-200)}`;
       const hash = crypto.createHash('md5').update(contextString).digest('hex');
 
-      // Context-aware thresholds: different failure types have different breaking points
-      let threshold = 3; // Default: 3 strikes
-      if (category === 'syntax') {
-        threshold = 3; // Same syntax error 3 times = stop
-      } else if (category === 'environment') {
-        threshold = 4; // Environment issues may need more exploration
-      } else if (category === 'test') {
-        threshold = 3; // Same test failure 3 times = stop
-      } else if (category === 'timeout') {
-        threshold = 2; // Timeouts are expensive, fail faster
-      } else if (category === 'permission') {
-        threshold = 2; // Permission issues rarely resolve by retrying
-      } else if (category === 'dependency') {
-        threshold = 4; // Dependency issues may need different approaches
-      }
-
+      // One deliberately simple policy: three repeats of the same signature trigger zoom-out.
       if (state.lastHash === hash) {
         state.count += 1;
         state.category = category; // Track failure category for smarter decisions
@@ -106,8 +91,6 @@ process.stdin.on('end', () => {
         state.zoomOutCycles = 0;
       }
 
-      // Store threshold for this failure type
-      state.threshold = threshold;
 
       // Any fresh failure re-arms the breaker. Without this, a signature that
       // failed again after a success (or after a zoom-out release) would keep
