@@ -87,7 +87,7 @@ try {
   fs.writeFileSync(path.join(repo, 'tracked.txt'), 'changed\n', 'utf8');
   const dirtyResults = sixInvocations({ session: 'dirty-tree', target: path.join(repo, 'tracked.txt') });
   assert.ok(dirtyResults.slice(0, 5).every(result => result.status === 0), 'first five in-workspace edits remain non-blocking');
-  assert.strictEqual(dirtyResults[5].status, 2, 'sixth in-workspace edit with uncommitted changes nudges');
+  assert.strictEqual(dirtyResults[5].status, 0, 'sixth in-workspace edit with uncommitted changes remains non-blocking');
   assert.match(String(dirtyResults[5].stderr || ''), /6 edits since the last commit/, 'nudge wording is tool-neutral');
   assert.doesNotMatch(String(dirtyResults[5].stderr || ''), /apply_patch calls/, 'nudge no longer claims all edits are apply_patch calls');
 
@@ -97,7 +97,7 @@ try {
     tool: 'apply_patch',
     patch: '*** Begin Patch\n*** Update File: tracked.txt\n@@\n-old\n+new\n*** End Patch',
   });
-  assert.strictEqual(patchResults[5].status, 2, 'in-workspace apply_patch header participates in the threshold');
+  assert.strictEqual(patchResults[5].status, 0, 'in-workspace apply_patch reminder threshold remains non-blocking');
 
   // Moving HEAD resets the counter for the same session.
   git(['add', 'tracked.txt']);

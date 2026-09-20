@@ -58,9 +58,8 @@ function persistWorkflow(plan, payload, prompt) {
     // Steering/status prompts cannot drop an unresolved execution contract.
     // Stronger new work is retained as a pending route until explicit replan.
     if (runtime.isMajorWorkflow(plan) && !runtime.isMajorWorkflow(context.workflow)) {
-      context.workflow.state = 'blocked';
       context.workflow.pendingPlan = plan;
-      context.workflow.blockReason = 'stronger-route-requires-replan';
+      context.workflow.planningWarning = 'stronger-route-suggested';
     }
     context.workflow.lastPromptHash = crypto.createHash('sha256').update(prompt).digest('hex').slice(0, 24);
     const memoryCapability = issueMemoryCapability(context.workflow);
@@ -84,14 +83,15 @@ function persistWorkflow(plan, payload, prompt) {
     verification: plan.verification,
     mutationIsolation: plan.mutationIsolation || { required: false },
     workflowPlan: plan,
-    state: plan.fallback?.disposition === 'blocked' ? 'blocked' : selected ? 'pending' : 'deferred',
+    state: selected ? 'pending' : 'deferred',
+    planningWarnings: plan.fallback?.disposition === 'none' ? [] : [...(plan.fallback?.reasonCodes || [])],
     runId: null,
     revision: 0,
     escapes: [],
-    enforcement: {
-      mode: 'mandatory-applicable-workflow',
-      escapePolicy: 'scoped-evidence-only',
+    guidance: {
+      mode: 'advisory-workflow',
       reasoningPolicy: 'model-controls-how',
+      hardBoundaries: ['rule-of-3-reflection', 'user-host-permission'],
     },
   };
   const memoryCapability = issueMemoryCapability(context.workflow);
@@ -133,15 +133,15 @@ function run(raw) {
   core.printWorkflowPlan(plan);
   core.printRoutingCheckpoint(plan);
   core.printKernelContract(plan);
-  console.log('\n=> WORKFLOW EXECUTION CONTRACT (MANDATORY WHEN SELECTED):');
+  console.log('\n=> WORKFLOW GUIDANCE (ADVISORY WHEN SELECTED):');
   console.log('   - State: ' + (persisted?.workflow.state || (plan.strategy ? 'unpersisted' : 'deferred')));
   console.log('   - Selected workflow: ' + (plan.strategy || 'deferred'));
   if (plan.strategySelection === 'selected') {
-    console.log('   - Execute the selected workflow to resolution. Reasoning and implementation remain flexible inside it.');
-    console.log('   - Completion requires the workflow obligations and objective verification to resolve.');
-    console.log('   - Generic simple/routine/already-clear reasons cannot waive the selected workflow.');
-    console.log('   - Tier 3 / Fable source and artifact mutations require Git worktree isolation; unavailable isolation means BLOCKED.');
-    console.log('   - Escape is limited to workflow-uncovered-scope or host-capability-unavailable, with stage, scope and evidence; other obligations remain mandatory.');
+    console.log('   - Use the selected workflow as planning guidance; reasoning and implementation remain flexible.');
+    console.log('   - Before claiming completion, review unresolved workflow evidence and objective verification.');
+    console.log('   - If you skip a suggested step, keep the reason explicit and evidence-based.');
+    console.log('   - Tier 3 / Fable changes are safer in a linked Git worktree; missing isolation is a strong reminder, not a Harness lock.');
+    console.log('   - Escape/replan metadata remains useful for audit, but it does not create a persistent execution lock.');
   }
   if (persisted?.workflow) {
     const controller = path.join(persisted.hooksRoot, 'workflow-disposition.js');
@@ -152,12 +152,10 @@ function run(raw) {
     console.log('   - Enter/replan: node "' + controller + '" start --session-id "' + persisted.sessionId + '"');
     console.log('   - Escape one declared stage: node "' + controller + '" escape --session-id "' + persisted.sessionId + '" --stage-id "<id>" --reason-code workflow-uncovered-scope --scope "<uncovered scope>" --evidence "<evidence>"');
   } else {
-    console.log('   - Runtime state was not persisted; host enforcement is unavailable/unknown, not proven hard enforcement.');
+    console.log('   - Runtime state was not persisted; reminders may be less precise, but execution remains available.');
   }
-  if (failure) {
-    console.error('[Workflow Router] ' + failure.message);
-    process.exitCode = 2;
-  } else if (result && result.status !== 0) process.exitCode = result.status || 1;
+  if (failure) console.error('[Workflow Reminder] routing state was not persisted: ' + failure.message);
+  if (result && result.status !== 0) console.error('[Workflow Reminder] router returned status ' + result.status + '; guidance is degraded, not blocking.');
 }
 
 if (typeof module !== 'undefined') module.exports = { isHostNotificationPrompt };

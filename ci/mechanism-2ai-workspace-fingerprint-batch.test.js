@@ -202,10 +202,9 @@ try {
   const workflowFile = path.join(state.getSessionDir(repo, sessionId), 'workflow-run.json');
   const workflow = JSON.parse(fs.readFileSync(workflowFile, 'utf8'));
   check(workflow.state === 'running' &&
-    workflow.budget?.counters?.iterations === 1 &&
-    workflow.lastMutationAt > 0 &&
-    workflow.budget?.events?.at(-1)?.evidence === 'shell:fingerprint-limit',
-    '#169 fingerprint-limit fallback records one auditable conservative mutation');
+    !workflow.budget?.counters &&
+    !fs.existsSync(path.join(state.getSessionDir(repo, sessionId), 'mutation-probes')),
+    '#190 shell admission no longer creates conservative budget/probe state');
 
   console.log('PASS: batched workspace fingerprint (' + passed + ' assertions, 1000-file ' + elapsedMs.toFixed(1) + 'ms)');
 } finally {
