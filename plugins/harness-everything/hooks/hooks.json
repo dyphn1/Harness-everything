@@ -39,7 +39,7 @@
             "command": "node \"${PLUGIN_ROOT}/hooks/scripts/workflow-gate.js\"",
             "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\workflow-gate.js\"",
             "timeout": 15,
-            "statusMessage": "Checking Harness workflow and worktree-isolation contract"
+            "statusMessage": "Reviewing Harness workflow/worktree guidance"
           }
         ]
       },
@@ -248,14 +248,14 @@
             "command": "node \"${PLUGIN_ROOT}/hooks/scripts/workflow-stop-gate.js\"",
             "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\workflow-stop-gate.js\"",
             "timeout": 15,
-            "statusMessage": "Checking Harness workflow completion gate"
+            "statusMessage": "Reviewing verification reminder"
           },
           {
             "type": "command",
             "command": "node \"${PLUGIN_ROOT}/hooks/scripts/stop-gate.js\"",
             "commandWindows": "node \"${PLUGIN_ROOT}\\hooks\\scripts\\stop-gate.js\"",
             "timeout": 15,
-            "statusMessage": "Checking Harness verification gate"
+            "statusMessage": "Reviewing verification reminder"
           }
         ]
       },

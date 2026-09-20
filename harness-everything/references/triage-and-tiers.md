@@ -2,7 +2,7 @@
 
 Harness uses tiers to estimate scope and select the smallest sufficient execution topology. A tier is **not** a fixed TODO/TDD/Fable pipeline. Once the router selects an applicable topology, however, that topology becomes the run's execution contract.
 
-> Architecture rule: **Mandatory applicable workflow; flexible reasoning/implementation inside it; evidence-backed escape only for workflow-uncovered scope.**
+> Architecture rule: **Guidance-first workflow; flexible reasoning/implementation; only Rule-of-3 reflection and explicit permission boundaries may block.**
 
 ## 0. When Harness Routing Applies
 
@@ -43,7 +43,7 @@ The kernel protects lifecycle obligations without micromanaging model reasoning.
 2. **Verify before claim** — completion requires objective evidence appropriate to the change.
 3. **Re-plan on repetition** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
 4. **Evaluate before omission** — when the router suggests a skill, read its complete `SKILL.md` entry/basic flow before deciding applicability.
-5. **Resolve selected workflow** — once a topology is selected, execute it to a resolved state; "simple", "routine", "already clear", or model confidence are not escape conditions.
+5. **Review selected workflow** — use the topology as planning guidance and keep any skipped step evidence-based.
 
 The model remains free to choose tools, implementation technique, decomposition details, and reasoning inside the workflow.
 
@@ -54,7 +54,7 @@ The model remains free to choose tools, implementation technique, decomposition 
 - Every router-suggested skill when its evaluated flow is objectively not applicable.
 - Every optional deep-dive/reference linked from a skill.
 
-A suggested skill may resolve as `use`, `not-applicable`, or `unresolved/unavailable`. `not-applicable` needs a flow-grounded reason; a metadata-only or confidence-only judgement is insufficient. The selected **topology** is different: it is mandatory after selection unless an explicit workflow escape records genuinely uncovered scope plus evidence.
+A suggested skill may resolve as `use`, `not-applicable`, or `unresolved/unavailable`. `not-applicable` needs a flow-grounded reason; a metadata-only or confidence-only judgement is insufficient. The selected **topology** is planning guidance. Escape/replan metadata may still record why a suggested path was not followed, but it is not a lock.
 
 ## 2. Routing Mechanism
 
@@ -73,7 +73,7 @@ npx github:dyphn1/Harness-everything next "<brief prompt summary>"
 - compact **Harness Routing Checkpoint**,
 - required invariants,
 - suggested skills whose applicability must be evaluated,
-- **Workflow Execution Contract** for the selected topology.
+- **Workflow Guidance** for the selected topology.
 
 If `UserPromptSubmit` already ran the kernel this turn, reuse that output. Do not infer a silent Tier 1/direct path from missing or degraded routing.
 
@@ -90,12 +90,12 @@ A name, description, router summary, tier label, or generic "routine/common task
 
 ### Workflow escape contract
 
-Escape is an exception path, not an alternative default. Use it only when the selected topology genuinely cannot represent part of the task. The permitted reason codes are:
+Escape is audit metadata for a bounded guidance deviation. Use it only when the selected topology genuinely cannot represent part of the task. The permitted reason codes are:
 
 - `workflow-uncovered-scope` — the selected topology cannot represent a bounded part of the task;
 - `host-capability-unavailable` — the host lacks a capability required to execute the selected topology.
 
-Every escape must name a declared stage in the correlated run and record the reason code, uncovered scope, and evidence explaining the coverage/capability gap. The entire workflow never becomes escaped; isolation and independent verification cannot be waived. Covered workflow obligations remain mandatory. Host capability loss must be visible as degradation/blocked/escape evidence, never silently converted into optional execution.
+Every escape must name a declared stage in the correlated run and record the reason code, uncovered scope, and evidence explaining the coverage/capability gap. Host capability loss and missing isolation should remain visible as warnings/evidence, without creating a persistent execution lock.
 
 ## 3. Tier Guidance
 
@@ -117,7 +117,7 @@ When an evaluated skill is applicable, follow its workflow rather than reading i
 
 Typical shape: repository-wide/architectural work, large ambiguous requirements, cross-source synthesis, or bounded delegation.
 
-The router may select `fable-staged`, `fable-parallel`, or `fable-multi-agent-workspace`. A selected Fable topology is not advisory: enter its stage-contract lifecycle, honor dependency/write-set constraints, run objective checks, synthesize, cold-verify where required, and use bounded re-planning on failure.
+The router may select `fable-staged`, `fable-parallel`, or `fable-multi-agent-workspace`. A selected Fable topology is structured planning guidance: use its stages/dependencies/evidence when helpful, but do not convert missing lifecycle evidence into a persistent workflow lock.
 
 Tier 3 does **not** automatically mean multi-agent; the router still chooses the smallest sufficient topology.
 
@@ -140,11 +140,11 @@ This describes a reasoning policy. The workflow contract governs lifecycle oblig
 
 | Host mode | Expected behavior |
 |---|---|
-| Lifecycle hooks available | Kernel creates the selected workflow contract. Supported PreToolUse/Stop gates may mechanically prevent known bypasses. |
-| Advisory instructions only | Agent is instructed to establish and resolve the same contract, but the host cannot be described as mechanically enforcing it. |
+| Lifecycle hooks available | Kernel records selected workflow guidance. PreToolUse/Stop hooks emit reminders; Rule-of-3 and permission gates are the intentional blocking exceptions. |
+| Advisory instructions only | Agent receives the same routing/workflow guidance without lifecycle observations. |
 | Manual use | Invoke `harness-everything` / `harness next`, then execute the selected topology explicitly. |
 
-On Claude and the local OpenAI package, supported mutation hooks require Fable entry and Tier 3/Fable Git worktree isolation. Follow-up prompts preserve unresolved state. The router displays a session `workflow-stages.json` path and `workflow-disposition.js start` command; declare stages there before entry. Stop checks expected stage contracts plus correlated exit-zero/worker evidence. A retry records `blocked`, never false success. Direct/patch paths and explicit shell targets are checked, but arbitrary scripts are not sandboxed. Other selected topologies still rely on their applicable mechanisms (for example objective verification/stop gates) and shared contract text.
+On Claude and the local OpenAI package, supported hooks observe workflow/worktree/verification state and emit reminders. Rule-of-3 reflection and explicit action/permission gates remain separate blocking boundaries.
 
 Never turn mechanism/package evidence into a cross-host live-enforcement claim. #82 owns host-specific retained evidence.
 
@@ -163,7 +163,7 @@ For software/project work, surface this state before or with the first progress 
 - Escape: <none | reason + uncovered scope + evidence>
 ```
 
-The checkpoint is state, not a universal response template. The key distinction is: **skill suggestions are evaluated for applicability; a selected workflow topology is executed to resolution.**
+The checkpoint is state, not a universal response template. The key distinction is: **skill suggestions are evaluated for applicability; a selected topology guides execution but does not trap it.**
 
 ## 7. Self-Healing and Dynamic Skills
 

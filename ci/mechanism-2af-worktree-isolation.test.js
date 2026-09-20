@@ -1,198 +1,40 @@
 #!/usr/bin/env node
 'use strict';
-
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { spawnSync } = require('child_process');
-
-const ROOT = path.resolve(__dirname, '..');
-const GATE = path.join(ROOT, 'hooks', 'scripts', 'workflow-gate.js');
-let failed = 0;
-
-function check(condition, message) {
-  if (condition) console.log(`✅ worktree-isolation: ${message}`);
-  else { console.error(`❌ worktree-isolation: ${message}`); failed++; }
-}
-
-function git(cwd, args) {
-  return spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true });
-}
-
-const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-worktree-isolation-'));
-const home = path.join(temp, 'home');
-const repo = path.join(temp, 'repo');
-const linked = path.join(temp, 'repo-linked');
-fs.mkdirSync(home, { recursive: true });
-fs.mkdirSync(repo, { recursive: true });
-
-const env = {
-  ...process.env,
-  HOME: home,
-  USERPROFILE: home,
-  HARNESS_STATE_HOME: path.join(home, '.agents', 'harness-everything'),
-  CLAUDE: '1',
-};
-process.env.HARNESS_STATE_HOME = env.HARNESS_STATE_HOME;
-process.env.HOME = home;
-process.env.USERPROFILE = home;
-
-try {
-  if (process.platform === 'win32') {
-    const { key } = require('../hooks/scripts/lib/workflow-isolation');
-    const shortProgramFiles = path.join(process.env.SystemDrive || 'C:', 'PROGRA~1');
-    if (fs.existsSync(shortProgramFiles)) {
-      check(key(shortProgramFiles) === key(fs.realpathSync.native(shortProgramFiles)), 'Windows short and long path spellings identify the same physical directory');
-    }
-  }
-  check(git(repo, ['init']).status === 0, 'fixture git repository initializes');
-  fs.writeFileSync(path.join(repo, 'README.md'), 'fixture\n', 'utf8');
-  check(git(repo, ['add', 'README.md']).status === 0, 'fixture file stages');
-  check(git(repo, ['-c', 'user.name=Harness Test', '-c', 'user.email=harness@example.invalid', 'commit', '-m', 'fixture']).status === 0, 'fixture baseline commits');
-
-  const workspace = require(path.join(ROOT, 'scripts', 'lib', 'workspace'));
-  const state = require(path.join(ROOT, 'hooks', 'scripts', 'lib', 'harness-state'));
-  const sessionId = 'worktree-isolation-test';
-  const context = { session_id: sessionId, host_id: 'mechanism-test', cwd: repo };
-  workspace.bindWorkspaceSession(sessionId, repo, context, true);
-  const sessionDir = state.getSessionDir(repo, sessionId, context);
-  const workflowFile = path.join(sessionDir, 'workflow-run.json');
-
-  function writeWorkflow(tier, strategy) {
-    fs.writeFileSync(workflowFile, `${JSON.stringify({
-      schemaVersion: 1,
-      createdAt: new Date().toISOString(),
-      createdAtMs: Date.now(),
-      sessionId,
-      tier,
-      strategy,
-      state: 'active',
-    }, null, 2)}\n`, 'utf8');
-  }
-
-  function runGate(tool, cwd, input = {}) {
-    const payload = {
-      session_id: sessionId,
-      host_id: 'mechanism-test',
-      cwd,
-      tool_name: tool,
-      tool_input: input,
-    };
-    return spawnSync(process.execPath, [GATE], {
-      cwd: ROOT,
-      env,
-      input: JSON.stringify(payload),
-      encoding: 'utf8',
-    });
-  }
-
-  // Tier 3 isolation is independent of the selected execution topology.
-  writeWorkflow('tier3', 'iterative-single');
-
-  const primaryWrite = runGate('Write', repo, { file_path: path.join(repo, 'src.js'), content: 'x' });
-  check(primaryWrite.status === 2, 'Tier 3 direct write is blocked in the primary working tree');
-  check(/worktree isolation/i.test(primaryWrite.stderr), 'blocked write explains the isolation requirement');
-
-  const primaryDelete = runGate('Bash', repo, { command: 'rm -rf src' });
-  check(primaryDelete.status === 2, 'Tier 3 destructive shell mutation is blocked in the primary working tree');
-
-  for (const command of ['git status > tracked.txt', 'git log --output=tracked.txt', 'find . -delete', 'fd -x rm', 'rg --pre touch x', 'git show $(touch tracked.txt)', 'Get-Content (Remove-Item src)']) {
-    check(runGate('Bash', repo, { command }).status === 2, `shell side effect is not read-only: ${command}`);
-  }
-
-  const chainedBypass = runGate('Bash', repo, { command: 'git status --short && rm -rf src' });
-  check(chainedBypass.status === 2, 'read-only prefix cannot hide a chained mutation');
-
-  const readOnly = runGate('Bash', repo, { command: 'git status --short' });
-  check(readOnly.status === 0, 'read-only discovery remains allowed before isolation');
-
-  // #82-family follow-up: chaining/redirects that are hidden behind the old
-  // blanket metacharacter reject must stay blocked, but a compound command
-  // whose every segment is independently trusted read-only must not burn
-  // iteration budget or the mutation-timestamp just because it uses `;`,
-  // `&&`, `|`, or a non-writing `2>&1` redirect.
-  for (const command of [
-    'git status --short; git log --oneline -1',
-    'git status --short && git log --oneline -1',
-    'git log --oneline -1 | head -1',
-    'echo hello',
-    'echo hello; git status --short',
-    'git status --short 2>&1',
-    'gh issue view 1 --repo octocat/hello-world --json number,title 2>&1',
-    'gh pr list --repo octocat/hello-world --json number | head -1',
-    'gh repo view octocat/hello-world --json name',
-    'gh auth status',
-    'cat README.md | grep fixture',
-    'grep -n "fixture\\|missing" README.md | head -20',
-    "grep -n 'fixture|missing' README.md | head -20",
-    'echo "fixture|missing" | grep fixture',
-    'git log --grep="fix|feat" | head -5',
-    "grep 'fixture;missing' README.md | head -1",
-    'grep fixture\\|missing README.md | head -1',
-    'echo "2>&1"',
-    'echo "safe; rm -rf src"',
-  ]) {
-    check(runGate('Bash', repo, { command }).status === 0, `trusted read-only chain remains allowed: ${command}`);
-  }
-
-  for (const command of [
-    'git status --short; rm -rf src',
-    'git status --short | rm -rf src',
-    'echo hi & rm -rf src',
-    'git status --short > tracked.txt',
-    'git status --short 2>tracked.txt',
-    'git worktree add "harness-chain-probe" -b harness-chain-probe; rm -rf src',
-    'gh issue comment 1 --body hi',
-    'gh issue close 1',
-    'git status --short || rm -rf src',
-    'grep "unterminated README.md | head -1',
-    "grep 'unterminated README.md | head -1",
-    'echo safe | rm -rf src',
-  ]) {
-    check(runGate('Bash', repo, { command }).status === 2, `chained/redirected command is not read-only: ${command}`);
-  }
-
-  const setup = runGate('Bash', repo, { command: `git worktree add "${linked}" -b harness-isolation-test` });
-  check(setup.status === 0, 'git worktree creation is allowed as the isolation transition');
-
-  const createLinked = git(repo, ['worktree', 'add', linked, '-b', 'harness-isolation-test']);
-  check(createLinked.status === 0, 'fixture linked worktree is created');
-
-  const isolatedWrite = runGate('Write', linked, { file_path: path.join(linked, 'src.js'), content: 'x' });
-  check(isolatedWrite.status === 0, `Tier 3 mutation is allowed after entering a linked worktree (${isolatedWrite.stderr.trim() || 'allowed'})`);
-
-  check(runGate('Write', linked, { file_path: path.join(repo, 'src.js') }).status === 2, 'linked cwd cannot authorize a primary-tree target');
-  check(runGate('Write', linked, { file_path: '../repo/src.js' }).status === 2, 'relative traversal cannot escape the worktree');
-  check(runGate('apply_patch', linked, `*** Begin Patch\n*** Add File: ${path.join(repo, 'src.js')}\n+x\n*** End Patch`).status === 2, 'raw patch targets are checked');
-  check(runGate('apply_patch', linked, { patch: `*** Begin Patch\n*** Update File: README.md\n*** Move to: ${path.join(repo, 'moved.md')}\n@@\n-fixture\n+x\n*** End Patch` }).status === 2, 'patch move destination cannot escape isolation');
-  check(runGate('exec_command', repo, { cmd: 'rm -rf src', workdir: repo }).status === 2, 'native shell alias cannot skip mutation gating');
-  check(runGate('Bash', linked, { command: `rm "${path.join(repo, 'README.md')}"` }).status === 2, 'explicit primary-tree shell target is blocked');
-  check(runGate('Bash', linked, { command: 'cd ../repo && node build.js' }).status === 2, 'shell directory change cannot hide the effective working directory');
-  check(runGate('Write', linked, {}).status === 2, 'unknown direct target is blocked');
-  const junction = path.join(linked, 'outside');
-  fs.symlinkSync(repo, junction, process.platform === 'win32' ? 'junction' : 'dir');
-  check(runGate('Write', linked, { file_path: path.join(junction, 'src.js') }).status === 2, 'symlink or junction escape is blocked');
-  fs.unlinkSync(junction);
-
-  const escaped = JSON.parse(fs.readFileSync(workflowFile, 'utf8'));
-  escaped.state = 'escaped';
-  fs.writeFileSync(workflowFile, JSON.stringify(escaped));
-  check(runGate('Write', repo, { file_path: path.join(repo, 'src.js') }).status === 2, 'legacy escaped state never waives isolation');
-  escaped.state = 'blocked';
-  fs.writeFileSync(workflowFile, JSON.stringify(escaped));
-  check(runGate('Write', linked, { file_path: path.join(linked, 'src.js') }).status === 2, 'blocked workflow cannot mutate even inside isolation');
-  fs.writeFileSync(workflowFile, '{broken');
-  check(runGate('Write', linked, { file_path: path.join(linked, 'src.js') }).status === 2, 'corrupt recorded workflow cannot silently authorize mutation');
-
-  writeWorkflow('tier2', 'iterative-single');
-  const tier2Write = runGate('Write', repo, { file_path: path.join(repo, 'small.js'), content: 'x' });
-  check(tier2Write.status === 0, 'Tier 2 is not globally forced into worktree isolation');
-} finally {
-  try { fs.rmSync(temp, { recursive: true, force: true }); } catch (_) { /* best effort */ }
-}
-
-if (failed > 0) {
-  console.error(`FAIL: worktree isolation gate (${failed} failure${failed === 1 ? '' : 's'})`);
-  process.exit(1);
-}
-console.log('PASS: major-workflow worktree isolation gate');
+const fs=require('fs'),os=require('os'),path=require('path'),{spawnSync}=require('child_process');
+const ROOT=path.resolve(__dirname,'..'),GATE=path.join(ROOT,'hooks/scripts/workflow-gate.js');
+let failed=0;function check(c,m,d=''){if(c)console.log('PASS '+m);else{console.error('FAIL '+m+(d?': '+d:''));failed++;}}
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'harness-worktree-guidance-')),home=path.join(temp,'home'),repo=path.join(temp,'repo'),linked=path.join(temp,'linked');
+fs.mkdirSync(home,{recursive:true});fs.mkdirSync(repo,{recursive:true});
+const env={...process.env,HOME:home,USERPROFILE:home,HARNESS_STATE_HOME:path.join(home,'state'),HARNESS_WORKSPACE_ROOT:repo,CLAUDE:'1'};
+process.env.HARNESS_STATE_HOME=env.HARNESS_STATE_HOME;process.env.HARNESS_WORKSPACE_ROOT=repo;process.env.HOME=home;process.env.USERPROFILE=home;
+function git(cwd,args){return spawnSync('git',args,{cwd,encoding:'utf8'});}
+function runGate(tool,cwd,input={}){return spawnSync(process.execPath,[GATE],{cwd:ROOT,env,input:JSON.stringify({session_id:'worktree-guidance',host_id:'mechanism-test',cwd,tool_name:tool,tool_input:input}),encoding:'utf8'});}
+try{
+ check(git(repo,['init']).status===0,'fixture repository initializes');
+ fs.writeFileSync(path.join(repo,'README.md'),'fixture\n');git(repo,['add','README.md']);git(repo,['-c','user.name=Harness','-c','user.email=h@example.invalid','commit','-m','init']);
+ const workspace=require(path.join(ROOT,'scripts/lib/workspace')); const state=require(path.join(ROOT,'hooks/scripts/lib/harness-state')); const context={session_id:'worktree-guidance',host_id:'mechanism-test',cwd:repo}; workspace.bindWorkspaceSession('worktree-guidance',repo,context,true); const dir=state.getSessionDir(repo,'worktree-guidance',context);
+ fs.writeFileSync(path.join(dir,'workflow-run.json'),JSON.stringify({schemaVersion:1,sessionId:'worktree-guidance',tier:'tier3',strategy:'iterative-single',state:'active'}));
+ const primary=runGate('Write',repo,{file_path:path.join(repo,'src.js'),content:'x'});
+ check(primary.status===0,'Tier-3 primary-tree mutation is not hard-blocked',primary.stderr);
+ check(/worktree/i.test(primary.stderr),'Tier-3 primary-tree mutation emits worktree guidance',primary.stderr);
+ const mutator=runGate('Bash',repo,{command:'git status --short && rm -rf src'});
+ check(mutator.status===0,'mutation-shaped shell command remains available',mutator.stderr);
+ check(/worktree/i.test(mutator.stderr),'mutation-shaped shell command receives worktree guidance',mutator.stderr);
+ const readOnly=runGate('Bash',repo,{command:'git status --short'});
+ check(readOnly.status===0,'read-only discovery remains available');
+ const create=git(repo,['worktree','add',linked,'-b','guidance-test']);check(create.status===0,'linked worktree fixture creates',create.stderr);
+ const isolated=runGate('Write',linked,{file_path:path.join(linked,'src.js'),content:'x'});
+ check(isolated.status===0,'linked-worktree mutation remains available',isolated.stderr);
+ const escape=runGate('Write',linked,{file_path:path.join(repo,'escape.js'),content:'x'});
+ check(escape.status===0,'cross-worktree target is reminder-only',escape.stderr);
+ check(/outside|worktree|target/i.test(escape.stderr),'cross-worktree target emits scope/isolation guidance',escape.stderr);
+ const wf=JSON.parse(fs.readFileSync(path.join(dir,'workflow-run.json'),'utf8'));wf.state='blocked';fs.writeFileSync(path.join(dir,'workflow-run.json'),JSON.stringify(wf));
+ const legacy=runGate('Write',linked,{file_path:path.join(linked,'legacy.js'),content:'x'});
+ check(legacy.status===0,'legacy blocked workflow state does not trap mutation',legacy.stderr);
+ check(/marked BLOCKED/i.test(legacy.stderr),'legacy blocked state is surfaced as reminder',legacy.stderr);
+ fs.writeFileSync(path.join(dir,'workflow-run.json'),'{broken');
+ const corrupt=runGate('Write',linked,{file_path:path.join(linked,'corrupt.js'),content:'x'});
+ check(corrupt.status===0,'corrupt workflow state fails open',corrupt.stderr);
+}finally{fs.rmSync(temp,{recursive:true,force:true});}
+if(failed)process.exit(1);
+console.log('PASS: worktree isolation is guidance, not a cognitive lock');

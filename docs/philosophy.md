@@ -9,14 +9,14 @@ The mechanism/enforcement boundary remains platform-specific; see [Platform Capa
 ## Core Philosophy: Constrain Lifecycle, Not Reasoning
 
 1. **Reasoning autonomy remains high.** The model chooses implementation technique, tools, decomposition details, and tactics inside the selected workflow.
-2. **Applicable workflow is mandatory.** Once routing selects a topology, it must be executed to resolution. Model confidence, “simple”, “routine”, and “already clear” are not escape conditions.
+2. **Applicable workflow is guidance: routing should make useful structure visible without taking execution agency away from the model/user.
 3. **Skill applicability is explicit.** Router-suggested skills are read/evaluated before omission. A suggestion can be `not-applicable` when its actual flow does not match; a selected topology is stronger and cannot simply be skipped.
 4. **Escape is conditional, not default.** If the selected workflow genuinely cannot represent part of the task, record the uncovered scope and evidence, then allow model-defined handling only for that uncovered portion.
 5. **Mechanisms beat stronger wording.** Important lifecycle transitions should use structured state, objective evidence, hooks/plugins, exit codes, and completion gates where the host supports them rather than escalating `MUST`/`CRITICAL` prose.
 
 This principle can be summarized as:
 
-> **Mandatory applicable workflow; flexible reasoning/implementation inside it; evidence-backed escape only where the workflow does not cover the task.**
+> **guidance-first applicable workflow; flexible reasoning/implementation inside it; evidence-backed escape only where the workflow does not cover the task.**
 
 The goal is not to make the model less capable. It is to prevent capability/confidence from silently deleting engineering obligations such as verification, bounded re-planning, stage checks, documentation checks, or safety gates when those obligations are applicable.
 

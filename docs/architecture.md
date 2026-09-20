@@ -4,22 +4,22 @@ This document describes Harness runtime architecture and integration boundaries.
 
 ## Architectural Overview
 
-Harness is a **behavior and workflow supervisor**, not one universal fixed workflow. The router chooses the smallest sufficient execution topology; once selected, that topology becomes a lifecycle contract. The model retains freedom over reasoning, tools, and implementation technique inside the contract.
+Harness is a **behavior and workflow observer/router**, not a universal fixed workflow or scheduler. The router chooses a useful topology; the model remains free to adapt execution.
 
 The minimal kernel establishes:
 
 - scope/tier before mutation,
-- a selected workflow topology when task evidence supports one,
+- a selected workflow topology as planning guidance when task evidence supports one,
 - applicability evaluation for every suggested skill before omission,
 - objective evidence before completion,
 - bounded re-plan/recovery after repeated failure,
-- explicit blocked/degraded/escape state instead of silent workflow deletion.
+- explicit warnings/degraded/escape evidence instead of silent workflow deletion.
 
-> **Mandatory applicable workflow; flexible reasoning/implementation inside it.**
+> **Guidance-first workflow; flexible reasoning/implementation and execution.**
 >
-> A suggested skill can be `not-applicable` after evaluating its real flow. A selected topology cannot be replaced with a direct path merely because the model is confident. Escape is only for genuinely uncovered workflow scope and requires evidence.
+> Suggested skills and topology are evaluated from their real flows. Missing or skipped cognitive workflow steps produce evidence/reminders rather than persistent Harness locks.
 
-This avoids both extremes: the old universal Tier-2/Tier-3 pipeline and a purely advisory system where the model can rationalize away verification, staging, documentation, or other applicable obligations.
+This avoids both extremes: no universal Tier-2/Tier-3 pipeline and no maze of self-deadlocking cognitive gates.
 
 ```mermaid
 flowchart TD
@@ -50,7 +50,7 @@ flowchart TD
 - required invariants,
 - suggested skills that require applicability evaluation,
 - the visible routing checkpoint,
-- a workflow execution contract.
+- a workflow guidance.
 
 The router does not tell the model *how* to solve each stage. It decides what lifecycle shape is required. `direct-single`, `iterative-single`, `fable-staged`, `fable-parallel`, and `fable-multi-agent-workspace` remain deliberately small, non-overlapping topology choices.
 
@@ -58,7 +58,7 @@ The router does not tell the model *how* to solve each stage. It decides what li
 
 Router suggestions remain useful domain/workflow knowledge, not a universal sequence. Before omission, the agent reads the complete `SKILL.md` entry and evaluates `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules. Name/description/router-summary or “routine task” is insufficient evidence.
 
-The selected topology is stronger. Once selected, it must be entered and resolved unless the runtime records a permitted workflow escape with uncovered scope + evidence. Covered obligations survive the escape.
+The selected topology is a structured planning aid; it does not become a persistent execution lock.
 
 ### Runtime workflow state
 
@@ -66,16 +66,16 @@ On host paths that can persist it, `kernel-router.js` records session-scoped `wo
 
 For selected Fable topologies on Claude:
 
-- `workflow-gate.js` checks supported shell/direct mutation, actual direct/patch targets, and registered Git worktree isolation before major-workflow mutation; Fable also requires a run bound to the workflow/session identity;
+- `workflow-gate.js` observes supported mutation/worktree/Fable state and emits reminders;
 - Fable owns stage contracts, `dependsOn`/`writeSet`, validated execution batches, objective per-stage checks, synthesis, cold verification, and bounded re-plans;
-- `workflow-stop-gate.js` rejects completion while correlated stage contracts remain unresolved;
-- `workflow-disposition.js` starts/replans within budget, records blockers, and permits only declared-stage evidence-backed escape (`workflow-uncovered-scope` or `host-capability-unavailable`). Covered obligations, isolation, and independent verification survive escape. See [runtime transitions and limitations](workflow-runtime.md).
+- `workflow-stop-gate.js` reports unresolved stage/verification evidence without rejecting Stop;
+- `workflow-disposition.js` records explicit lifecycle/audit decisions; numeric budgets are no longer authoritative control state.
 
 Other topologies use their own applicable mechanisms: loop budgets, regular verification stop-gates, action gates, and task-specific skills. Mechanism coverage is not assumed identical across hosts.
 
 ### Scoped runtime advisories and capabilities
 
-Two kernel mechanisms adjust plans without changing the mandatory-workflow contract:
+Two kernel mechanisms annotate plans without creating hard workflow enforcement:
 
 - **Ensemble policy (`harness-everything/scripts/ensemble-policy.js`):** an advisory plan annotation, not a separate topology. It is selected only when uncertainty is high (or stakes are high) **and** the task asks for comparable outputs or preserves explicit disagreement **and** the selected strategy is already `fable-*`. Creative generation, mechanical bulk work, an explicit user prohibition, unavailable subagents, or a blocked base plan force exclusion. When selected, the plan caps at 3 candidates with `preserve-disagreement` synthesis, an independent verifier, and `parallel-self-consistency` pattern invariants. Covered by deterministic mechanism tests; no live-host effectiveness claim follows from the annotation alone.
 - **Single-use memory capability (`kernel-router.js#issueMemoryCapability`):** when the selected plan permits memory writes, the router issues one capability token bound to `sessionId`/`workflowId` with a stored SHA-256 hash (`memoryAuthorization`, coordinator-only writer role, `usedAt` tracking). Plans with `memory.write === 'none'` receive no capability. This binds a memory write to the workflow that authorized it; it is not a general credential and proves nothing about a live host honoring the binding.
@@ -84,11 +84,11 @@ Two kernel mechanisms adjust plans without changing the mandatory-workflow contr
 
 On the Claude hook path, three narrowly scoped `PreToolUse` guards sit alongside the workflow/action gates:
 
-- `boundary-guard.js` (Grep/Glob/Read): hard-blocks whole-file reads over 512KB without `offset`/`limit` and searches inside known noise directories (`node_modules`, `.git`, build output, etc.). Fails open on parse/lookup errors.
+- `boundary-guard.js` (Grep/Glob/Read): warns about very large reads and noisy search roots; it fails open.
 - `depth-guard.js` (Write): blocks overwriting an existing file that was never Read earlier in the session transcript. New files are unaffected. Fails open on parse/lookup errors.
 - `context-compact.js`: estimates working-tree context pressure from `git status`/`git diff --numstat` so later stages can compact or halt before lost-in-the-middle degradation.
 
-Shell mutation accounting is per-tool-call: `workflow-isolation.js` fingerprints observed effects per tool-use identity, `state-persist.js` settles probes in a single ordered handler, and `workflow-mutation-denied.js` discards probes for denied shell executions so a denial never counts as an observed mutation. See [runtime transitions and limitations](workflow-runtime.md). These are mechanism-tested behaviors on the packaged hook surface, not proof that a live session loaded or fired them.
+Shell mutation observation is best-effort evidence for reminders. The old mutation-probe reservation/lock subsystem was retired by #190.
 
 ## Integration Touchpoints
 
@@ -98,23 +98,23 @@ Harness aligns to each host's actual lifecycle/tool APIs. Shared skill text defi
 
 Runtime state includes hook metadata, workflow lifecycle, circuit-breaker counters, handoff/verification evidence, and WAL-style session state. Skill content is independently discoverable and remains useful on instruction-only surfaces.
 
-### Claude Code — hook-enforced mechanisms
+### Claude Code — hook guidance plus explicit safety boundaries
 
 The installer configures native lifecycle hooks and project skills.
 
 - `SessionStart`: bootstrap/restoration.
-- `UserPromptSubmit`: kernel routing + active workflow contract.
-- `PreToolUse`: workflow bypass gate, action gate, rule-of-3, boundary/depth/context guards, subagent scope guard.
+- `UserPromptSubmit`: kernel routing + workflow guidance.
+- `PreToolUse`: workflow/boundary/depth/scope reminders, plus separate action permission and Rule-of-3 boundaries.
 - `PostToolUse`: outcomes, state, repeated-failure evidence, stage checks.
-- `Stop`: action-gate audit, selected-Fable completion gate, and ordinary verify-before-claim stop gate.
+- `Stop`: action-gate audit plus non-blocking workflow/verification reminders.
 
-These hooks make some lifecycle obligations mechanically enforceable. They still do not prove a real session loaded/fired them; live evidence remains separate.
+These hooks make reminders observable; they do not promote cognitive workflow guidance into hard enforcement.
 
 ### OpenCode — plugin enforcement, scoped live verification
 
 The retained [OpenCode evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md) supports **project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS)**. The final snapshot is **post-reset**. Hard-lock is an **interactive observation** with **no retained blocked-tool trace**; reflection was **operator-seeded** and then agent-rewritten. Global scope, npm-package installation, and other OpenCode versions remain unverified.
 
-This evidence does not establish the new mandatory-workflow lifecycle on OpenCode. That requires its own adapter/evidence before parity is claimed.
+This evidence predates #190 and does not establish behavioral effectiveness of the current guidance-first lifecycle.
 
 ### Cursor — skills plus advisory rules
 
@@ -161,7 +161,7 @@ flowchart TD
     R -- No --> Block
 ```
 
-The orchestrator controls lifecycle and completion; workers do not create peer-to-peer meshes or widen their own write scope. The model remains creative inside each bounded stage, while stage existence/checks/termination are contract state.
+The orchestrator coordinates lifecycle and evidence; scope drift is reported for review rather than turned into a cognitive deadlock.
 
 ## Cognitive OS and Skill Mesh
 

@@ -92,7 +92,7 @@ const runA = prepareRun({
   sessionId: 'phase3-session',
 });
 check(JSON.stringify(runA.execution.batches) === JSON.stringify([['architecture', 'security'], ['synthesis']]), 'parallel plan emits dependency-safe ready batches');
-check(runA.execution.limits.maxWorkers === 4, 'run manifest retains the numeric worker cap');
+check(runA.execution.limits.maxWorkers === 4, 'run manifest retains maxWorkers as an advisory planning hint');
 check(fs.existsSync(path.join(runA.runRoot, 'contracts', 'security.json')), 'run-scoped stage contract is written');
 check(fs.existsSync(path.join(runA.runRoot, 'contracts', 'synthesis.json')), 'downstream stage has its own contract');
 
@@ -119,9 +119,9 @@ const wideRun = prepareRun({
   runId: 'phase3-wide-parallel',
   sessionId: 'wide-session',
 });
-check(wideRun.execution.batches.length === 2, 'ready set larger than worker cap is deterministically chunked');
-check(wideRun.execution.batches.every(batch => batch.length <= 4), 'no dispatchable batch exceeds maxWorkers=4');
-check(wideRun.execution.batches.flat().length === 6, 'worker-cap chunking preserves every ready stage');
+check(wideRun.execution.batches.length === 1, 'ready set is not hard-chunked by the advisory maxWorkers hint');
+check(wideRun.execution.batches[0].length === 6, 'all dependency-ready stages remain dispatchable');
+check(wideRun.execution.batches.flat().length === 6, 'advisory worker guidance preserves every ready stage');
 
 const stagedRun = prepareRun({
   routerContract: stagedContract,
@@ -235,7 +235,7 @@ const ambiguousResult = spawnSync(process.execPath, [contractHook], {
   encoding: 'utf8',
   env: { ...process.env, HARNESS_STATE_HOME: stateHome },
 });
-check(ambiguousResult.status === 2, 'ambiguous same-command correlation blocks acceptance');
+check(ambiguousResult.status === 0 && /ambiguous|multiple/i.test(ambiguousResult.stderr), 'ambiguous same-command correlation is reported without blocking');
 for (const runId of ['ambiguous-a', 'ambiguous-b']) {
   const manifest = JSON.parse(fs.readFileSync(path.join(getWorkspaceStateRoot(workspace), 'fable-runs', runId, 'contracts', 'same-check.json'), 'utf8'));
   check(manifest.status === 'planned', `${runId} remains unmodified after ambiguous check`);
@@ -280,7 +280,7 @@ check(inScope.status === 0 && /in-scope/.test(inScope.stdout), 'declared in-scop
 check(runScope('PreToolUse').status === 0, 'next burst starts from rolled-forward baseline');
 fs.writeFileSync(path.join(gitWorkspace, 'docs', 'oops.txt'), 'unexpected\n');
 const outOfScope = runScope('PostToolUse');
-check(outOfScope.status === 2 && /OUT-OF-SCOPE/.test(outOfScope.stderr), 'undeclared worker edit is rejected by scope guard');
+check(outOfScope.status === 0 && /OUT-OF-SCOPE/.test(outOfScope.stderr), 'undeclared worker edit is reported without blocking');
 
 const contractDoc = fs.readFileSync(path.join(ROOT, 'fable-mode', 'CONTRACT-FORMAT.md'), 'utf8');
 const orchestratorDoc = fs.readFileSync(path.join(ROOT, 'fable-mode', 'agents', 'fable-orchestrator.md'), 'utf8');

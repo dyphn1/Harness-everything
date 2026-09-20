@@ -143,7 +143,7 @@ function main(payload) {
       const changedFiles = statusRaw.split('\n').length;
       console.error(`[Atomic Commit Check] ${state.editCount} edits since the last commit (${changedFiles} files currently changed).`);
       console.error('If a logically complete chunk of work is done, commit it now before continuing - large uncommitted diffs are harder to review and harder to recover from.');
-      process.exit(2);
+      process.exit(0);
     }
 
     process.exit(0);

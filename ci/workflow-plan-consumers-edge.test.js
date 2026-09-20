@@ -63,7 +63,7 @@ const result = spawnSync(process.execPath, [hook], {
   encoding: 'utf8',
   env: { ...process.env, HARNESS_STATE_HOME: stateHome },
 });
-check(result.status === 2, 'a check from another session cannot resolve this run contract');
+check(result.status === 0 && /session|correlat|resolve/i.test(result.stderr), 'a cross-session check is reported without resolving the run contract');
 const manifest = JSON.parse(fs.readFileSync(path.join(isolated.runRoot, 'contracts', 'verify.json'), 'utf8'));
 check(manifest.status === 'planned', 'cross-session check leaves the target contract unmodified');
 

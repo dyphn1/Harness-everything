@@ -1,76 +1,22 @@
-const fs = require('fs');
-const helper = require('./test-helper');
+const fs=require('fs'),path=require('path'),{spawnSync}=require('child_process'),helper=require('./test-helper');
+console.log('\n[2f] Verification reminders...');
+function run(script,payload){return spawnSync(process.execPath,[path.join(helper.hooksDir,script)],{input:JSON.stringify(payload),encoding:'utf8'});}
+helper.writeState('handoff-state.json',{status:'idle',lastEditAt:Date.now(),lastVerifyAt:0});
+const dirty=helper.tempFile('.mechanism-test-dirty.tmp');fs.writeFileSync(dirty,'dirty');
+const reminder=run('stop-gate.js',{session_id:helper.SESSION_ID});
+helper.check('2f. Unverified dirty Stop emits reminder and exits 0',reminder.status===0&&/Verification Reminder/i.test(reminder.stderr),`exit=${reminder.status}, stderr=${reminder.stderr.slice(0,200)}`);
+helper.check('2f. Stop reminder creates no lock/throttle state',!helper.stateExists('stop-gate-state.json'),'unexpected stop-gate-state.json');
+fs.unlinkSync(dirty);
 
-console.log('\n[2f] Stop gate...');
+const now=Date.now();
+helper.writeState('workflow-run.json',{schemaVersion:1,sessionId:helper.SESSION_ID,strategy:'iterative-single',state:'running',lastMutationAt:now-5000});
+helper.writeState('handoff-state.json',{status:'idle',lastEditAt:now-5000,lastVerifyAt:now,lastVerifyExitCode:null});
+const verified=run('workflow-stop-gate.js',{session_id:helper.SESSION_ID});
+helper.check('2f. Observed verification can mark workflow satisfied',verified.status===0&&helper.readState('workflow-run.json').state==='satisfied',verified.stderr);
 
-helper.writeState('handoff-state.json', { status: 'idle', lastEditAt: Date.now(), lastVerifyAt: 0 });
-const dirtyFile = helper.tempFile('.mechanism-test-dirty.tmp');
-fs.writeFileSync(dirtyFile, 'dirty');
-const firstStop = helper.runHook('stop-gate.js', { session_id: helper.SESSION_ID });
-helper.check(
-  '2f. First stop after an unverified edit bounces (exit=2)',
-  firstStop.code === 2 && firstStop.stderr.includes('[Stop Gate]'),
-  `Got exit=${firstStop.code}, stderr="${firstStop.stderr.slice(0, 200)}"`
-);
-const secondStop = helper.runHook('stop-gate.js', { session_id: helper.SESSION_ID });
-helper.check(
-  '2f. Same edit batch does not bounce twice (exit=0)',
-  secondStop.code === 0,
-  `Got exit=${secondStop.code}`
-);
-fs.unlinkSync(dirtyFile);
-
-console.log('\n[2f] workflow-stop-gate (iterative-single) verification signal...');
-
-const now = Date.now();
-
-// Bug reproduction (issue #153): a verify-classified command that genuinely
-// succeeded but whose host never reported a numeric exit code (observed on
-// at least one live host - state-persist.js writes lastVerifyExitCode: null
-// for any non-failing command when the PostToolUse payload has no numeric
-// exitCode) must not be treated as unverified.
-helper.writeState('workflow-run.json', {
-  schemaVersion: 1, sessionId: helper.SESSION_ID, strategy: 'iterative-single',
-  state: 'running', lastMutationAt: now - 5000,
-});
-helper.writeState('handoff-state.json', {
-  status: 'idle', lastEditAt: now - 5000, lastVerifyAt: now, lastVerifyExitCode: null,
-});
-const hostExitCodeUnavailable = helper.runHook('workflow-stop-gate.js', { session_id: helper.SESSION_ID });
-helper.check(
-  '2f. workflow-stop-gate resolves when verify ran after edit even without a numeric exit code',
-  hostExitCodeUnavailable.code === 0 && helper.readState('workflow-run.json').state === 'satisfied',
-  `Got exit=${hostExitCodeUnavailable.code}, stderr="${hostExitCodeUnavailable.stderr.slice(0, 300)}"`
-);
-
-// Regression guard: explicit exit 0 (host does report it) must still resolve.
-helper.writeState('workflow-run.json', {
-  schemaVersion: 1, sessionId: helper.SESSION_ID, strategy: 'iterative-single',
-  state: 'running', lastMutationAt: now - 5000,
-});
-helper.writeState('handoff-state.json', {
-  status: 'idle', lastEditAt: now - 5000, lastVerifyAt: now, lastVerifyExitCode: 0,
-});
-const hostExitCodeReported = helper.runHook('workflow-stop-gate.js', { session_id: helper.SESSION_ID });
-helper.check(
-  '2f. workflow-stop-gate still resolves when the host does report exit code 0',
-  hostExitCodeReported.code === 0 && helper.readState('workflow-run.json').state === 'satisfied',
-  `Got exit=${hostExitCodeReported.code}`
-);
-
-// Negative control: no verification ran after the edit at all -> stays blocked.
-helper.writeState('workflow-run.json', {
-  schemaVersion: 1, sessionId: helper.SESSION_ID, strategy: 'iterative-single',
-  state: 'running', lastMutationAt: now,
-});
-helper.writeState('handoff-state.json', {
-  status: 'idle', lastEditAt: now, lastVerifyAt: now - 5000, lastVerifyExitCode: null,
-});
-const staleVerify = helper.runHook('workflow-stop-gate.js', { session_id: helper.SESSION_ID });
-helper.check(
-  '2f. workflow-stop-gate still blocks when no verification ran after the edit',
-  staleVerify.code === 2 && staleVerify.stderr.includes('verification-after-edit-missing'),
-  `Got exit=${staleVerify.code}, stderr="${staleVerify.stderr.slice(0, 300)}"`
-);
-
+helper.writeState('workflow-run.json',{schemaVersion:1,sessionId:helper.SESSION_ID,strategy:'iterative-single',state:'running',lastMutationAt:now});
+helper.writeState('handoff-state.json',{status:'idle',lastEditAt:now,lastVerifyAt:now-5000,lastVerifyExitCode:null});
+const stale=run('workflow-stop-gate.js',{session_id:helper.SESSION_ID});
+helper.check('2f. Missing verification is reminder-only',stale.status===0&&/verification-after-edit-missing/i.test(stale.stderr),`exit=${stale.status}, stderr=${stale.stderr.slice(0,300)}`);
+helper.check('2f. Missing verification does not create blocked state',helper.readState('workflow-run.json').state==='running',JSON.stringify(helper.readState('workflow-run.json')));
 helper.finish();

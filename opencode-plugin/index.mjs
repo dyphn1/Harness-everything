@@ -17,7 +17,7 @@
  *                       message via client.session.prompt() to force the agent
  *                       to keep going instead of truly stopping.)
  *   verify.js        -> inlined into the session.idle handler
- *   circuit-breaker.js -> tool.execute.before (throws to hard-block edit tools
+ *   circuit-breaker.js -> tool.execute.before (throws to pause edit tools for the zoom-out boundary
  *                       once locked) + failure tracking inside session.idle
  *   compliance.js    -> folded into the same state writes, no separate stage
  *
@@ -50,7 +50,7 @@ function getStateHome() {
 // Keys state per real workspace (`directory`, which opencode itself resolves
 // - never a cwd walk) instead of one flat dir shared by every project on the
 // machine. The pre-fix `~/.harness-state` had no such key at all: a circuit
-// breaker trip in one opencode project hard-locked every other one too
+// breaker trip in one opencode project affected every other one too
 // (issue #42 item #4).
 function getWorkspaceKey(directory) {
   let real = resolve(directory)
@@ -162,7 +162,6 @@ function defaultEditState() {
 function defaultBreakerState() {
   return {
     failures: {},
-    hardLock: false,
     lastReflection: null,
     lastReflectionSignature: null,
     reflectionPending: false,
@@ -177,7 +176,8 @@ function normalizeEditState(state) {
 }
 
 function normalizeBreakerState(state) {
-  return { ...defaultBreakerState(), ...(state || {}), failures: (state && state.failures) || {} }
+  const { hardLock: _retiredHardLock, ...rest } = state || {}
+  return { ...defaultBreakerState(), ...rest, failures: (state && state.failures) || {} }
 }
 
 function isRecord(value) {
@@ -193,7 +193,6 @@ function loadBreakerState(file) {
     if (
       !isRecord(state) ||
       (state.failures !== undefined && !isRecord(state.failures)) ||
-      (state.hardLock !== undefined && typeof state.hardLock !== "boolean") ||
       (state.reflectionPending !== undefined && typeof state.reflectionPending !== "boolean") ||
       !finiteOrNull(state.lastReflection) ||
       !finiteOrNull(state.reflectionRequestedAt) ||
@@ -209,7 +208,8 @@ function loadBreakerState(file) {
     ) throw new Error("invalid breaker state shape")
     return normalizeBreakerState(state)
   } catch {
-    throw new Error(`Harness circuit breaker state is corrupt: "${file}" cannot be read safely.`)
+    console.warn(`Harness: ignoring corrupt circuit-breaker state at "${file}" and starting fresh.`)
+    return defaultBreakerState()
   }
 }
 
@@ -246,6 +246,11 @@ function completeReflection(breakerFile, reportFile) {
   const completedAt = Math.max(Date.now(), (breaker.reflectionRequestedAt || 0) + 1)
   breaker.lastReflection = completedAt
   breaker.lastReflectionSignature = breaker.reflectionSignature
+  if (breaker.reflectionSignature && breaker.failures[breaker.reflectionSignature]) {
+    breaker.failures[breaker.reflectionSignature].count = 0
+    breaker.failures[breaker.reflectionSignature].firstSeen = completedAt
+    breaker.failures[breaker.reflectionSignature].lastSeen = completedAt
+  }
   breaker.reflectionPending = false
   breaker.reflectionRequestedAt = null
   breaker.reflectionToken = null
@@ -304,9 +309,8 @@ function runVerification(cwd) {
 
 /**
  * Records a verification failure against the circuit breaker and returns the
- * action to take: allow (with retries remaining), force_reflection (3rd
- * failure on this signature), or hard_lock (same signature repeats after a
- * reflection was recorded).
+ * action to take: allow (with retries remaining) or force_reflection on the
+ * third matching failure. Completing reflection resets that signature's count.
  */
 function tripBreaker(breakerFile, signature) {
   const breaker = loadBreakerState(breakerFile)
@@ -319,15 +323,6 @@ function tripBreaker(breakerFile, signature) {
   entry.lastSeen = Date.now()
 
   if (entry.count >= 3) {
-    if (
-      breaker.lastReflection &&
-      breaker.lastReflection > entry.firstSeen &&
-      breaker.lastReflectionSignature === signature
-    ) {
-      breaker.hardLock = true
-      saveJSON(breakerFile, breaker)
-      return { action: "hard_lock", count: entry.count }
-    }
     if (!breaker.reflectionPending) {
       breaker.reflectionPending = true
       breaker.reflectionRequestedAt = Date.now()
@@ -610,12 +605,6 @@ export const HarnessEnforcement = async ({ client, directory }) => {
       if (!EDIT_TOOLS.has(input.tool)) return
       const { breakerFile, reflectionFile } = pathsFor(input.sessionID)
       const breaker = loadBreakerState(breakerFile)
-      if (breaker.hardLock) {
-        throw new Error(
-          `Harness circuit breaker hard-locked after a repeat failure post-reflection. ` +
-          `Delete "${breakerFile}" or start a new session to reset.`,
-        )
-      }
       if (breaker.reflectionPending && !isReflectionWrite(input, output, reflectionFile)) {
         throw new Error(
           `Harness reflection is required before another code edit. ` +
@@ -715,12 +704,7 @@ export const HarnessEnforcement = async ({ client, directory }) => {
         saveJSON(editStateFile, state)
 
         let text
-        if (trip.action === "hard_lock") {
-          text =
-            `Harness: same verification failure ("${failing.command}") returned after a reflection was ` +
-            `already recorded. The circuit breaker is now hard-locked - edits are blocked until it is reset.`
-          recordCompliance(complianceFile, (c) => c.circuitBreakerTrips++)
-        } else if (trip.action === "force_reflection") {
+        if (trip.action === "force_reflection") {
           const { stateDir } = pathsFor(activeSession)
           text =
             `Harness: "${failing.command}" has now failed 3 times with the same error. Stop and reflect ` +

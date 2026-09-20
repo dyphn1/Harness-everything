@@ -161,20 +161,20 @@ process.stdin.on('end', () => {
       atomicWriteJson(path.join(sessionDir, 'subagent-scope-last.json'), audit);
 
       if (newlyChanged.length === 0) {
-        console.log('[Subagent Scope Guard] No new changed files detected during the subagent burst.');
+        console.log('[Subagent Scope Reminder] No new changed files detected during the subagent burst.');
       } else if (declaredContracts.length === 0) {
-        console.error(`[Subagent Scope Guard] ${newlyChanged.length} file(s) changed with no machine-readable writeSet contract:`);
+        console.error(`[Subagent Scope Reminder] ${newlyChanged.length} file(s) changed with no machine-readable writeSet contract:`);
         newlyChanged.forEach(line => console.error(`  ${line}`));
         console.error('Confirm every path was actually in scope before trusting or committing this output.');
       } else {
         for (const entry of classified.expected) {
-          console.log(`[Subagent Scope Guard] in-scope ${entry.statusLine} -> ${entry.planId}/${entry.runId}/${entry.stageId}${entry.workerId ? ` worker=${entry.workerId}` : ''}`);
+          console.log(`[Subagent Scope Reminder] in-scope ${entry.statusLine} -> ${entry.planId}/${entry.runId}/${entry.stageId}${entry.workerId ? ` worker=${entry.workerId}` : ''}`);
         }
         for (const entry of classified.ambiguous) {
-          console.error(`[Subagent Scope Guard] ambiguous scope ${entry.statusLine}; matches ${entry.stages.map(stage => `${stage.runId}/${stage.stageId}`).join(', ')}`);
+          console.error(`[Subagent Scope Reminder] ambiguous scope ${entry.statusLine}; matches ${entry.stages.map(stage => `${stage.runId}/${stage.stageId}`).join(', ')}`);
         }
         for (const entry of classified.outOfScope) {
-          console.error(`[Subagent Scope Guard] OUT-OF-SCOPE ${entry.statusLine}${entry.workerId ? ` worker=${entry.workerId}` : ''}`);
+          console.error(`[Subagent Scope Reminder] OUT-OF-SCOPE ${entry.statusLine}${entry.workerId ? ` worker=${entry.workerId}` : ''}`);
         }
       }
 
@@ -189,7 +189,7 @@ process.stdin.on('end', () => {
         : classified.ambiguous.length > 0 || classified.outOfScope.length > 0;
       if (violated) {
         console.error('Do not "git add -A"; stage files explicitly so unexpected paths stay visible.');
-        process.exit(2);
+        process.exit(0);
       }
       process.exit(0);
     }
@@ -197,8 +197,8 @@ process.stdin.on('end', () => {
     process.exit(0);
   } catch (error) {
     if (error && error.code === 'HARNESS_WORKFLOW_BUDGET') {
-      console.error(`[Subagent Scope Guard] ${error.message}`);
-      process.exit(2);
+      console.error(`[Subagent Scope Reminder] ${error.message}`);
+      process.exit(0);
     }
     // This is otherwise a post-execution visibility gate. Runtime errors fail open;
     // actionGate has a stricter fail-ask policy for side effects.

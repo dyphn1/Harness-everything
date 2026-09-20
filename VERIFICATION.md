@@ -129,7 +129,7 @@ npm run test:mechanism
 
 and inspect the OpenCode-specific mechanism suites (`ci/mechanism-2n-opencode-plugin.test.js` for hook behavior, `ci/mechanism-30-opencode-plugin-loadability.test.js` for install-filename loadability).
 
-**Current evidence boundary:** deterministic mechanism coverage plus partial live-host evidence for project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS). See [retained evidence](benchmarks/results/live-host/opencode-2026-09-16/README.md). The final snapshot is post-reset (`hardLock: false`, `count: 1`), not a history of the enforcement sequence. Hard lock is only an interactive observation with no retained blocked-tool trace. Reflection was operator-seeded, then agent-rewritten; follow-up delivery is reported/state-consistent, without a retained transcript. Agent-controlled state deletion resets the breaker, so neither durable hard enforcement nor behavioral effectiveness is proven. `.mjs` auto-discovery is broken on this host version (issue #127). Global scope, npm-package installation, and other host versions remain unverified.
+**Current evidence boundary:** deterministic mechanism coverage plus partial live-host evidence for project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS). See [retained evidence](benchmarks/results/live-host/opencode-2026-09-16/README.md). The retained snapshot predates #190's simplification and is historical evidence, not the current state machine: its final snapshot was post-reset; the old hard-lock was only an interactive observation, with no retained blocked-tool trace. Current OpenCode keeps the third-failure reflection boundary but removes the permanent post-reflection hard lock. Reflection was operator-seeded, then agent-rewritten; no behavioral-effectiveness claim is inferred. `.mjs` auto-discovery is broken on this host version (issue #127). Global scope, npm-package installation, and other host versions remain unverified.
 
 ---
 
@@ -205,7 +205,7 @@ If the agent chooses multi-agent execution, specialist scopes and merge/verifica
 
 The current architecture follows one rule:
 
-> **Do not enforce workflow order. Enforce workflow invariants.**
+> **Do not hard-enforce workflow order or numeric budgets. Observe, remind, and preserve evidence; only Rule of 3 and explicit permission boundaries may block.**
 
 Therefore conformance testing must not require a universal chain such as `TODO → TDD → verification-loop`, nor assert that every TDD task must auto-load a fixed set of companion skills.
 
@@ -213,7 +213,7 @@ For a task run, check these instead:
 
 1. **Route before execution** — software/project work receives a reasonable scope/tier classification before mutation.
 2. **Verify before claim** — completion claims are backed by objective evidence appropriate to the change.
-3. **Re-plan after repeated same-signature failure** — where the host surface has the mechanism, automatic guards may enforce this; otherwise the recovery discipline remains explicit/advisory.
+3. **Re-plan after repeated same-signature failure** — where the host surface has the mechanism, the Rule-of-3 guard may require a zoom-out at the third matching failure; other workflow guidance remains advisory.
 4. **Skill-local workflow conformance** — when a skill is actually selected, follow that skill's documented local lifecycle (for example RED/GREEN/REFACTOR inside `tdd`).
 5. **No false mechanism parity** — do not grade an advisory surface as mechanically broken simply because it lacks a hook that was never packaged there.
 

@@ -180,8 +180,9 @@ function dependencyBatches(stages, validateWrites, maxBatchSize = Infinity) {
   return batches;
 }
 
-function topologicalBatches(stages, maxWorkers) {
-  return dependencyBatches(stages, true, maxWorkers);
+function topologicalBatches(stages, _maxWorkers) {
+  // maxWorkers is an advisory planning hint, not a runtime concurrency lock (#190).
+  return dependencyBatches(stages, true);
 }
 
 function sequentialBatches(stages) {
@@ -197,7 +198,7 @@ function validateRouterPlan(routerContract) {
   if (plan.strategySelection !== 'selected') throw new Error(`workflow strategy is not selected: ${plan.strategySelection}`);
   if (!FABLE_STRATEGIES.has(plan.strategy)) throw new Error(`workflow strategy is not a Fable consumer topology: ${plan.strategy}`);
   if (plan.fallback && plan.fallback.disposition === 'blocked') {
-    throw new Error(`workflow plan is blocked: ${(plan.fallback.reasonCodes || []).join(', ') || 'unspecified reason'}`);
+    console.error(`[Fable Reminder] plan reports blocked/degraded capability: ${(plan.fallback.reasonCodes || []).join(', ') || 'unspecified reason'}`);
   }
   if (plan.strategy === 'fable-parallel' && (!plan.parallelism || plan.parallelism.allowed !== true)) {
     throw new Error('fable-parallel requires workflowPlan.parallelism.allowed=true');

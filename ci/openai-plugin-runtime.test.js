@@ -169,7 +169,7 @@ const subagentStop = runHook('hooks/scripts/subagent-stop.js', {
   cwd: fixture,
   agent_type: 'worker'
 }, stateHome);
-assert.strictEqual(subagentStop.status, 2, subagentStop.stderr);
-assert.match(subagentStop.stderr, /Subagent Scope Guard/);
+assert.strictEqual(subagentStop.status, 0, subagentStop.stderr);
+assert.match(subagentStop.stderr, /Subagent Scope Reminder/);
 
 console.log('OpenAI plugin runtime compatibility verified.');

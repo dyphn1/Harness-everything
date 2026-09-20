@@ -52,10 +52,10 @@ process.stdin.on('end', () => {
     });
 
     if (!wasRead) {
-      console.error(`[Depth Guard] BLOCKED: "${filePath}" already exists but hasn't been Read in this session.`);
+      console.error(`[Depth Reminder]: "${filePath}" already exists but hasn't been Read in this session.`);
       console.error(`Write() overwrites the whole file - doing that blind risks destroying content you never looked at.`);
       console.error(`Read the file first (even a quick pass), then retry the Write, or use Edit for a targeted change.`);
-      process.exit(2);
+      process.exit(0);
     }
 
     process.exit(0);

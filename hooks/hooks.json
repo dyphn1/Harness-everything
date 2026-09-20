@@ -34,7 +34,7 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workflow-gate.js\""
           }
         ],
-        "description": "Enforce mandatory workflow entry and Tier 3 Git-worktree mutation isolation",
+        "description": "Emit advisory workflow/worktree reminders before mutation",
         "id": "harness:pre:workflow-gate"
       },
       {
@@ -49,7 +49,7 @@
         "id": "harness:pre:action-gate"
       },
       {
-        "matcher": "Bash|PowerShell|Edit|Write",
+        "matcher": "Bash|PowerShell|Edit|Write|apply_patch",
         "hooks": [
           {
             "type": "command",
@@ -67,7 +67,7 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/boundary-guard.js\""
           }
         ],
-        "description": "Physical boundary enforcement for searches and large file reads",
+        "description": "Warn about expensive broad searches and large file reads",
         "id": "harness:pre:boundary-guard"
       },
       {
@@ -78,7 +78,7 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/depth-guard.js\""
           }
         ],
-        "description": "Information depth guard - Enforce impact assessment before writing code",
+        "description": "Remind to inspect existing files before editing",
         "id": "harness:pre:depth-guard"
       },
       {
@@ -133,7 +133,7 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workflow-stop-gate.js\""
           }
         ],
-        "description": "Prevent completion while a selected Fable workflow has not reached verified stage resolution",
+        "description": "Remind when selected workflow evidence is incomplete",
         "id": "harness:stop:workflow-completion-gate"
       },
       {
@@ -143,7 +143,7 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/stop-gate.js\""
           }
         ],
-        "description": "Pre-delivery gate - bounce the end of a turn once per edit batch when edits were never verified",
+        "description": "Remind when edits have no observed successful verification",
         "id": "harness:stop:stop-gate"
       },
       {
@@ -155,19 +155,6 @@
         ],
         "description": "Close Harness skill active-window telemetry at the turn boundary",
         "id": "harness:stop:skill-telemetry"
-      }
-    ],
-    "PermissionDenied": [
-      {
-        "matcher": "Bash|PowerShell",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workflow-mutation-denied.js\""
-          }
-        ],
-        "description": "Release reserved mutation capacity when Claude auto mode denies a shell tool call",
-        "id": "harness:permission-denied:mutation-probe"
       }
     ],
     "PostToolUse": [
@@ -183,7 +170,7 @@
         "id": "harness:post:action-gate-audit"
       },
       {
-        "matcher": "Bash|PowerShell",
+        "matcher": "Bash|PowerShell|apply_patch",
         "hooks": [
           {
             "type": "command",
@@ -194,7 +181,7 @@
         "id": "harness:post:rule-of-3-tracker"
       },
       {
-        "matcher": "Edit|Write|Bash|PowerShell",
+        "matcher": "Edit|Write|Bash|PowerShell|apply_patch",
         "hooks": [
           {
             "type": "command",
@@ -262,7 +249,7 @@
         "id": "harness:post-failure:action-gate-audit"
       },
       {
-        "matcher": "Bash|PowerShell",
+        "matcher": "Bash|PowerShell|apply_patch",
         "hooks": [
           {
             "type": "command",
@@ -273,7 +260,7 @@
         "id": "harness:post-failure:rule-of-3-tracker"
       },
       {
-        "matcher": "Bash|PowerShell",
+        "matcher": "Bash|PowerShell|apply_patch",
         "hooks": [
           {
             "type": "command",

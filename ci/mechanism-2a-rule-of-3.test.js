@@ -4,178 +4,113 @@ const helper = require('./test-helper');
 
 console.log('\n[2a] Rule of 3 circuit breaker...');
 
-const hooksConfig = JSON.parse(
-  fs.readFileSync(path.join(helper.root, 'hooks', 'hooks.json'), 'utf8')
-);
-const failureTrackerHook = (hooksConfig.hooks.PostToolUseFailure || [])
-  .find(entry => entry.id === 'harness:post-failure:rule-of-3-tracker');
+const hooksConfig = JSON.parse(fs.readFileSync(path.join(helper.root, 'hooks', 'hooks.json'), 'utf8'));
+const preRuleHook = (hooksConfig.hooks.PreToolUse || []).find(entry => entry.id === 'harness:pre:rule-of-3');
+const successTrackerHook = (hooksConfig.hooks.PostToolUse || []).find(entry => entry.id === 'harness:post:rule-of-3-tracker');
+const failureTrackerHook = (hooksConfig.hooks.PostToolUseFailure || []).find(entry => entry.id === 'harness:post-failure:rule-of-3-tracker');
+const matcherHas = (entry, tool) => Boolean(entry && String(entry.matcher || '').split('|').includes(tool));
 helper.check(
-  '2a-claude-wiring. PostToolUseFailure invokes the Rule-of-3 tracker',
-  failureTrackerHook &&
-    failureTrackerHook.matcher === 'Bash|PowerShell' &&
+  '2a-wiring. PostToolUseFailure invokes the Rule-of-3 tracker',
+  matcherHas(failureTrackerHook, 'Bash') && matcherHas(failureTrackerHook, 'PowerShell') &&
+    matcherHas(failureTrackerHook, 'apply_patch') &&
     failureTrackerHook.hooks?.some(hook => hook.command.includes('rule-of-3-tracker.js')),
-  `Hook=${JSON.stringify(failureTrackerHook)}`
+  JSON.stringify(failureTrackerHook)
+);
+helper.check(
+  '2a-wiring. apply_patch is covered before and after execution',
+  matcherHas(preRuleHook, 'apply_patch') && matcherHas(successTrackerHook, 'apply_patch') && matcherHas(failureTrackerHook, 'apply_patch'),
+  JSON.stringify({ preRuleHook, successTrackerHook, failureTrackerHook })
 );
 
-const claudeFailurePayload = {
+const failure = {
   hook_event_name: 'PostToolUseFailure',
   tool_name: 'Bash',
   tool_input: { command: 'node -e "process.exit(1)"' },
   error: 'Exit code 1\ncommand failed',
   session_id: helper.SESSION_ID,
 };
-const failureRuns = [1, 2, 3].map(() =>
-  helper.runHook('rule-of-3-tracker.js', claudeFailurePayload)
-);
-const trackedFailureState = helper.readState('rule-of-3-state.json');
+for (let i = 0; i < 3; i++) helper.runHook('rule-of-3-tracker.js', failure);
+let state = helper.readState('rule-of-3-state.json');
 helper.check(
-  '2a-claude-failure. PostToolUseFailure error payload increments the same signature to threshold',
-  failureRuns.every(result => result.code === 0) &&
-    trackedFailureState.count === 3 &&
-    trackedFailureState.threshold === 3 &&
-    trackedFailureState.lastHash &&
-    trackedFailureState.zoomOutResolved === false,
-  `Runs=${JSON.stringify(failureRuns)}, state=${JSON.stringify(trackedFailureState)}`
+  '2a-three. exactly three matching failures arm zoom-out',
+  state.count === 3 && state.lastHash && state.zoomOutResolved === false && state.threshold === undefined,
+  JSON.stringify(state)
 );
 
-const claudeTripResult = helper.runHook('rule-of-3.js', {
-  hook_event_name: 'PreToolUse',
-  tool_name: 'Bash',
-  tool_input: { command: 'echo retry' },
+const trip = helper.runHook('rule-of-3.js', { hook_event_name: 'PreToolUse', tool_name: 'Bash', session_id: helper.SESSION_ID });
+helper.check(
+  '2a-trip. third matching failure blocks mutation for reflection',
+  trip.code === 2 && trip.stderr.includes('RULE OF 3 CIRCUIT BREAKER TRIGGERED'),
+  trip.stderr
+);
+
+helper.writeState('rule-of-3-state.json', { count: 3, lastHash: 'mech-test', zoomOutResolved: false, lastFailureAt: 0, zoomOutCycles: 0 });
+fs.writeFileSync(path.join(helper.sessionDir, 'zoom-out-report.md'),
+  '## Goal\nx\n## Failed Attempts\nx\n## Verified Facts\nx\n## Diagnosis\nx\n## Decision\nRESUME: new approach\n', 'utf8');
+const release = helper.runHook('rule-of-3.js', { session_id: helper.SESSION_ID });
+state = helper.readState('rule-of-3-state.json');
+helper.check(
+  '2a-release. valid reflection releases breaker and resets count',
+  release.code === 0 && state.count === 0 && state.zoomOutResolved === true && state.zoomOutCycles === 1,
+  JSON.stringify(state)
+);
+
+helper.writeState('rule-of-3-state.json', { count: 3, lastHash: 'mech-test', zoomOutResolved: false, lastFailureAt: Date.now() + 60000, zoomOutCycles: 1 });
+const retrip = helper.runHook('rule-of-3.js', { session_id: helper.SESSION_ID });
+helper.check(
+  '2a-repeat. later three-failure cycle requests another zoom-out, not permanent hard lock',
+  retrip.code === 2 && retrip.stderr.includes('RULE OF 3 CIRCUIT BREAKER TRIGGERED') && !/hard lock|repeat trip/i.test(retrip.stderr),
+  retrip.stderr
+);
+
+helper.writeState('rule-of-3-state.json', { count: 0, lastHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0 });
+for (let i = 0; i < 2; i++) helper.runHook('rule-of-3-tracker.js', {
+  hook_event_name: 'PostToolUseFailure', tool_name: 'Bash',
+  tool_input: { command: 'cat protected.txt' }, error: 'EACCES: permission denied, open protected.txt',
   session_id: helper.SESSION_ID,
 });
-helper.check(
-  '2a-claude-trip. Tracked Claude failures block the next mutation',
-  claudeTripResult.code === 2 &&
-    claudeTripResult.stderr.includes('RULE OF 3 CIRCUIT BREAKER TRIGGERED'),
-  `Got exit=${claudeTripResult.code}, stderr="${claudeTripResult.stderr.slice(0, 200)}"`
-);
+state = helper.readState('rule-of-3-state.json');
+helper.check('2a-category. permission failures still use the same threshold of three', state.count === 2 && state.category === 'permission' && state.threshold === undefined, JSON.stringify(state));
+const beforeThird = helper.runHook('rule-of-3.js', { session_id: helper.SESSION_ID });
+helper.check('2a-category-two. two permission failures do not trip early', beforeThird.code === 0, beforeThird.stderr);
+helper.runHook('rule-of-3-tracker.js', {
+  hook_event_name: 'PostToolUseFailure', tool_name: 'Bash',
+  tool_input: { command: 'cat protected.txt' }, error: 'EACCES: permission denied, open protected.txt',
+  session_id: helper.SESSION_ID,
+});
+const third = helper.runHook('rule-of-3.js', { session_id: helper.SESSION_ID });
+helper.check('2a-category-three. third permission failure trips normally', third.code === 2, third.stderr);
 
-const successResult = helper.runHook('rule-of-3-tracker.js', {
+helper.writeState('rule-of-3-state.json', { count: 0, lastHash: null, lastOperationHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0 });
+const repeatedFailure = {
+  hook_event_name: 'PostToolUseFailure',
+  tool_name: 'Bash',
+  tool_input: { command: 'node flaky.js' },
+  error: 'Error: flaky failure',
+  session_id: helper.SESSION_ID,
+};
+helper.runHook('rule-of-3-tracker.js', repeatedFailure);
+helper.runHook('rule-of-3-tracker.js', repeatedFailure);
+helper.runHook('rule-of-3-tracker.js', {
   hook_event_name: 'PostToolUse',
   tool_name: 'Bash',
-  tool_input: { command: 'echo success' },
-  tool_response: { stdout: 'success', stderr: '', exitCode: 0 },
+  tool_input: { command: 'git status --short' },
+  tool_response: { exitCode: 0, stdout: '' },
   session_id: helper.SESSION_ID,
 });
-const resetState = helper.readState('rule-of-3-state.json');
-helper.check(
-  '2a-claude-success. Confirmed PostToolUse success keeps the existing reset behavior',
-  successResult.code === 0 &&
-    resetState.count === 0 &&
-    resetState.zoomOutResolved === true &&
-    resetState.zoomOutCycles === 0,
-  `Got exit=${successResult.code}, state=${JSON.stringify(resetState)}`
-);
-
-helper.runHook('rule-of-3-tracker.js', claudeFailurePayload);
-const claudeNoExitSuccess = helper.runHook('rule-of-3-tracker.js', {
+state = helper.readState('rule-of-3-state.json');
+helper.check('2a-interleaved. unrelated success preserves the matching failure count', state.count === 2 && state.lastHash, JSON.stringify(state));
+helper.runHook('rule-of-3-tracker.js', repeatedFailure);
+state = helper.readState('rule-of-3-state.json');
+helper.check('2a-interleaved-three. third matching failure still arms zoom-out after unrelated success', state.count === 3 && state.zoomOutResolved === false, JSON.stringify(state));
+helper.runHook('rule-of-3-tracker.js', {
   hook_event_name: 'PostToolUse',
   tool_name: 'Bash',
-  tool_input: { command: 'echo recovered' },
-  tool_response: {
-    stdout: 'recovered',
-    stderr: 'warning: successful command emitted an error-like diagnostic',
-  },
+  tool_input: { command: 'node flaky.js' },
+  tool_response: { exitCode: 0, stdout: 'recovered' },
   session_id: helper.SESSION_ID,
 });
-const noExitResetState = helper.readState('rule-of-3-state.json');
-helper.check(
-  '2a-claude-success-no-exit. PostToolUse without exitCode resets even with stderr diagnostics',
-  claudeNoExitSuccess.code === 0 &&
-    noExitResetState.count === 0 &&
-    noExitResetState.zoomOutResolved === true,
-  `Got exit=${claudeNoExitSuccess.code}, state=${JSON.stringify(noExitResetState)}`
-);
-
-helper.writeState('rule-of-3-state.json', {
-  count: 0, lastHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0,
-});
-helper.runHook('rule-of-3-tracker.js', {
-  hook_event_name: 'PostToolUseFailure',
-  tool_name: 'Bash',
-  tool_input: { command: 'diff -rq hooks cache-hooks' },
-  error: 'Exit code 1\nworkflow-mutation-denied.js\nFiles hooks/a.js and cache-hooks/a.js differ',
-  session_id: helper.SESSION_ID,
-});
-const deniedFilenameState = helper.readState('rule-of-3-state.json');
-helper.check(
-  '2a-category-negative. File name containing denied stays unknown/threshold 3',
-  deniedFilenameState.category === 'unknown' && deniedFilenameState.threshold === 3,
-  `State=${JSON.stringify(deniedFilenameState)}`
-);
-
-helper.writeState('rule-of-3-state.json', {
-  count: 0, lastHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0,
-});
-helper.runHook('rule-of-3-tracker.js', {
-  hook_event_name: 'PostToolUseFailure',
-  tool_name: 'Bash',
-  tool_input: { command: 'cat protected.txt' },
-  error: 'EACCES: permission denied, open protected.txt',
-  session_id: helper.SESSION_ID,
-});
-const permissionState = helper.readState('rule-of-3-state.json');
-helper.check(
-  '2a-category-permission. Real EACCES is permission/threshold 2',
-  permissionState.category === 'permission' && permissionState.threshold === 2,
-  `State=${JSON.stringify(permissionState)}`
-);
-
-helper.writeState('rule-of-3-state.json', {
-  count: 0, lastHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0,
-});
-helper.runHook('rule-of-3-tracker.js', {
-  hook_event_name: 'PostToolUseFailure',
-  tool_name: 'Bash',
-  tool_input: { command: 'node slow.js' },
-  error: 'TimeoutError: operation timed out',
-  session_id: helper.SESSION_ID,
-});
-const timeoutState = helper.readState('rule-of-3-state.json');
-helper.check(
-  '2a-category-timeout. Real timeout is timeout/threshold 2',
-  timeoutState.category === 'timeout' && timeoutState.threshold === 2,
-  `State=${JSON.stringify(timeoutState)}`
-);
-
-helper.writeState('rule-of-3-state.json', { count: 3, lastHash: 'mech-test', zoomOutResolved: false });
-const tripResult = helper.runHook('rule-of-3.js', { session_id: helper.SESSION_ID });
-helper.check(
-  '2a. Trips at count=3 (exit=2, CRITICAL banner)',
-  tripResult.code === 2 && tripResult.stderr.includes('RULE OF 3 CIRCUIT BREAKER TRIGGERED'),
-  `Got exit=${tripResult.code}, stderr="${tripResult.stderr.slice(0, 200)}"`
-);
-
-helper.writeState('rule-of-3-state.json', {
-  count: 3, lastHash: 'mech-test', zoomOutResolved: false, lastFailureAt: 0, zoomOutCycles: 0,
-});
-fs.writeFileSync(
-  path.join(helper.sessionDir, 'zoom-out-report.md'),
-  '## Goal\nx\n## Failed Attempts\nx\n## Verified Facts\nx\n## Diagnosis\nx\n## Decision\nRESUME: new approach\n',
-  'utf8'
-);
-const releaseResult = helper.runHook('rule-of-3.js', { session_id: helper.SESSION_ID });
-const releasedState = helper.readState('rule-of-3-state.json');
-helper.check(
-  '2a-bis. Valid zoom-out report releases the breaker (exit=0, count reset)',
-  releaseResult.code === 0 &&
-    releaseResult.stdout.includes('breaker released') &&
-    releasedState.count === 0 &&
-    releasedState.zoomOutResolved === true &&
-    releasedState.zoomOutCycles === 1,
-  `Got exit=${releaseResult.code}, state=${JSON.stringify(releasedState)}`
-);
-
-helper.writeState('rule-of-3-state.json', {
-  count: 3, lastHash: 'mech-test', zoomOutResolved: false,
-  lastFailureAt: Date.now() + 60000, zoomOutCycles: 1,
-});
-const hardLockResult = helper.runHook('rule-of-3.js', { session_id: helper.SESSION_ID });
-helper.check(
-  '2a-ter. Second trip on same signature hard-locks (exit=2, repeat trip)',
-  hardLockResult.code === 2 && hardLockResult.stderr.includes('repeat trip - hard lock'),
-  `Got exit=${hardLockResult.code}, stderr="${hardLockResult.stderr.slice(0, 200)}"`
-);
+state = helper.readState('rule-of-3-state.json');
+helper.check('2a-resolved. same-operation success clears the resolved signature', state.count === 0 && state.lastHash === null && state.lastOperationHash === null, JSON.stringify(state));
 
 helper.finish();
