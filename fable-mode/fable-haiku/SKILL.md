@@ -4,7 +4,7 @@ description: "Run staged fable work on Haiku for bulk mechanical tasks with expl
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.16.2
+  version: 0.16.3
 ---
 
 # Fable Mode — Haiku

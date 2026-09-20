@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.16.3](https://github.com/dyphn1/Harness-everything/compare/v0.16.2...v0.16.3) (2026-09-20)
+
+### Bug Fixes
+
+* **docker:** Verify current re-trip contract in docker-verify.sh ([#200](https://github.com/dyphn1/Harness-everything/issues/200)) ([610ce32](https://github.com/dyphn1/Harness-everything/commit/610ce32733a74dd4a16f68d171346ea8b10f8d62)), closes [#190](https://github.com/dyphn1/Harness-everything/issues/190) [#42](https://github.com/dyphn1/Harness-everything/issues/42)
+
 ## [0.16.2](https://github.com/dyphn1/Harness-everything/compare/v0.16.1...v0.16.2) (2026-09-20)
 
 ### Bug Fixes
