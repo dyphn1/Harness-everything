@@ -1,0 +1,8 @@
+{
+  "name": "contract-probe-fixture",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test:contract": "node --test test/contract.test.js"
+  }
+}

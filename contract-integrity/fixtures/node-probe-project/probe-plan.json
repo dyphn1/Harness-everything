@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0.0",
+  "adapter": "node-npm-v1",
+  "script": "test:contract",
+  "probes": [
+    {
+      "probeId": "PROBE-001",
+      "requirementId": "REQ-001",
+      "sourceSection": "docs/specs/api.md#REQ-001",
+      "strategy": "env",
+      "env": {
+        "HARNESS_CONTRACT_PROBE": "accept-invalid"
+      },
+      "expectedFailureContains": "[REQ-001]"
+    },
+    {
+      "probeId": "PROBE-REPLACE",
+      "requirementId": "REQ-001",
+      "sourceSection": "docs/specs/api.md#REQ-001",
+      "strategy": "replace",
+      "target": "src/limit.js",
+      "find": "return Number.isInteger(value) && value >= 1 && value <= 10;",
+      "replace": "return true;",
+      "expectedFailureContains": "[REQ-001]"
+    }
+  ]
+}
