@@ -341,6 +341,55 @@ try {
   check(current.status === 0 && /Freshness: PASS/.test(current.stdout),
     'unchanged PASS report can authorize completion');
 
+  const failingTracePath = path.join(freshRoot, 'trace-failing.json');
+  const failingReportPath = path.join(freshRoot, 'report-failing.json');
+  const failingTrace = clone(baseline);
+  failingTrace.probes[0].status = 'SURVIVED';
+  failingTrace.probes[0].failureClass = 'none';
+  fs.writeFileSync(failingTracePath, JSON.stringify(failingTrace), 'utf8');
+  const failingAudit = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    failingTracePath,
+    '--tdd-evidence', tddPath,
+    '--workspace', workspace,
+    '--output', failingReportPath,
+  ], { encoding: 'utf8' });
+  check(failingAudit.status === 1, 'surviving required probe produces a reusable FAIL report fixture');
+  const forgedReport = JSON.parse(fs.readFileSync(failingReportPath, 'utf8'));
+  forgedReport.result = 'PASS';
+  forgedReport.completionGate = 'PASS';
+  fs.writeFileSync(failingReportPath, JSON.stringify(forgedReport), 'utf8');
+  const forgedFreshness = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    failingTracePath,
+    '--tdd-evidence', tddPath,
+    '--workspace', workspace,
+    '--verify-fresh', failingReportPath,
+  ], { encoding: 'utf8' });
+  check(forgedFreshness.status === 1 && /current-audit-not-pass/.test(forgedFreshness.stderr),
+    'freshness verification re-derives the current gate instead of trusting forged PASS fields');
+
+  const linkedWorkspace = path.join(freshRoot, 'linked-workspace');
+  fs.mkdirSync(linkedWorkspace, { recursive: true });
+  for (const artifact of baseline.artifacts.filter(item => item.id !== 'IMPL-001')) {
+    const file = path.join(linkedWorkspace, artifact.path);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, artifact.id + ': fixture content\n', 'utf8');
+  }
+  const outsideImpl = path.join(freshRoot, 'outside-implementation');
+  fs.mkdirSync(outsideImpl, { recursive: true });
+  fs.writeFileSync(path.join(outsideImpl, 'api.js'), 'IMPL-001: fixture content\n', 'utf8');
+  fs.symlinkSync(outsideImpl, path.join(linkedWorkspace, 'src'),
+    process.platform === 'win32' ? 'junction' : 'dir');
+  const linkedAudit = spawnSync(process.execPath, [
+    path.join(ROOT, 'contract-integrity/scripts/audit.js'),
+    tracePath,
+    '--tdd-evidence', tddPath,
+    '--workspace', linkedWorkspace,
+  ], { encoding: 'utf8' });
+  check(linkedAudit.status === 2 && /linked-path: IMPL-001/.test(linkedAudit.stderr),
+    'workspace-aware audit rejects artifact paths that resolve through a symlink or junction');
+
   const testArtifact = path.join(workspace, 'tests/api.test.js');
   fs.appendFileSync(testArtifact, 'changed after audit\n', 'utf8');
   const staleTestReport = verifyFresh();

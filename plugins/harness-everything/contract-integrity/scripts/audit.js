@@ -63,6 +63,16 @@ function sha256File(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
+function realpath(file) {
+  return fs.realpathSync.native ? fs.realpathSync.native(file) : fs.realpathSync(file);
+}
+
+function containedPath(root, target) {
+  const relative = path.relative(root, target);
+  return relative === '' ||
+    (relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative));
+}
+
 function gitRevision(workspace) {
   if (!workspace) return null;
   const result = spawnSync('git', ['rev-parse', 'HEAD'], {
@@ -76,13 +86,39 @@ function gitRevision(workspace) {
 function artifactFingerprints(trace, workspace) {
   if (!workspace) return [];
   const root = path.resolve(workspace);
+  let realRoot;
+  try {
+    if (fs.lstatSync(root).isSymbolicLink()) throw new Error('linked-root');
+    realRoot = realpath(root);
+  } catch (_) {
+    return (trace?.artifacts || []).map(artifact => ({
+      id: artifact.id, path: artifact.path, sha256: null, missing: true, reason: 'workspace-unavailable',
+    }));
+  }
   return (trace?.artifacts || []).map(artifact => {
     const full = path.resolve(root, artifact.path);
-    const inside = full === root || full.startsWith(root + path.sep);
-    if (!inside || !fs.existsSync(full) || !fs.statSync(full).isFile()) {
-      return { id: artifact.id, path: artifact.path, sha256: null, missing: true };
+    if (!containedPath(root, full)) {
+      return { id: artifact.id, path: artifact.path, sha256: null, missing: true, reason: 'escaped-path' };
     }
-    return { id: artifact.id, path: artifact.path, sha256: sha256File(full), missing: false };
+    let current = root;
+    for (const segment of path.relative(root, full).split(path.sep).filter(Boolean)) {
+      current = path.join(current, segment);
+      if (!fs.existsSync(current)) {
+        return { id: artifact.id, path: artifact.path, sha256: null, missing: true, reason: 'missing' };
+      }
+      if (fs.lstatSync(current).isSymbolicLink()) {
+        return { id: artifact.id, path: artifact.path, sha256: null, missing: true, reason: 'linked-path' };
+      }
+    }
+    let physical;
+    try { physical = realpath(full); }
+    catch (_) {
+      return { id: artifact.id, path: artifact.path, sha256: null, missing: true, reason: 'missing' };
+    }
+    if (!containedPath(realRoot, physical) || !fs.lstatSync(physical).isFile()) {
+      return { id: artifact.id, path: artifact.path, sha256: null, missing: true, reason: 'escaped-path' };
+    }
+    return { id: artifact.id, path: artifact.path, sha256: sha256File(physical), missing: false };
   });
 }
 
@@ -105,7 +141,7 @@ function buildProvenance(args, trace) {
   };
 }
 
-function verifyFreshReport(report, args, trace) {
+function verifyFreshReport(report, args, trace, currentAudit = null) {
   const reasons = [];
   if (!isObject(report?.provenance) || !isObject(report.provenance.inputs)) {
     return { fresh: false, authorizesCompletion: false, reasons: ['report-provenance-missing'] };
@@ -115,6 +151,9 @@ function verifyFreshReport(report, args, trace) {
   const currentTddHash = args.tddEvidence ? sha256File(path.resolve(args.tddEvidence)) : null;
   const reportedTddHash = report.provenance.inputs.tddEvidence?.sha256 || null;
   if (currentTddHash !== reportedTddHash) reasons.push('tdd-evidence-changed-since-audit');
+  if (!currentAudit || currentAudit.result !== 'PASS' || currentAudit.completionGate !== 'PASS' || currentAudit.errors?.length) {
+    reasons.push('current-audit-not-pass');
+  }
 
   const tracedArtifacts = Array.isArray(trace?.artifacts) ? trace.artifacts : [];
   if (tracedArtifacts.length > 0) {
@@ -663,7 +702,8 @@ function runCli(argv) {
       console.error(`Contract Integrity Freshness: FAIL\n- ${error.message}`);
       return 2;
     }
-    const freshness = verifyFreshReport(prior, args, trace);
+    const currentAudit = evaluateTrace(trace, { tddEvidence });
+    const freshness = verifyFreshReport(prior, args, trace, currentAudit);
     console.log(`Contract Integrity Freshness: ${freshness.authorizesCompletion ? 'PASS' : 'FAIL'}`);
     for (const reason of freshness.reasons) console.error(`- ${reason}`);
     return freshness.authorizesCompletion ? 0 : 1;
@@ -677,7 +717,9 @@ function runCli(argv) {
       report.result = 'FAIL';
       report.completionGate = 'FAIL';
       report.gateEligible = false;
-      report.errors.push(...missing.map(item => `provenance artifact missing from workspace: ${item.id} -> ${item.path}`));
+      report.errors.push(...missing.map(item => item.reason === 'linked-path'
+        ? `provenance artifact linked-path: ${item.id} -> ${item.path}`
+        : `provenance artifact missing from workspace: ${item.id} -> ${item.path}`));
     }
   }
   console.log(`Contract Integrity: ${report.result}`);
