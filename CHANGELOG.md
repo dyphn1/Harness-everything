@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.15.0](https://github.com/dyphn1/Harness-everything/compare/v0.14.0...v0.15.0) (2026-09-20)
+
+### Features
+
+* **contract:** add freshness provenance helpers ([865fc0b](https://github.com/dyphn1/Harness-everything/commit/865fc0bdb111feff865c3a85767fc587aecbd11a))
+* **contract:** emit requirement-scoped repair guidance ([cbd33ce](https://github.com/dyphn1/Harness-everything/commit/cbd33ce18fb8575671056bd4b2701bd0138baa96))
+* **contract:** reject stale completion reports ([79ea49e](https://github.com/dyphn1/Harness-everything/commit/79ea49e40f110fe062ac714519597e8a23a6ab5b))
+* **contract:** sync freshness audit runtime ([c5d0381](https://github.com/dyphn1/Harness-everything/commit/c5d038163b7ff2dc14e11bd4733e140e85e39f55))
+
+### Bug Fixes
+
+* **contract:** harden freshness evidence boundaries ([33ebbda](https://github.com/dyphn1/Harness-everything/commit/33ebbdafb2b63c4ece86ee81c14c4fcc6d33907f))
+* **contract:** launch npm probes cross-platform ([9ca5315](https://github.com/dyphn1/Harness-everything/commit/9ca5315cb30e8f03b08fb1f8789a141ea1179af4))
+* **contract:** launch npm probes cross-platform ([2cad76e](https://github.com/dyphn1/Harness-everything/commit/2cad76e217af136d934946f05c740d816e051acd))
+* **contract:** require complete freshness provenance ([5b6d717](https://github.com/dyphn1/Harness-everything/commit/5b6d717487fce37dcd1d1e8cbe8b037597035103))
+* **contract:** require complete freshness provenance ([d94e256](https://github.com/dyphn1/Harness-everything/commit/d94e2562c54d615d223a8572fd4d468e017a5807))
+
 ## [0.14.0](https://github.com/dyphn1/Harness-everything/compare/v0.13.0...v0.14.0) (2026-09-20)
 
 ### Features
