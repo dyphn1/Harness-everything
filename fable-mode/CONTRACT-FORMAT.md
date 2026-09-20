@@ -2,7 +2,8 @@
 
 Issue #85 Phase 3 makes the stage map a machine-readable execution contract.
 The router still chooses only the execution topology. Fable owns the stage map,
-model selector, worker briefs, stage audit, replan budget, and cold verifier.
+model selector, worker briefs, stage audit, advisory replan limits, and cold
+verifier.
 Phase 4 adds an optional bounded ensemble modifier without creating a new base
 topology.
 
