@@ -49,7 +49,7 @@
         "id": "harness:pre:action-gate"
       },
       {
-        "matcher": "Bash|PowerShell|Edit|Write",
+        "matcher": "Bash|PowerShell|Edit|Write|apply_patch",
         "hooks": [
           {
             "type": "command",
@@ -170,7 +170,7 @@
         "id": "harness:post:action-gate-audit"
       },
       {
-        "matcher": "Bash|PowerShell",
+        "matcher": "Bash|PowerShell|apply_patch",
         "hooks": [
           {
             "type": "command",
@@ -181,7 +181,7 @@
         "id": "harness:post:rule-of-3-tracker"
       },
       {
-        "matcher": "Edit|Write|Bash|PowerShell",
+        "matcher": "Edit|Write|Bash|PowerShell|apply_patch",
         "hooks": [
           {
             "type": "command",
@@ -249,7 +249,7 @@
         "id": "harness:post-failure:action-gate-audit"
       },
       {
-        "matcher": "Bash|PowerShell",
+        "matcher": "Bash|PowerShell|apply_patch",
         "hooks": [
           {
             "type": "command",
@@ -260,7 +260,7 @@
         "id": "harness:post-failure:rule-of-3-tracker"
       },
       {
-        "matcher": "Bash|PowerShell",
+        "matcher": "Bash|PowerShell|apply_patch",
         "hooks": [
           {
             "type": "command",

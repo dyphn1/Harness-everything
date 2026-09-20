@@ -24,6 +24,11 @@ process.stdin.on('end', () => {
     const failureText = typeof payload.error === 'string' ? payload.error : '';
     const rawExitCode = toolResponse.exitCode ?? toolResponse.exit_code ?? payload.exitCode ?? payload.exit_code;
     const exitCode = typeof rawExitCode === 'number' ? rawExitCode : undefined;
+    const toolName = payload.tool_name || payload.tool || 'command';
+    const toolInput = payload.tool_input || {};
+    const filePath = toolInput.file_path || toolInput.filePath || '';
+    const command = toolInput.command || '';
+    const operationHash = crypto.createHash('md5').update(`${toolName}:${filePath}:${command}`).digest('hex');
 
     const explicitFailure = exitCode !== undefined && exitCode !== 0;
     const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
@@ -37,7 +42,7 @@ process.stdin.on('end', () => {
     const root = getWorkspaceRoot(payload);
     const stateFile = path.join(getSessionDir(root, payload.session_id || payload.sessionId), 'rule-of-3-state.json');
 
-    let state = { count: 0, lastHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0 };
+    let state = { count: 0, lastHash: null, lastOperationHash: null, zoomOutResolved: false, zoomOutCycles: 0, lastFailureAt: 0 };
     if (fs.existsSync(stateFile)) {
       state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
     }
@@ -45,9 +50,6 @@ process.stdin.on('end', () => {
     if (isFailure && errorText) {
       // Enhanced failure signature detection with context-aware categorization
       // Hash includes: error message, file path, command attempted, and failure category
-      const filePath = payload.tool_input?.file_path || payload.tool_input?.filePath || '';
-      const command = payload.tool_input?.command || '';
-
       // Categorize failure type for context-aware thresholds.
       // NOTE (#167): match anchored diagnostic phrases, not bare substrings.
       // A bare `denied`/`timeout` substring matches file names such as
@@ -90,7 +92,7 @@ process.stdin.on('end', () => {
         // New signature = new problem: the zoom-out cycle budget starts over.
         state.zoomOutCycles = 0;
       }
-
+      state.lastOperationHash = operationHash;
 
       // Any fresh failure re-arms the breaker. Without this, a signature that
       // failed again after a success (or after a zoom-out release) would keep
@@ -101,13 +103,9 @@ process.stdin.on('end', () => {
       state.lastFailureAt = Date.now();
 
       fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
-    } else if (!isFailure) {
-      // NOTE (#166, follows #153): Claude Code PostToolUse success payloads
-      // carry no numeric exit code. The lifecycle event is authoritative:
-      // PostToolUse is success unless a numeric non-zero status contradicts it;
-      // hosts without lifecycle event names keep the conservative stderr fallback.
-      // A successful action after an accepted zoom-out is an objective recovery
-      // boundary. Emit only IDs/hashes/category; never copy command/output text.
+    } else if (!isFailure && state.lastOperationHash === operationHash) {
+      // Unrelated successes must not erase a repeated-failure signature.
+      // A success for the same operation is the objective recovery boundary.
       if ((state.zoomOutCycles || 0) > 0 && state.lastHash) {
         const toolEventId = payload.tool_use_id || payload.toolUseId || `success-${Date.now()}`;
         try {
@@ -128,11 +126,14 @@ process.stdin.on('end', () => {
           // Learning capture is additive and must never break recovery tracking.
         }
       }
-      // Only reset on a *confirmed* zero exit code, not merely "not a failure".
-      if (state.count > 0 || state.zoomOutCycles > 0) {
+      if (state.count > 0 || state.zoomOutCycles > 0 || state.lastHash) {
         state.count = 0;
+        state.lastHash = null;
+        state.lastOperationHash = null;
         state.zoomOutResolved = true;
         state.zoomOutCycles = 0;
+        state.lastFailureAt = 0;
+        delete state.category;
         fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
       }
     }

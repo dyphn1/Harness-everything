@@ -40,10 +40,10 @@ function processState(payload) {
     if (isDirectTool && directMutationInWorkspace(payload, cwdOf(payload, root), root)) state.lastEditAt = Date.now();
     const isShell = toolName === 'Bash' || toolName === 'PowerShell' || toolName === 'exec_command';
     const command = (payload.tool_input && payload.tool_input.command) || '';
-    if (isShell && !isFailed) {
+    if (isShell) {
       const commandClass = classifyShell(command);
       if (commandClass !== 'read-only' && commandClass !== 'worktree-setup') state.lastEditAt = Date.now();
-      if (isVerificationShell(command)) { state.lastVerifyAt = Date.now(); state.lastVerifyExitCode = exitCode ?? null; }
+      if (!isFailed && isVerificationShell(command)) { state.lastVerifyAt = Date.now(); state.lastVerifyExitCode = exitCode ?? null; }
     }
     fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
     observeTool(payload);
