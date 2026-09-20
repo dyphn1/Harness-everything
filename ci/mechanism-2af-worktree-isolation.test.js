@@ -6,6 +6,7 @@ let failed=0;function check(c,m,d=''){if(c)console.log('PASS '+m);else{console.e
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'harness-worktree-guidance-')),home=path.join(temp,'home'),repo=path.join(temp,'repo'),linked=path.join(temp,'linked');
 fs.mkdirSync(home,{recursive:true});fs.mkdirSync(repo,{recursive:true});
 const env={...process.env,HOME:home,USERPROFILE:home,HARNESS_STATE_HOME:path.join(home,'state'),HARNESS_WORKSPACE_ROOT:repo,CLAUDE:'1'};
+process.env.HARNESS_STATE_HOME=env.HARNESS_STATE_HOME;process.env.HARNESS_WORKSPACE_ROOT=repo;process.env.HOME=home;process.env.USERPROFILE=home;
 function git(cwd,args){return spawnSync('git',args,{cwd,encoding:'utf8'});}
 function runGate(tool,cwd,input={}){return spawnSync(process.execPath,[GATE],{cwd:ROOT,env,input:JSON.stringify({session_id:'worktree-guidance',host_id:'mechanism-test',cwd,tool_name:tool,tool_input:input}),encoding:'utf8'});}
 try{

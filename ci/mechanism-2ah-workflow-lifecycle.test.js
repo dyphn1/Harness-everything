@@ -4,6 +4,7 @@ const assert=require('assert'),fs=require('fs'),os=require('os'),path=require('p
 const ROOT=path.resolve(__dirname,'..'),plugin=process.argv.includes('--plugin'),runtimeRoot=plugin?path.join(ROOT,'plugins/harness-everything'):ROOT;
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'harness-workflow-guidance-')),repo=path.join(temp,'repo');fs.mkdirSync(repo);spawnSync('git',['init'],{cwd:repo});
 const env={...process.env,HARNESS_STATE_HOME:path.join(temp,'state'),HARNESS_WORKSPACE_ROOT:repo};
+process.env.HARNESS_STATE_HOME=env.HARNESS_STATE_HOME;process.env.HARNESS_WORKSPACE_ROOT=repo;
 const state=require(path.join(runtimeRoot,'hooks/scripts/lib/harness-state')),sessionId='workflow-guidance',payload={session_id:sessionId,cwd:repo},sessionDir=state.getSessionDir(repo,sessionId),file=path.join(sessionDir,'workflow-run.json'),handoffFile=path.join(sessionDir,'handoff-state.json');
 let passed=0;function check(v,m){assert.ok(v,m);passed++;console.log('PASS '+m);}function node(script,input,args=[]){const relative=plugin&&script.startsWith('harness-everything/')?'skills/'+script:script;return spawnSync(process.execPath,[path.join(runtimeRoot,relative),...args],{cwd:repo,env,input:input&&JSON.stringify(input),encoding:'utf8'});}function read(t){return JSON.parse(fs.readFileSync(t,'utf8'));}
 try{

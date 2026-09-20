@@ -190,7 +190,7 @@ assert.strictEqual(second.status, 0, second.stderr);
 assert.strictEqual(first.stdout, second.stdout, 'identical routing input must produce identical output');
 assert.match(first.stdout, /RECOMMENDED TIER:\s*Tier 2/i);
 assert.match(first.stdout, /REQUIRED HARNESS INVARIANTS/);
-assert.match(first.stdout, /WORKFLOW SKILLS \(EVALUATE APPLICABILITY .*SELECTED WORKFLOW IS MANDATORY\)/);
+assert.match(first.stdout, /WORKFLOW SKILLS \(EVALUATE APPLICABILITY .*SELECTED WORKFLOW IS GUIDANCE\)/);
 assert.match(first.stdout, /evaluate-suggestions-before-skip/);
 assert.match(first.stdout, /read its complete SKILL\.md entry/);
 assert.doesNotMatch(first.stdout, /BASE EXECUTION LOOP/);
