@@ -2,6 +2,39 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.15.0](https://github.com/dyphn1/Harness-everything/compare/v0.14.0...v0.15.0) (2026-09-20)
+
+### Features
+
+* **contract:** add freshness provenance helpers ([865fc0b](https://github.com/dyphn1/Harness-everything/commit/865fc0bdb111feff865c3a85767fc587aecbd11a))
+* **contract:** emit requirement-scoped repair guidance ([cbd33ce](https://github.com/dyphn1/Harness-everything/commit/cbd33ce18fb8575671056bd4b2701bd0138baa96))
+* **contract:** reject stale completion reports ([79ea49e](https://github.com/dyphn1/Harness-everything/commit/79ea49e40f110fe062ac714519597e8a23a6ab5b))
+* **contract:** sync freshness audit runtime ([c5d0381](https://github.com/dyphn1/Harness-everything/commit/c5d038163b7ff2dc14e11bd4733e140e85e39f55))
+
+### Bug Fixes
+
+* **contract:** harden freshness evidence boundaries ([33ebbda](https://github.com/dyphn1/Harness-everything/commit/33ebbdafb2b63c4ece86ee81c14c4fcc6d33907f))
+* **contract:** launch npm probes cross-platform ([9ca5315](https://github.com/dyphn1/Harness-everything/commit/9ca5315cb30e8f03b08fb1f8789a141ea1179af4))
+* **contract:** launch npm probes cross-platform ([2cad76e](https://github.com/dyphn1/Harness-everything/commit/2cad76e217af136d934946f05c740d816e051acd))
+* **contract:** require complete freshness provenance ([5b6d717](https://github.com/dyphn1/Harness-everything/commit/5b6d717487fce37dcd1d1e8cbe8b037597035103))
+* **contract:** require complete freshness provenance ([d94e256](https://github.com/dyphn1/Harness-everything/commit/d94e2562c54d615d223a8572fd4d468e017a5807))
+
+## [0.14.0](https://github.com/dyphn1/Harness-everything/compare/v0.13.0...v0.14.0) (2026-09-20)
+
+### Features
+
+* **contract:** add node npm probe adapter ([02f4044](https://github.com/dyphn1/Harness-everything/commit/02f4044c82a6cb082d4b8e4fe810071afe064c21))
+* **contract:** add packaged node probe adapter ([de72904](https://github.com/dyphn1/Harness-everything/commit/de7290434346cdc358ea119845c72ddca3ea0090))
+* **contract:** package node probe adapter runtime ([783dc8f](https://github.com/dyphn1/Harness-everything/commit/783dc8f891a3244461f3dfe154542bad15125f15))
+
+### Bug Fixes
+
+* **contract:** close linked-workspace isolation gap ([574ea2f](https://github.com/dyphn1/Harness-everything/commit/574ea2f299ae02aa93785cca7aa5b4a829e9f961))
+* **contract:** launch npm probes cross-platform ([b39b2c0](https://github.com/dyphn1/Harness-everything/commit/b39b2c09a223c64d3665d383852a6313fff888fc))
+* **contract:** launch npm probes cross-platform ([723bae1](https://github.com/dyphn1/Harness-everything/commit/723bae19ac4a05bfefe44ad0d61bd5dfb8b0ba50))
+* **contract:** reject symlink probe escapes ([bf577a5](https://github.com/dyphn1/Harness-everything/commit/bf577a5b58dec2a4779709402146073f0fd0ce29))
+* **contract:** reject symlink probe escapes ([5e3c569](https://github.com/dyphn1/Harness-everything/commit/5e3c569b1b7b883490e40fd66a64385f2d24d717))
+
 ## [0.13.0](https://github.com/dyphn1/Harness-everything/compare/v0.12.3...v0.13.0) (2026-09-19)
 
 ### Features

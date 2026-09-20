@@ -201,6 +201,53 @@ try {
     fs.readFileSync(path.join(preexistingHome, 'hooks.json'), 'utf8') === preexistingBefore,
     'uninstall preserves byte-identical hooks that predated compatibility install');
 
+  const forgedManifestHome = path.join(root, 'forged-manifest-codex');
+  fs.mkdirSync(forgedManifestHome, { recursive: true });
+  fs.writeFileSync(path.join(forgedManifestHome, 'hooks.json'),
+    JSON.stringify({ hooks: { PreToolUse: [userHook] } }, null, 2) + '\n', 'utf8');
+  compat.install({ codexHome: forgedManifestHome });
+  const forgedManifestPath = path.join(
+    forgedManifestHome, 'harness-everything', 'compat-hooks', 'manifest.json');
+  const forgedManifest = read(forgedManifestPath);
+  forgedManifest.entries.push({
+    event: 'PreToolUse',
+    hash: compat.entryHash(userHook),
+    entry: userHook,
+  });
+  fs.writeFileSync(forgedManifestPath, JSON.stringify(forgedManifest, null, 2) + '\n', 'utf8');
+  const forgedHooksBefore = fs.readFileSync(path.join(forgedManifestHome, 'hooks.json'), 'utf8');
+  let forgedManifestRefused = false;
+  try { compat.uninstall({ codexHome: forgedManifestHome }); }
+  catch (error) { forgedManifestRefused = /corrupt/.test(error.message); }
+  check(forgedManifestRefused &&
+    fs.readFileSync(path.join(forgedManifestHome, 'hooks.json'), 'utf8') === forgedHooksBefore,
+    'forged manifest ownership fails closed without deleting a user hook');
+
+  const failedInstallHome = path.join(root, 'failed-install-codex');
+  fs.mkdirSync(failedInstallHome, { recursive: true });
+  const failedInstallHooks = path.join(failedInstallHome, 'hooks.json');
+  fs.writeFileSync(failedInstallHooks,
+    JSON.stringify({ description: 'must survive', hooks: { PreToolUse: [userHook] } }, null, 4) + '\n',
+    'utf8');
+  const failedInstallBefore = fs.readFileSync(failedInstallHooks, 'utf8');
+  const failedManifestPath = path.join(
+    failedInstallHome, 'harness-everything', 'compat-hooks', 'manifest.json');
+  const realRenameSync = fs.renameSync;
+  let failedInstallRefused = false;
+  fs.renameSync = function injectedManifestFailure(source, destination) {
+    if (path.resolve(destination) === path.resolve(failedManifestPath)) {
+      throw new Error('injected manifest commit failure');
+    }
+    return realRenameSync(source, destination);
+  };
+  try { compat.install({ codexHome: failedInstallHome }); }
+  catch (error) { failedInstallRefused = /injected manifest commit failure/.test(error.message); }
+  finally { fs.renameSync = realRenameSync; }
+  check(failedInstallRefused &&
+    fs.readFileSync(failedInstallHooks, 'utf8') === failedInstallBefore &&
+    !fs.existsSync(failedManifestPath),
+    'failed manifest commit rolls hooks.json back byte-identically');
+
   const malformedHome = path.join(root, 'malformed-codex');
   fs.mkdirSync(malformedHome, { recursive: true });
   const malformed = path.join(malformedHome, 'hooks.json');

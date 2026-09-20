@@ -27,6 +27,9 @@ function sha256(value) {
 }
 
 function treeHash(root) {
+  if (fs.lstatSync(root).isSymbolicLink()) {
+    throw new Error('refusing linked compatibility runtime: ' + root);
+  }
   const rows = [];
   function walk(dir) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
@@ -34,6 +37,7 @@ function treeHash(root) {
       const rel = path.relative(root, full).replace(/\\/g, '/');
       if (entry.isDirectory()) walk(full);
       else if (entry.isFile()) rows.push(rel + ':' + sha256(fs.readFileSync(full)));
+      else if (entry.isSymbolicLink()) throw new Error('refusing linked compatibility runtime entry: ' + full);
     }
   }
   walk(root);
@@ -84,27 +88,88 @@ function readHooksFile(file) {
   return data;
 }
 
-function readManifest(file) {
+function samePath(left, right) {
+  const normalize = value => {
+    const resolved = path.resolve(value);
+    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+  };
+  return normalize(left) === normalize(right);
+}
+
+function isPathInside(root, candidate) {
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  return relative !== '' && relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative);
+}
+
+function readManifest(file, expectedPaths = null) {
   if (!fs.existsSync(file)) return null;
   const data = readJsonObject(file, null);
   if (data.schemaVersion !== MANIFEST_SCHEMA ||
       data.package !== 'harness-everything' ||
       data.mode !== MANIFEST_MODE ||
+      typeof data.packageVersion !== 'string' ||
+      !/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/.test(data.packageVersion) ||
+      typeof data.sourcePluginSha256 !== 'string' ||
+      !/^[0-9a-f]{64}$/.test(data.sourcePluginSha256) ||
+      typeof data.runtimeDir !== 'string' ||
+      typeof data.hooksFile !== 'string' ||
+      typeof data.createdHooksFile !== 'boolean' ||
       !Array.isArray(data.entries)) {
     throw new Error('refusing unknown/corrupt Harness compatibility manifest: ' + file);
+  }
+  if (!expectedPaths) return data;
+
+  const expectedRuntimeDir = path.join(
+    expectedPaths.runtimeRoot,
+    data.packageVersion + '-' + data.sourcePluginSha256.slice(0, 12)
+  );
+  if (!samePath(data.hooksFile, expectedPaths.hooksFile) ||
+      !isPathInside(expectedPaths.runtimeRoot, data.runtimeDir) ||
+      !samePath(data.runtimeDir, expectedRuntimeDir) ||
+      !fs.existsSync(data.runtimeDir) ||
+      treeHash(data.runtimeDir) !== data.sourcePluginSha256) {
+    throw new Error('refusing unknown/corrupt Harness compatibility manifest: ' + file);
+  }
+
+  const allowed = new Map();
+  for (const record of hookEntriesFrom(path.resolve(data.runtimeDir), path.resolve(data.runtimeDir))) {
+    const key = record.event + '\0' + record.hash;
+    if (!allowed.has(key)) allowed.set(key, []);
+    allowed.get(key).push(stableJson(record.entry));
+  }
+  for (const record of data.entries) {
+    if (!record || typeof record !== 'object' || Array.isArray(record) ||
+        typeof record.event !== 'string' || !record.event ||
+        typeof record.hash !== 'string' || !/^[0-9a-f]{64}$/.test(record.hash) ||
+        !record.entry || typeof record.entry !== 'object' || Array.isArray(record.entry) ||
+        entryHash(record.entry) !== record.hash) {
+      throw new Error('refusing unknown/corrupt Harness compatibility manifest: ' + file);
+    }
+    const key = record.event + '\0' + record.hash;
+    const candidates = allowed.get(key) || [];
+    const serialized = stableJson(record.entry);
+    const match = candidates.indexOf(serialized);
+    if (match === -1) {
+      throw new Error('refusing unknown/corrupt Harness compatibility manifest: ' + file);
+    }
+    candidates.splice(match, 1);
   }
   return data;
 }
 
-function atomicWriteJson(file, value) {
+function atomicWriteFile(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const temp = file + '.' + process.pid + '.tmp';
   try {
-    fs.writeFileSync(temp, JSON.stringify(value, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(temp, value);
     fs.renameSync(temp, file);
   } finally {
     try { if (fs.existsSync(temp)) fs.rmSync(temp, { force: true }); } catch (_) {}
   }
+}
+
+function atomicWriteJson(file, value) {
+  atomicWriteFile(file, JSON.stringify(value, null, 2) + '\n');
 }
 
 function replacePluginRoot(value, runtimeDir, windowsForm) {
@@ -174,8 +239,8 @@ function removePriorEntries(config, prior) {
   return { config: { ...config, hooks: nextHooks }, drift, removed };
 }
 
-function sourceHookEntries(runtimeDir) {
-  const sourceFile = path.join(SOURCE_PLUGIN_ROOT, 'hooks', 'hooks.json');
+function hookEntriesFrom(pluginRoot, runtimeDir) {
+  const sourceFile = path.join(pluginRoot, 'hooks', 'hooks.json');
   const source = readHooksFile(sourceFile);
   const records = [];
   for (const [event, entries] of Object.entries(source.hooks)) {
@@ -185,6 +250,10 @@ function sourceHookEntries(runtimeDir) {
     }
   }
   return records;
+}
+
+function sourceHookEntries(runtimeDir) {
+  return hookEntriesFrom(SOURCE_PLUGIN_ROOT, runtimeDir);
 }
 
 function ensureRuntime(runtimeDir, sourceHash) {
@@ -209,8 +278,10 @@ function install(options = {}) {
   const sourceHash = treeHash(SOURCE_PLUGIN_ROOT);
   const p = pathsFor(codexHome, sourceHash);
   const existedBefore = fs.existsSync(p.hooksFile);
+  const hooksBefore = existedBefore ? fs.readFileSync(p.hooksFile) : null;
+  const runtimeExistedBefore = fs.existsSync(p.runtimeDir);
   const config = readHooksFile(p.hooksFile);
-  const prior = readManifest(p.manifestFile);
+  const prior = readManifest(p.manifestFile, p);
 
   let base = config;
   if (prior) {
@@ -234,7 +305,6 @@ function install(options = {}) {
     next.hooks[record.event] = list;
   }
 
-  atomicWriteJson(p.hooksFile, next);
   const manifest = {
     schemaVersion: MANIFEST_SCHEMA,
     package: 'harness-everything',
@@ -247,7 +317,21 @@ function install(options = {}) {
     installedAt: new Date().toISOString(),
     entries: ownedEntries.map(({ event, hash, entry }) => ({ event, hash, entry })),
   };
-  atomicWriteJson(p.manifestFile, manifest);
+  try {
+    atomicWriteJson(p.hooksFile, next);
+    atomicWriteJson(p.manifestFile, manifest);
+  } catch (error) {
+    try {
+      if (hooksBefore === null) fs.rmSync(p.hooksFile, { force: true });
+      else atomicWriteFile(p.hooksFile, hooksBefore);
+    } catch (rollbackError) {
+      error.message += '; hooks.json rollback also failed: ' + rollbackError.message;
+    }
+    if (!runtimeExistedBefore) {
+      try { fs.rmSync(p.runtimeDir, { recursive: true, force: true }); } catch (_) {}
+    }
+    throw error;
+  }
 
   if (prior && prior.runtimeDir && path.resolve(prior.runtimeDir) !== path.resolve(p.runtimeDir)) {
     const ownedRoot = path.resolve(p.runtimeRoot) + path.sep;
@@ -268,7 +352,7 @@ function install(options = {}) {
 function uninstall(options = {}) {
   const codexHome = path.resolve(options.codexHome || defaultCodexHome(options.env));
   const p = pathsFor(codexHome);
-  const prior = readManifest(p.manifestFile);
+  const prior = readManifest(p.manifestFile, p);
   if (!prior) return { status: 'not-installed', codexHome, removed: 0, trustChanged: false };
 
   const hooksFileExists = fs.existsSync(p.hooksFile);
@@ -315,7 +399,7 @@ function uninstall(options = {}) {
 function status(options = {}) {
   const codexHome = path.resolve(options.codexHome || defaultCodexHome(options.env));
   const p = pathsFor(codexHome);
-  const prior = readManifest(p.manifestFile);
+  const prior = readManifest(p.manifestFile, p);
   if (!prior) return { installed: false, codexHome, hooksFile: p.hooksFile, trustChanged: false };
   const config = readHooksFile(p.hooksFile);
   const removal = removePriorEntries(config, prior);
