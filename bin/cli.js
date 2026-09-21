@@ -40,6 +40,9 @@ switch (command) {
   case 'codex-hooks':
     runCodexHooksCompat(args.slice(1));
     break;
+  case 'plugin-sync':
+    runPluginSync(args.slice(1));
+    break;
   default:
     console.error(`[Error] Unknown command: "${command}"`);
     showHelp();
@@ -104,6 +107,9 @@ Commands:
                      that fail to mount enabled plugin-bundled hooks.
                      Usage: harness codex-hooks <install|status|uninstall>
                      Does not trust hooks or modify Codex config.toml.
+  plugin-sync        Install or update the native Harness plugin on Claude Code
+                     and Codex. Existing installations always take the update
+                     path. Supports --host, --dry-run, and --json.
   verify             Run the pre-delivery verification gate (lint/test from the
                      nearest package.json). Exits non-zero if checks fail. This is
                      the explicit stand-in for a hard stop gate on platforms where
@@ -177,5 +183,15 @@ function runCodexHooksCompat(compatArgs) {
     process.exit(1);
   }
   const result = spawnSync('node', [script, ...compatArgs], { stdio: 'inherit' });
+  process.exit(result.status === null ? 1 : result.status);
+}
+
+function runPluginSync(pluginArgs) {
+  const script = path.resolve(__dirname, '..', 'scripts', 'plugin-sync.js');
+  if (!fs.existsSync(script)) {
+    console.error('[Error] Native plugin synchronization script not found.');
+    process.exit(1);
+  }
+  const result = spawnSync('node', [script, ...pluginArgs], { stdio: 'inherit' });
   process.exit(result.status === null ? 1 : result.status);
 }

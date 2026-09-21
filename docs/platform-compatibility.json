@@ -1,6 +1,6 @@
 {
   "format": "harness-platform-compatibility-v1",
-  "last_reviewed": "2026-09-19",
+  "last_reviewed": "2026-09-21",
   "status_vocabulary": {
     "Supported": "An official or native mechanism exists and the Harness behavior is verified.",
     "Mechanism verified": "Harness package, adapter, or installer checks pass, but a real host run is not confirmed.",
@@ -114,7 +114,7 @@
         "globalScope": {"status": "Mechanism verified", "paths": {"skills": ["~/.agents/skills"]}},
         "installUninstallSymmetry": {"status": "Mechanism verified", "notes": "General Harness installer ownership is mechanism-tested. The optional codex-hooks compatibility fallback separately has exact-entry update/uninstall ownership tests and preserves unrelated user hooks; live Codex trust/dispatch still requires host evidence."},
         "assetsReferences": {"status": "Mechanism verified", "notes": "Packaged skill references are checked and remain inside the package."},
-        "updateSync": {"status": "Unknown", "notes": "A real marketplace refresh has not been run in a Codex host."},
+        "updateSync": {"status": "Mechanism verified", "notes": "scripts/plugin-sync.js detects installed state and uses marketplace upgrade for an installed Codex plugin; no live Codex host refresh is preserved."},
         "liveHostVerification": {"status": "Unknown", "notes": "No preserved Codex plugin/session artifact proves current bundled-hook entry. Native plugin mounting is preferred; the explicit user-hook fallback is mechanism-verified only and does not solve host carriers that bypass hook dispatch."}
       }
     },
@@ -159,7 +159,7 @@
         "globalScope": {"status": "Mechanism verified", "paths": {"skills": ["~/.claude/skills"], "hooks": ["~/.claude/settings.json"]}},
         "installUninstallSymmetry": {"status": "Mechanism verified", "notes": "Owned settings, skills, agents, and user files are covered by round-trip tests."},
         "assetsReferences": {"status": "Mechanism verified", "notes": "Skill-local references, scripts, and templates are checked."},
-        "updateSync": {"status": "Unknown", "notes": "A live marketplace update has not been run in Claude Code."},
+        "updateSync": {"status": "Mechanism verified", "notes": "scripts/plugin-sync.js detects installed state and uses the explicit Claude plugin update command for an installed plugin; no live Claude host refresh is preserved."},
         "liveHostVerification": {"status": "Unknown", "notes": "No fresh Claude Code plugin session artifact is committed for this revision."}
       }
     },
