@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
+const { getHarnessRoot, requireHarnessState, requireWorkspace } = require('./runtime-paths');
 const {
   getWorkspaceRoot,
   getSessionId,
   getSessionDir,
   writeCurrentSession,
   pruneStaleSessions,
-} = require('../../hooks/scripts/lib/harness-state');
+} = requireHarnessState();
 
 console.log("Bootstrapping Harness Skills OS...");
 
@@ -162,9 +163,9 @@ try {
   // npx/global install auditing the harness checkout itself compares two
   // different paths and wrongly advises a repair that self-heal then skips
   // (issue #40). Required lazily so a missing lib can never break session start.
-  const { isHarnessRepo } = require('../../scripts/lib/workspace');
+  const { isHarnessRepo } = requireWorkspace();
   const auditingSelf = isHarnessRepo(workspaceRoot)
-    || path.resolve(workspaceRoot) === path.resolve(__dirname, '..', '..');
+    || path.resolve(workspaceRoot) === path.resolve(getHarnessRoot());
 
   if (missing.length > 0 && !auditingSelf) {
     console.log(`\n[Self-Heal] Missing integration touchpoints: ${missing.join(', ')}`);

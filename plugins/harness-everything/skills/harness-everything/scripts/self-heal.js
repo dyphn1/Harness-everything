@@ -23,7 +23,8 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { getWorkspaceRoot, isHarnessRepo } = require('../../scripts/lib/workspace');
+const { getHarnessRoot, requireWorkspace } = require('./runtime-paths');
+const { getWorkspaceRoot, isHarnessRepo } = requireWorkspace();
 
 const MARKER = 'Harness OS Guidance (Advisory)';
 const HOOK_ID = 'harness:pre:bootstrap';
@@ -194,7 +195,7 @@ function main() {
   const forceSelf = process.argv.includes('--force-self');
 
   const workspaceRoot = getWorkspaceRoot();
-  const harnessSourceDir = path.resolve(__dirname, '..', '..');
+  const harnessSourceDir = getHarnessRoot();
   const installerPath = path.join(harnessSourceDir, 'scripts', 'installer.js');
 
   console.log(`Workspace: ${workspaceRoot}`);

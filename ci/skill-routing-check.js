@@ -49,7 +49,7 @@ function discoverNestedSkills(skillDir) {
 
 function expectedMarker(skill) {
   if (skill === 'harness-everything') return 'RECOMMENDED TIER';
-  if (skill === 'todo-driven-workflow') return 'BASE EXECUTION LOOP';
+  if (skill === 'todo-driven-workflow') return 'WORKFLOW STRATEGY';
   return `${skill}/SKILL.md`;
 }
 

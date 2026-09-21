@@ -107,7 +107,7 @@ module.exports = {
       manifestPath: manifest.getManifestPath(claudeDir)
     };
   },
-  install({ isGlobal, targetWorkspaceRoot, harnessSourceDir, packageVersion, claudeHooks, manifest }) {
+  install({ isGlobal, targetWorkspaceRoot, harnessSourceDir, harnessRuntimeRoot = harnessSourceDir, packageVersion, claudeHooks, manifest }) {
     const userHome = require('os').homedir();
     const claudeDir = isGlobal ? path.join(userHome, '.claude') : path.join(targetWorkspaceRoot, '.claude');
     if (!fs.existsSync(claudeDir)) {
@@ -124,7 +124,7 @@ module.exports = {
       }
     }
 
-    const sourceHooksFile = path.join(harnessSourceDir, 'hooks', 'hooks.json');
+    const sourceHooksFile = path.join(harnessRuntimeRoot, 'hooks', 'hooks.json');
     if (fs.existsSync(sourceHooksFile)) {
       const sourceHooksObj = JSON.parse(fs.readFileSync(sourceHooksFile, 'utf8'));
       const resolvedHooks = {};
@@ -134,7 +134,7 @@ module.exports = {
           if (cloned.hooks) {
             cloned.hooks = cloned.hooks.map(h => {
               if (h.type === 'command' && h.command) {
-                h.command = resolveClaudeHookCommand(h.command, harnessSourceDir);
+                h.command = resolveClaudeHookCommand(h.command, harnessRuntimeRoot);
               }
               return h;
             });
