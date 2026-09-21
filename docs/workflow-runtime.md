@@ -1,17 +1,18 @@
 # Workflow Runtime
 
-Harness uses workflow state to **observe, explain, and remind**. It is not a numeric-budget scheduler.
+Harness uses workflow state to **observe, explain, and remind about semantic contracts**. It is not a numeric-budget scheduler, and reminder-only mechanics do not make MUST obligations optional.
 
 ## Product rule
 
 The runtime follows **minimal rails, maximum freedom**:
 
-- routing selects a useful topology and suggested skills;
-- workflow state records useful evidence and unresolved obligations;
-- the agent MUST use the single user-visible Harness Status format at required phase boundaries for non-trivial work;
-- verification hooks remind when evidence is missing;
-- worktree/isolation checks warn when a safer execution shape is available;
-- iteration, revision, replan, and worker counts are planning hints only.
+- routing **MUST** establish the selected/deferred topology and suggested-skill applicability set;
+- workflow state records useful evidence and unresolved obligations without becoming a cognitive lock;
+- selected-topology required obligations and applicable skill core contracts are semantic **MUSTs**;
+- the agent **MUST** verify before claiming completion and use the single user-visible Harness Status at required phase boundaries for non-trivial work;
+- verification hooks may only remind when evidence is missing, but the semantic verification obligation remains **MUST**;
+- Tier-3/Fable broad mutation **MUST** resolve isolation disposition: verified linked worktree or explicit degraded fallback;
+- iteration, revision, replan, and worker counts are **MAY** planning hints only.
 
 None of those cognitive workflow conditions should trap a session or require a reset command.
 
@@ -41,11 +42,11 @@ The two intentionally separate hard boundaries are:
 
 ```text
 route
-  -> selected workflow guidance
-  -> execute freely
+  -> selected workflow semantic contract
+  -> execute with model-chosen tactics
   -> observe edits / verification / stage evidence
   -> emit reminders when evidence is weak
-  -> complete or continue
+  -> complete only when MUST obligations resolve
 
 same failure signature x3
   -> zoom-out reflection required
@@ -64,7 +65,7 @@ Router plans may still expose values such as:
 - `maxReplans`
 - `maxWorkers`
 
-These are **advisory defaults**, useful for prompts, diagnostics, or planning. Runtime hooks do not maintain authoritative counters, reserve mutation capacity, or reject the Nth event.
+These are **MAY planning hints**, useful for prompts, diagnostics, or planning. Runtime hooks do not maintain authoritative counters, reserve mutation capacity, or reject the Nth event.
 
 A long loop should produce a message such as:
 
@@ -86,9 +87,9 @@ A workflow may retain `blocked` as a descriptive status recorded by the controll
 
 ## Fable and worktrees
 
-Fable stage graphs, dependencies, write sets, and objective checks remain useful planning/evidence structures. `maxWorkers` no longer chunks ready stages as a hard concurrency cap.
+When a Fable topology is selected, its stage graphs, dependencies, write sets, objective checks, synthesis barrier, and required verifier are semantic **MUSTs**. `maxWorkers` remains a **MAY** planning hint and no longer chunks ready stages as a hard concurrency cap.
 
-For major work, a linked worktree remains strongly recommended. Missing isolation is surfaced prominently, but Harness-owned cognitive workflow hooks do not turn it into a self-deadlocking runtime state.
+For Tier-3/Fable broad mutation, isolation disposition is a semantic **MUST**: use/reuse a verified linked worktree, or record an explicit degraded fallback when isolation is unavailable or the user explicitly chooses to stay in place. Missing isolation is surfaced prominently, but Harness-owned cognitive workflow hooks do not turn it into a self-deadlocking runtime state.
 
 ## Legacy state
 

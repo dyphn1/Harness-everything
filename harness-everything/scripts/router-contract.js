@@ -16,7 +16,7 @@ function augmentWorkflowPlan(plan) {
   if (!requiredInvariants.includes('isolated-worktree-before-mutation')) requiredInvariants.push('isolated-worktree-before-mutation');
   if (!suggestedSkills.includes('using-git-worktrees')) suggestedSkills.push('using-git-worktrees');
   return { ...plan, requiredInvariants, suggestedSkills, mutationIsolation: {
-    required: true, mechanism: 'git-worktree', transition: 'before-first-mutation', onUnavailable: 'blocked',
+    required: true, mechanism: 'git-worktree', transition: 'before-first-mutation', onUnavailable: 'degraded',
   } };
 }
 

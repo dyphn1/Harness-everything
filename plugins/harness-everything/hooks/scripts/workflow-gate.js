@@ -35,7 +35,7 @@ function decide(payload) {
     if (String(workflow.strategy || '').startsWith('fable-') && !matchingRun(context)) warn('Selected Fable workflow has no correlated run; consider creating/updating the stage map before broad changes.');
     if (isMajorWorkflow(workflow)) {
       const isolatedRoot = linkedWorktree(cwd, root);
-      if (!isolatedRoot) warn('This is a major workflow; a linked Git worktree is strongly recommended before mutation.');
+      if (!isolatedRoot) warn('Tier-3/Fable isolation disposition is a semantic MUST before broad mutation: enter a linked Git worktree or record an explicit degraded fallback. This reminder does not hard-block.');
       else {
         try { if (DIRECT.has(tool)) assertTargets(payload, cwd, isolatedRoot); else assertShellScope(command, cwd, isolatedRoot); }
         catch (error) { warn(error.message); }

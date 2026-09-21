@@ -165,7 +165,7 @@ process.stdin.on('end', () => {
       } else if (declaredContracts.length === 0) {
         console.error(`[Subagent Scope Reminder] ${newlyChanged.length} file(s) changed with no machine-readable writeSet contract:`);
         newlyChanged.forEach(line => console.error(`  ${line}`));
-        console.error('Confirm every path was actually in scope before trusting or committing this output.');
+        console.error('Semantic MUST: reconcile every changed path against the declared scope before trusting or committing this output.');
       } else {
         for (const entry of classified.expected) {
           console.log(`[Subagent Scope Reminder] in-scope ${entry.statusLine} -> ${entry.planId}/${entry.runId}/${entry.stageId}${entry.workerId ? ` worker=${entry.workerId}` : ''}`);
@@ -174,7 +174,7 @@ process.stdin.on('end', () => {
           console.error(`[Subagent Scope Reminder] ambiguous scope ${entry.statusLine}; matches ${entry.stages.map(stage => `${stage.runId}/${stage.stageId}`).join(', ')}`);
         }
         for (const entry of classified.outOfScope) {
-          console.error(`[Subagent Scope Reminder] OUT-OF-SCOPE ${entry.statusLine}${entry.workerId ? ` worker=${entry.workerId}` : ''}`);
+          console.error(`[Subagent Scope Reminder] OUT-OF-SCOPE ${entry.statusLine}${entry.workerId ? ` worker=${entry.workerId}` : ''}; MUST reconcile/revert or explicitly re-authorize scope before accepting the result.`);
         }
       }
 

@@ -27,7 +27,7 @@ process.stdin.on('end', () => {
         if (stat.isFile() && stat.size > MAX_BYTES_WITHOUT_LIMIT) {
           console.error(`[Boundary Reminder]: "${filePath}" is ${(stat.size / 1024).toFixed(0)}KB.`);
           console.error(`Reading a file this large in one call risks context bloat and "lost in the middle" degradation.`);
-          console.error(`Re-issue the Read with an explicit "offset"/"limit" to pull a targeted slice, or use Grep to locate the relevant section first.`);
+          console.error(`SHOULD narrow the read with explicit "offset"/"limit" or use Grep first, unless full-file context is materially required.`);
           process.exit(0);
         }
       }
@@ -43,7 +43,7 @@ process.stdin.on('end', () => {
       if (hitsNoiseDir) {
         console.error(`[Boundary Reminder]: search targets a noise directory (${NOISE_DIRS.join(', ')}).`);
         console.error(`These produce huge, low-signal result sets and rarely contain what you're actually looking for.`);
-        console.error(`Scope the search to source directories instead, or state explicitly why this directory must be searched.`);
+        console.error(`SHOULD scope the search to source directories; if the noisy directory is materially required, state the evidence-based exception.`);
         process.exit(0);
       }
     }

@@ -9,16 +9,16 @@ Harness is a **behavior and workflow observer/router**, not a universal fixed wo
 The minimal kernel establishes:
 
 - scope/tier before mutation,
-- a selected workflow topology as planning guidance when task evidence supports one,
+- a selected workflow topology as a semantic execution contract when task evidence supports one,
 - applicability evaluation for every suggested skill before omission,
 - objective evidence before completion,
 - bounded re-plan/recovery after repeated failure,
 - explicit warnings/degraded/escape evidence instead of silent workflow deletion;
 - one mandatory user-visible Harness Status protocol for non-trivial work, independent of execution topology.
 
-> **Guidance-first workflow; flexible reasoning/implementation and execution.**
+> **Contract-first lifecycle; flexible reasoning/implementation and execution.**
 >
-> Suggested skills and topology are evaluated from their real flows. Missing or skipped cognitive workflow steps produce evidence/reminders rather than persistent Harness locks.
+> Suggested skills MUST be evaluated from their real flows. Applicable skill core contracts and selected-topology obligations are semantic MUSTs; missing evidence produces reminders rather than persistent Harness locks.
 
 This avoids both extremes: no universal Tier-2/Tier-3 pipeline and no maze of self-deadlocking cognitive gates.
 
@@ -50,8 +50,8 @@ flowchart TD
 - selected/deferred execution strategy,
 - required invariants,
 - suggested skills that require applicability evaluation,
-- the visible routing checkpoint,
-- a workflow guidance.
+- the internal routing checkpoint,
+- the semantic workflow contract.
 
 The router does not tell the model *how* to solve each stage. It decides what lifecycle shape is required. `direct-single`, `iterative-single`, `fable-staged`, `fable-parallel`, and `fable-multi-agent-workspace` remain deliberately small, non-overlapping topology choices.
 
@@ -78,7 +78,7 @@ This is a semantic contract, not another cognitive lock. Hook-capable hosts may 
 
 Router suggestions remain useful domain/workflow knowledge, not a universal sequence. Before omission, the agent reads the complete `SKILL.md` entry and evaluates `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules. Name/description/router-summary or “routine task” is insufficient evidence.
 
-The selected topology is a structured planning aid; it does not become a persistent execution lock.
+The selected topology is a semantic lifecycle contract, not a persistent execution lock. Required obligations MUST resolve; implementation tactics MAY adapt.
 
 ### Runtime workflow state
 
@@ -97,7 +97,7 @@ Other topologies use their own applicable mechanisms: advisory loop-awareness re
 
 Two kernel mechanisms annotate plans without creating hard workflow enforcement:
 
-- **Ensemble policy (`harness-everything/scripts/ensemble-policy.js`):** an advisory plan annotation, not a separate topology. It is selected only when uncertainty is high (or stakes are high) **and** the task asks for comparable outputs or preserves explicit disagreement **and** the selected strategy is already `fable-*`. Creative generation, mechanical bulk work, an explicit user prohibition, unavailable subagents, or a blocked base plan force exclusion. When selected, the plan caps at 3 candidates with `preserve-disagreement` synthesis, an independent verifier, and `parallel-self-consistency` pattern invariants. Covered by deterministic mechanism tests; no live-host effectiveness claim follows from the annotation alone.
+- **Ensemble policy (`harness-everything/scripts/ensemble-policy.js`):** optional selection is a **MAY** capability, not a separate topology. It is selected only when uncertainty is high (or stakes are high) **and** the task asks for comparable outputs or preserves explicit disagreement **and** the selected strategy is already `fable-*`. Creative generation, mechanical bulk work, an explicit user prohibition, unavailable subagents, or a blocked base plan force exclusion. Once selected, preserving disagreement, using an independent verifier, and honoring the plan's ensemble invariants are **MUST** obligations. Covered by deterministic mechanism tests; no live-host effectiveness claim follows from the annotation alone.
 - **Single-use memory capability (`kernel-router.js#issueMemoryCapability`):** when the selected plan permits memory writes, the router issues one capability token bound to `sessionId`/`workflowId` with a stored SHA-256 hash (`memoryAuthorization`, coordinator-only writer role, `usedAt` tracking). Plans with `memory.write === 'none'` receive no capability. This binds a memory write to the workflow that authorized it; it is not a general credential and proves nothing about a live host honoring the binding.
 
 ### PreToolUse guard trio and denied-mutation probes
@@ -105,7 +105,7 @@ Two kernel mechanisms annotate plans without creating hard workflow enforcement:
 On the Claude hook path, three narrowly scoped `PreToolUse` guards sit alongside the workflow/action gates:
 
 - `boundary-guard.js` (Grep/Glob/Read): warns about very large reads and noisy search roots; it fails open.
-- `depth-guard.js` (Write): blocks overwriting an existing file that was never Read earlier in the session transcript. New files are unaffected. Fails open on parse/lookup errors.
+- `depth-guard.js` (Write): reminds when an existing file would be overwritten without prior inspection. The semantic obligation to establish current target state before destructive overwrite is a **MUST**; the hook itself stays fail-open. New files are unaffected.
 - `context-compact.js`: estimates working-tree context pressure from `git status`/`git diff --numstat` so later stages can compact or halt before lost-in-the-middle degradation.
 
 Shell mutation observation is best-effort evidence for reminders. The old mutation-probe reservation/lock subsystem was retired by #190.
@@ -128,7 +128,7 @@ The installer configures native lifecycle hooks and project skills.
 - `PostToolUse`: outcomes, state, repeated-failure evidence, stage checks.
 - `Stop`: action-gate audit plus non-blocking workflow/verification reminders.
 
-These hooks make reminders observable; they do not promote cognitive workflow guidance into hard enforcement.
+These hooks make semantic obligations observable; they do not promote cognitive workflow contracts into hard enforcement.
 
 ### OpenCode — plugin enforcement, scoped live verification
 

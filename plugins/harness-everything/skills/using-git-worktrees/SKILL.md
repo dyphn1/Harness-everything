@@ -1,6 +1,6 @@
 ---
 name: using-git-worktrees
-description: Use when starting feature work needing isolation or before implementation plans - recommends an isolated workspace via native tools or git worktree fallback
+description: Use when work needs isolation or before major implementation plans - resolves workspace isolation via native tools or git worktree fallback, with an explicit degraded fallback when isolation is unavailable
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -13,9 +13,9 @@ Use native worktree support first; raw Git is the fallback.
 
 ## Contract
 
-- **Major workflow guidance** — Tier 3 / Fable-class engineering is safer in a linked worktree before broad source/artifact mutation. Reuse one or create one when practical.
-- **Ordinary mode** — isolation-needing feature work may honor an explicit user preference to stay in place.
-- Never nest a worktree inside an already isolated worktree.
+- **Tier 3 / Fable (MUST resolve)** — before broad source/artifact mutation, reuse/create a verified linked worktree. If isolation is unavailable or the user explicitly chooses to stay in place, MUST report an explicit degraded fallback/risk before continuing.
+- **Ordinary mode (SHOULD)** — use isolation when it materially reduces collision/risk; explicit user preference may keep work in place.
+- **MUST NOT** nest a worktree inside an already isolated worktree.
 
 ## Workflow
 
@@ -28,7 +28,7 @@ git rev-parse --show-superproject-working-tree
 ```
 Different git/common dirs and no superproject => already isolated; continue to Step 2. A submodule is a normal repo for this check.
 
-**Step 1 — Create/enter**: prefer native `EnterWorktree`, `/worktree`, or `--worktree`. Otherwise use `git worktree add "$path" -b "$BRANCH_NAME"`. Prefer an already-ignored or external/sibling path. If creation/entry fails, report it and continue only with explicit awareness of the isolation risk.
+**Step 1 — Create/enter**: use native `EnterWorktree`, `/worktree`, or `--worktree` first; otherwise use `git worktree add "$path" -b "$BRANCH_NAME"`. Use an already-ignored or external/sibling path when possible. If creation/entry fails, MUST surface the degraded isolation disposition before continuing.
 
 **Step 2 — Setup**: install project dependencies as needed.
 

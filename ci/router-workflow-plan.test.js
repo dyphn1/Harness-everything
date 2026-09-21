@@ -67,6 +67,7 @@ if (validContract(direct, 'direct-single')) {
   check(plan.strategy === 'direct-single', 'one-file trivial task selects direct-single');
   check(plan.strategySelection === 'selected', 'direct-single is a selected strategy');
   check(plan.requiredInvariants.includes('visible-status-updates'), 'every selected workflow carries the user-visible status invariant');
+  check(plan.requiredInvariants.includes('environment-alignment'), 'every selected workflow carries conditional environment-alignment MUST');
   check(plan.workspace.required === false, 'direct-single does not require a workspace');
   check(plan.parallelism.allowed === false, 'direct-single does not parallelize');
 }
@@ -76,15 +77,15 @@ if (validContract(iterative, 'iterative-single')) {
   const plan = iterative.contract.workflowPlan;
   check(plan.tier === 'tier2', 'ordinary test-first bug fix is tier2');
   check(plan.strategy === 'iterative-single', 'ordinary bug fix selects iterative-single');
-  check(plan.limits.maxIterations === ITERATIVE_MAX_ITERATIONS, 'iterative-single retains an advisory iteration guidance value');
-  check(plan.limits.maxRevisionRounds === WORKFLOW_MAX_REVISION_ROUNDS, 'workflow exposes an advisory revision guidance value');
-  check(plan.limits.maxReplans === FABLE_MAX_REPLANS, 'workflow exposes an advisory replan guidance value');
-  check(plan.limits.maxWorkers === FABLE_MAX_WORKERS, 'workflow exposes an advisory worker guidance value');
+  check(plan.limits.maxIterations === ITERATIVE_MAX_ITERATIONS, 'iterative-single retains a MAY iteration planning value');
+  check(plan.limits.maxRevisionRounds === WORKFLOW_MAX_REVISION_ROUNDS, 'workflow exposes a MAY revision planning value');
+  check(plan.limits.maxReplans === FABLE_MAX_REPLANS, 'workflow exposes a MAY replan planning value');
+  check(plan.limits.maxWorkers === FABLE_MAX_WORKERS, 'workflow exposes a MAY worker planning value');
   check(plan.requiredInvariants.includes('objective-verification'), 'iterative-single carries objective verification invariant');
-  check(plan.requiredInvariants.includes('loop-awareness'), 'iterative-single carries loop-awareness guidance');
-  check(plan.suggestedSkills.includes('tdd'), 'TDD stays advisory rather than an invariant');
+  check(plan.requiredInvariants.includes('loop-awareness'), 'iterative-single carries semantic loop-awareness obligation while numeric counts remain MAY');
+  check(plan.suggestedSkills.includes('tdd'), 'TDD remains applicability-conditional rather than a universal invariant');
   check(plan.memory.write === 'none', 'ordinary iterative work cannot write durable memory');
-  check(!plan.requiredInvariants.includes('tdd'), 'suggested skills are separated from mandatory invariants');
+  check(!plan.requiredInvariants.includes('tdd'), 'suggested skill names remain separate from plan invariants until applicability is resolved');
 }
 
 const memoryPersist = runTier('Persist this lesson as memory after resolving the checkout regression.');
@@ -110,6 +111,8 @@ if (validContract(staged, 'fable-staged')) {
   check(plan.strategy === 'fable-staged', 'dependent multi-stage work selects fable-staged');
   check(plan.parallelism.allowed === false, 'dependent stages remain sequential');
   check(plan.verification.mode === 'cold-verifier', 'fable-staged requires cold verification');
+  check(plan.requiredInvariants.includes('isolated-worktree-before-mutation'), 'fable-staged carries mandatory isolation disposition');
+  check(plan.suggestedSkills.includes('using-git-worktrees'), 'fable-staged surfaces worktree resolution skill');
 }
 
 const parallelPrompt = 'Audit the entire repository with independent read-only security, architecture, and documentation workstreams.';
@@ -287,10 +290,10 @@ const kernelIterative = spawnSync(process.execPath, [kernelRouter, 'Fix this che
   encoding: 'utf8',
 });
 check(kernelIterative.stdout.includes('"strategy":"iterative-single"'), 'kernel consumes strategy from structured plan');
-check(kernelIterative.stdout.includes('loop-awareness:'), 'kernel prints dynamic plan guidance');
+check(kernelIterative.stdout.includes('loop-awareness:'), 'kernel prints dynamic semantic plan obligations');
 check(kernelIterative.stdout.includes('visible-status-updates:'), 'kernel prints the user-visible status invariant');
 check(kernelIterative.stdout.includes('USER-VISIBLE HARNESS STATUS CONTRACT (MUST)'), 'kernel prints the canonical mandatory user-visible status contract');
-check(kernelIterative.stdout.includes('   - tdd'), 'kernel prints advisory skills separately');
+check(kernelIterative.stdout.includes('   - tdd'), 'kernel prints suggested skills separately from required invariants');
 
 for (const schemaPath of [
   'harness-everything/schemas/router-task-shape.schema.json',

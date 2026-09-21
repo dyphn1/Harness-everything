@@ -4,10 +4,9 @@
  * Claude Code already refuses to Edit a file that wasn't Read first in the
  * same session - that's native behavior, not something this hook needs to
  * re-check. The gap is Write: it happily overwrites an existing file with
- * no prior Read at all. This hook closes that gap: blocks Write on a file
- * that already exists on disk unless a Read of that exact path shows up
- * earlier in this session's transcript.
- * Fails open on any parse/lookup error - never blocks due to a bug here.
+ * no prior Read at all. This hook observes that gap and emits the semantic
+ * MUST to establish current target state before destructive overwrite.
+ * Fails open on parse/lookup errors and does not create a cognitive lock.
  */
 const fs = require('fs');
 const path = require('path');
@@ -53,8 +52,8 @@ process.stdin.on('end', () => {
 
     if (!wasRead) {
       console.error(`[Depth Reminder]: "${filePath}" already exists but hasn't been Read in this session.`);
-      console.error(`Write() overwrites the whole file - doing that blind risks destroying content you never looked at.`);
-      console.error(`Read the file first (even a quick pass), then retry the Write, or use Edit for a targeted change.`);
+      console.error(`Semantic MUST: establish the current target state before a destructive whole-file overwrite.`);
+      console.error(`Read the file first (even a quick pass), or use Edit for a targeted change. This reminder is fail-open rather than a persistent lock.`);
       process.exit(0);
     }
 
