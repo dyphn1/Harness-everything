@@ -16,6 +16,8 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const DEFAULT_OUTPUT = path.join(ROOT, 'sbom.cdx.json');
 const PACKAGE_NAME = 'harness-everything';
+const CYCLONEDX_VERSION = '1.7';
+const CYCLONEDX_SCHEMA_URL = `https://cyclonedx.org/schema/bom-${CYCLONEDX_VERSION}.schema.json`;
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -133,8 +135,9 @@ function buildBom(root = ROOT, options = {}) {
   dependencyRecords.sort((left, right) => left.ref.localeCompare(right.ref));
 
   const bom = {
+    $schema: CYCLONEDX_SCHEMA_URL,
     bomFormat: 'CycloneDX',
-    specVersion: '1.5',
+    specVersion: CYCLONEDX_VERSION,
     serialNumber: options.serialNumber || serialNumberFor(name, version),
     version: 1,
     metadata: {
@@ -156,7 +159,8 @@ function buildBom(root = ROOT, options = {}) {
 
 function validateBom(bom, expectedVersion) {
   if (!bom || bom.bomFormat !== 'CycloneDX') throw new Error('SBOM must use the CycloneDX format');
-  if (bom.specVersion !== '1.5') throw new Error(`SBOM specVersion must be 1.5, got ${bom.specVersion}`);
+  if (bom.$schema !== CYCLONEDX_SCHEMA_URL) throw new Error(`SBOM schema must be ${CYCLONEDX_SCHEMA_URL}`);
+  if (bom.specVersion !== CYCLONEDX_VERSION) throw new Error(`SBOM specVersion must be ${CYCLONEDX_VERSION}, got ${bom.specVersion}`);
   if (!Number.isInteger(bom.version) || bom.version < 1) throw new Error('SBOM document version is missing');
   if (!/^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(bom.serialNumber || ''))) {
     throw new Error('SBOM serialNumber must be a UUID URN');
@@ -224,6 +228,8 @@ if (require.main === module) {
 module.exports = {
   buildBom,
   componentFor,
+  CYCLONEDX_SCHEMA_URL,
+  CYCLONEDX_VERSION,
   directDependencyNames,
   integrityHash,
   main,

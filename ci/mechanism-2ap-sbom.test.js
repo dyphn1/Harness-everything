@@ -5,7 +5,13 @@ const childProcess = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { buildBom, validateBom, writeBom } = require('../scripts/generate-sbom');
+const {
+  buildBom,
+  CYCLONEDX_SCHEMA_URL,
+  CYCLONEDX_VERSION,
+  validateBom,
+  writeBom
+} = require('../scripts/generate-sbom');
 
 const ROOT = path.resolve(__dirname, '..');
 const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
@@ -25,7 +31,9 @@ const bom = buildBom(ROOT, {
 });
 assert.doesNotThrow(() => validateBom(bom, packageJson.version));
 assert.strictEqual(bom.bomFormat, 'CycloneDX');
-assert.strictEqual(bom.specVersion, '1.5');
+assert.strictEqual(bom.$schema, CYCLONEDX_SCHEMA_URL);
+assert.strictEqual(bom.specVersion, CYCLONEDX_VERSION);
+assert.strictEqual(CYCLONEDX_VERSION, '1.7');
 assert.match(bom.serialNumber, /^urn:uuid:/);
 assert.strictEqual(bom.metadata.component.version, packageJson.version);
 assert.ok(bom.components.length > 0, 'SBOM must include lockfile components');
