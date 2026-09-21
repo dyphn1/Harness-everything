@@ -44,7 +44,8 @@ function isHostNotificationPrompt(prompt) {
   return /^<task-notification[\s>][\s\S]*<\/task-notification>\s*$/i.test(text);
 }
 
-function persistWorkflow(plan, payload, prompt) {
+function persistWorkflow(contract, payload, prompt) {
+  const plan = contract && contract.workflowPlan;
   if (!payload || !(payload.session_id || payload.sessionId)) return null;
   const { runtime, hooksRoot } = loadRuntime();
   const context = runtime.loadWorkflow(payload);
@@ -83,6 +84,7 @@ function persistWorkflow(plan, payload, prompt) {
     verification: plan.verification,
     mutationIsolation: plan.mutationIsolation || { required: false },
     workflowPlan: plan,
+    taskShape: contract.taskShape || null,
     state: selected ? 'pending' : 'deferred',
     planningWarnings: plan.fallback?.disposition === 'none' ? [] : [...(plan.fallback?.reasonCodes || [])],
     runId: null,
@@ -94,6 +96,10 @@ function persistWorkflow(plan, payload, prompt) {
       hardBoundaries: ['rule-of-3-reflection', 'user-host-permission'],
     },
   };
+  if (selected && ['tier2', 'tier3'].includes(plan.tier)) {
+    const { initializePlanningContract } = require(path.join(hooksRoot, 'lib/workflow-obligations'));
+    initializePlanningContract(context, plan);
+  }
   const memoryCapability = issueMemoryCapability(context.workflow);
   runtime.saveWorkflow(context);
   return { ...context, hooksRoot, retained: false, memoryCapability };
@@ -115,7 +121,7 @@ function run(raw) {
   let persisted = null;
   let failure = null;
   try {
-    persisted = persistWorkflow(plan, payload, prompt);
+    persisted = persistWorkflow(result?.contract || null, payload, prompt);
     if (persisted?.retained && persisted.workflow) plan = persisted.workflow.workflowPlan;
   } catch (error) { failure = error; }
   if (hostNotification && !persisted?.workflow) {
@@ -146,7 +152,12 @@ function run(raw) {
     console.log('   - Memory write disposition: ' + (persisted.workflow.workflowPlan.memory?.write || 'none'));
     if (persisted.memoryCapability) console.log('   - Memory capability (single-use, workflow/session-bound): ' + persisted.memoryCapability);
     console.log('   - Stage specification: ' + path.join(persisted.sessionDir, 'workflow-stages.json'));
-    console.log('   - Enter/replan: node "' + controller + '" start --session-id "' + persisted.sessionId + '"');
+    if (plan.strategySelection === 'selected' && ['tier2', 'tier3'].includes(plan.tier)) {
+      console.log('   - Planning contract: ' + path.join(persisted.sessionDir, 'workflow-obligations.json'));
+      console.log('   - Requirements first: decompose intent into requirement fragments, then confirm the smallest sufficient workflow.');
+      console.log('   - Record plan: node "' + controller + '" plan --session-id "' + persisted.sessionId + '" --requirements-json "[{\\\"id\\\":\\\"req-1\\\",\\\"summary\\\":\\\"...\\\",\\\"acceptance\\\":\\\"...\\\"}]" --strategy "' + plan.strategy + '" --evidence "<why this workflow fits>"');
+    }
+    console.log('   - Enter selected workflow after planning: node "' + controller + '" start --session-id "' + persisted.sessionId + '"');
     console.log('   - Escape one declared stage: node "' + controller + '" escape --session-id "' + persisted.sessionId + '" --stage-id "<id>" --reason-code workflow-uncovered-scope --scope "<uncovered scope>" --evidence "<evidence>"');
   } else {
     console.log('   - Runtime state was not persisted; reminders may be less precise, but execution remains available.');

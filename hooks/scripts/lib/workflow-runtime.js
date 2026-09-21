@@ -7,7 +7,7 @@ const { atomicWriteJson, readJson } = require('./fable-contracts');
 
 const OPEN_STATES = new Set(['pending', 'active', 'running', 'failed', 'blocked', 'escaped']);
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-const WORKFLOW_CONTROLLER_COMMANDS = new Set(['start', 'revision', 'escape', 'block']);
+const WORKFLOW_CONTROLLER_COMMANDS = new Set(['plan', 'start', 'revision', 'obligation', 'escape', 'block']);
 
 function activeWorkflowPlan(workflow) {
   if (!workflow) return null;
