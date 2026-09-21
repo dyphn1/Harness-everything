@@ -65,8 +65,11 @@ syncTree(sourceHooksScriptsRoot, packageHookScriptsRoot);
 const packageWorkspace = path.join(packageHookScriptsRoot, 'lib', 'workspace.js');
 syncTree(path.join(ROOT, 'scripts', 'lib', 'workspace.js'), packageWorkspace);
 
-const packageAdvisoryText = path.join(pluginRoot, 'scripts', 'lib', 'advisory-text.js');
-syncTree(path.join(ROOT, 'scripts', 'lib', 'advisory-text.js'), packageAdvisoryText);
+// Self-heal delegates to the installer. Package the installer and all of its
+// small local libraries under the plugin root so a published plugin does not
+// reach back into the source checkout.
+syncTree(path.join(ROOT, 'scripts', 'installer.js'), path.join(pluginRoot, 'scripts', 'installer.js'));
+syncTree(path.join(ROOT, 'scripts', 'lib'), path.join(pluginRoot, 'scripts', 'lib'));
 
 // Contract-integrity is shared runtime, not a directly-routed 27th skill.
 // Package it under the plugin root and rewrite its one canonical TDD import

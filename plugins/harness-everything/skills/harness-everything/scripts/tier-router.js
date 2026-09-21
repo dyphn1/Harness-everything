@@ -5,6 +5,7 @@ const {
   buildRouterContract,
   writeRouterContract,
 } = require('./router-contract');
+const { requireWorkspace } = require('./runtime-paths');
 
 const DEFAULT_ROUTING_CONFIG = {
   tiers: { tier3: [], tier2: [] },
@@ -163,7 +164,7 @@ function plannerInputsFromContext(context, promptLower) {
 function emitDynamicSkills(promptLower, context, recommendedGuides) {
   try {
     const userHome = process.env.HOME || process.env.USERPROFILE || '';
-    const { getWorkspaceRoot } = require('../../scripts/lib/workspace');
+    const { getWorkspaceRoot } = requireWorkspace();
     const workspaceRoot = getWorkspaceRoot(context);
 
     const manifestPaths = [
@@ -314,11 +315,6 @@ function run(userPrompt, context) {
 
   console.log(`\n=> RECOMMENDED TIER: ${recommendedTier}`);
   console.log(`=> RATIONALE: ${rationale}`);
-
-  if (recommendedTier.startsWith('Tier 2') || recommendedTier.startsWith('Tier 3')) {
-    console.log(`\n=> BASE EXECUTION LOOP: Load 'todo-driven-workflow' and initialize its checklist (3-7 verifiable sub-tasks) BEFORE editing any file.`);
-    console.log(`   Track exactly ONE item in-progress at a time; verify with real evidence before marking completed.`);
-  }
 
   const requestedFableModel = detectFableModel(promptLower);
   if (requestedFableModel) {
