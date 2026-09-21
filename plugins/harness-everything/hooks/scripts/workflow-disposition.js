@@ -6,22 +6,33 @@ const path = require('path');
 const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
 const { getWorkspaceRoot, readCurrentSession } = require('./lib/harness-state');
 const { atomicWriteJson, readJson } = require('./lib/fable-contracts');
+const {
+  planningUnresolved,
+  recordPlanning,
+  materializeExecutionObligations,
+  updateObligation,
+} = require('./lib/workflow-obligations');
 
 const ALLOWED_ESCAPE_REASONS = new Set(['workflow-uncovered-scope', 'host-capability-unavailable']);
 
 function parseArgs(argv) {
   const args = { command: argv[0] };
-  const flags = new Map([['--reason-code', 'reasonCode'], ['--scope', 'scope'], ['--evidence', 'evidence'], ['--session-id', 'sessionId'], ['--stage-id', 'stageId']]);
+  const flags = new Map([
+    ['--reason-code', 'reasonCode'], ['--scope', 'scope'], ['--evidence', 'evidence'],
+    ['--session-id', 'sessionId'], ['--stage-id', 'stageId'],
+    ['--obligation-id', 'obligationId'], ['--disposition', 'disposition'],
+    ['--requirements-json', 'requirementsJson'], ['--strategy', 'strategy'],
+  ]);
   for (let i = 1; i < argv.length; i++) {
     const key = flags.get(argv[i]);
-    if (!key || !argv[i + 1] || argv[i + 1].startsWith('--')) throw new Error('unknown or incomplete argument: ' + argv[i]);
+    if (!key || argv[i + 1] === undefined || argv[i + 1].startsWith('--')) throw new Error('unknown or incomplete argument: ' + argv[i]);
     args[key] = argv[++i];
   }
   return args;
 }
 
 function usage() {
-  return `Usage: workflow-disposition.js <${[...WORKFLOW_CONTROLLER_COMMANDS].join('|')}> --session-id <id> [--stage-id <id> --reason-code <reason> --scope <scope> --evidence <evidence>]`;
+  return `Usage: workflow-disposition.js <${[...WORKFLOW_CONTROLLER_COMMANDS].join('|')}> --session-id <id> [--requirements-json <json> --strategy <strategy> --obligation-id <id> --disposition <pass|escaped|blocked> --reason-code <reason> --scope <scope> --evidence <evidence>]`;
 }
 
 function consumer() {
@@ -51,10 +62,28 @@ function main() {
   const context = loadWorkflow({ session_id: sessionId });
   const { workflow } = context;
   if (!workflow || !OPEN_STATES.has(workflow.state)) throw new Error('no unresolved workflow contract exists for this session');
+
+  if (args.command === 'plan') {
+    if (!workflow.workflowId || !workflow.workflowPlan) throw new Error('legacy workflow lacks a correlated plan; cannot plan it implicitly');
+    const result = recordPlanning(context, args.requirementsJson, args.strategy, args.evidence);
+    saveWorkflow(context);
+    process.stdout.write(JSON.stringify({
+      state: workflow.state,
+      workflowId: workflow.workflowId,
+      requirements: result.set.requirements.map(item => ({ id: item.id, summary: item.summary })),
+      workflowSelection: result.set.workflowSelection,
+      replanRequired: result.replanRequired,
+    }) + '\n');
+    return;
+  }
+
   if (args.command === 'start') {
     if (!workflow.workflowId || !workflow.workflowPlan) throw new Error('legacy workflow lacks a correlated plan; cannot start it implicitly');
     if (workflow.state === 'running') throw new Error('workflow already running; record a blocker before replanning');
     const plan = workflow.pendingPlan || workflow.workflowPlan;
+    const unresolvedPlanning = planningUnresolved(context, plan);
+    if (unresolvedPlanning.length) throw new Error('resolve requirement decomposition/workflow selection first: ' + unresolvedPlanning.join(', '));
+
     if (!String(plan.strategy || '').startsWith('fable-')) {
       activatePlan(workflow, plan);
       workflow.revision++;
@@ -62,10 +91,17 @@ function main() {
       workflow.escapes = [];
       delete workflow.pendingPlan;
       delete workflow.blockReason;
+      const obligations = materializeExecutionObligations(context, plan);
       saveWorkflow(context);
-      process.stdout.write(JSON.stringify({ state: workflow.state, workflowId: workflow.workflowId, revision: workflow.revision }) + '\n');
+      process.stdout.write(JSON.stringify({
+        state: workflow.state,
+        workflowId: workflow.workflowId,
+        revision: workflow.revision,
+        obligations: obligations ? obligations.obligations.map(item => ({ id: item.id, status: item.status })) : [],
+      }) + '\n');
       return;
     }
+
     const stages = readJson(path.join(context.sessionDir, 'workflow-stages.json'));
     if (!Array.isArray(stages) || !stages.length) throw new Error('write a non-empty workflow-stages.json stage array at the session path first');
     if (stages.some(stage => !stage.checkCommand || !stage.passCondition)) throw new Error('every required stage needs an objective checkCommand and passCondition');
@@ -84,6 +120,25 @@ function main() {
     workflow.escapes = [];
     delete workflow.pendingPlan;
     delete workflow.blockReason;
+  } else if (args.command === 'obligation') {
+    if (String(workflow.strategy || '').startsWith('fable-')) throw new Error('Fable workflows use correlated stage contracts, not generic execution obligations');
+    if (workflow.state !== 'running') throw new Error('start the selected workflow before recording execution obligation dispositions');
+    const obligation = updateObligation(context, args.obligationId, args.disposition, {
+      evidence: args.evidence,
+      reasonCode: args.reasonCode,
+      scope: args.scope,
+    });
+    process.stdout.write(JSON.stringify({
+      state: workflow.state,
+      workflowId: workflow.workflowId,
+      obligation: {
+        id: obligation.id,
+        status: obligation.status,
+        reasonCode: obligation.reasonCode,
+        evidence: obligation.evidence,
+      },
+    }) + '\n');
+    return;
   } else if (args.command === 'revision') {
     console.error('[Workflow Reminder] Revision requested; no hard revision budget is enforced.');
   } else if (args.command === 'escape') {
@@ -100,13 +155,14 @@ function main() {
     };
     workflow.escapes = [...(workflow.escapes || []).filter(item => item.stageId !== args.stageId), disposition];
     atomicWriteJson(path.join(match.runRoot, 'escapes', args.stageId + '.json'), disposition);
-    // Scope-limited exception; never change the entire workflow to escaped.
   } else if (args.command === 'block') {
     if (!args.evidence?.trim()) throw new Error('--evidence is required');
     workflow.state = 'blocked';
     workflow.blockReason = args.evidence.trim();
   } else throw new Error(usage());
+
   saveWorkflow(context);
   process.stdout.write(JSON.stringify({ state: workflow.state, workflowId: workflow.workflowId, runId: workflow.runId, revision: workflow.revision, escapes: workflow.escapes }) + '\n');
 }
+
 try { main(); } catch (error) { console.error('[Workflow Disposition] ' + error.message); process.exitCode = 2; }
