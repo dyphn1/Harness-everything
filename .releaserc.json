@@ -64,7 +64,7 @@
       "@semantic-release/exec",
       {
         "verifyReleaseCmd": "node scripts/sync-release-version.js --validate ${nextRelease.version}",
-        "prepareCmd": "node scripts/sync-release-version.js ${nextRelease.version} --base ${lastRelease.gitTag} && npm run plugin:sync && node scripts/sync-release-version.js --check ${nextRelease.version} --base ${lastRelease.gitTag} && npm run test:consistency && npm run test:plugin:openai && npm run test:plugin:submission"
+        "prepareCmd": "node scripts/sync-release-version.js ${nextRelease.version} --base ${lastRelease.gitTag} && npm run plugin:sync && node scripts/generate-sbom.js --output sbom.cdx.json --version ${nextRelease.version} && node scripts/generate-sbom.js --validate sbom.cdx.json --version ${nextRelease.version} && node scripts/sync-release-version.js --check ${nextRelease.version} --base ${lastRelease.gitTag} && npm run test:consistency && npm run test:plugin:openai && npm run test:plugin:submission"
       }
     ],
     [

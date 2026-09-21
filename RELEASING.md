@@ -38,9 +38,11 @@ A push to `main` runs the full reusable CI gate and then semantic-release. A man
 4. Exit without publishing when there is no releasable commit.
 5. Calculate the next stable SemVer.
 6. Run `scripts/sync-release-version.js` to synchronize package, Claude, OpenAI/Codex, OpenCode, lockfile, and changed canonical skill version fields.
-7. Regenerate and verify plugin packages.
+7. Regenerate and verify plugin packages, then generate and validate the release-only `sbom.cdx.json` CycloneDX file.
 8. Update `CHANGELOG.md` and create `chore(release): X.Y.Z [skip ci]`.
-9. Create tag `vX.Y.Z`, publish npm with provenance, and create the GitHub Release.
+9. Create tag `vX.Y.Z`, publish npm with provenance (including the generated SBOM), and create the GitHub Release.
+
+The SBOM is generated from the release `package.json`/`package-lock.json` and is intentionally not committed to Git. npm packaging is tested to ensure `sbom.cdx.json` is included in the published tarball.
 
 Release concurrency is serialized so two updates to `main` cannot publish competing versions.
 
@@ -68,6 +70,12 @@ node scripts/sync-release-version.js --validate 1.2.3
 ```
 
 Prerelease/build suffixes such as `1.2.3-beta` or `1.2.3+meta` are rejected.
+
+The release SBOM can be checked independently with:
+
+```bash
+npm run test:release:sbom
+```
 
 ## Contributor requirements
 
