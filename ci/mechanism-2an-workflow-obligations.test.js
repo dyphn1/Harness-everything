@@ -131,14 +131,41 @@ const mismatchPlan = run(controller, [
   '--strategy', 'fable-staged',
   '--evidence', 'decomposition indicates dependent multi-stage work instead',
 ]);
-check(mismatchPlan.status === 0, 'different post-decomposition workflow is recorded rather than silently substituted');
+check(mismatchPlan.status === 0, 'post-decomposition workflow can be recomposed through the router contract');
 const mismatchObligations = readJson(path.join(mismatchDir, 'workflow-obligations.json'));
-check(mismatchObligations.workflowSelection.disposition === 'replan-required', 'strategy mismatch becomes explicit replan-required evidence');
-check(mismatchObligations.obligations.find(item => item.id === 'compose').status === 'blocked', 'composition stays unresolved until replan');
+const mismatchWorkflow = readJson(path.join(mismatchDir, 'workflow-run.json'));
+check(mismatchObligations.workflowSelection.disposition === 'confirmed', 'recomposed workflow receives an explicit confirmed disposition');
+check(mismatchObligations.workflowSelection.requestedStrategy === 'fable-staged' &&
+  mismatchObligations.workflowSelection.confirmedStrategy === 'fable-staged',
+  'requested and router-confirmed post-decomposition strategy are preserved');
+check(mismatchWorkflow.pendingPlan?.strategy === 'fable-staged', 'recomposed plan becomes the pending execution contract');
+const mismatchStart = run(controller, ['start', '--session-id', mismatchSession]);
+check(mismatchStart.status !== 0 && /workflow-stages\.json/.test(mismatchStart.stderr || ''),
+  'recomposed Fable topology proceeds to its native stage-contract requirement');
 check(run(workflowGate, [], {
   session_id: mismatchSession, cwd: ROOT, hook_event_name: 'PreToolUse',
   tool_name: 'Write', tool_input: { file_path: path.join(ROOT, 'tmp-replan.txt'), content: 'x' },
-}).status === 0, 'replan-required state still does not recreate a tool lock');
+}).status === 0, 'recomposed planning state still does not recreate a tool lock');
+
+const prohibitedSession = 'issue85-prohibited-recompose';
+const prohibitedPayload = { session_id: prohibitedSession, cwd: ROOT, prompt: 'Fix this checkout bug with a regression test. Do not use fable.' };
+check(run(kernel, [], prohibitedPayload).status === 0, 'prohibition fixture routes successfully');
+const prohibitedRequirements = JSON.stringify([
+  { id: 'req-safe', summary: 'Resolve the bug under the user constraints', acceptance: 'the fix is verified without prohibited topology' },
+]);
+const prohibitedPlan = run(controller, [
+  'plan', '--session-id', prohibitedSession,
+  '--requirements-json', prohibitedRequirements,
+  '--strategy', 'fable-staged',
+  '--evidence', 'candidate considered after decomposition',
+]);
+check(prohibitedPlan.status === 0, 'prohibited post-decomposition choice is evaluated by router policy');
+const prohibitedDir = getSessionDir(ROOT, prohibitedSession, prohibitedPayload);
+const prohibitedObligations = readJson(path.join(prohibitedDir, 'workflow-obligations.json'));
+check(prohibitedObligations.workflowSelection.disposition === 'blocked', 'original user prohibition survives recomposition');
+check(prohibitedObligations.obligations.find(item => item.id === 'decompose').status === 'pass' &&
+  prohibitedObligations.obligations.find(item => item.id === 'compose').status === 'blocked',
+  'requirements remain valid while only the prohibited workflow choice stays unresolved');
 
 const fableSession = 'issue85-fable';
 const fablePayload = { session_id: fableSession, cwd: ROOT, prompt: 'Refactor the entire authentication architecture in dependent stages.' };
