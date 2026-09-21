@@ -33,7 +33,7 @@ Cuts a plan or spec into tracer-bullet vertical slices, each declaring its block
 ## Process
 
 1. Resolve path: script check (Exit 0 = configured location) → workspace convention dirs → platform fallback (`.claude`/`.github`/`.cursor` + `/harness-everything/tickets/`).
-2. Gather context: prefer a referenced to-spec spec — design-audit verification MANDATORY first, else refuse; no spec is fine.
+2. Gather context: **SHOULD** use a referenced to-spec spec when available — design-audit verification is MANDATORY first, else refuse; no spec is fine.
 3. Explore codebase (optional): evidence-cited findings only; prefactor first.
 4. Draft vertical slices: complete path through every layer, demoable alone, one context window each; declare blocking edges.
 5. Quiz the user on granularity and edges until approved (MANDATORY gate).

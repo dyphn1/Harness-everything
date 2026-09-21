@@ -28,8 +28,8 @@ check((dockerVerify.match(/\$STATE_DIR\//g) || []).length >= 10,
   '#205 docker verifier routes all state checks through STATE_DIR');
 
 const architecture = fs.readFileSync(path.join(ROOT, 'docs/architecture.md'), 'utf8');
-check(architecture.includes('advisory loop-awareness reminders'),
-  '#206 architecture names loop-awareness as advisory');
+check(architecture.includes('MAY-level loop-awareness planning hints'),
+  '#206 architecture keeps loop-awareness numeric guidance explicitly non-mandatory');
 check(!/\bloop budgets\b/.test(architecture),
   '#206 architecture does not describe retired loop budgets as enforcement');
 

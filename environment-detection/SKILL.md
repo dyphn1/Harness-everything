@@ -20,6 +20,8 @@ metadata:
 
 Boundary: stay inside `process.cwd()`. Detection never writes integrations or searches parent/cache paths for another runtime.
 
+**Strength:** before relying on environment-sensitive commands, paths, package managers, or host capabilities, relevant discovery is a semantic **MUST**. Hosts may satisfy it from trusted injected environment context instead of rerunning probes.
+
 ## Workflow
 
 1. Run `node "<this-skill-dir>/scripts/preflight.js"`; detect OS, shell, CLIs.

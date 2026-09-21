@@ -142,7 +142,7 @@ function main(payload) {
 
       const changedFiles = statusRaw.split('\n').length;
       console.error(`[Atomic Commit Check] ${state.editCount} edits since the last commit (${changedFiles} files currently changed).`);
-      console.error('If a logically complete chunk of work is done, commit it now before continuing - large uncommitted diffs are harder to review and harder to recover from.');
+      console.error('Before committing, MUST inspect the staged diff/scope; unrelated concerns SHOULD be split unless coupling or explicit user intent justifies one commit. Large uncommitted diffs remain a review/recovery risk.');
       process.exit(0);
     }
 

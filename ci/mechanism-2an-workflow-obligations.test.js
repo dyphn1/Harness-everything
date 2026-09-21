@@ -47,6 +47,7 @@ let workflow = readJson(workflowFile);
 let obligations = readJson(obligationFile);
 check(workflow.tier === 'tier2' && workflow.strategy === 'iterative-single', 'Tier 2 receives a preliminary iterative-single route');
 check(workflow.state === 'pending', 'selected Tier 2 workflow begins pending');
+check(workflow.guidance?.mode === 'semantic-contract', 'persisted workflow records semantic-contract mode rather than advisory-workflow');
 check(obligations.phase === 'planning', 'Tier 2 immediately materializes a planning contract');
 check(obligations.obligations.map(item => item.id).join(',') === 'decompose,compose', 'planning starts with decompose then compose');
 check(obligations.requirements.length === 0, 'requirements begin empty instead of being invented by the router');

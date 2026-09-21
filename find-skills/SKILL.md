@@ -9,40 +9,31 @@ metadata:
 
 # Find Skills
 
-## 📋 Skill Contract
+## Skill Contract
 
-| Component | Specification |
+| Component | Contract |
 | :--- | :--- |
-| **Trigger / Input** | Request to find an external skill. |
-| **Expected Output** | Skill pointer, applied skill, or fallback. |
-| **State Mutations** | Temp cache (default); native install opt-in. |
-| **Enforcement Gate** | Local first; explicit approval before applying third-party code; graceful npx failure. |
+| **Input** | No installed skill fits, or user asks to find one. |
+| **Output** | Vetted skill pointer, approved application, or fallback. |
+| **State** | Temp cache by default; permanent install is opt-in. |
+| **Gate** | Third-party fetch/apply/install requires explicit approval. |
 
 ## Workflow
 
-0. Check local coverage (router registry, `generated[]`) before live installs:
-```bash
-npx skills list --json          # project scope
-npx skills list -g --json       # global scope
-```
-1. Identify domain/task, check [skills.sh](https://skills.sh/), then search `npx skills find [query] [--owner <owner>]`.
-2. Verify: prefer 1K+ installs, official sources; read the unaudited SKILL.md.
-3. Present name/source/count; NEVER fetch/apply without explicit approval.
-4. Apply ephemerally (default, zero footprint):
-```bash
-node "<this-skill-dir>/scripts/use-skill.js" <owner/repo[@skill]>
-```
-Treat the printed output as binding for this request, like a loaded skill — not reference material. OS-temp cache (6h); nothing written to repo or manifest.json.
-5. Permanent install ONLY when the user says they will reuse it: `npx skills add <owner/repo[@skill]> --agent <agent> [-g] -y`
-6. Nothing exists? Help directly; suggest `npx skills init <name>` if recurring.
-
-Deep dive: <this-skill-dir>/references/discovery-flow.md
+1. Check local coverage first: `npx skills list --json` and `npx skills list -g --json`.
+2. If uncovered, search skills.sh / `npx skills find [query] [--owner <owner>]`.
+3. Official/1K+ sources **SHOULD** rank first; **MUST** read the unaudited `SKILL.md`.
+4. Present name/source/count; **MUST** get explicit approval before fetching or applying third-party code.
+5. Ephemeral use is default: `node "<this-skill-dir>/scripts/use-skill.js" <owner/repo[@skill]>`. Treat its output as binding for this request.
+6. Permanent install **MUST** be explicitly requested: `npx skills add <owner/repo[@skill]> --agent <agent> [-g] -y`.
+7. No match: help directly; `npx skills init <name>` **MAY** be suggested for recurring needs.
 
 ## USE FOR:
-- finding an external skill when none installed fits
-- vetting third-party skills before applying them
-- ephemeral skill use without permanent installs
+- external skill discovery/vetting
+- approved ephemeral use
 
 ## DO NOT USE FOR:
-- authoring skills (`skill-creator`)
-- installing anything without explicit user approval
+- skill authoring (`skill-creator`)
+- unapproved third-party application/install
+
+Deep dive: <this-skill-dir>/references/discovery-flow.md

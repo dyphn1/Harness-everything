@@ -320,7 +320,7 @@ function selectWorkflowStrategy(input = {}) {
 function planMetadataForStrategy(strategy) {
   const base = {
     patterns: ['router'],
-    requiredInvariants: ['scope-lock', 'verify-before-claim', 'replan-after-repeated-failure', 'visible-status-updates'],
+    requiredInvariants: ['scope-lock', 'environment-alignment', 'verify-before-claim', 'replan-after-repeated-failure', 'visible-status-updates'],
     suggestedSkills: [],
     maxIterations: null,
     parallelAllowed: null,
@@ -365,8 +365,8 @@ function planMetadataForStrategy(strategy) {
     return {
       ...base,
       patterns: ['router', 'planner-executor', 'evaluator-optimizer'],
-      requiredInvariants: [...base.requiredInvariants, 'stage-contracts', 'cold-verification'],
-      suggestedSkills: ['fable-mode', 'fable-discipline', 'verification-loop'],
+      requiredInvariants: [...base.requiredInvariants, 'stage-contracts', 'cold-verification', 'isolated-worktree-before-mutation'],
+      suggestedSkills: ['using-git-worktrees', 'fable-mode', 'fable-discipline', 'verification-loop'],
       parallelAllowed: false,
       parallelReasonCodes: ['dependent-or-unproven-independent-stages'],
       workspaceRequired: false,
@@ -380,8 +380,8 @@ function planMetadataForStrategy(strategy) {
     return {
       ...base,
       patterns: ['router', 'planner-executor', 'evaluator-optimizer'],
-      requiredInvariants: [...base.requiredInvariants, 'stage-contracts', 'cold-verification', 'parallel-scope-contract', 'synthesis-barrier'],
-      suggestedSkills: ['fable-mode', 'fable-discipline', 'verification-loop'],
+      requiredInvariants: [...base.requiredInvariants, 'stage-contracts', 'cold-verification', 'isolated-worktree-before-mutation', 'parallel-scope-contract', 'synthesis-barrier'],
+      suggestedSkills: ['using-git-worktrees', 'fable-mode', 'fable-discipline', 'verification-loop'],
       parallelAllowed: true,
       parallelReasonCodes: ['independent-read-only-or-disjoint-scopes'],
       workspaceRequired: false,
@@ -395,8 +395,8 @@ function planMetadataForStrategy(strategy) {
     return {
       ...base,
       patterns: ['router', 'planner-executor', 'evaluator-optimizer', 'multi-agent-memory'],
-      requiredInvariants: [...base.requiredInvariants, 'stage-contracts', 'cold-verification', 'handoff-contracts', 'workspace-state'],
-      suggestedSkills: ['multi-agent-workspace', 'fable-mode', 'fable-discipline', 'verification-loop'],
+      requiredInvariants: [...base.requiredInvariants, 'stage-contracts', 'cold-verification', 'isolated-worktree-before-mutation', 'handoff-contracts', 'workspace-state'],
+      suggestedSkills: ['using-git-worktrees', 'multi-agent-workspace', 'fable-mode', 'fable-discipline', 'verification-loop'],
       parallelAllowed: false,
       parallelReasonCodes: ['workspace-orchestrator-controls-concurrency'],
       workspaceRequired: true,

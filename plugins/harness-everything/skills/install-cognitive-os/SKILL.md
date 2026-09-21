@@ -9,7 +9,7 @@ metadata:
 
 # Agent Cognitive OS
 
-The Cognitive OS is policy, not a required peer-skill selection. Supported runtimes should establish the smaller Harness invariant contract before domain-skill execution; this skill remains its human-readable/manual entry point.
+The Cognitive OS is policy, not a required peer-skill selection. Supported runtimes **MUST** establish the smaller Harness invariant contract before domain-skill execution; this skill remains its human-readable/manual entry point.
 
 ## USE FOR:
 - Apply or explain Discover → Think → Try → Summarize → Record.
@@ -39,6 +39,6 @@ The Cognitive OS is policy, not a required peer-skill selection. Supported runti
 
 Domain skills may define their own tactics and phases. They do not need to invoke this skill first as long as the Harness invariants remain satisfied.
 
-On advisory-only platforms, these rules are guidance rather than hard tool-call gates.
+On instruction-only platforms, the same semantic MUST/SHOULD/MAY contract applies through instructions rather than hard tool-call gates.
 
 Deep dive: <this-skill-dir>/references/cognitive-loop.md

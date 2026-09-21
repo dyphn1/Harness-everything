@@ -9,7 +9,7 @@ function runNode(args){return spawnSync(process.execPath,args,{cwd:ROOT,encoding
 console.log('=== Workflow Guidance Contract ===');
 for(const rel of ['harness-everything/scripts/kernel-router.js','hooks/scripts/workflow-gate.js','hooks/scripts/workflow-stop-gate.js','hooks/scripts/workflow-disposition.js','hooks/scripts/state-persist.js','hooks/scripts/rule-of-3.js','hooks/scripts/rule-of-3-tracker.js'])check(runNode(['--check',path.join(ROOT,rel)]).status===0,rel+' parses as valid JavaScript');
 const ctx={workflow:{workflowPlan:{limits:{maxIterations:8,maxRevisionRounds:2,maxReplans:2,maxWorkers:4}}}};
-for(const type of ['iteration','revision','replan','worker-acquire'])check(runtime.recordBudgetEvent(ctx,type,{evidence:'fixture'}).advisory===true,type+' is advisory rather than blocking');
+for(const type of ['iteration','revision','replan','worker-acquire'])check(runtime.recordBudgetEvent(ctx,type,{evidence:'fixture'}).advisory===true,type+' remains a MAY planning hint rather than blocking');
 check(runtime.mutationProbeReservations(ctx)===0,'mutation probes reserve no capacity');
 check(runtime.registerMutationProbe(ctx,'x','y')===null,'mutation probe registration is a no-op');
 check(runtime.resetWorkflowBudget(ctx,'legacy').retired===true,'reset-budget API is retired compatibility only');
@@ -51,5 +51,5 @@ try{
   check(stale.includes('independent-verifier-missing'),'Fable independent verifier is invalidated by newer handoff shell-edit evidence');
 }finally{fs.rmSync(freshnessRoot,{recursive:true,force:true});}
 
-console.log('\n'+(failed===0?'PASS':'FAIL')+': workflow guidance contract ('+failed+' failures)');
+console.log('\n'+(failed===0?'PASS':'FAIL')+': workflow semantic contract mechanics ('+failed+' failures)');
 process.exit(failed===0?0:1);

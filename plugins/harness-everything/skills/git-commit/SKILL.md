@@ -20,10 +20,10 @@ metadata:
 
 ## Quick Workflow
 
-1. `git status`; no repo → offer `git init` or skip; submodules changed → commit first per `<this-skill-dir>/guides/SUBMODULES.md`.
-2. `git diff --cached`; nothing staged → prompt user / stage targeted files.
+1. **MUST** run `git status`; no repo → offer `git init` or skip; submodules changed → commit first per `<this-skill-dir>/guides/SUBMODULES.md`.
+2. **MUST** inspect `git diff --cached` before committing. Nothing staged → prompt user / stage only user-authorized targeted files. Unrelated concerns **SHOULD** be split unless coupling or explicit user intent justifies one commit.
 3. Format `<type>(<scope>): <subject>` per `<this-skill-dir>/guides/ANGULAR_STYLE.md`. Multiline/Windows → `.git-commit-msg.txt` + `git commit -F`, clean up.
-4. `git commit -m "..."`, verify with `git log -1`.
+4. `git commit -m "..."`, then **MUST** verify the result with `git log -1`.
 
 ## USE FOR:
 - Commit request from the user

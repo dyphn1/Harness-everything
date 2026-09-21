@@ -18,6 +18,7 @@ assert.strictEqual(tier3.strategy, 'fable-staged');
 assert.ok(tier3.requiredInvariants.includes('isolated-worktree-before-mutation'), 'Tier 3 plan must carry mutation isolation invariant');
 assert.ok(tier3.suggestedSkills.includes('using-git-worktrees'), 'Tier 3 plan must surface the worktree workflow');
 assert.strictEqual(tier3.workspace.required, false, 'Git worktree isolation must remain distinct from durable multi-agent workspace state');
+assert.strictEqual(tier3.mutationIsolation.onUnavailable, 'degraded', 'unavailable isolation records an explicit degraded fallback instead of a cognitive hard block');
 
 const tier2 = router.buildRouterContract({
   routingStatus: 'ok',

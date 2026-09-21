@@ -1,21 +1,23 @@
-# Guidance and Safety Boundary Diagnostic Flows
+# Semantic Contracts and Safety Boundary Diagnostic Flows
 
-Harness deliberately separates **cognitive guidance** from **authorization/safety boundaries**.
+Harness deliberately separates **semantic obligation strength** from **mechanical enforcement** and from **authorization/safety boundaries**. Canonical MUST/SHOULD/MAY definitions live in [philosophy.md](philosophy.md#contract-strength-must--should--may).
 
 ## Classification
 
-| Mechanism | Behavior | Hard block? |
-|---|---|---|
-| Workflow routing/state | Remind about selected topology, stale/blocked descriptive state, missing Fable correlation, or safer worktree usage | No |
-| Iteration/revision/replan/worker guidance | Planning hints only | No |
-| Verification / Stop | Remind when no successful verification is observed after an edit | No |
-| Boundary guard | Warn about very large reads or noisy search roots | No |
-| Depth guard | Remind when editing a file that has not been inspected | No |
-| Subagent scope guard | Report ambiguous/out-of-scope changes for review | No |
-| Atomic commit check | Warn when changes look broader than one atomic concern | No |
-| Fable contract test | Record pass/fail/ambiguity/dependency evidence and warn | No |
-| Rule of 3 | Third matching failure requires a zoom-out reflection before more mutation | **Yes — intentional cognitive boundary** |
-| Action/permission gate | User/host authorization for destructive or external side effects | **Yes — trust boundary** |
+| Mechanism / obligation | Semantic strength | Runtime behavior | Hard block? |
+|---|---|---|---|
+| Workflow routing / selected topology | **MUST** resolve required obligations | Observe/remind about unresolved lifecycle evidence | No |
+| Suggested skill applicability | **MUST** evaluate; applicable core contract **MUST** run | Kernel/instructions expose dispositions | No |
+| Iteration/revision/replan/worker numbers | **MAY** guide planning | Planning hints only | No |
+| Verification before claim | **MUST** | Stop/hooks remind when evidence is missing | No |
+| Boundary guard / huge-noisy context | **SHOULD** narrow reads/searches | Warn | No |
+| Destructive overwrite target inspection | **MUST** establish current state | Depth guard reminds/fails open on mechanism errors | No |
+| Tier-3/Fable isolation disposition | **MUST** resolve worktree or degraded fallback | Warn when unresolved | No |
+| Subagent declared scope / unexpected writes | **MUST** respect and reconcile | Report ambiguous/out-of-scope changes | No |
+| Commit scope | Staged diff review **MUST**; split unrelated concerns **SHOULD** | Atomic-commit reminder | No |
+| Fable stage/check/synthesis/verifier | **MUST** when selected | Record pass/fail/ambiguity/dependency evidence and remind | No |
+| Rule of 3 | Third matching failure **MUST** trigger zoom-out | Pause mutation until reflection | **Yes — intentional cognitive boundary** |
+| Action/permission gate | Approval **MUST** precede governed side effects | Host/user authorization | **Yes — trust boundary** |
 
 ## Rule of 3
 
@@ -41,7 +43,7 @@ The previous numeric enforcement required mutation probes, stale-probe recovery,
 
 The design test is simple:
 
-> If better cognitive guidance requires another lock, lease, heartbeat, counter-recovery protocol, or parser exception, prefer a reminder.
+> If observing a semantic obligation would require another lock, lease, heartbeat, counter-recovery protocol, or parser exception, use a reminder instead. The reminder changes the **mechanism**, not the obligation's MUST/SHOULD/MAY strength.
 
 ## Troubleshooting
 

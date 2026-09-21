@@ -31,7 +31,7 @@ metadata:
 ## Workflow
 
 1. `[Discover]` Run `git log --oneline -n <num>` to confirm the range. If commits were already pushed to remote `main`/`master`, warn and require secondary human confirmation.
-2. `[Think] & [Try]` Create a temp branch. Never run bare interactive `git rebase -i`; prefer `git reset --soft HEAD~<N>` plus structured commits, or Node.js scripting (no hardcoded `sed -i`). Messages MUST follow Angular Style per the `git-commit` skill.
+2. `[Think/Try]` Create a temp branch. **MUST NOT** use bare `git rebase -i`; **SHOULD** use `git reset --soft HEAD~<N>` + structured commits or Node.js (no hardcoded `sed -i`). Messages MUST follow `git-commit`.
 3. `[Summarize]` Run `git log --oneline` for confirmation. On merge conflict, run `git rebase --abort`, STOP, and hand over to human decision or trigger `zoom-out`.
 
 Deep dive: <this-skill-dir>/references/workflow.md

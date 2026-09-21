@@ -16,10 +16,10 @@ try{
  fs.writeFileSync(path.join(dir,'workflow-run.json'),JSON.stringify({schemaVersion:1,sessionId:'worktree-guidance',tier:'tier3',strategy:'iterative-single',state:'active'}));
  const primary=runGate('Write',repo,{file_path:path.join(repo,'src.js'),content:'x'});
  check(primary.status===0,'Tier-3 primary-tree mutation is not hard-blocked',primary.stderr);
- check(/worktree/i.test(primary.stderr),'Tier-3 primary-tree mutation emits worktree guidance',primary.stderr);
+ check(/semantic MUST/i.test(primary.stderr)&&/worktree/i.test(primary.stderr),'Tier-3 primary-tree mutation emits mandatory isolation disposition without blocking',primary.stderr);
  const mutator=runGate('Bash',repo,{command:'git status --short && rm -rf src'});
  check(mutator.status===0,'mutation-shaped shell command remains available',mutator.stderr);
- check(/worktree/i.test(mutator.stderr),'mutation-shaped shell command receives worktree guidance',mutator.stderr);
+ check(/semantic MUST/i.test(mutator.stderr)&&/worktree/i.test(mutator.stderr),'mutation-shaped shell command receives the same isolation contract',mutator.stderr);
  const readOnly=runGate('Bash',repo,{command:'git status --short'});
  check(readOnly.status===0,'read-only discovery remains available');
  const create=git(repo,['worktree','add',linked,'-b','guidance-test']);check(create.status===0,'linked worktree fixture creates',create.stderr);
@@ -37,4 +37,4 @@ try{
  check(corrupt.status===0,'corrupt workflow state fails open',corrupt.stderr);
 }finally{fs.rmSync(temp,{recursive:true,force:true});}
 if(failed)process.exit(1);
-console.log('PASS: worktree isolation is guidance, not a cognitive lock');
+console.log('PASS: worktree isolation is a semantic MUST disposition, not a cognitive lock');

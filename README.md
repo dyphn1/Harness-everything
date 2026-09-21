@@ -19,7 +19,7 @@ AI coding agents are highly capable, but they struggle with self-regulation, env
 
 Harness acts as an automated system supervisor. It remains completely silent and out of the way, intervening only when execution boundaries are violated or failures are detected.
 
-Harness deliberately follows a **minimal rails, maximum freedom** design: the runtime establishes routing context, observes verification evidence, and emits lightweight reminders. It does not hard-stop work on iteration/revision/replan/worker counts. The one cognitive hard boundary is Rule of 3: three matching failures pause mutation for a zoom-out reflection. When routing emits skill suggestions, it adds one conditional rail: **evaluate before skip**. The agent must read each suggested skill's `SKILL.md` entry/basic flow before omitting it, but remains free to choose, combine, reorder, or skip execution after that evaluation.
+Harness deliberately follows a **minimal rails, maximum freedom** design: semantic obligations are explicit, while runtime observation remains lightweight and mostly fail-open. It does not hard-stop work on iteration/revision/replan/worker counts. The one cognitive hard boundary is Rule of 3: three matching failures pause mutation for a zoom-out reflection. Router suggestions are conditional by applicability, not optional by default: the agent MUST read/evaluate each suggested skill; if applicable, its core contract MUST be followed, and if not applicable a flow-grounded reason MUST be retained. Implementation tactics remain flexible inside those obligations.
 
 ### Comparison: Prompt vs. Skill vs. Harness
 
@@ -48,7 +48,7 @@ The exact "Harness" behavior depends on the installation surface. Claude Code ha
 
 Harness integrates directly into your workspace. There is no heavy daemon, no paid external APIs, and zero configuration required.
 
-**Runtime:** Harness supports **Node.js 22+**. Node.js **24** is the primary/recommended development and CI runtime (`.nvmrc`). The generated current-state runtime/workflow summary is [docs/repository-contract.md](docs/repository-contract.md).
+**Runtime:** Harness supports **Node.js 22+**. Node.js **24** is the primary development and CI runtime (`.nvmrc`). The generated current-state runtime/workflow summary is [docs/repository-contract.md](docs/repository-contract.md).
 
 ```bash
 # Option A: Claude Code plugin (marketplace manifest included)
@@ -73,7 +73,7 @@ npx github:dyphn1/Harness-everything install
 1. **Use the selected surface's real mechanism:** Claude Code hooks, the local OpenAI plugin lifecycle hooks, OpenCode's plugin API, or advisory instructions depending on what you installed.
 2. **Preflight / session context where packaged:** Hook-capable surfaces can inject environment/session context automatically; advisory-only surfaces must not be described as if they do.
 3. **Verification boundary:** Completion claims require objective evidence; whether that boundary is mechanically invoked or explicitly called depends on the host surface.
-4. **Mandatory applicable workflow:** Evaluate each suggested skill's complete `SKILL.md` before omission, then resolve the selected topology with objective evidence. Reasoning and implementation remain flexible; escape applies only to a declared uncovered stage with evidence. Tier 3 / Fable mutation requires a verified Git worktree. See the [workflow runtime contract](docs/workflow-runtime.md) for entry, completion, and host limits. Harness does not impose one universal TODO/TDD/Fable sequence.
+4. **Mandatory applicable workflow:** MUST evaluate each suggested skill's complete `SKILL.md`; applicable core contracts MUST be followed, while not-applicable needs a flow-grounded reason. Selected-topology required obligations MUST resolve with objective evidence. Reasoning and implementation remain flexible; escape applies only to declared uncovered scope with evidence. Tier-3/Fable broad mutation MUST resolve isolation: verified linked worktree or explicit degraded fallback. See the [workflow runtime contract](docs/workflow-runtime.md). Harness does not impose one universal TODO/TDD/Fable sequence.
 5. **Unified user-visible status:** For non-trivial software/project work, the agent MUST render one scannable Markdown `### 🚦 Harness Status` block with bold bullet labels for `Current`, `Read / Evidence`, `Next`, plus optional `Risk / Blocked`; multiple evidence items may use nested bullets. Use it at major phase/direction boundaries and before final completion. The routing checkpoint remains internal source state. This is a communication contract, not a hard runtime lock.
 
 ### What Gets Installed (and How to Remove It)
@@ -127,7 +127,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     U([User Request]) --> K[Harness Kernel<br/>classify scope + establish invariants]
-    K --> T{Tier recommendation}
+    K --> T{Tier classification}
     T --> S{Suggested skills?}
     S -->|Yes| R[Read each suggested SKILL.md<br/>evaluate flow + applicability]
     S -->|No| A[Agent chooses smallest useful tactic / skill set]
@@ -147,7 +147,7 @@ flowchart TD
     style Gate fill:#ffcdd2,stroke:#c62828,stroke-width:1px,color:#000000
 ```
 
-The Tier changes the **recommendations**, not the required order. Tier 2 may suggest `tdd`, `todo-driven-workflow`, or `verification-loop`; Tier 3 may suggest Fable or multi-agent capabilities. Suggestions are **mandatory to evaluate and advisory to execute**: read each suggested skill's `SKILL.md` flow before omission, then let the model decide what actually helps.
+The Tier changes task shape and the set of **suggested skills**, not a universal required order. Tier 2 may suggest `tdd`, `todo-driven-workflow`, or `verification-loop`; Tier 3 may select Fable or multi-agent topologies. Every suggestion is **MUST-evaluate**: if its real flow is applicable, the core contract becomes **MUST-follow**; otherwise retain a flow-grounded not-applicable reason. Tactics inside the resulting contract remain model-controlled.
 
 ---
 
@@ -155,7 +155,7 @@ The Tier changes the **recommendations**, not the required order. Tier 2 may sug
 
 Harness operates through six core cognitive concepts:
 
-1. **Kernel Router (`kernel-router.js` + `tier-router.js`):** `tier-router.js` remains the classifier, dynamic-skill detector, and knowledge-guide matcher. `kernel-router.js` is the public runtime boundary: it preserves the classifier result, removes legacy fixed-pipeline instructions, injects the baseline invariants, and adds `evaluate-suggestions-before-skip` whenever domain skills are suggested. Suggestions are mandatory to evaluate by reading their `SKILL.md` entry/basic flow, but advisory to execute after evaluation. This prevents host peer-skill selection or superficial routing summaries from bypassing Harness while preserving agent autonomy. If nothing matches at all — including nothing already kept from the open skills ecosystem — `find-skills` checks `npx skills list` live and, if still nothing, searches `skills.sh`/`npx skills` with explicit approval before installation.
+1. **Kernel Router (`kernel-router.js` + `tier-router.js`):** `tier-router.js` remains the classifier, dynamic-skill detector, and knowledge-guide matcher. `kernel-router.js` is the public runtime boundary: it preserves the classifier result, injects baseline MUST invariants, and adds `evaluate-suggestions-before-skip` whenever domain skills are suggested. Suggestions MUST be evaluated from their real `SKILL.md` flow; an applicable skill's core contract MUST be followed, while not-applicable needs evidence. Selected-topology obligations are also semantic MUSTs, but the runtime generally observes/reminds rather than hard-blocking. This preserves agent autonomy over tactics without allowing confidence to erase the lifecycle. If nothing matches at all — including nothing already kept from the open skills ecosystem — `find-skills` checks `npx skills list` live and, if still nothing, searches `skills.sh`/`npx skills` with explicit approval before installation.
 2. **Guard (`rule-of-3.js`):** The fail-safe circuit breaker. Tracks failure signatures across terminal runs on integration surfaces that package the required lifecycle hooks. If a test or command fails 3 times with the same signature, it locks mutating tools and forces a `zoom-out` reflection: re-verify every assumption with read-only tools, write a fact-checked report, then resume on a fresh diagnosis. A companion `Stop` hook (`stop-gate.js`) emits a non-blocking reminder when edits were never followed by successful verification on hosts where that hook is installed.
 3. **Memory (`state-persist.js`):** Session transaction logging for stateful hook/plugin integrations. Static skills/instructions alone do not create WAL state.
 4. **Reflection (`self-evolve`):** Long-term workspace immunization. Upon task completion, the agent reflects on the root cause of resolved issues, then judges whether the lesson is a simple rule or a reusable, complex pattern: simple rules are appended to local workspace rules (`RULES.md`); genuinely reusable patterns are instead packaged as a dynamic skill (via `skill-creator`'s Dynamic Skill Generation Contract) and registered in `manifest.json` so the Router picks it up in future sessions. Either path is validated by a hermetic self-regression suite before it's persisted.
@@ -172,10 +172,10 @@ The authoritative current matrix is [docs/platform-capabilities.md](docs/platfor
 
 | AI Agent Tool / Surface | Integration Method | Local Target Location | Enforcement claim |
 |---|---|---|---|
-| **Claude Code** | Native lifecycle hooks (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop`) | `.claude/settings.json`, `.claude/skills/`, `.claude/agents/` | Workflow/productivity guidance is reminder-oriented; Rule-of-3 reflection and explicit permission boundaries may block |
+| **Claude Code** | Native lifecycle hooks (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop`) | `.claude/settings.json`, `.claude/skills/`, `.claude/agents/` | Semantic workflow contracts are reminder-observed; Rule-of-3 reflection and explicit permission boundaries may block |
 | **OpenCode** | Native plugin module ([`opencode-plugin/index.mjs`](opencode-plugin/index.mjs), install as `harness-enforcement.js`) | `.opencode/plugins/` | **Partial live-host evidence** — project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS); current workflow/verification behavior is reminder-oriented, with only the third-failure reflection boundary blocking edits |
-| **Codex — general installer path** | Skills + `AGENTS.md` guidance | `AGENTS.md` + repo-scoped `.agents/skills/` | **Advisory/instruction-oriented** where the host only consumes instructions |
-| **Codex / local OpenAI plugin** | `.codex-plugin` package with session, prompt, supported-tool, subagent, and stop hooks plus 26 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanism-tested local guidance plus explicit permission/Rule-of-3 boundaries** for the packaged mappings; live host loading remains unverified |
+| **Codex — general installer path** | Skills + `AGENTS.md` instructions | `AGENTS.md` + repo-scoped `.agents/skills/` | **Instruction/advisory delivery only**; semantic MUST/SHOULD/MAY still applies, without a hard-enforcement claim |
+| **Codex / local OpenAI plugin** | `.codex-plugin` package with session, prompt, supported-tool, subagent, and stop hooks plus 26 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanism-tested local contract observation plus explicit permission/Rule-of-3 boundaries** for the packaged mappings; live host loading remains unverified |
 | **Public OpenAI Skills-only plugin** | Public Skills-only bundle | Generated submission ZIP from `plugins/harness-everything/skills/` | **Skill/workflow behavior only**; no local `.codex-plugin` lifecycle hooks in the public artifact |
 | **Cursor** | Native Project Rules + project skills | `.cursorrules` + `.cursor/skills/` | Advisory only |
 | **GitHub Copilot agent surfaces** | Agent Skills + repository custom instructions | `.github/copilot-instructions.md` + `.github/skills/` | Agent Skills path is documented; no live Harness session or plugin install is verified |
@@ -246,9 +246,9 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `skill-creator` | **Meta** | Create new skills from patterns |
 | `skill-style` | **Meta** | Skill authoring style guide |
 | `tdd` | **Skill (Tier 2)** | Test-driven development when executable behavior benefits from it |
-| `to-spec` | **Advisory (Tier 2/3)** | Publish specs from settled conversations |
-| `to-tickets` | **Advisory (Tier 2/3)** | Decompose settled specs into tracked tickets |
-| `todo-driven-workflow` | **Advisory Foundation** | Progress tracking when explicit multi-step state helps |
+| `to-spec` | **Optional (MAY, Tier 2/3)** | Publish specs from settled conversations |
+| `to-tickets` | **Optional (MAY, Tier 2/3)** | Decompose settled specs into tracked tickets |
+| `todo-driven-workflow` | **Optional Foundation (MAY)** | Progress tracking when explicit multi-step state helps |
 | `using-git-worktrees` | **Skill (Tier 2)** | Git worktree concurrency patterns |
 | `verification-loop` | **Skill (Tier 2)** | Select systematic verification evidence; kernel still requires evidence before completion |
 | `verify-before-claim` | **Always-on discipline** | Fact-audit before asserting claims |
@@ -263,7 +263,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 
 * [Harness Philosophy](docs/philosophy.md): The core behavior-first, intervention-only design.
 * [Harness Architecture](docs/architecture.md): Lifecycle hooks, security model, and data locality.
-* [Guidance and Safety Boundary Diagnostic Flows](docs/enforcement-locks.md): Distinguish reminders from the two intentional blocking boundaries and understand recovery.
+* [Semantic Contracts and Safety Boundary Diagnostic Flows](docs/enforcement-locks.md): Distinguish MUST/SHOULD/MAY obligations from reminder mechanics and the two intentional blocking boundaries.
 * [Platform Capability Matrix](docs/platform-capabilities.md): Canonical current enforcement/install/evidence boundary per surface.
 * [Repository Runtime & Workflow Contract](docs/repository-contract.md): Generated Node/action/workflow/gate state used by consistency CI.
 * [OpenAI / ChatGPT Plugin Packaging](docs/openai-plugin.md): Local Codex/OpenAI plugin packaging plus public Skills-only submission boundary.
@@ -273,7 +273,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 
 Fable model selection is documented in [fable-mode/references/model-matrix.md](fable-mode/references/model-matrix.md); the explicit entrypoints are `fable-haiku`, `fable-sonnet`, and `fable-opus`.
 
-Maintainers should follow [RELEASING.md](RELEASING.md) for tag-driven npm releases and record observations in [docs/release-evidence.md](docs/release-evidence.md). Issue #20 is closed (2026-09-10); its coordination history lives in git.
+Maintainers **MUST** follow [RELEASING.md](RELEASING.md) for tag-driven npm releases and record observations in [docs/release-evidence.md](docs/release-evidence.md). Issue #20 is closed (2026-09-10); its coordination history lives in git.
 
 ---
 

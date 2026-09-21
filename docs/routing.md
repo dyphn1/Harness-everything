@@ -4,9 +4,9 @@ Harness classifies software work and selects the smallest sufficient execution t
 
 The current architecture follows two coupled rules:
 
-> **Guidance-first workflow; flexible reasoning/implementation and execution.**
+> **Contract-first lifecycle; flexible reasoning/implementation and execution.**
 >
-> **Skill applicability is evaluated explicitly; skipped guidance should have a concise evidence-based reason.**
+> **Skill applicability is explicit: evaluation is mandatory, applicable core contracts are mandatory, and not-applicable dispositions require evidence.**
 
 A strong model remains free to decide *how* to perform the work. It may not decide that an applicable selected lifecycle can be skipped because the task feels simple or already understood.
 
@@ -18,7 +18,7 @@ For software/project work, Harness establishes routing context and lightweight r
 2. **Verify before claim** — completion requires objective evidence appropriate to the change.
 3. **Re-plan after repeated failure** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
 4. **Evaluate before omission** — read every suggested skill's complete `SKILL.md` entry before deciding applicability.
-5. **Review selected workflow** — use it as planning guidance and surface unresolved evidence before claiming completion.
+5. **Resolve selected workflow** — satisfy the selected topology's required obligations before completion; tactics MAY adapt, but required lifecycle evidence cannot be silently skipped.
 6. **Surface status** — non-trivial work MUST keep the user informed through the single Harness Status format at required phase boundaries.
 
 The model owns tools, implementation technique, reasoning, and decomposition details inside those rails.
@@ -28,10 +28,10 @@ The model owns tools, implementation technique, reasoning, and decomposition det
 ```text
 kernel-router.js
   ├─ delegates classification / guide discovery → tier-router.js
-  ├─ preserves tier + rationale + dynamic-skill recommendations
+  ├─ preserves tier + rationale + dynamic-skill suggestions
   ├─ emits required invariants + structured workflow plan
   ├─ requires applicability evaluation for suggested skills
-  ├─ records the selected workflow guidance
+  ├─ records the selected workflow contract
   └─ exposes warnings/degraded/escape evidence instead of silently hiding limitations
 ```
 
@@ -70,10 +70,11 @@ These are intentionally different concepts.
 
 For **every suggested skill**:
 
-1. Resolve/read the complete `SKILL.md` entry.
-2. Evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules.
+1. **MUST** resolve/read the complete `SKILL.md` entry.
+2. **MUST** evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules.
 3. Read extra material only when the entry explicitly requires it for applicability.
-4. Resolve the suggestion as `use`, `not-applicable`, or `unresolved/unavailable`.
+4. **MUST** resolve the suggestion as `use`, `not-applicable`, or `unresolved/unavailable`.
+5. If disposition is `use`, the skill's core contract **MUST** be followed. If it is `not-applicable`, a concise flow-grounded reason **MUST** be retained.
 
 A name, description, router summary, tier label, or generic “routine/common task” judgement is not sufficient evidence for `not-applicable`.
 
@@ -86,7 +87,7 @@ For the **selected workflow topology**:
 
 This prevents two opposite failures: forcing every task through one giant pipeline, and allowing a model to rationalize away the entire engineering lifecycle.
 
-## Three-tier recommendation model
+## Three-tier routing model
 
 ```mermaid
 flowchart TD
@@ -117,7 +118,7 @@ No universal `TODO → TDD → verification-loop` order is implied. But when a s
 
 Typical triggers: repository-wide refactors, architecture/migration work, broad synthesis, or bounded delegation. The router may select `fable-staged`, `fable-parallel`, or `fable-multi-agent-workspace`.
 
-A selected Fable topology is structured guidance for that run; dependency/write-set validation remains useful evidence, while missing workflow state does not hard-block execution.
+A selected Fable topology is a semantic execution contract for that run: required stage contracts, dependency/write-set validation, objective checks, synthesis, and cold verification **MUST** resolve. Host hooks may only remind when evidence is missing; that fail-open mechanism does not make the obligations optional.
 
 Tier 3 does **not** automatically mean multi-agent. The smallest sufficient topology still wins.
 
@@ -141,18 +142,24 @@ Direct/iterative verification milestones are checked, while semantic check quali
 
 ## Cognitive OS relationship
 
-`install-cognitive-os` remains the explanatory/manual entry point for Discover → Think → Try → Summarize → Record. It is a reasoning policy, not a peer skill that must be selected before domain work. The selected workflow guidance informs lifecycle choices; the model retains execution freedom.
+`install-cognitive-os` remains the explanatory/manual entry point for Discover → Think → Try → Summarize → Record. It is a reasoning policy, not a peer skill that must be selected before domain work. The selected workflow contract defines lifecycle obligations; the model retains freedom over reasoning and implementation tactics.
 
-## Guidance and enforcement strength
+## Contract and Enforcement Strength
 
-Workflow guidance is intentionally non-blocking across hosts. Keep that separate from Rule-of-3 and explicit permission enforcement.
+Canonical strength definitions live in [philosophy.md](philosophy.md#contract-strength-must--should--may):
 
-- **semantic contract:** what the agent MUST do, including the unified Harness Status where applicable;
+- **MUST:** skipping violates the semantic contract.
+- **SHOULD:** expected default with a concrete evidence-based exception.
+- **MAY:** optional optimization/capability.
+
+Keep semantic strength separate from runtime mechanics:
+
+- **semantic contract:** what the agent MUST/SHOULD/MAY do;
 - **mechanism:** which transitions a packaged hook/plugin can block, observe, or remind about;
 - **live evidence:** whether a real host actually loaded/fired that mechanism.
 
-Semantic MUST and mechanical blocking are intentionally separate. A required communication or engineering obligation does not need a persistent runtime lock to remain mandatory.
+A semantic MUST does not require a hard lock. Outside Rule-of-3 reflection and explicit permission/safety boundaries, lifecycle hooks stay fail-open/reminder-oriented.
 
-Instruction-only integrations receive the same workflow contract as guidance, but must not be labeled hard-enforced. Kernel emission alone does not prove model compliance. #82 owns host-specific retained evidence.
+Instruction-only integrations receive the same semantic contract through instructions, but must not be labeled hard-enforced. Kernel emission alone does not prove model compliance. #82 owns host-specific retained evidence.
 
 Do not infer cross-host parity from shared runtime code or passing package tests.

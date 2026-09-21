@@ -91,7 +91,7 @@ function persistWorkflow(contract, payload, prompt) {
     revision: 0,
     escapes: [],
     guidance: {
-      mode: 'advisory-workflow',
+      mode: 'semantic-contract',
       reasoningPolicy: 'model-controls-how',
       hardBoundaries: ['rule-of-3-reflection', 'user-host-permission'],
     },
@@ -136,15 +136,15 @@ function run(raw) {
   core.printWorkflowPlan(plan);
   core.printRoutingCheckpoint(plan);
   core.printKernelContract(plan);
-  console.log('\n=> WORKFLOW GUIDANCE (ADVISORY WHEN SELECTED):');
+  console.log('\n=> WORKFLOW SEMANTIC CONTRACT (NON-BLOCKING OBSERVATION):');
   console.log('   - State: ' + (persisted?.workflow.state || (plan.strategy ? 'unpersisted' : 'deferred')));
   console.log('   - Selected workflow: ' + (plan.strategy || 'deferred'));
   if (plan.strategySelection === 'selected') {
-    console.log('   - Use the selected workflow as planning guidance; reasoning and implementation remain flexible.');
-    console.log('   - Before claiming completion, review unresolved workflow evidence and objective verification.');
-    console.log('   - If you skip a suggested step, keep the reason explicit and evidence-based.');
-    console.log('   - Tier 3 / Fable changes are safer in a linked Git worktree; missing isolation is a strong reminder, not a Harness lock.');
-    console.log('   - Escape/replan metadata remains useful for audit, but it does not create a persistent execution lock.');
+    console.log('   - Selected-topology required obligations are semantic MUSTs; implementation technique and local tactics MAY adapt.');
+    console.log('   - Before claiming completion, MUST resolve required workflow evidence and objective verification, or report an explicit blocked/degraded disposition.');
+    console.log('   - Every suggested skill MUST resolve applicability. If applicable, follow its core contract; if not-applicable, keep a flow-grounded reason.');
+    console.log('   - Tier 3 / Fable broad mutation MUST resolve isolation: verified linked worktree or explicit degraded fallback. Missing isolation is not a Harness lock.');
+    console.log('   - Escape is only for genuinely uncovered declared scope with evidence; it does not erase covered MUST obligations.');
   }
   if (persisted?.workflow) {
     const controller = path.join(persisted.hooksRoot, 'workflow-disposition.js');
@@ -163,7 +163,7 @@ function run(raw) {
     console.log('   - Runtime state was not persisted; reminders may be less precise, but execution remains available.');
   }
   if (failure) console.error('[Workflow Reminder] routing state was not persisted: ' + failure.message);
-  if (result && result.status !== 0) console.error('[Workflow Reminder] router returned status ' + result.status + '; guidance is degraded, not blocking.');
+  if (result && result.status !== 0) console.error('[Workflow Reminder] router returned status ' + result.status + '; contract observation is degraded, not blocking.');
 }
 
 if (typeof module !== 'undefined') module.exports = { isHostNotificationPrompt };
