@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.16.6](https://github.com/dyphn1/Harness-everything/compare/v0.16.5...v0.16.6) (2026-09-21)
+
+### Bug Fixes
+
+* **environment-detection:** keep discovery read-only ([#214](https://github.com/dyphn1/Harness-everything/issues/214)) ([f6fa7ec](https://github.com/dyphn1/Harness-everything/commit/f6fa7ec57fb95072dce1177ee4e93718b77b21ef))
+
 ## [0.16.5](https://github.com/dyphn1/Harness-everything/compare/v0.16.4...v0.16.5) (2026-09-21)
 
 ### Bug Fixes
