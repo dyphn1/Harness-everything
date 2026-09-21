@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.20.0](https://github.com/dyphn1/Harness-everything/compare/v0.19.1...v0.20.0) (2026-09-21)
+
+### Features
+
+* **release:** adopt cyclonedx 1.7 sbom ([39304e4](https://github.com/dyphn1/Harness-everything/commit/39304e4bfe8f94e969c72624301238c5f183a995))
+* **release:** generate and publish CycloneDX SBOM with npm ([6d8ddd0](https://github.com/dyphn1/Harness-everything/commit/6d8ddd008b5cb1e893cbdad915be8fe063e85b84))
+
 ## [0.19.1](https://github.com/dyphn1/Harness-everything/compare/v0.19.0...v0.19.1) (2026-09-21)
 
 ## [0.19.0](https://github.com/dyphn1/Harness-everything/compare/v0.18.1...v0.19.0) (2026-09-21)
