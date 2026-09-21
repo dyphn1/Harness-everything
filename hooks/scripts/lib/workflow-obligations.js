@@ -140,67 +140,60 @@ function parseRequirements(requirementsJson) {
   });
 }
 
-function recordPlanning(context, requirementsJson, strategy, evidence) {
-  const plan = context.workflow?.pendingPlan || context.workflow?.workflowPlan;
-  if (!needsPlanningContract(plan)) throw new Error('current workflow does not require a planning contract');
-  const loaded = loadObligationSet(context, plan);
+function recordPlanning(context, requirementsJson, selectedPlan, requestedStrategy, evidence) {
+  if (!needsPlanningContract(selectedPlan)) throw new Error('selected workflow does not require a planning contract');
+  const loaded = loadObligationSet(context, selectedPlan);
   if (!loaded.set) throw new Error('workflow planning contract unavailable or invalid: ' + loaded.error);
   const requirements = parseRequirements(requirementsJson);
-  const selectedStrategy = String(strategy || '').trim();
+  const requested = String(requestedStrategy || '').trim();
   const planningEvidence = String(evidence || '').trim();
-  if (!selectedStrategy) throw new Error('--strategy is required');
+  if (!requested) throw new Error('--strategy is required');
   if (!planningEvidence) throw new Error('--evidence is required');
-  if (selectedStrategy !== plan.strategy) {
-    loaded.set.workflowSelection = {
-      candidateStrategy: plan.strategy,
-      confirmedStrategy: selectedStrategy,
-      evidence: planningEvidence,
-      confirmedAt: null,
-      disposition: 'replan-required',
-    };
-    loaded.set.requirements = requirements;
-    const now = new Date().toISOString();
-    const decompose = loaded.set.obligations.find(item => item.id === 'decompose');
-    if (decompose) {
-      decompose.status = 'pass';
-      decompose.reasonCode = null;
-      decompose.evidence = 'requirements:' + requirements.map(item => item.id).join(',');
-      decompose.updatedAt = now;
-    }
-    const compose = loaded.set.obligations.find(item => item.id === 'compose');
-    if (compose) {
-      compose.status = 'blocked';
-      compose.reasonCode = 'workflow-replan-required';
-      compose.evidence = planningEvidence;
-      compose.updatedAt = now;
-    }
-    atomicWriteJson(obligationPath(context.sessionDir), loaded.set);
-    context.workflow.planningWarning = 'workflow-replan-required';
-    return { set: loaded.set, replanRequired: true };
-  }
+
   const now = new Date().toISOString();
   loaded.set.requirements = requirements;
-  loaded.set.workflowSelection = {
-    candidateStrategy: plan.strategy,
-    confirmedStrategy: selectedStrategy,
-    evidence: planningEvidence,
-    confirmedAt: now,
-    disposition: 'confirmed',
-  };
-  for (const id of ['decompose', 'compose']) {
-    const obligation = loaded.set.obligations.find(item => item.id === id);
-    if (!obligation) continue;
-    obligation.status = 'pass';
-    obligation.evidence = id === 'decompose'
-      ? 'requirements:' + requirements.map(item => item.id).join(',')
-      : planningEvidence;
-    obligation.reasonCode = null;
-    obligation.updatedAt = now;
+  const decompose = loaded.set.obligations.find(item => item.id === 'decompose');
+  if (decompose) {
+    decompose.status = 'pass';
+    decompose.reasonCode = null;
+    decompose.evidence = 'requirements:' + requirements.map(item => item.id).join(',');
+    decompose.updatedAt = now;
   }
-  loaded.set.phase = 'planned';
-  delete context.workflow.planningWarning;
+
+  const blocked = selectedPlan.fallback?.disposition === 'blocked';
+  loaded.set.workflowSelection = {
+    candidateStrategy: loaded.set.candidateStrategy,
+    requestedStrategy: requested,
+    confirmedStrategy: blocked ? null : selectedPlan.strategy,
+    evidence: planningEvidence,
+    confirmedAt: blocked ? null : now,
+    disposition: blocked ? 'blocked' : 'confirmed',
+    fallback: selectedPlan.fallback || null,
+  };
+  const compose = loaded.set.obligations.find(item => item.id === 'compose');
+  if (compose) {
+    compose.status = blocked ? 'blocked' : 'pass';
+    compose.reasonCode = blocked ? 'workflow-selection-blocked' : null;
+    compose.evidence = planningEvidence;
+    compose.updatedAt = now;
+  }
+
+  if (blocked) {
+    context.workflow.planningWarning = 'workflow-selection-blocked';
+    delete context.workflow.pendingPlan;
+  } else {
+    loaded.set.phase = 'planned';
+    delete context.workflow.planningWarning;
+    if (selectedPlan.strategy !== context.workflow.workflowPlan.strategy ||
+        JSON.stringify(selectedPlan) !== JSON.stringify(context.workflow.workflowPlan)) {
+      context.workflow.pendingPlan = selectedPlan;
+    } else {
+      delete context.workflow.pendingPlan;
+    }
+  }
+
   atomicWriteJson(obligationPath(context.sessionDir), loaded.set);
-  return { set: loaded.set, replanRequired: false };
+  return { set: loaded.set, blocked, selectedPlan };
 }
 
 function materializeExecutionObligations(context, plan) {
