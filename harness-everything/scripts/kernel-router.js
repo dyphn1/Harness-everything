@@ -94,6 +94,10 @@ function persistWorkflow(plan, payload, prompt) {
       hardBoundaries: ['rule-of-3-reflection', 'user-host-permission'],
     },
   };
+  if (selected && ['tier2', 'tier3'].includes(plan.tier)) {
+    const { initializePlanningContract } = require(path.join(hooksRoot, 'lib/workflow-obligations'));
+    initializePlanningContract(context, plan);
+  }
   const memoryCapability = issueMemoryCapability(context.workflow);
   runtime.saveWorkflow(context);
   return { ...context, hooksRoot, retained: false, memoryCapability };
@@ -146,12 +150,12 @@ function run(raw) {
     console.log('   - Memory write disposition: ' + (persisted.workflow.workflowPlan.memory?.write || 'none'));
     if (persisted.memoryCapability) console.log('   - Memory capability (single-use, workflow/session-bound): ' + persisted.memoryCapability);
     console.log('   - Stage specification: ' + path.join(persisted.sessionDir, 'workflow-stages.json'));
-    console.log('   - Enter/replan: node "' + controller + '" start --session-id "' + persisted.sessionId + '"');
-    if (plan.strategySelection === 'selected' && ['tier2', 'tier3'].includes(plan.tier) && !String(plan.strategy || '').startsWith('fable-')) {
-      console.log('   - Obligation state: ' + path.join(persisted.sessionDir, 'workflow-obligations.json'));
-      console.log('   - Resolution contract: required obligations need explicit evidence-backed dispositions; this does not block tools.');
-      console.log('   - Record disposition: node "' + controller + '" obligation --session-id "' + persisted.sessionId + '" --obligation-id "<id>" --disposition pass --evidence "<evidence>"');
+    if (plan.strategySelection === 'selected' && ['tier2', 'tier3'].includes(plan.tier)) {
+      console.log('   - Planning contract: ' + path.join(persisted.sessionDir, 'workflow-obligations.json'));
+      console.log('   - Requirements first: decompose intent into requirement fragments, then confirm the smallest sufficient workflow.');
+      console.log('   - Record plan: node "' + controller + '" plan --session-id "' + persisted.sessionId + '" --requirements-json "[{\\\"id\\\":\\\"req-1\\\",\\\"summary\\\":\\\"...\\\",\\\"acceptance\\\":\\\"...\\\"}]" --strategy "' + plan.strategy + '" --evidence "<why this workflow fits>"');
     }
+    console.log('   - Enter selected workflow after planning: node "' + controller + '" start --session-id "' + persisted.sessionId + '"');
     console.log('   - Escape one declared stage: node "' + controller + '" escape --session-id "' + persisted.sessionId + '" --stage-id "<id>" --reason-code workflow-uncovered-scope --scope "<uncovered scope>" --evidence "<evidence>"');
   } else {
     console.log('   - Runtime state was not persisted; reminders may be less precise, but execution remains available.');
