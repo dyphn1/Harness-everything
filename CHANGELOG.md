@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.17.0](https://github.com/dyphn1/Harness-everything/compare/v0.16.6...v0.17.0) (2026-09-21)
+
+### Features
+
+* **router:** expose obligation resolution contract ([767f8ef](https://github.com/dyphn1/Harness-everything/commit/767f8ef20b97fe8da2dcbe11a49f00fd03d0976b))
+* **router:** retain task shape for post-decomposition composition ([cff0e48](https://github.com/dyphn1/Harness-everything/commit/cff0e489cdb5cd8a80b48370ab9905e508eac4e7))
+* **router:** surface requirements-first planning ([3ad82ae](https://github.com/dyphn1/Harness-everything/commit/3ad82aedbae7943b66cf686b05a685d247f8c0b0))
+* **workflow:** add non-Fable obligation contract ([d31bb0e](https://github.com/dyphn1/Harness-everything/commit/d31bb0e3b997a597692ae0af8741d5963bddc3aa))
+* **workflow:** add planning transition ([5f5855b](https://github.com/dyphn1/Harness-everything/commit/5f5855bb2219efcc6a0964319324e7d8215a775d))
+* **workflow:** confirm recomposed post-decomposition plan ([a5b2698](https://github.com/dyphn1/Harness-everything/commit/a5b26989da664c8f9e4c276210ba23fc67e2aeda))
+* **workflow:** decompose intent before start ([d1aba6d](https://github.com/dyphn1/Harness-everything/commit/d1aba6d01a2e3e260fc79b996b7e754fa3cd53e8))
+* **workflow:** expose obligation controller command ([4235144](https://github.com/dyphn1/Harness-everything/commit/42351443f315c130b302e120f382929f84cf5896))
+* **workflow:** keep unresolved obligations visible ([926dc2b](https://github.com/dyphn1/Harness-everything/commit/926dc2bb900b5891a3f217989216eeb5fc1917fd))
+* **workflow:** materialize and resolve obligations ([3cc25ad](https://github.com/dyphn1/Harness-everything/commit/3cc25ad18fa6325a6fd93b69749a7dadb605e099))
+* **workflow:** recompose topology after requirement decomposition ([bbb3ed7](https://github.com/dyphn1/Harness-everything/commit/bbb3ed7ca6bf9cfd24b8089428db0eb6b6cd52c0))
+* **workflow:** report unresolved planning obligations ([0c088d7](https://github.com/dyphn1/Harness-everything/commit/0c088d7cc7bf2c75631bf9b9b56dcd8b5851600a))
+
+### Bug Fixes
+
+* **workflow:** keep composition pre-execution ([a22e1de](https://github.com/dyphn1/Harness-everything/commit/a22e1de876bcc6a1bc36a6c679c2dcbcac1ce672))
+* **workflow:** keep recomposed pending execution unresolved ([f29672a](https://github.com/dyphn1/Harness-everything/commit/f29672a55d2b764a8e0dd909cd700af851bda415))
+* **workflow:** preserve decomposition before replan ([8400383](https://github.com/dyphn1/Harness-everything/commit/840038349cb11636152f68be560961f75a9859f2))
+
 ## [0.16.6](https://github.com/dyphn1/Harness-everything/compare/v0.16.5...v0.16.6) (2026-09-21)
 
 ### Bug Fixes
