@@ -58,6 +58,11 @@ Harness integrates directly into your workspace. There is no heavy daemon, no pa
 # Option B: install Harness hooks/skills/advisory integrations into your workspace
 npx github:dyphn1/Harness-everything install
 
+# Option C: install or update the native Claude Code/Codex plugin
+#   npx github:dyphn1/Harness-everything plugin-sync
+#   ./scripts/plugin-sync.sh              # POSIX shells / Git Bash
+#   powershell -File scripts/plugin-sync.ps1  # Windows PowerShell
+
 # OpenAI/Codex local plugin packaging is repository-owned under:
 #   .agents/plugins/marketplace.json
 #   plugins/harness-everything/.codex-plugin/plugin.json
@@ -89,6 +94,8 @@ The general installer only writes to your workspace (or, with `--global`, your h
 For `--global`, the installer uses each host's supported user-level skill location rather than assuming one shared directory works everywhere: shared Agent Skills remain under `~/.agents/skills/` where natively consumed, Continue uses `~/.continue/skills/`, Hermes uses `~/.hermes/skills/`, and Claude uses `~/.claude/skills/`.
 
 The repository also ships a separate local OpenAI/Codex plugin package under `plugins/harness-everything/` with marketplace metadata in `.agents/plugins/marketplace.json`. That package is not the same thing as the `--codex` advisory installer path. The public OpenAI Skills-only upload is narrower again; see [docs/openai-plugin.md](docs/openai-plugin.md).
+
+The native `plugin-sync` command detects the installed host CLIs and applies the state-specific operation: an absent plugin is installed, while an already-installed plugin is explicitly updated (Claude Code) or its configured marketplace is upgraded (Codex). If a host cannot report plugin state, the command fails closed without installing or updating blindly.
 
 The installer records its state directories in `.git/info/exclude` — a local-only git ignore file — so Harness state never lands in a commit and your working tree (including `.gitignore`) is never modified. Everything owned by the general installer is removed with the built-in uninstaller:
 
