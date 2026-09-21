@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.16.5](https://github.com/dyphn1/Harness-everything/compare/v0.16.4...v0.16.5) (2026-09-21)
+
+### Bug Fixes
+
+* **codex:** make packaged helper runtime self-contained ([96cba55](https://github.com/dyphn1/Harness-everything/commit/96cba55b2347251c90306a727825377ba26465c2))
+
 ## [0.16.4](https://github.com/dyphn1/Harness-everything/compare/v0.16.3...v0.16.4) (2026-09-20)
 
 ### Bug Fixes
