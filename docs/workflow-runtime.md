@@ -8,11 +8,26 @@ The runtime follows **minimal rails, maximum freedom**:
 
 - routing selects a useful topology and suggested skills;
 - workflow state records useful evidence and unresolved obligations;
+- the agent MUST use the single user-visible Harness Status format at required phase boundaries for non-trivial work;
 - verification hooks remind when evidence is missing;
 - worktree/isolation checks warn when a safer execution shape is available;
 - iteration, revision, replan, and worker counts are planning hints only.
 
 None of those cognitive workflow conditions should trap a session or require a reset command.
+
+A semantic MUST is not the same thing as a hard runtime lock. User-visible status, routing/applicability obligations, and verification-before-claim can remain mandatory agent contracts while host hooks observe or remind on a best-effort basis. Do not downgrade a semantic obligation to optional advice merely because the host cannot block it.
+
+The unified status shape is:
+
+```text
+Harness Status
+- Current: <what is being done now>
+- Read/Evidence: <important files/sources/evidence read or confirmed>
+- Next: <next intended action>
+- Blocked/Risk: <only when materially applicable>
+```
+
+Emit it before substantive execution, after major phases, on material direction changes, at meaningful long-running phase boundaries, and before final completion.
 
 The two intentionally separate hard boundaries are:
 

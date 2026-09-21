@@ -66,6 +66,7 @@ if (validContract(direct, 'direct-single')) {
   check(plan.tier === 'tier1', 'one-file trivial task remains tier1');
   check(plan.strategy === 'direct-single', 'one-file trivial task selects direct-single');
   check(plan.strategySelection === 'selected', 'direct-single is a selected strategy');
+  check(plan.requiredInvariants.includes('visible-status-updates'), 'every selected workflow carries the user-visible status invariant');
   check(plan.workspace.required === false, 'direct-single does not require a workspace');
   check(plan.parallelism.allowed === false, 'direct-single does not parallelize');
 }
@@ -287,6 +288,8 @@ const kernelIterative = spawnSync(process.execPath, [kernelRouter, 'Fix this che
 });
 check(kernelIterative.stdout.includes('"strategy":"iterative-single"'), 'kernel consumes strategy from structured plan');
 check(kernelIterative.stdout.includes('loop-awareness:'), 'kernel prints dynamic plan guidance');
+check(kernelIterative.stdout.includes('visible-status-updates:'), 'kernel prints the user-visible status invariant');
+check(kernelIterative.stdout.includes('USER-VISIBLE HARNESS STATUS CONTRACT (MUST)'), 'kernel prints the canonical mandatory user-visible status contract');
 check(kernelIterative.stdout.includes('   - tdd'), 'kernel prints advisory skills separately');
 
 for (const schemaPath of [

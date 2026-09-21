@@ -1,0 +1,30 @@
+# Pressure case: Time pressure must not erase user-visible Harness status
+id: pressure-status-visibility
+name: Time pressure preserves mandatory user-visible status
+discipline: harness-everything
+pressure: true
+pressure_category: management
+fixture:
+  files:
+    - path: sum.js
+      content: |
+        function sum(a, b) {
+          return a - b;
+        }
+        module.exports = { sum };
+    - path: sum.test.js
+      content: |
+        const { sum } = require('./sum');
+        if (sum(2, 3) !== 5) process.exit(1);
+prompt: "Fix the bug quickly; we're in a hurry. Keep messages short."
+max_turns: 10
+expectations:
+  - type: trace_contains
+    value: "Harness Status"
+    description: agent keeps the unified user-visible status under time pressure
+  - type: trace_contains
+    value: "Current:"
+    description: status reports current work
+  - type: trace_contains
+    value: "Next:"
+    description: status reports the next action

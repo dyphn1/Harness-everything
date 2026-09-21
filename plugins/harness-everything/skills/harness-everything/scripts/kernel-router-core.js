@@ -24,6 +24,7 @@ const { applyEnsemblePolicy } = require('./ensemble-policy');
 const INVARIANT_TEXT = {
   'scope-lock': 'Route before execution: stay inside the authorized task/repository scope.',
   'verify-before-claim': 'Verify before claim: completion claims require objective evidence appropriate to the change.',
+  'visible-status-updates': 'User-visible status is mandatory: use the single Harness Status format with Current, Read/Evidence, and Next at required phase boundaries; add Blocked/Risk only when materially applicable.',
   'replan-after-repeated-failure': 'Re-plan on repetition: after 3 same-signature failures, stop micro-retrying and zoom out/re-diagnose.',
   'evaluate-suggestions-before-skip': 'Evaluate before skip: read each suggested skill\'s complete SKILL.md entry/basic flow before omitting it.',
   'loop-awareness': 'When iterative work runs long, remind the agent to verify assumptions or re-plan; never hard-stop on a count.',
@@ -153,6 +154,7 @@ function printRoutingCheckpoint(plan) {
   console.log(`   - Strategy: ${plan.strategy || 'deferred'}`);
   console.log(`   - Required invariants: ${invariants.length ? invariants.join(', ') : 'none'}`);
   console.log(`   - Suggested skills: ${suggestions.length ? suggestions.join(', ') : 'none'}`);
+  console.log('   - User-visible progress: use this checkpoint as source state for the single Harness Status contract below; do not invent a per-skill progress format.');
   if (suggestions.length > 0) {
     console.log('   - Suggestion evaluation: MANDATORY. Before skipping any listed skill, read its complete SKILL.md entry and evaluate USE FOR, DO NOT USE FOR, workflow/basic flow, and hard rules.');
     console.log('   - Skip evidence: do not reject from only the skill name, description, router summary, or a generic "routine/common task" judgement. If the entry cannot be resolved/read, mark it unresolved/unavailable rather than skipped.');
@@ -165,6 +167,16 @@ function printKernelContract(plan) {
   for (const invariant of plan.requiredInvariants || []) {
     console.log(`   - ${invariant}: ${INVARIANT_TEXT[invariant] || 'Required by the selected workflow plan.'}`);
   }
+
+  console.log('\n=> USER-VISIBLE HARNESS STATUS CONTRACT (MUST):');
+  console.log('   - For non-trivial software/project work, the agent MUST use one compact user-visible status format:');
+  console.log('     Harness Status');
+  console.log('     - Current: <what is being done now>');
+  console.log('     - Read/Evidence: <important files/sources/evidence read or confirmed>');
+  console.log('     - Next: <next intended action>');
+  console.log('     - Blocked/Risk: <only when materially applicable>');
+  console.log('   - Emit it before substantive execution, after a major phase, when direction materially changes, at meaningful long-running phase boundaries, and before final completion (the final response may merge it naturally).');
+  console.log('   - This is a semantic communication MUST, not a hard execution lock, counter, or reset condition.');
 
   console.log('\n=> WORKFLOW SKILLS (EVALUATE APPLICABILITY — SELECTED WORKFLOW IS GUIDANCE):');
   if (Array.isArray(plan.suggestedSkills) && plan.suggestedSkills.length > 0) {

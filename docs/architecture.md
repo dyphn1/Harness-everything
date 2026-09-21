@@ -13,7 +13,8 @@ The minimal kernel establishes:
 - applicability evaluation for every suggested skill before omission,
 - objective evidence before completion,
 - bounded re-plan/recovery after repeated failure,
-- explicit warnings/degraded/escape evidence instead of silent workflow deletion.
+- explicit warnings/degraded/escape evidence instead of silent workflow deletion;
+- one mandatory user-visible Harness Status protocol for non-trivial work, independent of execution topology.
 
 > **Guidance-first workflow; flexible reasoning/implementation and execution.**
 >
@@ -53,6 +54,22 @@ flowchart TD
 - a workflow guidance.
 
 The router does not tell the model *how* to solve each stage. It decides what lifecycle shape is required. `direct-single`, `iterative-single`, `fable-staged`, `fable-parallel`, and `fable-multi-agent-workspace` remain deliberately small, non-overlapping topology choices.
+
+### User-visible status protocol
+
+Non-trivial work MUST expose one stable progress shape to the user:
+
+```text
+Harness Status
+- Current: <what is being done now>
+- Read/Evidence: <important files/sources/evidence read or confirmed>
+- Next: <next intended action>
+- Blocked/Risk: <only when materially applicable>
+```
+
+The agent emits it before substantive execution, after major phases, on material direction changes, at meaningful long-running phase boundaries, and before final completion. The router checkpoint feeds this status but is not a second user-facing template.
+
+This is a semantic contract, not another cognitive lock. Hook-capable hosts may observe or remind about compliance; instruction-only hosts still receive the MUST contract without pretending they can mechanically enforce it.
 
 ### Skill applicability vs. topology execution
 
