@@ -147,6 +147,11 @@ function run(raw) {
     if (persisted.memoryCapability) console.log('   - Memory capability (single-use, workflow/session-bound): ' + persisted.memoryCapability);
     console.log('   - Stage specification: ' + path.join(persisted.sessionDir, 'workflow-stages.json'));
     console.log('   - Enter/replan: node "' + controller + '" start --session-id "' + persisted.sessionId + '"');
+    if (plan.strategySelection === 'selected' && ['tier2', 'tier3'].includes(plan.tier) && !String(plan.strategy || '').startsWith('fable-')) {
+      console.log('   - Obligation state: ' + path.join(persisted.sessionDir, 'workflow-obligations.json'));
+      console.log('   - Resolution contract: required obligations need explicit evidence-backed dispositions; this does not block tools.');
+      console.log('   - Record disposition: node "' + controller + '" obligation --session-id "' + persisted.sessionId + '" --obligation-id "<id>" --disposition pass --evidence "<evidence>"');
+    }
     console.log('   - Escape one declared stage: node "' + controller + '" escape --session-id "' + persisted.sessionId + '" --stage-id "<id>" --reason-code workflow-uncovered-scope --scope "<uncovered scope>" --evidence "<evidence>"');
   } else {
     console.log('   - Runtime state was not persisted; reminders may be less precise, but execution remains available.');
