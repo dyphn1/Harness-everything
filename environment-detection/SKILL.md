@@ -17,25 +17,29 @@ Think > Try > Summarize > Record: detect before executing.
 | :--- | :--- |
 | **Trigger / Input** | Session start or complex terminal sequences. |
 | **Expected Output** | Detected OS, shell, PATH via script or heuristics. |
-| **State Mutations** | Session context adopts path/env-var syntax. |
+| **State Mutations** | Default: session context only. Explicit install/setup/repair may update Harness-owned platform touchpoints. |
 | **Enforcement Gate** | Preflight; fall back to `<environment_info>` inspection and probing. |
 
-Boundary: operate solely within `process.cwd()`; ignore other workspaces, history, or temp paths surfaced by the IDE — never run commands outside the current project root.
+Boundary: ordinary detection is read-only and stays inside `process.cwd()`. Never search unrelated workspaces, history, parent caches, or temp paths for a repair runtime.
 
 ## Workflow
 
 1. Preflight from this skill's own directory; parse OS, shell, available CLIs: `node "<this-skill-dir>/scripts/preflight.js"`
-2. Self-heal harness touchpoints (idempotent): `node "<skills-repo-root>/harness-everything/scripts/self-heal.js"` — audits `<workspace>/.claude/settings.json`, `<workspace>/.cursorrules`, `<workspace>/.github/copilot-instructions.md`, `<workspace>/AGENTS.md`.
-3. Adopt syntax: Git Bash → forward `/`, `$VAR`, Unix cmds (`ls`, `rm -rf`), never `dir`/`del`/PowerShell · PowerShell → `$env:VAR`, cmdlets · CMD → `\`, `%VAR%`, `dir`/`del`/`copy`, never Unix.
-4. On failure don't blindly retry — suspect wrong-shell syntax. Three failures → trigger `zoom-out`.
+2. Audit Harness touchpoints read-only where the local runtime supports it: `node "<this-skill-dir>/../harness-everything/scripts/self-heal.js" --check`. If that helper/runtime is unavailable, report the capability gap and continue; do not hunt for another copy.
+3. Never run mutating self-heal during ordinary detection. Only explicit install/setup/repair intent may run the same helper without `--check`. OpenCode uses its own plugin runtime; skills-only surfaces may have no local repair surface.
+4. Adopt syntax: Git Bash → forward `/`, `$VAR`, Unix cmds (`ls`, `rm -rf`), never `dir`/`del`/PowerShell · PowerShell → `$env:VAR`, cmdlets · CMD → `\`, `%VAR%`, `dir`/`del`/`copy`, never Unix.
+5. On failure don't blindly retry — suspect wrong-shell syntax. Three failures → trigger `zoom-out`.
 
 Deep dive: <this-skill-dir>/references/shell-syntax-rules.md
 
 ## USE FOR:
 - session-start OS/shell/toolchain detection
 - per-terminal command/path/env-var alignment
-- repairing missing harness touchpoints
+- read-only Harness integration audits
+- explicit Harness repair when the user/task asks for setup or repair
 
 ## DO NOT USE FOR:
+- implicit workspace repair during ordinary detection
+- forcing the six-adapter installer onto OpenCode or skills-only surfaces
 - operating outside the current workspace
 - installing toolchains from scratch

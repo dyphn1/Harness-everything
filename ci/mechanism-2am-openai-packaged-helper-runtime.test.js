@@ -45,6 +45,34 @@ try {
   });
   assert.strictEqual(selfHeal.status, 0, `packaged self-heal --check failed:\n${describe(selfHeal)}`);
 
+  // Public OpenAI skills-only submissions intentionally omit the plugin-root
+  // installer/runtime. The read-only audit must degrade safely instead of
+  // searching arbitrary parent/cache paths or failing skill execution.
+  const skillsOnlyRoot = path.join(tempRoot, 'skills-only');
+  const skillsOnlyWorkspace = path.join(tempRoot, 'skills-only-workspace');
+  fs.cpSync(path.join(pluginRoot, 'skills'), path.join(skillsOnlyRoot, 'skills'), { recursive: true });
+  fs.mkdirSync(path.join(skillsOnlyWorkspace, '.git'), { recursive: true });
+  fs.writeFileSync(path.join(skillsOnlyWorkspace, 'AGENTS.md'), '# skills-only workspace\n', 'utf8');
+  const skillsOnlyAgentsBefore = fs.readFileSync(path.join(skillsOnlyWorkspace, 'AGENTS.md'), 'utf8');
+  const skillsOnlyCheck = runNode(
+    path.join(skillsOnlyRoot, 'skills', 'harness-everything', 'scripts', 'self-heal.js'),
+    ['--check'],
+    {
+      cwd: skillsOnlyWorkspace,
+      env: {
+        HARNESS_STATE_HOME: path.join(tempRoot, 'skills-only-state'),
+        HARNESS_WORKSPACE_ROOT: skillsOnlyWorkspace,
+      },
+    }
+  );
+  assert.strictEqual(skillsOnlyCheck.status, 0, `skills-only self-heal --check failed:\n${describe(skillsOnlyCheck)}`);
+  assert.match(describe(skillsOnlyCheck), /Local repair runtime unavailable on this distribution surface/);
+  assert.strictEqual(
+    fs.readFileSync(path.join(skillsOnlyWorkspace, 'AGENTS.md'), 'utf8'),
+    skillsOnlyAgentsBefore,
+    'skills-only read-only audit must not rewrite workspace integration files'
+  );
+
   const installer = runNode(path.join(pluginRoot, 'scripts', 'installer.js'), ['--codex', '--no-skills', '--yes'], {
     cwd: workspaceRoot,
     env,
