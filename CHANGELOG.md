@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.18.0](https://github.com/dyphn1/Harness-everything/compare/v0.17.0...v0.18.0) (2026-09-21)
+
+### Features
+
+* **status:** require visible Harness progress updates ([508a14f](https://github.com/dyphn1/Harness-everything/commit/508a14ff1937fc1023738859306eef78f6ceb3e2))
+
+### Bug Fixes
+
+* **eval:** use supported status pressure category ([b5bbd24](https://github.com/dyphn1/Harness-everything/commit/b5bbd24d134a135fdcb68ff1c579c8ee432d201b))
+* **status:** keep Harness skill within token budget ([2c25fb6](https://github.com/dyphn1/Harness-everything/commit/2c25fb6f7db649269eebf49316c15b70659af8b5))
+
 ## [0.17.0](https://github.com/dyphn1/Harness-everything/compare/v0.16.6...v0.17.0) (2026-09-21)
 
 ### Features
