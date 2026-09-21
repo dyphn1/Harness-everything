@@ -279,15 +279,15 @@ function updateObligation(context, obligationId, disposition, options = {}) {
 }
 
 function unresolvedObligations(context) {
-  const plan = context.workflow?.workflowPlan;
+  const plan = context.workflow?.pendingPlan || context.workflow?.workflowPlan;
   if (!needsPlanningContract(plan)) return [];
   const unresolved = planningUnresolved(context, plan);
   const loaded = loadObligationSet(context, plan);
   if (!loaded.set) return unresolved;
+  if (!['running', 'satisfied', 'blocked', 'failed'].includes(context.workflow.state)) {
+    unresolved.push('execution:not-started');
+  }
   if (needsGenericExecutionObligations(plan)) {
-    if (!['running', 'satisfied', 'blocked', 'failed'].includes(context.workflow.state)) {
-      unresolved.push('execution:not-started');
-    }
     for (const obligation of loaded.set.obligations.filter(item => ['execute', 'verify'].includes(item.id))) {
       if (obligation.status === 'pending') unresolved.push(obligation.id + ':pending');
       else if (obligation.status === 'blocked') unresolved.push(obligation.id + ':blocked');
