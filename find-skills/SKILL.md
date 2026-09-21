@@ -26,7 +26,7 @@ npx skills list --json          # project scope
 npx skills list -g --json       # global scope
 ```
 1. Identify domain/task, check [skills.sh](https://skills.sh/), then search `npx skills find [query] [--owner <owner>]`.
-2. Verify: **SHOULD** favor official sources and 1K+ installs when available; **MUST** read the unaudited SKILL.md before applying it.
+2. Verify: official/1K+ sources **SHOULD** rank first; **MUST** read the unaudited SKILL.md.
 3. Present name/source/count; NEVER fetch/apply without explicit approval.
 4. Apply ephemerally (default, zero footprint):
 ```bash
