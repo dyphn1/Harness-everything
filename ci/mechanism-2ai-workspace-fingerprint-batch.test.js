@@ -188,8 +188,18 @@ try {
     prompt: 'Fix this checkout bug with a regression test',
   });
   check(routed.status === 0, '#169 large-workspace Tier-2 fixture routes normally');
+  const requirements = JSON.stringify([
+    { id: 'req-fingerprint', summary: 'Exercise large-workspace shell admission', acceptance: 'the shell call remains available above the fingerprint observation cap' },
+  ]);
+  const planned = node('hooks/scripts/workflow-disposition.js', undefined, [
+    'plan', '--session-id', sessionId,
+    '--requirements-json', requirements,
+    '--strategy', 'iterative-single',
+    '--evidence', 'single bounded runtime regression uses the iterative workflow',
+  ]);
+  check(planned.status === 0, '#169 large-workspace Tier-2 fixture resolves requirements/workflow planning');
   const started = node('hooks/scripts/workflow-disposition.js', undefined, ['start', '--session-id', sessionId]);
-  check(started.status === 0, '#169 large-workspace Tier-2 fixture starts normally');
+  check(started.status === 0, '#169 large-workspace Tier-2 fixture starts after planning');
 
   const admitted = node('hooks/scripts/workflow-gate.js', {
     ...payload,
