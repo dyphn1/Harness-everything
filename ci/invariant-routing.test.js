@@ -37,7 +37,7 @@ check(tier3.stdout.includes('WORKFLOW GUIDANCE (ADVISORY WHEN SELECTED)'),'Tier 
 const hs=read('harness-everything/SKILL.md');
 check(/workflow state and numeric limits guide; they do not hard-stop execution/i.test(hs),'Harness skill states non-blocking workflow contract');
 check(/only Rule-of-3 reflection and explicit user\/host permission boundaries may block/i.test(hs),'Harness skill names the only intentional blocking boundaries');
-check(/Surface status.*MUST render one Markdown.*Harness Status/i.test(hs)&&/Read \/ Evidence/i.test(hs),'Harness skill requires the readable unified user-visible status');
+check(/Surface status.*MUST render.*Harness Status/i.test(hs)&&/bold bullets/i.test(hs)&&/Read \/ Evidence/i.test(hs),'Harness skill requires the readable unified user-visible status');
 check(read('plugins/harness-everything/skills/harness-everything/SKILL.md')===hs,'Harness skill mirror matches');
 
 const wt=read('using-git-worktrees/SKILL.md');

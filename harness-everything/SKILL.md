@@ -23,12 +23,12 @@ Kernel routing entry.
 2. **Verify before claim** — seek objective evidence before saying work is done.
 3. **Zoom out on repetition** — after 3 same-signature failures, use `zoom-out`.
 4. **Evaluate before omission** — read each suggested skill's `SKILL.md` before deciding applicability.
-5. **Surface status** — non-trivial work MUST render one Markdown `### 🚦 Harness Status` with bullet-aligned bold `Current`, `Read / Evidence`, `Next`, and optional `Risk / Blocked` labels at major phase/direction boundaries.
+5. **Surface status** — non-trivial work MUST render `### 🚦 Harness Status` with bold bullets: `Current`, `Read / Evidence`, `Next`; optional `Risk / Blocked`.
 6. **Keep agency** — workflow state and numeric limits guide; they do not hard-stop execution.
 
 ## Workflow
 1. Reuse kernel output, or run `node "<this-skill-dir>/scripts/kernel-router.js" "<prompt summary>"`.
-2. Use the **Harness Routing Checkpoint** only as internal source state for the first Harness Status; never render it as a second progress block.
+2. Keep the **Harness Routing Checkpoint** internal; never render it separately.
 3. Read each suggested `SKILL.md`; evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules.
 4. Use the selected topology as planning guidance. Choose, combine, reorder, or skip steps when evidence supports doing so.
 5. Prefer worktree isolation for broad/Tier-3 mutation and objective verification before completion.
