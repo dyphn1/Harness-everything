@@ -87,7 +87,7 @@ For the **selected workflow topology**:
 
 This prevents two opposite failures: forcing every task through one giant pipeline, and allowing a model to rationalize away the entire engineering lifecycle.
 
-## Three-tier recommendation model
+## Three-tier routing model
 
 ```mermaid
 flowchart TD
@@ -142,9 +142,9 @@ Direct/iterative verification milestones are checked, while semantic check quali
 
 ## Cognitive OS relationship
 
-`install-cognitive-os` remains the explanatory/manual entry point for Discover → Think → Try → Summarize → Record. It is a reasoning policy, not a peer skill that must be selected before domain work. The selected workflow guidance informs lifecycle choices; the model retains execution freedom.
+`install-cognitive-os` remains the explanatory/manual entry point for Discover → Think → Try → Summarize → Record. It is a reasoning policy, not a peer skill that must be selected before domain work. The selected workflow contract defines lifecycle obligations; the model retains freedom over reasoning and implementation tactics.
 
-## Contract strength and enforcement
+## Contract and Enforcement Strength
 
 Canonical strength definitions live in [philosophy.md](philosophy.md#contract-strength-must--should--may):
 

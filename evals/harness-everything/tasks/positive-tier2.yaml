@@ -1,6 +1,6 @@
 id: positive-standard-tier2-001
 name: Standard bug fix routes to Tier 2
-description: "Route software/project work through the Harness kernel: classify Tier 1/2/3, surface planning guidance and applicable skills, then let the agent choose tactics. Use for software triage, routing, and re-routing; not general Q&A or non-software writing."
+description: "Route software/project work through Harness: classify tier/topology, resolve suggested skills, apply semantic obligations, and keep tactics flexible. Use for software triage/routing/re-routing; not general Q&A or non-software writing."
 tags:
   - positive-trigger
   - tier-2

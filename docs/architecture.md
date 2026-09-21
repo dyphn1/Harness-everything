@@ -91,7 +91,7 @@ For selected Fable topologies on Claude:
 - `workflow-stop-gate.js` reports unresolved stage/verification evidence without rejecting Stop;
 - `workflow-disposition.js` records explicit lifecycle/audit decisions; numeric budgets are no longer authoritative control state.
 
-Other topologies use their own applicable mechanisms: advisory loop-awareness reminders, regular verification stop-gates, action gates, and task-specific skills. Mechanism coverage is not assumed identical across hosts.
+Other topologies use their own applicable mechanisms: MAY-level loop-awareness planning hints, regular verification stop-gates, action gates, and task-specific skills. Mechanism coverage is not assumed identical across hosts.
 
 ### Scoped runtime advisories and capabilities
 
