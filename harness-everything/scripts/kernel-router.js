@@ -44,7 +44,8 @@ function isHostNotificationPrompt(prompt) {
   return /^<task-notification[\s>][\s\S]*<\/task-notification>\s*$/i.test(text);
 }
 
-function persistWorkflow(plan, payload, prompt) {
+function persistWorkflow(contract, payload, prompt) {
+  const plan = contract && contract.workflowPlan;
   if (!payload || !(payload.session_id || payload.sessionId)) return null;
   const { runtime, hooksRoot } = loadRuntime();
   const context = runtime.loadWorkflow(payload);
@@ -83,6 +84,7 @@ function persistWorkflow(plan, payload, prompt) {
     verification: plan.verification,
     mutationIsolation: plan.mutationIsolation || { required: false },
     workflowPlan: plan,
+    taskShape: contract.taskShape || null,
     state: selected ? 'pending' : 'deferred',
     planningWarnings: plan.fallback?.disposition === 'none' ? [] : [...(plan.fallback?.reasonCodes || [])],
     runId: null,
@@ -119,7 +121,7 @@ function run(raw) {
   let persisted = null;
   let failure = null;
   try {
-    persisted = persistWorkflow(plan, payload, prompt);
+    persisted = persistWorkflow(result?.contract || null, payload, prompt);
     if (persisted?.retained && persisted.workflow) plan = persisted.workflow.workflowPlan;
   } catch (error) { failure = error; }
   if (hostNotification && !persisted?.workflow) {
