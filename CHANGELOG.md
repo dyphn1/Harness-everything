@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.18.1](https://github.com/dyphn1/Harness-everything/compare/v0.18.0...v0.18.1) (2026-09-21)
+
+### Bug Fixes
+
+* **status:** keep presentation contract compact ([942c2a3](https://github.com/dyphn1/Harness-everything/commit/942c2a30a4281d6f07e83bca91977991e53d04ea))
+* **status:** restore readable visual hierarchy ([63223b2](https://github.com/dyphn1/Harness-everything/commit/63223b2eac86926b154b5a90072216fd9e761342))
+
 ## [0.18.0](https://github.com/dyphn1/Harness-everything/compare/v0.17.0...v0.18.0) (2026-09-21)
 
 ### Features
