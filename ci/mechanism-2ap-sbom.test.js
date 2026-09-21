@@ -11,7 +11,7 @@ const ROOT = path.resolve(__dirname, '..');
 const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const releaseConfig = JSON.parse(fs.readFileSync(path.join(ROOT, '.releaserc.json'), 'utf8'));
 const execFileSync = childProcess.execFileSync;
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const npmCommand = 'npm';
 
 const execPlugin = releaseConfig.plugins.find(plugin => Array.isArray(plugin) && plugin[0] === '@semantic-release/exec');
 assert.ok(execPlugin, 'semantic-release exec plugin is required for SBOM generation');
@@ -55,6 +55,7 @@ try {
   const packOutput = execFileSync(npmCommand, ['pack', '--dry-run', '--json', '--ignore-scripts'], {
     cwd: packRoot,
     encoding: 'utf8',
+    shell: process.platform === 'win32',
     env: {
       ...process.env,
       HUSKY: '0',
