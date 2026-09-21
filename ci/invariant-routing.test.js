@@ -20,9 +20,12 @@ check(!tier2.stdout.includes('unavailable isolation means BLOCKED'),'old worktre
 check(tier2.stdout.includes('evaluate-suggestions-before-skip'),'skill suggestions still require evaluation before omission');
 check(tier2.stdout.includes('visible-status-updates'),'workflow plan carries mandatory user-visible status invariant');
 check(tier2.stdout.includes('USER-VISIBLE HARNESS STATUS CONTRACT (MUST)'),'kernel emits the mandatory unified status contract');
-for(const field of ['Harness Status','Current:','Read/Evidence:','Next:','Blocked/Risk:']){
-  check(tier2.stdout.includes(field),'kernel status contract includes '+field);
+for(const field of ['### 🚦 Harness Status','- **Current:**','- **Read / Evidence:**','- **Next:**','- **Risk / Blocked:**']){
+  check(tier2.stdout.includes(field),'kernel status contract includes readable Markdown field '+field);
 }
+check(tier2.stdout.includes('HARNESS ROUTING CHECKPOINT (INTERNAL SOURCE STATE — DO NOT RENDER SEPARATELY)'),'routing checkpoint is marked internal rather than user-facing');
+check(!tier2.stdout.includes('HARNESS ROUTING CHECKPOINT (REQUIRED VISIBLE STATE)'),'legacy duplicate-visible checkpoint label is absent');
+check(tier2.stdout.includes('nested bullets when there are multiple items'),'kernel tells agents to split dense evidence into nested bullets');
 check(tier2.stdout.includes('semantic communication MUST, not a hard execution lock'),'kernel separates semantic MUST from mechanical blocking');
 
 const tier3=spawnSync(process.execPath,[kernel,'audit the entire repository architecture and coordinate multiple modules'],{cwd:ROOT,encoding:'utf8'});
@@ -34,7 +37,7 @@ check(tier3.stdout.includes('WORKFLOW GUIDANCE (ADVISORY WHEN SELECTED)'),'Tier 
 const hs=read('harness-everything/SKILL.md');
 check(/workflow state and numeric limits guide; they do not hard-stop execution/i.test(hs),'Harness skill states non-blocking workflow contract');
 check(/only Rule-of-3 reflection and explicit user\/host permission boundaries may block/i.test(hs),'Harness skill names the only intentional blocking boundaries');
-check(/Surface status.*MUST use one.*Harness Status/i.test(hs)&&/Read\/Evidence/i.test(hs),'Harness skill makes the unified user-visible status mandatory');
+check(/Surface status.*MUST render.*Harness Status/i.test(hs)&&/bold bullets/i.test(hs)&&/Read \/ Evidence/i.test(hs),'Harness skill requires the readable unified user-visible status');
 check(read('plugins/harness-everything/skills/harness-everything/SKILL.md')===hs,'Harness skill mirror matches');
 
 const wt=read('using-git-worktrees/SKILL.md');
@@ -55,13 +58,13 @@ for(const p of ['docs/routing.md','docs/architecture.md','docs/workflow-runtime.
 }
 const advisory=read('scripts/lib/advisory-text.js');
 check(/selected workflow topology.*planning guidance/i.test(advisory),'installer advisory text keeps workflow non-blocking');
-check(/USER-VISIBLE STATUS \(MUST\)/i.test(advisory)&&/Read\/Evidence:/i.test(advisory),'instruction-only installers carry the mandatory unified status contract');
+check(/USER-VISIBLE STATUS \(MUST\)/i.test(advisory)&&/### 🚦 Harness Status/i.test(advisory)&&/\*\*Read \/ Evidence:\*\*/i.test(advisory),'instruction-only installers carry the readable mandatory status contract');
 check(/Rule of 3/i.test(advisory)&&/Permission boundaries are separate/i.test(advisory),'installer text preserves Rule-of-3 and permission boundaries');
 check(read('plugins/harness-everything/scripts/lib/advisory-text.js')===advisory,'OpenAI advisory mirror matches');
 
 const agents=read('AGENTS.md');
 check(/Selected workflow is planning guidance/i.test(agents),'repository agent contract is guidance-first');
-check(/User-visible Harness Status is mandatory/i.test(agents),'repository agent contract requires unified user-visible status');
+check(/User-visible Harness Status is mandatory/i.test(agents)&&/### 🚦 Harness Status/i.test(agents)&&/nested evidence bullets/i.test(agents),'repository agent contract requires readable unified user-visible status');
 check(/Prefer Git worktree isolation/i.test(agents),'repository worktree rule is a recommendation');
 
 const hooks=JSON.parse(read('hooks/hooks.json'));

@@ -151,15 +151,20 @@ Never turn mechanism/package evidence into a cross-host live-enforcement claim. 
 
 ## 6. User-visible status contract
 
-For non-trivial software/project work, user-facing progress **MUST** use one stable shape across direct, iterative, Fable, and multi-agent execution:
+For non-trivial software/project work, user-facing progress **MUST** use one stable Markdown shape across direct, iterative, Fable, and multi-agent execution:
 
-```text
-Harness Status
-- Current: <what is being done now>
-- Read/Evidence: <important files/sources/evidence read or confirmed>
-- Next: <next intended action>
-- Blocked/Risk: <only when materially applicable>
+```md
+### 🚦 Harness Status
+
+- **Current:** <what is being done now>
+- **Read / Evidence:**
+  - <important file/source/evidence read or confirmed>
+  - <another item when multiple evidence items improve scanability>
+- **Next:** <next intended action>
+- **Risk / Blocked:** <only when materially applicable; omit otherwise>
 ```
+
+When there is only one short evidence item, keep it inline on the **Read / Evidence** bullet. Use nested bullets when multiple items would otherwise become one dense sentence.
 
 Emit it before substantive execution, after a major phase completes, when the plan/assumption/direction materially changes, at meaningful phase boundaries during long-running work, and before final completion. The final response may merge the last status naturally.
 
@@ -167,7 +172,7 @@ This is a semantic communication MUST. It does **not** create a runtime lock, co
 
 ## 7. Routing Checkpoint
 
-For software/project work, consume this runtime state when producing the first Harness Status:
+For software/project work, consume this internal runtime state when producing the first Harness Status; do not render the checkpoint as a separate user-facing block:
 
 ```markdown
 ## 🚦 Harness Routing Checkpoint

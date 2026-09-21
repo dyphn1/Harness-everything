@@ -47,17 +47,20 @@ On a host where `UserPromptSubmit` is wired, reuse that hook output instead of r
 
 ## User-visible status contract
 
-For non-trivial software/project work, the user-facing progress protocol is a semantic **MUST** and is identical across execution topologies:
+For non-trivial software/project work, the user-facing progress protocol is a semantic **MUST** and uses the same readable Markdown presentation across execution topologies:
 
-```text
-Harness Status
-- Current: <what is being done now>
-- Read/Evidence: <important files/sources/evidence read or confirmed>
-- Next: <next intended action>
-- Blocked/Risk: <only when materially applicable>
+```md
+### 🚦 Harness Status
+
+- **Current:** <what is being done now>
+- **Read / Evidence:**
+  - <important file/source/evidence read or confirmed>
+  - <another item when multiple evidence items improve scanability>
+- **Next:** <next intended action>
+- **Risk / Blocked:** <only when materially applicable; omit otherwise>
 ```
 
-Emit it before substantive execution, after a major phase, when direction materially changes, at meaningful long-running phase boundaries, and before final completion. The final response may fold the last status into its completion summary. The routing checkpoint is source state for this protocol, not a second user-facing progress template.
+Keep one short evidence item inline when that reads better; use nested bullets for multiple evidence items. Emit the status before substantive execution, after a major phase, when direction materially changes, at meaningful long-running phase boundaries, and before final completion. The final response may fold the last status into its completion summary. The routing checkpoint is internal source state for this protocol, not a second user-facing progress template.
 
 This MUST is semantic rather than a hard runtime lock: hosts may observe/remind with different strength, but lack of a blocking hook does not downgrade the contract to optional advice.
 
