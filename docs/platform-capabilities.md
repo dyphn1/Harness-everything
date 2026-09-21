@@ -27,9 +27,9 @@ This is a **repository/agent contract**, not an automatic upgrade to any platfor
 
 | Platform surface | Standalone skills | Plugin support | Hooks/lifecycle | Project scope | Global scope | Current evidence boundary |
 | --- | --- | --- | --- | --- | --- | --- |
-| Codex | `Supported` | `Mechanism verified` | `Mechanism verified` for the local OpenAI package, including session, prompt, supported-tool, subagent, and stop hooks | `.agents/skills/`, `AGENTS.md` | `~/.agents/skills/` | Local package hooks are mechanically checked; live loading and marketplace refresh remain `Unknown`. |
+| Codex | `Supported` | `Mechanism verified` | `Mechanism verified` for the local OpenAI package, including session, prompt, supported-tool, subagent, and stop hooks | `.agents/skills/`, `AGENTS.md` | `~/.agents/skills/` | Local package hooks and the state-specific marketplace sync command are mechanically checked; live loading and marketplace refresh remain unverified. |
 | ChatGPT / OpenAI Plugin | `Unknown` for a repository-local standalone path | `Mechanism verified` | `Partial`: local Work/Codex hooks are separate from ordinary Chat | Managed workspace marketplace | Not established | The public Skills-only bundle is mechanically reproducible; import, approval, and live behavior remain `Unknown`. |
-| Claude Code | `Supported` | `Supported` | `Mechanism verified` for Harness configuration | `.claude/skills/` | `~/.claude/skills/` | Native Claude surfaces are documented and package/installer checks pass; fresh-host execution is not preserved here. |
+| Claude Code | `Supported` | `Supported` | `Mechanism verified` for Harness configuration | `.claude/skills/` | `~/.claude/skills/` | Native Claude surfaces and the state-specific plugin sync command are mechanically checked; fresh-host execution is not preserved here. |
 | OpenCode | `Supported` | `Partial` live-host loading for the project-scope, `.js`-filename install path on OpenCode 1.18.31 (macOS); other install paths remain `Mechanism verified` | `Partial` live-host evidence for project-scope `.js` loading and edit/verification state; hard lock reported only, with no retained blocked-tool trace and a post-reset final snapshot | `.opencode/skills/`, `.agents/skills/`, `.opencode/plugins/` | `~/.config/opencode/skills/`, `~/.agents/skills/`, `~/.config/opencode/plugins/` | [Retained evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md): loading and state effects verified in one host session; final snapshot post-reset; hard lock only an interactive observation; reflection operator-seeded, then agent-rewritten; no raw transcript or behavioral-effectiveness claim. `.mjs` auto-discovery broken (issue #127); global scope, npm-package installation, and other host versions remain unverified. |
 | GitHub Copilot agent surfaces | `Supported` | `Unknown` for a Harness-specific plugin install | `Unknown` | `.github/skills/`, `.agents/skills/`, repository instructions | `~/.copilot/skills/`, `~/.agents/skills/` | GitHub Agent Skills paths and installer behavior are checked; no live Copilot session or plugin install is preserved. |
 | Cursor | `Supported` | `Mechanism verified` for the portable package shape | `Unknown` for Harness | `.cursor/skills/`, `.agents/skills/` | `~/.cursor/skills/`, `~/.agents/skills/` | Official paths and package shape are checked; Cursor plugin loading and hooks remain unverified. |
@@ -63,6 +63,26 @@ Codex has two paths that must not be collapsed:
 2. The local OpenAI plugin at `plugins/harness-everything/` packages the skills plus lifecycle hooks for session start, prompt routing, supported local tool calls, subagent lifecycle, and stop verification. Those hooks are mechanically checked, but no live plugin/session artifact is committed.
 
 The package is tested at the mechanism layer and remains subject to the host’s hook review/trust flow. A fresh host session is still required before claiming that a particular ChatGPT/Codex installation loaded and fired the hooks or that the model followed read-before-skip.
+
+### Native plugin install/update synchronization
+
+The repository also ships a host-facing synchronization command for the native marketplace/plugin surfaces:
+
+```bash
+npx github:dyphn1/Harness-everything plugin-sync
+# or, from a checkout:
+./scripts/plugin-sync.sh
+powershell -File scripts/plugin-sync.ps1
+```
+
+The command detects Claude Code and Codex independently, ensures the Harness marketplace is configured, reads the installed-plugin state, then refreshes that marketplace before choosing the operation:
+
+- absent plugin → install;
+- existing Claude Code plugin → `claude plugin update harness-everything@harness-everything`;
+- existing Codex plugin → `codex plugin marketplace upgrade harness-everything`;
+- unknown plugin state → fail closed, with no blind install/re-add.
+
+The installed branch is intentionally an update branch even when the current release is already the newest version; the host command may report “already latest.” Codex marketplace upgrade is the current native refresh operation; the command does not edit private cache paths or `config.toml`. These are deterministic command/state tests, not live-host evidence, so `liveHostVerification` remains `Unknown` in the matrix.
 
 ### Explicit Codex user-hook compatibility fallback
 

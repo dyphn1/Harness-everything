@@ -189,6 +189,14 @@ If those checks pass but the host still shows an older copy:
 
 The local plugin mechanically injects the session policy and invariant-first routing contract, and its package includes mechanism-tested supported-tool, subagent, and stop adapters. If those events do not appear in a live session, verify the host loaded the current package and that changed command hooks were reviewed/trusted; package tests alone cannot prove host loading.
 
+For the native host install/update path, run:
+
+```bash
+npx github:dyphn1/Harness-everything plugin-sync --json
+```
+
+The command installs only when the plugin is absent. An installed Claude plugin uses the explicit Claude update command; an installed Codex plugin uses marketplace upgrade. If plugin state cannot be read, synchronization stops without re-adding or overwriting the plugin.
+
 See [openai-plugin.md](openai-plugin.md) for installation and validation details.
 
 ### Public OpenAI Skills-only plugin behaves differently from local Codex plugin
