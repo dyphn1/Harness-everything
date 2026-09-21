@@ -11,6 +11,7 @@ const ROOT = path.resolve(__dirname, '..');
 const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const releaseConfig = JSON.parse(fs.readFileSync(path.join(ROOT, '.releaserc.json'), 'utf8'));
 const execFileSync = childProcess.execFileSync;
+const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 const execPlugin = releaseConfig.plugins.find(plugin => Array.isArray(plugin) && plugin[0] === '@semantic-release/exec');
 assert.ok(execPlugin, 'semantic-release exec plugin is required for SBOM generation');
@@ -51,11 +52,19 @@ try {
     }
   });
   const generated = writeBom(path.join(packRoot, 'sbom.cdx.json'), packRoot, { version: packageJson.version, timestamp: '2026-09-21T00:00:00.000Z' });
-  const packOutput = execFileSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
+  const packOutput = execFileSync(npmCommand, ['pack', '--dry-run', '--json', '--ignore-scripts'], {
     cwd: packRoot,
-    encoding: 'utf8'
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      HUSKY: '0',
+      npm_config_ignore_scripts: 'true'
+    }
   });
-  const records = JSON.parse(packOutput);
+  const jsonStart = packOutput.indexOf('[');
+  const jsonEnd = packOutput.lastIndexOf(']');
+  assert.ok(jsonStart >= 0 && jsonEnd > jsonStart, 'npm pack --json output must include JSON records');
+  const records = JSON.parse(packOutput.slice(jsonStart, jsonEnd + 1));
   const files = records.flatMap(record => record.files || []).map(file => file.path);
   assert.ok(files.includes('sbom.cdx.json'), 'npm pack must include the generated SBOM');
   assert.strictEqual(generated.metadata.component.version, packageJson.version);
