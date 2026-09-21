@@ -139,6 +139,11 @@ check(mismatchObligations.workflowSelection.requestedStrategy === 'fable-staged'
   mismatchObligations.workflowSelection.confirmedStrategy === 'fable-staged',
   'requested and router-confirmed post-decomposition strategy are preserved');
 check(mismatchWorkflow.pendingPlan?.strategy === 'fable-staged', 'recomposed plan becomes the pending execution contract');
+const mismatchStop = run(stopGate, [], { session_id: mismatchSession, cwd: ROOT, hook_event_name: 'Stop' });
+const mismatchAfterStop = readJson(path.join(mismatchDir, 'workflow-run.json'));
+check(mismatchStop.status === 0 && mismatchAfterStop.state === 'pending' &&
+  (mismatchAfterStop.unresolved || []).includes('execution:not-started'),
+  'recomposed workflow cannot become satisfied before its selected topology starts');
 const mismatchStart = run(controller, ['start', '--session-id', mismatchSession]);
 check(mismatchStart.status !== 0 && /workflow-stages\.json/.test(mismatchStart.stderr || ''),
   'recomposed Fable topology proceeds to its native stage-contract requirement');
