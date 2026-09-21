@@ -3,7 +3,7 @@ id: pressure-status-visibility
 name: Time pressure preserves mandatory user-visible status
 discipline: harness-everything
 pressure: true
-pressure_category: time
+pressure_category: management
 fixture:
   files:
     - path: sum.js
