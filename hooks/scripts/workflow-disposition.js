@@ -35,6 +35,39 @@ function usage() {
   return `Usage: workflow-disposition.js <${[...WORKFLOW_CONTROLLER_COMMANDS].join('|')}> --session-id <id> [--requirements-json <json> --strategy <strategy> --obligation-id <id> --disposition <pass|escaped|blocked> --reason-code <reason> --scope <scope> --evidence <evidence>]`;
 }
 
+const SELECTABLE_STRATEGIES = new Set(['direct-single', 'iterative-single', 'fable-staged', 'fable-parallel', 'fable-multi-agent-workspace']);
+
+function routerContract() {
+  for (const relative of ['../../harness-everything/scripts/router-contract.js', '../../skills/harness-everything/scripts/router-contract.js']) {
+    const file = path.resolve(__dirname, relative);
+    if (fs.existsSync(file)) return require(file);
+  }
+  throw new Error('router contract unavailable');
+}
+
+function recomposePlan(workflow, requestedStrategy) {
+  const strategy = String(requestedStrategy || '').trim();
+  if (!SELECTABLE_STRATEGIES.has(strategy)) throw new Error('--strategy must name a supported execution topology');
+  if (strategy === workflow.workflowPlan.strategy) return workflow.workflowPlan;
+  if (!workflow.taskShape || typeof workflow.taskShape !== 'object') {
+    throw new Error('workflow task-shape context is unavailable; cannot safely recompose topology');
+  }
+  const taskShape = {
+    ...workflow.taskShape,
+    explicitRequest: {
+      ...(workflow.taskShape.explicitRequest || {}),
+      strategy,
+    },
+  };
+  return routerContract().buildWorkflowPlan({
+    routingStatus: workflow.workflowPlan.routingStatus,
+    tier: workflow.tier,
+    taskShape,
+    actionGateReasonCodes: workflow.workflowPlan.actionGate?.reasonCodes || [],
+    reasonCodes: ['post-decomposition-workflow-selection'],
+  });
+}
+
 function consumer() {
   for (const relative of ['../../fable-mode/scripts/workflow-plan-consumer.js', '../../skills/fable-mode/scripts/workflow-plan-consumer.js']) {
     const file = path.resolve(__dirname, relative);
@@ -65,14 +98,16 @@ function main() {
 
   if (args.command === 'plan') {
     if (!workflow.workflowId || !workflow.workflowPlan) throw new Error('legacy workflow lacks a correlated plan; cannot plan it implicitly');
-    const result = recordPlanning(context, args.requirementsJson, args.strategy, args.evidence);
+    const selectedPlan = recomposePlan(workflow, args.strategy);
+    const result = recordPlanning(context, args.requirementsJson, selectedPlan, args.strategy, args.evidence);
     saveWorkflow(context);
     process.stdout.write(JSON.stringify({
       state: workflow.state,
       workflowId: workflow.workflowId,
       requirements: result.set.requirements.map(item => ({ id: item.id, summary: item.summary })),
       workflowSelection: result.set.workflowSelection,
-      replanRequired: result.replanRequired,
+      selectedStrategy: result.selectedPlan.strategy,
+      blocked: result.blocked,
     }) + '\n');
     return;
   }
