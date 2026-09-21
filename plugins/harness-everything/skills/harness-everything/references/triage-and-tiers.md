@@ -167,7 +167,7 @@ This is a semantic communication MUST. It does **not** create a runtime lock, co
 
 ## 7. Routing Checkpoint
 
-For software/project work, surface this state before or with the first progress update:
+For software/project work, consume this runtime state when producing the first Harness Status:
 
 ```markdown
 ## 🚦 Harness Routing Checkpoint
