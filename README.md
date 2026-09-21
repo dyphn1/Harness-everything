@@ -69,7 +69,7 @@ npx github:dyphn1/Harness-everything install
 2. **Preflight / session context where packaged:** Hook-capable surfaces can inject environment/session context automatically; advisory-only surfaces must not be described as if they do.
 3. **Verification boundary:** Completion claims require objective evidence; whether that boundary is mechanically invoked or explicitly called depends on the host surface.
 4. **Mandatory applicable workflow:** Evaluate each suggested skill's complete `SKILL.md` before omission, then resolve the selected topology with objective evidence. Reasoning and implementation remain flexible; escape applies only to a declared uncovered stage with evidence. Tier 3 / Fable mutation requires a verified Git worktree. See the [workflow runtime contract](docs/workflow-runtime.md) for entry, completion, and host limits. Harness does not impose one universal TODO/TDD/Fable sequence.
-5. **Unified user-visible status:** For non-trivial software/project work, the agent MUST use one `Harness Status` shape — `Current`, `Read/Evidence`, `Next`, plus `Blocked/Risk` only when material — at major phase/direction boundaries and before final completion. This is a communication contract, not a hard runtime lock.
+5. **Unified user-visible status:** For non-trivial software/project work, the agent MUST render one scannable Markdown `### 🚦 Harness Status` block with bold bullet labels for `Current`, `Read / Evidence`, `Next`, plus optional `Risk / Blocked`; multiple evidence items may use nested bullets. Use it at major phase/direction boundaries and before final completion. The routing checkpoint remains internal source state. This is a communication contract, not a hard runtime lock.
 
 ### What Gets Installed (and How to Remove It)
 

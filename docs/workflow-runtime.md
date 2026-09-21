@@ -17,17 +17,20 @@ None of those cognitive workflow conditions should trap a session or require a r
 
 A semantic MUST is not the same thing as a hard runtime lock. User-visible status, routing/applicability obligations, and verification-before-claim can remain mandatory agent contracts while host hooks observe or remind on a best-effort basis. Do not downgrade a semantic obligation to optional advice merely because the host cannot block it.
 
-The unified status shape is:
+The unified status shape uses a visible Markdown hierarchy:
 
 ```text
-Harness Status
-- Current: <what is being done now>
-- Read/Evidence: <important files/sources/evidence read or confirmed>
-- Next: <next intended action>
-- Blocked/Risk: <only when materially applicable>
+### 🚦 Harness Status
+
+- **Current:** <what is being done now>
+- **Read / Evidence:**
+  - <important file/source/evidence read or confirmed>
+  - <another item when multiple evidence items improve scanability>
+- **Next:** <next intended action>
+- **Risk / Blocked:** <only when materially applicable; omit otherwise>
 ```
 
-Emit it before substantive execution, after major phases, on material direction changes, at meaningful long-running phase boundaries, and before final completion.
+Keep one short evidence item inline; use nested evidence bullets when multiple items improve scanability. Emit it before substantive execution, after major phases, on material direction changes, at meaningful long-running phase boundaries, and before final completion.
 
 The two intentionally separate hard boundaries are:
 

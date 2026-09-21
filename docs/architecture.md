@@ -57,17 +57,20 @@ The router does not tell the model *how* to solve each stage. It decides what li
 
 ### User-visible status protocol
 
-Non-trivial work MUST expose one stable progress shape to the user:
+Non-trivial work MUST expose one stable, scannable Markdown progress shape to the user:
 
 ```text
-Harness Status
-- Current: <what is being done now>
-- Read/Evidence: <important files/sources/evidence read or confirmed>
-- Next: <next intended action>
-- Blocked/Risk: <only when materially applicable>
+### 🚦 Harness Status
+
+- **Current:** <what is being done now>
+- **Read / Evidence:**
+  - <important file/source/evidence read or confirmed>
+  - <another item when multiple evidence items improve scanability>
+- **Next:** <next intended action>
+- **Risk / Blocked:** <only when materially applicable; omit otherwise>
 ```
 
-The agent emits it before substantive execution, after major phases, on material direction changes, at meaningful long-running phase boundaries, and before final completion. The router checkpoint feeds this status but is not a second user-facing template.
+Use nested evidence bullets when multiple items would otherwise become one dense sentence. The agent emits the status before substantive execution, after major phases, on material direction changes, at meaningful long-running phase boundaries, and before final completion. The router checkpoint feeds this status as internal source state but is not a second user-facing template.
 
 This is a semantic contract, not another cognitive lock. Hook-capable hosts may observe or remind about compliance; instruction-only hosts still receive the MUST contract without pretending they can mechanically enforce it.
 
