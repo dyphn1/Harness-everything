@@ -14,7 +14,7 @@ The runtime follows **minimal rails, maximum freedom**:
 - Tier-3/Fable broad mutation **MUST** resolve isolation disposition: verified linked worktree or explicit degraded fallback;
 - iteration, revision, replan, and worker counts are **MAY** planning hints only.
 
-None of those cognitive workflow conditions should trap a session or require a reset command.
+Those cognitive workflow conditions **MUST NOT** trap a session or require a reset command.
 
 A semantic MUST is not the same thing as a hard runtime lock. User-visible status, routing/applicability obligations, and verification-before-claim can remain mandatory agent contracts while host hooks observe or remind on a best-effort basis. Do not downgrade a semantic obligation to optional advice merely because the host cannot block it.
 
@@ -56,7 +56,7 @@ same failure signature x3
 
 There is no `budget-exhausted -> blocked -> reset-budget` lifecycle.
 
-## Numeric guidance
+## Numeric MAY hints
 
 Router plans may still expose values such as:
 
@@ -67,11 +67,11 @@ Router plans may still expose values such as:
 
 These are **MAY planning hints**, useful for prompts, diagnostics, or planning. Runtime hooks do not maintain authoritative counters, reserve mutation capacity, or reject the Nth event.
 
-A long loop should produce a message such as:
+A long loop **SHOULD** produce a message such as:
 
 > Iterative work is getting long; verify assumptions or consider re-planning.
 
-It should not create a lock.
+It **MUST NOT** create a lock.
 
 ## Mutation observation
 
@@ -93,13 +93,13 @@ For Tier-3/Fable broad mutation, isolation disposition is a semantic **MUST**: u
 
 ## Legacy state
 
-Existing sessions may contain `budget.state = "budget-exhausted"`, old counters, or mutation-probe files from earlier versions. Current runtime code treats the budget API as advisory compatibility only and creates no new mutation-probe state.
+Existing sessions may contain `budget.state = "budget-exhausted"`, old counters, or mutation-probe files from earlier versions. Current runtime code treats the budget API as MAY-planning compatibility only and creates no new mutation-probe state.
 
 Starting a fresh session remains the cleanest way to discard old evidence, but it is no longer required to recover from numeric budget exhaustion.
 
 ## Testing contract
 
-Regression tests should prove:
+Regression tests **MUST** prove:
 
 - reminders fire when relevant;
 - commands/Stop remain available;

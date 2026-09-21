@@ -77,15 +77,15 @@ Relevant environment discovery is a conditional **MUST**: establish OS, shell, p
 
 ### 2. Guardrails — Lifecycle Boundaries
 
-Circuit breakers, action gates, workflow gates, scope guards, and completion gates protect specific transitions. They should remain narrow and evidence-driven. On integration surfaces that expose the required lifecycle/tool hooks, Harness can mechanically block supported violations; elsewhere the same contract is instruction-governed and must not be mislabeled hard enforcement.
+Circuit breakers, action gates, workflow gates, scope guards, and completion gates protect specific transitions. They **SHOULD** remain narrow and evidence-driven. On integration surfaces that expose the required lifecycle/tool hooks, Harness can mechanically block supported violations; elsewhere the same contract is instruction-governed and must not be mislabeled hard enforcement.
 
 ### 3. Context Preservation — Progressive Disclosure
 
-Load the smallest useful context. Read a suggested skill's complete entry before deciding applicability, but do not load the entire skill tree or every optional deep reference. Machine-visible workflow state should carry lifecycle facts instead of repeating large prompt blocks.
+**SHOULD** load the smallest useful context. A suggested skill's complete entry **MUST** be read before deciding applicability; optional deep references **MAY** remain unloaded unless needed. Machine-visible workflow state SHOULD carry lifecycle facts instead of repeating large prompt blocks.
 
 ### 4. Self-Evolution — Learn from Workflow Evidence
 
-`self-evolve` should learn from verified recovery and workflow gaps: escape events, repeated replans, verifier fail→pass transitions, and recurrence outcomes. It should improve future coverage rather than granting a shortcut around the current workflow. Durable learning remains distinct from runtime session state.
+`self-evolve` **MUST** ground durable learning in verified recovery/workflow evidence. Escape events, repeated replans, verifier fail→pass transitions, and recurrence outcomes **MAY** provide that evidence. Durable learning MUST improve future coverage rather than grant a shortcut around the current workflow, and remains distinct from runtime session state.
 
 ## Mechanism-First Cooperation
 

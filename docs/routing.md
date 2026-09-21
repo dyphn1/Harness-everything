@@ -28,7 +28,7 @@ The model owns tools, implementation technique, reasoning, and decomposition det
 ```text
 kernel-router.js
   ├─ delegates classification / guide discovery → tier-router.js
-  ├─ preserves tier + rationale + dynamic-skill recommendations
+  ├─ preserves tier + rationale + dynamic-skill suggestions
   ├─ emits required invariants + structured workflow plan
   ├─ requires applicability evaluation for suggested skills
   ├─ records the selected workflow contract

@@ -118,12 +118,12 @@ Harness aligns to each host's actual lifecycle/tool APIs. Shared skill text defi
 
 Runtime state includes hook metadata, workflow lifecycle, circuit-breaker counters, handoff/verification evidence, and WAL-style session state. Skill content is independently discoverable and remains useful on instruction-only surfaces.
 
-### Claude Code — hook guidance plus explicit safety boundaries
+### Claude Code — hook observation plus explicit safety boundaries
 
 The installer configures native lifecycle hooks and project skills.
 
 - `SessionStart`: bootstrap/restoration.
-- `UserPromptSubmit`: kernel routing + workflow guidance.
+- `UserPromptSubmit`: kernel routing + semantic workflow contract.
 - `PreToolUse`: workflow/boundary/depth/scope reminders, plus separate action permission and Rule-of-3 boundaries.
 - `PostToolUse`: outcomes, state, repeated-failure evidence, stage checks.
 - `Stop`: action-gate audit plus non-blocking workflow/verification reminders.
@@ -134,7 +134,7 @@ These hooks make semantic obligations observable; they do not promote cognitive 
 
 The retained [OpenCode evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md) supports **project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS)**. The final snapshot is **post-reset**. Hard-lock is an **interactive observation** with **no retained blocked-tool trace**; reflection was **operator-seeded** and then agent-rewritten. Global scope, npm-package installation, and other OpenCode versions remain unverified.
 
-This evidence predates #190 and does not establish behavioral effectiveness of the current guidance-first lifecycle.
+This evidence predates #190 and does not establish behavioral effectiveness of the current contract-first lifecycle.
 
 ### Cursor — skills plus advisory rules
 
@@ -148,7 +148,7 @@ Copilot receives Agent Skills/repository instructions. No Harness-specific live 
 
 Codex has multiple distinct Harness surfaces:
 
-- The general `--codex` installer writes repo-scoped `.agents/skills/` plus `AGENTS.md`; when consumed only as instructions, workflow enforcement is advisory/instruction-governed.
+- The general `--codex` installer writes repo-scoped `.agents/skills/` plus `AGENTS.md`; when consumed only as instructions, the same semantic contract is instruction-delivered without a hard-enforcement claim.
 - The **Codex / local OpenAI plugin** under `plugins/harness-everything/` packages canonical skills plus session/prompt/supported-tool/subagent/stop hooks. The package includes workflow-gate adapters, but this is mechanism/package evidence until a live Codex session proves loading/firing.
 - The public OpenAI **Skills-only** artifact excludes local `.codex-plugin` lifecycle hooks; it carries reusable workflow knowledge, not local hard gates.
 
@@ -204,7 +204,7 @@ A domain skill may define RED/GREEN/REFACTOR or another local lifecycle. The sel
 
 1. **No Harness telemetry service:** project code/state is not uploaded by Harness runtime scripts.
 2. **Credential protection:** credentials remain human/host controlled.
-3. **Small mechanism surface:** hooks should remain fast and auditable.
+3. **Small mechanism surface:** hooks **SHOULD** remain fast and auditable.
 4. **Explicit enforcement labels:** instruction, mechanism, and live evidence are distinct.
 5. **Deterministic regression:** workflow/routing/hook contracts are executable CI gates.
 6. **No silent widening:** workflow escape cannot widen authorization, permissions, or external side effects.

@@ -69,7 +69,7 @@ npx github:dyphn1/Harness-everything next "<brief prompt summary>"
 
 `kernel-router.js` delegates classification/guide discovery to `tier-router.js` and emits:
 
-- recommended tier + rationale,
+- classified tier + rationale,
 - structured workflow plan,
 - compact **Harness Routing Checkpoint**,
 - required invariants,
@@ -97,7 +97,7 @@ Escape is audit metadata for a bounded contract exception. Use it only when the 
 - `workflow-uncovered-scope` — the selected topology cannot represent a bounded part of the task;
 - `host-capability-unavailable` — the host lacks a capability required to execute the selected topology.
 
-Every escape must name a declared stage in the correlated run and record the reason code, uncovered scope, and evidence explaining the coverage/capability gap. Host capability loss and missing isolation should remain visible as warnings/evidence, without creating a persistent execution lock.
+Every escape must name a declared stage in the correlated run and record the reason code, uncovered scope, and evidence explaining the coverage/capability gap. Host capability loss and missing isolation **MUST** remain visible as warnings/evidence, without creating a persistent execution lock.
 
 ## 3. Tier Routing
 
@@ -190,7 +190,7 @@ The checkpoint is runtime/source state, not a competing user-facing template. Re
 
 ## 8. Self-Healing and Dynamic Skills
 
-Self-heal, generated-skill discovery, knowledge-guide matching, and fact-audit behavior remain part of the runtime. Dynamic recommendations still require applicability evaluation.
+Self-heal, generated-skill discovery, knowledge-guide matching, and fact-audit behavior remain part of the runtime. Dynamic skill suggestions still require applicability evaluation.
 
 If bootstrap reports missing integration touchpoints:
 

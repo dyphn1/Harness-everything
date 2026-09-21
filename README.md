@@ -48,7 +48,7 @@ The exact "Harness" behavior depends on the installation surface. Claude Code ha
 
 Harness integrates directly into your workspace. There is no heavy daemon, no paid external APIs, and zero configuration required.
 
-**Runtime:** Harness supports **Node.js 22+**. Node.js **24** is the primary/recommended development and CI runtime (`.nvmrc`). The generated current-state runtime/workflow summary is [docs/repository-contract.md](docs/repository-contract.md).
+**Runtime:** Harness supports **Node.js 22+**. Node.js **24** is the primary development and CI runtime (`.nvmrc`). The generated current-state runtime/workflow summary is [docs/repository-contract.md](docs/repository-contract.md).
 
 ```bash
 # Option A: Claude Code plugin (marketplace manifest included)
@@ -120,7 +120,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     U([User Request]) --> K[Harness Kernel<br/>classify scope + establish invariants]
-    K --> T{Tier recommendation}
+    K --> T{Tier classification}
     T --> S{Suggested skills?}
     S -->|Yes| R[Read each suggested SKILL.md<br/>evaluate flow + applicability]
     S -->|No| A[Agent chooses smallest useful tactic / skill set]
@@ -168,7 +168,7 @@ The authoritative current matrix is [docs/platform-capabilities.md](docs/platfor
 | **Claude Code** | Native lifecycle hooks (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop`) | `.claude/settings.json`, `.claude/skills/`, `.claude/agents/` | Semantic workflow contracts are reminder-observed; Rule-of-3 reflection and explicit permission boundaries may block |
 | **OpenCode** | Native plugin module ([`opencode-plugin/index.mjs`](opencode-plugin/index.mjs), install as `harness-enforcement.js`) | `.opencode/plugins/` | **Partial live-host evidence** — project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS); current workflow/verification behavior is reminder-oriented, with only the third-failure reflection boundary blocking edits |
 | **Codex — general installer path** | Skills + `AGENTS.md` instructions | `AGENTS.md` + repo-scoped `.agents/skills/` | **Instruction/advisory delivery only**; semantic MUST/SHOULD/MAY still applies, without a hard-enforcement claim |
-| **Codex / local OpenAI plugin** | `.codex-plugin` package with session, prompt, supported-tool, subagent, and stop hooks plus 26 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanism-tested local guidance plus explicit permission/Rule-of-3 boundaries** for the packaged mappings; live host loading remains unverified |
+| **Codex / local OpenAI plugin** | `.codex-plugin` package with session, prompt, supported-tool, subagent, and stop hooks plus 26 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanism-tested local contract observation plus explicit permission/Rule-of-3 boundaries** for the packaged mappings; live host loading remains unverified |
 | **Public OpenAI Skills-only plugin** | Public Skills-only bundle | Generated submission ZIP from `plugins/harness-everything/skills/` | **Skill/workflow behavior only**; no local `.codex-plugin` lifecycle hooks in the public artifact |
 | **Cursor** | Native Project Rules + project skills | `.cursorrules` + `.cursor/skills/` | Advisory only |
 | **GitHub Copilot agent surfaces** | Agent Skills + repository custom instructions | `.github/copilot-instructions.md` + `.github/skills/` | Agent Skills path is documented; no live Harness session or plugin install is verified |
@@ -239,9 +239,9 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `skill-creator` | **Meta** | Create new skills from patterns |
 | `skill-style` | **Meta** | Skill authoring style guide |
 | `tdd` | **Skill (Tier 2)** | Test-driven development when executable behavior benefits from it |
-| `to-spec` | **Advisory (Tier 2/3)** | Publish specs from settled conversations |
-| `to-tickets` | **Advisory (Tier 2/3)** | Decompose settled specs into tracked tickets |
-| `todo-driven-workflow` | **Advisory Foundation** | Progress tracking when explicit multi-step state helps |
+| `to-spec` | **Optional (MAY, Tier 2/3)** | Publish specs from settled conversations |
+| `to-tickets` | **Optional (MAY, Tier 2/3)** | Decompose settled specs into tracked tickets |
+| `todo-driven-workflow` | **Optional Foundation (MAY)** | Progress tracking when explicit multi-step state helps |
 | `using-git-worktrees` | **Skill (Tier 2)** | Git worktree concurrency patterns |
 | `verification-loop` | **Skill (Tier 2)** | Select systematic verification evidence; kernel still requires evidence before completion |
 | `verify-before-claim` | **Always-on discipline** | Fact-audit before asserting claims |
@@ -266,7 +266,7 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 
 Fable model selection is documented in [fable-mode/references/model-matrix.md](fable-mode/references/model-matrix.md); the explicit entrypoints are `fable-haiku`, `fable-sonnet`, and `fable-opus`.
 
-Maintainers should follow [RELEASING.md](RELEASING.md) for tag-driven npm releases and record observations in [docs/release-evidence.md](docs/release-evidence.md). Issue #20 is closed (2026-09-10); its coordination history lives in git.
+Maintainers **MUST** follow [RELEASING.md](RELEASING.md) for tag-driven npm releases and record observations in [docs/release-evidence.md](docs/release-evidence.md). Issue #20 is closed (2026-09-10); its coordination history lives in git.
 
 ---
 
