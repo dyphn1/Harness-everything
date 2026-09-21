@@ -2,7 +2,7 @@
 'use strict';
 const path = require('path');
 const { readJson } = require('./lib/fable-contracts');
-const { loadWorkflow, saveWorkflow, matchingRun, unresolvedStages, readHookInput } = require('./lib/workflow-runtime');
+const { loadWorkflow, saveWorkflow, matchingRun, unresolvedStages, readHookInput } = require('./lib/workflow-runtime');\nconst { unresolvedObligations } = require('./lib/workflow-obligations');
 function warn(message) { console.error('[Workflow Reminder] ' + message); }
 function decide(payload) {
   if (!payload) return;
@@ -16,8 +16,9 @@ function decide(payload) {
       const match = matchingRun(context);
       unresolved = match ? unresolvedStages(match, workflow, handoff?.lastEditAt || 0) : ['correlated-run-missing'];
     } else {
+      unresolved = unresolvedObligations(context);
       const lastEdit = Math.max(workflow.lastMutationAt || 0, handoff?.lastEditAt || 0);
-      if (lastEdit && (handoff?.lastVerifyAt || 0) < lastEdit) unresolved = ['verification-after-edit-missing'];
+      if (lastEdit && (handoff?.lastVerifyAt || 0) < lastEdit) unresolved.push('verification-after-edit-missing');
     }
     const wasBlocked = workflow.state === 'blocked';
     if (wasBlocked) warn('Workflow is marked BLOCKED; report or revisit the recorded blocker, but Harness will not trap the session.');
