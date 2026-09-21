@@ -49,7 +49,7 @@ On a host where `UserPromptSubmit` is wired, reuse that hook output instead of r
 
 For non-trivial software/project work, the user-facing progress protocol is a semantic **MUST** and uses the same readable Markdown presentation across execution topologies:
 
-```text
+```md
 ### 🚦 Harness Status
 
 - **Current:** <what is being done now>

@@ -59,7 +59,7 @@ The router does not tell the model *how* to solve each stage. It decides what li
 
 Non-trivial work MUST expose one stable, scannable Markdown progress shape to the user:
 
-```text
+```md
 ### 🚦 Harness Status
 
 - **Current:** <what is being done now>

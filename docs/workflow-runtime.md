@@ -19,7 +19,7 @@ A semantic MUST is not the same thing as a hard runtime lock. User-visible statu
 
 The unified status shape uses a visible Markdown hierarchy:
 
-```text
+```md
 ### 🚦 Harness Status
 
 - **Current:** <what is being done now>
