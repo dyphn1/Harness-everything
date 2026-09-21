@@ -4,7 +4,7 @@ description: Use at session start (Discover phase) to detect and align with the 
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.16.6
+  version: 0.19.1
 ---
 
 # Environment Detection & Shell Alignment
