@@ -13,8 +13,12 @@ graph TD
   PreflightOk -->|yes| ParseOut[Parse OS shell PATH and CLIs]
   PreflightOk -->|no| FallbackProbe[Inspect environment_info and probe shell]
   FallbackProbe --> ParseOut
-  ParseOut --> SelfHealAudit[Audit harness touchpoints with self-heal.js]
-  SelfHealAudit --> AdoptSyntax[Adopt shell-specific syntax]
+  ParseOut --> SelfHealAudit[Run self-heal.js --check when supported]
+  SelfHealAudit --> Drift{Integration drift found?}
+  Drift -->|ordinary detection| ReportOnly[Report only; do not mutate]
+  Drift -->|explicit repair intent| Repair[Run supported platform repair]
+  ReportOnly --> AdoptSyntax[Adopt shell-specific syntax]
+  Repair --> AdoptSyntax
   AdoptSyntax --> DoneCtx([Session context aligned])
 ```
 
@@ -48,10 +52,11 @@ graph LR
 A session starts on Windows with PowerShell as the active shell. The agent needs to list files and check Node availability before running tests.
 
 1. Run `node "<skill-dir>/scripts/preflight.js"` to detect Windows + PowerShell + available CLIs.
-2. Adopt PowerShell syntax for paths and env vars instead of Git Bash assumptions.
-3. If `preflight.js` cannot run, inspect `<environment_info>` and probe with minimal echo/env commands, then adopt syntax.
-4. Stay inside `process.cwd()`; ignore other workspace, history, or temp paths shown by the IDE.
-5. If the same aligned command still fails three times, stop retrying the syntax and trigger `zoom-out`.
+2. Where the local Harness runtime exists, run self-heal in `--check` mode only; report drift without changing hooks or advisory files.
+3. If the helper/runtime is absent (for example a skills-only distribution), report that the local repair surface is unavailable and continue without searching parent/cache paths.
+4. Only an explicit install/setup/repair request may invoke mutating self-heal. OpenCode keeps its separate plugin installation/runtime boundary.
+5. Adopt PowerShell syntax for paths and env vars instead of Git Bash assumptions. If `preflight.js` cannot run, inspect `<environment_info>` and probe minimally.
+6. Stay inside `process.cwd()`; if the same aligned command still fails three times, trigger `zoom-out`.
 
 ```mermaid
 graph TD
@@ -68,6 +73,9 @@ graph TD
 - [ ] Detection ran at session start via `environment-detection/scripts/preflight.js`, with `<environment_info>` inspection and probing used only as fallback
 - [ ] Adopted syntax matches detected shell: Git Bash uses `/`, `$VAR`, Unix cmds without `dir`/`del`; PowerShell uses `$env:VAR` and cmdlets; CMD uses `\`, `%VAR%`, `dir`/`del`/`copy` without Unix cmds
 - [ ] All commands stayed inside `process.cwd()`; no commands ran outside the current project root
-- [ ] No toolchain installation was attempted; scope stayed to detection, alignment, and touchpoint repair
+- [ ] Ordinary detection changed no workspace integration files; touchpoint inspection used `--check` or safely skipped an unavailable local runtime
+- [ ] Mutating self-heal ran only for explicit install/setup/repair intent and only on a supported local platform surface
+- [ ] OpenCode was kept on its separate plugin runtime; skills-only distributions did not assume a local installer
+- [ ] No toolchain installation was attempted; scope stayed to detection and alignment
 - [ ] After three failures of the same command, execution stopped blind retry and triggered `zoom-out`
 - [ ] Shell detail followed `environment-detection/references/shell-syntax-rules.md` where needed

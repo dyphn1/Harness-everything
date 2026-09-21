@@ -2,12 +2,12 @@
 /**
  * Self-healing installation audit for Harness OS.
  *
- * Audits the six platform integration touchpoints in the current workspace
- * and, when any are missing, re-runs the idempotent installer to repair them.
- * This makes the harness portable across editors: install once via Claude
- * Code, then open the same repo in Copilot/Cursor/Codex/Continue/Hermes and
- * the missing advisory instructions are backfilled automatically the first time
- * harness-everything (or the environment-detection Discover phase) runs.
+ * Audits the six platform integration touchpoints in the current workspace.
+ * Read-only callers use --check. Repair mode is explicit: only a direct run
+ * without --check may delegate to the idempotent installer.
+ *
+ * environment-detection uses the read-only path; ordinary Discover/preflight
+ * must never backfill hooks or advisory files as a side effect.
  *
  * Usage:
  *   node self-heal.js            Audit and repair anything missing.
@@ -24,7 +24,26 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const { getHarnessRoot, requireWorkspace } = require('./runtime-paths');
-const { getWorkspaceRoot, isHarnessRepo } = requireWorkspace();
+
+function resolveLocalRuntime(checkOnly) {
+  try {
+    const { getWorkspaceRoot, isHarnessRepo } = requireWorkspace();
+    return { getWorkspaceRoot, isHarnessRepo, harnessSourceDir: getHarnessRoot() };
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    if (!/Harness runtime root not found/.test(message)) throw err;
+
+    if (checkOnly) {
+      console.log('[Harness Self-Heal Audit]');
+      console.log('  SKIPPED  Local repair runtime unavailable on this distribution surface.');
+      console.log('\nRead-only audit skipped; no workspace files were changed.');
+      return null;
+    }
+
+    console.error('Cannot repair: local Harness installer/runtime is unavailable on this distribution surface.');
+    process.exit(1);
+  }
+}
 
 const MARKER = 'Harness OS Guidance (Advisory)';
 const HOOK_ID = 'harness:pre:bootstrap';
@@ -194,8 +213,11 @@ function main() {
   const checkOnly = process.argv.includes('--check');
   const forceSelf = process.argv.includes('--force-self');
 
+  const runtime = resolveLocalRuntime(checkOnly);
+  if (!runtime) return;
+
+  const { getWorkspaceRoot, isHarnessRepo, harnessSourceDir } = runtime;
   const workspaceRoot = getWorkspaceRoot();
-  const harnessSourceDir = getHarnessRoot();
   const installerPath = path.join(harnessSourceDir, 'scripts', 'installer.js');
 
   console.log(`Workspace: ${workspaceRoot}`);
