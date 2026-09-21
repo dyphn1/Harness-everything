@@ -98,9 +98,9 @@ try {
   const skill = fs.readFileSync(SKILL, 'utf8');
   assert.ok(skill.includes('self-heal.js" --check'));
   assert.doesNotMatch(skill, /<skills-repo-root>/);
-  assert.match(skill, /Never run mutating self-heal during ordinary detection/);
-  assert.match(skill, /OpenCode uses its own plugin runtime/);
-  assert.match(skill, /skills-only surfaces may have no local repair surface/);
+  assert.match(skill, /Only explicit install\/setup\/repair intent may omit/);
+  assert.match(skill, /OpenCode has its own plugin runtime/);
+  assert.match(skill, /skills-only surfaces may lack repair/);
 
   // OpenCode is a separate runtime surface; its session/plugin startup must
   // not import or invoke the six-adapter installer/self-heal path implicitly.

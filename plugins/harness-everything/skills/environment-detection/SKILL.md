@@ -9,37 +9,32 @@ metadata:
 
 # Environment Detection & Shell Alignment
 
-Think > Try > Summarize > Record: detect before executing.
-
 ## 📋 Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Session start or complex terminal sequences. |
-| **Expected Output** | Detected OS, shell, PATH via script or heuristics. |
-| **State Mutations** | Default: session context only. Explicit install/setup/repair may update Harness-owned platform touchpoints. |
-| **Enforcement Gate** | Preflight; fall back to `<environment_info>` inspection and probing. |
+| **Expected Output** | OS, shell, PATH, available CLIs. |
+| **State Mutations** | Read-only by default; explicit repair may update Harness files. |
+| **Enforcement Gate** | Preflight; fall back to `<environment_info>` and minimal probes. |
 
-Boundary: ordinary detection is read-only and stays inside `process.cwd()`. Never search unrelated workspaces, history, parent caches, or temp paths for a repair runtime.
+Boundary: stay inside `process.cwd()`. Detection never writes integrations or searches parent/cache paths for another runtime.
 
 ## Workflow
 
-1. Preflight from this skill's own directory; parse OS, shell, available CLIs: `node "<this-skill-dir>/scripts/preflight.js"`
-2. Audit Harness touchpoints read-only where the local runtime supports it: `node "<this-skill-dir>/../harness-everything/scripts/self-heal.js" --check`. If that helper/runtime is unavailable, report the capability gap and continue; do not hunt for another copy.
-3. Never run mutating self-heal during ordinary detection. Only explicit install/setup/repair intent may run the same helper without `--check`. OpenCode uses its own plugin runtime; skills-only surfaces may have no local repair surface.
-4. Adopt syntax: Git Bash → forward `/`, `$VAR`, Unix cmds (`ls`, `rm -rf`), never `dir`/`del`/PowerShell · PowerShell → `$env:VAR`, cmdlets · CMD → `\`, `%VAR%`, `dir`/`del`/`copy`, never Unix.
-5. On failure don't blindly retry — suspect wrong-shell syntax. Three failures → trigger `zoom-out`.
+1. Run `node "<this-skill-dir>/scripts/preflight.js"`; detect OS, shell, CLIs.
+2. Where supported, audit read-only: `node "<this-skill-dir>/../harness-everything/scripts/self-heal.js" --check`. If unavailable, report and continue.
+3. Only explicit install/setup/repair intent may omit `--check`. Repair covers Claude, Codex, Copilot, Cursor, Continue, Hermes. OpenCode has its own plugin runtime; skills-only surfaces may lack repair.
+4. Adopt shell syntax: Git Bash → `/`, `$VAR`, Unix commands; PowerShell → `$env:VAR`, cmdlets; CMD → `\`, `%VAR%`, Windows commands. Three repeated failures → `zoom-out`.
 
 Deep dive: <this-skill-dir>/references/shell-syntax-rules.md
 
 ## USE FOR:
-- session-start OS/shell/toolchain detection
-- per-terminal command/path/env-var alignment
-- read-only Harness integration audits
-- explicit Harness repair when the user/task asks for setup or repair
+- session-start environment detection
+- shell/path/toolchain alignment
+- read-only audit or explicit repair
 
 ## DO NOT USE FOR:
-- implicit workspace repair during ordinary detection
-- forcing the six-adapter installer onto OpenCode or skills-only surfaces
-- operating outside the current workspace
-- installing toolchains from scratch
+- implicit repair during detection
+- six-adapter repair on OpenCode/skills-only surfaces
+- work outside the workspace or toolchain installation
