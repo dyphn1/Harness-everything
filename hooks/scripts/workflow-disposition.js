@@ -5,13 +5,13 @@ const fs = require('fs');
 const path = require('path');
 const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
 const { getWorkspaceRoot, readCurrentSession } = require('./lib/harness-state');
-const { atomicWriteJson, readJson } = require('./lib/fable-contracts');
+const { atomicWriteJson, readJson } = require('./lib/fable-contracts');\nconst { materializeObligations, updateObligation } = require('./lib/workflow-obligations');
 
 const ALLOWED_ESCAPE_REASONS = new Set(['workflow-uncovered-scope', 'host-capability-unavailable']);
 
 function parseArgs(argv) {
   const args = { command: argv[0] };
-  const flags = new Map([['--reason-code', 'reasonCode'], ['--scope', 'scope'], ['--evidence', 'evidence'], ['--session-id', 'sessionId'], ['--stage-id', 'stageId']]);
+  const flags = new Map([['--reason-code', 'reasonCode'], ['--scope', 'scope'], ['--evidence', 'evidence'], ['--session-id', 'sessionId'], ['--stage-id', 'stageId'], ['--obligation-id', 'obligationId'], ['--disposition', 'disposition']]);
   for (let i = 1; i < argv.length; i++) {
     const key = flags.get(argv[i]);
     if (!key || !argv[i + 1] || argv[i + 1].startsWith('--')) throw new Error('unknown or incomplete argument: ' + argv[i]);
@@ -21,7 +21,7 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  return `Usage: workflow-disposition.js <${[...WORKFLOW_CONTROLLER_COMMANDS].join('|')}> --session-id <id> [--stage-id <id> --reason-code <reason> --scope <scope> --evidence <evidence>]`;
+  return `Usage: workflow-disposition.js <${[...WORKFLOW_CONTROLLER_COMMANDS].join('|')}> --session-id <id> [--obligation-id <id> --disposition <pass|escaped|blocked> --reason-code <reason> --scope <scope> --evidence <evidence>]`;
 }
 
 function consumer() {
@@ -84,6 +84,25 @@ function main() {
     workflow.escapes = [];
     delete workflow.pendingPlan;
     delete workflow.blockReason;
+    } else if (args.command === 'obligation') {
+    if (String(workflow.strategy || '').startsWith('fable-')) throw new Error('Fable workflows use correlated stage contracts, not generic obligations');
+    if (workflow.state !== 'running') throw new Error('start the selected workflow before recording obligation dispositions');
+    const obligation = updateObligation(context, args.obligationId, args.disposition, {
+      evidence: args.evidence,
+      reasonCode: args.reasonCode,
+      scope: args.scope,
+    });
+    process.stdout.write(JSON.stringify({
+      state: workflow.state,
+      workflowId: workflow.workflowId,
+      obligation: {
+        id: obligation.id,
+        status: obligation.status,
+        reasonCode: obligation.reasonCode,
+        evidence: obligation.evidence,
+      },
+    }) + '\\n');
+    return;
   } else if (args.command === 'revision') {
     console.error('[Workflow Reminder] Revision requested; no hard revision budget is enforced.');
   } else if (args.command === 'escape') {
