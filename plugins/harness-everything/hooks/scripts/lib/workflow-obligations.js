@@ -159,12 +159,20 @@ function recordPlanning(context, requirementsJson, strategy, evidence) {
       disposition: 'replan-required',
     };
     loaded.set.requirements = requirements;
+    const now = new Date().toISOString();
+    const decompose = loaded.set.obligations.find(item => item.id === 'decompose');
+    if (decompose) {
+      decompose.status = 'pass';
+      decompose.reasonCode = null;
+      decompose.evidence = 'requirements:' + requirements.map(item => item.id).join(',');
+      decompose.updatedAt = now;
+    }
     const compose = loaded.set.obligations.find(item => item.id === 'compose');
     if (compose) {
       compose.status = 'blocked';
       compose.reasonCode = 'workflow-replan-required';
       compose.evidence = planningEvidence;
-      compose.updatedAt = new Date().toISOString();
+      compose.updatedAt = now;
     }
     atomicWriteJson(obligationPath(context.sessionDir), loaded.set);
     context.workflow.planningWarning = 'workflow-replan-required';
