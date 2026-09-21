@@ -98,6 +98,7 @@ function main() {
 
   if (args.command === 'plan') {
     if (!workflow.workflowId || !workflow.workflowPlan) throw new Error('legacy workflow lacks a correlated plan; cannot plan it implicitly');
+    if (!['pending', 'active'].includes(workflow.state)) throw new Error('requirements/workflow composition belongs before execution starts');
     const selectedPlan = recomposePlan(workflow, args.strategy);
     const result = recordPlanning(context, args.requirementsJson, selectedPlan, args.strategy, args.evidence);
     saveWorkflow(context);
