@@ -320,7 +320,7 @@ function selectWorkflowStrategy(input = {}) {
 function planMetadataForStrategy(strategy) {
   const base = {
     patterns: ['router'],
-    requiredInvariants: ['scope-lock', 'verify-before-claim', 'replan-after-repeated-failure'],
+    requiredInvariants: ['scope-lock', 'verify-before-claim', 'replan-after-repeated-failure', 'visible-status-updates'],
     suggestedSkills: [],
     maxIterations: null,
     parallelAllowed: null,

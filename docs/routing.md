@@ -19,6 +19,7 @@ For software/project work, Harness establishes routing context and lightweight r
 3. **Re-plan after repeated failure** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
 4. **Evaluate before omission** — read every suggested skill's complete `SKILL.md` entry before deciding applicability.
 5. **Review selected workflow** — use it as planning guidance and surface unresolved evidence before claiming completion.
+6. **Surface status** — non-trivial work MUST keep the user informed through the single Harness Status format at required phase boundaries.
 
 The model owns tools, implementation technique, reasoning, and decomposition details inside those rails.
 
@@ -43,6 +44,22 @@ npx github:dyphn1/Harness-everything next "<prompt>"
 ```
 
 On a host where `UserPromptSubmit` is wired, reuse that hook output instead of running it twice.
+
+## User-visible status contract
+
+For non-trivial software/project work, the user-facing progress protocol is a semantic **MUST** and is identical across execution topologies:
+
+```text
+Harness Status
+- Current: <what is being done now>
+- Read/Evidence: <important files/sources/evidence read or confirmed>
+- Next: <next intended action>
+- Blocked/Risk: <only when materially applicable>
+```
+
+Emit it before substantive execution, after a major phase, when direction materially changes, at meaningful long-running phase boundaries, and before final completion. The final response may fold the last status into its completion summary. The routing checkpoint is source state for this protocol, not a second user-facing progress template.
+
+This MUST is semantic rather than a hard runtime lock: hosts may observe/remind with different strength, but lack of a blocking hook does not downgrade the contract to optional advice.
 
 ## Suggested skills vs. selected workflow
 
@@ -127,9 +144,11 @@ Direct/iterative verification milestones are checked, while semantic check quali
 
 Workflow guidance is intentionally non-blocking across hosts. Keep that separate from Rule-of-3 and explicit permission enforcement.
 
-- **contract:** what the agent is required to do;
-- **mechanism:** which transitions a packaged hook/plugin can block or observe;
+- **semantic contract:** what the agent MUST do, including the unified Harness Status where applicable;
+- **mechanism:** which transitions a packaged hook/plugin can block, observe, or remind about;
 - **live evidence:** whether a real host actually loaded/fired that mechanism.
+
+Semantic MUST and mechanical blocking are intentionally separate. A required communication or engineering obligation does not need a persistent runtime lock to remain mandatory.
 
 Instruction-only integrations receive the same workflow contract as guidance, but must not be labeled hard-enforced. Kernel emission alone does not prove model compliance. #82 owns host-specific retained evidence.
 

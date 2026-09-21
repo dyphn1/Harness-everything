@@ -44,6 +44,7 @@ The kernel protects lifecycle obligations without micromanaging model reasoning.
 3. **Re-plan on repetition** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
 4. **Evaluate before omission** — when the router suggests a skill, read its complete `SKILL.md` entry/basic flow before deciding applicability.
 5. **Review selected workflow** — use the topology as planning guidance and keep any skipped step evidence-based.
+6. **Surface status** — non-trivial software/project work MUST use the single Harness Status format at required phase boundaries.
 
 The model remains free to choose tools, implementation technique, decomposition details, and reasoning inside the workflow.
 
@@ -148,7 +149,23 @@ On Claude and the local OpenAI package, supported hooks observe workflow/worktre
 
 Never turn mechanism/package evidence into a cross-host live-enforcement claim. #82 owns host-specific retained evidence.
 
-## 6. Routing Checkpoint
+## 6. User-visible status contract
+
+For non-trivial software/project work, user-facing progress **MUST** use one stable shape across direct, iterative, Fable, and multi-agent execution:
+
+```text
+Harness Status
+- Current: <what is being done now>
+- Read/Evidence: <important files/sources/evidence read or confirmed>
+- Next: <next intended action>
+- Blocked/Risk: <only when materially applicable>
+```
+
+Emit it before substantive execution, after a major phase completes, when the plan/assumption/direction materially changes, at meaningful phase boundaries during long-running work, and before final completion. The final response may merge the last status naturally.
+
+This is a semantic communication MUST. It does **not** create a runtime lock, counter, reset requirement, or permission boundary. The routing checkpoint below is source state for this format, not a second competing progress template.
+
+## 7. Routing Checkpoint
 
 For software/project work, surface this state before or with the first progress update:
 
@@ -163,9 +180,9 @@ For software/project work, surface this state before or with the first progress 
 - Escape: <none | reason + uncovered scope + evidence>
 ```
 
-The checkpoint is state, not a universal response template. The key distinction is: **skill suggestions are evaluated for applicability; a selected topology guides execution but does not trap it.**
+The checkpoint is runtime/source state, not a competing user-facing template. Render user progress through the single Harness Status contract above. The key distinction is: **skill suggestions are evaluated for applicability; a selected topology guides execution but does not trap it.**
 
-## 7. Self-Healing and Dynamic Skills
+## 8. Self-Healing and Dynamic Skills
 
 Self-heal, generated-skill discovery, knowledge-guide matching, and fact-audit behavior remain part of the runtime. Dynamic recommendations still require applicability evaluation.
 
