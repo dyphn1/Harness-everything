@@ -68,6 +68,70 @@ responses are checked by Phase 0. Transport fixtures prove IPC and failure
 handling only. Real checkpoint inference and measured CPU latency remain a
 separate gate, with explicit unavailable evidence if dependencies are absent.
 
+## Phase 2: tier integration and rollback
+
+Set `HARNESS_SYSTEM_ONE_MODE=off|shadow|prefer` in the host environment. Default
+is `off`: no provider process, diagnostic, or contract change. Supply an absolute
+`HARNESS_SYSTEM_ONE_CONFIG` path to the Phase 1 manifest for the other modes.
+An unknown mode reports `invalid-mode` and leaves the lexical result unchanged.
+Shadow records the decision but never changes the route. Prefer replaces only
+the recommended tier when a valid `harness-routing-v1` result passes Phase 0
+thresholds. The full fixed tier catalog (tier1, tier2, tier3, unclassified) is
+always scored; it is never filtered using lexical matches. `unclassified` means
+abstention and keeps the existing route. Explicit strategy/model requests keep
+precedence and prevent model tier replacement. Set mode back to `off` to roll back.
+
+The policy assembler still consumes the original structural and risk signals;
+thus it may conservatively retain a macro task shape even if the scorer proposes
+a smaller tier. Safety, explicit prohibitions, memory ownership, and verification
+are not model outputs. This phase does not yet replace guide matching, dynamic
+skill triggers, fact-audit reminders, or the structural workflow signals.
+The same scorer API can evaluate caller-supplied text options; additional routing
+surfaces require their own catalog and held-out evidence before integration.
+
+When enabled, a single `SYSTEM ONE` JSON diagnostic reports mode, status, reason,
+selected candidate, model identity, confidence and margin; it omits prompt text,
+score vectors and artifact paths. The existing router contract schema is unchanged.
+Kernel/packaged entry points inherit these host environment variables. Prompts
+and hook payload fields cannot set model configuration or launch executables.
+Repository tests establish mechanism/package evidence only; actual host loading
+and semantic quality remain unverified until retained sessions demonstrate them.
+
+## Phase 3: corpus and paired evaluation
+
+Use `node scripts/evaluate-system-one.js corpus.json /absolute/manifest.json report.json`.
+The corpus is `{schemaVersion: 1, cases: [...]}`. Each case has exactly `id`,
+`family`, `split` (`train|validation|holdout`), `language` (`en|zh-TW`), `source`
+(human-reviewed provenance, not baseline-generated gold), `reviewed` (boolean),
+`request` (Phase 0 tier request), and `gold` (candidate ID, or null for abstention).
+The complete fixed tier catalog must match. IDs and request hashes are unique;
+no family may span splits. Evaluation uses only holdout, never training labels.
+The committed seed corpus is a mechanism fixture, not an independently reviewed
+holdout. Expand and review it separately before making quality claims.
+
+The CLI runs the real lexical baseline and the configured provider twice per
+holdout case. Records contain IDs, baseline prediction, decision, model identity,
+latency, and `coldStart: true`; they do not copy prompts into the report. Gold
+`unclassified` is represented by null. Nonaccepted model results also predict
+null. The evaluator rejects missing, duplicate or unknown cases, unsupported
+predictions, malformed measurements, and inconsistent model identities. Compare
+both decisions (including scores/identity), but not measured latency, on reruns.
+No normalization is permitted for candidate IDs or model revision.
+
+Report both baseline and model accuracy/macro-F1, model coverage, accepted
+precision/error rate, abstention, repeated-decision agreement, and separate
+cold/warm p95. Zero accepted decisions has null precision and never passes.
+Unavailable responses remain abstentions and count against coverage. Null gold
+is included in macro-F1's class set; the four catalog labels are always included
+even when unobserved, preventing favorable per-run class selection.
+
+The evaluator emits explicit rollout checks, not an automatic deployment. It
+requires reviewed holdout counts, semantic/coverage thresholds, repeatability,
+warm measurements, plus independently retained policy and live-host evidence.
+The latter evidence is not supplied by this offline runner, so it always reports
+those gates pending. With the one-shot adapter, all latency is cold and the warm
+gate also remains pending. Exporting a report never changes router defaults.
+
 ## Model suitability
 
 The [CUA-S1-FORMS model card](https://huggingface.co/cua-ai/cua-s1-forms)
