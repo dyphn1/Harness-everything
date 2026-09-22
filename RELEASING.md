@@ -40,9 +40,9 @@ A push to `main` runs the full reusable CI gate and then semantic-release. A man
 6. Run `scripts/sync-release-version.js` to synchronize package, Claude, OpenAI/Codex, OpenCode, lockfile, and changed canonical skill version fields.
 7. Regenerate and verify plugin packages, then generate and validate the release-only `sbom.cdx.json` CycloneDX 1.7 file.
 8. Update `CHANGELOG.md` and create `chore(release): X.Y.Z [skip ci]`.
-9. Create tag `vX.Y.Z`, publish npm with provenance (including the generated SBOM), and create the GitHub Release.
+9. Create tag `vX.Y.Z`, publish npm with provenance (including the generated SBOM), create the GitHub Release with the SBOM attached, and retain the same file as an Actions artifact.
 
-The SBOM is generated from the release `package.json`/`package-lock.json` as CycloneDX 1.7, the current 1.x format, to satisfy consumers and regulatory baselines requiring CycloneDX 1.6 or later. It is intentionally not committed to Git. npm packaging is tested to ensure `sbom.cdx.json` is included in the published tarball.
+The SBOM is generated from the release `package.json`/`package-lock.json` as CycloneDX 1.7, the current 1.x format, to satisfy consumers and regulatory baselines requiring CycloneDX 1.6 or later. It is intentionally not committed to Git. The release publishes `sbom.cdx.json` in the npm tarball and as a GitHub Release asset, while the workflow also retains it as an Actions artifact.
 
 Release concurrency is serialized so two updates to `main` cannot publish competing versions.
 
@@ -90,7 +90,8 @@ The release workflow runs the reusable CI gate before semantic-release. After pu
 ```text
 gh run list --workflow release.yml --limit 5
 gh run view <run-id> --json conclusion,headSha,jobs
-gh release view v<version> --json tagName,publishedAt,url
+gh release view v<version> --json tagName,publishedAt,url,assets
+gh run view <run-id> --json conclusion,headSha,jobs,artifacts
 npm view harness-everything version dist-tags --json
 ```
 
