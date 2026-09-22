@@ -24,6 +24,22 @@ assert.ok(execPlugin, 'semantic-release exec plugin is required for SBOM generat
 assert.match(execPlugin[1].prepareCmd, /generate-sbom\.js --output sbom\.cdx\.json --version \$\{nextRelease\.version\}/);
 assert.match(execPlugin[1].prepareCmd, /generate-sbom\.js --validate sbom\.cdx\.json --version \$\{nextRelease\.version\}/);
 
+const githubPlugin = releaseConfig.plugins.find(plugin => Array.isArray(plugin) && plugin[0] === '@semantic-release/github');
+assert.ok(githubPlugin, 'semantic-release github plugin is required for release publication');
+assert.ok(Array.isArray(githubPlugin[1].assets), 'GitHub Release assets must be configured');
+assert.ok(
+  githubPlugin[1].assets.some(asset => asset && typeof asset === 'object' && asset.path === 'sbom.cdx.json'),
+  'GitHub Release must publish the generated SBOM as an asset'
+);
+
+const releaseWorkflow = fs.readFileSync(path.join(ROOT, '.github/workflows/release.yml'), 'utf8');
+assert.match(releaseWorkflow, /uses:\s+actions\/upload-artifact@v4/,
+  'release workflow must retain the generated SBOM as an Actions artifact');
+assert.match(releaseWorkflow, /if:\s+\$\{\{\s*hashFiles\('sbom\.cdx\.json'\)\s*!=\s*''\s*\}\}/,
+  'release workflow must skip artifact upload when semantic-release has no release');
+assert.match(releaseWorkflow, /path:\s+sbom\.cdx\.json/,
+  'release workflow artifact must point at the generated SBOM');
+
 const bom = buildBom(ROOT, {
   version: packageJson.version,
   timestamp: '2026-09-21T00:00:00.000Z',
