@@ -34,6 +34,40 @@ Reject domain mismatch, tied winners, low confidence and low margin. A softmax
 score is not calibrated correctness probability. Invalid output returns no raw
 response, exception, or prompt. Identical inputs give identical decisions.
 
+## Phase 1: local provider
+
+`provider.score(request, manifestPath)` uses a trusted host-configured manifest,
+never a prompt-supplied executable. No shell or automatic download is used.
+The manifest is version 1 with `python` (executable), `checkpoint` (absolute
+`.safetensors` path), `weightsSha256`, `configSha256` (matching `.json` sidecar),
+`modelId`, `revision`, `domain`, and optional `timeoutMs` (1–10000, default 2000).
+All fields are required except the timeout; unknown fields are rejected. Hashes
+must be lowercase SHA-256. Revision and domain are artifact-owner declarations,
+not independently verified quality claims. The known `cua-ai/cua-s1-forms` ID
+must use domain `forms-v1`. No pickle format or remote URL is accepted.
+
+Install the optional `cua_s1` source in a dedicated Python 3.11–3.13 environment
+from upstream revision `b7f7e2d8714609853a29c7d049140bc46aec0954`, using the
+`libs/cua-s1/python` project. This npm package does not install Python, torch or
+weights. Configure its Python executable in the manifest. Record the actual
+environment and source revision in evaluation evidence; a manifest alone does
+not prove which Python package was installed.
+
+The adapter verifies both files before `load_checkpoint(..., 'cpu')`, sets one
+torch thread and deterministic inference, calls the upstream collator/model,
+and returns a probability for every option. It rejects context or option text
+that exceeds the loaded byte limits before collation (no silent truncation).
+No prompts or model values are written to disk or echoed in error messages.
+
+The Node transport has a hard timeout and a 1 MiB stdout/stderr bound; it kills
+the direct child on timeout. It starts one short-lived Python process per score
+request. This is an evaluation bridge, not a warm, persistent low-latency server.
+The process cannot execute actions and is not given a CUA driver. Failures return
+`{status: 'unavailable', reason}` with a bounded reason code; malformed score
+responses are checked by Phase 0. Transport fixtures prove IPC and failure
+handling only. Real checkpoint inference and measured CPU latency remain a
+separate gate, with explicit unavailable evidence if dependencies are absent.
+
 ## Model suitability
 
 The [CUA-S1-FORMS model card](https://huggingface.co/cua-ai/cua-s1-forms)
