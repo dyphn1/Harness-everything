@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.20.7](https://github.com/dyphn1/Harness-everything/compare/v0.20.6...v0.20.7) (2026-09-22)
+
+### Bug Fixes
+
+* **distribution:** emit per-host progress so plugin-sync does not look hung ([d746871](https://github.com/dyphn1/Harness-everything/commit/d746871b7a39c10decc841e9982b27982271df1e)), closes [#238](https://github.com/dyphn1/Harness-everything/issues/238)
+
 ## [0.20.6](https://github.com/dyphn1/Harness-everything/compare/v0.20.5...v0.20.6) (2026-09-22)
 
 ### Bug Fixes
