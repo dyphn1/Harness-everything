@@ -13,3 +13,4 @@ node_modules/
 .github/harness-state/
 .continue/harness-state/
 dist/openai-submission/
+evals/results/
