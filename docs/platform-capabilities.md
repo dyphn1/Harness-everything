@@ -80,7 +80,10 @@ The command detects Claude Code and Codex independently, ensures the Harness mar
 - absent plugin → install;
 - existing Claude Code plugin → `claude plugin update harness-everything@harness-everything`;
 - existing Codex plugin → `codex plugin marketplace upgrade harness-everything`;
+- host without the plugin subcommands at all (a Codex build shipping only `codex plugin marketplace`) → register the marketplace source, then skip with an actionable capability-boundary reason;
 - unknown plugin state → fail closed, with no blind install/re-add.
+
+Mutating commands are issued with the current option set and retried without any option the host rejects, covering both commander wording (`unknown option '--json'`) and clap wording (`unexpected argument '--json' found`), so older Claude and Codex builds stay supported.
 
 The installed branch is intentionally an update branch even when the current release is already the newest version; the host command may report “already latest.” Codex marketplace upgrade is the current native refresh operation; the command does not edit private cache paths or `config.toml`. These are deterministic command/state tests, not live-host evidence, so `liveHostVerification` remains `Unknown` in the matrix.
 

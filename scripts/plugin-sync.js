@@ -189,39 +189,71 @@ function query(context, command, args) {
   return context.runner(command, args, { query: true }) || { status: 1, stdout: '', stderr: 'runner returned no result' };
 }
 
-function hasUnknownOption(result, option) {
-  const output = [result && result.stderr, result && result.stdout, result && result.error && result.error.message]
+function resultText(result) {
+  return [result && result.stderr, result && result.stdout, result && result.error && result.error.message]
     .map(value => String(value || ''))
     .join('\n');
-  return new RegExp(`unknown option\\s+['"]?${escapeRegExp(option)}['"]?`, 'i').test(output);
 }
 
-function runClaudePluginMutation(context, action, pluginId) {
-  const baseArgs = [
-    'plugin', action, pluginId,
-    '--scope', 'user'
-  ];
-  let args = [...baseArgs, '--yes', '--json'];
+// Host CLIs disagree on how they reject an option they never implemented:
+// commander-based CLIs (Claude) say "unknown option '--json'", while
+// clap-based CLIs (Codex) say "unexpected argument '--json' found". Both mean
+// the same thing, so compatibility retries must recognize either wording.
+function hasUnsupportedOption(result, option) {
+  const output = resultText(result);
+  const name = escapeRegExp(option);
+  return [
+    `unknown option\\s+['"]?${name}['"]?`,
+    `unrecognized option\\s+['"]?${name}['"]?`,
+    `unexpected argument\\s+['"]?${name}['"]?`,
+    `found argument\\s+['"]?${name}['"]?`
+  ].some(pattern => new RegExp(pattern, 'i').test(output));
+}
+
+// A host build that never shipped the subcommand is a capability boundary, not
+// a transient failure, so it must be reported differently from a broken call.
+function hasUnsupportedSubcommand(result, subcommand) {
+  const expression = new RegExp(
+    `(unrecognized|unknown|invalid)\\s+(sub)?command\\s+['"]?${escapeRegExp(subcommand)}['"]?`,
+    'i'
+  );
+  return expression.test(resultText(result));
+}
+
+// Optional arguments are dropped one at a time so a host that implements only
+// some of them still reaches a command it accepts.
+function runHostMutation(context, command, baseArgs, optionalArgs, label) {
+  let args = [...baseArgs, ...optionalArgs];
   let attempt = 0;
 
   while (true) {
-    const result = invoke(context, 'claude', args, {
+    const result = invoke(context, command, args, {
       mutate: true,
-      label: attempt === 0 ? `claude plugin ${action}` : `claude plugin ${action} compatibility retry`,
+      label: attempt === 0 ? label : `${label} compatibility retry`,
       warnOnFailure: false
     });
     if (result.status === 0) return result;
 
-    const unsupported = ['--yes', '--json'].find(option => args.includes(option) && hasUnknownOption(result, option));
+    const unsupported = optionalArgs.find(option => args.includes(option) && hasUnsupportedOption(result, option));
     if (!unsupported) {
-      context.warn(`[failed] ${commandLine('claude', args)}\n  ${resultError(result)}`);
+      context.warn(`[failed] ${commandLine(command, args)}\n  ${resultError(result)}`);
       return result;
     }
 
     args = args.filter(arg => arg !== unsupported);
     attempt += 1;
-    context.warn(`[notice] Claude CLI does not support ${unsupported}; retrying ${action} without that option.`);
+    context.warn(`[notice] ${command} CLI does not support ${unsupported}; retrying ${label} without that option.`);
   }
+}
+
+function runClaudePluginMutation(context, action, pluginId) {
+  return runHostMutation(
+    context,
+    'claude',
+    ['plugin', action, pluginId, '--scope', 'user'],
+    ['--yes', '--json'],
+    `claude plugin ${action}`
+  );
 }
 
 function listState(context, { command, jsonArgs, plainArgs, detectJson, detectText }) {
@@ -239,6 +271,7 @@ function listState(context, { command, jsonArgs, plainArgs, detectJson, detectTe
   return {
     known: false,
     value: false,
+    attempts: [jsonResult, plainResult],
     error: `${resultError(jsonResult)}; fallback: ${resultError(plainResult)}`
   };
 }
@@ -312,11 +345,13 @@ function ensureCodexMarketplace(context) {
   const state = queryCodexMarketplace(context);
   if (!state.known) context.warn(`[notice] Codex marketplace state is unavailable; ensuring ${context.marketplace} is configured.`);
   if (!state.known || !state.value) {
-    const added = invoke(context, 'codex', [
-      'plugin', 'marketplace', 'add', context.repositorySource,
-      '--ref', context.ref,
-      '--json'
-    ], { mutate: true, label: 'codex marketplace add' });
+    const added = runHostMutation(
+      context,
+      'codex',
+      ['plugin', 'marketplace', 'add', context.repositorySource, '--ref', context.ref],
+      ['--json'],
+      'codex marketplace add'
+    );
     if (added.status !== 0) return { ok: false, error: resultError(added) };
   }
   return { ok: true };
@@ -332,10 +367,13 @@ function refreshClaudeMarketplace(context) {
 }
 
 function refreshCodexMarketplace(context) {
-  const upgraded = invoke(context, 'codex', [
-    'plugin', 'marketplace', 'upgrade', context.marketplace,
-    '--json'
-  ], { mutate: true, label: 'codex marketplace upgrade' });
+  const upgraded = runHostMutation(
+    context,
+    'codex',
+    ['plugin', 'marketplace', 'upgrade', context.marketplace],
+    ['--json'],
+    'codex marketplace upgrade'
+  );
   return upgraded.status === 0
     ? { ok: true }
     : { ok: false, error: resultError(upgraded) };
@@ -350,7 +388,7 @@ function verifyPlugin(context, host, queryPlugin) {
 }
 
 function syncClaude(context) {
-  if (!context.commandAvailable('claude')) return { host: 'claude', status: 'skipped', reason: 'claude CLI not found' };
+  if (!context.commandAvailable('claude')) return { host: 'claude', status: 'skipped', reasonCode: 'cli-not-found', reason: 'claude CLI not found' };
   const marketplace = ensureClaudeMarketplace(context);
   if (!marketplace.ok) return { host: 'claude', status: 'failed', error: marketplace.error };
   const installed = queryClaudePlugin(context);
@@ -372,11 +410,25 @@ function syncClaude(context) {
 }
 
 function syncCodex(context) {
-  if (!context.commandAvailable('codex')) return { host: 'codex', status: 'skipped', reason: 'codex CLI not found' };
+  if (!context.commandAvailable('codex')) return { host: 'codex', status: 'skipped', reasonCode: 'cli-not-found', reason: 'codex CLI not found' };
   const marketplace = ensureCodexMarketplace(context);
   if (!marketplace.ok) return { host: 'codex', status: 'failed', error: marketplace.error };
   const installed = queryCodexPlugin(context);
-  if (!installed.known) return { host: 'codex', status: 'failed', error: `Codex plugin state could not be determined: ${installed.error}` };
+  if (!installed.known) {
+    // A Codex build that ships only `codex plugin marketplace` cannot report
+    // or change plugin state at all. The marketplace source is now registered,
+    // which is everything this build supports, so report the host boundary
+    // instead of a generic failure.
+    if ((installed.attempts || []).some(attempt => hasUnsupportedSubcommand(attempt, 'list'))) {
+      return {
+        host: 'codex',
+        status: 'skipped',
+        reasonCode: 'host-capability-boundary',
+        reason: `this Codex CLI has no \`codex plugin list\` command, so plugin state cannot be read; ${context.marketplace} is registered as a marketplace source — enable the plugin from Codex, or upgrade the Codex CLI to a build that ships \`codex plugin list\`/\`codex plugin add\``
+      };
+    }
+    return { host: 'codex', status: 'failed', error: `Codex plugin state could not be determined: ${installed.error}` };
+  }
 
   let action;
   let result;
@@ -392,9 +444,13 @@ function syncCodex(context) {
     action = 'install';
     result = refreshCodexMarketplace(context);
     if (result.ok) {
-      result = invoke(context, 'codex', [
-        'plugin', 'add', `${context.plugin}@${context.marketplace}`, '--json'
-      ], { mutate: true, label: 'codex plugin install' });
+      result = runHostMutation(
+        context,
+        'codex',
+        ['plugin', 'add', `${context.plugin}@${context.marketplace}`],
+        ['--json'],
+        'codex plugin install'
+      );
     } else {
       result = { status: 1, stdout: '', stderr: result.error };
     }
@@ -488,7 +544,9 @@ function main(argv = process.argv.slice(2)) {
       else console.error(`[fail] ${result.host}: ${result.error}`);
     }
     if (summary.synchronized === 0 && summary.failed === 0) {
-      console.error('No supported host CLI was found. Install Claude Code and/or Codex, then retry.');
+      console.error(summary.results.every(result => result.reasonCode === 'cli-not-found')
+        ? 'No supported host CLI was found. Install Claude Code and/or Codex, then retry.'
+        : 'No host plugin was synchronized. Review the skip reasons above.');
     }
   }
   return summary.failed > 0 || summary.synchronized === 0 ? 1 : 0;
