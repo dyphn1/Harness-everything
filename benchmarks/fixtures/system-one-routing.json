@@ -1,0 +1,549 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "typo-en",
+      "family": "typo",
+      "language": "en",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "Fix one spelling typo in README.",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "842f482c252d3669f7b83d52f8756e52d15b9b3090c5ec3dff1e816fae19934c"
+      },
+      "gold": "tier1"
+    },
+    {
+      "id": "typo-zh",
+      "family": "typo",
+      "language": "zh-TW",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "修正 README 中的一個錯字。",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "843caa4dbd9433bab15453e696fc5974e249c5a6f2aa557e318bcd62e864a95d"
+      },
+      "gold": "tier1"
+    },
+    {
+      "id": "bug-en",
+      "family": "bug",
+      "language": "en",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "Fix the parser returning a wrong value for empty input and add regression tests.",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "ff85c15ad4847929336548982924eab97a672376a0657dfd777f4fa78d794c0d"
+      },
+      "gold": "tier2"
+    },
+    {
+      "id": "bug-zh",
+      "family": "bug",
+      "language": "zh-TW",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "修正解析器對空輸入回傳錯誤數值，補回歸測試。",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "c237e19662ed1f707f5049d7ceda63d917d5c7ba676487f93355aa8319089294"
+      },
+      "gold": "tier2"
+    },
+    {
+      "id": "design-en",
+      "family": "design",
+      "language": "en",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "Redesign the router architecture and migrate every platform.",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "77dfb5b40a6d485aed079a6767f768e5c737a87d09c03380f7090cf03b18956a"
+      },
+      "gold": "tier3"
+    },
+    {
+      "id": "design-zh",
+      "family": "design",
+      "language": "zh-TW",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "重新設計 router 架構並遷移所有平台。",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "0014fdf2fa5c27bfbe67609fe4cc3237ee74ff147b7037a8ee9c5dd533eade3c"
+      },
+      "gold": "tier3"
+    },
+    {
+      "id": "ambiguous-en",
+      "family": "ambiguous",
+      "language": "en",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "Take a look at this.",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "e77726d7ac34b0f56be6394f3401dd24dcab5bb577ca3e1076dd7c75bd8439d7"
+      },
+      "gold": null
+    },
+    {
+      "id": "ambiguous-zh",
+      "family": "ambiguous",
+      "language": "zh-TW",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "看看這個。",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "a4a3f89a4a7d42fb5729796ce0091028a824b124509fb8afa7b4936044db0321"
+      },
+      "gold": null
+    },
+    {
+      "id": "negation-en",
+      "family": "negation",
+      "language": "en",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "Do not refactor the architecture; only fix a README typo.",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "49f4f2cfa209244c514b84c2f7e4b19eebd370448c85b8d59706687e4210884c"
+      },
+      "gold": "tier1"
+    },
+    {
+      "id": "negation-zh",
+      "family": "negation",
+      "language": "zh-TW",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "不要重構架構，只修改 README 的一個錯字。",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "bfa207d9ca040dc37efca66d9c952f19e42dc203ef4063dbb543f5676fbdd00d"
+      },
+      "gold": "tier1"
+    },
+    {
+      "id": "mixed-en",
+      "family": "mixed",
+      "language": "en",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "Add a parser, migrate its consumers, update docs, then benchmark all platforms.",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "0a0dfc43e4466aada82da6fc06690dfba91b166cbffd56df4ce82a37aa024a08"
+      },
+      "gold": "tier3"
+    },
+    {
+      "id": "mixed-zh",
+      "family": "mixed",
+      "language": "zh-TW",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "新增解析器、遷移呼叫端、更新文件，再評測所有平台。",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "554f608a3e5c783251e587ab72fa1e4e47501574c5f871256aa04f8e3086cbb1"
+      },
+      "gold": "tier3"
+    },
+    {
+      "id": "explicit-en",
+      "family": "explicit",
+      "language": "en",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "Use fable-staged to design and implement a new workflow.",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "a6c7a4dc6bbfe3daadfc6ba2e66592ce4344a59067e5ca2ab5f90738c72f2e05"
+      },
+      "gold": "tier3"
+    },
+    {
+      "id": "outside-en",
+      "family": "outside",
+      "language": "en",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "What is your favorite food?",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "ad70746c3a6c8f94add479be391c1a0f0bce704ae28b7a22f0ae49f6705325eb"
+      },
+      "gold": null
+    },
+    {
+      "id": "outside-zh",
+      "family": "outside",
+      "language": "zh-TW",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "你喜歡吃什麼？",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "ca3c6372387fc48ddd19a24bea15fc1a2c0a590f43ec715af10646ecf3a41206"
+      },
+      "gold": null
+    },
+    {
+      "id": "long-en",
+      "family": "long",
+      "language": "en",
+      "split": "holdout",
+      "source": "issue-233: illustrative authored fixture, not independently reviewed gold",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "tier",
+        "context": "The following is historical context. The following is historical context. The following is historical context. The following is historical context. The following is historical context. The following is historical context. The following is historical context. The following is historical context. The following is historical context. The following is historical context. The following is historical context. The following is historical context. Only fix a spelling typo in the README.",
+        "options": [
+          {
+            "id": "tier1",
+            "text": "A small bounded edit or operation with clear scope."
+          },
+          {
+            "id": "tier2",
+            "text": "Implementation or bug fix needing iterative testing."
+          },
+          {
+            "id": "tier3",
+            "text": "Architecture, repository-wide change or multi-stage engineering."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
+        "requestHash": "2146aced0d7a197b77ad47f548c506657dd667291117942210dfb3479b2fce04"
+      },
+      "gold": "tier1"
+    }
+  ]
+}
