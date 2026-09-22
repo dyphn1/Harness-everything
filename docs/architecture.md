@@ -102,13 +102,13 @@ Two kernel mechanisms annotate plans without creating hard workflow enforcement:
 
 ### PreToolUse guard trio and denied-mutation probes
 
-On the Claude hook path, three narrowly scoped `PreToolUse` guards sit alongside the workflow/action gates:
+On the Claude hook path, three narrowly scoped `PreToolUse` guards sit alongside the workflow/action gates. **All three are advisory and fail open — none of them can reject a tool call.** The mechanism that still performs real `exit(2)` hard blocking on this hook is `action-gate.js` (see "Claude Code" below), not this trio.
 
 - `boundary-guard.js` (Grep/Glob/Read): warns about very large reads and noisy search roots; it fails open.
 - `depth-guard.js` (Write): reminds when an existing file would be overwritten without prior inspection. The semantic obligation to establish current target state before destructive overwrite is a **MUST**; the hook itself stays fail-open. New files are unaffected.
 - `context-compact.js`: estimates working-tree context pressure from `git status`/`git diff --numstat` so later stages can compact or halt before lost-in-the-middle degradation.
 
-Shell mutation observation is best-effort evidence for reminders. The old mutation-probe reservation/lock subsystem was retired by #190.
+Shell mutation observation is best-effort evidence for reminders. The old mutation-probe reservation/lock subsystem, and the hard `exit(2)` blocking `boundary-guard.js`/`depth-guard.js` previously performed, were retired by [#190](https://github.com/dyphn1/Harness-everything/issues/190), which reclassified every Harness-owned *cognitive* workflow gate (this trio, plus `stop-gate.js`, `subagent-scope-guard.js`, `atomic-commit-check.js`, `workflow-gate.js`) as a non-blocking reminder. #190 explicitly kept user/host permission and explicit dangerous-action approval boundaries — i.e. `action-gate.js` — out of scope and still enforced.
 
 ## Integration Touchpoints
 
@@ -124,11 +124,11 @@ The installer configures native lifecycle hooks and project skills.
 
 - `SessionStart`: bootstrap/restoration.
 - `UserPromptSubmit`: kernel routing + semantic workflow contract.
-- `PreToolUse`: workflow/boundary/depth/scope reminders, plus separate action permission and Rule-of-3 boundaries.
+- `PreToolUse`: workflow/boundary/depth/scope reminders (all advisory, fail-open), plus the separate `action-gate.js` permission boundary and the Rule-of-3 same-signature-failure boundary.
 - `PostToolUse`: outcomes, state, repeated-failure evidence, stage checks.
 - `Stop`: action-gate audit plus non-blocking workflow/verification reminders.
 
-These hooks make semantic obligations observable; they do not promote cognitive workflow contracts into hard enforcement.
+Cognitive workflow contracts (boundary/depth/scope/commit/workflow guards) are made observable, not hard-enforced — [#190](https://github.com/dyphn1/Harness-everything/issues/190) downgraded their `exit(2)` blocking to reminders. `action-gate.js` and the Rule-of-3 zoom-out boundary are the two mechanisms that still hard-block on this hook path; #190 explicitly scoped both out of that downgrade as user/host permission and dangerous-action safety boundaries.
 
 ### OpenCode — plugin enforcement, scoped live verification
 
