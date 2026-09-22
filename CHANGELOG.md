@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.20.6](https://github.com/dyphn1/Harness-everything/compare/v0.20.5...v0.20.6) (2026-09-22)
+
+### Bug Fixes
+
+* **distribution:** match resolve-on-path test extension casing to fixture files ([07f0e5a](https://github.com/dyphn1/Harness-everything/commit/07f0e5a815e779f5596d5c79d448b9ab383ee361))
+* **distribution:** resolve codex/claude on windows in path order, not exe preference ([048c5e4](https://github.com/dyphn1/Harness-everything/commit/048c5e40e0d4727700234c49e509fc6edfac4f01)), closes [#236](https://github.com/dyphn1/Harness-everything/issues/236)
+
 ## [0.20.5](https://github.com/dyphn1/Harness-everything/compare/v0.20.4...v0.20.5) (2026-09-22)
 
 ### Bug Fixes
