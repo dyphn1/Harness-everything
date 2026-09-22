@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.20.2](https://github.com/dyphn1/Harness-everything/compare/v0.20.1...v0.20.2) (2026-09-22)
+
+### Bug Fixes
+
+* **distribution:** handle legacy claude flags ([2e09915](https://github.com/dyphn1/Harness-everything/commit/2e09915cff6c7cbf7cd10b08587df18264403a01)), closes [#221](https://github.com/dyphn1/Harness-everything/issues/221)
+
 ## [0.20.1](https://github.com/dyphn1/Harness-everything/compare/v0.20.0...v0.20.1) (2026-09-22)
 
 ### Bug Fixes
