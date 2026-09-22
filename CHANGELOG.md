@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.20.1](https://github.com/dyphn1/Harness-everything/compare/v0.20.0...v0.20.1) (2026-09-22)
+
+### Bug Fixes
+
+* **distribution:** support older claude plugin clis ([e00e665](https://github.com/dyphn1/Harness-everything/commit/e00e665eeebf6d1f6fc0469eed435ec0562bc226)), closes [#221](https://github.com/dyphn1/Harness-everything/issues/221)
+
 ## [0.20.0](https://github.com/dyphn1/Harness-everything/compare/v0.19.1...v0.20.0) (2026-09-21)
 
 ### Features
