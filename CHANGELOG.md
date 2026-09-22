@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.20.4](https://github.com/dyphn1/Harness-everything/compare/v0.20.3...v0.20.4) (2026-09-22)
+
+### Bug Fixes
+
+* **release:** publish sbom release artifacts ([83eeb96](https://github.com/dyphn1/Harness-everything/commit/83eeb96c1746ccbffcdcba478ba6b54c522887a0)), closes [#222](https://github.com/dyphn1/Harness-everything/issues/222)
+
 ## [0.20.3](https://github.com/dyphn1/Harness-everything/compare/v0.20.2...v0.20.3) (2026-09-22)
 
 ### Bug Fixes
