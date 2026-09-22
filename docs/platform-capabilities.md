@@ -84,6 +84,8 @@ The command detects Claude Code and Codex independently, ensures the Harness mar
 
 The installed branch is intentionally an update branch even when the current release is already the newest version; the host command may report “already latest.” Codex marketplace upgrade is the current native refresh operation; the command does not edit private cache paths or `config.toml`. These are deterministic command/state tests, not live-host evidence, so `liveHostVerification` remains `Unknown` in the matrix.
 
+On Windows, the synchronizer retries through `ComSpec` when Node cannot directly start a CLI shim, so npm-installed `codex.cmd` and `claude.cmd` commands remain discoverable when the wrapper is launched from Git Bash.
+
 ### Explicit Codex user-hook compatibility fallback
 
 Current Codex documentation supports plugin-bundled hooks, so native plugin mounting remains the preferred path. Some host/source combinations have nevertheless failed to expose enabled plugin hooks for review/entry attribution (#122 and upstream Codex reports). Harness therefore provides an **explicit compatibility fallback**, not an automatic replacement for native plugin hooks:

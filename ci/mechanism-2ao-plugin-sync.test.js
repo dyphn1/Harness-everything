@@ -2,8 +2,10 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const {
+  createContext,
   findMarketplace,
   findPlugin,
   parseJsonOutput,
@@ -176,6 +178,21 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   const result = sync({ host: 'all' }, { commandAvailable: () => false, log: () => {}, warn: () => {} });
   assert.strictEqual(result.skipped, 2);
   assert.strictEqual(result.failed, 0);
+}
+
+if (process.platform === 'win32') {
+  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-plugin-sync-command-'));
+  const originalPath = process.env.PATH;
+  try {
+    fs.writeFileSync(path.join(fixtureDir, 'harness-codex-fixture.cmd'), '@echo off\r\necho codex-cli fixture\r\n');
+    process.env.PATH = `${fixtureDir};${originalPath || ''}`;
+    const context = createContext();
+    assert.strictEqual(context.commandAvailable('harness-codex-fixture'), true, 'Windows .cmd CLI shims must be detected');
+  } finally {
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+  }
 }
 
 for (const wrapper of ['scripts/plugin-sync.sh', 'scripts/plugin-sync.ps1']) {
