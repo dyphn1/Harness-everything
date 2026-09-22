@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.20.3](https://github.com/dyphn1/Harness-everything/compare/v0.20.2...v0.20.3) (2026-09-22)
+
+### Bug Fixes
+
+* **distribution:** support windows cli shims ([f634e6d](https://github.com/dyphn1/Harness-everything/commit/f634e6d84fd8d0751604efa1d9b8acd5e7d90b8b)), closes [#221](https://github.com/dyphn1/Harness-everything/issues/221)
+
 ## [0.20.2](https://github.com/dyphn1/Harness-everything/compare/v0.20.1...v0.20.2) (2026-09-22)
 
 ### Bug Fixes
