@@ -20,11 +20,21 @@ const DEFAULTS = Object.freeze({
 });
 
 function defaultRunner(command, args) {
-  const result = spawnSync(command, args, {
+  const options = {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true
-  });
+  };
+  let result = spawnSync(command, args, options);
+
+  // npm-installed Windows CLIs are often .cmd shims. Node can report those
+  // shims as an executable-resolution error when this script is launched from
+  // Git Bash, even though the same command is available to the shell.
+  if (process.platform === 'win32' && result.error && ['EACCES', 'EINVAL', 'ENOENT'].includes(result.error.code)) {
+    const comspec = process.env.ComSpec || process.env.COMSPEC || 'cmd.exe';
+    result = spawnSync(comspec, ['/d', '/c', command, ...args], options);
+  }
+
   return {
     status: result.status === null ? 1 : result.status,
     stdout: result.stdout || '',
