@@ -250,10 +250,12 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   fs.writeFileSync(path.join(cmdDir, 'harness-fixture.cmd'), '');
   fs.writeFileSync(path.join(exeDir, 'harness-fixture.exe'), '');
   try {
-    // Windows filesystems match extensions case-insensitively, so compare
-    // case-insensitively too: the point under test is which directory and
-    // base name won, not PATHEXT's own casing convention.
-    const pathExt = '.COM;.EXE;.BAT;.CMD';
+    // Real PATHEXT is upper-case, but NTFS matches it case-insensitively
+    // against lower-case fixture files; this test also runs on Linux/macOS
+    // CI, whose case-sensitive filesystems would not, so the fixture extension
+    // casing matches the file names exactly. The point under test is
+    // directory order versus extension order, not PATHEXT's own casing.
+    const pathExt = '.com;.exe;.bat;.cmd';
     const cmdFirst = resolveOnPath('harness-fixture', { pathValue: [cmdDir, exeDir].join(path.delimiter), pathExt });
     assert.strictEqual(String(cmdFirst).toLowerCase(), path.join(cmdDir, 'harness-fixture.cmd').toLowerCase(), 'an earlier PATH directory must win even when a later one has the extension PATHEXT prefers');
 
