@@ -12,7 +12,7 @@ const {
 
 const ROOT = path.resolve(__dirname, '..');
 
-function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false } = {}) {
+function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false } = {}) {
   const calls = [];
   const state = {
     claudeInstalled,
@@ -43,6 +43,9 @@ function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarke
       if (joined === 'plugin list') {
         if (unknownClaudePluginState) return { status: 1, stdout: '', stderr: 'unsupported list' };
         return { status: 0, stdout: state.claudeInstalled ? 'harness-everything@harness-everything\n' : '', stderr: '' };
+      }
+      if (unknownClaudeYesFlag && joined.includes('--yes')) {
+        return { status: 1, stdout: '', stderr: "error: unknown option '--yes'" };
       }
       if (joined.startsWith('plugin install') || joined.startsWith('plugin update')) {
         state.claudeInstalled = true;
@@ -116,6 +119,17 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   assert.strictEqual(result.results[0].action, 'update');
   assert.strictEqual(callsFor(fake.calls, 'claude', 'plugin update').length, 1, 'installed Claude plugin must update');
   assert.strictEqual(callsFor(fake.calls, 'claude', 'plugin install').length, 0, 'installed Claude plugin must not reinstall');
+}
+
+{
+  const fake = fakeHost({ claudeInstalled: true, unknownClaudeYesFlag: true });
+  const result = runHost('claude', fake);
+  const updateCalls = callsFor(fake.calls, 'claude', 'plugin update');
+  assert.strictEqual(result.failed, 0, 'unsupported Claude --yes must fall back to a compatible update command');
+  assert.strictEqual(result.results[0].action, 'update');
+  assert.strictEqual(updateCalls.length, 2, 'unsupported --yes must cause one compatibility retry');
+  assert.ok(updateCalls[0].args.includes('--yes'), 'first update attempt should use the current non-interactive flag');
+  assert.ok(!updateCalls[1].args.includes('--yes'), 'compatibility retry must omit unsupported --yes');
 }
 
 {
