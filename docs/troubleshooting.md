@@ -197,6 +197,13 @@ npx github:dyphn1/Harness-everything plugin-sync --json
 
 The command installs only when the plugin is absent. An installed Claude plugin uses the explicit Claude update command; an installed Codex plugin uses marketplace upgrade. If plugin state cannot be read, synchronization stops without re-adding or overwriting the plugin.
 
+Host CLIs differ in which options and subcommands they implement, so the synchronizer degrades instead of failing:
+
+- An option the host rejects — `unknown option '--json'` (commander) or `unexpected argument '--json' found` (clap/Codex) — is dropped and the command is retried without it.
+- A Codex build that ships only `codex plugin marketplace` has no `codex plugin list`/`codex plugin add`. The marketplace source is still registered and the host is reported as `[skip] codex: …` with an actionable reason, not as a failure. Upgrade the Codex CLI, or enable the plugin from Codex, to complete installation.
+
+If several `codex` binaries are on `PATH` (for example an npm shim plus an installer-managed build), the synchronizer runs whichever one Node resolves first, which may be older than the one your interactive shell picks up. Compare `codex --version` with `node -e "console.log(require('child_process').spawnSync('codex',['--version'],{encoding:'utf8'}).stdout)"` when the reported capabilities look wrong.
+
 See [openai-plugin.md](openai-plugin.md) for installation and validation details.
 
 ### Public OpenAI Skills-only plugin behaves differently from local Codex plugin

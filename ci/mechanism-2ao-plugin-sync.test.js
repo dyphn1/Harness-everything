@@ -14,7 +14,7 @@ const {
 
 const ROOT = path.resolve(__dirname, '..');
 
-function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false } = {}) {
+function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false, clapCodexJsonFlag = false, missingCodexPluginCommand = false } = {}) {
   const calls = [];
   const state = {
     claudeInstalled,
@@ -59,6 +59,27 @@ function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarke
     }
 
     if (command === 'codex') {
+      // clap-based CLIs reject an option they do not implement as an
+      // unexpected argument, not as an unknown option. Read-only listings
+      // already have their own plain-text fallback, so this models a build
+      // whose mutating commands predate --json.
+      if (clapCodexJsonFlag && args.includes('--json') && /^plugin (marketplace (add|upgrade)|add)\b/.test(joined)) {
+        return {
+          status: 2,
+          stdout: '',
+          stderr: "error: unexpected argument '--json' found\n\n  tip: to pass '--json' as a value, use '-- --json'\n\nUsage: codex plugin marketplace add --ref <REF> <SOURCE>"
+        };
+      }
+      // Codex builds that ship only `codex plugin marketplace` have no plugin
+      // install/list surface at all.
+      if (missingCodexPluginCommand && /^plugin (list|add)\b/.test(joined)) {
+        const subcommand = joined.split(' ')[1];
+        return {
+          status: 2,
+          stdout: '',
+          stderr: `error: unrecognized subcommand '${subcommand}'\n\nUsage: codex plugin [OPTIONS] <COMMAND>`
+        };
+      }
       if (joined.includes('marketplace list --json')) {
         return { status: 0, stdout: JSON.stringify({ marketplaces: state.codexMarketplace ? [{ name: 'harness-everything' }] : [] }), stderr: '' };
       }
@@ -166,6 +187,41 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
 }
 
 {
+  const fake = fakeHost({ codexInstalled: false, codexMarketplace: false, clapCodexJsonFlag: true });
+  const result = runHost('codex', fake);
+  const addCalls = callsFor(fake.calls, 'codex', 'plugin marketplace add');
+  const installCalls = callsFor(fake.calls, 'codex', 'plugin add');
+  assert.strictEqual(result.failed, 0, 'clap-style --json rejection must fall back to a compatible Codex command');
+  assert.strictEqual(result.results[0].action, 'install');
+  assert.strictEqual(addCalls.length, 2, 'unsupported Codex --json must cause one marketplace add retry');
+  assert.ok(addCalls[0].args.includes('--json'), 'first Codex marketplace add should use the current flags');
+  assert.ok(!addCalls[1].args.includes('--json'), 'Codex compatibility retry must omit unsupported --json');
+  assert.ok(installCalls.some(call => !call.args.includes('--json')), 'Codex plugin install must also retry without --json');
+}
+
+{
+  const fake = fakeHost({ codexInstalled: true, clapCodexJsonFlag: true });
+  const result = runHost('codex', fake);
+  const upgradeCalls = callsFor(fake.calls, 'codex', 'plugin marketplace upgrade');
+  assert.strictEqual(result.failed, 0, 'clap-style --json rejection must not fail the Codex upgrade path');
+  assert.strictEqual(result.results[0].action, 'update');
+  assert.strictEqual(upgradeCalls.length, 2, 'unsupported Codex --json must cause one upgrade retry');
+  assert.ok(!upgradeCalls[1].args.includes('--json'), 'Codex upgrade retry must omit unsupported --json');
+}
+
+{
+  const fake = fakeHost({ codexMarketplace: false, missingCodexPluginCommand: true, clapCodexJsonFlag: true });
+  const result = runHost('codex', fake);
+  assert.strictEqual(result.failed, 0, 'a Codex build without plugin subcommands is a capability boundary, not a failure');
+  assert.strictEqual(result.skipped, 1, 'the boundary must be reported as a distinct skipped outcome');
+  assert.strictEqual(result.results[0].reasonCode, 'host-capability-boundary', 'a capability boundary must not be reported as a missing CLI');
+  assert.match(result.results[0].reason, /codex plugin list/, 'the skip reason must name the missing host command');
+  assert.match(result.results[0].reason, /upgrade/i, 'the skip reason must stay actionable');
+  assert.strictEqual(callsFor(fake.calls, 'codex', 'plugin marketplace add').length, 2, 'the supported marketplace registration must still run');
+  assert.strictEqual(callsFor(fake.calls, 'codex', 'plugin add').length, 0, 'an unsupported host must not be blindly installed into');
+}
+
+{
   const fake = fakeHost({ unknownClaudePluginState: true });
   const result = runHost('claude', fake);
   assert.strictEqual(result.failed, 1, 'unknown installed state must fail closed');
@@ -178,6 +234,7 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   const result = sync({ host: 'all' }, { commandAvailable: () => false, log: () => {}, warn: () => {} });
   assert.strictEqual(result.skipped, 2);
   assert.strictEqual(result.failed, 0);
+  assert.ok(result.results.every(entry => entry.reasonCode === 'cli-not-found'), 'an absent CLI must stay distinguishable from a capability boundary');
 }
 
 if (process.platform === 'win32') {
