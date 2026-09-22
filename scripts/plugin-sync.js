@@ -162,14 +162,14 @@ function createContext(options = {}) {
   return context;
 }
 
-function invoke(context, command, args, { mutate = false, label = command } = {}) {
+function invoke(context, command, args, { mutate = false, label = command, warnOnFailure = true } = {}) {
   const rendered = commandLine(command, args);
   if (mutate && context.dryRun) {
     context.log(`[dry-run] ${rendered}`);
     return { status: 0, stdout: '', stderr: '', dryRun: true };
   }
   const result = context.runner(command, args, { label });
-  if (!result || result.status !== 0) {
+  if (warnOnFailure && (!result || result.status !== 0)) {
     context.warn(`[failed] ${rendered}\n  ${resultError(result)}`);
   }
   return result || { status: 1, stdout: '', stderr: 'runner returned no result' };
@@ -177,6 +177,39 @@ function invoke(context, command, args, { mutate = false, label = command } = {}
 
 function query(context, command, args) {
   return context.runner(command, args, { query: true }) || { status: 1, stdout: '', stderr: 'runner returned no result' };
+}
+
+function hasUnknownOption(result, option) {
+  const output = [result && result.stderr, result && result.stdout, result && result.error && result.error.message]
+    .map(value => String(value || ''))
+    .join('\n');
+  return new RegExp(`unknown option\\s+['"]?${escapeRegExp(option)}['"]?`, 'i').test(output);
+}
+
+function runClaudePluginMutation(context, action, pluginId) {
+  const baseArgs = [
+    'plugin', action, pluginId,
+    '--scope', 'user'
+  ];
+  const currentArgs = [...baseArgs, '--yes', '--json'];
+  const compatibleArgs = [...baseArgs, '--json'];
+  const current = invoke(context, 'claude', currentArgs, {
+    mutate: true,
+    label: `claude plugin ${action}`,
+    warnOnFailure: false
+  });
+  if (current.status === 0) return current;
+
+  if (!hasUnknownOption(current, '--yes')) {
+    context.warn(`[failed] ${commandLine('claude', currentArgs)}\n  ${resultError(current)}`);
+    return current;
+  }
+
+  context.warn(`[notice] Claude CLI does not support --yes; retrying ${action} without that option.`);
+  return invoke(context, 'claude', compatibleArgs, {
+    mutate: true,
+    label: `claude plugin ${action} compatibility retry`
+  });
 }
 
 function listState(context, { command, jsonArgs, plainArgs, detectJson, detectText }) {
@@ -314,10 +347,11 @@ function syncClaude(context) {
   if (!refreshed.ok) return { host: 'claude', status: 'failed', error: refreshed.error };
 
   const action = installed.value ? 'update' : 'install';
-  const result = invoke(context, 'claude', [
-    'plugin', action, `${context.plugin}@${context.marketplace}`,
-    '--scope', 'user', '--yes', '--json'
-  ], { mutate: true, label: `claude plugin ${action}` });
+  const result = runClaudePluginMutation(
+    context,
+    action,
+    `${context.plugin}@${context.marketplace}`
+  );
   if (result.status !== 0) return { host: 'claude', status: 'failed', error: resultError(result) };
 
   const verification = verifyPlugin(context, 'Claude', queryClaudePlugin);
