@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.20.5](https://github.com/dyphn1/Harness-everything/compare/v0.20.4...v0.20.5) (2026-09-22)
+
+### Bug Fixes
+
+* **distribution:** support codex clis without --json or plugin install ([d6a48a6](https://github.com/dyphn1/Harness-everything/commit/d6a48a6763bb564eb7df14334579003823242af7)), closes [#221](https://github.com/dyphn1/Harness-everything/issues/221)
+
 ## [0.20.4](https://github.com/dyphn1/Harness-everything/compare/v0.20.3...v0.20.4) (2026-09-22)
 
 ### Bug Fixes
