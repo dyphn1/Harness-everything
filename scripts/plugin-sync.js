@@ -191,25 +191,27 @@ function runClaudePluginMutation(context, action, pluginId) {
     'plugin', action, pluginId,
     '--scope', 'user'
   ];
-  const currentArgs = [...baseArgs, '--yes', '--json'];
-  const compatibleArgs = [...baseArgs, '--json'];
-  const current = invoke(context, 'claude', currentArgs, {
-    mutate: true,
-    label: `claude plugin ${action}`,
-    warnOnFailure: false
-  });
-  if (current.status === 0) return current;
+  let args = [...baseArgs, '--yes', '--json'];
+  let attempt = 0;
 
-  if (!hasUnknownOption(current, '--yes')) {
-    context.warn(`[failed] ${commandLine('claude', currentArgs)}\n  ${resultError(current)}`);
-    return current;
+  while (true) {
+    const result = invoke(context, 'claude', args, {
+      mutate: true,
+      label: attempt === 0 ? `claude plugin ${action}` : `claude plugin ${action} compatibility retry`,
+      warnOnFailure: false
+    });
+    if (result.status === 0) return result;
+
+    const unsupported = ['--yes', '--json'].find(option => args.includes(option) && hasUnknownOption(result, option));
+    if (!unsupported) {
+      context.warn(`[failed] ${commandLine('claude', args)}\n  ${resultError(result)}`);
+      return result;
+    }
+
+    args = args.filter(arg => arg !== unsupported);
+    attempt += 1;
+    context.warn(`[notice] Claude CLI does not support ${unsupported}; retrying ${action} without that option.`);
   }
-
-  context.warn(`[notice] Claude CLI does not support --yes; retrying ${action} without that option.`);
-  return invoke(context, 'claude', compatibleArgs, {
-    mutate: true,
-    label: `claude plugin ${action} compatibility retry`
-  });
 }
 
 function listState(context, { command, jsonArgs, plainArgs, detectJson, detectText }) {

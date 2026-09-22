@@ -12,7 +12,7 @@ const {
 
 const ROOT = path.resolve(__dirname, '..');
 
-function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false } = {}) {
+function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false } = {}) {
   const calls = [];
   const state = {
     claudeInstalled,
@@ -46,6 +46,9 @@ function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarke
       }
       if (unknownClaudeYesFlag && joined.includes('--yes')) {
         return { status: 1, stdout: '', stderr: "error: unknown option '--yes'" };
+      }
+      if (unknownClaudeJsonFlag && joined.includes('--json')) {
+        return { status: 1, stdout: '', stderr: "error: unknown option '--json'" };
       }
       if (joined.startsWith('plugin install') || joined.startsWith('plugin update')) {
         state.claudeInstalled = true;
@@ -130,6 +133,17 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   assert.strictEqual(updateCalls.length, 2, 'unsupported --yes must cause one compatibility retry');
   assert.ok(updateCalls[0].args.includes('--yes'), 'first update attempt should use the current non-interactive flag');
   assert.ok(!updateCalls[1].args.includes('--yes'), 'compatibility retry must omit unsupported --yes');
+}
+
+{
+  const fake = fakeHost({ claudeInstalled: true, unknownClaudeYesFlag: true, unknownClaudeJsonFlag: true });
+  const result = runHost('claude', fake);
+  const updateCalls = callsFor(fake.calls, 'claude', 'plugin update');
+  assert.strictEqual(result.failed, 0, 'unsupported Claude --yes and --json must fall back to a compatible update command');
+  assert.strictEqual(updateCalls.length, 3, 'each unsupported option must cause one compatibility retry');
+  assert.ok(updateCalls[0].args.includes('--yes') && updateCalls[0].args.includes('--json'), 'first update attempt should use current flags');
+  assert.ok(!updateCalls[1].args.includes('--yes') && updateCalls[1].args.includes('--json'), 'second attempt should omit only unsupported --yes');
+  assert.ok(!updateCalls[2].args.includes('--yes') && !updateCalls[2].args.includes('--json'), 'final attempt must omit both unsupported flags');
 }
 
 {
