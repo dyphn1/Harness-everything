@@ -9,6 +9,7 @@ const {
   findMarketplace,
   findPlugin,
   parseJsonOutput,
+  resolveOnPath,
   sync
 } = require('../scripts/plugin-sync');
 
@@ -237,6 +238,35 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   assert.ok(result.results.every(entry => entry.reasonCode === 'cli-not-found'), 'an absent CLI must stay distinguishable from a capability boundary');
 }
 
+// resolveOnPath() is pure filesystem logic (platform choice happens only at
+// the defaultRunner call site), so its directory-order-first contract runs
+// on every CI OS, not only Windows.
+{
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-plugin-sync-resolve-'));
+  const cmdDir = path.join(base, 'cmd-dir');
+  const exeDir = path.join(base, 'exe-dir');
+  fs.mkdirSync(cmdDir);
+  fs.mkdirSync(exeDir);
+  fs.writeFileSync(path.join(cmdDir, 'harness-fixture.cmd'), '');
+  fs.writeFileSync(path.join(exeDir, 'harness-fixture.exe'), '');
+  try {
+    // Windows filesystems match extensions case-insensitively, so compare
+    // case-insensitively too: the point under test is which directory and
+    // base name won, not PATHEXT's own casing convention.
+    const pathExt = '.COM;.EXE;.BAT;.CMD';
+    const cmdFirst = resolveOnPath('harness-fixture', { pathValue: [cmdDir, exeDir].join(path.delimiter), pathExt });
+    assert.strictEqual(String(cmdFirst).toLowerCase(), path.join(cmdDir, 'harness-fixture.cmd').toLowerCase(), 'an earlier PATH directory must win even when a later one has the extension PATHEXT prefers');
+
+    const exeFirst = resolveOnPath('harness-fixture', { pathValue: [exeDir, cmdDir].join(path.delimiter), pathExt });
+    assert.strictEqual(String(exeFirst).toLowerCase(), path.join(exeDir, 'harness-fixture.exe').toLowerCase(), 'PATH order, not extension preference, must decide the match');
+
+    const missing = resolveOnPath('harness-fixture-does-not-exist', { pathValue: [cmdDir, exeDir].join(path.delimiter), pathExt });
+    assert.strictEqual(missing, null, 'an unresolved command must return null, not throw');
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+}
+
 if (process.platform === 'win32') {
   const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-plugin-sync-command-'));
   const originalPath = process.env.PATH;
@@ -249,6 +279,33 @@ if (process.platform === 'win32') {
     if (originalPath === undefined) delete process.env.PATH;
     else process.env.PATH = originalPath;
     fs.rmSync(fixtureDir, { recursive: true, force: true });
+  }
+}
+
+// End-to-end: when a .cmd shim sits earlier on PATH than an unrelated real
+// .exe, the runner must actually execute the .cmd (not silently prefer
+// whichever candidate Node's non-shell spawn can launch directly).
+if (process.platform === 'win32') {
+  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-plugin-sync-order-'));
+  const shadowDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-plugin-sync-shadow-'));
+  const originalPath = process.env.PATH;
+  try {
+    fs.writeFileSync(path.join(fixtureDir, 'harness-order-fixture.cmd'), '@echo off\r\necho current-cmd-shim\r\n');
+    // A real, directly-launchable PE binary standing in for an unrelated,
+    // stale standalone install later on PATH. cmd.exe itself is a stable,
+    // always-present .exe to copy for this purpose.
+    fs.copyFileSync(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'), path.join(shadowDir, 'harness-order-fixture.exe'));
+    process.env.PATH = [fixtureDir, shadowDir, originalPath || ''].join(path.delimiter);
+
+    const context = createContext();
+    const result = context.runner('harness-order-fixture', []);
+    assert.strictEqual(result.status, 0, 'the earlier PATH entry must run successfully');
+    assert.match(result.stdout, /current-cmd-shim/, 'an earlier .cmd must be executed even though a later, directly-launchable .exe also matches');
+  } finally {
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+    fs.rmSync(shadowDir, { recursive: true, force: true });
   }
 }
 

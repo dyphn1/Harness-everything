@@ -11,6 +11,8 @@
  */
 
 const { spawnSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const DEFAULTS = Object.freeze({
   marketplace: 'harness-everything',
@@ -19,17 +21,83 @@ const DEFAULTS = Object.freeze({
   ref: process.env.HARNESS_PLUGIN_REF || 'main'
 });
 
+// Windows CLIs that ship as a .cmd/.bat shim are not executable via the same
+// direct CreateProcess call Node uses for a .exe, and — unlike a real shell —
+// Node's non-shell spawnSync does not search PATHEXT-suffixed candidates for
+// a bare command name at all. When more than one `codex`/`claude` is on
+// PATH (an npm shim plus a separately installed .exe is a common pairing),
+// the non-shell spawn silently resolves whichever entry happens to be a real
+// .exe, regardless of PATH order — so an unrelated, older standalone install
+// can shadow a newer npm-updated shim with no error to signal it.
+//
+// resolveOnPath() replicates what a real shell / `where.exe` does instead:
+// walk PATH directories in order, and within each directory try PATHEXT
+// extensions in order, returning the first match. Directory order wins over
+// extension preference, exactly like cmd.exe and PowerShell's own lookup, so
+// the result matches what typing the command in a terminal would run.
+function resolveOnPath(command, { pathValue = process.env.PATH || process.env.Path || '', pathExt = process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD' } = {}) {
+  if (path.isAbsolute(command)) return fs.existsSync(command) ? command : null;
+
+  const dirs = pathValue.split(path.delimiter).filter(Boolean);
+  const extensions = pathExt.split(';').map(ext => ext.trim()).filter(Boolean);
+  const hasKnownExtension = extensions.some(ext => command.toLowerCase().endsWith(ext.toLowerCase()));
+
+  for (const dir of dirs) {
+    if (hasKnownExtension) {
+      const candidate = path.join(dir, command);
+      if (fs.existsSync(candidate)) return candidate;
+      continue;
+    }
+    for (const ext of extensions) {
+      const candidate = path.join(dir, command + ext);
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+// A .bat/.cmd target is not a Win32 executable image; Windows requires the
+// cmd.exe interpreter to run one at all, the same way a shebang-less script
+// needs an explicit interpreter on POSIX. This is the one case a shell is
+// unavoidable, and only that resolved file is passed to it — never the bare
+// command name or user-controlled arguments re-interpreted as a command line.
+const SHELL_REQUIRED_EXTENSIONS = new Set(['.bat', '.cmd']);
+
+function runResolved(resolved, args, options) {
+  const ext = path.extname(resolved).toLowerCase();
+  if (SHELL_REQUIRED_EXTENSIONS.has(ext)) {
+    const comspec = process.env.ComSpec || process.env.COMSPEC || 'cmd.exe';
+    return spawnSync(comspec, ['/d', '/c', resolved, ...args], options);
+  }
+  return spawnSync(resolved, args, options);
+}
+
 function defaultRunner(command, args) {
   const options = {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true
   };
+
+  if (process.platform === 'win32') {
+    const resolved = resolveOnPath(command);
+    if (resolved) {
+      const result = runResolved(resolved, args, options);
+      return {
+        status: result.status === null ? 1 : result.status,
+        stdout: result.stdout || '',
+        stderr: result.stderr || '',
+        error: result.error || null
+      };
+    }
+  }
+
   let result = spawnSync(command, args, options);
 
-  // npm-installed Windows CLIs are often .cmd shims. Node can report those
-  // shims as an executable-resolution error when this script is launched from
-  // Git Bash, even though the same command is available to the shell.
+  // Resolution above only checks the filesystem; if PATH itself could not be
+  // read, or the command is reachable through a mechanism resolveOnPath does
+  // not model (e.g. an App Execution Alias), fall back to letting the shell
+  // do its own resolution rather than failing outright.
   if (process.platform === 'win32' && result.error && ['EACCES', 'EINVAL', 'ENOENT'].includes(result.error.code)) {
     const comspec = process.env.ComSpec || process.env.COMSPEC || 'cmd.exe';
     result = spawnSync(comspec, ['/d', '/c', command, ...args], options);
@@ -563,6 +631,7 @@ module.exports = {
   main,
   parseArgs,
   parseJsonOutput,
+  resolveOnPath,
   sync,
   textHasMarketplace,
   textHasPlugin

@@ -87,7 +87,7 @@ Mutating commands are issued with the current option set and retried without any
 
 The installed branch is intentionally an update branch even when the current release is already the newest version; the host command may report “already latest.” Codex marketplace upgrade is the current native refresh operation; the command does not edit private cache paths or `config.toml`. These are deterministic command/state tests, not live-host evidence, so `liveHostVerification` remains `Unknown` in the matrix.
 
-On Windows, the synchronizer retries through `ComSpec` when Node cannot directly start a CLI shim, so npm-installed `codex.cmd` and `claude.cmd` commands remain discoverable when the wrapper is launched from Git Bash.
+On Windows, the synchronizer resolves `codex`/`claude` the same way an interactive shell does: it walks `PATH` directories in order and tries `PATHEXT` extensions within each directory before moving on, so directory order — not which candidate happens to be a directly launchable `.exe` — decides the match. This matters because Node's non-shell `spawnSync` cannot execute a `.cmd`/`.bat` shim directly and, left to its own resolution, can silently prefer an unrelated, older standalone `.exe` elsewhere on `PATH` over a newer npm-installed shim with no error to signal it. Only the one case Windows genuinely requires an interpreter for — a resolved `.cmd`/`.bat` target — is run through `ComSpec`, using the already-resolved absolute path rather than re-resolving the bare command name.
 
 ### Explicit Codex user-hook compatibility fallback
 
