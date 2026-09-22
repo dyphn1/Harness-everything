@@ -575,7 +575,15 @@ Options:
 function sync(options, dependencies = {}) {
   const context = createContext({ ...options, ...dependencies });
   const hosts = context.host === 'all' ? ['claude', 'codex'] : [context.host];
-  const results = hosts.map(host => host === 'claude' ? syncClaude(context) : syncCodex(context));
+  // Each host sync is fully synchronous and the marketplace update/refresh
+  // step does real network I/O (observed ~10s+ for Claude alone), so without
+  // this the terminal stays completely silent until every host finishes —
+  // indistinguishable from a hang. This goes to stderr (context.warn), not
+  // stdout, so `--json` consumers' stdout stays pure JSON.
+  const results = hosts.map(host => {
+    context.warn(`[...] ${host}: syncing`);
+    return host === 'claude' ? syncClaude(context) : syncCodex(context);
+  });
   const summary = {
     repository: context.repository,
     marketplace: context.marketplace,

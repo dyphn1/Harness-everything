@@ -238,6 +238,29 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   assert.ok(result.results.every(entry => entry.reasonCode === 'cli-not-found'), 'an absent CLI must stay distinguishable from a capability boundary');
 }
 
+{
+  // Each host sync is fully synchronous and does real network I/O; without a
+  // progress notice emitted before that work starts, the terminal stays
+  // silent for the whole run, which is indistinguishable from a hang.
+  const events = [];
+  const fake = fakeHost({ claudeInstalled: true, codexInstalled: true });
+  const runner = (command, args, opts) => {
+    events.push(`call:${command}`);
+    return fake.runner(command, args, opts);
+  };
+  const result = sync({ host: 'all', repository: 'dyphn1/Harness-everything', ref: 'main' }, {
+    runner,
+    commandAvailable: () => true,
+    log: () => {},
+    warn: message => events.push(`warn:${message}`)
+  });
+  assert.strictEqual(result.failed, 0);
+  assert.ok(events.includes('warn:[...] claude: syncing'), 'a claude progress notice must be emitted');
+  assert.ok(events.includes('warn:[...] codex: syncing'), 'a codex progress notice must be emitted');
+  assert.ok(events.indexOf('warn:[...] claude: syncing') < events.indexOf('call:claude'), 'the claude notice must be emitted before its first host command, not buffered until the run finishes');
+  assert.ok(events.indexOf('warn:[...] codex: syncing') < events.indexOf('call:codex'), 'the codex notice must be emitted before its first host command');
+}
+
 // resolveOnPath() is pure filesystem logic (platform choice happens only at
 // the defaultRunner call site), so its directory-order-first contract runs
 // on every CI OS, not only Windows.
