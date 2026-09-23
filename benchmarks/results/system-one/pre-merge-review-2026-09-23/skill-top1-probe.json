@@ -1,0 +1,7700 @@
+{
+  "options": [
+    {
+      "id": "environment-detection",
+      "text": "environment-detection: Use at session start (Discover phase) to detect and align with the"
+    },
+    {
+      "id": "eval-harness",
+      "text": "eval-harness: Evaluate AI agent performance across correctness, token efficiency, anti-loop"
+    },
+    {
+      "id": "fable-discipline",
+      "text": "fable-discipline: Enforce fable-mode's context discipline as a shadow guard. Use when running"
+    },
+    {
+      "id": "fable-mode",
+      "text": "fable-mode: Stage large, multi-source or multi-session tasks through a written plan, named fable"
+    },
+    {
+      "id": "find-skills",
+      "text": "find-skills: Search the agent-skills ecosystem (skills.sh / npx skills) when no installed skill"
+    },
+    {
+      "id": "git-commit",
+      "text": "git-commit: Generate Angular-style commit messages after verifying the environment, submodules,"
+    },
+    {
+      "id": "grill-me",
+      "text": "grill-me: Acts as a relentless challenger to stress-test plans and architectures by"
+    },
+    {
+      "id": "grill-with-docs",
+      "text": "grill-with-docs: Challenge the plan against the existing domain model, sharpen terminology, and"
+    },
+    {
+      "id": "harness-everything",
+      "text": "harness-everything: Route software/project work through Harness: classify tier/topology, resolve"
+    },
+    {
+      "id": "improve-codebase-architecture",
+      "text": "improve-codebase-architecture: Discovers and transforms shallow or bloated modules into deep,"
+    },
+    {
+      "id": "install-cognitive-os",
+      "text": "install-cognitive-os: Explain or explicitly apply the Harness cognitive policy: Discover, Think,"
+    },
+    {
+      "id": "multi-agent-workspace",
+      "text": "multi-agent-workspace: Scaffold a verified multi-agent workspace and select bounded specialists"
+    },
+    {
+      "id": "repo-docs",
+      "text": "repo-docs: Generate or update precise, reader-oriented README.md and AGENTS.md based on actual"
+    },
+    {
+      "id": "rewrite-commits",
+      "text": "rewrite-commits: Rewrite past Git history to comply with Angular Style conventions. Use when"
+    },
+    {
+      "id": "security-review",
+      "text": "security-review: Conducts STRIDE threat modeling, scans secrets via audit scripts, and hardens"
+    },
+    {
+      "id": "self-evolve",
+      "text": "self-evolve: Extract root causes from resolved problems and persist them as defensive memory"
+    },
+    {
+      "id": "skill-creator",
+      "text": "skill-creator: Author, audit, and refactor SKILL.md files against one quality bar — the Skill"
+    },
+    {
+      "id": "skill-style",
+      "text": "skill-style: Apply Harness style guidelines when writing or refactoring SKILL.md files. Use when"
+    },
+    {
+      "id": "tdd",
+      "text": "tdd: Drive Standard Tasks (Tier 2) with Test-Driven Development (RED/GREEN/REFACTOR) backed by"
+    },
+    {
+      "id": "to-spec",
+      "text": "to-spec: Turn the conversation into a written spec — feature PRD, CLI/API reference, schema"
+    },
+    {
+      "id": "to-tickets",
+      "text": "to-tickets: Break a to-spec feature-spec, a plan, or a conversation into tracer-bullet tickets"
+    },
+    {
+      "id": "todo-driven-workflow",
+      "text": "todo-driven-workflow: Enforce a deliberate step-by-step execution loop for complex multi-step or"
+    },
+    {
+      "id": "using-git-worktrees",
+      "text": "using-git-worktrees: Use when work needs isolation or before major implementation plans -"
+    },
+    {
+      "id": "verification-loop",
+      "text": "verification-loop: Run objective verification gates (build, types, lint, tests, security scan)"
+    },
+    {
+      "id": "verify-before-claim",
+      "text": "verify-before-claim: Verify external framework/API claims and unmeasured perf/cost estimates"
+    },
+    {
+      "id": "zoom-out",
+      "text": "zoom-out: Reflect-first circuit breaker - after 3 failures, stop edits, rebuild the full picture"
+    }
+  ],
+  "summary": {
+    "A": {
+      "total": 305,
+      "scored": 305,
+      "rejected": 0,
+      "top1Correct": 25,
+      "top3Correct": 79,
+      "highConfidenceWrong": 16,
+      "decisions": [
+        "domain-mismatch"
+      ],
+      "top1Distribution": [
+        [
+          "find-skills",
+          90
+        ],
+        [
+          "self-evolve",
+          39
+        ],
+        [
+          "security-review",
+          35
+        ],
+        [
+          "skill-creator",
+          34
+        ],
+        [
+          "harness-everything",
+          33
+        ],
+        [
+          "fable-discipline",
+          11
+        ],
+        [
+          "repo-docs",
+          11
+        ],
+        [
+          "multi-agent-workspace",
+          9
+        ],
+        [
+          "verify-before-claim",
+          8
+        ],
+        [
+          "grill-me",
+          7
+        ],
+        [
+          "zoom-out",
+          5
+        ],
+        [
+          "install-cognitive-os",
+          4
+        ],
+        [
+          "eval-harness",
+          4
+        ],
+        [
+          "environment-detection",
+          3
+        ],
+        [
+          "fable-mode",
+          2
+        ],
+        [
+          "to-spec",
+          2
+        ],
+        [
+          "grill-with-docs",
+          2
+        ],
+        [
+          "todo-driven-workflow",
+          2
+        ],
+        [
+          "skill-style",
+          1
+        ],
+        [
+          "improve-codebase-architecture",
+          1
+        ],
+        [
+          "rewrite-commits",
+          1
+        ],
+        [
+          "tdd",
+          1
+        ]
+      ]
+    },
+    "B": {
+      "total": 34,
+      "scored": 34,
+      "rejected": 0,
+      "top1Correct": 2,
+      "top3Correct": 3,
+      "highConfidenceWrong": 1,
+      "decisions": [
+        "domain-mismatch"
+      ],
+      "top1Distribution": [
+        [
+          "find-skills",
+          9
+        ],
+        [
+          "harness-everything",
+          7
+        ],
+        [
+          "multi-agent-workspace",
+          7
+        ],
+        [
+          "fable-discipline",
+          3
+        ],
+        [
+          "environment-detection",
+          2
+        ],
+        [
+          "using-git-worktrees",
+          1
+        ],
+        [
+          "self-evolve",
+          1
+        ],
+        [
+          "to-spec",
+          1
+        ],
+        [
+          "install-cognitive-os",
+          1
+        ],
+        [
+          "to-tickets",
+          1
+        ],
+        [
+          "tdd",
+          1
+        ]
+      ],
+      "lexicalRecommendsGold": 29
+    }
+  },
+  "rows": [
+    {
+      "set": "A-keyword",
+      "context": "tdd",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.7980259656906128,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "improve-codebase-architecture"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "test",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5526610016822815,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "mock",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.6119359135627747,
+      "top3": [
+        "self-evolve",
+        "grill-me",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "stub",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.4192710220813751,
+      "top3": [
+        "fable-discipline",
+        "to-spec",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "api",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.2400675117969513,
+      "top3": [
+        "multi-agent-workspace",
+        "find-skills",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "endpoint",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "install-cognitive-os",
+      "top1p": 0.5399795174598694,
+      "top3": [
+        "install-cognitive-os",
+        "environment-detection",
+        "improve-codebase-architecture"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "integration",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "environment-detection",
+      "top1p": 0.5883495211601257,
+      "top3": [
+        "environment-detection",
+        "tdd",
+        "to-spec"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "debugging",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.7850010395050049,
+      "top3": [
+        "self-evolve",
+        "to-spec",
+        "environment-detection"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "bug",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.6048129200935364,
+      "top3": [
+        "self-evolve",
+        "install-cognitive-os",
+        "improve-codebase-architecture"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "error",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "repo-docs",
+      "top1p": 0.5750846266746521,
+      "top3": [
+        "repo-docs",
+        "find-skills",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "fix",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.9020697474479675,
+      "top3": [
+        "security-review",
+        "skill-style",
+        "grill-with-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "lsp",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6306540966033936,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "實作 lsp",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 10,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.6915394067764282,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "測試",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop",
+        "security-review",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.41215524077415466,
+      "top3": [
+        "security-review",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "單測",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.5510755181312561,
+      "top3": [
+        "security-review",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "模組測試",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.8210353851318359,
+      "top3": [
+        "security-review",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "端點",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.50410395860672,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "介面",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.8031714558601379,
+      "top3": [
+        "harness-everything",
+        "security-review",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "除錯",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.8165327310562134,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "錯誤",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.8077501654624939,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "修復",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5351789593696594,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "實作",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.48924657702445984,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "測試用例",
+      "gold": [
+        "tdd",
+        "environment-detection",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.76776522397995,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "commit",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.33501559495925903,
+      "top3": [
+        "security-review",
+        "self-evolve",
+        "grill-with-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "git",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.3070771396160126,
+      "top3": [
+        "self-evolve",
+        "security-review",
+        "git-commit"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "save",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.8295849561691284,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "submodule",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.4053449034690857,
+      "top3": [
+        "fable-discipline",
+        "using-git-worktrees",
+        "to-spec"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "pr",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 2,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.9022154808044434,
+      "top3": [
+        "multi-agent-workspace",
+        "skill-creator",
+        "verification-loop"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "pull request",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.3548227548599243,
+      "top3": [
+        "multi-agent-workspace",
+        "find-skills",
+        "todo-driven-workflow"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "release",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 7,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.8138057589530945,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "quality gate",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.6218597292900085,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "ready to ship",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.24390769004821777,
+      "top3": [
+        "multi-agent-workspace",
+        "improve-codebase-architecture",
+        "environment-detection"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "commit message",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 14,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.752878725528717,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "commit lint",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.6038788557052612,
+      "top3": [
+        "security-review",
+        "grill-me",
+        "grill-with-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "commit-lint",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.7071249485015869,
+      "top3": [
+        "security-review",
+        "grill-with-docs",
+        "grill-me"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "angular-style",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.46725451946258545,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "提交",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.6459115147590637,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "版控",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.43965041637420654,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "合併",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.29354026913642883,
+      "top3": [
+        "find-skills",
+        "verify-before-claim",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "分支",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.46303310990333557,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "發行",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "verify-before-claim",
+      "top1p": 0.4096827507019043,
+      "top3": [
+        "verify-before-claim",
+        "find-skills",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "規範",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5322771668434143,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "提交訊息",
+      "gold": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.6771166324615479,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "doc",
+      "gold": [
+        "repo-docs"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "zoom-out",
+      "top1p": 0.560295581817627,
+      "top3": [
+        "zoom-out",
+        "grill-me",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "readme",
+      "gold": [
+        "repo-docs"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.8146572709083557,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "agents.md",
+      "gold": [
+        "repo-docs"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5077115297317505,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "claude.md",
+      "gold": [
+        "repo-docs"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.5894105434417725,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "說明文件",
+      "gold": [
+        "repo-docs"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.36573344469070435,
+      "top3": [
+        "find-skills",
+        "repo-docs",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "說明書",
+      "gold": [
+        "repo-docs"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.4339083135128021,
+      "top3": [
+        "skill-creator",
+        "repo-docs",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "專案說明",
+      "gold": [
+        "repo-docs"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.4234078824520111,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "文件記錄",
+      "gold": [
+        "repo-docs"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.9161722660064697,
+      "top3": [
+        "harness-everything",
+        "rewrite-commits",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "文件",
+      "gold": [
+        "repo-docs"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.5442354679107666,
+      "top3": [
+        "skill-creator",
+        "verify-before-claim",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "agent",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.8460336327552795,
+      "top3": [
+        "self-evolve",
+        "verification-loop",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "multi-agent",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.741022527217865,
+      "top3": [
+        "self-evolve",
+        "security-review",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "launcher",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "eval-harness",
+      "top1p": 0.6132857799530029,
+      "top3": [
+        "eval-harness",
+        "fable-discipline",
+        "to-spec"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "subagent",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.404372900724411,
+      "top3": [
+        "self-evolve",
+        "eval-harness",
+        "to-spec"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "sub-agent",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.32349318265914917,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "subAgent",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.49288007616996765,
+      "top3": [
+        "self-evolve",
+        "to-spec",
+        "environment-detection"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "delegate",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.7026938796043396,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "orchestrate",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.6366561651229858,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "specialist",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 10,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.4833605885505676,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "stage discipline",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 16,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.40574976801872253,
+      "top3": [
+        "security-review",
+        "skill-style",
+        "fable-mode"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "context discipline",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 18,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "grill-me",
+      "top1p": 0.9750462770462036,
+      "top3": [
+        "grill-me",
+        "harness-everything",
+        "fable-mode"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "per-stage",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.2888384163379669,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "named workers",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6736868619918823,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "stage contract",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 14,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "eval-harness",
+      "top1p": 0.2940220534801483,
+      "top3": [
+        "eval-harness",
+        "to-spec",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "stage contracts",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 15,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.2783111333847046,
+      "top3": [
+        "fable-discipline",
+        "eval-harness",
+        "to-spec"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "workspace scaffolding",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 21,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.4885411858558655,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "scaffold workspace",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 18,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6879990696907043,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "division of labor",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 17,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.9002151489257812,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "grill-with-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "fable",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.42289090156555176,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "fable mode",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 10,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6290996074676514,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "fable-mode",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 10,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5357270240783691,
+      "top3": [
+        "find-skills",
+        "verify-before-claim",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "fable-discipline",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 16,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.9398699402809143,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "fable-haiku",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.32234224677085876,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "fable-sonnet",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.20846913754940033,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "fable-opus",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 10,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.529400646686554,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "macro",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.4962943196296692,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "orchestrator",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.6255587935447693,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "harness-everything",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 18,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.4155731797218323,
+      "top3": [
+        "harness-everything",
+        "verify-before-claim",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "harness system",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 14,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6725301146507263,
+      "top3": [
+        "find-skills",
+        "repo-docs",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "harness-skills",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 14,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6602876782417297,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "using-superpowers",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 17,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.34087464213371277,
+      "top3": [
+        "find-skills",
+        "using-git-worktrees",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "代理",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.3650473952293396,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "多代理",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.33168265223503113,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "啟動器",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "verify-before-claim",
+      "top1p": 0.7656229734420776,
+      "top3": [
+        "verify-before-claim",
+        "find-skills",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "子代理",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.3670303523540497,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "委派",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6001141667366028,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "指派",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6670665740966797,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "分工",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.34655505418777466,
+      "top3": [
+        "skill-creator",
+        "verify-before-claim",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "協調",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.396310955286026,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "任務分配",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.9224728941917419,
+      "top3": [
+        "harness-everything",
+        "verify-before-claim",
+        "rewrite-commits"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "規劃",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.29357606172561646,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "智慧體",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.8944599628448486,
+      "top3": [
+        "security-review",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "角色",
+      "gold": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "repo-docs",
+        "grill-with-docs"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.40763211250305176,
+      "top3": [
+        "skill-creator",
+        "repo-docs",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "refactor",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.9478825330734253,
+      "top3": [
+        "skill-creator",
+        "eval-harness",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "architecture",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.27571558952331543,
+      "top3": [
+        "skill-creator",
+        "improve-codebase-architecture",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "structure",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.6815639734268188,
+      "top3": [
+        "fable-discipline",
+        "eval-harness",
+        "to-spec"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "couple",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.523607075214386,
+      "top3": [
+        "fable-discipline",
+        "eval-harness",
+        "to-spec"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "seam",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.7674635052680969,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "adr",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.5530344247817993,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "design plan",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-mode",
+      "top1p": 0.11194367706775665,
+      "top3": [
+        "fable-mode",
+        "to-tickets",
+        "tdd"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "decision",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "grill-me",
+      "top1p": 0.9740853905677795,
+      "top3": [
+        "grill-me",
+        "fable-mode",
+        "fable-discipline"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "grill",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.38482925295829773,
+      "top3": [
+        "security-review",
+        "self-evolve",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "deepening",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "to-spec",
+      "top1p": 0.3816570043563843,
+      "top3": [
+        "to-spec",
+        "repo-docs",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "deep module",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.5711544156074524,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "decoupling",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 10,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.4612218141555786,
+      "top3": [
+        "self-evolve",
+        "install-cognitive-os",
+        "improve-codebase-architecture"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "srp",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.3327377438545227,
+      "top3": [
+        "multi-agent-workspace",
+        "find-skills",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "single responsibility",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 21,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.4865010380744934,
+      "top3": [
+        "harness-everything",
+        "fable-discipline",
+        "fable-mode"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "split object",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.8780708909034729,
+      "top3": [
+        "harness-everything",
+        "grill-with-docs",
+        "rewrite-commits"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "split class",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6906208395957947,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "split function",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 14,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "eval-harness",
+      "top1p": 0.3728581666946411,
+      "top3": [
+        "eval-harness",
+        "fable-discipline",
+        "to-spec"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "extract class",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.4247618317604065,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "extract method",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 14,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.7746496200561523,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "god class",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "repo-docs",
+      "top1p": 0.5864623785018921,
+      "top3": [
+        "repo-docs",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "monolithic file",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 15,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "grill-with-docs",
+      "top1p": 0.651798665523529,
+      "top3": [
+        "grill-with-docs",
+        "security-review",
+        "harness-everything"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "decouple component",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 18,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "install-cognitive-os",
+      "top1p": 0.30795904994010925,
+      "top3": [
+        "install-cognitive-os",
+        "fable-discipline",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "grill-me",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.7649737596511841,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "grill-with-docs",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 15,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5015393495559692,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "重構",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.7250444889068604,
+      "top3": [
+        "harness-everything",
+        "verify-before-claim",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "架構",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.30446675419807434,
+      "top3": [
+        "skill-creator",
+        "verify-before-claim",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "結構",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.44322413206100464,
+      "top3": [
+        "skill-creator",
+        "verify-before-claim",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "解耦",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.8749373555183411,
+      "top3": [
+        "security-review",
+        "grill-me",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "設計",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.7322431802749634,
+      "top3": [
+        "skill-creator",
+        "verify-before-claim",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "決策",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.516775906085968,
+      "top3": [
+        "security-review",
+        "verify-before-claim",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "辯論",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.5548150539398193,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "質疑",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.7780025005340576,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "深模組化",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.4544079005718231,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "深模組",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.40053659677505493,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "重寫",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.3066255450248718,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "解耦設計",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.9639716148376465,
+      "top3": [
+        "security-review",
+        "harness-everything",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "結構優化",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5223013758659363,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "單一職責",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.678242564201355,
+      "top3": [
+        "security-review",
+        "self-evolve",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "拆分物件",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "verify-before-claim",
+      "top1p": 0.26849064230918884,
+      "top3": [
+        "verify-before-claim",
+        "skill-creator",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "拆分類別",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.6430251598358154,
+      "top3": [
+        "security-review",
+        "find-skills",
+        "grill-me"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "拆分函數",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.28633180260658264,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "improve-codebase-architecture"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "拆分功能",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.22879543900489807,
+      "top3": [
+        "skill-creator",
+        "security-review",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "提取物件",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.7002326250076294,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "提取介面",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.9578663110733032,
+      "top3": [
+        "harness-everything",
+        "security-review",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "職責分離",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.6395034790039062,
+      "top3": [
+        "security-review",
+        "harness-everything",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "物件拆分",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6454275250434875,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "檔案過大",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.6375709176063538,
+      "top3": [
+        "security-review",
+        "self-evolve",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "函式拆分",
+      "gold": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5382182598114014,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "spec",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.8310654163360596,
+      "top3": [
+        "fable-discipline",
+        "eval-harness",
+        "to-spec"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "prd",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.47979921102523804,
+      "top3": [
+        "multi-agent-workspace",
+        "skill-creator",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "product requirement",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 19,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "repo-docs",
+      "top1p": 0.4286646544933319,
+      "top3": [
+        "repo-docs",
+        "to-spec",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "user stories",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "repo-docs",
+      "top1p": 0.21537689864635468,
+      "top3": [
+        "repo-docs",
+        "find-skills",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "problem statement",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 17,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.47997069358825684,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "write up the requirements",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 25,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.20935358107089996,
+      "top3": [
+        "multi-agent-workspace",
+        "find-skills",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "turn this into a spec",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 21,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "environment-detection",
+      "top1p": 0.487704336643219,
+      "top3": [
+        "environment-detection",
+        "git-commit",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "cli reference",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "repo-docs",
+      "top1p": 0.5583171248435974,
+      "top3": [
+        "repo-docs",
+        "tdd",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "cli help",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.46002140641212463,
+      "top3": [
+        "harness-everything",
+        "security-review",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "api reference",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.576392412185669,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "design doc",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 10,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "grill-me",
+      "top1p": 0.9064670205116272,
+      "top3": [
+        "grill-me",
+        "zoom-out",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "dev doc",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 7,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "zoom-out",
+      "top1p": 0.8085389137268066,
+      "top3": [
+        "zoom-out",
+        "find-skills",
+        "grill-me"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "file format",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.7167093753814697,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "schema doc",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 10,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5857151746749878,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "document this schema",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 20,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.7140898108482361,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "grill-me"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "document the endpoint",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 21,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.3804408311843872,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "rewrite-commits"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "document the command",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 20,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "zoom-out",
+      "top1p": 0.6318190097808838,
+      "top3": [
+        "zoom-out",
+        "grill-me",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "規格",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.476749449968338,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "規格書",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.3711698651313782,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "需求文件",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.8991667628288269,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "grill-me"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "產品需求",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.9308245778083801,
+      "top3": [
+        "security-review",
+        "grill-me",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "用戶故事",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.33821752667427063,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "需求規格",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.8556984066963196,
+      "top3": [
+        "security-review",
+        "harness-everything",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "設計文件",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.8305787444114685,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "檔案格式",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.3485218584537506,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "命令列說明",
+      "gold": [
+        "to-spec"
+      ],
+      "bytes": 15,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5475514531135559,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "break this into tickets",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 23,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.5143469572067261,
+      "top3": [
+        "harness-everything",
+        "fable-discipline",
+        "to-tickets"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "break into tickets",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 18,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "zoom-out",
+      "top1p": 0.32251590490341187,
+      "top3": [
+        "zoom-out",
+        "fable-discipline",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "vertical slice",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 14,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.35311025381088257,
+      "top3": [
+        "security-review",
+        "skill-style",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "tracer bullet",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "todo-driven-workflow",
+      "top1p": 0.31115826964378357,
+      "top3": [
+        "todo-driven-workflow",
+        "skill-creator",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "blocking edges",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 14,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "grill-me",
+      "top1p": 0.9608949422836304,
+      "top3": [
+        "grill-me",
+        "zoom-out",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "cut tickets",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "zoom-out",
+      "top1p": 0.4610905647277832,
+      "top3": [
+        "zoom-out",
+        "fable-discipline",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "ticket breakdown",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 16,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "todo-driven-workflow",
+      "top1p": 0.2585151195526123,
+      "top3": [
+        "todo-driven-workflow",
+        "tdd",
+        "to-spec"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "split into tickets",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 18,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "grill-me",
+      "top1p": 0.7619303464889526,
+      "top3": [
+        "grill-me",
+        "grill-with-docs",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "implementation tickets",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 22,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-style",
+      "top1p": 0.28279492259025574,
+      "top3": [
+        "skill-style",
+        "eval-harness",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "publish tickets",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 15,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.49791109561920166,
+      "top3": [
+        "fable-discipline",
+        "harness-everything",
+        "to-spec"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "approved spec",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6317936778068542,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "拆票",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "verify-before-claim",
+      "top1p": 0.5589202642440796,
+      "top3": [
+        "verify-before-claim",
+        "find-skills",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "拆解任務",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "verify-before-claim",
+      "top1p": 0.4813661575317383,
+      "top3": [
+        "verify-before-claim",
+        "harness-everything",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "拆成票",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.6982021331787109,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "任務拆解",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.4564428925514221,
+      "top3": [
+        "find-skills",
+        "verify-before-claim",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "垂直切分",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.7269951105117798,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "阻塞關係",
+      "gold": [
+        "to-tickets"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "repo-docs",
+      "top1p": 0.48064175248146057,
+      "top3": [
+        "repo-docs",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "shell",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.8897607326507568,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "terminal",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.6248286962509155,
+      "top3": [
+        "self-evolve",
+        "skill-creator",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "powershell",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 10,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.4273627996444702,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "bash",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.5013003945350647,
+      "top3": [
+        "skill-creator",
+        "improve-codebase-architecture",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "cmd",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "grill-me",
+      "top1p": 0.9470807909965515,
+      "top3": [
+        "grill-me",
+        "self-evolve",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "git bash",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.5993019938468933,
+      "top3": [
+        "self-evolve",
+        "improve-codebase-architecture",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "git-bash",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "improve-codebase-architecture",
+      "top1p": 0.4800630211830139,
+      "top3": [
+        "improve-codebase-architecture",
+        "self-evolve",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "env",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.297781765460968,
+      "top3": [
+        "self-evolve",
+        "to-spec",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "preflight",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.4678093194961548,
+      "top3": [
+        "multi-agent-workspace",
+        "skill-style",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "command",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 7,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.9047385454177856,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "run",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.2963947355747223,
+      "top3": [
+        "self-evolve",
+        "to-spec",
+        "environment-detection"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "worktree",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.8067042827606201,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "git worktree",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.31590569019317627,
+      "top3": [
+        "find-skills",
+        "multi-agent-workspace",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "終端機",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.6929789781570435,
+      "top3": [
+        "skill-creator",
+        "verify-before-claim",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "命令",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.2773093283176422,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "環境",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "verify-before-claim",
+      "top1p": 0.6383792161941528,
+      "top3": [
+        "verify-before-claim",
+        "security-review",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "指令",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.2699856460094452,
+      "top3": [
+        "harness-everything",
+        "skill-creator",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "執行",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.5502535104751587,
+      "top3": [
+        "security-review",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "環境偵測",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.8251891732215881,
+      "top3": [
+        "security-review",
+        "self-evolve",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "環境認知",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.6437323093414307,
+      "top3": [
+        "security-review",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "os",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 2,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.5478635430335999,
+      "top3": [
+        "fable-discipline",
+        "find-skills",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "作業系統",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5773069858551025,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "工作區",
+      "gold": [
+        "environment-detection",
+        "using-git-worktrees"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "rewrite-commits",
+      "top1p": 0.32427144050598145,
+      "top3": [
+        "rewrite-commits",
+        "grill-me",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "verify",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.5809453725814819,
+      "top3": [
+        "self-evolve",
+        "improve-codebase-architecture",
+        "environment-detection"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "fact",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.38966837525367737,
+      "top3": [
+        "self-evolve",
+        "skill-creator",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "audit",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.9528030753135681,
+      "top3": [
+        "self-evolve",
+        "improve-codebase-architecture",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "estimate",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5737209320068359,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "benchmark",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "verify-before-claim",
+      "top1p": 0.35422757267951965,
+      "top3": [
+        "verify-before-claim",
+        "eval-harness",
+        "skill-creator"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "performance",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.269057959318161,
+      "top3": [
+        "fable-discipline",
+        "to-spec",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "speed",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6895691156387329,
+      "top3": [
+        "find-skills",
+        "repo-docs",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "scale",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.8583755493164062,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "token",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.6196168065071106,
+      "top3": [
+        "self-evolve",
+        "to-spec",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "security",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.40029191970825195,
+      "top3": [
+        "multi-agent-workspace",
+        "install-cognitive-os",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "secret",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5619761943817139,
+      "top3": [
+        "find-skills",
+        "repo-docs",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "owasp",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.7055720090866089,
+      "top3": [
+        "harness-everything",
+        "multi-agent-workspace",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "stride",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.8312678337097168,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "leak",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6543723344802856,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "vulnerability",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "install-cognitive-os",
+      "top1p": 0.8800126314163208,
+      "top3": [
+        "install-cognitive-os",
+        "todo-driven-workflow",
+        "improve-codebase-architecture"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "score",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "repo-docs",
+      "top1p": 0.7715433239936829,
+      "top3": [
+        "repo-docs",
+        "find-skills",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "scorecard",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "repo-docs",
+      "top1p": 0.7520009279251099,
+      "top3": [
+        "repo-docs",
+        "find-skills",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "session log",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-mode",
+      "top1p": 0.20761863887310028,
+      "top3": [
+        "fable-mode",
+        "find-skills",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "execution log",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "eval-harness",
+      "top1p": 0.3567381799221039,
+      "top3": [
+        "eval-harness",
+        "grill-me",
+        "zoom-out"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "agent performance",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 17,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.655595600605011,
+      "top3": [
+        "skill-creator",
+        "multi-agent-workspace",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "驗證",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.7546874284744263,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "查證",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.777290940284729,
+      "top3": [
+        "security-review",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "核對",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.47474443912506104,
+      "top3": [
+        "security-review",
+        "harness-everything",
+        "find-skills"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "效能",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.2667292356491089,
+      "top3": [
+        "skill-creator",
+        "self-evolve",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "評測",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6375651359558105,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "性能",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.3203614354133606,
+      "top3": [
+        "self-evolve",
+        "improve-codebase-architecture",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "估計",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.8816424012184143,
+      "top3": [
+        "skill-creator",
+        "verify-before-claim",
+        "verification-loop"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "下一步建議",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 15,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "verify-before-claim",
+      "top1p": 0.6359691023826599,
+      "top3": [
+        "verify-before-claim",
+        "harness-everything",
+        "security-review"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "正確度",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.5316649079322815,
+      "top3": [
+        "security-review",
+        "grill-me",
+        "skill-style"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "得分",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.36068373918533325,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "自我檢討",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.715735673904419,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "token 消耗",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.3460848033428192,
+      "top3": [
+        "self-evolve",
+        "fable-discipline",
+        "to-spec"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "安全",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.8346953392028809,
+      "top3": [
+        "security-review",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "資安",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.608852744102478,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "金鑰",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.6254510879516602,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "洩漏",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.4943281412124634,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "漏洞",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5055230855941772,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "弱點",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "repo-docs",
+      "top1p": 0.5151447057723999,
+      "top3": [
+        "repo-docs",
+        "self-evolve",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "安全審查",
+      "gold": [
+        "security-review",
+        "verify-before-claim",
+        "verification-loop",
+        "eval-harness"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.4946536123752594,
+      "top3": [
+        "security-review",
+        "skill-style",
+        "find-skills"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "cognitive os",
+      "gold": [
+        "install-cognitive-os"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "grill-me",
+      "top1p": 0.5045023560523987,
+      "top3": [
+        "grill-me",
+        "zoom-out",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "cognitive loop",
+      "gold": [
+        "install-cognitive-os"
+      ],
+      "bytes": 14,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "install-cognitive-os",
+      "top1p": 0.5667685270309448,
+      "top3": [
+        "install-cognitive-os",
+        "grill-with-docs",
+        "git-commit"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "install cognitive",
+      "gold": [
+        "install-cognitive-os"
+      ],
+      "bytes": 17,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.3056405782699585,
+      "top3": [
+        "self-evolve",
+        "install-cognitive-os",
+        "git-commit"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "evidence assertion",
+      "gold": [
+        "install-cognitive-os"
+      ],
+      "bytes": 18,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "repo-docs",
+      "top1p": 0.6022260785102844,
+      "top3": [
+        "repo-docs",
+        "find-skills",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "state handoff",
+      "gold": [
+        "install-cognitive-os"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.3846334218978882,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "skill",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.4247708320617676,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "skill.md",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.646824836730957,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "new skill",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6303202509880066,
+      "top3": [
+        "find-skills",
+        "repo-docs",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "write a skill",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.78203946352005,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "self-evolve",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.8783515691757202,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "self-evolution",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 14,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.41903215646743774,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "generated",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.4380107820034027,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "repo-docs"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "manifest.json",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.246418297290802,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "installer.js",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.4769526422023773,
+      "top3": [
+        "find-skills",
+        "multi-agent-workspace",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "自我進化",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5788710713386536,
+      "top3": [
+        "find-skills",
+        "repo-docs",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "自動產生",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.6021425724029541,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "動態索引",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.7967336177825928,
+      "top3": [
+        "harness-everything",
+        "verify-before-claim",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "註冊表",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.3343207538127899,
+      "top3": [
+        "security-review",
+        "verify-before-claim",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "進化",
+      "gold": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.7217068076133728,
+      "top3": [
+        "security-review",
+        "harness-everything",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "find a skill",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5114694237709045,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "skill-creator"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "is there a skill",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 16,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.5155956149101257,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "security-review"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "search for a skill",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 18,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.7687239646911621,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "using-git-worktrees"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "install a skill",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 15,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5547184944152832,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "skill-style"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "find skills",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 11,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.6988188028335571,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "repo-docs"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "skills.sh",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5511182546615601,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "skill-creator"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "npx skills",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 10,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.2584449052810669,
+      "top3": [
+        "fable-discipline",
+        "find-skills",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "找技能",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.34920647740364075,
+      "top3": [
+        "self-evolve",
+        "improve-codebase-architecture",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "有沒有技能",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 15,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "tdd",
+      "top1p": 0.20722462236881256,
+      "top3": [
+        "tdd",
+        "to-spec",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "找找看有沒有",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 18,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.3824903964996338,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "using-git-worktrees"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "安裝技能",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "to-spec",
+      "top1p": 0.5236162543296814,
+      "top3": [
+        "to-spec",
+        "fable-discipline",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "搜尋技能",
+      "gold": [
+        "find-skills"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.135926753282547,
+      "top3": [
+        "harness-everything",
+        "verify-before-claim",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "auth",
+      "gold": [
+        "security-review"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.6443480849266052,
+      "top3": [
+        "self-evolve",
+        "improve-codebase-architecture",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "login",
+      "gold": [
+        "security-review"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.8074114918708801,
+      "top3": [
+        "security-review",
+        "git-commit",
+        "skill-style"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "secrets",
+      "gold": [
+        "security-review"
+      ],
+      "bytes": 7,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.48635751008987427,
+      "top3": [
+        "find-skills",
+        "repo-docs",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "password",
+      "gold": [
+        "security-review"
+      ],
+      "bytes": 8,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.46901923418045044,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "api key",
+      "gold": [
+        "security-review"
+      ],
+      "bytes": 7,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.6730850338935852,
+      "top3": [
+        "skill-creator",
+        "multi-agent-workspace",
+        "verification-loop"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "安全性",
+      "gold": [
+        "security-review"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.9814456105232239,
+      "top3": [
+        "security-review",
+        "skill-style",
+        "find-skills"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "登入",
+      "gold": [
+        "security-review"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.32094478607177734,
+      "top3": [
+        "find-skills",
+        "security-review",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "機密",
+      "gold": [
+        "security-review"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.31628233194351196,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "防護",
+      "gold": [
+        "security-review"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.47253018617630005,
+      "top3": [
+        "security-review",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "stuck",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 5,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.5006599426269531,
+      "top3": [
+        "fable-discipline",
+        "eval-harness",
+        "zoom-out"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "fail",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.467428058385849,
+      "top3": [
+        "self-evolve",
+        "find-skills",
+        "skill-style"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "loop",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 4,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "environment-detection",
+      "top1p": 0.31151172518730164,
+      "top3": [
+        "environment-detection",
+        "todo-driven-workflow",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "error repeats",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.454056978225708,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "infinite loop",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 13,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "grill-with-docs",
+      "top1p": 0.39873751997947693,
+      "top3": [
+        "grill-with-docs",
+        "git-commit",
+        "rewrite-commits"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "cease fire",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 10,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "repo-docs",
+      "top1p": 0.5452700853347778,
+      "top3": [
+        "repo-docs",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "rule-of-3",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.3304135501384735,
+      "top3": [
+        "find-skills",
+        "verify-before-claim",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "rule of 3",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.20407435297966003,
+      "top3": [
+        "find-skills",
+        "fable-discipline",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "卡住",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.5854265689849854,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "失敗",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.21761924028396606,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "重複",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.5923466086387634,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "報錯",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 6,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "skill-creator",
+      "top1p": 0.7763007283210754,
+      "top3": [
+        "skill-creator",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "死循環",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5892817974090576,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "無限循環",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 12,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5461916923522949,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "improve-codebase-architecture"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "停下來",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.2462071031332016,
+      "top3": [
+        "find-skills",
+        "skill-creator",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "退一步",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 9,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.8336465358734131,
+      "top3": [
+        "security-review",
+        "harness-everything",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "A-keyword",
+      "context": "卡",
+      "gold": [
+        "zoom-out"
+      ],
+      "bytes": 3,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "security-review",
+      "top1p": 0.48280414938926697,
+      "top3": [
+        "security-review",
+        "find-skills",
+        "self-evolve"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": null
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Run environment detection so you know my OS, shell, and package manager before touching anything.",
+      "gold": [
+        "environment-detection"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 97,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.17633730173110962,
+      "top3": [
+        "find-skills",
+        "self-evolve",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Score these two agent session logs against each other and tell me which performed better.",
+      "gold": [
+        "eval-harness"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 89,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "using-git-worktrees",
+      "top1p": 0.5401056408882141,
+      "top3": [
+        "using-git-worktrees",
+        "tdd",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Enforce stage discipline on this large parallel build-out with named workers and per-stage verification.",
+      "gold": [
+        "fable-discipline"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 104,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.3146759271621704,
+      "top3": [
+        "harness-everything",
+        "skill-creator",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Fable on haiku: convert the repository's JSON fixtures to the new stable format and verify every output.",
+      "gold": [
+        "fable-mode"
+      ],
+      "task": "positive-haiku-mode.yaml",
+      "bytes": 104,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.426079660654068,
+      "top3": [
+        "multi-agent-workspace",
+        "find-skills",
+        "todo-driven-workflow"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Fable on opus: orchestrate the cross-service migration, delegate artifacts to named workers, and cold-verify the final architecture decision.",
+      "gold": [
+        "fable-mode"
+      ],
+      "task": "positive-opus-mode.yaml",
+      "bytes": 141,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.9405812621116638,
+      "top3": [
+        "harness-everything",
+        "zoom-out",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Fable on sonnect: synthesize the API research, implement the bounded adapter, and report the named verification command.",
+      "gold": [
+        "fable-mode"
+      ],
+      "task": "positive-sonnet-mode.yaml",
+      "bytes": 120,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5277361869812012,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Execute this large multi-phase refactor of the persistence layer using parallel sub-agent workers.",
+      "gold": [
+        "fable-mode"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 98,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.39997467398643494,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "verify-before-claim"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Find a skill that can generate mermaid sequence diagrams from code.",
+      "gold": [
+        "find-skills"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 67,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5033042430877686,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "improve-codebase-architecture"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Commit these staged changes with a conventional commit message following our house style.",
+      "gold": [
+        "git-commit"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 89,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "self-evolve",
+      "top1p": 0.23383422195911407,
+      "top3": [
+        "self-evolve",
+        "install-cognitive-os",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Grill me on my startup idea until the requirements are airtight before we build anything.",
+      "gold": [
+        "grill-me"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 89,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.26739150285720825,
+      "top3": [
+        "find-skills",
+        "install-cognitive-os",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Interview me about this domain and persist what we establish into CONTEXT.md and ADRs.",
+      "gold": [
+        "grill-with-docs"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 86,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.5088161826133728,
+      "top3": [
+        "find-skills",
+        "tdd",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Triage this new software task: fix the typo 'lorem ipsum' to 'lorem ipsum dolor' in docs/intro.md.",
+      "gold": [
+        "harness-everything"
+      ],
+      "task": "positive-tier1.yaml",
+      "bytes": 98,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "environment-detection",
+      "top1p": 0.5610206723213196,
+      "top3": [
+        "environment-detection",
+        "todo-driven-workflow",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": false
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Fix this bug: the checkout total double-counts coupon discounts when two coupons apply.",
+      "gold": [
+        "harness-everything"
+      ],
+      "task": "positive-tier2.yaml",
+      "bytes": 87,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.4730857014656067,
+      "top3": [
+        "fable-discipline",
+        "to-spec",
+        "eval-harness"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": false
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Route this coding request: split our monolith into two services (orders and billing) with an event bus between them; this touches deployment, data migration, and every team's code.",
+      "gold": [
+        "harness-everything"
+      ],
+      "task": "positive-tier3.yaml",
+      "bytes": 180,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.35208025574684143,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": true,
+      "correctTop3": true,
+      "lexicalRecommendsGold": false
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Improve the architecture of this tangled billing module and produce a report of proposed refactorings.",
+      "gold": [
+        "improve-codebase-architecture"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 102,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.5066351294517517,
+      "top3": [
+        "multi-agent-workspace",
+        "to-spec",
+        "todo-driven-workflow"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Install the cognitive OS loop into this workspace so evidence assertion and state handoff are enforced.",
+      "gold": [
+        "install-cognitive-os"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 103,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.4722041189670563,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Scaffold a six-zone multi-agent workspace from our agency-agents source and select engineering specialists for a bounded launcher.",
+      "gold": [
+        "multi-agent-workspace"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 130,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.38570231199264526,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "repo-docs"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Generate AGENTS.md and README documentation for this repo from its actual structure.",
+      "gold": [
+        "repo-docs"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 84,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "to-spec",
+      "top1p": 0.4631101191043854,
+      "top3": [
+        "to-spec",
+        "multi-agent-workspace",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Rewrite my last five commits into clean conventional commits before opening the PR.",
+      "gold": [
+        "rewrite-commits"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 83,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "install-cognitive-os",
+      "top1p": 0.46447479724884033,
+      "top3": [
+        "install-cognitive-os",
+        "harness-everything",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Do a security review of the new payments endpoint, checking OWASP patterns and secrets exposure.",
+      "gold": [
+        "security-review"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 96,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.4629606306552887,
+      "top3": [
+        "fable-discipline",
+        "to-spec",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Reflect on the root cause of that recurring test failure and persist the lesson as a workspace rule or dynamic skill.",
+      "gold": [
+        "self-evolve"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 117,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.26698604226112366,
+      "top3": [
+        "multi-agent-workspace",
+        "fable-discipline",
+        "using-git-worktrees"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Create a new skill for database migration workflows with proper references and testing workflow.",
+      "gold": [
+        "skill-creator"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 96,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.24417392909526825,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": true,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Review this SKILL.md against the house style guide and fix deviations.",
+      "gold": [
+        "skill-style"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 70,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "to-tickets",
+      "top1p": 0.28071942925453186,
+      "top3": [
+        "to-tickets",
+        "harness-everything",
+        "install-cognitive-os"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Fix a bug with a regression test: the discount calculation rounds wrong for prices ending in .99.",
+      "gold": [
+        "tdd"
+      ],
+      "task": "positive-bugfix.yaml",
+      "bytes": 97,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.46393582224845886,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Implement a feature test-first: add input validation to the user signup function — reject emails without '@' and passwords shorter than 8 characters.",
+      "gold": [
+        "tdd"
+      ],
+      "task": "positive-feature.yaml",
+      "bytes": 151,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.7589955925941467,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "multi-agent-workspace"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Refactor safely under tests: extract the pricing logic in src/checkout into its own module without changing behavior.",
+      "gold": [
+        "tdd"
+      ],
+      "task": "positive-refactor.yaml",
+      "bytes": 117,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.4983679950237274,
+      "top3": [
+        "multi-agent-workspace",
+        "environment-detection",
+        "zoom-out"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Turn this rough feature request into a full written spec with schema and CLI reference sections.",
+      "gold": [
+        "to-spec"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 96,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "tdd",
+      "top1p": 0.15535543859004974,
+      "top3": [
+        "tdd",
+        "harness-everything",
+        "find-skills"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Break this approved spec into implementation tickets and publish them to our tracker format.",
+      "gold": [
+        "to-tickets"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 92,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.38322389125823975,
+      "top3": [
+        "multi-agent-workspace",
+        "harness-everything",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Migrate all REST endpoints in src/api to the new error-handling middleware, update the tests, and refresh the docs. Keep track of progress as you go.",
+      "gold": [
+        "todo-driven-workflow"
+      ],
+      "task": "positive-multi-step.yaml",
+      "bytes": 149,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "find-skills",
+      "top1p": 0.2661989629268646,
+      "top3": [
+        "find-skills",
+        "harness-everything",
+        "skill-creator"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": false
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Work through this multi-file refactor step by step: move src/utils/date.js helpers into src/lib/time and update every importer.",
+      "gold": [
+        "todo-driven-workflow"
+      ],
+      "task": "positive-refactor-flow.yaml",
+      "bytes": 127,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "environment-detection",
+      "top1p": 0.47928115725517273,
+      "top3": [
+        "environment-detection",
+        "to-tickets",
+        "harness-everything"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": false
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Set up a git worktree so I can prototype in parallel without disturbing my checked-out branch.",
+      "gold": [
+        "using-git-worktrees"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 94,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.18098242580890656,
+      "top3": [
+        "multi-agent-workspace",
+        "todo-driven-workflow",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "You said the refactor is finished. Run the full verification loop and show me the evidence before we call this done.",
+      "gold": [
+        "verification-loop"
+      ],
+      "task": "positive-pre-ship.yaml",
+      "bytes": 116,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "harness-everything",
+      "top1p": 0.6418361067771912,
+      "top3": [
+        "harness-everything",
+        "find-skills",
+        "zoom-out"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "Before you say this is done, verify every changed behavior actually passes — no claiming from reading code.",
+      "gold": [
+        "verify-before-claim"
+      ],
+      "task": "positive-trigger.yaml",
+      "bytes": 109,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "fable-discipline",
+      "top1p": 0.4176664650440216,
+      "top3": [
+        "fable-discipline",
+        "to-spec",
+        "install-cognitive-os"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    },
+    {
+      "set": "B-eval-prompt",
+      "context": "You are stuck in a loop: the same error keeps failing with this TypeError even after three fixes. Step back and rethink your assumptions before trying again.",
+      "gold": [
+        "zoom-out"
+      ],
+      "task": "positive-repeated-failure.yaml",
+      "bytes": 157,
+      "status": "scored",
+      "decision": "domain-mismatch",
+      "top1": "multi-agent-workspace",
+      "top1p": 0.40267810225486755,
+      "top3": [
+        "multi-agent-workspace",
+        "todo-driven-workflow",
+        "fable-discipline"
+      ],
+      "correctTop1": false,
+      "correctTop3": false,
+      "lexicalRecommendsGold": true
+    }
+  ]
+}

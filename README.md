@@ -270,10 +270,40 @@ For a deep dive into individual modules and the underlying philosophy, explore o
 * [Harness Routing & Triage](docs/routing.md): Detailed trigger criteria for Tiers 1, 2, and 3.
 * [Harness Reflection & Memory](docs/reflection.md): WAL session handoffs and workspace rules immunization.
 * [Harness Audit Log](docs/audit.md): Dated historical self-audit scorecards, methodology, and per-cycle change log.
+* [System One Routing (experimental, off by default)](docs/system-one-routing.md): Optional local option scorer for tier routing, its gates and evidence.
 
 Fable model selection is documented in [fable-mode/references/model-matrix.md](fable-mode/references/model-matrix.md); the explicit entrypoints are `fable-haiku`, `fable-sonnet`, and `fable-opus`.
 
 Maintainers **MUST** follow [RELEASING.md](RELEASING.md) for tag-driven npm releases and record observations in [docs/release-evidence.md](docs/release-evidence.md). Issue #20 is closed (2026-09-10); its coordination history lives in git.
+
+---
+
+## Experimental: System One routing (off by default — keep it off for now)
+
+Issue [#233](https://github.com/dyphn1/Harness-everything/issues/233) adds an optional local "System One" scorer. It scores the fixed tier catalog for each prompt. The lexical router stays authoritative:
+- `HARNESS_SYSTEM_ONE_MODE` defaults to `off`.
+- `shadow` only logs a diagnostic.
+- `prefer` can raise a tier but never lower it below the deterministic structural floor, and only for a `harness-routing-v1` checkpoint.
+
+**Honest status: it is not useful yet, so do not enable it for normal work.**
+
+- **No usable model yet.** The only available checkpoint, `cua-ai/cua-s1-forms`, is a form-filling model, so every decision abstains as `domain-mismatch` and routing never changes. On historical routing keywords its top-1 skill choice is at chance level: 8.2% against 11.6% for a random guess, and 5.9% against 3.8% on eval prompts. It is kept only to prove the pipeline. The feature should stay `off` until a Harness-trained checkpoint passes the Phase 4 gates.
+- **It costs something when on.** The resident transport keeps one Python/PyTorch server per manifest alive until 30 minutes idle. The measured cost on one Windows CPU host is about 85–110 ms per prompt, and the warm p95 of 108.6 ms misses the 100 ms target. The first prompt after a cold start uses the lexical route while the server loads.
+- **Setup downloads a lot.** `npm run system-one:install` needs Python 3.11–3.13 and downloads CPU PyTorch (~124 MB on Windows), the pinned `cua_s1` source and the pinned checkpoint. It never runs from hooks and never turns the mode on.
+
+**Enabling it depends on the host, and most options are process-wide:**
+
+| Surface | How System One gets its configuration | Caveat |
+| --- | --- | --- |
+| Claude Code (plugin or `--claude` install) | `env` in `~/.claude/settings.json` (`HARNESS_SYSTEM_ONE_MODE`, `HARNESS_SYSTEM_ONE_CONFIG`) | The values reach hooks **and every command the agent runs** (tests, builds), and are hot-reloaded into running sessions. |
+| Codex (plugin or `--codex` install) | Hooks inherit the environment of the `codex` process | A Codex started from Claude Code inherits Claude's `env`. A Codex started from an ordinary terminal only sees the variables if they are set **at user/OS level** (Windows user environment variables, or your shell profile on macOS/Linux), which then applies to every program you start. |
+| Skills-only / public OpenAI bundle | No hooks | It runs only if the agent itself runs `harness-everything/scripts/kernel-router.js`. |
+
+**Evidence so far:**
+- **Mechanism:** Linux, macOS and Windows CI.
+- **Real CPU inference:** on one Windows machine.
+- **Live host:** one Windows + Claude Code observation, where a hook-spawned server outlived the host. macOS/Linux hosts and Codex hosts are not live-verified.
+- **Details:** [docs/system-one-routing.md](docs/system-one-routing.md) and [benchmarks/results/system-one/](benchmarks/results/system-one/pre-merge-review-2026-09-23/README.md).
 
 ---
 

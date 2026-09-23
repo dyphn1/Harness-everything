@@ -195,6 +195,11 @@ selected candidate, model identity, confidence and margin; it omits prompt text,
 score vectors and artifact paths. The existing router contract schema is unchanged.
 Kernel/packaged entry points inherit these host environment variables. Prompts
 and hook payload fields cannot set model configuration or launch executables.
+Claude Code settings `env` is hot-reloaded and reaches hooks and every command
+the agent runs; Codex hooks inherit the `codex` process environment, so a Codex
+started from an ordinary terminal needs user/OS-level variables (which then apply
+to every program the user starts). The recommended setting is `off` until a
+`harness-routing-v1` checkpoint passes the rollout gates.
 Repository tests establish mechanism/package evidence only; actual host loading
 and semantic quality remain unverified until retained sessions demonstrate them.
 
