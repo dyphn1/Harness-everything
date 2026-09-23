@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "note": "Summaries of unmodified evaluator reports; each round runs main (sync worker bridge, f9d70ed) then this branch (async) against one already-warm resident server.",
+  "evaluatorRounds": [
+    {
+      "main": {
+        "p50Ms": 50.8,
+        "p95Ms": 82.3,
+        "maxMs": 105.8,
+        "warmLatencyGate": true,
+        "agreement": 1
+      },
+      "branch": {
+        "p50Ms": 24.6,
+        "p95Ms": 47.6,
+        "maxMs": 50.8,
+        "warmLatencyGate": true,
+        "agreement": 1
+      }
+    },
+    {
+      "main": {
+        "p50Ms": 51.4,
+        "p95Ms": 75.9,
+        "maxMs": 90.5,
+        "warmLatencyGate": true,
+        "agreement": 1
+      },
+      "branch": {
+        "p50Ms": 26.8,
+        "p95Ms": 51.1,
+        "maxMs": 52.1,
+        "warmLatencyGate": true,
+        "agreement": 1
+      }
+    },
+    {
+      "main": {
+        "p50Ms": 58.4,
+        "p95Ms": 116.8,
+        "maxMs": 155.7,
+        "warmLatencyGate": false,
+        "agreement": 1
+      },
+      "branch": {
+        "p50Ms": 24.3,
+        "p95Ms": 62.9,
+        "maxMs": 189.6,
+        "warmLatencyGate": true,
+        "agreement": 1
+      }
+    }
+  ],
+  "freshProcessScore": {
+    "runs": 20,
+    "sync": {
+      "moduleLoadMs": {
+        "p50": 9,
+        "p95": 23.6
+      },
+      "scoreMs": {
+        "p50": 77.8,
+        "p95": 105.4
+      }
+    },
+    "async": {
+      "moduleLoadMs": {
+        "p50": 9,
+        "p95": 22.7
+      },
+      "scoreMs": {
+        "p50": 35.9,
+        "p95": 67.6
+      }
+    }
+  },
+  "hookWallTime": {
+    "rounds": 40,
+    "prompt": "fix a typo in README",
+    "offMs": {
+      "p50": 182,
+      "p95": 339
+    },
+    "mainShadowMs": {
+      "p50": 236,
+      "p95": 343
+    },
+    "branchShadowMs": {
+      "p50": 224,
+      "p95": 311
+    },
+    "pairedOverheadVsOffMs": {
+      "main": {
+        "p50": 63,
+        "p95": 179
+      },
+      "branch": {
+        "p50": 44,
+        "p95": 111
+      }
+    },
+    "identicalPlans": 40,
+    "shadowReasons": {
+      "domain-mismatch": 80
+    }
+  }
+}

@@ -156,11 +156,12 @@ lock, stale-state, deadline (1000 ms) and reply-limit (1 MiB) rules are the same
 as the synchronous path. The router uses the pre-scored result only when its
 request hash equals the request the router builds; otherwise it scores
 synchronously. A pre-score error is reported exactly as a synchronous scorer
-error would be. In `off` mode nothing is pre-scored and the provider module is
-not loaded. The synchronous `score` API remains for programmatic callers: it
+error would be. In `off` mode the entry neither pre-scores nor contacts a
+provider. The synchronous `score` API remains for programmatic callers: it
 makes the same round trip on a worker thread and waits with `Atomics.wait`.
 Starting that worker costs 29–41 ms per call on the reference host, which is why
-the hook avoids it.
+the hook avoids it. The paired measurements are in
+[cua-s1-forms-resident-async-cpu-2026-09-23](../benchmarks/results/system-one/cua-s1-forms-resident-async-cpu-2026-09-23/README.md).
 Both paths map results to the existing reasons: timeout → `provider-timeout` (no respawn);
 refused connection or dead PID → stale state removed and a new start
 (`provider-starting`); `unauthorized` → `provider-unavailable`; any other
