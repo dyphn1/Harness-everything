@@ -124,6 +124,7 @@ with a local CUA-S1 provider manifest (`HARNESS_SYSTEM_ONE_CONFIG`). Default `of
 retains existing behavior; `prefer` never lowers a tier below the deterministic
 structural floor. Canonical and packaged runtime copies use the same
 contract; this establishes no new live-host capability. Python, PyTorch and a
-compatible local checkpoint are optional external dependencies, not npm payloads.
+compatible local checkpoint are optional external dependencies, not npm payloads;
+the explicit `npm run system-one:install` sets them up and hooks never run it.
 Public Skills-only artifacts do not acquire lifecycle hooks from this feature.
 See [System One routing](system-one-routing.md) for limits, rollback and evidence.
