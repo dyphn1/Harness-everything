@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 
 
@@ -43,8 +44,38 @@ def infer(request, manifest):
     }
 
 
+def source_revision(direct_url_text):
+    """Return the PEP 610 VCS commit recorded at install time, or None when unprovable."""
+    try:
+        commit = json.loads(direct_url_text)['vcs_info']['commit_id']
+    except Exception:
+        return None
+    return commit if isinstance(commit, str) and re.fullmatch(r'[0-9a-f]{40}', commit) else None
+
+
+def provenance():
+    """Installed runtime/source facts only; never imports torch or loads a checkpoint."""
+    import importlib.metadata as metadata
+    import platform
+
+    cua = {'distribution': None, 'version': None, 'sourceRevision': None}
+    names = sorted(set(metadata.packages_distributions().get('cua_s1', [])))
+    if len(names) == 1:
+        dist = metadata.distribution(names[0])
+        cua = {'distribution': names[0], 'version': dist.version, 'sourceRevision': source_revision(dist.read_text('direct_url.json'))}
+    try:
+        torch = metadata.version('torch')
+    except metadata.PackageNotFoundError:
+        torch = None
+    return {'schemaVersion': 1, 'python': {'implementation': platform.python_implementation(), 'version': platform.python_version()},
+            'cuaS1': cua, 'torch': torch}
+
+
 def main():
     try:
+        if sys.argv[1:] == ['--provenance']:
+            print(json.dumps(provenance(), allow_nan=False))
+            return 0
         manifest = json.loads(sys.argv[1])
         raw = sys.stdin.buffer.read(2 * 1024 * 1024 + 1)
         if len(raw) > 2 * 1024 * 1024:

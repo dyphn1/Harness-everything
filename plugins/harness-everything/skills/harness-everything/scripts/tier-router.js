@@ -314,7 +314,9 @@ function run(userPrompt, context) {
   }
 
   const { selectTier } = require('./system-one/router');
-  const semantic = selectTier({ prompt: userPrompt, tier: recommendedTier,
+  const structuralFloor = hasMacroSignal ? 'tier3'
+    : !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences ? 'tier2' : null;
+  const semantic = selectTier({ prompt: userPrompt, tier: recommendedTier, floor: structuralFloor,
     explicit: Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) });
   if (semantic.diagnostic) console.log(`\n=> SYSTEM ONE: ${JSON.stringify(semantic.diagnostic)}`);
   if (semantic.diagnostic?.applied) {

@@ -30,6 +30,15 @@ function prediction(decision) {
   if (decision.status === 'accepted' && (decision.confidence === null || decision.margin === null || decision.model?.domain !== 'harness-routing-v1')) fail();
   return decision.selectedId;
 }
+// Scored decisions carry the full catalog-order probability vector; unavailable/invalid outputs carry null.
+function checkScores(decision, scores) {
+  const scored = ['accepted', 'abstain'].includes(decision.status);
+  if (!scored) { if (scores !== null) fail(); return; }
+  if (!Array.isArray(scores) || scores.length !== TIER_OPTIONS.length
+    || scores.some(p => !finite(p) || p < 0 || p > 1) || Math.abs(scores.reduce((s, p) => s + p, 0) - 1) > 1e-6) fail();
+  const ranked = [...scores].sort((a, b) => b - a);
+  if (decision.confidence !== ranked[0] || decision.margin !== ranked[0] - ranked[1]) fail();
+}
 function metrics(gold, predicted) {
   const count = gold.length;
   const accepted = predicted.filter(x => x !== null).length;
@@ -46,7 +55,8 @@ function metrics(gold, predicted) {
     acceptedErrorRate: accepted ? (accepted - acceptedCorrect) / accepted : null };
 }
 function p95(values) { return values.length ? [...values].sort((a, b) => a - b)[Math.ceil(values.length * 0.95) - 1] : null; }
-function evaluate(corpus, records) {
+// sourceEvidence is the provider provenance result; only the pinned cua_s1 revision satisfies the gate.
+function evaluate(corpus, records, sourceEvidence = null) {
   validateCorpus(corpus);
   const cases = corpus.cases.filter(c => c.split === 'holdout');
   if (!cases.length || !Array.isArray(records) || records.length !== cases.length) fail();
@@ -55,8 +65,9 @@ function evaluate(corpus, records) {
     if (!exact(record, ['id', 'baseline', 'runs']) || byId.has(record.id) || !cases.some(c => c.id === record.id)
       || !labels.includes(record.baseline) || !Array.isArray(record.runs) || record.runs.length !== 2) fail();
     for (const run of record.runs) {
-      if (!exact(run, ['decision', 'latencyMs', 'coldStart']) || !finite(run.latencyMs) || run.latencyMs < 0 || typeof run.coldStart !== 'boolean') fail();
+      if (!exact(run, ['decision', 'scores', 'latencyMs', 'coldStart']) || !finite(run.latencyMs) || run.latencyMs < 0 || typeof run.coldStart !== 'boolean') fail();
       prediction(run.decision);
+      checkScores(run.decision, run.scores);
       if (run.decision.model) models.add(JSON.stringify([run.decision.model.id, run.decision.model.revision, run.decision.model.domain]));
       (run.coldStart ? cold : warm).push(run.latencyMs);
     }
@@ -66,9 +77,9 @@ function evaluate(corpus, records) {
   const gold = cases.map(c => c.gold);
   const baseline = metrics(gold, cases.map(c => byId.get(c.id).baseline));
   const model = metrics(gold, cases.map(c => prediction(byId.get(c.id).runs[0].decision)));
-  const canonicalDecision = d => JSON.stringify([d.status, d.reason, d.selectedId ?? null, d.confidence ?? null, d.margin ?? null,
-    d.model ? [d.model.id, d.model.revision, d.model.domain] : null]);
-  const agreement = records.filter(r => canonicalDecision(r.runs[0].decision) === canonicalDecision(r.runs[1].decision)).length / cases.length;
+  const canonicalRun = ({ decision: d, scores }) => JSON.stringify([d.status, d.reason, d.selectedId ?? null, d.confidence ?? null, d.margin ?? null,
+    d.model ? [d.model.id, d.model.revision, d.model.domain] : null, scores]);
+  const agreement = records.filter(r => canonicalRun(r.runs[0]) === canonicalRun(r.runs[1])).length / cases.length;
   const latency = { coldP95Ms: p95(cold), warmP95Ms: p95(warm), coldSamples: cold.length, warmSamples: warm.length };
   const gates = {
     reviewedHoldout: cases.length >= 200 && cases.every(c => c.reviewed)
@@ -78,6 +89,7 @@ function evaluate(corpus, records) {
     macroF1: model.macroF1 >= baseline.macroF1,
     repeatability: agreement === 1,
     warmLatency: warm.length >= cases.length && latency.warmP95Ms <= 100,
+    sourceProvenance: sourceEvidence?.status === 'recorded' && sourceEvidence.provenance?.cuaS1?.sourceRevisionStatus === 'pinned',
     policyEvidence: false,
     liveHostEvidence: false,
   };

@@ -49,9 +49,16 @@ must use domain `forms-v1`. No pickle format or remote URL is accepted.
 Install the optional `cua_s1` source in a dedicated Python 3.11–3.13 environment
 from upstream revision `b7f7e2d8714609853a29c7d049140bc46aec0954`, using the
 `libs/cua-s1/python` project. This npm package does not install Python, torch or
-weights. Configure its Python executable in the manifest. Record the actual
-environment and source revision in evaluation evidence; a manifest alone does
-not prove which Python package was installed.
+weights. Configure its Python executable in the manifest. A manifest alone does
+not prove which Python package was installed, so `provider.provenance(manifestPath)`
+runs `cua_adapter.py --provenance` with the configured interpreter. The probe
+reads installed metadata only (no torch import, no checkpoint load) and reports
+the Python implementation/version, the distribution providing `cua_s1`, its
+version, the torch version, and the source revision. Only a PEP 610
+`direct_url.json` VCS `commit_id` counts as a source revision, so install from a
+VCS URL pinned to that commit (not an editable or local-directory install).
+The status is `pinned` when it matches, `mismatch` otherwise, or `unavailable`
+when no revision is recorded. Malformed probe output is `provider-json`.
 
 The adapter verifies both files before `load_checkpoint(..., 'cpu')`, sets one
 torch thread and deterministic inference, calls the upstream collator/model,
@@ -81,10 +88,15 @@ always scored; it is never filtered using lexical matches. `unclassified` means
 abstention and keeps the existing route. Explicit strategy/model requests keep
 precedence and prevent model tier replacement. Set mode back to `off` to roll back.
 
-The policy assembler still consumes the original structural and risk signals;
-thus it may conservatively retain a macro task shape even if the scorer proposes
-a smaller tier. Safety, explicit prohibitions, memory ownership, and verification
-are not model outputs. This phase does not yet replace guide matching, dynamic
+Prefer can raise a tier but never lower it below the deterministic structural
+floor: a macro-scope signal sets floor `tier3`, and multi-task, multi-sentence
+structure (other than a trivial docs edit) sets floor `tier2`. An accepted result
+below the floor is not applied and reports `structural-floor`, so repository-wide
+work keeps its Tier 3 strategy, independent verification and worktree
+invariants. Tier-3 keywords are lexical guesses, not structural floors. The
+policy assembler still consumes the original structural and risk signals.
+Safety, explicit prohibitions, memory ownership, and verification are not model
+outputs. This phase does not yet replace guide matching, dynamic
 skill triggers, fact-audit reminders, or the structural workflow signals.
 The same scorer API can evaluate caller-supplied text options; additional routing
 surfaces require their own catalog and held-out evidence before integration.
@@ -111,11 +123,14 @@ holdout. Expand and review it separately before making quality claims.
 
 The CLI runs the real lexical baseline and the configured provider twice per
 holdout case. Records contain IDs, baseline prediction, decision, model identity,
-latency, and `coldStart: true`; they do not copy prompts into the report. Gold
+the catalog-order probability vector (`scores`; null for unavailable or invalid
+output), latency, and `coldStart: true`; they do not copy prompts into the
+report. A scored run's confidence and margin must match its vector. Gold
 `unclassified` is represented by null. Nonaccepted model results also predict
 null. The evaluator rejects missing, duplicate or unknown cases, unsupported
-predictions, malformed measurements, and inconsistent model identities. Compare
-both decisions (including scores/identity), but not measured latency, on reruns.
+predictions, malformed measurements, and inconsistent model identities. Reruns
+compare the full decision, model identity and score vector, but not measured
+latency: equal top-2 values with a reordered tail still disagree.
 No normalization is permitted for candidate IDs or model revision.
 
 Report both baseline and model accuracy/macro-F1, model coverage, accepted
@@ -127,7 +142,9 @@ even when unobserved, preventing favorable per-run class selection.
 
 The evaluator emits explicit rollout checks, not an automatic deployment. It
 requires reviewed holdout counts, semantic/coverage thresholds, repeatability,
-warm measurements, plus independently retained policy and live-host evidence.
+warm measurements, a `pinned` source revision, plus independently retained
+policy and live-host evidence. The report's `evidence.source` keeps the probe
+result (including `mismatch` or `unavailable`) and `environment.python`.
 The latter evidence is not supplied by this offline runner, so it always reports
 those gates pending. With the one-shot adapter, all latency is cold and the warm
 gate also remains pending. Exporting a report never changes router defaults.

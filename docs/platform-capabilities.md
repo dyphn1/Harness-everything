@@ -121,7 +121,8 @@ When a platform behavior changes, update this page, `docs/platform-compatibility
 
 The shared tier router supports opt-in `HARNESS_SYSTEM_ONE_MODE=shadow|prefer`
 with a local CUA-S1 provider manifest (`HARNESS_SYSTEM_ONE_CONFIG`). Default `off`
-retains existing behavior. Canonical and packaged runtime copies use the same
+retains existing behavior; `prefer` never lowers a tier below the deterministic
+structural floor. Canonical and packaged runtime copies use the same
 contract; this establishes no new live-host capability. Python, PyTorch and a
 compatible local checkpoint are optional external dependencies, not npm payloads.
 Public Skills-only artifacts do not acquire lifecycle hooks from this feature.

@@ -35,6 +35,22 @@ class AdapterTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'input-too-long'):
                 adapter.check_limits(request, config)
 
+    def test_source_revision_only_from_recorded_vcs_commit(self):
+        commit = 'b7f7e2d8714609853a29c7d049140bc46aec0954'
+        vcs = {'url': 'https://github.com/trycua/cua', 'vcs_info': {'vcs': 'git', 'commit_id': commit}, 'subdirectory': 'libs/cua-s1/python'}
+        self.assertEqual(adapter.source_revision(json.dumps(vcs)), commit)
+        for text in ['', 'not-json', '[]', json.dumps({'url': 'file:///src', 'dir_info': {'editable': True}}),
+                     json.dumps({'vcs_info': {'commit_id': 'main'}}), json.dumps({'vcs_info': {'commit_id': commit.upper()}}), json.dumps({'vcs_info': []})]:
+            self.assertIsNone(adapter.source_revision(text))
+        self.assertIsNone(adapter.source_revision(None))
+
+    def test_provenance_shape_without_ml_dependency(self):
+        result = adapter.provenance()
+        self.assertEqual(set(result), {'schemaVersion', 'python', 'cuaS1', 'torch'})
+        self.assertEqual(set(result['python']), {'implementation', 'version'})
+        self.assertEqual(set(result['cuaS1']), {'distribution', 'version', 'sourceRevision'})
+        self.assertEqual(json.loads(json.dumps(result)), result)
+
 
 if __name__ == '__main__':
     unittest.main()

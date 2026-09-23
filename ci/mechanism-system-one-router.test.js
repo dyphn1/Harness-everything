@@ -64,3 +64,38 @@ test('S1-R04 integrated accepted route preserves policy and explicit model choic
     assert.equal(normal.workflowPlan.tier, 'tier1');
   } finally { provider.score = original; console.log = log; if (env === undefined) delete process.env.HARNESS_SYSTEM_ONE_MODE; else process.env.HARNESS_SYSTEM_ONE_MODE = env; }
 });
+test('S1-R05 structural floor: a scorer can raise but never lower a deterministic macro/multi-task tier', () => {
+  const env = { HARNESS_SYSTEM_ONE_MODE: 'prefer' };
+  const macro = { prompt: 'audit every skill in the repository', tier: 'Tier 3 (Macro Task)', floor: 'tier3' };
+  for (const id of ['tier1', 'tier2']) {
+    const result = selectTier(macro, env, scorer(id));
+    assert.equal(result.tier, macro.tier);
+    assert.equal(result.diagnostic.applied, false);
+    assert.equal(result.diagnostic.reason, 'structural-floor');
+    assert.equal(result.diagnostic.selectedId, id);
+  }
+  const multi = { prompt: 'x', tier: 'Tier 2 (Standard Task)', floor: 'tier2' };
+  assert.equal(selectTier(multi, env, scorer('tier1')).tier, multi.tier);
+  assert.equal(selectTier(multi, env, scorer('tier3')).tier, 'Tier 3 (Macro Task)');
+  assert.equal(selectTier({ ...multi, floor: null }, env, scorer('tier1')).tier, 'Tier 1 (Trivial)');
+  assert.equal(selectTier({ ...multi, floor: 'tier9' }, env, () => { throw new Error('must not invoke'); }).diagnostic.reason, 'invalid-request');
+
+  const provider = require('../harness-everything/scripts/system-one/provider');
+  const original = provider.score; const log = console.log; const mode = process.env.HARNESS_SYSTEM_ONE_MODE;
+  try {
+    console.log = () => {};
+    const { run } = require('../harness-everything/scripts/tier-router');
+    for (const prompt of ['audit every skill in the repository', 'Refactor the parser. Then update the tests and also the docs. Finally rerun CI.']) {
+      process.env.HARNESS_SYSTEM_ONE_MODE = 'off';
+      const lexical = run(prompt).workflowPlan;
+      process.env.HARNESS_SYSTEM_ONE_MODE = 'prefer'; provider.score = scorer('tier1');
+      assert.deepEqual(run(prompt).workflowPlan, lexical);
+      provider.score = original;
+    }
+    process.env.HARNESS_SYSTEM_ONE_MODE = 'prefer'; provider.score = scorer('tier1');
+    const plan = run('audit every skill in the repository').workflowPlan;
+    assert.equal(plan.tier, 'tier3');
+    assert.notEqual(plan.strategy, 'direct-single');
+    assert.equal(plan.verification.independent, true);
+  } finally { provider.score = original; console.log = log; if (mode === undefined) delete process.env.HARNESS_SYSTEM_ONE_MODE; else process.env.HARNESS_SYSTEM_ONE_MODE = mode; }
+});
