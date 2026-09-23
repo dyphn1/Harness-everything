@@ -14,23 +14,30 @@ to, judged from the prompt alone?** The labels follow the tier model in
 
 | Gold | Use when the prompt asks for | Examples of shape |
 | --- | --- | --- |
-| `tier1` | One bounded operation with clear scope: a typo or doc fix, a narrow local edit, a bounded explanation or status check, a straightforward Git/GitHub operation, running a named command | "commit these changes", "fix the typo in README", "check the status of issue 85" |
-| `tier2` | Implementation or a bug fix that needs iterative testing, a multi-file change, a focused review or benchmark | "the CLI fails with this error, fix it", "add a flag to the export command with tests" |
-| `tier3` | Architecture or migration work, a repository-wide or multi-repository change, broad synthesis, a multi-phase plan, or bounded delegation to several agents | "audit every repo for convention violations", "split this feature into phases and implement phase 1" |
-| `null` | Intent that cannot be determined from the prompt alone (a bare continuation, an answer to an earlier question, a reference to unstated context), or work outside software/project engineering | "go", "yes, next one", "1. agree 2. use hash", "close the other apps" |
+| `tier1` | Something answered or done without changing project behavior: Git/GitHub housekeeping (commit, push, open a PR, sync, tag, post given results as a comment), a status check, reading a log or searching and reporting, the smallest doc fix (a typo, a link, an ignore entry), or a reply the assistant can give directly, including non-engineering chores and discussion questions | "commit these changes", "is issue 88 still open?", "find every repo still using the old logging package", "close the other apps" |
+| `tier2` | A bounded change or investigation: any code, configuration or CI edit (a rename, a value, a revert), running tests or a build, filing an issue, explaining code that must be read first, most bug fixes, a focused review or benchmark, planning or synthesis that produces documents (phase plans, an ADR, an overview), and answers that settle open decisions for work in progress | "rename tmp to buffer", "run npm test", "the CLI fails with this error, fix it", "1. agree 2. keep the old name" |
+| `tier3` | New or changed behavior delivered with tests, and anything larger: a new flag or format, a behavior change across producers and tests, a large refactor, a dependency upgrade with breakage, a migration, a repository-wide change, a multi-phase implementation, or delegation to several agents | "add a --verbose flag with tests", "migrate to ESM", "dispatch agents to audit every repo" |
+| `null` | No actionable content: a bare continuation, "do what you said", a vague reaction, a question about what the assistant meant, or pasted status with no request | "go", "yes", "照剛剛說的改", "something is off here" |
 
 Rules:
 
-1. Judge the prompt alone. Do not assume conversation context that the prompt
-   does not state. If the task depends on unseen context, the gold is `null`.
-2. Label the work requested, not the words used. "Refactor" of one function is
-   `tier1`/`tier2`; "every" or "all" over one file is not repository-wide.
-3. Pick the smallest tier that covers the whole request. A prompt with a
-   bounded operation plus real implementation work is `tier2`.
+1. Label the work the prompt would start. A reply that settles decisions for
+   work in progress ("1. agree 2. use hash") is labeled by that work, not `null`.
+   Use `null` only when no work can be identified at all.
+2. Label the work requested, not the words used. Searching every repository and
+   reporting is `tier1`; changing every repository is `tier3`.
+3. Pick the smallest tier that covers the whole request.
 4. Explicit workflow words ("use fable", "no subagents") do not change the gold.
    Precedence is a router policy, not a label.
 5. Never derive gold from the lexical router or any model output. A reviewer may
    read the proposed gold, but the recorded gold is the reviewer's decision.
+
+These definitions are the repository owner's, recorded after the first review
+of the draft: the owner's labels moved many drafted cases one tier up, labeled
+context-dependent replies by their work, and gave non-engineering chores
+`tier1`. The draft's `proposedGold` values predate this and are only
+suggestions. Acknowledgements, reactions, host commands (`/compact`) and meeting
+notes were rejected from the holdout because they never reach routing as tasks.
 
 ## Cases
 
@@ -77,4 +84,20 @@ draft and the decisions:
 
 The agent that drafts cases never records decisions. `reviewed: true` means a
 human reviewed that exact text. Review records store a role
-(`human:repository-owner`), not a name or account.
+(`human:repository-owner`), not a name or account. When a decision contradicts
+the owner's decisions on sibling cases, the agent may ask the owner to confirm
+it. The owner's answer is recorded as the decision, and the agent never changes
+a decision on its own.
+
+## Committed files
+
+| File | Content |
+| --- | --- |
+| `benchmarks/fixtures/system-one-holdout-draft.json` | Draft cases with proposed gold |
+| `benchmarks/fixtures/system-one-holdout-reviews.json` | Owner decisions (ID, prompt hash, decision, gold, role) |
+| `benchmarks/fixtures/system-one-holdout.json` | Evaluation corpus, rebuilt with `node scripts/system-one-corpus.js build <draft> <reviews> <corpus>` |
+
+The reviewed holdout has 215 cases (11 rejected): en 93 and zh-TW 122; gold
+`tier1` 47, `tier2` 97, `tier3` 51 and `null` 20. It meets the `reviewedHoldout`
+gate. It says nothing about model quality until a `harness-routing-v1`
+checkpoint is evaluated on it.
