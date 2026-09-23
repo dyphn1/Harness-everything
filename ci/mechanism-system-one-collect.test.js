@@ -105,21 +105,24 @@ test('S1-C104 splits are stable per family and near 15% validation', () => {
 test('S1-C105 CLI writes a deterministic local dataset outside the repository', () => {
   const { home, appdata } = fakeHome();
   const out = path.join(home, 'out');
+  const holdout = path.join(home, 'holdout.json');
+  fs.writeFileSync(holdout, JSON.stringify({ schemaVersion: 1, cases: [{ request: { context: 'Commit all changes.' } }] }));
   try {
-    const run = () => spawnSync(process.execPath, [path.join(root, 'scripts/system-one-collect.js'), '--home', home, '--appdata', appdata, '--out', out],
+    const run = () => spawnSync(process.execPath, [path.join(root, 'scripts/system-one-collect.js'), '--home', home, '--appdata', appdata, '--out', out, '--holdout', holdout],
       { encoding: 'utf8', cwd: root });
     const one = run();
     assert.equal(one.status, 0, one.stderr);
     const first = fs.readFileSync(path.join(out, 'prompts.jsonl'), 'utf8');
     const stats = JSON.parse(one.stdout);
-    assert.equal(stats.kept, 9);
+    assert.equal(stats.kept, 8);
+    assert.equal(stats.dropped.leak, 1);
     assert.deepEqual(Object.keys(stats.bySource).sort(), ['claude', 'codex', 'copilot-cli', 'vscode']);
     assert.match(stats.sha256, /^[0-9a-f]{64}$/);
     const rows = first.trim().split('\n').map(l => JSON.parse(l));
     assert.ok(rows.every(r => Object.keys(r).sort().join() === 'family,id,source,split,text' && /^[0-9a-f]{16}$/.test(r.id)));
     assert.equal(run().status, 0);
     assert.equal(fs.readFileSync(path.join(out, 'prompts.jsonl'), 'utf8'), first, 'deterministic');
-    const inRepo = spawnSync(process.execPath, [path.join(root, 'scripts/system-one-collect.js'), '--home', home, '--appdata', appdata, '--out', path.join(root, 'tmp-dataset')], { encoding: 'utf8', cwd: root });
+    const inRepo = spawnSync(process.execPath, [path.join(root, 'scripts/system-one-collect.js'), '--home', home, '--appdata', appdata, '--out', path.join(root, 'tmp-dataset'), '--holdout', holdout], { encoding: 'utf8', cwd: root });
     assert.equal(inRepo.status, 1, 'refuses to write the dataset inside the repository');
     assert.equal(fs.existsSync(path.join(root, 'tmp-dataset')), false);
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
