@@ -33,6 +33,16 @@ function cleanup(f) {
   try { resident.stop(f.manifest, f.manifestPath); } catch (_) { /* best effort */ }
   fs.rmSync(f.dir, { recursive: true, force: true });
 }
+// A client view whose state file names the live server with a wrong token. The server polls only its own
+// state file and exits once that file stops naming it, so rewriting it would race the wrong-token request.
+function wrongTokenView(f) {
+  const good = JSON.parse(fs.readFileSync(resident.stateFiles(f.manifest, f.manifestPath).state, 'utf8'));
+  const viewDir = fs.mkdtempSync(path.join(f.dir, 'client-view-'));
+  const manifestPath = path.join(viewDir, 'manifest.json');
+  fs.writeFileSync(manifestPath, JSON.stringify(f.manifest));
+  fs.writeFileSync(resident.stateFiles(f.manifest, manifestPath).state, JSON.stringify({ ...good, token: 'b'.repeat(64) }));
+  return manifestPath;
+}
 
 test('S1-RS01 manifest transport fields and digest-bound file names', () => {
   const f = fixture();
@@ -80,10 +90,9 @@ test('S1-RS03 stale state is removed and replaced; a wrong token is rejected wit
     assert.equal(f.spawns.length, 1);
     assert.equal(resident.ensureReady(f.manifest, f.manifestPath, 20000, f.deps), true);
     const good = JSON.parse(fs.readFileSync(state, 'utf8'));
-    fs.writeFileSync(state, JSON.stringify({ ...good, token: 'b'.repeat(64) }));
-    assert.deepEqual(resident.score(request, f.manifest, f.manifestPath, f.deps), { status: 'unavailable', reason: 'provider-unavailable' });
+    assert.deepEqual(resident.score(request, f.manifest, wrongTokenView(f), f.deps), { status: 'unavailable', reason: 'provider-unavailable' });
     assert.equal(f.spawns.length, 1);
-    fs.writeFileSync(state, JSON.stringify(good));
+    assert.equal(resident.status(f.manifest, f.manifestPath).running, true, 'a wrong token does not stop the server');
     for (const bad of ['not-json', JSON.stringify({ ...good, extra: 1 }), JSON.stringify({ ...good, token: 'short' })]) {
       fs.writeFileSync(state, bad);
       assert.equal(resident.status(f.manifest, f.manifestPath).running, false);
@@ -195,11 +204,7 @@ test('S1-RS10 scoreAsync matches the sync client and keeps every start/failure m
     assert.equal(sync.status, 'scored');
     assert.deepEqual(await resident.scoreAsync(request, f.manifest, f.manifestPath, f.deps), sync);
     assert.deepEqual(await resident.scoreAsync(request, f.manifest, f.manifestPath, f.deps), sync);
-    const { state } = resident.stateFiles(f.manifest, f.manifestPath);
-    const good = JSON.parse(fs.readFileSync(state, 'utf8'));
-    fs.writeFileSync(state, JSON.stringify({ ...good, token: 'b'.repeat(64) }));
-    assert.deepEqual(await resident.scoreAsync(request, f.manifest, f.manifestPath, f.deps), { status: 'unavailable', reason: 'provider-unavailable' });
-    fs.writeFileSync(state, JSON.stringify(good));
+    assert.deepEqual(await resident.scoreAsync(request, f.manifest, wrongTokenView(f), f.deps), { status: 'unavailable', reason: 'provider-unavailable' });
     await assert.rejects(resident.scoreAsync({ ...request, extra: 1 }, f.manifest, f.manifestPath, f.deps));
     assert.equal(f.spawns.length, 1);
   } finally { cleanup(f); }
