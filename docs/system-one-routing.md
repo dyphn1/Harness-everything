@@ -213,7 +213,8 @@ The corpus is `{schemaVersion: 1, cases: [...]}`. Each case has exactly `id`,
 The complete fixed tier catalog must match. IDs and request hashes are unique;
 no family may span splits. Evaluation uses only holdout, never training labels.
 The committed seed corpus is a mechanism fixture, not an independently reviewed
-holdout. Expand and review it separately before making quality claims.
+holdout. The reviewed holdout is written, labeled and assembled as described in
+[system-one-corpus.md](system-one-corpus.md).
 
 The CLI runs the real lexical baseline and the configured provider twice per
 holdout case. Records contain IDs, baseline prediction, decision, model identity,
