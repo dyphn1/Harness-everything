@@ -130,7 +130,12 @@ contract; this establishes no new live-host capability. Python, PyTorch and a
 compatible local checkpoint are optional external dependencies, not npm payloads;
 the explicit `npm run system-one:install` sets them up and hooks never run it.
 With `transport: "resident"`, an opted-in router hook may spawn one detached
-loopback-only Python server per manifest; host survival of that process after
-a hook exits is not live-verified.
+loopback-only Python server per manifest. One retained Windows + Claude Code
+headless session showed the hook-spawned server outliving the host; macOS/Linux
+and Codex hosts are not live-verified, and this does not change the matrix.
+Hooks read the mode from the host process environment: Claude Code settings
+`env` reaches hooks and every agent-run command, while a Codex started from an
+ordinary terminal sees it only when set at user/OS level. Keep the mode `off`
+until a Harness-trained checkpoint passes the rollout gates.
 Public Skills-only artifacts do not acquire lifecycle hooks from this feature.
 See [System One routing](system-one-routing.md) for limits, rollback and evidence.
