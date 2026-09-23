@@ -25,11 +25,13 @@ function fakeHome() {
     { type: 'assistant', message: { content: 'assistant text must be skipped' } },
   ]));
   write('.codex/sessions/2026/09/01/rollout-a.jsonl', jsonl([
+    { type: 'session_meta', payload: { originator: 'codex_vscode', source: 'vscode' } },
     { type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: '<environment_context>cwd</environment_context>' }] } },
     { type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'duplicate of the event message' }] } },
     { type: 'event_msg', payload: { type: 'user_message', message: 'add a --verbose flag with tests' } },
   ]));
   write('.codex/sessions/2026/09/02/rollout-b.jsonl', jsonl([
+    { type: 'session_meta', payload: { originator: 'Codex Desktop', source: 'vscode' } },
     { type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: '<user_instructions>agents</user_instructions>' }] } },
     { type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'older session without event messages' }] } },
   ]));
@@ -66,6 +68,33 @@ test('S1-C101 each source yields only owner-typed text', () => {
     assert.ok(rows.every(r => typeof r.family === 'string' && r.family.length > 0));
     const claude = rows.filter(r => r.source === 'claude');
     assert.equal(new Set(claude.map(r => r.family)).size, 1, 'one session file is one family');
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test('S1-C106 only interactive Codex sessions count, and VS Code terminal notifications are dropped', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-s1-collect-'));
+  const appdata = path.join(home, 'AppData', 'Roaming');
+  const session = (name, meta, text) => {
+    const p = path.join(home, '.codex', 'sessions', '2026', '09', '03', `${name}.jsonl`);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, jsonl([{ type: 'session_meta', payload: meta }, { type: 'event_msg', payload: { type: 'user_message', message: text } }]));
+  };
+  try {
+    session('ide', { originator: 'codex_vscode', source: 'vscode' }, 'typed in the IDE');
+    session('desktop', { originator: 'Codex Desktop', source: 'vscode' }, 'typed in the desktop app');
+    session('tui', { originator: 'codex-tui', source: 'cli' }, 'typed in the terminal');
+    session('from-claude', { originator: 'Claude Code', source: 'vscode' }, 'dispatched by another agent');
+    session('exec', { originator: 'codex_exec', source: 'exec' }, 'an exec lane prompt');
+    session('ide-exec', { originator: 'codex_vscode', source: 'exec' }, 'another exec prompt');
+    session('subagent', { originator: 'codex_vscode', source: { subagent: { thread_spawn: {} } } }, 'a sub-agent prompt');
+    session('no-meta', null, 'a session without metadata');
+    const chat = path.join(appdata, 'Code', 'User', 'workspaceStorage', 'w', 'chatSessions', 's.jsonl');
+    fs.mkdirSync(path.dirname(chat), { recursive: true });
+    fs.writeFileSync(chat, jsonl([{ kind: 0, v: { requests: [
+      { message: { text: '[Terminal 808808ce-309f notification: command completed with exit code 0]' } },
+      { message: { text: 'a real chat prompt' } }] } }]));
+    assert.deepEqual(texts(collect.readSources({ home, appdata })), texts([
+      { text: 'typed in the IDE' }, { text: 'typed in the desktop app' }, { text: 'typed in the terminal' }, { text: 'a real chat prompt' }]));
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 

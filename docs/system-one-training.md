@@ -42,8 +42,11 @@ The following are dropped:
 - Session-continuation summaries ("This session is being continued…").
 - Empty text.
 
-Codex sessions include prompts that another agent dispatched. They are kept and tagged with
-their source, because Harness routes them in Codex too.
+Codex sessions are kept only when they are interactive, meaning `session_meta` has a
+`source` of `vscode` or `cli` and an originator that is neither `Claude Code` nor
+`codex_exec`. Exec sessions, sub-agent threads and sessions another agent started contain
+prompts written by an agent, not by the owner. VS Code terminal notifications
+(`[Terminal … notification …`) are dropped as well.
 
 ## Filters, families and splits
 
@@ -80,7 +83,9 @@ their source, because Harness routes them in Codex too.
     sessions never become collectable history), `--tools ""` and a JSON schema.
   - The instructions contain the gold table and rules from
     [system-one-corpus.md](system-one-corpus.md).
-  - Prompts go in batches of 100. Every returned index must be labeled exactly once with
+  - Prompts go in batches of 100. `--max-batches N` stops after N batches so a
+    memory-constrained host can label in short foreground runs that resume from the
+    labels already written. Every returned index must be labeled exactly once with
     `tier1`, `tier2`, `tier3` or `null`. A malformed batch is retried once and then
     recorded as failed. It is never partially accepted.
 - **Labeler check**: the labeler labels the 215 holdout prompts once, before any training
@@ -88,9 +93,14 @@ their source, because Harness routes them in Codex too.
   - Labeling proceeds only when agreement is at least 80%.
   - The instructions are never tuned on the holdout. If the check fails, the owner reviews
     the disagreements and decides how to proceed.
-- **Owner spot-check**: a random 5% sample of the labeled training data is reviewed on the
-  review page, and the disagreement rate is reported. The owner's decisions replace the LLM
-  labels for those cases.
+- **Owner spot-check**: a deterministic sample of the labeled training data is reviewed on
+  the review page, and the disagreement rate is reported.
+  - Each case shows the preceding prompts from the same session as read-only context.
+    Without it, short replies read as confirmations: the first spot-check (103 cases,
+    no context) disagreed 51% and was not used to override labels.
+  - A checkpoint may be trained before the spot-check, but it is released only when
+    disagreement is below 20%.
+  - Decisions made with context replace the LLM labels for those cases.
 
 ## Training and calibration
 

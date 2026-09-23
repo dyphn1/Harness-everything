@@ -89,6 +89,10 @@ test('S1-L05 CLI labels through the configured command, resumes, checks the hold
     const rows = fs.readFileSync(out, 'utf8').trim().split('\n').map(l => JSON.parse(l));
     assert.ok(rows.every(r => r.gold === 'tier2' && r.labeler.model === 'sonnet' && /^[0-9a-f]{16}$/.test(r.labeler.rulesSha256)));
     assert.deepEqual(JSON.parse(cli(['label', '--in', input, '--out', out]).stdout), { labeled: 0, failed: 0, total: 5 });
+    const partial = path.join(dir, 'partial.jsonl');
+    assert.deepEqual(JSON.parse(cli(['label', '--in', input, '--out', partial, '--batch', '2', '--max-batches', '1']).stdout), { labeled: 2, failed: 0, total: 5 });
+    assert.deepEqual(JSON.parse(cli(['label', '--in', input, '--out', partial, '--batch', '2', '--max-batches', '1']).stdout), { labeled: 2, failed: 0, total: 5 }, 'resumes with the next batch');
+    assert.equal(fs.readFileSync(partial, 'utf8').trim().split('\n').length, 4);
     const report = path.join(dir, 'check.json');
     const check = cli(['check-holdout', '--out', report]);
     assert.equal(check.status, 0, check.stderr);

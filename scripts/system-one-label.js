@@ -39,9 +39,9 @@ function validateReply(batch, reply) {
   }
   return out;
 }
-async function labelAll(data, { run, rules, batchSize = 100, concurrency = 4, done = new Set(), onBatch = () => {}, onFailure = () => {}, retryDelayMs = 30000 }) {
+async function labelAll(data, { run, rules, batchSize = 100, concurrency = 4, done = new Set(), onBatch = () => {}, onFailure = () => {}, retryDelayMs = 30000, maxBatches = Infinity }) {
   const todo = data.filter(d => !done.has(d.id));
-  const batches = []; for (let i = 0; i < todo.length; i += batchSize) batches.push(todo.slice(i, i + batchSize));
+  const batches = []; for (let i = 0; i < todo.length && batches.length < maxBatches; i += batchSize) batches.push(todo.slice(i, i + batchSize));
   const labeled = []; const failed = []; let next = 0;
   // Every failed attempt is reported with its reason; a thrown run (rate limit, timeout) waits before the retry.
   const attempt = async batch => {
@@ -127,7 +127,8 @@ async function main(argv) {
     const onBatch = rows => fs.appendFileSync(out, rows.map(r => `${JSON.stringify({ ...r, labeler })}\n`).join(''), { mode: 0o600 });
     // Failure log: first ID, size and reason only, never prompt text.
     const onFailure = (batch, reason) => fs.appendFileSync(`${out}.failures.jsonl`, `${JSON.stringify({ firstId: batch[0].id, size: batch.length, reason, at: new Date().toISOString() })}\n`);
-    const { labeled, failed } = await labelAll(data, { run, rules, batchSize, concurrency, done, onBatch, onFailure });
+    const maxBatches = Number(opt('--max-batches', 'Infinity'));
+    const { labeled, failed } = await labelAll(data, { run, rules, batchSize, concurrency, done, onBatch, onFailure, maxBatches });
     console.log(JSON.stringify({ labeled: labeled.length, failed: failed.length, total: data.length }));
   } else if (op === 'check-holdout') {
     const out = opt('--out'); if (!out) throw new Error('check-holdout needs --out');

@@ -27,6 +27,10 @@ Rules:
 2. Label the work requested, not the words used. Searching every repository and
    reporting is `tier1`; changing every repository is `tier3`.
 3. Pick the smallest tier that covers the whole request.
+   A question, a confirmation, a discussion point, or a request to restate,
+   reformat or extend the assistant's previous answer without changing files is
+   `tier1`. A requested change to code or configuration, however small, is at
+   least `tier2`. Only the smallest doc fixes listed in the table stay `tier1`.
 4. Explicit workflow words ("use fable", "no subagents") do not change the gold.
    Precedence is a router policy, not a label.
 5. Never derive gold from the lexical router or any model output. A reviewer may
