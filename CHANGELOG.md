@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.24.0](https://github.com/dyphn1/Harness-everything/compare/v0.23.0...v0.24.0) (2026-09-23)
+
+### Features
+
+* **router:** apply calibrated system one acceptance thresholds ([61841a2](https://github.com/dyphn1/Harness-everything/commit/61841a28afc0c8ba0163625b28974962f0cf78f7)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **router:** collect local owner prompts for system one training ([c84d543](https://github.com/dyphn1/Harness-everything/commit/c84d5433e2d152fd57618b24691c75a50e1fc3c8)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **router:** label system one training prompts with a checked llm ([5056a9a](https://github.com/dyphn1/Harness-everything/commit/5056a9a7abc2820dc6b9eedf8266bd39082afd8f)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **router:** train and calibrate the system one tier scorer ([cc26296](https://github.com/dyphn1/Harness-everything/commit/cc26296cd128cc75a74a5fbe2d3c8637068781b1)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
+### Bug Fixes
+
+* **router:** record why system one labeling batches fail ([c6dd6f6](https://github.com/dyphn1/Harness-everything/commit/c6dd6f61b19020a95ccf0fbef30ac9d5113a69f4)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
 ## [0.23.0](https://github.com/dyphn1/Harness-everything/compare/v0.22.1...v0.23.0) (2026-09-23)
 
 ### Features
