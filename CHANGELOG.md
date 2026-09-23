@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.21.0](https://github.com/dyphn1/Harness-everything/compare/v0.20.7...v0.21.0) (2026-09-23)
+
+### Features
+
+* **router:** add opt-in system one installer with real cpu evidence ([87eae6c](https://github.com/dyphn1/Harness-everything/commit/87eae6c5ce6c217ab4c3baf5786e8fd14ec1e8ad)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **router:** add optional local CUA-S1 scoring adapter ([5bb2840](https://github.com/dyphn1/Harness-everything/commit/5bb2840dd1cf6ac27b9ed540e00b70246905d277))
+* **router:** add paired System One evaluation and rollout gates ([6b0ee09](https://github.com/dyphn1/Harness-everything/commit/6b0ee0953acf2b5b36c67c82f9221fd30d3b3223))
+* **router:** define bounded System One scoring contract ([b00923b](https://github.com/dyphn1/Harness-everything/commit/b00923b7fa51594d97334911e631d75c83f882af))
+* **router:** integrate opt-in System One tier scoring ([f5bd079](https://github.com/dyphn1/Harness-everything/commit/f5bd07985aa90bf2b5245c8eceaa3666538e192e))
+
+### Bug Fixes
+
+* **router:** enforce system one structural floor and full evaluation evidence ([5949467](https://github.com/dyphn1/Harness-everything/commit/5949467aa2d9c4cee8beeabe721b53ab82516220)), closes [#234](https://github.com/dyphn1/Harness-everything/issues/234) [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
 ## [0.20.7](https://github.com/dyphn1/Harness-everything/compare/v0.20.6...v0.20.7) (2026-09-22)
 
 ### Bug Fixes
