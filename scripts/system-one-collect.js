@@ -12,7 +12,9 @@ const REPO = path.resolve(__dirname, '..');
 const MAX_BYTES = 1024;
 const VALIDATION_PERCENT = 15;
 // Whole-text wrappers injected by hosts or hooks; text that starts with one is not typed by the owner.
-const WRAPPER = /^<(environment_context|user_instructions|recommended_plugins|send_user_message_question_reply|command-|local-command|task-notification|bash-|turn_aborted|user_shell_command|skill)/i;
+const WRAPPER = /^(<(environment_context|user_instructions|recommended_plugins|send_user_message_question_reply|command-|local-command|task-notification|bash-|turn_aborted|user_shell_command|skill)|\[Terminal [0-9a-f-]+ notification)/i;
+// Codex sessions typed by the owner: interactive IDE/desktop/terminal ones, not exec lanes, sub-agents or agent-started sessions.
+const interactiveCodex = meta => !!meta && ['vscode', 'cli'].includes(meta.source) && !['Claude Code', 'codex_exec'].includes(meta.originator);
 // Blocks a host inserts inside typed text; they are removed and the rest is kept.
 const INSERTED = /<(system-reminder|ide_[a-z_]+)>[\s\S]*?<\/\1>/gi;
 const sha = text => createHash('sha256').update(text, 'utf8').digest('hex');
@@ -61,12 +63,14 @@ function fromClaude(file) {
   return rows;
 }
 function fromCodex(file) {
-  const events = []; const items = [];
+  const events = []; const items = []; let meta = null;
   for (const line of readLines(file)) {
     const e = parse(line); if (!e || !e.payload) continue;
+    if (e.type === 'session_meta' && !meta) { meta = e.payload; if (!interactiveCodex(meta)) return []; continue; }
     if (e.type === 'event_msg' && e.payload.type === 'user_message') { const t = typed(e.payload.message); if (t) events.push(t); }
     if (e.type === 'response_item' && e.payload.role === 'user') for (const c of e.payload.content || []) { const t = typed(c && c.text); if (t) items.push(t); }
   }
+  if (!interactiveCodex(meta)) return [];
   // Event messages are the typed text; response items repeat it with injected context, so they are a fallback only.
   return events.length ? events : items;
 }
