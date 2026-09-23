@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.23.0](https://github.com/dyphn1/Harness-everything/compare/v0.22.1...v0.23.0) (2026-09-23)
+
+### Features
+
+* **router:** assemble the system one holdout from human review ([c877e9f](https://github.com/dyphn1/Harness-everything/commit/c877e9f5248ea413ce8252f98f672376c83ef534)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
 ## [0.22.1](https://github.com/dyphn1/Harness-everything/compare/v0.22.0...v0.22.1) (2026-09-23)
 
 ### Performance Improvements
