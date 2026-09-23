@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -98,7 +99,7 @@ class ResidentServerTests(unittest.TestCase):
         return thread, json.loads(self.state.read_text(encoding='utf-8'))
 
     def request(self, context='fix', options=('a', 'b')):
-        return {'schemaVersion': 1, 'task': 'tier', 'context': context, 'requestHash': 'r' * 64, 'catalogHash': 'c' * 64,
+        return {'schemaVersion': 1, 'task': 'tier', 'context': context, 'requestHash': 'a' * 64, 'catalogHash': 'b' * 64,
                 'options': [{'id': f'o{i}', 'text': t} for i, t in enumerate(options)]}
 
     def test_protocol_auth_limits_and_shutdown(self):
@@ -118,7 +119,7 @@ class ResidentServerTests(unittest.TestCase):
         self.assertEqual(call(port, {'token': token, 'op': 'unknown'}), {'ok': False, 'reason': 'invalid-request'})
         reply = call(port, {'token': token, 'op': 'score', 'request': self.request()})
         self.assertEqual(reply['ok'], True)
-        self.assertEqual(reply['response']['requestHash'], 'r' * 64)
+        self.assertEqual(reply['response']['requestHash'], 'a' * 64)
         self.assertEqual(reply['response']['model'], {'id': 'stub', 'revision': 'v1', 'domain': 'harness-routing-v1'})
         self.assertEqual([s['probability'] for s in reply['response']['scores']], [1.0, 0.0])
         self.assertEqual(call(port, {'token': token, 'op': 'score', 'request': self.request(context='123456789')}),
@@ -144,6 +145,59 @@ class ResidentServerTests(unittest.TestCase):
         thread.join(5)
         self.assertFalse(thread.is_alive())
         self.assertFalse(self.state.exists())
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows DACL')
+    def test_state_file_has_owner_only_explicit_dacl_on_windows(self):
+        thread, state = self.start()
+        # Drop the file path (it contains "C:\Users\...") and keep only the ACE text.
+        acl = subprocess.run(['icacls', str(self.state)], capture_output=True, text=True).stdout.replace(str(self.state), '')
+        self.assertIn(':(F)', acl)
+        for bad in ['(I)', 'Users', 'Everyone', 'Administrators', 'SYSTEM']:
+            self.assertNotIn(bad, acl)
+        call(state['port'], {'token': state['token'], 'op': 'shutdown'})
+        thread.join(5)
+
+    def test_slow_client_does_not_block_others_and_burst_is_served(self):
+        thread, state = self.start()
+        idle = socket.create_connection(('127.0.0.1', state['port']), timeout=5)
+        try:
+            began = time.monotonic()
+            self.assertEqual(call(state['port'], {'token': state['token'], 'op': 'ping'})['ok'], True)
+            self.assertLess(time.monotonic() - began, 0.5)
+            results = []
+            workers = [threading.Thread(target=lambda: results.append(call(state['port'], {'token': state['token'], 'op': 'ping'}))) for _ in range(32)]
+            for w in workers:
+                w.start()
+            for w in workers:
+                w.join(10)
+            self.assertEqual(len(results), 32)
+            self.assertTrue(all(r.get('ok') is True or r == {'ok': False, 'reason': 'busy'} for r in results))
+            self.assertGreaterEqual(sum(1 for r in results if r.get('ok') is True), 16)
+        finally:
+            idle.close()
+        call(state['port'], {'token': state['token'], 'op': 'shutdown'})
+        thread.join(5)
+
+    def test_server_exits_when_its_state_file_no_longer_names_it(self):
+        thread, _ = self.start()
+        self.state.write_text('{"corrupt": true}', encoding='utf-8')
+        thread.join(5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(self.state.read_text(encoding='utf-8'), '{"corrupt": true}')
+
+    def test_rejects_requests_outside_phase0_structure(self):
+        thread, state = self.start()
+        token, port = state['token'], state['port']
+        many = self.request(options=tuple('x' for _ in range(257)))
+        extra = dict(self.request(), extra=1)
+        dup = self.request(); dup['options'][1]['id'] = dup['options'][0]['id']
+        bad_id = self.request(); bad_id['options'][0]['id'] = 'Bad ID'
+        wrong_version = dict(self.request(), schemaVersion=2)
+        for request in [many, extra, dup, bad_id, wrong_version]:
+            self.assertEqual(call(port, {'token': token, 'op': 'score', 'request': request}), {'ok': False, 'reason': 'invalid-request'})
+        self.assertEqual(call(port, {'token': token, 'op': 'score', 'request': self.request(options=tuple('x' for _ in range(256)))})['ok'], True)
+        call(port, {'token': token, 'op': 'shutdown'})
+        thread.join(5)
 
     def test_startup_failure_is_recorded_in_lock(self):
         self.manifest['weightsSha256'] = '0' * 64

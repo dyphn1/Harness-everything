@@ -88,14 +88,17 @@ function start(manifest, files, deps) {
   if (lock) { try { fs.unlinkSync(files.lock); } catch (_) { /* another caller replaced it */ } }
   try { fs.writeFileSync(files.lock, JSON.stringify({ createdAt: Date.now() }), { flag: 'wx', mode: 0o600 }); }
   catch (_) { return unavailable('provider-starting'); }
+  let child = null;
   try {
     const [exe, prefix] = (deps.command || defaultCommand)(manifest);
-    const child = spawn(exe, [...prefix, JSON.stringify(manifest), files.state, files.lock],
+    child = spawn(exe, [...prefix, JSON.stringify(manifest), files.state, files.lock],
       { detached: true, stdio: 'ignore', windowsHide: true, shell: false });
-    child.on('error', () => { /* surfaces as a lock that never becomes ready */ });
+    child.on('error', () => { /* recorded synchronously below: a failed spawn has no pid */ });
     child.unref();
-  } catch (_) {
-    try { fs.unlinkSync(files.lock); } catch (__) { /* already gone */ }
+  } catch (_) { child = null; }
+  // The async 'error' event cannot run while callers block in Atomics.wait, so record the failure now.
+  if (!child || !child.pid) {
+    try { fs.writeFileSync(files.lock, JSON.stringify({ createdAt: Date.now(), failed: 'spawn-failed' })); } catch (_) { /* best effort */ }
     return unavailable('provider-unavailable');
   }
   return unavailable('provider-starting');

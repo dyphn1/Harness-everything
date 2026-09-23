@@ -7,7 +7,9 @@ from pathlib import Path
 import re
 import secrets
 import socket
+import subprocess
 import sys
+import threading
 import time
 
 
@@ -62,18 +64,41 @@ def infer(request, manifest):
 
 
 MAX_REQUEST_BYTES = 2 * 1024 * 1024
+MAX_OPTIONS = 256
+MAX_CLIENTS = 64
+READ_DEADLINE_S = 1.0  # never longer than the Node client's 1000 ms call deadline
 STARTUP_REASONS = ('artifact-hash', 'checkpoint-format')
+ID_PATTERN = re.compile(r'[a-z0-9._-]{1,80}')
+HASH_PATTERN = re.compile(r'[0-9a-f]{64}')
+_USER_SID = []
 
 
 def _artifact_stamp(weights):
     return [(p.stat().st_size, p.stat().st_mtime_ns) for p in (weights, weights.with_suffix('.json'))]
 
 
+def _restrict_to_current_user(path):
+    """Windows: drop inherited ACEs and grant only the current user, whatever the parent directory allows."""
+    if os.name != 'nt':
+        return
+    tools = Path(os.environ.get('SystemRoot', 'C:/Windows')) / 'System32'
+    if not _USER_SID:
+        out = subprocess.run([str(tools / 'whoami.exe'), '/user', '/fo', 'csv', '/nh'],
+                             capture_output=True, text=True, timeout=10, check=True).stdout
+        sid = out.strip().split(',')[-1].strip().strip('"')
+        if not re.fullmatch(r'S-1-[0-9-]+', sid):
+            raise OSError('user-sid')
+        _USER_SID.append(sid)
+    subprocess.run([str(tools / 'icacls.exe'), str(path), '/inheritance:r', '/grant:r', f'*{_USER_SID[0]}:F'],
+                   capture_output=True, timeout=10, check=True)
+
+
 def _write_private_json(target, value):
-    """Atomic replace of a 0600 file; the resident token must not be readable by other users."""
+    """Atomic replace of an owner-only file (0600; explicit owner-only DACL on Windows) before the token is written."""
     tmp = target.with_name(f'.{target.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp')
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+    os.close(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))
+    _restrict_to_current_user(tmp)
+    with open(tmp, 'w', encoding='utf-8') as handle:
         json.dump(value, handle)
     os.replace(tmp, target)
 
@@ -86,19 +111,32 @@ def _read_request_line(conn):
             break
         buffer.extend(chunk)
     if len(buffer.split(b'\n', 1)[0]) > MAX_REQUEST_BYTES:
-        # Drain to EOF (bounded) so the reply is not lost to a reset from unread input.
+        # Drain to EOF (bounded by size and the read deadline) so the reply is not lost to a reset.
         drained = 0
-        while drained < 8 * MAX_REQUEST_BYTES and conn.recv(65536):
-            drained += 65536
+        try:
+            while drained < 8 * MAX_REQUEST_BYTES and conn.recv(65536):
+                drained += 65536
+        except OSError:
+            pass
         raise ValueError('request-limit')
     return bytes(buffer).split(b'\n', 1)[0]
 
 
 def _valid_score_request(request):
-    return (isinstance(request, dict) and isinstance(request.get('context'), str)
-            and all(isinstance(request.get(k), str) for k in ('requestHash', 'catalogHash'))
-            and isinstance(request.get('options'), list) and len(request['options']) >= 2
-            and all(isinstance(o, dict) and isinstance(o.get('id'), str) and isinstance(o.get('text'), str) for o in request['options']))
+    """Phase 0 request structure. Hashes are fingerprints, not authentication, so they are shape-checked only."""
+    if (not isinstance(request, dict)
+            or set(request) != {'schemaVersion', 'task', 'context', 'options', 'catalogHash', 'requestHash'}
+            or request['schemaVersion'] != 1 or not isinstance(request['task'], str) or not ID_PATTERN.fullmatch(request['task'])
+            or not isinstance(request['context'], str)
+            or not all(isinstance(request[k], str) and HASH_PATTERN.fullmatch(request[k]) for k in ('catalogHash', 'requestHash'))):
+        return False
+    options = request['options']
+    if not isinstance(options, list) or not 2 <= len(options) <= MAX_OPTIONS:
+        return False
+    if any(not isinstance(o, dict) or set(o) != {'id', 'text'} or not isinstance(o['id'], str)
+           or not ID_PATTERN.fullmatch(o['id']) or not isinstance(o['text'], str) for o in options):
+        return False
+    return len({o['id'] for o in options}) == len(options)
 
 
 def _handle(conn, token, manifest, weights, stamp, score, config):
@@ -152,15 +190,43 @@ def serve(manifest, state_path, lock_path, scorer_factory=None, idle_timeout_s=N
         score, config = (scorer_factory or load_scorer)(weights, manifest)
     except Exception as exc:
         reason = str(exc) if str(exc) in STARTUP_REASONS else 'load-failed'
-        _write_private_json(lock_path, {'failed': reason, 'at': time.time()})
+        try:
+            _write_private_json(lock_path, {'failed': reason, 'at': time.time()})
+        except OSError:
+            pass
         return 1
     idle = idle_timeout_s if idle_timeout_s is not None else manifest.get('idleTimeoutMs', 1800000) / 1000
     token = secrets.token_hex(32)
     pid = os.getpid()
+    stop = threading.Event()
+    score_lock = threading.Lock()  # one model, one inference at a time; connections are handled concurrently
+    slots = threading.BoundedSemaphore(MAX_CLIENTS)
+
+    def guarded_score(request):
+        with score_lock:
+            return score(request)
+
+    def send(conn, reply):
+        try:
+            conn.sendall((json.dumps(reply, allow_nan=False) + '\n').encode('utf-8'))
+        except OSError:
+            pass
+
+    def worker(conn):
+        try:
+            with conn:
+                conn.settimeout(READ_DEADLINE_S)
+                reply, halt = _handle(conn, token, manifest, weights, stamp, guarded_score, config)
+                send(conn, reply)
+            if halt:
+                stop.set()
+        finally:
+            slots.release()
+
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         server.bind(('127.0.0.1', 0))
-        server.listen(16)
+        server.listen(MAX_CLIENTS)
         server.settimeout(0.25)
         _write_private_json(state_path, {'schemaVersion': 1, 'pid': pid, 'port': server.getsockname()[1], 'token': token, 'startedAt': time.time()})
         try:
@@ -168,29 +234,44 @@ def serve(manifest, state_path, lock_path, scorer_factory=None, idle_timeout_s=N
         except FileNotFoundError:
             pass
         last = time.monotonic()
-        while time.monotonic() - last <= idle:
+        # A server whose state file no longer names it is undiscoverable (replaced or corrupted): exit, never orphan.
+        while not stop.is_set() and time.monotonic() - last <= idle and _owns_state(state_path, pid, token):
             try:
                 conn, _ = server.accept()
             except socket.timeout:
                 continue
             last = time.monotonic()
-            with conn:
-                conn.settimeout(2.0)
-                reply, stop = _handle(conn, token, manifest, weights, stamp, score, config)
-                try:
-                    conn.sendall((json.dumps(reply, allow_nan=False) + '\n').encode('utf-8'))
-                except OSError:
-                    pass
-            if stop:
-                break
+            if not slots.acquire(blocking=False):
+                with conn:
+                    conn.settimeout(0.2)
+                    try:
+                        _read_request_line(conn)
+                    except (OSError, ValueError):
+                        pass
+                    send(conn, {'ok': False, 'reason': 'busy'})
+                continue
+            threading.Thread(target=worker, args=(conn,), daemon=True).start()
     finally:
         server.close()
-        try:
-            if json.loads(state_path.read_text(encoding='utf-8')).get('pid') == pid:
+        if _owns_state(state_path, pid, token, missing=False):
+            try:
                 state_path.unlink()
-        except (OSError, ValueError):
-            pass
+            except OSError:
+                pass
     return 0
+
+
+def _owns_state(state_path, pid, token, missing=False):
+    """True while the state file still names this server. A transient Windows sharing violation counts as owned."""
+    try:
+        data = json.loads(state_path.read_text(encoding='utf-8'))
+    except FileNotFoundError:
+        return missing
+    except OSError:
+        return True
+    except ValueError:
+        return False
+    return isinstance(data, dict) and data.get('pid') == pid and data.get('token') == token
 
 
 def serve_main(argv, scorer_factory=None):

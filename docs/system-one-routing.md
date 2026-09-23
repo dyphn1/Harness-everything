@@ -115,9 +115,13 @@ that prompt. Concurrent callers seeing a lock younger than 60 s do not spawn
 again. The server verifies artifact hashes before `load_checkpoint`, writes its
 state file atomically, then removes the lock. A startup failure writes a bounded
 reason into the lock and exits; callers report `provider-unavailable` without
-respawning until the lock is 60 s old. The server exits after `idleTimeoutMs`
-without requests, on `shutdown`, or when either checkpoint file's size or
-modification time changes (`artifact-changed`), deleting only its own state file.
+respawning until the lock is 60 s old. An executable that cannot be spawned at
+all is detected synchronously (no child PID) and recorded as `spawn-failed` the
+same way. The server exits after `idleTimeoutMs` without requests, on
+`shutdown`, when either checkpoint file's size or modification time changes
+(`artifact-changed`), or as soon as its state file no longer names its PID and
+token (replaced, corrupted or deleted), so an undiscoverable server never
+lingers as an orphan. It deletes only a state file that still names it.
 
 **Files.** State and lock live beside the manifest as
 `system-one-resident-<digest>.json` / `.starting`, where `<digest>` is the first
@@ -125,12 +129,19 @@ modification time changes (`artifact-changed`), deleting only its own state file
 (file key order). Editing the manifest
 therefore selects a new server; the old one exits when idle. The state file has
 exactly `schemaVersion: 1`, `pid`, `port`, `token` (64 hex), and `startedAt`, and
-is created with mode 0600 (on Windows it inherits the user-profile ACL).
+is created with mode 0600; on Windows the file instead receives an explicit
+DACL with inheritance removed and a single full-control entry for the current
+user's SID before the token is written. The manifest directory must still be
+writable only by that user: whoever can replace files there can redirect the
+client, and whoever can edit the manifest chooses the executable.
 
 **Protocol.** The server binds only `127.0.0.1` on an ephemeral port and handles
 one request per connection: one newline-terminated JSON object of at most 2 MiB
-with `token`, `op` (`score`, `ping`, `shutdown`) and, for `score`, the Phase 0
-request. Tokens are compared in constant time; a mismatch returns
+with `token`, `op` (`score`, `ping`, `shutdown`) and, for `score`, a request with
+the exact Phase 0 structure (fields, lowercase IDs, unique options, 2–256
+options, 64-hex fingerprints). Connections are served concurrently, up to 64, each
+with a 1 s read deadline; beyond that the reply is `busy`. Inference itself is
+serialized, so a silent or slow client cannot delay other callers. Tokens are compared in constant time; a mismatch returns
 `{ok: false, reason: "unauthorized"}`. `score` applies the same byte limits
 (no truncation) and returns `{ok: true, response}` in the Phase 0 response
 format, which Phase 0 validation still checks. Any other failure returns
