@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.25.0](https://github.com/dyphn1/Harness-everything/compare/v0.24.0...v0.25.0) (2026-09-23)
+
+### Features
+
+* **router:** bound system one labeling runs with --max-batches ([e69b596](https://github.com/dyphn1/Harness-everything/commit/e69b5962888ad9e53ca189f36e67ccf6ada03290)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
+### Bug Fixes
+
+* **router:** drop agent-authored prompts from system one training data ([8a2f959](https://github.com/dyphn1/Harness-everything/commit/8a2f959bb2ffd56c64d7e9eb2342b1178cd559dd)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
 ## [0.24.0](https://github.com/dyphn1/Harness-everything/compare/v0.23.0...v0.24.0) (2026-09-23)
 
 ### Features
