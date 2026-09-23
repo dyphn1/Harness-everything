@@ -42,7 +42,7 @@ test('S1-L03 invalid replies are retried once, persistent failures are recorded,
     calls.push(batch.length);
     if (batch[0].id === 'id100' && flaky) { flaky = false; return { labels: [] }; }
     if (batch[0].id === 'id200') return { labels: [] };
-    return reply(batch, i => (i % 2 ? 'tier2' : null));
+    return reply(batch, i => (i % 2 ? 'tier2' : 'null'));
   };
   const first = await label.labelAll(data, { run, rules: 'R', batchSize: 100, concurrency: 2, done: new Set() });
   assert.equal(first.labeled.length, 200);
