@@ -32,7 +32,9 @@ test('S1-T03 calibration maximizes coverage subject to accepted precision on val
   const c = calibrate(rows, { minPrecision: 0.98 });
   assert.ok(c.precision >= 0.98, JSON.stringify(c));
   assert.equal(c.coverage, 0.95, JSON.stringify(c));
-  assert.ok(c.minConfidence > 0.8 && c.minConfidence <= 0.85, JSON.stringify(c));
+  // Either threshold may separate the rows; the chosen pair must reject the wrong ones and keep the right ones.
+  assert.equal(decideRow([0.8, 0.15, 0.03, 0.02], c), null, JSON.stringify(c));
+  assert.equal(decideRow([0.1, 0.85, 0.03, 0.02], c), 'tier2', JSON.stringify(c));
   const none = calibrate([row('tier1', [0.3, 0.7, 0, 0])], { minPrecision: 0.98 });
   assert.equal(none.feasible, false);
   assert.equal(none.coverage, 0);
