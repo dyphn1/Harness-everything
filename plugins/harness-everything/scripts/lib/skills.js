@@ -2,11 +2,13 @@
 const fs = require('fs');
 const path = require('path');
 const manifest = require('./manifest');
+const { isPackagingNoise } = require('./packaging-noise');
 
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
   for (const entry of entries) {
+    if (isPackagingNoise(entry.name)) continue;
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
     if (entry.isDirectory()) copyDir(srcPath, destPath);

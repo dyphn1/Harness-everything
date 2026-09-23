@@ -5,11 +5,13 @@ import json
 import os
 from pathlib import Path
 import socket
+import sys
 import tempfile
 import threading
 import time
 import unittest
 
+sys.dont_write_bytecode = True  # never leave __pycache__ in the source tree that packaging copies
 path = Path(__file__).resolve().parents[1] / 'harness-everything/scripts/system-one/cua_adapter.py'
 spec = importlib.util.spec_from_file_location('adapter', path)
 adapter = importlib.util.module_from_spec(spec)

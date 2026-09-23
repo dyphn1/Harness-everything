@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import time
 
+sys.dont_write_bytecode = True  # never leave __pycache__ in the source tree that packaging copies
 path = Path(__file__).resolve().parents[2] / 'harness-everything/scripts/system-one/cua_adapter.py'
 spec = importlib.util.spec_from_file_location('adapter', path)
 adapter = importlib.util.module_from_spec(spec)
