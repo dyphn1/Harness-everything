@@ -28,6 +28,7 @@ test('S1-I01 pins stay consistent with the provider contract', () => {
   assert.equal(manifest.checkpoint, path.join(dir, 'checkpoints', PINS.modelRevision, PINS.files.weights.name));
   assert.equal(manifest.weightsSha256, PINS.files.weights.sha256); assert.equal(manifest.configSha256, PINS.files.config.sha256);
   assert.equal(manifest.revision, PINS.modelRevision); assert.equal(manifest.timeoutMs, 10000);
+  assert.equal(manifest.transport, 'resident'); assert.equal(manifest.idleTimeoutMs, 1800000);
 });
 
 test('S1-I02 interpreter selection accepts only the upstream-supported Python range', () => {
@@ -74,6 +75,16 @@ test('S1-I04 downloads are verified before an atomic write; a valid file is reus
     assert.equal(await install.ensureFile('https://example.invalid/x', dest, spec, fetcher(good)), 'downloaded');
     assert.ok(fs.readFileSync(dest).equals(good));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('S1-I06 child command output goes to stderr so stdout stays machine-readable JSON', () => {
+  const code = `require(${JSON.stringify(script)}).exec(process.execPath, ['-e', 'console.log("pip-noise")'])`;
+  const child = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8' });
+  assert.equal(child.status, 0, child.stderr);
+  assert.equal(child.stdout, '');
+  assert.match(child.stderr, /pip-noise/);
+  const captured = spawnSync(process.execPath, ['-e', `process.stdout.write(require(${JSON.stringify(script)}).exec(process.execPath, ['-e', 'console.log("3.13.6")'], true))`], { encoding: 'utf8' });
+  assert.equal(captured.stdout, '3.13.6');
 });
 
 test('S1-I05 dry run prints the pinned plan and changes nothing, repeatably', () => {

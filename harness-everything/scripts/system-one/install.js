@@ -8,7 +8,8 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
-const { validateManifest, provenance, score, PINNED_CUA_S1_REVISION } = require('./provider');
+const { validateManifest, readManifest, provenance, score, PINNED_CUA_S1_REVISION } = require('./provider');
+const resident = require('./resident');
 const { createRequest, decide } = require('./contract');
 const { TIER_OPTIONS } = require('./router');
 
@@ -64,8 +65,8 @@ function buildManifest(dir, python) {
   const manifest = { schemaVersion: 1, python, checkpoint: path.join(checkpointDir(dir), PINS.files.weights.name),
     weightsSha256: PINS.files.weights.sha256, configSha256: PINS.files.config.sha256,
     modelId: PINS.modelId, revision: PINS.modelRevision, domain: PINS.domain,
-    // Each score starts a fresh Python process that imports torch; cold start dominates latency.
-    timeoutMs: 10000 };
+    // One-shot fallback budget (fresh Python + torch import per call); resident keeps the model loaded.
+    timeoutMs: 10000, transport: 'resident', idleTimeoutMs: 1800000 };
   validateManifest(manifest);
   return manifest;
 }
@@ -85,7 +86,8 @@ async function ensureFile(url, dest, spec, fetcher = httpFetch) {
   return 'downloaded';
 }
 function exec(cmd, args, capture = false) {
-  const result = spawnSync(cmd, args, { shell: false, windowsHide: true, encoding: 'utf8', stdio: capture ? 'pipe' : 'inherit' });
+  // Child progress goes to stderr (fd 2): stdout carries only the final JSON report.
+  const result = spawnSync(cmd, args, { shell: false, windowsHide: true, encoding: 'utf8', stdio: capture ? 'pipe' : ['ignore', 2, 2] });
   if (result.error || result.status !== 0) throw new Error(`command-failed: ${[cmd, ...args].join(' ')}`);
   return capture ? result.stdout.trim() : '';
 }
@@ -108,20 +110,27 @@ function plan(opts) {
       `${venvPy} -m pip install "${PINS.cuaS1Spec}"`,
       ...Object.values(PINS.files).map(f => `download ${fileUrl(f.name)} (sha256 ${f.sha256})`),
       `write ${manifestPath}`,
-      'verify provenance (pinned revision) and one real CPU inference',
+      'verify provenance (pinned revision), start the resident server, one warm CPU inference, stop it',
     ],
     env: { HARNESS_SYSTEM_ONE_MODE: 'shadow', HARNESS_SYSTEM_ONE_CONFIG: manifestPath } };
 }
+// Starts the resident server (if needed), scores once warm, then stops a server it started.
 function verify(manifestPath) {
   const source = provenance(manifestPath);
+  const manifest = readManifest(manifestPath);
+  const wasRunning = resident.status(manifest, manifestPath).running;
+  const startMs = performance.now();
+  const ready = resident.ensureReady(manifest, manifestPath, 60000);
+  const readyMs = Math.round(performance.now() - startMs);
   const request = createRequest('tier', 'fix a typo in README', TIER_OPTIONS);
   const start = performance.now();
   const result = score(request, manifestPath);
   const latencyMs = Math.round(performance.now() - start);
+  if (!wasRunning) resident.stop(manifest, manifestPath);
   const decision = result.status === 'scored' ? decide(request, result.response) : result;
   const scores = result.status === 'scored' && decision.status !== 'invalid-output' ? result.response.scores : null;
-  const ok = source.status === 'recorded' && source.provenance.cuaS1.sourceRevisionStatus === 'pinned' && scores !== null;
-  return { ok, source, decision, scores, latencyMs };
+  const ok = ready && source.status === 'recorded' && source.provenance.cuaS1.sourceRevisionStatus === 'pinned' && scores !== null;
+  return { ok, source, residentReady: ready, readyMs, decision, scores, latencyMs };
 }
 async function main(argv) {
   const opts = parseArgs(argv);
@@ -149,4 +158,4 @@ if (require.main === module) {
     console.error(`System One install failed: ${err.message}`); process.exitCode = 1;
   });
 }
-module.exports = { PINS, fileUrl, venvPython, supportedPython, pythonCandidates, parseArgs, buildManifest, ensureFile, plan, verify };
+module.exports = { PINS, fileUrl, venvPython, supportedPython, pythonCandidates, parseArgs, buildManifest, ensureFile, exec, plan, verify };
