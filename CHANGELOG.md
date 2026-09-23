@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.22.0](https://github.com/dyphn1/Harness-everything/compare/v0.21.0...v0.22.0) (2026-09-23)
+
+### Features
+
+* **router:** add resident system one provider ([eee8cb7](https://github.com/dyphn1/Harness-everything/commit/eee8cb763d2ed65722a2578c83700b02bdc3e668)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
+### Bug Fixes
+
+* **distribution:** keep python bytecode out of every package ([58135ae](https://github.com/dyphn1/Harness-everything/commit/58135aef92089d731eb44d55efb0ae77ea4d64dd)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **router:** harden resident system one server from adversarial review ([ee5ab0f](https://github.com/dyphn1/Harness-everything/commit/ee5ab0fec9f03808f12a88e66b769b210803baa2)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **router:** replace the whole windows dacl for resident state ([e59af73](https://github.com/dyphn1/Harness-everything/commit/e59af735de1337b3bcb10cbca05500ab6b03b64c)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
 ## [0.21.0](https://github.com/dyphn1/Harness-everything/compare/v0.20.7...v0.21.0) (2026-09-23)
 
 ### Features
