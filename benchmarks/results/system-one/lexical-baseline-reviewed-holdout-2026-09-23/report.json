@@ -1,0 +1,5222 @@
+{
+  "schemaVersion": 1,
+  "cases": 215,
+  "baseline": {
+    "accuracy": 0.28837209302325584,
+    "macroF1": 0.253536031437726,
+    "coverage": 0.4046511627906977,
+    "abstentionRate": 0.5953488372093023,
+    "acceptedPrecision": 0.4942528735632184,
+    "acceptedErrorRate": 0.5057471264367817
+  },
+  "model": {
+    "accuracy": 0.09302325581395349,
+    "macroF1": 0.0425531914893617,
+    "coverage": 0,
+    "abstentionRate": 1,
+    "acceptedPrecision": null,
+    "acceptedErrorRate": null
+  },
+  "agreement": 1,
+  "latency": {
+    "coldP95Ms": 0.12269999999998049,
+    "warmP95Ms": null,
+    "coldSamples": 430,
+    "warmSamples": 0
+  },
+  "gates": {
+    "reviewedHoldout": true,
+    "acceptedPrecision": false,
+    "coverage": false,
+    "macroF1": false,
+    "repeatability": true,
+    "warmLatency": false,
+    "sourceProvenance": false,
+    "policyEvidence": false,
+    "liveHostEvidence": false
+  },
+  "rolloutReady": false,
+  "evidence": {
+    "kind": "offline-one-shot",
+    "artifact": null,
+    "source": {
+      "status": "unavailable",
+      "reason": "provider-config"
+    },
+    "residentReady": null,
+    "environment": {
+      "cpu": "Intel(R) Core(TM) Ultra 5 225H",
+      "os": "win32 10.0.26200 x64",
+      "node": "v24.18.0",
+      "python": null,
+      "threads": 1
+    },
+    "limitations": [
+      "No independently verified holdout review",
+      "No warm inference measurement",
+      "No live-host or policy evidence"
+    ]
+  },
+  "records": [
+    {
+      "id": "h-git-commit-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.3615000000000066,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.08590000000000941,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-commit-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.23290000000000077,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06290000000001328,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-commit-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.23399999999998045,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.059799999999995634,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-commit-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.09389999999999077,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03910000000001901,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-push-open-pr-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.09470000000001733,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.044399999999996,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-push-open-pr-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.07679999999999154,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.033299999999997,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-push-open-pr-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05879999999999086,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.028699999999986403,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-push-open-pr-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05330000000000723,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0332000000000221,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-sync-branch-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.046799999999990405,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.020899999999983265,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-sync-branch-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04410000000001446,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.021199999999993224,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-sync-branch-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04279999999999973,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02189999999998804,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-sync-branch-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03829999999999245,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018000000000000682,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-revert-last-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.1266000000000247,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05529999999998836,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-revert-last-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.120900000000006,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05380000000002383,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-git-revert-last-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.1109000000000151,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.047300000000007,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-issue-pr-status-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.087600000000009,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.041100000000000136,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-issue-pr-status-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.08510000000001128,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03659999999999286,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-issue-pr-status-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06610000000000582,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02940000000000964,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-issue-pr-status-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.057899999999989404,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.026499999999998636,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-comment-results-on-issue-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06430000000000291,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03139999999999077,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-comment-results-on-issue-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.21809999999999263,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.026900000000011914,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-comment-results-on-issue-3",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04200000000000159,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017899999999997362,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-open-issue-described-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04810000000000514,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05860000000001264,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-open-issue-described-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04359999999999786,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019099999999980355,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-open-issue-described-3",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.041400000000010095,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01839999999998554,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-open-issue-described-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04009999999999536,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018000000000000682,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-typo-doc-fix-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04040000000000532,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019100000000008777,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-typo-doc-fix-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03860000000000241,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019199999999983675,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-typo-doc-fix-3",
+      "baseline": "tier1",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04919999999998481,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019599999999996953,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-typo-doc-fix-4",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03669999999999618,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.016899999999992588,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-single-line-edit-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06469999999998777,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02539999999999054,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-single-line-edit-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03959999999997876,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017699999999990723,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-single-line-edit-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.13589999999999236,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.054700000000025284,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-local-rename-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10679999999999268,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04769999999999186,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-local-rename-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.09000000000000341,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.042999999999977945,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-local-rename-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.09019999999998163,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06090000000000373,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-config-tweak-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.09149999999999636,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.046399999999977126,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-config-tweak-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.103999999999985,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.038000000000010914,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-config-tweak-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06450000000000955,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.029599999999987858,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-config-tweak-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05719999999999459,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.024800000000027467,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-run-named-command-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.059299999999979036,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.025099999999980582,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-run-named-command-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04480000000000928,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02039999999999509,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-run-named-command-3",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04339999999999122,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03340000000000032,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-run-named-command-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.2524999999999977,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.020700000000005048,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bounded-explanation-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04169999999999163,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019300000000015416,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bounded-explanation-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.039499999999975444,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019000000000005457,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bounded-explanation-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.043299999999987904,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019099999999980355,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bounded-explanation-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03740000000001942,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019200000000012096,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-read-log-report-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.037700000000000955,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018900000000002137,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-read-log-report-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.037800000000004275,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02039999999999509,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-read-log-report-3",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03889999999998395,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017899999999997362,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-list-remaining-tasks-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03860000000000241,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02010000000001355,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-list-remaining-tasks-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04040000000000532,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017699999999990723,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-list-remaining-tasks-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05150000000000432,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02230000000000132,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-add-link-docs-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04760000000001696,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0186000000000206,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-add-link-docs-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04230000000001155,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01809999999997558,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-fix-cli-error-log-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03989999999998872,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018799999999998818,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-fix-cli-error-log-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04040000000000532,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01849999999998886,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-fix-cli-error-log-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.07390000000000896,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018900000000002137,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-fix-cli-error-log-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.048499999999989996,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01850000000001728,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-fix-failing-test-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.14979999999999905,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0589999999999975,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-fix-failing-test-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.044999999999987494,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017599999999987403,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-fix-failing-test-3",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03779999999997585,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017599999999987403,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-fix-failing-test-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.039700000000010505,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019300000000015416,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-add-cli-flag-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04769999999999186,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018900000000002137,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-add-cli-flag-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.037599999999997635,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.016999999999995907,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-add-cli-flag-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03820000000001755,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017899999999997362,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-nondeterministic-output-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.050199999999989586,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019000000000005457,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-nondeterministic-output-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03909999999999059,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.030399999999985994,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-nondeterministic-output-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.037599999999997635,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019300000000015416,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-warning-level-fix-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.038000000000010914,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01830000000001064,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-warning-level-fix-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03509999999999991,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01660000000001105,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-warning-level-fix-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.036200000000008004,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017899999999997362,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-debug-crash-after-start-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0362999999999829,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.016899999999992588,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-debug-crash-after-start-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.12269999999998049,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04800000000000182,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-debug-crash-after-start-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05299999999999727,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.021500000000003183,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-multi-file-feature-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04390000000000782,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01850000000001728,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-multi-file-feature-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05359999999998877,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017899999999997362,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-multi-file-feature-3",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03880000000000905,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01850000000001728,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-focused-review-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03969999999998208,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01820000000000732,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-focused-review-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.13040000000000873,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.07030000000000314,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-focused-review-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.13500000000001933,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.058400000000006,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-focused-benchmark-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.11610000000001719,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.052600000000012415,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-focused-benchmark-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.09459999999998558,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04400000000001114,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-function-refactor-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10759999999999081,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05079999999998108,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-function-refactor-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.09770000000000323,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04640000000000555,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-function-refactor-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.061499999999995225,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.022999999999996135,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-hash-algorithm-support-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.054200000000008686,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019700000000000273,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-hash-algorithm-support-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03659999999999286,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04800000000000182,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-toolchain-check-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.039800000000013824,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018000000000000682,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-toolchain-check-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03819999999996071,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01850000000001728,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-relative-paths-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.11230000000000473,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.049200000000041655,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-relative-paths-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.09550000000001546,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04559999999997899,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-validation-rule-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.094600000000014,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04650000000003729,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-validation-rule-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.11990000000002965,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0433999999999628,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-update-docs-examples-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10120000000000573,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04820000000000846,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-update-docs-examples-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.07970000000000255,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.028300000000001546,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-audit-all-repos-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.11720000000002528,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04499999999995907,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-audit-all-repos-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.07329999999996062,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03509999999999991,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-audit-all-repos-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06579999999996744,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03209999999995716,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-phase-plan-to-issue-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05720000000002301,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02770000000003847,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-phase-plan-to-issue-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.059399999999982356,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02960000000001628,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-phase-plan-to-issue-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05770000000001119,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.030300000000011096,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-roadmap-phase-implement-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05110000000001946,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.023199999999974352,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-roadmap-phase-implement-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.042899999999974625,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01839999999998554,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-roadmap-phase-implement-3",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.13470000000000937,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.060899999999946886,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-migration-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10259999999999536,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04860000000002174,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-migration-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05770000000001119,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.024699999999995725,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-migration-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04650000000003729,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.021900000000016462,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-migration-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.042899999999974625,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01839999999998554,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-large-scale-rename-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04680000000001883,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.13330000000001974,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-large-scale-rename-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04980000000000473,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019499999999993634,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-architecture-design-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03750000000002274,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017499999999984084,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-architecture-design-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.039199999999993906,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017200000000002547,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-architecture-design-3",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03750000000002274,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01779999999996562,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-parallel-delegation-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04169999999999163,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01859999999999218,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-parallel-delegation-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.117999999999995,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.048800000000028376,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-parallel-delegation-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.048599999999964894,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02019999999998845,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-repo-wide-replace-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.035799999999994725,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018799999999998818,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-repo-wide-replace-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.039199999999993906,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018000000000029104,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-repo-wide-replace-3",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.035799999999994725,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01650000000000773,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-broad-synthesis-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03870000000000573,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017899999999997362,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-broad-synthesis-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.07429999999999382,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019600000000025375,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-cross-platform-ci-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05060000000003129,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02270000000004302,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-cross-platform-ci-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04969999999997299,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019400000000018736,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-spec-feature-program-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.18610000000001037,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06520000000000437,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-spec-feature-program-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.1069999999999709,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05099999999998772,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bare-continuation-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.1368999999999687,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.051000000000044565,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bare-continuation-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.08490000000000464,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03489999999999327,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bare-continuation-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.080600000000004,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03449999999997999,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bare-continuation-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.07229999999998427,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03350000000000364,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bare-continuation-5",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.061599999999998545,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.46640000000002146,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bare-continuation-6",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.08420000000000982,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.024099999999975807,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bare-continuation-7",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05529999999998836,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10949999999996862,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-bare-continuation-8",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05009999999998627,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.023700000000019372,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-numbered-answers-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04670000000004393,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.022499999999979536,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-numbered-answers-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.046499999999980446,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02379999999999427,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-numbered-answers-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.043800000000032924,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.021200000000021646,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-numbered-answers-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04240000000004329,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02030000000002019,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-numbered-answers-5",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04009999999999536,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01979999999997517,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-unstated-reference-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0372000000000412,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017899999999997362,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-unstated-reference-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.035799999999994725,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017599999999958982,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-unstated-reference-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04980000000000473,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02400000000000091,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-unstated-reference-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03690000000000282,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018100000000004002,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-unstated-reference-5",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.041200000000003456,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01850000000001728,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-unstated-reference-6",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03649999999998954,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018100000000004002,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-status-without-object-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.034199999999998454,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017499999999984084,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-status-without-object-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.043099999999981264,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06299999999998818,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-status-without-object-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.15949999999998,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.08249999999998181,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-status-without-object-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0905999999999949,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.041299999999978354,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-status-without-object-5",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.19409999999999172,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.049400000000048294,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-non-engineering-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10319999999995844,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.049000000000035016,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-non-engineering-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10259999999999536,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04210000000000491,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-non-engineering-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.08420000000000982,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.039499999999975444,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-non-engineering-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.08609999999998763,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04390000000000782,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-non-engineering-5",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.08379999999999654,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04270000000002483,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-vague-intent-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06490000000002283,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.027000000000043656,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-vague-intent-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.08430000000004156,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.09660000000002356,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-vague-intent-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04750000000001364,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.021299999999996544,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-vague-intent-4",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0413000000000352,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02010000000001355,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-clarification-confusion-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.045000000000015916,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019399999999961892,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-clarification-confusion-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03859999999997399,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018400000000042382,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-clarification-confusion-3",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.3299000000000092,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.07339999999999236,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-context-pasted-discussion-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06770000000000209,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02390000000002601,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-context-pasted-discussion-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04850000000004684,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02400000000000091,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-bugfix-report-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0484000000000151,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.021299999999996544,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-bugfix-report-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05669999999997799,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04389999999995098,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-release-ops-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04239999999998645,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018699999999967076,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-release-ops-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04529999999999745,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018799999999998818,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-migration-brief-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.037800000000004275,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017099999999970805,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-migration-brief-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.040699999999958436,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017400000000009186,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-explain-design-choice-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03509999999999991,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017300000000034288,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-explain-design-choice-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03319999999996526,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.016799999999989268,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-small-test-addition-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.039199999999993906,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01839999999998554,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-small-test-addition-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03649999999998954,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.016799999999989268,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-dependency-upgrade-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.036000000000001364,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.026400000000023738,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-dependency-upgrade-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03350000000000364,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01639999999997599,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-ci-workflow-small-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03370000000001028,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019200000000012096,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-ci-workflow-small-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0373000000000161,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.016799999999989268,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-audit-and-fix-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03890000000001237,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018000000000029104,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-audit-and-fix-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.17680000000001428,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.065400000000011,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-monorepo-restructure-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10499999999996135,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0473999999999819,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-monorepo-restructure-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10810000000003583,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04769999999996344,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-monorepo-restructure-3",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10309999999998354,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04779999999999518,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-security-hardening-program-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05669999999997799,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02179999999998472,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-security-hardening-program-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04820000000000846,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.018899999999973716,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-security-hardening-program-3",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0484000000000151,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02010000000001355,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-observability-rollout-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05649999999997135,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019700000000000273,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-observability-rollout-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.12049999999999272,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05020000000001801,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-api-versioning-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10759999999999081,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.049100000000009913,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-api-versioning-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0986000000000331,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.042899999999974625,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-regression-log-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.08349999999995816,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03860000000003083,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-regression-log-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.07280000000002929,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04539999999997235,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-perf-regression-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0625,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03089999999997417,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-perf-regression-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0585999999999558,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.027100000000018554,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-flaky-e2e-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.051400000000001,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02390000000002601,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-flaky-e2e-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.06990000000001828,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02379999999999427,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-bounded-edit-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04980000000000473,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.02050000000002683,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-bounded-edit-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04290000000003147,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017899999999997362,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-issue-comment-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.040300000000002,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017099999999970805,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-issue-comment-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.11250000000001137,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.022800000000017917,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-status-pasted-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.043200000000013006,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019299999999986994,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-status-pasted-2",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04150000000004184,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017400000000009186,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-acknowledgement-2",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.07599999999996498,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01979999999997517,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-bounded-explanation-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.035799999999994725,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017899999999997362,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-bounded-explanation-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04579999999998563,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017899999999997362,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-dependency-conflict-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.03880000000003747,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.019200000000012096,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-dependency-conflict-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.039499999999975444,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.01630000000000109,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-data-migration-script-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.038000000000010914,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.017699999999990723,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-docs-overhaul-1",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04070000000001528,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0181999999999789,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-docs-overhaul-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.125,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05750000000000455,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-context-question-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.10210000000000719,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.04860000000002174,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-context-question-2",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.1169999999999618,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.05160000000000764,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-focused-review-1",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.12439999999998008,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.0484000000000151,
+          "coldStart": true
+        }
+      ]
+    },
+    {
+      "id": "h-long-git-ops-1",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.08809999999999718,
+          "coldStart": true
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-config"
+          },
+          "scores": null,
+          "latencyMs": 0.041600000000016735,
+          "coldStart": true
+        }
+      ]
+    }
+  ]
+}
