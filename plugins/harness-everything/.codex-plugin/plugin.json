@@ -1,6 +1,6 @@
 {
   "name": "harness-everything",
-  "version": "0.22.0",
+  "version": "0.22.1",
   "description": "Invariant-first engineering harness for routing, verification, and failure recovery while preserving agent autonomy.",
   "author": {
     "name": "Miya Daniel",

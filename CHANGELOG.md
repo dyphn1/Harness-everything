@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.22.1](https://github.com/dyphn1/Harness-everything/compare/v0.22.0...v0.22.1) (2026-09-23)
+
+### Performance Improvements
+
+* **router:** pre-score system one asynchronously in the hook entry ([fcf2de2](https://github.com/dyphn1/Harness-everything/commit/fcf2de2a843d106636c10a318d0832c2b57d64f6)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
 ## [0.22.0](https://github.com/dyphn1/Harness-everything/compare/v0.21.0...v0.22.0) (2026-09-23)
 
 ### Features
