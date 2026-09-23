@@ -173,10 +173,13 @@ test('S1-RS09 a corrupted state file never leaves an orphan server behind', () =
     assert.equal(resident.ensureReady(f.manifest, f.manifestPath, 20000, f.deps), true);
     const fresh = JSON.parse(fs.readFileSync(state, 'utf8'));
     assert.notEqual(fresh.pid, old.pid);
+    // "Stopped serving" is the contract. On POSIX an exited child stays a zombie (kill(pid, 0) succeeds)
+    // until this blocked test process reaps it, so a refused/failed ping also proves the server is gone.
     const alive = pid => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+    const serving = () => alive(old.pid) && resident.callSync(old.port, { token: old.token, op: 'ping' }).reply?.ok === true;
     const deadline = Date.now() + 5000;
-    while (alive(old.pid) && Date.now() < deadline) sleep(100);
-    assert.equal(alive(old.pid), false);
+    while (serving() && Date.now() < deadline) sleep(100);
+    assert.equal(serving(), false);
     assert.equal(resident.status(f.manifest, f.manifestPath).pid, fresh.pid);
   } finally { cleanup(f); }
 });

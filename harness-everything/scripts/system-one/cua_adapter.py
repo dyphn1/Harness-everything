@@ -78,19 +78,40 @@ def _artifact_stamp(weights):
 
 
 def _restrict_to_current_user(path):
-    """Windows: drop inherited ACEs and grant only the current user, whatever the parent directory allows."""
+    """Windows: replace the whole DACL with one protected full-control ACE for the current user.
+
+    Editing ACEs is not enough: some hosts create files with explicit (non-inherited) SYSTEM,
+    Administrators or OWNER RIGHTS entries that survive `icacls /inheritance:r /grant:r`.
+    """
     if os.name != 'nt':
         return
-    tools = Path(os.environ.get('SystemRoot', 'C:/Windows')) / 'System32'
+    import ctypes
+    from ctypes import wintypes
     if not _USER_SID:
+        tools = Path(os.environ.get('SystemRoot', 'C:/Windows')) / 'System32'
         out = subprocess.run([str(tools / 'whoami.exe'), '/user', '/fo', 'csv', '/nh'],
                              capture_output=True, text=True, timeout=10, check=True).stdout
         sid = out.strip().split(',')[-1].strip().strip('"')
         if not re.fullmatch(r'S-1-[0-9-]+', sid):
             raise OSError('user-sid')
         _USER_SID.append(sid)
-    subprocess.run([str(tools / 'icacls.exe'), str(path), '/inheritance:r', '/grant:r', f'*{_USER_SID[0]}:F'],
-                   capture_output=True, timeout=10, check=True)
+    advapi32 = ctypes.WinDLL('advapi32', use_last_error=True)
+    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    descriptor = ctypes.c_void_p()
+    if not advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            f'D:P(A;;FA;;;{_USER_SID[0]})', 1, ctypes.byref(descriptor), None):
+        raise OSError('dacl-build')
+    try:
+        present, defaulted, dacl = wintypes.BOOL(), wintypes.BOOL(), ctypes.c_void_p()
+        if not advapi32.GetSecurityDescriptorDacl(descriptor, ctypes.byref(present), ctypes.byref(dacl), ctypes.byref(defaulted)):
+            raise OSError('dacl-read')
+        SE_FILE_OBJECT, DACL_INFO, PROTECTED_DACL_INFO = 1, 0x4, 0x80000000
+        advapi32.SetNamedSecurityInfoW.argtypes = [wintypes.LPWSTR, ctypes.c_int, wintypes.DWORD,
+                                                   ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+        if advapi32.SetNamedSecurityInfoW(str(path), SE_FILE_OBJECT, DACL_INFO | PROTECTED_DACL_INFO, None, None, dacl, None) != 0:
+            raise OSError('dacl-set')
+    finally:
+        kernel32.LocalFree(descriptor)
 
 
 def _write_private_json(target, value):

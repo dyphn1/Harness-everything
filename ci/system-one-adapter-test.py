@@ -157,6 +157,18 @@ class ResidentServerTests(unittest.TestCase):
         call(state['port'], {'token': state['token'], 'op': 'shutdown'})
         thread.join(5)
 
+    @unittest.skipUnless(os.name == 'nt', 'Windows DACL')
+    def test_explicit_foreign_aces_are_replaced_not_kept(self):
+        # CI runners create files with explicit (non-inherited) SYSTEM/Administrators/OWNER RIGHTS entries.
+        target = Path(self.root.name) / 'explicit.json'
+        target.write_text('{}', encoding='utf-8')
+        subprocess.run(['icacls', str(target), '/inheritance:d'], capture_output=True, check=True)
+        subprocess.run(['icacls', str(target), '/grant', '*S-1-5-32-544:F', '*S-1-5-18:F', '*S-1-3-4:F', '*S-1-5-32-545:R'], capture_output=True, check=True)
+        adapter._restrict_to_current_user(target)
+        acl = subprocess.run(['icacls', str(target)], capture_output=True, text=True).stdout.replace(str(target), '')
+        self.assertEqual(acl.count(':('), 1)
+        self.assertIn(':(F)', acl)
+
     def test_slow_client_does_not_block_others_and_burst_is_served(self):
         thread, state = self.start()
         idle = socket.create_connection(('127.0.0.1', state['port']), timeout=5)
