@@ -183,3 +183,109 @@ test('S1-RS09 a corrupted state file never leaves an orphan server behind', () =
     assert.equal(resident.status(f.manifest, f.manifestPath).pid, fresh.pid);
   } finally { cleanup(f); }
 });
+
+test('S1-RS10 scoreAsync matches the sync client and keeps every start/failure mapping', async () => {
+  const f = fixture();
+  try {
+    assert.deepEqual(await resident.scoreAsync(request, f.manifest, f.manifestPath, f.deps), { status: 'unavailable', reason: 'provider-starting' });
+    assert.deepEqual(await resident.scoreAsync(request, f.manifest, f.manifestPath, f.deps), { status: 'unavailable', reason: 'provider-starting' });
+    assert.deepEqual(f.spawns, ['stub']);
+    assert.equal(resident.ensureReady(f.manifest, f.manifestPath, 20000, f.deps), true);
+    const sync = resident.score(request, f.manifest, f.manifestPath, f.deps);
+    assert.equal(sync.status, 'scored');
+    assert.deepEqual(await resident.scoreAsync(request, f.manifest, f.manifestPath, f.deps), sync);
+    assert.deepEqual(await resident.scoreAsync(request, f.manifest, f.manifestPath, f.deps), sync);
+    const { state } = resident.stateFiles(f.manifest, f.manifestPath);
+    const good = JSON.parse(fs.readFileSync(state, 'utf8'));
+    fs.writeFileSync(state, JSON.stringify({ ...good, token: 'b'.repeat(64) }));
+    assert.deepEqual(await resident.scoreAsync(request, f.manifest, f.manifestPath, f.deps), { status: 'unavailable', reason: 'provider-unavailable' });
+    fs.writeFileSync(state, JSON.stringify(good));
+    await assert.rejects(resident.scoreAsync({ ...request, extra: 1 }, f.manifest, f.manifestPath, f.deps));
+    assert.equal(f.spawns.length, 1);
+  } finally { cleanup(f); }
+});
+
+test('S1-RS10b scoreAsync removes refused state, restarts once, and times out slow servers', async () => {
+  const f = fixture();
+  // A live PID that is not this test process: cleanup may kill whatever the state file names.
+  const sleeper = require('node:child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: 'ignore' });
+  try {
+    const net = require('node:net');
+    const closed = net.createServer();
+    await new Promise(resolve => closed.listen(0, '127.0.0.1', resolve));
+    const port = closed.address().port;
+    await new Promise(resolve => closed.close(resolve));
+    const { state } = resident.stateFiles(f.manifest, f.manifestPath);
+    fs.writeFileSync(state, JSON.stringify({ schemaVersion: 1, pid: sleeper.pid, port, token: 'a'.repeat(64), startedAt: 1 }));
+    assert.deepEqual(await resident.scoreAsync(request, f.manifest, f.manifestPath, f.deps), { status: 'unavailable', reason: 'provider-starting' });
+    assert.deepEqual(f.spawns, ['stub']);
+  } finally { sleeper.kill(); cleanup(f); }
+  const slow = fixture('stub-slow');
+  try {
+    assert.equal(resident.ensureReady(slow.manifest, slow.manifestPath, 20000, slow.deps), true);
+    const start = Date.now();
+    assert.deepEqual(await resident.scoreAsync(request, slow.manifest, slow.manifestPath, slow.deps), { status: 'unavailable', reason: 'provider-timeout' });
+    assert.ok(Date.now() - start < 2500);
+    assert.equal(slow.spawns.length, 1);
+  } finally { cleanup(slow); }
+});
+
+test('S1-RS10c provider.scoreAsync dispatches by transport with the sync result shapes', async () => {
+  const f = fixture();
+  try {
+    assert.deepEqual(await provider.scoreAsync(request, path.join(f.dir, 'missing.json')), { status: 'unavailable', reason: 'provider-config' });
+    assert.deepEqual(await provider.scoreAsync(request, 'relative.json'), { status: 'unavailable', reason: 'provider-config' });
+    assert.equal(resident.ensureReady(f.manifest, f.manifestPath, 20000, f.deps), true);
+    assert.deepEqual(await provider.scoreAsync(request, f.manifestPath), provider.score(request, f.manifestPath));
+    const oneshot = path.join(f.dir, 'oneshot.json');
+    fs.writeFileSync(oneshot, JSON.stringify({ ...f.manifest, transport: 'oneshot' }));
+    assert.deepEqual(await provider.scoreAsync(request, oneshot), provider.score(request, oneshot));
+  } finally { cleanup(f); }
+});
+
+// The probe preload proves which client path ran inside a real child process.
+const probeEnv = (mode, extra = {}) => ({ ...process.env,
+  NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require ./ci/fixtures/system-one-worker-probe.js`.trim(),
+  HARNESS_TEST_WORKER_MODE: mode, ...extra });
+
+test('S1-RS11 the hook entry pre-scores over async IPC: it still scores when worker threads cannot start', () => {
+  const f = fixture();
+  const root = path.resolve(__dirname, '..');
+  try {
+    assert.equal(resident.ensureReady(f.manifest, f.manifestPath, 20000, f.deps), true);
+    const env = probeEnv('deny', { HARNESS_SYSTEM_ONE_MODE: 'shadow', HARNESS_SYSTEM_ONE_CONFIG: f.manifestPath });
+    const kernel = path.join(root, 'harness-everything/scripts/kernel-router-core.js');
+    const diagnostic = out => JSON.parse(out.match(/=> SYSTEM ONE: (.*)/)[1]);
+    const argv = spawnSync(process.execPath, [kernel, 'fix a typo in README'], { cwd: root, encoding: 'utf8', env });
+    assert.equal(argv.status, 0, argv.stderr);
+    assert.equal(diagnostic(argv.stdout).status, 'accepted');
+    const hook = spawnSync(process.execPath, [kernel], { cwd: root, encoding: 'utf8', env, input: JSON.stringify({ prompt: 'fix a typo in README' }) });
+    assert.equal(hook.status, 0, hook.stderr);
+    assert.equal(diagnostic(hook.stdout).status, 'accepted');
+    const off = spawnSync(process.execPath, [kernel, 'fix a typo in README'], { cwd: root, encoding: 'utf8', env: { ...env, HARNESS_SYSTEM_ONE_MODE: 'off' } });
+    assert.equal(off.status, 0, off.stderr);
+    assert.doesNotMatch(off.stdout, /SYSTEM ONE/);
+    assert.equal(f.spawns.length, 1);
+  } finally { cleanup(f); }
+});
+
+test('S1-RS12 the evaluator times the async path: no worker thread per warm score', () => {
+  const f = fixture();
+  const root = path.resolve(__dirname, '..');
+  try {
+    assert.equal(resident.ensureReady(f.manifest, f.manifestPath, 20000, f.deps), true);
+    const countFile = path.join(f.dir, 'workers.txt');
+    const output = path.join(f.dir, 'report.json');
+    const corpus = path.join(root, 'benchmarks/fixtures/system-one-routing.json');
+    const child = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-system-one.js'), corpus, f.manifestPath, output],
+      { cwd: root, encoding: 'utf8', env: probeEnv('count', { HARNESS_TEST_WORKER_COUNT_FILE: countFile }) });
+    assert.equal(child.status, 0, child.stderr);
+    const report = JSON.parse(fs.readFileSync(output, 'utf8'));
+    assert.equal(report.evidence.residentReady, true);
+    // Every sample reached the warm server (the seed's one over-limit context is a declined provider-exit).
+    const runs = report.records.flatMap(r => r.runs);
+    assert.ok(runs.every(run => run.coldStart === false && ['accepted', 'provider-exit'].includes(run.decision.status === 'accepted' ? 'accepted' : run.decision.reason)));
+    assert.ok(runs.filter(run => run.decision.status === 'accepted').length >= runs.length - 2);
+    assert.ok(Number(fs.readFileSync(countFile, 'utf8')) < report.records.length * 2, 'warm scores must not start a worker thread each');
+  } finally { cleanup(f); }
+});

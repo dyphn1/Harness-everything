@@ -99,3 +99,28 @@ test('S1-R05 structural floor: a scorer can raise but never lower a deterministi
     assert.equal(plan.verification.independent, true);
   } finally { provider.score = original; console.log = log; if (mode === undefined) delete process.env.HARNESS_SYSTEM_ONE_MODE; else process.env.HARNESS_SYSTEM_ONE_MODE = mode; }
 });
+test('S1-R06 prescoreTier: off loads nothing; a matching request reuses the async result; mismatch and failure keep sync semantics', async () => {
+  const { prescoreTier } = require('../harness-everything/scripts/system-one/router');
+  const provider = require('../harness-everything/scripts/system-one/provider');
+  const forbidden = () => { throw new Error('must not invoke'); };
+  for (const env of [{}, { HARNESS_SYSTEM_ONE_MODE: 'off' }, { HARNESS_SYSTEM_ONE_MODE: 'bogus' }]) assert.equal(await prescoreTier('實作功能', env, forbidden), null);
+  assert.equal(await prescoreTier('', { HARNESS_SYSTEM_ONE_MODE: 'shadow' }, forbidden), null);
+  const env = { HARNESS_SYSTEM_ONE_MODE: 'prefer', HARNESS_SYSTEM_ONE_CONFIG: '/abs/manifest.json' };
+  const input = { prompt: '實作功能', tier: 'Unclassified' };
+  const configs = [];
+  const pre = await prescoreTier(input.prompt, env, async (req, config) => { configs.push(config); return scorer('tier2')(req); });
+  assert.deepEqual(configs, ['/abs/manifest.json']);
+  assert.deepEqual(selectTier(input, env, pre), selectTier(input, env, scorer('tier2')));
+  const original = provider.score;
+  try {
+    let used = 0;
+    provider.score = req => { used += 1; return scorer('tier3')(req); };
+    assert.equal(selectTier({ ...input, prompt: 'different prompt' }, env, pre).tier, 'Tier 3 (Macro Task)');
+    assert.equal(used, 1);
+  } finally { provider.score = original; }
+  const failing = await prescoreTier(input.prompt, env, async () => { throw new Error('secret'); });
+  const failed = selectTier(input, env, failing);
+  assert.deepEqual(failed, selectTier(input, env, () => { throw new Error('secret'); }));
+  assert.equal(failed.diagnostic.reason, 'provider-unavailable');
+  assert.ok(!JSON.stringify(failed).includes('secret'));
+});
