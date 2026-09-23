@@ -83,7 +83,9 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
     sessions never become collectable history), `--tools ""` and a JSON schema.
   - The instructions contain the gold table and rules from
     [system-one-corpus.md](system-one-corpus.md).
-  - Prompts go in batches of 100. Every returned index must be labeled exactly once with
+  - Prompts go in batches of 100. `--max-batches N` stops after N batches so a
+    memory-constrained host can label in short foreground runs that resume from the
+    labels already written. Every returned index must be labeled exactly once with
     `tier1`, `tier2`, `tier3` or `null`. A malformed batch is retried once and then
     recorded as failed. It is never partially accepted.
 - **Labeler check**: the labeler labels the 215 holdout prompts once, before any training
@@ -96,7 +98,8 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
   - Each case shows the preceding prompts from the same session as read-only context.
     Without it, short replies read as confirmations: the first spot-check (103 cases,
     no context) disagreed 51% and was not used to override labels.
-  - Training proceeds only when disagreement is below 20%.
+  - A checkpoint may be trained before the spot-check, but it is released only when
+    disagreement is below 20%.
   - Decisions made with context replace the LLM labels for those cases.
 
 ## Training and calibration
