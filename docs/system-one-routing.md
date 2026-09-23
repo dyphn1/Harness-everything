@@ -279,6 +279,9 @@ unversioned download during a prompt hook.
 | 3 | Corpus and paired evaluator | Leakage checks, coverage/error metrics, repeatability |
 | 4 | Harness training and rollout | Real checkpoint, reviewed holdout, measured host results |
 
+Phase 4 training data, labeling, calibration and release are defined in
+[system-one-training.md](system-one-training.md).
+
 ## Rollout gates
 
 Phase 4 requires a separately reviewed, family-disjoint holdout of at least 200
