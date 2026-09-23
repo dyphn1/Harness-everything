@@ -23,6 +23,7 @@
     "test:release": "node ci/release-consistency-check.js && node ci/mechanism-2x-release-automation.test.js && node ci/mechanism-2x-release-commit-message.test.js && node ci/mechanism-2ap-sbom.test.js",
     "test:release:semantics": "node ci/semantic-release-analyzer.test.mjs",
     "test:install": "node scripts/verify-install.js",
+    "system-one:install": "node harness-everything/scripts/system-one/install.js",
     "test:collision": "node ci/description-collision.js",
     "test:routing:skills": "node ci/skill-routing-check.js",
     "test:routing": "node ci/routing-check.js",

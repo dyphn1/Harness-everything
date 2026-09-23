@@ -313,6 +313,19 @@ function run(userPrompt, context) {
     }
   }
 
+  const { selectTier } = require('./system-one/router');
+  const structuralFloor = hasMacroSignal ? 'tier3'
+    : !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences ? 'tier2' : null;
+  const semantic = selectTier({ prompt: userPrompt, tier: recommendedTier, floor: structuralFloor,
+    explicit: Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) });
+  if (semantic.diagnostic) console.log(`\n=> SYSTEM ONE: ${JSON.stringify(semantic.diagnostic)}`);
+  if (semantic.diagnostic?.applied) {
+    recommendedTier = semantic.tier;
+    rationale = 'System One selected a tier from the fixed catalog; deterministic policy remains authoritative.';
+    reasonCodes.splice(loadedConfig.reasonCodes.length);
+    addReason(reasonCodes, 'system-one-tier');
+  }
+
   console.log(`\n=> RECOMMENDED TIER: ${recommendedTier}`);
   console.log(`=> RATIONALE: ${rationale}`);
 
@@ -447,6 +460,7 @@ function run(userPrompt, context) {
   return contract;
 }
 
+if (require.main === module) {
 let userPrompt = process.argv[2] || '';
 let hookContext = null;
 
@@ -471,3 +485,5 @@ if (process.argv[2]) {
     run(userPrompt, hookContext);
   });
 }
+}
+module.exports = { run };

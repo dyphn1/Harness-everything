@@ -3,6 +3,8 @@
 .harness/multi-agent/roles/
 .claude/
 node_modules/
+__pycache__/
+*.pyc
 .worktrees/
 .cursor/harness-everything/
 .github/harness-everything/

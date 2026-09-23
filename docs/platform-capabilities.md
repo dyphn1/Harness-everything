@@ -120,3 +120,14 @@ The OpenCode adapter uses the documented plugin API and has deterministic mechan
 The matrix records the official documentation reviewed for each platform. Important source families include [OpenAI plugin packaging](https://developers.openai.com/plugins/build/plugins), [OpenAI public submission](https://developers.openai.com/plugins/deploy/submission), [Codex skills](https://learn.chatgpt.com/docs/build-skills), [Codex hooks](https://learn.chatgpt.com/docs/hooks), [Claude skills](https://code.claude.com/docs/en/skills), [OpenCode skills](https://opencode.ai/docs/skills), [GitHub Copilot Agent Skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills), [Cursor skills](https://cursor.com/docs/skills), [Continue rules](https://docs.continue.dev/customize/rules), and [Hermes skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills).
 
 When a platform behavior changes, update this page, `docs/platform-compatibility.json`, and every affected current-state surface in the same change. `npm run test:docs:capabilities` and the compatibility mechanism suite enforce the repository-side contract; they do not replace manual live-host evidence.
+# Experimental System One routing
+
+The shared tier router supports opt-in `HARNESS_SYSTEM_ONE_MODE=shadow|prefer`
+with a local CUA-S1 provider manifest (`HARNESS_SYSTEM_ONE_CONFIG`). Default `off`
+retains existing behavior; `prefer` never lowers a tier below the deterministic
+structural floor. Canonical and packaged runtime copies use the same
+contract; this establishes no new live-host capability. Python, PyTorch and a
+compatible local checkpoint are optional external dependencies, not npm payloads;
+the explicit `npm run system-one:install` sets them up and hooks never run it.
+Public Skills-only artifacts do not acquire lifecycle hooks from this feature.
+See [System One routing](system-one-routing.md) for limits, rollback and evidence.
