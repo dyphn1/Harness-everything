@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.20.7](https://github.com/dyphn1/Harness-everything/compare/v0.20.6...v0.20.7) (2026-09-22)
+
+### Bug Fixes
+
+* **distribution:** emit per-host progress so plugin-sync does not look hung ([d746871](https://github.com/dyphn1/Harness-everything/commit/d746871b7a39c10decc841e9982b27982271df1e)), closes [#238](https://github.com/dyphn1/Harness-everything/issues/238)
+
+## [0.20.6](https://github.com/dyphn1/Harness-everything/compare/v0.20.5...v0.20.6) (2026-09-22)
+
+### Bug Fixes
+
+* **distribution:** match resolve-on-path test extension casing to fixture files ([07f0e5a](https://github.com/dyphn1/Harness-everything/commit/07f0e5a815e779f5596d5c79d448b9ab383ee361))
+* **distribution:** resolve codex/claude on windows in path order, not exe preference ([048c5e4](https://github.com/dyphn1/Harness-everything/commit/048c5e40e0d4727700234c49e509fc6edfac4f01)), closes [#236](https://github.com/dyphn1/Harness-everything/issues/236)
+
+## [0.20.5](https://github.com/dyphn1/Harness-everything/compare/v0.20.4...v0.20.5) (2026-09-22)
+
+### Bug Fixes
+
+* **distribution:** support codex clis without --json or plugin install ([d6a48a6](https://github.com/dyphn1/Harness-everything/commit/d6a48a6763bb564eb7df14334579003823242af7)), closes [#221](https://github.com/dyphn1/Harness-everything/issues/221)
+
 ## [0.20.4](https://github.com/dyphn1/Harness-everything/compare/v0.20.3...v0.20.4) (2026-09-22)
 
 ### Bug Fixes

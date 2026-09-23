@@ -9,12 +9,13 @@ const {
   findMarketplace,
   findPlugin,
   parseJsonOutput,
+  resolveOnPath,
   sync
 } = require('../scripts/plugin-sync');
 
 const ROOT = path.resolve(__dirname, '..');
 
-function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false } = {}) {
+function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false, clapCodexJsonFlag = false, missingCodexPluginCommand = false } = {}) {
   const calls = [];
   const state = {
     claudeInstalled,
@@ -59,6 +60,27 @@ function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarke
     }
 
     if (command === 'codex') {
+      // clap-based CLIs reject an option they do not implement as an
+      // unexpected argument, not as an unknown option. Read-only listings
+      // already have their own plain-text fallback, so this models a build
+      // whose mutating commands predate --json.
+      if (clapCodexJsonFlag && args.includes('--json') && /^plugin (marketplace (add|upgrade)|add)\b/.test(joined)) {
+        return {
+          status: 2,
+          stdout: '',
+          stderr: "error: unexpected argument '--json' found\n\n  tip: to pass '--json' as a value, use '-- --json'\n\nUsage: codex plugin marketplace add --ref <REF> <SOURCE>"
+        };
+      }
+      // Codex builds that ship only `codex plugin marketplace` have no plugin
+      // install/list surface at all.
+      if (missingCodexPluginCommand && /^plugin (list|add)\b/.test(joined)) {
+        const subcommand = joined.split(' ')[1];
+        return {
+          status: 2,
+          stdout: '',
+          stderr: `error: unrecognized subcommand '${subcommand}'\n\nUsage: codex plugin [OPTIONS] <COMMAND>`
+        };
+      }
       if (joined.includes('marketplace list --json')) {
         return { status: 0, stdout: JSON.stringify({ marketplaces: state.codexMarketplace ? [{ name: 'harness-everything' }] : [] }), stderr: '' };
       }
@@ -166,6 +188,41 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
 }
 
 {
+  const fake = fakeHost({ codexInstalled: false, codexMarketplace: false, clapCodexJsonFlag: true });
+  const result = runHost('codex', fake);
+  const addCalls = callsFor(fake.calls, 'codex', 'plugin marketplace add');
+  const installCalls = callsFor(fake.calls, 'codex', 'plugin add');
+  assert.strictEqual(result.failed, 0, 'clap-style --json rejection must fall back to a compatible Codex command');
+  assert.strictEqual(result.results[0].action, 'install');
+  assert.strictEqual(addCalls.length, 2, 'unsupported Codex --json must cause one marketplace add retry');
+  assert.ok(addCalls[0].args.includes('--json'), 'first Codex marketplace add should use the current flags');
+  assert.ok(!addCalls[1].args.includes('--json'), 'Codex compatibility retry must omit unsupported --json');
+  assert.ok(installCalls.some(call => !call.args.includes('--json')), 'Codex plugin install must also retry without --json');
+}
+
+{
+  const fake = fakeHost({ codexInstalled: true, clapCodexJsonFlag: true });
+  const result = runHost('codex', fake);
+  const upgradeCalls = callsFor(fake.calls, 'codex', 'plugin marketplace upgrade');
+  assert.strictEqual(result.failed, 0, 'clap-style --json rejection must not fail the Codex upgrade path');
+  assert.strictEqual(result.results[0].action, 'update');
+  assert.strictEqual(upgradeCalls.length, 2, 'unsupported Codex --json must cause one upgrade retry');
+  assert.ok(!upgradeCalls[1].args.includes('--json'), 'Codex upgrade retry must omit unsupported --json');
+}
+
+{
+  const fake = fakeHost({ codexMarketplace: false, missingCodexPluginCommand: true, clapCodexJsonFlag: true });
+  const result = runHost('codex', fake);
+  assert.strictEqual(result.failed, 0, 'a Codex build without plugin subcommands is a capability boundary, not a failure');
+  assert.strictEqual(result.skipped, 1, 'the boundary must be reported as a distinct skipped outcome');
+  assert.strictEqual(result.results[0].reasonCode, 'host-capability-boundary', 'a capability boundary must not be reported as a missing CLI');
+  assert.match(result.results[0].reason, /codex plugin list/, 'the skip reason must name the missing host command');
+  assert.match(result.results[0].reason, /upgrade/i, 'the skip reason must stay actionable');
+  assert.strictEqual(callsFor(fake.calls, 'codex', 'plugin marketplace add').length, 2, 'the supported marketplace registration must still run');
+  assert.strictEqual(callsFor(fake.calls, 'codex', 'plugin add').length, 0, 'an unsupported host must not be blindly installed into');
+}
+
+{
   const fake = fakeHost({ unknownClaudePluginState: true });
   const result = runHost('claude', fake);
   assert.strictEqual(result.failed, 1, 'unknown installed state must fail closed');
@@ -178,6 +235,61 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   const result = sync({ host: 'all' }, { commandAvailable: () => false, log: () => {}, warn: () => {} });
   assert.strictEqual(result.skipped, 2);
   assert.strictEqual(result.failed, 0);
+  assert.ok(result.results.every(entry => entry.reasonCode === 'cli-not-found'), 'an absent CLI must stay distinguishable from a capability boundary');
+}
+
+{
+  // Each host sync is fully synchronous and does real network I/O; without a
+  // progress notice emitted before that work starts, the terminal stays
+  // silent for the whole run, which is indistinguishable from a hang.
+  const events = [];
+  const fake = fakeHost({ claudeInstalled: true, codexInstalled: true });
+  const runner = (command, args, opts) => {
+    events.push(`call:${command}`);
+    return fake.runner(command, args, opts);
+  };
+  const result = sync({ host: 'all', repository: 'dyphn1/Harness-everything', ref: 'main' }, {
+    runner,
+    commandAvailable: () => true,
+    log: () => {},
+    warn: message => events.push(`warn:${message}`)
+  });
+  assert.strictEqual(result.failed, 0);
+  assert.ok(events.includes('warn:[...] claude: syncing'), 'a claude progress notice must be emitted');
+  assert.ok(events.includes('warn:[...] codex: syncing'), 'a codex progress notice must be emitted');
+  assert.ok(events.indexOf('warn:[...] claude: syncing') < events.indexOf('call:claude'), 'the claude notice must be emitted before its first host command, not buffered until the run finishes');
+  assert.ok(events.indexOf('warn:[...] codex: syncing') < events.indexOf('call:codex'), 'the codex notice must be emitted before its first host command');
+}
+
+// resolveOnPath() is pure filesystem logic (platform choice happens only at
+// the defaultRunner call site), so its directory-order-first contract runs
+// on every CI OS, not only Windows.
+{
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-plugin-sync-resolve-'));
+  const cmdDir = path.join(base, 'cmd-dir');
+  const exeDir = path.join(base, 'exe-dir');
+  fs.mkdirSync(cmdDir);
+  fs.mkdirSync(exeDir);
+  fs.writeFileSync(path.join(cmdDir, 'harness-fixture.cmd'), '');
+  fs.writeFileSync(path.join(exeDir, 'harness-fixture.exe'), '');
+  try {
+    // Real PATHEXT is upper-case, but NTFS matches it case-insensitively
+    // against lower-case fixture files; this test also runs on Linux/macOS
+    // CI, whose case-sensitive filesystems would not, so the fixture extension
+    // casing matches the file names exactly. The point under test is
+    // directory order versus extension order, not PATHEXT's own casing.
+    const pathExt = '.com;.exe;.bat;.cmd';
+    const cmdFirst = resolveOnPath('harness-fixture', { pathValue: [cmdDir, exeDir].join(path.delimiter), pathExt });
+    assert.strictEqual(String(cmdFirst).toLowerCase(), path.join(cmdDir, 'harness-fixture.cmd').toLowerCase(), 'an earlier PATH directory must win even when a later one has the extension PATHEXT prefers');
+
+    const exeFirst = resolveOnPath('harness-fixture', { pathValue: [exeDir, cmdDir].join(path.delimiter), pathExt });
+    assert.strictEqual(String(exeFirst).toLowerCase(), path.join(exeDir, 'harness-fixture.exe').toLowerCase(), 'PATH order, not extension preference, must decide the match');
+
+    const missing = resolveOnPath('harness-fixture-does-not-exist', { pathValue: [cmdDir, exeDir].join(path.delimiter), pathExt });
+    assert.strictEqual(missing, null, 'an unresolved command must return null, not throw');
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
 }
 
 if (process.platform === 'win32') {
@@ -192,6 +304,33 @@ if (process.platform === 'win32') {
     if (originalPath === undefined) delete process.env.PATH;
     else process.env.PATH = originalPath;
     fs.rmSync(fixtureDir, { recursive: true, force: true });
+  }
+}
+
+// End-to-end: when a .cmd shim sits earlier on PATH than an unrelated real
+// .exe, the runner must actually execute the .cmd (not silently prefer
+// whichever candidate Node's non-shell spawn can launch directly).
+if (process.platform === 'win32') {
+  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-plugin-sync-order-'));
+  const shadowDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-plugin-sync-shadow-'));
+  const originalPath = process.env.PATH;
+  try {
+    fs.writeFileSync(path.join(fixtureDir, 'harness-order-fixture.cmd'), '@echo off\r\necho current-cmd-shim\r\n');
+    // A real, directly-launchable PE binary standing in for an unrelated,
+    // stale standalone install later on PATH. cmd.exe itself is a stable,
+    // always-present .exe to copy for this purpose.
+    fs.copyFileSync(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'), path.join(shadowDir, 'harness-order-fixture.exe'));
+    process.env.PATH = [fixtureDir, shadowDir, originalPath || ''].join(path.delimiter);
+
+    const context = createContext();
+    const result = context.runner('harness-order-fixture', []);
+    assert.strictEqual(result.status, 0, 'the earlier PATH entry must run successfully');
+    assert.match(result.stdout, /current-cmd-shim/, 'an earlier .cmd must be executed even though a later, directly-launchable .exe also matches');
+  } finally {
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+    fs.rmSync(shadowDir, { recursive: true, force: true });
   }
 }
 
