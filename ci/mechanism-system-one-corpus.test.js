@@ -138,3 +138,17 @@ test('S1-K08 the committed holdout draft meets size, language, class and length 
   assert.ok(d.cases.some(c => c.source === 'derived:local-history') && d.cases.some(c => c.source === 'synthetic:authored'));
   assert.ok(new Set(d.cases.map(c => c.family)).size >= 40, 'enough distinct families');
 });
+
+test('S1-K09 the committed reviewed holdout is reproducible from owner decisions and meets the gate', () => {
+  const read = name => JSON.parse(fs.readFileSync(path.join(root, 'benchmarks/fixtures', name), 'utf8'));
+  const d = read('system-one-holdout-draft.json');
+  const r = read('system-one-holdout-reviews.json');
+  assert.equal(validateReviews(r), true);
+  assert.deepEqual(r.decisions.map(x => x.id).sort(), d.cases.map(c => c.id).sort(), 'every draft case has exactly one owner decision');
+  const { corpus, summary } = build(d, r);
+  assert.equal(summary.stale, 0);
+  assert.equal(summary.unreviewed, 0);
+  assert.equal(summary.reviewedHoldoutGate, true);
+  assert.deepEqual(read('system-one-holdout.json'), corpus, 'committed corpus equals the rebuild');
+  for (const gold of ['tier1', 'tier2', 'tier3', null]) assert.ok(corpus.cases.filter(c => c.gold === gold).length >= 15, String(gold));
+});
