@@ -148,9 +148,21 @@ format, which Phase 0 validation still checks. Any other failure returns
 `{ok: false, reason}` with a bounded code; no prompt, traceback, path or score is
 echoed in errors. The server never executes actions and is not given a driver.
 
-**Client.** The router API is synchronous, so the client performs one socket
-round trip on a worker thread and waits with `Atomics.wait` (1000 ms deadline).
-Results map to the existing reasons: timeout → `provider-timeout` (no respawn);
+**Client.** The hook entry pre-scores asynchronously. When `tier-router.js` runs
+as a script (the kernel and packaged hooks spawn it) in `shadow` or `prefer`
+mode, it builds the fixed-catalog tier request before routing and makes one
+direct async loopback round trip (`scoreAsync`), with no worker thread. Start,
+lock, stale-state, deadline (1000 ms) and reply-limit (1 MiB) rules are the same
+as the synchronous path. The router uses the pre-scored result only when its
+request hash equals the request the router builds; otherwise it scores
+synchronously. A pre-score error is reported exactly as a synchronous scorer
+error would be. In `off` mode the entry neither pre-scores nor contacts a
+provider. The synchronous `score` API remains for programmatic callers: it
+makes the same round trip on a worker thread and waits with `Atomics.wait`.
+Starting that worker costs 29–41 ms per call on the reference host, which is why
+the hook avoids it. The paired measurements are in
+[cua-s1-forms-resident-async-cpu-2026-09-23](../benchmarks/results/system-one/cua-s1-forms-resident-async-cpu-2026-09-23/README.md).
+Both paths map results to the existing reasons: timeout → `provider-timeout` (no respawn);
 refused connection or dead PID → stale state removed and a new start
 (`provider-starting`); `unauthorized` → `provider-unavailable`; any other
 server-declined request → `provider-exit`; malformed replies → `provider-json`.
@@ -158,7 +170,9 @@ server-declined request → `provider-exit`; malformed replies → `provider-jso
 **Operators.** `node harness-everything/scripts/system-one/resident.js
 start|status|stop <absolute manifest>` controls a server explicitly; `start`
 waits up to 60 s for readiness. The evaluation CLI waits for readiness before
-measuring, so resident runs are recorded with `coldStart: false`. The installer
+measuring, so resident runs are recorded with `coldStart: false`. It times
+`scoreAsync`, the path the hook uses, so `warmLatency` measures what a prompt
+actually pays. The installer
 writes `transport: "resident"`, verifies one resident score, and stops the server
 it started. Repository tests use a stub scorer behind the real server/protocol
 code; they prove the mechanism, not host survival of detached processes or model

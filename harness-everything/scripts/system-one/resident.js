@@ -5,6 +5,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
+const net = require('node:net');
 const { spawn } = require('node:child_process');
 const { Worker } = require('node:worker_threads');
 const { validateRequest } = require('./contract');
@@ -81,6 +82,20 @@ function callSync(port, message, timeoutMs = CALL_TIMEOUT_MS) {
   try { return { reply: JSON.parse(Buffer.from(out, 0, Atomics.load(signal, 1)).toString('utf8')) }; }
   catch (_) { return { error: 'json' }; }
 }
+// The same round trip for async callers (the hook entry): no worker thread to bootstrap.
+function callAsync(port, message, timeoutMs = CALL_TIMEOUT_MS) {
+  return new Promise(resolve => {
+    const chunks = []; let size = 0; let done = false; let socket = null;
+    const finish = value => { if (done) return; done = true; clearTimeout(timer); if (socket) socket.destroy(); resolve(value); };
+    const timer = setTimeout(() => finish({ error: 'timeout' }), timeoutMs);
+    socket = net.connect({ port, host: '127.0.0.1' }, () => socket.end(`${JSON.stringify(message)}\n`));
+    socket.on('data', c => { size += c.length; if (size > MAX_REPLY_BYTES) finish({ error: 'limit' }); else chunks.push(c); });
+    socket.on('end', () => {
+      try { finish({ reply: JSON.parse(Buffer.concat(chunks).toString('utf8')) }); } catch (_) { finish({ error: 'json' }); }
+    });
+    socket.on('error', e => finish({ error: e.code === 'ECONNREFUSED' ? 'refused' : 'io' }));
+  });
+}
 
 function start(manifest, files, deps) {
   const lock = lockInfo(files.lock);
@@ -114,7 +129,16 @@ function score(request, manifest, manifestPath, deps = {}) {
   const files = stateFiles(manifest, manifestPath);
   const state = liveState(files);
   if (!state) return start(manifest, files, deps);
-  const result = callSync(state.port, { token: state.token, op: 'score', request });
+  return outcome(callSync(state.port, { token: state.token, op: 'score', request }), files, state, manifest, deps);
+}
+async function scoreAsync(request, manifest, manifestPath, deps = {}) {
+  validateRequest(request);
+  const files = stateFiles(manifest, manifestPath);
+  const state = liveState(files);
+  if (!state) return start(manifest, files, deps);
+  return outcome(await callAsync(state.port, { token: state.token, op: 'score', request }), files, state, manifest, deps);
+}
+function outcome(result, files, state, manifest, deps) {
   if (result.reply) {
     if (result.reply.ok === true && Object.hasOwn(result.reply, 'response')) return { status: 'scored', response: result.reply.response };
     if (result.reply.ok === false) return unavailable(result.reply.reason === 'unauthorized' ? 'provider-unavailable' : 'provider-exit');
@@ -173,4 +197,4 @@ if (require.main === module) {
   if (op === 'stop') stop(manifest, manifestPath);
   process.stdout.write(`${JSON.stringify(status(manifest, manifestPath))}\n`);
 }
-module.exports = { stateFiles, readState, callSync, score, ensureReady, status, stop, LOCK_TTL_MS, CALL_TIMEOUT_MS };
+module.exports = { stateFiles, readState, callSync, callAsync, score, scoreAsync, ensureReady, status, stop, LOCK_TTL_MS, CALL_TIMEOUT_MS };

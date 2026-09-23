@@ -4,12 +4,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { performance } = require('node:perf_hooks');
 const { validateCorpus, evaluate } = require('../harness-everything/scripts/system-one/evaluate');
-const { score, provenance, readManifest } = require('../harness-everything/scripts/system-one/provider');
+const { scoreAsync, provenance, readManifest } = require('../harness-everything/scripts/system-one/provider');
 const resident = require('../harness-everything/scripts/system-one/resident');
 const { decide } = require('../harness-everything/scripts/system-one/contract');
 const { run: route } = require('../harness-everything/scripts/tier-router');
 
-function run(corpus, manifest) {
+async function run(corpus, manifest) {
   validateCorpus(corpus);
   let config = null;
   try { config = readManifest(manifest); } catch (_) { /* Missing provider remains an explicit unavailable measurement. */ }
@@ -28,7 +28,7 @@ function run(corpus, manifest) {
       const runs = [];
       for (let i = 0; i < 2; i++) {
         const start = performance.now();
-        const result = score(c.request, manifest);
+        const result = await scoreAsync(c.request, manifest);
         const decision = result.status === 'scored' ? decide(c.request, result.response) : result;
         if (decision.selectedId === 'unclassified') Object.assign(decision, { status: 'abstain', reason: 'unclassified', selectedId: null });
         const scores = ['accepted', 'abstain'].includes(decision.status) ? result.response.scores.map(s => s.probability) : null;
@@ -55,12 +55,12 @@ function run(corpus, manifest) {
     limitations: ['No independently verified holdout review', ...(warm ? [] : ['No warm inference measurement']), 'No live-host or policy evidence'] }, records };
 }
 if (require.main === module) {
-  try {
+  (async () => {
     const [input, manifest, output, extra] = process.argv.slice(2);
     if (!input || !manifest || !output || extra) throw new Error('usage');
-    const report = run(JSON.parse(fs.readFileSync(input, 'utf8')), manifest);
+    const report = await run(JSON.parse(fs.readFileSync(input, 'utf8')), manifest);
     fs.writeFileSync(output, JSON.stringify(report, null, 2) + '\n');
     console.log(JSON.stringify({ cases: report.cases, coverage: report.model.coverage, rolloutReady: report.rolloutReady }));
-  } catch (_) { console.error('System One evaluation failed: invalid corpus, arguments, or output path.'); process.exitCode = 1; }
+  })().catch(() => { console.error('System One evaluation failed: invalid corpus, arguments, or output path.'); process.exitCode = 1; });
 }
 module.exports = { run };

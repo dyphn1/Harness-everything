@@ -34,4 +34,20 @@ function selectTier(input, env = process.env, scorer = provider.score) {
   const reason = input.explicit && accepted ? 'explicit-precedence' : belowFloor ? 'structural-floor' : decision.reason;
   return { tier: applied ? LABELS[decision.selectedId] : input.tier, diagnostic: { mode, ...decision, applied, reason } };
 }
-module.exports = { selectTier, TIER_OPTIONS };
+// Hook entry: score the same fixed-catalog request asynchronously before routing (no sync worker bridge).
+// Returns a scorer for selectTier, or null when System One is off/invalid; nothing is called then.
+async function prescoreTier(prompt, env = process.env, scoreAsync = provider.scoreAsync) {
+  if (!['shadow', 'prefer'].includes(env.HARNESS_SYSTEM_ONE_MODE)) return null;
+  let request;
+  try { request = createRequest('tier', prompt, TIER_OPTIONS); }
+  catch (_) { return null; }
+  let result; let failed = false;
+  try { result = await scoreAsync(request, env.HARNESS_SYSTEM_ONE_CONFIG); }
+  catch (_) { failed = true; }
+  return (req, config) => {
+    if (req.requestHash !== request.requestHash) return provider.score(req, config);
+    if (failed) throw new Error('provider-unavailable');
+    return result;
+  };
+}
+module.exports = { selectTier, prescoreTier, TIER_OPTIONS };
