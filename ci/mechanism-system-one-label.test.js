@@ -44,7 +44,12 @@ test('S1-L03 invalid replies are retried once, persistent failures are recorded,
     if (batch[0].id === 'id200') return { labels: [] };
     return reply(batch, i => (i % 2 ? 'tier2' : 'null'));
   };
-  const first = await label.labelAll(data, { run, rules: 'R', batchSize: 100, concurrency: 2, done: new Set() });
+  const reasons = [];
+  const first = await label.labelAll(data, { run, rules: 'R', batchSize: 100, concurrency: 2, done: new Set(), onFailure: (batch, reason) => reasons.push([batch[0].id, reason]) });
+  assert.deepEqual(reasons, [['id100', 'invalid-reply'], ['id200', 'invalid-reply'], ['id200', 'invalid-reply']], 'every failed attempt is reported with its reason');
+  const thrown = [];
+  await label.labelAll(items(1), { run: async () => { throw new Error('rate limited'); }, rules: 'R', retryDelayMs: 0, onFailure: (b, r) => thrown.push(r) });
+  assert.deepEqual(thrown, ['rate limited', 'rate limited']);
   assert.equal(first.labeled.length, 200);
   assert.deepEqual(first.failed.sort(), data.slice(200).map(d => d.id).sort());
   assert.equal(calls.filter(n => n === 100).length, 3, 'the flaky batch ran twice');

@@ -39,15 +39,27 @@ function validateReply(batch, reply) {
   }
   return out;
 }
-async function labelAll(data, { run, rules, batchSize = 100, concurrency = 4, done = new Set(), onBatch = () => {} }) {
+async function labelAll(data, { run, rules, batchSize = 100, concurrency = 4, done = new Set(), onBatch = () => {}, onFailure = () => {}, retryDelayMs = 30000 }) {
   const todo = data.filter(d => !done.has(d.id));
   const batches = []; for (let i = 0; i < todo.length; i += batchSize) batches.push(todo.slice(i, i + batchSize));
   const labeled = []; const failed = []; let next = 0;
-  const attempt = async batch => { try { return validateReply(batch, await run(buildPrompt(rules, batch), batch)); } catch (_) { return null; } };
+  // Every failed attempt is reported with its reason; a thrown run (rate limit, timeout) waits before the retry.
+  const attempt = async batch => {
+    try {
+      const gold = validateReply(batch, await run(buildPrompt(rules, batch), batch));
+      if (!gold) onFailure(batch, 'invalid-reply');
+      return { gold, thrown: false };
+    } catch (err) { onFailure(batch, String((err && err.message) || 'run-failed').slice(0, 200)); return { gold: null, thrown: true }; }
+  };
   const worker = async () => {
     while (next < batches.length) {
       const batch = batches[next++];
-      const gold = (await attempt(batch)) || (await attempt(batch));
+      let result = await attempt(batch);
+      if (!result.gold) {
+        if (result.thrown && retryDelayMs > 0) await new Promise(r => setTimeout(r, retryDelayMs));
+        result = await attempt(batch);
+      }
+      const gold = result.gold;
       if (!gold) { failed.push(...batch.map(b => b.id)); continue; }
       const rows = batch.map((b, i) => ({ id: b.id, gold: gold[i] }));
       labeled.push(...rows); onBatch(rows);
@@ -75,15 +87,20 @@ function agreement(goldRows, predicted) {
 function commandRunner(model) {
   const base = process.env.HARNESS_S1_LABEL_COMMAND ? JSON.parse(process.env.HARNESS_S1_LABEL_COMMAND) : ['claude'];
   const args = ['-p', '--setting-sources', '', '--model', model, '--no-session-persistence', '--tools', '', '--output-format', 'json', '--json-schema', SCHEMA];
-  return prompt => new Promise(resolve => {
-    let out = '';
+  // Resolves the structured reply; rejects with the host's reason (rate limit, API error, timeout) so it is logged.
+  return prompt => new Promise((resolve, reject) => {
+    let out = ''; let timedOut = false;
     const child = spawn(base[0], [...base.slice(1), ...args], { stdio: ['pipe', 'pipe', 'ignore'], shell: false, windowsHide: true });
-    const timer = setTimeout(() => child.kill(), 600000);
+    const timer = setTimeout(() => { timedOut = true; child.kill(); }, 600000);
     child.stdout.on('data', d => { out += d; });
-    child.on('error', () => { clearTimeout(timer); resolve(null); });
+    child.on('error', err => { clearTimeout(timer); reject(err); });
     child.on('close', () => {
       clearTimeout(timer);
-      try { const j = JSON.parse(out); resolve(j && !j.is_error ? j.structured_output || null : null); } catch (_) { resolve(null); }
+      if (timedOut) { reject(new Error('timeout')); return; }
+      let j;
+      try { j = JSON.parse(out); } catch (_) { reject(new Error('unparseable-output')); return; }
+      if (!j || j.is_error) { reject(new Error(`host-error: ${String(j && (j.result || j.terminal_reason)).slice(0, 160)}`)); return; }
+      resolve(j.structured_output || null);
     });
     child.stdin.end(prompt);
   });
@@ -108,7 +125,9 @@ async function main(argv) {
     const data = fs.readFileSync(input, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).map(r => ({ id: r.id, text: r.text }));
     const done = new Set(fs.existsSync(out) ? fs.readFileSync(out, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l).id) : []);
     const onBatch = rows => fs.appendFileSync(out, rows.map(r => `${JSON.stringify({ ...r, labeler })}\n`).join(''), { mode: 0o600 });
-    const { labeled, failed } = await labelAll(data, { run, rules, batchSize, concurrency, done, onBatch });
+    // Failure log: first ID, size and reason only, never prompt text.
+    const onFailure = (batch, reason) => fs.appendFileSync(`${out}.failures.jsonl`, `${JSON.stringify({ firstId: batch[0].id, size: batch.length, reason, at: new Date().toISOString() })}\n`);
+    const { labeled, failed } = await labelAll(data, { run, rules, batchSize, concurrency, done, onBatch, onFailure });
     console.log(JSON.stringify({ labeled: labeled.length, failed: failed.length, total: data.length }));
   } else if (op === 'check-holdout') {
     const out = opt('--out'); if (!out) throw new Error('check-holdout needs --out');
