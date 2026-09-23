@@ -29,7 +29,7 @@ async function run(corpus, manifest) {
       for (let i = 0; i < 2; i++) {
         const start = performance.now();
         const result = await scoreAsync(c.request, manifest);
-        const decision = result.status === 'scored' ? decide(c.request, result.response) : result;
+        const decision = result.status === 'scored' ? decide(c.request, result.response, result.acceptance ? { ...result.acceptance } : {}) : result;
         if (decision.selectedId === 'unclassified') Object.assign(decision, { status: 'abstain', reason: 'unclassified', selectedId: null });
         const scores = ['accepted', 'abstain'].includes(decision.status) ? result.response.scores.map(s => s.probability) : null;
         runs.push({ decision, scores, latencyMs: performance.now() - start, coldStart: !warm });

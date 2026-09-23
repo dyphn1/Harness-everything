@@ -10,10 +10,17 @@ const unavailable = reason => ({ status: 'unavailable', reason });
 const exact = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).length === keys.length && keys.every(k => Object.hasOwn(value, k));
 const label = value => typeof value === 'string' && value.length > 0 && value.length <= 128 && !/[\u0000-\u001f]/.test(value);
+// Thresholds calibrated on validation for this checkpoint (docs/system-one-training.md).
+const inRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+const validAcceptance = a => exact(a, ['minConfidence', 'minMargin']) && inRange(a.minConfidence, 0.5, 0.99) && inRange(a.minMargin, 0, 0.9);
+// A scored result carries the manifest's thresholds so every caller decides with them.
+const withAcceptance = (result, manifest) => (result && result.status === 'scored' && manifest.acceptance
+  ? { ...result, acceptance: { ...manifest.acceptance } } : result);
 function validateManifest(m) {
   const required = ['schemaVersion', 'python', 'checkpoint', 'weightsSha256', 'configSha256', 'modelId', 'revision', 'domain'];
   if (!m || typeof m !== 'object' || Array.isArray(m) || required.some(k => !Object.hasOwn(m, k))
-    || Object.keys(m).some(k => ![...required, 'timeoutMs', 'transport', 'idleTimeoutMs'].includes(k)) || m.schemaVersion !== 1
+    || Object.keys(m).some(k => ![...required, 'timeoutMs', 'transport', 'idleTimeoutMs', 'acceptance'].includes(k)) || m.schemaVersion !== 1
+    || (m.acceptance !== undefined && !validAcceptance(m.acceptance))
     || ['python', 'modelId', 'revision', 'domain'].some(k => typeof m[k] !== 'string' || !m[k].trim() || m[k].length > 4096 || m[k].includes('\0'))
     || typeof m.checkpoint !== 'string' || !path.isAbsolute(m.checkpoint) || path.extname(m.checkpoint) !== '.safetensors'
     || ['weightsSha256', 'configSha256'].some(k => typeof m[k] !== 'string' || !/^[a-f0-9]{64}$/.test(m[k]))
@@ -50,8 +57,8 @@ function score(request, manifestPath) {
   validateRequest(request);
   let manifest;
   try { manifest = readManifest(manifestPath); } catch (_) { return unavailable('provider-config'); }
-  if (manifest.transport === 'resident') return require('./resident').score({ ...request }, manifest, manifestPath);
-  return oneShot(request, manifest);
+  if (manifest.transport === 'resident') return withAcceptance(require('./resident').score({ ...request }, manifest, manifestPath), manifest);
+  return withAcceptance(oneShot(request, manifest), manifest);
 }
 // Async callers (the hook entry) reach a resident server without the sync worker bridge.
 // One-shot has no server to overlap with, so it runs the same child synchronously.
@@ -59,8 +66,8 @@ async function scoreAsync(request, manifestPath) {
   validateRequest(request);
   let manifest;
   try { manifest = readManifest(manifestPath); } catch (_) { return unavailable('provider-config'); }
-  if (manifest.transport === 'resident') return require('./resident').scoreAsync({ ...request }, manifest, manifestPath);
-  return oneShot(request, manifest);
+  if (manifest.transport === 'resident') return withAcceptance(await require('./resident').scoreAsync({ ...request }, manifest, manifestPath), manifest);
+  return withAcceptance(oneShot(request, manifest), manifest);
 }
 // Send the exact validated manifest to the child on stdin: no config reread race.
 function oneShot(request, manifest) {

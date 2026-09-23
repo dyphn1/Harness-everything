@@ -26,7 +26,7 @@ function selectTier(input, env = process.env, scorer = provider.score) {
     const allowed = ['provider-timeout', 'provider-output-limit', 'provider-exit', 'provider-json', 'provider-config', 'provider-unavailable', 'provider-starting'];
     return fallback(allowed.includes(result?.reason) ? result.reason : 'provider-unavailable');
   }
-  const decision = decide(request, result.response);
+  const decision = decide(request, result.response, result.acceptance ? { ...result.acceptance } : {});
   if (decision.selectedId === 'unclassified') Object.assign(decision, { selectedId: null, status: 'abstain', reason: 'unclassified' });
   const accepted = decision.status === 'accepted';
   const belowFloor = accepted && input.floor != null && RANK[decision.selectedId] < RANK[input.floor];
