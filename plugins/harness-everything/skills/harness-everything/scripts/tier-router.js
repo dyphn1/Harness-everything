@@ -231,7 +231,7 @@ function emitDynamicSkills(promptLower, context, recommendedGuides) {
   }
 }
 
-function run(userPrompt, context) {
+function run(userPrompt, context, options = {}) {
   console.log(`[Tier Routing Pre-check]`);
 
   const promptLower = userPrompt.toLowerCase();
@@ -317,7 +317,7 @@ function run(userPrompt, context) {
   const structuralFloor = hasMacroSignal ? 'tier3'
     : !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences ? 'tier2' : null;
   const semantic = selectTier({ prompt: userPrompt, tier: recommendedTier, floor: structuralFloor,
-    explicit: Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) });
+    explicit: Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) }, process.env, options.systemOneScorer || undefined);
   if (semantic.diagnostic) console.log(`\n=> SYSTEM ONE: ${JSON.stringify(semantic.diagnostic)}`);
   if (semantic.diagnostic?.applied) {
     recommendedTier = semantic.tier;
@@ -460,12 +460,21 @@ function run(userPrompt, context) {
   return contract;
 }
 
+// Entry point: pre-score System One asynchronously so routing never needs the sync worker bridge.
+async function main(prompt, context) {
+  let systemOneScorer = null;
+  if (['shadow', 'prefer'].includes(process.env.HARNESS_SYSTEM_ONE_MODE)) {
+    try { systemOneScorer = await require('./system-one/router').prescoreTier(prompt); } catch (_) { /* the sync path still scores */ }
+  }
+  run(prompt, context, { systemOneScorer });
+}
+
 if (require.main === module) {
 let userPrompt = process.argv[2] || '';
 let hookContext = null;
 
 if (process.argv[2]) {
-  run(userPrompt);
+  main(userPrompt);
 } else if (process.stdin.isTTY) {
   run('');
 } else {
@@ -482,7 +491,7 @@ if (process.argv[2]) {
     } catch (err) {
       // Not valid JSON on stdin - fall back to argv/manual behavior.
     }
-    run(userPrompt, hookContext);
+    main(userPrompt, hookContext);
   });
 }
 }

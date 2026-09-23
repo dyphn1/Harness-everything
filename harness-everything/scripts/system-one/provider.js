@@ -51,7 +51,19 @@ function score(request, manifestPath) {
   let manifest;
   try { manifest = readManifest(manifestPath); } catch (_) { return unavailable('provider-config'); }
   if (manifest.transport === 'resident') return require('./resident').score({ ...request }, manifest, manifestPath);
-  // Send the exact validated manifest to the child on stdin: no config reread race.
+  return oneShot(request, manifest);
+}
+// Async callers (the hook entry) reach a resident server without the sync worker bridge.
+// One-shot has no server to overlap with, so it runs the same child synchronously.
+async function scoreAsync(request, manifestPath) {
+  validateRequest(request);
+  let manifest;
+  try { manifest = readManifest(manifestPath); } catch (_) { return unavailable('provider-config'); }
+  if (manifest.transport === 'resident') return require('./resident').scoreAsync({ ...request }, manifest, manifestPath);
+  return oneShot(request, manifest);
+}
+// Send the exact validated manifest to the child on stdin: no config reread race.
+function oneShot(request, manifest) {
   return runProvider({ ...request }, manifest.python, [ADAPTER, JSON.stringify(manifest)], manifest.timeoutMs || 2000);
 }
 // The probe reports what is installed; only a PEP 610 VCS commit counts as a source revision.
@@ -76,4 +88,4 @@ function provenance(manifestPath) {
   try { return { status: 'recorded', provenance: validateProvenance(result.value) }; }
   catch (_) { return unavailable('provider-json'); }
 }
-module.exports = { score, runProvider, validateManifest, readManifest, provenance, validateProvenance, PINNED_CUA_S1_REVISION };
+module.exports = { score, scoreAsync, runProvider, validateManifest, readManifest, provenance, validateProvenance, PINNED_CUA_S1_REVISION };
