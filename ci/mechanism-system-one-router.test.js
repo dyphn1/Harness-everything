@@ -99,6 +99,19 @@ test('S1-R05 structural floor: a scorer can raise but never lower a deterministi
     assert.equal(plan.verification.independent, true);
   } finally { provider.score = original; console.log = log; if (mode === undefined) delete process.env.HARNESS_SYSTEM_ONE_MODE; else process.env.HARNESS_SYSTEM_ONE_MODE = mode; }
 });
+test('S1-R07 a scored result with calibrated acceptance thresholds decides with them', () => {
+  const env = { HARNESS_SYSTEM_ONE_MODE: 'prefer' };
+  const input = { prompt: 'rename tmp to buffer', tier: 'Unclassified' };
+  const soft = (acceptance) => req => ({ status: 'scored', ...(acceptance ? { acceptance } : {}), response: { schemaVersion: 1, requestHash: req.requestHash, catalogHash: req.catalogHash,
+    model: { id: 'fixture', revision: 'v1', domain: 'harness-routing-v1' }, scores: req.options.map(o => ({ id: o.id, probability: o.id === 'tier2' ? 0.7 : 0.1 })) } });
+  const without = selectTier(input, env, soft(null));
+  assert.equal(without.diagnostic.reason, 'low-confidence');
+  assert.equal(without.tier, input.tier);
+  const withThresholds = selectTier(input, env, soft({ minConfidence: 0.6, minMargin: 0.3 }));
+  assert.equal(withThresholds.diagnostic.status, 'accepted');
+  assert.equal(withThresholds.tier, 'Tier 2 (Standard Task)');
+  assert.equal(selectTier(input, env, soft({ minConfidence: 0.6, minMargin: 0.7 })).diagnostic.reason, 'low-margin');
+});
 test('S1-R06 prescoreTier: off loads nothing; a matching request reuses the async result; mismatch and failure keep sync semantics', async () => {
   const { prescoreTier } = require('../harness-everything/scripts/system-one/router');
   const provider = require('../harness-everything/scripts/system-one/provider');

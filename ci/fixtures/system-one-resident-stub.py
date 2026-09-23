@@ -18,6 +18,9 @@ def factory(weights, manifest):
     def score(request):
         if manifest['modelId'] == 'stub-slow':
             time.sleep(3)
+        if manifest['modelId'] == 'stub-soft':
+            rest = 0.3 / (len(request['options']) - 1)
+            return [0.7] + [rest] * (len(request['options']) - 1)
         return [1.0] + [0.0] * (len(request['options']) - 1)
     return score, {'context_tokens': 224, 'option_tokens': 96}
 

@@ -1,0 +1,1104 @@
+{
+  "schemaVersion": 1,
+  "labeler": {
+    "model": "sonnet",
+    "rulesSha256": "87871ae710981284"
+  },
+  "cases": 215,
+  "agreement": 0.8604651162790697,
+  "recall": {
+    "tier1": 0.8723404255319149,
+    "tier2": 0.845360824742268,
+    "tier3": 0.8823529411764706,
+    "unclassified": 0.85
+  },
+  "confusion": {
+    "tier2->tier1": 7,
+    "tier1->tier2": 4,
+    "tier3->tier2": 5,
+    "tier3->tier1": 1,
+    "tier2->tier3": 8,
+    "unclassified->tier2": 2,
+    "tier1->unclassified": 2,
+    "unclassified->tier1": 1
+  },
+  "missing": 0,
+  "failed": 0,
+  "perCase": [
+    {
+      "id": "h-git-commit-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-commit-2",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-commit-3",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-commit-4",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-push-open-pr-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-push-open-pr-2",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-push-open-pr-3",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-push-open-pr-4",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-sync-branch-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-sync-branch-2",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-sync-branch-3",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-sync-branch-4",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-git-revert-last-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-git-revert-last-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-git-revert-last-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-issue-pr-status-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-issue-pr-status-2",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-issue-pr-status-3",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-issue-pr-status-4",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-comment-results-on-issue-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-comment-results-on-issue-2",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-comment-results-on-issue-3",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-open-issue-described-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-open-issue-described-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-open-issue-described-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-open-issue-described-4",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-typo-doc-fix-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-typo-doc-fix-2",
+      "gold": "tier2",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-typo-doc-fix-3",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-typo-doc-fix-4",
+      "gold": "tier2",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-single-line-edit-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-single-line-edit-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-single-line-edit-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-local-rename-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-local-rename-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-local-rename-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-config-tweak-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-config-tweak-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-config-tweak-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-config-tweak-4",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-run-named-command-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-run-named-command-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-run-named-command-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-run-named-command-4",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-bounded-explanation-1",
+      "gold": "tier1",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-bounded-explanation-2",
+      "gold": "tier2",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-bounded-explanation-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-bounded-explanation-4",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-read-log-report-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-read-log-report-2",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-read-log-report-3",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-list-remaining-tasks-1",
+      "gold": "tier2",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-list-remaining-tasks-2",
+      "gold": "tier2",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-list-remaining-tasks-3",
+      "gold": "tier2",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-add-link-docs-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-add-link-docs-2",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-fix-cli-error-log-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-fix-cli-error-log-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-fix-cli-error-log-3",
+      "gold": "tier3",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-fix-cli-error-log-4",
+      "gold": "tier3",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-fix-failing-test-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-fix-failing-test-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-fix-failing-test-3",
+      "gold": "tier3",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-fix-failing-test-4",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-add-cli-flag-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-add-cli-flag-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-add-cli-flag-3",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-nondeterministic-output-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-nondeterministic-output-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-nondeterministic-output-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-warning-level-fix-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-warning-level-fix-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-warning-level-fix-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-debug-crash-after-start-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-debug-crash-after-start-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-debug-crash-after-start-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-multi-file-feature-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-multi-file-feature-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-multi-file-feature-3",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-focused-review-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-focused-review-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-focused-review-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-focused-benchmark-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-focused-benchmark-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-function-refactor-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-function-refactor-2",
+      "gold": "tier3",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-function-refactor-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-hash-algorithm-support-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-hash-algorithm-support-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-toolchain-check-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-toolchain-check-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-relative-paths-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-relative-paths-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-validation-rule-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-validation-rule-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-update-docs-examples-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-update-docs-examples-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-audit-all-repos-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-audit-all-repos-2",
+      "gold": "tier3",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-audit-all-repos-3",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-phase-plan-to-issue-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-phase-plan-to-issue-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-phase-plan-to-issue-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-roadmap-phase-implement-1",
+      "gold": "tier2",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-roadmap-phase-implement-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-roadmap-phase-implement-3",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-migration-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-migration-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-migration-3",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-migration-4",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-large-scale-rename-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-large-scale-rename-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-architecture-design-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-architecture-design-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-architecture-design-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-parallel-delegation-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-parallel-delegation-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-parallel-delegation-3",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-repo-wide-replace-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-repo-wide-replace-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-repo-wide-replace-3",
+      "gold": "tier2",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-broad-synthesis-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-broad-synthesis-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-cross-platform-ci-1",
+      "gold": "tier2",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-cross-platform-ci-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-long-spec-feature-program-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-long-spec-feature-program-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-bare-continuation-1",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-bare-continuation-2",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-bare-continuation-3",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-bare-continuation-4",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-bare-continuation-5",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-bare-continuation-6",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-bare-continuation-7",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-bare-continuation-8",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-numbered-answers-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-numbered-answers-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-numbered-answers-3",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-numbered-answers-4",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-numbered-answers-5",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-unstated-reference-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-unstated-reference-2",
+      "gold": null,
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-unstated-reference-3",
+      "gold": null,
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-unstated-reference-4",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-unstated-reference-5",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-unstated-reference-6",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-status-without-object-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-status-without-object-2",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-status-without-object-3",
+      "gold": "tier1",
+      "predicted": null
+    },
+    {
+      "id": "h-status-without-object-4",
+      "gold": null,
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-status-without-object-5",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-non-engineering-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-non-engineering-2",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-non-engineering-3",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-non-engineering-4",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-non-engineering-5",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-vague-intent-1",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-vague-intent-2",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-vague-intent-3",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-vague-intent-4",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-clarification-confusion-1",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-clarification-confusion-2",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-clarification-confusion-3",
+      "gold": "tier1",
+      "predicted": null
+    },
+    {
+      "id": "h-long-context-pasted-discussion-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-context-pasted-discussion-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-bugfix-report-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-bugfix-report-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-release-ops-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-long-release-ops-2",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-long-migration-brief-1",
+      "gold": "tier3",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-migration-brief-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-explain-design-choice-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-explain-design-choice-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-small-test-addition-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-small-test-addition-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-dependency-upgrade-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-dependency-upgrade-2",
+      "gold": "tier2",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-ci-workflow-small-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-ci-workflow-small-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-audit-and-fix-1",
+      "gold": "tier2",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-long-audit-and-fix-2",
+      "gold": "tier2",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-monorepo-restructure-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-monorepo-restructure-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-monorepo-restructure-3",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-security-hardening-program-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-security-hardening-program-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-security-hardening-program-3",
+      "gold": "tier2",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-observability-rollout-1",
+      "gold": "tier2",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-observability-rollout-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-api-versioning-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-api-versioning-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-long-regression-log-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-regression-log-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-perf-regression-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-perf-regression-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-flaky-e2e-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-flaky-e2e-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-bounded-edit-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-bounded-edit-2",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-issue-comment-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-long-issue-comment-2",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-long-status-pasted-1",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-long-status-pasted-2",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-acknowledgement-2",
+      "gold": null,
+      "predicted": null
+    },
+    {
+      "id": "h-long-bounded-explanation-1",
+      "gold": "tier1",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-bounded-explanation-2",
+      "gold": "tier1",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-dependency-conflict-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-long-dependency-conflict-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-long-data-migration-script-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-long-docs-overhaul-1",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-long-docs-overhaul-2",
+      "gold": "tier3",
+      "predicted": "tier3"
+    },
+    {
+      "id": "h-long-context-question-1",
+      "gold": "tier1",
+      "predicted": "tier1"
+    },
+    {
+      "id": "h-long-context-question-2",
+      "gold": "tier1",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-focused-review-1",
+      "gold": "tier2",
+      "predicted": "tier2"
+    },
+    {
+      "id": "h-long-git-ops-1",
+      "gold": "tier2",
+      "predicted": "tier1"
+    }
+  ]
+}

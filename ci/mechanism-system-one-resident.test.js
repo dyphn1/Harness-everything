@@ -16,13 +16,13 @@ const request = createRequest('tier', 'fix a typo in README', TIER_OPTIONS);
 const sha = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
-function fixture(modelId = 'stub') {
+function fixture(modelId = 'stub', extra = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-s1-resident-'));
   const checkpoint = path.join(dir, 'model.safetensors');
   fs.writeFileSync(checkpoint, 'synthetic-not-real-weights');
   fs.writeFileSync(path.join(dir, 'model.json'), '{}');
   const manifest = { schemaVersion: 1, python, checkpoint, weightsSha256: sha(checkpoint), configSha256: sha(path.join(dir, 'model.json')),
-    modelId, revision: 'v1', domain: 'harness-routing-v1', transport: 'resident', idleTimeoutMs: 60000 };
+    modelId, revision: 'v1', domain: 'harness-routing-v1', transport: 'resident', idleTimeoutMs: 60000, ...extra };
   const manifestPath = path.join(dir, 'manifest.json');
   fs.writeFileSync(manifestPath, JSON.stringify(manifest));
   const spawns = [];
@@ -293,4 +293,38 @@ test('S1-RS12 the evaluator times the async path: no worker thread per warm scor
     assert.ok(runs.filter(run => run.decision.status === 'accepted').length >= runs.length - 2);
     assert.ok(Number(fs.readFileSync(countFile, 'utf8')) < report.records.length * 2, 'warm scores must not start a worker thread each');
   } finally { cleanup(f); }
+});
+
+test('S1-RS13 manifest acceptance thresholds are validated, carried by scored results and applied by the evaluator', async () => {
+  const acceptance = { minConfidence: 0.6, minMargin: 0.3 };
+  const base = fixture();
+  try {
+    for (const ok of [acceptance, { minConfidence: 0.5, minMargin: 0 }, { minConfidence: 0.99, minMargin: 0.9 }]) assert.equal(provider.validateManifest({ ...base.manifest, acceptance: ok }), true);
+    for (const bad of [{ minConfidence: 0.49, minMargin: 0.2 }, { minConfidence: 1, minMargin: 0.2 }, { minConfidence: 0.9, minMargin: 0.91 }, { minConfidence: 0.9 }, { minConfidence: 0.9, minMargin: 0.2, extra: 1 }, { minConfidence: '0.9', minMargin: 0.2 }, null, []]) {
+      assert.throws(() => provider.validateManifest({ ...base.manifest, acceptance: bad }), JSON.stringify(bad));
+    }
+  } finally { cleanup(base); }
+  const root = path.resolve(__dirname, '..');
+  const corpus = path.join(root, 'benchmarks/fixtures/system-one-routing.json');
+  const evaluateWith = f => {
+    const output = path.join(f.dir, 'report.json');
+    const child = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-system-one.js'), corpus, f.manifestPath, output], { cwd: root, encoding: 'utf8' });
+    assert.equal(child.status, 0, child.stderr);
+    return JSON.parse(fs.readFileSync(output, 'utf8')).records.flatMap(r => r.runs).filter(r => r.decision.reason !== 'provider-exit');
+  };
+  const soft = fixture('stub-soft', { acceptance });
+  try {
+    assert.equal(resident.ensureReady(soft.manifest, soft.manifestPath, 20000, soft.deps), true);
+    const result = provider.score(request, soft.manifestPath);
+    assert.equal(result.status, 'scored');
+    assert.deepEqual(result.acceptance, acceptance);
+    assert.deepEqual((await provider.scoreAsync(request, soft.manifestPath)).acceptance, acceptance);
+    assert.ok(evaluateWith(soft).every(r => r.decision.status === 'accepted' && r.decision.selectedId === 'tier1'));
+  } finally { cleanup(soft); }
+  const strict = fixture('stub-soft');
+  try {
+    assert.equal(resident.ensureReady(strict.manifest, strict.manifestPath, 20000, strict.deps), true);
+    assert.equal(provider.score(request, strict.manifestPath).acceptance, undefined);
+    assert.ok(evaluateWith(strict).every(r => r.decision.status === 'abstain' && r.decision.reason === 'low-confidence'));
+  } finally { cleanup(strict); }
 });

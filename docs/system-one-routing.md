@@ -41,7 +41,11 @@ never a prompt-supplied executable. No shell or automatic download is used.
 The manifest is version 1 with `python` (executable), `checkpoint` (absolute
 `.safetensors` path), `weightsSha256`, `configSha256` (matching `.json` sidecar),
 `modelId`, `revision`, `domain`, and optional `timeoutMs` (1–10000, default 2000).
-All fields are required except the timeout; unknown fields are rejected. Hashes
+All fields are required except the timeout; unknown fields are rejected. An
+optional `acceptance` object holds exactly `minConfidence` (0.5–0.99) and
+`minMargin` (0–0.9). These are the thresholds calibrated on validation for this
+checkpoint. A scored result carries them, and the router and the evaluator pass
+them to `decide`. Without the field the Phase 0 defaults apply. Hashes
 must be lowercase SHA-256. Revision and domain are artifact-owner declarations,
 not independently verified quality claims. The known `cua-ai/cua-s1-forms` ID
 must use domain `forms-v1`. No pickle format or remote URL is accepted.
@@ -278,6 +282,9 @@ unversioned download during a prompt hook.
 | 2 | Router integration | Off/shadow/prefer, existing policy invariants, rollback |
 | 3 | Corpus and paired evaluator | Leakage checks, coverage/error metrics, repeatability |
 | 4 | Harness training and rollout | Real checkpoint, reviewed holdout, measured host results |
+
+Phase 4 training data, labeling, calibration and release are defined in
+[system-one-training.md](system-one-training.md).
 
 ## Rollout gates
 
