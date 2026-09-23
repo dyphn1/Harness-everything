@@ -129,5 +129,8 @@ structural floor. Canonical and packaged runtime copies use the same
 contract; this establishes no new live-host capability. Python, PyTorch and a
 compatible local checkpoint are optional external dependencies, not npm payloads;
 the explicit `npm run system-one:install` sets them up and hooks never run it.
+With `transport: "resident"`, an opted-in router hook may spawn one detached
+loopback-only Python server per manifest; host survival of that process after
+a hook exits is not live-verified.
 Public Skills-only artifacts do not acquire lifecycle hooks from this feature.
 See [System One routing](system-one-routing.md) for limits, rollback and evidence.

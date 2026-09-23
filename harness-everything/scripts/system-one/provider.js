@@ -13,11 +13,13 @@ const label = value => typeof value === 'string' && value.length > 0 && value.le
 function validateManifest(m) {
   const required = ['schemaVersion', 'python', 'checkpoint', 'weightsSha256', 'configSha256', 'modelId', 'revision', 'domain'];
   if (!m || typeof m !== 'object' || Array.isArray(m) || required.some(k => !Object.hasOwn(m, k))
-    || Object.keys(m).some(k => ![...required, 'timeoutMs'].includes(k)) || m.schemaVersion !== 1
+    || Object.keys(m).some(k => ![...required, 'timeoutMs', 'transport', 'idleTimeoutMs'].includes(k)) || m.schemaVersion !== 1
     || ['python', 'modelId', 'revision', 'domain'].some(k => typeof m[k] !== 'string' || !m[k].trim() || m[k].length > 4096 || m[k].includes('\0'))
     || typeof m.checkpoint !== 'string' || !path.isAbsolute(m.checkpoint) || path.extname(m.checkpoint) !== '.safetensors'
     || ['weightsSha256', 'configSha256'].some(k => typeof m[k] !== 'string' || !/^[a-f0-9]{64}$/.test(m[k]))
     || (m.timeoutMs !== undefined && (!Number.isInteger(m.timeoutMs) || m.timeoutMs < 1 || m.timeoutMs > 10000))
+    || (m.transport !== undefined && !['oneshot', 'resident'].includes(m.transport))
+    || (m.idleTimeoutMs !== undefined && (!Number.isInteger(m.idleTimeoutMs) || m.idleTimeoutMs < 60000 || m.idleTimeoutMs > 14400000))
     || (m.modelId === 'cua-ai/cua-s1-forms' && m.domain !== 'forms-v1')) throw new TypeError('invalid-manifest');
   return true;
 }
@@ -48,6 +50,7 @@ function score(request, manifestPath) {
   validateRequest(request);
   let manifest;
   try { manifest = readManifest(manifestPath); } catch (_) { return unavailable('provider-config'); }
+  if (manifest.transport === 'resident') return require('./resident').score({ ...request }, manifest, manifestPath);
   // Send the exact validated manifest to the child on stdin: no config reread race.
   return runProvider({ ...request }, manifest.python, [ADAPTER, JSON.stringify(manifest)], manifest.timeoutMs || 2000);
 }
@@ -73,4 +76,4 @@ function provenance(manifestPath) {
   try { return { status: 'recorded', provenance: validateProvenance(result.value) }; }
   catch (_) { return unavailable('provider-json'); }
 }
-module.exports = { score, runProvider, validateManifest, provenance, validateProvenance, PINNED_CUA_S1_REVISION };
+module.exports = { score, runProvider, validateManifest, readManifest, provenance, validateProvenance, PINNED_CUA_S1_REVISION };

@@ -68,10 +68,13 @@ installs the pinned `cua_s1` Git URL. It downloads the `cua-ai/cua-s1-forms`
 safetensors weights and JSON sidecar at Hugging Face revision
 `f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71`, verifies pinned sizes and SHA-256
 before an atomic write (the pickle `.pt` is never fetched), and writes
-`<dir>/manifest.json` with `timeoutMs: 10000`. The default `<dir>` is
+`<dir>/manifest.json` with `timeoutMs: 10000`, `transport: "resident"` and
+`idleTimeoutMs: 1800000`. The default `<dir>` is
 `~/.agents/harness-everything/system-one`; `--dir` takes an absolute path and
 `--dry-run` prints the plan without changes. Acceptance requires a `pinned`
-provenance probe and one real CPU inference; otherwise the exit code is 1.
+provenance probe and one real warm CPU inference through a resident server that
+the installer starts and then stops; otherwise the exit code is 1. Child-process
+output goes to stderr; stdout carries only the JSON report.
 Torch/numpy/safetensors versions resolve at install time and are recorded by
 the probe. The installer does not change the router mode: it prints
 `HARNESS_SYSTEM_ONE_MODE=shadow` and the manifest path for the host
@@ -88,12 +91,78 @@ No prompts or model values are written to disk or echoed in error messages.
 
 The Node transport has a hard timeout and a 1 MiB stdout/stderr bound; it kills
 the direct child on timeout. It starts one short-lived Python process per score
-request. This is an evaluation bridge, not a warm, persistent low-latency server.
+request. This is the default `oneshot` transport, not a warm server; see the
+resident provider below.
 The process cannot execute actions and is not given a CUA driver. Failures return
 `{status: 'unavailable', reason}` with a bounded reason code; malformed score
 responses are checked by Phase 0. Transport fixtures prove IPC and failure
 handling only. Real checkpoint inference and measured CPU latency remain a
 separate gate, with explicit unavailable evidence if dependencies are absent.
+
+## Resident provider (Phase 4 prerequisite)
+
+The one-shot bridge pays Python start, `import torch` and checkpoint load on every
+call (measured ≈5 s on CPU); warm in-process inference is a few milliseconds. The
+manifest may set `transport: "resident"` (default `"oneshot"`) and optional
+`idleTimeoutMs` (60000–14400000, default 1800000) to keep one verified model in
+memory. Other manifest rules are unchanged; the timeout remains one-shot only.
+
+**Lifecycle.** A resident-mode score never blocks on model loading. If no live
+server exists, the Node provider creates a start lock with exclusive-create,
+spawns `cua_adapter.py --serve` detached with the configured Python (no shell),
+and returns `unavailable/provider-starting`, so the lexical route is used for
+that prompt. Concurrent callers seeing a lock younger than 60 s do not spawn
+again. The server verifies artifact hashes before `load_checkpoint`, writes its
+state file atomically, then removes the lock. A startup failure writes a bounded
+reason into the lock and exits; callers report `provider-unavailable` without
+respawning until the lock is 60 s old. An executable that cannot be spawned at
+all is detected synchronously (no child PID) and recorded as `spawn-failed` the
+same way. The server exits after `idleTimeoutMs` without requests, on
+`shutdown`, when either checkpoint file's size or modification time changes
+(`artifact-changed`), or as soon as its state file no longer names its PID and
+token (replaced, corrupted or deleted), so an undiscoverable server never
+lingers as an orphan. It deletes only a state file that still names it.
+
+**Files.** State and lock live beside the manifest as
+`system-one-resident-<digest>.json` / `.starting`, where `<digest>` is the first
+16 hex digits of SHA-256 of the parsed manifest re-serialized with `JSON.stringify`
+(file key order). Editing the manifest
+therefore selects a new server; the old one exits when idle. The state file has
+exactly `schemaVersion: 1`, `pid`, `port`, `token` (64 hex), and `startedAt`, and
+is created with mode 0600; on Windows the file instead receives an explicit
+DACL with inheritance removed and a single full-control entry for the current
+user's SID before the token is written. The manifest directory must still be
+writable only by that user: whoever can replace files there can redirect the
+client, and whoever can edit the manifest chooses the executable.
+
+**Protocol.** The server binds only `127.0.0.1` on an ephemeral port and handles
+one request per connection: one newline-terminated JSON object of at most 2 MiB
+with `token`, `op` (`score`, `ping`, `shutdown`) and, for `score`, a request with
+the exact Phase 0 structure (fields, lowercase IDs, unique options, 2–256
+options, 64-hex fingerprints). Connections are served concurrently, up to 64, each
+with a 1 s read deadline; beyond that the reply is `busy`. Inference itself is
+serialized, so a silent or slow client cannot delay other callers. Tokens are compared in constant time; a mismatch returns
+`{ok: false, reason: "unauthorized"}`. `score` applies the same byte limits
+(no truncation) and returns `{ok: true, response}` in the Phase 0 response
+format, which Phase 0 validation still checks. Any other failure returns
+`{ok: false, reason}` with a bounded code; no prompt, traceback, path or score is
+echoed in errors. The server never executes actions and is not given a driver.
+
+**Client.** The router API is synchronous, so the client performs one socket
+round trip on a worker thread and waits with `Atomics.wait` (1000 ms deadline).
+Results map to the existing reasons: timeout → `provider-timeout` (no respawn);
+refused connection or dead PID → stale state removed and a new start
+(`provider-starting`); `unauthorized` → `provider-unavailable`; any other
+server-declined request → `provider-exit`; malformed replies → `provider-json`.
+
+**Operators.** `node harness-everything/scripts/system-one/resident.js
+start|status|stop <absolute manifest>` controls a server explicitly; `start`
+waits up to 60 s for readiness. The evaluation CLI waits for readiness before
+measuring, so resident runs are recorded with `coldStart: false`. The installer
+writes `transport: "resident"`, verifies one resident score, and stops the server
+it started. Repository tests use a stub scorer behind the real server/protocol
+code; they prove the mechanism, not host survival of detached processes or model
+quality. Those require retained evidence.
 
 ## Phase 2: tier integration and rollback
 

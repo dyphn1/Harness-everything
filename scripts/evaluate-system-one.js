@@ -4,12 +4,19 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { performance } = require('node:perf_hooks');
 const { validateCorpus, evaluate } = require('../harness-everything/scripts/system-one/evaluate');
-const { score, provenance } = require('../harness-everything/scripts/system-one/provider');
+const { score, provenance, readManifest } = require('../harness-everything/scripts/system-one/provider');
+const resident = require('../harness-everything/scripts/system-one/resident');
 const { decide } = require('../harness-everything/scripts/system-one/contract');
 const { run: route } = require('../harness-everything/scripts/tier-router');
 
 function run(corpus, manifest) {
   validateCorpus(corpus);
+  let config = null;
+  try { config = readManifest(manifest); } catch (_) { /* Missing provider remains an explicit unavailable measurement. */ }
+  // Resident runs are measured only after readiness, so every sample is warm; one-shot samples are cold.
+  const warm = config?.transport === 'resident';
+  const wasRunning = warm && resident.status(config, manifest).running;
+  const ready = warm && resident.ensureReady(config, manifest, 60000);
   const records = [];
   const originalMode = process.env.HARNESS_SYSTEM_ONE_MODE;
   const originalLog = console.log;
@@ -25,11 +32,12 @@ function run(corpus, manifest) {
         const decision = result.status === 'scored' ? decide(c.request, result.response) : result;
         if (decision.selectedId === 'unclassified') Object.assign(decision, { status: 'abstain', reason: 'unclassified', selectedId: null });
         const scores = ['accepted', 'abstain'].includes(decision.status) ? result.response.scores.map(s => s.probability) : null;
-        runs.push({ decision, scores, latencyMs: performance.now() - start, coldStart: true });
+        runs.push({ decision, scores, latencyMs: performance.now() - start, coldStart: !warm });
       }
       records.push({ id: c.id, baseline: tier === 'unclassified' ? null : tier, runs });
     }
   } finally {
+    if (warm && !wasRunning) resident.stop(config, manifest);
     console.log = originalLog;
     if (originalMode === undefined) delete process.env.HARNESS_SYSTEM_ONE_MODE;
     else process.env.HARNESS_SYSTEM_ONE_MODE = originalMode;
@@ -40,10 +48,11 @@ function run(corpus, manifest) {
     artifact = { declaredModelId: m.modelId, declaredRevision: m.revision, weightsSha256: m.weightsSha256, configSha256: m.configSha256 };
   } catch (_) { /* Missing provider remains an explicit unavailable measurement. */ }
   const source = provenance(manifest);
-  return { ...evaluate(corpus, records, source), evidence: { kind: 'offline-one-shot', artifact, source,
+  return { ...evaluate(corpus, records, source), evidence: { kind: warm ? 'offline-resident' : 'offline-one-shot', artifact, source,
+    residentReady: warm ? ready : null,
     environment: { cpu: os.cpus()[0]?.model || 'unknown', os: `${os.platform()} ${os.release()} ${os.arch()}`, node: process.version,
       python: source.status === 'recorded' ? source.provenance.python : null, threads: 1 },
-    limitations: ['No independently verified holdout review', 'No warm inference measurement', 'No live-host or policy evidence'] }, records };
+    limitations: ['No independently verified holdout review', ...(warm ? [] : ['No warm inference measurement']), 'No live-host or policy evidence'] }, records };
 }
 if (require.main === module) {
   try {

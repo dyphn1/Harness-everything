@@ -23,7 +23,7 @@ function selectTier(input, env = process.env, scorer = provider.score) {
   try { result = scorer(request, env.HARNESS_SYSTEM_ONE_CONFIG); }
   catch (_) { return fallback('provider-unavailable'); }
   if (!result || result.status !== 'scored') {
-    const allowed = ['provider-timeout', 'provider-output-limit', 'provider-exit', 'provider-json', 'provider-config', 'provider-unavailable'];
+    const allowed = ['provider-timeout', 'provider-output-limit', 'provider-exit', 'provider-json', 'provider-config', 'provider-unavailable', 'provider-starting'];
     return fallback(allowed.includes(result?.reason) ? result.reason : 'provider-unavailable');
   }
   const decision = decide(request, result.response);

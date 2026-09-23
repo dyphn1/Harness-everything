@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { isPackagingNoise } = require('./lib/packaging-noise');
 
 const ROOT = path.resolve(__dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude-plugin', 'plugin.json'), 'utf8'));
@@ -32,7 +33,7 @@ function syncTree(source, destination) {
   fs.rmSync(destination, { recursive: true, force: true });
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   if (fs.statSync(source).isDirectory()) {
-    fs.cpSync(source, destination, { recursive: true });
+    fs.cpSync(source, destination, { recursive: true, filter: src => !isPackagingNoise(path.basename(src)) });
     normalizeTree(destination);
   } else {
     fs.copyFileSync(source, destination);

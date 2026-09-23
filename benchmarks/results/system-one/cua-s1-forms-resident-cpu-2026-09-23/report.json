@@ -1,0 +1,856 @@
+{
+  "schemaVersion": 1,
+  "cases": 16,
+  "baseline": {
+    "accuracy": 0.625,
+    "macroF1": 0.571969696969697,
+    "coverage": 0.5625,
+    "abstentionRate": 0.4375,
+    "acceptedPrecision": 0.6666666666666666,
+    "acceptedErrorRate": 0.3333333333333333
+  },
+  "model": {
+    "accuracy": 0.25,
+    "macroF1": 0.1,
+    "coverage": 0,
+    "abstentionRate": 1,
+    "acceptedPrecision": null,
+    "acceptedErrorRate": null
+  },
+  "agreement": 1,
+  "latency": {
+    "coldP95Ms": null,
+    "warmP95Ms": 108.59570000000076,
+    "coldSamples": 0,
+    "warmSamples": 32
+  },
+  "gates": {
+    "reviewedHoldout": false,
+    "acceptedPrecision": false,
+    "coverage": false,
+    "macroF1": false,
+    "repeatability": true,
+    "warmLatency": false,
+    "sourceProvenance": true,
+    "policyEvidence": false,
+    "liveHostEvidence": false
+  },
+  "rolloutReady": false,
+  "evidence": {
+    "kind": "offline-resident",
+    "artifact": {
+      "declaredModelId": "cua-ai/cua-s1-forms",
+      "declaredRevision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+      "weightsSha256": "05954c1caf51c2fb6c13ea4acbfc88a2e7653dea192252bb51dc89e76a356ddc",
+      "configSha256": "62d31e2f9a001a8e9b6f8534c5194d07ebdd3f9d62ef1ac281906622992650ca"
+    },
+    "source": {
+      "status": "recorded",
+      "provenance": {
+        "python": {
+          "implementation": "CPython",
+          "version": "3.13.6"
+        },
+        "torch": "2.14.0+cpu",
+        "cuaS1": {
+          "distribution": "cua-s1",
+          "version": "0.0.0",
+          "sourceRevision": "b7f7e2d8714609853a29c7d049140bc46aec0954",
+          "pinnedRevision": "b7f7e2d8714609853a29c7d049140bc46aec0954",
+          "sourceRevisionStatus": "pinned"
+        }
+      }
+    },
+    "residentReady": true,
+    "environment": {
+      "cpu": "Intel(R) Core(TM) Ultra 5 225H",
+      "os": "win32 10.0.26200 x64",
+      "node": "v24.18.0",
+      "python": {
+        "implementation": "CPython",
+        "version": "3.13.6"
+      },
+      "threads": 1
+    },
+    "limitations": [
+      "No independently verified holdout review",
+      "No live-host or policy evidence"
+    ]
+  },
+  "records": [
+    {
+      "id": "typo-en",
+      "baseline": "tier1",
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.802446186542511,
+            "margin": 0.636071503162384,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.802446186542511,
+            0.011815307661890984,
+            0.019363801926374435,
+            0.16637468338012695
+          ],
+          "latencyMs": 102.90989999999965,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.802446186542511,
+            "margin": 0.636071503162384,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.802446186542511,
+            0.011815307661890984,
+            0.019363801926374435,
+            0.16637468338012695
+          ],
+          "latencyMs": 108.3747999999996,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "typo-zh",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9862334728240967,
+            "margin": 0.9786494285799563,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.9862334728240967,
+            0.004191387910395861,
+            0.0019909648690372705,
+            0.007584044244140387
+          ],
+          "latencyMs": 68.13140000000021,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9862334728240967,
+            "margin": 0.9786494285799563,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.9862334728240967,
+            0.004191387910395861,
+            0.0019909648690372705,
+            0.007584044244140387
+          ],
+          "latencyMs": 53.118500000000495,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "bug-en",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9719129800796509,
+            "margin": 0.9465879946947098,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0002585329348221421,
+            0.0253249853849411,
+            0.0025034905411303043,
+            0.9719129800796509
+          ],
+          "latencyMs": 48.44959999999992,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9719129800796509,
+            "margin": 0.9465879946947098,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0002585329348221421,
+            0.0253249853849411,
+            0.0025034905411303043,
+            0.9719129800796509
+          ],
+          "latencyMs": 63.33209999999963,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "bug-zh",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.8624374866485596,
+            "margin": 0.7333024889230728,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.007166753988713026,
+            0.12913499772548676,
+            0.8624374866485596,
+            0.0012607472017407417
+          ],
+          "latencyMs": 47.22159999999985,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.8624374866485596,
+            "margin": 0.7333024889230728,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.007166753988713026,
+            0.12913499772548676,
+            0.8624374866485596,
+            0.0012607472017407417
+          ],
+          "latencyMs": 114.41460000000006,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "design-en",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.49744707345962524,
+            "margin": 0.23549088835716248,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.005456508602946997,
+            0.49744707345962524,
+            0.23514018952846527,
+            0.26195618510246277
+          ],
+          "latencyMs": 92.42219999999998,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.49744707345962524,
+            "margin": 0.23549088835716248,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.005456508602946997,
+            0.49744707345962524,
+            0.23514018952846527,
+            0.26195618510246277
+          ],
+          "latencyMs": 96.25939999999991,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "design-zh",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.961081326007843,
+            "margin": 0.9374861773103476,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.005908831488341093,
+            0.02359514869749546,
+            0.961081326007843,
+            0.009414690546691418
+          ],
+          "latencyMs": 76.3161,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.961081326007843,
+            "margin": 0.9374861773103476,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.005908831488341093,
+            0.02359514869749546,
+            0.961081326007843,
+            0.009414690546691418
+          ],
+          "latencyMs": 52.2505000000001,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "ambiguous-en",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9246014952659607,
+            "margin": 0.8758104182779789,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.002034141682088375,
+            0.024573173373937607,
+            0.9246014952659607,
+            0.048791076987981796
+          ],
+          "latencyMs": 61.01519999999982,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9246014952659607,
+            "margin": 0.8758104182779789,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.002034141682088375,
+            0.024573173373937607,
+            0.9246014952659607,
+            0.048791076987981796
+          ],
+          "latencyMs": 34.75540000000001,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "ambiguous-zh",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.4968620240688324,
+            "margin": 0.12136596441268921,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.12712302803993225,
+            0.4968620240688324,
+            0.3754960596561432,
+            0.0005188349168747663
+          ],
+          "latencyMs": 74.08030000000053,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.4968620240688324,
+            "margin": 0.12136596441268921,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.12712302803993225,
+            0.4968620240688324,
+            0.3754960596561432,
+            0.0005188349168747663
+          ],
+          "latencyMs": 63.39809999999943,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "negation-en",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9527177214622498,
+            "margin": 0.9083153046667576,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.9527177214622498,
+            0.00011293955321889371,
+            0.04440241679549217,
+            0.0027669507544487715
+          ],
+          "latencyMs": 108.59570000000076,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9527177214622498,
+            "margin": 0.9083153046667576,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.9527177214622498,
+            0.00011293955321889371,
+            0.04440241679549217,
+            0.0027669507544487715
+          ],
+          "latencyMs": 56.6911999999993,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "negation-zh",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9130365252494812,
+            "margin": 0.8284643217921257,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0019654755014926195,
+            0.0845722034573555,
+            0.9130365252494812,
+            0.00042579739238135517
+          ],
+          "latencyMs": 88.13680000000022,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9130365252494812,
+            "margin": 0.8284643217921257,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0019654755014926195,
+            0.0845722034573555,
+            0.9130365252494812,
+            0.00042579739238135517
+          ],
+          "latencyMs": 52.464500000000044,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "mixed-en",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9211806058883667,
+            "margin": 0.8719805739820004,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.00007588836160721257,
+            0.04920003190636635,
+            0.9211806058883667,
+            0.029543407261371613
+          ],
+          "latencyMs": 100.15279999999984,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9211806058883667,
+            "margin": 0.8719805739820004,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.00007588836160721257,
+            0.04920003190636635,
+            0.9211806058883667,
+            0.029543407261371613
+          ],
+          "latencyMs": 95.50080000000071,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "mixed-zh",
+      "baseline": "tier2",
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9714466333389282,
+            "margin": 0.9490579888224602,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0018208883702754974,
+            0.022388644516468048,
+            0.9714466333389282,
+            0.00434384448453784
+          ],
+          "latencyMs": 58.78230000000076,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9714466333389282,
+            "margin": 0.9490579888224602,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0018208883702754974,
+            0.022388644516468048,
+            0.9714466333389282,
+            0.00434384448453784
+          ],
+          "latencyMs": 58.26429999999982,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "explicit-en",
+      "baseline": "tier3",
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9942612648010254,
+            "margin": 0.9906786154024303,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0035826493985950947,
+            0.9942612648010254,
+            0.0007256172830238938,
+            0.0014304803917184472
+          ],
+          "latencyMs": 54.706199999999626,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9942612648010254,
+            "margin": 0.9906786154024303,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0035826493985950947,
+            0.9942612648010254,
+            0.0007256172830238938,
+            0.0014304803917184472
+          ],
+          "latencyMs": 34.55040000000008,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "outside-en",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.7660093307495117,
+            "margin": 0.6225567013025284,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0000680787707096897,
+            0.7660093307495117,
+            0.14345262944698334,
+            0.09046994894742966
+          ],
+          "latencyMs": 99.71529999999984,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.7660093307495117,
+            "margin": 0.6225567013025284,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0000680787707096897,
+            0.7660093307495117,
+            0.14345262944698334,
+            0.09046994894742966
+          ],
+          "latencyMs": 91.5572000000002,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "outside-zh",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9956111311912537,
+            "margin": 0.9913710593245924,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0001482546649640426,
+            0.9956111311912537,
+            0.00424007186666131,
+            6.136220918051549e-7
+          ],
+          "latencyMs": 63.31009999999969,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "abstain",
+            "reason": "domain-mismatch",
+            "selectedId": null,
+            "confidence": 0.9956111311912537,
+            "margin": 0.9913710593245924,
+            "model": {
+              "id": "cua-ai/cua-s1-forms",
+              "revision": "f54adbf447f4ca6ec259f529ee3f2e3e09f8cc71",
+              "domain": "forms-v1"
+            }
+          },
+          "scores": [
+            0.0001482546649640426,
+            0.9956111311912537,
+            0.00424007186666131,
+            6.136220918051549e-7
+          ],
+          "latencyMs": 93.84829999999965,
+          "coldStart": false
+        }
+      ]
+    },
+    {
+      "id": "long-en",
+      "baseline": null,
+      "runs": [
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-exit"
+          },
+          "scores": null,
+          "latencyMs": 33.836999999999534,
+          "coldStart": false
+        },
+        {
+          "decision": {
+            "status": "unavailable",
+            "reason": "provider-exit"
+          },
+          "scores": null,
+          "latencyMs": 53.396600000000035,
+          "coldStart": false
+        }
+      ]
+    }
+  ]
+}

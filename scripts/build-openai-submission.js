@@ -4,6 +4,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { isPackagingNoise } = require('./lib/packaging-noise');
 
 const ROOT = path.resolve(__dirname, '..');
 const SKILLS_ROOT = path.join(ROOT, 'plugins', 'harness-everything', 'skills');
@@ -24,6 +25,7 @@ function parseArgs(argv) {
 
 function filesUnder(root, base = root, out = []) {
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (isPackagingNoise(entry.name)) continue;
     const full = path.join(root, entry.name);
     if (entry.isDirectory()) filesUnder(full, base, out);
     else if (entry.isFile()) out.push(path.relative(base, full).replace(/\\/g, '/'));
