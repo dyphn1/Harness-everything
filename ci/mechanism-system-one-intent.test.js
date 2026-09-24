@@ -7,6 +7,7 @@ const { createRequest } = require('../harness-everything/scripts/system-one/cont
 const { TIER_OPTIONS } = require('../harness-everything/scripts/system-one/router');
 const { INTENT_OPTIONS, CATALOGS, goldLabels } = require('../harness-everything/scripts/system-one/catalogs');
 const { validateCorpus, evaluate } = require('../harness-everything/scripts/system-one/evaluate');
+const { gradedAgreement, familyConsistency } = require('../harness-everything/scripts/system-one/intent');
 const { build, promptHash } = require('../scripts/system-one-corpus');
 const label = require('../scripts/system-one-label');
 const root = path.resolve(__dirname, '..');
@@ -93,16 +94,58 @@ test('S1-I04 the labeler labels intent from the intent document with the intent 
   assert.match(prompt, /explain, discuss, git, fix, edit, feature, refactor, review, test, docs, plan, investigate, or null/);
   assert.doesNotMatch(prompt, /tier1/);
   assert.match(label.buildPrompt('r', batch), /tier1, tier2, tier3, or null/, 'tier stays the default');
-  assert.deepEqual(label.validateReply(batch, { labels: [{ i: 0, gold: 'fix' }, { i: 1, gold: 'null' }] }, 'intent'), ['fix', null]);
-  assert.equal(label.validateReply(batch, { labels: [{ i: 0, gold: 'tier1' }, { i: 1, gold: 'null' }] }, 'intent'), null);
+  assert.match(prompt, /secondary/, 'intent replies carry secondary intents');
+  const ok = { labels: [{ i: 0, gold: 'fix', secondary: ['test'] }, { i: 1, gold: 'null', secondary: [] }] };
+  assert.deepEqual(label.validateReply(batch, ok, 'intent'), [{ gold: 'fix', secondary: ['test'] }, { gold: null, secondary: [] }]);
+  for (const bad of [
+    { labels: [{ i: 0, gold: 'tier1', secondary: [] }, { i: 1, gold: 'null', secondary: [] }] },
+    { labels: [{ i: 0, gold: 'fix' }, { i: 1, gold: 'null', secondary: [] }] },
+    { labels: [{ i: 0, gold: 'fix', secondary: ['fix'] }, { i: 1, gold: 'null', secondary: [] }] },
+    { labels: [{ i: 0, gold: 'fix', secondary: [] }, { i: 1, gold: 'null', secondary: ['git'] }] },
+  ]) assert.equal(label.validateReply(batch, bad, 'intent'), null);
   assert.equal(label.validateReply(batch, { labels: [{ i: 0, gold: 'fix' }, { i: 1, gold: 'null' }] }), null, 'tier replies reject intent labels');
-  assert.deepEqual(JSON.parse(label.schemaFor('intent')).properties.labels.items.properties.gold.enum, [...INTENTS, 'null']);
-  const report = label.agreement([{ id: 'x', gold: 'fix' }, { id: 'y', gold: null }], { x: 'fix', y: 'git' }, 'intent');
+  assert.deepEqual(label.validateReply(batch, { labels: [{ i: 0, gold: 'tier1' }, { i: 1, gold: 'null' }] }), ['tier1', null], 'tier replies keep their shape');
+  const schema = JSON.parse(label.schemaFor('intent')).properties.labels.items;
+  assert.deepEqual(schema.properties.gold.enum, [...INTENTS, 'null']);
+  assert.deepEqual(schema.required, ['i', 'gold', 'secondary']);
+  assert.deepEqual(schema.properties.secondary.items.enum, INTENTS);
+  assert.deepEqual(JSON.parse(label.schemaFor('tier')).properties.labels.items.required, ['i', 'gold']);
+  const report = label.agreement([{ id: 'x', gold: 'fix', secondary: ['test'] }, { id: 'y', gold: 'docs', secondary: [] }],
+    { x: { gold: 'test', secondary: ['fix'] }, y: { gold: 'git', secondary: [] } }, 'intent');
   assert.deepEqual(Object.keys(report.recall), [...INTENTS, 'unclassified']);
-  assert.equal(report.agreement, 0.5);
-  assert.deepEqual(report.confusion, { 'unclassified->git': 1 });
+  assert.equal(report.agreement, 0);
+  assert.equal(report.graded, 0.3, '(0.6 swapped + 0 unrelated) / 2');
+  assert.deepEqual(report.confusion, { 'fix->test': 1, 'docs->git': 1 });
   const seen = [];
-  const out = await label.labelAll(batch, { rules, task: 'intent', run: async p => { seen.push(p); return { labels: [{ i: 0, gold: 'fix' }, { i: 1, gold: 'null' }] }; } });
-  assert.deepEqual(out.labeled, [{ id: 'x', gold: 'fix' }, { id: 'y', gold: null }]);
+  const out = await label.labelAll(batch, { rules, task: 'intent', run: async p => { seen.push(p); return ok; } });
+  assert.deepEqual(out.labeled, [{ id: 'x', gold: 'fix', secondary: ['test'] }, { id: 'y', gold: null, secondary: [] }]);
   assert.match(seen[0], /investigate, or null/);
+});
+
+test('S1-I05 graded agreement follows the owner\'s grades and is symmetric', () => {
+  const l = (gold, secondary = []) => ({ gold, secondary });
+  const cases = [
+    [l('fix', ['test']), l('fix', ['docs', 'review']), 1],
+    [l('fix', ['test']), l('test', ['fix']), 0.6],
+    [l('fix', ['test', 'docs', 'review', 'plan']), l('test', ['fix']), 0.3],
+    [l('fix', ['test', 'docs', 'review']), l('test', ['fix']), 0.6],
+    [l('fix', ['test']), l('test'), 0.3],
+    [l('fix'), l('docs', ['review']), 0],
+    [l(null), l(null), 1],
+    [l(null), l('fix'), 0],
+  ];
+  for (const [a, b, want] of cases) {
+    assert.equal(gradedAgreement(a, b), want, JSON.stringify([a, b]));
+    assert.equal(gradedAgreement(b, a), want, 'symmetric');
+  }
+});
+
+test('S1-I06 family consistency counts families of two or more that share one primary', () => {
+  const rows = [
+    { family: 'a', primary: 'fix' }, { family: 'a', primary: 'fix' },
+    { family: 'b', primary: 'fix' }, { family: 'b', primary: 'feature' },
+    { family: 'c', primary: 'git' },
+  ];
+  assert.deepEqual(familyConsistency(rows), { families: 2, consistent: 1, rate: 0.5 });
+  assert.deepEqual(familyConsistency([{ family: 'c', primary: 'git' }]), { families: 0, consistent: 0, rate: null });
 });
