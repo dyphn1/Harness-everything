@@ -41,15 +41,21 @@ coverage (211 accepted, precision 85.3%). These thresholds went into the manifes
 Decisions broke down as 43 accepted, 163 `low-confidence`, 3 `low-margin` and 6
 `unclassified` abstentions. Repeatability was 1.0.
 
-**Gates.** `reviewedHoldout` and `repeatability` pass. `acceptedPrecision` (72.1%, gate
-85%), `coverage` (20%, gate 80%) and gated `macroF1` fail.
+**Gates.** Four gates pass:
 
-**Gate artifacts.** Two gates fail because of how the evaluator runs:
+- `reviewedHoldout`.
+- `repeatability`.
+- `warmLatency`: warm p95 is 0.49 ms over 430 samples.
+- `sourceProvenance`: the artifact is SHA-256 verified.
 
-- `warmLatency` fails because the evaluator records non-resident samples as cold. The ngram
-  transport has no cold or warm phase, so the evaluator needs a transport-aware update.
-- `sourceProvenance` does not apply: it checks the pinned `cua_s1` Python package, which the
-  ngram transport does not use.
+`acceptedPrecision` (72.1% against a gate of 85%), `coverage` (20% against 80%) and gated
+`macroF1` fail.
+
+[`report.json`](report.json) comes from the transport-aware evaluator, which records
+ngram samples as warm and uses artifact verification as provenance. The first run,
+before that evaluator fix, reported both of those gates as failing, but its model metrics
+were identical. The model and holdout are unchanged, so the rerun only measures the same
+checkpoint again.
 
 ## Reading
 
