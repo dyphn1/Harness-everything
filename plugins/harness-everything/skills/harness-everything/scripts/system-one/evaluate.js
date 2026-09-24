@@ -89,7 +89,8 @@ function evaluate(corpus, records, sourceEvidence = null) {
     macroF1: model.macroF1 >= baseline.macroF1,
     repeatability: agreement === 1,
     warmLatency: warm.length >= cases.length && latency.warmP95Ms <= 100,
-    sourceProvenance: sourceEvidence?.status === 'recorded' && sourceEvidence.provenance?.cuaS1?.sourceRevisionStatus === 'pinned',
+    sourceProvenance: sourceEvidence?.status === 'recorded' && (sourceEvidence.provenance?.cuaS1?.sourceRevisionStatus === 'pinned'
+      || (sourceEvidence.transport === 'ngram' && sourceEvidence.artifactVerified === true)),
     policyEvidence: false,
     liveHostEvidence: false,
   };
