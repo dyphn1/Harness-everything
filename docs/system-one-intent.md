@@ -70,28 +70,33 @@ Rules:
 
 ### Relevance scores
 
-A scored label rates every intent of the catalog, except `null`, on four levels. The owner
-set the levels on 2026-09-24. System One only suggests skills, so a scored label is meant
-to rank candidates well; no level stands above 0.6.
+A scored label rates every intent of the catalog, except `null`, from 0 to 1 in steps of
+0.05. The owner set this scale on 2026-09-24 (it replaces a four-level draft of the same
+day). System One only suggests skills, so a scored label is meant to rank every candidate,
+not to pick one.
 
-| Score | Band | Meaning |
-| --- | --- | --- |
-| 0.6 | Primary relevance | The prompt asks for this work as a main deliverable |
-| 0.4 | Secondary relevance | The request also needs this work |
-| 0.2 | Related | Useful context or a likely follow-up that the prompt does not ask for |
-| 0 | Unrelated | Nothing in the prompt points to this work |
+| Score | Band |
+| --- | --- |
+| 0.6 or more | Primary relevance: the prompt asks for this work as a main deliverable |
+| 0.4 to 0.55 | Secondary relevance: the request also needs this work |
+| 0.2 to 0.35 | Related: useful context or a likely follow-up that the prompt does not ask for |
+| 0.05 to 0.15 | Faint: a remote link to the prompt |
+| 0 | Unrelated |
 
 Rules:
 
-1. **Rate each intent on its own.** The scores are not a budget shared by the intents.
-   Several intents may share a level.
-2. **Name one primary.** It must score 0.6. Another intent may also score 0.6 when the
-   prompt asks for several main deliverables; the primary is the one rule 1 above picks.
-3. **`null` means nothing actionable.** With a `null` primary, no intent scores more
+1. **Score every intent on its own.** This replaces "add a secondary intent only when the
+   request asks for it" above for scored labels: every intent gets a considered score.
+   The scores are not a budget shared by the intents.
+2. **No ties.** Two intents never share a score other than 0, so the scores rank the
+   whole catalog.
+3. **At most eight zeros.** At least four intents score above 0.
+4. **Name one primary.** It is the intent with the highest score, and it scores 0.6 or
+   more. Rule 1 above decides which work produces the main deliverable.
+5. **`null` means nothing actionable.** With a `null` primary, no intent scores more
    than 0.2.
-4. **Bands give the label.** The secondary intents are every other intent that scores
-   0.4 or more, highest first, then in catalog order. Related intents are kept only as
-   scores.
+6. **Bands give the label.** The secondary intents are every other intent that scores
+   0.4 or more, highest first. Related intents are kept only as scores.
 
 ## Holdout
 

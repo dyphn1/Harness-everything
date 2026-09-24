@@ -92,10 +92,11 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
   - `--model` and `--engine codex` choose another labeler; the label rows record it.
     `--batch N` changes the batch size.
   - `--task intent --scores` asks for [relevance scores](system-one-intent.md#relevance-scores).
-    Each reply names a primary and scores every intent at 0, 0.2, 0.4 or 0.6. A reply
-    whose primary does not score 0.6, whose `null` primary leaves an intent above 0.2, or
-    that misses an intent or uses another level is malformed. The owner chose Haiku for
-    this labeling.
+    Each reply names a primary and scores every intent from 0 to 1 in steps of 0.05. A
+    reply is malformed when it misses an intent, leaves the scale, ties two scores above 0,
+    has more than eight zeros, names a primary that is not the unique top score of at
+    least 0.6, or has a `null` primary with an intent above 0.2. The owner chose Haiku
+    for this labeling.
 - **Labeler check**: the labeler labels the 215 holdout prompts once, before any training
   data is labeled. The report gives agreement with the owner's gold and the per-class recall.
   - Labeling proceeds only when agreement is at least 80%.
