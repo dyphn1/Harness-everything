@@ -193,10 +193,8 @@ function linkedWorktree(cwd, boundRoot) {
 // Unsupported shell syntax still fails closed.
 const DANGEROUS_FLAG_RE = /\s(?:--(?:output|ext-diff|textconv|exec|pre|pre-glob|pager|open|batch|filters)|-[xoO])(?:\b|=)|\s-(?:exec|execdir|delete|fprint|fprintf)\b/i;
 const READ_ONLY_PREFIX_RE = /^(?:git\s+(?:status|rev-parse|diff|log|show|ls-files|check-ignore)(?:\s|$)|git\s+branch\s+--show-current$|git\s+worktree\s+list(?:\s|$)|gh\s+(?:issue|pr)\s+(?:view|list)(?:\s|$)|gh\s+repo\s+view(?:\s|$)|gh\s+auth\s+status(?:\s|$)|(?:pwd|ls|dir|cat|type|head|tail|wc|stat|rg|grep|echo|Get-Location|Get-ChildItem|Get-Content|Select-String|Test-Path)(?:\s|$))/i;
-const VERIFY_COMMAND_RE = /\b(test|spec|jest|vitest|mocha|pytest|rspec|phpunit|tsc|eslint|lint|build|compile|verify|check)\b/i;
-
-function isVerificationShell(command) {
-  return VERIFY_COMMAND_RE.test(String(command || ''));
+function isVerificationShell(command, options = {}) {
+  return isVerificationCommand(command, options);
 }
 
 function isReadOnlySegment(segment) {
