@@ -4,6 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { isVerificationCommand } = require('../../../scripts/lib/verification-contract');
 
 function gitRaw(cwd, args, options = {}) {
   const result = spawnSync('git', args, {
