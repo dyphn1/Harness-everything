@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Bug Fixes
+
+* **verify:** discover and execute project verification contracts across npm and non-npm repositories, with multi-root structured evidence and aligned hook recognition (#242)
+
 ## [0.25.0](https://github.com/dyphn1/Harness-everything/compare/v0.24.0...v0.25.0) (2026-09-23)
 
 ### Features
