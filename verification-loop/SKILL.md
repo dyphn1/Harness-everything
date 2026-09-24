@@ -9,39 +9,31 @@ metadata:
 
 # Verification Loop
 
-Run objective quality gates before claiming a change is ready.
+Run objective gates before claiming delivery readiness.
 
 ## Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Completed implementation or change awaiting delivery. |
-| **Expected Output** | Evidence-backed verification report and delivery decision. |
-| **State Mutations** | Fills a report from `<this-skill-dir>/templates/verification-report.template.md`. |
-| **Enforcement Gate** | Build, type, lint, test, security, and diff gates all pass. |
+| **Trigger / Input** | Completed change awaiting delivery. |
+| **Expected Output** | Evidence-backed verification report. |
+| **State Mutations** | Fills `<this-skill-dir>/templates/verification-report.template.md`. |
+| **Enforcement Gate** | Every applicable gate passes. |
 
 ## USE FOR:
-
-- Verify a feature or change before delivery
-- Run quality gates before a PR
+- Verify a completed change
+- Run quality gates before delivery/PR
 
 ## DO NOT USE FOR:
-
-- Fixing failures without re-running the loop
-- Writing new features or tests (use `tdd`)
+- Fixing failures without re-running verification
+- New feature/test implementation (use `tdd`)
 
 ## Workflow
 
-Never claim completion until every applicable gate passes. On failure, fix the cause
-and rerun from the first affected gate. For project-declared/discovered mechanical gates, follow `<this-skill-dir>/references/project-verification-contract.md`.
-
-1. Build: `npm run build`.
-2. Types: `npx tsc --noEmit` or `pyright .`.
-3. Lint: `npm run lint` or `ruff check .`.
-4. Tests and coverage: `npm run test -- --coverage`.
-5. Security scan: secrets and stray logs.
-6. Diff review: `git diff --stat` and unintended-change checks.
-7. Contract reconciliation when the work cites `REQ-*` / ADR/spec/ticket lineage or a contract-integrity trace exists: run the strict `<this-skill-dir>/scripts/contract-integrity-audit.js` gate with current #58 evidence and `--workspace <workspace>` so traced source/test/implementation artifacts are fingerprinted. `AUDIT`, `NOT_EVALUATED`, stale source binding, or drift is **not ready** for delivery.
-8. Fill `<this-skill-dir>/templates/verification-report.template.md` with evidence.
+1. Run applicable build, type, lint, test/coverage, security, and diff gates.
+2. Reconcile cited REQ/ADR/spec lineage with `<this-skill-dir>/scripts/contract-integrity-audit.js`; stale/failed/audit-only evidence is not ready.
+3. For project-declared/discovered mechanical gates, follow `<this-skill-dir>/references/project-verification-contract.md`.
+4. On failure, fix and rerun from the first affected gate.
+5. Fill `<this-skill-dir>/templates/verification-report.template.md` with actual evidence.
 
 Deep dive: `<this-skill-dir>/references/verification-phases.md`
