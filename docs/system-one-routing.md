@@ -349,11 +349,10 @@ small model only has to separate a few options at a time.
 
 1. **Tier**: `tier1`, `tier2`, `tier3` or `unclassified`, following
    [system-one-corpus.md](system-one-corpus.md).
-2. **Intent**: the kind of work the prompt asks for, drawn from a small fixed
-   catalog (for example: ask or explain, discuss or decide, Git/GitHub
-   operation, fix a bug, build a feature, refactor, review or audit, test or
-   verify, write docs, plan or spec, investigate). The intent catalog is the
-   owner's and is recorded in the corpus document before any intent labels.
+2. **Intent**: the kind of work the prompt asks for, drawn from the owner's
+   fixed catalog in [system-one-intent.md](system-one-intent.md): `explain`,
+   `discuss`, `git`, `fix`, `feature`, `refactor`, `review`, `test`, `docs`,
+   `plan`, `investigate` or `unclassified`.
 3. **Skills**: which canonical skills fit the prompt, scored against skill
    descriptions. Only skills above the stage's calibrated threshold are
    suggested, and they are suggestions, never required reads.
