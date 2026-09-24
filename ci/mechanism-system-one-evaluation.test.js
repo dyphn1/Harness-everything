@@ -85,3 +85,13 @@ test('S1-E07 source provenance gate requires the pinned cua_s1 revision', () => 
   assert.equal(evaluate(make(), records(), recorded('pinned')).gates.sourceProvenance, true);
   assert.equal(evaluate(make(), records(), recorded('pinned')).rolloutReady, false);
 });
+test('S1-E08 the accepted-precision gate is the owner advisory 85%', () => {
+  // 7 accepted tier1 answers: 6 correct (85.7%) passes, 5 correct (71.4%) fails.
+  const cases = Array.from({ length: 7 }, (_, i) => ({ id: `p${i}`, family: `f${i}`, split: 'holdout', language: 'en', source: 'human:fixture', reviewed: false,
+    request: createRequest('tier', `bounded prompt ${i}`, TIER_OPTIONS), gold: 'tier1' }));
+  const corpus = { schemaVersion: 1, cases };
+  const recs = wrong => cases.map((c, i) => { const id = i < wrong ? 'tier2' : 'tier1';
+    return { id: c.id, baseline: 'tier2', runs: [0, 1].map(() => ({ decision: decision(id), scores: oneHot(id), latencyMs: 20, coldStart: true })) }; });
+  assert.equal(evaluate(corpus, recs(1)).gates.acceptedPrecision, true);
+  assert.equal(evaluate(corpus, recs(2)).gates.acceptedPrecision, false);
+});
