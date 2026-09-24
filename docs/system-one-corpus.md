@@ -16,7 +16,7 @@ to, judged from the prompt alone?** The labels follow the tier model in
 | --- | --- | --- |
 | `tier1` | Something answered or done without changing project behavior: Git/GitHub housekeeping (commit, push, open a PR, sync, tag, post given results as a comment), a status check, reading a log or searching and reporting, the smallest doc fix (a typo, a link, an ignore entry), or a reply the assistant can give directly, including non-engineering chores and discussion questions | "commit these changes", "is issue 88 still open?", "find every repo still using the old logging package", "close the other apps" |
 | `tier2` | A bounded change or investigation: any code, configuration or CI edit (a rename, a value, a revert), running tests or a build, filing an issue, explaining code that must be read first, most bug fixes, a focused review or benchmark, planning or synthesis that produces documents (phase plans, an ADR, an overview), and answers that settle open decisions for work in progress | "rename tmp to buffer", "run npm test", "the CLI fails with this error, fix it", "1. agree 2. keep the old name" |
-| `tier3` | Work that needs several agents (sub-agents included); a new feature, a refactor, or a change to a framework or interface definition; or work that spans several repositories or several workflows | "add a --verbose flag with tests", "refactor the parser into modules", "change the plugin interface", "dispatch agents to audit every repo" |
+| `tier3` | Work that needs several agents (sub-agents included); a new module or subsystem, a refactor, or a change to a framework or interface definition; or code or design work that spans several repositories or several workflows | "add a plugin system to the CLI", "refactor the parser into modules", "change the plugin interface", "dispatch agents to audit every repo" |
 | `null` | No actionable content: a bare continuation, "do what you said", a vague reaction, a question about what the assistant meant, or pasted status with no request | "go", "yes", "照剛剛說的改", "something is off here" |
 
 Rules:
@@ -36,6 +36,19 @@ Rules:
    framework or interface definition, or spans several repositories or
    workflows. Fixing, adjusting, investigating or reviewing existing behavior
    within one workflow is `tier2`.
+   The owner settled four more lines from the third spot-check:
+   - **Git is `tier1` at any width.** Committing sub-repositories and then the
+     main repository is still housekeeping. "Several repositories" applies to
+     code or design work only.
+   - **Scope, not the word "add".** Adding an option, a function or a parser
+     inside one existing tool or component is `tier2`. A new module or
+     subsystem, or an addition that spans several components, is `tier3`.
+   - **A short reply follows the work in progress.** A reply that asks to
+     change an output (code, a document, an example) is `tier2`. Only a pure
+     question or a bare acknowledgement stays `tier1`.
+   - **Explicit agents or architecture make `tier3`.** A request for several
+     agents, a team discussion or a verifier pass, or one that redefines an
+     architecture, is `tier3` even when it is phrased as discussion.
 4. Explicit workflow words ("use fable", "no subagents") do not change the gold.
    Precedence is a router policy, not a label.
 5. Never derive gold from the lexical router or any model output. A reviewer may
