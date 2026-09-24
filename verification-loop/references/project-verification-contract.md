@@ -44,7 +44,7 @@ Rules:
 
 A `git commit` is accepted as successful verification evidence only when:
 - the declared contract contains a `pre-commit ...` check,
-- a real pre-commit hook is configured for that repository, and
+- a runnable pre-commit hook is configured for that repository (on POSIX, the hook file must have an executable bit), and
 - the commit command does not use `--no-verify` or `-n`.
 
 This prevents a generic commit from being mistaken for proof that the declared verification contract ran.

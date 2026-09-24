@@ -225,13 +225,20 @@ function enumerateSubmoduleRoots(repoRoot) {
   return [...new Set(roots)];
 }
 
-function hasCommitHook(repoRoot) {
+function hookIsRunnable(stat, platform = process.platform) {
+  return !!stat && stat.isFile() && (platform === 'win32' || (stat.mode & 0o111) !== 0);
+}
+
+function hasCommitHook(repoRoot, platform = process.platform) {
   const result = runGit(repoRoot, ['rev-parse', '--git-path', 'hooks/pre-commit']);
   if (result.status !== 0) return false;
   const value = result.stdout.trim();
   if (!value) return false;
   const hook = path.isAbsolute(value) ? value : path.resolve(repoRoot, value);
-  return fs.existsSync(hook);
+  let stat;
+  try { stat = fs.statSync(hook); }
+  catch (_) { return false; }
+  return hookIsRunnable(stat, platform);
 }
 
 function normalizeCommand(command) {
@@ -339,6 +346,7 @@ module.exports = {
   enumerateSubmoduleRoots,
   findGitRoot,
   hasCommitHook,
+  hookIsRunnable,
   isVerificationCommand,
   legacyVerificationCommand,
   normalizeCommand,

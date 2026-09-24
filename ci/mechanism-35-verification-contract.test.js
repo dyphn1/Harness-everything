@@ -9,6 +9,7 @@ const { spawnSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const VERIFY = path.join(ROOT, 'harness-everything', 'scripts', 'verify-gate.js');
 const { isVerificationShell } = require('../hooks/scripts/lib/workflow-isolation');
+const { hasCommitHook, hookIsRunnable } = require('../scripts/lib/verification-contract');
 const { getWorkspaceKey } = require('../scripts/lib/workspace');
 
 function run(command, args, cwd, options = {}) {
@@ -74,6 +75,11 @@ function packageScript(body) {
 }
 
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-verify-contract-'));
+
+assert.strictEqual(hookIsRunnable({ isFile: () => true, mode: 0o100755 }, 'linux'), true);
+assert.strictEqual(hookIsRunnable({ isFile: () => true, mode: 0o100644 }, 'linux'), false);
+assert.strictEqual(hookIsRunnable({ isFile: () => true, mode: 0o100644 }, 'win32'), true);
+assert.strictEqual(hookIsRunnable({ isFile: () => false, mode: 0o100755 }, 'linux'), false);
 
 try {
   // Taxonomy: truly no checks is distinct from discovered-but-unrun.
@@ -312,7 +318,10 @@ try {
     ],
   });
   fs.mkdirSync(path.join(classifyRepo, '.git', 'hooks'), { recursive: true });
-  fs.writeFileSync(path.join(classifyRepo, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\nexit 0\n');
+  const preCommitHook = path.join(classifyRepo, '.git', 'hooks', 'pre-commit');
+  fs.writeFileSync(preCommitHook, '#!/bin/sh\nexit 0\n');
+  assert.strictEqual(hasCommitHook(classifyRepo, 'linux'), false, 'a non-executable POSIX hook must not count as verification');
+  if (process.platform !== 'win32') fs.chmodSync(preCommitHook, 0o755);
 
   assert.strictEqual(isVerificationShell('pre-commit run --all-files', { cwd: classifyRepo }), true);
   assert.strictEqual(isVerificationShell('bash scripts/e2e.sh', { cwd: classifyRepo }), true);
@@ -320,6 +329,11 @@ try {
   assert.strictEqual(isVerificationShell('git commit --no-verify -m x', { cwd: classifyRepo }), false);
   assert.strictEqual(isVerificationShell('git commit -n -m x', { cwd: classifyRepo }), false);
   assert.strictEqual(isVerificationShell('git commit -an -m x', { cwd: classifyRepo }), false, 'combined -n must still bypass hooks');
+  if (process.platform !== 'win32') {
+    fs.chmodSync(preCommitHook, 0o644);
+    assert.strictEqual(isVerificationShell('git commit -m x', { cwd: classifyRepo }), false, 'a non-executable POSIX hook cannot verify a commit');
+    fs.chmodSync(preCommitHook, 0o755);
+  }
 
   // An invalid authoritative contract must fail closed in the hook classifier too.
   // The verify gate reports FAILED here, so legacy command matching must not
