@@ -97,14 +97,23 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
     has more than eight zeros, names a primary that is not the unique top score of at
     least 0.6, or has a `null` primary with an intent above 0.2. The owner chose Haiku
     for this labeling.
+  - `--scale` scales each non-`null` scored label so its top score is 1: every score is
+    divided by the top score. Haiku puts most top scores at 0.75 to 0.85, and the owner
+    chose to read them as relative (2026-09-24). The bands and the secondary intents are
+    derived from the scaled scores; the row keeps the model's scores as `raw`.
   - `--escalate-model M` labels a prompt a second time with model `M` when the first
-    label's highest score is below `--escalate-below` (default 0.8). The owner chose
-    Haiku first and Sonnet for the low-scoring rest. The 0.8 default was read from the
-    distribution of Haiku's top scores on the holdout check (about a third fall below
-    it), not from agreement. The second label replaces the first; when the second run
-    fails, the first label stays. The label rows record the model that produced them,
-    and a resumed run skips prompts that were already escalated. The holdout check
-    reports how many prompts were escalated.
+    label lags:
+    - `--escalate-margin R`: the relative margin, (top − second) / top, is below `R`.
+      The owner chose this lagging indicator to keep Sonnet to few prompts. `R` = 0.3
+      sends about 11% of Haiku's non-`null` training labels to Sonnet; it was read from
+      that distribution, not from the holdout. A `null` label is never escalated.
+    - Otherwise `--escalate-below` (default 0.8): the top score is below it. On the
+      training prompts this sent 69% to Sonnet, and the owner stopped it for its cost.
+  - The second label replaces the first; when the second run fails, the first label
+    stays. The label rows record the model that produced them, and a resumed run skips
+    prompts that were already escalated. The holdout check reports how many prompts were
+    escalated. `rescale --in A --out B` rewrites a label file with scaled labels (last
+    row per prompt).
 - **Labeler check**: the labeler labels the 215 holdout prompts once, before any training
   data is labeled. The report gives agreement with the owner's gold and the per-class recall.
   - Labeling proceeds only when agreement is at least 80%.
