@@ -21,7 +21,7 @@ const task = name => { if (!Object.hasOwn(TASKS, name)) throw new Error('--task 
 const GOLD = name => { task(name); return goldLabels(name).map(g => (g === null ? 'null' : g)); };
 const multi = name => MULTI.includes(name);
 // Relevance levels of a scored intent label (docs/system-one-intent.md#relevance-scores).
-const LEVELS = Object.freeze([0, 0.2, 0.4, 0.6]);
+const LEVELS = Object.freeze(Array.from({ length: 21 }, (_, k) => Number((k / 20).toFixed(2))));
 const INTENTS = name => GOLD(name).filter(g => g !== 'null');
 const scoresFor = (name, scores) => { if (scores && !multi(name)) throw new Error('--scores needs --task intent'); return !!scores; };
 const schemaFor = (name = 'tier', { scores = false } = {}) => {
@@ -49,8 +49,9 @@ function rulesFromDoc(markdown, name = 'tier') {
 function buildPrompt(rules, batch, name = 'tier', { scores = false } = {}) {
   const gold = GOLD(name).filter(g => g !== 'null');
   const ask = scoresFor(name, scores) ? [
-    `Return one label per prompt index: a primary (${gold.join(', ')}, or null when nothing is actionable) and scores that rate every intent at 0, 0.2, 0.4 or 0.6.`,
-    'Follow the relevance scores section: the primary scores 0.6, and with a null primary no intent scores more than 0.2.',
+    `Return one label per prompt index: a primary (${gold.join(', ')}, or null when nothing is actionable) and scores that rate every intent from 0 to 1 in steps of 0.05.`,
+    'Follow the relevance scores section: score every intent on its own; no two intents share a score above 0; at most eight intents score 0;',
+    'the primary is the single highest score and scores at least 0.6; with a null primary no intent scores more than 0.2.',
   ] : [
     `Return one label per prompt index: ${gold.join(', ')}, or null (nothing actionable).`,
     ...(multi(name) ? ['Also return secondary for each prompt: the other intents the request also needs, possibly none. Never repeat the primary; leave it empty when the label is null.'] : []),
@@ -71,7 +72,9 @@ function scoredLabel(name, r) {
   if (!r || Object.keys(r).length !== 3 || !GOLD(name).includes(r.primary) || !r.scores || typeof r.scores !== 'object' || Array.isArray(r.scores)
     || Object.keys(r.scores).length !== ids.length || !ids.every(id => Object.hasOwn(r.scores, id) && LEVELS.includes(r.scores[id]))) return null;
   const gold = r.primary === 'null' ? null : r.primary;
-  if (gold === null ? ids.some(id => r.scores[id] > 0.2) : r.scores[gold] !== 0.6) return null;
+  const values = ids.map(id => r.scores[id]); const positive = values.filter(v => v > 0);
+  if (new Set(positive).size !== positive.length || values.length - positive.length > 8) return null;
+  if (gold === null ? Math.max(...values) > 0.2 : r.scores[gold] < 0.6 || r.scores[gold] !== Math.max(...values)) return null;
   const secondary = ids.filter(id => id !== gold && r.scores[id] >= 0.4).sort((a, b) => r.scores[b] - r.scores[a] || ids.indexOf(a) - ids.indexOf(b));
   return { gold, secondary, scores: Object.fromEntries(ids.map(id => [id, r.scores[id]])) };
 }
@@ -144,7 +147,7 @@ function agreement(goldRows, predicted, name = 'tier') {
   const bands = multi(name) && labeled.some(l => l && l.scores) ? { bands: {
     goldSecondary: mean(goldRows, r => (r.secondary || []).length),
     secondary: mean(labeled, l => l.secondary.length),
-    related: mean(labeled, l => Object.values(l.scores || {}).filter(v => v === 0.2).length) } } : {};
+    related: mean(labeled, l => Object.values(l.scores || {}).filter(v => v >= 0.2 && v < 0.4).length) } } : {};
   return { cases: n, agreement: n ? same / n : 0, ...(multi(name) ? { graded: n ? graded / n : 0 } : {}), ...bands, recall, confusion, missing };
 }
 
