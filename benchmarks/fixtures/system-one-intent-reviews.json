@@ -2361,6 +2361,363 @@
       "gold": "git",
       "secondary": [],
       "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-add-regression-tests-1",
+      "promptHash": "6286b17b9c170dd372bc0e99624dc0c14e9873b661820aa7c97d2fea176a31b3",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "feature",
+        "review"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-add-regression-tests-2",
+      "promptHash": "5e0bdf4ffd03a5c50029a793c718457cf14a284338f4e25e2624b027407dc6f5",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "feature"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-run-suite-report-1",
+      "promptHash": "4d92f82657fe305b98924087fdfd4273b06b3b99dc31a5e93acfc116b94c0574",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-run-suite-report-2",
+      "promptHash": "4313ae6d77dc28f7201feebd6dfb62d63022d4eaa31ca3ba4faab0a254f9f80c",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-error-path-tests-1",
+      "promptHash": "dbf1d54182542f6525137afc385e71004be96ef8c2468e476338f7ad8698daa8",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-error-path-tests-2",
+      "promptHash": "334fd34653f2920d2859b72e9013ae641bd38902bac3fdb7625b5b20669a42f5",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-phase-breakdown-1",
+      "promptHash": "2ee448a9765d3d953a70e8ce7afcdb3920034b0a0c0958a512922a59c9793e96",
+      "decision": "accept",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-phase-breakdown-2",
+      "promptHash": "83e30c1ec7d737f68ddf9ec018af2fa7366ff060057c3dbcfbc36678e27664bd",
+      "decision": "accept",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-loader-spec-1",
+      "promptHash": "244202cbaf436771da9db9ca4fca06a86f5a5ed6c250c46a044dfa0fbefdae7a",
+      "decision": "accept",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-loader-spec-2",
+      "promptHash": "882390745c26383bf5b05c0d12cd500e5593770d64d60d400e4aa693d67b85cd",
+      "decision": "accept",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-index-adr-1",
+      "promptHash": "5193da7a17e019cb451174cc938b371b971b96c6f3142cf362cca9d9ef73a994",
+      "decision": "accept",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-index-adr-2",
+      "promptHash": "dca754b078fb22b6c7332f5a8af6a87de9c038885b5ad34172004d1e88b722bb",
+      "decision": "accept",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-pick-an-option-1",
+      "promptHash": "cc700cfe496f95013750dd377a131fc92828425e423d13121e6ef219556f8e49",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-pick-an-option-2",
+      "promptHash": "972741f6faf3c3fb68c27dd22a20266e172680633565a585bf70272e10d03b47",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-settle-open-points-1",
+      "promptHash": "fef6e751f0b32f3bb8723df5a54e63952c2622207cb843ceefbb701c9f9ac664",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "test",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-settle-open-points-2",
+      "promptHash": "a69b9f0a6a6e00e848983c78977558bd4294e680a58e6112d8d808f9fcf8a2ac",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "test",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-cache-tradeoff-1",
+      "promptHash": "f7ad9f5f7a107006b76c51bff19b5da2934f06f8102f42371ed546a6f4c35717",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-cache-tradeoff-2",
+      "promptHash": "92cace1feeb8876c4efd981125cfcc75a24b1c2d0b3fc1ac1e216af043290dc4",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-review-pr-callers-1",
+      "promptHash": "85c67827e0e7a114fa4ffbccb13328fc0caa977624f00c3c2a936c85a3e0384c",
+      "decision": "accept",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-review-pr-callers-2",
+      "promptHash": "e93a5d7a87c5e94f128d8d5ab5f12c38a4cef3fc9528deb2f245a438631a3fbe",
+      "decision": "accept",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-review-migration-guide-1",
+      "promptHash": "b8c6efcf365a12432ba8a4451fb9f05d78edc73634f04dfab01849fbe80dda76",
+      "decision": "accept",
+      "gold": "review",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-review-migration-guide-2",
+      "promptHash": "b32b518917992c0ec862a1b4be76ef39edc6a87656463c8603a20996bc4d55b6",
+      "decision": "accept",
+      "gold": "review",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-review-test-quality-1",
+      "promptHash": "57d8046ad5a2c67ba92ff78ad35dcf027bc4642efc64861dc55231b937757d64",
+      "decision": "accept",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-review-test-quality-2",
+      "promptHash": "492c1ca2248b9aa181aa574a67be19393d0e133a99bb6efa06126f167277b722",
+      "decision": "accept",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-edit-timeout-1",
+      "promptHash": "b7c00ed17095d1ef2d0386efa2042e3aa47492e2e599c2c1491452861584e4eb",
+      "decision": "accept",
+      "gold": "edit",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-edit-timeout-2",
+      "promptHash": "67e47adc99be518f239c34f611929e07eea0f879f7f68233e77078105294abf3",
+      "decision": "accept",
+      "gold": "edit",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-edit-error-message-1",
+      "promptHash": "fe149764984939a4bfc13add2d10e92bdf77340bab0b1064004410ba9dab7d8b",
+      "decision": "relabel",
+      "gold": "fix",
+      "secondary": [
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-edit-error-message-2",
+      "promptHash": "321fd6c337c1cd74199fa2c09384094f0062b8cf2193b7d2a8c8f4ba76d7fc32",
+      "decision": "relabel",
+      "gold": "fix",
+      "secondary": [
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-edit-default-logging-1",
+      "promptHash": "891af622c5e30c336de8987d102cd916e775f57fd772dc201dfec2653b6eda13",
+      "decision": "accept",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-edit-default-logging-2",
+      "promptHash": "75810e475ef5ae636dc6d7a752aed12a640ae3a0d4a487e68d33d768e3ed161f",
+      "decision": "accept",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-explain-routing-flow-1",
+      "promptHash": "68230555267d5990dfdaa4c64c90173cf1e3948f90a928994d7c0f3a047cbb1d",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "i-explain-routing-flow-2",
+      "promptHash": "d16bf15900a5be5210c2e120f6e1ef7e4090315026f8ac6bb9c701db50d70d9f",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
     }
   ]
 }

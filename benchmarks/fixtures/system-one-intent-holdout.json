@@ -14138,7 +14138,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14201,7 +14201,10 @@
         "requestHash": "c965e843e238ffa9261c8521999b8a3ce597a1fc19029af444de13c819ce4d01"
       },
       "gold": "test",
-      "secondary": []
+      "secondary": [
+        "feature",
+        "review"
+      ]
     },
     {
       "id": "i-add-regression-tests-2",
@@ -14209,7 +14212,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14272,7 +14275,9 @@
         "requestHash": "3d677f6b6807c0bb3fea78becad661a680d7adb275bd1c0f3c4c2ce7d04251ef"
       },
       "gold": "test",
-      "secondary": []
+      "secondary": [
+        "feature"
+      ]
     },
     {
       "id": "i-run-suite-report-1",
@@ -14280,7 +14285,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14343,7 +14348,11 @@
         "requestHash": "df97466b395d08df86ea35f48c2b605f6b0dc0ab4eeeea0c6b19e13beaa2f5d0"
       },
       "gold": "test",
-      "secondary": []
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ]
     },
     {
       "id": "i-run-suite-report-2",
@@ -14351,7 +14360,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14414,7 +14423,11 @@
         "requestHash": "0b42a441ff2e84005f39592fc2a715b751fda6a8d1ad383cbd5c5a0302caec5c"
       },
       "gold": "test",
-      "secondary": []
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ]
     },
     {
       "id": "i-error-path-tests-1",
@@ -14422,7 +14435,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14485,7 +14498,11 @@
         "requestHash": "d1a90c0e3dd9f73a7621174716f8794fe11aa8da77ac42b1bcc2147c39cc86c7"
       },
       "gold": "test",
-      "secondary": []
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ]
     },
     {
       "id": "i-error-path-tests-2",
@@ -14493,7 +14510,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14556,7 +14573,11 @@
         "requestHash": "3b56d160cac5b7f82c63d883c9efd43d8a772fa30d449118fdd4831b7df11f59"
       },
       "gold": "test",
-      "secondary": []
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ]
     },
     {
       "id": "i-phase-breakdown-1",
@@ -14564,7 +14585,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14627,7 +14648,11 @@
         "requestHash": "fa4940470a167326db520f14d66eb9627f67358fa7fa872b6bc892c4c64e6802"
       },
       "gold": "plan",
-      "secondary": []
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ]
     },
     {
       "id": "i-phase-breakdown-2",
@@ -14635,7 +14660,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14698,7 +14723,11 @@
         "requestHash": "54a9fe04dfc7be5feaaed545704ee835f701044e8158c60d3a3a0bc0ae67eef5"
       },
       "gold": "plan",
-      "secondary": []
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ]
     },
     {
       "id": "i-loader-spec-1",
@@ -14706,7 +14735,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14769,7 +14798,11 @@
         "requestHash": "c8cf79203da79c56cbac2f1b294980827682c820f54eec5dccd4cff1a885c215"
       },
       "gold": "plan",
-      "secondary": []
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ]
     },
     {
       "id": "i-loader-spec-2",
@@ -14777,7 +14810,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14840,7 +14873,11 @@
         "requestHash": "aa1f5032b464d027d08d43f15aec79ee6d64807c890b092da15e2d250727d7b0"
       },
       "gold": "plan",
-      "secondary": []
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ]
     },
     {
       "id": "i-index-adr-1",
@@ -14848,7 +14885,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14911,7 +14948,10 @@
         "requestHash": "a25cb1f9f00f6250860d92e14031c45386522328f99c3634d1c85fdbbfbd4aa6"
       },
       "gold": "plan",
-      "secondary": []
+      "secondary": [
+        "discuss",
+        "docs"
+      ]
     },
     {
       "id": "i-index-adr-2",
@@ -14919,7 +14959,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -14982,7 +15022,10 @@
         "requestHash": "63c397ab1a06fb40baf002850901b7a17e97ed6d8899714d1e53277ce5a925ac"
       },
       "gold": "plan",
-      "secondary": []
+      "secondary": [
+        "discuss",
+        "docs"
+      ]
     },
     {
       "id": "i-pick-an-option-1",
@@ -14990,7 +15033,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15053,7 +15096,10 @@
         "requestHash": "53e163ababba1f64845988d45fe600e06117b4972e9dea24b627723aa4071900"
       },
       "gold": "discuss",
-      "secondary": []
+      "secondary": [
+        "explain",
+        "investigate"
+      ]
     },
     {
       "id": "i-pick-an-option-2",
@@ -15061,7 +15107,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15124,7 +15170,10 @@
         "requestHash": "c0272334727be777a177493428d500187c252dd9e4e8c75b171ed263eb0d519e"
       },
       "gold": "discuss",
-      "secondary": []
+      "secondary": [
+        "explain",
+        "investigate"
+      ]
     },
     {
       "id": "i-settle-open-points-1",
@@ -15132,7 +15181,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15195,7 +15244,11 @@
         "requestHash": "1c6f8dbd6a166d72a724c33b505dd96d18edcd8297abde7b94310e0cd9708976"
       },
       "gold": "discuss",
-      "secondary": []
+      "secondary": [
+        "explain",
+        "test",
+        "docs"
+      ]
     },
     {
       "id": "i-settle-open-points-2",
@@ -15203,7 +15256,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15266,7 +15319,11 @@
         "requestHash": "3308b5f982256aba9185379557a6d5e69874ad056648d57668893b9fc45d3998"
       },
       "gold": "discuss",
-      "secondary": []
+      "secondary": [
+        "explain",
+        "test",
+        "docs"
+      ]
     },
     {
       "id": "i-cache-tradeoff-1",
@@ -15274,7 +15331,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15337,7 +15394,10 @@
         "requestHash": "d6692963e606683c545247dba7712097c29ed8173bdfd673983ba8973bdfa156"
       },
       "gold": "discuss",
-      "secondary": []
+      "secondary": [
+        "explain",
+        "investigate"
+      ]
     },
     {
       "id": "i-cache-tradeoff-2",
@@ -15345,7 +15405,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15408,7 +15468,10 @@
         "requestHash": "082b84c55d6d3d6a3946f0964d8eb5eaa125085b90e31c3051cbb4eb093b1339"
       },
       "gold": "discuss",
-      "secondary": []
+      "secondary": [
+        "explain",
+        "investigate"
+      ]
     },
     {
       "id": "i-review-pr-callers-1",
@@ -15416,7 +15479,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15479,7 +15542,10 @@
         "requestHash": "3d05f097305d554d40121461c356abe1d3f898178fb75eef01d682e90d04fee1"
       },
       "gold": "review",
-      "secondary": []
+      "secondary": [
+        "test",
+        "investigate"
+      ]
     },
     {
       "id": "i-review-pr-callers-2",
@@ -15487,7 +15553,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15550,7 +15616,10 @@
         "requestHash": "db716451063b2c48cba8586a399a9f4bb23b103792ad676efcf6b69128b943ed"
       },
       "gold": "review",
-      "secondary": []
+      "secondary": [
+        "test",
+        "investigate"
+      ]
     },
     {
       "id": "i-review-migration-guide-1",
@@ -15558,7 +15627,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15621,7 +15690,10 @@
         "requestHash": "bdb62885cc30845c69ce6c7af5b22b08eae47767dffd9e23f9867b5a6412b61e"
       },
       "gold": "review",
-      "secondary": []
+      "secondary": [
+        "discuss",
+        "docs"
+      ]
     },
     {
       "id": "i-review-migration-guide-2",
@@ -15629,7 +15701,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15692,7 +15764,10 @@
         "requestHash": "3a9201255aab1f0b26d931ececb1de5cfce51857421aa1fc930e9821c8cb3c15"
       },
       "gold": "review",
-      "secondary": []
+      "secondary": [
+        "discuss",
+        "docs"
+      ]
     },
     {
       "id": "i-review-test-quality-1",
@@ -15700,7 +15775,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15763,7 +15838,10 @@
         "requestHash": "1e7a225ed6a9942d0a5deeb60223f862ae7e387e8d4e23353be512467f7390cd"
       },
       "gold": "review",
-      "secondary": []
+      "secondary": [
+        "test",
+        "investigate"
+      ]
     },
     {
       "id": "i-review-test-quality-2",
@@ -15771,7 +15849,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15834,7 +15912,10 @@
         "requestHash": "2152c2c1f406aee4af0562e9ea7d375166338c19f355ff9ff80774df4dbf7d84"
       },
       "gold": "review",
-      "secondary": []
+      "secondary": [
+        "test",
+        "investigate"
+      ]
     },
     {
       "id": "i-edit-timeout-1",
@@ -15842,7 +15923,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15905,7 +15986,10 @@
         "requestHash": "611446601a4985096f246c5cc0ca3991150e76a8a0dd43431c3e11afe4579f32"
       },
       "gold": "edit",
-      "secondary": []
+      "secondary": [
+        "review",
+        "test"
+      ]
     },
     {
       "id": "i-edit-timeout-2",
@@ -15913,7 +15997,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -15976,7 +16060,10 @@
         "requestHash": "842b3aed8f21827bea8866db821d5d5245527650455fecec9ffaeb1e554f6d24"
       },
       "gold": "edit",
-      "secondary": []
+      "secondary": [
+        "review",
+        "test"
+      ]
     },
     {
       "id": "i-edit-error-message-1",
@@ -15984,7 +16071,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -16046,8 +16133,10 @@
         "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
         "requestHash": "4cf637248c659d09efd5e2ba80ecd789b5fc7f37dd635bde1a09f46898bdd513"
       },
-      "gold": "edit",
-      "secondary": []
+      "gold": "fix",
+      "secondary": [
+        "test"
+      ]
     },
     {
       "id": "i-edit-error-message-2",
@@ -16055,7 +16144,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -16117,8 +16206,10 @@
         "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
         "requestHash": "154f9361269a2d41791c7b7bf6722c0501e7be327c8466f62a091f1816d00bfd"
       },
-      "gold": "edit",
-      "secondary": []
+      "gold": "fix",
+      "secondary": [
+        "test"
+      ]
     },
     {
       "id": "i-edit-default-logging-1",
@@ -16126,7 +16217,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -16189,7 +16280,9 @@
         "requestHash": "aa232d7d1dacbef0d98ffbb50025bd3f336d2938966cce8ac5eda162778b765c"
       },
       "gold": "edit",
-      "secondary": []
+      "secondary": [
+        "test"
+      ]
     },
     {
       "id": "i-edit-default-logging-2",
@@ -16197,7 +16290,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -16260,7 +16353,9 @@
         "requestHash": "8403a321b6dffdab29398cb36cf881fe39bfb77449960e3bff59a15a037231a5"
       },
       "gold": "edit",
-      "secondary": []
+      "secondary": [
+        "test"
+      ]
     },
     {
       "id": "i-explain-routing-flow-1",
@@ -16268,7 +16363,7 @@
       "split": "holdout",
       "language": "en",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -16331,7 +16426,10 @@
         "requestHash": "8adcef331cf6ff50e9d2abf58a8c951b985785fb88be0b36f3858d738318e89d"
       },
       "gold": "explain",
-      "secondary": []
+      "secondary": [
+        "discuss",
+        "investigate"
+      ]
     },
     {
       "id": "i-explain-routing-flow-2",
@@ -16339,7 +16437,7 @@
       "split": "holdout",
       "language": "zh-TW",
       "source": "synthetic:authored",
-      "reviewed": false,
+      "reviewed": true,
       "request": {
         "schemaVersion": 1,
         "task": "intent",
@@ -16402,7 +16500,10 @@
         "requestHash": "da754a45e591d7e3e62f9da67707592fca58a892367093c632b4a8390ff55eb0"
       },
       "gold": "explain",
-      "secondary": []
+      "secondary": [
+        "discuss",
+        "investigate"
+      ]
     }
   ]
 }
