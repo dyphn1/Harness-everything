@@ -96,7 +96,7 @@ function validateReply(batch, reply, name = 'tier', { scores = false } = {}) {
   }
   return out;
 }
-async function labelAll(data, { run, rules, task: name = 'tier', scores = false, batchSize = 100, concurrency = 4, done = new Set(), onBatch = () => {}, onFailure = () => {}, retryDelayMs = 30000, maxBatches = Infinity }) {
+async function labelAll(data, { run, rules, task: name = 'tier', scores = false, scale = false, batchSize = 100, concurrency = 4, done = new Set(), onBatch = () => {}, onFailure = () => {}, retryDelayMs = 30000, maxBatches = Infinity }) {
   const todo = data.filter(d => !done.has(d.id));
   const batches = []; for (let i = 0; i < todo.length && batches.length < maxBatches; i += batchSize) batches.push(todo.slice(i, i + batchSize));
   const labeled = []; const failed = []; let next = 0;
@@ -118,18 +118,33 @@ async function labelAll(data, { run, rules, task: name = 'tier', scores = false,
       }
       const gold = result.gold;
       if (!gold) { failed.push(...batch.map(b => b.id)); continue; }
-      const rows = batch.map((b, i) => (multi(name) ? { id: b.id, ...gold[i] } : { id: b.id, gold: gold[i] }));
+      const rows = batch.map((b, i) => (multi(name) ? { id: b.id, ...(scale ? scaleLabel(gold[i]) : gold[i]) } : { id: b.id, gold: gold[i] }));
       labeled.push(...rows); onBatch(rows);
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker));
   return { labeled, failed };
 }
-// Scored labels whose highest score is below `below` are labeled again by `run` (a second model).
+// Scaled label: a non-null label's scores divided by its top score, bands re-derived; `raw` keeps the model's scores.
+function scaleLabel(l) {
+  const raw = l.raw || l.scores;
+  if (l.gold === null) return { ...l, raw };
+  const top = Math.max(...Object.values(raw));
+  const scores = Object.fromEntries(Object.entries(raw).map(([id, v]) => [id, Number((v / top).toFixed(4))]));
+  const ids = Object.keys(scores);
+  const secondary = ids.filter(id => id !== l.gold && scores[id] >= 0.4).sort((a, b) => scores[b] - scores[a] || ids.indexOf(a) - ids.indexOf(b));
+  return { ...l, secondary, scores, raw };
+}
+// A lagging label: its relative margin (top - second) / top is below `margin` (never for null), or else its top score is below `below`.
+function lagging(r, { margin, below = 0.8 } = {}) {
+  const v = Object.values(r.raw || r.scores).sort((a, b) => b - a);
+  if (margin !== undefined) return r.gold !== null && (v[0] - v[1]) / v[0] < margin;
+  return v[0] < below;
+}
+// Lagging scored labels are labeled again by `run` (a second model).
 // The second label replaces the first; a failed second label keeps the first (docs/system-one-training.md).
-const topScore = r => Math.max(...Object.values(r.scores));
-async function escalate(rows, items, { run, rules, below = 0.8, onBatch = () => {}, ...rest }) {
-  const low = new Set(rows.filter(r => r.scores && topScore(r) < below).map(r => r.id));
+async function escalate(rows, items, { run, rules, below = 0.8, margin, onBatch = () => {}, ...rest }) {
+  const low = new Set(rows.filter(r => r.scores && lagging(r, { margin, below })).map(r => r.id));
   if (!low.size) return { rows, escalated: [], failed: [] };
   const { labeled, failed } = await labelAll(items.filter(x => low.has(x.id)), { run, rules, task: 'intent', scores: true, onBatch, ...rest });
   const byId = new Map(labeled.map(r => [r.id, r]));
@@ -229,11 +244,22 @@ async function main(argv) {
   const labeler = { model, rulesSha256: sha(rules).slice(0, 16), ...(engine === 'codex' ? { engine } : {}), ...(name === 'tier' ? {} : { task: name }), ...(scores ? { target: 'scores' } : {}) };
   const run = engine === 'codex' ? codexRunner(model, name, { scores }) : commandRunner(model, name, { scores });
   const escModel = opt('--escalate-model'); const below = Number(opt('--escalate-below', '0.8'));
+  const margin = rest.includes('--escalate-margin') ? Number(opt('--escalate-margin')) : undefined;
+  const scale = rest.includes('--scale');
+  if (scale && !scores) throw new Error('--scale needs --scores');
   if (escModel && !scores) throw new Error('--escalate-model needs --scores');
-  const escLabeler = escModel ? { ...labeler, model: escModel, escalatedBelow: below } : null;
+  if (scale) labeler.scaled = true;
+  const escLabeler = escModel ? { ...labeler, model: escModel, ...(margin !== undefined ? { escalatedMargin: margin } : { escalatedBelow: below }) } : null;
   const escRun = escModel ? (engine === 'codex' ? codexRunner(escModel, name, { scores }) : commandRunner(escModel, name, { scores })) : null;
   const concurrency = Number(opt('--concurrency', '4')); const batchSize = Number(opt('--batch', '100'));
-  if (op === 'label') {
+  if (op === 'rescale') {
+    const input = opt('--in'); const out = opt('--out');
+    if (!input || !out) throw new Error('rescale needs --in and --out');
+    outsideRepo(out);
+    const last = new Map(fs.readFileSync(input, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).map(r => [r.id, r]));
+    fs.writeFileSync(out, [...last.values()].map(r => `${JSON.stringify({ ...scaleLabel(r), labeler: { ...r.labeler, scaled: true } })}\n`).join(''), { mode: 0o600 });
+    console.log(JSON.stringify({ rescaled: last.size }));
+  } else if (op === 'label') {
     const input = opt('--in'); const out = opt('--out');
     if (!input || !out) throw new Error('label needs --in and --out');
     outsideRepo(out);
@@ -243,14 +269,14 @@ async function main(argv) {
     // Failure log: first ID, size and reason only, never prompt text.
     const onFailure = (batch, reason) => fs.appendFileSync(`${out}.failures.jsonl`, `${JSON.stringify({ firstId: batch[0].id, size: batch.length, reason, at: new Date().toISOString() })}\n`);
     const maxBatches = Number(opt('--max-batches', 'Infinity'));
-    const { labeled, failed } = await labelAll(data, { run, rules, task: name, scores, batchSize, concurrency, done, onBatch, onFailure, maxBatches });
+    const { labeled, failed } = await labelAll(data, { run, rules, task: name, scores, scale, batchSize, concurrency, done, onBatch, onFailure, maxBatches });
     let escalation = {};
     if (escModel) {
       // The last row per prompt wins; prompts whose last row came from the second model are not escalated again.
       const last = new Map(fs.readFileSync(out, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).map(r => [r.id, r]));
       const pending = [...last.values()].filter(r => r.labeler?.model !== escModel);
       const writeEsc = rows => fs.appendFileSync(out, rows.map(r => `${JSON.stringify({ ...r, labeler: escLabeler })}\n`).join(''), { mode: 0o600 });
-      const e = await escalate(pending, data, { run: escRun, rules, below, batchSize, concurrency, onBatch: writeEsc, onFailure, maxBatches });
+      const e = await escalate(pending, data, { run: escRun, rules, below, margin, scale, batchSize, concurrency, onBatch: writeEsc, onFailure, maxBatches });
       escalation = { escalated: e.escalated.length, escalationFailed: e.failed.length };
     }
     console.log(JSON.stringify({ labeled: labeled.length, failed: failed.length, total: data.length, ...escalation }));
@@ -259,16 +285,16 @@ async function main(argv) {
     const fixture = name === 'tier' ? 'system-one-holdout.json' : `system-one-${name}-holdout.json`;
     const holdout = JSON.parse(fs.readFileSync(path.join(REPO, 'benchmarks', 'fixtures', fixture), 'utf8')).cases;
     const items = holdout.map(c => ({ id: c.id, text: c.request.context }));
-    const first = await labelAll(items, { run, rules, task: name, scores, batchSize, concurrency });
-    const e = escModel ? await escalate(first.labeled, items, { run: escRun, rules, below, batchSize, concurrency }) : null;
+    const first = await labelAll(items, { run, rules, task: name, scores, scale, batchSize, concurrency });
+    const e = escModel ? await escalate(first.labeled, items, { run: escRun, rules, below, margin, scale, batchSize, concurrency }) : null;
     const labeled = e ? e.rows : first.labeled; const { failed } = first;
     const predicted = Object.fromEntries(labeled.map(r => [r.id, multi(name) ? { gold: r.gold, secondary: r.secondary, ...(scores ? { scores: r.scores } : {}) } : r.gold]));
     const goldRow = c => (multi(name) ? { id: c.id, gold: c.gold, secondary: c.secondary } : { id: c.id, gold: c.gold });
-    const report = { schemaVersion: 1, labeler, ...(e ? { escalation: { model: escModel, below, escalated: e.escalated.length, failed: e.failed.length, ids: e.escalated } } : {}), ...agreement(holdout.map(goldRow), predicted, name), failed: failed.length,
+    const report = { schemaVersion: 1, labeler, ...(e ? { escalation: { model: escModel, ...(margin !== undefined ? { margin } : { below }), escalated: e.escalated.length, failed: e.failed.length, ids: e.escalated } } : {}), ...agreement(holdout.map(goldRow), predicted, name), failed: failed.length,
       perCase: holdout.map(c => ({ ...goldRow(c), predicted: Object.hasOwn(predicted, c.id) ? predicted[c.id] : 'missing' })) };
     fs.writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
     console.log(JSON.stringify({ cases: report.cases, agreement: report.agreement, failed: report.failed }));
   } else throw new Error('usage: system-one-label.js label --in <prompts.jsonl> --out <labels.jsonl> | check-holdout --out <report.json> [--task tier|intent] [--scores]');
 }
 if (require.main === module) main(process.argv.slice(2)).catch(err => { console.error(`system-one-label: ${err.message}`); process.exitCode = 1; });
-module.exports = { rulesFromDoc, buildPrompt, validateReply, labelAll, escalate, agreement, schemaFor };
+module.exports = { rulesFromDoc, buildPrompt, validateReply, labelAll, scaleLabel, lagging, escalate, agreement, schemaFor };
