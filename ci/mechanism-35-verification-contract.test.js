@@ -319,6 +319,14 @@ try {
   assert.strictEqual(isVerificationShell('git commit -m x', { cwd: classifyRepo }), true);
   assert.strictEqual(isVerificationShell('git commit --no-verify -m x', { cwd: classifyRepo }), false);
   assert.strictEqual(isVerificationShell('git commit -n -m x', { cwd: classifyRepo }), false);
+  assert.strictEqual(isVerificationShell('git commit -an -m x', { cwd: classifyRepo }), false, 'combined -n must still bypass hooks');
+
+  // An invalid authoritative contract must fail closed in the hook classifier too.
+  // The verify gate reports FAILED here, so legacy command matching must not
+  // silently manufacture lastVerifyAt evidence from the same workspace.
+  fs.writeFileSync(path.join(classifyRepo, '.harness', 'verify.json'), '{ broken');
+  assert.strictEqual(isVerificationShell('npm test', { cwd: classifyRepo }), false, 'invalid contract must suppress legacy verifier fallback');
+  assert.strictEqual(isVerificationShell('pre-commit run --all-files', { cwd: classifyRepo }), false, 'invalid contract must suppress detector-based evidence');
 
   fs.rmSync(path.join(classifyRepo, '.harness', 'verify.json'));
   assert.strictEqual(isVerificationShell('git commit -m x', { cwd: classifyRepo }), false, 'commit is not full verification without a declared hook contract');
