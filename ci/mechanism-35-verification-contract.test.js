@@ -9,6 +9,7 @@ const { spawnSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const VERIFY = path.join(ROOT, 'harness-everything', 'scripts', 'verify-gate.js');
 const { isVerificationShell } = require('../hooks/scripts/lib/workflow-isolation');
+const { getWorkspaceKey } = require('../scripts/lib/workspace');
 
 function run(command, args, cwd, options = {}) {
   const result = spawnSync(command, args, {
@@ -329,7 +330,62 @@ try {
   assert.strictEqual(isVerificationShell('go test ./...', { cwd: classifyRepo }), true);
   assert.strictEqual(isVerificationShell('uv run pytest', { cwd: classifyRepo }), true);
 
-  console.log('Issue #242 verification contract: taxonomy, discovery, execution safety, multi-root scope, and hook recognition verified.');
+  // Hook evidence: successful declared pre-commit verification after an edit
+  // updates lastVerifyAt, so Stop does not emit a stale verification reminder.
+  writeJson(path.join(classifyRepo, '.harness', 'verify.json'), {
+    version: 1,
+    checks: [{ id: 'precommit', run: 'pre-commit run --all-files' }],
+  });
+  const stateHome = path.join(temp, 'state-home');
+  const session = 'verify-contract-hook';
+  const stateEnv = { HARNESS_STATE_HOME: stateHome, CLAUDE: '1' };
+  const statePersist = path.join(ROOT, 'hooks', 'scripts', 'state-persist.js');
+  const stopGate = path.join(ROOT, 'hooks', 'scripts', 'stop-gate.js');
+  const invokeHook = (script, payload) => spawnSync(process.execPath, [script], {
+    cwd: classifyRepo,
+    input: JSON.stringify(payload),
+    encoding: 'utf8',
+    env: { ...process.env, ...stateEnv },
+  });
+
+  fs.appendFileSync(path.join(classifyRepo, 'README.md'), 'dirty\n');
+  let hook = invokeHook(statePersist, {
+    session_id: session,
+    cwd: classifyRepo,
+    hook_event_name: 'PostToolUse',
+    tool_name: 'Edit',
+    tool_input: { file_path: path.join(classifyRepo, 'README.md') },
+    tool_response: { stdout: '', exitCode: 0 },
+  });
+  assert.strictEqual(hook.status, 0);
+
+  hook = invokeHook(statePersist, {
+    session_id: session,
+    cwd: classifyRepo,
+    hook_event_name: 'PostToolUse',
+    tool_name: 'Bash',
+    tool_input: { command: 'pre-commit run --all-files' },
+    tool_response: { stdout: 'ok', exitCode: 0 },
+  });
+  assert.strictEqual(hook.status, 0);
+
+  const stateFile = path.join(
+    stateHome,
+    'workspaces',
+    getWorkspaceKey(classifyRepo),
+    'state',
+    'sessions',
+    session,
+    'handoff-state.json',
+  );
+  const handoff = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+  assert.ok(handoff.lastVerifyAt >= handoff.lastEditAt, JSON.stringify(handoff));
+
+  const stop = invokeHook(stopGate, { session_id: session, cwd: classifyRepo });
+  assert.strictEqual(stop.status, 0);
+  assert.doesNotMatch(String(stop.stderr || ''), /Verification Reminder/i);
+
+  console.log('Issue #242 verification contract: taxonomy, discovery, execution safety, multi-root scope, hook recognition, and Stop evidence verified.');
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });
 }
