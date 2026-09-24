@@ -33,6 +33,12 @@ function resolveContained(root, value, label, { mustExist = true } = {}) {
   const resolved = path.resolve(root, value);
   if (!within(root, resolved)) throw new Error(`${label} escapes the repository`);
   if (mustExist && !fs.existsSync(resolved)) throw new Error(`${label} does not exist: ${value}`);
+  if (mustExist) {
+    const physicalRoot = fs.realpathSync.native(path.resolve(root));
+    const physicalTarget = fs.realpathSync.native(resolved);
+    if (!within(physicalRoot, physicalTarget)) throw new Error(`${label} escapes the repository through a symbolic link`);
+    return physicalTarget;
+  }
   return resolved;
 }
 
@@ -152,7 +158,7 @@ function detectRoot(root) {
         });
       }
     }
-    for (const name of ['check', 'typecheck', 'verify']) {
+    for (const name of ['check', 'typecheck', 'verify', 'build']) {
       const script = scripts[name];
       if (typeof script === 'string' && script.trim()) {
         addCandidate(candidates, seen, { source: `package:${name}`, run: packageCommand(runner, name), cwd: root });
@@ -188,6 +194,10 @@ function detectRoot(root) {
   if (/\[tool\.ruff(?:\.|\])/m.test(pyproject)) {
     addCandidate(candidates, seen, { source: 'pyproject:ruff', run: 'ruff check .', cwd: root });
     addCandidate(candidates, seen, { source: 'pyproject:ruff', run: 'uv run ruff check .', cwd: root });
+  }
+  if (fs.existsSync(path.join(root, 'tsconfig.json'))) addCandidate(candidates, seen, { source: 'typescript', run: 'npx tsc --noEmit', cwd: root });
+  if (['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', '.eslintrc', '.eslintrc.json', '.eslintrc.js', '.eslintrc.cjs'].some(name => fs.existsSync(path.join(root, name)))) {
+    addCandidate(candidates, seen, { source: 'eslint', run: 'npx eslint .', cwd: root });
   }
   if (fs.existsSync(path.join(root, 'tox.ini'))) addCandidate(candidates, seen, { source: 'tox', run: 'tox', cwd: root });
   if (fs.existsSync(path.join(root, 'noxfile.py'))) addCandidate(candidates, seen, { source: 'nox', run: 'nox', cwd: root });
@@ -248,6 +258,11 @@ function bypassesHooks(command) {
   return /(?:^|\s)--no-verify(?:\s|$)/i.test(command) || /(?:^|\s)-n(?:\s|$)/.test(command);
 }
 
+function legacyVerificationCommand(command) {
+  const value = normalizeCommand(command);
+  return /^(?:(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:test|lint|build|typecheck|check|verify)\b|npx\s+(?:jest|vitest|mocha|tsc|eslint)\b|(?:jest|vitest|mocha|pytest|rspec|phpunit)\b|uv\s+run\s+(?:pytest|ruff)\b|(?:make|just)\s+(?:test|check|lint|ci)\b|cargo\s+(?:test|check)\b|go\s+test\b|dotnet\s+(?:test|build)\b)/i.test(value);
+}
+
 function verificationCommandSet(cwd, options = {}) {
   const repoRoot = path.resolve(options.root || findGitRoot(cwd));
   let contract = null;
@@ -287,7 +302,8 @@ function isVerificationCommand(command, options = {}) {
   if (isGitCommit(actual)) {
     return !!set.commitHookDeclared && !bypassesHooks(actual) && hasCommitHook(set.repoRoot);
   }
-  return set.commands.some(expected => commandMatches(actual, expected));
+  if (set.commands.some(expected => commandMatches(actual, expected))) return true;
+  return !set.contract && legacyVerificationCommand(actual);
 }
 
 module.exports = {
@@ -300,6 +316,7 @@ module.exports = {
   findGitRoot,
   hasCommitHook,
   isVerificationCommand,
+  legacyVerificationCommand,
   normalizeCommand,
   readContract,
   resolveContained,
