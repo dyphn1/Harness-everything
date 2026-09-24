@@ -125,6 +125,16 @@ async function labelAll(data, { run, rules, task: name = 'tier', scores = false,
   await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker));
   return { labeled, failed };
 }
+// Scored labels whose highest score is below `below` are labeled again by `run` (a second model).
+// The second label replaces the first; a failed second label keeps the first (docs/system-one-training.md).
+const topScore = r => Math.max(...Object.values(r.scores));
+async function escalate(rows, items, { run, rules, below = 0.8, onBatch = () => {}, ...rest }) {
+  const low = new Set(rows.filter(r => r.scores && topScore(r) < below).map(r => r.id));
+  if (!low.size) return { rows, escalated: [], failed: [] };
+  const { labeled, failed } = await labelAll(items.filter(x => low.has(x.id)), { run, rules, task: 'intent', scores: true, onBatch, ...rest });
+  const byId = new Map(labeled.map(r => [r.id, r]));
+  return { rows: rows.map(r => byId.get(r.id) || r), escalated: rows.filter(r => byId.has(r.id)).map(r => r.id), failed };
+}
 // Multi-label stages pass predicted values as { gold, secondary } and also get graded agreement.
 function agreement(goldRows, predicted, name = 'tier') {
   const key = g => (g === null ? 'unclassified' : g);
@@ -218,6 +228,10 @@ async function main(argv) {
   // Tier rows keep their original shape; other stages record their task.
   const labeler = { model, rulesSha256: sha(rules).slice(0, 16), ...(engine === 'codex' ? { engine } : {}), ...(name === 'tier' ? {} : { task: name }), ...(scores ? { target: 'scores' } : {}) };
   const run = engine === 'codex' ? codexRunner(model, name, { scores }) : commandRunner(model, name, { scores });
+  const escModel = opt('--escalate-model'); const below = Number(opt('--escalate-below', '0.8'));
+  if (escModel && !scores) throw new Error('--escalate-model needs --scores');
+  const escLabeler = escModel ? { ...labeler, model: escModel, escalatedBelow: below } : null;
+  const escRun = escModel ? (engine === 'codex' ? codexRunner(escModel, name, { scores }) : commandRunner(escModel, name, { scores })) : null;
   const concurrency = Number(opt('--concurrency', '4')); const batchSize = Number(opt('--batch', '100'));
   if (op === 'label') {
     const input = opt('--in'); const out = opt('--out');
@@ -230,19 +244,31 @@ async function main(argv) {
     const onFailure = (batch, reason) => fs.appendFileSync(`${out}.failures.jsonl`, `${JSON.stringify({ firstId: batch[0].id, size: batch.length, reason, at: new Date().toISOString() })}\n`);
     const maxBatches = Number(opt('--max-batches', 'Infinity'));
     const { labeled, failed } = await labelAll(data, { run, rules, task: name, scores, batchSize, concurrency, done, onBatch, onFailure, maxBatches });
-    console.log(JSON.stringify({ labeled: labeled.length, failed: failed.length, total: data.length }));
+    let escalation = {};
+    if (escModel) {
+      // The last row per prompt wins; prompts whose last row came from the second model are not escalated again.
+      const last = new Map(fs.readFileSync(out, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).map(r => [r.id, r]));
+      const pending = [...last.values()].filter(r => r.labeler?.model !== escModel);
+      const writeEsc = rows => fs.appendFileSync(out, rows.map(r => `${JSON.stringify({ ...r, labeler: escLabeler })}\n`).join(''), { mode: 0o600 });
+      const e = await escalate(pending, data, { run: escRun, rules, below, batchSize, concurrency, onBatch: writeEsc, onFailure, maxBatches });
+      escalation = { escalated: e.escalated.length, escalationFailed: e.failed.length };
+    }
+    console.log(JSON.stringify({ labeled: labeled.length, failed: failed.length, total: data.length, ...escalation }));
   } else if (op === 'check-holdout') {
     const out = opt('--out'); if (!out) throw new Error('check-holdout needs --out');
     const fixture = name === 'tier' ? 'system-one-holdout.json' : `system-one-${name}-holdout.json`;
     const holdout = JSON.parse(fs.readFileSync(path.join(REPO, 'benchmarks', 'fixtures', fixture), 'utf8')).cases;
-    const { labeled, failed } = await labelAll(holdout.map(c => ({ id: c.id, text: c.request.context })), { run, rules, task: name, scores, batchSize, concurrency });
+    const items = holdout.map(c => ({ id: c.id, text: c.request.context }));
+    const first = await labelAll(items, { run, rules, task: name, scores, batchSize, concurrency });
+    const e = escModel ? await escalate(first.labeled, items, { run: escRun, rules, below, batchSize, concurrency }) : null;
+    const labeled = e ? e.rows : first.labeled; const { failed } = first;
     const predicted = Object.fromEntries(labeled.map(r => [r.id, multi(name) ? { gold: r.gold, secondary: r.secondary, ...(scores ? { scores: r.scores } : {}) } : r.gold]));
     const goldRow = c => (multi(name) ? { id: c.id, gold: c.gold, secondary: c.secondary } : { id: c.id, gold: c.gold });
-    const report = { schemaVersion: 1, labeler, ...agreement(holdout.map(goldRow), predicted, name), failed: failed.length,
+    const report = { schemaVersion: 1, labeler, ...(e ? { escalation: { model: escModel, below, escalated: e.escalated.length, failed: e.failed.length, ids: e.escalated } } : {}), ...agreement(holdout.map(goldRow), predicted, name), failed: failed.length,
       perCase: holdout.map(c => ({ ...goldRow(c), predicted: Object.hasOwn(predicted, c.id) ? predicted[c.id] : 'missing' })) };
     fs.writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
     console.log(JSON.stringify({ cases: report.cases, agreement: report.agreement, failed: report.failed }));
   } else throw new Error('usage: system-one-label.js label --in <prompts.jsonl> --out <labels.jsonl> | check-holdout --out <report.json> [--task tier|intent] [--scores]');
 }
 if (require.main === module) main(process.argv.slice(2)).catch(err => { console.error(`system-one-label: ${err.message}`); process.exitCode = 1; });
-module.exports = { rulesFromDoc, buildPrompt, validateReply, labelAll, agreement, schemaFor };
+module.exports = { rulesFromDoc, buildPrompt, validateReply, labelAll, escalate, agreement, schemaFor };
