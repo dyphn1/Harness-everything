@@ -35,7 +35,7 @@ test('S1-I02 the evaluator scores an intent corpus over the intent labels only',
   const corpus = { schemaVersion: 1, cases: [intentCase('a', 'fix'), intentCase('b', null, 'zh-TW')] };
   assert.equal(validateCorpus(corpus), true);
   const records = corpus.cases.map(c => ({ id: c.id, baseline: 'fix', runs: [run(c.gold), run(c.gold)] }));
-  const report = evaluate(corpus, records);
+  const report = evaluate(corpus, records, null, { secondaryThreshold: 0.2 });
   assert.equal(report.model.accuracy, 1);
   assert.equal(report.model.coverage, 0.5);
   assert.equal(report.model.macroF1, 2 / 13, 'thirteen intent labels, two of them present and perfect');
@@ -53,9 +53,9 @@ test('S1-I02 the evaluator scores an intent corpus over the intent labels only',
   ];
   for (const mutate of bad) { const c = JSON.parse(JSON.stringify(corpus)); mutate(c); assert.throws(() => validateCorpus(c)); }
   const shortScores = records.map(r => ({ ...r, runs: r.runs.map(x => ({ ...x, scores: x.scores.slice(0, 4) })) }));
-  assert.throws(() => evaluate(corpus, shortScores), 'score vectors follow the intent catalog length');
+  assert.throws(() => evaluate(corpus, shortScores, null, { secondaryThreshold: 0.2 }), 'score vectors follow the intent catalog length');
   const tierBaseline = records.map(r => ({ ...r, baseline: 'tier2' }));
-  assert.throws(() => evaluate(corpus, tierBaseline));
+  assert.throws(() => evaluate(corpus, tierBaseline, null, { secondaryThreshold: 0.2 }));
 });
 
 test('S1-I03 the corpus assembler builds an intent holdout from its own draft and reviews', () => {
@@ -204,7 +204,7 @@ test('S1-I09 the manifest carries an optional secondary threshold that decide ne
   assert.deepEqual(provider.decisionPolicy(undefined), {});
   const request = createRequest('intent', 'fix it', INTENT_OPTIONS);
   const response = { schemaVersion: 1, requestHash: request.requestHash, catalogHash: request.catalogHash, model: { id: 'm', revision: 'v1', domain: 'harness-routing-v1' },
-    scores: INTENT_OPTIONS.map(o => ({ id: o.id, probability: o.id === 'fix' ? 0.89 : 0.01 })) };
+    scores: INTENT_OPTIONS.map(o => ({ id: o.id, probability: o.id === 'fix' ? 0.88 : 0.01 })) };
   assert.equal(decide(request, response, provider.decisionPolicy({ minConfidence: 0.5, minMargin: 0, secondaryThreshold: 0.2 })).selectedId, 'fix');
 });
 

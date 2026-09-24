@@ -1,6 +1,7 @@
 'use strict';
 const { validateRequest } = require('./contract');
 const { CATALOGS, MULTI, goldLabels, validSecondary } = require('./catalogs');
+const { gradedAgreement, familyConsistency } = require('./intent');
 const exact = (obj, keys) => obj && typeof obj === 'object' && !Array.isArray(obj) && Object.keys(obj).length === keys.length && keys.every(k => Object.hasOwn(obj, k));
 const nonempty = v => typeof v === 'string' && v.trim().length > 0;
 const finite = v => typeof v === 'number' && Number.isFinite(v);
@@ -60,9 +61,24 @@ function metrics(gold, predicted, labels) {
     acceptedErrorRate: accepted ? (accepted - acceptedCorrect) / accepted : null };
 }
 function p95(values) { return values.length ? [...values].sort((a, b) => a - b)[Math.ceil(values.length * 0.95) - 1] : null; }
+// Intent corpora: accepted predictions are graded against { gold, secondary }; predicted secondaries are the
+// other intents whose probability reaches the checkpoint's secondary threshold (docs/system-one-intent.md#scoring).
+function gradeIntents(cases, byId, labels, threshold) {
+  const ids = labels.map(l => (l === null ? 'unclassified' : l));
+  let accepted = 0; let points = 0; let exact = 0;
+  for (const c of cases) {
+    const run = byId.get(c.id).runs[0]; const selected = prediction(run.decision, labels);
+    if (selected === null) continue;
+    const secondary = ids.filter((id, i) => id !== selected && id !== 'unclassified' && run.scores[i] >= threshold);
+    accepted++; points += gradedAgreement({ gold: c.gold, secondary: c.secondary }, { gold: selected, secondary }); if (selected === c.gold) exact++;
+  }
+  return { acceptedPrecision: accepted ? points / accepted : null, exactPrecision: accepted ? exact / accepted : null };
+}
 // sourceEvidence is the provider provenance result; only the pinned cua_s1 revision satisfies the gate.
-function evaluate(corpus, records, sourceEvidence = null) {
+function evaluate(corpus, records, sourceEvidence = null, { secondaryThreshold } = {}) {
   const labels = corpusLabels(corpus);
+  const multi = MULTI.includes(corpus.cases[0].request.task);
+  if (multi && !(finite(secondaryThreshold) && secondaryThreshold >= 0.05 && secondaryThreshold <= 0.5)) fail();
   const cases = corpus.cases.filter(c => c.split === 'holdout');
   if (!cases.length || !Array.isArray(records) || records.length !== cases.length) fail();
   const byId = new Map(); const models = new Set(); const cold = []; const warm = [];
@@ -81,7 +97,11 @@ function evaluate(corpus, records, sourceEvidence = null) {
   if (models.size > 1) fail();
   const gold = cases.map(c => c.gold);
   const baseline = metrics(gold, cases.map(c => byId.get(c.id).baseline), labels);
-  const model = metrics(gold, cases.map(c => prediction(byId.get(c.id).runs[0].decision, labels)), labels);
+  const predicted = cases.map(c => prediction(byId.get(c.id).runs[0].decision, labels));
+  const model = { ...metrics(gold, predicted, labels), ...(multi ? gradeIntents(cases, byId, labels, secondaryThreshold) : {}) };
+  const families = multi ? { familyConsistency: {
+    gold: familyConsistency(cases.map(c => ({ family: c.family, primary: c.gold }))),
+    model: familyConsistency(cases.map((c, i) => ({ family: c.family, primary: predicted[i] }))) } } : {};
   const canonicalRun = ({ decision: d, scores }) => JSON.stringify([d.status, d.reason, d.selectedId ?? null, d.confidence ?? null, d.margin ?? null,
     d.model ? [d.model.id, d.model.revision, d.model.domain] : null, scores]);
   const agreement = records.filter(r => canonicalRun(r.runs[0]) === canonicalRun(r.runs[1])).length / cases.length;
@@ -99,6 +119,6 @@ function evaluate(corpus, records, sourceEvidence = null) {
     policyEvidence: false,
     liveHostEvidence: false,
   };
-  return { schemaVersion: 1, cases: cases.length, baseline, model, agreement, latency, gates, rolloutReady: Object.values(gates).every(Boolean) };
+  return { schemaVersion: 1, cases: cases.length, baseline, model, ...families, agreement, latency, gates, rolloutReady: Object.values(gates).every(Boolean) };
 }
 module.exports = { validateCorpus, evaluate };

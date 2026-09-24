@@ -12,7 +12,11 @@ const exact = (value, keys) => value && typeof value === 'object' && !Array.isAr
 const label = value => typeof value === 'string' && value.length > 0 && value.length <= 128 && !/[\u0000-\u001f]/.test(value);
 // Thresholds calibrated on validation for this checkpoint (docs/system-one-training.md).
 const inRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
-const validAcceptance = a => exact(a, ['minConfidence', 'minMargin']) && inRange(a.minConfidence, 0.5, 0.99) && inRange(a.minMargin, 0, 0.9);
+// secondaryThreshold is optional and belongs to intent checkpoints (docs/system-one-intent.md#scoring).
+const validAcceptance = a => (exact(a, ['minConfidence', 'minMargin']) || (exact(a, ['minConfidence', 'minMargin', 'secondaryThreshold']) && inRange(a.secondaryThreshold, 0.05, 0.5)))
+  && inRange(a.minConfidence, 0.5, 0.99) && inRange(a.minMargin, 0, 0.9);
+// The part of the acceptance thresholds that contract.decide takes.
+const decisionPolicy = acceptance => (acceptance ? { minConfidence: acceptance.minConfidence, minMargin: acceptance.minMargin } : {});
 // A scored result carries the manifest's thresholds so every caller decides with them.
 const withAcceptance = (result, manifest) => (result && result.status === 'scored' && manifest.acceptance
   ? { ...result, acceptance: { ...manifest.acceptance } } : result);
@@ -105,4 +109,4 @@ function provenance(manifestPath) {
   try { return { status: 'recorded', provenance: validateProvenance(result.value) }; }
   catch (_) { return unavailable('provider-json'); }
 }
-module.exports = { score, scoreAsync, runProvider, validateManifest, readManifest, provenance, validateProvenance, PINNED_CUA_S1_REVISION };
+module.exports = { score, scoreAsync, runProvider, validateManifest, readManifest, provenance, validateProvenance, decisionPolicy, PINNED_CUA_S1_REVISION };
