@@ -266,11 +266,11 @@ test('S1-I06 family consistency counts families of two or more that share one pr
   assert.deepEqual(familyConsistency([{ family: 'c', primary: 'git' }]), { families: 0, consistent: 0, rate: null });
 });
 
-const LEVELS = [0, 0.2, 0.4, 0.6];
+const LEVELS = Array.from({ length: 21 }, (_, k) => Number((k / 20).toFixed(2)));
 // Scores for every intent: the given levels, 0 elsewhere.
 const scored = levels => Object.fromEntries(INTENTS.map(id => [id, Object.hasOwn(levels, id) ? levels[id] : 0]));
 
-test('S1-I12 the labeler asks for relevance scores and derives the bands from them', async () => {
+test('S1-I12 the labeler asks for tie-free relevance scores and derives the bands from them', async () => {
   const rules = label.rulesFromDoc(fs.readFileSync(path.join(root, 'docs/system-one-intent.md'), 'utf8'), 'intent');
   assert.match(rules, /### Relevance scores/, 'the band table reaches the labeler');
   const opts = { scores: true };
@@ -279,39 +279,43 @@ test('S1-I12 the labeler asks for relevance scores and derives the bands from th
   assert.deepEqual(schema.properties.primary.enum, [...INTENTS, 'null']);
   assert.deepEqual(schema.properties.scores.required, INTENTS);
   assert.equal(schema.properties.scores.additionalProperties, false);
-  assert.ok(INTENTS.every(id => JSON.stringify(schema.properties.scores.properties[id].enum) === JSON.stringify(LEVELS)));
+  assert.ok(INTENTS.every(id => JSON.stringify(schema.properties.scores.properties[id].enum) === JSON.stringify(LEVELS)), '0 to 1 in steps of 0.05');
   assert.throws(() => label.schemaFor('tier', opts), 'only the intent stage has scores');
   const batch = [{ id: 'x', text: 'fix the crash, update the docs and add a test' }, { id: 'y', text: 'go' }];
   const prompt = label.buildPrompt(rules, batch, 'intent', opts);
-  assert.match(prompt, /0, 0\.2, 0\.4 or 0\.6/);
+  assert.match(prompt, /steps of 0\.05/);
+  assert.match(prompt, /no two intents share a score above 0/i);
   assert.match(prompt, /primary/);
   assert.doesNotMatch(prompt, /Also return secondary/, 'the secondary intents come from the bands');
-  const ok = { labels: [
-    { i: 0, primary: 'fix', scores: scored({ fix: 0.6, docs: 0.6, test: 0.4, review: 0.2 }) },
-    { i: 1, primary: 'null', scores: scored({ explain: 0.2 }) },
-  ] };
+  const x = scored({ fix: 0.8, docs: 0.65, test: 0.45, review: 0.3, investigate: 0.1, plan: 0.05 });
+  const y = scored({ explain: 0.2, investigate: 0.15, discuss: 0.1, plan: 0.05 });
+  const ok = { labels: [{ i: 0, primary: 'fix', scores: x }, { i: 1, primary: 'null', scores: y }] };
   assert.deepEqual(label.validateReply(batch, ok, 'intent', opts), [
-    { gold: 'fix', secondary: ['docs', 'test'], scores: scored({ fix: 0.6, docs: 0.6, test: 0.4, review: 0.2 }) },
-    { gold: null, secondary: [], scores: scored({ explain: 0.2 }) },
-  ], 'secondary: every other intent at 0.4 or more, highest first, then catalog order');
-  const second = { i: 1, primary: 'null', scores: scored({}) };
+    { gold: 'fix', secondary: ['docs', 'test'], scores: x },
+    { gold: null, secondary: [], scores: y },
+  ], 'secondary: every other intent at 0.4 or more, highest first');
+  const second = { i: 1, primary: 'null', scores: y };
   for (const first of [
-    { i: 0, primary: 'fix', scores: scored({ fix: 0.4 }) },
-    { i: 0, primary: 'fix', scores: scored({ fix: 0.6, test: 0.8 }) },
-    { i: 0, primary: 'fix', scores: scored({ fix: 0.6, test: 0.5 }) },
-    { i: 0, primary: 'fix', scores: (({ docs, ...rest }) => rest)(scored({ fix: 0.6 })) },
-    { i: 0, primary: 'fix', scores: { ...scored({ fix: 0.6 }), unclassified: 0 } },
-    { i: 0, primary: 'unclassified', scores: scored({ fix: 0.6 }) },
-    { i: 0, primary: 'fix', gold: 'fix', scores: scored({ fix: 0.6 }) },
+    { i: 0, primary: 'fix', scores: { ...x, test: 0.65 } },
+    { i: 0, primary: 'fix', scores: scored({ fix: 0.8, docs: 0.4, test: 0.2 }) },
+    { i: 0, primary: 'fix', scores: { ...x, test: 0.33 } },
+    { i: 0, primary: 'fix', scores: { ...x, fix: 1.05 } },
+    { i: 0, primary: 'docs', scores: x },
+    { i: 0, primary: 'fix', scores: { ...x, fix: 0.55, docs: 0.5 } },
+    { i: 0, primary: 'fix', scores: (({ docs, ...rest }) => rest)(x) },
+    { i: 0, primary: 'fix', scores: { ...x, unclassified: 0 } },
+    { i: 0, primary: 'unclassified', scores: x },
+    { i: 0, primary: 'fix', gold: 'fix', scores: x },
   ]) assert.equal(label.validateReply(batch, { labels: [first, second] }, 'intent', opts), null, JSON.stringify(first));
-  assert.equal(label.validateReply(batch, { labels: [{ i: 0, primary: 'fix', scores: scored({ fix: 0.6 }) }, { i: 1, primary: 'null', scores: scored({ git: 0.4 }) }] }, 'intent', opts), null,
+  assert.equal(label.validateReply(batch, { labels: [{ i: 0, primary: 'fix', scores: x }, { i: 1, primary: 'null', scores: { ...y, explain: 0.25 } }] }, 'intent', opts), null,
     'a null primary leaves no intent above 0.2');
+  assert.deepEqual(label.validateReply(batch, { labels: [{ i: 0, primary: 'fix', scores: { ...x, fix: 1 } }, second] }, 'intent', opts)[0].gold, 'fix', '1 is on the scale');
   const out = await label.labelAll(batch, { rules, task: 'intent', scores: true, run: async () => ok });
-  assert.deepEqual(out.labeled[0], { id: 'x', gold: 'fix', secondary: ['docs', 'test'], scores: scored({ fix: 0.6, docs: 0.6, test: 0.4, review: 0.2 }) });
+  assert.deepEqual(out.labeled[0], { id: 'x', gold: 'fix', secondary: ['docs', 'test'], scores: x });
   const report = label.agreement([{ id: 'x', gold: 'fix', secondary: ['test', 'docs', 'review'] }, { id: 'y', gold: null, secondary: [] }],
     { x: out.labeled[0], y: out.labeled[1] }, 'intent');
   assert.equal(report.graded, 1);
-  assert.deepEqual(report.bands, { goldSecondary: 1.5, secondary: 1, related: 1 }, 'means per case: owner secondary, labeler 0.4+ and 0.2 bands');
+  assert.deepEqual(report.bands, { goldSecondary: 1.5, secondary: 1, related: 1 }, 'means per case: owner secondary, labeler 0.4+ and 0.2 to 0.35 bands');
   assert.equal(label.agreement([{ id: 'x', gold: 'fix', secondary: [] }], { x: { gold: 'fix', secondary: [] } }, 'intent').bands, undefined, 'unscored labels keep their report');
 });
 
