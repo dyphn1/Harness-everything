@@ -377,3 +377,30 @@ test('S1-I14 low-scoring labels go to a second model, which replaces them unless
   assert.deepEqual(out.failed, ['c']);
   assert.deepEqual((await label.escalate(rows, items, { run, rules, below: 0.7 })).escalated, [], 'nothing below the bar, nothing escalated');
 });
+
+test('S1-I15 scaled labels read the scores relative to the top, and only lagging margins escalate', async () => {
+  const rules = label.rulesFromDoc(fs.readFileSync(path.join(root, 'docs/system-one-intent.md'), 'utf8'), 'intent');
+  const raw = scored({ fix: 0.6, docs: 0.45, test: 0.3, review: 0.25 });
+  const nul = scored({ explain: 0.2, investigate: 0.15, discuss: 0.1, plan: 0.05 });
+  const batch = [{ id: 'x', text: 'fix it' }, { id: 'y', text: 'go' }];
+  const run = async () => ({ labels: [{ i: 0, primary: 'fix', scores: raw }, { i: 1, primary: 'null', scores: nul }] });
+  const out = await label.labelAll(batch, { rules, task: 'intent', scores: true, scale: true, run });
+  const x = out.labeled[0];
+  assert.equal(x.scores.fix, 1);
+  assert.equal(x.scores.test, 0.5);
+  assert.deepEqual(x.raw, raw, 'the model scores are kept');
+  assert.deepEqual(x.secondary, ['docs', 'test', 'review'], 'bands come from the scaled scores (unscaled: docs only)');
+  assert.deepEqual(out.labeled[1], { id: 'y', gold: null, secondary: [], scores: nul, raw: nul }, 'a null label is not scaled');
+  assert.deepEqual(label.scaleLabel(x), x, 'scaling twice changes nothing');
+  const close = { id: 'c', gold: 'fix', secondary: ['docs'], scores: scored({ fix: 0.8, docs: 0.6, test: 0.2, review: 0.1 }) };
+  const wide = { id: 'w', gold: 'git', secondary: [], scores: scored({ git: 0.9, docs: 0.3, test: 0.2, review: 0.1 }) };
+  const nullRow = { id: 'n', gold: null, secondary: [], scores: nul };
+  assert.deepEqual([close, wide, nullRow].map(r => label.lagging(r, { margin: 0.3 })), [true, false, false], '(0.8 - 0.6) / 0.8 = 0.25 lags; null never');
+  assert.deepEqual([close, wide].map(r => label.lagging(r, { below: 0.85 })), [true, false], 'the top-score rule stays available');
+  const seen = [];
+  const second = async (p, b) => { seen.push(...b.map(i => i.id)); return { labels: b.map((_, i) => ({ i, primary: 'fix', scores: scored({ fix: 0.9, docs: 0.4, test: 0.2, review: 0.1 }) })) }; };
+  const e = await label.escalate([close, wide, nullRow], [{ id: 'c', text: 'c' }, { id: 'w', text: 'w' }, { id: 'n', text: 'n' }],
+    { run: second, rules, margin: 0.3, scale: true, batchSize: 1 });
+  assert.deepEqual(seen, ['c']);
+  assert.deepEqual(e.rows[0].scores.docs, Number((0.4 / 0.9).toFixed(4)), 'escalated labels are scaled too');
+});
