@@ -255,7 +255,16 @@ function isGitCommit(command) {
 }
 
 function bypassesHooks(command) {
-  return /(?:^|\s)--no-verify(?:\s|$)/i.test(command) || /(?:^|\s)-n(?:\s|$)/.test(command);
+  const actual = normalizeCommand(command);
+  if (/(?:^|\s)--no-verify(?:\s|$)/i.test(actual) || /(?:^|\s)-n(?:\s|$)/.test(actual)) return true;
+
+  // Git accepts boolean short options in clusters, e.g. `git commit -an`.
+  // Treat a cluster containing -n as hook bypass only when every clustered
+  // option is a no-argument commit flag; this avoids mistaking attached
+  // arguments such as `-S<key>` or `-m<message>` for --no-verify.
+  return actual.split(/\s+/).some(token =>
+    /^-[avqseipon]+$/i.test(token) && token.length > 2 && token.slice(1).toLowerCase().includes('n')
+  );
 }
 
 function legacyVerificationCommand(command) {
@@ -267,12 +276,25 @@ function verificationCommandSet(cwd, options = {}) {
   const repoRoot = path.resolve(options.root || findGitRoot(cwd));
   let contract = null;
   try { contract = readContract(repoRoot); }
-  catch (_) { return { repoRoot, contract: null, commands: [], commitHookDeclared: false }; }
+  catch (error) {
+    // The verify gate treats an invalid authoritative contract as FAILED.
+    // Preserve that fail-closed state here instead of falling through to
+    // legacy recognition and manufacturing contradictory verification evidence.
+    return {
+      repoRoot,
+      contract: null,
+      contractInvalid: true,
+      contractError: error && error.message ? error.message : String(error),
+      commands: [],
+      commitHookDeclared: false,
+    };
+  }
 
   if (contract) {
     return {
       repoRoot,
       contract,
+      contractInvalid: false,
       commands: contract.checks.map(check => check.run),
       commitHookDeclared: contract.checks.some(check => /^pre-commit\s+/i.test(normalizeCommand(check.run))),
     };
@@ -285,6 +307,7 @@ function verificationCommandSet(cwd, options = {}) {
   return {
     repoRoot,
     contract: null,
+    contractInvalid: false,
     commands: [
       ...detected.checks.map(check => check.run),
       ...detected.candidates.filter(candidate => candidate.source !== 'git-hook').map(candidate => candidate.run),
@@ -298,6 +321,7 @@ function isVerificationCommand(command, options = {}) {
   const actual = normalizeCommand(command);
   if (!actual || hasControlOperators(actual)) return false;
   const set = verificationCommandSet(cwd, options);
+  if (set.contractInvalid) return false;
 
   if (isGitCommit(actual)) {
     return !!set.commitHookDeclared && !bypassesHooks(actual) && hasCommitHook(set.repoRoot);
