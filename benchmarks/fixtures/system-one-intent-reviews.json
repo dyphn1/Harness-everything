@@ -1,0 +1,2366 @@
+{
+  "schemaVersion": 1,
+  "decisions": [
+    {
+      "id": "h-git-commit-1",
+      "promptHash": "f282e3af6c8ca15df279e6b25e67b41a1b119810001696fc0232e536e83c94ce",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-commit-2",
+      "promptHash": "4bc86fb118823789c12f14d09d110e995bd5d2df15d9e1642317d3b698324ae6",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-commit-3",
+      "promptHash": "1e5829a55e31f1e41f7b2e1c822fe186023dac2090c0a518691ebee3fbb6a40d",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-commit-4",
+      "promptHash": "b6807e2d1c51e92f758f3aae8dd4de2e03cb2410d0c21f64cd9e8ac8dbd3b82a",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-push-open-pr-1",
+      "promptHash": "f38fe844d747aaaa8e48fb683d06c56e7b811fed0fafc5a99224565ef9076a56",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-push-open-pr-2",
+      "promptHash": "8479a62e6380b83a8d4a345e3e20378e4799e3cc29b91429d97e2f51375cf6cd",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-push-open-pr-3",
+      "promptHash": "74658d75109b9555c732e61d5dc52ec2681361f368139738576e19c787df21c4",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-push-open-pr-4",
+      "promptHash": "607276dc165a0d6adb175ece1e4ee70046c0b99b8bfa1444fcdaeac976444f3d",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-sync-branch-1",
+      "promptHash": "10a7df4eb4dc019a6eee9ed811673f14eb22974dfe64e99babc01deb332c9ced",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-sync-branch-2",
+      "promptHash": "c5f98b35b0444c304127b614540e84163b8aebe44531151f429707c3badf03a0",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-sync-branch-3",
+      "promptHash": "393dd1a7df251a20f5b2bc50ba5968f3a90703d4ce7fcad6ce85d02ecb0b6549",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-sync-branch-4",
+      "promptHash": "bb8421881bf428ce60f80c5ceb7a9eecf5a64a307e58cde44977186b1b96d6f2",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-revert-last-1",
+      "promptHash": "6f61864d99c8cf1ca119f8153b7b59cb0cb1f67ba3252cf9ec0f8b01451e8eab",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-revert-last-2",
+      "promptHash": "1f3af4c5d727d4a8d20efbe9bc30d22094297d8777c7a4c164f0cb4285b9a4e0",
+      "decision": "relabel",
+      "gold": "fix",
+      "secondary": [
+        "edit"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-git-revert-last-3",
+      "promptHash": "e5f71bf4c0293b37091df458b7aeee90c47c8e7e5f3f92a5ad41dc94fbbc5ba5",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-issue-pr-status-1",
+      "promptHash": "72b3d349c6e8d180fc802e75a477fdabe0fa8fd84f191f30a927d55def69feab",
+      "decision": "relabel",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-issue-pr-status-2",
+      "promptHash": "2f1c1103edd9cb0e273aa7cee870056f83a05651ded08d09cf497e189d972538",
+      "decision": "relabel",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "review"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-issue-pr-status-3",
+      "promptHash": "a08176f03f12c8e3a9c6eb9145025de2f7cd97846f21c6b438c447b68b5527e2",
+      "decision": "relabel",
+      "gold": "explain",
+      "secondary": [
+        "review",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-issue-pr-status-4",
+      "promptHash": "50d68c767f129d28ad43bf3db7501bffac24178b2cefdbbe5b7a8fdaf37aaa8a",
+      "decision": "relabel",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-comment-results-on-issue-1",
+      "promptHash": "e3844059ee340f87ef1ce406c956b306ef8b335f08bc56cae61188e24fd423e4",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-comment-results-on-issue-2",
+      "promptHash": "da4b4f9f09beb1a32a8acf7e8e5255df24fa8d69e4fb68402de602b497ce20a6",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-comment-results-on-issue-3",
+      "promptHash": "18801bb8a6726d3340e67ce7e3b2d98ac4f876ac2fec2b167a7d330f8c11f2dd",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-open-issue-described-1",
+      "promptHash": "7bd255805613a0c0ab9026952ddeddfa165efb46ea2d8b6cde4ad0055c8a1e7f",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-open-issue-described-2",
+      "promptHash": "93f370d79f482d68491a2353071239ee90914546e532f9088d9ce0cfa97be467",
+      "decision": "relabel",
+      "gold": "docs",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-open-issue-described-3",
+      "promptHash": "77f2afc5a7f40f618e79adedb41f29e527ba67f43d82e39286ac6fb953073a9d",
+      "decision": "relabel",
+      "gold": "docs",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-open-issue-described-4",
+      "promptHash": "ab640fa88c2859dd794a4494e2a44fb5c1a4de395a61f240c44be98cccc90b2a",
+      "decision": "relabel",
+      "gold": "docs",
+      "secondary": [
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-typo-doc-fix-1",
+      "promptHash": "e3fa713715d50e7b32ad1f624127d39e810a3014306196cfad0ed0aef18863e3",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-typo-doc-fix-2",
+      "promptHash": "22b902b1c07f5382d7889cefc3ef6c1574b642d1f2bbec338c3bf3e9f096a67c",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-typo-doc-fix-3",
+      "promptHash": "343ba7e100c055a6553ea8176a2b692c5d58b957b1cb5dd4e3910b147f4de9e9",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-typo-doc-fix-4",
+      "promptHash": "45f9c38b54229f9f60f58f89f6d2476b8378f5e779fd1918f8e1980047ade455",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-single-line-edit-1",
+      "promptHash": "541f03c6cba867d8616b1ec92b0b9df9b73450b22419914d6915f4fa408d08f7",
+      "decision": "relabel",
+      "gold": "edit",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-single-line-edit-2",
+      "promptHash": "fee004b8f39f7873cb80a93e6cf2cad3ee3b6845812449eee0d6cef82aafbd46",
+      "decision": "relabel",
+      "gold": "edit",
+      "secondary": [
+        "fix",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-single-line-edit-3",
+      "promptHash": "978157757486e6a2e75a42610cddab89ee438a7967239e32387cd7df66ce0ca3",
+      "decision": "relabel",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-local-rename-1",
+      "promptHash": "03527a29f3190bd67800472475d2bfde4c73a93589d8d5812aee600c79e28fbc",
+      "decision": "relabel",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-local-rename-2",
+      "promptHash": "56223edf476e9d7c9e67bee698fcfd6763f4d06463d37b55d13d9b89f7c7da58",
+      "decision": "relabel",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-local-rename-3",
+      "promptHash": "00b4d6506ec2deb647dd910f2569614e1ed4332ba4a5186701c55b5a253f9b02",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "edit",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-config-tweak-1",
+      "promptHash": "6181a4cde901885690ccf71cf48d815929cb5b5d008a5cc8ce97bdc0ed76e767",
+      "decision": "relabel",
+      "gold": "edit",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-config-tweak-2",
+      "promptHash": "e8296eef2bb92a58fcf42e37a81b65d968d27203c894ed4b53291b4a1e35bfe7",
+      "decision": "relabel",
+      "gold": "edit",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-config-tweak-3",
+      "promptHash": "3aeced47992cd2bdd2a525396a1b77f11e40b23343bac6784dcdeba21cc757cc",
+      "decision": "relabel",
+      "gold": "edit",
+      "secondary": [
+        "fix",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-config-tweak-4",
+      "promptHash": "6bc838c302f793b55616a6e37b2dfd6409bf6b450d235c7e44aad049bca19997",
+      "decision": "relabel",
+      "gold": "edit",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-run-named-command-1",
+      "promptHash": "20da45f812efc73cce6ffe89a1968908c860c6b8cfc3bca6a9f68cd3bb220803",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "discuss",
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-run-named-command-2",
+      "promptHash": "471d046076caae1ed22f2e722fb2fb3eb80763d10da6ef1b38d9060d514cccb0",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "discuss",
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-run-named-command-3",
+      "promptHash": "82f0a46c0903acd0e365bc699a8e7df95f9dca2507824a9cdf24bf3edb0e38e8",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "discuss",
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-run-named-command-4",
+      "promptHash": "6f67fdee7d022373af177d39bc3a541a7574013ba28bdbb56235d2d4f8aa6620",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bounded-explanation-1",
+      "promptHash": "0c34ab6f2e0d40783218f12fb64a19dbe4b12202b414333135acd022985efd08",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bounded-explanation-2",
+      "promptHash": "fb4131dd37f73b2ec601e93fba397823228f341f7c8638cd007677a61089b52e",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bounded-explanation-3",
+      "promptHash": "c056cc927936664e9566f48f0cb6108bc66139a69087a31685302d00b625f325",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bounded-explanation-4",
+      "promptHash": "c1ac082541ce7155afa6cd2aa8148bbf370d6ee1e3f00abf070867fec8ec345c",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-read-log-report-1",
+      "promptHash": "922710c449d4fad904f7dedbd7c61198028870bb1dbc70fc3d35384fa0505d11",
+      "decision": "accept",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-read-log-report-2",
+      "promptHash": "966767b3a9d6b3fc3b8fd59ad986521df04685ee8f132a0c52c90b498c7f5c0e",
+      "decision": "accept",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-read-log-report-3",
+      "promptHash": "3843ab5e27839fc59748677c142f8c47383bc2d4d64db469a252d160717e72d2",
+      "decision": "accept",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-list-remaining-tasks-1",
+      "promptHash": "180a287be4434e0ecbff8a90fb78099e9e68d4658f382c77acd67e87004fab87",
+      "decision": "accept",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-list-remaining-tasks-2",
+      "promptHash": "f3b16d44c9d887b5cae438c76f1a52e2ef81475e1de66e11242dc9549f77000f",
+      "decision": "accept",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-list-remaining-tasks-3",
+      "promptHash": "e756961d6fe700c1ce914cd6ed68471795d2cf154dedc43ac1b81154b9c2405b",
+      "decision": "accept",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "git",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-add-link-docs-1",
+      "promptHash": "fc38b773d7fa6900438ef248886da772e0bf3a238fcf6d8e14070f5433c8b67e",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-add-link-docs-2",
+      "promptHash": "5f8e7b7592b7e5f8be7134fae5df47c5fe700a58c65620866120b4bba1653334",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-fix-cli-error-log-1",
+      "promptHash": "de349d0f697610b8b98c66ec6250bce108a5e7245a253d2eb459a6d4e8a446ec",
+      "decision": "relabel",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "edit",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-fix-cli-error-log-2",
+      "promptHash": "712223002c10eceed688a0a8e03d1ef900f5ed31da9834a021f35060a81300de",
+      "decision": "relabel",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-fix-cli-error-log-3",
+      "promptHash": "09d285719d1f96cd6740d19922cafc6d8dd0cf2c69107c6684406e4c71a754f3",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-fix-cli-error-log-4",
+      "promptHash": "cf19ff4c74605c34d4e8743ff71dd61978178b070c79ea392b7c9c56ea44a933",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-fix-failing-test-1",
+      "promptHash": "73c423bd6369ccacab4d1eaa42c38a3d11a4245dc5326dd43ece0e8b7b8c3a9b",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-fix-failing-test-2",
+      "promptHash": "a8afbbd1cded683f2311f6067826873eedbf3b4ea517e0565402d4afd8350b2a",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-fix-failing-test-3",
+      "promptHash": "a06402d978c65a532d23ee2381e4e062154adfffb446021c8c5102cad93a8202",
+      "decision": "relabel",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-fix-failing-test-4",
+      "promptHash": "c5dc8dee4e32414dc62884e8d62da3a5e76667dc6269833b7afd826d27a36cf0",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-add-cli-flag-1",
+      "promptHash": "ae03dbf3193395e0de90b58741c3e866ce2cd3bf08a501820d6a13632d1cd1bb",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-add-cli-flag-2",
+      "promptHash": "dee4d30095d0eb8a53d969dd58773cf9d74c27766b67ec0e2871e4d28bf1f12a",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-add-cli-flag-3",
+      "promptHash": "5ba561160b690b0725c6d40956d2ee1deb97745adc418fc137e6774448295f66",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-nondeterministic-output-1",
+      "promptHash": "220414b10584b2b81c8340a18622f8ca53ea73cf1bfe51653592e15213d16b6b",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-nondeterministic-output-2",
+      "promptHash": "d52bf2ee9c94d52a18edb8d2dcd247105745c970d0fd5a324b1fc749465efe6b",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-nondeterministic-output-3",
+      "promptHash": "6600c6b0642e78abfca498cd869d69e4ab520e69376c89e5428b7655c67222e7",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-warning-level-fix-1",
+      "promptHash": "b467efb42e23caa64774bd797d4d646c4b55ed6afbdf56439a3cc0c65b8cafa6",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-warning-level-fix-2",
+      "promptHash": "82cdd7bfdaec5a90b4b8bb9a1e0d5c42772a1d03c4a62084d14bd1f3c144a6a3",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-warning-level-fix-3",
+      "promptHash": "f980b992c21183e153af6b4be0136cf6aada8bc27fd25be59d10ca0dc973d8dd",
+      "decision": "relabel",
+      "gold": "edit",
+      "secondary": [
+        "refactor",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-debug-crash-after-start-1",
+      "promptHash": "63a93cfb4adb9d4b51b81da40c78a8dd75cd07057006f3877268d3b70bab6435",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-debug-crash-after-start-2",
+      "promptHash": "3ce5f8d62a6ee7f8a13d808b9d17ba5a962268c3008997e57b1c9b031ef63cca",
+      "decision": "relabel",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "fix"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-debug-crash-after-start-3",
+      "promptHash": "93a9a6a6399dfc2d37791f3e5eb741ec5e7dc97805f97ee51b949c8abce1fa63",
+      "decision": "accept",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-multi-file-feature-1",
+      "promptHash": "a9a2082d62e256912e99fcfa7e1e208ce4c0f5fdbdd67975a356a53034c01698",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-multi-file-feature-2",
+      "promptHash": "c282f66c1a949f0e9024831e8c76e6523d6b67b21a1cb48cfa18dc16c4341fca",
+      "decision": "relabel",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-multi-file-feature-3",
+      "promptHash": "7271868db9c36232f0c73901c1e1025cfb2db3e0316bb7d15711ea8132d03d8d",
+      "decision": "relabel",
+      "gold": "plan",
+      "secondary": [
+        "feature",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-focused-review-1",
+      "promptHash": "46ccf730b7159fc0e143680ae3550d64b7f835784246a6c7b1eb888ca19b4e97",
+      "decision": "accept",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-focused-review-2",
+      "promptHash": "cfe88ee62326d895ae29306428523e4d447ba55d69636a28bb44c1059bd723f0",
+      "decision": "accept",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "fix",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-focused-review-3",
+      "promptHash": "56db3f9d82fc8319e5f3773720da0da2ae2e59d457a8061bdb03d2b0deef1cb7",
+      "decision": "accept",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-focused-benchmark-1",
+      "promptHash": "250ede0cf3a16c6dce624eaf3df1f5d5d2832dc4cd1bd74f82cf77bde0f3812a",
+      "decision": "relabel",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-focused-benchmark-2",
+      "promptHash": "037ae7260e67b3fea9660eb6366ead494248a169f2c43c4e12cc44929ff36a52",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-function-refactor-1",
+      "promptHash": "22330311ef5397b2ed5e9836a91fee4fdb9ff32bb359e326af04226be95bde7f",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "explain",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-function-refactor-2",
+      "promptHash": "8bb2d2d3a2a0d3a1ab7ef4eacb66cf14c8ad7cee1e596adf4c119f62469585bc",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-function-refactor-3",
+      "promptHash": "06f5da850e4795c548fe4802366990d56737112e1e7cf0d54b91ca803f178355",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-hash-algorithm-support-1",
+      "promptHash": "f0da51303eeb3a54985a29bc91cc456438222a68d0632cab72b07edfb18a3795",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "fix",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-hash-algorithm-support-2",
+      "promptHash": "74b9af0f162bd5f25b8c7aa032120c4c6fd950fa0e4badfe65ede93adba251c6",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-toolchain-check-1",
+      "promptHash": "9a6de4ca086d3aa056fd0e4379882f80bee1ec3a24621ae0d829149800309def",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-toolchain-check-2",
+      "promptHash": "687886991c9de637187c03d045f03892499f461b35c4452afd830e2dcad7e64a",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-relative-paths-1",
+      "promptHash": "2f14e4beab1292ecf32284d8eb57a05966f5b233e5f1c367cc8b735faa401f93",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-relative-paths-2",
+      "promptHash": "a79892f4c3c7404e85cdb984c3afdb1660fc20ee72532641457fbaea0ce9a739",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-validation-rule-1",
+      "promptHash": "957d75960de2baff362eb420872938e17682741b460f4791ee2f0a8d00b070ae",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "fix",
+        "review",
+        "test",
+        "docs",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-validation-rule-2",
+      "promptHash": "46ee20ed997c439d5302bbf4c2767003986e7ee66dda1d8bd79770668bf3b570",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-update-docs-examples-1",
+      "promptHash": "43722cf7f65eee7d287a0111c7986e3c38c76d2020f1296d3cd45641b5f2ae77",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-update-docs-examples-2",
+      "promptHash": "b060241360a42ff6aa18a926a2e179fb27fb5a1ef5906ff6addea9937b2d9c43",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-audit-all-repos-1",
+      "promptHash": "5fca234cf2d7e8314fbfc060b783273c6ba3319ce282d2d533913b77fa3e38be",
+      "decision": "accept",
+      "gold": "review",
+      "secondary": [
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-audit-all-repos-2",
+      "promptHash": "6f1cbc1f5154a0cfb90efcc5f9c6f0abb048b7d9ef6ce8a20abcec2f96befdc1",
+      "decision": "accept",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-audit-all-repos-3",
+      "promptHash": "72c6791f8ee7f7fe990ed652698ec803929dc1d1ef1fe0ecb93432bea3f45ad7",
+      "decision": "accept",
+      "gold": "investigate",
+      "secondary": [
+        "explain"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-phase-plan-to-issue-1",
+      "promptHash": "96d4b67b0864e2a98a5a22efde09141ac0e15a338322b80b7128a61dbdf10cf7",
+      "decision": "accept",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "git",
+        "feature"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-phase-plan-to-issue-2",
+      "promptHash": "2cbb75fd48f1a007f84210ce58f00c77062a11672259f9d4b469f33ee2baa014",
+      "decision": "accept",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "git",
+        "feature"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-phase-plan-to-issue-3",
+      "promptHash": "34e635b8a4308a20868bbe56bf3c25dd912f5facb3ab187c9dacae30b09d29a8",
+      "decision": "accept",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-roadmap-phase-implement-1",
+      "promptHash": "3d387ab823dddb33d7e15321d74f9ca04ccc8495f9b61290986afa4e7e2bfcd7",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "explain",
+        "git",
+        "review",
+        "test",
+        "docs",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-roadmap-phase-implement-2",
+      "promptHash": "fad39affb0c7732869747908b8effef65b9288fa3fe05f2aba674db4c453b808",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "explain",
+        "fix",
+        "review",
+        "test",
+        "docs",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-roadmap-phase-implement-3",
+      "promptHash": "dc5a0d7bea7bf67f6639d14f6d9fea130c524ac63931891521a52e1bba62fc49",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "explain",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-migration-1",
+      "promptHash": "79f21bd573a5a04213ca4f633ea7c557038e11bb0eee192f14f62a706eafb863",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-migration-2",
+      "promptHash": "2a86bceaa17ab559214dca7e2611f449767c150e839962cbfbe184a6457b31e3",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "feature",
+        "review",
+        "test",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-migration-3",
+      "promptHash": "77c3a9f095e4601e86bd30696657712fce6cb57e0a06f18b60378861b0d81cbb",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test",
+        "plan",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-migration-4",
+      "promptHash": "fe6e32d2d3ecc1c88503c43d2023dbfad1e04c4615fd59bf5cf0e1c693ae310b",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test",
+        "plan",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-large-scale-rename-1",
+      "promptHash": "d34d1742f38fc00e5afc2ffd0ce6a8ec22408910f2aa5a28970490392cfcc268",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-large-scale-rename-2",
+      "promptHash": "d6bac4c7b363479b0ba6a24db14eb911184a780b595280eeb316d91d7e6f607a",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-architecture-design-1",
+      "promptHash": "622bcd877a8984a59f95757b785c3918b903a42002d9e9c8e46432ba753ee398",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-architecture-design-2",
+      "promptHash": "f1af80e80b038da6edc1e532b07360b064a4dc98bf947227b36b0f23dd2b143e",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-architecture-design-3",
+      "promptHash": "cf3a4cd335a78b996f79c9a5e3f33aa3a4e377ea4f173f99e071d39fb9ce9388",
+      "decision": "accept",
+      "gold": "plan",
+      "secondary": [
+        "explain",
+        "feature",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-parallel-delegation-1",
+      "promptHash": "cff23377362ca02e2db388b3874ab2bf39ffe7cccee0364f9de91db6207ce59d",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-parallel-delegation-2",
+      "promptHash": "6bb0d392293441003fc94a724e56bb899d1bf634b1530cb4b755d2f8430f852d",
+      "decision": "relabel",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-parallel-delegation-3",
+      "promptHash": "bf0ea65b1df1f1e59041e67f83890dd7d06b10c234c6c3e1867494c35335ef69",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-repo-wide-replace-1",
+      "promptHash": "455f47b5fde16c434581c41f72a151e8301895b6f3c9cc43d20a7412784027bf",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-repo-wide-replace-2",
+      "promptHash": "51dc92ec3b8a9a6b2f273284071c798587fc08b6a5ddb7eed4114439f9c8f59c",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-repo-wide-replace-3",
+      "promptHash": "9e581364ecb16b133e2b1368cae38afda47ec7591ba28ed2b5a8acf8de5888ae",
+      "decision": "relabel",
+      "gold": "review",
+      "secondary": [
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-broad-synthesis-1",
+      "promptHash": "99bd319b36b047a46f4a4a5ce66415e3728cc5481e7027e3c5a8bab59e8dd216",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-broad-synthesis-2",
+      "promptHash": "f8dcd5c28766ff89a7621b58bddfb09f8ab62e4ede228bc534e4c0c5c47d910c",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-cross-platform-ci-1",
+      "promptHash": "92bc15f8c909338b63cc69fc49a4fd202429f837650d73032a9af3c08b82439e",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "feature",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-cross-platform-ci-2",
+      "promptHash": "3b153609d33823016a9a267b877b8c16c2a757394b450f9c535a1f4c5c6a65d9",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "feature",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-spec-feature-program-1",
+      "promptHash": "2ecc9a9c215c099bf3046b35f9e40f986b3201c1abecd3719fc18746270898e7",
+      "decision": "relabel",
+      "gold": "plan",
+      "secondary": [
+        "feature",
+        "review",
+        "test",
+        "docs"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-spec-feature-program-2",
+      "promptHash": "ffc927203ece9029296a9e596cf799b58e8661c634bdb99fd775e89247466070",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bare-continuation-1",
+      "promptHash": "d9d1f08fa5ced3965150327ccbf5aad936f1d9f0e36ce8e424a85d06bf14a8c9",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bare-continuation-2",
+      "promptHash": "4cd0e21a9a0795a14ec9aa5f0e7d1abff0492565770e43eafdf1e3e8afed1f33",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bare-continuation-3",
+      "promptHash": "6e7ecf10083ec035057bdce834a72bbe2bffae8df9383ed10eb06c78dd70944b",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bare-continuation-4",
+      "promptHash": "f867f34178594f891eb70a4260f62b1d9289cfa60394f9fee1cbbe4a8b4bf436",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bare-continuation-5",
+      "promptHash": "8a798890fe93817163b10b5f7bd2ca4d25d84c52739a645a889c173eee7d9d3d",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bare-continuation-6",
+      "promptHash": "c52524b004554df84a7b6439556bd7fa76031b6ad9703607be770dcd54728aaf",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bare-continuation-7",
+      "promptHash": "f7482bf86d210791c69e8dbb604b398ccc85359b912168b4e6e42775478fec7b",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-bare-continuation-8",
+      "promptHash": "c6c1c9a9c8543f1e4cd980064cf1625eeb61a90703b2464fff039f21682508b3",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-numbered-answers-1",
+      "promptHash": "e70d1ef41c0f332579a66e9d90c94a0f84cf61071a247f2753a858bc03c8bf76",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-numbered-answers-2",
+      "promptHash": "cceac2fd8122d038bf15f92745b88e22277a5164594bce30140cb2a69c3ca3e5",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-numbered-answers-3",
+      "promptHash": "62dc6a2019369ae54e075d46ad33ef973308a50e46bbec86f80b0a752647d87c",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-numbered-answers-4",
+      "promptHash": "29d539caef5340ef69e48aa5116ba26782b17b48f0b350f2a373d630b6200512",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-numbered-answers-5",
+      "promptHash": "172641f8a62311b846839aa86b2b8db334e316b1760916fd074863ec9cfc8891",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "fix",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-unstated-reference-1",
+      "promptHash": "3aa8a505f7388e80574ea8f77e66f5c1de9a057501129e1637f4d912b729d2e4",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-unstated-reference-2",
+      "promptHash": "e602e148816e5853ef6dcbfa276905a7278dc5152629831edf6cda55c03406af",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-unstated-reference-3",
+      "promptHash": "99802c791455adbb124e85edba1daf5f14d3e8663819a6a1289be8f693998a72",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-unstated-reference-4",
+      "promptHash": "5244deb1fe38b90a28df3311fe0980762dfe26ad29857d8973c6df990541ec89",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-unstated-reference-5",
+      "promptHash": "2993b0ff77f2ae8d50f64ccde23982edfd3dd7dda9e0a6c3dbb88520afe5736a",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-unstated-reference-6",
+      "promptHash": "97eab35dd9f9ca046541aeee58f16a334d57e0f4ba76838d94b5c10e8b26699b",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-status-without-object-1",
+      "promptHash": "b69d64314a32f7b8a4e47a6c5177cb35de4afbd8f3f005c2fe62d012cd82b7f7",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-status-without-object-2",
+      "promptHash": "f1a0d08a2daa7da13b681c7f8d8e8922d35b79bfc96b00ccb18612476acf3eeb",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-status-without-object-3",
+      "promptHash": "64d9ef9001ab8ba6289e55cb705a73480f98c4d70901b5c63751b3bd44930cdf",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-status-without-object-4",
+      "promptHash": "9d4449f0c8cd79bca4f05c9b9bed7c08fa9cc176b17dca87545bf562ac2c1430",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-status-without-object-5",
+      "promptHash": "43933db855f04364714ac1427af0d9cebd455e3e036df65ca9b02bd402ca61a9",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-non-engineering-1",
+      "promptHash": "f5a6cdc136baec48b0a713ed5fe9950c721f2dc0ac56b91fcbe80255bff09ee3",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-non-engineering-2",
+      "promptHash": "334a294cabd801aaa66ff0c4cd7e7aa24d3807f7462eafdf47343e65c6ad7d20",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-non-engineering-3",
+      "promptHash": "a2bcb973fb98493c32ab14a67c3c75c8d0c415667a2baaecd314c41e372b18f5",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-non-engineering-4",
+      "promptHash": "d0546971b876149cc80ed69ce1137054e83404d3a9260d6218a3be3e8c3a371c",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-non-engineering-5",
+      "promptHash": "59b05c2f300284859b3ad1d7ca7b30048358a3226e58d058b583bd50b342b8db",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-vague-intent-1",
+      "promptHash": "bddfc3ba578eee50e727a21d16873bba57d8a67a4c17318d62e58ce4be9405da",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-vague-intent-2",
+      "promptHash": "8ac35f35a752d640e393c7c067a886f7b635891081b68f412cf2bf45e7a1728f",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-vague-intent-3",
+      "promptHash": "1deee9134e0b5f50cbfbcd33cef7b7a9fcf55945d9601705d8fd94dfd0b48506",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-vague-intent-4",
+      "promptHash": "91a4a844932ee4d805532ad227aa50a8f92e2340b97d89cecb6c2ca8f66392b0",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-clarification-confusion-1",
+      "promptHash": "2a858f488a1649aef7130814c852ba6b1b961d96c30d8cd6fdf476affd3f1541",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-clarification-confusion-2",
+      "promptHash": "e48d7a5fa1a84e2f93bd79e89678aef56f937efddc23cd1702e81ced5b40b366",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-clarification-confusion-3",
+      "promptHash": "9514195b82c0d5fc4d26513bca838d6c12ea5f87a005b31ef088f841224ad840",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-context-pasted-discussion-1",
+      "promptHash": "c7ca35aef870812c14672e882f4a5e5f48320bac6fc33a43b484dc2d95a99bb5",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-context-pasted-discussion-2",
+      "promptHash": "341ab1c603c75fa0ec25f519ef33fa95fc55ab499eb3fc4553b498e367a88b60",
+      "decision": "relabel",
+      "gold": "discuss",
+      "secondary": [
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-bugfix-report-1",
+      "promptHash": "a35734fb1b2d6dba473d6e09e0c43797af1818fb9fb50f2017cbd69c4b7c22ee",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-bugfix-report-2",
+      "promptHash": "4fcdb93ab9c2dfdecc550afc2092dfa996a6db9d33af9ef790413ccc6b4db197",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-release-ops-1",
+      "promptHash": "7aa30a0843997ed899e6fdceab94b6b5f83e5e210684704f1e4d7ddccf9aebcc",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-release-ops-2",
+      "promptHash": "a009de2f858baf8c1d4fff1cdbe299eb4a87d4c84169a1c6d671f08e60f28782",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-migration-brief-1",
+      "promptHash": "2b33ec2f83ac3479f861a3f2bbaf3e16ad2bd700bf4d6925bb385d63800c4874",
+      "decision": "relabel",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-migration-brief-2",
+      "promptHash": "114bce227f8c5f129dd27cca03aab48cdd75e3a83bee31dd49fca1be4698c08c",
+      "decision": "relabel",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-explain-design-choice-1",
+      "promptHash": "c31323e82eb3cbd5b7f13ebc1416e9b0e73fa12a31d5308dc64ba70ca1c8a94d",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-explain-design-choice-2",
+      "promptHash": "a3988e6b634d1f774983126162d74685b44b33d2d302e731ffb79f15bb92da60",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-small-test-addition-1",
+      "promptHash": "eec03ea31750b96508a6680a9695223c8ec2130e6a7bb89f4f2d1b950abc66ec",
+      "decision": "relabel",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-small-test-addition-2",
+      "promptHash": "476929acf631a3d623b760b238e7ced33b69aeff78f3474d746da9e04a9a397c",
+      "decision": "accept",
+      "gold": "test",
+      "secondary": [
+        "fix",
+        "review"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-dependency-upgrade-1",
+      "promptHash": "0b1f052bd5a5fbfacb9cef2f78335be062869361f30b65ab90675ef598ceed10",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-dependency-upgrade-2",
+      "promptHash": "d570ff16292645d536b7abb4ee29f1eaf262a3e0fd4cbf53bc054a75a3105731",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-ci-workflow-small-1",
+      "promptHash": "67ca72238e7351aec0176c2423a676ce305850b307f807c46e02bd522852ee56",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-ci-workflow-small-2",
+      "promptHash": "3d52982c682e89ce64ab0bcb3bf6a55a63bef47b07d5d3698aae06acb983b9b7",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-audit-and-fix-1",
+      "promptHash": "343654bceebd81ba140dee8f5955fdfa6e4754877bf13dec2c4869eb227a7b1f",
+      "decision": "relabel",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-audit-and-fix-2",
+      "promptHash": "33980910b551423b63b7cc0f3b43c4f1614f0597d5756a89b699654fe4b315ae",
+      "decision": "relabel",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-monorepo-restructure-1",
+      "promptHash": "159cfbb54ed339f9f8f66ad1fc40091128fc8669372088aa0949be62dbd43389",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-monorepo-restructure-2",
+      "promptHash": "e042fb8d7e980dde5893707988bebb4cdab8c6b439fd430014f019f269eda301",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-monorepo-restructure-3",
+      "promptHash": "208de6172335c4d0b598565c88d60f2ad5555bc858f61002b9d6c6391ae6a05b",
+      "decision": "accept",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-security-hardening-program-1",
+      "promptHash": "72801fc97640e564a5f1205e985c3fd8b6c2c95079127dd188ef4709e044cf32",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "refactor",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-security-hardening-program-2",
+      "promptHash": "8080401b4355f0bdd297b94a6d8e0a1825b1267478278d779fed19e732aa09c8",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "refactor",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-security-hardening-program-3",
+      "promptHash": "e4b6323fde4f902896ec0ced18a7978d5a82ec9e6fd7d6274883983f2973085d",
+      "decision": "relabel",
+      "gold": "review",
+      "secondary": [
+        "fix",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-observability-rollout-1",
+      "promptHash": "cd37b937ca2aece50a1f1fa687ec8531b88a3519247963a97145a837cf338632",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-observability-rollout-2",
+      "promptHash": "5959e1e47e9169ddd8f636e4aab8d23bf3dbcdb6dd446b12d4844e61ce9cd7ef",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-api-versioning-1",
+      "promptHash": "4cdbccd418c913096247459bb92f643e1a20f76e196c3cc7b92c87b95e8f1047",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-api-versioning-2",
+      "promptHash": "a1d7814083ee1f176af90bd173d68d6df8afbaec7d5dc687b9addcc49935c470",
+      "decision": "accept",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-regression-log-1",
+      "promptHash": "811945515c14e8769aaf06761d9484ed0e60f8c4c2f823e18abbb2b6862a8ed8",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-regression-log-2",
+      "promptHash": "b8d98bc7ac1fa58955096db353cf16a9cf632f81c4979b0d5ac36ce5fdeb902c",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-perf-regression-1",
+      "promptHash": "fbd68fc990aeb34eb4a22fafacd9dd58ba19cae2f84241aba43cdf91e2411024",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-perf-regression-2",
+      "promptHash": "46c5c3dcaa80746b94c68c36e7b6eb03ee06831ba1a9926ca71ade98d4a34061",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-flaky-e2e-1",
+      "promptHash": "be382c89589a596f709fa77dcb1932485f75c1afb4fedba87f7e8f424519609f",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-flaky-e2e-2",
+      "promptHash": "26563262c59bc7b70d6118f00e12ee5d38f68226c45034fb1a0a619df49f648b",
+      "decision": "accept",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-bounded-edit-1",
+      "promptHash": "de5895060ee724f867e2cdcf4ec4e972da7680cb20ed98fc549014b6ac5feba5",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-bounded-edit-2",
+      "promptHash": "6cb89b8b7540d81cea8e4567e934d0b79a5ae7be809ba099699b5ea6aea69c2d",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-issue-comment-1",
+      "promptHash": "92aaaa5349fcb340583e069cb254a0fc64d509eca191ad6db58fa5b4c9d2553b",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-issue-comment-2",
+      "promptHash": "b86198b1d5265ec046a01213ab85001eac4179da768fbfc46e493b98a164c301",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-status-pasted-1",
+      "promptHash": "26685e28b0e3dbda9059899977de9d02d4e8d717167d17cfc32cd029918103a2",
+      "decision": "relabel",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-status-pasted-2",
+      "promptHash": "8c67745a2d87227cb7532d4ce315179b2551e75501f77f343da83581b948a776",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-acknowledgement-2",
+      "promptHash": "65df994fd18f7ad5d14a21e628cbffebad4adca4222f80824f9378fb9e69bbfb",
+      "decision": "reject",
+      "gold": null,
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-bounded-explanation-1",
+      "promptHash": "4311b0559c5f0732d09b9e233f5886d7443a05f3d21dca7794f8eef35881e863",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-bounded-explanation-2",
+      "promptHash": "7c2ee236ba19c48a31a29d4cc24b242a53ec924df48297b626803348ca7a1dae",
+      "decision": "accept",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-dependency-conflict-1",
+      "promptHash": "e9dab0fd94ea095a3dd273516c0ff49e3476d8475134b65e304e51a807e2bef3",
+      "decision": "relabel",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-dependency-conflict-2",
+      "promptHash": "c94a44537275d2ad8816b5a25325b7a00314ef9c82cb4254146c520137392a1f",
+      "decision": "relabel",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-data-migration-script-1",
+      "promptHash": "9eb2f7491d943d536deb375c0bb8e4899b4f05a3238b84295966682bc83574c1",
+      "decision": "relabel",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-docs-overhaul-1",
+      "promptHash": "ae60b686e6bbf1cbd739620b0ca4068417416093f67f26cdd4f853229f40ecd1",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-docs-overhaul-2",
+      "promptHash": "3b050421b1702d1d246e057660c5c15bf64e1614e4a88a8c81ec5faab3179efb",
+      "decision": "accept",
+      "gold": "docs",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-context-question-1",
+      "promptHash": "b3e7da04558039616154aa298876f4c13450a48667818ac282a06d57790c9049",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-context-question-2",
+      "promptHash": "0542a14c7e65ea57dc8572bf6007d29415e6f155ce2d0a5dbeaa860e4cae4707",
+      "decision": "accept",
+      "gold": "discuss",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-focused-review-1",
+      "promptHash": "ce68b913b4e5f2517bfc45018e0daef049c5b4f34abc6cf5a8c7e90737b7a78e",
+      "decision": "relabel",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "reviewer": "human:repository-owner"
+    },
+    {
+      "id": "h-long-git-ops-1",
+      "promptHash": "38d447c5f21ff104d786066a36ff1a76d11886c1a6361248e478cf953121a888",
+      "decision": "accept",
+      "gold": "git",
+      "secondary": [],
+      "reviewer": "human:repository-owner"
+    }
+  ]
+}
