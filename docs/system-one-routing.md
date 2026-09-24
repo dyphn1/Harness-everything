@@ -103,6 +103,52 @@ responses are checked by Phase 0. Transport fixtures prove IPC and failure
 handling only. Real checkpoint inference and measured CPU latency remain a
 separate gate, with explicit unavailable evidence if dependencies are absent.
 
+## N-gram provider (Phase 4)
+
+`transport: "ngram"` scores in the Node process itself. It needs no Python, no
+torch, no resident server and no subprocess. It exists because a byte-level
+transformer trained from scratch learned little beyond class priors on the
+owner's data. A linear model over character n-grams learned more from the same
+labels at about 1 MB. See
+[harness-routing-v1-cpu-2026-09-24](../benchmarks/results/system-one/harness-routing-v1-cpu-2026-09-24/README.md).
+
+**Artifact.** The manifest `checkpoint` is an absolute path to `<name>.bin`, and
+`weightsSha256` is that file's hash. A `<name>.json` sidecar beside it has the
+hash `configSha256`. `python` is not required for this transport. The sidecar
+holds exactly:
+
+| Field | Value |
+| --- | --- |
+| `format` | `harness-ngram` |
+| `formatVersion` | `1` |
+| `dim` | Feature buckets, a power of two between 2^10 and 2^20 |
+| `nmax` | Longest n-gram, 1–4 |
+| `hash` | `fnv1a32` |
+| `catalog` | The option IDs in catalog order |
+| `bias` | One number per option |
+| `metadata` | An object with training provenance |
+
+`.bin` holds `dim × catalog.length` little-endian float32 weights in row-major
+order (feature, then option), so its size must equal `dim × options × 4` bytes.
+Both files are hash-checked before use. Any mismatch in hash, shape or field
+returns `provider-config` and never scores.
+
+**Features.** Featurization is identical in the trainer and the provider, and a
+cross-language test proves it.
+
+1. Lowercase the text and join its whitespace-separated parts with one space.
+2. For each n from 1 to `nmax`, take every n-gram of Unicode code points that is
+   not only spaces. Add it to bucket `fnv1a32("<n>:<gram>" as UTF-8) mod dim`.
+3. Add one length feature, bucket `fnv1a32("len:<k>") mod dim`, where
+   `k = min(8, floor(log2(utf8Bytes + 1)))`.
+4. Weight each bucket as `log(1 + count)` and L2-normalize the vector.
+
+**Scoring.** The probabilities are `softmax(x·W + bias)` in catalog order. The
+request's option IDs must equal `catalog`, or the result is `provider-config`.
+The response has the Phase 0 shape, and the manifest `acceptance` thresholds
+apply as for any transport. The Phase 0 context limit (64 KiB) is the only
+length limit.
+
 ## Resident provider (Phase 4 prerequisite)
 
 The one-shot bridge pays Python start, `import torch` and checkpoint load on every
