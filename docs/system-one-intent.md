@@ -81,24 +81,54 @@ primary intent only. The review records live in
 same: at least 200 reviewed cases and at least 50 per language. The report also gives
 the count per intent, because a class with only a few holdout cases cannot be measured.
 
+**Scope.** The intent stage runs only on actionable prompts. When the tier stage
+abstains (`unclassified`), no intent is asked. In the first review the owner rejected
+all 25 non-actionable prompts, which left 190 cases, so the holdout gains
+**supplementary intent-only families** (`synthetic:authored`). Those families favor
+the thinnest intents (`test`, `plan`, `discuss`, `review`, `edit`). They are appended
+to the intent draft, reviewed the same way, and added to the training-leakage filter
+like every holdout prompt.
+
 ## Scoring
 
-The primary intent is a single choice from the catalog, scored and accepted like the
-tier. Secondary intents are scored as independent yes/no decisions, one per intent,
-each with its own calibrated threshold. The skills stage consumes the primary intent
-together with the accepted secondary intents.
+System One gives a probability for every intent. The highest is the predicted
+primary, and every other intent at or above a calibrated threshold is a predicted
+secondary. The skills stage consumes the primary intent together with the accepted
+secondary intents.
+
+Two intent labels are compared by **graded agreement**. Each side is a primary `p`
+plus a secondary set `S`, and its full set is `{p} ∪ S`. The owner set these grades:
+
+| Case | Score |
+| --- | --- |
+| Same primary | 1.0 |
+| Different primaries, and each primary is in the other side's full set (only the order differs) | 0.6 |
+| Different primaries, and only one primary is in the other side's full set; or the order differs but the secondary counts differ by 3 or more | 0.3 |
+| Neither primary is in the other side's full set | 0 |
+
+Both sides agreeing on intent but differing in order or in the number of steps means
+the same goal with a different breakdown, not a different goal. Graded agreement is
+reported next to exact primary agreement, never instead of it. The same grades apply
+to the labeler check and to accepted predictions of a model.
+
+**Family consistency.** A family groups variants and translations of one scenario.
+The report gives the share of families whose members share one primary intent, for the
+owner's gold and for the predictions. This makes a language-dependent intent visible
+without treating every variant as a translation.
 
 ## Training data
 
-The collected prompts are labeled a second time, for intent. Intent labels are stored
-beside the tier labels, never in place of them. Owner spot-checks for intent show
-session context, like the tier spot-checks. The labeler check against the intent
-holdout must reach 80% before training data is labeled.
+The collected prompts are labeled a second time, for intent. The labeler returns a
+primary and a secondary list for each prompt. Intent labels are stored beside the tier
+labels, never in place of them. Owner spot-checks for intent show session context, like
+the tier spot-checks. The labeler check against the intent holdout must reach a graded
+agreement of 80% before training data is labeled.
 
 ## Gates
 
 The intent stage uses the rollout gates of
 [system-one-routing.md](system-one-routing.md#rollout-gates): accepted precision at least
-85%, coverage at least 80%, repeatability, warm p95 at most 100 ms and verified
-provenance. There is no lexical intent router, so the macro-F1 baseline is the
+85% (graded agreement over accepted predictions, with exact primary precision
+reported beside it), coverage at least 80%, repeatability, warm p95 at most 100 ms and
+verified provenance. There is no lexical intent router, so the macro-F1 baseline is the
 majority-class predictor on the holdout.
