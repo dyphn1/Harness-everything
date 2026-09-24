@@ -56,7 +56,7 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
 - **Deduplication**: exact duplicates after whitespace normalization are dropped. The first
   occurrence is kept.
 - **Holdout leakage**: a prompt is dropped if its character-trigram Jaccard similarity to any
-  holdout prompt is at least 0.5. The same applies if either prompt contains the other after
+  prompt of the tier or intent holdout is at least 0.5. The same applies if either prompt contains the other after
   normalization and the shorter one is more than 12 characters long. This matters because
   the holdout includes rewrites of local prompt shapes.
 - **Family**: the source session. Prompts from one conversation never span splits.
