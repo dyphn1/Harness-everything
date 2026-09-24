@@ -1935,6 +1935,294 @@
       "prompt": "先切到 release/1.4 分支, 把 main 上面修正 typo 的那個 commit cherry-pick 過來, 推上去之後開 PR 回 release/1.4, 描述寫明是從 main 挑過來的以及原本的 commit, 其他什麼都不要改",
       "proposedGold": "git",
       "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "i-add-regression-tests-1",
+      "family": "i-add-regression-tests",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Add unit tests for parseDuration covering empty input, negative values and overflow.",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-add-regression-tests-2",
+      "family": "i-add-regression-tests",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "幫 parseDuration 補單元測試，要涵蓋空字串、負數和溢位。",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-run-suite-report-1",
+      "family": "i-run-suite-report",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Run the full test suite and tell me which tests fail.",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-run-suite-report-2",
+      "family": "i-run-suite-report",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "跑一次完整測試，告訴我哪些失敗。",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-error-path-tests-1",
+      "family": "i-error-path-tests",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Write integration tests for the export command; right now only the happy path is covered.",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-error-path-tests-2",
+      "family": "i-error-path-tests",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "export 指令只有 happy path 的測試，補上錯誤情境的整合測試。",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-phase-breakdown-1",
+      "family": "i-phase-breakdown",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Before we touch any code, break the caching work into phases with acceptance criteria for each.",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-phase-breakdown-2",
+      "family": "i-phase-breakdown",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "先不要寫程式，把快取這件事拆成幾個階段，每個階段寫清楚驗收條件。",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-loader-spec-1",
+      "family": "i-loader-spec",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Draft a short spec for the new plugin loader: goals, non-goals, interface and open questions.",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-loader-spec-2",
+      "family": "i-loader-spec",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "幫新的 plugin loader 寫一份簡短規格：目標、非目標、介面和待決問題。",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-index-adr-1",
+      "family": "i-index-adr",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Write an ADR comparing SQLite and Postgres for the local index and recommend one.",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-index-adr-2",
+      "family": "i-index-adr",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "寫一份 ADR 比較本地索引用 SQLite 還是 Postgres，並給出建議。",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-pick-an-option-1",
+      "family": "i-pick-an-option",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Option A keeps the old flag, option B renames it. Which would you pick and why?",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-pick-an-option-2",
+      "family": "i-pick-an-option",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "方案 A 保留舊參數，方案 B 直接改名，你會選哪個？為什麼？",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-settle-open-points-1",
+      "family": "i-settle-open-points",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "1. keep the retry count at 3  2. drop the legacy endpoint  3. docs can wait",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-settle-open-points-2",
+      "family": "i-settle-open-points",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "1. 重試次數維持 3 次 2. 舊的 endpoint 拿掉 3. 文件之後再補",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-cache-tradeoff-1",
+      "family": "i-cache-tradeoff",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Is it worth adding a cache here, or is the lookup cheap enough already?",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-cache-tradeoff-2",
+      "family": "i-cache-tradeoff",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "這裡值得加快取嗎？還是查詢本身已經夠快了？",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-pr-callers-1",
+      "family": "i-review-pr-callers",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Review PR 42 and point out anything that would break existing callers.",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-pr-callers-2",
+      "family": "i-review-pr-callers",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "幫我 review PR 42，看有沒有會影響既有呼叫端的地方。",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-migration-guide-1",
+      "family": "i-review-migration-guide",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Read the migration guide and check whether any step is missing or out of order.",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-migration-guide-2",
+      "family": "i-review-migration-guide",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "看一下遷移指南，檢查有沒有漏掉或順序錯誤的步驟。",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-test-quality-1",
+      "family": "i-review-test-quality",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Check whether the scheduler tests actually assert behavior or only run the code.",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-test-quality-2",
+      "family": "i-review-test-quality",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "檢查 scheduler 的測試是真的有驗證行為，還是只是把程式跑過一遍。",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-timeout-1",
+      "family": "i-edit-timeout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Change the request timeout from 10 seconds to 30.",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-timeout-2",
+      "family": "i-edit-timeout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "把 request timeout 從 10 秒改成 30 秒。",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-error-message-1",
+      "family": "i-edit-error-message",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Reword the error message for a missing config file so it says which path was checked.",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-error-message-2",
+      "family": "i-edit-error-message",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "缺少設定檔的錯誤訊息改一下，要說明檢查了哪個路徑。",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-default-logging-1",
+      "family": "i-edit-default-logging",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Make verbose logging off by default.",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-default-logging-2",
+      "family": "i-edit-default-logging",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "預設關掉 verbose log。",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-explain-routing-flow-1",
+      "family": "i-explain-routing-flow",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Walk me through what happens between the hook firing and the router picking a tier.",
+      "proposedGold": "explain",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-explain-routing-flow-2",
+      "family": "i-explain-routing-flow",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "說明一下從 hook 觸發到 router 選出 tier 中間經過哪些步驟。",
+      "proposedGold": "explain",
+      "rationale": "Authored supplementary intent case; the owner decides"
     }
   ]
 }

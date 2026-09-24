@@ -14131,6 +14131,2278 @@
       },
       "gold": "git",
       "secondary": []
+    },
+    {
+      "id": "i-add-regression-tests-1",
+      "family": "i-add-regression-tests",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Add unit tests for parseDuration covering empty input, negative values and overflow.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "c965e843e238ffa9261c8521999b8a3ce597a1fc19029af444de13c819ce4d01"
+      },
+      "gold": "test",
+      "secondary": []
+    },
+    {
+      "id": "i-add-regression-tests-2",
+      "family": "i-add-regression-tests",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "幫 parseDuration 補單元測試，要涵蓋空字串、負數和溢位。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "3d677f6b6807c0bb3fea78becad661a680d7adb275bd1c0f3c4c2ce7d04251ef"
+      },
+      "gold": "test",
+      "secondary": []
+    },
+    {
+      "id": "i-run-suite-report-1",
+      "family": "i-run-suite-report",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Run the full test suite and tell me which tests fail.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "df97466b395d08df86ea35f48c2b605f6b0dc0ab4eeeea0c6b19e13beaa2f5d0"
+      },
+      "gold": "test",
+      "secondary": []
+    },
+    {
+      "id": "i-run-suite-report-2",
+      "family": "i-run-suite-report",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "跑一次完整測試，告訴我哪些失敗。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "0b42a441ff2e84005f39592fc2a715b751fda6a8d1ad383cbd5c5a0302caec5c"
+      },
+      "gold": "test",
+      "secondary": []
+    },
+    {
+      "id": "i-error-path-tests-1",
+      "family": "i-error-path-tests",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Write integration tests for the export command; right now only the happy path is covered.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "d1a90c0e3dd9f73a7621174716f8794fe11aa8da77ac42b1bcc2147c39cc86c7"
+      },
+      "gold": "test",
+      "secondary": []
+    },
+    {
+      "id": "i-error-path-tests-2",
+      "family": "i-error-path-tests",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "export 指令只有 happy path 的測試，補上錯誤情境的整合測試。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "3b56d160cac5b7f82c63d883c9efd43d8a772fa30d449118fdd4831b7df11f59"
+      },
+      "gold": "test",
+      "secondary": []
+    },
+    {
+      "id": "i-phase-breakdown-1",
+      "family": "i-phase-breakdown",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Before we touch any code, break the caching work into phases with acceptance criteria for each.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "fa4940470a167326db520f14d66eb9627f67358fa7fa872b6bc892c4c64e6802"
+      },
+      "gold": "plan",
+      "secondary": []
+    },
+    {
+      "id": "i-phase-breakdown-2",
+      "family": "i-phase-breakdown",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "先不要寫程式，把快取這件事拆成幾個階段，每個階段寫清楚驗收條件。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "54a9fe04dfc7be5feaaed545704ee835f701044e8158c60d3a3a0bc0ae67eef5"
+      },
+      "gold": "plan",
+      "secondary": []
+    },
+    {
+      "id": "i-loader-spec-1",
+      "family": "i-loader-spec",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Draft a short spec for the new plugin loader: goals, non-goals, interface and open questions.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "c8cf79203da79c56cbac2f1b294980827682c820f54eec5dccd4cff1a885c215"
+      },
+      "gold": "plan",
+      "secondary": []
+    },
+    {
+      "id": "i-loader-spec-2",
+      "family": "i-loader-spec",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "幫新的 plugin loader 寫一份簡短規格：目標、非目標、介面和待決問題。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "aa1f5032b464d027d08d43f15aec79ee6d64807c890b092da15e2d250727d7b0"
+      },
+      "gold": "plan",
+      "secondary": []
+    },
+    {
+      "id": "i-index-adr-1",
+      "family": "i-index-adr",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Write an ADR comparing SQLite and Postgres for the local index and recommend one.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "a25cb1f9f00f6250860d92e14031c45386522328f99c3634d1c85fdbbfbd4aa6"
+      },
+      "gold": "plan",
+      "secondary": []
+    },
+    {
+      "id": "i-index-adr-2",
+      "family": "i-index-adr",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "寫一份 ADR 比較本地索引用 SQLite 還是 Postgres，並給出建議。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "63c397ab1a06fb40baf002850901b7a17e97ed6d8899714d1e53277ce5a925ac"
+      },
+      "gold": "plan",
+      "secondary": []
+    },
+    {
+      "id": "i-pick-an-option-1",
+      "family": "i-pick-an-option",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Option A keeps the old flag, option B renames it. Which would you pick and why?",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "53e163ababba1f64845988d45fe600e06117b4972e9dea24b627723aa4071900"
+      },
+      "gold": "discuss",
+      "secondary": []
+    },
+    {
+      "id": "i-pick-an-option-2",
+      "family": "i-pick-an-option",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "方案 A 保留舊參數，方案 B 直接改名，你會選哪個？為什麼？",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "c0272334727be777a177493428d500187c252dd9e4e8c75b171ed263eb0d519e"
+      },
+      "gold": "discuss",
+      "secondary": []
+    },
+    {
+      "id": "i-settle-open-points-1",
+      "family": "i-settle-open-points",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "1. keep the retry count at 3  2. drop the legacy endpoint  3. docs can wait",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "1c6f8dbd6a166d72a724c33b505dd96d18edcd8297abde7b94310e0cd9708976"
+      },
+      "gold": "discuss",
+      "secondary": []
+    },
+    {
+      "id": "i-settle-open-points-2",
+      "family": "i-settle-open-points",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "1. 重試次數維持 3 次 2. 舊的 endpoint 拿掉 3. 文件之後再補",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "3308b5f982256aba9185379557a6d5e69874ad056648d57668893b9fc45d3998"
+      },
+      "gold": "discuss",
+      "secondary": []
+    },
+    {
+      "id": "i-cache-tradeoff-1",
+      "family": "i-cache-tradeoff",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Is it worth adding a cache here, or is the lookup cheap enough already?",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "d6692963e606683c545247dba7712097c29ed8173bdfd673983ba8973bdfa156"
+      },
+      "gold": "discuss",
+      "secondary": []
+    },
+    {
+      "id": "i-cache-tradeoff-2",
+      "family": "i-cache-tradeoff",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "這裡值得加快取嗎？還是查詢本身已經夠快了？",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "082b84c55d6d3d6a3946f0964d8eb5eaa125085b90e31c3051cbb4eb093b1339"
+      },
+      "gold": "discuss",
+      "secondary": []
+    },
+    {
+      "id": "i-review-pr-callers-1",
+      "family": "i-review-pr-callers",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Review PR 42 and point out anything that would break existing callers.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "3d05f097305d554d40121461c356abe1d3f898178fb75eef01d682e90d04fee1"
+      },
+      "gold": "review",
+      "secondary": []
+    },
+    {
+      "id": "i-review-pr-callers-2",
+      "family": "i-review-pr-callers",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "幫我 review PR 42，看有沒有會影響既有呼叫端的地方。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "db716451063b2c48cba8586a399a9f4bb23b103792ad676efcf6b69128b943ed"
+      },
+      "gold": "review",
+      "secondary": []
+    },
+    {
+      "id": "i-review-migration-guide-1",
+      "family": "i-review-migration-guide",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Read the migration guide and check whether any step is missing or out of order.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "bdb62885cc30845c69ce6c7af5b22b08eae47767dffd9e23f9867b5a6412b61e"
+      },
+      "gold": "review",
+      "secondary": []
+    },
+    {
+      "id": "i-review-migration-guide-2",
+      "family": "i-review-migration-guide",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "看一下遷移指南，檢查有沒有漏掉或順序錯誤的步驟。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "3a9201255aab1f0b26d931ececb1de5cfce51857421aa1fc930e9821c8cb3c15"
+      },
+      "gold": "review",
+      "secondary": []
+    },
+    {
+      "id": "i-review-test-quality-1",
+      "family": "i-review-test-quality",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Check whether the scheduler tests actually assert behavior or only run the code.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "1e7a225ed6a9942d0a5deeb60223f862ae7e387e8d4e23353be512467f7390cd"
+      },
+      "gold": "review",
+      "secondary": []
+    },
+    {
+      "id": "i-review-test-quality-2",
+      "family": "i-review-test-quality",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "檢查 scheduler 的測試是真的有驗證行為，還是只是把程式跑過一遍。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "2152c2c1f406aee4af0562e9ea7d375166338c19f355ff9ff80774df4dbf7d84"
+      },
+      "gold": "review",
+      "secondary": []
+    },
+    {
+      "id": "i-edit-timeout-1",
+      "family": "i-edit-timeout",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Change the request timeout from 10 seconds to 30.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "611446601a4985096f246c5cc0ca3991150e76a8a0dd43431c3e11afe4579f32"
+      },
+      "gold": "edit",
+      "secondary": []
+    },
+    {
+      "id": "i-edit-timeout-2",
+      "family": "i-edit-timeout",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "把 request timeout 從 10 秒改成 30 秒。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "842b3aed8f21827bea8866db821d5d5245527650455fecec9ffaeb1e554f6d24"
+      },
+      "gold": "edit",
+      "secondary": []
+    },
+    {
+      "id": "i-edit-error-message-1",
+      "family": "i-edit-error-message",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Reword the error message for a missing config file so it says which path was checked.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "4cf637248c659d09efd5e2ba80ecd789b5fc7f37dd635bde1a09f46898bdd513"
+      },
+      "gold": "edit",
+      "secondary": []
+    },
+    {
+      "id": "i-edit-error-message-2",
+      "family": "i-edit-error-message",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "缺少設定檔的錯誤訊息改一下，要說明檢查了哪個路徑。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "154f9361269a2d41791c7b7bf6722c0501e7be327c8466f62a091f1816d00bfd"
+      },
+      "gold": "edit",
+      "secondary": []
+    },
+    {
+      "id": "i-edit-default-logging-1",
+      "family": "i-edit-default-logging",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Make verbose logging off by default.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "aa232d7d1dacbef0d98ffbb50025bd3f336d2938966cce8ac5eda162778b765c"
+      },
+      "gold": "edit",
+      "secondary": []
+    },
+    {
+      "id": "i-edit-default-logging-2",
+      "family": "i-edit-default-logging",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "預設關掉 verbose log。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "8403a321b6dffdab29398cb36cf881fe39bfb77449960e3bff59a15a037231a5"
+      },
+      "gold": "edit",
+      "secondary": []
+    },
+    {
+      "id": "i-explain-routing-flow-1",
+      "family": "i-explain-routing-flow",
+      "split": "holdout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "Walk me through what happens between the hook firing and the router picking a tier.",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "8adcef331cf6ff50e9d2abf58a8c951b985785fb88be0b36f3858d738318e89d"
+      },
+      "gold": "explain",
+      "secondary": []
+    },
+    {
+      "id": "i-explain-routing-flow-2",
+      "family": "i-explain-routing-flow",
+      "split": "holdout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "reviewed": false,
+      "request": {
+        "schemaVersion": 1,
+        "task": "intent",
+        "context": "說明一下從 hook 觸發到 router 選出 tier 中間經過哪些步驟。",
+        "options": [
+          {
+            "id": "explain",
+            "text": "Answer a question or explain how something works."
+          },
+          {
+            "id": "discuss",
+            "text": "Weigh options, give an opinion or settle a decision."
+          },
+          {
+            "id": "git",
+            "text": "Git or GitHub housekeeping: commit, push, branch, pull request."
+          },
+          {
+            "id": "fix",
+            "text": "Repair wrong behavior: a bug, crash, failing test or build."
+          },
+          {
+            "id": "edit",
+            "text": "Change an existing value, setting, text or behavior on request."
+          },
+          {
+            "id": "feature",
+            "text": "Add new behavior: a command, option, format or script."
+          },
+          {
+            "id": "refactor",
+            "text": "Restructure or unify existing code without new behavior."
+          },
+          {
+            "id": "review",
+            "text": "Evaluate an existing artifact against a standard."
+          },
+          {
+            "id": "test",
+            "text": "Run tests or builds, or write tests as the main deliverable."
+          },
+          {
+            "id": "docs",
+            "text": "Write or edit documentation as the main deliverable."
+          },
+          {
+            "id": "plan",
+            "text": "Produce a plan, specification or breakdown before implementation."
+          },
+          {
+            "id": "investigate",
+            "text": "Find facts or a cause and report back without changing anything."
+          },
+          {
+            "id": "unclassified",
+            "text": "Unclear intent, insufficient context or outside these categories."
+          }
+        ],
+        "catalogHash": "6d87b6e65a9d3541987cc308c87e949ff5b4acd4b2e0ef6c3ea92ba0ecf88d2d",
+        "requestHash": "da754a45e591d7e3e62f9da67707592fca58a892367093c632b4a8390ff55eb0"
+      },
+      "gold": "explain",
+      "secondary": []
     }
   ]
 }
