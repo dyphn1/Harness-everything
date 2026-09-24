@@ -2243,7 +2243,7 @@
         "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
         "requestHash": "89dc4acaee4ca2c8f070fe1eb7e8da8a11025f78d3cf9d8b15f14cc22af7538a"
       },
-      "gold": "tier3"
+      "gold": "tier2"
     },
     {
       "id": "h-add-cli-flag-3",
@@ -7309,7 +7309,7 @@
         "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
         "requestHash": "d48c25217d11d4d8881768a373dc92125fef499d200ce49d9a0b7d461e13831f"
       },
-      "gold": "tier2"
+      "gold": "tier1"
     }
   ]
 }

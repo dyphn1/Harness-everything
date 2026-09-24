@@ -120,6 +120,8 @@ a decision on its own.
 | `benchmarks/fixtures/system-one-holdout.json` | Evaluation corpus, rebuilt with `node scripts/system-one-corpus.js build <draft> <reviews> <corpus>` |
 
 The reviewed holdout has 215 cases (11 rejected): en 93 and zh-TW 122; gold
-`tier1` 47, `tier2` 97, `tier3` 51 and `null` 20. It meets the `reviewedHoldout`
-gate. It says nothing about model quality until a `harness-routing-v1`
+`tier1` 48, `tier2` 97, `tier3` 50 and `null` 20. It meets the `reviewedHoldout`
+gate. After the third training spot-check the owner moved two cases to the new
+lines: `h-add-cli-flag-2` to `tier2` and `h-long-git-ops-1` to `tier1`. Results
+recorded before that change used 47 `tier1` and 51 `tier3`. It says nothing about model quality until a `harness-routing-v1`
 checkpoint is evaluated on it.

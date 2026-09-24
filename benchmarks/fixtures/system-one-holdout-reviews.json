@@ -459,8 +459,8 @@
     {
       "id": "h-add-cli-flag-2",
       "promptHash": "dee4d30095d0eb8a53d969dd58773cf9d74c27766b67ec0e2871e4d28bf1f12a",
-      "decision": "relabel",
-      "gold": "tier3",
+      "decision": "accept",
+      "gold": "tier2",
       "reviewer": "human:repository-owner"
     },
     {
@@ -1579,8 +1579,8 @@
     {
       "id": "h-long-git-ops-1",
       "promptHash": "38d447c5f21ff104d786066a36ff1a76d11886c1a6361248e478cf953121a888",
-      "decision": "relabel",
-      "gold": "tier2",
+      "decision": "accept",
+      "gold": "tier1",
       "reviewer": "human:repository-owner"
     }
   ]
