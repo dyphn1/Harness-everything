@@ -119,7 +119,7 @@ From the superproject worktree, run the cross-platform helper before staging a g
 node <this-skill-dir>/scripts/submodule-reachability.js --json
 ```
 
-Exit 0 means every initialized submodule commit is externally reachable (or the superproject is not a linked worktree). Exit 1 means at least one linked-worktree submodule commit exists only in the current worktree. Exit 2 is a usage/Git inspection error. The JSON report includes the SHA, detached state, per-worktree git-dir status, remote-tracking refs, and primary-checkout presence.
+Exit 0 means every linked-worktree submodule commit was proven reachable outside the current worktree (or the superproject is not a linked worktree). An uninitialized gitlink is checked against the primary checkout and fails closed if that object is absent; initialize it to inspect remote refs, or fetch the commit into the primary checkout. Exit 1 means at least one commit is not proven externally reachable. Exit 2 is a usage/Git inspection error, including an unmerged submodule gitlink. The JSON report includes the gitlink SHA, initialized and detached state, per-worktree git-dir status, remote-tracking refs, and primary-checkout presence.
 
 ## Pre-removal check
 

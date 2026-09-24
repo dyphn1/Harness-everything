@@ -68,9 +68,15 @@ function inspect(root = process.cwd()) {
   const submodules = [];
 
   for (const entry of parseSubmoduleStatus(status)) {
-    const subPath = path.join(root, ...entry.path.split('/'));
-    const head = runGit(['-C', subPath, 'rev-parse', 'HEAD'], root, { allowFailure: true });
-    if (head.status !== 0) {
+    if (entry.prefix === 'U') {
+      throw new Error(`unmerged submodule gitlink cannot be verified: ${entry.path}`);
+    }
+
+    if (entry.prefix === '-') {
+      const presentInPrimary = linkedWorktree
+        ? primaryHasCommit(primaryRoot, commonDir, entry.path, entry.recordedSha)
+        : true;
+      const externallyReachable = !linkedWorktree || presentInPrimary;
       submodules.push({
         path: entry.path,
         sha: entry.recordedSha,
@@ -79,10 +85,16 @@ function inspect(root = process.cwd()) {
         perWorktreeModuleDir: null,
         reachableFromRemote: false,
         remoteRefs: [],
-        presentInPrimary: false,
-        externallyReachable: true,
+        presentInPrimary,
+        externallyReachable,
       });
       continue;
+    }
+
+    const subPath = path.join(root, ...entry.path.split('/'));
+    const head = runGit(['-C', subPath, 'rev-parse', 'HEAD'], root, { allowFailure: true });
+    if (head.status !== 0) {
+      throw new Error(`cannot inspect initialized submodule ${entry.path}: ${(head.stderr || head.stdout || '').trim()}`);
     }
 
     const sha = head.stdout.trim();
@@ -136,6 +148,10 @@ function printHuman(report) {
     console.log(`[${state}] ${entry.path} @ ${entry.sha}`);
     if (!entry.initialized) {
       console.log('  initialized: no');
+      console.log(`  present in primary checkout: ${entry.presentInPrimary ? 'yes' : 'no'}`);
+      if (report.linkedWorktree && !entry.presentInPrimary) {
+        console.log('  remote reachability: unverified; initialize the submodule or fetch the commit into the primary checkout');
+      }
       continue;
     }
     console.log(`  branch: ${entry.branch || '(detached)'}`);
