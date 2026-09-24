@@ -65,10 +65,11 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
 
 ## Privacy
 
-- Collected prompts and labels stay on the local machine under
-  `~/.agents/harness-everything/system-one/training/` and are **never committed**. The
-  repository holds only the scripts, aggregate statistics and the SHA-256 of each dataset
-  file.
+- Collected prompts and labels are **never committed to this public repository**. They
+  live under `~/.agents/harness-everything/system-one/training/` on the owner's machine.
+  A curated copy, for cloud sessions, is in the owner's private repository
+  `dyphn1/harness-system-one-data` (`training/` is the `--data-dir`). This repository holds
+  only the scripts, aggregate statistics and the SHA-256 of each dataset file.
 - Email addresses and user home paths are replaced with placeholders before storage. Names
   and product terms are not reliably detectable and remain.
 - The released weights come from a 4-way byte-level classifier with about 0.7M parameters. It
