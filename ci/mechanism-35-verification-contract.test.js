@@ -329,6 +329,9 @@ try {
   assert.strictEqual(isVerificationShell('cargo test', { cwd: classifyRepo }), true);
   assert.strictEqual(isVerificationShell('go test ./...', { cwd: classifyRepo }), true);
   assert.strictEqual(isVerificationShell('uv run pytest', { cwd: classifyRepo }), true);
+  assert.strictEqual(isVerificationShell('npm run build', { cwd: classifyRepo }), true, 'legacy build evidence remains recognized without a contract');
+  assert.strictEqual(isVerificationShell('npx tsc --noEmit', { cwd: classifyRepo }), true, 'legacy typecheck evidence remains recognized without a contract');
+  assert.strictEqual(isVerificationShell('echo test', { cwd: classifyRepo }), false, 'plain words must not become verification evidence');
 
   // Hook evidence: successful declared pre-commit verification after an edit
   // updates lastVerifyAt, so Stop does not emit a stale verification reminder.
