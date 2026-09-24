@@ -13,7 +13,7 @@ Use native worktree support first; raw Git is fallback.
 
 ## Contract
 
-- **Tier 3 / Fable MUST** isolate before broad mutation. If isolation is unavailable or explicitly declined, MUST report the degraded fallback/risk.
+- **Tier 3 / Fable (MUST resolve)** — isolate before broad mutation. If unavailable or explicitly declined, MUST report an explicit degraded fallback/risk.
 - **Ordinary mode SHOULD** isolate when it materially reduces collision/risk.
 - **MUST NOT** nest a worktree inside an isolated worktree.
 
