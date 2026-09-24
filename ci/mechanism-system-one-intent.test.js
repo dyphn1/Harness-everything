@@ -265,3 +265,92 @@ test('S1-I06 family consistency counts families of two or more that share one pr
   assert.deepEqual(familyConsistency(rows), { families: 2, consistent: 1, rate: 0.5 });
   assert.deepEqual(familyConsistency([{ family: 'c', primary: 'git' }]), { families: 0, consistent: 0, rate: null });
 });
+
+const LEVELS = [0, 0.2, 0.4, 0.6];
+// Scores for every intent: the given levels, 0 elsewhere.
+const scored = levels => Object.fromEntries(INTENTS.map(id => [id, Object.hasOwn(levels, id) ? levels[id] : 0]));
+
+test('S1-I12 the labeler asks for relevance scores and derives the bands from them', async () => {
+  const rules = label.rulesFromDoc(fs.readFileSync(path.join(root, 'docs/system-one-intent.md'), 'utf8'), 'intent');
+  assert.match(rules, /### Relevance scores/, 'the band table reaches the labeler');
+  const opts = { scores: true };
+  const schema = JSON.parse(label.schemaFor('intent', opts)).properties.labels.items;
+  assert.deepEqual(schema.required, ['i', 'primary', 'scores']);
+  assert.deepEqual(schema.properties.primary.enum, [...INTENTS, 'null']);
+  assert.deepEqual(schema.properties.scores.required, INTENTS);
+  assert.equal(schema.properties.scores.additionalProperties, false);
+  assert.ok(INTENTS.every(id => JSON.stringify(schema.properties.scores.properties[id].enum) === JSON.stringify(LEVELS)));
+  assert.throws(() => label.schemaFor('tier', opts), 'only the intent stage has scores');
+  const batch = [{ id: 'x', text: 'fix the crash, update the docs and add a test' }, { id: 'y', text: 'go' }];
+  const prompt = label.buildPrompt(rules, batch, 'intent', opts);
+  assert.match(prompt, /0, 0\.2, 0\.4 or 0\.6/);
+  assert.match(prompt, /primary/);
+  assert.doesNotMatch(prompt, /Also return secondary/, 'the secondary intents come from the bands');
+  const ok = { labels: [
+    { i: 0, primary: 'fix', scores: scored({ fix: 0.6, docs: 0.6, test: 0.4, review: 0.2 }) },
+    { i: 1, primary: 'null', scores: scored({ explain: 0.2 }) },
+  ] };
+  assert.deepEqual(label.validateReply(batch, ok, 'intent', opts), [
+    { gold: 'fix', secondary: ['docs', 'test'], scores: scored({ fix: 0.6, docs: 0.6, test: 0.4, review: 0.2 }) },
+    { gold: null, secondary: [], scores: scored({ explain: 0.2 }) },
+  ], 'secondary: every other intent at 0.4 or more, highest first, then catalog order');
+  const second = { i: 1, primary: 'null', scores: scored({}) };
+  for (const first of [
+    { i: 0, primary: 'fix', scores: scored({ fix: 0.4 }) },
+    { i: 0, primary: 'fix', scores: scored({ fix: 0.6, test: 0.8 }) },
+    { i: 0, primary: 'fix', scores: scored({ fix: 0.6, test: 0.5 }) },
+    { i: 0, primary: 'fix', scores: (({ docs, ...rest }) => rest)(scored({ fix: 0.6 })) },
+    { i: 0, primary: 'fix', scores: { ...scored({ fix: 0.6 }), unclassified: 0 } },
+    { i: 0, primary: 'unclassified', scores: scored({ fix: 0.6 }) },
+    { i: 0, primary: 'fix', gold: 'fix', scores: scored({ fix: 0.6 }) },
+  ]) assert.equal(label.validateReply(batch, { labels: [first, second] }, 'intent', opts), null, JSON.stringify(first));
+  assert.equal(label.validateReply(batch, { labels: [{ i: 0, primary: 'fix', scores: scored({ fix: 0.6 }) }, { i: 1, primary: 'null', scores: scored({ git: 0.4 }) }] }, 'intent', opts), null,
+    'a null primary leaves no intent above 0.2');
+  const out = await label.labelAll(batch, { rules, task: 'intent', scores: true, run: async () => ok });
+  assert.deepEqual(out.labeled[0], { id: 'x', gold: 'fix', secondary: ['docs', 'test'], scores: scored({ fix: 0.6, docs: 0.6, test: 0.4, review: 0.2 }) });
+  const report = label.agreement([{ id: 'x', gold: 'fix', secondary: ['test', 'docs', 'review'] }, { id: 'y', gold: null, secondary: [] }],
+    { x: out.labeled[0], y: out.labeled[1] }, 'intent');
+  assert.equal(report.graded, 1);
+  assert.deepEqual(report.bands, { goldSecondary: 1.5, secondary: 1, related: 1 }, 'means per case: owner secondary, labeler 0.4+ and 0.2 bands');
+  assert.equal(label.agreement([{ id: 'x', gold: 'fix', secondary: [] }], { x: { gold: 'fix', secondary: [] } }, 'intent').bands, undefined, 'unscored labels keep their report');
+});
+
+test('S1-I13 the ngram trainer learns scored intent labels as per-intent targets (skipped without torch)', t => {
+  const { spawnSync } = require('node:child_process');
+  const os = require('node:os');
+  const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+  if (spawnSync(python, ['-c', 'import torch'], { encoding: 'utf8' }).status !== 0) { t.skip('torch not installed'); return; }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-s1-scores-'));
+  try {
+    const data = path.join(dir, 'data'); fs.mkdirSync(data);
+    const texts = [['commit and push', 'git', { git: 0.6 }], ['fix the crash, add a test', 'fix', { fix: 0.6, test: 0.4, docs: 0.2 }],
+      ['explain this flag', 'explain', { explain: 0.6, investigate: 0.2 }], ['go', null, {}]];
+    const prompts = []; const labels = [];
+    for (let k = 0; k < 10; k++) texts.forEach(([x, g, s], i) => {
+      const id = `p${k}-${i}`; const scores = scored(s);
+      prompts.push({ id, family: `f${k}`, source: 'claude', split: k < 8 ? 'train' : 'validation', text: `${x} ${k}` });
+      labels.push({ id, gold: g, secondary: INTENTS.filter(x2 => x2 !== g && scores[x2] >= 0.4), scores });
+    });
+    fs.writeFileSync(path.join(data, 'prompts.jsonl'), prompts.map(x => JSON.stringify(x)).join('\n') + '\n');
+    fs.writeFileSync(path.join(data, 'labels-intent-scores.jsonl'), labels.map(x => JSON.stringify(x)).join('\n') + '\n');
+    fs.writeFileSync(path.join(data, 'owner-overrides-intent.jsonl'), `${JSON.stringify({ id: 'p9-2', gold: 'docs', secondary: ['explain'] })}\n`);
+    const out = path.join(dir, 'model');
+    const args = [path.join(root, 'scripts/system-one-train-ngram.py'), '--task', 'intent', '--target', 'scores', '--data-dir', data, '--out', out, '--dim', '4096', '--epochs', '60', '--lr', '0.05'];
+    const r = spawnSync(python, args, { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const side = JSON.parse(fs.readFileSync(path.join(out, 'harness-routing-v1.json'), 'utf8'));
+    assert.deepEqual(side.catalog, IDS);
+    assert.deepEqual([side.metadata.task, side.metadata.target, side.metadata.loss], ['intent', 'scores', 'bce']);
+    assert.ok(Object.hasOwn(side.metadata.datasets, 'labels-intent-scores.jsonl'));
+    const rows = fs.readFileSync(path.join(out, 'val-scores.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l));
+    assert.equal(rows.length, 8);
+    assert.ok(rows.every(s => s.probs.length === IDS.length && Math.abs(s.probs.reduce((a, b) => a + b, 0) - 1) < 1e-5), 'the provider still sees a probability vector');
+    assert.deepEqual([rows.find(s => s.id === 'p9-2').gold, rows.find(s => s.id === 'p9-2').secondary], ['docs', ['explain']], 'an owner override applies');
+    const p = rows.find(s => s.id === 'p8-1').probs; const at = id => p[IDS.indexOf(id)];
+    assert.ok(at('fix') > at('test') && at('test') > at('docs') && at('docs') > at('git'), 'primary, secondary, related, unrelated');
+    assert.equal(IDS[rows.find(s => s.id === 'p8-3').probs.indexOf(Math.max(...rows.find(s => s.id === 'p8-3').probs))], 'unclassified', 'a null primary trains unclassified');
+    fs.rmSync(path.join(data, 'labels-intent-scores.jsonl'));
+    assert.notEqual(spawnSync(python, args, { encoding: 'utf8' }).status, 0, 'scored training needs scored labels');
+    assert.notEqual(spawnSync(python, [...args.slice(0, 1), '--target', 'scores', '--data-dir', data, '--out', out], { encoding: 'utf8' }).status, 0, 'scores are an intent target only');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
