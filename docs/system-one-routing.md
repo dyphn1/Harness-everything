@@ -351,8 +351,9 @@ small model only has to separate a few options at a time.
    [system-one-corpus.md](system-one-corpus.md).
 2. **Intent**: the kind of work the prompt asks for, drawn from the owner's
    fixed catalog in [system-one-intent.md](system-one-intent.md): `explain`,
-   `discuss`, `git`, `fix`, `feature`, `refactor`, `review`, `test`, `docs`,
-   `plan`, `investigate` or `unclassified`.
+   `discuss`, `git`, `fix`, `edit`, `feature`, `refactor`, `review`, `test`,
+   `docs`, `plan`, `investigate` or `unclassified`. A prompt has one primary
+   intent and may have secondary intents.
 3. **Skills**: which canonical skills fit the prompt, scored against skill
    descriptions. Only skills above the stage's calibrated threshold are
    suggested, and they are suggestions, never required reads.

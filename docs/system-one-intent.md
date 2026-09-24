@@ -9,10 +9,19 @@ its own catalog, labels, holdout and gates.
 
 ## Intent labels
 
-An intent label answers one question: **what kind of work does this prompt ask the
+An intent label answers one question: **what kinds of work does this prompt ask the
 assistant to do, judged from the prompt and its session context?** The catalog is the
-repository owner's (confirmed 2026-09-24) and is fixed. Its order is the scorer's
-option order.
+repository owner's (confirmed 2026-09-24, with `edit` added the same day) and is fixed.
+Its order is the scorer's option order.
+
+A label has two parts:
+
+- **Primary.** Exactly one intent, or `null`. This is the work that produces the main
+  deliverable.
+- **Secondary.** Zero or more other intents that the request also needs. Changing a
+  default port, for example, is primary `edit` with secondary `test` and `docs` when
+  tests and docs mention the port. Secondary never contains the primary intent or
+  `null`, and it is empty when the primary is `null`.
 
 | Gold | Use when the prompt asks the assistant to | Examples of shape |
 | --- | --- | --- |
@@ -20,6 +29,7 @@ option order.
 | `discuss` | Weigh options, give an opinion, or settle a decision for work in progress | "should we keep the old name?", "1. agree 2. use hash", "你覺得哪個方案好" |
 | `git` | Perform Git or GitHub housekeeping: commit, push, branch, merge, rebase, cherry-pick, tag, open or merge a PR, post a comment | "commit and push", "開 PR", "commit the sub-repos, then the main repo" |
 | `fix` | Repair behavior that is wrong: a bug, a crash, a failing or flaky test, a build or CI failure, a dependency conflict | "the CLI panics here, fix it", "CI times out, find the cause and fix it" |
+| `edit` | Change an existing value, setting, text or behavior on request, when it is neither a bug nor new behavior | "change the default port from 8080 to 3000", "把 timeout 改成 30 秒", "rename the button label to Save" |
 | `feature` | Add new behavior: a command, an option, a format, an endpoint, a script, a migration | "add a --verbose flag", "support YAML input", "寫一個資料遷移腳本" |
 | `refactor` | Restructure or unify existing code without new behavior: rename, move, extract, replace a pattern everywhere, upgrade a dependency | "rename component to module everywhere", "replace console.log with the logger", "把常數搬出去" |
 | `review` | Evaluate an existing artifact against a standard: a PR, a diff, a design, a document, test coverage, a benchmark result | "review this PR", "檢查測試是不是只有 happy path", "audit the skill descriptions" |
@@ -31,9 +41,12 @@ option order.
 
 Rules:
 
-1. **One primary intent.** Label the work that produces the main deliverable. "Fix
-   the bug and add a regression test" is `fix`. "Investigate and fix" is `fix`.
-   "Implement the feature, then commit" is `feature`.
+1. **One primary intent, then the rest as secondary.** The primary is the work that
+   produces the main deliverable. "Fix the bug and add a regression test" is primary
+   `fix`, secondary `test`. "Investigate and fix" is primary `fix`, secondary
+   `investigate`. "Implement the feature, then commit" is primary `feature`, secondary
+   `git`. Add a secondary intent only when the request asks for it or clearly needs it,
+   not for every step an assistant might take.
 2. **Change beats inquiry.** When the prompt asks for a change, label the change, not
    the reading that precedes it. `investigate` and `explain` are for prompts that only
    ask for information.
@@ -42,8 +55,10 @@ Rules:
    shown.
 4. **`review` against `investigate`.** `review` judges a given artifact against a
    standard; `investigate` looks for a cause or for facts that are not yet known.
-5. **`fix` against `feature` against `refactor`.** Wrong behavior made right is `fix`.
-   New behavior is `feature`. The same behavior in a new structure is `refactor`.
+5. **`fix`, `edit`, `feature` and `refactor`.** Wrong behavior made right is `fix`.
+   A requested change to a value, setting, text or existing behavior that was not wrong
+   is `edit`. New behavior is `feature`. The same behavior in a new structure is
+   `refactor`.
 6. **Short replies follow the work in progress**, as in the tier rules. A reply that
    asks to change an output takes the intent of that change ("not this format, use the
    table" in a docs session is `docs`). A reply that settles decisions is `discuss`.
@@ -58,11 +73,20 @@ Rules:
 The intent holdout reuses the prompts of the tier holdout
 (`benchmarks/fixtures/system-one-holdout.json`). Their families are already
 holdout-only, so no training prompt can leak into them. Each case gets an intent gold
-through the same owner review as the tier holdout. The review records live in
+through the same owner review as the tier holdout. An intent review decision also
+records `secondary`, the list of secondary intents. `accept` and `relabel` refer to the
+primary intent only. The review records live in
 `benchmarks/fixtures/system-one-intent-reviews.json`, and the evaluation corpus is
 `benchmarks/fixtures/system-one-intent-holdout.json`. The `reviewedHoldout` gate is the
 same: at least 200 reviewed cases and at least 50 per language. The report also gives
 the count per intent, because a class with only a few holdout cases cannot be measured.
+
+## Scoring
+
+The primary intent is a single choice from the catalog, scored and accepted like the
+tier. Secondary intents are scored as independent yes/no decisions, one per intent,
+each with its own calibrated threshold. The skills stage consumes the primary intent
+together with the accepted secondary intents.
 
 ## Training data
 
