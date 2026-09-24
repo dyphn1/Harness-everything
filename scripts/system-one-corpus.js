@@ -5,7 +5,7 @@
 const fs = require('node:fs');
 const { createHash } = require('node:crypto');
 const { createRequest } = require('../harness-everything/scripts/system-one/contract');
-const { CATALOGS, goldLabels } = require('../harness-everything/scripts/system-one/catalogs');
+const { CATALOGS, MULTI, goldLabels, validSecondary } = require('../harness-everything/scripts/system-one/catalogs');
 const { validateCorpus } = require('../harness-everything/scripts/system-one/evaluate');
 
 const SOURCES = ['synthetic:authored', 'derived:local-history'];
@@ -38,9 +38,11 @@ function validateReviews(reviews, task = 'tier') {
   if (!exact(reviews, ['schemaVersion', 'decisions']) || reviews.schemaVersion !== 1 || !Array.isArray(reviews.decisions)) fail('invalid-reviews');
   const ids = new Set();
   for (const d of reviews.decisions) {
-    if (!exact(d, ['id', 'promptHash', 'decision', 'gold', 'reviewer']) || !nonempty(d.id) || ids.has(d.id)
+    const multi = MULTI.includes(task);
+    if (!exact(d, ['id', 'promptHash', 'decision', 'gold', ...(multi ? ['secondary'] : []), 'reviewer']) || !nonempty(d.id) || ids.has(d.id)
       || typeof d.promptHash !== 'string' || !/^[0-9a-f]{64}$/.test(d.promptHash)
       || !['accept', 'relabel', 'reject'].includes(d.decision) || !GOLD.includes(d.gold) || d.reviewer !== REVIEWER
+      || !validSecondary(task, d.gold, d.secondary)
       || (d.decision === 'reject' && d.gold !== null)) fail('invalid-reviews');
     ids.add(d.id);
   }
@@ -61,7 +63,8 @@ function build(draft, reviews, task = 'tier') {
     }
   }
   const summary = { cases: 0, reviewed: 0, rejected: 0, stale: 0, unreviewed: 0,
-    byLanguage: { en: 0, 'zh-TW': 0 }, byGold: Object.fromEntries(CATALOGS[task].map(o => [o.id, 0])), reviewedHoldoutGate: false };
+    byLanguage: { en: 0, 'zh-TW': 0 }, byGold: Object.fromEntries(CATALOGS[task].map(o => [o.id, 0])),
+    ...(MULTI.includes(task) ? { bySecondary: {} } : {}), reviewedHoldoutGate: false };
   const cases = [];
   for (const c of draft.cases) {
     const d = byId.get(c.id);
@@ -71,10 +74,13 @@ function build(draft, reviews, task = 'tier') {
     const reviewed = Boolean(current);
     if (reviewed) summary.reviewed += 1; else if (!d) summary.unreviewed += 1;
     const gold = reviewed ? d.gold : c.proposedGold;
+    // Drafts propose only the primary intent; secondary intents come from the reviewer.
+    const secondary = MULTI.includes(task) ? { secondary: reviewed ? [...d.secondary] : [] } : {};
     cases.push({ id: c.id, family: c.family, split: 'holdout', language: c.language, source: c.source, reviewed,
-      request: createRequest(task, c.prompt, CATALOGS[task]), gold });
+      request: createRequest(task, c.prompt, CATALOGS[task]), gold, ...secondary });
     summary.byLanguage[c.language] += 1;
     summary.byGold[gold === null ? 'unclassified' : gold] += 1;
+    for (const s of secondary.secondary || []) summary.bySecondary[s] = (summary.bySecondary[s] || 0) + 1;
   }
   summary.cases = cases.length;
   const corpus = { schemaVersion: 1, cases };

@@ -7,6 +7,7 @@ const INTENT_OPTIONS = Object.freeze([
   { id: 'discuss', text: 'Weigh options, give an opinion or settle a decision.' },
   { id: 'git', text: 'Git or GitHub housekeeping: commit, push, branch, pull request.' },
   { id: 'fix', text: 'Repair wrong behavior: a bug, crash, failing test or build.' },
+  { id: 'edit', text: 'Change an existing value, setting, text or behavior on request.' },
   { id: 'feature', text: 'Add new behavior: a command, option, format or script.' },
   { id: 'refactor', text: 'Restructure or unify existing code without new behavior.' },
   { id: 'review', text: 'Evaluate an existing artifact against a standard.' },
@@ -22,4 +23,13 @@ function goldLabels(task) {
   if (!Object.hasOwn(CATALOGS, task)) throw new TypeError('unknown-task');
   return CATALOGS[task].map(o => (o.id === 'unclassified' ? null : o.id));
 }
-module.exports = { INTENT_OPTIONS, CATALOGS, goldLabels };
+// Stages whose labels carry secondary intents beside the primary choice (docs/system-one-intent.md).
+const MULTI = Object.freeze(['intent']);
+// Secondary labels: distinct catalog ids other than the primary; none when the primary abstains.
+function validSecondary(task, primary, secondary) {
+  if (!MULTI.includes(task)) return secondary === undefined;
+  const ids = goldLabels(task).filter(g => g !== null);
+  return Array.isArray(secondary) && new Set(secondary).size === secondary.length
+    && secondary.every(s => ids.includes(s) && s !== primary) && (primary !== null || secondary.length === 0);
+}
+module.exports = { INTENT_OPTIONS, CATALOGS, MULTI, goldLabels, validSecondary };

@@ -1,6 +1,6 @@
 'use strict';
 const { validateRequest } = require('./contract');
-const { CATALOGS, goldLabels } = require('./catalogs');
+const { CATALOGS, MULTI, goldLabels, validSecondary } = require('./catalogs');
 const exact = (obj, keys) => obj && typeof obj === 'object' && !Array.isArray(obj) && Object.keys(obj).length === keys.length && keys.every(k => Object.hasOwn(obj, k));
 const nonempty = v => typeof v === 'string' && v.trim().length > 0;
 const finite = v => typeof v === 'number' && Number.isFinite(v);
@@ -13,9 +13,10 @@ function corpusLabels(corpus) {
   const labels = goldLabels(task); const catalog = JSON.stringify(CATALOGS[task]);
   const ids = new Set(); const hashes = new Set(); const families = new Map();
   for (const c of corpus.cases) {
-    if (!exact(c, ['id', 'family', 'split', 'language', 'source', 'reviewed', 'request', 'gold'])
+    if (!exact(c, ['id', 'family', 'split', 'language', 'source', 'reviewed', 'request', 'gold', ...(MULTI.includes(task) ? ['secondary'] : [])])
       || ![c.id, c.family, c.source].every(nonempty) || !['train', 'validation', 'holdout'].includes(c.split)
-      || !['en', 'zh-TW'].includes(c.language) || typeof c.reviewed !== 'boolean' || !labels.includes(c.gold)) fail();
+      || !['en', 'zh-TW'].includes(c.language) || typeof c.reviewed !== 'boolean' || !labels.includes(c.gold)
+      || !validSecondary(task, c.gold, c.secondary)) fail();
     validateRequest(c.request);
     if (c.request.task !== task || JSON.stringify(c.request.options) !== catalog
       || ids.has(c.id) || hashes.has(c.request.requestHash) || (families.has(c.family) && families.get(c.family) !== c.split)) fail();
