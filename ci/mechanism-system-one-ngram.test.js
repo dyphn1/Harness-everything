@@ -19,7 +19,7 @@ const IDS = TIER_OPTIONS.map(o => o.id);
 function artifact(dir, { dim = 1024, nmax = 3, catalog = IDS, sidecar = {}, bytes } = {}) {
   const W = new Float32Array(dim * catalog.length);
   const hot = ngram.fnv1a32('3:com') % dim;
-  W[hot * catalog.length + 0] = 6;
+  W[hot * catalog.length + 0] = 40;
   const bin = path.join(dir, 'tier.bin'); const json = path.join(dir, 'tier.json');
   fs.writeFileSync(bin, bytes || Buffer.from(W.buffer));
   fs.writeFileSync(json, JSON.stringify({ format: 'harness-ngram', formatVersion: 1, dim, nmax, hash: 'fnv1a32', catalog, bias: catalog.map(() => 0), metadata: { fixture: true }, ...sidecar }));
