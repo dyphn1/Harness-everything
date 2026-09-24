@@ -116,7 +116,7 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
   - The epoch with the lowest validation negative log-likelihood is kept.
   - The checkpoint metadata records the dataset hashes, the config and the validation metrics.
 - **Calibration**: `minConfidence` and `minMargin` are chosen on validation to maximize
-  coverage, subject to an accepted precision of at least 98%. The router currently uses the
+  coverage, subject to an accepted precision of at least 85% (the owner's advisory target). The router currently uses the
   Phase 0 defaults (0.9 and 0.2). Carrying calibrated thresholds into the manifest is a
   separate contract change.
 

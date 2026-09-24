@@ -286,11 +286,38 @@ unversioned download during a prompt hook.
 Phase 4 training data, labeling, calibration and release are defined in
 [system-one-training.md](system-one-training.md).
 
+## Staged classification
+
+System One answers three narrow questions in sequence instead of one broad
+question. Each stage is its own fixed catalog, scorer request and holdout, so a
+small model only has to separate a few options at a time.
+
+1. **Tier**: `tier1`, `tier2`, `tier3` or `unclassified`, following
+   [system-one-corpus.md](system-one-corpus.md).
+2. **Intent**: the kind of work the prompt asks for, drawn from a small fixed
+   catalog (for example: ask or explain, discuss or decide, Git/GitHub
+   operation, fix a bug, build a feature, refactor, review or audit, test or
+   verify, write docs, plan or spec, investigate). The intent catalog is the
+   owner's and is recorded in the corpus document before any intent labels.
+3. **Skills**: which canonical skills fit the prompt, scored against skill
+   descriptions. Only skills above the stage's calibrated threshold are
+   suggested, and they are suggestions, never required reads.
+
+Each stage has its own gates, and a stage ships only when it passes them. Tier
+comes first because the reviewed holdout exists for it. Later stages reuse the
+same collector, labeler, trainer and evaluator with a different catalog.
+Suggestions are advisory: explicit workflow requests, action gates, memory
+ownership, the Rule of 3 and deterministic policy always take precedence.
+
 ## Rollout gates
 
 Phase 4 requires a separately reviewed, family-disjoint holdout of at least 200
-cases, at least 50 each in English and Traditional Chinese. Accepted precision
-must be ≥98%, coverage ≥80%, and macro-F1 at least the lexical baseline.
+cases, at least 50 each in English and Traditional Chinese. System One output is
+advisory: it informs the agent and suggests skills. It never grants or removes
+policy. The owner therefore set the target at accepted precision ≥85% (the
+80–90% band), coverage ≥80%, and macro-F1 at least the lexical baseline. A
+probabilistic scorer small enough to ship inside a skills plugin (a few MB, not
+hundreds) is not expected to reach 98%.
 Policy invariants must remain intact in every case; repeat decisions twice with
 100% agreement. Record checkpoint/source hashes, CPU, OS, runtime, thread count,
 cold latency and warm p95 (target ≤100ms). Synthetic fixtures and mock providers
