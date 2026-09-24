@@ -111,9 +111,19 @@ git -C <primary> submodule update
 
 The PowerShell form is identical except paths/refs should be quoted as shown above.
 
+## Preferred automated check
+
+From the superproject worktree, run the cross-platform helper before staging a gitlink and again before removing the worktree:
+
+```bash
+node <this-skill-dir>/scripts/submodule-reachability.js --json
+```
+
+Exit 0 means every initialized submodule commit is externally reachable (or the superproject is not a linked worktree). Exit 1 means at least one linked-worktree submodule commit exists only in the current worktree. Exit 2 is a usage/Git inspection error. The JSON report includes the SHA, detached state, per-worktree git-dir status, remote-tracking refs, and primary-checkout presence.
+
 ## Pre-removal check
 
-For every changed gitlink SHA, prove at least one external home exists:
+Prefer the helper above. Raw fallback: for every changed gitlink SHA, prove at least one external home exists:
 
 ```bash
 git -C <submodule> branch -r --contains <sha>
