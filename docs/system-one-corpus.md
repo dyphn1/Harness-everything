@@ -16,7 +16,7 @@ to, judged from the prompt alone?** The labels follow the tier model in
 | --- | --- | --- |
 | `tier1` | Something answered or done without changing project behavior: Git/GitHub housekeeping (commit, push, open a PR, sync, tag, post given results as a comment), a status check, reading a log or searching and reporting, the smallest doc fix (a typo, a link, an ignore entry), or a reply the assistant can give directly, including non-engineering chores and discussion questions | "commit these changes", "is issue 88 still open?", "find every repo still using the old logging package", "close the other apps" |
 | `tier2` | A bounded change or investigation: any code, configuration or CI edit (a rename, a value, a revert), running tests or a build, filing an issue, explaining code that must be read first, most bug fixes, a focused review or benchmark, planning or synthesis that produces documents (phase plans, an ADR, an overview), and answers that settle open decisions for work in progress | "rename tmp to buffer", "run npm test", "the CLI fails with this error, fix it", "1. agree 2. keep the old name" |
-| `tier3` | New or changed behavior delivered with tests, and anything larger: a new flag or format, a behavior change across producers and tests, a large refactor, a dependency upgrade with breakage, a migration, a repository-wide change, a multi-phase implementation, or delegation to several agents | "add a --verbose flag with tests", "migrate to ESM", "dispatch agents to audit every repo" |
+| `tier3` | Work that needs several agents (sub-agents included); a new feature, a refactor, or a change to a framework or interface definition; or work that spans several repositories or several workflows | "add a --verbose flag with tests", "refactor the parser into modules", "change the plugin interface", "dispatch agents to audit every repo" |
 | `null` | No actionable content: a bare continuation, "do what you said", a vague reaction, a question about what the assistant meant, or pasted status with no request | "go", "yes", "照剛剛說的改", "something is off here" |
 
 Rules:
@@ -31,6 +31,11 @@ Rules:
    reformat or extend the assistant's previous answer without changing files is
    `tier1`. A requested change to code or configuration, however small, is at
    least `tier2`. Only the smallest doc fixes listed in the table stay `tier1`.
+   The line between `tier2` and `tier3` is the owner's: `tier3` when the work
+   needs several agents or sub-agents, adds a feature, refactors, changes a
+   framework or interface definition, or spans several repositories or
+   workflows. Fixing, adjusting, investigating or reviewing existing behavior
+   within one workflow is `tier2`.
 4. Explicit workflow words ("use fable", "no subagents") do not change the gold.
    Precedence is a router policy, not a label.
 5. Never derive gold from the lexical router or any model output. A reviewer may
