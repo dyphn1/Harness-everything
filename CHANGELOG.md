@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.25.1](https://github.com/dyphn1/Harness-everything/compare/v0.25.0...v0.25.1) (2026-09-24)
+
+### Bug Fixes
+
+* **skills:** document worktree submodule reachability ([024185a](https://github.com/dyphn1/Harness-everything/commit/024185ab29363968bbe30d648cf2ef902751e9b9))
+* **skills:** keep worktree contract within token budget ([c41903d](https://github.com/dyphn1/Harness-everything/commit/c41903d2c37e3af127b84b0ba9c5a82cd4fab3ee))
+* **skills:** preserve isolation contract wording ([b14ea2a](https://github.com/dyphn1/Harness-everything/commit/b14ea2a6e6417f4103f16e5d2cf04e6fc994e583))
+* **skills:** require submodule reachability reference ([5c61c2b](https://github.com/dyphn1/Harness-everything/commit/5c61c2bbae0f2e29818579bd2ebcd7d45a76c1b0))
+* **skills:** sync compact worktree contract ([cd4e3a8](https://github.com/dyphn1/Harness-everything/commit/cd4e3a8db276083ac11346031f626058cd02bed3))
+* **skills:** sync isolation contract wording ([7f59b1c](https://github.com/dyphn1/Harness-everything/commit/7f59b1c4e66d00ec84c225ad161e503a443ad1cd))
+* **skills:** sync worktree submodule reference ([b3fdf5d](https://github.com/dyphn1/Harness-everything/commit/b3fdf5dff8b2c22ff02cc39510d23dc60c2489ae))
+* **skills:** sync worktree submodule skill ([08dffec](https://github.com/dyphn1/Harness-everything/commit/08dffec0aa69602b61a1a90b6d10cbf97cea0dcb))
+
 ## [0.25.0](https://github.com/dyphn1/Harness-everything/compare/v0.24.0...v0.25.0) (2026-09-23)
 
 ### Features
