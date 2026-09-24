@@ -140,6 +140,58 @@ test('S1-I05 graded agreement follows the owner\'s grades and is symmetric', () 
   }
 });
 
+const IDS = [...INTENTS, 'unclassified'];
+// A probability vector with the given masses; the rest is spread evenly over the other options.
+const probs = masses => { const rest = (1 - Object.values(masses).reduce((s, v) => s + v, 0)) / (IDS.length - Object.keys(masses).length);
+  return IDS.map(id => (Object.hasOwn(masses, id) ? masses[id] : rest)); };
+
+test('S1-I07 intent calibration uses graded precision and picks a secondary threshold on validation', () => {
+  const { calibrate } = require('../scripts/system-one-calibrate');
+  const rows = [
+    { id: 'a', gold: 'fix', secondary: ['test'], probs: probs({ fix: 0.6, test: 0.3 }) },
+    { id: 'b', gold: 'test', secondary: ['fix'], probs: probs({ fix: 0.55, test: 0.35 }) },
+    { id: 'c', gold: 'docs', secondary: [], probs: probs({ git: 0.4, docs: 0.35 }) },
+  ];
+  const c = calibrate(rows, { task: 'intent' });
+  assert.equal(c.secondaryThreshold, 0.05, 'lowest threshold with the best secondary micro-F1');
+  assert.deepEqual([c.feasible, c.minConfidence, c.minMargin, c.accepted, c.precision], [true, 0.5, 0.25, 1, 1]);
+  const loose = calibrate(rows, { task: 'intent', minPrecision: 0.8 });
+  assert.deepEqual([loose.minConfidence, loose.minMargin, loose.accepted], [0.5, 0, 2]);
+  assert.equal(loose.precision, 0.8, 'graded: (1 + 0.6) / 2');
+  assert.equal(loose.exactPrecision, 0.5);
+  assert.equal(calibrate([{ id: 'x', gold: 'tier1', probs: [0.9, 0.05, 0.05, 0] }]).secondaryThreshold, undefined, 'tier calibration is unchanged');
+});
+
+test('S1-I08 the ngram trainer trains the intent stage with soft targets (skipped without torch)', t => {
+  const { spawnSync } = require('node:child_process');
+  const os = require('node:os');
+  const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+  if (spawnSync(python, ['-c', 'import torch'], { encoding: 'utf8' }).status !== 0) { t.skip('torch not installed'); return; }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-s1-intent-'));
+  try {
+    const data = path.join(dir, 'data'); fs.mkdirSync(data);
+    const texts = [['commit and push', 'git', []], ['fix the crash and add a test', 'fix', ['test']], ['explain this flag', 'explain', []], ['go', null, []]];
+    const prompts = []; const labels = [];
+    for (let k = 0; k < 10; k++) texts.forEach(([x, g, s], i) => { const id = `p${k}-${i}`; prompts.push({ id, family: `f${k}`, source: 'claude', split: k < 8 ? 'train' : 'validation', text: `${x} ${k}` }); labels.push({ id, gold: g, secondary: s }); });
+    fs.writeFileSync(path.join(data, 'prompts.jsonl'), prompts.map(x => JSON.stringify(x)).join('\n') + '\n');
+    fs.writeFileSync(path.join(data, 'labels-intent.jsonl'), labels.map(x => JSON.stringify(x)).join('\n') + '\n');
+    fs.writeFileSync(path.join(data, 'owner-overrides-intent.jsonl'), `${JSON.stringify({ id: 'p9-2', gold: 'docs', secondary: ['explain'] })}\n`);
+    fs.writeFileSync(path.join(data, 'labels.jsonl'), `${JSON.stringify({ id: 'p0-0', gold: 'tier1' })}\n`);
+    const out = path.join(dir, 'model');
+    const r = spawnSync(python, [path.join(root, 'scripts/system-one-train-ngram.py'), '--task', 'intent', '--data-dir', data, '--out', out, '--dim', '4096', '--epochs', '40'], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const side = JSON.parse(fs.readFileSync(path.join(out, 'harness-routing-v1.json'), 'utf8'));
+    assert.deepEqual(side.catalog, IDS);
+    assert.equal(side.metadata.task, 'intent');
+    const scores = fs.readFileSync(path.join(out, 'val-scores.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l));
+    assert.equal(scores.length, 8);
+    assert.ok(scores.every(s => s.probs.length === IDS.length && Array.isArray(s.secondary)));
+    assert.deepEqual(scores.find(s => s.id === 'p9-2'), { ...scores.find(s => s.id === 'p9-2'), gold: 'docs', secondary: ['explain'] }, 'owner intent override applies');
+    const fixRow = scores.find(s => s.id === 'p8-1');
+    assert.ok(fixRow.probs[IDS.indexOf('fix')] > fixRow.probs[IDS.indexOf('test')] && fixRow.probs[IDS.indexOf('test')] > fixRow.probs[IDS.indexOf('git')], 'soft targets rank the primary, then the secondary');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('S1-I06 family consistency counts families of two or more that share one primary', () => {
   const rows = [
     { family: 'a', primary: 'fix' }, { family: 'a', primary: 'fix' },
