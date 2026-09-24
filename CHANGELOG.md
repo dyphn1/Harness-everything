@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.26.0](https://github.com/dyphn1/Harness-everything/compare/v0.25.1...v0.26.0) (2026-09-24)
+
+### Features
+
+* **verify:** add shared verification contract model ([8e9548c](https://github.com/dyphn1/Harness-everything/commit/8e9548c278c4c13d4d29a07093a0d1dec67b7a76))
+* **verify:** add structured multi-root verification gate ([e616978](https://github.com/dyphn1/Harness-everything/commit/e616978a2ae81dda9123f189b4639c6c6c9f97ed))
+
+### Bug Fixes
+
+* **verify:** align hook verification command recognition ([943659a](https://github.com/dyphn1/Harness-everything/commit/943659aa0639316beea7f90327c32b393d441931))
+* **verify:** keep hook evidence fail closed ([ff19098](https://github.com/dyphn1/Harness-everything/commit/ff190980e2452b297624ae06be60a29bcfc74fb5))
+* **verify:** preserve legacy evidence without broad word matching ([aa4ac71](https://github.com/dyphn1/Harness-everything/commit/aa4ac715b85321f29cd744c02221130e659de318))
+* **verify:** record project-aware verification evidence ([cab04fc](https://github.com/dyphn1/Harness-everything/commit/cab04fce9691938dcf17da88591e4063a94b5339))
+* **verify:** Require runnable commit hooks ([735790e](https://github.com/dyphn1/Harness-everything/commit/735790ea0fc39603f0e68f160f9bd20f49636095))
+* **verify:** route shell evidence through shared classifier ([e205319](https://github.com/dyphn1/Harness-everything/commit/e205319011fb8cfef4e43310e550b2725d41bacb))
+* **verify:** sync fail-closed verification classifier ([cfe1eb2](https://github.com/dyphn1/Harness-everything/commit/cfe1eb221686edac554f545637925e7c37002057))
+
 ## [Unreleased]
 
 ### Bug Fixes
