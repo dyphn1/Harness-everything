@@ -68,6 +68,31 @@ Rules:
 8. **Never derive gold from the lexical router or any model output.** A reviewer may
    read a proposed intent, but the recorded gold is the reviewer's decision.
 
+### Relevance scores
+
+A scored label rates every intent of the catalog, except `null`, on four levels. The owner
+set the levels on 2026-09-24. System One only suggests skills, so a scored label is meant
+to rank candidates well; no level stands above 0.6.
+
+| Score | Band | Meaning |
+| --- | --- | --- |
+| 0.6 | Primary relevance | The prompt asks for this work as a main deliverable |
+| 0.4 | Secondary relevance | The request also needs this work |
+| 0.2 | Related | Useful context or a likely follow-up that the prompt does not ask for |
+| 0 | Unrelated | Nothing in the prompt points to this work |
+
+Rules:
+
+1. **Rate each intent on its own.** The scores are not a budget shared by the intents.
+   Several intents may share a level.
+2. **Name one primary.** It must score 0.6. Another intent may also score 0.6 when the
+   prompt asks for several main deliverables; the primary is the one rule 1 above picks.
+3. **`null` means nothing actionable.** With a `null` primary, no intent scores more
+   than 0.2.
+4. **Bands give the label.** The secondary intents are every other intent that scores
+   0.4 or more, highest first, then in catalog order. Related intents are kept only as
+   scores.
+
 ## Holdout
 
 The intent holdout reuses the prompts of the tier holdout
@@ -123,6 +148,15 @@ primary and a secondary list for each prompt. Intent labels are stored beside th
 labels, never in place of them. Owner spot-checks for intent show session context, like
 the tier spot-checks. The labeler check against the intent holdout must reach a graded
 agreement of 80% before training data is labeled.
+
+**Scored labels.** The second intent labeling, requested by the owner on 2026-09-24,
+asks for [relevance scores](#relevance-scores) instead of a primary and a short list.
+The labeler returns a primary and a score for every intent. Scored labels are stored in
+`labels-intent-scores.jsonl`, beside the earlier intent labels. Each row keeps the
+primary as `gold`, the secondary intents derived from the bands and all the scores. The
+labeler check grades the derived primary and secondary intents against the holdout, as
+above. Its report also gives the mean number of secondary and related intents per
+prompt, next to the owner's mean number of secondary intents.
 
 ## Gates
 

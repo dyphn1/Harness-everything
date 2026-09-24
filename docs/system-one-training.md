@@ -89,6 +89,13 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
     labels already written. Every returned index must be labeled exactly once with
     `tier1`, `tier2`, `tier3` or `null`. A malformed batch is retried once and then
     recorded as failed. It is never partially accepted.
+  - `--model` and `--engine codex` choose another labeler; the label rows record it.
+    `--batch N` changes the batch size.
+  - `--task intent --scores` asks for [relevance scores](system-one-intent.md#relevance-scores).
+    Each reply names a primary and scores every intent at 0, 0.2, 0.4 or 0.6. A reply
+    whose primary does not score 0.6, whose `null` primary leaves an intent above 0.2, or
+    that misses an intent or uses another level is malformed. The owner chose Haiku for
+    this labeling.
 - **Labeler check**: the labeler labels the 215 holdout prompts once, before any training
   data is labeled. The report gives agreement with the owner's gold and the per-class recall.
   - Labeling proceeds only when agreement is at least 80%.
@@ -124,6 +131,16 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
     the primary gets 0.6 and the secondary intents share 0.4 equally. `null` maps to
     `unclassified` with 1.0.
   - Validation scores keep each row's secondary intents for calibration.
+  - `--target scores` trains on the scored labels in `labels-intent-scores.jsonl`
+    instead. Each intent is its own binary target with its score as the soft value, and
+    the loss is a per-intent binary cross-entropy. `unclassified` scores 0.6 when the
+    primary is `null` and 0 otherwise. An owner override without scores counts as 0.6
+    for its primary and 0.4 for its secondary intents. The class weights come from the
+    score mass of each intent.
+  - The artifact format is unchanged. The provider still returns the softmax over the
+    same logits, which ranks the intents in relevance order, so the contract's
+    probability vector and the calibration below stay as they are. Handing the absolute
+    relevance bands to the skills stage is a separate contract change.
 - The `tinyx` path below is kept for comparison. Its first checkpoint learned little beyond
   class priors.
 - **Model** (`tinyx`): a new `cua_s1` `tinyx` scorer built with `make_system`.
