@@ -9,7 +9,7 @@ This keeps verification explicit without turning discovery into an accidental co
 
 ## Contract
 
-Create `.harness/verify.json` at the enclosing Git repository root:
+Create `.harness/verify.json` at the enclosing Git repository root. Its documented JSON Schema is `<this-skill-dir>/references/verify-contract.schema.json`:
 
 ```json
 {
@@ -109,4 +109,4 @@ The output contains:
 - `checks[]` with `id`, `run`, `cwd`, `source`, `exitCode`, and `durationMs`
 - `candidates[]` with `source`, `run`, and `cwd`
 
-The machine-readable result is evidence metadata; only `PASSED` means the gate produced passing verification evidence.
+The machine-readable result conforms to `<this-skill-dir>/references/verify-result.schema.json`. It is evidence metadata; only `PASSED` means the gate produced passing verification evidence.
