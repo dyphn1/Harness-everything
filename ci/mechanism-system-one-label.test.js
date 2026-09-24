@@ -66,9 +66,11 @@ test('S1-L06 the codex engine runs one stateless exec per batch and reads the sc
   try {
     // Fake codex: records its argv, reads the prompt from stdin, writes the reply to the -o file.
     const fake = path.join(dir, 'fake-codex.js'); const argvLog = path.join(dir, 'argv.json');
+    // Without an -o target the fake exits instead of writing (a[-1 + 1] would land in the working directory).
     fs.writeFileSync(fake, `const fs=require('fs');const a=process.argv.slice(2);fs.writeFileSync(${JSON.stringify(argvLog)},JSON.stringify(a));
+      const o=a.indexOf('-o');if(o<0)process.exit(3);
       let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const m=[...s.matchAll(/\\{"i":(\\d+),"text"/g)];
-      fs.writeFileSync(a[a.indexOf('-o')+1],JSON.stringify({labels:m.map(x=>({i:Number(x[1]),gold:'tier1'}))}));});`);
+      fs.writeFileSync(a[o+1],JSON.stringify({labels:m.map(x=>({i:Number(x[1]),gold:'tier1'}))}));});`);
     const input = path.join(dir, 'prompts.jsonl');
     fs.writeFileSync(input, items(3).map(r => JSON.stringify({ ...r, family: 'f', source: 'claude', split: 'train' })).join('\n') + '\n');
     const out = path.join(dir, 'labels.jsonl');
