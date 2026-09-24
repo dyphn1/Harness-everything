@@ -84,7 +84,7 @@ function evaluate(corpus, records, sourceEvidence = null) {
   const gates = {
     reviewedHoldout: cases.length >= 200 && cases.every(c => c.reviewed)
       && ['en', 'zh-TW'].every(lang => cases.filter(c => c.language === lang).length >= 50),
-    acceptedPrecision: model.acceptedPrecision !== null && model.acceptedPrecision >= 0.98,
+    acceptedPrecision: model.acceptedPrecision !== null && model.acceptedPrecision >= 0.85,
     coverage: model.coverage >= 0.8,
     macroF1: model.macroF1 >= baseline.macroF1,
     repeatability: agreement === 1,

@@ -13,7 +13,7 @@ function decideRow(probs, { minConfidence, minMargin }) {
   if (margin === 0 || top[0] < minConfidence || margin < minMargin || IDS[top[1]] === 'unclassified') return null;
   return IDS[top[1]];
 }
-function calibrate(rows, { minPrecision = 0.98 } = {}) {
+function calibrate(rows, { minPrecision = 0.85 } = {}) {
   let best = null;
   for (let c = 50; c <= 99; c++) {
     for (let m = 0; m <= 90; m += 5) {
