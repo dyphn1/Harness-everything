@@ -25,8 +25,9 @@ git rev-parse --git-dir
 git rev-parse --git-common-dir
 git branch --show-current
 git rev-parse --show-superproject-working-tree
+git submodule status --recursive
 ```
-Different git/common dirs and no superproject => already isolated; continue to Step 2. A submodule is a normal repo for this check.
+Different git/common dirs and no superproject => already isolated; continue to Step 2. A submodule is a normal repo for this check. If submodules exist, **MUST** read `<this-skill-dir>/references/submodules-in-worktrees.md` before committing inside them.
 
 **Step 1 — Create/enter**: use native `EnterWorktree`, `/worktree`, or `--worktree` first; otherwise use `git worktree add "$path" -b "$BRANCH_NAME"`. Use an already-ignored or external/sibling path when possible. If creation/entry fails, MUST surface the degraded isolation disposition before continuing.
 
