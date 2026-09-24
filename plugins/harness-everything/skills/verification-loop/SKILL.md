@@ -33,7 +33,7 @@ Run objective quality gates before claiming a change is ready.
 ## Workflow
 
 Never claim completion until every applicable gate passes. On failure, fix the cause
-and rerun from the first affected gate.
+and rerun from the first affected gate. For project-declared/discovered mechanical gates, follow `<this-skill-dir>/references/project-verification-contract.md`.
 
 1. Build: `npm run build`.
 2. Types: `npx tsc --noEmit` or `pyright .`.
