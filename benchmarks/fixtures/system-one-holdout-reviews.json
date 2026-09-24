@@ -410,15 +410,15 @@
     {
       "id": "h-fix-cli-error-log-3",
       "promptHash": "09d285719d1f96cd6740d19922cafc6d8dd0cf2c69107c6684406e4c71a754f3",
-      "decision": "relabel",
-      "gold": "tier3",
+      "decision": "accept",
+      "gold": "tier2",
       "reviewer": "human:repository-owner"
     },
     {
       "id": "h-fix-cli-error-log-4",
       "promptHash": "cf19ff4c74605c34d4e8743ff71dd61978178b070c79ea392b7c9c56ea44a933",
-      "decision": "relabel",
-      "gold": "tier3",
+      "decision": "accept",
+      "gold": "tier2",
       "reviewer": "human:repository-owner"
     },
     {
@@ -438,8 +438,8 @@
     {
       "id": "h-fix-failing-test-3",
       "promptHash": "a06402d978c65a532d23ee2381e4e062154adfffb446021c8c5102cad93a8202",
-      "decision": "relabel",
-      "gold": "tier3",
+      "decision": "accept",
+      "gold": "tier2",
       "reviewer": "human:repository-owner"
     },
     {
@@ -452,8 +452,8 @@
     {
       "id": "h-add-cli-flag-1",
       "promptHash": "ae03dbf3193395e0de90b58741c3e866ce2cd3bf08a501820d6a13632d1cd1bb",
-      "decision": "relabel",
-      "gold": "tier3",
+      "decision": "accept",
+      "gold": "tier2",
       "reviewer": "human:repository-owner"
     },
     {
@@ -466,8 +466,8 @@
     {
       "id": "h-add-cli-flag-3",
       "promptHash": "5ba561160b690b0725c6d40956d2ee1deb97745adc418fc137e6774448295f66",
-      "decision": "relabel",
-      "gold": "tier3",
+      "decision": "accept",
+      "gold": "tier2",
       "reviewer": "human:repository-owner"
     },
     {
@@ -613,15 +613,15 @@
     {
       "id": "h-hash-algorithm-support-1",
       "promptHash": "f0da51303eeb3a54985a29bc91cc456438222a68d0632cab72b07edfb18a3795",
-      "decision": "relabel",
-      "gold": "tier3",
+      "decision": "accept",
+      "gold": "tier2",
       "reviewer": "human:repository-owner"
     },
     {
       "id": "h-hash-algorithm-support-2",
       "promptHash": "74b9af0f162bd5f25b8c7aa032120c4c6fd950fa0e4badfe65ede93adba251c6",
-      "decision": "relabel",
-      "gold": "tier3",
+      "decision": "accept",
+      "gold": "tier2",
       "reviewer": "human:repository-owner"
     },
     {

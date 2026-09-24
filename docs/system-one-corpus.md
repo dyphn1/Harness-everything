@@ -43,6 +43,12 @@ Rules:
    - **Scope, not the word "add".** Adding an option, a function or a parser
      inside one existing tool or component is `tier2`. A new module or
      subsystem, or an addition that spans several components, is `tier3`.
+     A bug fix, even with a regression test, is `tier2`.
+   - **Repository-wide or cross-component work is `tier3`.** Replacing or
+     unifying a pattern across the repository (every `console.log`, all error
+     handling, every path in a report), upgrading a dependency and fixing what
+     breaks, a data migration, a CI matrix across platforms, or restructuring a
+     documentation tree is `tier3`, even when each edit is small.
    - **A short reply follows the work in progress.** A reply that asks to
      change an output (code, a document, an example) is `tier2`. Only a pure
      question or a bare acknowledgement stays `tier1`.
@@ -120,8 +126,10 @@ a decision on its own.
 | `benchmarks/fixtures/system-one-holdout.json` | Evaluation corpus, rebuilt with `node scripts/system-one-corpus.js build <draft> <reviews> <corpus>` |
 
 The reviewed holdout has 215 cases (11 rejected): en 93 and zh-TW 122; gold
-`tier1` 48, `tier2` 97, `tier3` 50 and `null` 20. It meets the `reviewedHoldout`
-gate. After the third training spot-check the owner moved two cases to the new
-lines: `h-add-cli-flag-2` to `tier2` and `h-long-git-ops-1` to `tier1`. Results
-recorded before that change used 47 `tier1` and 51 `tier3`. It says nothing about model quality until a `harness-routing-v1`
+`tier1` 48, `tier2` 104, `tier3` 43 and `null` 20. It meets the `reviewedHoldout`
+gate. After the third training spot-check the owner moved nine cases to the new
+lines: `h-long-git-ops-1` to `tier1`, and the `h-add-cli-flag-*`,
+`h-hash-algorithm-support-1/2`, `h-fix-cli-error-log-3/4` and
+`h-fix-failing-test-3` cases to `tier2`. Results recorded before that change
+used 47 `tier1`, 97 `tier2` and 51 `tier3`. It says nothing about model quality until a `harness-routing-v1`
 checkpoint is evaluated on it.
