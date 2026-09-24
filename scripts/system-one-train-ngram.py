@@ -15,6 +15,7 @@ import sys
 sys.dont_write_bytecode = True
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_HOLDOUT = REPO / 'benchmarks' / 'fixtures' / 'system-one-holdout.json'
+INTENT_HOLDOUT = REPO / 'benchmarks' / 'fixtures' / 'system-one-intent-holdout.json'
 
 
 def fnv1a32(text):
@@ -56,12 +57,19 @@ def train(args):
 
     torch.manual_seed(args.seed)
     data = Path(args.data_dir)
-    corpus = json.loads(Path(args.holdout).read_text(encoding='utf-8'))
+    intent = args.task == 'intent'
+    holdout = args.holdout or (INTENT_HOLDOUT if intent else DEFAULT_HOLDOUT)
+    corpus = json.loads(Path(holdout).read_text(encoding='utf-8'))
     catalog = [o['id'] for o in corpus['cases'][0]['request']['options']]
-    gold = {r['id']: r['gold'] for r in load_jsonl(data / 'labels.jsonl')}
-    overrides = data / 'owner-overrides.jsonl'
+    labels_file = data / ('labels-intent.jsonl' if intent else 'labels.jsonl')
+    overrides = data / ('owner-overrides-intent.jsonl' if intent else 'owner-overrides.jsonl')
+    gold = {r['id']: r['gold'] for r in load_jsonl(labels_file)}
+    secondary = {r['id']: r.get('secondary', []) for r in load_jsonl(labels_file)} if intent else {}
     if overrides.exists():
-        gold.update({r['id']: r['gold'] for r in load_jsonl(overrides)})
+        for r in load_jsonl(overrides):
+            gold[r['id']] = r['gold']
+            if intent:
+                secondary[r['id']] = r.get('secondary', [])
     excluded = data / 'owner-excluded.jsonl'
     skip = {r['id'] for r in load_jsonl(excluded)} if excluded.exists() else set()
     rows = [p for p in load_jsonl(data / 'prompts.jsonl') if p['id'] in gold and p['id'] not in skip]
@@ -77,15 +85,31 @@ def train(args):
 
     x_train, x_val = matrix(split['train']), matrix(split['validation'])
     y_train = torch.tensor([index(gold[r['id']]) for r in split['train']])
-    counts = torch.bincount(y_train, minlength=len(catalog)).float()
-    inverse = torch.where(counts > 0, counts.sum() / (len(catalog) * counts.clamp_min(1)), torch.zeros_like(counts))
+    # Intent targets are soft: the primary alone gets 1.0; with secondaries it gets 0.6 and they share 0.4.
+    target = y_train
+    if intent:
+        rows_t = []
+        for r in split['train']:
+            t = [0.0] * len(catalog)
+            sec = [s for s in secondary.get(r['id'], []) if s in catalog]
+            if gold[r['id']] is None or not sec:
+                t[index(gold[r['id']])] = 1.0
+            else:
+                t[index(gold[r['id']])] = 0.6
+                for s in sec:
+                    t[catalog.index(s)] += 0.4 / len(sec)
+            rows_t.append(t)
+        target = torch.tensor(rows_t, dtype=torch.float32)
+    # Class mass counts the soft targets, so an intent seen only as secondary still carries weight.
+    counts = target.sum(0) if intent else torch.bincount(y_train, minlength=len(catalog)).float()
+    inverse = torch.where(counts > 0, counts.sum() / (len(catalog) * counts.clamp_min(1e-6)), torch.zeros_like(counts))
     weight = {'none': None, 'sqrt': inverse.sqrt(), 'full': inverse}[args.balance]
     W = torch.zeros(args.dim, len(catalog), requires_grad=True)
     bias = torch.zeros(len(catalog), requires_grad=True)
     optimizer = torch.optim.Adam([W, bias], lr=args.lr)
     for _ in range(args.epochs):
         optimizer.zero_grad()
-        loss = torch.nn.functional.cross_entropy(torch.sparse.mm(x_train, W) + bias, y_train, weight=weight) + args.weight_decay * (W ** 2).sum()
+        loss = torch.nn.functional.cross_entropy(torch.sparse.mm(x_train, W) + bias, target, weight=weight) + args.weight_decay * (W ** 2).sum()
         loss.backward()
         optimizer.step()
     with torch.no_grad():
@@ -94,17 +118,20 @@ def train(args):
     out.mkdir(parents=True, exist_ok=True)
     weights = W.detach().contiguous().view(-1).tolist()
     (out / 'harness-routing-v1.bin').write_bytes(struct.pack(f'<{len(weights)}f', *weights))
-    datasets = {name: sha256_file(data / name) for name in ('prompts.jsonl', 'labels.jsonl')}
+    datasets = {name: sha256_file(data / name) for name in ('prompts.jsonl', labels_file.name)}
     if overrides.exists():
-        datasets['owner-overrides.jsonl'] = sha256_file(overrides)
+        datasets[overrides.name] = sha256_file(overrides)
     sidecar = {'format': 'harness-ngram', 'formatVersion': 1, 'dim': args.dim, 'nmax': args.nmax, 'hash': 'fnv1a32', 'catalog': catalog,
                'bias': [float(v) for v in bias.detach().tolist()],
-               'metadata': {'domain': 'harness-routing-v1', 'balance': args.balance, 'weightDecay': args.weight_decay, 'epochs': args.epochs,
+               'metadata': {'domain': 'harness-routing-v1', 'task': args.task, 'balance': args.balance, 'weightDecay': args.weight_decay, 'epochs': args.epochs,
                             'seed': args.seed, 'datasets': datasets, 'counts': {k: len(v) for k, v in split.items()}}}
     (out / 'harness-routing-v1.json').write_text(json.dumps(sidecar), encoding='utf-8')
     with (out / 'val-scores.jsonl').open('w', encoding='utf-8') as fh:
         for r, p in zip(split['validation'], probs.tolist()):
-            fh.write(json.dumps({'id': r['id'], 'gold': gold[r['id']], 'probs': p}) + '\n')
+            row = {'id': r['id'], 'gold': gold[r['id']], 'probs': p}
+            if intent:
+                row['secondary'] = secondary.get(r['id'], [])
+            fh.write(json.dumps(row) + '\n')
     y_val = torch.tensor([index(gold[r['id']]) for r in split['validation']])
     accuracy = (probs.argmax(1) == y_val).float().mean().item() if len(y_val) else 0.0
     print(json.dumps({'counts': sidecar['metadata']['counts'], 'validationAccuracy': accuracy}))
@@ -114,7 +141,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--data-dir', required=True)
     parser.add_argument('--out', required=True)
-    parser.add_argument('--holdout', default=str(DEFAULT_HOLDOUT), help='source of the fixed catalog only; holdout rows are never trained on')
+    parser.add_argument('--task', choices=['tier', 'intent'], default='tier')
+    parser.add_argument('--holdout', default=None, help='source of the fixed catalog only (defaults to the task holdout); holdout rows are never trained on')
     parser.add_argument('--dim', type=int, default=1 << 16)
     parser.add_argument('--nmax', type=int, default=3)
     parser.add_argument('--balance', choices=['none', 'sqrt', 'full'], default='sqrt')
