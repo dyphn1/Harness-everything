@@ -41,7 +41,7 @@ If the git dir and common dir differ, then for EACH changed Sub Repo:
    git -C <primary>/<submodule> cat-file -e <sha>^{commit}
    ```
 
-A blank branch plus no remote-tracking ref and no primary-checkout object is an **unpublished gitlink risk**. MUST stop before `git add <submodule>` and present:
+A branch name alone does not publish a commit. If no remote-tracking ref contains the SHA and the primary checkout lacks the commit, it is an **unpublished gitlink risk**, whether the submodule is detached or on a named branch. MUST stop before `git add <submodule>` and present:
 
 - **[1] Create/publish a branch** — hand off to `<skills-repo-root>/using-git-worktrees/references/submodules-in-worktrees.md`.
 - **[2] Stage anyway** — only on explicit user choice; MUST record the unpublished gitlink risk in the handoff.
