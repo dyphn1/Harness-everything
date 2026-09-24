@@ -358,3 +358,22 @@ test('S1-I13 the ngram trainer learns scored intent labels as per-intent targets
     assert.notEqual(spawnSync(python, [...args.slice(0, 1), '--target', 'scores', '--data-dir', data, '--out', out], { encoding: 'utf8' }).status, 0, 'scores are an intent target only');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('S1-I14 low-scoring labels go to a second model, which replaces them unless it fails', async () => {
+  const rules = label.rulesFromDoc(fs.readFileSync(path.join(root, 'docs/system-one-intent.md'), 'utf8'), 'intent');
+  const high = scored({ git: 0.95, docs: 0.3, review: 0.2, test: 0.1 });
+  const low = scored({ fix: 0.75, test: 0.5, docs: 0.25, review: 0.1 });
+  const rows = [{ id: 'a', gold: 'git', secondary: [], scores: high }, { id: 'b', gold: 'fix', secondary: ['test'], scores: low },
+    { id: 'c', gold: 'fix', secondary: ['test'], scores: low }];
+  const items = [{ id: 'a', text: 'commit' }, { id: 'b', text: 'fix it' }, { id: 'c', text: 'fix that' }];
+  const better = scored({ fix: 0.9, test: 0.7, docs: 0.3, review: 0.1 });
+  const seen = [];
+  const run = async (prompt, batch) => { seen.push(batch.map(x => x.id)); if (batch[0].id === 'c') return null;
+    return { labels: batch.map((_, i) => ({ i, primary: 'fix', scores: better })) }; };
+  const out = await label.escalate(rows, items, { run, rules, below: 0.8, batchSize: 1, retryDelayMs: 0 });
+  assert.deepEqual(seen.flat().sort(), ['b', 'c', 'c'], 'only labels whose top score is below 0.8, the failed one retried once');
+  assert.deepEqual(out.rows.map(r => [r.id, r.scores.fix || r.scores.git]), [['a', 0.95], ['b', 0.9], ['c', 0.75]], 'a failed escalation keeps the first label');
+  assert.deepEqual(out.escalated, ['b']);
+  assert.deepEqual(out.failed, ['c']);
+  assert.deepEqual((await label.escalate(rows, items, { run, rules, below: 0.7 })).escalated, [], 'nothing below the bar, nothing escalated');
+});
