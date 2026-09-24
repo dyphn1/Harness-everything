@@ -58,18 +58,26 @@ def train(args):
     torch.manual_seed(args.seed)
     data = Path(args.data_dir)
     intent = args.task == 'intent'
+    scored = args.target == 'scores'
     holdout = args.holdout or (INTENT_HOLDOUT if intent else DEFAULT_HOLDOUT)
     corpus = json.loads(Path(holdout).read_text(encoding='utf-8'))
     catalog = [o['id'] for o in corpus['cases'][0]['request']['options']]
-    labels_file = data / ('labels-intent.jsonl' if intent else 'labels.jsonl')
+    labels_file = data / ('labels-intent-scores.jsonl' if scored else 'labels-intent.jsonl' if intent else 'labels.jsonl')
+    if not labels_file.exists():
+        sys.exit(f'missing {labels_file.name}')
     overrides = data / ('owner-overrides-intent.jsonl' if intent else 'owner-overrides.jsonl')
-    gold = {r['id']: r['gold'] for r in load_jsonl(labels_file)}
-    secondary = {r['id']: r.get('secondary', []) for r in load_jsonl(labels_file)} if intent else {}
+    labeled = load_jsonl(labels_file)
+    gold = {r['id']: r['gold'] for r in labeled}
+    secondary = {r['id']: r.get('secondary', []) for r in labeled} if intent else {}
+    relevance = {r['id']: r['scores'] for r in labeled} if scored else {}
     if overrides.exists():
         for r in load_jsonl(overrides):
             gold[r['id']] = r['gold']
             if intent:
                 secondary[r['id']] = r.get('secondary', [])
+            if scored:
+                # An override without scores counts as 0.6 for its primary and 0.4 for its secondary intents.
+                relevance[r['id']] = r.get('scores') or {s: 0.6 if s == r['gold'] else 0.4 for s in [r['gold'], *r.get('secondary', [])] if s is not None}
     excluded = data / 'owner-excluded.jsonl'
     skip = {r['id'] for r in load_jsonl(excluded)} if excluded.exists() else set()
     rows = [p for p in load_jsonl(data / 'prompts.jsonl') if p['id'] in gold and p['id'] not in skip]
@@ -87,7 +95,11 @@ def train(args):
     y_train = torch.tensor([index(gold[r['id']]) for r in split['train']])
     # Intent targets are soft: the primary alone gets 1.0; with secondaries it gets 0.6 and they share 0.4.
     target = y_train
-    if intent:
+    if scored:
+        # Scored intent labels: each intent is its own binary target with its relevance score as the soft value.
+        target = torch.tensor([[(0.6 if gold[r['id']] is None else 0.0) if c == 'unclassified' else float(relevance[r['id']].get(c, 0.0))
+                                for c in catalog] for r in split['train']], dtype=torch.float32)
+    elif intent:
         rows_t = []
         for r in split['train']:
             t = [0.0] * len(catalog)
@@ -101,7 +113,7 @@ def train(args):
             rows_t.append(t)
         target = torch.tensor(rows_t, dtype=torch.float32)
     # Class mass counts the soft targets, so an intent seen only as secondary still carries weight.
-    counts = target.sum(0) if intent else torch.bincount(y_train, minlength=len(catalog)).float()
+    counts = target.sum(0) if intent or scored else torch.bincount(y_train, minlength=len(catalog)).float()
     inverse = torch.where(counts > 0, counts.sum() / (len(catalog) * counts.clamp_min(1e-6)), torch.zeros_like(counts))
     weight = {'none': None, 'sqrt': inverse.sqrt(), 'full': inverse}[args.balance]
     W = torch.zeros(args.dim, len(catalog), requires_grad=True)
@@ -109,10 +121,17 @@ def train(args):
     optimizer = torch.optim.Adam([W, bias], lr=args.lr)
     for _ in range(args.epochs):
         optimizer.zero_grad()
-        loss = torch.nn.functional.cross_entropy(torch.sparse.mm(x_train, W) + bias, target, weight=weight) + args.weight_decay * (W ** 2).sum()
+        logits = torch.sparse.mm(x_train, W) + bias
+        if scored:
+            per = torch.nn.functional.binary_cross_entropy_with_logits(logits, target, reduction='none')
+            fit = (per * (weight if weight is not None else 1.0)).mean()
+        else:
+            fit = torch.nn.functional.cross_entropy(logits, target, weight=weight)
+        loss = fit + args.weight_decay * (W ** 2).sum()
         loss.backward()
         optimizer.step()
     with torch.no_grad():
+        # The provider returns the softmax over the logits for either loss (docs/system-one-training.md).
         probs = torch.softmax(torch.sparse.mm(x_val, W) + bias, 1)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -124,7 +143,8 @@ def train(args):
     sidecar = {'format': 'harness-ngram', 'formatVersion': 1, 'dim': args.dim, 'nmax': args.nmax, 'hash': 'fnv1a32', 'catalog': catalog,
                'bias': [float(v) for v in bias.detach().tolist()],
                'metadata': {'domain': 'harness-routing-v1', 'task': args.task, 'balance': args.balance, 'weightDecay': args.weight_decay, 'epochs': args.epochs,
-                            'seed': args.seed, 'datasets': datasets, 'counts': {k: len(v) for k, v in split.items()}}}
+                            'seed': args.seed, 'datasets': datasets, 'counts': {k: len(v) for k, v in split.items()},
+                            **({'target': 'scores', 'loss': 'bce'} if scored else {})}}
     (out / 'harness-routing-v1.json').write_text(json.dumps(sidecar), encoding='utf-8')
     with (out / 'val-scores.jsonl').open('w', encoding='utf-8') as fh:
         for r, p in zip(split['validation'], probs.tolist()):
@@ -142,6 +162,7 @@ def main(argv=None):
     parser.add_argument('--data-dir', required=True)
     parser.add_argument('--out', required=True)
     parser.add_argument('--task', choices=['tier', 'intent'], default='tier')
+    parser.add_argument('--target', choices=['label', 'scores'], default='label', help='scores: per-intent relevance targets from labels-intent-scores.jsonl (intent only)')
     parser.add_argument('--holdout', default=None, help='source of the fixed catalog only (defaults to the task holdout); holdout rows are never trained on')
     parser.add_argument('--dim', type=int, default=1 << 16)
     parser.add_argument('--nmax', type=int, default=3)
@@ -150,7 +171,10 @@ def main(argv=None):
     parser.add_argument('--epochs', type=int, default=60)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--seed', type=int, default=7)
-    train(parser.parse_args(argv))
+    args = parser.parse_args(argv)
+    if args.target == 'scores' and args.task != 'intent':
+        parser.error('--target scores needs --task intent')
+    train(args)
 
 
 if __name__ == '__main__':
