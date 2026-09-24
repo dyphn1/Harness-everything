@@ -42,10 +42,16 @@ The manifest is version 1 with `python` (executable), `checkpoint` (absolute
 `.safetensors` path), `weightsSha256`, `configSha256` (matching `.json` sidecar),
 `modelId`, `revision`, `domain`, and optional `timeoutMs` (1–10000, default 2000).
 All fields are required except the timeout; unknown fields are rejected. An
-optional `acceptance` object holds exactly `minConfidence` (0.5–0.99) and
-`minMargin` (0–0.9). These are the thresholds calibrated on validation for this
+optional `acceptance` object holds `minConfidence` (0.5–0.99) and
+`minMargin` (0–0.9). It may also hold `secondaryThreshold` (0.05–0.5), the
+probability at which another intent counts as a secondary intent; that key is
+valid only for an intent checkpoint ([system-one-intent.md](system-one-intent.md#scoring)).
+These are the thresholds calibrated on validation for this
 checkpoint. A scored result carries them, and the router and the evaluator pass
-them to `decide`. Without the field the Phase 0 defaults apply. Hashes
+the first two to `decide`. Without the field the Phase 0 defaults apply. For an
+intent corpus the evaluator also reports graded accepted precision, exact accepted
+precision and family consistency. The `acceptedPrecision` gate uses the graded
+value. Hashes
 must be lowercase SHA-256. Revision and domain are artifact-owner declarations,
 not independently verified quality claims. The known `cua-ai/cua-s1-forms` ID
 must use domain `forms-v1`. No pickle format or remote URL is accepted.
