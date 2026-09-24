@@ -85,6 +85,13 @@ test('S1-E07 source provenance gate requires the pinned cua_s1 revision', () => 
   assert.equal(evaluate(make(), records(), recorded('pinned')).gates.sourceProvenance, true);
   assert.equal(evaluate(make(), records(), recorded('pinned')).rolloutReady, false);
 });
+test('S1-E09 an ngram source passes provenance only with a verified artifact', () => {
+  const ngramSource = verified => ({ status: 'recorded', transport: 'ngram', artifactVerified: verified });
+  assert.equal(evaluate(make(), records(), ngramSource(true)).gates.sourceProvenance, true);
+  assert.equal(evaluate(make(), records(), ngramSource(false)).gates.sourceProvenance, false);
+  assert.equal(evaluate(make(), records(), { status: 'recorded', transport: 'ngram' }).gates.sourceProvenance, false);
+  assert.equal(evaluate(make(), records(), { status: 'unavailable', reason: 'provider-config', transport: 'ngram', artifactVerified: true }).gates.sourceProvenance, false);
+});
 test('S1-E08 the accepted-precision gate is the owner advisory 85%', () => {
   // 7 accepted tier1 answers: 6 correct (85.7%) passes, 5 correct (71.4%) fails.
   const cases = Array.from({ length: 7 }, (_, i) => ({ id: `p${i}`, family: `f${i}`, split: 'holdout', language: 'en', source: 'human:fixture', reviewed: false,

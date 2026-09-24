@@ -112,6 +112,31 @@ test('S1-N06 manifest rules: ngram needs a .bin and no python; other transports 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('S1-N08 the evaluator records ngram samples warm and verifies the artifact as provenance', () => {
+  const dir = tmp();
+  try {
+    const { p } = manifest(dir, artifact(dir));
+    const output = path.join(dir, 'report.json');
+    const corpus = path.join(root, 'benchmarks/fixtures/system-one-routing.json');
+    const r = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-system-one.js'), corpus, p, output], { encoding: 'utf8', cwd: root });
+    assert.equal(r.status, 0, r.stderr);
+    const report = JSON.parse(fs.readFileSync(output, 'utf8'));
+    assert.ok(report.records.every(x => x.runs.every(run => run.coldStart === false)));
+    assert.equal(report.latency.coldSamples, 0);
+    assert.equal(report.gates.warmLatency, true);
+    assert.deepEqual(report.evidence.source, { status: 'recorded', transport: 'ngram', artifactVerified: true });
+    assert.equal(report.gates.sourceProvenance, true);
+    assert.equal(report.evidence.kind, 'offline-ngram');
+    fs.appendFileSync(path.join(dir, 'tier.bin'), Buffer.alloc(4));
+    const tampered = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-system-one.js'), corpus, p, output], { encoding: 'utf8', cwd: root });
+    assert.equal(tampered.status, 0, tampered.stderr);
+    const bad = JSON.parse(fs.readFileSync(output, 'utf8'));
+    assert.equal(bad.evidence.source.artifactVerified, false);
+    assert.equal(bad.gates.sourceProvenance, false);
+    assert.equal(bad.model.coverage, 0);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('S1-N07 a real ngram training run produces an artifact the provider scores (skipped without torch)', t => {
   if (spawnSync(python, ['-c', 'import torch'], { encoding: 'utf8' }).status !== 0) { t.skip('torch not installed'); return; }
   const dir = tmp();
