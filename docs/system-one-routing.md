@@ -308,6 +308,15 @@ The latter evidence is not supplied by this offline runner, so it always reports
 those gates pending. With the one-shot adapter, all latency is cold and the warm
 gate also remains pending. Exporting a report never changes router defaults.
 
+For the `ngram` transport, samples are recorded with `coldStart: false`, because
+scoring happens in process. The evaluator loads and verifies the artifact once
+before any timed sample, so that load is not part of the warm latency. The
+source check does not run the Python `cua_s1` probe, which this transport does
+not use. It records `{status: "recorded", transport: "ngram", artifactVerified}`,
+where `artifactVerified` is true only when both artifact files load and match
+their SHA-256 values. For this transport, the `sourceProvenance` gate passes
+when `artifactVerified` is true.
+
 ## Model suitability
 
 The [CUA-S1-FORMS model card](https://huggingface.co/cua-ai/cua-s1-forms)
