@@ -114,6 +114,15 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
     weights and a weight decay of 1e-4.
   - The output is the `.bin` weights, the `.json` sidecar and validation scores for
     calibration.
+- **Intent engine**: the same trainer with `--task intent` trains the intent stage
+  ([system-one-intent.md](system-one-intent.md)).
+  - Labels come from `labels-intent.jsonl`, and owner corrections from
+    `owner-overrides-intent.jsonl`. `owner-excluded.jsonl` applies to both stages. The
+    catalog comes from the intent holdout.
+  - Targets are soft. The primary gets 1.0 when there is no secondary intent. Otherwise
+    the primary gets 0.6 and the secondary intents share 0.4 equally. `null` maps to
+    `unclassified` with 1.0.
+  - Validation scores keep each row's secondary intents for calibration.
 - The `tinyx` path below is kept for comparison. Its first checkpoint learned little beyond
   class priors.
 - **Model** (`tinyx`): a new `cua_s1` `tinyx` scorer built with `make_system`.
@@ -128,7 +137,12 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
   - The epoch with the lowest validation negative log-likelihood is kept.
   - The checkpoint metadata records the dataset hashes, the config and the validation metrics.
 - **Calibration**: `minConfidence` and `minMargin` are chosen on validation to maximize
-  coverage, subject to an accepted precision of at least 85% (the owner's advisory target). The router currently uses the
+  coverage, subject to an accepted precision of at least 85% (the owner's advisory target).
+  For the intent stage (`--task intent`), accepted precision is the mean graded agreement
+  of accepted rows. A predicted secondary is any other intent whose probability reaches
+  `secondaryThreshold`. That threshold is chosen from 0.05 to 0.50 in steps of 0.05, to
+  maximize micro-F1 against the labeled secondary intents, and it is chosen before the
+  acceptance thresholds. The router currently uses the
   Phase 0 defaults (0.9 and 0.2). Carrying calibrated thresholds into the manifest is a
   separate contract change.
 
