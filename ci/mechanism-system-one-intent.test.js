@@ -192,6 +192,70 @@ test('S1-I08 the ngram trainer trains the intent stage with soft targets (skippe
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('S1-I09 the manifest carries an optional secondary threshold that decide never sees', () => {
+  const provider = require('../harness-everything/scripts/system-one/provider');
+  const { decide } = require('../harness-everything/scripts/system-one/contract');
+  const base = { schemaVersion: 1, transport: 'ngram', checkpoint: path.join(root, 'x.bin'), weightsSha256: 'a'.repeat(64), configSha256: 'b'.repeat(64),
+    modelId: 'fixture/intent', revision: 'v1', domain: 'harness-routing-v1' };
+  assert.equal(provider.validateManifest({ ...base, acceptance: { minConfidence: 0.5, minMargin: 0, secondaryThreshold: 0.2 } }), true);
+  for (const s of [0.01, 0.6, '0.2']) assert.throws(() => provider.validateManifest({ ...base, acceptance: { minConfidence: 0.5, minMargin: 0, secondaryThreshold: s } }));
+  assert.equal(provider.decisionPolicy({ minConfidence: 0.5, minMargin: 0.1, secondaryThreshold: 0.2 }).secondaryThreshold, undefined);
+  assert.deepEqual(provider.decisionPolicy({ minConfidence: 0.5, minMargin: 0.1, secondaryThreshold: 0.2 }), { minConfidence: 0.5, minMargin: 0.1 });
+  assert.deepEqual(provider.decisionPolicy(undefined), {});
+  const request = createRequest('intent', 'fix it', INTENT_OPTIONS);
+  const response = { schemaVersion: 1, requestHash: request.requestHash, catalogHash: request.catalogHash, model: { id: 'm', revision: 'v1', domain: 'harness-routing-v1' },
+    scores: INTENT_OPTIONS.map(o => ({ id: o.id, probability: o.id === 'fix' ? 0.89 : 0.01 })) };
+  assert.equal(decide(request, response, provider.decisionPolicy({ minConfidence: 0.5, minMargin: 0, secondaryThreshold: 0.2 })).selectedId, 'fix');
+});
+
+test('S1-I10 the evaluator grades accepted intent predictions and reports family consistency', () => {
+  const s = masses => probs(masses);
+  const corpus = { schemaVersion: 1, cases: [
+    { ...intentCase('a', 'fix', 'en', ['test']), family: 'f' },
+    { ...intentCase('b', 'test', 'zh-TW', ['fix']), family: 'f' },
+  ] };
+  const predict = scores => { const top = Math.max(...scores); const id = IDS[scores.indexOf(top)]; const second = [...scores].sort((x, y) => y - x)[1];
+    return { decision: { status: 'accepted', reason: 'scored', selectedId: id, confidence: top, margin: top - second, model }, scores, latencyMs: 1, coldStart: false }; };
+  const records = corpus.cases.map(c => ({ id: c.id, baseline: 'fix', runs: [predict(s({ fix: 0.6, test: 0.3 })), predict(s({ fix: 0.6, test: 0.3 }))] }));
+  const report = evaluate(corpus, records, null, { secondaryThreshold: 0.2 });
+  assert.equal(report.model.acceptedPrecision, 0.8, 'graded: (1 + 0.6) / 2');
+  assert.equal(report.model.exactPrecision, 0.5);
+  assert.equal(report.gates.acceptedPrecision, false);
+  assert.deepEqual(report.familyConsistency, { gold: { families: 1, consistent: 0, rate: 0 }, model: { families: 1, consistent: 1, rate: 1 } });
+  assert.throws(() => evaluate(corpus, records), 'an intent evaluation needs its secondary threshold');
+  const tier = { schemaVersion: 1, cases: [{ id: 't', family: 't', split: 'holdout', language: 'en', source: 'human:fixture', reviewed: false, request: createRequest('tier', 'commit', TIER_OPTIONS), gold: 'tier1' }] };
+  const tierRun = { decision: { status: 'accepted', reason: 'scored', selectedId: 'tier1', confidence: 1, margin: 1, model }, scores: [1, 0, 0, 0], latencyMs: 1, coldStart: false };
+  const tierReport = evaluate(tier, [{ id: 't', baseline: 'tier1', runs: [tierRun, tierRun] }]);
+  assert.equal(tierReport.model.exactPrecision, undefined, 'tier reports keep their shape');
+  assert.equal(tierReport.familyConsistency, undefined);
+});
+
+test('S1-I11 the evaluation CLI scores an intent holdout with a majority-class baseline', () => {
+  const os = require('node:os'); const { spawnSync } = require('node:child_process'); const { createHash } = require('node:crypto');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-s1-intent-eval-'));
+  try {
+    const sha = f => createHash('sha256').update(fs.readFileSync(f)).digest('hex');
+    const bin = path.join(dir, 'intent.bin'); const json = path.join(dir, 'intent.json');
+    fs.writeFileSync(bin, Buffer.from(new Float32Array(1024 * IDS.length).buffer));
+    fs.writeFileSync(json, JSON.stringify({ format: 'harness-ngram', formatVersion: 1, dim: 1024, nmax: 2, hash: 'fnv1a32', catalog: IDS,
+      bias: IDS.map(id => (id === 'fix' ? 3 : 0)), metadata: { task: 'intent' } }));
+    const manifest = path.join(dir, 'manifest.json');
+    fs.writeFileSync(manifest, JSON.stringify({ schemaVersion: 1, transport: 'ngram', checkpoint: bin, weightsSha256: sha(bin), configSha256: sha(json),
+      modelId: 'fixture/intent', revision: 'v1', domain: 'harness-routing-v1', acceptance: { minConfidence: 0.5, minMargin: 0, secondaryThreshold: 0.2 } }));
+    const corpus = path.join(dir, 'corpus.json');
+    fs.writeFileSync(corpus, JSON.stringify({ schemaVersion: 1, cases: [intentCase('a', 'fix', 'en', ['test']), intentCase('b', 'test', 'zh-TW', ['fix'])] }));
+    const out = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-system-one.js'), corpus, manifest, out], { encoding: 'utf8', cwd: root });
+    assert.equal(r.status, 0, r.stderr);
+    const report = JSON.parse(fs.readFileSync(out, 'utf8'));
+    assert.equal(report.model.coverage, 1);
+    assert.equal(report.model.acceptedPrecision, 0.65, 'graded: (1 + 0.3) / 2');
+    assert.equal(report.model.exactPrecision, 0.5);
+    assert.ok(report.records.every(x => x.baseline === 'fix'), 'majority gold, ties broken by catalog order');
+    assert.equal(report.evidence.secondaryThreshold, 0.2);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('S1-I06 family consistency counts families of two or more that share one primary', () => {
   const rows = [
     { family: 'a', primary: 'fix' }, { family: 'a', primary: 'fix' },
