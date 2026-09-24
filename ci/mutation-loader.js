@@ -40,6 +40,10 @@ const mutations = {
     '  if (!workspaceRoot) return UNBOUND_WORKSPACE_KEY;',
     '  if (!workspaceRoot) return path.basename(process.cwd()); // mutation: derive unbound identity from cwd'
   ),
+  'verify-contract-precedence': (source) => source.replace(
+    '  finalize(contract ? contractPlan(contract) : discoveredPlan());',
+    '  finalize(discoveredPlan()); // mutation: ignore the authoritative project contract'
+  ),
 };
 
 if (target && mutation && mutations[mutation]) {

@@ -20,7 +20,7 @@ Kernel routing entry.
 
 ## Invariants
 1. **Route (MUST)** — establish scope/tier and selected/deferred topology.
-2. **Verify (MUST)** — completion claims need objective evidence.
+2. **Verify (MUST)** — completion claims need objective evidence; `verify-gate.js --json` distinguishes passed, failed, discovered-but-unrun, and absent project checks.
 3. **Zoom out (MUST)** — after 3 same-signature failures, use `zoom-out`.
 4. **Resolve suggestions (MUST)** — read/evaluate each suggested `SKILL.md`; applicable core contracts MUST run, otherwise retain a flow-grounded reason.
 5. **Surface status (MUST)** — non-trivial work renders `### 🚦 Harness Status` with bold `Current`, `Read / Evidence`, `Next`; optional `Risk / Blocked`.

@@ -15,6 +15,7 @@ const checks = [
   ['transcript command qualifiers', 'behavioral-evals/transcript-parser.js', 'ci/mechanism-2t-transcript-parser.test.js'],
   ['fixture path boundaries', 'behavioral-evals/run.js', 'ci/mechanism-2j-behavioral-runner.test.js'],
   ['unbound workspace identity', 'scripts/lib/workspace.js', 'ci/mechanism-2u-issue-42-regressions.test.js'],
+  ['verification contract precedence', 'harness-everything/scripts/verify-gate.js', 'ci/mechanism-35-verification-contract.test.js'],
 ];
 
 let failures = 0;
@@ -32,6 +33,7 @@ for (const [label, target, testFile] of checks) {
         'behavioral-evals/transcript-parser.js': 'transcript-command',
         'behavioral-evals/run.js': 'runner-fixture',
         'scripts/lib/workspace.js': 'workspace-identity',
+        'harness-everything/scripts/verify-gate.js': 'verify-contract-precedence',
       }[target],
       HARNESS_MUTATION_TARGET: path.join(ROOT, target),
       NODE_OPTIONS: `--require=${loader}`,

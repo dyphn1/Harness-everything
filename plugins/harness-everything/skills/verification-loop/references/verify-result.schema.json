@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dyphn1/Harness-everything/verification-loop/references/verify-result.schema.json",
+  "title": "Harness verification result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "reason", "repoRoot", "roots", "checks", "candidates"],
+  "properties": {
+    "status": {
+      "enum": ["PASSED", "FAILED", "UNCHECKED_NO_CHECKS", "UNCHECKED_DISCOVERED", "SKIPPED"]
+    },
+    "reason": { "type": "string" },
+    "repoRoot": { "type": "string" },
+    "roots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "status", "reason", "checks", "candidates"],
+        "properties": {
+          "path": { "type": "string" },
+          "status": {
+            "enum": ["PASSED", "FAILED", "UNCHECKED_NO_CHECKS", "UNCHECKED_DISCOVERED"]
+          },
+          "reason": { "type": "string" },
+          "checks": { "$ref": "#/$defs/checkArray" },
+          "candidates": { "$ref": "#/$defs/candidateArray" }
+        }
+      }
+    },
+    "checks": { "$ref": "#/$defs/checkArray" },
+    "candidates": { "$ref": "#/$defs/candidateArray" }
+  },
+  "$defs": {
+    "checkArray": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "run", "cwd", "source", "exitCode", "durationMs"],
+        "properties": {
+          "id": { "type": "string" },
+          "run": { "type": "string" },
+          "cwd": { "type": "string" },
+          "source": { "type": "string" },
+          "exitCode": { "type": ["integer", "null"] },
+          "durationMs": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "candidateArray": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "run", "cwd"],
+        "properties": {
+          "source": { "type": "string" },
+          "run": { "type": "string" },
+          "cwd": { "type": "string" }
+        }
+      }
+    }
+  }
+}
