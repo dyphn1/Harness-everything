@@ -37,3 +37,9 @@ test('S1-L05 the fine-tuned provider bridge contract holds without model weights
   const r = spawnSync(python, [path.join(__dirname, 'system-one-laya-provider-test.py')], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
+
+test('S1-L06 the per-intent Bernoulli contract holds without model weights', () => {
+  const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+  const r = spawnSync(python, [path.join(__dirname, 'system-one-laya-perintent-test.py')], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
