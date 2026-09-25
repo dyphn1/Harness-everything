@@ -19,3 +19,9 @@ test('S1-L02 the Laya calibration contract holds without model weights', () => {
   const r = spawnSync(python, [path.join(__dirname, 'system-one-laya-calibrate-test.py')], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
+
+test('S1-L03 the Laya soft-target exporter contract holds without model weights', () => {
+  const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+  const r = spawnSync(python, [path.join(__dirname, 'system-one-laya-export-test.py')], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
