@@ -27,6 +27,9 @@ INTENTS = ['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor',
 
 QUESTIONS_VERSION = 'v1'
 
+# The sonnet-scored labels file. The labeler refuses to write to it.
+PROTECTED_OUTPUT = 'labels-intent-scores.jsonl'
+
 _PROPOSITIONS = {
     'explain': 'The request asks for an explanation of how something works or an answer to a question.',
     'discuss': 'The request asks to weigh options, give an opinion, or settle a decision.',
@@ -42,13 +45,34 @@ _PROPOSITIONS = {
     'investigate': 'The request asks to find facts or a cause and report back without changing anything.',
 }
 
-# The sonnet-scored labels file. The labeler refuses to write to it.
-PROTECTED_OUTPUT = 'labels-intent-scores.jsonl'
+# v2 adds contrastive exclusions aimed at the measured top-2 co-firing pairs
+# (edit/refactor, fix/investigate, investigate/review/explain, docs/edit,
+# feature/edit, plan/discuss). Same 12 intents, same semantics: exclusions
+# only sharpen boundaries, they never add or remove a category.
+_PROPOSITIONS_V2 = {
+    'explain': 'The request asks for an explanation of how something works or an answer to a question. Not investigating an unknown cause (investigate).',
+    'discuss': 'The request asks to weigh options, give an opinion, or settle a decision. Not producing an implementation plan or breakdown (plan).',
+    'git': 'The request asks for Git or GitHub housekeeping: commit, push, branch, or pull request.',
+    'fix': 'The request asks to repair wrong behavior: a bug, crash, failing test, or build. Not merely finding the cause (investigate); only when a repair is requested.',
+    'edit': 'The request asks to change an existing value, setting, text, or behavior. Not a bug repair (fix), not a restructuring (refactor), not new behavior (feature), not documentation as the deliverable (docs).',
+    'feature': 'The request asks to add new behavior: a command, option, format, or script. Not modifying existing behavior (edit).',
+    'refactor': 'The request asks to restructure or unify existing code without adding new behavior. Not a value change (edit), not a bug repair (fix).',
+    'review': 'The request asks to evaluate an existing artifact against a standard. Not fact-finding (investigate).',
+    'test': 'The request asks to run tests or builds, or to write tests as the main deliverable.',
+    'docs': 'The request asks to write or edit documentation as the main deliverable. Not incidental text edits alongside other work (edit).',
+    'plan': 'The request asks to produce a plan, specification, or breakdown before implementation. Not weighing options in discussion (discuss).',
+    'investigate': 'The request asks to find facts or a cause and report back without changing anything. Not repairing (fix), not judging quality (review), not explaining how things work (explain).',
+}
+
+_QUESTIONS = {'v1': _PROPOSITIONS, 'v2': _PROPOSITIONS_V2}
 
 
-def build_questions():
+def build_questions(version='v1'):
     """One `noul` question per intent, in catalog order."""
-    return {intent: {'type': 'noul', 'instructions': _PROPOSITIONS[intent]} for intent in INTENTS}
+    if version not in _QUESTIONS:
+        raise ValueError(f'unknown questions version: {version!r}')
+    table = _QUESTIONS[version]
+    return {intent: {'type': 'noul', 'instructions': table[intent]} for intent in INTENTS}
 
 
 def validate_scores(scores):
@@ -78,13 +102,13 @@ def derive_label(scores):
     return {'gold': gold, 'secondary': secondary, 'derived': True}
 
 
-def output_row(prompt, scores, backend, out_name, routing=None):
+def output_row(prompt, scores, backend, out_name, routing=None, questions_version='v1'):
     """One trainer-contract row for a labeled prompt."""
     if Path(out_name).name == PROTECTED_OUTPUT:
         raise ValueError(f'protected output: refusing to overwrite {PROTECTED_OUTPUT}')
     derived = derive_label(scores)
     labeler = {'task': 'intent', 'target': 'scores', 'backend': backend,
-               'questions': QUESTIONS_VERSION, 'derived': True}
+               'questions': questions_version, 'derived': True}
     if routing is not None:
         labeler['routing'] = routing
     return {'id': prompt['id'], 'gold': derived['gold'], 'secondary': derived['secondary'],
@@ -92,11 +116,11 @@ def output_row(prompt, scores, backend, out_name, routing=None):
             'labeler': labeler}
 
 
-def torch_backend():
+def torch_backend(questions_version='v1'):
     """Official PyTorch Laya backend (lazy import). Returns (fn, provenance)."""
     import laya  # noqa: PLC0415
     router = laya.Router()
-    questions = build_questions()
+    questions = build_questions(questions_version)
 
     def run(text):
         started = time.monotonic()
@@ -106,16 +130,16 @@ def torch_backend():
         scores = {intent: float(answers[intent]['noul']) for intent in INTENTS}
         return scores, result['routing']['model'], elapsed_ms
 
-    provenance = {'package': 'laya', 'version': laya.__version__}
+    provenance = {'package': 'laya', 'version': laya.__version__, 'questions': questions_version}
     return run, provenance
 
 
-def mlx_backend():
+def mlx_backend(questions_version='v1'):
     """Native MLX Laya port backend (lazy import, inference only)."""
     import laya_mlx  # noqa: PLC0415
     from laya_mlx import Router  # noqa: PLC0415
     router = Router()
-    questions = build_questions()
+    questions = build_questions(questions_version)
 
     def run(text):
         started = time.monotonic()
@@ -125,11 +149,12 @@ def mlx_backend():
         scores = {intent: float(answers[intent]['noul']) for intent in INTENTS}
         return scores, result['routing']['model'], elapsed_ms
 
-    provenance = {'package': 'laya-mlx', 'version': laya_mlx.__version__}
+    provenance = {'package': 'laya-mlx', 'version': laya_mlx.__version__, 'questions': questions_version}
     return run, provenance
 
 
-def label_rows(rows, split, input_sha, out_path, manifest_path, backend_fn, backend_name, resume=False):
+def label_rows(rows, split, input_sha, out_path, manifest_path, backend_fn, backend_name, resume=False,
+               questions_version='v1'):
     """Label explicit rows; returns a summary dict."""
     out_path, manifest_path = Path(out_path), Path(manifest_path)
     if out_path.name == PROTECTED_OUTPUT:
@@ -144,7 +169,8 @@ def label_rows(rows, split, input_sha, out_path, manifest_path, backend_fn, back
     with out_path.open('a' if (resume and done) else 'w', encoding='utf-8') as fh:
         for prompt in rows:
             scores, routed, elapsed_ms = backend_fn(prompt['text'])
-            fh.write(json.dumps(output_row(prompt, scores, backend_name, out_path.name, routed)) + '\n')
+            fh.write(json.dumps(output_row(prompt, scores, backend_name, out_path.name, routed,
+                                              questions_version)) + '\n')
             routing[routed] = routing.get(routed, 0) + 1
             latencies.append(elapsed_ms)
             this_run += 1
@@ -160,7 +186,7 @@ def label_rows(rows, split, input_sha, out_path, manifest_path, backend_fn, back
             routed = (row.get('labeler') or {}).get('routing', 'unknown')
             full_routing[routed] = full_routing.get(routed, 0) + 1
             total += 1
-    manifest = {'backend': backend_name, 'split': split, 'questions': QUESTIONS_VERSION,
+    manifest = {'backend': backend_name, 'split': split, 'questions': questions_version,
                 'labeled': total, 'thisRun': this_run, 'resumed': bool(resume and done),
                 'inputSha256': input_sha, 'routing': full_routing,
                 'latencyMs': {'p50': statistics.median(latencies) if latencies else 0.0,
@@ -169,7 +195,7 @@ def label_rows(rows, split, input_sha, out_path, manifest_path, backend_fn, back
     return manifest
 
 
-def label_split(data_dir, split, out_path, manifest_path, backend_fn, backend_name):
+def label_split(data_dir, split, out_path, manifest_path, backend_fn, backend_name, questions_version='v1'):
     """Label one prompts.jsonl split; returns a summary dict."""
     if split not in ('train', 'validation'):
         raise ValueError(f'split must be train or validation, got {split!r}')
@@ -178,7 +204,8 @@ def label_split(data_dir, split, out_path, manifest_path, backend_fn, backend_na
     rows = [json.loads(line) for line in prompts_raw.splitlines() if line.strip()]
     todo = [r for r in rows if r.get('split') == split]
     return label_rows(todo, split, hashlib.sha256(prompts_raw.encode('utf-8')).hexdigest(),
-                      out_path, manifest_path, backend_fn, backend_name)
+                      out_path, manifest_path, backend_fn, backend_name,
+                      questions_version=questions_version)
 
 
 def main(argv=None):
@@ -188,10 +215,12 @@ def main(argv=None):
     parser.add_argument('--out', required=True, help='output jsonl (never labels-intent-scores.jsonl)')
     parser.add_argument('--manifest', required=True, help='provenance manifest json')
     parser.add_argument('--backend', choices=['torch', 'mlx'], required=True)
+    parser.add_argument('--questions', choices=['v1', 'v2'], default='v1')
     parser.add_argument('--limit', type=int, default=0, help='label only the first N rows (0 = all)')
     parser.add_argument('--resume', action='store_true', help='skip ids already present in --out')
     args = parser.parse_args(argv)
-    run, provenance = torch_backend() if args.backend == 'torch' else mlx_backend()
+    run, provenance = (torch_backend(args.questions) if args.backend == 'torch'
+                       else mlx_backend(args.questions))
     print(json.dumps({'backend': args.backend, 'provenance': provenance}))
 
     data_dir = Path(args.data_dir)
@@ -202,7 +231,8 @@ def main(argv=None):
         todo = todo[:args.limit]
     summary = label_rows(todo, args.split,
                          hashlib.sha256(prompts_raw.encode('utf-8')).hexdigest(),
-                         args.out, args.manifest, run, args.backend, resume=args.resume)
+                         args.out, args.manifest, run, args.backend, resume=args.resume,
+                         questions_version=args.questions)
     summary['limit'] = args.limit
     Path(args.manifest).write_text(json.dumps(summary, indent=2), encoding='utf-8')
     print(json.dumps(summary))
