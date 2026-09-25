@@ -58,3 +58,26 @@ on this evidence.**
   lanes (each frozen on validation first, never tuned on this holdout):
   question rewording, peakier contract mapping, relevance-native routing
   in #233.
+
+## Shadow run: relevance-native gates (frozen taus, raw scores)
+
+First evaluation under `docs/system-one-intent-gates.md` with frozen
+validation-fit thresholds (never tuned on this holdout). Raw independent
+scores, no simplex. `shadow-report.json` holds metrics only.
+
+| Gate | Value | Pass |
+| --- | --- | --- |
+| micro-F1 | 0.507 | no (≥ 0.55) |
+| macro-F1 | 0.501 | yes |
+| per-intent floors | breach | no |
+| weak precision | 0.181 | no |
+| cardinality | 2.51 predicted | yes |
+| abstain rate | 0.014 | yes |
+| family consistency | model 0.47 vs gold 0.80 | no |
+| repeatability | 1.0, byte-identical runs | yes |
+| warm p95 | 182 ms (≤ 250 ms bar) | yes |
+
+Verdict: not promotable under the reviewed contract. Owner gold is
+stricter than the teacher proxy (validation CV micro-F1 was 0.60), and
+weak intents collapse further (refactor-class precision 0.35 → 0.18).
+The gates caught exactly what they were written to catch.
