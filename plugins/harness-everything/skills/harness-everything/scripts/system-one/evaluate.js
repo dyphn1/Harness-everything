@@ -74,6 +74,53 @@ function gradeIntents(cases, byId, labels, threshold) {
   }
   return { acceptedPrecision: accepted ? points / accepted : null, exactPrecision: accepted ? exact / accepted : null };
 }
+// Relevance-native grading (#233): every label except unclassified is an
+// independent Bernoulli against its own threshold. No simplex rule applies
+// to the score vector. Gates live in docs/system-one-intent-gates.md;
+// this function reports metrics only.
+function gradeRelevance(cases, byId, labels, thresholds) {
+  const ids = labels.map(l => (l === null ? 'unclassified' : l));
+  const per = new Map(ids.filter(id => id !== 'unclassified').map(id => [id, { tp: 0, fp: 0, fn: 0, support: 0 }]));
+  let abstain = 0; let firesTotal = 0; let truthTotal = 0; let exact = 0;
+  for (const c of cases) {
+    const scores = byId.get(c.id).scores;
+    const truth = new Set(c.gold === null ? [] : [c.gold, ...(c.secondary || [])]);
+    const fired = new Set(ids.filter((id, i) => id !== 'unclassified' && scores[i] >= thresholds[id]));
+    firesTotal += fired.size; truthTotal += truth.size;
+    abstain += fired.size === 0 ? 1 : 0;
+    exact += fired.size === truth.size && [...fired].every(id => truth.has(id)) ? 1 : 0;
+    for (const [id, row] of per) {
+      if (fired.has(id) && truth.has(id)) row.tp++;
+      else if (fired.has(id)) row.fp++;
+      else if (truth.has(id)) row.fn++;
+      if (truth.has(id)) row.support++;
+    }
+  }
+  const table = {};
+  for (const [id, row] of per) {
+    const p = row.tp + row.fp ? row.tp / (row.tp + row.fp) : 0;
+    const r = row.tp + row.fn ? row.tp / (row.tp + row.fn) : 0;
+    table[id] = { ...row, tau: thresholds[id], precision: p, recall: r, f1: p + r ? 2 * p * r / (p + r) : 0 };
+  }
+  const tp = [...per.values()].reduce((s, r) => s + r.tp, 0);
+  const fp = [...per.values()].reduce((s, r) => s + r.fp, 0);
+  const fn = [...per.values()].reduce((s, r) => s + r.fn, 0);
+  const precision = tp + fp ? tp / (tp + fp) : 0;
+  const recall = tp + fn ? tp / (tp + fn) : 0;
+  const tableEntries = [...per.entries()].map(([id, row]) => [id, table[id]]);
+  const scored = tableEntries.filter(([, t]) => t.support > 0 || t.tp + t.fp > 0);
+  const supported = tableEntries.filter(([, t]) => t.support > 0);
+  const n = cases.length;
+  return {
+    micro: { precision, recall, f1: precision + recall ? 2 * precision * recall / (precision + recall) : 0 },
+    macroF1: scored.length ? scored.reduce((s, [, t]) => s + t.f1, 0) / scored.length : 0,
+    perIntent: table,
+    cardinality: { predicted: n ? firesTotal / n : 0, gold: n ? truthTotal / n : 0 },
+    abstainRate: n ? abstain / n : 0,
+    exactSetMatch: n ? exact / n : 0,
+    weakPrecision: supported.length ? Math.min(...supported.map(([, t]) => t.precision)) : 0,
+  };
+}
 // sourceEvidence is the provider provenance result; only the pinned cua_s1 revision satisfies the gate.
 function evaluate(corpus, records, sourceEvidence = null, { secondaryThreshold } = {}) {
   const labels = corpusLabels(corpus);
@@ -121,4 +168,4 @@ function evaluate(corpus, records, sourceEvidence = null, { secondaryThreshold }
   };
   return { schemaVersion: 1, cases: cases.length, baseline, model, ...families, agreement, latency, gates, rolloutReady: Object.values(gates).every(Boolean) };
 }
-module.exports = { validateCorpus, evaluate };
+module.exports = { validateCorpus, evaluate, gradeRelevance };
