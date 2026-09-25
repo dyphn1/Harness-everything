@@ -41,6 +41,22 @@ class MappingTests(unittest.TestCase):
     def test_mapping_version_is_pinned(self):
         self.assertRegex(laya_labeler.QUESTIONS_VERSION, r'^v\d+$')
 
+    def test_v2_keeps_intents_and_order_but_sharpens_text(self):
+        v1 = laya_labeler.build_questions('v1')
+        v2 = laya_labeler.build_questions('v2')
+        self.assertEqual(list(v2), INTENTS)
+        for intent, q in v2.items():
+            self.assertEqual(q['type'], 'noul')
+            self.assertTrue(q['instructions'], intent)
+        self.assertTrue(any(v2[i]['instructions'] != v1[i]['instructions'] for i in INTENTS),
+                        'v2 rewords at least one intent')
+        self.assertEqual(v2['git']['instructions'], v1['git']['instructions'],
+                         'unconfused intents keep v1 text')
+
+    def test_unknown_questions_version_fails(self):
+        with self.assertRaisesRegex(ValueError, 'unknown questions version'):
+            laya_labeler.build_questions('v9')
+
 
 class ValidatorTests(unittest.TestCase):
     def scores(self, **over):
@@ -113,7 +129,14 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(list(row['scores']), INTENTS)
         self.assertEqual(row['labeler']['task'], 'intent')
         self.assertEqual(row['labeler']['routing'], 'english')
+        self.assertEqual(row['labeler']['questions'], 'v1')
         self.assertEqual(json.loads(json.dumps(row)), row)
+
+    def test_output_row_records_questions_version(self):
+        scores = {i: 0.1 for i in INTENTS}
+        row = laya_labeler.output_row({'id': 'abc', 'text': 'x'}, scores,
+                                      backend='stub', out_name='o.jsonl', questions_version='v2')
+        self.assertEqual(row['labeler']['questions'], 'v2')
 
 
 class EndToEndTests(unittest.TestCase):
