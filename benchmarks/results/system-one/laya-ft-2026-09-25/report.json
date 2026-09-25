@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "issue": 255,
+  "phase": "3 fine-tuned promotion run (research transport)",
+  "model": "laya/harness-intent-s1-full (multilingual 322M RLCD, 42156 items, 2 epochs, local MPS)",
+  "calibration": {
+    "feasible": true,
+    "rows": 727,
+    "minPrecision": 0.85,
+    "task": "intent",
+    "secondaryThreshold": 0.05,
+    "minConfidence": 0.5,
+    "minMargin": 0,
+    "coverage": 0.09628610729023383,
+    "precision": 0.9271428571428573,
+    "accepted": 70,
+    "exactPrecision": 0.9142857142857143
+  },
+  "report": {
+    "schemaVersion": 1,
+    "cases": 222,
+    "baseline": {
+      "accuracy": 0.14864864864864866,
+      "macroF1": 0.01990950226244344,
+      "coverage": 1,
+      "abstentionRate": 0,
+      "acceptedPrecision": 0.14864864864864866,
+      "acceptedErrorRate": 0.8513513513513513
+    },
+    "model": {
+      "accuracy": 0.04954954954954955,
+      "macroF1": 0.07959346096997919,
+      "coverage": 0.06306306306306306,
+      "abstentionRate": 0.9369369369369369,
+      "acceptedPrecision": 0.8499999999999999,
+      "acceptedErrorRate": 0.21428571428571427,
+      "exactPrecision": 0.7857142857142857
+    },
+    "familyConsistency": {
+      "gold": {
+        "families": 83,
+        "consistent": 66,
+        "rate": 0.7951807228915663
+      },
+      "model": {
+        "families": 83,
+        "consistent": 75,
+        "rate": 0.9036144578313253
+      }
+    },
+    "agreement": 1,
+    "latency": {
+      "coldP95Ms": null,
+      "warmP95Ms": 178.71229199999652,
+      "coldSamples": 0,
+      "warmSamples": 444
+    },
+    "gates": {
+      "reviewedHoldout": true,
+      "acceptedPrecision": false,
+      "coverage": false,
+      "macroF1": true,
+      "repeatability": true,
+      "warmLatency": false,
+      "sourceProvenance": false,
+      "policyEvidence": false,
+      "liveHostEvidence": false
+    },
+    "rolloutReady": false
+  }
+}
