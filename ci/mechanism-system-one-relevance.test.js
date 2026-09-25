@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const { createRequest, decide, decideIntents } = require('../harness-everything/scripts/system-one/contract');
 const { INTENT_OPTIONS } = require('../harness-everything/scripts/system-one/catalogs');
 const { gradeRelevance } = require('../harness-everything/scripts/system-one/evaluate');
+const { relevanceGates } = require('../harness-everything/scripts/system-one/evaluate');
 
 const IDS = INTENT_OPTIONS.map(o => o.id);
 const request = createRequest('intent', 'fix the crash and add a test', INTENT_OPTIONS);
@@ -75,4 +76,37 @@ test('S1-R05 relevance grading reports micro, macro, cardinality and abstain', (
   assert.deepEqual([g.abstainRate, g.exactSetMatch, g.weakPrecision], [1 / 3, 2 / 3, 0.5]);
   assert.equal(g.perIntent.fix.support, 1);
   assert.equal(g.perIntent.git.support, 0);
+});
+
+const goodMulti = () => ({ micro: { precision: 0.6, recall: 0.6, f1: 0.6 }, macroF1: 0.55,
+  perIntent: Object.fromEntries(['fix', 'test'].map(id => [id, { support: 20, f1: 0.5, precision: 0.5 }])),
+  cardinality: { predicted: 2.0, gold: 1.8 }, abstainRate: 0.1, exactSetMatch: 0.3, weakPrecision: 0.5 });
+const goodEvidence = () => ({ family: { gold: { rate: 0.8 }, model: { rate: 0.85 } },
+  agreement: 1, warmP95Ms: 179, structural: { unchanged: true, rollbackLive: true } });
+
+test('S1-R06 relevance gates follow the reviewed promotion contract', () => {
+  const pass = relevanceGates(goodMulti(), goodEvidence());
+  assert.ok(pass.rolloutReady === false, 'policy/live-host evidence keeps rollout red pre-production');
+  for (const k of ['microF1', 'macroF1', 'perIntentFloors', 'weakPrecision', 'cardinality',
+    'abstainRate', 'familyConsistency', 'repeatability', 'warmLatency', 'structuralControls']) {
+    assert.equal(pass[k], true, k);
+  }
+  const cases = [
+    [g => { g.micro.f1 = 0.54; }, 'microF1'],
+    [g => { g.macroF1 = 0.49; }, 'macroF1'],
+    [g => { g.perIntent.fix.f1 = 0.29; g.perIntent.fix.support = 12; }, 'perIntentFloors'],
+    [g => { g.weakPrecision = 0.29; }, 'weakPrecision'],
+    [g => { g.cardinality.predicted = 3.0; }, 'cardinality'],
+    [g => { g.abstainRate = 0.21; }, 'abstainRate'],
+  ];
+  for (const [mutate, key] of cases) {
+    const g = goodMulti(); mutate(g);
+    assert.equal(relevanceGates(g, goodEvidence())[key], false, key);
+  }
+  const ev = goodEvidence();
+  assert.equal(relevanceGates(goodMulti(), { ...ev, family: { gold: { rate: 0.9 }, model: { rate: 0.8 } } }).familyConsistency, false);
+  assert.equal(relevanceGates(goodMulti(), { ...ev, agreement: 0.99 }).repeatability, false);
+  assert.equal(relevanceGates(goodMulti(), { ...ev, warmP95Ms: 251 }).warmLatency, false);
+  assert.equal(relevanceGates(goodMulti(), { ...ev, warmP95Ms: 250 }).warmLatency, true);
+  assert.equal(relevanceGates(goodMulti(), { ...ev, structural: { unchanged: true, rollbackLive: false } }).structuralControls, false);
 });

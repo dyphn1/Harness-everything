@@ -121,6 +121,30 @@ function gradeRelevance(cases, byId, labels, thresholds) {
     weakPrecision: supported.length ? Math.min(...supported.map(([, t]) => t.precision)) : 0,
   };
 }
+// Relevance-native promotion gates. Thresholds are the reviewed numbers in
+// docs/system-one-intent-gates.md; policy/live-host evidence stays reported
+// (false) until independently produced, so rolloutReady is red by
+// construction pre-production.
+function relevanceGates(multi, evidence) {
+  const supported = Object.values(multi.perIntent).filter(t => t.support >= 10);
+  const gates = {
+    microF1: multi.micro.f1 >= 0.55,
+    macroF1: multi.macroF1 >= 0.50,
+    perIntentFloors: supported.every(t => t.f1 >= 0.30),
+    weakPrecision: multi.weakPrecision >= 0.30,
+    cardinality: Math.abs(multi.cardinality.predicted - multi.cardinality.gold) <= 1.0,
+    abstainRate: multi.abstainRate <= 0.20,
+    familyConsistency: evidence.family.model.rate >= evidence.family.gold.rate,
+    repeatability: evidence.agreement === 1,
+    warmLatency: evidence.warmP95Ms <= 250,
+    structuralControls: !!(evidence.structural && evidence.structural.unchanged && evidence.structural.rollbackLive),
+    policyEvidence: false,
+    liveHostEvidence: false,
+  };
+  // rolloutReady stays false until policy/live-host evidence exists; the
+  // gates above are necessary but not sufficient pre-production.
+  return { ...gates, rolloutReady: false };
+}
 // sourceEvidence is the provider provenance result; only the pinned cua_s1 revision satisfies the gate.
 function evaluate(corpus, records, sourceEvidence = null, { secondaryThreshold } = {}) {
   const labels = corpusLabels(corpus);
@@ -168,4 +192,4 @@ function evaluate(corpus, records, sourceEvidence = null, { secondaryThreshold }
   };
   return { schemaVersion: 1, cases: cases.length, baseline, model, ...families, agreement, latency, gates, rolloutReady: Object.values(gates).every(Boolean) };
 }
-module.exports = { validateCorpus, evaluate, gradeRelevance };
+module.exports = { validateCorpus, evaluate, gradeRelevance, relevanceGates };

@@ -1,13 +1,11 @@
-"""Fine-tuned Laya intent provider bridge (#255 Phase 3, research only).
+"""Fine-tuned Laya intent provider bridge (#233 shadow, research use).
 
 Speaks the same adapter protocol as cua_adapter.py (oneshot stdin/stdout,
-resident --serve, --provenance) so the Harness evaluator machinery can score
-it, but it is NOT a production transport: resident.js and provider.js still
-point at cua_adapter. The scorer answers the fixed v1 noul questions it was
-trained on (never the request option texts) and maps back by intent id; the
-13th option (unclassified) rides a linear abstain ramp under NULL_CUTOFF.
-
-Stdlib only at import time; `laya` imports lazily inside load_scorer.
+resident --serve, --provenance). It emits RAW independent relevance scores
+(one per intent plus the unclassified ramp): they deliberately do NOT sum to
+one, so the single-winner contract.decide fails closed on them while
+contract.decideIntents consumes them directly. Do not re-normalize into a
+simplex anywhere in this path.
 """
 import hashlib
 import importlib.util
@@ -58,7 +56,11 @@ def check_limits(request, config):
 
 
 def make_scorer(predict_fn, cutoff=NULL_CUTOFF):
-    """Build score(request) -> 13 probabilities in request-option order."""
+    """Build score(request) -> 13 raw probabilities in request-option order.
+
+    Raw means independent: 12 noul answers plus the unclassified ramp, each
+    in 0..1, with no sum-to-one normalization.
+    """
     questions = build_questions()
 
     def score(request):
@@ -70,12 +72,8 @@ def make_scorer(predict_fn, cutoff=NULL_CUTOFF):
         raw = predict_fn(request['context'], questions)
         top = max(float(raw[i]) for i in INTENTS)
         ramp = max(0.0, min(1.0, (cutoff - top) / cutoff)) if cutoff > 0 else 0.0
-        probs = [float(raw[i]) for i in INTENTS] + [ramp]
-        total = sum(probs)
-        if total <= 0:
-            raise ValueError('scores: empty distribution')
-        normed = [p / total for p in probs]
-        by_id = dict(zip(INTENTS + ['unclassified'], normed))
+        by_id = {i: float(raw[i]) for i in INTENTS}
+        by_id['unclassified'] = ramp
         return [by_id[i] for i in ids]
 
     return score, dict(LIMITS)

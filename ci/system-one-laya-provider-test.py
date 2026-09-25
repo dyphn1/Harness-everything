@@ -71,15 +71,15 @@ class ScorerTests(unittest.TestCase):
         base.update(over)
         return base
 
-    def test_scores_follow_request_option_order_and_sum_to_one(self):
+    def test_scores_follow_request_option_order_raw(self):
         score, _ = laya_adapter.make_scorer(stub_predict(self.probs(fix=0.8)))
         shuffled = [OPTIONS[5], OPTIONS[0], *[o for o in OPTIONS if o['id'] not in ('feature', 'explain')]]
         out = score(request(options=shuffled))
         self.assertEqual(len(out), 13)
-        self.assertAlmostEqual(sum(out), 1.0)
         by_id = {o['id']: p for o, p in zip(shuffled, out)}
         self.assertGreater(by_id['fix'], by_id['test'])
         self.assertTrue(all(0.0 <= p <= 1.0 for p in out))
+        self.assertGreater(sum(out), 1.0, 'independent scores sum past one: no simplex')
 
     def test_confident_max_leaves_no_unclassified_mass(self):
         score, _ = laya_adapter.make_scorer(stub_predict(self.probs(fix=0.9)))
@@ -90,7 +90,6 @@ class ScorerTests(unittest.TestCase):
         score, _ = laya_adapter.make_scorer(stub_predict(self.probs()))
         out = score(request())
         self.assertGreater(out[-1], 0.5, 'nothing actionable concentrates on unclassified')
-        self.assertAlmostEqual(sum(out), 1.0)
 
     def test_non_intent_task_and_missing_intent_fail(self):
         score, _ = laya_adapter.make_scorer(stub_predict(self.probs()))

@@ -10,6 +10,8 @@ const unavailable = reason => ({ status: 'unavailable', reason });
 const exact = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).length === keys.length && keys.every(k => Object.hasOwn(value, k));
 const label = value => typeof value === 'string' && value.length > 0 && value.length <= 128 && !/[\u0000-\u001f]/.test(value);
+// Resident adapter selection: a basename inside the system-one scripts dir, never a path.
+const adapterName = value => typeof value === 'string' && /^[a-z][a-z0-9_-]{0,63}\.py$/.test(value);
 // Thresholds calibrated on validation for this checkpoint (docs/system-one-training.md).
 const inRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 // secondaryThreshold is optional and belongs to intent checkpoints (docs/system-one-intent.md#scoring).
@@ -26,8 +28,9 @@ function validateManifest(m) {
   const required = ['schemaVersion', ...(ngram ? [] : ['python']), 'checkpoint', 'weightsSha256', 'configSha256', 'modelId', 'revision', 'domain'];
   const strings = ['modelId', 'revision', 'domain', ...(ngram && !Object.hasOwn(m, 'python') ? [] : ['python'])];
   if (!m || typeof m !== 'object' || Array.isArray(m) || required.some(k => !Object.hasOwn(m, k))
-    || Object.keys(m).some(k => ![...required, 'python', 'timeoutMs', 'transport', 'idleTimeoutMs', 'acceptance'].includes(k)) || m.schemaVersion !== 1
+    || Object.keys(m).some(k => ![...required, 'python', 'timeoutMs', 'transport', 'idleTimeoutMs', 'acceptance', 'adapter'].includes(k)) || m.schemaVersion !== 1
     || (m.acceptance !== undefined && !validAcceptance(m.acceptance))
+    || (m.adapter !== undefined && !adapterName(m.adapter))
     || strings.some(k => typeof m[k] !== 'string' || !m[k].trim() || m[k].length > 4096 || m[k].includes('\0'))
     || typeof m.checkpoint !== 'string' || !path.isAbsolute(m.checkpoint) || path.extname(m.checkpoint) !== (ngram ? '.bin' : '.safetensors')
     || ['weightsSha256', 'configSha256'].some(k => typeof m[k] !== 'string' || !/^[a-f0-9]{64}$/.test(m[k]))
