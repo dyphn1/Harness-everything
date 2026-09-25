@@ -38,6 +38,21 @@ class CalibSplitTests(unittest.TestCase):
         self.assertEqual(len(calib), 1)
 
 
+class IntentWeightTests(unittest.TestCase):
+    def test_default_weights_are_one(self):
+        self.assertEqual(laya_trainer.intent_weights(['fix', 'test'], {}), [1.0, 1.0])
+
+    def test_table_applies_per_item_intent(self):
+        self.assertEqual(laya_trainer.intent_weights(['refactor', 'fix', 'refactor'], {'refactor': 2.0}),
+                         [2.0, 1.0, 2.0])
+
+    def test_bad_table_fails(self):
+        with self.assertRaisesRegex(ValueError, 'intent-weights'):
+            laya_trainer.intent_weights(['fix'], {'nope': 2.0})
+        with self.assertRaisesRegex(ValueError, 'intent-weights'):
+            laya_trainer.intent_weights(['fix'], {'fix': 0})
+
+
 @unittest.skipUnless(HAS_TORCH, 'torch not installed')
 class TorchTests(unittest.TestCase):
     def test_collate_shapes(self):

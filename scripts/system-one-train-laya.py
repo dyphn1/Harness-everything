@@ -28,11 +28,24 @@ except ImportError:
 
 CALIB_SEED = 20260922
 CALIB_MAX = 400
+INTENTS = ['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor',
+           'review', 'test', 'docs', 'plan', 'investigate']
 
 
 def need_torch():
     if not _TORCH:
         raise RuntimeError('torch is required for training')
+
+
+def intent_weights(intents, table):
+    """Per-item loss multipliers by training intent; unlisted intents weigh 1."""
+    import math  # noqa: PLC0415
+    table = dict(table or {})
+    for intent, weight in table.items():
+        if intent not in INTENTS or not isinstance(weight, (int, float)) \
+                or not math.isfinite(weight) or weight <= 0:
+            raise ValueError(f'intent-weights: bad entry {intent!r}:{weight!r}')
+    return [float(table.get(intent, 1.0)) for intent in intents]
 
 
 def calib_split(items, seed=CALIB_SEED, frac=0.1):
@@ -118,7 +131,10 @@ def train(args):
 
     items = [json.loads(line) for line in Path(args.items).read_text(encoding='utf-8').splitlines() if line.strip()]
     train_items, calib_items = calib_split(items, seed=args.calib_seed, frac=args.calib_frac)
-    print(json.dumps({'trainItems': len(train_items), 'calibItems': len(calib_items), 'device': device}), flush=True)
+    weights_table = json.loads(args.intent_weights)
+    intent_weights([], weights_table)  # validate early, before GPU time
+    print(json.dumps({'trainItems': len(train_items), 'calibItems': len(calib_items), 'device': device,
+                      'intentWeights': weights_table}), flush=True)
 
     from huggingface_hub import snapshot_download  # noqa: PLC0415
     model_dir = Path(snapshot_download(args.checkpoint))
@@ -178,8 +194,11 @@ def train(args):
                 adv = r - r.mean(0, keepdim=True)
                 adv = adv / (adv.std() + 1e-6)
             logp = -(((z - logits.unsqueeze(0)) ** 2) * mask).sum(-1) / (2 * sigma ** 2)
-            loss_rl = -(adv * logp).mean()
-            loss_ce = -(target * torch.log_softmax(logits.masked_fill(~mask, -1e4), -1)).sum(-1).mean()
+            sample_w = torch.tensor(
+                intent_weights([it.get('intent') for it in chunk], weights_table),
+                dtype=torch.float32, device=device)
+            loss_rl = (-(adv * logp).mean(0) * sample_w).mean()
+            loss_ce = ((-(target * torch.log_softmax(logits.masked_fill(~mask, -1e4), -1)).sum(-1)) * sample_w).mean()
             loss = (loss_rl + loss_ce) / args.grad_accum + 0.0 * act.sum()
             scaler.scale(loss).backward()
             accum += 1
@@ -269,6 +288,7 @@ def main(argv=None):
     parser.add_argument('--sigma-end', type=float, default=0.1)
     parser.add_argument('--calib-seed', type=int, default=CALIB_SEED)
     parser.add_argument('--calib-frac', type=float, default=0.1)
+    parser.add_argument('--intent-weights', default='{}', help='JSON {intent: multiplier} for loss weighting')
     args = parser.parse_args(argv)
     return train(args)
 
