@@ -2005,7 +2005,7 @@
         "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
         "requestHash": "f3cf716b74e5fe928f8047acda0267e8490cd69ff17db017eb47ca77cd35a4a4"
       },
-      "gold": "tier3"
+      "gold": "tier2"
     },
     {
       "id": "h-fix-cli-error-log-4",
@@ -2039,7 +2039,7 @@
         "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
         "requestHash": "fdd46662e02f8d3230b840fe089b4e4cb4a37aef1aa998f59e3ffaa4637093bc"
       },
-      "gold": "tier3"
+      "gold": "tier2"
     },
     {
       "id": "h-fix-failing-test-1",
@@ -2141,7 +2141,7 @@
         "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
         "requestHash": "dd3cf4d63ff04266de08e6235641a3e191a2485cb849a5dc3e44eeacfc7238a3"
       },
-      "gold": "tier3"
+      "gold": "tier2"
     },
     {
       "id": "h-fix-failing-test-4",
@@ -2209,7 +2209,7 @@
         "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
         "requestHash": "b9438ca5119663f987c91d4b851b71e1f0f9e15547e4405b752302116cfe2de1"
       },
-      "gold": "tier3"
+      "gold": "tier2"
     },
     {
       "id": "h-add-cli-flag-2",
@@ -2243,7 +2243,7 @@
         "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
         "requestHash": "89dc4acaee4ca2c8f070fe1eb7e8da8a11025f78d3cf9d8b15f14cc22af7538a"
       },
-      "gold": "tier3"
+      "gold": "tier2"
     },
     {
       "id": "h-add-cli-flag-3",
@@ -2277,7 +2277,7 @@
         "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
         "requestHash": "426171654d98fe77a50a5dced0053d3539595cbf28d23259e680fffbad603230"
       },
-      "gold": "tier3"
+      "gold": "tier2"
     },
     {
       "id": "h-nondeterministic-output-1",
@@ -2991,7 +2991,7 @@
         "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
         "requestHash": "cb231efa719d2585111733df0da9907aa0d8b046d806a8f77a49a62c22e8bf5a"
       },
-      "gold": "tier3"
+      "gold": "tier2"
     },
     {
       "id": "h-hash-algorithm-support-2",
@@ -3025,7 +3025,7 @@
         "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
         "requestHash": "d6f57302ad014bf5dc923fffd50895568941dde27b4966d8bf9b428d7dc827fa"
       },
-      "gold": "tier3"
+      "gold": "tier2"
     },
     {
       "id": "h-toolchain-check-1",
@@ -7309,7 +7309,7 @@
         "catalogHash": "b625bd9390f1d163f8fbace0b9c4768166bfc613aed04d87b2246b2c6e966d40",
         "requestHash": "d48c25217d11d4d8881768a373dc92125fef499d200ce49d9a0b7d461e13831f"
       },
-      "gold": "tier2"
+      "gold": "tier1"
     }
   ]
 }

@@ -104,7 +104,19 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
 
 ## Training and calibration
 
-- **Model**: a new `cua_s1` `tinyx` scorer built with `make_system`.
+- **Tier engine**: `scripts/system-one-train-ngram.py` trains the `ngram` transport, a
+  multinomial logistic regression over hashed character n-gram features. Featurization
+  follows [system-one-routing.md](system-one-routing.md#n-gram-provider-phase-4).
+  - The trainer uses torch for the optimizer only. The features are stdlib Python and match
+    the Node provider exactly.
+  - The configuration (`nmax`, class weighting, weight decay) is chosen on validation
+    macro-F1. The first exploration picked `nmax` 3, square-root inverse-frequency class
+    weights and a weight decay of 1e-4.
+  - The output is the `.bin` weights, the `.json` sidecar and validation scores for
+    calibration.
+- The `tinyx` path below is kept for comparison. Its first checkpoint learned little beyond
+  class priors.
+- **Model** (`tinyx`): a new `cua_s1` `tinyx` scorer built with `make_system`.
   - Config: `width` 128, `rank` 128, `layers` 2, `heads` 4, `context_tokens` 1024 and
     `option_tokens` 96.
   - Weights are initialized fresh, not from the forms checkpoint, whose domain and
@@ -116,7 +128,7 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
   - The epoch with the lowest validation negative log-likelihood is kept.
   - The checkpoint metadata records the dataset hashes, the config and the validation metrics.
 - **Calibration**: `minConfidence` and `minMargin` are chosen on validation to maximize
-  coverage, subject to an accepted precision of at least 98%. The router currently uses the
+  coverage, subject to an accepted precision of at least 85% (the owner's advisory target). The router currently uses the
   Phase 0 defaults (0.9 and 0.2). Carrying calibrated thresholds into the manifest is a
   separate contract change.
 

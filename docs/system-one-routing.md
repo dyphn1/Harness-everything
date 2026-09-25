@@ -103,6 +103,52 @@ responses are checked by Phase 0. Transport fixtures prove IPC and failure
 handling only. Real checkpoint inference and measured CPU latency remain a
 separate gate, with explicit unavailable evidence if dependencies are absent.
 
+## N-gram provider (Phase 4)
+
+`transport: "ngram"` scores in the Node process itself. It needs no Python, no
+torch, no resident server and no subprocess. It exists because a byte-level
+transformer trained from scratch learned little beyond class priors on the
+owner's data. A linear model over character n-grams learned more from the same
+labels at about 1 MB. See
+[harness-routing-v1-cpu-2026-09-24](../benchmarks/results/system-one/harness-routing-v1-cpu-2026-09-24/README.md).
+
+**Artifact.** The manifest `checkpoint` is an absolute path to `<name>.bin`, and
+`weightsSha256` is that file's hash. A `<name>.json` sidecar beside it has the
+hash `configSha256`. `python` is not required for this transport. The sidecar
+holds exactly:
+
+| Field | Value |
+| --- | --- |
+| `format` | `harness-ngram` |
+| `formatVersion` | `1` |
+| `dim` | Feature buckets, a power of two between 2^10 and 2^20 |
+| `nmax` | Longest n-gram, 1–4 |
+| `hash` | `fnv1a32` |
+| `catalog` | The option IDs in catalog order |
+| `bias` | One number per option |
+| `metadata` | An object with training provenance |
+
+`.bin` holds `dim × catalog.length` little-endian float32 weights in row-major
+order (feature, then option), so its size must equal `dim × options × 4` bytes.
+Both files are hash-checked before use. Any mismatch in hash, shape or field
+returns `provider-config` and never scores.
+
+**Features.** Featurization is identical in the trainer and the provider, and a
+cross-language test proves it.
+
+1. Lowercase the text and join its whitespace-separated parts with one space.
+2. For each n from 1 to `nmax`, take every n-gram of Unicode code points that is
+   not only spaces. Add it to bucket `fnv1a32("<n>:<gram>" as UTF-8) mod dim`.
+3. Add one length feature, bucket `fnv1a32("len:<k>") mod dim`, where
+   `k = min(8, floor(log2(utf8Bytes + 1)))`.
+4. Weight each bucket as `log(1 + count)` and L2-normalize the vector.
+
+**Scoring.** The probabilities are `softmax(x·W + bias)` in catalog order. The
+request's option IDs must equal `catalog`, or the result is `provider-config`.
+The response has the Phase 0 shape, and the manifest `acceptance` thresholds
+apply as for any transport. The Phase 0 context limit (64 KiB) is the only
+length limit.
+
 ## Resident provider (Phase 4 prerequisite)
 
 The one-shot bridge pays Python start, `import torch` and checkpoint load on every
@@ -262,6 +308,15 @@ The latter evidence is not supplied by this offline runner, so it always reports
 those gates pending. With the one-shot adapter, all latency is cold and the warm
 gate also remains pending. Exporting a report never changes router defaults.
 
+For the `ngram` transport, samples are recorded with `coldStart: false`, because
+scoring happens in process. The evaluator loads and verifies the artifact once
+before any timed sample, so that load is not part of the warm latency. The
+source check does not run the Python `cua_s1` probe, which this transport does
+not use. It records `{status: "recorded", transport: "ngram", artifactVerified}`,
+where `artifactVerified` is true only when both artifact files load and match
+their SHA-256 values. For this transport, the `sourceProvenance` gate passes
+when `artifactVerified` is true.
+
 ## Model suitability
 
 The [CUA-S1-FORMS model card](https://huggingface.co/cua-ai/cua-s1-forms)
@@ -286,11 +341,38 @@ unversioned download during a prompt hook.
 Phase 4 training data, labeling, calibration and release are defined in
 [system-one-training.md](system-one-training.md).
 
+## Staged classification
+
+System One answers three narrow questions in sequence instead of one broad
+question. Each stage is its own fixed catalog, scorer request and holdout, so a
+small model only has to separate a few options at a time.
+
+1. **Tier**: `tier1`, `tier2`, `tier3` or `unclassified`, following
+   [system-one-corpus.md](system-one-corpus.md).
+2. **Intent**: the kind of work the prompt asks for, drawn from a small fixed
+   catalog (for example: ask or explain, discuss or decide, Git/GitHub
+   operation, fix a bug, build a feature, refactor, review or audit, test or
+   verify, write docs, plan or spec, investigate). The intent catalog is the
+   owner's and is recorded in the corpus document before any intent labels.
+3. **Skills**: which canonical skills fit the prompt, scored against skill
+   descriptions. Only skills above the stage's calibrated threshold are
+   suggested, and they are suggestions, never required reads.
+
+Each stage has its own gates, and a stage ships only when it passes them. Tier
+comes first because the reviewed holdout exists for it. Later stages reuse the
+same collector, labeler, trainer and evaluator with a different catalog.
+Suggestions are advisory: explicit workflow requests, action gates, memory
+ownership, the Rule of 3 and deterministic policy always take precedence.
+
 ## Rollout gates
 
 Phase 4 requires a separately reviewed, family-disjoint holdout of at least 200
-cases, at least 50 each in English and Traditional Chinese. Accepted precision
-must be ≥98%, coverage ≥80%, and macro-F1 at least the lexical baseline.
+cases, at least 50 each in English and Traditional Chinese. System One output is
+advisory: it informs the agent and suggests skills. It never grants or removes
+policy. The owner therefore set the target at accepted precision ≥85% (the
+80–90% band), coverage ≥80%, and macro-F1 at least the lexical baseline. A
+probabilistic scorer small enough to ship inside a skills plugin (a few MB, not
+hundreds) is not expected to reach 98%.
 Policy invariants must remain intact in every case; repeat decisions twice with
 100% agreement. Record checkpoint/source hashes, CPU, OS, runtime, thread count,
 cold latency and warm p95 (target ≤100ms). Synthetic fixtures and mock providers

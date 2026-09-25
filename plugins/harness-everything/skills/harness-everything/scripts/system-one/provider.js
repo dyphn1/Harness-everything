@@ -17,15 +17,18 @@ const validAcceptance = a => exact(a, ['minConfidence', 'minMargin']) && inRange
 const withAcceptance = (result, manifest) => (result && result.status === 'scored' && manifest.acceptance
   ? { ...result, acceptance: { ...manifest.acceptance } } : result);
 function validateManifest(m) {
-  const required = ['schemaVersion', 'python', 'checkpoint', 'weightsSha256', 'configSha256', 'modelId', 'revision', 'domain'];
+  // The in-process ngram transport needs no Python and loads a .bin; the others run the CUA-S1 adapter.
+  const ngram = !!m && m.transport === 'ngram';
+  const required = ['schemaVersion', ...(ngram ? [] : ['python']), 'checkpoint', 'weightsSha256', 'configSha256', 'modelId', 'revision', 'domain'];
+  const strings = ['modelId', 'revision', 'domain', ...(ngram && !Object.hasOwn(m, 'python') ? [] : ['python'])];
   if (!m || typeof m !== 'object' || Array.isArray(m) || required.some(k => !Object.hasOwn(m, k))
-    || Object.keys(m).some(k => ![...required, 'timeoutMs', 'transport', 'idleTimeoutMs', 'acceptance'].includes(k)) || m.schemaVersion !== 1
+    || Object.keys(m).some(k => ![...required, 'python', 'timeoutMs', 'transport', 'idleTimeoutMs', 'acceptance'].includes(k)) || m.schemaVersion !== 1
     || (m.acceptance !== undefined && !validAcceptance(m.acceptance))
-    || ['python', 'modelId', 'revision', 'domain'].some(k => typeof m[k] !== 'string' || !m[k].trim() || m[k].length > 4096 || m[k].includes('\0'))
-    || typeof m.checkpoint !== 'string' || !path.isAbsolute(m.checkpoint) || path.extname(m.checkpoint) !== '.safetensors'
+    || strings.some(k => typeof m[k] !== 'string' || !m[k].trim() || m[k].length > 4096 || m[k].includes('\0'))
+    || typeof m.checkpoint !== 'string' || !path.isAbsolute(m.checkpoint) || path.extname(m.checkpoint) !== (ngram ? '.bin' : '.safetensors')
     || ['weightsSha256', 'configSha256'].some(k => typeof m[k] !== 'string' || !/^[a-f0-9]{64}$/.test(m[k]))
     || (m.timeoutMs !== undefined && (!Number.isInteger(m.timeoutMs) || m.timeoutMs < 1 || m.timeoutMs > 10000))
-    || (m.transport !== undefined && !['oneshot', 'resident'].includes(m.transport))
+    || (m.transport !== undefined && !['oneshot', 'resident', 'ngram'].includes(m.transport))
     || (m.idleTimeoutMs !== undefined && (!Number.isInteger(m.idleTimeoutMs) || m.idleTimeoutMs < 60000 || m.idleTimeoutMs > 14400000))
     || (m.modelId === 'cua-ai/cua-s1-forms' && m.domain !== 'forms-v1')) throw new TypeError('invalid-manifest');
   return true;
@@ -57,8 +60,14 @@ function score(request, manifestPath) {
   validateRequest(request);
   let manifest;
   try { manifest = readManifest(manifestPath); } catch (_) { return unavailable('provider-config'); }
+  if (manifest.transport === 'ngram') return withAcceptance(inProcess(request, manifest), manifest);
   if (manifest.transport === 'resident') return withAcceptance(require('./resident').score({ ...request }, manifest, manifestPath), manifest);
   return withAcceptance(oneShot(request, manifest), manifest);
+}
+// The ngram transport scores in this process; an artifact mismatch is a configuration error, never a score.
+function inProcess(request, manifest) {
+  try { return { status: 'scored', response: require('./ngram').score({ ...request }, manifest) }; }
+  catch (_) { return unavailable('provider-config'); }
 }
 // Async callers (the hook entry) reach a resident server without the sync worker bridge.
 // One-shot has no server to overlap with, so it runs the same child synchronously.
@@ -66,6 +75,7 @@ async function scoreAsync(request, manifestPath) {
   validateRequest(request);
   let manifest;
   try { manifest = readManifest(manifestPath); } catch (_) { return unavailable('provider-config'); }
+  if (manifest.transport === 'ngram') return withAcceptance(inProcess(request, manifest), manifest);
   if (manifest.transport === 'resident') return withAcceptance(await require('./resident').scoreAsync({ ...request }, manifest, manifestPath), manifest);
   return withAcceptance(oneShot(request, manifest), manifest);
 }
