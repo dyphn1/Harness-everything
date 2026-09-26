@@ -17,8 +17,10 @@ Inputs changed from `../tier-stage-cua-s1-2026-09-26/`:
   62 to 155 rows (tier1 118, tier2 359); this is a harder, different target,
   so tier numbers compare within this run, not with the earlier one.
 
-Validation: 690 rows after dropping unsure ones; 632 valid, 58 invalid
-(plus 37 owner-valid rows that count for the gate only).
+Validation: 727 rows (the owner marked none of the validation rows
+unsure). The gate is scored on all 727. The tier stage and the pipeline use
+690: 632 valid rows with a tier label and 58 invalid rows. The 37
+owner-valid rows have no tier label, so only the gate sees them.
 
 ## Validity gate (`--merge-invalid`, mean ± sd)
 
@@ -45,7 +47,7 @@ calls invalid are the hard part for a text-only model.
 Seed 0, all rows at once, per tier: tier1 recall 0.31, tier2 0.64, tier3
 0.27 (precision 0.42); per-tier AUROC 0.77 / 0.66 / 0.67.
 
-## Pipeline on all validation rows (mean)
+## Pipeline on the 690 tier-stage validation rows (mean)
 
 | Tier variant | gate | invalid handed off | invalid given a tier | valid handed off | suggestion precision, all rows |
 | --- | --- | --- | --- | --- | --- |
