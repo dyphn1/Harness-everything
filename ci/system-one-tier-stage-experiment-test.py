@@ -63,3 +63,16 @@ s = comp.score_picks([2, 1, 0], [2, 0, None])
 assert s['coverage'] == 2 / 3 and s['underRate'] == 0.5 and s['tier3Recall'] == 1.0 and s['tier3Precision'] == 1.0
 
 print('system-one tier compose tests passed')
+
+ie = __import__('system-one-intent-stage-experiment')
+assert all(len(f'{c}: {d}'.encode()) <= 96 for c, d in zip(ie.CATALOG, ie.DEFAULT_OPTIONS))
+assert ie.fit_tau([0.9, 0.8, 0.2, 0.1], [True, True, False, False]) >= 0.2
+ids = ['a', 'b', 'c', 'd']
+probs = {'a': [0.9] * 12, 'b': [0.8] * 12, 'c': [0.1] * 12, 'd': [0.2] * 12}
+truth = {'a': [True] * 12, 'b': [True] * 12, 'c': [False] * 12, 'd': [False] * 12}
+taus = ie.cv_taus(ids, probs, truth)
+assert set(taus) == set(ids) and taus['a'] is taus['c'] and taus['a'] is not taus['b'], 'each row uses the other fold'
+m = ie.intent_metrics(ids, probs, truth, taus)
+assert m['microF1'] == 1.0 and m['feature']['recall'] == 1.0 and m['meanFires'] == 6.0
+
+print('system-one intent stage tests passed')
