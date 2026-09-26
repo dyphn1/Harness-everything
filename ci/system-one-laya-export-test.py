@@ -116,7 +116,7 @@ class ExportTests(unittest.TestCase):
             summary = laya_exporter.export(data, 'train', out, Path(d) / 'm.json', fake_builder, seed=7)
         self.assertEqual((summary['items'], summary['skippedNoTeacher']), (12, 1))
 
-    def test_oversample_repeats_only_positive_rows(self):
+    def test_oversample_repeats_only_selected_positive_intent(self):
         prompts = [{'id': 'a', 'split': 'train', 'text': 'restructure'},
                    {'id': 'b', 'split': 'train', 'text': 'fix it'}]
         scores_a = {i: (0.9 if i == 'refactor' else 0.0) for i in INTENTS}
@@ -128,9 +128,14 @@ class ExportTests(unittest.TestCase):
             out = Path(d) / 'o.json'
             summary = laya_exporter.export(data, 'train', out, Path(d) / 'm.json', fake_builder,
                                            seed=0, oversample={'refactor': 3})
-            self.assertEqual(summary['items'], 12 * (3 + 1), 'a x3 plus b x1')
-            rows = [json.loads(line)['promptId'] for line in out.read_text(encoding='utf-8').strip().split('\n')]
-            self.assertEqual(rows[::12], ['a', 'a', 'a', 'b'])
+            rows = [json.loads(line) for line in out.read_text(encoding='utf-8').strip().split('\n')]
+            keys = [(r['promptId'], r['intent']) for r in rows]
+            self.assertEqual(summary['items'], 26, '24 base items plus two refactor repeats')
+            self.assertEqual(keys.count(('a', 'refactor')), 3)
+            self.assertTrue(all(keys.count(('a', intent)) == 1 for intent in INTENTS if intent != 'refactor'),
+                            'sibling intents must not be reweighted')
+            self.assertTrue(all(keys.count(('b', intent)) == 1 for intent in INTENTS),
+                            'non-positive prompt must remain at base multiplicity')
             self.assertEqual(summary['manifest']['oversample'], {'refactor': 3})
 
     def test_bad_oversample_spec_fails(self):
