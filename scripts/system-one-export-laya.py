@@ -163,7 +163,7 @@ def main(argv=None):
     parser.add_argument('--seed', type=int, default=0, help='0 keeps id order; nonzero shuffles')
     parser.add_argument('--forbid', default=None, help='json list of forbidden ids (overlap guard)')
     parser.add_argument('--teacher', default='labels-intent-scores.jsonl')
-    parser.add_argument('--oversample', default='', help='intent:factor,... to repeat positive rows')
+    parser.add_argument('--oversample', default='', help='intent:factor,... to repeat positive intent items')
     parser.add_argument('--limit', type=int, default=0, help='export only the first N prompts (0 = all)')
     args = parser.parse_args(argv)
     oversample = parse_oversample(args.oversample)
