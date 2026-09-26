@@ -73,6 +73,31 @@ abstain outcome: no option reaches its threshold.
 | Intent holdout | owner `gold ∪ secondary` | owner `gold` |
 | Tier holdout | owner `gold` tier; `null` means abstention is correct | — |
 
+### Continuations
+
+Some prompts cannot be tiered from their text: a go-ahead (`go`, `好`,
+`完成了`), an option pick, a change verb with no object (`修正一下`),
+feedback on earlier work (`還是一樣的錯誤`) or a pointer to earlier
+content (`請依照需求實作`). Their tier comes from the previous turn, so the
+router inherits it deterministically; the model is not asked to guess it.
+The noise-gate experiment (#265) showed that tier labels assigned to such
+prompts from session context are what kept a text-only model unsure.
+
+- **Definition.** A holdout case is a continuation when the frozen rules
+  (`rule_v2` in `scripts/system-one-noise-experiment.py`, #265) match its
+  text. The owner reviews that list before the holdout run; the list is then
+  frozen with the rest of step 4 below.
+- **Scoring.** On a continuation case, the model is correct when it returns
+  continuation (or abstains); any tier pick counts as an error for that case,
+  whatever its gold tier. Continuation cases are excluded from the tier
+  metrics (acceptablePrecision, underRate, coverage) and reported separately
+  as continuation recall.
+- **Size.** The rules mark 9 of 215 tier-holdout cases (6 `null`, 2 `tier1`,
+  1 `tier2`) and 3 of 222 intent-holdout cases. The holdouts were built with
+  most continuations removed, so they under-represent this class; the
+  continuation gate below is read on validation until a reviewed
+  continuation set exists.
+
 The two intent truths differ in size: the teacher marks 1.76 relevant
 intents per validation prompt, the owner 3.50 per holdout prompt (p95 6).
 Recall against the whole relevant set is therefore structurally lower on
@@ -145,6 +170,7 @@ coverage 0.97, primary hit 0.75, precision 0.63, raw-`p ≥ 0.6` precision
 | coverage | ≥ 0.60 |
 | nullPickRate | ≤ 0.30 |
 | ECE | ≤ 0.10 |
+| continuation recall (holdout continuation cases) | reported; ≥ 0.80 on validation continuations |
 
 Tier bars have no validation anchor from a relevance-native tier model
 yet. The first tier candidate reports its validation numbers first, and
