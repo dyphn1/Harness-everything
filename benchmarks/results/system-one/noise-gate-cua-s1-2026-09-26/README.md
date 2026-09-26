@@ -1,5 +1,8 @@
 # Noise gate on CUA-S1: curriculum vs all-at-once (2026-09-26)
 
+Two runs: rules v1 (`report-rules-v1.json`) and rules v2
+(`report-rules-v2.json`, `--rules 2`). Same model, schedule and seed.
+
 Validation-only experiment for #233. It asks whether a CUA-S1 `tinyx`
 scorer can tell from the text alone that a prompt is **unclassifiable**:
 a continuation that needs the previous turn (`go`, `好`, `完成了`, an option
@@ -30,7 +33,7 @@ epochs), then adds the remaining rows in three stages ordered by how well
 the model already agrees with their labels (3 epochs each). The control
 trains all rows from scratch for the same 15 epochs.
 
-## Results (validation, 727 rows, 84 unclassifiable)
+## Rules v1 results (validation, 727 rows, 84 unclassifiable)
 
 "Confident" means a noise score (1 − p(actionable)) of at least 0.8 for
 unclassifiable rows, or p(actionable) of at least 0.8 for actionable rows.
@@ -62,6 +65,45 @@ On the seed rows alone, AUROC is 0.99 (R0) and 0.98 (R1).
    agrees with. It is a research result, not a candidate: the rule rows in
    validation are few (19), and there is one seed.
 
-Next step implied by the evidence: relabel the short and follow-up rows
-under the three-way definition (text alone, not session context) before
-another curriculum run, rather than tuning the schedule.
+## Rules v2: relabel what the text cannot tier
+
+The owner chose to widen the rules instead of hand-relabeling. v2 also
+marks as continuation three shapes whose tier the text alone cannot
+decide: a change verb with no concrete object (`修正一下`, `優化這段`),
+feedback on earlier work (`還是一樣的錯誤`, `少了 SRE`), and a pointer to
+earlier content (`請依照需求實作`). Questions are excluded. This moves 108
+rows (91 train, 17 validation) to continuation; 84 of them had carried a
+tier label that the labeler assigned from session context.
+
+Validation truth changes with the rules (28 continuation rows instead of
+11), so v2 numbers compare rounds and the control within v2, not with v1.
+
+| Round | AUROC all | AUROC seeds | confident continuation | confident no-request | confident actionable (long) |
+| --- | --- | --- | --- | --- | --- |
+| R0 seeds | 0.746 | 0.92 | 0.25 | 0.50 | 1.00 |
+| R1 + 1/3 | 0.785 | 0.97 | 0.71 | 0.50 | 0.99 |
+| R2 + 2/3 | 0.789 | 0.97 | 0.04 | 0.62 | 0.99 |
+| R3 all | 0.796 | 0.97 | 0.71 | 0.75 | 0.94 |
+| control | 0.807 | 0.92 | 0.43 | 0.75 | 0.90 |
+
+Overall confident noise at the end: 0.41 (curriculum) and 0.38 (control),
+against 0.08 and 0.26 under v1.
+
+## Reading (v2)
+
+1. **Relabeling, not scheduling, restored confidence.** Mixing every row
+   back no longer erases the continuation class: the final curriculum model
+   keeps 71% of continuations at ≥ 0.8 (v1: 0%).
+2. **The curriculum beats the control on confidence, not on ranking.**
+   AUROC is about the same (0.80 vs 0.81); the curriculum is more confident
+   on continuations (0.71 vs 0.43) and on long actionable prompts (0.94 vs
+   0.90).
+3. **It is not stable yet.** R2 dips to 0.04 before R3 recovers, with one
+   seed; repeat seeds are needed before reading the schedule as a win.
+4. **A residue remains.** The rows the rules still leave to the labeler
+   (`null-unruled` against `tier-short`) rank below chance (AUROC 0.27–0.49):
+   the labeler's context-based choices still disagree with the text.
+
+This supports the owner's reading that much of the earlier "noise" was the
+labeler's own prior judgement from session context, not ambiguity in the
+text.

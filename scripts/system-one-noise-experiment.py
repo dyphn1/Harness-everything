@@ -62,6 +62,38 @@ _REQUEST = re.compile(r'[\u4e00-\u9fff]|\b(?:please|pls|fix|check|why|how|what|c
 _IDENT = re.compile(r'^(?=.*(?:[._:/\\]|[a-z][A-Z]))[A-Za-z0-9_.:/\\-]+$', re.ASCII)
 
 
+# Rules v2 (owner decision 2026-09-26): prompts whose tier the text cannot decide.
+# A change verb with no concrete object ("修正一下", "優化這段") leaves the scope, and
+# so the tier, to the previous turn; so does feedback on earlier work ("還是一樣的錯誤")
+# and a pointer to earlier content ("請依照需求實作"). All three are continuations.
+_CHANGE_VERB = r'(?:修正|修改|修復|更正|糾正|優化|調整|處理|補上|補齊|補充|實作|實現|重構|重購|改|更新|加上|移除|刪掉|完善|解決|fix|change|update|refactor|improve|implement)'
+_BARE = re.compile(r'^(?:ok|好|是的?|yes|請|幫我|先|現在|直接|開始|進行|再|也|都|一併|依序|全部|順便|\s|,|，)*'
+                   + _CHANGE_VERB + r'(?:一下|看看|它|他|她|這段|這個|這些|這問題|這部分|上去|掉|起來|進去|吧|喔|了|\s)*$')
+_FEEDBACK = re.compile(r'還是|依樣|依然|一樣的|又(?:壞|錯|失敗|卡)|少了|漏掉|沒有(?:更新|產生|修正|加入|補上|出現|作用|處理|拉上去|改到)|'
+                       r'不對|錯了|卡住|卡死|失敗了|壞了|跑掉|不見了|畫不出來|看不到|沒反應|\bstill\b|\bnot working\b|'
+                       r"\bdoesn'?t work\b|\bis missing\b|\bbroken\b")
+_POINTER = re.compile(r'(?:依照|按照|照著|根據)(?:需求|上述|此|這個?|你的?|剛剛|剛才|建議|計畫|指示)|如上|上述的?(?:問題|指示|錯誤)')
+_CONCRETE = re.compile(r'[A-Za-z0-9_]+\.[A-Za-z]{1,6}\b|[\\/]|`|\b(?:readme|yml|yaml|json|mermaid|adr|roadmap|csproj|test|e2e|ci)\b', re.I)
+
+
+def rule_v2(text):
+    """rule() plus bare change directives, feedback on earlier work and pointers to it."""
+    base = rule(text)
+    if base:
+        return base
+    raw = text.strip()
+    t = normalize(text)
+    if len(raw) > 40 or '\n' in raw.strip():
+        return None
+    if _BARE.match(t) or _POINTER.search(t):
+        return 'continuation'
+    # A question ("A 還是 B?") asks something new; only a stuck-run check stays feedback.
+    question = re.search(r'[?？]|嗎', raw) and not re.search(r'卡|還在跑|跑完', raw)
+    if _FEEDBACK.search(t) and not _CONCRETE.search(raw) and not question:
+        return 'continuation'
+    return None
+
+
 def normalize(text):
     t = text.strip().lower().replace('\r\n', ' ').replace('\n', ' ')
     t = re.sub(r'\s+', ' ', t)
@@ -93,13 +125,13 @@ def rule(text):
     return None
 
 
-def label_rows(prompts, tier_labels, excluded, seed_min_chars=20):
+def label_rows(prompts, tier_labels, excluded, seed_min_chars=20, rules=1):
     """One row per prompt: targets [A, C, N], mask, seed flag and bucket."""
     rows = []
     for p in prompts:
         if p['id'] in excluded or p['id'] not in tier_labels:
             continue
-        tier, r = tier_labels[p['id']], rule(p['text'])
+        tier, r = tier_labels[p['id']], (rule_v2 if rules == 2 else rule)(p['text'])
         if r == 'continuation':
             targets, mask, bucket = [0.0, 1.0, 0.0], [1, 1, 1], 'rule-continuation'
         elif r == 'no-request':
@@ -187,7 +219,7 @@ def run(args):
     for r in load(data / 'owner-overrides.jsonl'):
         tiers[r['id']] = r['gold']
     excluded = {r['id'] for r in load(data / 'owner-excluded.jsonl')}
-    rows = label_rows(load(data / 'prompts.jsonl'), tiers, excluded)
+    rows = label_rows(load(data / 'prompts.jsonl'), tiers, excluded, rules=args.rules)
     train_rows = [r for r in rows if r['split'] == 'train']
     val_rows = [r for r in rows if r['split'] == 'validation']
     option_texts = tuple(t for _, t in OPTIONS)
@@ -301,6 +333,7 @@ def main(argv=None):
     ap.add_argument('--seed-epochs', type=int, default=6)
     ap.add_argument('--stages', type=int, default=3)
     ap.add_argument('--stage-epochs', type=int, default=3)
+    ap.add_argument('--rules', type=int, choices=[1, 2], default=1, help='2 adds bare directives, feedback and pointers')
     ap.add_argument('--labels-only', action='store_true', help='print label bucket counts and exit (no torch)')
     args = ap.parse_args(argv)
     if args.labels_only:
@@ -312,7 +345,7 @@ def main(argv=None):
         for r in trainer.load_jsonl(data / 'owner-overrides.jsonl'):
             tiers[r['id']] = r['gold']
         excluded = {r['id'] for r in trainer.load_jsonl(data / 'owner-excluded.jsonl')}
-        rows = label_rows(trainer.load_jsonl(data / 'prompts.jsonl'), tiers, excluded)
+        rows = label_rows(trainer.load_jsonl(data / 'prompts.jsonl'), tiers, excluded, rules=args.rules)
         counts = {}
         for r in rows:
             counts.setdefault(r['split'], {}).setdefault(r['bucket'], 0)

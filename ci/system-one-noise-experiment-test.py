@@ -39,6 +39,13 @@ assert rows['e']['bucket'] == 'rule-no-request'
 assert exp.auroc([0.9, 0.8, 0.1], [True, True, False]) == 1.0
 assert exp.auroc([0.5, 0.5], [True, False]) == 0.5
 assert exp.auroc([0.1], [True]) is None
+for text in ('修正一下', '優化這段', '還是一樣的錯誤', '請依照需求實作', '少了 SRE', '卡死了嗎??'):
+    assert exp.rule_v2(text) == 'continuation', (text, exp.rule_v2(text))
+for text in ('這兩個欄位是來自 db 還是自定義結構?', 'fix the flaky parser test', '執行測試', '先總結', 'git status',
+             '請把 README.md 還是英文的段落翻譯'):
+    assert exp.rule_v2(text) is None, (text, exp.rule_v2(text))
+assert exp.rule_v2('go next') == 'continuation' and exp.rule_v2('hi') == 'no-request', 'v2 keeps v1 hits'
+
 assert exp.ece([1.0, 0.0], [1, 0]) == 0.0
 m = exp.gate_metrics([rows['a'], rows['b']], [[0.1, 0.8, 0.1], [0.9, 0.05, 0.05]])
 assert m['auroc'] == 1.0 and m['confidentNoise'] == 1.0 and m['confidentActionable'] == 1.0
