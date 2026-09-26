@@ -364,8 +364,12 @@ small model only has to separate a few options at a time.
    descriptions. Only skills above the stage's calibrated threshold are
    suggested, and they are suggestions, never required reads.
 
-Each stage has its own gates, and a stage ships only when it passes them. Tier
-comes first because the reviewed holdout exists for it. Later stages reuse the
+Each stage has its own gates, and a stage ships only when it passes them.
+The relevance-native plan in
+[system-one-suggestion-gates.md](system-one-suggestion-gates.md#readout-per-stage)
+adds a validity stage first and runs intent before tier, because tier3 is
+composed from the intent scores. Tier was trained first because the
+reviewed holdout exists for it. Later stages reuse the
 same collector, labeler, trainer and evaluator with a different catalog.
 Suggestions are advisory: explicit workflow requests, action gates, memory
 ownership, the Rule of 3 and deterministic policy always take precedence.

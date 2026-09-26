@@ -39,15 +39,55 @@ All stages share the scoring and the calibration. Only the readout differs.
 | Stage | Catalog | Readout | Cap |
 | --- | --- | --- | --- |
 | Validity | `actionable`, `invalid` | `invalid` at or above its threshold → stop: no tier, workflow, intent or skill suggestion; the host agent decides | — |
-| Tier | `tier1`, `tier2`, `tier3` | pick one: highest calibrated `p` among options at or above their threshold; none → abstain; final tier = max(pick, structural floor) | 1 |
-| Workflow | the router's strategies (`direct-single`, `iterative-single`, `fable-staged`, `fable-parallel`, `fable-multi-agent-workspace`) | pick one, same rule; an explicit workflow request always wins | 1 |
 | Intent | the 12 intents of [system-one-intent.md](system-one-intent.md) | set: every intent at or above its threshold, highest `p` first, truncated at the cap | 3 |
+| Tier | `tier1`, `tier2`, `tier3` | composed (see [Tier composition](#tier-composition)): tier3 when `feature` or `refactor` reaches its intent threshold; otherwise the tier scorer's pick; final tier = max(that, structural floor); none → abstain | 1 |
+| Workflow | the router's strategies (`direct-single`, `iterative-single`, `fable-staged`, `fable-parallel`, `fable-multi-agent-workspace`) | pick one, same rule; an explicit workflow request always wins | 1 |
 | Skills | canonical skills, scored against their descriptions | set, same rule | 3 |
 
 The cap of 3 for set stages comes from AGENTS.md rule 10: a suggested skill
 must be read before it can be dismissed, so each extra suggestion has a
 reading cost. The cap is part of the readout, so noise is bounded by
 construction; the gates then judge what survives the cap.
+
+Stages run in table order: validity, intent, tier, workflow, skills. Tier
+reads the intent scores, so intent runs before it.
+
+### Tier composition
+
+Tier rules v2 (owner decision, 2026-09-26): tier3 covers new features,
+refactors, changes to definitions, and cross-repository or cross-component
+work, whatever the width of the change; tier1 is a clear bounded action
+(Git, status, lookup, direct answer); tier2 is a bounded modification.
+
+Whether a prompt asks for a feature or a refactor is an intent question,
+and the intent stage already scores it. The tier stage therefore does not
+learn that part again:
+
+1. **Intent part.** tier3 when the calibrated score of `feature` or
+   `refactor` is at or above that intent's threshold (either one fires; not
+   "is the top intent", which a small intent scorer rarely satisfies).
+2. **Scope part.** The deterministic structural floor (cross-repository,
+   cross-component, macro scope) sets tier3 as before.
+3. **Tier scorer.** Otherwise the tier scorer picks, trained on the
+   breadth-based labels, so it separates tier1 from tier2 and keeps the
+   breadth-based tier3.
+
+Over-reading `feature`/`refactor` moves a prompt one tier up, which the
+gates count as acceptable; missing it moves it down, which they count as
+under-tier. The composition is therefore tuned for intent recall on those
+two intents.
+
+Evidence (#265, validation, five seeds): composed with the CUA-S1 intent
+scorer, acceptable precision 0.82 and under-tier 0.13, against 0.77 and
+0.22 for a tier scorer trained directly on rules-v2 labels.
+
+**Holdout.** The owner decided not to re-review the tier holdout under
+rules v2. Its gold follows the older rules, and rules v2 only moves labels
+up (tier1 or tier2 to tier3). So underRate on the old gold stays valid, and
+a tier3 pick for tier2 gold counts as acceptable. A tier3 pick for a
+tier1-gold feature prompt counts as an error, which makes
+acceptablePrecision slightly pessimistic; the count of such cases is
+reported beside it.
 
 `unclassified`/`null` is not an option in the new readout. It is the
 abstain outcome: no option reaches its threshold.
