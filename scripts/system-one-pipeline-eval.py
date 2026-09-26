@@ -73,6 +73,8 @@ def main(argv=None):
     ap.add_argument('--gate-checkpoint', required=True, help='noise-gate --merge-invalid checkpoint (.safetensors)')
     ap.add_argument('--tier-probs', required=True, help='val-probs-private.json from the tier stage experiment')
     ap.add_argument('--out', required=True)
+    ap.add_argument('--owner-validity')
+    ap.add_argument('--tier-rules', type=int, choices=[1, 2], default=1)
     args = ap.parse_args(argv)
     trainer = __import__('system-one-train')
     data = Path(args.data_dir)
@@ -80,7 +82,12 @@ def main(argv=None):
     for r in trainer.load_jsonl(data / 'owner-overrides.jsonl'):
         tiers[r['id']] = r['gold']
     excluded = {r['id'] for r in trainer.load_jsonl(data / 'owner-excluded.jsonl')}
-    rows = [r for r in tier_exp.tier_rows(trainer.load_jsonl(data / 'prompts.jsonl'), tiers, excluded)
+    noise = __import__('system-one-noise-experiment')
+    intents = ({r['id']: r['gold'] for r in trainer.load_jsonl(data / 'labels-intent.jsonl')}
+               if args.tier_rules == 2 else None)
+    rows = [r for r in tier_exp.tier_rows(trainer.load_jsonl(data / 'prompts.jsonl'), tiers, excluded,
+                                          owner_validity=noise.load_owner_validity(args.owner_validity),
+                                          intents=intents)
             if r['split'] == 'validation']
     gate = gate_scores(args.gate_checkpoint, rows)
     variants = json.load(open(args.tier_probs))

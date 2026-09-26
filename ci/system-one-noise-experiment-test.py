@@ -51,6 +51,11 @@ m = exp.gate_metrics([rows['a'], rows['b']], [[0.1, 0.8, 0.1], [0.9, 0.05, 0.05]
 assert m['auroc'] == 1.0 and m['confidentNoise'] == 1.0 and m['confidentActionable'] == 1.0
 assert m['subtypeAccuracyOnRuleRows'] == 1.0
 
+own = {r['id']: r for r in exp.label_rows(prompts, tiers, {'x'}, owner_validity={'d': 'valid', 'e': 'unsure'})}
+assert own['d']['bucket'] == 'owner-valid' and own['d']['targets'][0] == 1.0 and own['d']['seed']
+assert own['e']['bucket'] == 'rule-no-request', 'a rule decides before the owner review applies'
+own2 = {r['id']: r for r in exp.label_rows(prompts, tiers, {'x'}, owner_validity={'d': 'unsure'})}
+assert 'd' not in own2, 'unsure rows are dropped'
 merged = exp.merge_invalid(rows['d'])
 assert merged['targets'] == [0.0, 1.0] and merged['mask'] == [1, 1], 'unknown subtype becomes a labeled invalid row'
 assert exp.merge_invalid(rows['b'])['targets'] == [1.0, 0.0]

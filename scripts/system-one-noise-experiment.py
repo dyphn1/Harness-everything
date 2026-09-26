@@ -138,8 +138,14 @@ def rule(text):
     return None
 
 
-def label_rows(prompts, tier_labels, excluded, seed_min_chars=20, rules=1):
-    """One row per prompt: targets [A, C, N], mask, seed flag and bucket."""
+def label_rows(prompts, tier_labels, excluded, seed_min_chars=20, rules=1, owner_validity=None):
+    """One row per prompt: targets [A, C, N], mask, seed flag and bucket.
+
+    owner_validity (id -> valid|invalid|unsure) decides labeler-null rows that no
+    rule decides: valid becomes an actionable seed, invalid a noise seed with its
+    subtype masked, unsure is dropped.
+    """
+    owner_validity = owner_validity or {}
     rows = []
     for p in prompts:
         if p['id'] in excluded or p['id'] not in tier_labels:
@@ -149,6 +155,12 @@ def label_rows(prompts, tier_labels, excluded, seed_min_chars=20, rules=1):
             targets, mask, bucket = [0.0, 1.0, 0.0], [1, 1, 1], 'rule-continuation'
         elif r == 'no-request':
             targets, mask, bucket = [0.0, 0.0, 1.0], [1, 1, 1], 'rule-no-request'
+        elif tier is None and owner_validity.get(p['id']) == 'unsure':
+            continue
+        elif tier is None and owner_validity.get(p['id']) == 'valid':
+            targets, mask, bucket = [1.0, 0.0, 0.0], [1, 1, 1], 'owner-valid'
+        elif tier is None and owner_validity.get(p['id']) == 'invalid':
+            targets, mask, bucket = [0.0, 0.0, 0.0], [1, 0, 0], 'owner-invalid'
         elif tier is None:
             targets, mask, bucket = [0.0, 0.0, 0.0], [1, 0, 0], 'null-unruled'
         elif len(p['text'].strip()) >= seed_min_chars:
@@ -156,7 +168,7 @@ def label_rows(prompts, tier_labels, excluded, seed_min_chars=20, rules=1):
         else:
             targets, mask, bucket = [1.0, 0.0, 0.0], [1, 1, 1], 'tier-short'
         rows.append({'id': p['id'], 'split': p['split'], 'text': p['text'], 'tier': tier, 'targets': targets,
-                     'mask': mask, 'bucket': bucket, 'seed': bucket in ('rule-continuation', 'rule-no-request', 'tier-long')})
+                     'mask': mask, 'bucket': bucket, 'seed': bucket in ('rule-continuation', 'rule-no-request', 'tier-long', 'owner-valid', 'owner-invalid')})
     return rows
 
 
@@ -217,6 +229,13 @@ def report(rows, probs):
     return {k: gate_metrics([rows[i] for i in v], [probs[i] for i in v]) for k, v in sorted(by.items())}
 
 
+def load_owner_validity(path):
+    """Owner review export -> {id: decision}; the prompt hash is checked by the caller's data."""
+    if not path:
+        return {}
+    return {d['id']: d['decision'] for d in json.load(open(path))['decisions']}
+
+
 def run(args):
     import torch
     from cua_s1.model import ChoiceExample, make_system, save_checkpoint
@@ -232,7 +251,8 @@ def run(args):
     for r in load(data / 'owner-overrides.jsonl'):
         tiers[r['id']] = r['gold']
     excluded = {r['id'] for r in load(data / 'owner-excluded.jsonl')}
-    rows = label_rows(load(data / 'prompts.jsonl'), tiers, excluded, rules=args.rules)
+    rows = label_rows(load(data / 'prompts.jsonl'), tiers, excluded, rules=args.rules,
+                      owner_validity=load_owner_validity(args.owner_validity))
     train_rows = [r for r in rows if r['split'] == 'train']
     val_rows = [r for r in rows if r['split'] == 'validation']
     options = OPTIONS_MERGED if args.merge_invalid else OPTIONS
@@ -353,6 +373,7 @@ def main(argv=None):
     ap.add_argument('--stages', type=int, default=3)
     ap.add_argument('--stage-epochs', type=int, default=3)
     ap.add_argument('--rules', type=int, choices=[1, 2], default=1, help='2 adds bare directives, feedback and pointers')
+    ap.add_argument('--owner-validity', help='owner validity review export (reviews/invalid-review-v1.json)')
     ap.add_argument('--merge-invalid', action='store_true', help='two options: actionable vs invalid')
     ap.add_argument('--labels-only', action='store_true', help='print label bucket counts and exit (no torch)')
     args = ap.parse_args(argv)
@@ -365,7 +386,8 @@ def main(argv=None):
         for r in trainer.load_jsonl(data / 'owner-overrides.jsonl'):
             tiers[r['id']] = r['gold']
         excluded = {r['id'] for r in trainer.load_jsonl(data / 'owner-excluded.jsonl')}
-        rows = label_rows(trainer.load_jsonl(data / 'prompts.jsonl'), tiers, excluded, rules=args.rules)
+        rows = label_rows(trainer.load_jsonl(data / 'prompts.jsonl'), tiers, excluded, rules=args.rules,
+                          owner_validity=load_owner_validity(args.owner_validity))
         counts = {}
         for r in rows:
             counts.setdefault(r['split'], {}).setdefault(r['bucket'], 0)

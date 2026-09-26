@@ -34,10 +34,23 @@ OPTIONS = (
 )
 
 
-def tier_rows(prompts, tier_labels, excluded, rules=2):
-    """Noise-gate rows plus tier targets: one-hot for valid rows, all-zero for invalid ones."""
+def relabel_tier_v2(tier, intent):
+    """Owner rule 2026-09-26: new features and refactors are tier3, whatever their width."""
+    return 'tier3' if tier in ('tier1', 'tier2') and intent in ('feature', 'refactor') else tier
+
+
+def tier_rows(prompts, tier_labels, excluded, rules=2, owner_validity=None, intents=None):
+    """Noise-gate rows plus tier targets: one-hot for valid rows, all-zero for invalid ones.
+
+    Owner-valid rows have no tier label, so the tier stage leaves them out.
+    With intents (id -> primary intent), tier labels follow relabel_tier_v2.
+    """
     out = []
-    for r in noise.label_rows(prompts, tier_labels, excluded, rules=rules):
+    for r in noise.label_rows(prompts, tier_labels, excluded, rules=rules, owner_validity=owner_validity):
+        if r['bucket'] == 'owner-valid':
+            continue
+        if intents is not None and r['tier']:
+            r = {**r, 'tier': relabel_tier_v2(r['tier'], intents.get(r['id']))}
         valid = r['bucket'] in ('tier-long', 'tier-short')
         targets = [1.0 if valid and r['tier'] == t else 0.0 for t in TIERS]
         out.append({**r, 'valid': valid, 'tierTargets': targets})
@@ -90,7 +103,10 @@ def run(args):
     for r in trainer.load_jsonl(data / 'owner-overrides.jsonl'):
         tiers[r['id']] = r['gold']
     excluded = {r['id'] for r in trainer.load_jsonl(data / 'owner-excluded.jsonl')}
-    rows = tier_rows(trainer.load_jsonl(data / 'prompts.jsonl'), tiers, excluded)
+    intents = ({r['id']: r['gold'] for r in trainer.load_jsonl(data / 'labels-intent.jsonl')}
+               if args.tier_rules == 2 else None)
+    rows = tier_rows(trainer.load_jsonl(data / 'prompts.jsonl'), tiers, excluded,
+                     owner_validity=noise.load_owner_validity(args.owner_validity), intents=intents)
     train_rows = [r for r in rows if r['split'] == 'train']
     val_rows = [r for r in rows if r['split'] == 'validation']
     config = {'encoder': 'tinyx', 'width': args.width, 'rank': args.width, 'layers': args.layers, 'heads': 4,
@@ -186,6 +202,8 @@ def main(argv=None):
     ap.add_argument('--width', type=int, default=128)
     ap.add_argument('--layers', type=int, default=2)
     ap.add_argument('--token-budget', type=int, default=16384)
+    ap.add_argument('--owner-validity', help='owner validity review export')
+    ap.add_argument('--tier-rules', type=int, choices=[1, 2], default=1, help='2: feature/refactor intent is tier3')
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--base-epochs', type=int, default=6)
     ap.add_argument('--stages', type=int, default=3)

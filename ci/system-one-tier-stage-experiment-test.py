@@ -40,4 +40,14 @@ assert gated['invalidHandedOff'] == 0.5 and gated['invalidGotTier'] == 0.0
 assert gated['validHandedOff'] == 0.5 and gated['validCoverage'] == 0.5, 'c is wrongly handed off'
 assert gated['suggestionPrecisionAllRows'] == 1.0
 
+assert exp.relabel_tier_v2('tier2', 'feature') == 'tier3' and exp.relabel_tier_v2('tier1', 'refactor') == 'tier3'
+assert exp.relabel_tier_v2('tier2', 'fix') == 'tier2' and exp.relabel_tier_v2(None, 'feature') is None
+ow = {r['id']: r for r in exp.tier_rows(prompts, {'a': 'tier2', 'b': 'tier2', 'c': 'tier1', 'd': None}, set(),
+                                        owner_validity={'d': 'valid'}, intents={'a': 'feature'})}
+assert 'd' not in ow, 'owner-valid rows have no tier and leave the tier stage'
+assert ow['a']['tier'] == 'tier3' and ow['a']['tierTargets'] == [0.0, 0.0, 1.0]
+ow2 = {r['id']: r for r in exp.tier_rows(prompts, {'a': 'tier2', 'b': 'tier2', 'c': 'tier1', 'd': None}, set(),
+                                         owner_validity={'d': 'invalid'})}
+assert not ow2['d']['valid'] and ow2['d']['bucket'] == 'owner-invalid'
+
 print('system-one pipeline eval tests passed')

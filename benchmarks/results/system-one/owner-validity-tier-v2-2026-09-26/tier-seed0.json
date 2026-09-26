@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 1,
+  "config": {
+    "encoder": "tinyx",
+    "width": 128,
+    "rank": 128,
+    "layers": 2,
+    "heads": 4,
+    "dropout": 0.1,
+    "context_tokens": 1024,
+    "option_tokens": 96
+  },
+  "options": [
+    "tier1",
+    "tier2",
+    "tier3"
+  ],
+  "args": {
+    "seed": 0,
+    "threads": 4,
+    "width": 128,
+    "layers": 2,
+    "token_budget": 16384,
+    "owner_validity": "/Users/daniel.chang/Desktop/Skills/harness-system-one-data/reviews/invalid-review-v1.json",
+    "tier_rules": 2,
+    "lr": 0.001,
+    "base_epochs": 6,
+    "stages": 3,
+    "stage_epochs": 3
+  },
+  "counts": {
+    "trainValid": 4163,
+    "trainInvalid": 378,
+    "validationValid": 632,
+    "validationInvalid": 58
+  },
+  "rounds": [
+    {
+      "round": "valid-only",
+      "trainRows": 4163,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 58,
+        "coverage": 0.7436708860759493,
+        "exactPrecision": 0.597872340425532,
+        "acceptablePrecision": 0.6787234042553192,
+        "underRate": 0.32127659574468087,
+        "confidentCoverage": 0.10284810126582279,
+        "confidentAcceptablePrecision": 0.6307692307692307,
+        "invalidAbstainRate": 0.1896551724137931,
+        "invalidMeanMaxScore": 0.6813633688564958,
+        "perTier": {
+          "tier1": {
+            "support": 118,
+            "auroc": 0.7733463035019456,
+            "precision": 0.4420289855072464,
+            "recall": 0.5169491525423728
+          },
+          "tier2": {
+            "support": 359,
+            "auroc": 0.6529839705327171,
+            "precision": 0.6626506024096386,
+            "recall": 0.6128133704735376
+          },
+          "tier3": {
+            "support": 155,
+            "auroc": 0.6949617907621559,
+            "precision": 0.0,
+            "recall": 0.0
+          }
+        }
+      }
+    },
+    {
+      "round": "curriculum-1of3",
+      "trainRows": 4289,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 58,
+        "coverage": 0.8591772151898734,
+        "exactPrecision": 0.6372007366482505,
+        "acceptablePrecision": 0.8047882136279927,
+        "underRate": 0.1860036832412523,
+        "confidentCoverage": 0.29430379746835444,
+        "confidentAcceptablePrecision": 0.7903225806451613,
+        "invalidAbstainRate": 0.1896551724137931,
+        "invalidMeanMaxScore": 0.6744073336494381,
+        "perTier": {
+          "tier1": {
+            "support": 118,
+            "auroc": 0.7875420431313065,
+            "precision": 0.8620689655172413,
+            "recall": 0.211864406779661
+          },
+          "tier2": {
+            "support": 359,
+            "auroc": 0.6645392676033345,
+            "precision": 0.6490825688073395,
+            "recall": 0.7883008356545961
+          },
+          "tier3": {
+            "support": 155,
+            "auroc": 0.7151822546831677,
+            "precision": 0.48717948717948717,
+            "recall": 0.24516129032258063
+          }
+        }
+      }
+    },
+    {
+      "round": "curriculum-2of3",
+      "trainRows": 4415,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 58,
+        "coverage": 0.7579113924050633,
+        "exactPrecision": 0.6096033402922756,
+        "acceptablePrecision": 0.7933194154488518,
+        "underRate": 0.1941544885177453,
+        "confidentCoverage": 0.3180379746835443,
+        "confidentAcceptablePrecision": 0.8258706467661692,
+        "invalidAbstainRate": 0.4827586206896552,
+        "invalidMeanMaxScore": 0.5334936041256477,
+        "perTier": {
+          "tier1": {
+            "support": 118,
+            "auroc": 0.7706093780914067,
+            "precision": 0.5263157894736842,
+            "recall": 0.423728813559322
+          },
+          "tier2": {
+            "support": 359,
+            "auroc": 0.649259746752783,
+            "precision": 0.7090163934426229,
+            "recall": 0.4818941504178273
+          },
+          "tier3": {
+            "support": 155,
+            "auroc": 0.6869141813755326,
+            "precision": 0.4928571428571429,
+            "recall": 0.44516129032258067
+          }
+        }
+      }
+    },
+    {
+      "round": "curriculum-3of3",
+      "trainRows": 4541,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 58,
+        "coverage": 0.8591772151898734,
+        "exactPrecision": 0.6224677716390423,
+        "acceptablePrecision": 0.7790055248618785,
+        "underRate": 0.2154696132596685,
+        "confidentCoverage": 0.5727848101265823,
+        "confidentAcceptablePrecision": 0.8038674033149171,
+        "invalidAbstainRate": 0.43103448275862066,
+        "invalidMeanMaxScore": 0.5691675740326273,
+        "perTier": {
+          "tier1": {
+            "support": 118,
+            "auroc": 0.7383103607465541,
+            "precision": 0.5616438356164384,
+            "recall": 0.3474576271186441
+          },
+          "tier2": {
+            "support": 359,
+            "auroc": 0.6499841848031263,
+            "precision": 0.650990099009901,
+            "recall": 0.7325905292479109
+          },
+          "tier3": {
+            "support": 155,
+            "auroc": 0.6729695002366944,
+            "precision": 0.5151515151515151,
+            "recall": 0.21935483870967742
+          }
+        }
+      }
+    },
+    {
+      "round": "valid-only-same-epochs",
+      "trainRows": 4163,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 58,
+        "coverage": 0.8401898734177216,
+        "exactPrecision": 0.6308851224105462,
+        "acceptablePrecision": 0.768361581920904,
+        "underRate": 0.2128060263653484,
+        "confidentCoverage": 0.5886075949367089,
+        "confidentAcceptablePrecision": 0.8064516129032258,
+        "invalidAbstainRate": 0.10344827586206896,
+        "invalidMeanMaxScore": 0.800738165090824,
+        "perTier": {
+          "tier1": {
+            "support": 118,
+            "auroc": 0.787492580623887,
+            "precision": 0.5591397849462365,
+            "recall": 0.4406779661016949
+          },
+          "tier2": {
+            "support": 359,
+            "auroc": 0.6845429408103503,
+            "precision": 0.6891495601173021,
+            "recall": 0.6545961002785515
+          },
+          "tier3": {
+            "support": 155,
+            "auroc": 0.676364374112396,
+            "precision": 0.4948453608247423,
+            "recall": 0.3096774193548387
+          }
+        }
+      }
+    },
+    {
+      "round": "mixed-all-at-once",
+      "trainRows": 4541,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 58,
+        "coverage": 0.7943037974683544,
+        "exactPrecision": 0.6115537848605578,
+        "acceptablePrecision": 0.7788844621513944,
+        "underRate": 0.19721115537848605,
+        "confidentCoverage": 0.5079113924050633,
+        "confidentAcceptablePrecision": 0.7850467289719626,
+        "invalidAbstainRate": 0.5862068965517241,
+        "invalidMeanMaxScore": 0.432259744065332,
+        "perTier": {
+          "tier1": {
+            "support": 118,
+            "auroc": 0.7721756908263536,
+            "precision": 0.6607142857142857,
+            "recall": 0.3135593220338983
+          },
+          "tier2": {
+            "support": 359,
+            "auroc": 0.6616364137255503,
+            "precision": 0.6589595375722543,
+            "recall": 0.6350974930362117
+          },
+          "tier3": {
+            "support": 155,
+            "auroc": 0.672780144721715,
+            "precision": 0.42,
+            "recall": 0.2709677419354839
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "variants": {
+    "valid-only": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.25862068965517243,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.26582278481012656,
+        "validAcceptablePrecision": 0.6011904761904762,
+        "validUnderRate": 0.39880952380952384,
+        "suggestionPrecisionAllRows": 0.5519125683060109,
+        "suggestionsShown": 0.26521739130434785
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.1724137931034483,
+        "invalidGotTier": 0.15517241379310345,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.26424050632911394,
+        "validAcceptablePrecision": 0.6047904191616766,
+        "validUnderRate": 0.39520958083832336,
+        "suggestionPrecisionAllRows": 0.5738636363636364,
+        "suggestionsShown": 0.25507246376811593
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.13793103448275862,
+        "invalidGotTier": 0.1724137931034483,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.26424050632911394,
+        "validAcceptablePrecision": 0.6047904191616766,
+        "validUnderRate": 0.39520958083832336,
+        "suggestionPrecisionAllRows": 0.5706214689265536,
+        "suggestionsShown": 0.2565217391304348
+      }
+    },
+    "curriculum-1of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.7413793103448276,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7357594936708861,
+        "validAcceptablePrecision": 0.7935483870967742,
+        "validUnderRate": 0.1935483870967742,
+        "suggestionPrecisionAllRows": 0.7263779527559056,
+        "suggestionsShown": 0.736231884057971
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.1724137931034483,
+        "invalidGotTier": 0.6206896551724138,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.7341772151898734,
+        "validAcceptablePrecision": 0.7952586206896551,
+        "validUnderRate": 0.19181034482758622,
+        "suggestionPrecisionAllRows": 0.738,
+        "suggestionsShown": 0.7246376811594203
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.13793103448275862,
+        "invalidGotTier": 0.6551724137931034,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.7341772151898734,
+        "validAcceptablePrecision": 0.7952586206896551,
+        "validUnderRate": 0.19181034482758622,
+        "suggestionPrecisionAllRows": 0.7350597609561753,
+        "suggestionsShown": 0.7275362318840579
+      }
+    },
+    "curriculum-2of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.7586206896551724,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7911392405063291,
+        "validAcceptablePrecision": 0.808,
+        "validUnderRate": 0.186,
+        "suggestionPrecisionAllRows": 0.7426470588235294,
+        "suggestionsShown": 0.7884057971014493
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.1724137931034483,
+        "invalidGotTier": 0.6379310344827587,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.7895569620253164,
+        "validAcceptablePrecision": 0.8096192384769539,
+        "validUnderRate": 0.1843687374749499,
+        "suggestionPrecisionAllRows": 0.753731343283582,
+        "suggestionsShown": 0.7768115942028986
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.13793103448275862,
+        "invalidGotTier": 0.6724137931034483,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.7895569620253164,
+        "validAcceptablePrecision": 0.8096192384769539,
+        "validUnderRate": 0.1843687374749499,
+        "suggestionPrecisionAllRows": 0.7509293680297398,
+        "suggestionsShown": 0.7797101449275362
+      }
+    },
+    "curriculum-3of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.6724137931034483,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8322784810126582,
+        "validAcceptablePrecision": 0.7566539923954373,
+        "validUnderRate": 0.23574144486692014,
+        "suggestionPrecisionAllRows": 0.7044247787610619,
+        "suggestionsShown": 0.8188405797101449
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.1724137931034483,
+        "invalidGotTier": 0.5689655172413793,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.8322784810126582,
+        "validAcceptablePrecision": 0.7566539923954373,
+        "validUnderRate": 0.23574144486692014,
+        "suggestionPrecisionAllRows": 0.7119856887298748,
+        "suggestionsShown": 0.8101449275362319
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.13793103448275862,
+        "invalidGotTier": 0.603448275862069,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.8322784810126582,
+        "validAcceptablePrecision": 0.7566539923954373,
+        "validUnderRate": 0.23574144486692014,
+        "suggestionPrecisionAllRows": 0.7094474153297683,
+        "suggestionsShown": 0.8130434782608695
+      }
+    },
+    "valid-only-same-epochs": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.6379310344827587,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7658227848101266,
+        "validAcceptablePrecision": 0.7148760330578512,
+        "validUnderRate": 0.2665289256198347,
+        "suggestionPrecisionAllRows": 0.6641074856046065,
+        "suggestionsShown": 0.755072463768116
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.1724137931034483,
+        "invalidGotTier": 0.5689655172413793,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.7642405063291139,
+        "validAcceptablePrecision": 0.7163561076604554,
+        "validUnderRate": 0.2650103519668737,
+        "suggestionPrecisionAllRows": 0.6705426356589147,
+        "suggestionsShown": 0.7478260869565218
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.13793103448275862,
+        "invalidGotTier": 0.5689655172413793,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.7642405063291139,
+        "validAcceptablePrecision": 0.7163561076604554,
+        "validUnderRate": 0.2650103519668737,
+        "suggestionPrecisionAllRows": 0.6705426356589147,
+        "suggestionsShown": 0.7478260869565218
+      }
+    },
+    "mixed-all-at-once": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.3620689655172414,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7863924050632911,
+        "validAcceptablePrecision": 0.7183098591549296,
+        "validUnderRate": 0.2676056338028169,
+        "suggestionPrecisionAllRows": 0.6891891891891891,
+        "suggestionsShown": 0.7507246376811594
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.1724137931034483,
+        "invalidGotTier": 0.3275862068965517,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.7848101265822784,
+        "validAcceptablePrecision": 0.719758064516129,
+        "validUnderRate": 0.2661290322580645,
+        "suggestionPrecisionAllRows": 0.6932038834951456,
+        "suggestionsShown": 0.7463768115942029
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.13793103448275862,
+        "invalidGotTier": 0.3448275862068966,
+        "validHandedOff": 0.0015822784810126582,
+        "validCoverage": 0.7848101265822784,
+        "validAcceptablePrecision": 0.719758064516129,
+        "validUnderRate": 0.2661290322580645,
+        "suggestionPrecisionAllRows": 0.6918604651162791,
+        "suggestionsShown": 0.7478260869565218
+      }
+    }
+  }
+}

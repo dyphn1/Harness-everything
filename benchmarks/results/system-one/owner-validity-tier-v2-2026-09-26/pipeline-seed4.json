@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "variants": {
+    "valid-only": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.9655172413793104,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.9145569620253164,
+        "validAcceptablePrecision": 0.7837370242214533,
+        "validUnderRate": 0.21626297577854672,
+        "suggestionPrecisionAllRows": 0.7145110410094637,
+        "suggestionsShown": 0.9188405797101449
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.4827586206896552,
+        "invalidGotTier": 0.4827586206896552,
+        "validHandedOff": 0.020569620253164556,
+        "validCoverage": 0.8939873417721519,
+        "validAcceptablePrecision": 0.784070796460177,
+        "validUnderRate": 0.215929203539823,
+        "suggestionPrecisionAllRows": 0.7470489038785835,
+        "suggestionsShown": 0.8594202898550725
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.3103448275862069,
+        "invalidGotTier": 0.6551724137931034,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.8987341772151899,
+        "validAcceptablePrecision": 0.7834507042253521,
+        "validUnderRate": 0.21654929577464788,
+        "suggestionPrecisionAllRows": 0.7343234323432343,
+        "suggestionsShown": 0.8782608695652174
+      }
+    },
+    "curriculum-1of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.896551724137931,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8354430379746836,
+        "validAcceptablePrecision": 0.7897727272727273,
+        "validUnderRate": 0.20643939393939395,
+        "suggestionPrecisionAllRows": 0.7189655172413794,
+        "suggestionsShown": 0.8405797101449275
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.4827586206896552,
+        "invalidGotTier": 0.4482758620689655,
+        "validHandedOff": 0.020569620253164556,
+        "validCoverage": 0.8164556962025317,
+        "validAcceptablePrecision": 0.7906976744186046,
+        "validUnderRate": 0.2054263565891473,
+        "suggestionPrecisionAllRows": 0.7527675276752768,
+        "suggestionsShown": 0.7855072463768116
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.3103448275862069,
+        "invalidGotTier": 0.603448275862069,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.8212025316455697,
+        "validAcceptablePrecision": 0.7880539499036608,
+        "validUnderRate": 0.20809248554913296,
+        "suggestionPrecisionAllRows": 0.7382671480144405,
+        "suggestionsShown": 0.8028985507246377
+      }
+    },
+    "curriculum-2of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.896551724137931,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8575949367088608,
+        "validAcceptablePrecision": 0.8025830258302583,
+        "validUnderRate": 0.18265682656826568,
+        "suggestionPrecisionAllRows": 0.7323232323232324,
+        "suggestionsShown": 0.8608695652173913
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.4827586206896552,
+        "invalidGotTier": 0.46551724137931033,
+        "validHandedOff": 0.020569620253164556,
+        "validCoverage": 0.8401898734177216,
+        "validAcceptablePrecision": 0.8041431261770244,
+        "validUnderRate": 0.1807909604519774,
+        "suggestionPrecisionAllRows": 0.7652329749103942,
+        "suggestionsShown": 0.808695652173913
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.3103448275862069,
+        "invalidGotTier": 0.603448275862069,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.8449367088607594,
+        "validAcceptablePrecision": 0.8014981273408239,
+        "validUnderRate": 0.18352059925093633,
+        "suggestionPrecisionAllRows": 0.7521968365553603,
+        "suggestionsShown": 0.8246376811594203
+      }
+    },
+    "curriculum-3of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.7931034482758621,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.865506329113924,
+        "validAcceptablePrecision": 0.8117001828153565,
+        "validUnderRate": 0.16453382084095064,
+        "suggestionPrecisionAllRows": 0.7487352445193929,
+        "suggestionsShown": 0.8594202898550725
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.4827586206896552,
+        "invalidGotTier": 0.4482758620689655,
+        "validHandedOff": 0.020569620253164556,
+        "validCoverage": 0.8528481012658228,
+        "validAcceptablePrecision": 0.8126159554730983,
+        "validUnderRate": 0.16326530612244897,
+        "suggestionPrecisionAllRows": 0.7752212389380531,
+        "suggestionsShown": 0.8188405797101449
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.3103448275862069,
+        "invalidGotTier": 0.5689655172413793,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.8560126582278481,
+        "validAcceptablePrecision": 0.8114602587800369,
+        "validUnderRate": 0.1645101663585952,
+        "suggestionPrecisionAllRows": 0.764808362369338,
+        "suggestionsShown": 0.8318840579710145
+      }
+    },
+    "valid-only-same-epochs": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.8793103448275862,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.870253164556962,
+        "validAcceptablePrecision": 0.7563636363636363,
+        "validUnderRate": 0.2109090909090909,
+        "suggestionPrecisionAllRows": 0.6921797004991681,
+        "suggestionsShown": 0.8710144927536232
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.4827586206896552,
+        "invalidGotTier": 0.4482758620689655,
+        "validHandedOff": 0.020569620253164556,
+        "validCoverage": 0.8560126582278481,
+        "validAcceptablePrecision": 0.7578558225508318,
+        "validUnderRate": 0.2088724584103512,
+        "suggestionPrecisionAllRows": 0.7231040564373897,
+        "suggestionsShown": 0.8217391304347826
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.3103448275862069,
+        "invalidGotTier": 0.5862068965517241,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.8575949367088608,
+        "validAcceptablePrecision": 0.7583025830258303,
+        "validUnderRate": 0.20848708487084872,
+        "suggestionPrecisionAllRows": 0.7135416666666666,
+        "suggestionsShown": 0.8347826086956521
+      }
+    },
+    "mixed-all-at-once": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.39655172413793105,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7721518987341772,
+        "validAcceptablePrecision": 0.8135245901639344,
+        "validUnderRate": 0.17008196721311475,
+        "suggestionPrecisionAllRows": 0.776908023483366,
+        "suggestionsShown": 0.7405797101449275
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.4827586206896552,
+        "invalidGotTier": 0.27586206896551724,
+        "validHandedOff": 0.020569620253164556,
+        "validCoverage": 0.7626582278481012,
+        "validAcceptablePrecision": 0.8132780082987552,
+        "validUnderRate": 0.17012448132780084,
+        "suggestionPrecisionAllRows": 0.7871485943775101,
+        "suggestionsShown": 0.7217391304347827
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.3103448275862069,
+        "invalidGotTier": 0.3103448275862069,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.7642405063291139,
+        "validAcceptablePrecision": 0.8136645962732919,
+        "validUnderRate": 0.16977225672877846,
+        "suggestionPrecisionAllRows": 0.7844311377245509,
+        "suggestionsShown": 0.7260869565217392
+      }
+    }
+  }
+}

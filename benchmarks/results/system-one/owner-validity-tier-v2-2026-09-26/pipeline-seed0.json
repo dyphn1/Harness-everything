@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "variants": {
+    "valid-only": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.8103448275862069,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7436708860759493,
+        "validAcceptablePrecision": 0.6787234042553192,
+        "validUnderRate": 0.32127659574468087,
+        "suggestionPrecisionAllRows": 0.6170212765957447,
+        "suggestionsShown": 0.7492753623188406
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.10344827586206896,
+        "invalidGotTier": 0.7068965517241379,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7436708860759493,
+        "validAcceptablePrecision": 0.6787234042553192,
+        "validUnderRate": 0.32127659574468087,
+        "suggestionPrecisionAllRows": 0.62426614481409,
+        "suggestionsShown": 0.7405797101449275
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.08620689655172414,
+        "invalidGotTier": 0.7241379310344828,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7436708860759493,
+        "validAcceptablePrecision": 0.6787234042553192,
+        "validUnderRate": 0.32127659574468087,
+        "suggestionPrecisionAllRows": 0.623046875,
+        "suggestionsShown": 0.7420289855072464
+      }
+    },
+    "curriculum-1of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.8103448275862069,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8591772151898734,
+        "validAcceptablePrecision": 0.8047882136279927,
+        "validUnderRate": 0.1860036832412523,
+        "suggestionPrecisionAllRows": 0.7406779661016949,
+        "suggestionsShown": 0.855072463768116
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.10344827586206896,
+        "invalidGotTier": 0.7068965517241379,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8591772151898734,
+        "validAcceptablePrecision": 0.8047882136279927,
+        "validUnderRate": 0.1860036832412523,
+        "suggestionPrecisionAllRows": 0.7482876712328768,
+        "suggestionsShown": 0.8463768115942029
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.08620689655172414,
+        "invalidGotTier": 0.7241379310344828,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8591772151898734,
+        "validAcceptablePrecision": 0.8047882136279927,
+        "validUnderRate": 0.1860036832412523,
+        "suggestionPrecisionAllRows": 0.747008547008547,
+        "suggestionsShown": 0.8478260869565217
+      }
+    },
+    "curriculum-2of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.5172413793103449,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7579113924050633,
+        "validAcceptablePrecision": 0.7933194154488518,
+        "validUnderRate": 0.1941544885177453,
+        "suggestionPrecisionAllRows": 0.7465618860510805,
+        "suggestionsShown": 0.7376811594202899
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.10344827586206896,
+        "invalidGotTier": 0.43103448275862066,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7579113924050633,
+        "validAcceptablePrecision": 0.7933194154488518,
+        "validUnderRate": 0.1941544885177453,
+        "suggestionPrecisionAllRows": 0.753968253968254,
+        "suggestionsShown": 0.7304347826086957
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.08620689655172414,
+        "invalidGotTier": 0.4482758620689655,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7579113924050633,
+        "validAcceptablePrecision": 0.7933194154488518,
+        "validUnderRate": 0.1941544885177453,
+        "suggestionPrecisionAllRows": 0.7524752475247525,
+        "suggestionsShown": 0.7318840579710145
+      }
+    },
+    "curriculum-3of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.5689655172413793,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8591772151898734,
+        "validAcceptablePrecision": 0.7790055248618785,
+        "validUnderRate": 0.2154696132596685,
+        "suggestionPrecisionAllRows": 0.734375,
+        "suggestionsShown": 0.8347826086956521
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.10344827586206896,
+        "invalidGotTier": 0.5,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8591772151898734,
+        "validAcceptablePrecision": 0.7790055248618785,
+        "validUnderRate": 0.2154696132596685,
+        "suggestionPrecisionAllRows": 0.7395104895104895,
+        "suggestionsShown": 0.8289855072463768
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.08620689655172414,
+        "invalidGotTier": 0.5172413793103449,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8591772151898734,
+        "validAcceptablePrecision": 0.7790055248618785,
+        "validUnderRate": 0.2154696132596685,
+        "suggestionPrecisionAllRows": 0.7382198952879581,
+        "suggestionsShown": 0.8304347826086956
+      }
+    },
+    "valid-only-same-epochs": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.896551724137931,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8401898734177216,
+        "validAcceptablePrecision": 0.768361581920904,
+        "validUnderRate": 0.2128060263653484,
+        "suggestionPrecisionAllRows": 0.6998284734133791,
+        "suggestionsShown": 0.8449275362318841
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.10344827586206896,
+        "invalidGotTier": 0.7931034482758621,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8401898734177216,
+        "validAcceptablePrecision": 0.768361581920904,
+        "validUnderRate": 0.2128060263653484,
+        "suggestionPrecisionAllRows": 0.707105719237435,
+        "suggestionsShown": 0.836231884057971
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.08620689655172414,
+        "invalidGotTier": 0.8103448275862069,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8401898734177216,
+        "validAcceptablePrecision": 0.768361581920904,
+        "validUnderRate": 0.2128060263653484,
+        "suggestionPrecisionAllRows": 0.7058823529411765,
+        "suggestionsShown": 0.8376811594202899
+      }
+    },
+    "mixed-all-at-once": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.41379310344827586,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7943037974683544,
+        "validAcceptablePrecision": 0.7788844621513944,
+        "validUnderRate": 0.19721115537848605,
+        "suggestionPrecisionAllRows": 0.7433460076045627,
+        "suggestionsShown": 0.7623188405797101
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.10344827586206896,
+        "invalidGotTier": 0.39655172413793105,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7943037974683544,
+        "validAcceptablePrecision": 0.7788844621513944,
+        "validUnderRate": 0.19721115537848605,
+        "suggestionPrecisionAllRows": 0.7447619047619047,
+        "suggestionsShown": 0.7608695652173914
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.08620689655172414,
+        "invalidGotTier": 0.41379310344827586,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.7943037974683544,
+        "validAcceptablePrecision": 0.7788844621513944,
+        "validUnderRate": 0.19721115537848605,
+        "suggestionPrecisionAllRows": 0.7433460076045627,
+        "suggestionsShown": 0.7623188405797101
+      }
+    }
+  }
+}
