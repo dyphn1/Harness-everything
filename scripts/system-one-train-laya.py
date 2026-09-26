@@ -49,13 +49,60 @@ def intent_weights(intents, table):
 
 
 def calib_split(items, seed=CALIB_SEED, frac=0.1):
-    """Deterministic 10% calibration holdout, disjoint from training."""
-    order = list(range(len(items)))
-    random.Random(seed).shuffle(order)
-    n_calib = max(1, min(CALIB_MAX, len(items) // 10 if frac == 0.1 else int(len(items) * frac)))
-    calib_idx = set(sorted(order[:n_calib]))
-    calib = [items[i] for i in sorted(calib_idx)]
-    train = [items[i] for i in range(len(items)) if i not in calib_idx]
+    """Deterministic calibration split, grouped by prompt when promptId exists.
+
+    Calibration keeps one copy per promptId+intent identity. Oversampled copies
+    survive only in training groups, preventing exact-duplicate leakage and
+    calibration reweighting. Callers without promptId retain per-item behavior.
+    """
+    groups = {}
+    group_order = []
+    for index, item in enumerate(items):
+        prompt_id = item.get('promptId')
+        key = ('prompt', str(prompt_id)) if prompt_id is not None else ('item', index)
+        if key not in groups:
+            groups[key] = []
+            group_order.append(key)
+        groups[key].append(item)
+
+    def calib_rows(group):
+        if not group or group[0].get('promptId') is None:
+            return list(group)
+        seen, rows = set(), []
+        for item in group:
+            identity = (item.get('promptId'), item.get('intent'))
+            if identity in seen:
+                continue
+            seen.add(identity)
+            rows.append(item)
+        return rows
+
+    base_groups = {key: calib_rows(group) for key, group in groups.items()}
+    base_total = sum(len(group) for group in base_groups.values())
+    if base_total == 0:
+        return [], []
+    n_calib = max(1, min(CALIB_MAX, base_total // 10 if frac == 0.1 else int(base_total * frac)))
+
+    shuffled = list(group_order)
+    random.Random(seed).shuffle(shuffled)
+    calib_groups, calib_count = set(), 0
+    for key in shuffled:
+        size = len(base_groups[key])
+        if calib_count == 0 and size > n_calib:
+            calib_groups.add(key)
+            break
+        if calib_count + size <= n_calib:
+            calib_groups.add(key)
+            calib_count += size
+            if calib_count == n_calib:
+                break
+
+    train, calib = [], []
+    for key in group_order:
+        if key in calib_groups:
+            calib.extend(base_groups[key])
+        else:
+            train.extend(groups[key])
     return train, calib
 
 
