@@ -1,0 +1,565 @@
+{
+  "schemaVersion": 1,
+  "config": {
+    "encoder": "tinyx",
+    "width": 128,
+    "rank": 128,
+    "layers": 2,
+    "heads": 4,
+    "dropout": 0.1,
+    "context_tokens": 1024,
+    "option_tokens": 96
+  },
+  "args": {
+    "seed": 4,
+    "threads": 8,
+    "width": 128,
+    "layers": 2,
+    "context_tokens": 1024,
+    "token_budget": 16384,
+    "lr": 0.001,
+    "seed_epochs": 6,
+    "stages": 3,
+    "stage_epochs": 3,
+    "rules": 2,
+    "merge_invalid": true,
+    "labels_only": false
+  },
+  "options": [
+    "actionable",
+    "invalid"
+  ],
+  "counts": {
+    "train": {
+      "tier-long": 3590,
+      "tier-short": 573,
+      "null-unruled": 512,
+      "rule-no-request": 39,
+      "rule-continuation": 180
+    },
+    "validation": {
+      "tier-long": 548,
+      "null-unruled": 59,
+      "rule-continuation": 28,
+      "tier-short": 84,
+      "rule-no-request": 8
+    }
+  },
+  "rounds": [
+    {
+      "round": "R0-seeds",
+      "trainRows": 3809,
+      "seconds": 91.1,
+      "validation": {
+        "all": {
+          "n": 727,
+          "noise": 95,
+          "auroc": 0.7399483677548301,
+          "eceActionable": 0.10564996294121283,
+          "noisePrecision@0.5": 0.6071428571428571,
+          "noiseRecall@0.5": 0.17894736842105263,
+          "confidentNoise": 0.15789473684210525,
+          "confidentActionable": 0.9746835443037974,
+          "meanNoiseScoreOnNoise": 0.21842068595027453,
+          "meanNoiseScoreOnActionable": 0.020567614368540293
+        },
+        "ambiguous": {
+          "n": 143,
+          "noise": 59,
+          "auroc": 0.32041969330104925,
+          "eceActionable": 0.4075572569496356,
+          "noisePrecision@0.5": 0.2857142857142857,
+          "noiseRecall@0.5": 0.06779661016949153,
+          "confidentNoise": 0.06779661016949153,
+          "confidentActionable": 0.8214285714285714,
+          "meanNoiseScoreOnNoise": 0.10474649343197628,
+          "meanNoiseScoreOnActionable": 0.1268215000052892
+        },
+        "null-unruled": {
+          "n": 59,
+          "noise": 59,
+          "auroc": null,
+          "eceActionable": 0.8952535065680237,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.06779661016949153,
+          "confidentNoise": 0.06779661016949153,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.10474649343197628,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "rule-continuation": {
+          "n": 28,
+          "noise": 28,
+          "auroc": null,
+          "eceActionable": 0.637571938061488,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.32142857142857145,
+          "confidentNoise": 0.25,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.362428061938512,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "rule-no-request": {
+          "n": 8,
+          "noise": 8,
+          "auroc": null,
+          "eceActionable": 0.4472579601861071,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.5,
+          "confidentNoise": 0.5,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.5527420398138929,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "seed": {
+          "n": 584,
+          "noise": 36,
+          "auroc": 0.9022201946472019,
+          "eceActionable": 0.03539750050061242,
+          "noisePrecision@0.5": 0.9285714285714286,
+          "noiseRecall@0.5": 0.3611111111111111,
+          "confidentNoise": 0.3055555555555556,
+          "confidentActionable": 0.9981751824817519,
+          "meanNoiseScoreOnNoise": 0.40472005702193,
+          "meanNoiseScoreOnActionable": 0.004280522409622578
+        },
+        "tier-long": {
+          "n": 548,
+          "noise": 0,
+          "auroc": null,
+          "eceActionable": 0.004280522409622578,
+          "noisePrecision@0.5": 0.0,
+          "noiseRecall@0.5": 0.0,
+          "confidentNoise": 0.0,
+          "confidentActionable": 0.9981751824817519,
+          "meanNoiseScoreOnNoise": 0.0,
+          "meanNoiseScoreOnActionable": 0.004280522409622578
+        },
+        "tier-short": {
+          "n": 84,
+          "noise": 0,
+          "auroc": null,
+          "eceActionable": 0.1268215000052892,
+          "noisePrecision@0.5": 0.0,
+          "noiseRecall@0.5": 0.0,
+          "confidentNoise": 0.0,
+          "confidentActionable": 0.8214285714285714,
+          "meanNoiseScoreOnNoise": 0.0,
+          "meanNoiseScoreOnActionable": 0.1268215000052892
+        }
+      }
+    },
+    {
+      "round": "R1-mix1of3",
+      "trainRows": 4171,
+      "seconds": 138.5,
+      "validation": {
+        "all": {
+          "n": 727,
+          "noise": 95,
+          "auroc": 0.7426382411725516,
+          "eceActionable": 0.1364693233445146,
+          "noisePrecision@0.5": 0.4270833333333333,
+          "noiseRecall@0.5": 0.43157894736842106,
+          "confidentNoise": 0.3894736842105263,
+          "confidentActionable": 0.8639240506329114,
+          "meanNoiseScoreOnNoise": 0.4310350585961714,
+          "meanNoiseScoreOnActionable": 0.10179627614495156
+        },
+        "ambiguous": {
+          "n": 143,
+          "noise": 59,
+          "auroc": 0.23163841807909605,
+          "eceActionable": 0.6151940752792829,
+          "noisePrecision@0.5": 0.234375,
+          "noiseRecall@0.5": 0.2542372881355932,
+          "confidentNoise": 0.2033898305084746,
+          "confidentActionable": 0.20238095238095238,
+          "meanNoiseScoreOnNoise": 0.2622142711050524,
+          "meanNoiseScoreOnActionable": 0.6124975559540049
+        },
+        "null-unruled": {
+          "n": 59,
+          "noise": 59,
+          "auroc": null,
+          "eceActionable": 0.7377857288949475,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.2542372881355932,
+          "confidentNoise": 0.2033898305084746,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.2622142711050524,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "rule-continuation": {
+          "n": 28,
+          "noise": 28,
+          "auroc": null,
+          "eceActionable": 0.28734273843500496,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.7142857142857143,
+          "confidentNoise": 0.7142857142857143,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.712657261564995,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "rule-no-request": {
+          "n": 8,
+          "noise": 8,
+          "auroc": null,
+          "eceActionable": 0.30958934404770844,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.75,
+          "confidentNoise": 0.625,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.6904106559522916,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "seed": {
+          "n": 584,
+          "noise": 36,
+          "auroc": 0.943734793187348,
+          "eceActionable": 0.022104311291102883,
+          "noisePrecision@0.5": 0.8125,
+          "noiseRecall@0.5": 0.7222222222222222,
+          "confidentNoise": 0.6944444444444444,
+          "confidentActionable": 0.9653284671532847,
+          "meanNoiseScoreOnNoise": 0.7077135714288387,
+          "meanNoiseScoreOnActionable": 0.02351359821801638
+        },
+        "tier-long": {
+          "n": 548,
+          "noise": 0,
+          "auroc": null,
+          "eceActionable": 0.02351359821801638,
+          "noisePrecision@0.5": 0.0,
+          "noiseRecall@0.5": 0.0,
+          "confidentNoise": 0.0,
+          "confidentActionable": 0.9653284671532847,
+          "meanNoiseScoreOnNoise": 0.0,
+          "meanNoiseScoreOnActionable": 0.02351359821801638
+        },
+        "tier-short": {
+          "n": 84,
+          "noise": 0,
+          "auroc": null,
+          "eceActionable": 0.6124975559540049,
+          "noisePrecision@0.5": 0.0,
+          "noiseRecall@0.5": 0.0,
+          "confidentNoise": 0.0,
+          "confidentActionable": 0.20238095238095238,
+          "meanNoiseScoreOnNoise": 0.0,
+          "meanNoiseScoreOnActionable": 0.6124975559540049
+        }
+      }
+    },
+    {
+      "round": "R2-mix2of3",
+      "trainRows": 4533,
+      "seconds": 187.0,
+      "validation": {
+        "all": {
+          "n": 727,
+          "noise": 95,
+          "auroc": 0.7578447701532312,
+          "eceActionable": 0.10748777568898839,
+          "noisePrecision@0.5": 0.7368421052631579,
+          "noiseRecall@0.5": 0.14736842105263157,
+          "confidentNoise": 0.08421052631578947,
+          "confidentActionable": 0.9825949367088608,
+          "meanNoiseScoreOnNoise": 0.16257209987134524,
+          "meanNoiseScoreOnActionable": 0.014662246985355086
+        },
+        "ambiguous": {
+          "n": 143,
+          "noise": 59,
+          "auroc": 0.312953995157385,
+          "eceActionable": 0.397465715186436,
+          "noisePrecision@0.5": 0.6,
+          "noiseRecall@0.5": 0.05084745762711865,
+          "confidentNoise": 0.01694915254237288,
+          "confidentActionable": 0.9047619047619048,
+          "meanNoiseScoreOnNoise": 0.05090159699084016,
+          "meanNoiseScoreOnActionable": 0.056809481543799244
+        },
+        "null-unruled": {
+          "n": 59,
+          "noise": 59,
+          "auroc": null,
+          "eceActionable": 0.9490984030091598,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.05084745762711865,
+          "confidentNoise": 0.01694915254237288,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.05090159699084016,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "rule-continuation": {
+          "n": 28,
+          "noise": 28,
+          "auroc": null,
+          "eceActionable": 0.7358982105340276,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.21428571428571427,
+          "confidentNoise": 0.07142857142857142,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.26410178946597235,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "rule-no-request": {
+          "n": 8,
+          "noise": 8,
+          "auroc": null,
+          "eceActionable": 0.3692118549661245,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.625,
+          "confidentNoise": 0.625,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.6307881450338755,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "seed": {
+          "n": 584,
+          "noise": 36,
+          "auroc": 0.9499695863746959,
+          "eceActionable": 0.042303362910313634,
+          "noisePrecision@0.5": 0.7857142857142857,
+          "noiseRecall@0.5": 0.3055555555555556,
+          "confidentNoise": 0.19444444444444445,
+          "confidentActionable": 0.9945255474452555,
+          "meanNoiseScoreOnNoise": 0.3455876462588397,
+          "meanNoiseScoreOnActionable": 0.008201721980046128
+        },
+        "tier-long": {
+          "n": 548,
+          "noise": 0,
+          "auroc": null,
+          "eceActionable": 0.008201721980046128,
+          "noisePrecision@0.5": 0.0,
+          "noiseRecall@0.5": 0.0,
+          "confidentNoise": 0.0,
+          "confidentActionable": 0.9945255474452555,
+          "meanNoiseScoreOnNoise": 0.0,
+          "meanNoiseScoreOnActionable": 0.008201721980046128
+        },
+        "tier-short": {
+          "n": 84,
+          "noise": 0,
+          "auroc": null,
+          "eceActionable": 0.056809481543799244,
+          "noisePrecision@0.5": 0.0,
+          "noiseRecall@0.5": 0.0,
+          "confidentNoise": 0.0,
+          "confidentActionable": 0.9047619047619048,
+          "meanNoiseScoreOnNoise": 0.0,
+          "meanNoiseScoreOnActionable": 0.056809481543799244
+        }
+      }
+    },
+    {
+      "round": "R3-mix3of3",
+      "trainRows": 4894,
+      "seconds": 240.0,
+      "validation": {
+        "all": {
+          "n": 727,
+          "noise": 95,
+          "auroc": 0.7658394403730846,
+          "eceActionable": 0.05740195038527291,
+          "noisePrecision@0.5": 0.5285714285714286,
+          "noiseRecall@0.5": 0.3894736842105263,
+          "confidentNoise": 0.2631578947368421,
+          "confidentActionable": 0.8591772151898734,
+          "meanNoiseScoreOnNoise": 0.3946435285045912,
+          "meanNoiseScoreOnActionable": 0.11904212131601156
+        },
+        "ambiguous": {
+          "n": 143,
+          "noise": 59,
+          "auroc": 0.2897497982243745,
+          "eceActionable": 0.3954117036183606,
+          "noisePrecision@0.5": 0.35,
+          "noiseRecall@0.5": 0.23728813559322035,
+          "confidentNoise": 0.1016949152542373,
+          "confidentActionable": 0.2857142857142857,
+          "meanNoiseScoreOnNoise": 0.2608842099306442,
+          "meanNoiseScoreOnActionable": 0.3918754156412823
+        },
+        "null-unruled": {
+          "n": 59,
+          "noise": 59,
+          "auroc": null,
+          "eceActionable": 0.7391157900693558,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.23728813559322035,
+          "confidentNoise": 0.1016949152542373,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.2608842099306442,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "rule-continuation": {
+          "n": 28,
+          "noise": 28,
+          "auroc": null,
+          "eceActionable": 0.3962894960838769,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.6428571428571429,
+          "confidentNoise": 0.5,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.6037105039161231,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "rule-no-request": {
+          "n": 8,
+          "noise": 8,
+          "auroc": null,
+          "eceActionable": 0.3506159109529108,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.625,
+          "confidentNoise": 0.625,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.6493840890470892,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "seed": {
+          "n": 584,
+          "noise": 36,
+          "auroc": 0.9425182481751825,
+          "eceActionable": 0.054334184410024994,
+          "noisePrecision@0.5": 0.7666666666666667,
+          "noiseRecall@0.5": 0.6388888888888888,
+          "confidentNoise": 0.5277777777777778,
+          "confidentActionable": 0.9470802919708029,
+          "meanNoiseScoreOnNoise": 0.6138601895007822,
+          "meanNoiseScoreOnActionable": 0.07722095941213795
+        },
+        "tier-long": {
+          "n": 548,
+          "noise": 0,
+          "auroc": null,
+          "eceActionable": 0.07722095941213795,
+          "noisePrecision@0.5": 0.0,
+          "noiseRecall@0.5": 0.0,
+          "confidentNoise": 0.0,
+          "confidentActionable": 0.9470802919708029,
+          "meanNoiseScoreOnNoise": 0.0,
+          "meanNoiseScoreOnActionable": 0.07722095941213795
+        },
+        "tier-short": {
+          "n": 84,
+          "noise": 0,
+          "auroc": null,
+          "eceActionable": 0.3918754156412823,
+          "noisePrecision@0.5": 0.0,
+          "noiseRecall@0.5": 0.0,
+          "confidentNoise": 0.0,
+          "confidentActionable": 0.2857142857142857,
+          "meanNoiseScoreOnNoise": 0.0,
+          "meanNoiseScoreOnActionable": 0.3918754156412823
+        }
+      }
+    },
+    {
+      "round": "control-all-at-once",
+      "trainRows": 4894,
+      "seconds": 263.0,
+      "validation": {
+        "all": {
+          "n": 727,
+          "noise": 95,
+          "auroc": 0.7695203197868088,
+          "eceActionable": 0.0864566379831079,
+          "noisePrecision@0.5": 0.4492753623188406,
+          "noiseRecall@0.5": 0.3263157894736842,
+          "confidentNoise": 0.21052631578947367,
+          "confidentActionable": 0.870253164556962,
+          "meanNoiseScoreOnNoise": 0.349515596301736,
+          "meanNoiseScoreOnActionable": 0.08378014652278787
+        },
+        "ambiguous": {
+          "n": 143,
+          "noise": 59,
+          "auroc": 0.4271589991928975,
+          "eceActionable": 0.3325215876794427,
+          "noisePrecision@0.5": 0.4,
+          "noiseRecall@0.5": 0.1694915254237288,
+          "confidentNoise": 0.0847457627118644,
+          "confidentActionable": 0.6785714285714286,
+          "meanNoiseScoreOnNoise": 0.20940324957719295,
+          "meanNoiseScoreOnActionable": 0.2184476726535996
+        },
+        "null-unruled": {
+          "n": 59,
+          "noise": 59,
+          "auroc": null,
+          "eceActionable": 0.7905967504228071,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.1694915254237288,
+          "confidentNoise": 0.0847457627118644,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.20940324957719295,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "rule-continuation": {
+          "n": 28,
+          "noise": 28,
+          "auroc": null,
+          "eceActionable": 0.4706081942921238,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.5357142857142857,
+          "confidentNoise": 0.32142857142857145,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.5293918057078761,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "rule-no-request": {
+          "n": 8,
+          "noise": 8,
+          "auroc": null,
+          "eceActionable": 0.24672257952624932,
+          "noisePrecision@0.5": 1.0,
+          "noiseRecall@0.5": 0.75,
+          "confidentNoise": 0.75,
+          "confidentActionable": 0.0,
+          "meanNoiseScoreOnNoise": 0.7532774204737507,
+          "meanNoiseScoreOnActionable": 0.0
+        },
+        "seed": {
+          "n": 584,
+          "noise": 36,
+          "auroc": 0.9191504460665044,
+          "eceActionable": 0.04173529138094873,
+          "noisePrecision@0.5": 0.4772727272727273,
+          "noiseRecall@0.5": 0.5833333333333334,
+          "confidentNoise": 0.4166666666666667,
+          "confidentActionable": 0.8996350364963503,
+          "meanNoiseScoreOnNoise": 0.5791441645447372,
+          "meanNoiseScoreOnActionable": 0.06313767901368535
+        },
+        "tier-long": {
+          "n": 548,
+          "noise": 0,
+          "auroc": null,
+          "eceActionable": 0.06313767901368535,
+          "noisePrecision@0.5": 0.0,
+          "noiseRecall@0.5": 0.0,
+          "confidentNoise": 0.0,
+          "confidentActionable": 0.8996350364963503,
+          "meanNoiseScoreOnNoise": 0.0,
+          "meanNoiseScoreOnActionable": 0.06313767901368535
+        },
+        "tier-short": {
+          "n": 84,
+          "noise": 0,
+          "auroc": null,
+          "eceActionable": 0.2184476726535996,
+          "noisePrecision@0.5": 0.0,
+          "noiseRecall@0.5": 0.0,
+          "confidentNoise": 0.0,
+          "confidentActionable": 0.6785714285714286,
+          "meanNoiseScoreOnNoise": 0.0,
+          "meanNoiseScoreOnActionable": 0.2184476726535996
+        }
+      }
+    }
+  ]
+}

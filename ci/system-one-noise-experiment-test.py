@@ -51,4 +51,10 @@ m = exp.gate_metrics([rows['a'], rows['b']], [[0.1, 0.8, 0.1], [0.9, 0.05, 0.05]
 assert m['auroc'] == 1.0 and m['confidentNoise'] == 1.0 and m['confidentActionable'] == 1.0
 assert m['subtypeAccuracyOnRuleRows'] == 1.0
 
+merged = exp.merge_invalid(rows['d'])
+assert merged['targets'] == [0.0, 1.0] and merged['mask'] == [1, 1], 'unknown subtype becomes a labeled invalid row'
+assert exp.merge_invalid(rows['b'])['targets'] == [1.0, 0.0]
+m2 = exp.gate_metrics([exp.merge_invalid(rows['a']), exp.merge_invalid(rows['b'])], [[0.1, 0.9], [0.9, 0.1]])
+assert m2['auroc'] == 1.0 and 'subtypeAccuracyOnRuleRows' not in m2
+
 print('system-one noise experiment tests passed')

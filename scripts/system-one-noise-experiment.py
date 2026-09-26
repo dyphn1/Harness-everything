@@ -36,6 +36,19 @@ OPTIONS = (
     ('no-request', 'no request: pasted output, logs, notifications, identifiers or chatter'),
 )
 A, C, N = 0, 1, 2
+# --merge-invalid (owner decision 2026-09-26): the small model sees only the current
+# prompt, so continuations and no-request messages are one class, "invalid", handed to
+# the host agent, which has the conversation. Two options instead of three.
+OPTIONS_MERGED = (
+    ('actionable', 'actionable: the text alone asks for concrete software work'),
+    ('invalid', 'invalid: text alone has no actionable request; continuation, feedback, paste or chatter'),
+)
+
+
+def merge_invalid(row):
+    """Collapse a three-option row to [actionable, invalid]; every row is then fully labeled."""
+    a = row['targets'][A]
+    return {**row, 'targets': [a, 1.0 - a], 'mask': [1, 1]}
 
 _CONT_WORDS = (
     r'go|gogo|gogogo|go ahead|go on|go next|go next one|gogo next one|go next phase|next|next one|do next|'
@@ -190,8 +203,8 @@ def gate_metrics(rows, probs, confident=0.8):
     out['meanNoiseScoreOnNoise'] = sum(x for x, y in zip(s, noise) if y) / max(1, sum(noise))
     out['meanNoiseScoreOnActionable'] = sum(x for x, y in zip(s, noise) if not y) / max(1, len(rows) - sum(noise))
     sub = [(p, r) for p, r in zip(probs, rows) if r['bucket'] in ('rule-continuation', 'rule-no-request')]
-    if sub:
-        ok = sum(1 for p, r in sub if (p[C] >= p[N]) == (r['bucket'] == 'rule-continuation'))
+    if sub and len(sub[0][0]) > N:
+        ok = sum(1 for p, r in sub if len(p) > N and (p[C] >= p[N]) == (r['bucket'] == 'rule-continuation'))
         out['subtypeAccuracyOnRuleRows'] = ok / len(sub)
     return out
 
@@ -222,7 +235,12 @@ def run(args):
     rows = label_rows(load(data / 'prompts.jsonl'), tiers, excluded, rules=args.rules)
     train_rows = [r for r in rows if r['split'] == 'train']
     val_rows = [r for r in rows if r['split'] == 'validation']
-    option_texts = tuple(t for _, t in OPTIONS)
+    options = OPTIONS_MERGED if args.merge_invalid else OPTIONS
+    if args.merge_invalid:
+        rows = [merge_invalid(r) for r in rows]
+        train_rows = [r for r in rows if r['split'] == 'train']
+        val_rows = [r for r in rows if r['split'] == 'validation']
+    option_texts = tuple(t for _, t in options)
     config = {'encoder': 'tinyx', 'width': args.width, 'rank': args.width, 'layers': args.layers, 'heads': 4,
               'dropout': 0.1, 'context_tokens': args.context_tokens, 'option_tokens': 96}
     out = Path(args.out)
@@ -294,7 +312,7 @@ def run(args):
         fit(model, collator, current, args.stage_epochs, f'R{k + 1}')
         record(f'R{k + 1}-mix{k + 1}of{args.stages}', model, collator, len(current), started)
     curriculum_probs = score(model, collator, val_rows)
-    save_checkpoint(out / 'curriculum.safetensors', model, config, {'domain': 'harness-noise-gate-exp', 'options': [o for o, _ in OPTIONS]})
+    save_checkpoint(out / 'curriculum.safetensors', model, config, {'domain': 'harness-noise-gate-exp', 'options': [o for o, _ in options]})
 
     started = time.time()
     torch.manual_seed(args.seed)
@@ -307,7 +325,7 @@ def run(args):
         counts.setdefault(r['split'], {}).setdefault(r['bucket'], 0)
         counts[r['split']][r['bucket']] += 1
     json.dump({'schemaVersion': 1, 'config': config, 'args': {k: v for k, v in vars(args).items() if k not in ('data_dir', 'out')},
-               'options': [o for o, _ in OPTIONS], 'counts': counts, 'rounds': rounds},
+               'options': [o for o, _ in options], 'counts': counts, 'rounds': rounds},
               open(out / 'report.json', 'w'), indent=2)
     # Private review sheet: validation rows where the final curriculum model is most unsure or disagrees.
     review = sorted(range(len(val_rows)), key=lambda i: -abs((1 - curriculum_probs[i][A]) - (1 - val_rows[i]['targets'][A])))[:60]
@@ -316,7 +334,8 @@ def run(args):
         for i in review:
             p, r = curriculum_probs[i], val_rows[i]
             text = r['text'].strip().replace('\n', ' ').replace('|', '\\|')[:80]
-            fh.write(f"| {1 - p[A]:.2f} | {p[C]:.2f} | {p[N]:.2f} | {r['bucket']} | {r['tier']} | {text} |\n")
+            rest = ' | '.join(f'{x:.2f}' for x in (p[1:] + [0.0])[:2])
+            fh.write(f"| {1 - p[A]:.2f} | {rest} | {r['bucket']} | {r['tier']} | {text} |\n")
 
 
 def main(argv=None):
@@ -334,6 +353,7 @@ def main(argv=None):
     ap.add_argument('--stages', type=int, default=3)
     ap.add_argument('--stage-epochs', type=int, default=3)
     ap.add_argument('--rules', type=int, choices=[1, 2], default=1, help='2 adds bare directives, feedback and pointers')
+    ap.add_argument('--merge-invalid', action='store_true', help='two options: actionable vs invalid')
     ap.add_argument('--labels-only', action='store_true', help='print label bucket counts and exit (no torch)')
     args = ap.parse_args(argv)
     if args.labels_only:

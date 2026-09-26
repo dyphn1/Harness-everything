@@ -138,3 +138,36 @@ per stage), while AUROC stays within 0.67–0.79.
    confident on continuations than its control (0.71/0.43, 0.32/0.11,
    0.57/0.21), with the same AUROC. That is 3 of 3 with one seed, so it is
    a direction, not a measured effect.
+
+## Invalid class, five seeds
+
+Owner decision: the small model sees only the current prompt, so
+continuations and no-request messages merge into one `invalid` class that
+is handed to the host agent (`--merge-invalid`: two options, every row
+fully labeled). Rules v2, 3 stages × 3 epochs, seeds 0–4. Reports:
+`report-invalid-seed{0..4}.json`. Mean ± standard deviation over the five
+seeds on validation:
+
+| Model | AUROC | confident invalid | mean invalid score on invalid rows | confident actionable | invalid precision / recall at 0.5 |
+| --- | --- | --- | --- | --- | --- |
+| curriculum R1 | 0.758 ± 0.010 | 0.26 ± 0.10 | 0.30 ± 0.11 | 0.94 ± 0.05 | 0.59 / 0.30 |
+| curriculum end (R3) | 0.785 ± 0.020 | 0.18 ± 0.05 | 0.33 ± 0.07 | 0.90 ± 0.04 | 0.64 / 0.28 |
+| control | 0.783 ± 0.015 | 0.29 ± 0.06 | 0.42 ± 0.05 | 0.84 ± 0.05 | 0.45 / 0.40 |
+
+Paired by seed, the curriculum end is less confident on invalid rows than
+its control in 4 of 5 seeds (confident invalid −0.17 to +0.05) and more
+confident on actionable rows; AUROC differs by at most ±0.03.
+
+## Reading (five seeds)
+
+1. **The curriculum advantage did not replicate.** With seeds, the
+   curriculum and the control rank equally well (AUROC 0.785 vs 0.783). The
+   curriculum only moves the operating point toward "actionable": more
+   confident on actionable prompts, less on invalid ones. The earlier 3 of 3
+   was one seed on the three-option task and does not hold here.
+2. **Invalid detection is capped at about 0.78 AUROC by labels, not the
+   schedule.** Rule-defined rows are separable; the labeler's other `null`
+   rows get a mean invalid score of 0.15–0.34, because many of them read as
+   ordinary requests in isolation.
+3. Caveat: this run changed the task (two merged options) and added seeds at
+   the same time; the three-option task was not re-run with five seeds.
