@@ -167,7 +167,7 @@ confident on actionable rows; AUROC differs by at most ±0.03.
    was one seed on the three-option task and does not hold here.
 2. **Invalid detection is capped at about 0.78 AUROC by labels, not the
    schedule.** Rule-defined rows are separable; the labeler's other `null`
-   rows get a mean invalid score of 0.15–0.34, because many of them read as
+   rows get a mean invalid score of 0.15–0.30 (per model, averaged over seeds), because many of them read as
    ordinary requests in isolation.
 3. Caveat: this run changed the task (two merged options) and added seeds at
    the same time; the three-option task was not re-run with five seeds.
