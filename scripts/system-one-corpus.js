@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 'use strict';
-// Assembles the System One tier holdout from a draft plus human review decisions.
-// See docs/system-one-corpus.md. A decision counts only for the exact prompt text it reviewed.
+// Assembles a System One holdout (tier or intent stage) from a draft plus human review decisions.
+// See docs/system-one-corpus.md and docs/system-one-intent.md. A decision counts only for the exact prompt text it reviewed.
 const fs = require('node:fs');
 const { createHash } = require('node:crypto');
 const { createRequest } = require('../harness-everything/scripts/system-one/contract');
-const { TIER_OPTIONS } = require('../harness-everything/scripts/system-one/router');
+const { CATALOGS, MULTI, goldLabels, validSecondary } = require('../harness-everything/scripts/system-one/catalogs');
 const { validateCorpus } = require('../harness-everything/scripts/system-one/evaluate');
 
 const SOURCES = ['synthetic:authored', 'derived:local-history'];
 const LANGUAGES = ['en', 'zh-TW'];
-const GOLD = ['tier1', 'tier2', 'tier3', null];
 const REVIEWER = 'human:repository-owner';
 // Drafts are committed publicly: no email addresses or user home paths.
 const PRIVATE = [/[\w.+-]+@[\w-]+\.[\w.-]+/, /[A-Za-z]:\\Users\\/i, /\/home\/[^/\s]+/, /\/Users\/[^/\s]+/];
@@ -20,7 +19,8 @@ const nonempty = v => typeof v === 'string' && v.trim().length > 0;
 const fail = code => { throw new TypeError(code); };
 const promptHash = text => createHash('sha256').update(text, 'utf8').digest('hex');
 
-function validateDraft(draft) {
+function validateDraft(draft, task = 'tier') {
+  const GOLD = goldLabels(task);
   if (!exact(draft, ['schemaVersion', 'cases']) || draft.schemaVersion !== 1 || !Array.isArray(draft.cases) || !draft.cases.length) fail('invalid-draft');
   const ids = new Set(); const prompts = new Set();
   for (const c of draft.cases) {
@@ -33,24 +33,27 @@ function validateDraft(draft) {
   return true;
 }
 
-function validateReviews(reviews) {
+function validateReviews(reviews, task = 'tier') {
+  const GOLD = goldLabels(task);
   if (!exact(reviews, ['schemaVersion', 'decisions']) || reviews.schemaVersion !== 1 || !Array.isArray(reviews.decisions)) fail('invalid-reviews');
   const ids = new Set();
   for (const d of reviews.decisions) {
-    if (!exact(d, ['id', 'promptHash', 'decision', 'gold', 'reviewer']) || !nonempty(d.id) || ids.has(d.id)
+    const multi = MULTI.includes(task);
+    if (!exact(d, ['id', 'promptHash', 'decision', 'gold', ...(multi ? ['secondary'] : []), 'reviewer']) || !nonempty(d.id) || ids.has(d.id)
       || typeof d.promptHash !== 'string' || !/^[0-9a-f]{64}$/.test(d.promptHash)
       || !['accept', 'relabel', 'reject'].includes(d.decision) || !GOLD.includes(d.gold) || d.reviewer !== REVIEWER
+      || !validSecondary(task, d.gold, d.secondary)
       || (d.decision === 'reject' && d.gold !== null)) fail('invalid-reviews');
     ids.add(d.id);
   }
   return true;
 }
 
-function build(draft, reviews) {
-  validateDraft(draft);
+function build(draft, reviews, task = 'tier') {
+  validateDraft(draft, task);
   const byId = new Map();
   if (reviews !== null) {
-    validateReviews(reviews);
+    validateReviews(reviews, task);
     for (const d of reviews.decisions) {
       const c = draft.cases.find(item => item.id === d.id);
       if (!c) fail('unknown-review-case');
@@ -60,7 +63,8 @@ function build(draft, reviews) {
     }
   }
   const summary = { cases: 0, reviewed: 0, rejected: 0, stale: 0, unreviewed: 0,
-    byLanguage: { en: 0, 'zh-TW': 0 }, byGold: { tier1: 0, tier2: 0, tier3: 0, unclassified: 0 }, reviewedHoldoutGate: false };
+    byLanguage: { en: 0, 'zh-TW': 0 }, byGold: Object.fromEntries(CATALOGS[task].map(o => [o.id, 0])),
+    ...(MULTI.includes(task) ? { bySecondary: {} } : {}), reviewedHoldoutGate: false };
   const cases = [];
   for (const c of draft.cases) {
     const d = byId.get(c.id);
@@ -70,10 +74,13 @@ function build(draft, reviews) {
     const reviewed = Boolean(current);
     if (reviewed) summary.reviewed += 1; else if (!d) summary.unreviewed += 1;
     const gold = reviewed ? d.gold : c.proposedGold;
+    // Drafts propose only the primary intent; secondary intents come from the reviewer.
+    const secondary = MULTI.includes(task) ? { secondary: reviewed ? [...d.secondary] : [] } : {};
     cases.push({ id: c.id, family: c.family, split: 'holdout', language: c.language, source: c.source, reviewed,
-      request: createRequest('tier', c.prompt, TIER_OPTIONS), gold });
+      request: createRequest(task, c.prompt, CATALOGS[task]), gold, ...secondary });
     summary.byLanguage[c.language] += 1;
     summary.byGold[gold === null ? 'unclassified' : gold] += 1;
+    for (const s of secondary.secondary || []) summary.bySecondary[s] = (summary.bySecondary[s] || 0) + 1;
   }
   summary.cases = cases.length;
   const corpus = { schemaVersion: 1, cases };
@@ -85,14 +92,14 @@ function build(draft, reviews) {
 
 if (require.main === module) {
   try {
-    const [op, draftPath, reviewsPath, outPath, extra] = process.argv.slice(2);
+    const [op, draftPath, reviewsPath, outPath, task = 'tier', extra] = process.argv.slice(2);
     if (op !== 'build' || !draftPath || !reviewsPath || !outPath || extra) throw new Error('usage');
     const read = file => JSON.parse(fs.readFileSync(file, 'utf8'));
-    const { corpus, summary } = build(read(draftPath), reviewsPath === '-' ? null : read(reviewsPath));
+    const { corpus, summary } = build(read(draftPath), reviewsPath === '-' ? null : read(reviewsPath), task);
     fs.writeFileSync(outPath, `${JSON.stringify(corpus, null, 2)}\n`);
     console.log(JSON.stringify(summary));
   } catch (_) {
-    console.error('Usage: system-one-corpus.js build <draft.json> <reviews.json|-> <corpus.json> (invalid draft, reviews, or path)');
+    console.error('Usage: system-one-corpus.js build <draft.json> <reviews.json|-> <corpus.json> [tier|intent] (invalid draft, reviews, or path)');
     process.exitCode = 1;
   }
 }

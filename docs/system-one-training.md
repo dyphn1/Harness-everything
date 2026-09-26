@@ -56,7 +56,7 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
 - **Deduplication**: exact duplicates after whitespace normalization are dropped. The first
   occurrence is kept.
 - **Holdout leakage**: a prompt is dropped if its character-trigram Jaccard similarity to any
-  holdout prompt is at least 0.5. The same applies if either prompt contains the other after
+  prompt of the tier or intent holdout is at least 0.5. The same applies if either prompt contains the other after
   normalization and the shorter one is more than 12 characters long. This matters because
   the holdout includes rewrites of local prompt shapes.
 - **Family**: the source session. Prompts from one conversation never span splits.
@@ -65,10 +65,11 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
 
 ## Privacy
 
-- Collected prompts and labels stay on the local machine under
-  `~/.agents/harness-everything/system-one/training/` and are **never committed**. The
-  repository holds only the scripts, aggregate statistics and the SHA-256 of each dataset
-  file.
+- Collected prompts and labels are **never committed to this public repository**. They
+  live under `~/.agents/harness-everything/system-one/training/` on the owner's machine.
+  A curated copy, for cloud sessions, is in the owner's private repository
+  `dyphn1/harness-system-one-data` (`training/` is the `--data-dir`). This repository holds
+  only the scripts, aggregate statistics and the SHA-256 of each dataset file.
 - Email addresses and user home paths are replaced with placeholders before storage. Names
   and product terms are not reliably detectable and remain.
 - The released weights come from a 4-way byte-level classifier with about 0.7M parameters. It
@@ -88,6 +89,31 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
     labels already written. Every returned index must be labeled exactly once with
     `tier1`, `tier2`, `tier3` or `null`. A malformed batch is retried once and then
     recorded as failed. It is never partially accepted.
+  - `--model` and `--engine codex` choose another labeler; the label rows record it.
+    `--batch N` changes the batch size.
+  - `--task intent --scores` asks for [relevance scores](system-one-intent.md#relevance-scores).
+    Each reply names a primary and scores every intent from 0 to 1 in steps of 0.05. A
+    reply is malformed when it misses an intent, leaves the scale, ties two scores above 0,
+    has more than eight zeros, names a primary that is not the unique top score of at
+    least 0.6, or has a `null` primary with an intent above 0.2. The owner chose Haiku
+    for this labeling.
+  - `--scale` scales each non-`null` scored label so its top score is 1: every score is
+    divided by the top score. Haiku puts most top scores at 0.75 to 0.85, and the owner
+    chose to read them as relative (2026-09-24). The bands and the secondary intents are
+    derived from the scaled scores; the row keeps the model's scores as `raw`.
+  - `--escalate-model M` labels a prompt a second time with model `M` when the first
+    label lags:
+    - `--escalate-margin R`: the relative margin, (top − second) / top, is below `R`.
+      The owner chose this lagging indicator to keep Sonnet to few prompts. `R` = 0.3
+      sends about 11% of Haiku's non-`null` training labels to Sonnet; it was read from
+      that distribution, not from the holdout. A `null` label is never escalated.
+    - Otherwise `--escalate-below` (default 0.8): the top score is below it. On the
+      training prompts this sent 69% to Sonnet, and the owner stopped it for its cost.
+  - The second label replaces the first; when the second run fails, the first label
+    stays. The label rows record the model that produced them, and a resumed run skips
+    prompts that were already escalated. The holdout check reports how many prompts were
+    escalated. `rescale --in A --out B` rewrites a label file with scaled labels (last
+    row per prompt).
 - **Labeler check**: the labeler labels the 215 holdout prompts once, before any training
   data is labeled. The report gives agreement with the owner's gold and the per-class recall.
   - Labeling proceeds only when agreement is at least 80%.
@@ -114,6 +140,25 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
     weights and a weight decay of 1e-4.
   - The output is the `.bin` weights, the `.json` sidecar and validation scores for
     calibration.
+- **Intent engine**: the same trainer with `--task intent` trains the intent stage
+  ([system-one-intent.md](system-one-intent.md)).
+  - Labels come from `labels-intent.jsonl`, and owner corrections from
+    `owner-overrides-intent.jsonl`. `owner-excluded.jsonl` applies to both stages. The
+    catalog comes from the intent holdout.
+  - Targets are soft. The primary gets 1.0 when there is no secondary intent. Otherwise
+    the primary gets 0.6 and the secondary intents share 0.4 equally. `null` maps to
+    `unclassified` with 1.0.
+  - Validation scores keep each row's secondary intents for calibration.
+  - `--target scores` trains on the scored labels in `labels-intent-scores.jsonl`
+    instead. Each intent is its own binary target with its score as the soft value, and
+    the loss is a per-intent binary cross-entropy. `unclassified` scores 0.6 when the
+    primary is `null` and 0 otherwise. An owner override without scores counts as 0.6
+    for its primary and 0.4 for its secondary intents. The class weights come from the
+    score mass of each intent.
+  - The artifact format is unchanged. The provider still returns the softmax over the
+    same logits, which ranks the intents in relevance order, so the contract's
+    probability vector and the calibration below stay as they are. Handing the absolute
+    relevance bands to the skills stage is a separate contract change.
 - The `tinyx` path below is kept for comparison. Its first checkpoint learned little beyond
   class priors.
 - **Model** (`tinyx`): a new `cua_s1` `tinyx` scorer built with `make_system`.
@@ -128,7 +173,12 @@ prompts written by an agent, not by the owner. VS Code terminal notifications
   - The epoch with the lowest validation negative log-likelihood is kept.
   - The checkpoint metadata records the dataset hashes, the config and the validation metrics.
 - **Calibration**: `minConfidence` and `minMargin` are chosen on validation to maximize
-  coverage, subject to an accepted precision of at least 85% (the owner's advisory target). The router currently uses the
+  coverage, subject to an accepted precision of at least 85% (the owner's advisory target).
+  For the intent stage (`--task intent`), accepted precision is the mean graded agreement
+  of accepted rows. A predicted secondary is any other intent whose probability reaches
+  `secondaryThreshold`. That threshold is chosen from 0.05 to 0.50 in steps of 0.05, to
+  maximize micro-F1 against the labeled secondary intents, and it is chosen before the
+  acceptance thresholds. The router currently uses the
   Phase 0 defaults (0.9 and 0.2). Carrying calibrated thresholds into the manifest is a
   separate contract change.
 

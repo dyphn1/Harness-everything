@@ -1,0 +1,2976 @@
+{
+  "schemaVersion": 1,
+  "labeler": {
+    "model": "gpt-5.6-luna",
+    "rulesSha256": "3a2f4d7be9c35bbc",
+    "engine": "codex",
+    "task": "intent"
+  },
+  "cases": 222,
+  "agreement": 0.8153153153153153,
+  "graded": 0.8490990990990991,
+  "recall": {
+    "explain": 0.7058823529411765,
+    "discuss": 0.9333333333333333,
+    "git": 0.9583333333333334,
+    "fix": 0.8181818181818182,
+    "edit": 0.7857142857142857,
+    "feature": 0.8,
+    "refactor": 0.6666666666666666,
+    "review": 0.8,
+    "test": 1,
+    "docs": 0.8235294117647058,
+    "plan": 0.8333333333333334,
+    "investigate": 0.7142857142857143,
+    "unclassified": null
+  },
+  "confusion": {
+    "fix->edit": 3,
+    "explain->investigate": 5,
+    "docs->git": 3,
+    "edit->refactor": 2,
+    "investigate->fix": 4,
+    "edit->fix": 1,
+    "refactor->feature": 2,
+    "plan->feature": 2,
+    "review->test": 1,
+    "feature->edit": 3,
+    "refactor->plan": 3,
+    "fix->feature": 2,
+    "review->fix": 1,
+    "discuss->unclassified": 1,
+    "fix->test": 1,
+    "refactor->edit": 1,
+    "feature->plan": 2,
+    "review->investigate": 1,
+    "git->unclassified": 1,
+    "refactor->fix": 2
+  },
+  "missing": 0,
+  "failed": 0,
+  "perCase": [
+    {
+      "id": "h-git-commit-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-commit-2",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-commit-3",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-commit-4",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-push-open-pr-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-push-open-pr-2",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-push-open-pr-3",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-push-open-pr-4",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-sync-branch-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-sync-branch-2",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-sync-branch-3",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-sync-branch-4",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-revert-last-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-revert-last-2",
+      "gold": "fix",
+      "secondary": [
+        "edit"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-git-revert-last-3",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-issue-pr-status-1",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-issue-pr-status-2",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "review"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-issue-pr-status-3",
+      "gold": "explain",
+      "secondary": [
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-issue-pr-status-4",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-comment-results-on-issue-1",
+      "gold": "git",
+      "secondary": [
+        "docs"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-comment-results-on-issue-2",
+      "gold": "git",
+      "secondary": [
+        "docs"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-comment-results-on-issue-3",
+      "gold": "git",
+      "secondary": [
+        "docs"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-open-issue-described-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-open-issue-described-2",
+      "gold": "docs",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-open-issue-described-3",
+      "gold": "docs",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-open-issue-described-4",
+      "gold": "docs",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-typo-doc-fix-1",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-typo-doc-fix-2",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-typo-doc-fix-3",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-typo-doc-fix-4",
+      "gold": "docs",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "docs",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-single-line-edit-1",
+      "gold": "edit",
+      "secondary": [],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-single-line-edit-2",
+      "gold": "edit",
+      "secondary": [
+        "fix",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-single-line-edit-3",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-local-rename-1",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-local-rename-2",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-local-rename-3",
+      "gold": "refactor",
+      "secondary": [
+        "edit",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-config-tweak-1",
+      "gold": "edit",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-config-tweak-2",
+      "gold": "edit",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-config-tweak-3",
+      "gold": "edit",
+      "secondary": [
+        "fix",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-config-tweak-4",
+      "gold": "edit",
+      "secondary": [],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-run-named-command-1",
+      "gold": "test",
+      "secondary": [
+        "discuss",
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-run-named-command-2",
+      "gold": "test",
+      "secondary": [
+        "discuss",
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-run-named-command-3",
+      "gold": "test",
+      "secondary": [
+        "discuss",
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-run-named-command-4",
+      "gold": "test",
+      "secondary": [
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-bounded-explanation-1",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-bounded-explanation-2",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-bounded-explanation-3",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-bounded-explanation-4",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-read-log-report-1",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-read-log-report-2",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-read-log-report-3",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-list-remaining-tasks-1",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-list-remaining-tasks-2",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-list-remaining-tasks-3",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "git",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-add-link-docs-1",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-add-link-docs-2",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-fix-cli-error-log-1",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "edit",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-fix-cli-error-log-2",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-fix-cli-error-log-3",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-fix-cli-error-log-4",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-fix-failing-test-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-fix-failing-test-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-fix-failing-test-3",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate"
+        ]
+      }
+    },
+    {
+      "id": "h-fix-failing-test-4",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-add-cli-flag-1",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-add-cli-flag-2",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-add-cli-flag-3",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-nondeterministic-output-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-nondeterministic-output-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-nondeterministic-output-3",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-warning-level-fix-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-warning-level-fix-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-warning-level-fix-3",
+      "gold": "edit",
+      "secondary": [
+        "refactor",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate"
+        ]
+      }
+    },
+    {
+      "id": "h-debug-crash-after-start-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-debug-crash-after-start-2",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "fix"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-debug-crash-after-start-3",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-multi-file-feature-1",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-multi-file-feature-2",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-multi-file-feature-3",
+      "gold": "plan",
+      "secondary": [
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test",
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-focused-review-1",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-focused-review-2",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "fix",
+        "test"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-focused-review-3",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-focused-benchmark-1",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-focused-benchmark-2",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-function-refactor-1",
+      "gold": "refactor",
+      "secondary": [
+        "explain",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-function-refactor-2",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-function-refactor-3",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-hash-algorithm-support-1",
+      "gold": "feature",
+      "secondary": [
+        "fix",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-hash-algorithm-support-2",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-toolchain-check-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-toolchain-check-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-relative-paths-1",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-relative-paths-2",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-validation-rule-1",
+      "gold": "feature",
+      "secondary": [
+        "fix",
+        "review",
+        "test",
+        "docs",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-validation-rule-2",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-update-docs-examples-1",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "docs",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-update-docs-examples-2",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-audit-all-repos-1",
+      "gold": "review",
+      "secondary": [
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-audit-all-repos-2",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-audit-all-repos-3",
+      "gold": "investigate",
+      "secondary": [
+        "explain"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-phase-plan-to-issue-1",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "git",
+        "feature"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "git"
+        ]
+      }
+    },
+    {
+      "id": "h-phase-plan-to-issue-2",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "git",
+        "feature"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "git"
+        ]
+      }
+    },
+    {
+      "id": "h-phase-plan-to-issue-3",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-roadmap-phase-implement-1",
+      "gold": "feature",
+      "secondary": [
+        "explain",
+        "git",
+        "review",
+        "test",
+        "docs",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "git"
+        ]
+      }
+    },
+    {
+      "id": "h-roadmap-phase-implement-2",
+      "gold": "feature",
+      "secondary": [
+        "explain",
+        "fix",
+        "review",
+        "test",
+        "docs",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "git",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-roadmap-phase-implement-3",
+      "gold": "feature",
+      "secondary": [
+        "explain",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "plan"
+        ]
+      }
+    },
+    {
+      "id": "h-migration-1",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-migration-2",
+      "gold": "refactor",
+      "secondary": [
+        "feature",
+        "review",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-migration-3",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "feature"
+        ]
+      }
+    },
+    {
+      "id": "h-migration-4",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-large-scale-rename-1",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-large-scale-rename-2",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-architecture-design-1",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "plan",
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-architecture-design-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "plan",
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-architecture-design-3",
+      "gold": "plan",
+      "secondary": [
+        "explain",
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-parallel-delegation-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test",
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-parallel-delegation-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "docs",
+          "git"
+        ]
+      }
+    },
+    {
+      "id": "h-parallel-delegation-3",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-repo-wide-replace-1",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-repo-wide-replace-2",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-repo-wide-replace-3",
+      "gold": "review",
+      "secondary": [
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-broad-synthesis-1",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "review"
+        ]
+      }
+    },
+    {
+      "id": "h-broad-synthesis-2",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "review"
+        ]
+      }
+    },
+    {
+      "id": "h-cross-platform-ci-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "feature",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "fix",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-cross-platform-ci-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "feature",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "feature"
+        ]
+      }
+    },
+    {
+      "id": "h-long-spec-feature-program-1",
+      "gold": "plan",
+      "secondary": [
+        "feature",
+        "review",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "plan",
+          "test",
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-long-spec-feature-program-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "plan",
+          "test",
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-numbered-answers-1",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-numbered-answers-2",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-numbered-answers-3",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-numbered-answers-4",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-numbered-answers-5",
+      "gold": "discuss",
+      "secondary": [
+        "fix",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-unstated-reference-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-unstated-reference-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-unstated-reference-4",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-unstated-reference-5",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-unstated-reference-6",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-clarification-confusion-1",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-clarification-confusion-2",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-clarification-confusion-3",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-context-pasted-discussion-1",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-context-pasted-discussion-2",
+      "gold": "discuss",
+      "secondary": [
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": null,
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-bugfix-report-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-bugfix-report-2",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-release-ops-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-release-ops-2",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-migration-brief-1",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "feature",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-migration-brief-2",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "feature",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-explain-design-choice-1",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-explain-design-choice-2",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-small-test-addition-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [
+          "fix"
+        ]
+      }
+    },
+    {
+      "id": "h-small-test-addition-2",
+      "gold": "test",
+      "secondary": [
+        "fix",
+        "review"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [
+          "fix"
+        ]
+      }
+    },
+    {
+      "id": "h-dependency-upgrade-1",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "fix",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-dependency-upgrade-2",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "fix"
+        ]
+      }
+    },
+    {
+      "id": "h-ci-workflow-small-1",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-ci-workflow-small-2",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-audit-and-fix-1",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [
+          "fix",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-audit-and-fix-2",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [
+          "fix",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-monorepo-restructure-1",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-monorepo-restructure-2",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-monorepo-restructure-3",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "plan",
+          "docs",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-security-hardening-program-1",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "refactor",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "feature",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-security-hardening-program-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "refactor",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "feature",
+          "test",
+          "git"
+        ]
+      }
+    },
+    {
+      "id": "h-security-hardening-program-3",
+      "gold": "review",
+      "secondary": [
+        "fix",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [
+          "fix"
+        ]
+      }
+    },
+    {
+      "id": "h-observability-rollout-1",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-observability-rollout-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-api-versioning-1",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "plan",
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-api-versioning-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "plan",
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-long-regression-log-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-regression-log-2",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-perf-regression-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate",
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-long-perf-regression-2",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate",
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-long-flaky-e2e-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test",
+          "docs"
+        ]
+      }
+    },
+    {
+      "id": "h-long-flaky-e2e-2",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-bounded-edit-1",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "git"
+        ]
+      }
+    },
+    {
+      "id": "h-long-bounded-edit-2",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "git"
+        ]
+      }
+    },
+    {
+      "id": "h-long-issue-comment-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-issue-comment-2",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-status-pasted-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": null,
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-bounded-explanation-1",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-bounded-explanation-2",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-dependency-conflict-1",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "discuss",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-dependency-conflict-2",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "discuss",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-data-migration-script-1",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-docs-overhaul-1",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-docs-overhaul-2",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-context-question-1",
+      "gold": "discuss",
+      "secondary": [],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-context-question-2",
+      "gold": "discuss",
+      "secondary": [],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "h-long-focused-review-1",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": [
+          "fix",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "h-long-git-ops-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-add-regression-tests-1",
+      "gold": "test",
+      "secondary": [
+        "feature",
+        "review"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-add-regression-tests-2",
+      "gold": "test",
+      "secondary": [
+        "feature"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-run-suite-report-1",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-run-suite-report-2",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-error-path-tests-1",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-error-path-tests-2",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-phase-breakdown-1",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-phase-breakdown-2",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-loader-spec-1",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-loader-spec-2",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-index-adr-1",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "discuss"
+        ]
+      }
+    },
+    {
+      "id": "i-index-adr-2",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "discuss"
+        ]
+      }
+    },
+    {
+      "id": "i-pick-an-option-1",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-pick-an-option-2",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-settle-open-points-1",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-settle-open-points-2",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-cache-tradeoff-1",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-cache-tradeoff-2",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-review-pr-callers-1",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-review-pr-callers-2",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-review-migration-guide-1",
+      "gold": "review",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-review-migration-guide-2",
+      "gold": "review",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-review-test-quality-1",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-review-test-quality-2",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-edit-timeout-1",
+      "gold": "edit",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-edit-timeout-2",
+      "gold": "edit",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-edit-error-message-1",
+      "gold": "fix",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-edit-error-message-2",
+      "gold": "fix",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-edit-default-logging-1",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-edit-default-logging-2",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-explain-routing-flow-1",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    },
+    {
+      "id": "i-explain-routing-flow-2",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": []
+      }
+    }
+  ]
+}

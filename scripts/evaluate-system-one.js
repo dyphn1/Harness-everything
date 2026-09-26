@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { performance } = require('node:perf_hooks');
 const { validateCorpus, evaluate } = require('../harness-everything/scripts/system-one/evaluate');
-const { scoreAsync, provenance, readManifest } = require('../harness-everything/scripts/system-one/provider');
+const { scoreAsync, provenance, readManifest, decisionPolicy } = require('../harness-everything/scripts/system-one/provider');
+const { CATALOGS, MULTI } = require('../harness-everything/scripts/system-one/catalogs');
 const resident = require('../harness-everything/scripts/system-one/resident');
 const { decide } = require('../harness-everything/scripts/system-one/contract');
 const { run: route } = require('../harness-everything/scripts/tier-router');
@@ -22,6 +23,15 @@ async function run(corpus, manifest) {
   const ready = isResident && resident.ensureReady(config, manifest, 60000);
   let artifactVerified = false;
   if (isNgram) { try { require('../harness-everything/scripts/system-one/ngram').loadModel(config); artifactVerified = true; } catch (_) { /* recorded below */ } }
+  const task = corpus.cases[0].request.task;
+  // The lexical router only knows tiers; other stages compare against the majority gold (ties by catalog order).
+  let majority = null;
+  if (task !== 'tier') {
+    const ids = CATALOGS[task].map(o => o.id);
+    const count = id => corpus.cases.filter(c => c.split === 'holdout' && (c.gold === null ? 'unclassified' : c.gold) === id).length;
+    const top = ids.reduce((best, id) => (count(id) > count(best) ? id : best), ids[0]);
+    majority = top === 'unclassified' ? null : top;
+  }
   const records = [];
   const originalMode = process.env.HARNESS_SYSTEM_ONE_MODE;
   const originalLog = console.log;
@@ -29,17 +39,17 @@ async function run(corpus, manifest) {
     process.env.HARNESS_SYSTEM_ONE_MODE = 'off';
     console.log = () => {};
     for (const c of corpus.cases.filter(item => item.split === 'holdout')) {
-      const tier = route(c.request.context).workflowPlan.tier;
+      const tier = task === 'tier' ? route(c.request.context).workflowPlan.tier : null;
       const runs = [];
       for (let i = 0; i < 2; i++) {
         const start = performance.now();
         const result = await scoreAsync(c.request, manifest);
-        const decision = result.status === 'scored' ? decide(c.request, result.response, result.acceptance ? { ...result.acceptance } : {}) : result;
+        const decision = result.status === 'scored' ? decide(c.request, result.response, decisionPolicy(result.acceptance)) : result;
         if (decision.selectedId === 'unclassified') Object.assign(decision, { status: 'abstain', reason: 'unclassified', selectedId: null });
         const scores = ['accepted', 'abstain'].includes(decision.status) ? result.response.scores.map(s => s.probability) : null;
         runs.push({ decision, scores, latencyMs: performance.now() - start, coldStart: !warm });
       }
-      records.push({ id: c.id, baseline: tier === 'unclassified' ? null : tier, runs });
+      records.push({ id: c.id, baseline: task === 'tier' ? (tier === 'unclassified' ? null : tier) : majority, runs });
     }
   } finally {
     if (isResident && !wasRunning) resident.stop(config, manifest);
@@ -55,7 +65,9 @@ async function run(corpus, manifest) {
   // The ngram transport has no Python package to probe; its provenance is the hash-verified artifact.
   const source = isNgram ? { status: 'recorded', transport: 'ngram', artifactVerified } : provenance(manifest);
   const kind = isNgram ? 'offline-ngram' : isResident ? 'offline-resident' : 'offline-one-shot';
-  return { ...evaluate(corpus, records, source), evidence: { kind, artifact, source,
+  const secondaryThreshold = MULTI.includes(task) ? config?.acceptance?.secondaryThreshold : undefined;
+  return { ...evaluate(corpus, records, source, { secondaryThreshold }), evidence: { kind, artifact, source,
+    ...(MULTI.includes(task) ? { secondaryThreshold } : {}),
     residentReady: isResident ? ready : null,
     environment: { cpu: os.cpus()[0]?.model || 'unknown', os: `${os.platform()} ${os.release()} ${os.arch()}`, node: process.version,
       python: source.status === 'recorded' && source.provenance ? source.provenance.python : null, threads: 1 },

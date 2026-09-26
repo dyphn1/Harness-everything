@@ -1,0 +1,6125 @@
+{
+  "schemaVersion": 1,
+  "labeler": {
+    "model": "haiku",
+    "rulesSha256": "44632e679c5caf82",
+    "task": "intent",
+    "target": "scores"
+  },
+  "cases": 222,
+  "agreement": 0.7297297297297297,
+  "graded": 0.7810810810810809,
+  "bands": {
+    "goldSecondary": 2.4954954954954953,
+    "secondary": 0.5675675675675675,
+    "related": 0.7792792792792793
+  },
+  "recall": {
+    "explain": 0.6470588235294118,
+    "discuss": 0.8,
+    "git": 0.9583333333333334,
+    "fix": 0.7878787878787878,
+    "edit": 0.7857142857142857,
+    "feature": 0.6,
+    "refactor": 0.625,
+    "review": 0.6,
+    "test": 0.9166666666666666,
+    "docs": 0.5882352941176471,
+    "plan": 0.9166666666666666,
+    "investigate": 0.5714285714285714,
+    "unclassified": null
+  },
+  "confusion": {
+    "fix->git": 1,
+    "explain->investigate": 6,
+    "docs->git": 3,
+    "docs->fix": 4,
+    "edit->refactor": 2,
+    "refactor->edit": 4,
+    "investigate->fix": 4,
+    "edit->fix": 1,
+    "refactor->feature": 2,
+    "plan->feature": 1,
+    "review->investigate": 3,
+    "test->investigate": 1,
+    "feature->edit": 4,
+    "feature->plan": 6,
+    "fix->refactor": 1,
+    "review->fix": 3,
+    "fix->feature": 2,
+    "discuss->explain": 1,
+    "refactor->plan": 3,
+    "fix->test": 1,
+    "investigate->plan": 2,
+    "git->unclassified": 1,
+    "discuss->unclassified": 2,
+    "fix->edit": 2
+  },
+  "missing": 0,
+  "failed": 0,
+  "perCase": [
+    {
+      "id": "h-git-commit-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-commit-2",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-commit-3",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-commit-4",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-push-open-pr-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-push-open-pr-2",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-push-open-pr-3",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-push-open-pr-4",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-sync-branch-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-sync-branch-2",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-sync-branch-3",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-sync-branch-4",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-revert-last-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-revert-last-2",
+      "gold": "fix",
+      "secondary": [
+        "edit"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-git-revert-last-3",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-issue-pr-status-1",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.05,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.85
+        }
+      }
+    },
+    {
+      "id": "h-issue-pr-status-2",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "review"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.05,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.85
+        }
+      }
+    },
+    {
+      "id": "h-issue-pr-status-3",
+      "gold": "explain",
+      "secondary": [
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.05,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.85
+        }
+      }
+    },
+    {
+      "id": "h-issue-pr-status-4",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.05,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.85
+        }
+      }
+    },
+    {
+      "id": "h-comment-results-on-issue-1",
+      "gold": "git",
+      "secondary": [
+        "docs"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.85,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.1,
+          "test": 0.25,
+          "docs": 0.15,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-comment-results-on-issue-2",
+      "gold": "git",
+      "secondary": [
+        "docs"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.05,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.2,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-comment-results-on-issue-3",
+      "gold": "git",
+      "secondary": [
+        "docs"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.05,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.2,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-open-issue-described-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0.1,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.2,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-open-issue-described-2",
+      "gold": "docs",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.05,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.2,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-open-issue-described-3",
+      "gold": "docs",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0.2,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-open-issue-described-4",
+      "gold": "docs",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0.85,
+          "fix": 0.15,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.1,
+          "plan": 0,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "h-typo-doc-fix-1",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.25,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.3,
+          "plan": 0,
+          "investigate": 0.1
+        }
+      }
+    },
+    {
+      "id": "h-typo-doc-fix-2",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.2,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.3,
+          "plan": 0,
+          "investigate": 0.1
+        }
+      }
+    },
+    {
+      "id": "h-typo-doc-fix-3",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.8,
+          "edit": 0.15,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.25,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-typo-doc-fix-4",
+      "gold": "docs",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.2,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.3,
+          "plan": 0,
+          "investigate": 0.05
+        }
+      }
+    },
+    {
+      "id": "h-single-line-edit-1",
+      "gold": "edit",
+      "secondary": [],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0.75,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0.05,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-single-line-edit-2",
+      "gold": "edit",
+      "secondary": [
+        "fix",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0.75,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0.05,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-single-line-edit-3",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0.75,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0.05,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-local-rename-1",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0.75,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0.05,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-local-rename-2",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0.75,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0.05,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-local-rename-3",
+      "gold": "refactor",
+      "secondary": [
+        "edit",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0,
+          "refactor": 0.25,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-config-tweak-1",
+      "gold": "edit",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0,
+          "refactor": 0.25,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-config-tweak-2",
+      "gold": "edit",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0,
+          "refactor": 0.1,
+          "review": 0,
+          "test": 0.3,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-config-tweak-3",
+      "gold": "edit",
+      "secondary": [
+        "fix",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0,
+          "refactor": 0.25,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-config-tweak-4",
+      "gold": "edit",
+      "secondary": [],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.25,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0.15,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-run-named-command-1",
+      "gold": "test",
+      "secondary": [
+        "discuss",
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.25,
+          "test": 0.85,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-run-named-command-2",
+      "gold": "test",
+      "secondary": [
+        "discuss",
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.25,
+          "test": 0.85,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-run-named-command-3",
+      "gold": "test",
+      "secondary": [
+        "discuss",
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [],
+        "scores": {
+          "explain": 0.2,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.85,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.35
+        }
+      }
+    },
+    {
+      "id": "h-run-named-command-4",
+      "gold": "test",
+      "secondary": [
+        "fix",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.25,
+          "test": 0.85,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-bounded-explanation-1",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.85,
+          "discuss": 0.1,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.05,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-bounded-explanation-2",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.8,
+          "discuss": 0.25,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.05,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-bounded-explanation-3",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.85,
+          "discuss": 0.1,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.05,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-bounded-explanation-4",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.85,
+          "discuss": 0.1,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.05,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-read-log-report-1",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.15,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.1,
+          "test": 0.35,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.85
+        }
+      }
+    },
+    {
+      "id": "h-read-log-report-2",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.15,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.1,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.3,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.85
+        }
+      }
+    },
+    {
+      "id": "h-read-log-report-3",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.15,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.3,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.85
+        }
+      }
+    },
+    {
+      "id": "h-list-remaining-tasks-1",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.15,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.35,
+          "plan": 0.1,
+          "investigate": 0.75
+        }
+      }
+    },
+    {
+      "id": "h-list-remaining-tasks-2",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.15,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.35,
+          "plan": 0.1,
+          "investigate": 0.75
+        }
+      }
+    },
+    {
+      "id": "h-list-remaining-tasks-3",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "git",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0.25,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0,
+          "plan": 0.15,
+          "investigate": 0.8
+        }
+      }
+    },
+    {
+      "id": "h-add-link-docs-1",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0.05,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.35,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.8,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-add-link-docs-2",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0.05,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.35,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.8,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-fix-cli-error-log-1",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "edit",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate"
+        ],
+        "scores": {
+          "explain": 0.2,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.85,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.45
+        }
+      }
+    },
+    {
+      "id": "h-fix-cli-error-log-2",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0.15,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.85,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.35
+        }
+      }
+    },
+    {
+      "id": "h-fix-cli-error-log-3",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.9,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "h-fix-cli-error-log-4",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.9,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "h-fix-failing-test-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.35
+        }
+      }
+    },
+    {
+      "id": "h-fix-failing-test-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "h-fix-failing-test-3",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.45
+        }
+      }
+    },
+    {
+      "id": "h-fix-failing-test-4",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.1,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "h-add-cli-flag-1",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.2,
+          "feature": 0.75,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0.1,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-add-cli-flag-2",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.1,
+          "feature": 0.75,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0.2,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-add-cli-flag-3",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.1,
+          "feature": 0.8,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.4,
+          "docs": 0.2,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-nondeterministic-output-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.1,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "h-nondeterministic-output-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.1,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-nondeterministic-output-3",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.8,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "h-warning-level-fix-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.1,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-warning-level-fix-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.15,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "h-warning-level-fix-3",
+      "gold": "edit",
+      "secondary": [
+        "refactor",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.15,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "h-debug-crash-after-start-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.45
+        }
+      }
+    },
+    {
+      "id": "h-debug-crash-after-start-2",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "fix"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.75,
+          "edit": 0.1,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.45
+        }
+      }
+    },
+    {
+      "id": "h-debug-crash-after-start-3",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [
+          "fix"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.5,
+          "edit": 0.1,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.7
+        }
+      }
+    },
+    {
+      "id": "h-multi-file-feature-1",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.1,
+          "feature": 0.75,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0.15,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-multi-file-feature-2",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.15,
+          "feature": 0.75,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0.1,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-multi-file-feature-3",
+      "gold": "plan",
+      "secondary": [
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "docs"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.15,
+          "feature": 0.75,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.25,
+          "docs": 0.45,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-focused-review-1",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "discuss",
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.15,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.8,
+          "test": 0.2,
+          "docs": 0.1,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-focused-review-2",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "fix",
+        "test"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.25,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.85,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-focused-review-3",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.15,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.8,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.1
+        }
+      }
+    },
+    {
+      "id": "h-focused-benchmark-1",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0.15,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.8
+        }
+      }
+    },
+    {
+      "id": "h-focused-benchmark-2",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0.15,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.75
+        }
+      }
+    },
+    {
+      "id": "h-function-refactor-1",
+      "gold": "refactor",
+      "secondary": [
+        "explain",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0.85,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.1
+        }
+      }
+    },
+    {
+      "id": "h-function-refactor-2",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0.85,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.1
+        }
+      }
+    },
+    {
+      "id": "h-function-refactor-3",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0.8,
+          "review": 0,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.1
+        }
+      }
+    },
+    {
+      "id": "h-hash-algorithm-support-1",
+      "gold": "feature",
+      "secondary": [
+        "fix",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.15,
+          "feature": 0.8,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-hash-algorithm-support-2",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.15,
+          "feature": 0.75,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.35,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-toolchain-check-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.8,
+          "edit": 0.2,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-toolchain-check-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.8,
+          "edit": 0.2,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-relative-paths-1",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.75,
+          "feature": 0.1,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-relative-paths-2",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.75,
+          "feature": 0.1,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-validation-rule-1",
+      "gold": "feature",
+      "secondary": [
+        "fix",
+        "review",
+        "test",
+        "docs",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.15,
+          "edit": 0,
+          "feature": 0.7,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-validation-rule-2",
+      "gold": "feature",
+      "secondary": [
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.15,
+          "edit": 0,
+          "feature": 0.75,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.4,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-update-docs-examples-1",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "review"
+        ],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.15,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.4,
+          "test": 0,
+          "docs": 0.8,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-update-docs-examples-2",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.15,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.35,
+          "docs": 0.8,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-audit-all-repos-1",
+      "gold": "review",
+      "secondary": [
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.25,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.8
+        }
+      }
+    },
+    {
+      "id": "h-audit-all-repos-2",
+      "gold": "review",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.25,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.8
+        }
+      }
+    },
+    {
+      "id": "h-audit-all-repos-3",
+      "gold": "investigate",
+      "secondary": [
+        "explain"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.1,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.85
+        }
+      }
+    },
+    {
+      "id": "h-phase-plan-to-issue-1",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "git",
+        "feature"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "git"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.2,
+          "git": 0.5,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0.75,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-phase-plan-to-issue-2",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "git",
+        "feature"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "git"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.2,
+          "git": 0.5,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0.75,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-phase-plan-to-issue-3",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.2,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.1,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.05,
+          "docs": 0,
+          "plan": 0.8,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-roadmap-phase-implement-1",
+      "gold": "feature",
+      "secondary": [
+        "explain",
+        "git",
+        "review",
+        "test",
+        "docs",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "git"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.5,
+          "fix": 0.1,
+          "edit": 0,
+          "feature": 0.75,
+          "refactor": 0.05,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.35
+        }
+      }
+    },
+    {
+      "id": "h-roadmap-phase-implement-2",
+      "gold": "feature",
+      "secondary": [
+        "explain",
+        "fix",
+        "review",
+        "test",
+        "docs",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "git",
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.5,
+          "fix": 0.05,
+          "edit": 0,
+          "feature": 0.75,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "h-roadmap-phase-implement-3",
+      "gold": "feature",
+      "secondary": [
+        "explain",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "feature"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0.05,
+          "edit": 0,
+          "feature": 0.45,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.2,
+          "plan": 0.75,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-migration-1",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0.1,
+          "refactor": 0.85,
+          "review": 0,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-migration-2",
+      "gold": "refactor",
+      "secondary": [
+        "feature",
+        "review",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "docs"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.1,
+          "refactor": 0.85,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0.4,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-migration-3",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "plan"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0.75,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0.4,
+          "investigate": 0.3
+        }
+      }
+    },
+    {
+      "id": "h-migration-4",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "review",
+        "test",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0.1,
+          "refactor": 0.85,
+          "review": 0,
+          "test": 0.3,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-large-scale-rename-1",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0.85,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0.35,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-large-scale-rename-2",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "docs"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0.85,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0.4,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-architecture-design-1",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "plan"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.05,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.75,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0.15,
+          "plan": 0.5,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-architecture-design-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "plan"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.05,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.75,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0.15,
+          "plan": 0.5,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-architecture-design-3",
+      "gold": "plan",
+      "secondary": [
+        "explain",
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.2,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.15,
+          "plan": 0.85,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-parallel-delegation-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test",
+          "docs"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0.7,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.55,
+          "docs": 0.45,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-parallel-delegation-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "docs"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.25,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0.7,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0.5,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-parallel-delegation-3",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "review"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0.8,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0,
+          "review": 0.4,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-repo-wide-replace-1",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.05,
+          "fix": 0.1,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0.85,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-repo-wide-replace-2",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.05,
+          "fix": 0.1,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0.85,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-repo-wide-replace-3",
+      "gold": "review",
+      "secondary": [
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.85,
+          "edit": 0.25,
+          "feature": 0,
+          "refactor": 0.3,
+          "review": 0.1,
+          "test": 0.4,
+          "docs": 0,
+          "plan": 0.05,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-broad-synthesis-1",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "investigate"
+        ],
+        "scores": {
+          "explain": 0.2,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.3,
+          "test": 0.05,
+          "docs": 0.8,
+          "plan": 0.15,
+          "investigate": 0.45
+        }
+      }
+    },
+    {
+      "id": "h-broad-synthesis-2",
+      "gold": "docs",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "investigate"
+        ],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.3,
+          "test": 0.05,
+          "docs": 0.85,
+          "plan": 0.2,
+          "investigate": 0.45
+        }
+      }
+    },
+    {
+      "id": "h-cross-platform-ci-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "feature",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "fix",
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.45,
+          "edit": 0.2,
+          "feature": 0.85,
+          "refactor": 0.1,
+          "review": 0,
+          "test": 0.4,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-cross-platform-ci-2",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "feature",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "fix"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.5,
+          "edit": 0.15,
+          "feature": 0.8,
+          "refactor": 0.1,
+          "review": 0,
+          "test": 0.35,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-spec-feature-program-1",
+      "gold": "plan",
+      "secondary": [
+        "feature",
+        "review",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "docs",
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.35,
+          "refactor": 0.1,
+          "review": 0,
+          "test": 0.4,
+          "docs": 0.45,
+          "plan": 0.85,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-spec-feature-program-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "docs",
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.35,
+          "refactor": 0.1,
+          "review": 0,
+          "test": 0.4,
+          "docs": 0.45,
+          "plan": 0.9,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-numbered-answers-1",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.8,
+          "git": 0,
+          "fix": 0.1,
+          "edit": 0.25,
+          "feature": 0.15,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.05,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-numbered-answers-2",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [],
+        "scores": {
+          "explain": 0.2,
+          "discuss": 0.75,
+          "git": 0,
+          "fix": 0.05,
+          "edit": 0,
+          "feature": 0.1,
+          "refactor": 0,
+          "review": 0.35,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-numbered-answers-3",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0.85,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.3,
+          "feature": 0.1,
+          "refactor": 0.2,
+          "review": 0,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-numbered-answers-4",
+      "gold": "discuss",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0.85,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.2,
+          "feature": 0,
+          "refactor": 0.15,
+          "review": 0.1,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-numbered-answers-5",
+      "gold": "discuss",
+      "secondary": [
+        "fix",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [
+          "explain"
+        ],
+        "scores": {
+          "explain": 0.4,
+          "discuss": 0.85,
+          "git": 0,
+          "fix": 0.1,
+          "edit": 0.15,
+          "feature": 0,
+          "refactor": 0.2,
+          "review": 0,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-unstated-reference-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.85,
+          "edit": 0.1,
+          "feature": 0,
+          "refactor": 0.15,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.05
+        }
+      }
+    },
+    {
+      "id": "h-unstated-reference-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.05,
+          "git": 0,
+          "fix": 0.2,
+          "edit": 0.75,
+          "feature": 0.15,
+          "refactor": 0.3,
+          "review": 0,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-unstated-reference-4",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.85,
+          "edit": 0.15,
+          "feature": 0.05,
+          "refactor": 0.2,
+          "review": 0,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.1
+        }
+      }
+    },
+    {
+      "id": "h-unstated-reference-5",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.9,
+          "edit": 0.1,
+          "feature": 0,
+          "refactor": 0.15,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.05
+        }
+      }
+    },
+    {
+      "id": "h-unstated-reference-6",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.1,
+          "edit": 0.75,
+          "feature": 0.35,
+          "refactor": 0.15,
+          "review": 0,
+          "test": 0,
+          "docs": 0.05,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-clarification-confusion-1",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.85,
+          "discuss": 0.15,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.1,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "h-clarification-confusion-2",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.9,
+          "discuss": 0.1,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "h-clarification-confusion-3",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [],
+        "scores": {
+          "explain": 0.35,
+          "discuss": 0.2,
+          "git": 0,
+          "fix": 0.1,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.8
+        }
+      }
+    },
+    {
+      "id": "h-long-context-pasted-discussion-1",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.75,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.25,
+          "feature": 0,
+          "refactor": 0.05,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0.35,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-context-pasted-discussion-2",
+      "gold": "discuss",
+      "secondary": [
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.8,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.2,
+          "feature": 0.1,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-bugfix-report-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.85,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0.15,
+          "review": 0,
+          "test": 0.65,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "h-long-bugfix-report-2",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.85,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0.15,
+          "review": 0,
+          "test": 0.65,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "h-long-release-ops-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.9,
+          "fix": 0,
+          "edit": 0.1,
+          "feature": 0.15,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.25,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-release-ops-2",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.9,
+          "fix": 0,
+          "edit": 0.1,
+          "feature": 0.15,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.25,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-migration-brief-1",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "feature",
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.35,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.65,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.55,
+          "docs": 0,
+          "plan": 0.9,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-migration-brief-2",
+      "gold": "refactor",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "feature",
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.35,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.65,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.55,
+          "docs": 0,
+          "plan": 0.9,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-explain-design-choice-1",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.8,
+          "discuss": 0.25,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-explain-design-choice-2",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.8,
+          "discuss": 0.25,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-small-test-addition-1",
+      "gold": "fix",
+      "secondary": [
+        "explain",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [
+          "fix"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.5,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.85,
+          "docs": 0.15,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "h-small-test-addition-2",
+      "gold": "test",
+      "secondary": [
+        "fix",
+        "review"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [
+          "fix"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.5,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.85,
+          "docs": 0.15,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "h-dependency-upgrade-1",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "test",
+          "fix"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.5,
+          "edit": 0.15,
+          "feature": 0,
+          "refactor": 0.85,
+          "review": 0,
+          "test": 0.6,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-dependency-upgrade-2",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [
+          "test",
+          "fix"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.5,
+          "edit": 0.15,
+          "feature": 0,
+          "refactor": 0.85,
+          "review": 0,
+          "test": 0.6,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-ci-workflow-small-1",
+      "gold": "refactor",
+      "secondary": [
+        "fix",
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0.85,
+          "feature": 0.15,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.3,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-ci-workflow-small-2",
+      "gold": "feature",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.2,
+          "feature": 0.85,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.35,
+          "docs": 0,
+          "plan": 0.1,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-audit-and-fix-1",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "investigate",
+          "fix",
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.5,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0.85,
+          "investigate": 0.7
+        }
+      }
+    },
+    {
+      "id": "h-long-audit-and-fix-2",
+      "gold": "investigate",
+      "secondary": [
+        "explain",
+        "discuss",
+        "review"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "investigate",
+          "fix",
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.5,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0.85,
+          "investigate": 0.7
+        }
+      }
+    },
+    {
+      "id": "h-monorepo-restructure-1",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.3,
+          "feature": 0,
+          "refactor": 0.9,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0,
+          "plan": 0.15,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-monorepo-restructure-2",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "refactor",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.3,
+          "feature": 0,
+          "refactor": 0.9,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0,
+          "plan": 0.15,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-monorepo-restructure-3",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "docs",
+          "refactor"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0.45,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0.5,
+          "plan": 0.75,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-security-hardening-program-1",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "refactor",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "investigate",
+          "git",
+          "test",
+          "feature"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.5,
+          "fix": 0.35,
+          "edit": 0.2,
+          "feature": 0.4,
+          "refactor": 0.1,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0.75,
+          "investigate": 0.55
+        }
+      }
+    },
+    {
+      "id": "h-security-hardening-program-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "refactor",
+        "review",
+        "test",
+        "docs",
+        "plan",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "investigate",
+          "git",
+          "test",
+          "feature"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.5,
+          "fix": 0.35,
+          "edit": 0.2,
+          "feature": 0.4,
+          "refactor": 0.1,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0.75,
+          "investigate": 0.55
+        }
+      }
+    },
+    {
+      "id": "h-security-hardening-program-3",
+      "gold": "review",
+      "secondary": [
+        "fix",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate",
+          "plan"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0.8,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0.1,
+          "review": 0,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0.45,
+          "investigate": 0.55
+        }
+      }
+    },
+    {
+      "id": "h-observability-rollout-1",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "plan",
+          "docs",
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.25,
+          "fix": 0,
+          "edit": 0.1,
+          "feature": 0.8,
+          "refactor": 0.15,
+          "review": 0,
+          "test": 0.4,
+          "docs": 0.45,
+          "plan": 0.55,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-observability-rollout-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "plan"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.65,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.3,
+          "docs": 0.35,
+          "plan": 0.45,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-api-versioning-1",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "feature",
+          "docs",
+          "edit"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.15,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0.4,
+          "feature": 0.5,
+          "refactor": 0.25,
+          "review": 0,
+          "test": 0.3,
+          "docs": 0.45,
+          "plan": 0.75,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-api-versioning-2",
+      "gold": "feature",
+      "secondary": [
+        "discuss",
+        "docs",
+        "plan"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "feature",
+          "docs",
+          "edit"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.15,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0.4,
+          "feature": 0.5,
+          "refactor": 0.25,
+          "review": 0,
+          "test": 0.3,
+          "docs": 0.45,
+          "plan": 0.75,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-regression-log-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0.75,
+          "edit": 0.15,
+          "feature": 0,
+          "refactor": 0.05,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-regression-log-2",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0.75,
+          "edit": 0.15,
+          "feature": 0,
+          "refactor": 0.05,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-perf-regression-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate",
+          "test",
+          "git"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.4,
+          "fix": 0.75,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.5
+        }
+      }
+    },
+    {
+      "id": "h-long-perf-regression-2",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate",
+          "test",
+          "git"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.4,
+          "fix": 0.75,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.5
+        }
+      }
+    },
+    {
+      "id": "h-long-flaky-e2e-1",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate",
+          "test",
+          "git"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.4,
+          "fix": 0.75,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.5
+        }
+      }
+    },
+    {
+      "id": "h-long-flaky-e2e-2",
+      "gold": "fix",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "investigate",
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.15,
+          "fix": 0.75,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.45,
+          "docs": 0.1,
+          "plan": 0,
+          "investigate": 0.5
+        }
+      }
+    },
+    {
+      "id": "h-long-bounded-edit-1",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "git"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.45,
+          "fix": 0.2,
+          "edit": 0.15,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.85,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-bounded-edit-2",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "git"
+        ],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0.45,
+          "fix": 0,
+          "edit": 0.35,
+          "feature": 0.1,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.75,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-issue-comment-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [
+          "explain"
+        ],
+        "scores": {
+          "explain": 0.45,
+          "discuss": 0,
+          "git": 0.8,
+          "fix": 0.05,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-issue-comment-2",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [
+          "explain"
+        ],
+        "scores": {
+          "explain": 0.45,
+          "discuss": 0,
+          "git": 0.8,
+          "fix": 0.05,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-status-pasted-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": null,
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0.1,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0.05,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "h-long-bounded-explanation-1",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "investigate",
+        "secondary": [
+          "explain"
+        ],
+        "scores": {
+          "explain": 0.45,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.2,
+          "test": 0,
+          "docs": 0,
+          "plan": 0.1,
+          "investigate": 0.75
+        }
+      }
+    },
+    {
+      "id": "h-long-bounded-explanation-2",
+      "gold": "explain",
+      "secondary": [
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.95,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.1,
+          "test": 0,
+          "docs": 0.05,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-long-dependency-conflict-1",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [
+          "test",
+          "discuss"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.5,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.55,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.1
+        }
+      }
+    },
+    {
+      "id": "h-long-dependency-conflict-2",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [
+          "test",
+          "discuss"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.5,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.55,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.1
+        }
+      }
+    },
+    {
+      "id": "h-long-data-migration-script-1",
+      "gold": "refactor",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "feature",
+        "secondary": [
+          "test"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.2,
+          "feature": 0.95,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.6,
+          "docs": 0.1,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "h-long-docs-overhaul-1",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "test",
+          "plan",
+          "refactor"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0.4,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0.85,
+          "plan": 0.45,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-long-docs-overhaul-2",
+      "gold": "docs",
+      "secondary": [],
+      "predicted": {
+        "gold": "docs",
+        "secondary": [
+          "test",
+          "plan",
+          "refactor"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0.4,
+          "review": 0,
+          "test": 0.5,
+          "docs": 0.85,
+          "plan": 0.45,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-long-context-question-1",
+      "gold": "discuss",
+      "secondary": [],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0.7,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0,
+          "plan": 0.1,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "h-long-context-question-2",
+      "gold": "discuss",
+      "secondary": [],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [],
+        "scores": {
+          "explain": 0.15,
+          "discuss": 0.65,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.1
+        }
+      }
+    },
+    {
+      "id": "h-long-focused-review-1",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "fix",
+        "secondary": [
+          "test",
+          "review"
+        ],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.8,
+          "edit": 0.05,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.5,
+          "test": 0.55,
+          "docs": 0.1,
+          "plan": 0,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "h-long-git-ops-1",
+      "gold": "git",
+      "secondary": [],
+      "predicted": {
+        "gold": "git",
+        "secondary": [],
+        "scores": {
+          "explain": 0.05,
+          "discuss": 0,
+          "git": 0.95,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.15,
+          "plan": 0,
+          "investigate": 0.1
+        }
+      }
+    },
+    {
+      "id": "i-add-regression-tests-1",
+      "gold": "test",
+      "secondary": [
+        "feature",
+        "review"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.95,
+          "docs": 0.05,
+          "plan": 0.1,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-add-regression-tests-2",
+      "gold": "test",
+      "secondary": [
+        "feature"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.95,
+          "docs": 0.05,
+          "plan": 0.1,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-run-suite-report-1",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.1,
+          "test": 0.95,
+          "docs": 0.05,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "i-run-suite-report-2",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.1,
+          "test": 0.95,
+          "docs": 0.05,
+          "plan": 0,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "i-error-path-tests-1",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.05,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.95,
+          "docs": 0,
+          "plan": 0.1,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-error-path-tests-2",
+      "gold": "test",
+      "secondary": [
+        "explain",
+        "review",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "test",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0.05,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.15,
+          "test": 0.95,
+          "docs": 0,
+          "plan": 0.1,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-phase-breakdown-1",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.15,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.1,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.05,
+          "plan": 0.95,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-phase-breakdown-2",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.15,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.1,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.05,
+          "plan": 0.95,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-loader-spec-1",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.05,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.1,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.15,
+          "plan": 0.95,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-loader-spec-2",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "feature",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.05,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.1,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.15,
+          "plan": 0.95,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-index-adr-1",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "docs"
+        ],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0.35,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.45,
+          "plan": 0.75,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "i-index-adr-2",
+      "gold": "plan",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "plan",
+        "secondary": [
+          "docs"
+        ],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0.35,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.05,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.45,
+          "plan": 0.75,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "i-pick-an-option-1",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [],
+        "scores": {
+          "explain": 0.15,
+          "discuss": 0.75,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.35,
+          "feature": 0,
+          "refactor": 0.25,
+          "review": 0,
+          "test": 0,
+          "docs": 0,
+          "plan": 0.05,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-pick-an-option-2",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [],
+        "scores": {
+          "explain": 0.15,
+          "discuss": 0.75,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.35,
+          "feature": 0,
+          "refactor": 0.25,
+          "review": 0,
+          "test": 0,
+          "docs": 0,
+          "plan": 0.05,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-settle-open-points-1",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": null,
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.05,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.2,
+          "feature": 0.15,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.1,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-settle-open-points-2",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "test",
+        "docs"
+      ],
+      "predicted": {
+        "gold": null,
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0.05,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.2,
+          "feature": 0.15,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0.1,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-cache-tradeoff-1",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [],
+        "scores": {
+          "explain": 0.15,
+          "discuss": 0.7,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.35,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0,
+          "plan": 0.05,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "i-cache-tradeoff-2",
+      "gold": "discuss",
+      "secondary": [
+        "explain",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "discuss",
+        "secondary": [],
+        "scores": {
+          "explain": 0.15,
+          "discuss": 0.7,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0.35,
+          "refactor": 0,
+          "review": 0,
+          "test": 0,
+          "docs": 0,
+          "plan": 0.05,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "i-review-pr-callers-1",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0.05,
+          "git": 0,
+          "fix": 0.2,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.8,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "i-review-pr-callers-2",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0.05,
+          "git": 0,
+          "fix": 0.2,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.8,
+          "test": 0.15,
+          "docs": 0,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "i-review-migration-guide-1",
+      "gold": "review",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.8,
+          "test": 0,
+          "docs": 0.15,
+          "plan": 0.05,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "i-review-migration-guide-2",
+      "gold": "review",
+      "secondary": [
+        "discuss",
+        "docs"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.8,
+          "test": 0,
+          "docs": 0.15,
+          "plan": 0.05,
+          "investigate": 0.2
+        }
+      }
+    },
+    {
+      "id": "i-review-test-quality-1",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.8,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0.05,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "i-review-test-quality-2",
+      "gold": "review",
+      "secondary": [
+        "test",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "review",
+        "secondary": [],
+        "scores": {
+          "explain": 0.1,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0.8,
+          "test": 0.25,
+          "docs": 0,
+          "plan": 0.05,
+          "investigate": 0.15
+        }
+      }
+    },
+    {
+      "id": "i-edit-timeout-1",
+      "gold": "edit",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0.1,
+          "plan": 0,
+          "investigate": 0.05
+        }
+      }
+    },
+    {
+      "id": "i-edit-timeout-2",
+      "gold": "edit",
+      "secondary": [
+        "review",
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.2,
+          "docs": 0.1,
+          "plan": 0,
+          "investigate": 0.05
+        }
+      }
+    },
+    {
+      "id": "i-edit-error-message-1",
+      "gold": "fix",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0.15,
+          "plan": 0,
+          "investigate": 0.05
+        }
+      }
+    },
+    {
+      "id": "i-edit-error-message-2",
+      "gold": "fix",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0.15,
+          "plan": 0,
+          "investigate": 0.05
+        }
+      }
+    },
+    {
+      "id": "i-edit-default-logging-1",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0.15,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0.05,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-edit-default-logging-2",
+      "gold": "edit",
+      "secondary": [
+        "test"
+      ],
+      "predicted": {
+        "gold": "edit",
+        "secondary": [],
+        "scores": {
+          "explain": 0,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0.8,
+          "feature": 0.15,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.1,
+          "docs": 0.05,
+          "plan": 0,
+          "investigate": 0
+        }
+      }
+    },
+    {
+      "id": "i-explain-routing-flow-1",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.95,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.05,
+          "docs": 0.15,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    },
+    {
+      "id": "i-explain-routing-flow-2",
+      "gold": "explain",
+      "secondary": [
+        "discuss",
+        "investigate"
+      ],
+      "predicted": {
+        "gold": "explain",
+        "secondary": [],
+        "scores": {
+          "explain": 0.95,
+          "discuss": 0,
+          "git": 0,
+          "fix": 0,
+          "edit": 0,
+          "feature": 0,
+          "refactor": 0,
+          "review": 0,
+          "test": 0.05,
+          "docs": 0.15,
+          "plan": 0,
+          "investigate": 0.25
+        }
+      }
+    }
+  ],
+  "completion": {
+    "note": "40 cases whose batches of 20 failed validation twice were labeled again in batches of 5 with the same rules; no case was relabeled after it was labeled",
+    "rebatched": 40
+  }
+}

@@ -1,0 +1,2228 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "h-git-commit-1",
+      "family": "git-commit",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "先 commit",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-commit-2",
+      "family": "git-commit",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "幫我把目前的變更 commit 起來, message 用 fix 開頭",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-commit-3",
+      "family": "git-commit",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Commit the staged changes with a conventional commit message.",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-commit-4",
+      "family": "git-commit",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "commit all changes",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-push-open-pr-1",
+      "family": "git-push-open-pr",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "推上去然後開 PR, 描述簡短就好",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-push-open-pr-2",
+      "family": "git-push-open-pr",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "先 push 開 PR, base 用 main",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-push-open-pr-3",
+      "family": "git-push-open-pr",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Push this branch and open a PR against main.",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-push-open-pr-4",
+      "family": "git-push-open-pr",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Open a draft pull request for the current branch and link it to issue 41.",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-sync-branch-1",
+      "family": "git-sync-branch",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "先拉到最新",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-sync-branch-2",
+      "family": "git-sync-branch",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "切回 main 然後 pull 最新的",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-sync-branch-3",
+      "family": "git-sync-branch",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Rebase this branch onto the latest main.",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-sync-branch-4",
+      "family": "git-sync-branch",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Fetch and fast-forward main.",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-revert-last-1",
+      "family": "git-revert-last",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "把上一個 commit revert 掉",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-revert-last-2",
+      "family": "git-revert-last",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "剛剛對 package.json 的修改還原回去",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-git-revert-last-3",
+      "family": "git-revert-last",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Revert the last commit on this branch.",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-issue-pr-status-1",
+      "family": "issue-pr-status",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "確認一下 issue 42 的狀態",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-issue-pr-status-2",
+      "family": "issue-pr-status",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "看一下 PR 17 的 CI 過了沒",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-issue-pr-status-3",
+      "family": "issue-pr-status",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "What is the status of the checks on PR 12?",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-issue-pr-status-4",
+      "family": "issue-pr-status",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Is issue 88 still open?",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-comment-results-on-issue-1",
+      "family": "comment-results-on-issue",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "把剛剛的測試結果整理一下 comment 到 issue 30",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-comment-results-on-issue-2",
+      "family": "comment-results-on-issue",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "把這次 benchmark 的數字 comment 到 PR 64, 表格就好",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-comment-results-on-issue-3",
+      "family": "comment-results-on-issue",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Post the benchmark summary above as a comment on issue 9.",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-open-issue-described-1",
+      "family": "open-issue-described",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "幫我開一個 issue: 在 Windows 上執行 build.sh 時找不到 protoc, 錯誤訊息附在內文, label 用 bug",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-open-issue-described-2",
+      "family": "open-issue-described",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "開一張票記錄這個問題: worktree 裡 commit 了 submodule 的 hash, 但主 repo 沒有跟著更新, 先不用修, 描述清楚重現步驟就好",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-open-issue-described-3",
+      "family": "open-issue-described",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "File an issue describing the flaky login test we saw today and label it bug.",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-open-issue-described-4",
+      "family": "open-issue-described",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Create an issue titled \"Export ignores --quiet\" with the reproduction command from the README.",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-typo-doc-fix-1",
+      "family": "typo-doc-fix",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "README 第二段有錯字 幫我改掉",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-typo-doc-fix-2",
+      "family": "typo-doc-fix",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "CHANGELOG 裡 0.3.0 的連結壞了 修正一下",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-typo-doc-fix-3",
+      "family": "typo-doc-fix",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Fix the typo 'recieve' in docs/setup.md.",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-typo-doc-fix-4",
+      "family": "typo-doc-fix",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "The install section says Node 16 but we require Node 22; update that sentence.",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-single-line-edit-1",
+      "family": "single-line-edit",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Change the greeting in src/greet.js from 'Hello' to 'Hi' and do not touch any other file.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-single-line-edit-2",
+      "family": "single-line-edit",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "把 src/config.ts 裡預設的 port 從 8080 改成 3000, 其他不要動",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-single-line-edit-3",
+      "family": "single-line-edit",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Set the default log level to warn in config/default.yaml.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-local-rename-1",
+      "family": "local-rename",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "把 parseCfg 改名成 parseConfig, 只有這個檔案有用到",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-local-rename-2",
+      "family": "local-rename",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Rename the variable tmp to buffer in utils/io.js.",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-local-rename-3",
+      "family": "local-rename",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "utils.go 裡的 getVal 改成 getValue",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-config-tweak-1",
+      "family": "config-tweak",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "把 eslint 的 max-len 調成 120",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-config-tweak-2",
+      "family": "config-tweak",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Bump the Jest test timeout to 30 seconds.",
+      "proposedGold": "test",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-config-tweak-3",
+      "family": "config-tweak",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "vendor 欄位先不要填, 從範本設定檔拿掉就好",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-config-tweak-4",
+      "family": "config-tweak",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Add node_modules and dist to .gitignore.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-run-named-command-1",
+      "family": "run-named-command",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "重新跑一下所有測試看看",
+      "proposedGold": "test",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-run-named-command-2",
+      "family": "run-named-command",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "跑一下 lint",
+      "proposedGold": "test",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-run-named-command-3",
+      "family": "run-named-command",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Run npm test and tell me which tests fail.",
+      "proposedGold": "test",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-run-named-command-4",
+      "family": "run-named-command",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "run the build once more",
+      "proposedGold": "test",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bounded-explanation-1",
+      "family": "bounded-explanation",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "解釋一下 retry.go 裡 backoff 是怎麼算的",
+      "proposedGold": "explain",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bounded-explanation-2",
+      "family": "bounded-explanation",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "目前的定義裡應該用不到 payload 欄位? 只是為了放 hashes 嗎?",
+      "proposedGold": "explain",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bounded-explanation-3",
+      "family": "bounded-explanation",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "What does the --dry-run flag do in scripts/release.js?",
+      "proposedGold": "explain",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bounded-explanation-4",
+      "family": "bounded-explanation",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Explain why the cache key includes the schema version.",
+      "proposedGold": "explain",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-read-log-report-1",
+      "family": "read-log-report",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "跑完了 看一下 log 有沒有 warning",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-read-log-report-2",
+      "family": "read-log-report",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "看一下最後一次 CI 的 log, 告訴我是哪個 step 失敗",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-read-log-report-3",
+      "family": "read-log-report",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Check the latest nightly job log and tell me which test broke.",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-list-remaining-tasks-1",
+      "family": "list-remaining-tasks",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "看一下 docs/roadmap/phase-20 還有哪些沒完成的部分 用 task list 簡單列出來",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-list-remaining-tasks-2",
+      "family": "list-remaining-tasks",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "List the unchecked items in docs/roadmap/phase-3.md as a short checklist.",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-list-remaining-tasks-3",
+      "family": "list-remaining-tasks",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "整理一下 issue 85 目前剩下哪些待辦",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-add-link-docs-1",
+      "family": "add-link-docs",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "在 README 的安裝段落加上 CONTRIBUTING.md 的連結",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-add-link-docs-2",
+      "family": "add-link-docs",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Link the architecture doc from the top of the README.",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-fix-cli-error-log-1",
+      "family": "fix-cli-error-log",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "$ ./bin/exporter generate --target \"cdx|json\"\n[ERROR] CLI execution failed\n  |-- [ERR_VALIDATION]: component graph check failed: node \"fw-core\" has no parent\n  |-- hint: every component must be reachable from the root\nThe graph is built from the manifest we parse, and the root is set. Find why the node is orphaned and fix it.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-fix-cli-error-log-2",
+      "family": "fix-cli-error-log",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "$ ./bin/exporter generate --target \"spdx|json\"\n[ERROR] schema validation failed: field \"checksum\" is required in package[3]\n第三個 package 明明有算 checksum, 看起來是序列化時被漏掉了, 幫我找原因修正並補一個測試",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-fix-cli-error-log-3",
+      "family": "fix-cli-error-log",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "執行 export 會 panic: index out of range [2] with length 2, 在 builder.go:118, 幫我修掉",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-fix-cli-error-log-4",
+      "family": "fix-cli-error-log",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "The import command crashes with \"TypeError: cannot read properties of undefined (reading 'id')\" when the input file has an empty array. Fix it.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-fix-failing-test-1",
+      "family": "fix-failing-test",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "parser 的單元測試掛了兩個 找一下原因修好",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-fix-failing-test-2",
+      "family": "fix-failing-test",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "The date formatting test fails only on Windows. Fix it and add a regression test.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-fix-failing-test-3",
+      "family": "fix-failing-test",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "CI 上 integration test 一直 timeout, 本機是好的, 查一下原因並修正",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-fix-failing-test-4",
+      "family": "fix-failing-test",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "test_retry_backoff is flaky; make it deterministic.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-add-cli-flag-1",
+      "family": "add-cli-flag",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "export 指令加一個 --output 參數可以指定輸出路徑, 記得補測試",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-add-cli-flag-2",
+      "family": "add-cli-flag",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Add a --verbose flag to the CLI that prints each processing step, with tests.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-add-cli-flag-3",
+      "family": "add-cli-flag",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "幫 scan 子命令加上 --exclude, 支援多個 glob pattern",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-nondeterministic-output-1",
+      "family": "nondeterministic-output",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "連續產生兩次報告做比較, 發現兩個問題:\n1. package checksums 的排序每次不一樣 (應該照演算法名稱的字母排序)\n2. license 清單順序也會變\n幫我修正讓輸出完全一致, 並加一個跑兩次比對的測試",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-nondeterministic-output-2",
+      "family": "nondeterministic-output",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Two consecutive builds produce different JSON because map iteration order leaks into the output. Make the output deterministic and add a test that builds twice and compares.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-nondeterministic-output-3",
+      "family": "nondeterministic-output",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "同一個輸入每次產出的 hash 都不同, 應該是時間戳被算進去了, 修一下",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-warning-level-fix-1",
+      "family": "warning-level-fix",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "跑完看 log 有一個 warn 說 project config 不是有效的, 但沒有指定 --board 參數時應該採預設的環境變數, 這情況應該判斷為有效, 幫我修正",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-warning-level-fix-2",
+      "family": "warning-level-fix",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "We log a warning when the optional cache dir is missing, but a missing optional dir is expected. Downgrade it to debug and make sure the default path is used; add a test.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-warning-level-fix-3",
+      "family": "warning-level-fix",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "cache 目錄不存在時印出的 warn 應該降成 debug, 改一下並確認其他呼叫的地方沒有受影響",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-debug-crash-after-start-1",
+      "family": "debug-crash-after-start",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "The API server crashes about 30 seconds after start. Last lines:\nFATAL: connection pool exhausted (max=10, in-use=10, waiting=37)\ngoroutine 212 [running]: db.(*Pool).Acquire(...) pool.go:88\nFind the leak and fix it.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-debug-crash-after-start-2",
+      "family": "debug-crash-after-start",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "server 跑一陣子記憶體就一直漲, 應該有地方沒釋放, 幫我找出來修掉",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-debug-crash-after-start-3",
+      "family": "debug-crash-after-start",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "worker 偶爾會 deadlock, 大概每跑 20 次會卡住一次, 查一下原因",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-multi-file-feature-1",
+      "family": "multi-file-feature",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Add pagination to the /users endpoint, including the handler, the repository query, and tests.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-multi-file-feature-2",
+      "family": "multi-file-feature",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "訂單列表要支援依建立時間篩選, API、資料庫查詢和前端表單都要改, 並補測試",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-multi-file-feature-3",
+      "family": "multi-file-feature",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Support YAML input in addition to JSON for the config loader, and update the validation and docs.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-focused-review-1",
+      "family": "focused-review",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "幫我 review 一下 PR 51 的改動, 特別注意錯誤處理",
+      "proposedGold": "review",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-focused-review-2",
+      "family": "focused-review",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Review the diff on this branch for correctness bugs.",
+      "proposedGold": "review",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-focused-review-3",
+      "family": "focused-review",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "檢查一下這次新增的 retry 邏輯有沒有邊界情況沒處理",
+      "proposedGold": "review",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-focused-benchmark-1",
+      "family": "focused-benchmark",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "量一下新舊兩種 JSON parser 的效能, 各跑 100 次比較 p50 p95",
+      "proposedGold": "test",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-focused-benchmark-2",
+      "family": "focused-benchmark",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Benchmark the cache hit path before and after this change and report the difference.",
+      "proposedGold": "test",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-function-refactor-1",
+      "family": "function-refactor",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "把 report.go 裡 300 行的 generate 函式拆成幾個小函式, 行為不能變, 測試要過",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-function-refactor-2",
+      "family": "function-refactor",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Extract the retry logic in http_client.py into its own class without changing behavior; keep the tests green.",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-function-refactor-3",
+      "family": "function-refactor",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "目前複雜度限制是 10, scanner.go 有兩個函式超過, 拆一下讓 lint 過",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-hash-algorithm-support-1",
+      "family": "hash-algorithm-support",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "hash 要支援 sha256 跟 sha512, 目前只有 sha1, 改一下並補測試",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-hash-algorithm-support-2",
+      "family": "hash-algorithm-support",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Allow the checksum field to use SHA-384 as well and update the validator and fixtures.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-toolchain-check-1",
+      "family": "toolchain-check",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Build fails on a fresh machine:\n==> [1/3] Compiling protobufs...\nprotoc version mismatch: expected libprotoc 25.1, got: libprotoc 3.21.12\nmake: *** [proto] Error 1\nMake build.sh check the protoc version up front and print a clear install hint.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-toolchain-check-2",
+      "family": "toolchain-check",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "build script 應該在一開始檢查 go 的版本, 不符合就直接報錯並提示怎麼安裝, 現在是編到一半才失敗",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-relative-paths-1",
+      "family": "relative-paths",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "報告裡的路徑之後會帶 workspace, 全部改成相對於 workspace 的相對路徑, 並更新相關測試",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-relative-paths-2",
+      "family": "relative-paths",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Store paths in the build report relative to the workspace root instead of absolute paths; update the tests.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-validation-rule-1",
+      "family": "validation-rule",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "firmware 產出的文件 file analyzed 一定是 false, 如果設成 true 就要報錯, 加上這個檢查跟測試",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-validation-rule-2",
+      "family": "validation-rule",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Reject manifests whose version field is not valid SemVer, with a clear error message and tests.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-update-docs-examples-1",
+      "family": "update-docs-examples",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "configuration.md 裡的範例寫法有問題, license 應該用 attribute 表達而不是 link, 幫我重新檢查整份文件的範例並修正",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-update-docs-examples-2",
+      "family": "update-docs-examples",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "The examples in docs/api.md use the old field names; update every example and make sure they still validate against the schema.",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-audit-all-repos-1",
+      "family": "audit-all-repos",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "派發 agent 去針對專案底下所有 repo 做兩個驗證:\n1. 檢查每個 repo 的寫法邏輯是否符合專案架構及慣例\n2. 檢查每個 repo 的測試是否真的有驗證到行為\n結果整理成違規清單, 之後再分派修正",
+      "proposedGold": "review",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-audit-all-repos-2",
+      "family": "audit-all-repos",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Audit every service in this monorepo for direct database access that bypasses the repository layer, and produce a list of violations with owners.",
+      "proposedGold": "review",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-audit-all-repos-3",
+      "family": "audit-all-repos",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "全部 repo 掃一遍, 找出還在用舊版 logging 套件的地方",
+      "proposedGold": "investigate",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-phase-plan-to-issue-1",
+      "family": "phase-plan-to-issue",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "幫我分析一下實作方式跟驗收方式, 拆分成幾個 phase 並 comment 到 issue 上",
+      "proposedGold": "plan",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-phase-plan-to-issue-2",
+      "family": "phase-plan-to-issue",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Break the offline-sync feature into phases with acceptance criteria for each, and post the plan on the tracking issue.",
+      "proposedGold": "plan",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-phase-plan-to-issue-3",
+      "family": "phase-plan-to-issue",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "這個需求先拆成階段, 每個階段寫清楚驗收條件, 之後我們一階段一階段做",
+      "proposedGold": "plan",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-roadmap-phase-implement-1",
+      "family": "roadmap-phase-implement",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "開始實作 roadmap phase 20, 先確認還有哪些 ticket 沒完成, 再逐一完成並各自 commit",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-roadmap-phase-implement-2",
+      "family": "roadmap-phase-implement",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Implement all remaining tickets in roadmap phase 7, one commit per ticket, running the full test suite after each.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-roadmap-phase-implement-3",
+      "family": "roadmap-phase-implement",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "把 phase 19 的 ticket 跟剛整理好的流程文件整合, 缺的部分補成新的 ticket, 然後開始實作",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-migration-1",
+      "family": "migration",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "把整個專案從 CommonJS 遷移到 ESM",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-migration-2",
+      "family": "migration",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Migrate all services from the v1 config format to v2, including loaders, fixtures and docs.",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-migration-3",
+      "family": "migration",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "資料庫從 MySQL 換成 PostgreSQL, 列出影響範圍並分階段遷移",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-migration-4",
+      "family": "migration",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Move the project from Jest to Vitest across all packages.",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-large-scale-rename-1",
+      "family": "large-scale-rename",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "先不用動作, 聚焦在 core 和 docs 這兩個資料夾, 我要請你進行大規模的 property 名稱修改, 所有 schema 和文件都要一致",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-large-scale-rename-2",
+      "family": "large-scale-rename",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Rename the \"component\" concept to \"module\" everywhere: code, schemas, CLI flags, and documentation.",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-architecture-design-1",
+      "family": "architecture-design",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "設計一個 plugin 架構讓第三方可以加自己的 exporter, 先寫 ADR 再分階段實作",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-architecture-design-2",
+      "family": "architecture-design",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Design a caching layer for the API gateway, write an ADR with alternatives, then implement it in stages.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-architecture-design-3",
+      "family": "architecture-design",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "幫我為快取失效策略寫 ADR, 再開一份 roadmap 列出後續要做的階段",
+      "proposedGold": "plan",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-parallel-delegation-1",
+      "family": "parallel-delegation",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "派發三個 agent 平行處理: 一個修 lint, 一個補測試, 一個更新文件, 最後彙整",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-parallel-delegation-2",
+      "family": "parallel-delegation",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Split this across parallel workers: one updates the parser, one updates the CLI, one updates the docs; merge when all pass.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-parallel-delegation-3",
+      "family": "parallel-delegation",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "違規的部分全部發包給 agent 修正, 每個 repo 一個, 修完統一驗收",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-repo-wide-replace-1",
+      "family": "repo-wide-replace",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Replace every direct console.log in the repository with the shared logger.",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-repo-wide-replace-2",
+      "family": "repo-wide-replace",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "整個 repo 的錯誤處理統一改用我們的 errors 套件, 包含測試",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-repo-wide-replace-3",
+      "family": "repo-wide-replace",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Enable strict null checks for the whole codebase and fix all resulting errors.",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-broad-synthesis-1",
+      "family": "broad-synthesis",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "讀完 docs 底下所有設計文件, 整理成一份架構總覽, 並標出互相矛盾的地方",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-broad-synthesis-2",
+      "family": "broad-synthesis",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Read every ADR in the repository and write a consolidated architecture overview that flags decisions that conflict.",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-cross-platform-ci-1",
+      "family": "cross-platform-ci",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Set up CI for Windows, macOS and Linux on Node 22 and 24, and fix whatever breaks.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-cross-platform-ci-2",
+      "family": "cross-platform-ci",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "建立三個平台的 CI matrix, 把目前只在 Linux 能過的測試全部修到三平台都能過",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-spec-feature-program-1",
+      "family": "long-spec-feature-program",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "我跟同事確認了幾點, 接下來要大改掃描流程:\n1. 空的 region 全部忽略, 那些是保留給動態擺放的\n2. nested 的容器要依照已定義的解壓方式展開後再分析\n3. 分析結果要同時輸出兩種格式, 並且兩種格式的欄位要一一對應\n請先整理成設計文件, 再拆 phase 實作, 每個 phase 都要有對照測試",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-spec-feature-program-2",
+      "family": "long-spec-feature-program",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "We are reworking the scanning pipeline. Requirements:\n1) skip empty regions entirely; 2) expand nested containers with the documented decompression rules before analysis;\n3) emit both output formats with a field-by-field mapping; 4) keep the old CLI working behind a flag.\nWrite the design first, then implement it in phases with comparison tests.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bare-continuation-1",
+      "family": "bare-continuation",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "繼續",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bare-continuation-2",
+      "family": "bare-continuation",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "go",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bare-continuation-3",
+      "family": "bare-continuation",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "keep going",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bare-continuation-4",
+      "family": "bare-continuation",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "好",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bare-continuation-5",
+      "family": "bare-continuation",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "yes",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bare-continuation-6",
+      "family": "bare-continuation",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "下一題",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bare-continuation-7",
+      "family": "bare-continuation",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "同意 下一提",
+      "proposedGold": "discuss",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-bare-continuation-8",
+      "family": "bare-continuation",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "next",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-numbered-answers-1",
+      "family": "numbered-answers",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "1. 都要跟著換 2. 不用 3. 用預設值就好",
+      "proposedGold": "discuss",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-numbered-answers-2",
+      "family": "numbered-answers",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "A > 這個是對的 B > 這是錯誤的",
+      "proposedGold": "discuss",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-numbered-answers-3",
+      "family": "numbered-answers",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "1 > 同意 2 > 改成 module 比較準確 3 > OK",
+      "proposedGold": "discuss",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-numbered-answers-4",
+      "family": "numbered-answers",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "1) yes 2) keep the old name 3) skip it for now",
+      "proposedGold": "discuss",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-numbered-answers-5",
+      "family": "numbered-answers",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "我回答一下這些問題:\n1. 兩邊都要跟著換\n2. 那個欄位對不上是內部作業錯誤, 不是邏輯錯誤\n3. 不用改用 hash, 這裡是行為超前, 改用 hash 反而會錯\n4. 版本填 0.0 沒錯",
+      "proposedGold": "discuss",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-unstated-reference-1",
+      "family": "unstated-reference",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "一併修",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-unstated-reference-2",
+      "family": "unstated-reference",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "照剛剛說的改",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-unstated-reference-3",
+      "family": "unstated-reference",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Do the same for the other one.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-unstated-reference-4",
+      "family": "unstated-reference",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "處理掉, 不應該連到那邊",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-unstated-reference-5",
+      "family": "unstated-reference",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "fix those too",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-unstated-reference-6",
+      "family": "unstated-reference",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "補進去",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-status-without-object-1",
+      "family": "status-without-object",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "現在情況是??",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-status-without-object-2",
+      "family": "status-without-object",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "還在跑嗎?",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-status-without-object-3",
+      "family": "status-without-object",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "跑完了",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-status-without-object-4",
+      "family": "status-without-object",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "where are we?",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-status-without-object-5",
+      "family": "status-without-object",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "done?",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-non-engineering-1",
+      "family": "non-engineering",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "關掉 firefox 跟 spotify 釋放一點記憶體",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-non-engineering-2",
+      "family": "non-engineering",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "幫我訂明天下午兩點的會議室",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-non-engineering-3",
+      "family": "non-engineering",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Write a short birthday message for a coworker.",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-non-engineering-4",
+      "family": "non-engineering",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Suggest a good lunch place near the office.",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-non-engineering-5",
+      "family": "non-engineering",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "幫我把這段話翻成日文寄給客戶",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-vague-intent-1",
+      "family": "vague-intent",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "這個怪怪的",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-vague-intent-2",
+      "family": "vague-intent",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "看一下",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-vague-intent-3",
+      "family": "vague-intent",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "something is off here",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-vague-intent-4",
+      "family": "vague-intent",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "hmm, thoughts?",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-clarification-confusion-1",
+      "family": "clarification-confusion",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "我有點不太明白你說的是甚麼意思?",
+      "proposedGold": "explain",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-clarification-confusion-2",
+      "family": "clarification-confusion",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "What did you mean by that last part?",
+      "proposedGold": "explain",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-clarification-confusion-3",
+      "family": "clarification-confusion",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "我不太懂你說的 layout 指的是什麼? 這六個節點分別對應的是專案、功能架構、底層架構與實際的映像區段, 並不是虛構的, 你說的幾點都不符合實際情況, 那真正的問題到底是什麼?",
+      "proposedGold": "explain",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-context-pasted-discussion-1",
+      "family": "long-context-pasted-discussion",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "關於 seed 的部分我想提醒你一點, 我們應該把所有的 key 當作某個結構的 value, 最後針對該結構做 hash, 會比單純用文字串接來得合理, 可以避免欄位剛好 value 一樣的情況",
+      "proposedGold": "discuss",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-context-pasted-discussion-2",
+      "family": "long-context-pasted-discussion",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Some context from the team thread: the size we report should be the used size, not the allocated size, because the build tool pads each volume. The padding value differs per platform, and the report file generated during the build already lists the used size for every volume.",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-bugfix-report-1",
+      "family": "long-bugfix-report",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Steps to reproduce: create a project with two modules that share a dependency, run \"tool scan --deep\", then run it again with --cache.\nExpected: identical results. Actual: the second run drops the shared dependency from module B.\nIt looks like the cache key only uses the dependency name. Please fix the cache key and add a regression test.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-bugfix-report-2",
+      "family": "long-bugfix-report",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "重現方式: 建立兩個共用同一個相依套件的模組, 先跑 scan --deep, 再加上 --cache 跑一次. 預期結果相同, 實際上第二次 module B 的相依會消失. 看起來 cache key 只用了套件名稱, 幫我修正並加回歸測試",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-release-ops-1",
+      "family": "long-release-ops",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Tag the current commit as v1.4.2, push the tag, and paste the generated release notes into the GitHub release draft; do not change any files.",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-release-ops-2",
+      "family": "long-release-ops",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "把目前的 commit 打上 v1.4.2 的 tag 並推上去, 然後把自動產生的 release notes 貼到 GitHub release 草稿, 不要改任何檔案",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-migration-brief-1",
+      "family": "long-migration-brief",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "We need to move authentication from session cookies to short-lived JWTs across the web app, the mobile API and the admin panel.\nKeep existing sessions valid during a transition window, add refresh token rotation, and update every integration test.\nPlan the phases first and call out the risky parts before changing code.",
+      "proposedGold": "plan",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-migration-brief-2",
+      "family": "long-migration-brief",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "登入機制要從 session cookie 改成短效 JWT, 範圍包含 web、mobile API 和後台. 過渡期間舊的 session 要繼續有效, 要加 refresh token rotation, 所有整合測試都要更新. 先規劃階段並列出風險, 再開始改",
+      "proposedGold": "plan",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-explain-design-choice-1",
+      "family": "explain-design-choice",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "為什麼這裡的 lock 要用 exclusive create 而不是先檢查再建立?",
+      "proposedGold": "explain",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-explain-design-choice-2",
+      "family": "explain-design-choice",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Why does the resident client use a worker thread instead of a plain socket call?",
+      "proposedGold": "explain",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-small-test-addition-1",
+      "family": "small-test-addition",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "parseDuration 沒有測負數跟空字串, 補上測試, 如果有 bug 一起修",
+      "proposedGold": "test",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-small-test-addition-2",
+      "family": "small-test-addition",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Add tests for the empty-input and unicode cases of slugify, and fix any bug they reveal.",
+      "proposedGold": "test",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-dependency-upgrade-1",
+      "family": "dependency-upgrade",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "把 axios 升到最新版, 有壞掉的地方一起修並跑測試",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-dependency-upgrade-2",
+      "family": "dependency-upgrade",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Upgrade the YAML library to the next major version and fix any breaking changes.",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-ci-workflow-small-1",
+      "family": "ci-workflow-small",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "CI 的 Node 版本從 20 改成 22",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-ci-workflow-small-2",
+      "family": "ci-workflow-small",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Add a cache step for npm in the existing CI workflow.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-audit-and-fix-1",
+      "family": "long-audit-and-fix",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "接下來要做一次全面盤點: 先掃過整個 repo 找出所有沒有處理錯誤回傳值的地方, 依模組分類整理成清單, 每一類附上一個代表性的位置. 清單確認後再分派給不同的 agent 平行修正, 每個模組修完都要跑該模組的測試, 最後整體再跑一次完整測試並回報結果",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-audit-and-fix-2",
+      "family": "long-audit-and-fix",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Do a full pass over the repository: find every place that ignores a returned error, group the findings by module with one representative location each, then assign the modules to parallel workers to fix. Each worker runs that module's tests, and we run the full suite at the end and report the results.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-monorepo-restructure-1",
+      "family": "monorepo-restructure",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "把現在的單一 repo 拆成 core、cli、web 三個 package 的 monorepo, 建置和發布流程都要跟著調整",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-monorepo-restructure-2",
+      "family": "monorepo-restructure",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Split the single package into a workspace with core, cli and web packages, and update build, test and release scripts for all of them.",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-monorepo-restructure-3",
+      "family": "monorepo-restructure",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "目前所有程式都放在 src 底下, 越來越難維護. 請規劃新的目錄結構, 依照 domain 分成數個模組, 定義模組之間允許的相依方向, 寫成文件後分階段搬移, 每個階段完成都要確保建置、測試和 lint 全部通過, 不能一次大搬家",
+      "proposedGold": "refactor",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-security-hardening-program-1",
+      "family": "security-hardening-program",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "我們要做一輪安全強化: 包含所有對外 API 的輸入驗證、密鑰從設定檔移到 secret manager、相依套件的弱點掃描加進 CI, 以及權限檢查的單元測試. 請先評估現況並排出優先順序, 再分成幾個 PR 逐步完成",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-security-hardening-program-2",
+      "family": "security-hardening-program",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Plan and execute a security hardening pass: input validation on every public endpoint, moving secrets out of config files, adding dependency vulnerability scanning to CI, and unit tests for the permission checks. Assess the current state first, prioritize, then deliver it as a series of PRs.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-security-hardening-program-3",
+      "family": "security-hardening-program",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "全專案做一次 STRIDE 威脅建模, 找出風險後分批修正",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-observability-rollout-1",
+      "family": "observability-rollout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Roll out structured logging and tracing across all five services: pick a common log schema, propagate trace IDs through the message queue, add dashboards for error rate and latency, and update the runbooks. Stage it service by service so nothing breaks in production.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-observability-rollout-2",
+      "family": "observability-rollout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "五個服務都要導入結構化 log 和 tracing: 統一 log 欄位格式, trace id 要能跨 message queue 傳遞, 建立錯誤率和延遲的 dashboard, 並更新 runbook. 請一個服務一個服務逐步導入, 避免影響正式環境",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-api-versioning-1",
+      "family": "api-versioning",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "API 要從沒有版本號改成 /v1 /v2 的形式: 伺服器端要同時支援兩個版本一段時間, 所有 client SDK 要更新, 文件和範例也要改, 最後要有移除 v1 的時程規劃. 先寫 ADR 說明取捨再開始",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-api-versioning-2",
+      "family": "api-versioning",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Introduce versioned routes for the public API, keep v1 working during a deprecation window, update all client SDKs and docs, and write an ADR first.",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-regression-log-1",
+      "family": "long-regression-log",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "升級後 report 指令壞了:\n$ tool report --format table\nError: unknown column \"owner\" in field list\n    at buildQuery (query.js:41)\n    at Report.run (report.js:17)\n看起來新版 schema 把 owner 欄位改名成 maintainer, 但查詢沒跟著改. 幫我修正並補一個測試確保欄位名稱一致",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-regression-log-2",
+      "family": "long-regression-log",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "After the upgrade, the report command fails:\n$ tool report --format table\nError: unknown column \"owner\" in field list\n    at buildQuery (query.js:41)\nThe new schema renamed owner to maintainer but the query was not updated. Fix it and add a test that keeps the field names in sync.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-perf-regression-1",
+      "family": "long-perf-regression",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "最近一次合併後, scan 在大型專案上從 40 秒變成 3 分鐘. 我懷疑是新加的路徑正規化每個檔案都重新讀了一次設定. 請先量測確認瓶頸, 修正後再量一次, 把前後數字放在 PR 描述裡",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-perf-regression-2",
+      "family": "long-perf-regression",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Since the last merge, scanning a large project went from 40 seconds to about 3 minutes. I suspect the new path normalization re-reads the config for every file. Profile it to confirm the bottleneck, fix it, and put before and after numbers in the PR description.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-flaky-e2e-1",
+      "family": "long-flaky-e2e",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "E2E 測試大概每五次會失敗一次, 失敗時都是在等待上傳完成那一步 timeout. 本機很難重現, CI 上比較常見. 請找出不穩定的原因, 修正後在 CI 上連續跑二十次確認都通過, 並在 PR 裡說明根本原因",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-flaky-e2e-2",
+      "family": "long-flaky-e2e",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "The upload end-to-end test fails about one run in five, always timing out while waiting for the upload to finish. Find the cause, fix it, and rerun it twenty times in CI to confirm it is stable.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-bounded-edit-1",
+      "family": "long-bounded-edit",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "只改 docs/install.md 這一個檔案: 把 Windows 安裝步驟裡的 PowerShell 指令改成 Git Bash 的寫法, 第三步的截圖說明拿掉, 最後補一句需要 Node 22 以上. 其他檔案都不要動, 改完直接 commit",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-bounded-edit-2",
+      "family": "long-bounded-edit",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Only edit docs/install.md: change the Windows install commands from PowerShell to Git Bash syntax, remove the screenshot note in step three, and add a line saying Node 22 or later is required. Do not touch other files; commit when done.",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-issue-comment-1",
+      "family": "long-issue-comment",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Comment on issue 73 that the deadlock no longer reproduces after the fix in PR 158, include the command we ran and the fact that it passed fifty consecutive runs, and ask the reporter to confirm on their machine.",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-issue-comment-2",
+      "family": "long-issue-comment",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "在 issue 73 留言說明 PR 158 修正後 deadlock 已經無法重現, 附上我們跑的指令和連續五十次都通過的結果, 並請回報者在他的環境再確認一次",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-status-pasted-1",
+      "family": "long-status-pasted",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "主 repo 與兩個子模組的工作樹都是乾淨的. pre-commit 檢查 (含 E2E) 通過. 另外 verify 回報 UNCHECKED, 因為這個 repo 沒有可辨識的自動化腳本",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-status-pasted-2",
+      "family": "long-status-pasted",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Main repository and both submodules have clean working trees. Pre-commit checks, including end-to-end, passed. The verifier reported UNCHECKED because this repository has no recognizable automation scripts in package.json.",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-acknowledgement-2",
+      "family": "acknowledgement",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "OK 了",
+      "proposedGold": null,
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-bounded-explanation-1",
+      "family": "long-bounded-explanation",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "現在的定義裡 size 用的是實際使用的大小還是配置的大小? 建置工具會在每個區塊補 padding, 如果用配置大小會和實際內容對不起來. 幫我說明目前程式是怎麼決定的, 在哪個函式, 先不用改",
+      "proposedGold": "explain",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-bounded-explanation-2",
+      "family": "long-bounded-explanation",
+      "language": "en",
+      "source": "derived:local-history",
+      "prompt": "Does the report use the used size or the allocated size for each volume? The build tool pads every volume, so the allocated size would not match the content. Explain how the current code decides and where; do not change anything yet.",
+      "proposedGold": "explain",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-dependency-conflict-1",
+      "family": "long-dependency-conflict",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "安裝時出現 peer dependency 衝突: 我們的 UI 套件要求 React 18, 但新加的圖表套件要求 React 19. 請評估要升級 React 還是換圖表套件版本, 選定後把衝突解掉, 確認建置和所有測試都通過",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-dependency-conflict-2",
+      "family": "long-dependency-conflict",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "npm install fails with a peer dependency conflict: our UI kit needs React 18 but the new charting library needs React 19. Decide whether to upgrade React or pin an older chart version, resolve it, and make sure the build and all tests pass.",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-data-migration-script-1",
+      "family": "long-data-migration-script",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "寫一個資料遷移腳本, 把 users 表裡的 full_name 拆成 first_name 和 last_name, 中文姓名以第一個字為姓, 英文以最後一個空白分隔. 要能重複執行不出錯, 並附上針對邊界情況的測試",
+      "proposedGold": "feature",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-docs-overhaul-1",
+      "family": "long-docs-overhaul",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "整個 docs 目錄需要重整: 目前有很多重複和過時的內容, 請先盤點每份文件的用途和讀者, 提出新的目錄架構, 合併重複的部分, 刪掉過時的, 所有內部連結都要更新, 最後跑連結檢查確認沒有壞掉的",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-docs-overhaul-2",
+      "family": "long-docs-overhaul",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "The docs folder needs an overhaul: inventory every document and its audience, propose a new structure, merge duplicates, delete outdated pages, update every internal link, and run the link checker at the end so nothing is broken.",
+      "proposedGold": "docs",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-context-question-1",
+      "family": "long-context-question",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "剛剛我去跟同事確認了, 他說之前那個做法其實是暫時的, 當初是為了趕上版本才這樣寫, 現在時間比較充裕了, 所以你前面提到的那兩個方向我覺得都可以考慮, 只是要注意相容性, 你覺得呢?",
+      "proposedGold": "discuss",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-context-question-2",
+      "family": "long-context-question",
+      "language": "zh-TW",
+      "source": "derived:local-history",
+      "prompt": "我剛確認了一下, 這次是把整個區塊直接塞進另一個容器裡當作一般資料處理, 所以你之前看到的結構才會對不上, 這樣你前面的判斷要調整嗎?",
+      "proposedGold": "discuss",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-focused-review-1",
+      "family": "long-focused-review",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "幫我仔細 review 這次改的 session 模組: 特別注意 token 過期的判斷、併發登入時的競態條件、錯誤訊息有沒有洩漏內部資訊, 有問題的地方直接修正並補上對應的測試",
+      "proposedGold": "fix",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "h-long-git-ops-1",
+      "family": "long-git-ops",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "先切到 release/1.4 分支, 把 main 上面修正 typo 的那個 commit cherry-pick 過來, 推上去之後開 PR 回 release/1.4, 描述寫明是從 main 挑過來的以及原本的 commit, 其他什麼都不要改",
+      "proposedGold": "git",
+      "rationale": "Codex (gpt-5.6-luna) proposal under the intent rules; the owner decides"
+    },
+    {
+      "id": "i-add-regression-tests-1",
+      "family": "i-add-regression-tests",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Add unit tests for parseDuration covering empty input, negative values and overflow.",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-add-regression-tests-2",
+      "family": "i-add-regression-tests",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "幫 parseDuration 補單元測試，要涵蓋空字串、負數和溢位。",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-run-suite-report-1",
+      "family": "i-run-suite-report",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Run the full test suite and tell me which tests fail.",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-run-suite-report-2",
+      "family": "i-run-suite-report",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "跑一次完整測試，告訴我哪些失敗。",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-error-path-tests-1",
+      "family": "i-error-path-tests",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Write integration tests for the export command; right now only the happy path is covered.",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-error-path-tests-2",
+      "family": "i-error-path-tests",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "export 指令只有 happy path 的測試，補上錯誤情境的整合測試。",
+      "proposedGold": "test",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-phase-breakdown-1",
+      "family": "i-phase-breakdown",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Before we touch any code, break the caching work into phases with acceptance criteria for each.",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-phase-breakdown-2",
+      "family": "i-phase-breakdown",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "先不要寫程式，把快取這件事拆成幾個階段，每個階段寫清楚驗收條件。",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-loader-spec-1",
+      "family": "i-loader-spec",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Draft a short spec for the new plugin loader: goals, non-goals, interface and open questions.",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-loader-spec-2",
+      "family": "i-loader-spec",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "幫新的 plugin loader 寫一份簡短規格：目標、非目標、介面和待決問題。",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-index-adr-1",
+      "family": "i-index-adr",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Write an ADR comparing SQLite and Postgres for the local index and recommend one.",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-index-adr-2",
+      "family": "i-index-adr",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "寫一份 ADR 比較本地索引用 SQLite 還是 Postgres，並給出建議。",
+      "proposedGold": "plan",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-pick-an-option-1",
+      "family": "i-pick-an-option",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Option A keeps the old flag, option B renames it. Which would you pick and why?",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-pick-an-option-2",
+      "family": "i-pick-an-option",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "方案 A 保留舊參數，方案 B 直接改名，你會選哪個？為什麼？",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-settle-open-points-1",
+      "family": "i-settle-open-points",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "1. keep the retry count at 3  2. drop the legacy endpoint  3. docs can wait",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-settle-open-points-2",
+      "family": "i-settle-open-points",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "1. 重試次數維持 3 次 2. 舊的 endpoint 拿掉 3. 文件之後再補",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-cache-tradeoff-1",
+      "family": "i-cache-tradeoff",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Is it worth adding a cache here, or is the lookup cheap enough already?",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-cache-tradeoff-2",
+      "family": "i-cache-tradeoff",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "這裡值得加快取嗎？還是查詢本身已經夠快了？",
+      "proposedGold": "discuss",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-pr-callers-1",
+      "family": "i-review-pr-callers",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Review PR 42 and point out anything that would break existing callers.",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-pr-callers-2",
+      "family": "i-review-pr-callers",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "幫我 review PR 42，看有沒有會影響既有呼叫端的地方。",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-migration-guide-1",
+      "family": "i-review-migration-guide",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Read the migration guide and check whether any step is missing or out of order.",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-migration-guide-2",
+      "family": "i-review-migration-guide",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "看一下遷移指南，檢查有沒有漏掉或順序錯誤的步驟。",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-test-quality-1",
+      "family": "i-review-test-quality",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Check whether the scheduler tests actually assert behavior or only run the code.",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-review-test-quality-2",
+      "family": "i-review-test-quality",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "檢查 scheduler 的測試是真的有驗證行為，還是只是把程式跑過一遍。",
+      "proposedGold": "review",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-timeout-1",
+      "family": "i-edit-timeout",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Change the request timeout from 10 seconds to 30.",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-timeout-2",
+      "family": "i-edit-timeout",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "把 request timeout 從 10 秒改成 30 秒。",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-error-message-1",
+      "family": "i-edit-error-message",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Reword the error message for a missing config file so it says which path was checked.",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-error-message-2",
+      "family": "i-edit-error-message",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "缺少設定檔的錯誤訊息改一下，要說明檢查了哪個路徑。",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-default-logging-1",
+      "family": "i-edit-default-logging",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Make verbose logging off by default.",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-edit-default-logging-2",
+      "family": "i-edit-default-logging",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "預設關掉 verbose log。",
+      "proposedGold": "edit",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-explain-routing-flow-1",
+      "family": "i-explain-routing-flow",
+      "language": "en",
+      "source": "synthetic:authored",
+      "prompt": "Walk me through what happens between the hook firing and the router picking a tier.",
+      "proposedGold": "explain",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    },
+    {
+      "id": "i-explain-routing-flow-2",
+      "family": "i-explain-routing-flow",
+      "language": "zh-TW",
+      "source": "synthetic:authored",
+      "prompt": "說明一下從 hook 觸發到 router 選出 tier 中間經過哪些步驟。",
+      "proposedGold": "explain",
+      "rationale": "Authored supplementary intent case; the owner decides"
+    }
+  ]
+}

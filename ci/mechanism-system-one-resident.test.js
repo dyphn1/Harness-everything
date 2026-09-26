@@ -328,3 +328,19 @@ test('S1-RS13 manifest acceptance thresholds are validated, carried by scored re
     assert.ok(evaluateWith(strict).every(r => r.decision.status === 'abstain' && r.decision.reason === 'low-confidence'));
   } finally { cleanup(strict); }
 });
+
+test('S1-RS14 resident transport names its adapter and stays inside the scripts dir', () => {
+  const f = fixture();
+  try {
+    assert.equal(provider.validateManifest({ ...f.manifest, adapter: 'laya_adapter.py' }), true);
+    for (const bad of ['../evil.py', '/abs/evil.py', '', 'ADAPTER.PY', 'a'.repeat(65) + '.py']) {
+      assert.throws(() => provider.validateManifest({ ...f.manifest, adapter: bad }), String(bad));
+    }
+    const [exe, prefix] = resident.defaultCommand(f.manifest);
+    assert.equal(exe, f.manifest.python);
+    assert.deepEqual(prefix, [path.join(__dirname, '..', 'harness-everything', 'scripts', 'system-one', 'cua_adapter.py'), '--serve']);
+    const [, layaPrefix] = resident.defaultCommand({ ...f.manifest, adapter: 'laya_adapter.py' });
+    assert.ok(layaPrefix[0].endsWith(path.join('system-one', 'laya_adapter.py')));
+    assert.throws(() => resident.defaultCommand({ ...f.manifest, adapter: '../evil.py' }));
+  } finally { cleanup(f); }
+});
