@@ -38,6 +38,7 @@ All stages share the scoring and the calibration. Only the readout differs.
 
 | Stage | Catalog | Readout | Cap |
 | --- | --- | --- | --- |
+| Validity | `actionable`, `invalid` | `invalid` at or above its threshold → stop: no tier, workflow, intent or skill suggestion; the host agent decides | — |
 | Tier | `tier1`, `tier2`, `tier3` | pick one: highest calibrated `p` among options at or above their threshold; none → abstain; final tier = max(pick, structural floor) | 1 |
 | Workflow | the router's strategies (`direct-single`, `iterative-single`, `fable-staged`, `fable-parallel`, `fable-multi-agent-workspace`) | pick one, same rule; an explicit workflow request always wins | 1 |
 | Intent | the 12 intents of [system-one-intent.md](system-one-intent.md) | set: every intent at or above its threshold, highest `p` first, truncated at the cap | 3 |
@@ -50,6 +51,12 @@ construction; the gates then judge what survives the cap.
 
 `unclassified`/`null` is not an option in the new readout. It is the
 abstain outcome: no option reaches its threshold.
+
+**The scorer only sees the current prompt.** It never receives earlier
+turns. A prompt whose text alone carries no actionable request is
+`invalid`: System One makes no suggestion, and the host agent, which has
+the conversation, decides. Validity runs first; the later stages run only
+on `actionable` prompts.
 
 ## Calibration and thresholds
 
@@ -73,36 +80,33 @@ abstain outcome: no option reaches its threshold.
 | Intent holdout | owner `gold ∪ secondary` | owner `gold` |
 | Tier holdout | owner `gold` tier; `null` means abstention is correct | — |
 
-### Continuations
+### Invalid prompts
 
-Some prompts cannot be tiered from their text: a go-ahead (`go`, `好`,
+Some prompts cannot be judged from their text: a go-ahead (`go`, `好`,
 `完成了`), an option pick, a change verb with no object (`修正一下`),
-feedback on earlier work (`還是一樣的錯誤`) or a pointer to earlier
-content (`請依照需求實作`). Their tier comes from the previous turn, so the
-router inherits it deterministically; the model is not asked to guess it.
-The noise-gate experiment (#265) showed that tier labels assigned to such
-prompts from session context are what kept a text-only model unsure.
+feedback on earlier work (`還是一樣的錯誤`), a pointer to earlier content
+(`請依照需求實作`), a paste with no request, or chatter. The small model
+does not try to recover the missing context. It marks them `invalid` and
+hands them to the host agent (the external LLM), which sees the whole
+conversation. Deterministic controls (action gates, scope and memory
+ownership, the Rule of 3) apply unchanged. The noise-gate experiment (#265)
+showed that tier labels given to such prompts from session context were
+what kept a text-only model unsure.
 
-- **Definition.** A holdout case is a continuation when the frozen rules
+- **Definition.** A holdout case is invalid when the frozen rules
   (`rule_v2` in `scripts/system-one-noise-experiment.py`, #265) match its
-  text. The owner reviews that list before the holdout run; the list is then
-  frozen with the rest of step 4 below.
-- **Scoring.** On a continuation case, the model is correct when it returns
-  continuation (or abstains); any tier pick counts as an error for that case,
-  whatever its gold tier. Continuation cases are excluded from the tier
-  metrics (acceptablePrecision, underRate, coverage) and reported separately
-  as continuation recall.
+  text or its owner gold is `null`. The owner reviews that list before the
+  holdout run; the list is then frozen with the rest of step 4 below.
+- **Scoring.** On an invalid case, the model is correct when it returns
+  `invalid` (or abstains); any tier, intent or skill suggestion is an error
+  for that case. Invalid cases are excluded from the later stages' metrics
+  and reported as invalid recall. On actionable cases, returning `invalid`
+  is reported as invalid false-positive rate.
 - **Size.** The rules mark 9 of 215 tier-holdout cases (6 `null`, 2 `tier1`,
-  1 `tier2`) and 3 of 222 intent-holdout cases. The holdouts were built with
-  most continuations removed, so they under-represent this class; the
-  continuation gate below is read on validation until a reviewed
-  continuation set exists.
-
-The two intent truths differ in size: the teacher marks 1.76 relevant
-intents per validation prompt, the owner 3.50 per holdout prompt (p95 6).
-Recall against the whole relevant set is therefore structurally lower on
-the holdout and is reported, not gated. The gated recall is **primary
-hit**: whether the owner's primary intent is among the suggestions.
+  1 `tier2`) and 3 of 222 intent-holdout cases; the tier holdout has 20
+  `null` cases in all. The holdouts were built with most continuations
+  removed, so the validity gate is read on validation until a reviewed
+  invalid set exists.
 
 ## Metrics
 
@@ -132,7 +136,6 @@ Pick stages (tier, workflow):
 | acceptablePrecision | picks equal to gold or one tier above it, among picks |
 | underRate | picks below gold, among picks |
 | exactPrecision | picks equal to gold, among picks (reported) |
-| nullPickRate | picks made on `null` prompts, among `null` prompts |
 | ECE / Brier | as for set stages, one-vs-rest per option |
 
 One tier above gold is acceptable because over-routing adds process;
@@ -168,9 +171,9 @@ coverage 0.97, primary hit 0.75, precision 0.63, raw-`p ≥ 0.6` precision
 | acceptablePrecision | ≥ 0.85 (the owner's advisory bar, now counting one tier above gold) |
 | underRate | ≤ 0.05 |
 | coverage | ≥ 0.60 |
-| nullPickRate | ≤ 0.30 |
 | ECE | ≤ 0.10 |
-| continuation recall (holdout continuation cases) | reported; ≥ 0.80 on validation continuations |
+| invalid recall (invalid cases) | reported; ≥ 0.80 on validation invalid rows |
+| invalid false-positive rate (actionable cases) | ≤ 0.05 |
 
 Tier bars have no validation anchor from a relevance-native tier model
 yet. The first tier candidate reports its validation numbers first, and
