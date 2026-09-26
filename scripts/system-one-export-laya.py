@@ -116,16 +116,6 @@ def export(data_dir, split, out_path, manifest_path, builder, seed=0, forbid_pat
         clash = sorted({r['id'] for r in rows} & forbidden)
         if clash:
             raise ValueError(f'overlap with forbidden ids: {clash[:5]} (n={len(clash)})')
-    if oversample:
-        grown = []
-        for row in rows:
-            grown.append(row)
-            trow = teacher.get(row['id']) or {}
-            scores = trow.get('scores', {})
-            for intent, factor in oversample.items():
-                if float(scores.get(intent, 0.0)) >= 0.4:
-                    grown.extend([row] * (factor - 1))
-        rows = grown
     if seed:
         random.Random(seed).shuffle(rows)
     questions = build_questions()
@@ -138,13 +128,16 @@ def export(data_dir, split, out_path, manifest_path, builder, seed=0, forbid_pat
                 continue
             for intent in INTENTS:
                 p = float(trow['scores'].get(intent, 0.0))
+                repeat = oversample.get(intent, 1) if p >= 0.4 else 1
                 item = build_item(prompt['text'], questions[intent]['instructions'],
                                   {'true': p, 'false': 1.0 - p}, builder)
                 if item is None:
-                    skipped_markers += 1
+                    skipped_markers += repeat
                     continue
-                fh.write(json.dumps({'promptId': prompt['id'], 'intent': intent, **item}) + '\n')
-                items += 1
+                line = json.dumps({'promptId': prompt['id'], 'intent': intent, **item}) + '\n'
+                for _ in range(repeat):
+                    fh.write(line)
+                items += repeat
     manifest = {'split': split, 'seed': seed, 'questions': QUESTIONS_VERSION,
                 'builder': provenance or {'builder': 'injected'},
                 'oversample': oversample,
