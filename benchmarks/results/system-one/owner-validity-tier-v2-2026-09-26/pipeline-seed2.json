@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "variants": {
+    "valid-only": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.7931034482758621,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8180379746835443,
+        "validAcceptablePrecision": 0.7330754352030948,
+        "validUnderRate": 0.26692456479690524,
+        "suggestionPrecisionAllRows": 0.6731793960923623,
+        "suggestionsShown": 0.8159420289855073
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.39655172413793105,
+        "invalidGotTier": 0.4827586206896552,
+        "validHandedOff": 0.02689873417721519,
+        "validCoverage": 0.7990506329113924,
+        "validAcceptablePrecision": 0.7326732673267327,
+        "validUnderRate": 0.26732673267326734,
+        "suggestionPrecisionAllRows": 0.6941838649155723,
+        "suggestionsShown": 0.7724637681159421
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.2413793103448276,
+        "invalidGotTier": 0.603448275862069,
+        "validHandedOff": 0.006329113924050633,
+        "validCoverage": 0.8132911392405063,
+        "validAcceptablePrecision": 0.7315175097276264,
+        "validUnderRate": 0.26848249027237353,
+        "suggestionPrecisionAllRows": 0.6848816029143898,
+        "suggestionsShown": 0.7956521739130434
+      }
+    },
+    "curriculum-1of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.7241379310344828,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.6993670886075949,
+        "validAcceptablePrecision": 0.7692307692307693,
+        "validUnderRate": 0.22624434389140272,
+        "suggestionPrecisionAllRows": 0.7024793388429752,
+        "suggestionsShown": 0.7014492753623188
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.39655172413793105,
+        "invalidGotTier": 0.41379310344827586,
+        "validHandedOff": 0.02689873417721519,
+        "validCoverage": 0.680379746835443,
+        "validAcceptablePrecision": 0.7697674418604651,
+        "validUnderRate": 0.2255813953488372,
+        "suggestionPrecisionAllRows": 0.7290748898678414,
+        "suggestionsShown": 0.6579710144927536
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.2413793103448276,
+        "invalidGotTier": 0.5344827586206896,
+        "validHandedOff": 0.006329113924050633,
+        "validCoverage": 0.694620253164557,
+        "validAcceptablePrecision": 0.7676537585421412,
+        "validUnderRate": 0.22779043280182232,
+        "suggestionPrecisionAllRows": 0.7170212765957447,
+        "suggestionsShown": 0.6811594202898551
+      }
+    },
+    "curriculum-2of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.7931034482758621,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.879746835443038,
+        "validAcceptablePrecision": 0.7913669064748201,
+        "validUnderRate": 0.1960431654676259,
+        "suggestionPrecisionAllRows": 0.7308970099667774,
+        "suggestionsShown": 0.8724637681159421
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.39655172413793105,
+        "invalidGotTier": 0.43103448275862066,
+        "validHandedOff": 0.02689873417721519,
+        "validCoverage": 0.8607594936708861,
+        "validAcceptablePrecision": 0.7922794117647058,
+        "validUnderRate": 0.1948529411764706,
+        "suggestionPrecisionAllRows": 0.7574692442882249,
+        "suggestionsShown": 0.8246376811594203
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.2413793103448276,
+        "invalidGotTier": 0.5689655172413793,
+        "validHandedOff": 0.006329113924050633,
+        "validCoverage": 0.8765822784810127,
+        "validAcceptablePrecision": 0.7906137184115524,
+        "validUnderRate": 0.1967509025270758,
+        "suggestionPrecisionAllRows": 0.7461669505962522,
+        "suggestionsShown": 0.8507246376811595
+      }
+    },
+    "curriculum-3of3": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.7931034482758621,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8971518987341772,
+        "validAcceptablePrecision": 0.7583774250440917,
+        "validUnderRate": 0.23633156966490299,
+        "suggestionPrecisionAllRows": 0.7014681892332789,
+        "suggestionsShown": 0.8884057971014493
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.39655172413793105,
+        "invalidGotTier": 0.5344827586206896,
+        "validHandedOff": 0.02689873417721519,
+        "validCoverage": 0.8765822784810127,
+        "validAcceptablePrecision": 0.7581227436823105,
+        "validUnderRate": 0.2364620938628159,
+        "suggestionPrecisionAllRows": 0.717948717948718,
+        "suggestionsShown": 0.8478260869565217
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.2413793103448276,
+        "invalidGotTier": 0.6724137931034483,
+        "validHandedOff": 0.006329113924050633,
+        "validCoverage": 0.8924050632911392,
+        "validAcceptablePrecision": 0.7570921985815603,
+        "validUnderRate": 0.2375886524822695,
+        "suggestionPrecisionAllRows": 0.7081260364842454,
+        "suggestionsShown": 0.8739130434782608
+      }
+    },
+    "valid-only-same-epochs": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.9137931034482759,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.875,
+        "validAcceptablePrecision": 0.7179023508137432,
+        "validUnderRate": 0.26220614828209765,
+        "suggestionPrecisionAllRows": 0.6551155115511551,
+        "suggestionsShown": 0.8782608695652174
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.39655172413793105,
+        "invalidGotTier": 0.5517241379310345,
+        "validHandedOff": 0.02689873417721519,
+        "validCoverage": 0.8528481012658228,
+        "validAcceptablePrecision": 0.7198515769944341,
+        "validUnderRate": 0.2597402597402597,
+        "suggestionPrecisionAllRows": 0.6795096322241682,
+        "suggestionsShown": 0.827536231884058
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.2413793103448276,
+        "invalidGotTier": 0.7068965517241379,
+        "validHandedOff": 0.006329113924050633,
+        "validCoverage": 0.8686708860759493,
+        "validAcceptablePrecision": 0.7176684881602914,
+        "validUnderRate": 0.26229508196721313,
+        "suggestionPrecisionAllRows": 0.6677966101694915,
+        "suggestionsShown": 0.855072463768116
+      }
+    },
+    "mixed-all-at-once": {
+      "noGate": {
+        "rows": 690,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.6379310344827587,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.879746835443038,
+        "validAcceptablePrecision": 0.7697841726618705,
+        "validUnderRate": 0.2068345323741007,
+        "suggestionPrecisionAllRows": 0.7217537942664418,
+        "suggestionsShown": 0.8594202898550725
+      },
+      "gate@0.5": {
+        "rows": 690,
+        "invalidHandedOff": 0.39655172413793105,
+        "invalidGotTier": 0.5,
+        "validHandedOff": 0.02689873417721519,
+        "validCoverage": 0.8639240506329114,
+        "validAcceptablePrecision": 0.7710622710622711,
+        "validUnderRate": 0.20695970695970695,
+        "suggestionPrecisionAllRows": 0.7321739130434782,
+        "suggestionsShown": 0.8333333333333334
+      },
+      "gate@0.8": {
+        "rows": 690,
+        "invalidHandedOff": 0.2413793103448276,
+        "invalidGotTier": 0.603448275862069,
+        "validHandedOff": 0.006329113924050633,
+        "validCoverage": 0.875,
+        "validAcceptablePrecision": 0.7685352622061483,
+        "validUnderRate": 0.20795660036166366,
+        "suggestionPrecisionAllRows": 0.7227891156462585,
+        "suggestionsShown": 0.8521739130434782
+      }
+    }
+  }
+}

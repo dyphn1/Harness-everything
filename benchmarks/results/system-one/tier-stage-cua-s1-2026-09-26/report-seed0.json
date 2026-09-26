@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 1,
+  "config": {
+    "encoder": "tinyx",
+    "width": 128,
+    "rank": 128,
+    "layers": 2,
+    "heads": 4,
+    "dropout": 0.1,
+    "context_tokens": 1024,
+    "option_tokens": 96
+  },
+  "options": [
+    "tier1",
+    "tier2",
+    "tier3"
+  ],
+  "args": {
+    "seed": 0,
+    "threads": 8,
+    "width": 128,
+    "layers": 2,
+    "token_budget": 16384,
+    "lr": 0.001,
+    "base_epochs": 6,
+    "stages": 3,
+    "stage_epochs": 3
+  },
+  "counts": {
+    "trainValid": 4163,
+    "trainInvalid": 731,
+    "validationValid": 632,
+    "validationInvalid": 95
+  },
+  "rounds": [
+    {
+      "round": "valid-only",
+      "trainRows": 4163,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 95,
+        "coverage": 0.9224683544303798,
+        "exactPrecision": 0.7478559176672385,
+        "acceptablePrecision": 0.8713550600343053,
+        "underRate": 0.12864493996569468,
+        "confidentCoverage": 0.3291139240506329,
+        "confidentAcceptablePrecision": 0.9038461538461539,
+        "invalidAbstainRate": 0.031578947368421054,
+        "invalidMeanMaxScore": 0.745587958787617,
+        "perTier": {
+          "tier1": {
+            "support": 122,
+            "auroc": 0.7958694953391192,
+            "precision": 0.647887323943662,
+            "recall": 0.3770491803278688
+          },
+          "tier2": {
+            "support": 448,
+            "auroc": 0.6998859666149069,
+            "precision": 0.76171875,
+            "recall": 0.8705357142857143
+          },
+          "tier3": {
+            "support": 62,
+            "auroc": 0.7082059988681381,
+            "precision": 0.0,
+            "recall": 0.0
+          }
+        }
+      }
+    },
+    {
+      "round": "curriculum-1of3",
+      "trainRows": 4407,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 95,
+        "coverage": 0.8860759493670886,
+        "exactPrecision": 0.7321428571428571,
+        "acceptablePrecision": 0.8892857142857142,
+        "underRate": 0.10892857142857143,
+        "confidentCoverage": 0.47151898734177217,
+        "confidentAcceptablePrecision": 0.9328859060402684,
+        "invalidAbstainRate": 0.10526315789473684,
+        "invalidMeanMaxScore": 0.751848673506787,
+        "perTier": {
+          "tier1": {
+            "support": 122,
+            "auroc": 0.7898264223722276,
+            "precision": 0.691358024691358,
+            "recall": 0.45901639344262296
+          },
+          "tier2": {
+            "support": 448,
+            "auroc": 0.7043502523291926,
+            "precision": 0.7980997624703088,
+            "recall": 0.75
+          },
+          "tier3": {
+            "support": 62,
+            "auroc": 0.7344086021505376,
+            "precision": 0.3103448275862069,
+            "recall": 0.2903225806451613
+          }
+        }
+      }
+    },
+    {
+      "round": "curriculum-2of3",
+      "trainRows": 4651,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 95,
+        "coverage": 0.935126582278481,
+        "exactPrecision": 0.7106598984771574,
+        "acceptablePrecision": 0.868020304568528,
+        "underRate": 0.12351945854483926,
+        "confidentCoverage": 0.5063291139240507,
+        "confidentAcceptablePrecision": 0.9,
+        "invalidAbstainRate": 0.2631578947368421,
+        "invalidMeanMaxScore": 0.6373473627002616,
+        "perTier": {
+          "tier1": {
+            "support": 122,
+            "auroc": 0.7683863709418194,
+            "precision": 0.6266666666666667,
+            "recall": 0.38524590163934425
+          },
+          "tier2": {
+            "support": 448,
+            "auroc": 0.6179638975155279,
+            "precision": 0.7637130801687764,
+            "recall": 0.8080357142857143
+          },
+          "tier3": {
+            "support": 62,
+            "auroc": 0.6636106395019807,
+            "precision": 0.2619047619047619,
+            "recall": 0.1774193548387097
+          }
+        }
+      }
+    },
+    {
+      "round": "curriculum-3of3",
+      "trainRows": 4894,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 95,
+        "coverage": 0.8908227848101266,
+        "exactPrecision": 0.7015985790408525,
+        "acceptablePrecision": 0.8703374777975134,
+        "underRate": 0.12433392539964476,
+        "confidentCoverage": 0.6835443037974683,
+        "confidentAcceptablePrecision": 0.8888888888888888,
+        "invalidAbstainRate": 0.3473684210526316,
+        "invalidMeanMaxScore": 0.6415359878618466,
+        "perTier": {
+          "tier1": {
+            "support": 122,
+            "auroc": 0.7648826743812279,
+            "precision": 0.5892857142857143,
+            "recall": 0.27049180327868855
+          },
+          "tier2": {
+            "support": 448,
+            "auroc": 0.6244783579192547,
+            "precision": 0.7575107296137339,
+            "recall": 0.7879464285714286
+          },
+          "tier3": {
+            "support": 62,
+            "auroc": 0.6589700056593095,
+            "precision": 0.21951219512195122,
+            "recall": 0.14516129032258066
+          }
+        }
+      }
+    },
+    {
+      "round": "valid-only-same-epochs",
+      "trainRows": 4163,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 95,
+        "coverage": 0.9604430379746836,
+        "exactPrecision": 0.6869851729818781,
+        "acceptablePrecision": 0.8270181219110379,
+        "underRate": 0.171334431630972,
+        "confidentCoverage": 0.7325949367088608,
+        "confidentAcceptablePrecision": 0.8552915766738661,
+        "invalidAbstainRate": 0.042105263157894736,
+        "invalidMeanMaxScore": 0.8598172457594621,
+        "perTier": {
+          "tier1": {
+            "support": 122,
+            "auroc": 0.7847958855673417,
+            "precision": 0.49640287769784175,
+            "recall": 0.5655737704918032
+          },
+          "tier2": {
+            "support": 448,
+            "auroc": 0.7078925659937888,
+            "precision": 0.8068459657701712,
+            "recall": 0.7366071428571429
+          },
+          "tier3": {
+            "support": 62,
+            "auroc": 0.7379739671760045,
+            "precision": 0.3050847457627119,
+            "recall": 0.2903225806451613
+          }
+        }
+      }
+    },
+    {
+      "round": "mixed-all-at-once",
+      "trainRows": 4894,
+      "validation": {
+        "validRows": 632,
+        "invalidRows": 95,
+        "coverage": 0.7879746835443038,
+        "exactPrecision": 0.7329317269076305,
+        "acceptablePrecision": 0.8514056224899599,
+        "underRate": 0.1465863453815261,
+        "confidentCoverage": 0.5395569620253164,
+        "confidentAcceptablePrecision": 0.8709677419354839,
+        "invalidAbstainRate": 0.5052631578947369,
+        "invalidMeanMaxScore": 0.5281796898104643,
+        "perTier": {
+          "tier1": {
+            "support": 122,
+            "auroc": 0.7776277724204436,
+            "precision": 0.5795454545454546,
+            "recall": 0.4180327868852459
+          },
+          "tier2": {
+            "support": 448,
+            "auroc": 0.6437427212732919,
+            "precision": 0.7932816537467701,
+            "recall": 0.6852678571428571
+          },
+          "tier3": {
+            "support": 62,
+            "auroc": 0.6550367855121675,
+            "precision": 0.30434782608695654,
+            "recall": 0.11290322580645161
+          }
+        }
+      }
+    }
+  ]
+}

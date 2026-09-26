@@ -1,0 +1,286 @@
+{
+  "rows": 471,
+  "tier3Rows": 123,
+  "seeds": [
+    {
+      "learnedV2": {
+        "rows": 471,
+        "coverage": 0.8577494692144374,
+        "acceptablePrecision": 0.7574257425742574,
+        "exactPrecision": 0.5866336633663366,
+        "underRate": 0.23514851485148514,
+        "tier3Recall": 0.1951219512195122,
+        "tier3Precision": 0.5
+      },
+      "oldRulesOnly": {
+        "rows": 471,
+        "coverage": 0.8895966029723992,
+        "acceptablePrecision": 0.7183770883054893,
+        "exactPrecision": 0.5465393794749404,
+        "underRate": 0.2744630071599045,
+        "tier3Recall": 0.08130081300813008,
+        "tier3Precision": 0.37037037037037035
+      },
+      "composed-laya-primary": {
+        "rows": 471,
+        "coverage": 0.8980891719745223,
+        "acceptablePrecision": 0.8226950354609929,
+        "exactPrecision": 0.6312056737588653,
+        "underRate": 0.16784869976359337,
+        "tier3Recall": 0.4634146341463415,
+        "tier3Precision": 0.6785714285714286
+      },
+      "composed-laya-fires": {
+        "rows": 471,
+        "coverage": 0.9087048832271762,
+        "acceptablePrecision": 0.883177570093458,
+        "exactPrecision": 0.5981308411214953,
+        "underRate": 0.09579439252336448,
+        "tier3Recall": 0.6991869918699187,
+        "tier3Precision": 0.524390243902439
+      },
+      "composed-cua-primary": {
+        "rows": 471,
+        "coverage": 0.8895966029723992,
+        "acceptablePrecision": 0.7183770883054893,
+        "exactPrecision": 0.5465393794749404,
+        "underRate": 0.2744630071599045,
+        "tier3Recall": 0.08130081300813008,
+        "tier3Precision": 0.37037037037037035
+      },
+      "composed-cua-fires": {
+        "rows": 471,
+        "coverage": 0.910828025477707,
+        "acceptablePrecision": 0.8275058275058275,
+        "exactPrecision": 0.5104895104895105,
+        "underRate": 0.11888111888111888,
+        "tier3Recall": 0.6016260162601627,
+        "tier3Precision": 0.3854166666666667
+      }
+    },
+    {
+      "learnedV2": {
+        "rows": 471,
+        "coverage": 0.881104033970276,
+        "acceptablePrecision": 0.7566265060240964,
+        "exactPrecision": 0.5927710843373494,
+        "underRate": 0.23373493975903614,
+        "tier3Recall": 0.25203252032520324,
+        "tier3Precision": 0.5740740740740741
+      },
+      "oldRulesOnly": {
+        "rows": 471,
+        "coverage": 0.8895966029723992,
+        "acceptablePrecision": 0.7398568019093079,
+        "exactPrecision": 0.6109785202863962,
+        "underRate": 0.2553699284009546,
+        "tier3Recall": 0.08130081300813008,
+        "tier3Precision": 0.5
+      },
+      "composed-laya-primary": {
+        "rows": 471,
+        "coverage": 0.9087048832271762,
+        "acceptablePrecision": 0.8457943925233645,
+        "exactPrecision": 0.7009345794392523,
+        "underRate": 0.14719626168224298,
+        "tier3Recall": 0.4959349593495935,
+        "tier3Precision": 0.7625
+      },
+      "composed-laya-fires": {
+        "rows": 471,
+        "coverage": 0.9171974522292994,
+        "acceptablePrecision": 0.9097222222222222,
+        "exactPrecision": 0.6712962962962963,
+        "underRate": 0.07407407407407407,
+        "tier3Recall": 0.7154471544715447,
+        "tier3Precision": 0.5605095541401274
+      },
+      "composed-cua-primary": {
+        "rows": 471,
+        "coverage": 0.8895966029723992,
+        "acceptablePrecision": 0.7398568019093079,
+        "exactPrecision": 0.6109785202863962,
+        "underRate": 0.2553699284009546,
+        "tier3Recall": 0.08130081300813008,
+        "tier3Precision": 0.5
+      },
+      "composed-cua-fires": {
+        "rows": 471,
+        "coverage": 0.9193205944798302,
+        "acceptablePrecision": 0.8337182448036952,
+        "exactPrecision": 0.5381062355658198,
+        "underRate": 0.11547344110854503,
+        "tier3Recall": 0.5934959349593496,
+        "tier3Precision": 0.3862433862433862
+      }
+    },
+    {
+      "learnedV2": {
+        "rows": 471,
+        "coverage": 0.8895966029723992,
+        "acceptablePrecision": 0.7494033412887828,
+        "exactPrecision": 0.5847255369928401,
+        "underRate": 0.24343675417661098,
+        "tier3Recall": 0.17886178861788618,
+        "tier3Precision": 0.5238095238095238
+      },
+      "oldRulesOnly": {
+        "rows": 471,
+        "coverage": 0.832271762208068,
+        "acceptablePrecision": 0.7397959183673469,
+        "exactPrecision": 0.5918367346938775,
+        "underRate": 0.2576530612244898,
+        "tier3Recall": 0.0975609756097561,
+        "tier3Precision": 0.5
+      },
+      "composed-laya-primary": {
+        "rows": 471,
+        "coverage": 0.851380042462845,
+        "acceptablePrecision": 0.8553615960099751,
+        "exactPrecision": 0.6907730673316709,
+        "underRate": 0.1396508728179551,
+        "tier3Recall": 0.5040650406504065,
+        "tier3Precision": 0.7469879518072289
+      },
+      "composed-laya-fires": {
+        "rows": 471,
+        "coverage": 0.8683651804670913,
+        "acceptablePrecision": 0.902200488997555,
+        "exactPrecision": 0.6454767726161369,
+        "underRate": 0.08068459657701711,
+        "tier3Recall": 0.7235772357723578,
+        "tier3Precision": 0.559748427672956
+      },
+      "composed-cua-primary": {
+        "rows": 471,
+        "coverage": 0.832271762208068,
+        "acceptablePrecision": 0.7397959183673469,
+        "exactPrecision": 0.5918367346938775,
+        "underRate": 0.2576530612244898,
+        "tier3Recall": 0.0975609756097561,
+        "tier3Precision": 0.5
+      },
+      "composed-cua-fires": {
+        "rows": 471,
+        "coverage": 0.8874734607218684,
+        "acceptablePrecision": 0.8301435406698564,
+        "exactPrecision": 0.5215311004784688,
+        "underRate": 0.11961722488038277,
+        "tier3Recall": 0.5934959349593496,
+        "tier3Precision": 0.3924731182795699
+      }
+    },
+    {
+      "learnedV2": {
+        "rows": 471,
+        "coverage": 0.8110403397027601,
+        "acceptablePrecision": 0.774869109947644,
+        "exactPrecision": 0.6361256544502618,
+        "underRate": 0.22251308900523561,
+        "tier3Recall": 0.34959349593495936,
+        "tier3Precision": 0.6615384615384615
+      },
+      "oldRulesOnly": {
+        "rows": 471,
+        "coverage": 0.7834394904458599,
+        "acceptablePrecision": 0.6910569105691057,
+        "exactPrecision": 0.5907859078590786,
+        "underRate": 0.3062330623306233,
+        "tier3Recall": 0.04878048780487805,
+        "tier3Precision": 0.75
+      },
+      "composed-laya-primary": {
+        "rows": 471,
+        "coverage": 0.8004246284501062,
+        "acceptablePrecision": 0.8116710875331565,
+        "exactPrecision": 0.6896551724137931,
+        "underRate": 0.1830238726790451,
+        "tier3Recall": 0.44715447154471544,
+        "tier3Precision": 0.8208955223880597
+      },
+      "composed-laya-fires": {
+        "rows": 471,
+        "coverage": 0.832271762208068,
+        "acceptablePrecision": 0.8801020408163265,
+        "exactPrecision": 0.6505102040816326,
+        "underRate": 0.10204081632653061,
+        "tier3Recall": 0.6991869918699187,
+        "tier3Precision": 0.5695364238410596
+      },
+      "composed-cua-primary": {
+        "rows": 471,
+        "coverage": 0.7834394904458599,
+        "acceptablePrecision": 0.6910569105691057,
+        "exactPrecision": 0.5907859078590786,
+        "underRate": 0.3062330623306233,
+        "tier3Recall": 0.04878048780487805,
+        "tier3Precision": 0.75
+      },
+      "composed-cua-fires": {
+        "rows": 471,
+        "coverage": 0.8428874734607219,
+        "acceptablePrecision": 0.8211586901763224,
+        "exactPrecision": 0.5289672544080605,
+        "underRate": 0.12342569269521411,
+        "tier3Recall": 0.5934959349593496,
+        "tier3Precision": 0.39037433155080214
+      }
+    },
+    {
+      "learnedV2": {
+        "rows": 471,
+        "coverage": 0.8662420382165605,
+        "acceptablePrecision": 0.8112745098039216,
+        "exactPrecision": 0.6004901960784313,
+        "underRate": 0.1642156862745098,
+        "tier3Recall": 0.43089430894308944,
+        "tier3Precision": 0.5
+      },
+      "oldRulesOnly": {
+        "rows": 471,
+        "coverage": 0.7876857749469215,
+        "acceptablePrecision": 0.6900269541778976,
+        "exactPrecision": 0.5714285714285714,
+        "underRate": 0.30727762803234504,
+        "tier3Recall": 0.08943089430894309,
+        "tier3Precision": 0.44
+      },
+      "composed-laya-primary": {
+        "rows": 471,
+        "coverage": 0.8110403397027601,
+        "acceptablePrecision": 0.8010471204188482,
+        "exactPrecision": 0.662303664921466,
+        "underRate": 0.193717277486911,
+        "tier3Recall": 0.4796747967479675,
+        "tier3Precision": 0.7108433734939759
+      },
+      "composed-laya-fires": {
+        "rows": 471,
+        "coverage": 0.8450106157112527,
+        "acceptablePrecision": 0.8693467336683417,
+        "exactPrecision": 0.6231155778894473,
+        "underRate": 0.11306532663316583,
+        "tier3Recall": 0.7154471544715447,
+        "tier3Precision": 0.5365853658536586
+      },
+      "composed-cua-primary": {
+        "rows": 471,
+        "coverage": 0.7876857749469215,
+        "acceptablePrecision": 0.6900269541778976,
+        "exactPrecision": 0.5714285714285714,
+        "underRate": 0.30727762803234504,
+        "tier3Recall": 0.08943089430894309,
+        "tier3Precision": 0.44
+      },
+      "composed-cua-fires": {
+        "rows": 471,
+        "coverage": 0.861995753715499,
+        "acceptablePrecision": 0.7906403940886699,
+        "exactPrecision": 0.5147783251231527,
+        "underRate": 0.15517241379310345,
+        "tier3Recall": 0.5934959349593496,
+        "tier3Precision": 0.3862433862433862
+      }
+    }
+  ]
+}

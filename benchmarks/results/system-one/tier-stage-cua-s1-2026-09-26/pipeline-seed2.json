@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "variants": {
+    "valid-only": {
+      "noGate": {
+        "rows": 727,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 1.0,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.9984177215189873,
+        "validAcceptablePrecision": 0.8906497622820919,
+        "validUnderRate": 0.10935023771790808,
+        "suggestionPrecisionAllRows": 0.7741046831955923,
+        "suggestionsShown": 0.9986244841815681
+      },
+      "gate@0.5": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.8315789473684211,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.9825949367088608,
+        "validAcceptablePrecision": 0.8888888888888888,
+        "validUnderRate": 0.1111111111111111,
+        "suggestionPrecisionAllRows": 0.7885714285714286,
+        "suggestionsShown": 0.9628610729023384
+      },
+      "gate@0.8": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.8315789473684211,
+        "validHandedOff": 0.011075949367088608,
+        "validCoverage": 0.9873417721518988,
+        "validAcceptablePrecision": 0.8894230769230769,
+        "validUnderRate": 0.11057692307692307,
+        "suggestionPrecisionAllRows": 0.7894736842105263,
+        "suggestionsShown": 0.9669876203576341
+      }
+    },
+    "curriculum-1of3": {
+      "noGate": {
+        "rows": 727,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.631578947368421,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8496835443037974,
+        "validAcceptablePrecision": 0.9106145251396648,
+        "validUnderRate": 0.08379888268156424,
+        "suggestionPrecisionAllRows": 0.8190954773869347,
+        "suggestionsShown": 0.8211829436038515
+      },
+      "gate@0.5": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.5789473684210527,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.8401898734177216,
+        "validAcceptablePrecision": 0.911487758945386,
+        "validUnderRate": 0.08286252354048965,
+        "suggestionPrecisionAllRows": 0.825938566552901,
+        "suggestionsShown": 0.8060522696011004
+      },
+      "gate@0.8": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.5789473684210527,
+        "validHandedOff": 0.011075949367088608,
+        "validCoverage": 0.8433544303797469,
+        "validAcceptablePrecision": 0.9099437148217636,
+        "validUnderRate": 0.08442776735459662,
+        "suggestionPrecisionAllRows": 0.8248299319727891,
+        "suggestionsShown": 0.8088033012379643
+      }
+    },
+    "curriculum-2of3": {
+      "noGate": {
+        "rows": 727,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.7473684210526316,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8449367088607594,
+        "validAcceptablePrecision": 0.8220973782771536,
+        "validUnderRate": 0.1760299625468165,
+        "suggestionPrecisionAllRows": 0.7256198347107438,
+        "suggestionsShown": 0.8321870701513068
+      },
+      "gate@0.5": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.6631578947368421,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.8354430379746836,
+        "validAcceptablePrecision": 0.821969696969697,
+        "validUnderRate": 0.17613636363636365,
+        "suggestionPrecisionAllRows": 0.7343485617597293,
+        "suggestionsShown": 0.81292984869326
+      },
+      "gate@0.8": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.6631578947368421,
+        "validHandedOff": 0.011075949367088608,
+        "validCoverage": 0.8370253164556962,
+        "validAcceptablePrecision": 0.8223062381852552,
+        "validUnderRate": 0.17580340264650285,
+        "suggestionPrecisionAllRows": 0.7347972972972973,
+        "suggestionsShown": 0.8143053645116919
+      }
+    },
+    "curriculum-3of3": {
+      "noGate": {
+        "rows": 727,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.5052631578947369,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8338607594936709,
+        "validAcceptablePrecision": 0.889943074003795,
+        "validUnderRate": 0.1062618595825427,
+        "suggestionPrecisionAllRows": 0.8156521739130435,
+        "suggestionsShown": 0.7909215955983494
+      },
+      "gate@0.5": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.45263157894736844,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.8275316455696202,
+        "validAcceptablePrecision": 0.8891013384321224,
+        "validUnderRate": 0.10707456978967496,
+        "suggestionPrecisionAllRows": 0.8215547703180212,
+        "suggestionsShown": 0.7785419532324622
+      },
+      "gate@0.8": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.45263157894736844,
+        "validHandedOff": 0.011075949367088608,
+        "validCoverage": 0.8291139240506329,
+        "validAcceptablePrecision": 0.8893129770992366,
+        "validUnderRate": 0.10687022900763359,
+        "suggestionPrecisionAllRows": 0.8218694885361552,
+        "suggestionsShown": 0.7799174690508941
+      }
+    },
+    "valid-only-same-epochs": {
+      "noGate": {
+        "rows": 727,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.9578947368421052,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.9604430379746836,
+        "validAcceptablePrecision": 0.8369028006589786,
+        "validUnderRate": 0.15815485996705106,
+        "suggestionPrecisionAllRows": 0.7277936962750716,
+        "suggestionsShown": 0.9601100412654745
+      },
+      "gate@0.5": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.8,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.944620253164557,
+        "validAcceptablePrecision": 0.8408710217755444,
+        "validUnderRate": 0.1541038525963149,
+        "suggestionPrecisionAllRows": 0.7459138187221397,
+        "suggestionsShown": 0.9257221458046767
+      },
+      "gate@0.8": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.8,
+        "validHandedOff": 0.011075949367088608,
+        "validCoverage": 0.9493670886075949,
+        "validAcceptablePrecision": 0.84,
+        "validUnderRate": 0.155,
+        "suggestionPrecisionAllRows": 0.7455621301775148,
+        "suggestionsShown": 0.9298486932599724
+      }
+    },
+    "mixed-all-at-once": {
+      "noGate": {
+        "rows": 727,
+        "invalidHandedOff": 0.0,
+        "invalidGotTier": 0.5578947368421052,
+        "validHandedOff": 0.0,
+        "validCoverage": 0.8908227848101266,
+        "validAcceptablePrecision": 0.8365896980461812,
+        "validUnderRate": 0.16163410301953818,
+        "suggestionPrecisionAllRows": 0.7646103896103896,
+        "suggestionsShown": 0.8473177441540578
+      },
+      "gate@0.5": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.5473684210526316,
+        "validHandedOff": 0.015822784810126583,
+        "validCoverage": 0.8829113924050633,
+        "validAcceptablePrecision": 0.8369175627240143,
+        "validUnderRate": 0.16129032258064516,
+        "suggestionPrecisionAllRows": 0.7655737704918033,
+        "suggestionsShown": 0.8390646492434664
+      },
+      "gate@0.8": {
+        "rows": 727,
+        "invalidHandedOff": 0.16842105263157894,
+        "invalidGotTier": 0.5473684210526316,
+        "validHandedOff": 0.011075949367088608,
+        "validCoverage": 0.884493670886076,
+        "validAcceptablePrecision": 0.8372093023255814,
+        "validUnderRate": 0.16100178890876565,
+        "suggestionPrecisionAllRows": 0.7659574468085106,
+        "suggestionsShown": 0.8404401650618982
+      }
+    }
+  }
+}
