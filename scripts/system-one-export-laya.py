@@ -49,6 +49,23 @@ def build_item(state_text, instructions, probs, builder):
             'target': target, 'label': target.index(max(target))}
 
 
+def parse_oversample(spec):
+    """Parse 'intent:factor,...' into {intent: factor}; factor 1 is rejected."""
+    table = {}
+    for part in (spec or '').split(','):
+        if not part.strip():
+            continue
+        try:
+            intent, factor = part.split(':')
+            factor = int(factor)
+        except ValueError:
+            raise ValueError(f'oversample: bad entry {part!r}, want intent:factor')
+        if intent not in INTENTS or factor < 2:
+            raise ValueError(f'oversample: bad entry {part!r}, want known intent and factor >= 2')
+        table[intent] = factor
+    return table
+
+
 def default_builder_factory(checkpoint='convaiinnovations/laya', subfolder='multilingual'):
     """Real sequence builder through laya.common (lazy import)."""
     from huggingface_hub import snapshot_download  # noqa: PLC0415
@@ -79,10 +96,14 @@ def default_builder_factory(checkpoint='convaiinnovations/laya', subfolder='mult
 
 
 def export(data_dir, split, out_path, manifest_path, builder, seed=0, forbid_path=None,
-           teacher_file='labels-intent-scores.jsonl', provenance=None):
+           teacher_file='labels-intent-scores.jsonl', provenance=None, oversample=None):
     """Export one prompts.jsonl split to upstream-format items."""
     if split not in ('train', 'validation'):
         raise ValueError(f'split must be train or validation, got {split!r}')
+    oversample = dict(oversample or {})
+    for intent, factor in oversample.items():
+        if intent not in INTENTS or not isinstance(factor, int) or factor < 2:
+            raise ValueError(f'oversample: bad entry {intent!r}:{factor!r}')
     data_dir, out_path, manifest_path = Path(data_dir), Path(out_path), Path(manifest_path)
     prompts_raw = (data_dir / 'prompts.jsonl').read_text(encoding='utf-8')
     teacher_raw = (data_dir / teacher_file).read_text(encoding='utf-8')
@@ -107,15 +128,19 @@ def export(data_dir, split, out_path, manifest_path, builder, seed=0, forbid_pat
                 continue
             for intent in INTENTS:
                 p = float(trow['scores'].get(intent, 0.0))
+                repeat = oversample.get(intent, 1) if p >= 0.4 else 1
                 item = build_item(prompt['text'], questions[intent]['instructions'],
                                   {'true': p, 'false': 1.0 - p}, builder)
                 if item is None:
-                    skipped_markers += 1
+                    skipped_markers += repeat
                     continue
-                fh.write(json.dumps({'promptId': prompt['id'], 'intent': intent, **item}) + '\n')
-                items += 1
+                line = json.dumps({'promptId': prompt['id'], 'intent': intent, **item}) + '\n'
+                for _ in range(repeat):
+                    fh.write(line)
+                items += repeat
     manifest = {'split': split, 'seed': seed, 'questions': QUESTIONS_VERSION,
                 'builder': provenance or {'builder': 'injected'},
+                'oversample': oversample,
                 'items': items, 'prompts': len(rows),
                 'skippedNoTeacher': skipped_no_teacher, 'skippedMarkers': skipped_markers,
                 'promptsSha256': hashlib.sha256(prompts_raw.encode('utf-8')).hexdigest(),
@@ -138,8 +163,10 @@ def main(argv=None):
     parser.add_argument('--seed', type=int, default=0, help='0 keeps id order; nonzero shuffles')
     parser.add_argument('--forbid', default=None, help='json list of forbidden ids (overlap guard)')
     parser.add_argument('--teacher', default='labels-intent-scores.jsonl')
+    parser.add_argument('--oversample', default='', help='intent:factor,... to repeat positive intent items')
     parser.add_argument('--limit', type=int, default=0, help='export only the first N prompts (0 = all)')
     args = parser.parse_args(argv)
+    oversample = parse_oversample(args.oversample)
     builder, provenance = default_builder_factory(args.checkpoint, args.subfolder)
     print(json.dumps({'builder': provenance}))
     # --limit applies before export by staging a filtered view; export() keeps split semantics.
@@ -157,11 +184,11 @@ def main(argv=None):
             (view / args.teacher).write_text((data_dir / args.teacher).read_text(encoding='utf-8'), encoding='utf-8')
             summary = export(view, args.split, args.out, args.manifest, builder,
                              seed=args.seed, forbid_path=args.forbid, teacher_file=args.teacher,
-                             provenance=provenance)
+                             provenance=provenance, oversample=oversample)
     else:
         summary = export(args.data_dir, args.split, args.out, args.manifest, builder,
                          seed=args.seed, forbid_path=args.forbid, teacher_file=args.teacher,
-                         provenance=provenance)
+                         provenance=provenance, oversample=oversample)
     print(json.dumps({k: v for k, v in summary.items() if k != 'manifest'}))
     return 0
 

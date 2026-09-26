@@ -28,6 +28,8 @@ except ImportError:
 
 CALIB_SEED = 20260922
 CALIB_MAX = 400
+INTENTS = ['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor',
+           'review', 'test', 'docs', 'plan', 'investigate']
 
 
 def need_torch():
@@ -35,14 +37,72 @@ def need_torch():
         raise RuntimeError('torch is required for training')
 
 
+def intent_weights(intents, table):
+    """Per-item loss multipliers by training intent; unlisted intents weigh 1."""
+    import math  # noqa: PLC0415
+    table = dict(table or {})
+    for intent, weight in table.items():
+        if intent not in INTENTS or not isinstance(weight, (int, float)) \
+                or not math.isfinite(weight) or weight <= 0:
+            raise ValueError(f'intent-weights: bad entry {intent!r}:{weight!r}')
+    return [float(table.get(intent, 1.0)) for intent in intents]
+
+
 def calib_split(items, seed=CALIB_SEED, frac=0.1):
-    """Deterministic 10% calibration holdout, disjoint from training."""
-    order = list(range(len(items)))
-    random.Random(seed).shuffle(order)
-    n_calib = max(1, min(CALIB_MAX, len(items) // 10 if frac == 0.1 else int(len(items) * frac)))
-    calib_idx = set(sorted(order[:n_calib]))
-    calib = [items[i] for i in sorted(calib_idx)]
-    train = [items[i] for i in range(len(items)) if i not in calib_idx]
+    """Deterministic calibration split, grouped by prompt when promptId exists.
+
+    Calibration keeps one copy per promptId+intent identity. Oversampled copies
+    survive only in training groups, preventing exact-duplicate leakage and
+    calibration reweighting. Callers without promptId retain per-item behavior.
+    """
+    groups = {}
+    group_order = []
+    for index, item in enumerate(items):
+        prompt_id = item.get('promptId')
+        key = ('prompt', str(prompt_id)) if prompt_id is not None else ('item', index)
+        if key not in groups:
+            groups[key] = []
+            group_order.append(key)
+        groups[key].append(item)
+
+    def calib_rows(group):
+        if not group or group[0].get('promptId') is None:
+            return list(group)
+        seen, rows = set(), []
+        for item in group:
+            identity = (item.get('promptId'), item.get('intent'))
+            if identity in seen:
+                continue
+            seen.add(identity)
+            rows.append(item)
+        return rows
+
+    base_groups = {key: calib_rows(group) for key, group in groups.items()}
+    base_total = sum(len(group) for group in base_groups.values())
+    if base_total == 0:
+        return [], []
+    n_calib = max(1, min(CALIB_MAX, base_total // 10 if frac == 0.1 else int(base_total * frac)))
+
+    shuffled = list(group_order)
+    random.Random(seed).shuffle(shuffled)
+    calib_groups, calib_count = set(), 0
+    for key in shuffled:
+        size = len(base_groups[key])
+        if calib_count == 0 and size > n_calib:
+            calib_groups.add(key)
+            break
+        if calib_count + size <= n_calib:
+            calib_groups.add(key)
+            calib_count += size
+            if calib_count == n_calib:
+                break
+
+    train, calib = [], []
+    for key in group_order:
+        if key in calib_groups:
+            calib.extend(base_groups[key])
+        else:
+            train.extend(groups[key])
     return train, calib
 
 
@@ -118,7 +178,10 @@ def train(args):
 
     items = [json.loads(line) for line in Path(args.items).read_text(encoding='utf-8').splitlines() if line.strip()]
     train_items, calib_items = calib_split(items, seed=args.calib_seed, frac=args.calib_frac)
-    print(json.dumps({'trainItems': len(train_items), 'calibItems': len(calib_items), 'device': device}), flush=True)
+    weights_table = json.loads(args.intent_weights)
+    intent_weights([], weights_table)  # validate early, before GPU time
+    print(json.dumps({'trainItems': len(train_items), 'calibItems': len(calib_items), 'device': device,
+                      'intentWeights': weights_table}), flush=True)
 
     from huggingface_hub import snapshot_download  # noqa: PLC0415
     model_dir = Path(snapshot_download(args.checkpoint))
@@ -178,8 +241,11 @@ def train(args):
                 adv = r - r.mean(0, keepdim=True)
                 adv = adv / (adv.std() + 1e-6)
             logp = -(((z - logits.unsqueeze(0)) ** 2) * mask).sum(-1) / (2 * sigma ** 2)
-            loss_rl = -(adv * logp).mean()
-            loss_ce = -(target * torch.log_softmax(logits.masked_fill(~mask, -1e4), -1)).sum(-1).mean()
+            sample_w = torch.tensor(
+                intent_weights([it.get('intent') for it in chunk], weights_table),
+                dtype=torch.float32, device=device)
+            loss_rl = (-(adv * logp).mean(0) * sample_w).mean()
+            loss_ce = ((-(target * torch.log_softmax(logits.masked_fill(~mask, -1e4), -1)).sum(-1)) * sample_w).mean()
             loss = (loss_rl + loss_ce) / args.grad_accum + 0.0 * act.sum()
             scaler.scale(loss).backward()
             accum += 1
@@ -269,6 +335,7 @@ def main(argv=None):
     parser.add_argument('--sigma-end', type=float, default=0.1)
     parser.add_argument('--calib-seed', type=int, default=CALIB_SEED)
     parser.add_argument('--calib-frac', type=float, default=0.1)
+    parser.add_argument('--intent-weights', default='{}', help='JSON {intent: multiplier} for loss weighting')
     args = parser.parse_args(argv)
     return train(args)
 

@@ -37,6 +37,38 @@ class CalibSplitTests(unittest.TestCase):
         _, calib = laya_trainer.calib_split([{'id': i} for i in range(5)], seed=7, frac=0.1)
         self.assertEqual(len(calib), 1)
 
+    def test_prompt_groups_do_not_cross_split_and_calib_deduplicates_oversamples(self):
+        items = []
+        for prompt_id in range(20):
+            items.append({'promptId': str(prompt_id), 'intent': 'fix'})
+            items.append({'promptId': str(prompt_id), 'intent': 'refactor'})
+            items.append({'promptId': str(prompt_id), 'intent': 'refactor'})  # oversampled duplicate
+        train, calib = laya_trainer.calib_split(items, seed=20260922, frac=0.1)
+        train_prompts = {it['promptId'] for it in train}
+        calib_prompts = {it['promptId'] for it in calib}
+        self.assertFalse(train_prompts & calib_prompts, 'a prompt must stay wholly on one side')
+        calib_keys = [(it['promptId'], it['intent']) for it in calib]
+        self.assertEqual(len(calib_keys), len(set(calib_keys)),
+                         'oversampled duplicates must not overweight temperature fitting')
+        self.assertEqual(len(calib), 4, '10% of 40 de-duplicated prompt-intent identities')
+        self.assertEqual(sum(1 for it in train if it['intent'] == 'refactor'), 2 * len(train_prompts),
+                         'training keeps oversampled copies for non-calibration prompt groups')
+
+
+class IntentWeightTests(unittest.TestCase):
+    def test_default_weights_are_one(self):
+        self.assertEqual(laya_trainer.intent_weights(['fix', 'test'], {}), [1.0, 1.0])
+
+    def test_table_applies_per_item_intent(self):
+        self.assertEqual(laya_trainer.intent_weights(['refactor', 'fix', 'refactor'], {'refactor': 2.0}),
+                         [2.0, 1.0, 2.0])
+
+    def test_bad_table_fails(self):
+        with self.assertRaisesRegex(ValueError, 'intent-weights'):
+            laya_trainer.intent_weights(['fix'], {'nope': 2.0})
+        with self.assertRaisesRegex(ValueError, 'intent-weights'):
+            laya_trainer.intent_weights(['fix'], {'fix': 0})
+
 
 @unittest.skipUnless(HAS_TORCH, 'torch not installed')
 class TorchTests(unittest.TestCase):

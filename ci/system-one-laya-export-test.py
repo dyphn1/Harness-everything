@@ -116,6 +116,40 @@ class ExportTests(unittest.TestCase):
             summary = laya_exporter.export(data, 'train', out, Path(d) / 'm.json', fake_builder, seed=7)
         self.assertEqual((summary['items'], summary['skippedNoTeacher']), (12, 1))
 
+    def test_oversample_repeats_only_selected_positive_intent(self):
+        prompts = [{'id': 'a', 'split': 'train', 'text': 'restructure'},
+                   {'id': 'b', 'split': 'train', 'text': 'fix it'}]
+        scores_a = {i: (0.9 if i == 'refactor' else 0.0) for i in INTENTS}
+        scores_b = {i: (0.9 if i == 'fix' else 0.0) for i in INTENTS}
+        with tempfile.TemporaryDirectory() as d:
+            data = Path(d) / 'data'
+            data.mkdir()
+            self.write_data(data, prompts, [self.teacher_row('a', scores_a), self.teacher_row('b', scores_b)])
+            out = Path(d) / 'o.json'
+            summary = laya_exporter.export(data, 'train', out, Path(d) / 'm.json', fake_builder,
+                                           seed=0, oversample={'refactor': 3})
+            rows = [json.loads(line) for line in out.read_text(encoding='utf-8').strip().split('\n')]
+            keys = [(r['promptId'], r['intent']) for r in rows]
+            self.assertEqual(summary['items'], 26, '24 base items plus two refactor repeats')
+            self.assertEqual(keys.count(('a', 'refactor')), 3)
+            self.assertTrue(all(keys.count(('a', intent)) == 1 for intent in INTENTS if intent != 'refactor'),
+                            'sibling intents must not be reweighted')
+            self.assertTrue(all(keys.count(('b', intent)) == 1 for intent in INTENTS),
+                            'non-positive prompt must remain at base multiplicity')
+            self.assertEqual(summary['manifest']['oversample'], {'refactor': 3})
+
+    def test_bad_oversample_spec_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            data = Path(d) / 'data'
+            data.mkdir()
+            self.write_data(data, [], [])
+            with self.assertRaisesRegex(ValueError, 'oversample'):
+                laya_exporter.export(data, 'train', Path(d) / 'o.json', Path(d) / 'm.json',
+                                     fake_builder, oversample={'nope': 2})
+            with self.assertRaisesRegex(ValueError, 'oversample'):
+                laya_exporter.export(data, 'train', Path(d) / 'o.json', Path(d) / 'm.json',
+                                     fake_builder, oversample={'fix': 1})
+
 
 if __name__ == '__main__':
     unittest.main()
