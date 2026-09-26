@@ -1,6 +1,11 @@
 # System One intent promotion gates (relevance-native)
 
-Status: **proposed**. Decided in
+Status: **superseded** by [system-one-suggestion-gates.md](system-one-suggestion-gates.md).
+This table remains the contract for the runs made under it (for example
+`benchmarks/results/system-one/laya-ft-2026-09-25/`); those results are
+never re-scored under the new gates.
+
+Originally decided in
 [#233](https://github.com/dyphn1/Harness-everything/issues/233) (accept
 relevance-native direction, keep production migration gated); evidence in
 [#255](https://github.com/dyphn1/Harness-everything/issues/255). Thresholds

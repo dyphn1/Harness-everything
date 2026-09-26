@@ -372,6 +372,11 @@ ownership, the Rule of 3 and deterministic policy always take precedence.
 
 ## Rollout gates
 
+Model-quality gates for relevance-native candidates are defined in
+[system-one-suggestion-gates.md](system-one-suggestion-gates.md), which
+supersedes the precision/coverage/latency targets below. The holdout size,
+provenance, repeatability and advisory rules below still apply.
+
 Phase 4 requires a separately reviewed, family-disjoint holdout of at least 200
 cases, at least 50 each in English and Traditional Chinese. System One output is
 advisory: it informs the agent and suggests skills. It never grants or removes
