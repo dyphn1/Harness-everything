@@ -59,3 +59,52 @@ with tempfile.TemporaryDirectory() as tmp:
     assert len(trainer.sha256_file(p)) == 64
 
 print('system-one trainer data tests passed')
+
+intent_catalog = trainer.catalog_from_holdout(ROOT / 'benchmarks' / 'fixtures' / 'system-one-intent-holdout.json')
+assert [o['id'] for o in intent_catalog] == ['explain', 'discuss', 'git', 'fix', 'edit', 'feature', 'refactor',
+    'review', 'test', 'docs', 'plan', 'investigate', 'unclassified'], intent_catalog
+
+
+def scored_row(gold, secondary, scores):
+    return {'gold': gold, 'secondary': secondary, 'relevance': scores}
+
+
+intent_ids = [o['id'] for o in intent_catalog]
+row = scored_row('fix', ['test'], {'fix': 0.9, 'test': 0.5})
+targets = trainer.build_targets(row, intent_catalog)
+assert targets[intent_ids.index('fix')] == 0.9
+assert targets[intent_ids.index('test')] == 0.5
+assert targets[intent_ids.index('unclassified')] == 0.0
+assert targets[intent_ids.index('git')] == 0.0, 'missing intents default to 0'
+null_targets = trainer.build_targets(scored_row(None, [], {}), intent_catalog)
+assert null_targets[intent_ids.index('unclassified')] == 0.6
+assert all(v == 0.0 for i, v in enumerate(null_targets) if intent_ids[i] != 'unclassified')
+
+sprompts = [
+    {'id': 'a', 'family': 'f1', 'source': 'claude', 'split': 'train', 'text': 'fix it'},
+    {'id': 'b', 'family': 'f2', 'source': 'claude', 'split': 'train', 'text': 'no teacher'},
+    {'id': 'c', 'family': 'f3', 'source': 'claude', 'split': 'train', 'text': 'excluded'},
+    {'id': 'd', 'family': 'f4', 'source': 'claude', 'split': 'validation', 'text': 'override me'},
+]
+slabels = [
+    {'id': 'a', 'gold': 'fix', 'secondary': ['test'], 'scores': {'fix': 0.9, 'test': 0.5}},
+    {'id': 'c', 'gold': 'docs', 'secondary': [], 'scores': {'docs': 0.8}},
+    {'id': 'd', 'gold': 'fix', 'secondary': [], 'scores': {'fix': 0.7}},
+]
+sjoined = trainer.join_scored(sprompts, slabels, [{'id': 'd', 'gold': 'docs', 'secondary': ['explain']}],
+                              [{'id': 'c'}])
+assert [(r['id'], r['gold'], r['secondary']) for r in sjoined] == [
+    ('a', 'fix', ['test']), ('d', 'docs', ['explain'])], sjoined
+assert sjoined[1]['relevance'] == {'docs': 0.6, 'explain': 0.4}, 'override without scores defaults'
+try:
+    trainer.join_scored(sprompts, slabels + [slabels[0]], [], [])
+    raise SystemExit('duplicate scored labels must be rejected')
+except ValueError:
+    pass
+try:
+    trainer.main(['--data-dir', 'x', '--out', 'y', '--target', 'scores'])
+    raise SystemExit('scores needs --task intent')
+except SystemExit:
+    pass
+
+print('system-one trainer intent/scores data tests passed')
