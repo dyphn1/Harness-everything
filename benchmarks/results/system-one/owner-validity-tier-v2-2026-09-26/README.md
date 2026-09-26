@@ -71,3 +71,46 @@ Seed 0, all rows at once, per tier: tier1 recall 0.31, tier2 0.64, tier3
 4. Since the intent stage already scores `feature` and `refactor`, tier3
    under the new rule could be composed from the intent scores plus the
    structural floor instead of being learned a second time. Not measured.
+
+## Composed tier3: take it from intent instead of learning it
+
+`scripts/system-one-tier-compose-eval.py`. Under rules v2 tier3 means
+"primary intent is feature or refactor" (plus the breadth-based tier3 of
+the old rules). The composed readout is: tier3 when the intent readout
+says feature/refactor, otherwise the old-rules tier model's pick (staged
+variant, same seed). Two intent readouts: `primary` (feature or refactor is
+the top intent) and `fires` (either is at or above its own threshold). Two
+intent scorers, both with their saved per-intent thresholds, which were fit
+on the teacher's validation scores, never on tier truth:
+
+- `cua`: the CUA-S1 intent baseline from PR #264 (deployable size).
+- `laya`: the fine-tuned Laya reference from #255 (ceiling only, not
+  deployable).
+
+Rows: the 471 valid validation rows that also have teacher intent scores
+(123 tier3). Mean ± sd over the five tier seeds (`tier-compose.json`):
+
+| Readout | acceptable | exact | under-tier | tier3 recall | tier3 precision |
+| --- | --- | --- | --- | --- | --- |
+| learned on rules-v2 labels | 0.77 ± 0.03 | 0.60 | 0.22 | 0.28 | 0.55 |
+| old-rules tier model alone | 0.72 ± 0.03 | 0.58 | 0.28 | 0.08 | 0.51 |
+| composed, cua, fires | **0.82 ± 0.02** | 0.52 | **0.13** | 0.60 | 0.39 |
+| composed, cua, primary | 0.72 ± 0.03 | 0.58 | 0.28 | 0.08 | 0.51 |
+| composed, laya, fires | 0.89 ± 0.02 | 0.64 | 0.09 | 0.71 | 0.55 |
+| composed, laya, primary | 0.83 ± 0.02 | 0.68 | 0.17 | 0.48 | 0.74 |
+
+Reading:
+
+1. **Composing beats learning tier3 a second time.** With the deployable
+   CUA-S1 intent scorer, acceptable precision rises from 0.77 to 0.82 and
+   under-tier falls from 0.22 to 0.13. The Laya ceiling reaches 0.89 and
+   0.09, which shows how much a better intent scorer would add.
+2. **Use `fires`, not `primary`, with the small intent model.** It spreads
+   its scores and never ranks feature or refactor first, so `primary` adds
+   nothing. `fires` over-assigns tier3 (precision 0.39), which is the safe
+   direction: one tier too high is acceptable, one too low is not.
+3. Caveats: the rules-v2 truth is derived from Codex intent labels, while
+   both intent scorers learned from Sonnet dense scores, so truth and
+   predictor share the task definition but not the labeler. Thresholds are
+   in-sample on validation for the intent task. The structural floor
+   (cross-repo, cross-component) is not part of this text-only comparison.

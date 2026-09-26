@@ -51,3 +51,15 @@ ow2 = {r['id']: r for r in exp.tier_rows(prompts, {'a': 'tier2', 'b': 'tier2', '
 assert not ow2['d']['valid'] and ow2['d']['bucket'] == 'owner-invalid'
 
 print('system-one pipeline eval tests passed')
+
+comp = __import__('system-one-tier-compose-eval')
+taus = {c: 0.5 for c in comp.CATALOG}
+assert comp.intent_says_tier3({'feature': 0.7, 'fix': 0.3}, taus, 'primary')
+assert not comp.intent_says_tier3({'feature': 0.6, 'fix': 0.9}, taus, 'primary')
+assert comp.intent_says_tier3({'feature': 0.6, 'fix': 0.9}, taus, 'fires'), 'fires ignores the top intent'
+assert comp.composed_pick([0.9, 0.1, 0.1], {'refactor': 0.8}, taus, 'primary') == 2
+assert comp.composed_pick([0.9, 0.1, 0.1], {'fix': 0.8}, taus, 'primary') == 0
+s = comp.score_picks([2, 1, 0], [2, 0, None])
+assert s['coverage'] == 2 / 3 and s['underRate'] == 0.5 and s['tier3Recall'] == 1.0 and s['tier3Precision'] == 1.0
+
+print('system-one tier compose tests passed')
