@@ -107,3 +107,34 @@ against 0.08 and 0.26 under v1.
 This supports the owner's reading that much of the earlier "noise" was the
 labeler's own prior judgement from session context, not ambiguity in the
 text.
+
+## Ten stages (owner request)
+
+Same rules v2, model and seed; ambiguous rows added in 10 stages instead of
+3. Two schedules: 1 epoch per stage (16 epochs total, close to the 3-stage
+run) and 3 epochs per stage (36 total). Each control trains the same total
+epochs from scratch. Reports: `report-rules-v2-stages10-e1.json`,
+`report-rules-v2-stages10-e3.json`.
+
+| Run | AUROC end | confident continuation end | confident noise end | control: confident continuation | control: confident noise |
+| --- | --- | --- | --- | --- | --- |
+| 3 stages × 3 epochs | 0.796 | 0.71 | 0.41 | 0.43 | 0.38 |
+| 10 stages × 1 epoch | 0.76 | 0.32 | 0.19 | 0.11 | 0.11 |
+| 10 stages × 3 epochs | 0.79 | 0.57 | 0.36 | 0.21 | 0.17 |
+
+Across the ten stages, confident continuation swings between neighbouring
+checkpoints: 0.04 to 0.71 (1 epoch per stage) and 0.07 to 0.71 (3 epochs
+per stage), while AUROC stays within 0.67–0.79.
+
+## Reading (ten stages)
+
+1. **More stages did not help.** Ten stages end below three (0.57 and 0.32
+   against 0.71) and swing more along the way.
+2. **The confident rate is unstable, the ranking is not.** Continuation
+   scores sit near the 0.8 line, so a small update moves many rows across
+   it. The controls show the same: 0.43, 0.11 and 0.21 for 15, 16 and 36
+   epochs. A single checkpoint's confident rate is not a reliable number.
+3. **Direction is consistent.** In all three pairs the curriculum ends more
+   confident on continuations than its control (0.71/0.43, 0.32/0.11,
+   0.57/0.21), with the same AUROC. That is 3 of 3 with one seed, so it is
+   a direction, not a measured effect.
