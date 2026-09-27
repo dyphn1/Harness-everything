@@ -74,6 +74,22 @@ try {
   git(linkedSub, ['config', 'user.name', 'Harness Test']);
   git(linkedSub, ['config', 'user.email', 'harness@example.invalid']);
 
+  // Clean initialized submodules use a leading-space status marker. The helper
+  // must preserve/normalize that state instead of consuming the first SHA byte
+  // as a prefix when command output is trimmed.
+  const cleanRawStatus = git(worktree, ['submodule', 'status', '--recursive']).stdout;
+  assert.match(cleanRawStatus, /^ [0-9a-f]{40,64}\s+libs\/sub\b/, 'fixture must begin with a clean initialized submodule');
+  const clean = readJsonRun(worktree);
+  assert.strictEqual(clean.status, 0, 'a clean initialized linked-worktree submodule must be inspectable');
+  assert.strictEqual(clean.parsed.ok, true);
+  assert.strictEqual(clean.parsed.linkedWorktree, true);
+  const cleanSub = clean.parsed.submodules.find(entry => entry.path === 'libs/sub');
+  assert.ok(cleanSub, 'clean initialized submodule must be reported');
+  assert.strictEqual(cleanSub.sha, seedSha);
+  assert.strictEqual(cleanSub.initialized, true);
+  assert.strictEqual(cleanSub.detached, true);
+  assert.strictEqual(cleanSub.externallyReachable, true);
+
   // RED case: a new commit exists only in the linked worktree's submodule git dir.
   git(linkedSub, ['commit', '--allow-empty', '-m', 'isolated child commit']);
   const isolatedSha = git(linkedSub, ['rev-parse', 'HEAD']).stdout.trim();
