@@ -72,30 +72,36 @@ recorded as `selfReport: null` with a reason code; it never blocks the turn.
 
 ## Labels and how much to trust them
 
-Labels come from three sources, from most to least trusted:
+The label is the host LLM's own judgement. It saw the whole conversation and
+did the work, so no fixed rule replaces it (owner decision, 2026-09-27: no
+file-count threshold for tier).
 
-1. **Behavior.** These are objective and computed by the exporter.
-   - Breadth tier: no file writes, only reads, lookups, Git or gh → tier1.
-     Writes to at most 5 files in one repository → tier2. More than 5
-     files, or writes in two or more repositories → tier3.
-   - Skills: the skills loaded or read.
-   - Workflow: the confirmed strategy.
-2. **Self-report.** The host LLM had the full context.
-   - `validity` and `contextDependent` label the validity stage directly.
-   - `intents` labels the intent stage.
-   - `tier` gives the kind of work (feature and refactor are tier3 under
-     rules v2), which breadth cannot see.
-3. **Owner review.** Records where behavior and self-report disagree are
-   sampled into a blind review page. The owner's decisions override both.
+| Label | Source | Override |
+| --- | --- | --- |
+| validity, contextDependent | self-report | owner review |
+| intents | self-report | — |
+| tier | self-report (tier rules v2) | owner review |
+| workflow | self-report, else the confirmed strategy | — |
+| skills | skills actually loaded or read, else the self-report | — |
 
-The derived tier is `max(breadth tier, self-reported tier)` when the
-self-report is present, and the breadth tier otherwise.
+Behavior counters (files, repositories, command classes, skills,
+subagents) are kept as **evidence**, never as a label rule. They serve two
+purposes:
 
-**Bias controls.** The agent sees the router's suggestion before it answers,
-so it may copy it. Router output and self-report are both stored.
-Agreement between them is reported per export, and an agreement rate far
-above behavior's own agreement with the router flags copying. Behavior
-labels are never taken from the self-report.
+- **Contradictions.** Some records contradict themselves. A `tier1` label
+  after files were written contradicts the tier1 definition (no code
+  change). These records go to the owner's review page.
+- **Future features.** The counters can train or check later models
+  without re-reading transcripts.
+
+**Owner review.** Missing labels, contradictions, and turns where the
+router's tier and the self-reported tier differ go to a blind review page.
+The owner's decisions override the self-report.
+
+**Bias controls.** The agent sees the router's suggestion before it
+answers, so it may copy it. Router output and self-report are both stored.
+Each export reports how often they agree; a rate close to 1 over many turns
+is a warning sign. The review page samples the turns where they differ.
 
 ## Storage, index and privacy
 
