@@ -11,7 +11,22 @@ const ROOT = path.resolve(__dirname, '..');
 const topology = parseSimpleYaml(fs.readFileSync(path.join(ROOT, 'behavioral-evals/cases/baseline-worktree-submodule-reachability.yaml'), 'utf8'));
 const failure = { ...topology, fixture: { ...topology.fixture, setup: 'behavioral-evals/fixtures/setup/fail.js' } };
 const paths = [];
+const topologyFingerprints = [];
+const setupHashes = [];
 function track(ws) { if (ws) paths.push(ws); return ws; }
+function gitText(cwd, args) {
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true });
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+  return result.stdout.trim();
+}
+function topologyFingerprint(ws) {
+  return {
+    child_head: gitText(path.join(ws, 'child-origin'), ['rev-parse', 'HEAD']),
+    super_head: gitText(path.join(ws, 'super'), ['rev-parse', 'HEAD']),
+    linked_head: gitText(path.join(ws, 'super-wt'), ['rev-parse', 'HEAD']),
+    gitlink: gitText(path.join(ws, 'super-wt'), ['rev-parse', 'HEAD:libs/sub']),
+  };
+}
 function assertTopology(ws) {
   assert.ok(fs.existsSync(path.join(ws, 'super-wt', '.git')), 'setup must construct the linked worktree');
   assert.ok(fs.existsSync(path.join(ws, '.fixture-tools', 'verify-worktree-submodule.js')), 'setup must install the grader');
@@ -23,6 +38,9 @@ try {
       track(prepared.ws);
       assertTopology(prepared.ws);
       assert.strictEqual(prepared.fixture_setup.status, 'pass');
+      assert.match(prepared.fixture_setup.script_sha256, /^[0-9a-f]{64}$/);
+      topologyFingerprints.push(topologyFingerprint(prepared.ws));
+      setupHashes.push(prepared.fixture_setup.script_sha256);
       const failed = paired.prepareArmWorkspace(failure, effect, arm, 'opencode');
       track(failed.ws);
       assert.strictEqual(failed.ok, false);
@@ -32,6 +50,12 @@ try {
       assert.ok(!fs.existsSync(path.join(failed.ws, '.opencode')), 'setup failure must precede plugin installation');
     }
   }
+  assert.ok(topologyFingerprints.length >= 4);
+  for (const fingerprint of topologyFingerprints.slice(1)) {
+    assert.deepStrictEqual(fingerprint, topologyFingerprints[0], 'fixture setup must produce identical Git object identities across independent arms/runs');
+  }
+  assert.strictEqual(new Set(setupHashes).size, 1, 'all arms must retain the same checked-in setup script hash');
+
   const pairDir = track(fs.mkdtempSync(path.join(os.tmpdir(), 'fixture-entrypoints-')));
   let launches = 0;
   const context = { effect_type: 'skill-text', engine: 'claude', model: 'test' };
