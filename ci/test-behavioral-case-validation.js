@@ -21,6 +21,32 @@ assert.deepStrictEqual(validateCase({
   expectations: [{ type: 'tool_call', value: 'Bash' }]
 }), [], 'tool_call must remain part of the runner/validator schema');
 
+const setupCase = setup => ({
+  id: 'fixture-setup-schema',
+  prompt: 'inspect the prepared fixture',
+  max_turns: 1,
+  fixture: {
+    files: [{ path: 'README.md', content: 'fixture' }],
+    setup,
+  },
+  expectations: [{ type: 'trace_contains', value: 'fixture' }],
+});
+assert.deepStrictEqual(
+  validateCase(setupCase('behavioral-evals/fixtures/setup/noop.js')),
+  [],
+  'checked-in repository-relative .js setup should be valid'
+);
+for (const [setup, expected] of [
+  ['../escape.js', /fixture\.setup/],
+  ['/tmp/escape.js', /fixture\.setup/],
+  ['behavioral-evals/fixtures/setup/noop.txt', /\.js/],
+  ['behavioral-evals/fixtures/setup/missing.js', /missing|checked-in/],
+  [{ command: 'echo unsafe' }, /fixture\.setup/],
+]) {
+  const setupErrors = validateCase(setupCase(setup));
+  assert.ok(setupErrors.some(error => expected.test(error)), `setup ${JSON.stringify(setup)} should be rejected: ${setupErrors.join('; ')}`);
+}
+
 const transcriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'behavioral-case-validation-'));
 try {
   const transcriptPath = path.join(transcriptDir, 'trace.jsonl');

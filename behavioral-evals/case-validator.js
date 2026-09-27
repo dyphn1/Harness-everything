@@ -9,6 +9,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
+
+const ROOT = path.resolve(__dirname, '..');
 
 const EXPECTATION_TYPES = new Set([
   'trace_contains',
@@ -45,6 +48,34 @@ function normalizeRelativePath(value) {
   return normalized;
 }
 
+function isInsideRoot(candidate, root = ROOT) {
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  return relative === '' || (!relative.startsWith('..' + path.sep) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+function resolveFixtureSetup(value) {
+  if (value === undefined) return null;
+  if (typeof value !== 'string') throw new Error('must be a repository-relative checked-in .js path');
+  const normalized = normalizeRelativePath(value);
+  if (!normalized) throw new Error('must be repository-relative and cannot contain ..');
+  if (!normalized.endsWith('.js')) throw new Error('must reference a .js file');
+  const absolute = path.resolve(ROOT, ...normalized.split('/'));
+  if (!isInsideRoot(absolute)) throw new Error('must stay inside the repository');
+  if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) throw new Error('must reference an existing checked-in file');
+  const real = fs.realpathSync(absolute);
+  if (!isInsideRoot(real)) throw new Error('must not escape the repository through a symlink');
+  try {
+    execFileSync('git', ['ls-files', '--error-unmatch', '--', normalized], {
+      cwd: ROOT,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+  } catch {
+    throw new Error('must reference a checked-in file');
+  }
+  return { relative: normalized, absolute: real };
+}
+
 function validateFixture(fixture) {
   const errors = [];
   if (!isPlainObject(fixture)) return ['fixture must be a mapping'];
@@ -69,6 +100,8 @@ function validateFixture(fixture) {
     if (file.content === undefined || file.content === null) errors.push(`fixture.files[${index}] content is missing`);
   }
   if (fixture.git !== undefined && typeof fixture.git !== 'boolean') errors.push('fixture.git must be boolean');
+  try { resolveFixtureSetup(fixture.setup); }
+  catch (error) { errors.push(`fixture.setup ${error.message}`); }
   return errors;
 }
 
@@ -177,6 +210,7 @@ function negativeControls() {
 module.exports = {
   EXPECTATION_TYPES,
   normalizeRelativePath,
+  resolveFixtureSetup,
   validateFixture,
   validateExpectation,
   validateCase,
