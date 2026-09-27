@@ -34,24 +34,30 @@ git rev-parse --git-common-dir
 
 If the git dir and common dir differ, then for EACH changed Sub Repo:
 
-1. Record the referenced commit:
+1. Identify the repository that **owns** the gitlink and the submodule path relative to that owner. For a direct submodule the owner is the Main Repo; for a nested submodule it is the immediate parent submodule. If this cannot be identified reliably, MUST stop and use the helper rather than guess.
+2. Collect every commit that can affect the recorded gitlink, not only the current working HEAD:
    ```bash
    git -C <submodule> rev-parse HEAD
+   git -C <owner> ls-files --stage -- <relative-submodule-path>
+   git -C <owner> ls-tree HEAD -- <relative-submodule-path>
    ```
-2. Check whether the Sub Repo is detached:
+   From the last two commands, only mode `160000` stage `0` entries are valid gitlinks. Any stage `1`–`3` entry is unmerged and MUST stop. Check every unique SHA from working HEAD, index, and owner HEAD.
+3. Check whether the Sub Repo is detached:
    ```bash
    git -C <submodule> branch --show-current
    ```
-3. Check whether the commit is already published to a remote-tracking ref:
+4. For EACH collected SHA, first check remote-tracking reachability:
    ```bash
    git -C <submodule> branch -r --contains <sha>
    ```
-4. If no remote-tracking ref contains it, verify that the primary checkout's Sub Repo already has the commit:
+   If no remote-tracking ref contains it, prove that the **exact** primary-checkout submodule repository owns the object:
    ```bash
+   git -C <primary>/<submodule> rev-parse --show-toplevel
    git -C <primary>/<submodule> cat-file -e <sha>^{commit}
    ```
+   The reported top-level path MUST equal the expected primary submodule path. A missing/deinitialized nested path can make `git -C` fall back to a parent repository; that is not proof. If the exact primary submodule cannot be proven, initialize/fetch it or use the helper, otherwise MUST fail closed.
 
-A branch name alone does not publish a commit. If no remote-tracking ref contains the SHA and the primary checkout lacks the commit, it is an **unpublished gitlink risk**, whether the submodule is detached or on a named branch. MUST stop before `git add <submodule>` and present:
+A branch name alone does not publish a commit. If ANY working/index/HEAD gitlink SHA has neither a containing remote-tracking ref nor a proven exact primary-submodule object, it is an **unpublished gitlink risk**, whether the submodule is detached or on a named branch. MUST stop before `git add <submodule>` and present:
 
 - **[1] Create/publish a branch** — hand off to `<skills-repo-root>/using-git-worktrees/references/submodules-in-worktrees.md`.
 - **[2] Stage anyway** — only on explicit user choice; MUST record the unpublished gitlink risk in the handoff.
