@@ -15,7 +15,17 @@
 4. Validation: MUST verify generation success. IF ANY Sub Repo has remaining staged changes, MUST diagnose failure and halt.
 
 ## [Reachability Phase]
-Before staging any changed submodule gitlink in the Main Repo, MUST determine whether the Main Repo is a linked worktree:
+Before staging any changed submodule gitlink in the Main Repo, MUST run the preferred deterministic check:
+
+```bash
+node <skills-repo-root>/using-git-worktrees/scripts/submodule-reachability.js --json
+```
+
+- Exit 0: continue to Indexing.
+- Exit 1: MUST stop before staging and inspect the reported unreachable submodule(s); use the options below.
+- Exit 2: MUST diagnose the inspection failure before staging.
+
+If the helper is unavailable, use this raw fallback. First determine whether the Main Repo is a linked worktree:
 
 ```bash
 git rev-parse --git-dir
