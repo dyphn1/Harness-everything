@@ -46,16 +46,17 @@ function parseSubmoduleStatus(text) {
   });
 }
 
-function primaryHasCommit(primaryRoot, commonDir, submodulePath, sha) {
+function primaryHasCommit(primaryRoot, commonDir, submodulePath, sha, moduleGitDir = null) {
   if (!primaryRoot) return false;
   const primarySub = path.join(primaryRoot, ...submodulePath.split('/'));
   let result = runGit(['-C', primarySub, 'cat-file', '-e', `${sha}^{commit}`], primaryRoot, { allowFailure: true });
   if (result.status === 0) return true;
 
-  // Direct submodules created by `git submodule add` have their repository
-  // here even if the primary checkout's working tree path is absent.
-  const moduleGitDir = path.join(commonDir, 'modules', ...submodulePath.split('/'));
-  result = runGit(['--git-dir', moduleGitDir, 'cat-file', '-e', `${sha}^{commit}`], primaryRoot, { allowFailure: true });
+  // A nested submodule repository is stored below its parent's module repo,
+  // e.g. .git/modules/parent/modules/child. Callers pass that exact location
+  // when recursion is known; direct submodules retain the historical fallback.
+  const candidateGitDir = moduleGitDir || path.join(commonDir, 'modules', ...submodulePath.split('/'));
+  result = runGit(['--git-dir', candidateGitDir, 'cat-file', '-e', `${sha}^{commit}`], primaryRoot, { allowFailure: true });
   return result.status === 0;
 }
 
@@ -95,6 +96,7 @@ function inspect(root = process.cwd()) {
   const status = gitText(['submodule', 'status', '--recursive'], root);
   const submodules = [];
   const initializedPaths = [];
+  const primaryModuleDirs = new Map();
 
   for (const entry of parseSubmoduleStatus(status)) {
     if (entry.prefix === 'U') {
@@ -106,6 +108,11 @@ function inspect(root = process.cwd()) {
     const owner = parentPath ? path.join(root, ...parentPath.split('/')) : root;
     const relativePath = parentPath ? entry.path.slice(parentPath.length + 1) : entry.path;
     const subPath = path.join(root, ...entry.path.split('/'));
+    const parentModuleGitDir = parentPath ? primaryModuleDirs.get(parentPath) : null;
+    const primaryModuleGitDir = parentPath
+      ? path.join(parentModuleGitDir, 'modules', ...relativePath.split('/'))
+      : path.join(commonDir, 'modules', ...entry.path.split('/'));
+    primaryModuleDirs.set(entry.path, primaryModuleGitDir);
     const referencedCommits = recordedGitlinks(owner, relativePath).map(reference => {
       // A recorded object may be absent locally but already recovered in primary.
       const hasObject = entry.prefix !== '-' && runGit(
@@ -115,7 +122,7 @@ function inspect(root = process.cwd()) {
         ['for-each-ref', '--contains', reference.sha, '--format=%(refname:short)', 'refs/remotes/'], subPath
       ).split(/\r?\n/).filter(Boolean) : [];
       const presentInPrimary = linkedWorktree
-        ? primaryHasCommit(primaryRoot, commonDir, entry.path, reference.sha) : true;
+        ? primaryHasCommit(primaryRoot, commonDir, entry.path, reference.sha, primaryModuleGitDir) : true;
       return {
         ...reference,
         remoteRefs,
@@ -127,7 +134,7 @@ function inspect(root = process.cwd()) {
 
     if (entry.prefix === '-') {
       const presentInPrimary = linkedWorktree
-        ? primaryHasCommit(primaryRoot, commonDir, entry.path, entry.recordedSha)
+        ? primaryHasCommit(primaryRoot, commonDir, entry.path, entry.recordedSha, primaryModuleGitDir)
         : true;
       const externallyReachable = !linkedWorktree || presentInPrimary;
       submodules.push({
@@ -160,7 +167,7 @@ function inspect(root = process.cwd()) {
     ).split(/\r?\n/).filter(Boolean);
     const reachableFromRemote = remoteRefs.length > 0;
     const presentInPrimary = linkedWorktree
-      ? primaryHasCommit(primaryRoot, commonDir, entry.path, sha)
+      ? primaryHasCommit(primaryRoot, commonDir, entry.path, sha, primaryModuleGitDir)
       : true;
     const externallyReachable = !linkedWorktree || reachableFromRemote || presentInPrimary;
 
