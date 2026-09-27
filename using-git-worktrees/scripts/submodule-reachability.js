@@ -33,10 +33,13 @@ function isInside(child, parent) {
 function parseSubmoduleStatus(text) {
   if (!text.trim()) return [];
   return text.split(/\r?\n/).filter(Boolean).map(line => {
-    const match = line.match(/^(.)([0-9a-fA-F]{40,64})\s+(.+?)(?:\s+\(.+\))?$/);
+    // gitText() trims the whole command output, so the first clean-status
+    // marker (a leading space) may already be gone. Accept only the four Git
+    // status states here; an omitted marker is normalized back to clean.
+    const match = line.match(/^([ +U-]?)([0-9a-fA-F]{40,64})\s+(.+?)(?:\s+\(.+\))?$/);
     if (!match) throw new Error(`cannot parse git submodule status line: ${line}`);
     return {
-      prefix: match[1],
+      prefix: match[1] || ' ',
       recordedSha: match[2],
       path: match[3],
     };
