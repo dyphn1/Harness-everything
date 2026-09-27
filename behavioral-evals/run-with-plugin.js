@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { buildWorkspace, validate: validateCases } = require('./run');
+const { prepareWorkspace, validate: validateCases } = require('./run');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -243,6 +243,36 @@ function grade(c, ws, transcriptPath) {
   return { results, passed: gating.length > 0 && gating.every((g) => g.pass) };
 }
 
+function runCase(c, execute = runHeadless) {
+  const prepared = prepareWorkspace(c);
+  const ws = prepared.workspace;
+  const record = {
+    id: c.id,
+    engine: 'opencode-with-plugin',
+    model: process.env.BEHAVIORAL_MODEL || 'openai/gpt-5-mini',
+    pressure: !!c.pressure,
+    date: new Date().toISOString(),
+    workspace: ws,
+    fixture_setup: prepared.setup,
+    expectations: [],
+  };
+  if (!prepared.ok) return { ...record, outcome: 'fixture-error', error: prepared.error };
+  try {
+    installHarnessWithPlugin(ws);
+    if (c.fixture.git) gitSnapshot(ws);
+    const transcriptPath = execute(c.prompt, ws, c.max_turns);
+    const { results, passed } = grade(c, ws, transcriptPath);
+    return {
+      ...record,
+      transcript: transcriptPath,
+      expectations: results.map(({ description, pass }) => ({ description, pass })),
+      outcome: passed ? 'pass' : 'fail',
+    };
+  } catch (error) {
+    return { ...record, outcome: 'session-error', error: error.message.slice(0, 500) };
+  }
+}
+
 function runLive(filter) {
   console.log('Engine: opencode (with plugin hooks)');
   const cases = discoverCases().filter((c) => !filter || c.id === filter);
@@ -252,49 +282,33 @@ function runLive(filter) {
   let failed = 0;
   for (const c of cases) {
     console.log(`\n=== ${c.id}${c.pressure ? ' [PRESSURE]' : ''} ===`);
-    const ws = buildWorkspace(c);
-    installHarnessWithPlugin(ws);
-    if (c.fixture.git) gitSnapshot(ws);
-    let transcriptPath;
-    try {
-      transcriptPath = runHeadless(c.prompt, ws, c.max_turns);
-    } catch (err) {
-      console.error(`❌ session failed: ${err.message.slice(0, 300)}`);
-      failed++;
-      continue;
-    }
-    const { results: graded, passed } = grade(c, ws, transcriptPath);
-    const record = {
-      id: c.id,
-      engine: 'opencode-with-plugin',
-      model: process.env.BEHAVIORAL_MODEL || 'openai/gpt-5-mini',
-      pressure: !!c.pressure,
-      date: new Date().toISOString(),
-      workspace: ws,
-      transcript: transcriptPath,
-      expectations: graded.map(({ description, pass }) => ({ description, pass })),
-      outcome: passed ? 'pass' : 'fail',
-    };
+    const record = runCase(c);
     const outFile = path.join(RESULTS_DIR, `plugin-${record.date.slice(0, 10)}-${c.id}.json`);
     fs.writeFileSync(outFile, JSON.stringify(record, null, 2));
-    for (const g of graded) console.log(`  ${g.pass ? '✅' : '❌'}${g.informational ? ' (info)' : ''} ${g.description}`);
-    console.log(`${passed ? '✅ PASS' : '❌ FAIL'} -> ${outFile}`);
-    if (!passed) failed++;
+    for (const g of record.expectations) console.log(`  ${g.pass ? '✅' : '❌'} ${g.description}`);
+    console.log(`${record.outcome} -> ${outFile}`);
+    if (record.error) console.error(record.error);
+    if (record.outcome !== 'pass') failed++;
   }
   console.log(failed ? `\n❌ ${failed} case(s) failed.` : '\n🎉 all cases passed.');
   process.exit(failed ? 1 : 0);
 }
 
-const args = process.argv.slice(2);
-function flag(name) {
-  const i = args.indexOf(name);
-  return i >= 0 ? args[i + 1] : undefined;
+function main() {
+  const args = process.argv.slice(2);
+  function flag(name) {
+    const i = args.indexOf(name);
+    return i >= 0 ? args[i + 1] : undefined;
+  }
+  if (args[0] === 'validate') validateCases(discoverCases());
+  else if (args[0] === 'run') {
+    const filter = args.includes('--case') ? flag('--case') : undefined;
+    runLive(filter);
+  } else {
+    console.log('Usage:\n  node behavioral-evals/run-with-plugin.js run [--case <id>]');
+    process.exit(args.length ? 1 : 0);
+  }
 }
-if (args[0] === 'validate') validateCases(discoverCases());
-else if (args[0] === 'run') {
-  const filter = args.includes('--case') ? flag('--case') : undefined;
-  runLive(filter);
-} else {
-  console.log('Usage:\n  node behavioral-evals/run-with-plugin.js run [--case <id>]');
-  process.exit(args.length ? 1 : 0);
-}
+
+if (require.main === module) main();
+module.exports = { runCase };

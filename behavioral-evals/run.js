@@ -242,8 +242,9 @@ function runFixtureSetup(c, ws) {
 }
 
 function prepareWorkspace(c) {
-  const workspace = buildWorkspace(c);
+  let workspace = null;
   try {
+    workspace = buildWorkspace(c);
     return {
       ok: true,
       workspace,

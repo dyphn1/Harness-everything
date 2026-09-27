@@ -7,7 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFileSync, spawnSync } = require('child_process');
 const {
-  buildWorkspace,
+  prepareWorkspace,
   grade,
   parseSimpleYaml,
 } = require('./run');
@@ -216,7 +216,9 @@ function retrieveLesson(c, memoryStore, stateHome, exposed) {
 }
 
 function prepareArmWorkspace(c, effectType, arm, engine) {
-  const ws = buildWorkspace(c);
+  const prepared = prepareWorkspace(c);
+  const ws = prepared.workspace;
+  if (!prepared.ok) return { ...prepared, ws, fixture_setup: prepared.setup };
   const namedSkills = treatmentSkills(c);
   const treatment = arm === 'treatment';
   let skills = [];
@@ -245,6 +247,8 @@ function prepareArmWorkspace(c, effectType, arm, engine) {
   }
 
   return {
+    ok: true,
+    fixture_setup: prepared.setup,
     ws,
     namedSkills,
     loadedSkills: skills,
@@ -367,8 +371,25 @@ function usageTotal(usage) {
   return typeof input === 'number' && typeof output === 'number' ? input + output : null;
 }
 
-function runArm(c, context, arm, pairDir) {
+function runArm(c, context, arm, pairDir, execute = spawnSync) {
   const prepared = prepareArmWorkspace(c, context.effect_type, arm, context.engine);
+  if (!prepared.ok) {
+    if (prepared.ws) fs.rmSync(prepared.ws, { recursive: true, force: true });
+    return {
+      arm,
+      outcome: 'fixture-error',
+      fixture_setup: prepared.fixture_setup,
+      infrastructure_reason: prepared.error,
+      loaded_skills: [],
+      model_name: null,
+      cost: null,
+      usage: null,
+      total_tokens: null,
+      tool_call_count: null,
+      duration_ms: null,
+      expectations: [],
+    };
+  }
   const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), `harness-paired-state-${arm}-`));
   const transcriptFile = path.join(pairDir, `${arm}.transcript.jsonl`);
   const stderrFile = path.join(pairDir, `${arm}.stderr.txt`);
@@ -388,6 +409,7 @@ function runArm(c, context, arm, pairDir) {
     fs.rmSync(stateHome, { recursive: true, force: true });
     return {
       arm,
+      fixture_setup: prepared.fixture_setup,
       intervention: prepared.intervention,
       loaded_skills: prepared.loadedSkills,
       plugin_sha256: null,
@@ -404,7 +426,7 @@ function runArm(c, context, arm, pairDir) {
   }
   const invocation = buildInvocation(context.engine, context.model, armPrompt, prepared.ws, c.max_turns);
   const started = Date.now();
-  const result = spawnSync(invocation.command, invocation.args, {
+  const result = execute(invocation.command, invocation.args, {
     cwd: prepared.ws,
     env: { ...process.env, HARNESS_STATE_HOME: stateHome },
     encoding: 'utf8',
@@ -420,6 +442,7 @@ function runArm(c, context, arm, pairDir) {
 
   const base = {
     arm,
+    fixture_setup: prepared.fixture_setup,
     intervention: prepared.intervention,
     loaded_skills: prepared.loadedSkills,
     plugin_sha256: prepared.plugin ? prepared.plugin.sha256 : null,
@@ -781,6 +804,8 @@ function summarizePairs(records, minEffectPp) {
     requested_pairs: records.length,
     included_pairs: included.length,
     excluded_pairs: excluded.length,
+    fixture_failures: records.filter(record => Object.values(record.arms || {})
+      .some(arm => arm.outcome === 'fixture-error')).length,
     exclusions: excluded,
     arm_outcomes: {
       baseline: { pass: baselinePass, fail: included.length - baselinePass },
@@ -941,7 +966,8 @@ function main(argv = process.argv.slice(2)) {
       min_effect_pp: Number(flag(argv, '--min-effect-pp')),
       preflight: flag(argv, '--opencode-preflight'),
     };
-    runExperiment(options);
+    const { summary } = runExperiment(options);
+    if (summary.fixture_failures) process.exitCode = 1;
     return;
   }
   if (command === 'summarize') {
@@ -978,6 +1004,7 @@ module.exports = {
   lessonContextFromRetrieval,
   lessonFixtureRecord,
   prepareArmWorkspace,
+  runArm,
   retrieveLesson,
   summarizePairs,
   validateLessonCase,
