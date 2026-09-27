@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Stdlib tests for scripts/system-one-tier-stage-experiment.py (no torch)."""
+import json
 import sys
 from pathlib import Path
 
@@ -92,6 +93,12 @@ assert r['tier'] == 'tier2' and r['tierSource'] == 'tier-scorer'
 r = trial.readout(0.1, low, [0.2, 0.3, 0.1], taus, cat, exp.TIERS)
 assert r['tier'] is None and r['tierSource'] == 'abstain'
 
+cases = [{'text': 'a', 'lang': 'en', 'tier': 'tier2', 'intent': 'fix'}, {'text': 'b', 'lang': 'zh-TW', 'tier': 'tier1', 'intent': 'git'}]
+res = [{'validity': 'actionable', 'tier': 'tier3', 'intents': [{'id': 'fix'}]}, {'validity': 'invalid', 'tier': None, 'intents': []}]
+agg = trial.summarize(cases, res)
+assert agg['all']['wronglyInvalid'] == 0.5 and agg['en']['tierAcceptable'] == 1.0 and agg['en']['primaryIntentInTop3'] == 1.0
+assert agg['zh-TW']['wronglyInvalid'] == 1.0
+
 print('system-one trial readout tests passed')
 
 teacher = __import__('system-one-teacher-laya-ft')
@@ -113,5 +120,19 @@ try:
     raise AssertionError('unknown intent must fail')
 except ValueError:
     pass
+
+import tempfile, os
+with tempfile.TemporaryDirectory() as tmp:
+    f = os.path.join(tmp, 'syn.jsonl')
+    with open(f, 'w', encoding='utf-8') as fh:
+        fh.write(json.dumps({'text': 'git status', 'tier': 'tier1', 'intent': 'git', 'secondary': []}) + '\n')
+        fh.write(json.dumps({'text': 'git status', 'tier': 'tier1', 'intent': 'git', 'secondary': []}) + '\n')
+        fh.write(json.dumps({'text': 'add a --json flag', 'tier': 'tier3', 'intent': 'feature', 'secondary': ['test']}) + '\n')
+    syn = exp.noise.load_synthetic(f)
+assert len(syn) == 2 and all(r['split'] == 'train' and r['id'].startswith('syn-') for r in syn), 'deduplicated, train only'
+assert [r['bucket'] for r in exp.noise.synthetic_rows(syn)] == ['synthetic', 'synthetic']
+assert [r['tier'] for r in exp.synthetic_tier_rows(syn)] == ['tier1'], 'synthetic tier3 is left to intent'
+ir = ie.synthetic_intent_rows(syn)
+assert ir[1]['targets'][ie.CATALOG.index('feature')] == 0.8 and ir[1]['targets'][ie.CATALOG.index('test')] == 0.5
 
 print('system-one laya teacher tests passed')

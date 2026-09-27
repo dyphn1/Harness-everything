@@ -107,6 +107,8 @@ def run(args):
              'invalid': buckets[p['id']] in INVALID_BUCKETS}
             for p in prompts if p['id'] in scores and p['id'] in buckets
             and not (p['split'] == 'validation' and source[p['id']] != 'sonnet')]
+    if args.synthetic:
+        rows += synthetic_intent_rows(noise.load_synthetic(args.synthetic))
     train_rows = [r for r in rows if r['split'] == 'train']
     val_rows = [r for r in rows if r['split'] == 'validation']
     options = tuple(f'{c}: {d}' for c, d in zip(CATALOG, args.option_text))
@@ -183,6 +185,9 @@ def run(args):
             m, c = make_system(config(128, 2), 'cpu')
             fit(m, c, rs, args.epochs, name, weighted=weighted)
             record(name, m, c)
+            Path(args.out).mkdir(parents=True, exist_ok=True)
+            save_checkpoint(Path(args.out) / f'{name}.safetensors', m, config(128, 2),
+                            {'domain': 'harness-intent-exp', 'options': list(CATALOG)})
     if 'staged' in variants:
         torch.manual_seed(args.seed)
         m, c = make_system(config(128, 2), 'cpu')
@@ -242,6 +247,16 @@ DEFAULT_OPTIONS = (
 )
 
 
+def synthetic_intent_rows(synthetic):
+    """Intent rows for synthetic prompts: 0.8 for the primary intent, 0.5 for each secondary."""
+    out = []
+    for r in synthetic:
+        scores = {r['intent']: 0.8, **{c: 0.5 for c in r['secondary'] if c != r['intent']}}
+        out.append({'id': r['id'], 'split': 'train', 'text': r['text'], 'teacher': 'synthetic', 'invalid': False,
+                    'targets': [scores.get(c, 0.0) for c in CATALOG]})
+    return out
+
+
 def parse_weights(spec):
     """'feature=2,refactor=2' -> {'feature': 2.0, 'refactor': 2.0}; BCE positive weights per intent."""
     out = {}
@@ -261,6 +276,7 @@ def main(argv=None):
     ap.add_argument('--tier-probs', help='old-rules tier val-probs-private.json for the downstream composition')
     ap.add_argument('--tier-variant', default='curriculum-3of3')
     ap.add_argument('--variants', default='all,valid-only,staged,valid-large')
+    ap.add_argument('--synthetic', help='synthetic command prompts (train only)')
     ap.add_argument('--extra-teacher', help='extra dense-score rows for unscored train prompts (e.g. labels-intent-laya-ft.jsonl)')
     ap.add_argument('--intent-weights', default='feature=2,refactor=2')
     ap.add_argument('--seed', type=int, default=0)

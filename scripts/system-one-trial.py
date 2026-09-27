@@ -16,6 +16,7 @@ models are single-seed.
 
   build  --build-dir DIR --data-dir DIR   fit intent thresholds and write trial-manifest.json
   score  --build-dir DIR [PROMPT ...]     score prompts (argv, or one per stdin line)
+  eval   --build-dir DIR --cases FILE     score labeled cases and report aggregates
 """
 import argparse
 import hashlib
@@ -58,8 +59,8 @@ def sha256(path):
     return h.hexdigest()
 
 
-def paths(root):
-    return {'gate': root / 'gate' / 'control.safetensors', 'intent': root / 'intent' / 'valid-only.safetensors',
+def paths(root, intent_variant='valid-only'):
+    return {'gate': root / 'gate' / 'control.safetensors', 'intent': root / 'intent' / f'{intent_variant}.safetensors',
             'tier': root / 'tier' / 'curriculum.safetensors'}
 
 
@@ -68,7 +69,7 @@ def build(args):
     intent_exp = __import__('system-one-intent-stage-experiment')
     trainer = __import__('system-one-train')
     root = Path(args.build_dir)
-    probs = json.load(open(root / 'intent' / 'val-probs-private.json'))['valid-only']
+    probs = json.load(open(root / 'intent' / 'val-probs-private.json'))[args.intent_variant]
     scores = {r['id']: r.get('scores', {}) for r in trainer.load_jsonl(Path(args.data_dir) / 'labels-intent-scores.jsonl')}
     ids = [i for i in probs if i in scores]
     taus = {c: intent_exp.fit_tau([probs[i][c] for i in ids], [scores[i].get(c, 0.0) >= 0.4 for i in ids])
@@ -76,10 +77,30 @@ def build(args):
     manifest = {'schemaVersion': 1, 'kind': 'system-one-trial', 'built': time.strftime('%Y-%m-%d'),
                 'stages': ['validity', 'intent', 'tier'], 'gateTau': GATE_TAU, 'tierTau': TIER_TAU, 'cap': CAP,
                 'intentTaus': taus, 'intentTausFitOn': f'{len(ids)} validation rows (in-sample for the trial)',
-                'checkpoints': {k: {'path': str(v.relative_to(root)), 'sha256': sha256(v)} for k, v in paths(root).items()},
+                'intentVariant': args.intent_variant,
+                'checkpoints': {k: {'path': str(v.relative_to(root)), 'sha256': sha256(v)} for k, v in paths(root, args.intent_variant).items()},
                 'notIncluded': ['structural floor', 'explicit workflow requests', 'policy gates']}
     json.dump(manifest, open(root / 'trial-manifest.json', 'w'), indent=2)
     print(json.dumps(manifest, indent=2))
+
+
+def summarize(cases, results):
+    """Aggregates for labeled cases {text, lang, tier, intent}: all cases are actionable by construction."""
+    tiers = ('tier1', 'tier2', 'tier3')
+    out = {}
+    for lang in ['all'] + sorted({c['lang'] for c in cases}):
+        pairs = [(c, r) for c, r in zip(cases, results) if lang == 'all' or c['lang'] == lang]
+        acted = [(c, r) for c, r in pairs if r['validity'] == 'actionable']
+        picks = [(tiers.index(c['tier']), tiers.index(r['tier'])) for c, r in acted if r['tier']]
+        n = max(1, len(picks))
+        out[lang] = {'cases': len(pairs), 'wronglyInvalid': 1 - len(acted) / max(1, len(pairs)),
+                     'tierCoverage': len(picks) / max(1, len(acted)),
+                     'tierAcceptable': sum(1 for g, k in picks if k in (g, g + 1)) / n,
+                     'tierExact': sum(1 for g, k in picks if k == g) / n,
+                     'tierUnder': sum(1 for g, k in picks if k < g) / n,
+                     'primaryIntentInTop3': sum(1 for c, r in acted if c['intent'] in [i['id'] for i in r['intents']])
+                     / max(1, len(acted))}
+    return out
 
 
 def score(args):
@@ -107,6 +128,16 @@ def score(args):
         with torch.no_grad():
             return model(collator([ChoiceExample(context=text, options=options[stage], label=0)])).sigmoid()[0].tolist()
 
+    if getattr(args, 'cases', None):
+        cases = [json.loads(l) for l in open(args.cases, encoding='utf-8') if l.strip()]
+        results = []
+        for c in cases:
+            gate_p = run('gate', c['text'])[1]
+            intent_p = dict(zip(intent_exp.CATALOG, run('intent', c['text'])))
+            results.append(readout(gate_p, intent_p, run('tier', c['text']), manifest['intentTaus'],
+                                   intent_exp.CATALOG, tier_exp.TIERS))
+        print(json.dumps(summarize(cases, results), indent=2))
+        return
     prompts = args.prompts or [line.rstrip('\n') for line in sys.stdin if line.strip()]
     for text in prompts:
         if len(text.encode('utf-8')) > 1024:
@@ -127,10 +158,15 @@ def main(argv=None):
     b = sub.add_parser('build')
     b.add_argument('--build-dir', required=True)
     b.add_argument('--data-dir', required=True)
+    b.add_argument('--intent-variant', default='valid-only')
     s = sub.add_parser('score')
     s.add_argument('--build-dir', required=True)
     s.add_argument('--threads', type=int, default=1)
     s.add_argument('prompts', nargs='*')
+    e = sub.add_parser('eval')
+    e.add_argument('--build-dir', required=True)
+    e.add_argument('--cases', required=True)
+    e.add_argument('--threads', type=int, default=1)
     args = ap.parse_args(argv)
     (build if args.cmd == 'build' else score)(args)
 

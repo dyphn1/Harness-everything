@@ -229,6 +229,29 @@ def report(rows, probs):
     return {k: gate_metrics([rows[i] for i in v], [probs[i] for i in v]) for k, v in sorted(by.items())}
 
 
+def load_synthetic(path):
+    """Synthetic command prompts, train only: {id, split, text, tier, intent, secondary} per line."""
+    import hashlib
+    out, seen = [], set()
+    for line in open(path, encoding='utf-8'):
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        pid = 'syn-' + hashlib.sha256(r['text'].encode('utf-8')).hexdigest()[:16]
+        if pid in seen:
+            continue
+        seen.add(pid)
+        out.append({'id': pid, 'split': 'train', 'text': r['text'], 'tier': r['tier'], 'intent': r['intent'],
+                    'secondary': list(r.get('secondary') or [])})
+    return out
+
+
+def synthetic_rows(synthetic):
+    """Noise-gate rows for synthetic prompts: every one is an actionable seed."""
+    return [{'id': r['id'], 'split': 'train', 'text': r['text'], 'tier': r['tier'], 'targets': [1.0, 0.0, 0.0],
+             'mask': [1, 1, 1], 'bucket': 'synthetic', 'seed': True} for r in synthetic]
+
+
 def load_owner_validity(path):
     """Owner review export -> {id: decision}; the prompt hash is checked by the caller's data."""
     if not path:
@@ -253,6 +276,8 @@ def run(args):
     excluded = {r['id'] for r in load(data / 'owner-excluded.jsonl')}
     rows = label_rows(load(data / 'prompts.jsonl'), tiers, excluded, rules=args.rules,
                       owner_validity=load_owner_validity(args.owner_validity))
+    if args.synthetic:
+        rows += synthetic_rows(load_synthetic(args.synthetic))
     train_rows = [r for r in rows if r['split'] == 'train']
     val_rows = [r for r in rows if r['split'] == 'validation']
     options = OPTIONS_MERGED if args.merge_invalid else OPTIONS
@@ -375,6 +400,7 @@ def main(argv=None):
     ap.add_argument('--stage-epochs', type=int, default=3)
     ap.add_argument('--rules', type=int, choices=[1, 2], default=1, help='2 adds bare directives, feedback and pointers')
     ap.add_argument('--owner-validity', help='owner validity review export (reviews/invalid-review-v1.json)')
+    ap.add_argument('--synthetic', help='synthetic command prompts (train only), e.g. training/synthetic-commands-train.jsonl')
     ap.add_argument('--merge-invalid', action='store_true', help='two options: actionable vs invalid')
     ap.add_argument('--labels-only', action='store_true', help='print label bucket counts and exit (no torch)')
     args = ap.parse_args(argv)

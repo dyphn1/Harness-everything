@@ -57,6 +57,12 @@ def tier_rows(prompts, tier_labels, excluded, rules=2, owner_validity=None, inte
     return out
 
 
+def synthetic_tier_rows(synthetic):
+    """Tier rows for synthetic tier1/tier2 prompts; tier3 comes from intent in the composition, so it is left out."""
+    return [{**r, 'valid': True, 'tierTargets': [1.0 if r['tier'] == t else 0.0 for t in TIERS]}
+            for r in noise.synthetic_rows(synthetic) if r['tier'] in ('tier1', 'tier2')]
+
+
 def pick(probs, tau=0.5):
     """Highest tier at or above tau, else None (abstain)."""
     best = max(range(len(probs)), key=lambda k: probs[k])
@@ -107,6 +113,8 @@ def run(args):
                if args.tier_rules == 2 else None)
     rows = tier_rows(trainer.load_jsonl(data / 'prompts.jsonl'), tiers, excluded,
                      owner_validity=noise.load_owner_validity(args.owner_validity), intents=intents)
+    if args.synthetic:
+        rows += synthetic_tier_rows(noise.load_synthetic(args.synthetic))
     train_rows = [r for r in rows if r['split'] == 'train']
     val_rows = [r for r in rows if r['split'] == 'validation']
     config = {'encoder': 'tinyx', 'width': args.width, 'rank': args.width, 'layers': args.layers, 'heads': 4,
@@ -207,6 +215,7 @@ def main(argv=None):
     ap.add_argument('--layers', type=int, default=2)
     ap.add_argument('--token-budget', type=int, default=16384)
     ap.add_argument('--owner-validity', help='owner validity review export')
+    ap.add_argument('--synthetic', help='synthetic command prompts (train only)')
     ap.add_argument('--tier-rules', type=int, choices=[1, 2], default=1, help='2: feature/refactor intent is tier3')
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--base-epochs', type=int, default=6)
