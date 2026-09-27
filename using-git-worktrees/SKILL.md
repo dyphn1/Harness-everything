@@ -4,7 +4,7 @@ description: Use when work needs isolation or before major implementation plans 
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.25.1
+  version: 0.27.0
 ---
 
 # Using Git Worktrees

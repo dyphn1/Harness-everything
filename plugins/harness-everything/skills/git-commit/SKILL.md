@@ -4,7 +4,7 @@ description: "Generate Angular-style commit messages after verifying the environ
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.19.1
+  version: 0.27.0
 ---
 
 # Git Commit (Angular Style)

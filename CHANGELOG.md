@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.27.0](https://github.com/dyphn1/Harness-everything/compare/v0.26.0...v0.27.0) (2026-09-27)
+
+### Features
+
+* **skills:** restore deterministic submodule reachability check ([0dd06e0](https://github.com/dyphn1/Harness-everything/commit/0dd06e0bd6aa38e04b3e8c11892d8d006c440821))
+
+### Bug Fixes
+
+* **plugin:** sync nested submodule reachability ([94dbe4c](https://github.com/dyphn1/Harness-everything/commit/94dbe4c94ed2278fcb5cb6faf0f252ef5b282323))
+* **skills:** land submodule reachability gate on main ([1b6de2b](https://github.com/dyphn1/Harness-everything/commit/1b6de2b5fd0cc6ae1b99530ef00c24f12efefb55))
+* **skills:** require exact primary submodule repo for reachability ([c3f0f76](https://github.com/dyphn1/Harness-everything/commit/c3f0f76e1a127837b1faa2f5bebe06c01da1e8e4))
+* **skills:** resolve nested submodule object stores ([aa6440b](https://github.com/dyphn1/Harness-everything/commit/aa6440b625b223948d6e69cbf9775fe45b861c50))
+* **skills:** verify staged and committed submodule references ([6678496](https://github.com/dyphn1/Harness-everything/commit/6678496acadea25465ff3283b97bc31e4d17d455))
+
 ## [0.26.0](https://github.com/dyphn1/Harness-everything/compare/v0.25.1...v0.26.0) (2026-09-24)
 
 ### Features
