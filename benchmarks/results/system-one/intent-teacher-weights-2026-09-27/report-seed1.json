@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "seed": 1,
+  "epochs": 12,
+  "counts": {
+    "trainValid": 4473,
+    "trainInvalid": 378,
+    "validationEval": 496
+  },
+  "results": {
+    "valid-sonnet": {
+      "intent": {
+        "rows": 496,
+        "microF1": 0.35997357992073975,
+        "precision": 0.2581714827096163,
+        "recall": 0.5943293347873501,
+        "meanFires": 4.256048387096774,
+        "feature": {
+          "precision": 0.24045801526717558,
+          "recall": 0.7325581395348837,
+          "support": 86
+        },
+        "refactor": {
+          "precision": 0.08415841584158416,
+          "recall": 0.37777777777777777,
+          "support": 45
+        }
+      },
+      "composedTier": {
+        "rows": 471,
+        "coverage": 0.9639065817409767,
+        "acceptablePrecision": 0.8436123348017621,
+        "exactPrecision": 0.4581497797356828,
+        "underRate": 0.04185022026431718,
+        "tier3Recall": 0.8455284552845529,
+        "tier3Precision": 0.32601880877742945
+      }
+    },
+    "valid-laya": {
+      "intent": {
+        "rows": 496,
+        "microF1": 0.4008746355685131,
+        "precision": 0.30103995621237,
+        "recall": 0.5997818974918212,
+        "meanFires": 3.683467741935484,
+        "feature": {
+          "precision": 0.2692307692307692,
+          "recall": 0.7325581395348837,
+          "support": 86
+        },
+        "refactor": {
+          "precision": 0.17307692307692307,
+          "recall": 0.2,
+          "support": 45
+        }
+      },
+      "composedTier": {
+        "rows": 471,
+        "coverage": 0.9278131634819533,
+        "acceptablePrecision": 0.8237986270022883,
+        "exactPrecision": 0.5148741418764302,
+        "underRate": 0.08009153318077804,
+        "tier3Recall": 0.7154471544715447,
+        "tier3Precision": 0.3697478991596639
+      }
+    },
+    "valid-sonnet-weighted": {
+      "intent": {
+        "rows": 496,
+        "microF1": 0.36604189636163176,
+        "precision": 0.27605321507760533,
+        "recall": 0.5430752453653217,
+        "meanFires": 3.6370967741935485,
+        "feature": {
+          "precision": 0.32710280373831774,
+          "recall": 0.4069767441860465,
+          "support": 86
+        },
+        "refactor": {
+          "precision": 0.2857142857142857,
+          "recall": 0.17777777777777778,
+          "support": 45
+        }
+      },
+      "composedTier": {
+        "rows": 471,
+        "coverage": 0.9065817409766455,
+        "acceptablePrecision": 0.8360655737704918,
+        "exactPrecision": 0.6182669789227166,
+        "underRate": 0.1405152224824356,
+        "tier3Recall": 0.4959349593495935,
+        "tier3Precision": 0.488
+      }
+    },
+    "valid-laya-weighted": {
+      "intent": {
+        "rows": 496,
+        "microF1": 0.373489564262175,
+        "precision": 0.28114663726571115,
+        "recall": 0.5561613958560524,
+        "meanFires": 3.657258064516129,
+        "feature": {
+          "precision": 0.32710280373831774,
+          "recall": 0.4069767441860465,
+          "support": 86
+        },
+        "refactor": {
+          "precision": 0.1111111111111111,
+          "recall": 0.5555555555555556,
+          "support": 45
+        }
+      },
+      "composedTier": {
+        "rows": 471,
+        "coverage": 0.9341825902335457,
+        "acceptablePrecision": 0.8181818181818182,
+        "exactPrecision": 0.47045454545454546,
+        "underRate": 0.09545454545454546,
+        "tier3Recall": 0.6422764227642277,
+        "tier3Precision": 0.3185483870967742
+      }
+    }
+  }
+}
