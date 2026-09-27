@@ -2,7 +2,7 @@ const helper = require('./test-helper');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { buildEngineInvocation, buildWorkspace } = require('../behavioral-evals/run');
+const { buildEngineInvocation, buildWorkspace, runFixtureSetup, prepareWorkspace } = require('../behavioral-evals/run');
 
 console.log('\n[2j] Behavioral runner argv integrity...');
 const prompt = "Add punctuation stripping to slug.js, then run npm test. Do not truncate this request.";
@@ -58,5 +58,58 @@ helper.check(
   ),
   traversalError && traversalError.stack ? traversalError.stack : traversalTarget
 );
+
+let setupWorkspace = null;
+try {
+  setupWorkspace = buildWorkspace({
+    id: 'fixture-setup-valid',
+    fixture: {
+      files: [{ path: 'seed.txt', content: 'seed' }],
+      setup: 'behavioral-evals/fixtures/setup/noop.js',
+    },
+  });
+  const setupResult = runFixtureSetup({
+    id: 'fixture-setup-valid',
+    fixture: { setup: 'behavioral-evals/fixtures/setup/noop.js' },
+  }, setupWorkspace);
+  helper.check(
+    '2j. fixture setup runs via Node in the generated workspace',
+    setupResult.status === 'pass' &&
+      fs.readFileSync(path.join(setupWorkspace, '.fixture-setup-ok'), 'utf8') === 'ok\n',
+    JSON.stringify(setupResult)
+  );
+} catch (error) {
+  helper.check('2j. fixture setup runs via Node in the generated workspace', false, error && error.stack ? error.stack : String(error));
+} finally {
+  if (setupWorkspace) fs.rmSync(setupWorkspace, { recursive: true, force: true });
+}
+
+let failedPreparation = null;
+try {
+  failedPreparation = prepareWorkspace({
+    id: 'fixture-setup-fails',
+    fixture: {
+      files: [{ path: 'seed.txt', content: 'seed' }],
+      setup: 'behavioral-evals/fixtures/setup/fail.js',
+    },
+  });
+} catch (error) {
+  failedPreparation = { threw: error && error.stack ? error.stack : String(error) };
+}
+helper.check(
+  '2j. setup failure is classified as fixture-error before any model session',
+  Boolean(
+    failedPreparation &&
+    failedPreparation.ok === false &&
+    failedPreparation.outcome === 'fixture-error' &&
+    failedPreparation.setup &&
+    failedPreparation.setup.status === 'fail' &&
+    failedPreparation.setup.exit_code === 17
+  ),
+  JSON.stringify(failedPreparation)
+);
+if (failedPreparation && failedPreparation.workspace) {
+  fs.rmSync(failedPreparation.workspace, { recursive: true, force: true });
+}
 
 helper.finish();
