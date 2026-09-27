@@ -22,12 +22,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const {
   gradeExecutionEvidence,
   parseTranscriptFile,
 } = require('./transcript-parser');
 const { commandMatches, normalizeRepoPath } = require('../scripts/lib/execution-contract');
+const { resolveFixtureSetup, validateFixture } = require('./case-validator');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -155,7 +156,8 @@ function validate(cases) {
     if (!c.id) problems.push('missing id');
     if (!c.prompt) problems.push('missing prompt');
     if (!c.max_turns) problems.push('missing max_turns');
-    if (!c.fixture || !Array.isArray(c.fixture.files)) problems.push('fixture.files missing');
+    if (!c.fixture) problems.push('fixture missing');
+    else problems.push(...validateFixture(c.fixture));
     if (!Array.isArray(c.expectations) || c.expectations.length === 0) problems.push('expectations missing');
     if (c.loaded_skills !== undefined && (!Array.isArray(c.loaded_skills) || c.loaded_skills.some(skill => !fs.existsSync(path.join(ROOT, skill, 'SKILL.md'))))) {
       problems.push('loaded_skills must name existing skills');
@@ -205,6 +207,62 @@ function buildWorkspace(c) {
     fs.writeFileSync(target, typeof f.content === 'string' ? f.content.replace(/\n$/, '') + '\n' : String(f.content));
   }
   return ws;
+}
+
+function runFixtureSetup(c, ws) {
+  const resolved = resolveFixtureSetup(c && c.fixture && c.fixture.setup);
+  if (!resolved) return { path: null, status: 'not-requested', exit_code: null, duration_ms: 0 };
+  const startedAt = Date.now();
+  const result = spawnSync(process.execPath, [resolved.absolute], {
+    cwd: ws,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      HARNESS_BEHAVIORAL_WORKSPACE: ws,
+      HARNESS_BEHAVIORAL_CASE_ID: String(c.id || ''),
+    },
+    timeout: 60 * 1000,
+    windowsHide: true,
+  });
+  const evidence = {
+    path: resolved.relative,
+    status: result.status === 0 && !result.error ? 'pass' : 'fail',
+    exit_code: result.status,
+    duration_ms: Date.now() - startedAt,
+  };
+  if (result.error || result.status !== 0) {
+    const detail = (result.stderr || result.stdout || (result.error && result.error.message) || '').trim();
+    const error = new Error(
+      `fixture setup failed: ${resolved.relative}${result.status === null ? '' : ` (exit ${result.status})`}${detail ? `: ${detail.slice(0, 300)}` : ''}`
+    );
+    error.fixtureSetup = evidence;
+    throw error;
+  }
+  return evidence;
+}
+
+function prepareWorkspace(c) {
+  const workspace = buildWorkspace(c);
+  try {
+    return {
+      ok: true,
+      workspace,
+      setup: runFixtureSetup(c, workspace),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      workspace,
+      outcome: 'fixture-error',
+      error: error.message.slice(0, 500),
+      setup: error.fixtureSetup || {
+        path: c && c.fixture ? c.fixture.setup || null : null,
+        status: 'fail',
+        exit_code: null,
+        duration_ms: null,
+      },
+    };
+  }
 }
 
 // Capture the requested fixture baseline after treatment installation so the
@@ -685,9 +743,8 @@ function treatmentSkills(c) {
 function runArm(c, engine, arm, pairId) {
   const loadedSkills = arm === 'treatment' ? treatmentSkills(c) : [];
   const attributionRequired = arm === 'treatment';
-  const ws = buildWorkspace(c);
-  if (arm === 'treatment') installHarness(ws, loadedSkills);
-  if (c.fixture.git) gitSnapshot(ws);
+  const prepared = prepareWorkspace(c);
+  const ws = prepared.workspace;
 
   const record = {
     arm,
@@ -698,9 +755,22 @@ function runArm(c, engine, arm, pairId) {
     workspace: ws,
     fixture_sha256: sha256(JSON.stringify(c.fixture)),
     prompt_sha256: sha256(c.prompt),
+    fixture_setup: prepared.setup,
     cost: null,
   };
+  if (!prepared.ok) {
+    return {
+      ...record,
+      outcome: 'fixture-error',
+      error: prepared.error,
+      parse_status: 'unavailable',
+      tool_call_count: null,
+      tool_call_counts: { attempted: null, completed: null, denied: null, unresolved: null },
+    };
+  }
   try {
+    if (arm === 'treatment') installHarness(ws, loadedSkills);
+    if (c.fixture.git) gitSnapshot(ws);
     const transcriptPath = runHeadless(c.prompt, ws, c.max_turns, engine, arm);
     const graded = grade(c, ws, transcriptPath, engine);
     const { results, passed } = graded;
@@ -915,6 +985,8 @@ if (require.main === module) main();
 module.exports = {
   buildEngineInvocation,
   buildWorkspace,
+  runFixtureSetup,
+  prepareWorkspace,
   countToolCalls,
   extractAgentEvents,
   extractAgentTrace,
