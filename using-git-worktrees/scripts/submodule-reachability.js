@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -30,6 +31,15 @@ function isInside(child, parent) {
   return rel === '' || (!rel.startsWith('..' + path.sep) && rel !== '..' && !path.isAbsolute(rel));
 }
 
+function samePath(a, b) {
+  const normalize = value => {
+    let resolved = path.resolve(value);
+    try { resolved = fs.realpathSync.native(resolved); } catch { /* keep resolved */ }
+    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+  };
+  return normalize(a) === normalize(b);
+}
+
 function parseSubmoduleStatus(text) {
   if (!text.trim()) return [];
   return text.split(/\r?\n/).filter(Boolean).map(line => {
@@ -49,8 +59,14 @@ function parseSubmoduleStatus(text) {
 function primaryHasCommit(primaryRoot, commonDir, submodulePath, sha, moduleGitDir = null) {
   if (!primaryRoot) return false;
   const primarySub = path.join(primaryRoot, ...submodulePath.split('/'));
-  let result = runGit(['-C', primarySub, 'cat-file', '-e', `${sha}^{commit}`], primaryRoot, { allowFailure: true });
-  if (result.status === 0) return true;
+  // A deinitialized submodule leaves an empty directory, and `git -C` then
+  // resolves to the enclosing repository. Only the exact submodule repo counts.
+  const toplevel = runGit(['-C', primarySub, 'rev-parse', '--show-toplevel'], primaryRoot, { allowFailure: true });
+  let result = null;
+  if (toplevel.status === 0 && samePath(toplevel.stdout.trim(), primarySub)) {
+    result = runGit(['-C', primarySub, 'cat-file', '-e', `${sha}^{commit}`], primaryRoot, { allowFailure: true });
+    if (result.status === 0) return true;
+  }
 
   // A nested submodule repository is stored below its parent's module repo,
   // e.g. .git/modules/parent/modules/child. Callers pass that exact location
