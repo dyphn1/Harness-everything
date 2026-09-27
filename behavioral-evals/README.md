@@ -118,8 +118,13 @@ The setup contract is intentionally narrow:
   A failed setup MUST retain setup evidence, skip installation/model execution,
   remain excluded from behavioral pass/fail denominators, and cause a nonzero run exit.
 - Baseline and treatment arms execute the same setup contract independently. Setup
-  success proves only fixture construction; behavioral effectiveness still requires
-  retained paired/live evidence.
+  scripts that create version-control objects MUST avoid wall-clock/temp-path inputs
+  that would change object identities across arms; the worktree/submodule fixture
+  pins Git commit dates and uses a repository-relative submodule URL.
+- Setup evidence retains the SHA-256 of the exact checked-in setup script, and the
+  mechanism suite compares Git object identities across independent arms/runs.
+- Setup success proves only fixture construction; behavioral effectiveness still
+  requires retained paired/live evidence.
 
 ### Paired effect runner
 
