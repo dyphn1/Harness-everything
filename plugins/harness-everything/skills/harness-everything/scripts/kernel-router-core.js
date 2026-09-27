@@ -183,6 +183,9 @@ function printKernelContract(plan) {
   console.log('   - Keep evidence inline when there is only one short item; use nested bullets when there are multiple items.');
   console.log('   - Emit it before substantive execution, after a major phase, when direction materially changes, at meaningful long-running phase boundaries, and before final completion (the final response may merge it naturally).');
   console.log('   - This is a semantic communication MUST, not a hard execution lock, counter, or reset condition.');
+  console.log('   - End the final message of every turn with one hidden label line: your own post-work judgement, not a copy of this router output:');
+  console.log('     <!-- harness-label {"v":1,"validity":"actionable|invalid","contextDependent":false,"tier":"tier1|tier2|tier3|null","intents":["up to 3 of explain,discuss,git,fix,edit,feature,refactor,review,test,docs,plan,investigate"],"workflow":"strategy id or null","skills":["skills used"]} -->');
+  console.log('   - The label line records local training data (docs/system-one-observations.md); it never gates routing.');
 
   console.log('\n=> WORKFLOW SKILLS (APPLICABILITY MUST BE RESOLVED):');
   if (Array.isArray(plan.suggestedSkills) && plan.suggestedSkills.length > 0) {

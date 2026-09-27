@@ -18,6 +18,15 @@ Users should review commands, tool permissions, connected apps, and repository c
 
 Some Harness workflows may write local runtime state or project artifacts needed for routing, verification, or recovery. These files stay in locations controlled by the user and the host environment unless another tool or service is explicitly used to share them.
 
+## Local routing observations
+
+To improve Harness routing, the hooks keep a local record of each turn by default: the prompt, the previous assistant message (up to 2 KB), the routing suggestion, counts of what the agent did (files written, command categories, skills used; never command text or file contents), and the agent's own label line. Email addresses and home-directory paths are redacted before storage.
+
+- Location: `~/.agents/harness-everything/system-one/observations/` (or `HARNESS_OBSERVATIONS_DIR`), outside every workspace.
+- Retention: prompt text is deleted 180 days after it was recorded; labels and counts are kept.
+- Nothing is uploaded. The records leave the machine only if you copy them yourself.
+- Turn it off with `HARNESS_OBSERVATIONS=off` in the environment the host passes to hooks.
+
 ## Changes
 
 If a future release adds a hosted service, telemetry, external app, or MCP integration that changes data handling, this notice must be updated before that capability is published.

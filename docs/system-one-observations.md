@@ -1,7 +1,10 @@
 # System One observations: collecting routing data from real sessions
 
-Status: **proposed**, 2026-09-27. Owner decisions are recorded below; the
-design is approved for implementation in the phases at the end. Issue
+Status: **accepted**, 2026-09-27. Owner decisions are recorded below.
+Implementation: `hooks/scripts/observation-hook.js`,
+`hooks/scripts/lib/observations.js`, `scripts/system-one-observations-export.js`
+and `scripts/system-one-observations-review.js`; tests in
+`ci/mechanism-34-observations.test.js`. Issue
 [#233](https://github.com/dyphn1/Harness-everything/issues/233).
 
 ## Why
@@ -40,7 +43,7 @@ A turn runs from `UserPromptSubmit` to `Stop`. Its record:
 | `prompt` | `UserPromptSubmit` | stored in the private text store only (see Storage) |
 | `previous` | the last assistant message before the prompt | truncated to 2 KB; text store only |
 | `router` | kernel-router output | lexical tier, strategy, suggested skills; System One shadow scores when present |
-| `behavior` | `PostToolUse` | counts and categories, never arguments: files written, distinct repositories written, files created, commands by class (git, gh, test, build, package, shell), skills loaded or read, subagents started |
+| `behavior` | `PostToolUse`, `PostToolUseFailure` | counts and categories, never arguments: files written, distinct repositories written, files created, commands by class (git, gh, test, build, package, shell), skills loaded or read, subagents started. Failed attempts are counted separately (`toolFailures`, `failedWrites`, `failedSkillLoads`) and never count as a write or a load |
 | `workflow` | `workflow-run.json` / `workflow-disposition` | selected and confirmed strategy |
 | `selfReport` | label line in the final message | see below; `null` if missing or invalid |
 | `derived` | exporter | labels computed from the fields above |
@@ -69,30 +72,38 @@ recorded as `selfReport: null` with a reason code; it never blocks the turn.
 
 ## Labels and how much to trust them
 
-Labels come from three sources, from most to least trusted:
+The label is the host LLM's own judgement. It saw the whole conversation and
+did the work, so no fixed rule replaces it (owner decision, 2026-09-27: no
+file-count threshold for tier).
 
-1. **Behavior.** These are objective and computed by the exporter.
-   - Breadth tier: no file writes, only reads, lookups, Git or gh → tier1.
-     Writes to at most 5 files in one repository → tier2. More than 5
-     files, or writes in two or more repositories → tier3.
-   - Skills: the skills loaded or read.
-   - Workflow: the confirmed strategy.
-2. **Self-report.** The host LLM had the full context.
-   - `validity` and `contextDependent` label the validity stage directly.
-   - `intents` labels the intent stage.
-   - `tier` gives the kind of work (feature and refactor are tier3 under
-     rules v2), which breadth cannot see.
-3. **Owner review.** Records where behavior and self-report disagree are
-   sampled into a blind review page. The owner's decisions override both.
+| Label | Source | Override |
+| --- | --- | --- |
+| validity, contextDependent | self-report | owner review |
+| intents | self-report | — |
+| tier | self-report (tier rules v2) | owner review |
+| workflow | self-report, else the confirmed strategy | — |
+| skills | skills actually loaded or read, else the self-report | — |
 
-The derived tier is `max(breadth tier, self-reported tier)` when the
-self-report is present, and the breadth tier otherwise.
+Behavior counters (files, repositories, command classes, skills,
+subagents) are kept as **evidence**, never as a label rule. They serve two
+purposes:
 
-**Bias controls.** The agent sees the router's suggestion before it answers,
-so it may copy it. Router output and self-report are both stored.
-Agreement between them is reported per export, and an agreement rate far
-above behavior's own agreement with the router flags copying. Behavior
-labels are never taken from the self-report.
+- **Contradictions.** Some records contradict themselves. A `tier1` label
+  after files were written contradicts the tier1 definition (no code
+  change). These records go to the owner's review page.
+- **Future features.** The counters can train or check later models
+  without re-reading transcripts.
+
+**Owner review.** Missing labels, contradictions, and turns where the
+router's tier and the self-reported tier differ go to a blind review page.
+The owner decides validity, context dependence and tier; each decision
+overrides the self-report, an explicit `false` included, and also labels a
+turn that has no self-report.
+
+**Bias controls.** The agent sees the router's suggestion before it
+answers, so it may copy it. Router output and self-report are both stored.
+Each export reports how often they agree; a rate close to 1 over many turns
+is a warning sign. The review page samples the turns where they differ.
 
 ## Storage, index and privacy
 
@@ -108,7 +119,19 @@ labels are never taken from the self-report.
   hold normalized terms, so `retrieveMemoryRecords`-style lookups can find
   similar past turns.
 - **Retention**: `validUntil` is 180 days after `observedAt`. An expired
-  record keeps its labels, but its text is deleted.
+  record keeps its labels and counts, but its text is deleted. Expiry is
+  enforced on read as well: the exporter and the review page skip the text
+  of any record past `validUntil`, whether or not a later turn has swept it.
+  A text blob is content-addressed, so it is deleted only when no active
+  record references it. Session state that holds text (the previous-message
+  tail and an unfinished turn's prompt) follows the same 180 days, counted
+  from when the text was captured. Finishing or recovering an old turn never
+  renews that deadline: its record's `validUntil` comes from the capture
+  time, and a turn whose text has already expired is recorded with its
+  labels and counts but no text.
+- **Concurrency**: tool hooks may run in parallel. Each tool event is written
+  as its own immutable file, and `Stop` adds them up, so no event is lost to
+  a concurrent read-modify-write.
 - **Telemetry stays content-free.** The telemetry channel keeps its
   `FORBIDDEN_KEYS` rule. Observations are a separate, local-only channel and
   are never uploaded by Harness.
@@ -124,6 +147,15 @@ labels are never taken from the self-report.
 - **Codex**: the same plugin hooks. Codex hook payload fields differ; the
   exact fields for the prompt and the final message are verified against
   the installed Codex version during implementation, never assumed.
+- The final message must belong to the current turn. A transcript scan
+  stops at the start of the current turn (Codex `task_started` or a user
+  message; a Claude user prompt) and a Codex `task_complete` must carry the
+  current `turn_id` when both are known. With no final message for the
+  current turn, `selfReport` is `null` with `final-message-unavailable`; the
+  previous turn's label is never reused.
+- Failure follows each host's convention: the `PostToolUseFailure` event
+  (Claude Code), or an error flag or non-zero exit code in the tool response
+  (Codex).
 - A missing field records `null` with a reason code. Collection must never
   block, slow down, or fail a turn; each hook has a short time budget.
 

@@ -23,6 +23,16 @@
         ],
         "description": "Establish Harness routing invariants and an active workflow execution contract before host/domain skill selection",
         "id": "harness:pre:kernel-router"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/observation-hook.js\""
+          }
+        ],
+        "description": "Record a local, content-private System One turn observation (docs/system-one-observations.md); fail-open and silent",
+        "id": "harness:obs:observation-userpromptsubmit"
       }
     ],
     "PreToolUse": [
@@ -155,6 +165,16 @@
         ],
         "description": "Close Harness skill active-window telemetry at the turn boundary",
         "id": "harness:stop:skill-telemetry"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/observation-hook.js\""
+          }
+        ],
+        "description": "Record a local, content-private System One turn observation (docs/system-one-observations.md); fail-open and silent",
+        "id": "harness:obs:observation-stop"
       }
     ],
     "PostToolUse": [
@@ -234,6 +254,16 @@
         ],
         "description": "Record privacy-safe Harness skill load completion telemetry",
         "id": "harness:post:skill-telemetry"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/observation-hook.js\""
+          }
+        ],
+        "description": "Record a local, content-private System One turn observation (docs/system-one-observations.md); fail-open and silent",
+        "id": "harness:obs:observation-posttooluse"
       }
     ],
     "PostToolUseFailure": [
@@ -280,6 +310,16 @@
         ],
         "description": "Record failed Harness skill loading without prompt/tool arguments",
         "id": "harness:post-failure:skill-telemetry"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/observation-hook.js\""
+          }
+        ],
+        "description": "Record a local, content-private System One turn observation (docs/system-one-observations.md); fail-open and silent",
+        "id": "harness:obs:observation-posttoolusefailure"
       }
     ]
   }
