@@ -1,0 +1,40 @@
+{
+  "intentVariant": "valid-laya-weighted",
+  "intentTaus": {
+    "explain": 0.2,
+    "discuss": 0.35,
+    "git": 0.3,
+    "fix": 0.15,
+    "edit": 0.2,
+    "feature": 0.3,
+    "refactor": 0.15,
+    "review": 0.25,
+    "test": 0.35,
+    "docs": 0.2,
+    "plan": 0.25,
+    "investigate": 0.2
+  },
+  "intentTausFitOn": "537 validation rows (in-sample for the trial)",
+  "gateTau": 0.5,
+  "tierTau": 0.5,
+  "cap": 3,
+  "checkpoints": {
+    "gate": {
+      "path": "gate/control.safetensors",
+      "sha256": "40ddeba22d8bb8bf0dcd694a2597a164b3d0347a1c211d99b4861a221ecac02f"
+    },
+    "intent": {
+      "path": "intent/valid-laya-weighted.safetensors",
+      "sha256": "4d11875de467f3ebbadc95dbf54da266d39f2e52ef25f5d7de14ff4f74072077"
+    },
+    "tier": {
+      "path": "tier/curriculum.safetensors",
+      "sha256": "670a44ca38c50dde7895036b1bd1046ba226a5aa1714aeca2d5528860d1d6e31"
+    }
+  },
+  "notIncluded": [
+    "structural floor",
+    "explicit workflow requests",
+    "policy gates"
+  ]
+}
