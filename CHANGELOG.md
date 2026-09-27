@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.28.0](https://github.com/dyphn1/Harness-everything/compare/v0.27.0...v0.28.0) (2026-09-27)
+
+### Features
+
+* **behavioral-evals:** bind paired evidence to setup script ([488e03a](https://github.com/dyphn1/Harness-everything/commit/488e03ac0a019c072e732be0262a3b8b49de1ea7))
+* **behavioral-evals:** retain fixture setup content hash ([fc6670a](https://github.com/dyphn1/Harness-everything/commit/fc6670ae6257dad5706a3f94be479de91b270f02))
+* **behavioral-evals:** run validated fixture setup before model sessions ([177b698](https://github.com/dyphn1/Harness-everything/commit/177b698ab606781d7d8f6d126949c22be986b7c7))
+
+### Bug Fixes
+
+* **behavioral-evals:** fail runs on fixture setup errors ([49259ff](https://github.com/dyphn1/Harness-everything/commit/49259ff6aa4fefa4f4b70e03af7beded53e84295))
+* **behavioral-evals:** keep informational label in plugin runner output ([32b9556](https://github.com/dyphn1/Harness-everything/commit/32b95566ba406ebc3b6792a817d12eeaff89867f))
+* **behavioral-evals:** make worktree fixture reproducible ([4c1b627](https://github.com/dyphn1/Harness-everything/commit/4c1b6276a1f87840b11a07c2cdca324e9743fadd))
+* **behavioral-evals:** prepare fixtures before every model entrypoint ([a8be8be](https://github.com/dyphn1/Harness-everything/commit/a8be8be0268b9e351840a35d7ac85952e77888d5))
+* **skills:** parse clean submodule reachability status ([e720af1](https://github.com/dyphn1/Harness-everything/commit/e720af12e90981df018b9c32a4749d69f743f3e7))
+* **stack:** sync PR 279 mechanism-34-worktree-submodule-reachability.test.js ([a94f904](https://github.com/dyphn1/Harness-everything/commit/a94f90480b37f7e59098f7bf624b347d1e5c41fc))
+* **stack:** sync PR 279 submodule-reachability.js ([4d38ae0](https://github.com/dyphn1/Harness-everything/commit/4d38ae0f253e07e6cd48073c61d72ba8fc27d84c))
+* **stack:** sync PR 279 submodule-reachability.js ([7b85d6d](https://github.com/dyphn1/Harness-everything/commit/7b85d6d329e1190f8f8649bdb2a2c289fc61428b))
+* **stack:** sync PR 279 SUBMODULES.md ([0b1667f](https://github.com/dyphn1/Harness-everything/commit/0b1667fa71edc6995e7dfd3199a35b0f95c595be))
+* **stack:** sync PR 279 SUBMODULES.md ([9540ce5](https://github.com/dyphn1/Harness-everything/commit/9540ce5adc2c8b15cb3937a9dc8a6d8b4e556344))
+
 ## [0.27.0](https://github.com/dyphn1/Harness-everything/compare/v0.26.0...v0.27.0) (2026-09-27)
 
 ### Features
