@@ -408,6 +408,57 @@ test('owner review overrides context dependence, explicit false included', () =>
   assert(fs.readFileSync(html, 'utf8').includes('contextDependent'), 'the review page records context dependence');
 });
 
+function agePending(store, sessionId, days) {
+  const file = path.join(store, 'sessions', `${require('crypto').createHash('sha256').update(sessionId).digest('hex').slice(0, 32)}.json`);
+  const state = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const then = new Date(Date.now() - days * 86400000).toISOString();
+  state.pending.startedAt = then;
+  state.pending.previousAt = then;
+  state.lastFinalAt = then;
+  fs.writeFileSync(file, JSON.stringify(state)); // mtime stays fresh: the capture time must decide
+}
+
+test('resuming an expired unfinished turn does not renew its text', () => {
+  for (const resume of ['UserPromptSubmit', 'Stop']) {
+    const s = sandbox();
+    const sid = `resume-${resume}`;
+    const base = { session_id: sid, cwd: s.repo };
+    hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'first MARKER-PREV-TURN' });
+    hook(s.env, { ...base, hook_event_name: 'Stop', last_assistant_message: 'answer MARKER-PREVIOUS' });
+    hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'unfinished MARKER-PENDING' });
+    agePending(s.store, sid, 181);
+    if (resume === 'Stop') hook(s.env, { ...base, hook_event_name: 'Stop', last_assistant_message: `late\n${LABEL}` });
+    else hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'new prompt' });
+    const rec = records(s.store)[1];
+    assert.strictEqual(rec.status, 'expired', resume);
+    assert(Date.parse(rec.validUntil) <= Date.now(), `${resume}: the deadline is not renewed`);
+    assert(!fs.existsSync(path.join(s.store, 'text', `${rec.contentSha256}.json`)), `${resume}: no fresh blob for expired text`);
+    const out = path.join(s.dir, 'export');
+    assert.strictEqual(spawnSync('node', [EXPORTER, '--store', s.store, '--out', out], { encoding: 'utf8', env: s.env }).status, 0);
+    const exported = fs.readFileSync(path.join(out, 'prompts-observed.jsonl'), 'utf8');
+    assert(!/MARKER-PENDING|MARKER-PREVIOUS/.test(exported), `${resume}: expired text is not exported`);
+    const html = path.join(s.dir, 'review.html');
+    spawnSync('node', [REVIEW, '--store', s.store, '--out', html, '--all'], { encoding: 'utf8', env: s.env });
+    assert(!/MARKER-PENDING|MARKER-PREVIOUS/.test(fs.readFileSync(html, 'utf8')), `${resume}: expired text is not reviewed`);
+    const sessions = fs.readdirSync(path.join(s.store, 'sessions')).map(f => { try { return fs.readFileSync(path.join(s.store, 'sessions', f), 'utf8'); } catch (_) { return ''; } }).join('');
+    assert(!/MARKER-PENDING|MARKER-PREVIOUS/.test(sessions), `${resume}: session state drops expired text`);
+  }
+});
+
+test('resuming an unfinished turn inside the window keeps its text and original deadline', () => {
+  const s = sandbox();
+  const base = { session_id: 'resume-fresh', cwd: s.repo };
+  hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'unfinished MARKER-KEEP' });
+  agePending(s.store, 'resume-fresh', 10);
+  hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'next' });
+  const [rec] = records(s.store);
+  assert.strictEqual(rec.status, 'active');
+  const deadline = Date.parse(rec.validUntil) - Date.now();
+  assert(deadline > 169 * 86400000 && deadline < 171 * 86400000, 'validUntil counts from capture, not from recovery');
+  const text = JSON.parse(fs.readFileSync(path.join(s.store, 'text', `${rec.contentSha256}.json`), 'utf8'));
+  assert(text.prompt.includes('MARKER-KEEP'));
+});
+
 test('hooks are registered for both hosts and the contract asks for the label line', () => {
   // Claude Code (canonical) has PostToolUseFailure; the Codex plugin manifest has no such event.
   for (const [file, events] of [['hooks/hooks.json', ['UserPromptSubmit', 'PostToolUse', 'PostToolUseFailure', 'Stop']],
