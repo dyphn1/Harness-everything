@@ -87,6 +87,35 @@ the arm order, records a shared fixture/prompt fingerprint, and writes one
 paired result. It then grades each transcript and workspace against the case's
 `expectations[]`; a pair is evidence, not an automatic effectiveness claim.
 
+### Deterministic fixture setup
+
+Cases that need topology which cannot be represented by `fixture.files` may declare an
+optional `fixture.setup` path:
+
+```yaml
+fixture:
+  files:
+    - path: README.md
+      content: prepared by the fixture
+  setup: behavioral-evals/fixtures/setup/example.js
+```
+
+The setup contract is intentionally narrow:
+
+- `fixture.setup` MUST be a repository-relative, checked-in `.js` file. Absolute
+  paths, `..`, symlink escapes, missing files, and inline shell are invalid.
+- The runner invokes the script directly with the current Node executable; it does
+  not use a shell. The script runs with the generated fixture workspace as `cwd`.
+- Setup runs after `fixture.files` are seeded and before Harness installation,
+  optional `fixture.git` snapshotting, or any model session.
+- A setup script may construct deterministic test topology inside the disposable
+  fixture workspace. It is trusted repository test code, not agent-controlled input.
+- Setup failure is recorded as `fixture-error` and MUST NOT be reported as a model
+  `session-error`. No model session starts after a failed setup.
+- Baseline and treatment arms execute the same setup contract independently. Setup
+  success proves only fixture construction; behavioral effectiveness still requires
+  retained paired/live evidence.
+
 ### Paired effect runner
 
 The stricter paired runner separates three interventions:
