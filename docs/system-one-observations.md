@@ -124,7 +124,11 @@ is a warning sign. The review page samples the turns where they differ.
   of any record past `validUntil`, whether or not a later turn has swept it.
   A text blob is content-addressed, so it is deleted only when no active
   record references it. Session state that holds text (the previous-message
-  tail and an unfinished turn's prompt) follows the same 180 days.
+  tail and an unfinished turn's prompt) follows the same 180 days, counted
+  from when the text was captured. Finishing or recovering an old turn never
+  renews that deadline: its record's `validUntil` comes from the capture
+  time, and a turn whose text has already expired is recorded with its
+  labels and counts but no text.
 - **Concurrency**: tool hooks may run in parallel. Each tool event is written
   as its own immutable file, and `Stop` adds them up, so no event is lost to
   a concurrent read-modify-write.
