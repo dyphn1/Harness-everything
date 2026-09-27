@@ -35,11 +35,12 @@ body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-appl
 main{max-width:860px;margin:0 auto;padding:16px}.box{white-space:pre-wrap;word-break:break-word;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;max-height:40vh;overflow:auto}
 .prev{font-size:14px;color:var(--mut)}label{margin-right:16px}select,button{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--fg)}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0}</style></head><body><main>
-<p class="prev">Review the prompt with its previous assistant message. Decide validity (would the text alone be enough?) and the tier of the work it asked for.</p>
+<p class="prev">Review the prompt with its previous assistant message. Decide validity, whether the prompt needs the earlier conversation to be understood, and the tier of the work it asked for.</p>
 <div class="row"><span id="pos"></span><button id="prev">&larr;</button><button id="next">&rarr;</button><button id="exp">Export JSON</button><span id="stat" class="prev"></span></div>
 <h3>Previous assistant message</h3><div class="box prev" id="previous"></div>
 <h3>Prompt</h3><div class="box" id="prompt"></div>
 <div class="row"><label>Validity <select id="validity"><option value="">—</option><option>actionable</option><option>invalid</option><option>unsure</option></select></label>
+<label>Needs context <select id="contextDependent"><option value="">—</option><option value="true">yes</option><option value="false">no</option></select></label>
 <label>Tier <select id="tier"><option value="">—</option><option>tier1</option><option>tier2</option><option>tier3</option></select></label></div>
 </main><script>
 const ITEMS=${data};const KEY='harness-observation-review';
@@ -48,9 +49,9 @@ const $=id=>document.getElementById(id);
 function save(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}}
 function render(){if(!ITEMS.length){$('prompt').textContent='Nothing to review.';return}const it=ITEMS[i],d=st[it.id]||{};
 $('pos').textContent=(i+1)+' / '+ITEMS.length;$('prompt').textContent=it.prompt;$('previous').textContent=it.previous||'(none)';
-$('validity').value=d.validity||'';$('tier').value=d.tier||'';$('stat').textContent='decided '+Object.keys(st).length}
-function set(){const it=ITEMS[i];st[it.id]={id:it.id,validity:$('validity').value||null,tier:$('tier').value||null,decidedAt:new Date().toISOString()};save();render()}
-$('validity').onchange=set;$('tier').onchange=set;$('prev').onclick=()=>{if(i>0)i--;render()};$('next').onclick=()=>{if(i<ITEMS.length-1)i++;render()};
+$('validity').value=d.validity||'';$('tier').value=d.tier||'';$('contextDependent').value=typeof d.contextDependent==='boolean'?String(d.contextDependent):'';$('stat').textContent='decided '+Object.keys(st).length}
+function set(){const it=ITEMS[i];const cd=$('contextDependent').value;st[it.id]={id:it.id,validity:$('validity').value||null,contextDependent:cd==='true'?true:cd==='false'?false:null,tier:$('tier').value||null,decidedAt:new Date().toISOString()};save();render()}
+$('validity').onchange=set;$('contextDependent').onchange=set;$('tier').onchange=set;$('prev').onclick=()=>{if(i>0)i--;render()};$('next').onclick=()=>{if(i<ITEMS.length-1)i++;render()};
 $('exp').onclick=()=>{const b=new Blob([JSON.stringify({schemaVersion:1,review:KEY,decisions:Object.values(st)},null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='observation-review-decisions.json';a.click()};
 render();
 </script></body></html>`;
@@ -62,12 +63,14 @@ function run(args) {
   if (!out) throw new Error('--out is required');
   const all = args.includes('--all');
   const limit = Number(option(args, '--limit', '200'));
+  obs.sweep(store);
   const index = obs.readJson(path.join(store, 'observations-index.json'), null);
   if (!index || !Array.isArray(index.records)) throw new Error(`no observation index in ${store}`);
   const items = [];
+  const now = Date.now();
   for (const record of index.records) {
-    if (record.textDeleted || (!all && !disagrees(record))) continue;
-    const text = obs.readJson(path.join(store, 'text', `${record.contentSha256}.json`), null);
+    if (!all && !disagrees(record)) continue;
+    const text = obs.recordText(store, record, now);
     if (!text || !text.prompt) continue;
     items.push({ id: record.id, prompt: text.prompt, previous: text.previous || '' });
     if (items.length >= limit) break;

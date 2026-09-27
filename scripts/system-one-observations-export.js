@@ -19,18 +19,28 @@ function family(text) {
   return crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 12);
 }
 
+function validDecision(d) {
+  return d && typeof d.id === 'string'
+    && [undefined, null, 'actionable', 'invalid', 'unsure'].includes(d.validity)
+    && [undefined, null, ...obs.TIERS].includes(d.tier)
+    && [undefined, null, true, false].includes(d.contextDependent);
+}
+
 function loadReview(file) {
   if (!file) return {};
   const data = JSON.parse(fs.readFileSync(file, 'utf8'));
   if (data.review !== 'harness-observation-review' || !Array.isArray(data.decisions)) throw new Error('not a harness-observation-review export');
+  const bad = data.decisions.find(d => !validDecision(d));
+  if (bad) throw new Error(`invalid owner decision: ${JSON.stringify(bad).slice(0, 200)}`);
   return Object.fromEntries(data.decisions.map(d => [d.id, d]));
 }
 
 function derive(record, owner) {
   const self = record.selfReport;
   let validity = self ? self.validity : null;
-  const contextDependent = self ? self.contextDependent : null;
+  let contextDependent = self ? self.contextDependent : null;
   if (owner && owner.validity && owner.validity !== 'unsure') validity = owner.validity;
+  if (owner && typeof owner.contextDependent === 'boolean') contextDependent = owner.contextDependent;
   let { tier, source: tierSource } = obs.labelTier(self, owner);
   if (validity === 'invalid' && !(owner && obs.TIERS.includes(owner.tier))) { tier = null; tierSource = tierSource && 'self-report'; }
   const skills = record.behavior && record.behavior.skills && record.behavior.skills.length
@@ -53,12 +63,15 @@ function run(args) {
   if (!out) throw new Error('--out is required');
   const share = Number(option(args, '--validation-share', '0.15'));
   const owner = loadReview(option(args, '--owner-review'));
+  obs.sweep(store);
   const index = obs.readJson(path.join(store, 'observations-index.json'), null);
   if (!index || index.schemaVersion !== 1 || !Array.isArray(index.records)) throw new Error(`no observation index in ${store}`);
   const rows = [];
   let skippedNoText = 0;
+  const now = Date.now();
   for (const record of index.records) {
-    const text = record.textDeleted ? null : obs.readJson(path.join(store, 'text', `${record.contentSha256}.json`), null);
+    // Expiry holds on read too, even if no later turn has swept the store.
+    const text = obs.recordText(store, record, now);
     if (!text || !text.prompt) { skippedNoText++; continue; }
     rows.push({ record, text, label: derive(record, owner[record.id]) });
   }
