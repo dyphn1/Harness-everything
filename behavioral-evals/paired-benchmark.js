@@ -12,6 +12,7 @@ const {
   parseSimpleYaml,
 } = require('./run');
 const { verifyEvidence: verifyOpenCodeReflectionEvidence } = require('./opencode-reflection-gate-live');
+const { resolveFixtureSetup } = require('./case-validator');
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_DIR = path.join(__dirname, 'cases');
@@ -38,6 +39,11 @@ function stable(value) {
 
 function stableJson(value) {
   return JSON.stringify(stable(value));
+}
+
+function fixtureSetupSha256(c) {
+  const resolved = resolveFixtureSetup(c && c.fixture && c.fixture.setup);
+  return resolved ? sha256File(resolved.absolute) : null;
 }
 
 function discoverCases() {
@@ -589,6 +595,7 @@ function pairContract(c, context) {
     max_turns: c.max_turns,
     loaded_skills: treatmentSkills(c).slice().sort(),
     fixture_sha256: sha256(stableJson(c.fixture)),
+    fixture_setup_sha256: fixtureSetupSha256(c),
     prompt_sha256: sha256(c.prompt),
     rubric_sha256: sha256(stableJson(c.expectations)),
     lesson_fixture_sha256: context.effect_type === 'lesson-retrieval' ? sha256(stableJson(c.lesson)) : null,
