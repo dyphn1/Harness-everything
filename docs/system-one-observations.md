@@ -61,7 +61,7 @@ which is invisible in rendered Markdown:
 | --- | --- |
 | `validity` | `actionable` or `invalid` (continuation, feedback on earlier work, pointer to earlier content, paste or chatter) |
 | `contextDependent` | `true` when the prompt text alone would not have been enough to know the task |
-| `tier` | `tier1`, `tier2`, `tier3` or `null`, under tier rules v2 |
+| `tier` | `tier1` (no file change), `tier2` (bounded file change: code, config or docs), `tier3` (feature, refactor, redefinition, cross-component) or `null` (only for `invalid`), under tier rules v2 |
 | `intents` | up to 3 of the 12 intent ids, strongest first |
 | `workflow` | a router strategy id or `null` |
 | `skills` | skill ids actually used this turn |
@@ -102,8 +102,9 @@ turn that has no self-report.
 
 **Bias controls.** The agent sees the router's suggestion before it
 answers, so it may copy it. Router output and self-report are both stored.
-Each export reports how often they agree; a rate close to 1 over many turns
-is a warning sign. The review page samples the turns where they differ.
+Each export reports how often they agree, over turns where the router chose
+a tier (`unclassified` is not a tier); a rate close to 1 over many turns is a
+warning sign. The review page samples the turns where they differ.
 
 ## Storage, index and privacy
 
