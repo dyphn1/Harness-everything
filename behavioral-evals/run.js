@@ -834,6 +834,8 @@ function summarizePairResults(pairResults) {
   const completed = pairResults.filter(isCompletedPair);
   const sessionFailures = pairResults.filter(record => Object.values(record.arms || {})
     .some(arm => arm.outcome === 'session-error')).length;
+  const fixtureFailures = pairResults.filter(record => Object.values(record.arms || {})
+    .some(arm => arm.outcome === 'fixture-error')).length;
   const effective = completed.filter(record => record.verdict === 'EFFECTIVE').length;
   const categorySummary = {};
   for (const record of pairResults) {
@@ -876,6 +878,7 @@ function summarizePairResults(pairResults) {
     cost,
     completed_pairs: completed.length,
     session_failures: sessionFailures,
+    fixture_failures: fixtureFailures,
     tool_call_delta: toolCallDelta,
     verdicts: Object.fromEntries(['EFFECTIVE', 'INEFFECTIVE', 'INCONCLUSIVE', 'HARMFUL']
       .map(verdict => [verdict, completed.filter(record => record.verdict === verdict).length])),
@@ -905,7 +908,7 @@ function runLive(filter, engineArg, armArg = 'treatment') {
   fs.mkdirSync(RESULTS_DIR, { recursive: true });
 
   const pairResults = [];
-  let sessionFailures = 0;
+  let infrastructureFailures = 0;
   for (const c of cases) {
     const pairId = `${c.id}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
     const order = armArg === 'both'
@@ -934,13 +937,13 @@ function runLive(filter, engineArg, armArg = 'treatment') {
     for (const arm of Object.values(arms)) {
       console.log(`  ${arm.arm}: ${arm.outcome} (${arm.loaded_skills.length ? arm.loaded_skills.join(', ') : 'no Harness skills'})`);
     }
-    if (Object.values(arms).some(arm => arm.outcome === 'session-error')) sessionFailures++;
+    if (Object.values(arms).some(arm => arm.outcome === 'session-error' || arm.outcome === 'fixture-error')) infrastructureFailures++;
     if (armArg === 'both') console.log(`  Verdict: ${record.verdict}`);
     const suffix = armArg === 'both' ? 'pair' : armArg;
     fs.writeFileSync(path.join(RESULTS_DIR, `${record.date.slice(0, 10)}-${c.id}-${suffix}.json`), JSON.stringify(record, null, 2));
   }
 
-  let exitCode = sessionFailures ? 1 : 0;
+  let exitCode = infrastructureFailures ? 1 : 0;
   if (armArg === 'both') {
     const aggregate = summarizePairResults(pairResults);
     const summary = {
@@ -958,7 +961,7 @@ function runLive(filter, engineArg, armArg = 'treatment') {
     fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
     console.log(`\nPaired summary: ${summaryPath}`);
     console.log(`Completed pairs: ${summary.completed_pairs}/${summary.requested_sample_size}`);
-    exitCode = aggregate.session_failures ? 1 : 0;
+    exitCode = (aggregate.session_failures || aggregate.fixture_failures) ? 1 : 0;
   }
   process.exit(exitCode);
 }
