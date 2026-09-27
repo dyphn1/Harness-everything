@@ -265,7 +265,7 @@ function runCase(c, execute = runHeadless) {
     return {
       ...record,
       transcript: transcriptPath,
-      expectations: results.map(({ description, pass }) => ({ description, pass })),
+      expectations: results.map(({ description, pass, informational }) => ({ description, pass, ...(informational ? { informational: true } : {}) })),
       outcome: passed ? 'pass' : 'fail',
     };
   } catch (error) {
@@ -285,7 +285,7 @@ function runLive(filter) {
     const record = runCase(c);
     const outFile = path.join(RESULTS_DIR, `plugin-${record.date.slice(0, 10)}-${c.id}.json`);
     fs.writeFileSync(outFile, JSON.stringify(record, null, 2));
-    for (const g of record.expectations) console.log(`  ${g.pass ? '✅' : '❌'} ${g.description}`);
+    for (const g of record.expectations) console.log(`  ${g.pass ? '✅' : '❌'}${g.informational ? ' (info)' : ''} ${g.description}`);
     console.log(`${record.outcome} -> ${outFile}`);
     if (record.error) console.error(record.error);
     if (record.outcome !== 'pass') failed++;
