@@ -87,10 +87,29 @@ function skillName(value) {
 const COMMAND_CLASSES = [
   ['git', /^git$/],
   ['gh', /^gh$/],
-  ['test', /^(pytest|jest|vitest|mocha|tox|phpunit|rspec)$/],
+  ['test', /^(pytest|py\.test|unittest|jest|vitest|mocha|tox|nox|phpunit|rspec)$/],
 ];
 
+// Runner prefixes that execute another command: classify what they run.
+function unwrapRunner(tokens) {
+  const [cmd, sub] = tokens;
+  if (/^python(3(\.\d+)?)?$/.test(cmd || '') && sub === '-m' && tokens[2]) return tokens.slice(2);
+  if (/^(npx|bunx|uvx|pipx)$/.test(cmd || '')) {
+    const rest = tokens.slice(1);
+    while (rest.length && rest[0].startsWith('-')) rest.shift();
+    if (rest.length) return rest;
+  }
+  if (/^(uv|poetry|pdm|hatch)$/.test(cmd || '') && sub === 'run' && tokens[2]) return tokens.slice(2);
+  if (/^(pnpm|yarn|bun)$/.test(cmd || '') && (sub === 'exec' || sub === 'dlx' || sub === 'x') && tokens[2]) return tokens.slice(2);
+  return tokens;
+}
+
 function classifySegment(tokens) {
+  for (let i = 0; i < 3; i++) {
+    const next = unwrapRunner(tokens);
+    if (next === tokens) break;
+    tokens = next;
+  }
   const [cmd, sub, third] = tokens;
   if (!cmd) return null;
   for (const [name, re] of COMMAND_CLASSES) if (re.test(cmd)) return name;

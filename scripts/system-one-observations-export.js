@@ -83,7 +83,8 @@ function run(args) {
   fs.writeFileSync(path.join(out, 'prompts-observed.jsonl'), prompts.join('\n') + (prompts.length ? '\n' : ''));
   fs.writeFileSync(path.join(out, 'labels-observed.jsonl'), rows.map(r => JSON.stringify(r.label)).join('\n') + (rows.length ? '\n' : ''));
   const withSelf = rows.filter(r => r.record.selfReport);
-  const routerSelf = withSelf.filter(r => r.record.router && r.record.router.tier).map(r => [r.record.router.tier, r.record.selfReport.tier]);
+  // Only turns where the router chose a tier; 'unclassified' is not one.
+  const routerSelf = withSelf.filter(r => r.record.router && obs.TIERS.includes(r.record.router.tier)).map(r => [r.record.router.tier, r.record.selfReport.tier]);
   const agreement = { routerVsSelfTier: rate(routerSelf), routerVsSelfPairs: routerSelf.length };
   const contradictions = {};
   for (const r of rows) for (const c of r.label.contradictions) contradictions[c] = (contradictions[c] || 0) + 1;

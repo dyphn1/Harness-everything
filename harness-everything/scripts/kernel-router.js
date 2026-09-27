@@ -105,6 +105,15 @@ function persistWorkflow(contract, payload, prompt) {
   return { ...context, hooksRoot, retained: false, memoryCapability };
 }
 
+// Printed last so it is the nearest instruction when the turn ends (docs/system-one-observations.md#label-line).
+function printLabelContract() {
+  console.log('\n=> TURN LABEL LINE (MUST, EVERY TURN — short answers, lookups and trivial edits included):');
+  console.log('   - The last line of your final message MUST be one hidden label line with your own post-work judgement, not a copy of the router tier above:');
+  console.log('     <!-- harness-label {"v":1,"validity":"actionable|invalid","contextDependent":true|false,"tier":"tier1|tier2|tier3|null","intents":["up to 3 of explain,discuss,git,fix,edit,feature,refactor,review,test,docs,plan,investigate"],"workflow":"strategy id or null","skills":["skills used"]} -->');
+  console.log('   - tier1: answer, lookup, status or git operation with no code change; tier2: bounded change; tier3: new feature, refactor, redefinition or cross-component work. Use null only when validity is invalid.');
+  console.log('   - It is invisible in rendered Markdown and records local training data; it never gates routing.');
+}
+
 function run(raw) {
   const promptArg = process.argv.slice(2).join(' ');
   let payload = null;
@@ -162,6 +171,7 @@ function run(raw) {
   } else {
     console.log('   - Runtime state was not persisted; reminders may be less precise, but execution remains available.');
   }
+  printLabelContract();
   if (failure) console.error('[Workflow Reminder] routing state was not persisted: ' + failure.message);
   if (result && result.status !== 0) console.error('[Workflow Reminder] router returned status ' + result.status + '; contract observation is degraded, not blocking.');
 }
