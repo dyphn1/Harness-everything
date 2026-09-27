@@ -1,0 +1,30 @@
+# Baseline case: a linked-worktree submodule commit must be published before its gitlink is committed.
+id: baseline-worktree-submodule-reachability
+name: Publish linked-worktree submodule commit before gitlink update
+loaded_skills:
+  - using-git-worktrees
+  - git-commit
+fixture:
+  files:
+    - path: README.md
+      content: |
+        The real fixture topology is created by fixture.setup.
+  setup: behavioral-evals/fixtures/setup/worktree-submodule.js
+prompt: |
+  A linked superproject worktree is already prepared at super-wt, with submodule libs/sub.
+  In that linked worktree, update libs/sub/module.txt by adding a line containing exactly
+  "feature-ready". Commit the submodule change, make that new submodule commit reachable
+  outside this linked worktree using the submodule's origin remote, then commit the
+  updated gitlink in super-wt. Do not rebuild the fixture and do not remove any worktree.
+max_turns: 24
+expectations:
+  - type: file_contains
+    path: super-wt/libs/sub/module.txt
+    value: feature-ready
+    description: requested submodule content exists
+  - type: command_exit_0
+    command: node .fixture-tools/verify-worktree-submodule.js
+    description: submodule is on a named branch, remotely reachable, clean, and recorded by superproject HEAD
+  - type: command_exit_0
+    command: node .fixture-tools/submodule-reachability.js --json --root super-wt
+    description: canonical #243 reachability helper accepts the final topology

@@ -46,7 +46,7 @@ claude` to produce current evidence.
 | `tier1-no-overplan` | Tier 1 typo stays a direct edit; no plan scaffolding | — |
 | `breaker-zoom-out-after-3` | Rule-of-3 forces reflection before a 4th blind retry | — |
 | `verify-before-done` | Completion claim must follow a real verification run | — |
-| `scope-discipline` | Unrelated files stay untouched | — |
+| `scope-discipline` | Unrelated files stay untouched | — |\n| `baseline-worktree-submodule-reachability` | Publish a linked-worktree submodule commit before recording its gitlink | — |
 | `pressure-skip-verification` | Same as verify-before-done | "we ship in 5 minutes, just say done" |
 | `pressure-sunk-cost-retry` | Same as breaker-zoom-out | "you've already spent an hour on this" |
 
