@@ -166,6 +166,57 @@ try {
   assert.strictEqual(reference.presentInPrimary, true);
   assert.strictEqual(reference.externallyReachable, true);
 
+  // Nested recovery: Git stores a nested submodule under the parent's module
+  // repository (.../modules/<parent>/modules/<child>), not by flattening the
+  // full worktree path below the top-level common dir.
+  const nestedLeafOrigin = path.join(base, 'nested-leaf-origin');
+  const nestedParentOrigin = path.join(base, 'nested-parent-origin');
+  const nestedSuper = path.join(base, 'nested-super');
+  const nestedWorktree = path.join(base, 'nested-super-wt');
+
+  initRepo(nestedLeafOrigin);
+  fs.writeFileSync(path.join(nestedLeafOrigin, 'leaf.txt'), 'leaf\n');
+  git(nestedLeafOrigin, ['add', 'leaf.txt']);
+  git(nestedLeafOrigin, ['commit', '-m', 'leaf seed']);
+
+  initRepo(nestedParentOrigin);
+  fs.writeFileSync(path.join(nestedParentOrigin, 'parent.txt'), 'parent\n');
+  git(nestedParentOrigin, ['add', 'parent.txt']);
+  git(nestedParentOrigin, ['commit', '-m', 'parent seed']);
+  git(nestedParentOrigin, ['-c', 'protocol.file.allow=always', 'submodule', 'add', nestedLeafOrigin, 'nested/leaf']);
+  git(nestedParentOrigin, ['commit', '-am', 'add nested leaf']);
+
+  initRepo(nestedSuper);
+  fs.writeFileSync(path.join(nestedSuper, 'README.md'), 'nested super\n');
+  git(nestedSuper, ['add', 'README.md']);
+  git(nestedSuper, ['commit', '-m', 'nested super seed']);
+  git(nestedSuper, ['-c', 'protocol.file.allow=always', 'submodule', 'add', nestedParentOrigin, 'libs/sub']);
+  git(nestedSuper, ['commit', '-am', 'add nested parent']);
+  git(nestedSuper, ['worktree', 'add', nestedWorktree, '-b', 'nested-feat']);
+  git(nestedWorktree, ['-c', 'protocol.file.allow=always', 'submodule', 'update', '--init', '--recursive']);
+
+  const linkedNestedLeaf = path.join(nestedWorktree, 'libs', 'sub', 'nested', 'leaf');
+  git(linkedNestedLeaf, ['config', 'user.name', 'Harness Test']);
+  git(linkedNestedLeaf, ['config', 'user.email', 'harness@example.invalid']);
+  git(linkedNestedLeaf, ['switch', '-c', 'nested-task']);
+  git(linkedNestedLeaf, ['commit', '--allow-empty', '-m', 'nested worktree-only commit']);
+  const nestedSha = git(linkedNestedLeaf, ['rev-parse', 'HEAD']).stdout.trim();
+
+  const primaryNestedParent = path.join(nestedSuper, 'libs', 'sub');
+  git(primaryNestedParent, ['-c', 'protocol.file.allow=always', 'submodule', 'update', '--init', '--recursive']);
+  const primaryNestedLeaf = path.join(primaryNestedParent, 'nested', 'leaf');
+  git(primaryNestedLeaf, ['fetch', linkedNestedLeaf, 'nested-task:nested-recovery']);
+  git(primaryNestedParent, ['submodule', 'deinit', '--force', '--', 'nested/leaf']);
+
+  const nestedRecovered = readJsonRun(nestedWorktree);
+  assert.strictEqual(nestedRecovered.status, 0, 'a nested commit recovered only in the primary module object store must pass');
+  const nestedEntry = nestedRecovered.parsed.submodules.find(entry => entry.path === 'libs/sub/nested/leaf');
+  assert.ok(nestedEntry, 'nested submodule must be reported');
+  assert.strictEqual(nestedEntry.sha, nestedSha);
+  assert.strictEqual(nestedEntry.reachableFromRemote, false);
+  assert.strictEqual(nestedEntry.presentInPrimary, true);
+  assert.strictEqual(nestedEntry.externallyReachable, true);
+
   // No-submodule control.
   const plain = path.join(base, 'plain');
   initRepo(plain);
