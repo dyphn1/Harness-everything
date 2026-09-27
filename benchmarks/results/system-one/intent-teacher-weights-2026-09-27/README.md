@@ -26,7 +26,7 @@ cross-validated intent thresholds, tier3 composed from `feature`/`refactor`.
 ## Reading
 
 1. **The Laya teacher improves the intent scorer.** Adding its rows raises
-   micro-F1 from 0.361 to 0.390 (about three standard deviations) and cuts
+   micro-F1 from 0.361 to 0.390 (the Sonnet-only runs vary by ±0.006; the unweighted Laya runs by ±0.011) and cuts
    fires per prompt from 4.4 to 3.5. This is the first intent gain in this
    series beyond seed noise.
 2. **A sharper intent scorer fires feature/refactor less, which hurts the
