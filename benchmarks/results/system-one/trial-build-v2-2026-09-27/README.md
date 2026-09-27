@@ -9,8 +9,7 @@
   and test share no family. Kept in the private repo
   (`training/synthetic-commands-{train,test}.jsonl`). Every test case is
   actionable by construction; its tier follows rules v2.
-- **v1** (`../../../scripts/system-one-trial.py` build of 2026-09-27
-  morning): validity gate with owner review, intent on valid prompts, old-rules
+- **v1** (the first trial build, 2026-09-27 morning): validity gate with owner review, intent on valid prompts, old-rules
   tier scorer.
 - **v2**: the same, plus the synthetic train rows in all three stages, and
   intent trained on Sonnet + Laya-ft rows with feature/refactor weight 2.
