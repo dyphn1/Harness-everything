@@ -74,6 +74,22 @@ try {
   git(linkedSub, ['config', 'user.name', 'Harness Test']);
   git(linkedSub, ['config', 'user.email', 'harness@example.invalid']);
 
+  // Clean initialized submodules use a leading-space status marker. The helper
+  // must preserve/normalize that state instead of consuming the first SHA byte
+  // as a prefix when command output is trimmed.
+  const cleanRawStatus = git(worktree, ['submodule', 'status', '--recursive']).stdout;
+  assert.match(cleanRawStatus, /^ [0-9a-f]{40,64}\s+libs\/sub\b/, 'fixture must begin with a clean initialized submodule');
+  const clean = readJsonRun(worktree);
+  assert.strictEqual(clean.status, 0, 'a clean initialized linked-worktree submodule must be inspectable');
+  assert.strictEqual(clean.parsed.ok, true);
+  assert.strictEqual(clean.parsed.linkedWorktree, true);
+  const cleanSub = clean.parsed.submodules.find(entry => entry.path === 'libs/sub');
+  assert.ok(cleanSub, 'clean initialized submodule must be reported');
+  assert.strictEqual(cleanSub.sha, seedSha);
+  assert.strictEqual(cleanSub.initialized, true);
+  assert.strictEqual(cleanSub.detached, true);
+  assert.strictEqual(cleanSub.externallyReachable, true);
+
   // RED case: a new commit exists only in the linked worktree's submodule git dir.
   git(linkedSub, ['commit', '--allow-empty', '-m', 'isolated child commit']);
   const isolatedSha = git(linkedSub, ['rev-parse', 'HEAD']).stdout.trim();
@@ -120,6 +136,35 @@ try {
   assert.strictEqual(remoteSub.sha, remoteSha);
   assert.strictEqual(remoteSub.reachableFromRemote, true);
   assert.strictEqual(remoteSub.externallyReachable, true);
+
+  // A published working HEAD must not hide an unpublished staged/committed gitlink.
+  git(linkedSub, ['commit', '--allow-empty', '-m', 'recorded but unpublished']);
+  const recordedSha = git(linkedSub, ['rev-parse', 'HEAD']).stdout.trim();
+  git(worktree, ['add', 'libs/sub']);
+  git(linkedSub, ['checkout', '--detach', seedSha]);
+  const stagedOnly = readJsonRun(worktree);
+  assert.deepStrictEqual(readJsonRun(worktree).parsed, stagedOnly.parsed, 'identical topology must produce identical evidence');
+  assert.strictEqual(stagedOnly.status, 1, 'the unpublished index SHA must fail even with a published working HEAD');
+  let reference = stagedOnly.parsed.submodules[0].referencedCommits.find(item => item.sha === recordedSha);
+  assert.deepStrictEqual(reference.sources, ['index']);
+  assert.strictEqual(reference.externallyReachable, false);
+
+  git(worktree, ['commit', '-m', 'record unpublished gitlink']);
+  // Stage the safe SHA over it: the unsafe committed SHA must still be checked.
+  git(worktree, ['add', 'libs/sub']);
+  const committedOnly = readJsonRun(worktree);
+  assert.strictEqual(committedOnly.status, 1, 'the unpublished superproject HEAD SHA must fail independently of index and working HEAD');
+  reference = committedOnly.parsed.submodules[0].referencedCommits.find(item => item.sha === recordedSha);
+  assert.deepStrictEqual(reference.sources, ['HEAD']);
+  assert.strictEqual(reference.externallyReachable, false);
+
+  git(primarySub, ['fetch', linkedSub, 'task:recorded-recovery']);
+  const recordedRecovered = readJsonRun(worktree);
+  assert.deepStrictEqual(readJsonRun(worktree).parsed, recordedRecovered.parsed, 'recovered evidence must be deterministic');
+  assert.strictEqual(recordedRecovered.status, 0, 'recovering the recorded SHA in primary must allow the unchanged topology');
+  reference = recordedRecovered.parsed.submodules[0].referencedCommits.find(item => item.sha === recordedSha);
+  assert.strictEqual(reference.presentInPrimary, true);
+  assert.strictEqual(reference.externallyReachable, true);
 
   // No-submodule control.
   const plain = path.join(base, 'plain');
