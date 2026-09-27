@@ -93,6 +93,15 @@ assert r['tier'] == 'tier2' and r['tierSource'] == 'tier-scorer'
 r = trial.readout(0.1, low, [0.2, 0.3, 0.1], taus, cat, exp.TIERS)
 assert r['tier'] is None and r['tierSource'] == 'abstain'
 
+low2 = {c: 0.1 for c in cat}
+r = trial.readout(0.1, {**low2, 'feature': 0.4}, [0.9, 0.1, 0.1], taus, cat, exp.TIERS, {'feature': 0.6, 'refactor': 0.6})
+assert r['tier'] == 'tier1' and [i['id'] for i in r['intents']] == [], 'tier3 thresholds are separate from intent thresholds'
+fit_rows = [(0, {'feature': 0.5, 'refactor': 0.1}, [0.9, 0.1, 0.1]),   # git command: feature noise
+            (2, {'feature': 0.8, 'refactor': 0.1}, [0.1, 0.9, 0.1]),   # real feature
+            (1, {'feature': 0.1, 'refactor': 0.1}, [0.1, 0.9, 0.1])]
+t3 = trial.fit_tier3_taus(fit_rows)
+assert 0.5 < t3['feature'] <= 0.8, t3
+
 cases = [{'text': 'a', 'lang': 'en', 'tier': 'tier2', 'intent': 'fix'}, {'text': 'b', 'lang': 'zh-TW', 'tier': 'tier1', 'intent': 'git'}]
 res = [{'validity': 'actionable', 'tier': 'tier3', 'intents': [{'id': 'fix'}]}, {'validity': 'invalid', 'tier': None, 'intents': []}]
 agg = trial.summarize(cases, res)

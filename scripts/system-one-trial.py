@@ -34,13 +34,18 @@ TIER_TAU = 0.5
 TIER3_INTENTS = ('feature', 'refactor')
 
 
-def readout(gate_p, intent_p, tier_p, taus, catalog, tiers):
-    """Pure readout from the three score vectors; see the module docstring."""
+def readout(gate_p, intent_p, tier_p, taus, catalog, tiers, tier3_taus=None):
+    """Pure readout from the three score vectors; see the module docstring.
+
+    tier3_taus, when given, are the feature/refactor thresholds fit for the tier
+    composition; intent suggestions keep their own thresholds.
+    """
     if gate_p >= GATE_TAU:
         return {'validity': 'invalid', 'invalidScore': round(gate_p, 3), 'handoff': 'host-agent',
                 'intents': [], 'tier': None}
     fired = sorted((c for c in catalog if intent_p[c] >= taus[c]), key=lambda c: -intent_p[c])
-    tier3 = [c for c in TIER3_INTENTS if intent_p[c] >= taus[c]]
+    t3 = tier3_taus or taus
+    tier3 = [c for c in TIER3_INTENTS if intent_p[c] >= t3[c]]
     if tier3:
         tier, source = 'tier3', 'intent:' + '+'.join(tier3)
     else:
@@ -49,6 +54,35 @@ def readout(gate_p, intent_p, tier_p, taus, catalog, tiers):
     return {'validity': 'actionable', 'invalidScore': round(gate_p, 3),
             'intents': [{'id': c, 'p': round(intent_p[c], 3)} for c in fired[:CAP]],
             'tier': tier, 'tierSource': source, 'tierScores': dict(zip(tiers, (round(x, 3) for x in tier_p)))}
+
+
+def fit_tier3_taus(rows, max_under=0.05, grid=tuple(i / 20 for i in range(2, 19))):
+    """Feature/refactor thresholds for the tier composition.
+
+    rows: (gold tier index, intent scores, tier scores). Picks the pair with the
+    highest acceptable precision whose under-tier rate stays at or below
+    max_under; ties go to higher coverage, then higher thresholds.
+    """
+    best = None
+    for tf in grid:
+        for tr in grid:
+            taus = {'feature': tf, 'refactor': tr}
+            picks = []
+            for gold, ip, tp in rows:
+                if any(ip[c] >= taus[c] for c in TIER3_INTENTS):
+                    picks.append((gold, 2))
+                else:
+                    k = max(range(len(tp)), key=lambda i: tp[i])
+                    if tp[k] >= TIER_TAU:
+                        picks.append((gold, k))
+            n = max(1, len(picks))
+            under = sum(1 for g, k in picks if k < g) / n
+            if under > max_under:
+                continue
+            key = (sum(1 for g, k in picks if k in (g, g + 1)) / n, len(picks), tf + tr)
+            if best is None or key > best[0]:
+                best = (key, taus)
+    return best[1] if best else None
 
 
 def sha256(path):
@@ -74,10 +108,27 @@ def build(args):
     ids = [i for i in probs if i in scores]
     taus = {c: intent_exp.fit_tau([probs[i][c] for i in ids], [scores[i].get(c, 0.0) >= 0.4 for i in ids])
             for c in intent_exp.CATALOG}
+    tier3_taus = None
+    if args.fit_tier3:
+        tier_exp = __import__('system-one-tier-stage-experiment')
+        noise = __import__('system-one-noise-experiment')
+        data = Path(args.data_dir)
+        gold = {r['id']: r['gold'] for r in trainer.load_jsonl(data / 'labels.jsonl')}
+        for r in trainer.load_jsonl(data / 'owner-overrides.jsonl'):
+            gold[r['id']] = r['gold']
+        excluded = {r['id'] for r in trainer.load_jsonl(data / 'owner-excluded.jsonl')}
+        intents = {r['id']: r['gold'] for r in trainer.load_jsonl(data / 'labels-intent.jsonl')}
+        tier_probs = json.load(open(root / 'tier' / 'val-probs-private.json'))['curriculum-3of3']
+        vrows = [r for r in tier_exp.tier_rows(trainer.load_jsonl(data / 'prompts.jsonl'), gold, excluded,
+                                               owner_validity=noise.load_owner_validity(args.owner_validity),
+                                               intents=intents)
+                 if r['split'] == 'validation' and r['valid'] and r['id'] in probs and r['id'] in tier_probs]
+        tier3_taus = fit_tier3_taus([(tier_exp.TIERS.index(r['tier']), probs[r['id']], tier_probs[r['id']])
+                                     for r in vrows])
     manifest = {'schemaVersion': 1, 'kind': 'system-one-trial', 'built': time.strftime('%Y-%m-%d'),
                 'stages': ['validity', 'intent', 'tier'], 'gateTau': GATE_TAU, 'tierTau': TIER_TAU, 'cap': CAP,
                 'intentTaus': taus, 'intentTausFitOn': f'{len(ids)} validation rows (in-sample for the trial)',
-                'intentVariant': args.intent_variant,
+                'intentVariant': args.intent_variant, 'tier3Taus': tier3_taus,
                 'checkpoints': {k: {'path': str(v.relative_to(root)), 'sha256': sha256(v)} for k, v in paths(root, args.intent_variant).items()},
                 'notIncluded': ['structural floor', 'explicit workflow requests', 'policy gates']}
     json.dump(manifest, open(root / 'trial-manifest.json', 'w'), indent=2)
@@ -135,7 +186,7 @@ def score(args):
             gate_p = run('gate', c['text'])[1]
             intent_p = dict(zip(intent_exp.CATALOG, run('intent', c['text'])))
             results.append(readout(gate_p, intent_p, run('tier', c['text']), manifest['intentTaus'],
-                                   intent_exp.CATALOG, tier_exp.TIERS))
+                                   intent_exp.CATALOG, tier_exp.TIERS, manifest.get('tier3Taus')))
         print(json.dumps(summarize(cases, results), indent=2))
         return
     prompts = args.prompts or [line.rstrip('\n') for line in sys.stdin if line.strip()]
@@ -147,7 +198,8 @@ def score(args):
         gate_p = run('gate', text)[1]
         intent_p = dict(zip(intent_exp.CATALOG, run('intent', text)))
         tier_p = run('tier', text)
-        result = readout(gate_p, intent_p, tier_p, manifest['intentTaus'], intent_exp.CATALOG, tier_exp.TIERS)
+        result = readout(gate_p, intent_p, tier_p, manifest['intentTaus'], intent_exp.CATALOG, tier_exp.TIERS,
+                         manifest.get('tier3Taus'))
         result['latencyMs'] = round((time.perf_counter() - start) * 1000, 1)
         print(json.dumps({'prompt': text, **result}, ensure_ascii=False))
 
@@ -159,6 +211,8 @@ def main(argv=None):
     b.add_argument('--build-dir', required=True)
     b.add_argument('--data-dir', required=True)
     b.add_argument('--intent-variant', default='valid-only')
+    b.add_argument('--fit-tier3', action='store_true', help='fit feature/refactor thresholds for the tier composition')
+    b.add_argument('--owner-validity', help='needed with --fit-tier3')
     s = sub.add_parser('score')
     s.add_argument('--build-dir', required=True)
     s.add_argument('--threads', type=int, default=1)

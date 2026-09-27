@@ -1,0 +1,29 @@
+{
+  "all": {
+    "cases": 120,
+    "wronglyInvalid": 0.025000000000000022,
+    "tierCoverage": 0.5641025641025641,
+    "tierAcceptable": 0.6212121212121212,
+    "tierExact": 0.5,
+    "tierUnder": 0.19696969696969696,
+    "primaryIntentInTop3": 0.2564102564102564
+  },
+  "en": {
+    "cases": 66,
+    "wronglyInvalid": 0.0,
+    "tierCoverage": 0.45454545454545453,
+    "tierAcceptable": 0.6333333333333333,
+    "tierExact": 0.5666666666666667,
+    "tierUnder": 0.3333333333333333,
+    "primaryIntentInTop3": 0.19696969696969696
+  },
+  "zh-TW": {
+    "cases": 54,
+    "wronglyInvalid": 0.05555555555555558,
+    "tierCoverage": 0.7058823529411765,
+    "tierAcceptable": 0.6111111111111112,
+    "tierExact": 0.4444444444444444,
+    "tierUnder": 0.08333333333333333,
+    "primaryIntentInTop3": 0.3333333333333333
+  }
+}
