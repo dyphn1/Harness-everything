@@ -5,12 +5,17 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
+const FIXED_GIT_DATE = '2000-01-01T00:00:00Z';
 
 function run(command, args, cwd) {
   const result = spawnSync(command, args, {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env },
+    env: {
+      ...process.env,
+      GIT_AUTHOR_DATE: FIXED_GIT_DATE,
+      GIT_COMMITTER_DATE: FIXED_GIT_DATE,
+    },
     windowsHide: true,
   });
   if (result.status !== 0) {
@@ -32,6 +37,8 @@ function initRepo(dir) {
   git(dir, ['init', '-b', 'main']);
   git(dir, ['config', 'user.name', 'Harness Behavioral Fixture']);
   git(dir, ['config', 'user.email', 'behavioral-fixture@example.invalid']);
+  git(dir, ['config', 'commit.gpgSign', 'false']);
+  git(dir, ['config', 'core.autocrlf', 'false']);
 }
 
 const workspace = process.cwd();
@@ -49,7 +56,8 @@ initRepo(superRepo);
 fs.writeFileSync(path.join(superRepo, 'README.md'), 'superproject fixture\n');
 git(superRepo, ['add', 'README.md']);
 git(superRepo, ['commit', '-m', 'seed superproject']);
-git(superRepo, ['-c', 'protocol.file.allow=always', 'submodule', 'add', child, 'libs/sub']);
+// Keep the committed .gitmodules URL independent of the random temp workspace.
+git(superRepo, ['-c', 'protocol.file.allow=always', 'submodule', 'add', '../child-origin', 'libs/sub']);
 git(superRepo, ['commit', '-am', 'add child submodule']);
 
 git(superRepo, ['worktree', 'add', worktree, '-b', 'eval/submodule-reachability']);
