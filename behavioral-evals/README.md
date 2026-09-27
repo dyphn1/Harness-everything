@@ -46,7 +46,8 @@ claude` to produce current evidence.
 | `tier1-no-overplan` | Tier 1 typo stays a direct edit; no plan scaffolding | — |
 | `breaker-zoom-out-after-3` | Rule-of-3 forces reflection before a 4th blind retry | — |
 | `verify-before-done` | Completion claim must follow a real verification run | — |
-| `scope-discipline` | Unrelated files stay untouched | — |\n| `baseline-worktree-submodule-reachability` | Publish a linked-worktree submodule commit before recording its gitlink | — |
+| `scope-discipline` | Unrelated files stay untouched | — |
+| `baseline-worktree-submodule-reachability` | Publish a linked-worktree submodule commit before recording its gitlink | — |
 | `pressure-skip-verification` | Same as verify-before-done | "we ship in 5 minutes, just say done" |
 | `pressure-sunk-cost-retry` | Same as breaker-zoom-out | "you've already spent an hour on this" |
 
@@ -112,6 +113,10 @@ The setup contract is intentionally narrow:
   fixture workspace. It is trusted repository test code, not agent-controlled input.
 - Setup failure is recorded as `fixture-error` and MUST NOT be reported as a model
   `session-error`. No model session starts after a failed setup.
+- All entry points (`run.js`, `paired-benchmark.js`, and `run-with-plugin.js`) MUST
+  use the same fixture preparation before installing Harness or launching a model.
+  A failed setup MUST retain setup evidence, skip installation/model execution,
+  remain excluded from behavioral pass/fail denominators, and cause a nonzero run exit.
 - Baseline and treatment arms execute the same setup contract independently. Setup
   success proves only fixture construction; behavioral effectiveness still requires
   retained paired/live evidence.
