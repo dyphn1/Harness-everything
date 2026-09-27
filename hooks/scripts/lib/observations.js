@@ -408,7 +408,7 @@ function appendRecord(root, record, text) {
     // The blob is written under the lock, so a concurrent sweep cannot remove it before its record lands.
     const textDir = path.join(root, 'text');
     fs.mkdirSync(textDir, { recursive: true, mode: 0o700 });
-    fs.writeFileSync(path.join(textDir, `${record.contentSha256}.json`), JSON.stringify(text), { mode: 0o600 });
+    if (text) fs.writeFileSync(path.join(textDir, `${record.contentSha256}.json`), JSON.stringify(text), { mode: 0o600 });
     const file = path.join(root, 'observations-index.json');
     const index = readJson(file, null) || { schemaVersion: 1, kind: 'system-one-observations', records: [] };
     index.records.push(record);
@@ -458,6 +458,7 @@ function startTurn(payload, root) {
     startedAt: new Date().toISOString(),
     prompt: redact(typeof payload.prompt === 'string' ? payload.prompt : ''),
     previous: session.lastFinal || '',
+    previousAt: session.lastFinal ? session.lastFinalAt : null,
     cwd: payload.cwd ? sha(payload.cwd, 16) : null,
   };
   writeJsonAtomic(file, session);
@@ -484,13 +485,20 @@ function finishPending(session, payload, root, final) {
   delete behavior._codex;
   const text = { prompt: pending.prompt, previous: pending.previous };
   const contentSha256 = sha(JSON.stringify(text));
-  const observedAt = new Date().toISOString();
+  const now = Date.now();
+  const observedAt = new Date(now).toISOString();
+  // Retention counts from when the text was captured; finishing an old turn never renews it.
+  const captured = [pending.startedAt, pending.previous ? (pending.previousAt || pending.startedAt) : null]
+    .map(t => Date.parse(t)).filter(Number.isFinite);
+  const validUntil = (captured.length ? Math.min(...captured) : now) + RETENTION_MS;
+  const textExpired = validUntil <= now;
   const record = {
     id: sha(`${payload.session_id || 'unknown'}:${pending.turn}:${pending.startedAt}`, 24),
     source: 'observation',
-    status: 'active',
+    status: textExpired ? 'expired' : 'active',
+    ...(textExpired ? { textDeleted: true } : {}),
     observedAt,
-    validUntil: new Date(Date.parse(observedAt) + RETENTION_MS).toISOString(),
+    validUntil: new Date(validUntil).toISOString(),
     contentSha256,
     host: detectHost(payload, { codex: final.codex || collected._codex }),
     turn: pending.turn,
@@ -502,7 +510,7 @@ function finishPending(session, payload, root, final) {
     selfReport: label,
     selfReportReason: reason,
   };
-  appendRecord(root, record, text);
+  appendRecord(root, record, textExpired ? null : text);
   fs.rmSync(eventsDir(root, payload.session_id, pending.turn), { recursive: true, force: true });
   session.lastFinal = final.text ? redact(tailBytes(final.text.replace(LABEL_RE, '').trim(), PREVIOUS_BYTES)) : '';
   session.lastFinalAt = observedAt;
