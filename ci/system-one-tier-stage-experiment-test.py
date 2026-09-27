@@ -93,3 +93,25 @@ r = trial.readout(0.1, low, [0.2, 0.3, 0.1], taus, cat, exp.TIERS)
 assert r['tier'] is None and r['tierSource'] == 'abstain'
 
 print('system-one trial readout tests passed')
+
+teacher = __import__('system-one-teacher-laya-ft')
+raw = {i: 0.0 for i in teacher.labeler.INTENTS}
+row = teacher.to_row('x', {**raw, 'feature': 0.81, 'test': 0.43, 'docs': 0.2})
+assert row['gold'] == 'feature' and row['secondary'] == ['test'] and row['scores']['feature'] == 0.8
+assert teacher.to_row('y', raw)['gold'] is None and teacher.to_row('y', raw)['secondary'] == []
+ps = [{'id': 'a', 'split': 'train'}, {'id': 'b', 'split': 'train'}, {'id': 'c', 'split': 'validation'}]
+assert [p['id'] for p in teacher.targets(ps, {'a'})] == ['b'], 'only unscored train prompts'
+try:
+    teacher.main(['--data-dir', 'x', '--model-dir', 'y', '--out', 'labels-intent-scores.jsonl'])
+    raise AssertionError('must refuse the protected file')
+except SystemExit as e:
+    assert 'refusing' in str(e)
+
+assert ie.parse_weights('feature=2,refactor=3') == {'feature': 2.0, 'refactor': 3.0} and ie.parse_weights('') == {}
+try:
+    ie.parse_weights('nope=2')
+    raise AssertionError('unknown intent must fail')
+except ValueError:
+    pass
+
+print('system-one laya teacher tests passed')

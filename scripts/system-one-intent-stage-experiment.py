@@ -97,10 +97,16 @@ def run(args):
     validity = noise.load_owner_validity(args.owner_validity)
     buckets = {r['id']: r['bucket'] for r in noise.label_rows(prompts, tiers, excluded, rules=2, owner_validity=validity)}
     scores = {r['id']: r.get('scores', {}) for r in load(data / 'labels-intent-scores.jsonl')}
-    rows = [{'id': p['id'], 'split': p['split'], 'text': p['text'],
+    source = {i: 'sonnet' for i in scores}
+    if args.extra_teacher:
+        for r in load(Path(args.extra_teacher)):
+            if r['id'] not in scores:
+                scores[r['id']], source[r['id']] = r.get('scores', {}), 'laya'
+    rows = [{'id': p['id'], 'split': p['split'], 'text': p['text'], 'teacher': source[p['id']],
              'targets': [float(scores[p['id']].get(c, 0.0)) for c in CATALOG],
              'invalid': buckets[p['id']] in INVALID_BUCKETS}
-            for p in prompts if p['id'] in scores and p['id'] in buckets]
+            for p in prompts if p['id'] in scores and p['id'] in buckets
+            and not (p['split'] == 'validation' and source[p['id']] != 'sonnet')]
     train_rows = [r for r in rows if r['split'] == 'train']
     val_rows = [r for r in rows if r['split'] == 'validation']
     options = tuple(f'{c}: {d}' for c, d in zip(CATALOG, args.option_text))
@@ -121,8 +127,11 @@ def run(args):
                     probs[i] = p[k].tolist()
         return probs
 
-    def fit(model, collator, rs, epochs, label, zero_invalid=False):
+    weights = parse_weights(args.intent_weights)
+
+    def fit(model, collator, rs, epochs, label, zero_invalid=False, weighted=False):
         opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+        pos = torch.tensor([weights.get(c, 1.0) for c in CATALOG]) if weighted else None
         xs = examples(rs)
         tg = torch.tensor([[0.0] * len(CATALOG) if zero_invalid and r['invalid'] else r['targets'] for r in rs])
         batches = trainer.make_batches(lengths(rs), args.token_budget)
@@ -131,7 +140,8 @@ def run(args):
             random.shuffle(batches)
             total = 0.0
             for b in batches:
-                loss = torch.nn.functional.binary_cross_entropy_with_logits(model(collator([xs[i] for i in b])), tg[b])
+                loss = torch.nn.functional.binary_cross_entropy_with_logits(model(collator([xs[i] for i in b])), tg[b],
+                                                                            pos_weight=pos)
                 opt.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -165,6 +175,14 @@ def run(args):
         Path(args.out).mkdir(parents=True, exist_ok=True)
         save_checkpoint(Path(args.out) / 'valid-only.safetensors', m, config(128, 2),
                         {'domain': 'harness-intent-exp', 'options': list(CATALOG)})
+    sonnet_valid = [r for r in valid_train if r['teacher'] == 'sonnet']
+    for name, rs, weighted in (('valid-sonnet', sonnet_valid, False), ('valid-laya', valid_train, False),
+                               ('valid-sonnet-weighted', sonnet_valid, True), ('valid-laya-weighted', valid_train, True)):
+        if name in variants:
+            torch.manual_seed(args.seed)
+            m, c = make_system(config(128, 2), 'cpu')
+            fit(m, c, rs, args.epochs, name, weighted=weighted)
+            record(name, m, c)
     if 'staged' in variants:
         torch.manual_seed(args.seed)
         m, c = make_system(config(128, 2), 'cpu')
@@ -224,6 +242,17 @@ DEFAULT_OPTIONS = (
 )
 
 
+def parse_weights(spec):
+    """'feature=2,refactor=2' -> {'feature': 2.0, 'refactor': 2.0}; BCE positive weights per intent."""
+    out = {}
+    for part in filter(None, (spec or '').split(',')):
+        name, value = part.split('=')
+        if name not in CATALOG:
+            raise ValueError(f'unknown intent {name}')
+        out[name] = float(value)
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('--data-dir', required=True)
@@ -232,6 +261,8 @@ def main(argv=None):
     ap.add_argument('--tier-probs', help='old-rules tier val-probs-private.json for the downstream composition')
     ap.add_argument('--tier-variant', default='curriculum-3of3')
     ap.add_argument('--variants', default='all,valid-only,staged,valid-large')
+    ap.add_argument('--extra-teacher', help='extra dense-score rows for unscored train prompts (e.g. labels-intent-laya-ft.jsonl)')
+    ap.add_argument('--intent-weights', default='feature=2,refactor=2')
     ap.add_argument('--seed', type=int, default=0)
     ap.add_argument('--threads', type=int, default=8)
     ap.add_argument('--epochs', type=int, default=12)
