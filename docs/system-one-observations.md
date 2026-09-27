@@ -1,7 +1,10 @@
 # System One observations: collecting routing data from real sessions
 
-Status: **proposed**, 2026-09-27. Owner decisions are recorded below; the
-design is approved for implementation in the phases at the end. Issue
+Status: **accepted**, 2026-09-27. Owner decisions are recorded below.
+Implementation: `hooks/scripts/observation-hook.js`,
+`hooks/scripts/lib/observations.js`, `scripts/system-one-observations-export.js`
+and `scripts/system-one-observations-review.js`; tests in
+`ci/mechanism-34-observations.test.js`. Issue
 [#233](https://github.com/dyphn1/Harness-everything/issues/233).
 
 ## Why
