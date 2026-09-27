@@ -93,7 +93,7 @@ def tier_metrics(rows, probs, tau=0.5, confident=0.8):
 
 def run(args):
     import torch
-    from cua_s1.model import ChoiceExample, make_system
+    from cua_s1.model import ChoiceExample, make_system, save_checkpoint
     trainer = __import__('system-one-train')
     random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -170,6 +170,10 @@ def run(args):
         current += invalid_train[k * step:(k + 1) * step]
         fit(model, collator, current, args.stage_epochs, f'curriculum {k + 1}')
         record(f'curriculum-{k + 1}of{args.stages}', model, collator, len(current))
+
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    save_checkpoint(out_dir / 'curriculum.safetensors', model, config, {'domain': 'harness-tier-exp', 'options': list(TIERS)})
 
     torch.manual_seed(args.seed)
     valid_long, vc = make_system(config, 'cpu')

@@ -339,6 +339,7 @@ def run(args):
     control, ccollator = make_system(config, 'cpu')
     fit(control, ccollator, train_rows, args.seed_epochs + args.stages * args.stage_epochs, 'control')
     record('control-all-at-once', control, ccollator, len(train_rows), started)
+    save_checkpoint(out / 'control.safetensors', control, config, {'domain': 'harness-noise-gate-exp', 'options': [o for o, _ in options]})
 
     counts = {}
     for r in rows:

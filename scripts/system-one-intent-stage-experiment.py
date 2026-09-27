@@ -82,7 +82,7 @@ def intent_metrics(ids, probs, truth, taus):
 
 def run(args):
     import torch
-    from cua_s1.model import ChoiceExample, make_system
+    from cua_s1.model import ChoiceExample, make_system, save_checkpoint
     trainer = __import__('system-one-train')
     random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -162,6 +162,9 @@ def run(args):
         m, c = make_system(config(128, 2), 'cpu')
         fit(m, c, valid_train, args.epochs, 'valid-only')
         record('valid-only', m, c)
+        Path(args.out).mkdir(parents=True, exist_ok=True)
+        save_checkpoint(Path(args.out) / 'valid-only.safetensors', m, config(128, 2),
+                        {'domain': 'harness-intent-exp', 'options': list(CATALOG)})
     if 'staged' in variants:
         torch.manual_seed(args.seed)
         m, c = make_system(config(128, 2), 'cpu')

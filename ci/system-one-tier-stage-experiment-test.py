@@ -76,3 +76,20 @@ m = ie.intent_metrics(ids, probs, truth, taus)
 assert m['microF1'] == 1.0 and m['feature']['recall'] == 1.0 and m['meanFires'] == 6.0
 
 print('system-one intent stage tests passed')
+
+trial = __import__('system-one-trial')
+cat = ie.CATALOG
+low = {c: 0.1 for c in cat}
+taus = {c: 0.5 for c in cat}
+r = trial.readout(0.9, low, [0.9, 0.1, 0.1], taus, cat, exp.TIERS)
+assert r['validity'] == 'invalid' and r['tier'] is None and r['intents'] == [], 'invalid stops every later stage'
+feat = {**low, 'feature': 0.7, 'test': 0.6, 'docs': 0.55, 'fix': 0.52}
+r = trial.readout(0.1, feat, [0.9, 0.2, 0.1], taus, cat, exp.TIERS)
+assert r['tier'] == 'tier3' and r['tierSource'] == 'intent:feature', 'feature firing makes tier3'
+assert [i['id'] for i in r['intents']] == ['feature', 'test', 'docs'], 'intents capped at three, highest first'
+r = trial.readout(0.1, low, [0.2, 0.8, 0.1], taus, cat, exp.TIERS)
+assert r['tier'] == 'tier2' and r['tierSource'] == 'tier-scorer'
+r = trial.readout(0.1, low, [0.2, 0.3, 0.1], taus, cat, exp.TIERS)
+assert r['tier'] is None and r['tierSource'] == 'abstain'
+
+print('system-one trial readout tests passed')
