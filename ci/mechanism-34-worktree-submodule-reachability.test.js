@@ -272,6 +272,35 @@ try {
   assert.strictEqual(conflict.status, 2, `unmerged gitlink must fail inspection: ${conflict.stdout}\n${conflict.stderr}`);
   assert.match(conflict.stderr, /unmerged submodule gitlink/i);
 
+  // A deinitialized primary submodule leaves an empty directory, so
+  // `git -C <primary>/<submodule>` resolves to the primary superproject. An
+  // object in that unrelated store is not proof of submodule reachability.
+  const fallbackWorktree = path.join(base, 'super-wt-primary-fallback');
+  git(superRepo, ['worktree', 'add', fallbackWorktree, '-b', 'feat-primary-fallback']);
+  git(fallbackWorktree, ['-c', 'protocol.file.allow=always', 'submodule', 'update', '--init']);
+  const fallbackSub = path.join(fallbackWorktree, 'libs', 'sub');
+  git(fallbackSub, ['config', 'user.name', 'Harness Test']);
+  git(fallbackSub, ['config', 'user.email', 'harness@example.invalid']);
+  git(fallbackSub, ['switch', '-c', 'fallback-task']);
+  git(fallbackSub, ['commit', '--allow-empty', '-m', 'superproject-store only commit']);
+  const fallbackSha = git(fallbackSub, ['rev-parse', 'HEAD']).stdout.trim();
+  git(fallbackWorktree, ['add', 'libs/sub']);
+  // Empty the primary checkout directory without touching shared submodule
+  // config, which would also uninitialize the linked worktree.
+  fs.rmSync(primarySub, { recursive: true, force: true });
+  fs.mkdirSync(primarySub);
+  fs.rmSync(path.join(superRepo, '.git', 'modules', 'libs', 'sub'), { recursive: true, force: true });
+  git(superRepo, ['fetch', fallbackSub, 'fallback-task:refs/foreign/fallback-task']);
+  assert.strictEqual(git(superRepo, ['cat-file', '-e', `${fallbackSha}^{commit}`], { allowFailure: true }).status, 0,
+    'fixture must place the commit only in the primary superproject object store');
+  const fallback = readJsonRun(fallbackWorktree);
+  assert.strictEqual(fallback.status, 1, 'a commit found only through git -C fallback to the superproject must fail');
+  const fallbackEntry = fallback.parsed.submodules.find(entry => entry.path === 'libs/sub');
+  assert.strictEqual(fallbackEntry.initialized, true);
+  assert.strictEqual(fallbackEntry.sha, fallbackSha);
+  assert.strictEqual(fallbackEntry.presentInPrimary, false);
+  assert.strictEqual(fallbackEntry.externallyReachable, false);
+
   console.log('Worktree submodule reachability: detached, named-unpublished, uninitialized, and unmerged gitlinks fail safely; primary/remote reachability and no-submodule controls pass.');
 } finally {
   fs.rmSync(base, { recursive: true, force: true });
