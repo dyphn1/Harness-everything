@@ -75,6 +75,8 @@ function sandbox() {
   execFileSync('git', ['init', '-q', repo]);
   const env = { ...process.env, HARNESS_OBSERVATIONS_DIR: store, HARNESS_STATE_ROOT: path.join(dir, 'state') };
   delete env.HARNESS_OBSERVATIONS;
+  // Fixtures choose their own host; never inherit the invoking agent's.
+  for (const key of ['CLAUDE_PLUGIN_ROOT', 'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE', 'CODEX_HOME', 'CODEX_THREAD_ID']) delete env[key];
   return { dir, store, repo, env };
 }
 
@@ -96,6 +98,7 @@ function records(store) {
 test('Claude Code turn: prompt, behavior and label are recorded', () => {
   const s = sandbox();
   const base = { session_id: 'sess-a', cwd: s.repo };
+  s.env.CLAUDE_PLUGIN_ROOT = ROOT;
   hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: `fix the parser, contact x@y.io at ${os.homedir()}/p` });
   hook(s.env, { ...base, hook_event_name: 'PostToolUse', tool_name: 'Edit', tool_input: { file_path: path.join(s.repo, 'a.js') } });
   hook(s.env, { ...base, hook_event_name: 'PostToolUse', tool_name: 'Write', tool_input: { file_path: path.join(s.repo, 'b.js') }, tool_response: { type: 'create' } });
@@ -238,6 +241,171 @@ test('review page lists disagreements blind and owner decisions override', () =>
   const l = labels.find(x => x.id === id);
   assert.strictEqual(l.tier, 'tier2');
   assert.strictEqual(l.tierSource, 'owner');
+});
+
+function rollout(s, name, rows) {
+  const file = path.join(s.dir, name);
+  fs.writeFileSync(file, rows.map(x => JSON.stringify(x)).join('\n') + '\n');
+  return file;
+}
+
+test('transcript fallback reads only the current turn', () => {
+  const s = sandbox();
+  const tier1 = `Status.\n${LABEL.replace('"tier2"', '"tier1"')}`;
+  const tier3 = `Built it.\n${LABEL.replace('"tier2"', '"tier3"')}`;
+  const previous = [
+    { type: 'event_msg', payload: { type: 'task_started', turn_id: 't1' } },
+    { type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'status?' }] } },
+    { type: 'event_msg', payload: { type: 'task_complete', turn_id: 't1', last_agent_message: tier1 } },
+    { type: 'event_msg', payload: { type: 'task_started', turn_id: 't2' } },
+    { type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'build it' }] } },
+  ];
+  const cases = [
+    ['current final answer, no task_complete yet', [...previous,
+      { type: 'response_item', payload: { type: 'message', role: 'assistant', phase: 'commentary', content: [{ type: 'output_text', text: `working\n${LABEL.replace('"tier2"', '"tier1"')}` }] } },
+      { type: 'response_item', payload: { type: 'message', role: 'assistant', phase: 'final_answer', content: [{ type: 'output_text', text: tier3 }] } }], 'tier3'],
+    ['no current final response', [...previous,
+      { type: 'response_item', payload: { type: 'message', role: 'assistant', phase: 'commentary', content: [{ type: 'output_text', text: 'working' }] } }], null],
+    ['previous task_complete without a current task_started in view', [
+      { type: 'event_msg', payload: { type: 'task_complete', turn_id: 't1', last_agent_message: tier1 } }], null],
+  ];
+  cases.forEach(([name, rows, tier], k) => {
+    const file = rollout(s, `r${k}.jsonl`, rows);
+    const base = { session_id: `turn-${k}`, cwd: s.repo, transcript_path: file, turn_id: 't2' };
+    hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'build it' });
+    hook(s.env, { ...base, hook_event_name: 'Stop' });
+    const r = records(s.store).find(x => x.writer.sessionId === `turn-${k}`);
+    assert.strictEqual(r.selfReport ? r.selfReport.tier : null, tier, name);
+    if (tier === null) assert.strictEqual(r.selfReportReason, 'final-message-unavailable', name);
+  });
+  const claude = rollout(s, 'claude-multi.jsonl', [
+    { type: 'user', message: { role: 'user', content: 'status?' } },
+    { type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: tier1 }] } },
+    { type: 'user', message: { role: 'user', content: [{ type: 'text', text: 'build it' }] } },
+    { type: 'assistant', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'x', name: 'Edit', input: {} }] } },
+    { type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'x', content: 'ok' }] } },
+  ]);
+  const base = { session_id: 'claude-multi', cwd: s.repo, transcript_path: claude };
+  hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'build it' });
+  hook(s.env, { ...base, hook_event_name: 'Stop' });
+  assert.strictEqual(records(s.store).find(x => x.writer.sessionId === 'claude-multi').selfReport, null, 'Claude: no reuse of the previous label');
+});
+
+test('concurrent tool hooks keep every event', () => {
+  const s = sandbox();
+  const base = { session_id: 'sess-par', cwd: s.repo };
+  hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'edit many files' });
+  const payloads = Array.from({ length: 40 }, (_, k) => ({ ...base, hook_event_name: 'PostToolUse', tool_name: 'Edit', tool_input: { file_path: path.join(s.repo, `f${k}.js`) } }));
+  const script = `const { spawn } = require('child_process');
+const payloads = ${JSON.stringify(payloads)};
+let left = payloads.length, bad = 0;
+for (const p of payloads) {
+  const c = spawn(process.execPath, [${JSON.stringify(HOOK)}], { stdio: ['pipe', 'ignore', 'ignore'] });
+  c.on('exit', code => { if (code !== 0) bad++; if (--left === 0) process.exit(bad ? 1 : 0); });
+  c.stdin.end(JSON.stringify(p));
+}`;
+  const r = spawnSync(process.execPath, ['-e', script], { env: s.env, encoding: 'utf8', timeout: 60000 });
+  assert.strictEqual(r.status, 0, r.stderr);
+  hook(s.env, { ...base, hook_event_name: 'Stop', last_assistant_message: `done\n${LABEL}` });
+  const [rec] = records(s.store);
+  assert.deepStrictEqual({ calls: rec.behavior.toolCalls, files: rec.behavior.filesWritten }, { calls: 40, files: 40 });
+});
+
+function setIndex(store, fn) {
+  const file = path.join(store, 'observations-index.json');
+  const index = JSON.parse(fs.readFileSync(file, 'utf8'));
+  fn(index.records);
+  fs.writeFileSync(file, JSON.stringify(index));
+}
+
+test('expired text is neither exported nor reviewed, and old session text is dropped', () => {
+  const s = sandbox();
+  const base = { session_id: 'sess-exp', cwd: s.repo };
+  hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'secret old prompt' });
+  hook(s.env, { ...base, hook_event_name: 'Stop', last_assistant_message: `old final answer\n${LABEL}` });
+  setIndex(s.store, recs => { recs[0].validUntil = new Date(Date.now() - 1000).toISOString(); });
+  const out = path.join(s.dir, 'export');
+  const e = spawnSync('node', [EXPORTER, '--store', s.store, '--out', out], { encoding: 'utf8', env: s.env });
+  assert.strictEqual(e.status, 0, e.stderr);
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(out, 'export-report.json'), 'utf8')).exported, 0);
+  const html = path.join(s.dir, 'review.html');
+  const v = spawnSync('node', [REVIEW, '--store', s.store, '--out', html, '--all'], { encoding: 'utf8', env: s.env });
+  assert.strictEqual(v.status, 0, v.stderr);
+  assert.strictEqual(JSON.parse(v.stdout).items, 0);
+  assert(!fs.readFileSync(html, 'utf8').includes('secret old prompt'));
+  const [rec] = records(s.store);
+  assert.strictEqual(rec.selfReport.tier, 'tier2', 'labels and counts survive expiry');
+  // Session state older than the retention window loses its text.
+  const sessions = path.join(s.store, 'sessions');
+  const old = (Date.now() - 181 * 86400000) / 1000;
+  for (const f of fs.readdirSync(sessions)) {
+    const file = path.join(sessions, f);
+    if (f.endsWith('.json')) {
+      const state = JSON.parse(fs.readFileSync(file, 'utf8'));
+      state.lastFinalAt = new Date(old * 1000).toISOString();
+      fs.writeFileSync(file, JSON.stringify(state));
+    }
+    fs.utimesSync(file, old, old);
+  }
+  hook(s.env, { session_id: 'other', cwd: s.repo, hook_event_name: 'UserPromptSubmit', prompt: 'x' });
+  hook(s.env, { session_id: 'other', cwd: s.repo, hook_event_name: 'Stop', last_assistant_message: 'y' });
+  const left = fs.readdirSync(sessions).map(f => fs.readFileSync(path.join(sessions, f), 'utf8')).join('\n');
+  assert(!left.includes('old final answer'), 'expired session text is deleted');
+});
+
+test('expiring a record keeps a shared text blob that an active record still uses', () => {
+  const s = sandbox();
+  for (const sid of ['blob-1', 'blob-2']) {
+    if (sid === 'blob-2') setIndex(s.store, recs => { recs[0].validUntil = new Date(Date.now() - 1000).toISOString(); });
+    hook(s.env, { session_id: sid, cwd: s.repo, hook_event_name: 'UserPromptSubmit', prompt: 'same first prompt' });
+    hook(s.env, { session_id: sid, cwd: s.repo, hook_event_name: 'Stop', last_assistant_message: `ok\n${LABEL}` });
+  }
+  const recs = records(s.store);
+  assert.strictEqual(recs.length, 2);
+  assert.strictEqual(recs[0].contentSha256, recs[1].contentSha256);
+  assert(fs.existsSync(path.join(s.store, 'text', `${recs[1].contentSha256}.json`)), 'the active record keeps its text');
+});
+
+test('failed tool attempts are not counted as writes or loads', () => {
+  const s = sandbox();
+  const base = { session_id: 'sess-fail', cwd: s.repo };
+  hook(s.env, { ...base, hook_event_name: 'UserPromptSubmit', prompt: 'what does this do?' });
+  hook(s.env, { ...base, hook_event_name: 'PostToolUseFailure', tool_name: 'Edit', tool_input: { file_path: path.join(s.repo, 'a.js') }, error: 'old_string not found' });
+  hook(s.env, { ...base, hook_event_name: 'PostToolUseFailure', tool_name: 'Skill', tool_input: { skill: 'tdd' }, error: 'unknown skill' });
+  hook(s.env, { ...base, hook_event_name: 'PostToolUse', tool_name: 'apply_patch', tool_input: { command: `*** Begin Patch\n*** Update File: ${s.repo}/b.js\n@@\n-a\n+b\n*** End Patch` }, tool_response: { exit_code: 1, stderr: 'verification failed' } });
+  hook(s.env, { ...base, hook_event_name: 'PostToolUse', tool_name: 'Write', tool_input: { file_path: path.join(s.repo, 'c.js') }, tool_response: { success: false } });
+  hook(s.env, { ...base, hook_event_name: 'Stop', last_assistant_message: `It parses.\n${LABEL.replace('"tier2"', '"tier1"')}` });
+  const [r] = records(s.store);
+  assert.deepStrictEqual({ w: r.behavior.filesWritten, c: r.behavior.filesCreated, skills: r.behavior.skills },
+    { w: 0, c: 0, skills: [] });
+  assert.deepStrictEqual({ f: r.behavior.toolFailures, fw: r.behavior.failedWrites, fs: r.behavior.failedSkillLoads }, { f: 4, fw: 3, fs: 1 });
+  assert.deepStrictEqual(lib.contradictions(r.selfReport, r.behavior), []);
+});
+
+test('owner review overrides context dependence, explicit false included', () => {
+  const s = sandbox();
+  const base = { cwd: s.repo };
+  hook(s.env, { ...base, session_id: 'cd-1', hook_event_name: 'UserPromptSubmit', prompt: 'continue' });
+  hook(s.env, { ...base, session_id: 'cd-1', hook_event_name: 'Stop', last_assistant_message: `ok\n${LABEL.replace('"contextDependent":false', '"contextDependent":true')}` });
+  hook(s.env, { ...base, session_id: 'cd-2', hook_event_name: 'UserPromptSubmit', prompt: 'rename foo to bar in util.js' });
+  hook(s.env, { ...base, session_id: 'cd-2', hook_event_name: 'Stop', last_assistant_message: 'no label' });
+  const [a, b] = records(s.store);
+  const review = path.join(s.dir, 'decisions.json');
+  fs.writeFileSync(review, JSON.stringify({ schemaVersion: 1, review: 'harness-observation-review', decisions: [
+    { id: a.id, contextDependent: false }, { id: b.id, validity: 'actionable', contextDependent: false, tier: 'tier2' }] }));
+  const out = path.join(s.dir, 'export');
+  const e = spawnSync('node', [EXPORTER, '--store', s.store, '--out', out, '--owner-review', review], { encoding: 'utf8', env: s.env });
+  assert.strictEqual(e.status, 0, e.stderr);
+  const labels = fs.readFileSync(path.join(out, 'labels-observed.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.strictEqual(labels.find(l => l.id === a.id).contextDependent, false);
+  assert.deepStrictEqual((({ validity, contextDependent, tier }) => ({ validity, contextDependent, tier }))(labels.find(l => l.id === b.id)),
+    { validity: 'actionable', contextDependent: false, tier: 'tier2' });
+  fs.writeFileSync(review, JSON.stringify({ schemaVersion: 1, review: 'harness-observation-review', decisions: [{ id: a.id, contextDependent: 'no' }] }));
+  const bad = spawnSync('node', [EXPORTER, '--store', s.store, '--out', out, '--owner-review', review], { encoding: 'utf8', env: s.env });
+  assert.notStrictEqual(bad.status, 0, 'invalid owner decisions are rejected');
+  const html = path.join(s.dir, 'review.html');
+  assert.strictEqual(spawnSync('node', [REVIEW, '--store', s.store, '--out', html], { encoding: 'utf8', env: s.env }).status, 0);
+  assert(fs.readFileSync(html, 'utf8').includes('contextDependent'), 'the review page records context dependence');
 });
 
 test('hooks are registered for both hosts and the contract asks for the label line', () => {
