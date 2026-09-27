@@ -43,7 +43,7 @@ A turn runs from `UserPromptSubmit` to `Stop`. Its record:
 | `prompt` | `UserPromptSubmit` | stored in the private text store only (see Storage) |
 | `previous` | the last assistant message before the prompt | truncated to 2 KB; text store only |
 | `router` | kernel-router output | lexical tier, strategy, suggested skills; System One shadow scores when present |
-| `behavior` | `PostToolUse` | counts and categories, never arguments: files written, distinct repositories written, files created, commands by class (git, gh, test, build, package, shell), skills loaded or read, subagents started |
+| `behavior` | `PostToolUse`, `PostToolUseFailure` | counts and categories, never arguments: files written, distinct repositories written, files created, commands by class (git, gh, test, build, package, shell), skills loaded or read, subagents started. Failed attempts are counted separately (`toolFailures`, `failedWrites`, `failedSkillLoads`) and never count as a write or a load |
 | `workflow` | `workflow-run.json` / `workflow-disposition` | selected and confirmed strategy |
 | `selfReport` | label line in the final message | see below; `null` if missing or invalid |
 | `derived` | exporter | labels computed from the fields above |
@@ -96,7 +96,9 @@ purposes:
 
 **Owner review.** Missing labels, contradictions, and turns where the
 router's tier and the self-reported tier differ go to a blind review page.
-The owner's decisions override the self-report.
+The owner decides validity, context dependence and tier; each decision
+overrides the self-report, an explicit `false` included, and also labels a
+turn that has no self-report.
 
 **Bias controls.** The agent sees the router's suggestion before it
 answers, so it may copy it. Router output and self-report are both stored.
@@ -117,7 +119,15 @@ is a warning sign. The review page samples the turns where they differ.
   hold normalized terms, so `retrieveMemoryRecords`-style lookups can find
   similar past turns.
 - **Retention**: `validUntil` is 180 days after `observedAt`. An expired
-  record keeps its labels, but its text is deleted.
+  record keeps its labels and counts, but its text is deleted. Expiry is
+  enforced on read as well: the exporter and the review page skip the text
+  of any record past `validUntil`, whether or not a later turn has swept it.
+  A text blob is content-addressed, so it is deleted only when no active
+  record references it. Session state that holds text (the previous-message
+  tail and an unfinished turn's prompt) follows the same 180 days.
+- **Concurrency**: tool hooks may run in parallel. Each tool event is written
+  as its own immutable file, and `Stop` adds them up, so no event is lost to
+  a concurrent read-modify-write.
 - **Telemetry stays content-free.** The telemetry channel keeps its
   `FORBIDDEN_KEYS` rule. Observations are a separate, local-only channel and
   are never uploaded by Harness.
@@ -133,6 +143,15 @@ is a warning sign. The review page samples the turns where they differ.
 - **Codex**: the same plugin hooks. Codex hook payload fields differ; the
   exact fields for the prompt and the final message are verified against
   the installed Codex version during implementation, never assumed.
+- The final message must belong to the current turn. A transcript scan
+  stops at the start of the current turn (Codex `task_started` or a user
+  message; a Claude user prompt) and a Codex `task_complete` must carry the
+  current `turn_id` when both are known. With no final message for the
+  current turn, `selfReport` is `null` with `final-message-unavailable`; the
+  previous turn's label is never reused.
+- Failure follows each host's convention: the `PostToolUseFailure` event
+  (Claude Code), or an error flag or non-zero exit code in the tool response
+  (Codex).
 - A missing field records `null` with a reason code. Collection must never
   block, slow down, or fail a turn; each hook has a short time budget.
 
