@@ -211,7 +211,8 @@ function buildWorkspace(c) {
 
 function runFixtureSetup(c, ws) {
   const resolved = resolveFixtureSetup(c && c.fixture && c.fixture.setup);
-  if (!resolved) return { path: null, status: 'not-requested', exit_code: null, duration_ms: 0 };
+  if (!resolved) return { path: null, script_sha256: null, status: 'not-requested', exit_code: null, duration_ms: 0 };
+  const scriptSha256 = sha256(fs.readFileSync(resolved.absolute));
   const startedAt = Date.now();
   const result = spawnSync(process.execPath, [resolved.absolute], {
     cwd: ws,
@@ -226,6 +227,7 @@ function runFixtureSetup(c, ws) {
   });
   const evidence = {
     path: resolved.relative,
+    script_sha256: scriptSha256,
     status: result.status === 0 && !result.error ? 'pass' : 'fail',
     exit_code: result.status,
     duration_ms: Date.now() - startedAt,
@@ -258,6 +260,7 @@ function prepareWorkspace(c) {
       error: error.message.slice(0, 500),
       setup: error.fixtureSetup || {
         path: c && c.fixture ? c.fixture.setup || null : null,
+        script_sha256: null,
         status: 'fail',
         exit_code: null,
         duration_ms: null,
