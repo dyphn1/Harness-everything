@@ -2,7 +2,7 @@ const helper = require('./test-helper');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { buildEngineInvocation, buildWorkspace, runFixtureSetup, prepareWorkspace } = require('../behavioral-evals/run');
+const { buildEngineInvocation, buildWorkspace, runFixtureSetup, prepareWorkspace, summarizePairResults } = require('../behavioral-evals/run');
 
 console.log('\n[2j] Behavioral runner argv integrity...');
 const prompt = "Add punctuation stripping to slug.js, then run npm test. Do not truncate this request.";
@@ -111,5 +111,21 @@ helper.check(
 if (failedPreparation && failedPreparation.workspace) {
   fs.rmSync(failedPreparation.workspace, { recursive: true, force: true });
 }
+
+const fixtureFailureSummary = summarizePairResults([{
+  id: 'fixture-error-pair',
+  pressure_category: null,
+  arms: {
+    baseline: { outcome: 'fixture-error', cost: null, tool_call_count: null },
+    treatment: { outcome: 'pass', cost: null, tool_call_count: 1 },
+  },
+}]);
+helper.check(
+  '2j. fixture errors remain distinct aggregate infrastructure failures',
+  fixtureFailureSummary.fixture_failures === 1 &&
+    fixtureFailureSummary.session_failures === 0 &&
+    fixtureFailureSummary.completed_pairs === 0,
+  JSON.stringify(fixtureFailureSummary)
+);
 
 helper.finish();
