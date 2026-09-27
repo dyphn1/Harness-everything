@@ -240,9 +240,11 @@ test('review page lists disagreements blind and owner decisions override', () =>
 });
 
 test('hooks are registered for both hosts and the contract asks for the label line', () => {
-  for (const file of ['hooks/hooks.json', 'plugins/harness-everything/hooks/hooks.json']) {
+  // Claude Code (canonical) has PostToolUseFailure; the Codex plugin manifest has no such event.
+  for (const [file, events] of [['hooks/hooks.json', ['UserPromptSubmit', 'PostToolUse', 'PostToolUseFailure', 'Stop']],
+    ['plugins/harness-everything/hooks/hooks.json', ['UserPromptSubmit', 'PostToolUse', 'Stop']]]) {
     const hooks = JSON.parse(fs.readFileSync(path.join(ROOT, file), 'utf8')).hooks;
-    for (const event of ['UserPromptSubmit', 'PostToolUse', 'PostToolUseFailure', 'Stop']) {
+    for (const event of events) {
       const commands = (hooks[event] || []).flatMap(entry => entry.hooks.map(h => h.command));
       assert(commands.some(c => c.includes('observation-hook.js')), `${file} ${event}`);
     }
