@@ -40,6 +40,10 @@ const mutations = {
     '  if (!workspaceRoot) return UNBOUND_WORKSPACE_KEY;',
     '  if (!workspaceRoot) return path.basename(process.cwd()); // mutation: derive unbound identity from cwd'
   ),
+  'submodule-reachability': (source) => source.replace(
+    '    const externallyReachable = !linkedWorktree || reachableFromRemote || presentInPrimary;',
+    '    const externallyReachable = true; // mutation: accept isolated worktree-only commits'
+  ),
   'verify-contract-precedence': (source) => source.replace(
     '  finalize(contract ? contractPlan(contract) : discoveredPlan());',
     '  finalize(discoveredPlan()); // mutation: ignore the authoritative project contract'
