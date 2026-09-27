@@ -2,8 +2,8 @@
 'use strict';
 // Build a local, blind review page for System One observations
 // (docs/system-one-observations.md#labels-and-how-much-to-trust-them).
-// By default it lists records where behavior and self-report disagree or the
-// label is missing; --all lists every record with text. The page shows only
+// By default it lists missing labels, self-contradictions and router/self
+// tier disagreements; --all lists every record with text. The page shows only
 // the prompt and the previous message; decisions export as JSON for
 // system-one-observations-export.js --owner-review.
 
@@ -16,12 +16,13 @@ function option(args, name, fallback) {
   return i !== -1 ? args[i + 1] : fallback;
 }
 
+// Missing labels, self-contradictions, and turns where the router's tier and
+// the agent's own tier differ are worth the owner's time.
 function disagrees(record) {
   const self = record.selfReport;
   if (!self) return true;
-  const breadth = obs.breadthTier(record.behavior);
-  if (self.validity === 'invalid' && record.behavior && record.behavior.filesWritten > 0) return true;
-  return self.validity === 'actionable' && self.tier !== null && self.tier !== breadth;
+  if (obs.contradictions(self, record.behavior).length) return true;
+  return Boolean(record.router && record.router.tier && self.tier && record.router.tier !== self.tier);
 }
 
 function page(items) {

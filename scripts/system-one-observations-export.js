@@ -28,25 +28,18 @@ function loadReview(file) {
 
 function derive(record, owner) {
   const self = record.selfReport;
-  const breadth = obs.breadthTier(record.behavior);
   let validity = self ? self.validity : null;
-  let contextDependent = self ? self.contextDependent : null;
-  let tier;
-  let tierSource;
+  const contextDependent = self ? self.contextDependent : null;
   if (owner && owner.validity && owner.validity !== 'unsure') validity = owner.validity;
-  if (validity === 'invalid') {
-    tier = null;
-    tierSource = owner && owner.validity === 'invalid' ? 'owner' : 'self-report';
-  } else {
-    ({ tier, source: tierSource } = obs.deriveTier(breadth, self ? self.tier : null));
-  }
-  if (owner && obs.TIERS.includes(owner.tier)) { tier = owner.tier; tierSource = 'owner'; }
+  let { tier, source: tierSource } = obs.labelTier(self, owner);
+  if (validity === 'invalid' && !(owner && obs.TIERS.includes(owner.tier))) { tier = null; tierSource = tierSource && 'self-report'; }
   const skills = record.behavior && record.behavior.skills && record.behavior.skills.length
     ? record.behavior.skills : (self ? self.skills : []);
   return {
-    id: record.id, validity, contextDependent, tier, tierSource, breadthTier: breadth,
+    id: record.id, validity, contextDependent, tier, tierSource,
     intents: self ? self.intents : [], workflow: (self && self.workflow) || (record.router && record.router.strategy) || null,
-    skills, selfReportReason: record.selfReportReason || null, host: record.host,
+    skills, contradictions: obs.contradictions(self, record.behavior),
+    selfReportReason: record.selfReportReason || null, host: record.host,
   };
 }
 
@@ -77,19 +70,17 @@ function run(args) {
   fs.writeFileSync(path.join(out, 'prompts-observed.jsonl'), prompts.join('\n') + (prompts.length ? '\n' : ''));
   fs.writeFileSync(path.join(out, 'labels-observed.jsonl'), rows.map(r => JSON.stringify(r.label)).join('\n') + (rows.length ? '\n' : ''));
   const withSelf = rows.filter(r => r.record.selfReport);
-  const selfBehavior = withSelf.map(r => [r.record.selfReport.tier, obs.breadthTier(r.record.behavior)]);
   const routerSelf = withSelf.filter(r => r.record.router && r.record.router.tier).map(r => [r.record.router.tier, r.record.selfReport.tier]);
-  const routerBehavior = rows.filter(r => r.record.router && r.record.router.tier).map(r => [r.record.router.tier, obs.breadthTier(r.record.behavior)]);
-  const agreement = { selfVsBehaviorTier: rate(selfBehavior), routerVsSelfTier: rate(routerSelf), routerVsBehaviorTier: rate(routerBehavior) };
-  agreement.copyingFlag = agreement.routerVsSelfTier !== null && agreement.routerVsBehaviorTier !== null
-    && agreement.routerVsSelfTier - agreement.routerVsBehaviorTier > 0.25;
+  const agreement = { routerVsSelfTier: rate(routerSelf), routerVsSelfPairs: routerSelf.length };
+  const contradictions = {};
+  for (const r of rows) for (const c of r.label.contradictions) contradictions[c] = (contradictions[c] || 0) + 1;
   const count = key => rows.reduce((acc, r) => { const k = String(key(r)); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
   const report = {
     schemaVersion: 1, exportedAt: new Date().toISOString(), records: index.records.length, exported: rows.length,
     skippedNoText, validationRows: validation, withSelfReport: withSelf.length,
     selfReportReasons: count(r => r.record.selfReportReason || 'ok'), hosts: count(r => r.record.host),
     validity: count(r => r.label.validity), tiers: count(r => r.label.tier), tierSources: count(r => r.label.tierSource),
-    ownerDecisions: Object.keys(owner).length, agreement,
+    ownerDecisions: Object.keys(owner).length, agreement, contradictions,
   };
   fs.writeFileSync(path.join(out, 'export-report.json'), JSON.stringify(report, null, 2) + '\n');
   return report;

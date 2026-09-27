@@ -126,17 +126,21 @@ function classifyCommand(command) {
   return fallback || 'shell';
 }
 
-function breadthTier(behavior) {
-  const files = Number(behavior && behavior.filesWritten) || 0;
-  const repos = Number(behavior && behavior.reposWritten) || 0;
-  if (files === 0) return 'tier1';
-  if (repos >= 2 || files > 5) return 'tier3';
-  return 'tier2';
+// The tier label is the agent's own judgement; the owner's review overrides it.
+// There is no file-count rule (docs/system-one-observations.md#labels-and-how-much-to-trust-them).
+function labelTier(self, owner) {
+  if (owner && TIERS.includes(owner.tier)) return { tier: owner.tier, source: 'owner' };
+  if (self && TIERS.includes(self.tier)) return { tier: self.tier, source: 'self-report' };
+  return { tier: null, source: null };
 }
 
-function deriveTier(breadth, self) {
-  if (self && TIERS.includes(self) && TIERS.indexOf(self) > TIERS.indexOf(breadth)) return { tier: self, source: 'self-report' };
-  return { tier: breadth, source: 'behavior' };
+// Behavior is evidence, not a label: it only flags records that contradict themselves.
+function contradictions(self, behavior) {
+  const out = [];
+  if (self && self.validity === 'actionable' && self.tier === 'tier1' && behavior && behavior.filesWritten > 0) {
+    out.push('tier1-with-writes');
+  }
+  return out;
 }
 
 // Mirrors normalizeTerms in multi-agent-workspace/scripts/index_memory.js.
@@ -420,6 +424,6 @@ function markCodex(payload, root) {
 }
 
 module.exports = {
-  INTENTS, TIERS, STRATEGIES, enabled, storeRoot, redact, parseLabelLine, classifyCommand, breadthTier, deriveTier,
+  INTENTS, TIERS, STRATEGIES, enabled, storeRoot, redact, parseLabelLine, classifyCommand, labelTier, contradictions,
   normalizeTerms, transcriptMessage, recordTool, emptyBehavior, handle, readJson,
 };
