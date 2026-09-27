@@ -2,6 +2,7 @@ const helper = require('./test-helper');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const { buildEngineInvocation, buildWorkspace, runFixtureSetup, prepareWorkspace, summarizePairResults } = require('../behavioral-evals/run');
 
 console.log('\n[2j] Behavioral runner argv integrity...');
@@ -110,6 +111,56 @@ helper.check(
 );
 if (failedPreparation && failedPreparation.workspace) {
   fs.rmSync(failedPreparation.workspace, { recursive: true, force: true });
+}
+
+let topologyPreparation = null;
+try {
+  topologyPreparation = prepareWorkspace({
+    id: 'worktree-submodule-setup-smoke',
+    fixture: {
+      files: [{ path: 'README.md', content: 'topology smoke' }],
+      setup: 'behavioral-evals/fixtures/setup/worktree-submodule.js',
+    },
+  });
+  const linkedSub = topologyPreparation.ok
+    ? path.join(topologyPreparation.workspace, 'super-wt', 'libs', 'sub')
+    : null;
+  const branchResult = linkedSub
+    ? spawnSync('git', ['-C', linkedSub, 'branch', '--show-current'], { encoding: 'utf8', windowsHide: true })
+    : null;
+  const helperResult = topologyPreparation.ok
+    ? spawnSync(process.execPath, [
+        path.join(topologyPreparation.workspace, '.fixture-tools', 'submodule-reachability.js'),
+        '--json', '--root', 'super-wt',
+      ], { cwd: topologyPreparation.workspace, encoding: 'utf8', windowsHide: true })
+    : null;
+  helper.check(
+    '2j. worktree/submodule setup creates the real #243 topology before model execution',
+    Boolean(
+      topologyPreparation.ok &&
+      fs.existsSync(path.join(topologyPreparation.workspace, 'super-wt', '.git')) &&
+      fs.existsSync(path.join(linkedSub, '.git')) &&
+      branchResult && branchResult.status === 0 && branchResult.stdout.trim() === '' &&
+      helperResult && helperResult.status === 0
+    ),
+    JSON.stringify({
+      preparation: topologyPreparation,
+      branchStatus: branchResult && branchResult.status,
+      branch: branchResult && branchResult.stdout,
+      helperStatus: helperResult && helperResult.status,
+      helperStderr: helperResult && helperResult.stderr,
+    })
+  );
+} catch (error) {
+  helper.check(
+    '2j. worktree/submodule setup creates the real #243 topology before model execution',
+    false,
+    error && error.stack ? error.stack : String(error)
+  );
+} finally {
+  if (topologyPreparation && topologyPreparation.workspace) {
+    fs.rmSync(topologyPreparation.workspace, { recursive: true, force: true });
+  }
 }
 
 const fixtureFailureSummary = summarizePairResults([{
