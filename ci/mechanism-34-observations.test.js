@@ -58,14 +58,13 @@ test('commands are classified without keeping their text', () => {
   assert.strictEqual(lib.classifyCommand('cd x && git push'), 'git', 'the first recognizable segment decides');
 });
 
-test('breadth tier and derived tier follow the spec', () => {
-  assert.strictEqual(lib.breadthTier({ filesWritten: 0, reposWritten: 0 }), 'tier1');
-  assert.strictEqual(lib.breadthTier({ filesWritten: 3, reposWritten: 1 }), 'tier2');
-  assert.strictEqual(lib.breadthTier({ filesWritten: 6, reposWritten: 1 }), 'tier3');
-  assert.strictEqual(lib.breadthTier({ filesWritten: 2, reposWritten: 2 }), 'tier3');
-  assert.deepStrictEqual(lib.deriveTier('tier2', 'tier3'), { tier: 'tier3', source: 'self-report' });
-  assert.deepStrictEqual(lib.deriveTier('tier2', 'tier1'), { tier: 'tier2', source: 'behavior' });
-  assert.deepStrictEqual(lib.deriveTier('tier1', null), { tier: 'tier1', source: 'behavior' });
+test('tier comes from the self-report, owner review overrides, behavior only flags contradictions', () => {
+  assert.strictEqual(typeof lib.breadthTier, 'undefined', 'no file-count tier rule');
+  assert.deepStrictEqual(lib.labelTier({ tier: 'tier2' }, null), { tier: 'tier2', source: 'self-report' });
+  assert.deepStrictEqual(lib.labelTier({ tier: 'tier2' }, { tier: 'tier3' }), { tier: 'tier3', source: 'owner' });
+  assert.deepStrictEqual(lib.labelTier(null, null), { tier: null, source: null });
+  assert.deepStrictEqual(lib.contradictions({ tier: 'tier1', validity: 'actionable' }, { filesWritten: 2 }), ['tier1-with-writes']);
+  assert.deepStrictEqual(lib.contradictions({ tier: 'tier3', validity: 'actionable' }, { filesWritten: 0 }), [], 'a tier3 plan with no writes is not a contradiction');
 });
 
 function sandbox() {
@@ -214,7 +213,9 @@ test('exporter derives labels, splits by time and reports agreement', () => {
   assert.strictEqual(prompts.filter(p => p.split === 'validation').length, 1, 'newest 15%, at least one row');
   const report = JSON.parse(fs.readFileSync(path.join(out, 'export-report.json'), 'utf8'));
   assert.strictEqual(report.records, 4);
-  assert(typeof report.agreement.selfVsBehaviorTier === 'number');
+  assert.strictEqual(report.contradictions['tier1-with-writes'] || 0, 0);
+  assert('routerVsSelfTier' in report.agreement && !('selfVsBehaviorTier' in report.agreement));
+  assert(labels.every(l => !('breadthTier' in l)), 'labels carry no file-count tier');
   assert(!fs.readFileSync(path.join(out, 'export-report.json'), 'utf8').includes('parser'), 'the report holds no text');
 });
 
