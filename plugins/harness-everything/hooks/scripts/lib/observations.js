@@ -18,6 +18,8 @@ const RETENTION_MS = 180 * 24 * 60 * 60 * 1000;
 const PREVIOUS_BYTES = 2048;
 const TRANSCRIPT_TAIL_BYTES = 512 * 1024;
 const LABEL_RE = /<!--\s*harness-label\s+(\{[\s\S]*?\})\s*-->/g;
+// A final label line whose closing --> was dropped (seen live on Codex).
+const OPEN_LABEL_RE = /<!--\s*harness-label\s+(\{[^\n]*\})\s*$/;
 const WRITE_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit']);
 const SHELL_TOOLS = new Set(['Bash', 'PowerShell', 'shell', 'exec_command', 'local_shell', 'container.exec']);
 
@@ -58,8 +60,9 @@ function validLabel(raw) {
   if (!raw || typeof raw !== 'object' || raw.v !== 1) return false;
   if (!VALIDITY.includes(raw.validity) || typeof raw.contextDependent !== 'boolean') return false;
   if (!(raw.tier === null || TIERS.includes(raw.tier))) return false;
-  if (!Array.isArray(raw.intents) || raw.intents.length > 3 || new Set(raw.intents).size !== raw.intents.length
-      || !raw.intents.every(i => INTENTS.includes(i))) return false;
+  if (!Array.isArray(raw.intents) || raw.intents.length > 6 || !raw.intents.every(i => typeof i === 'string')) return false;
+  const known = raw.intents.filter(i => INTENTS.includes(i));
+  if (known.length > 3 || new Set(known).size !== known.length) return false;
   if (!(raw.workflow === null || STRATEGIES.includes(raw.workflow))) return false;
   if (!Array.isArray(raw.skills) || raw.skills.length > 12
       || !raw.skills.every(s => typeof s === 'string' && /^[A-Za-z0-9:_.-]{1,80}$/.test(s))) return false;
@@ -67,16 +70,23 @@ function validLabel(raw) {
 }
 
 function parseLabelLine(text) {
-  const matches = [...String(text || '').matchAll(LABEL_RE)];
-  if (!matches.length) return { label: null, reason: 'label-missing' };
+  const body = String(text || '');
+  const matches = [...body.matchAll(LABEL_RE)];
+  const open = matches.length ? null : body.trimEnd().match(OPEN_LABEL_RE);
+  if (!matches.length && !open) return { label: null, reason: 'label-missing' };
   let raw;
-  try { raw = JSON.parse(matches[matches.length - 1][1]); } catch (_) { return { label: null, reason: 'label-unparseable' }; }
+  try { raw = JSON.parse(open ? open[1] : matches[matches.length - 1][1]); } catch (_) { return { label: null, reason: 'label-unparseable' }; }
   if (!validLabel(raw)) return { label: null, reason: 'label-invalid' };
-  return {
-    label: { v: 1, validity: raw.validity, contextDependent: raw.contextDependent, tier: raw.tier,
-      intents: raw.intents.slice(), workflow: raw.workflow, skills: raw.skills.map(skillName) },
-    reason: null,
-  };
+  // Unknown intent ids are dropped, not fatal: the rest of the label is still the agent's judgement.
+  const unknownIntents = raw.intents.filter(i => !INTENTS.includes(i));
+  const label = { v: 1, validity: raw.validity, contextDependent: raw.contextDependent, tier: raw.tier,
+    intents: raw.intents.filter(i => INTENTS.includes(i)), workflow: raw.workflow, skills: raw.skills.map(skillName) };
+  if (unknownIntents.length) label.unknownIntents = unknownIntents;
+  return { label, reason: null };
+}
+
+function stripLabels(text) {
+  return String(text || '').replace(LABEL_RE, '').trimEnd().replace(OPEN_LABEL_RE, '').trim();
 }
 
 function skillName(value) {
@@ -531,7 +541,7 @@ function finishPending(session, payload, root, final) {
   };
   appendRecord(root, record, textExpired ? null : text);
   fs.rmSync(eventsDir(root, payload.session_id, pending.turn), { recursive: true, force: true });
-  session.lastFinal = final.text ? redact(tailBytes(final.text.replace(LABEL_RE, '').trim(), PREVIOUS_BYTES)) : '';
+  session.lastFinal = final.text ? redact(tailBytes(stripLabels(final.text), PREVIOUS_BYTES)) : '';
   session.lastFinalAt = observedAt;
   session.pending = null;
 }
