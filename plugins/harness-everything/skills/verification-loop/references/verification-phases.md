@@ -25,11 +25,12 @@ flowchart TD
     RunScript --> ReportResult{All Verification Gates Passed?}
     DirectReport --> ReportResult
     
-    ReportResult -- Exit 0 / All Green --> Deliver[Task Ready for Delivery / PR]
-    ReportResult -- Failures Detected --> Fix[Fix Issues in Code & Re-verify] --> Build
+    ReportResult -- PASSED --> Deliver[Task Ready for Delivery / PR]
+    ReportResult -- FAILED --> Fix[Fix Issues in Code & Re-verify] --> Build
+    ReportResult -- UNCHECKED_* --> Manual[Run declared/listed verification; exit 0 alone is not evidence] --> Build
 ```
 
-Adapt commands according to the project's ecosystem and active environment (`environment-detection`). Run commands directly without non-portable POSIX pipe assumptions (avoid raw `head`, `tail`, `grep`, `2>/dev/null` piping on Windows).
+Adapt commands according to the project's ecosystem and active environment (`environment-detection`). Run commands directly without non-portable POSIX pipe assumptions (avoid raw `head`, `tail`, `grep`, `2>/dev/null` piping on Windows). For repository-specific mechanical gates and structured `PASSED` / `FAILED` / `UNCHECKED_*` semantics, follow `<this-skill-dir>/references/project-verification-contract.md`.
 
 ## Phase 1: Build Verification
 

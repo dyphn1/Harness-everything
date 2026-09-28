@@ -2,6 +2,8 @@
 
 Maintainer-facing audit record. If you just want to know whether Harness works and how to verify it yourself, start at [VERIFICATION.md](../VERIFICATION.md) instead — this file records *how the scores below were obtained* and what changed between audit cycles.
 
+> **Current verification-gate note (2026-09-24):** project verification now supports an authoritative `.harness/verify.json` contract, read-only ecosystem discovery, explicit `UNCHECKED_NO_CHECKS` versus `UNCHECKED_DISCOVERED`, and multi-root reporting. Hook-side verification evidence uses the same project-aware command model. Deterministic mechanism evidence is tracked under issue #242; this note does not claim new live-host evidence.
+
 > **Historical snapshot boundary:** the scorecards below are dated audits and are intentionally preserved as evidence of what was measured on each date. Platform capabilities have changed since the 2026-09-01 snapshot (including the OpenAI/Codex local plugin work and the OpenCode plugin implementation). Do not treat any dated platform row as current-state documentation; use [platform-capabilities.md](platform-capabilities.md) for the current matrix.
 
 **Last self-audited: 2026-09-18**, by running the deterministic test suite and gates on macOS (Node.js 24.14.1) — not by reading the code and assuming it works. The 2026-09-01 Windows 11 snapshot is preserved below. Live-host and behavioral evidence layers were not re-run in this cycle; retained artifacts are referenced, not re-measured.

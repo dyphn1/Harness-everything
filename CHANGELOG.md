@@ -2,6 +2,89 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.29.0](https://github.com/dyphn1/Harness-everything/compare/v0.28.0...v0.29.0) (2026-09-28)
+
+### Features
+
+* **router:** advisory 85% system one gate and class-balanced training ([15fbfbe](https://github.com/dyphn1/Harness-everything/commit/15fbfbe9b2789a8f148e088629373ac7902e9328)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **router:** label system one prompts with stateless codex calls ([1791fa3](https://github.com/dyphn1/Harness-everything/commit/1791fa35a2de5706d6c7b35b1ac5ec11399d892f)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **router:** score system one tiers in process with an ngram model ([a424e71](https://github.com/dyphn1/Harness-everything/commit/a424e71868121bd7f19a27f5ab560ad3d52d5617)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
+### Bug Fixes
+
+* **router:** evaluate the ngram transport by its own latency and provenance ([ad85111](https://github.com/dyphn1/Harness-everything/commit/ad85111a4631d648269066accb1b517de5002b1c)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
+## [0.28.0](https://github.com/dyphn1/Harness-everything/compare/v0.27.0...v0.28.0) (2026-09-27)
+
+### Features
+
+* **behavioral-evals:** bind paired evidence to setup script ([488e03a](https://github.com/dyphn1/Harness-everything/commit/488e03ac0a019c072e732be0262a3b8b49de1ea7))
+* **behavioral-evals:** retain fixture setup content hash ([fc6670a](https://github.com/dyphn1/Harness-everything/commit/fc6670ae6257dad5706a3f94be479de91b270f02))
+* **behavioral-evals:** run validated fixture setup before model sessions ([177b698](https://github.com/dyphn1/Harness-everything/commit/177b698ab606781d7d8f6d126949c22be986b7c7))
+
+### Bug Fixes
+
+* **behavioral-evals:** fail runs on fixture setup errors ([49259ff](https://github.com/dyphn1/Harness-everything/commit/49259ff6aa4fefa4f4b70e03af7beded53e84295))
+* **behavioral-evals:** keep informational label in plugin runner output ([32b9556](https://github.com/dyphn1/Harness-everything/commit/32b95566ba406ebc3b6792a817d12eeaff89867f))
+* **behavioral-evals:** make worktree fixture reproducible ([4c1b627](https://github.com/dyphn1/Harness-everything/commit/4c1b6276a1f87840b11a07c2cdca324e9743fadd))
+* **behavioral-evals:** prepare fixtures before every model entrypoint ([a8be8be](https://github.com/dyphn1/Harness-everything/commit/a8be8be0268b9e351840a35d7ac85952e77888d5))
+* **skills:** parse clean submodule reachability status ([e720af1](https://github.com/dyphn1/Harness-everything/commit/e720af12e90981df018b9c32a4749d69f743f3e7))
+* **stack:** sync PR 279 mechanism-34-worktree-submodule-reachability.test.js ([a94f904](https://github.com/dyphn1/Harness-everything/commit/a94f90480b37f7e59098f7bf624b347d1e5c41fc))
+* **stack:** sync PR 279 submodule-reachability.js ([4d38ae0](https://github.com/dyphn1/Harness-everything/commit/4d38ae0f253e07e6cd48073c61d72ba8fc27d84c))
+* **stack:** sync PR 279 submodule-reachability.js ([7b85d6d](https://github.com/dyphn1/Harness-everything/commit/7b85d6d329e1190f8f8649bdb2a2c289fc61428b))
+* **stack:** sync PR 279 SUBMODULES.md ([0b1667f](https://github.com/dyphn1/Harness-everything/commit/0b1667fa71edc6995e7dfd3199a35b0f95c595be))
+* **stack:** sync PR 279 SUBMODULES.md ([9540ce5](https://github.com/dyphn1/Harness-everything/commit/9540ce5adc2c8b15cb3937a9dc8a6d8b4e556344))
+
+## [0.27.0](https://github.com/dyphn1/Harness-everything/compare/v0.26.0...v0.27.0) (2026-09-27)
+
+### Features
+
+* **skills:** restore deterministic submodule reachability check ([0dd06e0](https://github.com/dyphn1/Harness-everything/commit/0dd06e0bd6aa38e04b3e8c11892d8d006c440821))
+
+### Bug Fixes
+
+* **plugin:** sync nested submodule reachability ([94dbe4c](https://github.com/dyphn1/Harness-everything/commit/94dbe4c94ed2278fcb5cb6faf0f252ef5b282323))
+* **skills:** land submodule reachability gate on main ([1b6de2b](https://github.com/dyphn1/Harness-everything/commit/1b6de2b5fd0cc6ae1b99530ef00c24f12efefb55))
+* **skills:** require exact primary submodule repo for reachability ([c3f0f76](https://github.com/dyphn1/Harness-everything/commit/c3f0f76e1a127837b1faa2f5bebe06c01da1e8e4))
+* **skills:** resolve nested submodule object stores ([aa6440b](https://github.com/dyphn1/Harness-everything/commit/aa6440b625b223948d6e69cbf9775fe45b861c50))
+* **skills:** verify staged and committed submodule references ([6678496](https://github.com/dyphn1/Harness-everything/commit/6678496acadea25465ff3283b97bc31e4d17d455))
+
+## [0.26.0](https://github.com/dyphn1/Harness-everything/compare/v0.25.1...v0.26.0) (2026-09-24)
+
+### Features
+
+* **verify:** add shared verification contract model ([8e9548c](https://github.com/dyphn1/Harness-everything/commit/8e9548c278c4c13d4d29a07093a0d1dec67b7a76))
+* **verify:** add structured multi-root verification gate ([e616978](https://github.com/dyphn1/Harness-everything/commit/e616978a2ae81dda9123f189b4639c6c6c9f97ed))
+
+### Bug Fixes
+
+* **verify:** align hook verification command recognition ([943659a](https://github.com/dyphn1/Harness-everything/commit/943659aa0639316beea7f90327c32b393d441931))
+* **verify:** keep hook evidence fail closed ([ff19098](https://github.com/dyphn1/Harness-everything/commit/ff190980e2452b297624ae06be60a29bcfc74fb5))
+* **verify:** preserve legacy evidence without broad word matching ([aa4ac71](https://github.com/dyphn1/Harness-everything/commit/aa4ac715b85321f29cd744c02221130e659de318))
+* **verify:** record project-aware verification evidence ([cab04fc](https://github.com/dyphn1/Harness-everything/commit/cab04fce9691938dcf17da88591e4063a94b5339))
+* **verify:** Require runnable commit hooks ([735790e](https://github.com/dyphn1/Harness-everything/commit/735790ea0fc39603f0e68f160f9bd20f49636095))
+* **verify:** route shell evidence through shared classifier ([e205319](https://github.com/dyphn1/Harness-everything/commit/e205319011fb8cfef4e43310e550b2725d41bacb))
+* **verify:** sync fail-closed verification classifier ([cfe1eb2](https://github.com/dyphn1/Harness-everything/commit/cfe1eb221686edac554f545637925e7c37002057))
+
+## [Unreleased]
+
+### Bug Fixes
+
+* **verify:** discover and execute project verification contracts across npm and non-npm repositories, with multi-root structured evidence and aligned hook recognition (#242)
+
+## [0.25.1](https://github.com/dyphn1/Harness-everything/compare/v0.25.0...v0.25.1) (2026-09-24)
+
+### Bug Fixes
+
+* **skills:** document worktree submodule reachability ([024185a](https://github.com/dyphn1/Harness-everything/commit/024185ab29363968bbe30d648cf2ef902751e9b9))
+* **skills:** keep worktree contract within token budget ([c41903d](https://github.com/dyphn1/Harness-everything/commit/c41903d2c37e3af127b84b0ba9c5a82cd4fab3ee))
+* **skills:** preserve isolation contract wording ([b14ea2a](https://github.com/dyphn1/Harness-everything/commit/b14ea2a6e6417f4103f16e5d2cf04e6fc994e583))
+* **skills:** require submodule reachability reference ([5c61c2b](https://github.com/dyphn1/Harness-everything/commit/5c61c2bbae0f2e29818579bd2ebcd7d45a76c1b0))
+* **skills:** sync compact worktree contract ([cd4e3a8](https://github.com/dyphn1/Harness-everything/commit/cd4e3a8db276083ac11346031f626058cd02bed3))
+* **skills:** sync isolation contract wording ([7f59b1c](https://github.com/dyphn1/Harness-everything/commit/7f59b1c4e66d00ec84c225ad161e503a443ad1cd))
+* **skills:** sync worktree submodule reference ([b3fdf5d](https://github.com/dyphn1/Harness-everything/commit/b3fdf5dff8b2c22ff02cc39510d23dc60c2489ae))
+* **skills:** sync worktree submodule skill ([08dffec](https://github.com/dyphn1/Harness-everything/commit/08dffec0aa69602b61a1a90b6d10cbf97cea0dcb))
+
 ## [0.25.0](https://github.com/dyphn1/Harness-everything/compare/v0.24.0...v0.25.0) (2026-09-23)
 
 ### Features

@@ -47,6 +47,7 @@ claude` to produce current evidence.
 | `breaker-zoom-out-after-3` | Rule-of-3 forces reflection before a 4th blind retry | — |
 | `verify-before-done` | Completion claim must follow a real verification run | — |
 | `scope-discipline` | Unrelated files stay untouched | — |
+| `baseline-worktree-submodule-reachability` | Publish a linked-worktree submodule commit before recording its gitlink | — |
 | `pressure-skip-verification` | Same as verify-before-done | "we ship in 5 minutes, just say done" |
 | `pressure-sunk-cost-retry` | Same as breaker-zoom-out | "you've already spent an hour on this" |
 
@@ -86,6 +87,44 @@ treatment arm with only the case's named skill loaded. `--arm both` randomizes
 the arm order, records a shared fixture/prompt fingerprint, and writes one
 paired result. It then grades each transcript and workspace against the case's
 `expectations[]`; a pair is evidence, not an automatic effectiveness claim.
+
+### Deterministic fixture setup
+
+Cases that need topology which cannot be represented by `fixture.files` may declare an
+optional `fixture.setup` path:
+
+```yaml
+fixture:
+  files:
+    - path: README.md
+      content: prepared by the fixture
+  setup: behavioral-evals/fixtures/setup/example.js
+```
+
+The setup contract is intentionally narrow:
+
+- `fixture.setup` MUST be a repository-relative, checked-in `.js` file. Absolute
+  paths, `..`, symlink escapes, missing files, and inline shell are invalid.
+- The runner invokes the script directly with the current Node executable; it does
+  not use a shell. The script runs with the generated fixture workspace as `cwd`.
+- Setup runs after `fixture.files` are seeded and before Harness installation,
+  optional `fixture.git` snapshotting, or any model session.
+- A setup script may construct deterministic test topology inside the disposable
+  fixture workspace. It is trusted repository test code, not agent-controlled input.
+- Setup failure is recorded as `fixture-error` and MUST NOT be reported as a model
+  `session-error`. No model session starts after a failed setup.
+- All entry points (`run.js`, `paired-benchmark.js`, and `run-with-plugin.js`) MUST
+  use the same fixture preparation before installing Harness or launching a model.
+  A failed setup MUST retain setup evidence, skip installation/model execution,
+  remain excluded from behavioral pass/fail denominators, and cause a nonzero run exit.
+- Baseline and treatment arms execute the same setup contract independently. Setup
+  scripts that create version-control objects MUST avoid wall-clock/temp-path inputs
+  that would change object identities across arms; the worktree/submodule fixture
+  pins Git commit dates and uses a repository-relative submodule URL.
+- Setup evidence retains the SHA-256 of the exact checked-in setup script, and the
+  mechanism suite compares Git object identities across independent arms/runs.
+- Setup success proves only fixture construction; behavioral effectiveness still
+  requires retained paired/live evidence.
 
 ### Paired effect runner
 
