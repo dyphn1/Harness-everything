@@ -50,6 +50,16 @@ def join(prompts, labels, overrides):
     return [{'id': p['id'], 'split': p['split'], 'text': p['text'], 'gold': gold[p['id']]} for p in prompts if p['id'] in gold]
 
 
+def class_weights(label_indices, num_classes):
+    """Inverse-frequency weights that average to 1 over the examples; absent classes get 0."""
+    counts = [0] * num_classes
+    for i in label_indices:
+        counts[i] += 1
+    present = sum(1 for c in counts if c)
+    total = len(label_indices)
+    return [total / (present * c) if c else 0.0 for c in counts]
+
+
 def make_batches(lengths, token_budget):
     """Length-bucketed batches: each batch's size times its longest item stays within the budget."""
     order = sorted(range(len(lengths)), key=lambda i: (lengths[i], i))
@@ -94,6 +104,8 @@ def train(args):
     train_batches = make_batches(lengths(split['train']), args.token_budget)
     val_batches = make_batches(lengths(split['validation']), args.token_budget)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+    # Class balance counters the tier2-heavy labels; validation NLL stays unweighted so epochs remain comparable.
+    weight = torch.tensor(class_weights([e.label for e in train_x], len(catalog)), dtype=torch.float) if args.balance else None
 
     def evaluate():
         model.eval()
@@ -118,7 +130,7 @@ def train(args):
         total = 0.0
         for b in order:
             tensors = collator([train_x[i] for i in train_batches[b]])
-            loss = torch.nn.functional.cross_entropy(model(tensors), tensors['labels'])
+            loss = torch.nn.functional.cross_entropy(model(tensors), tensors['labels'], weight=weight)
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -161,6 +173,7 @@ def main(argv=None):
     parser.add_argument('--threads', type=int, default=4)
     parser.add_argument('--context-tokens', type=int, default=1024)
     parser.add_argument('--token-budget', type=int, default=16384)
+    parser.add_argument('--balance', action='store_true', help='inverse-frequency class weights in the training loss')
     train(parser.parse_args(argv))
 
 

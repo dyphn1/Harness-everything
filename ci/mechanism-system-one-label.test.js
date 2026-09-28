@@ -61,6 +61,33 @@ test('S1-L03 invalid replies are retried once, persistent failures are recorded,
   assert.equal(again.labeled.length, 0);
 });
 
+test('S1-L06 the codex engine runs one stateless exec per batch and reads the schema-checked last message', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-s1-codex-'));
+  try {
+    // Fake codex: records its argv, reads the prompt from stdin, writes the reply to the -o file.
+    const fake = path.join(dir, 'fake-codex.js'); const argvLog = path.join(dir, 'argv.json');
+    // Without an -o target the fake exits instead of writing (a[-1 + 1] would land in the working directory).
+    fs.writeFileSync(fake, `const fs=require('fs');const a=process.argv.slice(2);fs.writeFileSync(${JSON.stringify(argvLog)},JSON.stringify(a));
+      const o=a.indexOf('-o');if(o<0)process.exit(3);
+      let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const m=[...s.matchAll(/\\{"i":(\\d+),"text"/g)];
+      fs.writeFileSync(a[o+1],JSON.stringify({labels:m.map(x=>({i:Number(x[1]),gold:'tier1'}))}));});`);
+    const input = path.join(dir, 'prompts.jsonl');
+    fs.writeFileSync(input, items(3).map(r => JSON.stringify({ ...r, family: 'f', source: 'claude', split: 'train' })).join('\n') + '\n');
+    const out = path.join(dir, 'labels.jsonl');
+    const r = spawnSync(process.execPath, [path.join(root, 'scripts/system-one-label.js'), 'label', '--engine', 'codex', '--in', input, '--out', out],
+      { encoding: 'utf8', cwd: root, env: { ...process.env, HARNESS_S1_LABEL_COMMAND: JSON.stringify([process.execPath, fake]) } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(JSON.parse(r.stdout), { labeled: 3, failed: 0, total: 3 });
+    const rows = fs.readFileSync(out, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+    assert.ok(rows.every(x => x.gold === 'tier1' && x.labeler.model === 'gpt-5.6-luna' && x.labeler.engine === 'codex'));
+    const argv = JSON.parse(fs.readFileSync(argvLog, 'utf8'));
+    for (const flag of ['exec', '--ephemeral', '--ignore-user-config', '--output-schema', '-o']) assert.ok(argv.includes(flag), flag);
+    assert.equal(argv[argv.indexOf('--sandbox') + 1], 'read-only');
+    assert.equal(argv[argv.indexOf('--model') + 1], 'gpt-5.6-luna');
+    assert.equal(argv[argv.length - 1], '-', 'the prompt comes from stdin');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('S1-L04 holdout agreement reports overall, per-class recall and confusion', () => {
   const gold = [['a', 'tier1'], ['b', 'tier1'], ['c', 'tier2'], ['d', null]];
   const pred = { a: 'tier1', b: 'tier2', c: 'tier2', d: null };

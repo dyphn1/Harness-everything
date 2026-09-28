@@ -46,6 +46,12 @@ assert flat == list(range(len(lengths))), 'every example exactly once'
 assert all(len(b) * max(lengths[i] for i in b) <= 4096 or len(b) == 1 for b in batches), 'budget respected'
 assert batches == trainer.make_batches(lengths, token_budget=4096), 'deterministic'
 
+weights = trainer.class_weights([0, 0, 0, 1, 2, 2], 4)
+assert len(weights) == 4
+assert weights[3] == 0.0, 'an absent class gets no weight'
+assert weights[1] > weights[2] > weights[0], weights
+assert abs(sum(w * n for w, n in zip(weights, [3, 1, 2, 0])) - 6) < 1e-9, 'weights average to 1 over the examples'
+
 with tempfile.TemporaryDirectory() as tmp:
     p = Path(tmp) / 'rows.jsonl'
     p.write_text('\n'.join(json.dumps(r) for r in prompts) + '\n', encoding='utf-8')

@@ -41,6 +41,18 @@ test('S1-T03 calibration maximizes coverage subject to accepted precision on val
   assert.deepEqual(calibrate(rows, { minPrecision: 0.98 }), c, 'deterministic');
 });
 
+test('S1-T06 the default calibration target is the owner advisory 85%', () => {
+  const rows = [
+    ...Array.from({ length: 86 }, () => row('tier1', [0.9, 0.05, 0.03, 0.02])),
+    ...Array.from({ length: 14 }, () => row('tier2', [0.9, 0.05, 0.03, 0.02])),
+  ];
+  const c = calibrate(rows);
+  assert.equal(c.minPrecision, 0.85);
+  assert.equal(c.feasible, true);
+  assert.equal(c.coverage, 1);
+  assert.equal(calibrate(rows, { minPrecision: 0.9 }).feasible, false);
+});
+
 test('S1-T04 calibration CLI reads validation scores and writes thresholds', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-s1-cal-'));
   try {

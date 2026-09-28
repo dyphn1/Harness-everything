@@ -3,6 +3,7 @@
 // Labels System One training prompts with an LLM against the owner's rules (docs/system-one-corpus.md).
 // See docs/system-one-training.md. Labels stay local; only the holdout agreement report may be committed.
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { createHash } = require('node:crypto');
@@ -105,6 +106,32 @@ function commandRunner(model) {
     child.stdin.end(prompt);
   });
 }
+// One stateless `codex exec` per batch: prompt on stdin, schema-checked last message in a temp file,
+// read-only sandbox, no session files and no user config (plugins/hooks), so nothing accumulates across batches.
+function codexRunner(model) {
+  const base = process.env.HARNESS_S1_LABEL_COMMAND ? JSON.parse(process.env.HARNESS_S1_LABEL_COMMAND) : ['codex'];
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-s1-codex-'));
+  const schemaFile = path.join(work, 'schema.json');
+  fs.writeFileSync(schemaFile, SCHEMA);
+  let n = 0;
+  return prompt => new Promise((resolve, reject) => {
+    const outFile = path.join(work, `reply-${process.pid}-${n++}.json`);
+    const args = ['exec', '--model', model, '-c', 'model_reasoning_effort=medium', '--sandbox', 'read-only', '--skip-git-repo-check',
+      '--ephemeral', '--ignore-user-config', '--output-schema', schemaFile, '-o', outFile, '-C', work, '-'];
+    const child = spawn(base[0], [...base.slice(1), ...args], { stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true,
+      shell: process.platform === 'win32' && !process.env.HARNESS_S1_LABEL_COMMAND });
+    const timer = setTimeout(() => child.kill(), 600000);
+    child.on('error', err => { clearTimeout(timer); reject(err); });
+    child.on('close', code => {
+      clearTimeout(timer);
+      let reply = null;
+      try { reply = JSON.parse(fs.readFileSync(outFile, 'utf8')); } catch (_) { reject(new Error(`codex-exit-${code}: no reply`)); return; }
+      try { fs.unlinkSync(outFile); } catch (_) { /* temp file */ }
+      resolve(reply);
+    });
+    child.stdin.end(prompt);
+  });
+}
 function outsideRepo(file) {
   const rel = path.relative(REPO, path.resolve(file));
   if (!rel.startsWith('..') && !path.isAbsolute(rel)) throw new Error('refusing to write labels inside the repository');
@@ -113,10 +140,12 @@ function outsideRepo(file) {
 async function main(argv) {
   const [op, ...rest] = argv;
   const opt = (name, fallback) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : fallback; };
-  const model = opt('--model', 'sonnet');
+  const engine = opt('--engine', 'claude');
+  if (!['claude', 'codex'].includes(engine)) throw new Error('--engine must be claude or codex');
+  const model = opt('--model', engine === 'codex' ? 'gpt-5.6-luna' : 'sonnet');
   const rules = rulesFromDoc(fs.readFileSync(path.join(REPO, 'docs', 'system-one-corpus.md'), 'utf8'));
-  const labeler = { model, rulesSha256: sha(rules).slice(0, 16) };
-  const run = commandRunner(model);
+  const labeler = { model, rulesSha256: sha(rules).slice(0, 16), ...(engine === 'codex' ? { engine } : {}) };
+  const run = engine === 'codex' ? codexRunner(model) : commandRunner(model);
   const concurrency = Number(opt('--concurrency', '4')); const batchSize = Number(opt('--batch', '100'));
   if (op === 'label') {
     const input = opt('--in'); const out = opt('--out');
