@@ -459,6 +459,75 @@ test('resuming an unfinished turn inside the window keeps its text and original 
   assert(text.prompt.includes('MARKER-KEEP'));
 });
 
+test('module and runner prefixes are classified by what they run', () => {
+  assert.strictEqual(lib.classifyCommand('python3 -m pytest test_calc.py -v'), 'test');
+  assert.strictEqual(lib.classifyCommand('python -m pip install requests'), 'package');
+  assert.strictEqual(lib.classifyCommand('npx jest --watch=false'), 'test');
+  assert.strictEqual(lib.classifyCommand('uv run pytest'), 'test');
+  assert.strictEqual(lib.classifyCommand('poetry run pytest -q'), 'test');
+  assert.strictEqual(lib.classifyCommand('pnpm exec vitest run'), 'test');
+  assert.strictEqual(lib.classifyCommand('python3 script.py'), 'shell');
+});
+
+test('the label contract is the router output\'s last section and covers every turn', () => {
+  const out = spawnSync('node', [path.join(ROOT, 'harness-everything/scripts/kernel-router.js'), 'What does README.md contain?'], { encoding: 'utf8' }).stdout;
+  const sections = out.split(/\n(?==> )/);
+  const last = sections[sections.length - 1];
+  assert(/^=> TURN LABEL LINE/.test(last) && last.includes('harness-label'), 'the label contract is printed last');
+  assert(/EVERY TURN/.test(last) && /null only when validity is invalid/.test(last));
+  const status = sections.find(x => x.startsWith('=> USER-VISIBLE HARNESS STATUS CONTRACT'));
+  assert(status && !status.includes('harness-label'), 'not scoped under the non-trivial Harness Status contract');
+  assert(/^14\. \*\*The turn label line is mandatory on every turn/m.test(fs.readFileSync(path.join(ROOT, 'AGENTS.md'), 'utf8')));
+});
+
+test('router/self agreement counts only turns where the router chose a tier', () => {
+  const s = sandbox();
+  fs.mkdirSync(path.join(s.store, 'text'), { recursive: true });
+  const now = Date.now();
+  const recs = [['unclassified', 'tier1'], ['tier2', 'tier2'], ['tier3', 'tier2']].map(([router, self], k) => {
+    const sha = `${k}`.repeat(64);
+    fs.writeFileSync(path.join(s.store, 'text', `${sha}.json`), JSON.stringify({ prompt: `p${k}`, previous: '' }));
+    return { id: `r${k}`, source: 'observation', status: 'active', observedAt: new Date(now - (3 - k) * 1000).toISOString(),
+      validUntil: new Date(now + 86400000).toISOString(), contentSha256: sha, host: 'claude', turn: 1, writer: { sessionId: `s${k}` },
+      router: { tier: router }, behavior: lib.emptyBehavior(),
+      selfReport: { v: 1, validity: 'actionable', contextDependent: false, tier: self, intents: [], workflow: null, skills: [] } };
+  });
+  fs.writeFileSync(path.join(s.store, 'observations-index.json'), JSON.stringify({ schemaVersion: 1, records: recs }));
+  const out = path.join(s.dir, 'export');
+  const e = spawnSync('node', [EXPORTER, '--store', s.store, '--out', out], { encoding: 'utf8', env: s.env });
+  assert.strictEqual(e.status, 0, e.stderr);
+  const report = JSON.parse(fs.readFileSync(path.join(out, 'export-report.json'), 'utf8'));
+  assert.deepStrictEqual(report.agreement, { routerVsSelfTier: 0.5, routerVsSelfPairs: 2 });
+});
+
+test('label slips seen live: unknown intents dropped, unterminated final line accepted', () => {
+  const unknown = lib.parseLabelLine('ok\n<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier1","intents":["lookup","git"],"workflow":null,"skills":[]} -->');
+  assert.strictEqual(unknown.reason, null);
+  assert.deepStrictEqual(unknown.label.intents, ['git']);
+  assert.deepStrictEqual(unknown.label.unknownIntents, ['lookup']);
+  const open = lib.parseLabelLine('M README.md\n\n<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier1","intents":["git"],"workflow":null,"skills":[]}');
+  assert.strictEqual(open.reason, null, 'a final label line missing its closing --> is accepted');
+  assert.strictEqual(open.label.tier, 'tier1');
+  const middle = lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier1","intents":[],"workflow":null,"skills":[]}\nmore text');
+  assert.strictEqual(middle.label, null, 'an unterminated line is accepted only at the end');
+  assert.strictEqual(lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier9","intents":[],"workflow":null,"skills":[]} -->').reason, 'label-invalid');
+});
+
+test('Codex router hook returns its contract as JSON additionalContext', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'plugins/harness-everything/hooks/hooks.json'), 'utf8')).hooks;
+  const commands = manifest.UserPromptSubmit.flatMap(g => g.hooks.map(h => h.command));
+  assert(commands.some(c => c.includes('codex-user-prompt.js')), 'the Codex manifest wraps the router');
+  assert(!commands.some(c => c.includes('kernel-router.js')), 'plain router stdout never reaches a Codex model');
+  for (const script of ['hooks/scripts/codex-user-prompt.js', 'plugins/harness-everything/hooks/scripts/codex-user-prompt.js']) {
+    const s = sandbox();
+    const r = spawnSync('node', [path.join(ROOT, script)], { input: JSON.stringify({ session_id: 'cx', turn_id: 't1', hook_event_name: 'UserPromptSubmit', prompt: 'git status', cwd: s.repo }), env: s.env, encoding: 'utf8', timeout: 10000 });
+    assert.strictEqual(r.status, 0, `${script}: ${r.stderr}`);
+    const out = JSON.parse(r.stdout);
+    assert.strictEqual(out.hookSpecificOutput.hookEventName, 'UserPromptSubmit', script);
+    assert(out.hookSpecificOutput.additionalContext.includes('TURN LABEL LINE'), script);
+  }
+});
+
 test('hooks are registered for both hosts and the contract asks for the label line', () => {
   // Claude Code (canonical) has PostToolUseFailure; the Codex plugin manifest has no such event.
   for (const [file, events] of [['hooks/hooks.json', ['UserPromptSubmit', 'PostToolUse', 'PostToolUseFailure', 'Stop']],
