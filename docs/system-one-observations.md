@@ -67,8 +67,12 @@ which is invisible in rendered Markdown:
 | `skills` | skill ids actually used this turn |
 
 The line states the agent's own judgement **after** the work, not a copy of
-the router's suggestion. A line that does not parse, or uses unknown ids, is
-recorded as `selfReport: null` with a reason code; it never blocks the turn.
+the router's suggestion. A line that does not parse, or has an invalid
+validity, tier or workflow, is recorded as `selfReport: null` with a reason
+code; it never blocks the turn. Two slips seen in live runs are tolerated
+rather than losing the whole label: unknown intent ids are dropped and kept
+in `unknownIntents`, and a final label line missing its closing `-->` is
+accepted when it ends the message.
 
 ## Labels and how much to trust them
 
@@ -145,9 +149,19 @@ warning sign. The review page samples the turns where they differ.
 - **Claude Code**: plugin hooks `UserPromptSubmit`, `PostToolUse` and
   `Stop`. The final message is read from the Stop payload or from the
   transcript the payload points to.
-- **Codex**: the same plugin hooks. Codex hook payload fields differ; the
-  exact fields for the prompt and the final message are verified against
-  the installed Codex version during implementation, never assumed.
+- **Codex**: the same hooks. Verified live on codex-cli 0.157.1
+  (2026-09-28):
+  - Codex adds `UserPromptSubmit` context to the model only from JSON
+    `hookSpecificOutput.additionalContext`. With the router's plain stdout
+    the model never saw the routing contract or the label instruction, so
+    it wrote no label; the same text as JSON reached the model and all five
+    test turns carried a label. The Codex manifest therefore runs the router
+    through `hooks/scripts/codex-user-prompt.js`, which wraps its output.
+  - Plugin-bundled hooks do not run on this version (`plugin_hooks` is
+    `removed`); the explicit fallback `harness codex-hooks install` is
+    needed, and Codex runs the hooks only after they are trusted in
+    `/hooks`.
+  - The final message comes from the rollout's `task_complete` event.
 - The final message must belong to the current turn. A transcript scan
   stops at the start of the current turn (Codex `task_started` or a user
   message; a Claude user prompt) and a Codex `task_complete` must carry the
