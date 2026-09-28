@@ -2,6 +2,41 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.30.0](https://github.com/dyphn1/Harness-everything/compare/v0.29.0...v0.30.0) (2026-09-28)
+
+### Features
+
+* **router:** add the edit intent and secondary intents to the intent stage ([1ba245d](https://github.com/dyphn1/Harness-everything/commit/1ba245dc7472ddf0c54a149283eac3fa6fea2112))
+* **router:** add the system one intent catalog to the evaluator, assembler and labeler ([fd1846d](https://github.com/dyphn1/Harness-everything/commit/fd1846d89f203e97908ed9a23044a3c1b00fdb17))
+* **router:** escalate low-scoring system one intent labels to a second model ([a9c1360](https://github.com/dyphn1/Harness-everything/commit/a9c13609297313a694c853d9d204862cce76cee1))
+* **router:** grade accepted intent predictions in the evaluator ([9c22fea](https://github.com/dyphn1/Harness-everything/commit/9c22feace3af5384e9da3affcc580b86340256a1))
+* **router:** grade intent agreement and label secondary intents ([18011c3](https://github.com/dyphn1/Harness-everything/commit/18011c396cb635785f2d2930d944df5819ca84b6))
+* **router:** label and train system one intents as relevance scores ([e8f1386](https://github.com/dyphn1/Harness-everything/commit/e8f1386b31a3b99551e32d5fb5f29e5bf389d95b))
+* **router:** require tie-free system one intent scores in 0.05 steps ([5d201c0](https://github.com/dyphn1/Harness-everything/commit/5d201c0ac54fbbfb9f95c9a63f70832b824750c9))
+* **router:** scale intent scores to the top and escalate lagging margins ([bbedfac](https://github.com/dyphn1/Harness-everything/commit/bbedfac38837a091f74971dc7f99c2b23f7892d5))
+* **router:** train and calibrate the intent stage ([c5e6a5f](https://github.com/dyphn1/Harness-everything/commit/c5e6a5f8dfa59f46234dbdf7a977fd9d9a9e65d8))
+* **system-one:** add laya provider bridge and holdout evidence ([9f6a4ed](https://github.com/dyphn1/Harness-everything/commit/9f6a4ed3dc95014fb61d1b5ffb69af6c08deb2a2))
+* **system-one:** add laya soft-target exporter for phase 3 ([3672d12](https://github.com/dyphn1/Harness-everything/commit/3672d12adc9fb99c545013acc37a2623e52de7d9))
+* **system-one:** add laya zero-shot dense labeler and calibration for [#255](https://github.com/dyphn1/Harness-everything/issues/255) ([3759757](https://github.com/dyphn1/Harness-everything/commit/3759757ea1ecb454d6c168672afe61acadb244c1))
+* **system-one:** add per-intent bernoulli evaluation ([cba5c79](https://github.com/dyphn1/Harness-everything/commit/cba5c79b086279fe7c712ab9a88bf18864356fc4))
+* **system-one:** add relevance-native decisions beside single-winner ([bb5f3b8](https://github.com/dyphn1/Harness-everything/commit/bb5f3b84fe3e788b9d0b0ed0dfd95e11a096b36e))
+* **system-one:** add single-device laya trainer for phase 3 ([8e45769](https://github.com/dyphn1/Harness-everything/commit/8e4576921cb45f32aea62d174707ee371d63564d))
+* **system-one:** collect turn observations for tier, workflow and skills ([29830a1](https://github.com/dyphn1/Harness-everything/commit/29830a127c40a9fc1b1ff356f9aa3a55f9ab6d24)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **system-one:** oversample and loss weights for weak intents ([3612acb](https://github.com/dyphn1/Harness-everything/commit/3612acbcec58e6f31be8d35031287d56cd256fe5))
+* **system-one:** relevance gates, raw bridge, adapter transport ([85a3c34](https://github.com/dyphn1/Harness-everything/commit/85a3c345a19259105c49124bec7cd41168eeb526))
+* **system-one:** versioned laya questions and v2 contrast test ([4fc24e8](https://github.com/dyphn1/Harness-everything/commit/4fc24e83bf8389d3e40af4981157778b812772f3))
+
+### Bug Fixes
+
+* **router:** guard collected prompts against the intent holdout too ([6b880e0](https://github.com/dyphn1/Harness-everything/commit/6b880e04e0875038e3b927410cf25990ce4ce519))
+* **system-one:** codex router context as json, tolerate label slips ([9d7b1d6](https://github.com/dyphn1/Harness-everything/commit/9d7b1d64de44b56b6e914f3e6ac2abfed9319a49))
+* **system-one:** current-turn labels, lossless tool events, retention on read ([6a75f0c](https://github.com/dyphn1/Harness-everything/commit/6a75f0cccbb3ae442d901c4b5873601d920fd03d))
+* **system-one:** finishing an old turn never renews its text ([cedd742](https://github.com/dyphn1/Harness-everything/commit/cedd7422961fc32e384b324796ece4b4d1809c3e))
+* **system-one:** isolate calibration from oversampled prompts ([91dd93e](https://github.com/dyphn1/Harness-everything/commit/91dd93e60e2cc8372cad4a609c95fbdaed3b23ae))
+* **system-one:** oversample only selected intent items ([7b59c43](https://github.com/dyphn1/Harness-everything/commit/7b59c43a4cfdc9fb5cb1b68049de24c51c26f2a0))
+* **system-one:** print the label contract last, for every turn ([3f63958](https://github.com/dyphn1/Harness-everything/commit/3f63958c8d6b752a9b9cc9f10e50ed00b6c7fb44))
+* **system-one:** tier label from the agent's judgement, not a file count ([fb3d483](https://github.com/dyphn1/Harness-everything/commit/fb3d48334f7d2809d4cc8300c6b7e131f845c79e)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
 ## [0.29.0](https://github.com/dyphn1/Harness-everything/compare/v0.28.0...v0.29.0) (2026-09-28)
 
 ### Features
