@@ -42,10 +42,16 @@ The manifest is version 1 with `python` (executable), `checkpoint` (absolute
 `.safetensors` path), `weightsSha256`, `configSha256` (matching `.json` sidecar),
 `modelId`, `revision`, `domain`, and optional `timeoutMs` (1–10000, default 2000).
 All fields are required except the timeout; unknown fields are rejected. An
-optional `acceptance` object holds exactly `minConfidence` (0.5–0.99) and
-`minMargin` (0–0.9). These are the thresholds calibrated on validation for this
+optional `acceptance` object holds `minConfidence` (0.5–0.99) and
+`minMargin` (0–0.9). It may also hold `secondaryThreshold` (0.05–0.5), the
+probability at which another intent counts as a secondary intent; that key is
+valid only for an intent checkpoint ([system-one-intent.md](system-one-intent.md#scoring)).
+These are the thresholds calibrated on validation for this
 checkpoint. A scored result carries them, and the router and the evaluator pass
-them to `decide`. Without the field the Phase 0 defaults apply. Hashes
+the first two to `decide`. Without the field the Phase 0 defaults apply. For an
+intent corpus the evaluator also reports graded accepted precision, exact accepted
+precision and family consistency. The `acceptedPrecision` gate uses the graded
+value. Hashes
 must be lowercase SHA-256. Revision and domain are artifact-owner declarations,
 not independently verified quality claims. The known `cua-ai/cua-s1-forms` ID
 must use domain `forms-v1`. No pickle format or remote URL is accepted.
@@ -349,22 +355,31 @@ small model only has to separate a few options at a time.
 
 1. **Tier**: `tier1`, `tier2`, `tier3` or `unclassified`, following
    [system-one-corpus.md](system-one-corpus.md).
-2. **Intent**: the kind of work the prompt asks for, drawn from a small fixed
-   catalog (for example: ask or explain, discuss or decide, Git/GitHub
-   operation, fix a bug, build a feature, refactor, review or audit, test or
-   verify, write docs, plan or spec, investigate). The intent catalog is the
-   owner's and is recorded in the corpus document before any intent labels.
+2. **Intent**: the kind of work the prompt asks for, drawn from the owner's
+   fixed catalog in [system-one-intent.md](system-one-intent.md): `explain`,
+   `discuss`, `git`, `fix`, `edit`, `feature`, `refactor`, `review`, `test`,
+   `docs`, `plan`, `investigate` or `unclassified`. A prompt has one primary
+   intent and may have secondary intents.
 3. **Skills**: which canonical skills fit the prompt, scored against skill
    descriptions. Only skills above the stage's calibrated threshold are
    suggested, and they are suggestions, never required reads.
 
-Each stage has its own gates, and a stage ships only when it passes them. Tier
-comes first because the reviewed holdout exists for it. Later stages reuse the
+Each stage has its own gates, and a stage ships only when it passes them.
+The relevance-native plan in
+[system-one-suggestion-gates.md](system-one-suggestion-gates.md#readout-per-stage)
+adds a validity stage first and runs intent before tier, because tier3 is
+composed from the intent scores. Tier was trained first because the
+reviewed holdout exists for it. Later stages reuse the
 same collector, labeler, trainer and evaluator with a different catalog.
 Suggestions are advisory: explicit workflow requests, action gates, memory
 ownership, the Rule of 3 and deterministic policy always take precedence.
 
 ## Rollout gates
+
+Model-quality gates for relevance-native candidates are defined in
+[system-one-suggestion-gates.md](system-one-suggestion-gates.md), which
+supersedes the precision/coverage/latency targets below. The holdout size,
+provenance, repeatability and advisory rules below still apply.
 
 Phase 4 requires a separately reviewed, family-disjoint holdout of at least 200
 cases, at least 50 each in English and Traditional Chinese. System One output is

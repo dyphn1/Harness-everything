@@ -1,0 +1,44 @@
+{
+  "model": "laya/harness-intent-s1-full",
+  "thresholds": "frozen validation-fit taus (perintent-taus.json)",
+  "micro": {
+    "precision": 0.6068222621184919,
+    "recall": 0.43556701030927836,
+    "f1": 0.5071267816954239
+  },
+  "macroF1": 0.501,
+  "cardinality": {
+    "predicted": 2.509009009009009,
+    "gold": 3.4954954954954953
+  },
+  "abstainRate": 0.014,
+  "exactSetMatch": 0.068,
+  "weakPrecision": 0.181,
+  "family": {
+    "gold": {
+      "families": 83,
+      "consistent": 66,
+      "rate": 0.7951807228915663
+    },
+    "model": {
+      "families": 83,
+      "consistent": 39,
+      "rate": 0.46987951807228917
+    }
+  },
+  "gates": {
+    "microF1": false,
+    "macroF1": true,
+    "perIntentFloors": false,
+    "weakPrecision": false,
+    "cardinality": true,
+    "abstainRate": true,
+    "familyConsistency": false,
+    "repeatability": true,
+    "warmLatency": true,
+    "structuralControls": true,
+    "policyEvidence": false,
+    "liveHostEvidence": false,
+    "rolloutReady": false
+  }
+}

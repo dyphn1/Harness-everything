@@ -10,9 +10,15 @@ const unavailable = reason => ({ status: 'unavailable', reason });
 const exact = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).length === keys.length && keys.every(k => Object.hasOwn(value, k));
 const label = value => typeof value === 'string' && value.length > 0 && value.length <= 128 && !/[\u0000-\u001f]/.test(value);
+// Resident adapter selection: a basename inside the system-one scripts dir, never a path.
+const adapterName = value => typeof value === 'string' && /^[a-z][a-z0-9_-]{0,63}\.py$/.test(value);
 // Thresholds calibrated on validation for this checkpoint (docs/system-one-training.md).
 const inRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
-const validAcceptance = a => exact(a, ['minConfidence', 'minMargin']) && inRange(a.minConfidence, 0.5, 0.99) && inRange(a.minMargin, 0, 0.9);
+// secondaryThreshold is optional and belongs to intent checkpoints (docs/system-one-intent.md#scoring).
+const validAcceptance = a => (exact(a, ['minConfidence', 'minMargin']) || (exact(a, ['minConfidence', 'minMargin', 'secondaryThreshold']) && inRange(a.secondaryThreshold, 0.05, 0.5)))
+  && inRange(a.minConfidence, 0.5, 0.99) && inRange(a.minMargin, 0, 0.9);
+// The part of the acceptance thresholds that contract.decide takes.
+const decisionPolicy = acceptance => (acceptance ? { minConfidence: acceptance.minConfidence, minMargin: acceptance.minMargin } : {});
 // A scored result carries the manifest's thresholds so every caller decides with them.
 const withAcceptance = (result, manifest) => (result && result.status === 'scored' && manifest.acceptance
   ? { ...result, acceptance: { ...manifest.acceptance } } : result);
@@ -22,8 +28,9 @@ function validateManifest(m) {
   const required = ['schemaVersion', ...(ngram ? [] : ['python']), 'checkpoint', 'weightsSha256', 'configSha256', 'modelId', 'revision', 'domain'];
   const strings = ['modelId', 'revision', 'domain', ...(ngram && !Object.hasOwn(m, 'python') ? [] : ['python'])];
   if (!m || typeof m !== 'object' || Array.isArray(m) || required.some(k => !Object.hasOwn(m, k))
-    || Object.keys(m).some(k => ![...required, 'python', 'timeoutMs', 'transport', 'idleTimeoutMs', 'acceptance'].includes(k)) || m.schemaVersion !== 1
+    || Object.keys(m).some(k => ![...required, 'python', 'timeoutMs', 'transport', 'idleTimeoutMs', 'acceptance', 'adapter'].includes(k)) || m.schemaVersion !== 1
     || (m.acceptance !== undefined && !validAcceptance(m.acceptance))
+    || (m.adapter !== undefined && !adapterName(m.adapter))
     || strings.some(k => typeof m[k] !== 'string' || !m[k].trim() || m[k].length > 4096 || m[k].includes('\0'))
     || typeof m.checkpoint !== 'string' || !path.isAbsolute(m.checkpoint) || path.extname(m.checkpoint) !== (ngram ? '.bin' : '.safetensors')
     || ['weightsSha256', 'configSha256'].some(k => typeof m[k] !== 'string' || !/^[a-f0-9]{64}$/.test(m[k]))
@@ -105,4 +112,4 @@ function provenance(manifestPath) {
   try { return { status: 'recorded', provenance: validateProvenance(result.value) }; }
   catch (_) { return unavailable('provider-json'); }
 }
-module.exports = { score, scoreAsync, runProvider, validateManifest, readManifest, provenance, validateProvenance, PINNED_CUA_S1_REVISION };
+module.exports = { score, scoreAsync, runProvider, validateManifest, readManifest, provenance, validateProvenance, decisionPolicy, PINNED_CUA_S1_REVISION };

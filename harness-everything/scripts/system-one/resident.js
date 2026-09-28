@@ -10,7 +10,12 @@ const { spawn } = require('node:child_process');
 const { Worker } = require('node:worker_threads');
 const { validateRequest } = require('./contract');
 
-const ADAPTER = path.join(__dirname, 'cua_adapter.py');
+const ADAPTER_PATTERN = /^[a-z][a-z0-9_-]{0,63}\.py$/;
+const adapterPath = manifest => {
+  const name = manifest.adapter || 'cua_adapter.py';
+  if (!ADAPTER_PATTERN.test(name)) throw new TypeError('invalid-adapter');
+  return path.join(__dirname, name);
+};
 const LOCK_TTL_MS = 60000;
 const CALL_TIMEOUT_MS = 1000;
 const MAX_REPLY_BYTES = 1024 * 1024;
@@ -18,7 +23,7 @@ const unavailable = reason => ({ status: 'unavailable', reason });
 const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const exact = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).length === keys.length && keys.every(k => Object.hasOwn(value, k));
-const defaultCommand = manifest => [manifest.python, [ADAPTER, '--serve']];
+const defaultCommand = manifest => [manifest.python, [adapterPath(manifest), '--serve']];
 
 function stateFiles(manifest, manifestPath) {
   const digest = createHash('sha256').update(JSON.stringify(manifest)).digest('hex').slice(0, 16);
@@ -197,4 +202,4 @@ if (require.main === module) {
   if (op === 'stop') stop(manifest, manifestPath);
   process.stdout.write(`${JSON.stringify(status(manifest, manifestPath))}\n`);
 }
-module.exports = { stateFiles, readState, callSync, callAsync, score, scoreAsync, ensureReady, status, stop, LOCK_TTL_MS, CALL_TIMEOUT_MS };
+module.exports = { stateFiles, readState, callSync, callAsync, score, scoreAsync, ensureReady, status, stop, defaultCommand, LOCK_TTL_MS, CALL_TIMEOUT_MS };

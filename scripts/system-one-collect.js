@@ -176,6 +176,9 @@ function build({ home, appdata, holdoutTexts }) {
     families: new Set(rows.map(r => r.family)).size, zhShare: rows.length ? +(rows.filter(r => /[一-鿿]/.test(r.text)).length / rows.length).toFixed(3) : 0 } };
 }
 
+// Every committed holdout; a training prompt must not near-duplicate any of them.
+const defaultHoldouts = () => ['system-one-holdout.json', 'system-one-intent-holdout.json'].map(f => path.join(REPO, 'benchmarks', 'fixtures', f));
+
 if (require.main === module) {
   const args = process.argv.slice(2);
   const opt = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
@@ -183,8 +186,9 @@ if (require.main === module) {
     const out = path.resolve(opt('--out') || path.join(os.homedir(), '.agents', 'harness-everything', 'system-one', 'training'));
     const rel = path.relative(REPO, out);
     if (!rel.startsWith('..') && !path.isAbsolute(rel)) throw new Error('refusing to write the dataset inside the repository');
-    const holdoutFile = opt('--holdout') || path.join(REPO, 'benchmarks', 'fixtures', 'system-one-holdout.json');
-    const holdoutTexts = JSON.parse(fs.readFileSync(holdoutFile, 'utf8')).cases.map(c => c.request.context);
+    const given = args.flatMap((a, i) => (a === '--holdout' && args[i + 1] ? [args[i + 1]] : []));
+    const holdoutTexts = (given.length ? given : defaultHoldouts())
+      .flatMap(file => JSON.parse(fs.readFileSync(file, 'utf8')).cases.map(c => c.request.context));
     const { rows, stats } = build({ home: opt('--home') || os.homedir(), appdata: opt('--appdata') || process.env.APPDATA || '', holdoutTexts });
     fs.mkdirSync(out, { recursive: true });
     const body = rows.map(r => JSON.stringify(r)).join('\n') + '\n';
@@ -197,4 +201,4 @@ if (require.main === module) {
     process.exitCode = 1;
   }
 }
-module.exports = { readSources, keep, redact, dedupe, leakGuard, jaccard, splitFor, build };
+module.exports = { readSources, keep, redact, dedupe, leakGuard, jaccard, splitFor, build, defaultHoldouts };

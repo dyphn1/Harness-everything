@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "issue": 255,
+  "phase": "1+2 zero-shot baseline",
+  "compared": 537,
+  "teacher": "labels-intent-scores.jsonl",
+  "teacherSha256": "c25c4d9e7ae3f021b66c64b5b0b7dfe7d044539860a7a7efe6be5a91f77b7618",
+  "promptsSha256": "54d1446ddb1e71948e33be86c37147f4668addedaf782bfe6c2754bd7d9e9e4f",
+  "questions": "v1 (12 noul, catalog order)",
+  "provenance": {
+    "torch": {
+      "laya": "0.3.20",
+      "torch": "2.14.0",
+      "transformers": "5.17.0",
+      "python": "3.12.13",
+      "device": "mps",
+      "latencyMs": {
+        "p50": 134.74925002083182,
+        "p95": 428.49976690486073
+      }
+    },
+    "mlx": {
+      "laya-mlx": "0.2.0",
+      "mlx": "0.32.2",
+      "python": "3.12.13",
+      "device": "gpu",
+      "note": "independent third-party port, inference only"
+    },
+    "host": "Mac mini M4, 16GB, macOS 26.6.2"
+  },
+  "candidates": {
+    "labels-intent-laya-zs-torch.jsonl": {
+      "sha256": "79c9e2a87b1186f2707ad2a1861492ffaf8400c1fa3a374ad8d5bc48ecccc83b",
+      "n": 537,
+      "primaryExact": 0.14338919925512103,
+      "gradedMean": 0.26126629422718806,
+      "meanTopScore": 0.7589113594040968,
+      "meanScoreByIntent": {
+        "explain": 0.49797858472998136,
+        "discuss": 0.1724169459962756,
+        "git": 0.22799664804469275,
+        "fix": 0.30267448789571694,
+        "edit": 0.4249581005586592,
+        "feature": 0.4799590316573557,
+        "refactor": 0.503630540037244,
+        "review": 0.3949202979515829,
+        "test": 0.4052284916201117,
+        "docs": 0.2692115456238361,
+        "plan": 0.24817392923649906,
+        "investigate": 0.22743109869646183
+      },
+      "rankCorrByIntent": {
+        "explain": 0.027784640172690576,
+        "discuss": 0.23116435330770707,
+        "git": 0.29041398684548636,
+        "fix": 0.29932632635456186,
+        "edit": 0.2279588743991616,
+        "feature": 0.2573118860847266,
+        "refactor": 0.11193843868650764,
+        "review": 0.08718817389449918,
+        "test": 0.16812905421595062,
+        "docs": 0.0939364567373099,
+        "plan": 0.16190725568849487,
+        "investigate": 0.1642989079441322
+      },
+      "nullRate": 0.035381750465549346,
+      "teacherNullRate": 0.14338919925512103,
+      "slices": {
+        "zh": {
+          "n": 495,
+          "exact": 0.13737373737373737,
+          "graded": 0.25919191919191914
+        },
+        "en": {
+          "n": 42,
+          "exact": 0.21428571428571427,
+          "graded": 0.2857142857142857
+        }
+      },
+      "routing": {
+        "multilingual": 441,
+        "english": 96
+      }
+    },
+    "labels-intent-laya-zs-mlx.jsonl": {
+      "sha256": "bd8488b0436373b16c00067e66b2e583299700e5b622e5cdd8c8983f3b8ab5e4",
+      "n": 537,
+      "primaryExact": 0.148975791433892,
+      "gradedMean": 0.26685288640595906,
+      "meanTopScore": 0.7410662942271881,
+      "meanScoreByIntent": {
+        "explain": 0.31080893854748604,
+        "discuss": 0.16107765363128493,
+        "git": 0.2408,
+        "fix": 0.34066741154562385,
+        "edit": 0.37259962756052145,
+        "feature": 0.453928677839851,
+        "refactor": 0.5032795158286778,
+        "review": 0.416868156424581,
+        "test": 0.38708659217877095,
+        "docs": 0.24436666666666665,
+        "plan": 0.25952569832402234,
+        "investigate": 0.23216275605214154
+      },
+      "rankCorrByIntent": {
+        "explain": 0.15066239073164425,
+        "discuss": 0.17409543733224803,
+        "git": 0.2796312099034226,
+        "fix": 0.2399448780065943,
+        "edit": 0.2460774826207481,
+        "feature": 0.2812117477450446,
+        "refactor": 0.13321742515847998,
+        "review": 0.06277577657598903,
+        "test": 0.13653433833924808,
+        "docs": 0.2028910451790806,
+        "plan": 0.1757922914760996,
+        "investigate": 0.12610523734880044
+      },
+      "nullRate": 0.03910614525139665,
+      "teacherNullRate": 0.14338919925512103,
+      "slices": {
+        "zh": {
+          "n": 495,
+          "exact": 0.14545454545454545,
+          "graded": 0.2660606060606061
+        },
+        "en": {
+          "n": 42,
+          "exact": 0.19047619047619047,
+          "graded": 0.2761904761904762
+        }
+      },
+      "routing": {
+        "english": 300,
+        "multilingual": 237
+      }
+    }
+  },
+  "parity": {
+    "pair": [
+      "labels-intent-laya-zs-torch.jsonl",
+      "labels-intent-laya-zs-mlx.jsonl"
+    ],
+    "n": 537,
+    "routingAgreement": 0.6163873370577281,
+    "derivedGoldAgreement": 0.6312849162011173,
+    "maxAbsDeltaMean": 0.2839195530726257,
+    "maxAbsDeltaP95": 0.9104
+  },
+  "sameRouteParity": {
+    "n": 331,
+    "maxAbsDeltaMean": 0.0055,
+    "maxAbsDeltaP95": 0.0134,
+    "maxAbsDeltaMax": 0.1711,
+    "derivedGoldAgreement": 0.982
+  },
+  "calibrationCV": {
+    "torch": {
+      "exact": 0.194,
+      "graded": 0.236,
+      "mae": 0.1929,
+      "rawMAE": 0.3226,
+      "bestCutoff": "0.20"
+    },
+    "mlx": {
+      "exact": 0.225,
+      "graded": 0.267,
+      "mae": 0.1941,
+      "rawMAE": 0.3036,
+      "bestCutoff": "0.00"
+    }
+  }
+}

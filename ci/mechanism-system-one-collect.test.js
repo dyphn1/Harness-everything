@@ -123,6 +123,22 @@ test('S1-C103 prompts that near-duplicate a holdout prompt are dropped', () => {
   assert.ok(collect.jaccard('abcdef', 'abcdef') === 1 && collect.jaccard('abc', 'xyz') === 0);
 });
 
+test('S1-C107 every holdout guards against leakage: the defaults cover the tier and intent holdouts, and --holdout repeats', () => {
+  assert.deepEqual(collect.defaultHoldouts().map(p => path.relative(root, p).split(path.sep).join('/')),
+    ['benchmarks/fixtures/system-one-holdout.json', 'benchmarks/fixtures/system-one-intent-holdout.json']);
+  const { home, appdata } = fakeHome();
+  const out = path.join(home, 'out');
+  const a = path.join(home, 'a.json'); const b = path.join(home, 'b.json');
+  fs.writeFileSync(a, JSON.stringify({ schemaVersion: 1, cases: [{ request: { context: 'Commit all changes.' } }] }));
+  fs.writeFileSync(b, JSON.stringify({ schemaVersion: 1, cases: [{ request: { context: 'Run npm test and report failures.' } }] }));
+  try {
+    const r = spawnSync(process.execPath, [path.join(root, 'scripts/system-one-collect.js'), '--home', home, '--appdata', appdata, '--out', out, '--holdout', a, '--holdout', b],
+      { encoding: 'utf8', cwd: root });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(JSON.parse(r.stdout).dropped.leak, 2);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
 test('S1-C104 splits are stable per family and near 15% validation', () => {
   assert.equal(collect.splitFor('family-a'), collect.splitFor('family-a'));
   const families = Array.from({ length: 2000 }, (_, i) => `session-${i}`);

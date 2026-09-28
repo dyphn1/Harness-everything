@@ -64,6 +64,31 @@ Keep one short evidence item inline when that reads better; use nested bullets f
 
 This MUST is semantic rather than a hard runtime lock: hosts may observe/remind with different strength, but lack of a blocking hook does not downgrade the contract to optional advice.
 
+### Turn label line
+
+End the final message of **every** turn with one line that rendered Markdown hides. This includes short answers, lookups, and turns that end with a question back to the user; unlike the Harness Status, it is not limited to non-trivial work:
+
+```
+<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier2","intents":["fix","test"],"workflow":"iterative-single","skills":["tdd"]} -->
+```
+
+It states the agent's own judgement after the work, not a copy of the router's suggestion: `validity` (`actionable` or `invalid`), `contextDependent` (the prompt text alone would not have been enough), `tier` under tier rules v2, up to three `intents`, the `workflow` strategy and the `skills` actually used. The observation collector stores it as training data ([system-one-observations.md](system-one-observations.md)). A missing or malformed line is recorded with a reason code; it never blocks a turn or changes routing.
+
+Tier values:
+
+| Tier | Meaning |
+| --- | --- |
+| `tier1` | answer, lookup, status or Git operation; no file change |
+| `tier2` | a bounded file change: code, config or docs |
+| `tier3` | a new feature, a refactor, a redefinition, or cross-component work |
+| `null` | only when `validity` is `invalid` |
+
+The router prints this contract as the **last** section of its output, so it
+is the nearest instruction when the turn ends. In live Claude Code runs the
+label appeared on 1 of 4 turns while it sat inside the Harness Status contract
+(which is scoped to non-trivial work), and on 5 of 6 turns as its own final
+section.
+
 ## Suggested skills vs. selected workflow
 
 These are intentionally different concepts.
