@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.29.0](https://github.com/dyphn1/Harness-everything/compare/v0.28.0...v0.29.0) (2026-09-28)
+
+### Features
+
+* **router:** advisory 85% system one gate and class-balanced training ([15fbfbe](https://github.com/dyphn1/Harness-everything/commit/15fbfbe9b2789a8f148e088629373ac7902e9328)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **router:** label system one prompts with stateless codex calls ([1791fa3](https://github.com/dyphn1/Harness-everything/commit/1791fa35a2de5706d6c7b35b1ac5ec11399d892f)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+* **router:** score system one tiers in process with an ngram model ([a424e71](https://github.com/dyphn1/Harness-everything/commit/a424e71868121bd7f19a27f5ab560ad3d52d5617)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
+### Bug Fixes
+
+* **router:** evaluate the ngram transport by its own latency and provenance ([ad85111](https://github.com/dyphn1/Harness-everything/commit/ad85111a4631d648269066accb1b517de5002b1c)), closes [#233](https://github.com/dyphn1/Harness-everything/issues/233)
+
 ## [0.28.0](https://github.com/dyphn1/Harness-everything/compare/v0.27.0...v0.28.0) (2026-09-27)
 
 ### Features
