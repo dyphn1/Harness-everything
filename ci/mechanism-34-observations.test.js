@@ -500,6 +500,34 @@ test('router/self agreement counts only turns where the router chose a tier', ()
   assert.deepStrictEqual(report.agreement, { routerVsSelfTier: 0.5, routerVsSelfPairs: 2 });
 });
 
+test('label slips seen live: unknown intents dropped, unterminated final line accepted', () => {
+  const unknown = lib.parseLabelLine('ok\n<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier1","intents":["lookup","git"],"workflow":null,"skills":[]} -->');
+  assert.strictEqual(unknown.reason, null);
+  assert.deepStrictEqual(unknown.label.intents, ['git']);
+  assert.deepStrictEqual(unknown.label.unknownIntents, ['lookup']);
+  const open = lib.parseLabelLine('M README.md\n\n<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier1","intents":["git"],"workflow":null,"skills":[]}');
+  assert.strictEqual(open.reason, null, 'a final label line missing its closing --> is accepted');
+  assert.strictEqual(open.label.tier, 'tier1');
+  const middle = lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier1","intents":[],"workflow":null,"skills":[]}\nmore text');
+  assert.strictEqual(middle.label, null, 'an unterminated line is accepted only at the end');
+  assert.strictEqual(lib.parseLabelLine('<!-- harness-label {"v":1,"validity":"actionable","contextDependent":false,"tier":"tier9","intents":[],"workflow":null,"skills":[]} -->').reason, 'label-invalid');
+});
+
+test('Codex router hook returns its contract as JSON additionalContext', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'plugins/harness-everything/hooks/hooks.json'), 'utf8')).hooks;
+  const commands = manifest.UserPromptSubmit.flatMap(g => g.hooks.map(h => h.command));
+  assert(commands.some(c => c.includes('codex-user-prompt.js')), 'the Codex manifest wraps the router');
+  assert(!commands.some(c => c.includes('kernel-router.js')), 'plain router stdout never reaches a Codex model');
+  for (const script of ['hooks/scripts/codex-user-prompt.js', 'plugins/harness-everything/hooks/scripts/codex-user-prompt.js']) {
+    const s = sandbox();
+    const r = spawnSync('node', [path.join(ROOT, script)], { input: JSON.stringify({ session_id: 'cx', turn_id: 't1', hook_event_name: 'UserPromptSubmit', prompt: 'git status', cwd: s.repo }), env: s.env, encoding: 'utf8', timeout: 10000 });
+    assert.strictEqual(r.status, 0, `${script}: ${r.stderr}`);
+    const out = JSON.parse(r.stdout);
+    assert.strictEqual(out.hookSpecificOutput.hookEventName, 'UserPromptSubmit', script);
+    assert(out.hookSpecificOutput.additionalContext.includes('TURN LABEL LINE'), script);
+  }
+});
+
 test('hooks are registered for both hosts and the contract asks for the label line', () => {
   // Claude Code (canonical) has PostToolUseFailure; the Codex plugin manifest has no such event.
   for (const [file, events] of [['hooks/hooks.json', ['UserPromptSubmit', 'PostToolUse', 'PostToolUseFailure', 'Stop']],
