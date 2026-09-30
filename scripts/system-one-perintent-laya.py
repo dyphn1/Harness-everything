@@ -88,6 +88,30 @@ def fit_taus(ids, preds, truth_sets):
     return taus
 
 
+def stage_split(ids, teacher, preds):
+    """Three-stage validation slicing (research protocol, deterministic).
+
+    Confidence comes from the MODEL's top score: stage 1 keeps rows where
+    the model is confident (max >= 0.6) and the teacher marks classifiable.
+    Stage 2 accumulates the remaining classifiable rows class by class in
+    catalog order. Stage 3 (last) adds the unclassifiable (null gold) rows.
+    Returns (confident, [(intent, cumulative_ids)], nulls).
+    """
+    conf_of = {pid: max(preds[pid].values()) for pid in ids}
+    confident = [pid for pid in ids
+                 if teacher[pid]['gold'] is not None and conf_of[pid] >= 0.6]
+    nulls = [pid for pid in ids if teacher[pid]['gold'] is None]
+    rest = [pid for pid in ids if pid not in confident and pid not in nulls]
+    steps = []
+    seen = list(confident)
+    for intent in INTENTS:
+        group = [pid for pid in rest if teacher[pid]['gold'] == intent]
+        if group:
+            seen = seen + group
+            steps.append([intent, list(seen)])
+    return confident, steps, nulls
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--preds', required=True, help='saved predictions json {id: {intent: score}}')
@@ -95,6 +119,7 @@ def main(argv=None):
     parser.add_argument('--band', type=float, default=0.4, help='teacher positive band')
     parser.add_argument('--out', required=True, help='report json path')
     parser.add_argument('--taus', required=True, help='threshold artifact json path')
+    parser.add_argument('--stages', action='store_true', help='add three-stage validation slicing')
     args = parser.parse_args(argv)
     preds = json.loads(Path(args.preds).read_text(encoding='utf-8'))
     teacher = {r['id']: r for r in
@@ -109,11 +134,24 @@ def main(argv=None):
     report = {'n': len(ids), 'band': args.band,
               'cvMicroF1': sum(c['micro']['f1'] for c in cv) / 2,
               'cv': [{'micro': c['micro'], 'abstainRate': c['abstainRate'],
-                      'meanFires': c['meanFires'], 'exactSetMatch': c['exactSetMatch']} for c in cv],
+                       'meanFires': c['meanFires'], 'exactSetMatch': c['exactSetMatch']} for c in cv],
               'inSample': {'micro': in_sample['micro'], 'abstainRate': in_sample['abstainRate'],
                            'meanFires': in_sample['meanFires'], 'meanTruth': in_sample['meanTruth'],
                            'exactSetMatch': in_sample['exactSetMatch'],
                            'perIntent': in_sample['perIntent']}}
+    if args.stages:
+        teacher_rows = {r['id']: r for r in
+                        (json.loads(line) for line in Path(args.teacher).read_text(encoding='utf-8').splitlines()
+                         if line.strip())}
+        confident, steps, nulls = stage_split(ids, teacher_rows, preds)
+        staged = [{'stage': 'confident', 'n': len(confident),
+                   'micro': evaluate(confident, preds, truth_sets, full_taus)['micro'] if confident else None}]
+        for intent, cumulative in steps:
+            staged.append({'stage': f'+{intent}', 'n': len(cumulative),
+                           'micro': evaluate(cumulative, preds, truth_sets, full_taus)['micro']})
+        staged.append({'stage': '+null', 'n': len(ids),
+                       'micro': evaluate(ids, preds, truth_sets, full_taus)['micro']})
+        report['stages'] = staged
     Path(args.out).write_text(json.dumps(report, indent=2), encoding='utf-8')
     Path(args.taus).write_text(json.dumps(
         {'taus': full_taus, 'band': args.band, 'inSample': True,

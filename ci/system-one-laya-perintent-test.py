@@ -56,5 +56,26 @@ class MicroTests(unittest.TestCase):
         self.assertEqual((m['precision'], m['recall'], m['f1']), (0.0, 0.0, 0.0))
 
 
+class StageTests(unittest.TestCase):
+    def teacher(self):
+        return {
+            'a': {'gold': 'fix', 'scores': {'fix': 0.9}},
+            'b': {'gold': 'docs', 'scores': {'docs': 0.5}},
+            'c': {'gold': None, 'scores': {}},
+            'd': {'gold': 'test', 'scores': {'test': 0.7}},
+        }
+
+    def test_confident_classifiable_first_null_last(self):
+        teacher = self.teacher()
+        preds = {'a': {'fix': 0.9}, 'b': {'docs': 0.5}, 'c': {'fix': 0.1}, 'd': {'test': 0.7}}
+        conf, steps, nulls = laya_perintent.stage_split(['a', 'b', 'c', 'd'], teacher, preds)
+        self.assertEqual(conf, ['a', 'd'], 'model max >= 0.6 with a primary')
+        self.assertEqual(nulls, ['c'], 'unclassifiable rows wait for the last stage')
+        self.assertEqual([s[0] for s in steps], ['docs'], 'remaining classes in catalog order')
+        self.assertEqual(steps[0][1], ['a', 'd', 'b'], 'cumulative: confident plus added class')
+        flat = (steps[-1][1] if steps else conf) + nulls
+        self.assertEqual(sorted(flat), ['a', 'b', 'c', 'd'], 'disjoint and complete')
+
+
 if __name__ == '__main__':
     unittest.main()
