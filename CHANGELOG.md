@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.30.2](https://github.com/dyphn1/Harness-everything/compare/v0.30.1...v0.30.2) (2026-10-01)
+
+### Bug Fixes
+
+* **prompts:** remove stale and duplicate guidance ([e8c326b](https://github.com/dyphn1/Harness-everything/commit/e8c326b687e6bac3e8fa3531376ea66371445406))
+
 ## [0.30.1](https://github.com/dyphn1/Harness-everything/compare/v0.30.0...v0.30.1) (2026-10-01)
 
 ### Bug Fixes

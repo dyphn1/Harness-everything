@@ -4,7 +4,7 @@ description: "Run staged fable work on Sonnet for non-trivial implementation, re
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.30.1
+  version: 0.30.2
 ---
 
 # Fable Mode — Sonnet

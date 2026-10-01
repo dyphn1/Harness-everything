@@ -4,7 +4,7 @@ description: "Stage large, multi-source or multi-session tasks through a written
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.30.1
+  version: 0.30.2
 ---
 
 # Fable Mode (v3)
