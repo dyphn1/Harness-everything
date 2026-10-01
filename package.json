@@ -17,7 +17,7 @@
     "repo:contract": "node scripts/repository-contract.js",
     "docs:sync": "node scripts/sync-current-docs.js",
     "test:repo-contract": "node ci/repository-contract.test.js",
-    "test:consistency": "node ci/consistency-check.js && node ci/doc-capability-consistency.test.js && node ci/repository-contract.test.js && node ci/mechanism-2ao-plugin-sync.test.js",
+    "test:consistency": "node ci/consistency-check.js && node ci/doc-capability-consistency.test.js && node ci/repository-contract.test.js && node ci/mechanism-2ao-plugin-sync.test.js && node ci/prompt-contract-regressions.test.js",
     "test:docs:capabilities": "node ci/doc-capability-consistency.test.js",
     "test:references": "node ci/reference-check.js",
     "test:release": "node ci/release-consistency-check.js && node ci/mechanism-2x-release-automation.test.js && node ci/mechanism-2x-release-commit-message.test.js && node ci/mechanism-2ap-sbom.test.js",
