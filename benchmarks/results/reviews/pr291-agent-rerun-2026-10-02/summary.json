@@ -126,13 +126,24 @@
     "fixed": 3553.0,
     "reductionPercent": 37.1
   },
-  "cacheTokens": null,
+  "cacheTokens": {
+    "baseline": 263424.0,
+    "fixed": 235008.0
+  },
   "monetaryCost": null,
   "limitations": [
     "Only two repetitions per arm; no statistical effectiveness claim.",
-    "Native subagents expose no provider token/billing telemetry. File bytes exclude inherited instructions, tool metadata, reasoning and repeated model requests.",
     "The compact reference provides a canonical JSON example; answer improvement is not attributable to routing alone.",
     "Content reads are instrumented via helper; no OS-enforced sandbox or full native session transcript capture.",
-    "Strict canonical-record scoring distinguishes enum values from readable paraphrases; all four answers describe the reasoning profile semantically."
-  ]
+    "Strict canonical-record scoring distinguishes enum values from readable paraphrases; all four answers describe the reasoning profile semantically.",
+    "Complete local rollout token telemetry was found after the initial report; monetaryCost remains null because API/credit equivalents are not a session invoice. The cost audit covers all closed child requests and reports shared parent overhead separately."
+  ],
+  "usageAudit": "usage/audit.json",
+  "apiEquivalentCostUsdStandard": {
+    "baseline": 0.0068099400000000004,
+    "fixed": 0.00447528
+  },
+  "apiEquivalentCostReductionPercent": 34.2831,
+  "actualModelVerifiedInLocalRollouts": "gpt-6-luna",
+  "actualEffortVerifiedInLocalRollouts": "xhigh"
 }

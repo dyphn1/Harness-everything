@@ -1,5 +1,5 @@
 {
-  "README.md": "b9e57592046a5599f1ab718f19907039ba66fab86324661ee846d2a5959c17dc",
+  "README.md": "7ea5de9ab0f12702b6c1cc1873d8853963f4fbb8bdcdc9525b892000edc9c9a5",
   "baseline-r1/answer.json": "dad387e0baf7ce959ed4dc5ff48ae8cfba307570d7d11f080501a33a2710b227",
   "baseline-r1/contract.json": "67913fd0b994d951c39162ad1957395b45ff46c81dbba48f56821a5c73efd941",
   "baseline-r1/ledger.jsonl": "305a88f792f325610825d01efcc5687247c1a342d52280da816d34c7133005d8",
@@ -22,5 +22,8 @@
   "fixed-r2/router.stdout": "497731d47302391dd62f2b38def7454881247420077fd501da8258fde3a4dacc",
   "frozen-inputs.json": "bad7c9c6e6d039c4aa0f76e54f7ac856fda50e1815d300cd93104ef9523fe0de",
   "probe.cjs": "8ad8de0345b38c74126b68e0e2a1c2b236f8cc6665dfe7f61b3c7789a41b17d3",
-  "summary.json": "2c278c906e3fec262cbda9d7429d220b68415232179ac477128a754e47ad5743"
+  "summary.json": "31eddf0d4d8f13e094654d7b1bc8b1c4143ae9e9f827404794c3fd2bc6e65a51",
+  "usage/README.md": "5ca048d7e8d8de43dce62add57f95db169ac8f48c75054bd5c36df253e5a23a8",
+  "usage/audit.json": "1e01e6f0af7fdec2b0cdbaf03c398408fe729be54aa3a7593d86b7b89a5404e9",
+  "usage/audit.py": "f4692579704a63af32c22ded384c81bc513c0744e8a2158e05efae5a64a53e85"
 }
