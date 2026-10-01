@@ -1,6 +1,6 @@
 ---
 name: fable-haiku
-description: "Run staged fable work on Haiku for bulk mechanical tasks with explicit pass conditions, visible fallback handling, and a cold verifier pass."
+description: "Reference mechanical behavior profile (legacy alias haiku) for bulk low-ambiguity work with explicit checks and cold verification; runtime model choice is separate."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -30,9 +30,9 @@ metadata:
 
 ## Run it
 
-1. Resolve `haiku` through `<this-skill-dir>/../scripts/model-selector.js`.
-2. Spawn `fable-worker-haiku` when available; otherwise use an inline fallback only when the audit record says so.
+1. Resolve legacy alias `haiku` to the `mechanical` behavior profile through `<this-skill-dir>/../scripts/model-selector.js`.
+2. Spawn `fable-worker-haiku` when available; otherwise use the explicit inline/stop agent fallback. The runtime-model floor is advisory and never changes the profile.
 3. Brief one bounded output path and a named check; workers do not spawn workers.
 4. Route synthesis blockers to Sonnet/Opus and cold-review unsupervised delivery with `fable-verifier`.
 
-Use `<this-skill-dir>/../references/model-matrix.md` for the audit fields and fallback policy.
+Use `<this-skill-dir>/../references/model-matrix.md` for behavior-profile aliases, runtime floors, audit fields, and fallback policy.

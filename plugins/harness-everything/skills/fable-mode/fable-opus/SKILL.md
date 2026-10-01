@@ -1,6 +1,6 @@
 ---
 name: fable-opus
-description: "Run staged fable orchestration on Opus for cross-stage synthesis, high-stakes architecture, and final decisions with named workers, cold verification, and visible fallback handling."
+description: "Reference orchestrator behavior profile (legacy alias opus) for staged synthesis, architecture, named delegation, and cold verification; runtime model choice is separate."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -30,9 +30,9 @@ metadata:
 
 ## Run it
 
-1. Resolve `opus` through `<this-skill-dir>/../scripts/model-selector.js`.
-2. Spawn `fable-orchestrator` when the runtime exposes it; otherwise report the inline fallback explicitly.
+1. Resolve legacy alias `opus` to the `orchestrator` behavior profile through `<this-skill-dir>/../scripts/model-selector.js`.
+2. Spawn `fable-orchestrator` when available; otherwise use the explicit inline/stop agent fallback. The runtime-model floor is advisory and never changes the profile.
 3. The orchestrator owns scope lock, at most two replans, stage contracts, named worker delegation, and escalation; it never produces artifacts itself.
 4. Cold-review high-stakes deliverables with `fable-verifier`; report every unverified stage.
 
-Use `<this-skill-dir>/../references/model-matrix.md` for the audit fields and fallback policy.
+Use `<this-skill-dir>/../references/model-matrix.md` for behavior-profile aliases, runtime floors, audit fields, and fallback policy.

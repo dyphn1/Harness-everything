@@ -1,6 +1,6 @@
 ---
 name: fable-sonnet
-description: "Run staged fable work on Sonnet for non-trivial implementation, research synthesis, or bounded reasoning with explicit pass conditions and visible fallback handling."
+description: "Reference reasoning behavior profile (legacy alias sonnet/sonnect) for non-trivial implementation, synthesis, and bounded judgment; runtime model choice is separate."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -30,9 +30,9 @@ metadata:
 
 ## Run it
 
-1. Resolve `sonnet` through `<this-skill-dir>/../scripts/model-selector.js`; normalize `sonnect` to Sonnet.
-2. Spawn `fable-worker-sonnet` when available, otherwise use a visible inline fallback.
+1. Resolve `sonnet` or `sonnect` to the `reasoning` behavior profile through `<this-skill-dir>/../scripts/model-selector.js`.
+2. Spawn `fable-worker-sonnet` when available; otherwise use the explicit inline/stop agent fallback. The runtime-model floor is advisory and never changes the profile.
 3. Brief the exact artifact path, context, and pass condition; workers do not spawn workers.
 4. Send high-stakes artifacts to `fable-verifier` and escalate contradictions instead of guessing.
 
-Use `<this-skill-dir>/../references/model-matrix.md` for the audit fields and fallback policy.
+Use `<this-skill-dir>/../references/model-matrix.md` for behavior-profile aliases, runtime floors, audit fields, and fallback policy.
