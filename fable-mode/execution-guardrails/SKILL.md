@@ -1,9 +1,6 @@
 ---
 name: execution-guardrails
-description: >-
-  Reference guardrails for verified warnings, batched minor caveats, and
-  anchored search-and-replace edits. Active carriers must copy or inject
-  these rules explicitly.
+description: "Reference guardrails for verified warnings and safe replacements; active carriers must inject them explicitly."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -11,8 +8,6 @@ metadata:
 ---
 
 # Execution Guardrails
-
-> **Reference-only nested contract.** Claude Code does not discover this directory as a standalone skill from the `fable-mode` manifest entry. These rules take effect only when an active host-visible carrier copies or injects them; Fable agent prompts carry the required rules inline.
 
 **USE FOR**: Raising warnings or flagging problems, search-and-replace/regex file edits, batching minor caveats, reporting capability limits.
 
@@ -42,6 +37,6 @@ metadata:
 
 Repeated matching execution failures remain governed by Rule-of-3 / `zoom-out`; warning batching never substitutes for that recovery path.
 
-These rules are intended for reuse outside `fable-mode`, but this nested file is not an always-on carrier. They apply only where an active host-visible skill, agent prompt, hook, or instruction layer has copied or injected them.
+This nested file is reference-only, not an always-on carrier; rules apply only when an active carrier injects them.
 
 Deep dive: <this-skill-dir>/references/guardrail-rules.md

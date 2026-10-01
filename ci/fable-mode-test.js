@@ -70,7 +70,7 @@ for (const profile of ['fable-opus', 'fable-sonnet', 'fable-haiku']) {
 }
 
 const guardrailSource = fs.readFileSync(path.join(root, 'fable-mode', 'execution-guardrails', 'SKILL.md'), 'utf8');
-assert.match(guardrailSource, /Reference-only nested contract/);
+assert.match(guardrailSource, /reference-only, not an always-on carrier/);
 assert.doesNotMatch(guardrailSource, /These rules are always-on/);
 
 const selected = runNode(selector, selectorArgs());
