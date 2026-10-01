@@ -190,7 +190,7 @@ function evaluateRuntimeFloor(profile, input, floors = loadRuntimeFloors()) {
   if (!runtimeModel) return { host, runtimeModel, runtimeEffort, floor, status: 'unknown', reason: 'runtime model was not reported by the host' };
 
   const lower = runtimeModel.toLowerCase();
-  if (!lower.includes(floor.family)) return { host, runtimeModel, runtimeEffort, floor, status: 'below-recommended', reason: 'runtime model family does not match recommended ' + floor.family };
+  if (!lower.includes(floor.family)) return { host, runtimeModel, runtimeEffort, floor, status: 'unknown', reason: 'runtime model family is not comparable to recommended ' + floor.family };
 
   if (floor.minVersion) {
     const actual = claudeVersion(runtimeModel, floor.family);
@@ -208,6 +208,7 @@ function evaluateRuntimeFloor(profile, input, floors = loadRuntimeFloors()) {
     if (!runtimeEffort) return { host, runtimeModel, runtimeEffort, floor, status: 'unknown', reason: 'runtime reasoning effort was not reported by the host' };
     const actualRank = EFFORT_ORDER.indexOf(runtimeEffort);
     const floorRank = EFFORT_ORDER.indexOf(normalizeEffort(floor.minEffort));
+    if (actualRank < 0 || floorRank < 0) return { host, runtimeModel, runtimeEffort, floor, status: 'unknown', reason: 'runtime effort is not comparable to configured floor' };
     if (actualRank < floorRank) return { host, runtimeModel, runtimeEffort, floor, status: 'below-recommended', reason: 'runtime effort ' + runtimeEffort + ' is below ' + floor.minEffort };
   }
 

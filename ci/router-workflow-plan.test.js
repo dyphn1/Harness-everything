@@ -209,6 +209,13 @@ if (validContract(explicitFable, 'explicit Fable profile')) {
   check(explicitFable.result.stdout.includes('REQUESTED FABLE PROFILE: opus'), 'explicit Fable profile remains visible');
 }
 
+const explicitSonnect = runTier('fable on sonnect for architecture synthesis');
+if (validContract(explicitSonnect, 'explicit Fable sonnect alias')) {
+  check(explicitSonnect.contract.workflowPlan.profileSelection.requested === 'reasoning', 'sonnect normalizes to reasoning profile');
+  check(explicitSonnect.contract.workflowPlan.profileSelection.alias === 'sonnect', 'raw sonnect alias remains auditable end-to-end');
+  check(explicitSonnect.result.stdout.includes('REQUESTED FABLE PROFILE: sonnect'), 'router output preserves raw sonnect alias');
+}
+
 const explicitOverride = runTier('Use iterative-single to audit the entire repository architecture.');
 if (validContract(explicitOverride, 'explicit strategy override')) {
   check(explicitOverride.contract.workflowPlan.strategy === 'iterative-single', 'explicit user strategy overrides derived Tier 3 topology');

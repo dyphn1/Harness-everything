@@ -49,8 +49,7 @@ function matchKeyword(prompt, keyword) {
 function detectFableModel(prompt) {
   const match = prompt.match(/\bfable(?:[- ]mode)?\s+(?:on|with)\s+(haiku|sonnet|sonnect|opus)\b|\bfable-(haiku|sonnet|opus)\b/i);
   if (!match) return null;
-  const requested = (match[1] || match[2]).toLowerCase();
-  return requested === 'sonnect' ? 'sonnet' : requested;
+  return (match[1] || match[2]).toLowerCase();
 }
 
 function detectExplicitStrategy(prompt, requestedFableModel) {

@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const path = require('path');
+const { evaluateRuntimeFloor } = require('../fable-mode/scripts/model-selector.js');
 
 const root = path.resolve(__dirname, '..');
 const selector = path.join(root, 'fable-mode', 'scripts', 'model-selector.js');
@@ -113,6 +114,22 @@ assert.strictEqual(belowFloorRecord.effectiveProfile, 'orchestrator');
 assert.strictEqual(belowFloorRecord.runtimeFloorStatus, 'below-recommended');
 assert.strictEqual(belowFloorRecord.escalationRequired, false);
 
+const unknownFamily = evaluateRuntimeFloor('reasoning', {
+  host: 'codex',
+  runtimeModel: 'vendor-private-model',
+  runtimeEffort: 'xhigh'
+});
+assert.strictEqual(unknownFamily.status, 'unknown');
+assert.match(unknownFamily.reason, /not comparable/);
+
+const unknownEffort = evaluateRuntimeFloor('reasoning', {
+  host: 'codex',
+  runtimeModel: 'gpt-6.1-sol',
+  runtimeEffort: 'custom-effort'
+});
+assert.strictEqual(unknownEffort.status, 'unknown');
+assert.match(unknownEffort.reason, /not comparable/);
+
 const inline = runNode(selector, selectorArgs({
   requested: 'sonnet',
   'available-agents': 'fable-worker-haiku',
@@ -142,7 +159,7 @@ assert.match(missingField.stderr, /passCondition is required/);
 
 const explicitRoute = runNode(router, ['fable on sonnect for architecture synthesis']);
 assert.strictEqual(explicitRoute.status, 0);
-assert.match(explicitRoute.stdout, /REQUESTED FABLE PROFILE: sonnet/);
+assert.match(explicitRoute.stdout, /REQUESTED FABLE PROFILE: sonnect/);
 assert.match(explicitRoute.stdout, /=> ROUTE: fable-mode\/SKILL\.md/);
 assert.doesNotMatch(explicitRoute.stdout, /REQUESTED FABLE MODEL MODE/);
 assert.doesNotMatch(explicitRoute.stdout, /=> ROUTE: fable-mode\/fable-sonnet\/SKILL\.md/);
