@@ -5,7 +5,6 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 
-const MATRIX_PATH = path.join(__dirname, '..', 'model-matrix.json');
 const SESSION_REGISTRY_DIR = 'session-workspaces';
 const SESSION_REGISTRY_VERSION = 1;
 const UNBOUND_WORKSPACE_KEY = 'unbound-workspace';
@@ -136,17 +135,83 @@ function getWorkspaceStateDir(root) {
 }
 const REQUIRED = ['stageBrief', 'passCondition', 'verificationCommand', 'verifierResult'];
 const VALID_VERIFIER_RESULTS = new Set(['pending', 'pass', 'fail', 'not-run', 'blocked']);
+const PROFILE_MATRIX_PATH = path.join(__dirname, '..', 'behavior-profile-matrix.json');
+const RUNTIME_FLOOR_PATH = path.join(__dirname, '..', 'runtime-model-floor-matrix.json');
+const EFFORT_ORDER = ['low', 'medium', 'high', 'xhigh', 'max'];
 
-function loadMatrix() {
-  return JSON.parse(fs.readFileSync(MATRIX_PATH, 'utf8'));
+function loadBehaviorMatrix() {
+  return JSON.parse(fs.readFileSync(PROFILE_MATRIX_PATH, 'utf8'));
 }
 
-function normalizeModel(value, matrix) {
+function loadRuntimeFloors() {
+  return JSON.parse(fs.readFileSync(RUNTIME_FLOOR_PATH, 'utf8'));
+}
+
+function normalizeProfile(value, matrix = loadBehaviorMatrix()) {
   const input = String(value || '').trim().toLowerCase();
-  for (const [model, definition] of Object.entries(matrix.modes)) {
-    if (definition.aliases.includes(input)) return model;
+  for (const [profile, definition] of Object.entries(matrix.profiles)) {
+    if (profile === input || definition.aliases.includes(input)) return { profile, alias: input, definition };
   }
   return null;
+}
+
+function normalizeHost(value) {
+  const input = String(value || '').trim().toLowerCase();
+  if (input === 'claude' || input === 'claude-code' || input === 'claude code') return 'claude';
+  if (input === 'codex' || input === 'openai-codex' || input === 'openai codex') return 'codex';
+  return input || 'unknown';
+}
+
+function normalizeEffort(value) {
+  const input = String(value || '').trim().toLowerCase().replace(/[_ -]/g, '');
+  if (!input) return null;
+  if (input === 'extrahigh' || input === 'xhigh') return 'xhigh';
+  return input;
+}
+
+function claudeVersion(model, family) {
+  const text = String(model || '').toLowerCase();
+  const match = text.match(new RegExp(family + '[^0-9]*(\\d+)(?:[.-](\\d+))?'));
+  if (!match) return null;
+  return Number(match[1] + '.' + (match[2] || '0'));
+}
+
+function codexGeneration(model) {
+  const match = String(model || '').toLowerCase().match(/\bgpt-(\d+(?:\.\d+)?)/);
+  return match ? Number(match[1]) : null;
+}
+
+function evaluateRuntimeFloor(profile, input, floors = loadRuntimeFloors()) {
+  const host = normalizeHost(input.host);
+  const floor = floors.hosts[host] && floors.hosts[host][profile] ? floors.hosts[host][profile] : null;
+  const runtimeModel = String(input.runtimeModel || input.hostModel || '').trim() || null;
+  const runtimeEffort = normalizeEffort(input.runtimeEffort || input.effort);
+  if (!floor) return { host, runtimeModel, runtimeEffort, floor: null, status: 'not-configured', reason: 'no runtime floor configured for host ' + host };
+  if (!runtimeModel) return { host, runtimeModel, runtimeEffort, floor, status: 'unknown', reason: 'runtime model was not reported by the host' };
+
+  const lower = runtimeModel.toLowerCase();
+  if (!lower.includes(floor.family)) return { host, runtimeModel, runtimeEffort, floor, status: 'below-recommended', reason: 'runtime model family does not match recommended ' + floor.family };
+
+  if (floor.minVersion) {
+    const actual = claudeVersion(runtimeModel, floor.family);
+    if (actual === null) return { host, runtimeModel, runtimeEffort, floor, status: 'unknown', reason: 'runtime model version could not be parsed' };
+    if (actual < Number(floor.minVersion)) return { host, runtimeModel, runtimeEffort, floor, status: 'below-recommended', reason: 'runtime model version ' + actual + ' is below ' + floor.minVersion };
+  }
+
+  if (floor.minGeneration) {
+    const actual = codexGeneration(runtimeModel);
+    if (actual === null) return { host, runtimeModel, runtimeEffort, floor, status: 'unknown', reason: 'runtime model generation could not be parsed' };
+    if (actual < Number(floor.minGeneration)) return { host, runtimeModel, runtimeEffort, floor, status: 'below-recommended', reason: 'runtime model generation ' + actual + ' is below ' + floor.minGeneration };
+  }
+
+  if (floor.minEffort) {
+    if (!runtimeEffort) return { host, runtimeModel, runtimeEffort, floor, status: 'unknown', reason: 'runtime reasoning effort was not reported by the host' };
+    const actualRank = EFFORT_ORDER.indexOf(runtimeEffort);
+    const floorRank = EFFORT_ORDER.indexOf(normalizeEffort(floor.minEffort));
+    if (actualRank < floorRank) return { host, runtimeModel, runtimeEffort, floor, status: 'below-recommended', reason: 'runtime effort ' + runtimeEffort + ' is below ' + floor.minEffort };
+  }
+
+  return { host, runtimeModel, runtimeEffort, floor, status: 'meets-recommended', reason: 'runtime meets the configured advisory floor' };
 }
 
 function parseArgs(argv) {
@@ -154,71 +219,55 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === '--help' || token === '-h') return { help: true };
-    if (!token.startsWith('--')) throw new Error(`unknown argument: ${token}`);
+    if (!token.startsWith('--')) throw new Error('unknown argument: ' + token);
     const key = token.slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
     const value = argv[i + 1];
-    if (typeof value === 'undefined' || value.startsWith('--')) throw new Error(`missing value for --${key}`);
+    if (typeof value === 'undefined' || value.startsWith('--')) throw new Error('missing value for --' + key);
     args[key] = value;
     i += 1;
   }
   return args;
 }
 
-function resolveMode(input, matrix = loadMatrix()) {
-  const requestedModel = normalizeModel(input.requested, matrix);
-  if (!requestedModel) throw new Error('requested model must be one of haiku, sonnet, sonnect, or opus');
+function resolveMode(input, matrix = loadBehaviorMatrix(), floors = loadRuntimeFloors()) {
+  const normalized = normalizeProfile(input.requested, matrix);
+  if (!normalized) throw new Error('requested profile must be one of mechanical, reasoning, orchestrator, haiku, sonnet, sonnect, or opus');
 
-  const availableModels = String(input.available || '')
-    .split(/[\s,]+/)
-    .map(model => normalizeModel(model, matrix))
-    .filter(Boolean);
-  const availableAgents = String(input.availableAgents || '')
-    .split(/[\s,]+/)
-    .map(agent => agent.trim())
-    .filter(Boolean);
+  const availableAgents = String(input.availableAgents || '').split(/[\s,]+/).map(agent => agent.trim()).filter(Boolean);
   const fallback = input.fallback || 'stop';
-  if (!Object.prototype.hasOwnProperty.call(matrix.fallbacks, fallback)) {
-    throw new Error('fallback must be inline or stop');
-  }
-
+  if (!['inline', 'stop'].includes(fallback)) throw new Error('fallback must be inline or stop');
   for (const field of REQUIRED) {
-    if (!String(input[field] || '').trim()) throw new Error(`${field} is required for an auditable stage`);
+    if (!String(input[field] || '').trim()) throw new Error(field + ' is required for an auditable stage');
   }
-  if (!VALID_VERIFIER_RESULTS.has(input.verifierResult)) {
-    throw new Error(`verifierResult must be one of ${[...VALID_VERIFIER_RESULTS].join(', ')}`);
-  }
+  if (!VALID_VERIFIER_RESULTS.has(input.verifierResult)) throw new Error('verifierResult must be one of ' + [...VALID_VERIFIER_RESULTS].join(', '));
 
-  const requestedAgent = matrix.modes[requestedModel].agent;
-  const modelAvailable = availableModels.includes(requestedModel);
+  const requestedProfile = normalized.profile;
+  const requestedAgent = normalized.definition.agent;
   const agentAvailable = availableAgents.includes(requestedAgent);
-  const selected = modelAvailable && agentAvailable;
-  const hostModel = String(input.hostModel || 'current-host').trim();
-  const fallbackDefinition = matrix.fallbacks[fallback];
-  const status = selected ? 'selected' : fallbackDefinition.status;
-  const effectiveModel = selected
-    ? requestedModel
-    : fallback === 'inline'
-      ? hostModel
-      : fallbackDefinition.effectiveModel;
-  const missing = [];
-  if (!modelAvailable) missing.push(`${requestedModel} is not in availableModels`);
-  if (!agentAvailable) missing.push(`${requestedAgent} is not in availableAgents`);
-  const fallbackReason = selected
-    ? 'none'
-    : `${fallbackDefinition.reason}: ${missing.join('; ')}`;
+  const status = agentAvailable ? 'selected' : fallback === 'inline' ? 'fallback' : 'blocked';
+  const runtime = evaluateRuntimeFloor(requestedProfile, input, floors);
+  const fallbackReason = agentAvailable ? 'none' : fallback === 'inline'
+    ? requestedAgent + ' is not in availableAgents; execute the same ' + requestedProfile + ' behavior profile inline'
+    : requestedAgent + ' is not in availableAgents and inline fallback was not authorized';
 
   return {
     schemaVersion: matrix.schemaVersion,
     status,
-    requestedModel,
+    requestedProfile,
+    effectiveProfile: status === 'blocked' ? null : requestedProfile,
+    profileAlias: normalized.alias,
     requestedInput: String(input.requested).trim(),
-    effectiveModel,
-    availableModels: [...new Set(availableModels)],
+    assignedRole: normalized.definition.role,
+    agent: agentAvailable ? requestedAgent : null,
     availableAgents: [...new Set(availableAgents)],
     fallbackPolicy: fallback,
     fallbackReason,
-    agent: selected ? requestedAgent : null,
-    modelRole: matrix.modes[requestedModel].role,
+    host: runtime.host,
+    runtimeModel: runtime.runtimeModel,
+    runtimeEffort: runtime.runtimeEffort,
+    recommendedRuntimeFloor: runtime.floor,
+    runtimeFloorStatus: runtime.status,
+    runtimeFloorReason: runtime.reason,
     stageBrief: String(input.stageBrief).trim(),
     passCondition: String(input.passCondition).trim(),
     verificationCommand: String(input.verificationCommand).trim(),
@@ -228,33 +277,29 @@ function resolveMode(input, matrix = loadMatrix()) {
 }
 
 function printHelp() {
-  console.log('Usage: node fable-mode/scripts/model-selector.js --requested <haiku|sonnet|sonnect|opus> --available <models> --available-agents <agent names> --stage-brief <text> --pass-condition <text> --verification-command <command> --verifier-result <pending|pass|fail|not-run|blocked> [--fallback <inline|stop>] [--host-model <model>] [--audit-file <path>]');
+  console.log('Usage: node fable-mode/scripts/model-selector.js --requested <mechanical|reasoning|orchestrator|haiku|sonnet|sonnect|opus> --available-agents <agent names> --stage-brief <text> --pass-condition <text> --verification-command <command> --verifier-result <pending|pass|fail|not-run|blocked> [--host <claude|codex>] [--runtime-model <model>] [--runtime-effort <effort>] [--fallback <inline|stop>] [--audit-file <path>]');
 }
 
 function appendAuditRecord(record, auditFile, context) {
-  const target = auditFile || process.env.FABLE_AUDIT_FILE ||
-    path.join(getWorkspaceStateDir(getWorkspaceRoot(context)), 'state', 'fable-mode', 'audit.jsonl');
+  const target = auditFile || process.env.FABLE_AUDIT_FILE || path.join(getWorkspaceStateDir(getWorkspaceRoot(context)), 'state', 'fable-mode', 'audit.jsonl');
   fs.mkdirSync(path.dirname(path.resolve(target)), { recursive: true });
-  fs.appendFileSync(target, `${JSON.stringify(record)}\n`, 'utf8');
+  fs.appendFileSync(target, JSON.stringify(record) + '\n', 'utf8');
 }
 
 function main(argv = process.argv.slice(2)) {
   try {
     const input = parseArgs(argv);
-    if (input.help) {
-      printHelp();
-      return 0;
-    }
+    if (input.help) { printHelp(); return 0; }
     const record = resolveMode(input);
     appendAuditRecord(record, input.auditFile, input);
     console.log(JSON.stringify(record, null, 2));
     return record.status === 'blocked' ? 2 : 0;
   } catch (error) {
-    console.error(`[fable-mode/model-selector] ${error.message}`);
+    console.error('[fable-mode/model-selector] ' + error.message);
     return 2;
   }
 }
 
 if (require.main === module) process.exitCode = main();
 
-module.exports = { loadMatrix, normalizeModel, parseArgs, resolveMode, main };
+module.exports = { loadBehaviorMatrix, loadMatrix: loadBehaviorMatrix, loadRuntimeFloors, normalizeProfile, normalizeModel: normalizeProfile, parseArgs, evaluateRuntimeFloor, resolveMode, main };
