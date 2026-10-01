@@ -38,7 +38,8 @@ graph LR
 
 ```mermaid
 graph LR
-  CreatorSkill2["skill-creator / SKILL.md"] -->|Defines isolated A/B lanes and evidence| EvalLanes["Control: without candidate skill / Treatment: with candidate skill"]\n  EvalLanes --> RouterExec["Router/host selects execution topology"]
+  CreatorSkill2["skill-creator / SKILL.md"] -->|Defines isolated A/B lanes and evidence| EvalLanes["Control: without candidate skill / Treatment: with candidate skill"]
+  EvalLanes --> RouterExec["Router/host selects execution topology"]
   NonSkillDocs["Non-skill project docs"] -->|Use instead| RepoDocs["repo-docs or to-spec"]
   ThirdParty["Third-party skill discovery"] -->|Use instead| FindSkills["find-skills"]
   StyleOnly["Code style outside SKILL.md files"] -->|Out of scope| NotCreator["Not skill-creator"]
