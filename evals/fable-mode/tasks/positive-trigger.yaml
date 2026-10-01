@@ -1,6 +1,6 @@
 id: positive-fable-mode-001
 name: On-scope prompt triggers fable-mode
-description: "Stage large, multi-source or multi-session tasks through a written plan, named fable agents, failable per-stage checks, and skeptical delivery review; use fable-opus, fable-sonnet, or fable-haiku for explicit model selection."
+description: "Stage large tasks through plans, named fable agents, failable checks, and skeptical review; fable on opus|sonnet|haiku selects a behavior profile, not a runtime model."
 tags:
   - positive-trigger
 inputs:

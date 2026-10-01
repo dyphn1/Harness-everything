@@ -36,18 +36,19 @@ stateDiagram-v2
   Recorded --> [*]
 ```
 
-The stage record preserves the requested/effective model, fallback reason, stage brief, artifact, pass condition, verification command, and verifier result.
+The stage record preserves requested/effective behavior profile, profile alias, runtime model/effort when known, runtime-floor status, fallback reason, stage brief, artifact, pass condition, verification command, and verifier result.
 
-## 3. Model Selection and Delegation
+## 3. Behavior Profile and Runtime Recommendation
 
-Explicit model requests are resolved through `model-selector.js`. Fable never silently downgrades a requested model.
+Explicit `haiku`/`sonnet`/`sonnect`/`opus` requests are behavior-profile aliases resolved through `model-selector.js`; they do not pin the host runtime model. Host-specific model floors are advisory and visible.
 
 ```mermaid
 flowchart LR
-  Requested[Requested model] --> Selector[model-selector.js]
-  Selector -->|Available| Named[Named fable agent]
-  Selector -->|Fallback allowed| Fallback[Recorded fallback]
-  Selector -->|No valid fallback| Blocked[Escalate blocked stage]
+  Requested[Requested profile / legacy alias] --> Selector[model-selector.js]
+  Selector --> Role[Named Fable role]
+  Role --> Runtime[Host runtime + advisory model floor]
+  Runtime -->|Meets / below / unknown| Execute[Execute same behavior profile]
+  Role -->|Named agent unavailable| Fallback[Inline or stop fallback]
   Named --> Stage[Bounded stage brief]
   Fallback --> Stage
   Stage --> Verify[Named stage check]
@@ -56,7 +57,7 @@ flowchart LR
   Cold --> Record
 ```
 
-The intended role split is explicit rather than magical: Opus is suitable for orchestration, Sonnet for reasoning-heavy stage work, and Haiku for bounded mechanical work. Workers do not spawn workers.
+The role split is explicit: `opus` aliases the orchestrator profile, `sonnet` aliases reasoning, and `haiku` aliases mechanical work. These names describe Fable behavior; actual Claude/Codex model choice is a separate host concern. Workers do not spawn workers.
 
 ## 4. Scope and Context Discipline
 
@@ -89,4 +90,4 @@ At most two full replans are allowed before unresolved blockers are escalated ra
 
 Fable completion means the planned stages have produced their artifacts, their checks have passed, and high-risk outputs have received skeptical review where required. It does not mean every possible companion skill was invoked.
 
-The canonical executable and policy details live in `fable-mode/SKILL.md`, `fable-mode/model-matrix.json`, `fable-mode/scripts/model-selector.js`, and `fable-mode/references/model-matrix.md`.
+The canonical executable and policy details live in `fable-mode/SKILL.md`, `fable-mode/behavior-profile-matrix.json`, `fable-mode/runtime-model-floor-matrix.json`, `fable-mode/scripts/model-selector.js`, and `fable-mode/references/model-matrix.md`.

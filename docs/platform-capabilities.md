@@ -38,6 +38,12 @@ This is a **repository/agent contract**, not an automatic upgrade to any platfor
 
 The full ten-dimension entries and official source URLs are in [platform-compatibility.json](platform-compatibility.json). “Supported” in the standalone-skills column refers to the host’s documented skill surface plus the repository’s verified path contract; it does not mean that a live Harness session was run on every platform.
 
+### Claude Code Fable entrypoint boundary
+
+The Claude plugin registers `./fable-mode` as the public Fable skill. The nested `fable-opus`, `fable-sonnet`, `fable-haiku`, and `execution-guardrails` directories are reference contracts inside that skill tree; they are not independently registered or host-routable Claude skills. The legacy prompts `fable on opus`, `fable on sonnet`/`sonnect`, and `fable on haiku` select Fable behavior profiles (orchestrator/reasoning/mechanical), not branded runtime models. `model-selector.js` records the profile and separately evaluates the host-specific advisory runtime floor; a below-floor or unknown runtime does not block Fable by itself.
+
+The nested execution-guardrails file is also not an always-on carrier. Fable agents that need those rules carry them inline; any non-Fable surface must load, copy, or inject the rules through a carrier the host actually executes before claiming that they apply there.
+
 ## Installer target contract
 
 The general installer’s target paths are tested independently from host discovery. This prevents a successful file copy from being reported as proof that an agent will load the file.
