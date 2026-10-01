@@ -22,7 +22,7 @@ for (const [canonical, packaged] of workerPairs) {
   assert.strictEqual(read(packaged), body, canonical + ' packaged mirror must match');
 }
 assert.ok(/named check is not optional/i.test(read(workerPairs[0][0])), 'Haiku worker keeps the verification behavior');
-assert.ok(/A check you did not run did not pass/i.test(read(workerPairs[1][0])), 'Sonnet worker keeps the verification behavior');
+assert.ok(/A check\s+you did not run did not pass/i.test(read(workerPairs[1][0])), 'Sonnet worker keeps the verification behavior');
 
 // #270: skill-style requires the elements, not one global physical order.
 const skillStyle = read('skill-style/SKILL.md');
