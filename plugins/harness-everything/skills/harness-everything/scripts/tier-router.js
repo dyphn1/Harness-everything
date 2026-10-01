@@ -334,9 +334,9 @@ function run(userPrompt, context, options = {}) {
 
   const requestedFableModel = detectFableModel(promptLower);
   if (requestedFableModel) {
-    console.log(`\n=> REQUESTED FABLE MODEL MODE: ${requestedFableModel}`);
+    console.log(`\n=> REQUESTED FABLE PROFILE: ${requestedFableModel}`);
     console.log(`=> ROUTE: fable-mode/SKILL.md`);
-    console.log(`   Model selection: ${requestedFableModel}; resolve availability and record fallback status with fable-mode/scripts/model-selector.js.`);
+    console.log(`   Profile alias: ${requestedFableModel}; resolve behavior role plus advisory host runtime floor with fable-mode/scripts/model-selector.js.`);
   }
 
   const allRecommendedGuides = [];

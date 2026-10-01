@@ -56,10 +56,11 @@
     },
     "explicitRequest": {
       "type": "object",
-      "required": ["fableModel", "strategy", "prohibitions"],
+      "required": ["fableProfile", "fableAlias", "strategy", "prohibitions"],
       "additionalProperties": false,
       "properties": {
-        "fableModel": { "enum": ["haiku", "sonnet", "opus", null] },
+        "fableProfile": { "enum": ["mechanical", "reasoning", "orchestrator", null] },
+        "fableAlias": { "enum": ["mechanical", "reasoning", "orchestrator", "haiku", "sonnet", "sonnect", "opus", null] },
         "strategy": {
           "enum": ["direct-single", "iterative-single", "fable-staged", "fable-parallel", "fable-multi-agent-workspace", null]
         },

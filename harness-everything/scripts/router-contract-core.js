@@ -59,13 +59,23 @@ function normalizeConstraints(raw = {}) {
   };
 }
 
+function normalizeFableProfile(value) {
+  const input = String(value || '').trim().toLowerCase();
+  if (input === 'mechanical' || input === 'haiku') return { profile: 'mechanical', alias: input };
+  if (input === 'reasoning' || input === 'sonnet' || input === 'sonnect') return { profile: 'reasoning', alias: input };
+  if (input === 'orchestrator' || input === 'opus') return { profile: 'orchestrator', alias: input };
+  return { profile: null, alias: null };
+}
+
 function normalizeExplicitRequest(raw = {}) {
   const requestedStrategy = STRATEGIES.has(raw.strategy) ? raw.strategy : null;
   const prohibitions = Array.isArray(raw.prohibitions)
     ? raw.prohibitions.filter(value => PROHIBITIONS.has(value))
     : [];
+  const fable = normalizeFableProfile(raw.fableProfile || raw.fableModel);
   return {
-    fableModel: ['haiku', 'sonnet', 'opus'].includes(raw.fableModel) ? raw.fableModel : null,
+    fableProfile: fable.profile,
+    fableAlias: fable.alias,
     strategy: requestedStrategy,
     prohibitions: Array.from(new Set(prohibitions)),
   };
@@ -77,7 +87,7 @@ function buildTaskShape(input = {}) {
   const hostCapabilities = normalizeHostCapabilities(input.hostCapabilities);
   const constraints = normalizeConstraints(input.constraints);
   const explicitRequest = normalizeExplicitRequest(input.explicitRequest || {
-    fableModel: input.requestedFableModel,
+    fableProfile: input.requestedFableProfile || input.requestedFableModel,
   });
 
   let scopeSize = 'unknown';
@@ -299,11 +309,6 @@ function selectWorkflowStrategy(input = {}) {
       fallback.reasonCodes.push(prohibitions.includes('subagents') ? 'user-prohibited-subagents' : 'subagents-unavailable');
     }
 
-    if (explicit.fableModel && taskShape.hostCapabilities.modelAvailability === 'unavailable') {
-      fallback.disposition = 'blocked';
-      fallback.mode = 'blocked';
-      fallback.reasonCodes.push('requested-model-capability-unavailable');
-    }
   }
 
   return {
@@ -494,9 +499,10 @@ function buildWorkflowPlan(input = {}) {
       independent: meta.verificationIndependent,
     },
     ensemble: null,
-    modelSelection: {
-      requested: taskShape.explicitRequest.fableModel,
-      policy: 'defer-to-fable-selector',
+    profileSelection: {
+      requested: taskShape.explicitRequest.fableProfile,
+      alias: taskShape.explicitRequest.fableAlias,
+      policy: 'behavior-profile-with-advisory-runtime-floor',
     },
     fallback,
     reasonCodes,
@@ -507,7 +513,7 @@ function buildRouterContract(input = {}) {
   const tier = normalizeTierLabel(input.recommendedTier);
   const reasonCodes = uniqueReasonCodes(input.reasonCodes);
   const explicitRequest = normalizeExplicitRequest(input.explicitRequest || {
-    fableModel: input.requestedFableModel,
+    fableProfile: input.requestedFableProfile || input.requestedFableModel,
   });
   const taskShape = buildTaskShape({
     tier,
@@ -546,7 +552,7 @@ function createDegradedRouterContract(reasonCode, message) {
     rationale: message || 'Structured router contract unavailable.',
     reasonCodes: [reasonCode || 'router-contract-unavailable'],
     signals: {},
-    requestedFableModel: null,
+    requestedFableProfile: null,
   });
 }
 
@@ -624,6 +630,7 @@ module.exports = {
   createDegradedRouterContract,
   normalizeConstraints,
   normalizeExplicitRequest,
+  normalizeFableProfile,
   normalizeHostCapabilities,
   normalizeTierLabel,
   selectWorkflowStrategy,

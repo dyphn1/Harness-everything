@@ -68,7 +68,7 @@ The Phase 2 `iterative-single` plan exposes **8 iterations** as advisory plannin
 The task-shape contract records:
 
 - an explicit requested strategy, when named;
-- an explicit Fable model request, still delegated to `fable-mode/scripts/model-selector.js`;
+- an explicit Fable behavior-profile request; legacy aliases `haiku`/`sonnet`/`opus` are delegated to `fable-mode/scripts/model-selector.js`;
 - prohibitions such as no Fable, no subagents, no parallel execution, or no workspace.
 
 Explicit choices override derived topology. Contradictory choice + prohibition is visible as a blocked fallback rather than silently guessing which instruction to ignore.
@@ -82,7 +82,7 @@ Examples:
 - missing parallel calls or `concurrency: 1` serializes `fable-parallel` to `fable-staged` with a `reduced/serialized` fallback;
 - unavailable subagents may reduce staged execution to visible inline execution;
 - missing durable state for a required multi-agent workspace is `blocked`, not silently downgraded;
-- a requested Fable model with known unavailable model capability is `blocked`; the router never substitutes another branded model;
+- Fable profile choice is independent of runtime-model availability; host-specific model floors are advisory and recorded by Fable rather than blocking routing;
 - a required `actionGate` with known unavailable hook capability is `blocked`.
 
 Fallbacks carry deterministic reason codes.
