@@ -26,17 +26,21 @@ attempted and where it failed — not a vague appeal to difficulty.
 
 ## 2. Warning threshold
 
-Across any run, minor concerns accumulate that aren't worth halting on individually.
-Keep a running count. At the threshold — **default three, tunable if the user sets a
-different number** — stop and surface all of them to the user at once before continuing.
+Across any run, minor concerns accumulate that are not worth interrupting execution
+for individually. Keep a running count. At the threshold — **default three, tunable if
+the user sets a different number** — batch them for the next natural report or handoff.
+The threshold changes presentation only: it MUST NOT stop, pause, return, or otherwise
+end a worker/stage by count alone.
 
-Rationale: three small things pointing the same direction usually mean one real problem
-worth a decision. Below threshold, keep working; a drip of trivial caveats is noise.
-At threshold, batch them — one interruption with full context beats three fragmentary
-ones.
+Rationale: three small things pointing the same direction are easier to evaluate as one
+batch. Below threshold, keep working; a drip of trivial caveats is noise. At threshold,
+keep working and preserve the batch for the report instead of creating a second circuit
+breaker.
 
 A concern that independently meets the verify-before-flag bar and is material on its own
-does not wait for the threshold. The threshold governs minor concerns only.
+may stop the current stage and be surfaced immediately. Repeated matching execution
+failures are governed separately by Rule-of-3 -> zoom-out -> RESUME/ESCALATE. The
+warning threshold governs minor-concern reporting only.
 
 ## 3. Find-and-replace safety
 

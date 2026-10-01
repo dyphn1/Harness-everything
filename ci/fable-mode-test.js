@@ -107,6 +107,22 @@ assert.match(ordinaryTier2.stdout, /RECOMMENDED TIER: Tier 2/);
 assert.doesNotMatch(ordinaryTier2.stdout, /REQUESTED FABLE MODEL MODE/);
 assert.doesNotMatch(ordinaryTier2.stdout, /fable-opus\/SKILL\.md/);
 
+const warningBatchContract = '**Warning batching.** Collect minor concerns and list them together in the next natural report or handoff; their count alone MUST NOT stop, pause, or return the worker/stage. An independently material, confirmed concern may stop the current stage and be surfaced immediately.';
+for (const rel of [
+  'fable-mode/agents/fable-worker-haiku.md',
+  'fable-mode/agents/fable-worker-sonnet.md',
+  'fable-mode/agents/fable-orchestrator.md',
+  'fable-mode/execution-guardrails/SKILL.md',
+]) {
+  const prompt = fs.readFileSync(path.join(root, rel), 'utf8').replace(/\s+/g, ' ');
+  assert.ok(prompt.includes(warningBatchContract), `${rel} must keep minor-concern batching reporting-only`);
+  assert.doesNotMatch(
+    prompt,
+    /minor concerns.{0,200}stop and surface all at once before continuing/i,
+    `${rel} must not introduce a warning-count stop condition`
+  );
+}
+
 const auditLines = fs.readFileSync(auditFile, 'utf8').trim().split(/\r?\n/).filter(Boolean);
 assert.strictEqual(auditLines.length, 5);
 for (const line of auditLines) {

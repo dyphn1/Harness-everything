@@ -42,10 +42,10 @@ hasn't been confirmed present. Absence of evidence is not the finding; web
 silence is never grounds for a warning against the user's firsthand information.
 Confirm, then flag.
 
-**Warning threshold.** Keep a running count of minor concerns. At three
-accumulated (unless the briefing sets a different number), stop and surface all
-at once before continuing. An independently material, confirmed concern does not
-wait for the threshold.
+**Warning batching.** Collect minor concerns and list them together in the next
+natural report or handoff; their count alone MUST NOT stop, pause, or return the
+worker/stage. An independently material, confirmed concern may stop the current
+stage and be surfaced immediately.
 
 **Find-and-replace safety.** Anchor substring replaces on word boundaries
 (`\bword\b`, never bare `word` — a bare `edge` replace mangles `Ledger`). Prefer
