@@ -125,6 +125,14 @@ if (validContract(controlledAb, 'controlled A/B benchmark')) {
   check(controlledAb.contract.workflowPlan.reasonCodes.includes('macro-scope-signal'), 'structured A/B benchmark keeps macro-scope-signal');
 }
 
+const tier3Keyword = runTier('Create a new feature');
+if (validContract(tier3Keyword, 'Tier 3 keyword rationale')) {
+  check(tier3Keyword.contract.classification.tier === 'tier3', 'new feature remains Tier 3');
+  check(tier3Keyword.contract.workflowPlan.reasonCodes.includes('tier3-keyword'), 'new feature records tier3-keyword');
+  check(/Tier 3 keyword/i.test(tier3Keyword.contract.classification.rationale), 'Tier 3 keyword rationale names the actual trigger class');
+  check(!/repository-wide scope|structured comparative experiment/i.test(tier3Keyword.contract.classification.rationale), 'Tier 3 keyword rationale does not claim unrelated macro signals');
+}
+
 const staged = runTier('Refactor the entire authentication architecture in dependent stages.');
 if (validContract(staged, 'fable-staged')) {
   const plan = staged.contract.workflowPlan;
