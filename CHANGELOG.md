@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.30.3](https://github.com/dyphn1/Harness-everything/compare/v0.30.2...v0.30.3) (2026-10-01)
+
+### Bug Fixes
+
+* **router:** preserve structured A/B macro routing ([7184ec5](https://github.com/dyphn1/Harness-everything/commit/7184ec5742d12bca8abc3ce938ee9b1c3720da67))
+* **router:** report actual Tier 3 trigger rationale ([d361704](https://github.com/dyphn1/Harness-everything/commit/d361704a4bfdf6c42c93c7f7a9e6c1bad2c34ff7))
+* **router:** stop treating audit verbs as macro scope ([9e79e3b](https://github.com/dyphn1/Harness-everything/commit/9e79e3be00b446dba8082d06360c3c7ea0dcf2ae))
+* **rule-of-3:** align architecture failure threshold ([bc807a2](https://github.com/dyphn1/Harness-everything/commit/bc807a21466f299147378aec7f37ea7b3c56c42b))
+
 ## [0.30.2](https://github.com/dyphn1/Harness-everything/compare/v0.30.1...v0.30.2) (2026-10-01)
 
 ### Bug Fixes
