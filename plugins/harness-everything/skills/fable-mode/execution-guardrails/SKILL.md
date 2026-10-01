@@ -17,7 +17,7 @@ metadata:
 | Component | Spec |
 | :--- | :--- |
 | **Trigger / Input** | Turn raising a warning or performing search-and-replace edits. |
-| **Expected Output** | Verified warnings; batched caveats (3-item threshold); corruption-checked edits. |
+| **Expected Output** | Verified warnings; batched caveats without count-based stops; corruption-checked edits. |
 | **State Mutations** | None — governs execution quality for file-editing turns. |
 | **Enforcement Gate** | Verify before flagging; validate edits post-write. |
 
@@ -35,9 +35,9 @@ metadata:
 ## Core Rules
 
 1. **Verify before flag** — Confirm a problem exists before reporting it. Never convert absence of evidence into a warning.
-2. **Warning threshold** — Batch minor concerns; surface them together at three (default). Material concerns do not wait.
+2. **Warning batching.** Collect minor concerns and list them together in the next natural report or handoff; their count alone MUST NOT stop, pause, or return the worker/stage. An independently material, confirmed concern may stop the current stage and be surfaced immediately.
 3. **Find-and-replace safety** — Prefer structured edit tools over shell `sed`; anchor with unique context or `\bword\b` boundaries; verify file integrity post-edit. Never replace-all blindly.
 
-These rules are always-on, even when `fable-mode`'s staged loop is not running.
+Repeated matching execution failures remain governed by Rule-of-3 / `zoom-out`; warning batching never substitutes for that recovery path.\n\nThese rules are always-on, even when `fable-mode`'s staged loop is not running.
 
 Deep dive: <this-skill-dir>/references/guardrail-rules.md
