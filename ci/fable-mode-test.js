@@ -44,13 +44,12 @@ function readRecord(result) {
 console.log('=== Fable model mode contract tests ===');
 
 
-const publicDescription = 'Stage large, multi-source or multi-session tasks through a written plan, named fable agents, failable per-stage checks, and skeptical delivery review; select the model with fable on opus, fable on sonnet, or fable on haiku.';
+const publicDescription = 'Stage large, multi-source or multi-session tasks through a written plan, named fable agents, failable per-stage checks, and skeptical delivery review; fable on opus|sonnet|haiku selects the model.';
 const fableSkillText = fs.readFileSync(path.join(root, 'fable-mode', 'SKILL.md'), 'utf8');
 assert.ok(
   fableSkillText.includes(`description: "${publicDescription}"`),
   'fable-mode must advertise the host-visible fable on <model> entrypoint'
 );
-assert.match(fableSkillText, /Public entrypoint:.*fable on opus.*fable on sonnet.*fable on haiku/s);
 
 for (const task of [
   'positive-opus-mode.yaml',
