@@ -16,14 +16,14 @@ metadata:
 | **Trigger / Input** | "refactor architecture", "split object/class", "apply SRP", tech debt |
 | **Expected Output** | SRP proposal, Characterization Test safety net, TDD-guided extraction. |
 | **State Mutations** | Extracts classes/functions/objects; adds characterization tests. |
-| **Enforcement Gate** | Scan docs first; Characterization Tests before refactoring untested code; >3 cascading errors → rollback + `zoom-out`. |
+| **Enforcement Gate** | Scan docs first; Characterization Tests before refactoring untested code; 3 same-signature failures → rollback + `zoom-out`. |
 
 ## Workflow
 
 1. `[Discover]`: no blind refactoring — scan `CONTEXT.md`, `docs/adr/`, core interfaces first. Targets: SRP violations (>300 lines / >10 complexity), shallow modules, coupled seams.
 2. `[Think]`: present the Deepening & SRP proposal (object splitting + seam abstraction) until approved.
 3. `[Try]`: launch `tdd`; Characterization Tests first if legacy code lacks tests; extract incrementally, verifying tests after each change.
-4. `[Summarize]`/`[Self-Evolve]`: >3 cascading errors → rollback + `zoom-out`; record traps in `self-evolve`.
+4. `[Summarize]`/`[Self-Evolve]`: 3 same-signature failures → rollback + `zoom-out`; record traps in `self-evolve`.
 
 Deep dive: <this-skill-dir>/references/README.md
 
