@@ -38,6 +38,8 @@ metadata:
 2. **Warning batching.** Collect minor concerns and list them together in the next natural report or handoff; their count alone MUST NOT stop, pause, or return the worker/stage. An independently material, confirmed concern may stop the current stage and be surfaced immediately.
 3. **Find-and-replace safety** — Prefer structured edit tools over shell `sed`; anchor with unique context or `\bword\b` boundaries; verify file integrity post-edit. Never replace-all blindly.
 
-Repeated matching execution failures remain governed by Rule-of-3 / `zoom-out`; warning batching never substitutes for that recovery path.\n\nThese rules are always-on, even when `fable-mode`'s staged loop is not running.
+Repeated matching execution failures remain governed by Rule-of-3 / `zoom-out`; warning batching never substitutes for that recovery path.
+
+These rules are always-on, even when `fable-mode`'s staged loop is not running.
 
 Deep dive: <this-skill-dir>/references/guardrail-rules.md
