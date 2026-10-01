@@ -72,7 +72,7 @@ function normalizeExplicitRequest(raw = {}) {
   const prohibitions = Array.isArray(raw.prohibitions)
     ? raw.prohibitions.filter(value => PROHIBITIONS.has(value))
     : [];
-  const fable = normalizeFableProfile(raw.fableProfile || raw.fableModel);
+  const fable = normalizeFableProfile(raw.fableAlias || raw.fableProfile || raw.fableModel);
   return {
     fableProfile: fable.profile,
     fableAlias: fable.alias,
