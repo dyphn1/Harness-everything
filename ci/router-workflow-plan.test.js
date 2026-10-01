@@ -104,6 +104,20 @@ if (validContract(memoryProhibited, 'memory prohibition')) {
   check(memoryProhibited.contract.workflowPlan.reasonCodes.includes('memory-persistence-prohibited'), 'memory prohibition conflict is auditable');
 }
 
+const boundedOperationPrompts = [
+  'Audit this SKILL.md only.',
+  'Compare these two functions.',
+  'Benchmark this parser function.',
+];
+for (const prompt of boundedOperationPrompts) {
+  const boundedOperation = runTier(prompt);
+  if (validContract(boundedOperation, `bounded operation: ${prompt}`)) {
+    check(boundedOperation.contract.classification.tier !== 'tier3', `bounded operation verb does not force Tier 3: ${prompt}`);
+    check(!boundedOperation.contract.workflowPlan.reasonCodes.includes('macro-scope-signal'), `bounded operation verb does not emit macro-scope-signal: ${prompt}`);
+    check(boundedOperation.contract.taskShape.observedSignals.macroScope === false, `bounded operation records macroScope=false: ${prompt}`);
+  }
+}
+
 const staged = runTier('Refactor the entire authentication architecture in dependent stages.');
 if (validContract(staged, 'fable-staged')) {
   const plan = staged.contract.workflowPlan;
