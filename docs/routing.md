@@ -137,6 +137,8 @@ Typical triggers: typo/docs correction, narrow local edit, bounded explanation, 
 
 Typical triggers: normal feature work, bug fixes, multi-file changes, focused benchmark/review. Usually selects `iterative-single`: bounded reason/act work plus objective verification. Focused skills such as `tdd`, `verification-loop`, `security-review`, `using-git-worktrees`, and `eval-harness` may be surfaced and must be resolved for applicability.
 
+Operation labels such as `audit`, `evaluate`, `benchmark`, or `compare` describe **what** work is being done; they do not by themselves establish macro scope. A focused audit/review remains bounded unless an independent scope/structure signal (for example repository-wide, all files/modules, or multi-workstream structure) elevates it.
+
 No universal `TODO → TDD → verification-loop` order is implied. But when a skill is applicable, reading it does not grant permission to ignore its flow.
 
 ### Tier 3 — Macro
