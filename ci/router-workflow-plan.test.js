@@ -216,6 +216,40 @@ if (validContract(explicitSonnect, 'explicit Fable sonnect alias')) {
   check(explicitSonnect.result.stdout.includes('REQUESTED FABLE PROFILE: sonnect'), 'router output preserves raw sonnect alias');
 }
 
+// #290: mentioning a profile in a bounded lookup must not launch orchestration.
+for (const prompt of [
+  "Explain what 'fable on sonnect' means; return only a small JSON selection record.",
+  "Resolve fable on haiku into a profile JSON record; no orchestration or delegation.",
+  "解釋 fable on opus 的意思，只回傳 JSON。",
+  "Explain what 'run fable on sonnect' means; return only JSON.",
+]) {
+  const lookup = runTier(prompt);
+  const repeat = runTier(prompt);
+  if (validContract(lookup, 'bounded Fable lookup')) {
+    check(lookup.contract.classification.tier === 'tier1', 'lookup remains a bounded Tier 1 operation');
+    check(lookup.contract.workflowPlan.strategy === 'direct-single', 'lookup selects direct-single before loading references');
+    check(lookup.contract.workflowPlan.parallelism.allowed === false, 'lookup does not delegate');
+    check(lookup.result.stdout.includes('references/profile-lookup.md'), 'lookup selects only compact reference');
+    check(!lookup.result.stdout.includes('RECOMMENDED KNOWLEDGE GUIDES'), 'lookup omits unrelated keyword guides');
+    check(!lookup.result.stdout.includes('with fable-mode/scripts/model-selector.js'), 'lookup does not send agent to selector implementation');
+    check(JSON.stringify(lookup.contract) === JSON.stringify(repeat.contract), 'lookup contract is deterministic');
+  }
+}
+for (const prompt of [
+  'Use fable on sonnect to implement a multi-stage architecture migration.',
+  'Explain fable on opus and then implement a repository-wide migration.',
+  'Explain how to run fable-staged across all modules.',
+  'Explain fable on sonnet then run it to analyze security.',
+  'Explain fable on sonnet and analyze the authentication design.',
+  'Explain fable on sonnet; then send the findings to Slack.',
+]) {
+  const execution = runTier(prompt);
+  if (validContract(execution, 'Fable execution boundary')) {
+    check(execution.contract.workflowPlan.strategy === 'fable-staged', 'execution/macro scope preserves staged topology');
+    check(execution.contract.workflowPlan.requiredInvariants.includes('isolated-worktree-before-mutation'), 'execution retains isolation obligation');
+  }
+}
+
 const explicitOverride = runTier('Use iterative-single to audit the entire repository architecture.');
 if (validContract(explicitOverride, 'explicit strategy override')) {
   check(explicitOverride.contract.workflowPlan.strategy === 'iterative-single', 'explicit user strategy overrides derived Tier 3 topology');

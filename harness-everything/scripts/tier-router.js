@@ -52,6 +52,17 @@ function detectFableModel(prompt) {
   return (match[1] || match[2]).toLowerCase();
 }
 
+// A profile mention is data in a lookup, not an instruction to start Fable.
+// Conservatively keep mixed execution requests on their normal topology.
+function isFableProfileLookup(prompt, hasMacroSignal) {
+  const instructions = prompt.replace(/'[^']*'|"[^"]*"|`[^`]*`/g, '');
+  return Boolean(detectFableModel(prompt)) && !hasMacroSignal
+    && /^(?:(?:please|help me)\s+)?(?:explain|resolve|define|what (?:is|does)|解釋|說明|解析)/i.test(prompt.trim())
+    && !/\b(?:use|run|enter|implement|edit|modify|fix|debug|deploy|publish|migrate|audit|review|refactor|build|create|execute|analyze|research|test|compare|generate|write|verify|inspect|send)\b|(?:實作|修改|修正|部署|遷移|稽核|執行|分析|研究|測試|比較|生成|寫入|檢查|傳送)/i.test(instructions)
+    && !/\b(?:then|afterwards|additionally)\b|(?:接著|然後|另外)/i.test(instructions)
+    && !/\b(?:direct[- ]single|iterative[- ]single|fable[- ](?:staged|parallel|multi[- ]agent[- ]workspace))\b/i.test(prompt);
+}
+
 function detectExplicitStrategy(prompt, requestedFableModel) {
   if (/\bdirect[- ]single\b/i.test(prompt)) return 'direct-single';
   if (/\biterative[- ]single\b/i.test(prompt)) return 'iterative-single';
@@ -249,6 +260,7 @@ function run(userPrompt, context, options = {}) {
     /(?:評估|稽核|基準|壓力測試|比較).*(?:每個|所有|全部|整個|全套|技能|skill|檔案|版本)/i,
   ];
   const hasMacroSignal = macroSignals.some(signal => signal.test(userPrompt));
+  const profileLookup = isFableProfileLookup(userPrompt, hasMacroSignal);
   const hasTrivialEditVerb = /^(?:(?:please|help me)\s+)?(?:fix|update|correct|change)\b/i.test(userPrompt.trim());
   const hasDocsTarget = /\b(?:readme|documentation|docs?)\b/i.test(userPrompt);
   const hasTinyEditSignal = /\b(?:typo|spelling|wording|one line|single line)\b/i.test(userPrompt);
@@ -261,7 +273,12 @@ function run(userPrompt, context, options = {}) {
   let rationale = 'No structural/testing signals matched; unclassified is not equivalent to trivial.';
   const reasonCodes = [...loadedConfig.reasonCodes, 'no-classification-signal'];
 
-  if (memoryPersistenceRequested && !hasMacroSignal && !hasTier3Keyword && !hasTier2Keyword) {
+  if (profileLookup) {
+    recommendedTier = 'Tier 1 (Trivial)';
+    rationale = 'Bounded behavior-profile lookup; select compact reference before execution.';
+    reasonCodes.splice(loadedConfig.reasonCodes.length);
+    addReason(reasonCodes, 'fable-profile-lookup');
+  } else if (memoryPersistenceRequested && !hasMacroSignal && !hasTier3Keyword && !hasTier2Keyword) {
     recommendedTier = 'Tier 1 (Trivial)';
     rationale = 'Explicit bounded self-evolve memory persistence request.';
     reasonCodes.splice(loadedConfig.reasonCodes.length);
@@ -291,7 +308,7 @@ function run(userPrompt, context, options = {}) {
   const hasQuestionMarks = /\?|？/.test(userPrompt);
   const hasMultipleSentences = sentenceCount > 2;
 
-  if (!hasMacroSignal && !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences) {
+  if (!profileLookup && !hasMacroSignal && !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences) {
     if (recommendedTier === 'Unclassified' || recommendedTier.startsWith('Tier 1')) {
       recommendedTier = 'Tier 2 (Standard Task)';
       rationale = 'Multiple tasks detected with structural complexity - upgraded to Tier 2 for TDD validation.';
@@ -319,7 +336,7 @@ function run(userPrompt, context, options = {}) {
   const structuralFloor = hasMacroSignal ? 'tier3'
     : !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences ? 'tier2' : null;
   const semantic = selectTier({ prompt: userPrompt, tier: recommendedTier, floor: structuralFloor,
-    explicit: Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) }, process.env, options.systemOneScorer || undefined);
+    explicit: profileLookup || Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) }, process.env, options.systemOneScorer || undefined);
   if (semantic.diagnostic) console.log(`\n=> SYSTEM ONE: ${JSON.stringify(semantic.diagnostic)}`);
   if (semantic.diagnostic?.applied) {
     recommendedTier = semantic.tier;
@@ -335,11 +352,16 @@ function run(userPrompt, context, options = {}) {
   if (requestedFableModel) {
     console.log(`\n=> REQUESTED FABLE PROFILE: ${requestedFableModel}`);
     console.log(`=> ROUTE: fable-mode/SKILL.md`);
-    console.log(`   Profile alias: ${requestedFableModel}; resolve behavior role plus advisory host runtime floor with fable-mode/scripts/model-selector.js.`);
+    if (profileLookup) {
+      console.log('=> FABLE OPERATION: profile-lookup');
+      console.log('=> REFERENCES: fable-mode/references/profile-lookup.md only; no stage state or delegation.');
+    } else {
+      console.log(`   Profile alias: ${requestedFableModel}; resolve behavior role plus advisory host runtime floor with fable-mode/scripts/model-selector.js.`);
+    }
   }
 
   const allRecommendedGuides = [];
-  for (const group of routingConfig.guideGroups) {
+  for (const group of profileLookup ? [] : routingConfig.guideGroups) {
     let matched = false;
     if (typeof group.regex === 'string') {
       matched = new RegExp(group.regex, 'i').test(promptLower);
@@ -365,7 +387,7 @@ function run(userPrompt, context, options = {}) {
     });
   }
 
-  emitDynamicSkills(promptLower, context, recommendedGuides);
+  if (!profileLookup) emitDynamicSkills(promptLower, context, recommendedGuides);
 
   const externalClaimTriggers = routingConfig.factAudit.externalClaim || [];
   const estimateTriggers = routingConfig.factAudit.estimate || [];
@@ -396,7 +418,7 @@ function run(userPrompt, context, options = {}) {
   const actionGateReasonCodes = detectActionGateReasons(userPrompt);
   const irreversibleAction = actionGateReasonCodes.includes('irreversible-action');
   const externalSideEffect = actionGateReasonCodes.includes('external-side-effect');
-  const requestedStrategy = detectExplicitStrategy(userPrompt, requestedFableModel);
+  const requestedStrategy = profileLookup ? null : detectExplicitStrategy(userPrompt, requestedFableModel);
   const prohibitions = detectProhibitions(userPrompt);
   const plannerInputs = plannerInputsFromContext(context, promptLower);
 

@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- Select a bounded Fable profile lookup before loading staged workflow references; preserve execution topology and required obligations (#290).
+
 ## [0.30.3](https://github.com/dyphn1/Harness-everything/compare/v0.30.2...v0.30.3) (2026-10-01)
 
 ### Bug Fixes
