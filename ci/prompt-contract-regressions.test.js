@@ -73,10 +73,10 @@ for (const rel of contractSurfaces) {
     assert.ok(!pattern.test(body), rel + ' must not treat multi-agent-workspace as a generic executor: ' + pattern);
   }
 }
-assert.ok(/leave execution topology to the router/i.test(read('to-spec/SKILL.md')), 'to-spec leaves Design Audit topology to the router');
+assert.ok(/independent Design Audit findings/i.test(read('to-spec/SKILL.md')), 'to-spec requires independent Design Audit evidence');
 assert.ok(/Describe the required audit outcome, not an executor/i.test(read('to-spec/references/process.md')), 'to-spec process specifies audit outcome rather than executor');
-assert.ok(/two isolated evaluation lanes/i.test(read('skill-creator/SKILL.md')), 'skill-creator defines isolated A/B lanes');
-assert.ok(/control runs without the candidate skill, treatment runs with it/i.test(read('skill-creator/SKILL.md')), 'skill-creator preserves control/treatment semantics');
+assert.ok(/A\/B-test isolated control/i.test(read('skill-creator/SKILL.md')), 'skill-creator defines isolated A/B lanes');
+assert.ok(/control \(without skill\) vs treatment \(with skill\)/i.test(read('skill-creator/SKILL.md')), 'skill-creator preserves control/treatment semantics');
 const workspaceContract = read('multi-agent-workspace/SKILL.md');
 assert.ok(/router owns that decision/i.test(workspaceContract), 'multi-agent-workspace keeps router-owned topology');
 assert.ok(/does not spawn workers/i.test(workspaceContract), 'multi-agent-workspace remains a topology/workspace consumer');
