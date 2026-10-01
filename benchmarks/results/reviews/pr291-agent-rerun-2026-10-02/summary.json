@@ -1,0 +1,138 @@
+{
+  "date": "2026-10-02",
+  "modelRequested": "gpt-6-luna",
+  "reasoningEffortRequested": "xhigh",
+  "testedBaseCommit": "2716be9feb3e6b986c0f5da884ed4a686b95791b",
+  "testedFixCommit": "a49539caca3dc367d43e72997926612f091098b1",
+  "maxConcurrentAgents": 2,
+  "trialCount": 4,
+  "inputsUnchanged": true,
+  "expectedRecord": {
+    "requestedProfile": "reasoning",
+    "effectiveProfile": "reasoning",
+    "profileAlias": "sonnect",
+    "assignedRole": "reasoning-worker",
+    "runtimeModel": null,
+    "runtimeEffort": null
+  },
+  "trials": [
+    {
+      "arm": "baseline",
+      "trial": "r1",
+      "strategy": "fable-staged",
+      "tier": "tier3",
+      "promptSha256": "cfdd672d2743c6be4af46bf75614d8225707f18b56dc7b703b444ea889f62b8b",
+      "contextFileBytes": 6580,
+      "routerStdoutBytes": 1472,
+      "contextFiles": [
+        "fable-mode/SKILL.md",
+        "fable-mode/fable-sonnet/SKILL.md",
+        "fable-mode/references/model-matrix.md"
+      ],
+      "answer": {
+        "requestedProfile": "sonnect",
+        "effectiveProfile": "reasoning",
+        "profileAlias": "sonnect",
+        "assignedRole": "reasoning worker (fable-worker-sonnet)",
+        "runtimeModel": null,
+        "runtimeEffort": null
+      },
+      "canonicalRecordPass": false,
+      "extraCommands": [],
+      "notes": [
+        "sonnect is an accepted legacy alias for the reasoning behavior profile; it does not select a runtime model. No runtime model or effort was supplied, and no execution or delegation was requested."
+      ]
+    },
+    {
+      "arm": "baseline",
+      "trial": "r2",
+      "strategy": "fable-staged",
+      "tier": "tier3",
+      "promptSha256": "cfdd672d2743c6be4af46bf75614d8225707f18b56dc7b703b444ea889f62b8b",
+      "contextFileBytes": 4717,
+      "routerStdoutBytes": 1472,
+      "contextFiles": [
+        "fable-mode/SKILL.md",
+        "fable-mode/references/model-matrix.md"
+      ],
+      "answer": {
+        "requestedProfile": "sonnect",
+        "effectiveProfile": "reasoning",
+        "profileAlias": "sonnect",
+        "assignedRole": "Reasoning worker",
+        "runtimeModel": null,
+        "runtimeEffort": null
+      },
+      "canonicalRecordPass": false,
+      "extraCommands": [],
+      "notes": [
+        "sonnect is an accepted alias for the reasoning behavior profile; it does not select a branded runtime model.",
+        "No runtime model or effort was supplied, and no execution was requested."
+      ]
+    },
+    {
+      "arm": "fixed",
+      "trial": "r1",
+      "strategy": "direct-single",
+      "tier": "tier1",
+      "promptSha256": "cfdd672d2743c6be4af46bf75614d8225707f18b56dc7b703b444ea889f62b8b",
+      "contextFileBytes": 3553,
+      "routerStdoutBytes": 603,
+      "contextFiles": [
+        "fable-mode/SKILL.md",
+        "fable-mode/references/profile-lookup.md"
+      ],
+      "answer": {
+        "requestedProfile": "reasoning",
+        "effectiveProfile": "reasoning",
+        "profileAlias": "sonnect",
+        "assignedRole": "reasoning-worker",
+        "runtimeModel": null,
+        "runtimeEffort": null
+      },
+      "canonicalRecordPass": true,
+      "extraCommands": [],
+      "notes": [
+        "\"sonnect\" is a compatibility alias for the sonnet reasoning profile; it selects behavior and does not imply a runtime model."
+      ]
+    },
+    {
+      "arm": "fixed",
+      "trial": "r2",
+      "strategy": "direct-single",
+      "tier": "tier1",
+      "promptSha256": "cfdd672d2743c6be4af46bf75614d8225707f18b56dc7b703b444ea889f62b8b",
+      "contextFileBytes": 3553,
+      "routerStdoutBytes": 603,
+      "contextFiles": [
+        "fable-mode/SKILL.md",
+        "fable-mode/references/profile-lookup.md"
+      ],
+      "answer": {
+        "requestedProfile": "reasoning",
+        "effectiveProfile": "reasoning",
+        "profileAlias": "sonnect",
+        "assignedRole": "reasoning-worker",
+        "runtimeModel": null,
+        "runtimeEffort": null
+      },
+      "canonicalRecordPass": true,
+      "extraCommands": [],
+      "notes": []
+    }
+  ],
+  "meanContextFileBytes": {
+    "baseline": 5648.5,
+    "fixed": 3553.0,
+    "reductionPercent": 37.1
+  },
+  "cacheTokens": null,
+  "monetaryCost": null,
+  "limitations": [
+    "Only two repetitions per arm; no statistical effectiveness claim.",
+    "Native subagents expose no provider token/billing telemetry. File bytes exclude inherited instructions, tool metadata, reasoning and repeated model requests.",
+    "The compact reference provides a canonical JSON example; answer improvement is not attributable to routing alone.",
+    "Content reads are instrumented via helper; no OS-enforced sandbox or full native session transcript capture.",
+    "Strict canonical-record scoring distinguishes enum values from readable paraphrases; all four answers describe the reasoning profile semantically."
+  ]
+}

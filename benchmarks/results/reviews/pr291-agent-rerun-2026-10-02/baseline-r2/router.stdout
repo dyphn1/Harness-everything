@@ -1,0 +1,24 @@
+[Tier Routing Pre-check]
+
+=> RECOMMENDED TIER: Tier 3 (Macro Task)
+=> RATIONALE: Prompt matched configured Tier 3 keyword: "fable".
+
+=> REQUESTED FABLE PROFILE: sonnect
+=> ROUTE: fable-mode/SKILL.md
+   Profile alias: sonnect; resolve behavior role plus advisory host runtime floor with fable-mode/scripts/model-selector.js.
+
+=> RECOMMENDED KNOWLEDGE GUIDES (Auto-loaded based on keywords):
+- fable-mode/SKILL.md (v3 staged execution, model selection, delegation, and verification)
+- fable-discipline/SKILL.md (Shadow guard preventing context bloat and managing token limits)
+- multi-agent-workspace/SKILL.md (Verified workspace scaffolding and bounded agency specialist selection)
+- repo-docs/templates/agents-template.md (Agent onboarding instructions template)
+- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)
+- fable-mode/model-matrix.json (Machine-readable Haiku/Sonnet/Opus roles and fallback policies)
+- fable-mode/scripts/model-selector.js (Deterministic model selection and execution audit record)
+- fable-mode/fable-haiku/SKILL.md (Haiku mode entrypoint)
+- fable-mode/fable-sonnet/SKILL.md (Sonnet mode entrypoint)
+- fable-mode/fable-opus/SKILL.md (Opus mode entrypoint)
+
+=> WORKFLOW STRATEGY: fable-staged
+
+Treat the tier and strategy above as the default route. Explicit Human Partner choices/prohibitions win and are recorded in the plan; unavailable capabilities must remain visible rather than being silently downgraded.

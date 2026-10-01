@@ -1,0 +1,55 @@
+{
+  "baseline": {
+    "head": "2716be9feb3e6b986c0f5da884ed4a686b95791b",
+    "files": {
+      "fable-mode/runtime-model-floor-matrix.json": "1f82d6aaf32f41a573fb3533f5d43b584d2baf7f5fa74f9a678387d62ea44b66",
+      "fable-mode/CONTRACT-FORMAT.md": "83c3d8297294ea78bfb670d6700c8184b00d640b9610f364c74d00b661ea5079",
+      "fable-mode/behavior-profile-matrix.json": "58ef3e23e8ccc13ea15062035315feb13a82cb0063b16b09513a406e6f314afa",
+      "fable-mode/SKILL.md": "8af0a74725bd2915fa8e416eeac8f7738ab826fee3cc47e74764c91975c888a8",
+      "fable-mode/model-matrix.json": "b397cbb8b58af75791122a279237019c338141f2b841946f0b5b2f74db82cd68",
+      "fable-mode/execution-guardrails/SKILL.md": "c16027dc2a183d44c7b6ecefadc72a6670635754a62b7a0f4c32ba83be51cf84",
+      "fable-mode/fable-haiku/SKILL.md": "bf4c53f28e13c087d30affd30748a6ff90c20f64cccdb1354ea5b0a92493f566",
+      "fable-mode/references/model-matrix.md": "ae38b9bccb371dda348fef0c97a5b0fa456df8263522f5f8b1de262b10cef3cd",
+      "fable-mode/references/execution-phases.md": "8efdabae9ec8804efedafb64b9006b7d0748af310844880788006c3f925042ae",
+      "fable-mode/fable-opus/SKILL.md": "256695f90f6ee5d7f39879a9d7595118e90b92d1aeea722157acc796cdc8f3e1",
+      "fable-mode/agents/fable-worker-haiku.md": "5d0d12982798bb2a18d78c2e927f465b0eb6f0e6a901da0ae93c8f682460f120",
+      "fable-mode/agents/fable-orchestrator.md": "bd3c1b170eb64168290186011578aa1272e1660b42a97ef1dd381e5be196f8e1",
+      "fable-mode/agents/fable-verifier.md": "5c7e994dd6f3b84f54dd2218f2e90f5aaac623ee15a82404a40214ca9194a789",
+      "fable-mode/agents/fable-worker-sonnet.md": "7126a06160d95b4bd963df9f0232bb3cfcdfaf25589912186266cf78235b513d",
+      "fable-mode/scripts/ensemble-review.js": "f4f40377376bf64ec3fd36912ca34d180708e6dc4de5da27e869b350317b9a6f",
+      "fable-mode/scripts/model-selector.js": "0cba3bb81f0381ec658d5f09fb5e1d2a73765df7cc3d590043a23d0b04c979ed",
+      "fable-mode/scripts/workflow-plan-consumer.js": "60f7f12eba40dda18bf8aeb45195ddebb4e370c8ea352e50d69f3f20f227b858",
+      "fable-mode/fable-sonnet/SKILL.md": "aa912848f42452bb92956579705fbf3f8b8b3c4d35cb461cc4c81f185e0fd413",
+      "fable-mode/fable-haiku/references/routing-notes.md": "39fd770a361c0ee74401b412404dc06fbd491f5020a08b1057d6abadd57d0d7f",
+      "fable-mode/execution-guardrails/references/guardrail-rules.md": "1ef8a7735de757c02eeb77cf98089d7c1c1c110dc7172596dd8c8b25beabbfb4",
+      "harness-everything/scripts/tier-router.js": "888da6132d04a7ab1807377b71c5007ee0997eee00877762861f8a0850fac18b"
+    }
+  },
+  "fixed": {
+    "head": "a49539caca3dc367d43e72997926612f091098b1",
+    "files": {
+      "fable-mode/runtime-model-floor-matrix.json": "1f82d6aaf32f41a573fb3533f5d43b584d2baf7f5fa74f9a678387d62ea44b66",
+      "fable-mode/CONTRACT-FORMAT.md": "83c3d8297294ea78bfb670d6700c8184b00d640b9610f364c74d00b661ea5079",
+      "fable-mode/behavior-profile-matrix.json": "58ef3e23e8ccc13ea15062035315feb13a82cb0063b16b09513a406e6f314afa",
+      "fable-mode/SKILL.md": "b24174305056aa029b0e17aa82e3b08d7324dbd2f1d8b74ad57ba90df1a9b41a",
+      "fable-mode/model-matrix.json": "b397cbb8b58af75791122a279237019c338141f2b841946f0b5b2f74db82cd68",
+      "fable-mode/execution-guardrails/SKILL.md": "c16027dc2a183d44c7b6ecefadc72a6670635754a62b7a0f4c32ba83be51cf84",
+      "fable-mode/fable-haiku/SKILL.md": "bf4c53f28e13c087d30affd30748a6ff90c20f64cccdb1354ea5b0a92493f566",
+      "fable-mode/references/profile-lookup.md": "46063e011923178b90e5a63acf4841a3b36e1e0216e1b32abc7c72f9af03adfa",
+      "fable-mode/references/model-matrix.md": "ae38b9bccb371dda348fef0c97a5b0fa456df8263522f5f8b1de262b10cef3cd",
+      "fable-mode/references/execution-phases.md": "8efdabae9ec8804efedafb64b9006b7d0748af310844880788006c3f925042ae",
+      "fable-mode/fable-opus/SKILL.md": "256695f90f6ee5d7f39879a9d7595118e90b92d1aeea722157acc796cdc8f3e1",
+      "fable-mode/agents/fable-worker-haiku.md": "5d0d12982798bb2a18d78c2e927f465b0eb6f0e6a901da0ae93c8f682460f120",
+      "fable-mode/agents/fable-orchestrator.md": "bd3c1b170eb64168290186011578aa1272e1660b42a97ef1dd381e5be196f8e1",
+      "fable-mode/agents/fable-verifier.md": "5c7e994dd6f3b84f54dd2218f2e90f5aaac623ee15a82404a40214ca9194a789",
+      "fable-mode/agents/fable-worker-sonnet.md": "7126a06160d95b4bd963df9f0232bb3cfcdfaf25589912186266cf78235b513d",
+      "fable-mode/scripts/ensemble-review.js": "f4f40377376bf64ec3fd36912ca34d180708e6dc4de5da27e869b350317b9a6f",
+      "fable-mode/scripts/model-selector.js": "0cba3bb81f0381ec658d5f09fb5e1d2a73765df7cc3d590043a23d0b04c979ed",
+      "fable-mode/scripts/workflow-plan-consumer.js": "60f7f12eba40dda18bf8aeb45195ddebb4e370c8ea352e50d69f3f20f227b858",
+      "fable-mode/fable-sonnet/SKILL.md": "aa912848f42452bb92956579705fbf3f8b8b3c4d35cb461cc4c81f185e0fd413",
+      "fable-mode/fable-haiku/references/routing-notes.md": "39fd770a361c0ee74401b412404dc06fbd491f5020a08b1057d6abadd57d0d7f",
+      "fable-mode/execution-guardrails/references/guardrail-rules.md": "1ef8a7735de757c02eeb77cf98089d7c1c1c110dc7172596dd8c8b25beabbfb4",
+      "harness-everything/scripts/tier-router.js": "4a28d82a918086857ff4ae7287954a248d5288a0abe8649b97eca35ba45f75b0"
+    }
+  }
+}
