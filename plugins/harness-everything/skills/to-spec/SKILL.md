@@ -26,7 +26,7 @@ Turns the conversation into one published spec artifact. No interviewing — `gr
 2. Zero-trust context: cite `Evidence: <file:line> -> Finding: <meaning>`; blocking forks mean run `grill-me`/`grill-with-docs` first.
 3. Mandatory outline preview (closest fit, 10-20 lines + target path); write only after user confirms.
 4. Publish to `specs/<feature-slug>.md` (`Status: ready-for-agent`) or `reference/`, `adr/`.
-5. Golden Flow: Feature spec needs a Design Audit (`multi-agent-workspace`) before `/to-tickets`.
+5. Golden Flow: Feature spec needs a Design Audit before `/to-tickets`. Require independent architecture/security reviewer perspectives and audit evidence; leave execution topology to the router. Use `multi-agent-workspace` only when the router contract already selected `strategy=fable-multi-agent-workspace` with `workspace.required=true`.
 
 Deep dive: <this-skill-dir>/references/process.md
 
