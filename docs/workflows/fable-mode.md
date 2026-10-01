@@ -76,6 +76,13 @@ flowchart TD
   Check -->|Pass| Handoff[Compact evidence + handoff]
 ```
 
+Minor-concern batching is **not** a stage transition. Workers keep producing and
+verifying the assigned artifact and include accumulated minor concerns in the next
+natural report/handoff; the number of minor concerns alone never stops or returns a
+worker. A material confirmed blocker may stop the current stage immediately. Repeated
+matching execution failures use the separate Rule-of-3 path: zoom out, reflect, then
+`RESUME` on a new approach or `ESCALATE` when a real decision is required.
+
 At most two full replans are allowed before unresolved blockers are escalated rather than hidden behind endless restructuring.
 
 ## 5. Completion Boundary
