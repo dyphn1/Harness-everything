@@ -1,41 +1,46 @@
-# Fable model matrix and execution audit
+# Fable behavior profiles and runtime model floors
 
-Issue #27 defines three explicit execution modes. The mode selector is the
-machine-readable gate; this document is the human-facing contract.
+Fable profiles define **how work is performed and which role owns it**. They do not select or require a branded runtime model. The historical names `haiku`, `sonnet`/`sonnect`, and `opus` remain accepted aliases so existing prompts keep working.
 
-| Mode | Use for | Named agent |
+## Behavior Profile Matrix
+
+| Canonical profile | Legacy alias | Role | Typical work | Named agent |
+|---|---|---|---|---|
+| `mechanical` | `haiku` | Mechanical worker | Bulk edits, format conversion, boilerplate, structured extraction | `fable-worker-haiku` |
+| `reasoning` | `sonnet` / `sonnect` | Reasoning worker | Non-trivial implementation, research synthesis, analysis, bounded design | `fable-worker-sonnet` |
+| `orchestrator` | `opus` | Orchestrator | Stage decomposition, dependency management, cross-stage synthesis, architecture/final decisions | `fable-orchestrator` |
+| verifier | — | Cold reviewer | Spec-versus-artifact checks and independent re-verification | `fable-verifier` |
+
+The machine-readable source is `fable-mode/behavior-profile-matrix.json`.
+
+## Runtime Model Floor Matrix
+
+Runtime floors are **host-specific recommendations**, not Fable identity and not an execution gate. A newer compatible model/effort may be used. If the active runtime is below or cannot be compared to the floor, Fable continues with the same behavior profile and records the status visibly.
+
+| Fable profile | Claude recommended floor | Codex recommended floor |
 |---|---|---|
-| Haiku | Bulk mechanical work and format conversion | `fable-worker-haiku` |
-| Sonnet | Non-trivial implementation, research synthesis, bounded reasoning | `fable-worker-sonnet` |
-| Opus | Macro orchestration, cross-stage synthesis, high-stakes architecture and final decisions | `fable-orchestrator` |
+| `orchestrator` | Opus 5.5+ / medium+ | GPT-6 Sol+ / xhigh+ |
+| `reasoning` | Sonnet 5.5+ / medium+ | GPT-6 Sol+ / medium+ |
+| `mechanical` | Haiku 5.5+ | GPT-6 Luna 6+ / xhigh+ |
 
-Use the explicit entrypoints `fable-haiku`, `fable-sonnet`, and `fable-opus`.
-The accepted input `sonnect` normalizes to Sonnet. A normal Tier 2 prompt does
-not select a fable model.
+The machine-readable source is `fable-mode/runtime-model-floor-matrix.json`. These are Harness support baselines, not claims that every host currently exposes every listed model.
 
-## Deterministic selection
-
-Before each stage, run `fable-mode/scripts/model-selector.js` with the requested
-mode, the runtime's available modes, the host model, and the stage contract:
+## Resolution
 
 ```text
-node fable-mode/scripts/model-selector.js --requested opus --available opus,sonnet,haiku --available-agents fable-orchestrator,fable-worker-sonnet,fable-worker-haiku --fallback stop --host-model opus --stage-brief "Synthesize the architecture" --pass-condition "ADR and dependency map exist" --verification-command "npm test" --verifier-result pending
+task
+  -> behavior profile
+  -> named role / agent
+  -> host adapter
+  -> advisory runtime floor
+  -> actual host-selected model
+  -> execute the SAME behavior contract
 ```
 
-The JSON result always records `requestedModel`, `effectiveModel`,
-`fallbackReason`, `stageBrief`, `passCondition`, `verificationCommand`, and
-`verifierResult`, plus available agents, status, agent, and escalation state. The
-CLI appends the same record as one JSON line to
-`.claude/harness-everything/state/fable-mode/audit.jsonl` (or the path supplied by
-`--audit-file`).
+`fable on haiku` normalizes to `mechanical`; `fable on sonnect` normalizes to `reasoning`; `fable on opus` normalizes to `orchestrator`. None of these aliases means switching the host to that branded model.
 
-If the requested model is unavailable, `--fallback inline` records the declared
-host model and a visible reason. `--fallback stop` emits `status: blocked`, a
-null effective model, and exit code 2. Neither path silently downgrades.
+The audit record uses `requestedProfile`, `effectiveProfile`, `profileAlias`, `assignedRole`, `runtimeModel`, `runtimeEffort`, `recommendedRuntimeFloor`, `runtimeFloorStatus`, and `runtimeFloorReason`, plus stage verification fields.
 
-The orchestrator still owns scope lock, at most two full replans, stage
-contracts, worker non-recursion, cold verification, and escalation. The native
-host TODO tracker or a Markdown checklist records stage progress; no CLI TODO
-state machine is part of this contract.
+A `below-recommended` or `unknown` runtime-floor result is advisory and does not block Fable. Missing named-agent capability is separate: the existing `inline` or `stop` fallback policy decides whether the same profile runs inline or the stage is blocked.
 
 See [execution phases](execution-phases.md) for the staged run contract.
