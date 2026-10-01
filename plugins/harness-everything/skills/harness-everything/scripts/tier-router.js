@@ -254,7 +254,8 @@ function run(userPrompt, context, options = {}) {
   const hasDocsTarget = /\b(?:readme|documentation|docs?)\b/i.test(userPrompt);
   const hasTinyEditSignal = /\b(?:typo|spelling|wording|one line|single line)\b/i.test(userPrompt);
   const isTrivialDocsEdit = !hasMacroSignal && hasTrivialEditVerb && hasDocsTarget && hasTinyEditSignal;
-  const hasTier3Keyword = TIER3_KEYWORDS.some(keyword => matchKeyword(promptLower, keyword));
+  const matchedTier3Keyword = TIER3_KEYWORDS.find(keyword => matchKeyword(promptLower, keyword)) || null;
+  const hasTier3Keyword = matchedTier3Keyword !== null;
   const hasTier2Keyword = TIER2_KEYWORDS.some(keyword => matchKeyword(promptLower, keyword));
 
   let recommendedTier = 'Unclassified';
@@ -273,7 +274,9 @@ function run(userPrompt, context, options = {}) {
     addReason(reasonCodes, 'trivial-docs-edit');
   } else if (hasMacroSignal || hasTier3Keyword) {
     recommendedTier = 'Tier 3 (Macro Task)';
-    rationale = 'Prompt implies repository-wide scope, a structured comparative experiment, architectural refactoring, or multi-agent collaboration.';
+    rationale = hasMacroSignal
+      ? 'Prompt implies repository-wide scope, a structured comparative experiment, architectural refactoring, or multi-agent collaboration.'
+      : `Prompt matched configured Tier 3 keyword: "${matchedTier3Keyword}".`;
     reasonCodes.splice(loadedConfig.reasonCodes.length);
     addReason(reasonCodes, hasMacroSignal ? 'macro-scope-signal' : 'tier3-keyword');
   } else if (hasTier2Keyword) {
