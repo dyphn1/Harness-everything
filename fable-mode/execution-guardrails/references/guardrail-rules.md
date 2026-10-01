@@ -1,9 +1,8 @@
 # Guardrail Rules — Full Detail
 
-Three rules extracted from fable-mode's operational section so they apply everywhere,
-not only inside the staged loop. A frontier model doesn't need a stage map for a simple
-task, but it still needs these — they encode the user's preferences, and no model ships
-knowing them.
+Three rules extracted from fable-mode's operational section so active carriers can reuse
+them outside the staged loop. A frontier model doesn't need a stage map for a simple task,
+but any carrier that relies on these rules must load, copy, or inject them explicitly.
 
 ## 1. Verify before flag
 
@@ -53,8 +52,8 @@ Preferred order of tools: IDE native structured replace tool (`replace_string_in
 
 ## Relationship to fable-mode
 
-fable-mode's staged loop is optional and gated on task size. These guardrails are not
-optional and not gated. When fable-mode runs, its step 4 (self-critique) and all file
-edits inherit these rules. When fable-mode doesn't run, these rules apply anyway. In v3
-the per-model runners route to frontmatter-defined agents (`agents/*.md`) whose system
-prompts carry these rules inline, because spawned agents cannot see this skill.
+fable-mode's staged loop is optional and gated on task size. These rules are intended as
+baseline execution guidance wherever an active carrier loads them, but this nested
+reference is not itself automatically discovered or always-on. In v3 the per-model
+flow routes to frontmatter-defined agents (`agents/*.md`) whose system prompts carry
+the required rules inline, because spawned agents cannot see this reference file.

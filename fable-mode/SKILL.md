@@ -1,6 +1,6 @@
 ---
 name: fable-mode
-description: "Stage large, multi-source or multi-session tasks through a written plan, named fable agents, failable per-stage checks, and skeptical delivery review; use fable-opus, fable-sonnet, or fable-haiku for explicit model selection."
+description: "Stage large, multi-source or multi-session tasks through a written plan, named fable agents, failable per-stage checks, and skeptical delivery review; select the model with fable on opus, fable on sonnet, or fable on haiku."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -17,6 +17,8 @@ metadata:
 | **Expected Output** | Stage map, named-agent briefs, failable checks, and skeptical review. |
 | **State Mutations** | Native host TODO tracker or a Markdown checklist; one JSON audit record per stage. |
 | **Enforcement Gate** | `<this-skill-dir>/scripts/model-selector.js`, stage contracts, and `<skills-repo-root>/harness-everything/scripts/verify-gate.js`. |
+
+> **Public entrypoint:** invoke `fable-mode`; select a model with `fable on opus`, `fable on sonnet`, or `fable on haiku`. The nested `fable-*` directories are reference profiles, not separately routable plugin skills.
 
 ## USE FOR:
 - Large multi-file, multi-source, or multi-session work

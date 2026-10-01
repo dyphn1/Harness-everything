@@ -9,6 +9,8 @@ metadata:
 
 # Fable Mode — Haiku
 
+> **Reference profile, not a standalone plugin skill.** Invoke this profile through `fable-mode` with `fable on haiku`; plugin manifests do not register this nested directory independently.
+
 ## Skill Contract
 
 | Component | Specification |

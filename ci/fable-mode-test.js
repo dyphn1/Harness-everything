@@ -43,6 +43,37 @@ function readRecord(result) {
 
 console.log('=== Fable model mode contract tests ===');
 
+
+const publicDescription = 'Stage large, multi-source or multi-session tasks through a written plan, named fable agents, failable per-stage checks, and skeptical delivery review; select the model with fable on opus, fable on sonnet, or fable on haiku.';
+const fableSkillText = fs.readFileSync(path.join(root, 'fable-mode', 'SKILL.md'), 'utf8');
+assert.ok(
+  fableSkillText.includes(`description: "${publicDescription}"`),
+  'fable-mode must advertise the host-visible fable on <model> entrypoint'
+);
+assert.match(fableSkillText, /Public entrypoint:.*fable on opus.*fable on sonnet.*fable on haiku/s);
+
+for (const task of [
+  'positive-opus-mode.yaml',
+  'positive-sonnet-mode.yaml',
+  'positive-haiku-mode.yaml',
+  'positive-trigger.yaml',
+]) {
+  const source = fs.readFileSync(path.join(root, 'evals', 'fable-mode', 'tasks', task), 'utf8');
+  assert.ok(
+    source.includes(`description: "${publicDescription}"`),
+    `${task} must keep the exact public fable-mode description`
+  );
+}
+
+for (const profile of ['fable-opus', 'fable-sonnet', 'fable-haiku']) {
+  const source = fs.readFileSync(path.join(root, 'fable-mode', profile, 'SKILL.md'), 'utf8');
+  assert.match(source, /Reference profile, not a standalone plugin skill/);
+}
+
+const guardrailSource = fs.readFileSync(path.join(root, 'fable-mode', 'execution-guardrails', 'SKILL.md'), 'utf8');
+assert.match(guardrailSource, /Reference-only nested contract/);
+assert.doesNotMatch(guardrailSource, /These rules are always-on/);
+
 const selected = runNode(selector, selectorArgs());
 assert.strictEqual(selected.status, 0, selected.stderr);
 const selectedRecord = readRecord(selected);
@@ -99,7 +130,8 @@ assert.match(missingField.stderr, /passCondition is required/);
 const explicitRoute = runNode(router, ['fable on sonnect for architecture synthesis']);
 assert.strictEqual(explicitRoute.status, 0);
 assert.match(explicitRoute.stdout, /REQUESTED FABLE MODEL MODE: sonnet/);
-assert.match(explicitRoute.stdout, /fable-mode\/fable-sonnet\/SKILL\.md/);
+assert.match(explicitRoute.stdout, /=> ROUTE: fable-mode\/SKILL\.md/);
+assert.doesNotMatch(explicitRoute.stdout, /=> ROUTE: fable-mode\/fable-sonnet\/SKILL\.md/);
 
 const ordinaryTier2 = runNode(router, ['Fix this checkout bug and add a regression test.']);
 assert.strictEqual(ordinaryTier2.status, 0);

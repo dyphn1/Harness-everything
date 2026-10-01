@@ -9,6 +9,8 @@ metadata:
 
 # Fable Mode — Sonnet
 
+> **Reference profile, not a standalone plugin skill.** Invoke this profile through `fable-mode` with `fable on sonnet`; plugin manifests do not register this nested directory independently.
+
 ## Skill Contract
 
 | Component | Specification |
@@ -24,7 +26,7 @@ metadata:
 
 ## DO NOT USE FOR:
 - One obvious single-pass task
-- Macro orchestration or final high-stakes decisions (use `fable-opus`)
+- Macro orchestration or final high-stakes decisions (select `fable on opus`)
 
 ## Run it
 

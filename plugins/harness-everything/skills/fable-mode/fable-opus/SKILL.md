@@ -9,6 +9,8 @@ metadata:
 
 # Fable Mode — Opus
 
+> **Reference profile, not a standalone plugin skill.** Invoke this profile through `fable-mode` with `fable on opus`; plugin manifests do not register this nested directory independently.
+
 ## Skill Contract
 
 | Component | Specification |
@@ -24,7 +26,7 @@ metadata:
 
 ## DO NOT USE FOR:
 - One obvious single-pass task
-- Bulk mechanical work (use `fable-haiku`) or bounded reasoning (use `fable-sonnet`)
+- Bulk mechanical work (select `fable on haiku`) or bounded reasoning (select `fable on sonnet`)
 
 ## Run it
 
