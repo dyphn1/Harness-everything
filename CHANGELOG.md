@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.30.1](https://github.com/dyphn1/Harness-everything/compare/v0.30.0...v0.30.1) (2026-10-01)
+
+### Bug Fixes
+
+* **fable:** keep minor warnings reporting-only ([28d01e6](https://github.com/dyphn1/Harness-everything/commit/28d01e62acd223ca7506fe721204f29dc94518b8))
+* **fable:** restore guardrail markdown spacing ([7daff05](https://github.com/dyphn1/Harness-everything/commit/7daff054ba39b9e28ddcc4a3a2441b0f6f448d22))
+
 ## [0.30.0](https://github.com/dyphn1/Harness-everything/compare/v0.29.0...v0.30.0) (2026-09-28)
 
 ### Features
