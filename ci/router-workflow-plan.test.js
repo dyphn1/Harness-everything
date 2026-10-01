@@ -251,10 +251,10 @@ if (validContract(noWorkspaceState, 'workspace state block')) {
 const unavailableModel = runTier('fable on opus audit the entire repository architecture', {
   context: { hostCapabilities: { modelAvailability: 'unavailable', subagents: 'available' } },
 });
-if (validContract(unavailableModel, 'model capability block')) {
-  check(unavailableModel.contract.workflowPlan.modelSelection.requested === 'opus', 'router never remaps requested branded model');
-  check(unavailableModel.contract.workflowPlan.fallback.disposition === 'blocked', 'known unavailable model is visibly blocked');
-  check(unavailableModel.contract.workflowPlan.fallback.reasonCodes.includes('requested-model-capability-unavailable'), 'model capability block reason is recorded');
+if (validContract(unavailableModel, 'runtime model capability advisory')) {
+  check(unavailableModel.contract.workflowPlan.profileSelection.requested === 'orchestrator', 'opus remains a behavior-profile alias');
+  check(unavailableModel.contract.workflowPlan.fallback.disposition !== 'blocked', 'runtime model availability does not block Fable profile selection');
+  check(!unavailableModel.contract.workflowPlan.fallback.reasonCodes.includes('requested-model-capability-unavailable'), 'router no longer treats a branded model as a Fable requirement');
 }
 
 const hookUnavailable = runTier('Drop the prod database table.', {
