@@ -118,6 +118,13 @@ for (const prompt of boundedOperationPrompts) {
   }
 }
 
+const controlledAb = runTier('Run a controlled A/B benchmark of the agent with and without the Harness skills and report confidence intervals');
+if (validContract(controlledAb, 'controlled A/B benchmark')) {
+  check(controlledAb.contract.classification.tier === 'tier3', 'structured A/B benchmark remains Tier 3');
+  check(controlledAb.contract.taskShape.observedSignals.macroScope === true, 'structured A/B benchmark records macroScope=true');
+  check(controlledAb.contract.workflowPlan.reasonCodes.includes('macro-scope-signal'), 'structured A/B benchmark keeps macro-scope-signal');
+}
+
 const staged = runTier('Refactor the entire authentication architecture in dependent stages.');
 if (validContract(staged, 'fable-staged')) {
   const plan = staged.contract.workflowPlan;
