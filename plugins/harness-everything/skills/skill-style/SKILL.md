@@ -34,7 +34,7 @@ Apply the Harness writing standard when creating or refactoring `SKILL.md` files
 ## Core Rules
 
 1. MUST keep frontmatter accurate and the description routeable.
-2. MUST include, in order: title, introduction, Skill Contract, usage, and actionable rules.
+2. MUST cover the skill purpose, Skill Contract, usage/applicability, and actionable rules; section order MAY vary for readability and routeability.
 3. MUST use imperative language and name the enforcing command or gate.
 4. MUST avoid overlap with OS-layer routing or domain expertise.
 5. For intent interviews, drafting, and prompt tests, load `<skills-repo-root>/skill-creator/SKILL.md`.

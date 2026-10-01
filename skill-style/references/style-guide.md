@@ -3,12 +3,12 @@
 When you need to create a new Skill or refactor an existing one, strictly adhere to the writing style in this document to ensure all Skills seamlessly integrate into the `harness-everything` routing system and are mathematically enforced by scripts.
 
 ## 1. Structured Definition
-Every Skill file (`SKILL.md`) MUST contain the following standard structure:
+Every Skill file (`SKILL.md`) MUST cover the following elements. Their relative order MAY vary when that improves routing clarity or readability; do not treat this list as a global section-order contract:
 
-1.  **Title & Introduction**: Clearly state the purpose of this Skill.
-2.  **📋 Skill Contract (CRITICAL)**: A strict Markdown table defining inputs, outputs, state mutations, and script gates. This replaces vague prose.
-3.  **Triggers / Usage**: Explicitly tell the system when this skill applies.
-4.  **Core Rules / Action List**: Specific, actionable commands tied to Terminal Scripts. Avoid vague suggestions.
+- **Title & Purpose**: Clearly state the purpose of this Skill.
+- **📋 Skill Contract (CRITICAL)**: A strict Markdown table defining inputs, outputs, state mutations, and script gates. This replaces vague prose.
+- **Triggers / Usage**: Explicitly tell the system when this skill applies.
+- **Core Rules / Action List**: Specific, actionable commands tied to Terminal Scripts. Avoid vague suggestions.
 
 ### 📋 The Skill Contract Format
 Every SKILL.md MUST include this table exactly:

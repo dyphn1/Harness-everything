@@ -11,8 +11,8 @@ Source of truth: `skill-style/SKILL.md`.
 ```mermaid
 graph TD
   TriggerEdit["Trigger: creating, reviewing, or refactoring a Harness SKILL.md"] --> FrontAccurate["Keep frontmatter accurate and description routeable"]
-  FrontAccurate --> OrderCheck["Include in order: title, introduction, Skill Contract, usage, actionable rules"]
-  OrderCheck --> ImperativeGate["Use imperative language and name the enforcing command or gate"]
+  FrontAccurate --> SectionCheck["Cover purpose, Skill Contract, usage/applicability, and actionable rules; order may vary"]
+  SectionCheck --> ImperativeGate["Use imperative language and name the enforcing command or gate"]
   ImperativeGate --> OverlapCheck["Avoid overlap with OS-layer routing or domain expertise"]
   OverlapCheck --> ConsistencyGate["Gate: npm run test:consistency plus style-guide review"]
   ConsistencyGate --> ConciseOut["Output: concise, complete, non-overlapping SKILL.md"]
@@ -44,12 +44,12 @@ graph LR
 
 ## 3. Real-World Use Case
 
-An author drafts a new `backup-restore` SKILL.md and runs a style pass. They tighten the frontmatter description for routing, reorder the file to title, introduction, Skill Contract, usage, and actionable rules, rewrite vague advice in imperative language naming `npm run test:consistency` as the gate, remove duplicated routing already owned elsewhere, and check `skill-style/references/style-guide.md`. Intent interviewing and prompt testing are handed to `skill-creator/SKILL.md` per the Core Rules.
+An author drafts a new `backup-restore` SKILL.md and runs a style pass. They tighten the frontmatter description for routing, check that the skill purpose, Skill Contract, usage/applicability, and actionable rules are all present without forcing a global section order, rewrite vague advice in imperative language naming `npm run test:consistency` as the gate, remove duplicated routing already owned elsewhere, and check `skill-style/references/style-guide.md`. Intent interviewing and prompt testing are handed to `skill-creator/SKILL.md` per the Core Rules.
 
 ## 4. Verification Check
 
 - [ ] Frontmatter accurate and description routeable
-- [ ] File includes in order: title, introduction, Skill Contract, usage, and actionable rules
+- [ ] File covers the skill purpose, Skill Contract, usage/applicability, and actionable rules; section order may vary
 - [ ] Imperative language used with the enforcing command or gate named (`npm run test:consistency` plus style-guide review)
 - [ ] No overlap with OS-layer routing or domain expertise; catalog overlap checked
 - [ ] Tone, formatting, and progressive disclosure standardized per `skill-style/references/style-guide.md`
