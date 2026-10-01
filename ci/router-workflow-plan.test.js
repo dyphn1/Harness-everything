@@ -202,10 +202,11 @@ if (validContract(fableTypo, 'fable keyword trivial edit')) {
 }
 
 const explicitFable = runTier('fable on opus audit the entire repository architecture');
-if (validContract(explicitFable, 'explicit Fable model')) {
+if (validContract(explicitFable, 'explicit Fable profile')) {
   check(explicitFable.contract.workflowPlan.strategy === 'fable-staged', 'explicit Fable request selects Fable topology');
-  check(explicitFable.contract.workflowPlan.modelSelection.requested === 'opus', 'explicit Fable model stays delegated to model selector');
-  check(explicitFable.result.stdout.includes('REQUESTED FABLE MODEL MODE: opus'), 'legacy explicit Fable route remains visible');
+  check(explicitFable.contract.workflowPlan.profileSelection.requested === 'orchestrator', 'legacy opus alias normalizes to orchestrator profile');
+  check(explicitFable.contract.workflowPlan.profileSelection.alias === 'opus', 'legacy alias remains auditable');
+  check(explicitFable.result.stdout.includes('REQUESTED FABLE PROFILE: opus'), 'explicit Fable profile remains visible');
 }
 
 const explicitOverride = runTier('Use iterative-single to audit the entire repository architecture.');
