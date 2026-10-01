@@ -44,6 +44,52 @@ for (const rel of [
 }
 assert.ok(/section order MAY vary/i.test(skillStyle), 'skill-style explicitly permits readability-driven section ordering');
 
+// #266: older callers must describe review/evaluation outcomes, not treat
+// multi-agent-workspace as a generic subagent executor. Topology remains
+// router-owned, and canonical skill files must stay in sync with packaged copies.
+const contractPairs = [
+  ['to-spec/SKILL.md', 'plugins/harness-everything/skills/to-spec/SKILL.md'],
+  ['to-spec/references/process.md', 'plugins/harness-everything/skills/to-spec/references/process.md'],
+  ['skill-creator/SKILL.md', 'plugins/harness-everything/skills/skill-creator/SKILL.md'],
+  ['skill-creator/references/testing-workflow.md', 'plugins/harness-everything/skills/skill-creator/references/testing-workflow.md'],
+  ['skill-creator/references/authoring-workflow.md', 'plugins/harness-everything/skills/skill-creator/references/authoring-workflow.md'],
+];
+for (const [canonical, packaged] of contractPairs) {
+  assert.strictEqual(read(packaged), read(canonical), canonical + ' packaged mirror must match');
+}
+const contractSurfaces = [
+  'to-spec/SKILL.md',
+  'to-spec/references/process.md',
+  'skill-creator/SKILL.md',
+  'skill-creator/references/testing-workflow.md',
+  'skill-creator/references/authoring-workflow.md',
+  'docs/workflows/skill-creator.md',
+];
+const staleExecutorClaims = [
+  /Design Audit \(\`multi-agent-workspace\`\)/i,
+  /recommend invoking \`multi-agent-workspace\`/i,
+  /A\/B-test via \`multi-agent-workspace\` subagents/i,
+  /multi-agent-workspace subagents/i,
+  /`multi-agent-workspace` skill for bounded sub-agent spawning/i,
+  /Use `multi-agent-workspace` to spawn/i,
+  /multi-agent entrypoint is `multi-agent-workspace`; it owns\s+bounded delegation/i,
+];
+for (const rel of contractSurfaces) {
+  const body = read(rel);
+  for (const pattern of staleExecutorClaims) {
+    assert.ok(!pattern.test(body), rel + ' must not treat multi-agent-workspace as a generic executor: ' + pattern);
+  }
+}
+assert.ok(/independent Design Audit findings/i.test(read('to-spec/SKILL.md')), 'to-spec requires independent Design Audit evidence');
+assert.ok(/Describe the required audit outcome, not an executor/i.test(read('to-spec/references/process.md')), 'to-spec process specifies audit outcome rather than executor');
+assert.ok(/A\/B-test isolated control/i.test(read('skill-creator/SKILL.md')), 'skill-creator defines isolated A/B lanes');
+assert.ok(/control \(without skill\) vs treatment \(with skill\)/i.test(read('skill-creator/SKILL.md')), 'skill-creator preserves control/treatment semantics');
+assert.ok(/topology owned by the active router\/host/i.test(read('skill-creator/references/testing-workflow.md')), 'testing guide keeps evaluation topology router-owned');
+assert.ok(/Execution topology belongs to the router\/host/i.test(read('skill-creator/references/authoring-workflow.md')), 'authoring guide keeps execution topology router-owned');
+const workspaceContract = read('multi-agent-workspace/SKILL.md');
+assert.ok(/router owns that decision/i.test(workspaceContract), 'multi-agent-workspace keeps router-owned topology');
+assert.ok(/does not spawn workers/i.test(workspaceContract), 'multi-agent-workspace remains a topology/workspace consumer');
+
 // #272: preserve one detailed checkpoint plus the invariant; remove duplicate
 // restatements from later sections of the same router injection.
 const kernel = path.join(ROOT, 'harness-everything/scripts/kernel-router.js');

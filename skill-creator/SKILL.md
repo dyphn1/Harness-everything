@@ -31,8 +31,8 @@ metadata:
 ## Authoring Workflow
 
 1. Grep the registry for near-duplicates; the when-to-fire sentence becomes the description.
-2. Draft the Contract table first (forces the Enforcement Gate), then `## USE FOR:`/`## DO NOT USE FOR:`, then steps/flat reference; push branch-only detail to references/.
-3. A/B-test via `multi-agent-workspace` subagents; read both transcripts.
+2. Draft Contract table first, then `## USE FOR:`/`## DO NOT USE FOR:`, then steps; move branch-only detail to references/.
+3. A/B-test isolated control (without skill) vs treatment (with skill); read both transcripts; router owns topology.
 4. Run the Quality Checklist; register (static quotes the description; dynamic below).
 
 ## Dynamic Skill Generation Contract

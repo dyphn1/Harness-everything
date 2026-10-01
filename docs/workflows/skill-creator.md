@@ -13,7 +13,7 @@ graph TD
   NewReq["Trigger: new skill, SKILL.md audit, or self-evolve packaging"] --> DupGrep["Grep registry for near-duplicates; when-to-fire sentence becomes description"]
   DupGrep --> DraftContract["Draft Contract table first, then USE FOR and DO NOT USE FOR, then steps or flat reference"]
   DraftContract --> PushRef["Push branch-only detail to references/"]
-  PushRef --> ABTest["A/B-test via multi-agent-workspace subagents; read both transcripts"]
+  PushRef --> ABTest["A/B-test in isolated control/treatment lanes; capture and read both transcripts"]
   ABTest --> QualityGate["Quality Checklist gate before registering"]
   QualityGate --> RegisterOut["Output: SKILL.md passing Quality Checklist; writes SKILL.md and updates registry or generated folder"]
 ```
@@ -38,7 +38,8 @@ graph LR
 
 ```mermaid
 graph LR
-  CreatorSkill2["skill-creator / SKILL.md"] -->|A-B tests with| MultiAgent["multi-agent-workspace subagents"]
+  CreatorSkill2["skill-creator / SKILL.md"] -->|Defines isolated A/B lanes and evidence| EvalLanes["Control: without candidate skill / Treatment: with candidate skill"]
+  EvalLanes --> RouterExec["Router/host selects execution topology"]
   NonSkillDocs["Non-skill project docs"] -->|Use instead| RepoDocs["repo-docs or to-spec"]
   ThirdParty["Third-party skill discovery"] -->|Use instead| FindSkills["find-skills"]
   StyleOnly["Code style outside SKILL.md files"] -->|Out of scope| NotCreator["Not skill-creator"]
@@ -46,7 +47,7 @@ graph LR
 
 ## 3. Real-World Use Case
 
-A team wants a new `deploy-preview` skill. The author greps the registry for near-duplicates, writes the when-to-fire sentence as the description, drafts the Contract table first with its enforcement gate, then `USE FOR` and `DO NOT USE FOR`, then the steps, pushing long detail to `references/`. They A/B-test via `multi-agent-workspace` subagents, read both transcripts, run the Quality Checklist (`skill-creator/references/quality-checklist.md`), and only then register. A separate small tip discovered mid-session does not qualify as a dynamic skill and goes to `<workspace>/memories/repo/RULES.md`.
+A team wants a new `deploy-preview` skill. The author greps the registry for near-duplicates, writes the when-to-fire sentence as the description, drafts the Contract table first with its enforcement gate, then `USE FOR` and `DO NOT USE FOR`, then the steps, pushing long detail to `references/`. They A/B-test in two isolated lanes (control without the candidate skill; treatment with it), capture and read both transcripts, let the router/host select the execution topology, run the Quality Checklist (`skill-creator/references/quality-checklist.md`), and only then register. A separate small tip discovered mid-session does not qualify as a dynamic skill and goes to `<workspace>/memories/repo/RULES.md`.
 
 ## 4. Verification Check
 
@@ -54,7 +55,7 @@ A team wants a new `deploy-preview` skill. The author greps the registry for nea
 - [ ] Contract table drafted first to force the enforcement gate
 - [ ] `USE FOR` and `DO NOT USE FOR` present before steps or flat reference
 - [ ] Branch-only detail pushed to `references/` (e.g. `skill-creator/references/quality-checklist.md`)
-- [ ] A/B-tested via `multi-agent-workspace` subagents and both transcripts read
+- [ ] A/B-tested in isolated control/treatment lanes; both transcripts captured and read; execution topology left to the router/host
 - [ ] Quality Checklist passed before registering, including `USE FOR` / `DO NOT USE FOR` consistency
 - [ ] Output is a SKILL.md passing the Quality Checklist; `<skill>/SKILL.md` written and registry or generated folder updated
 - [ ] Dynamic path gated by Quality Checklist first; location, frontmatter triggers, generated type, and draft status correct
