@@ -104,6 +104,35 @@ if (validContract(memoryProhibited, 'memory prohibition')) {
   check(memoryProhibited.contract.workflowPlan.reasonCodes.includes('memory-persistence-prohibited'), 'memory prohibition conflict is auditable');
 }
 
+const boundedOperationPrompts = [
+  'Audit this SKILL.md only.',
+  'Compare these two functions.',
+  'Benchmark this parser function.',
+];
+for (const prompt of boundedOperationPrompts) {
+  const boundedOperation = runTier(prompt);
+  if (validContract(boundedOperation, `bounded operation: ${prompt}`)) {
+    check(boundedOperation.contract.classification.tier !== 'tier3', `bounded operation verb does not force Tier 3: ${prompt}`);
+    check(!boundedOperation.contract.workflowPlan.reasonCodes.includes('macro-scope-signal'), `bounded operation verb does not emit macro-scope-signal: ${prompt}`);
+    check(boundedOperation.contract.taskShape.observedSignals.macroScope === false, `bounded operation records macroScope=false: ${prompt}`);
+  }
+}
+
+const controlledAb = runTier('Run a controlled A/B benchmark of the agent with and without the Harness skills and report confidence intervals');
+if (validContract(controlledAb, 'controlled A/B benchmark')) {
+  check(controlledAb.contract.classification.tier === 'tier3', 'structured A/B benchmark remains Tier 3');
+  check(controlledAb.contract.taskShape.observedSignals.macroScope === true, 'structured A/B benchmark records macroScope=true');
+  check(controlledAb.contract.workflowPlan.reasonCodes.includes('macro-scope-signal'), 'structured A/B benchmark keeps macro-scope-signal');
+}
+
+const tier3Keyword = runTier('Create a new feature');
+if (validContract(tier3Keyword, 'Tier 3 keyword rationale')) {
+  check(tier3Keyword.contract.classification.tier === 'tier3', 'new feature remains Tier 3');
+  check(tier3Keyword.contract.workflowPlan.reasonCodes.includes('tier3-keyword'), 'new feature records tier3-keyword');
+  check(/Tier 3 keyword/i.test(tier3Keyword.contract.classification.rationale), 'Tier 3 keyword rationale names the actual trigger class');
+  check(!/repository-wide scope|structured comparative experiment/i.test(tier3Keyword.contract.classification.rationale), 'Tier 3 keyword rationale does not claim unrelated macro signals');
+}
+
 const staged = runTier('Refactor the entire authentication architecture in dependent stages.');
 if (validContract(staged, 'fable-staged')) {
   const plan = staged.contract.workflowPlan;

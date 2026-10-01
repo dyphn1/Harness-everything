@@ -243,7 +243,7 @@ function run(userPrompt, context, options = {}) {
 
   const macroSignals = [
     /\b(?:every|each|all|entire|whole|full|complete)\s+(?:skill|skills|repo|repository|codebase|project|file|files|module|modules)/i,
-    /\b(?:evaluate|audit|benchmark|stress[- ]test|ab test|a\/b test|compare)\b/i,
+    /\b(?:controlled\s+)?a(?:\/|[- ]?)b\s+(?:test|benchmark)\b/i,
     /\b(?:repository[- ]wide|codebase[- ]wide|end[- ]to[- ]end)\b/i,
     /\b(?:multiple|several|four|fourteen|dozens)\s+(?:issues|skills|files|modules)/i,
     /(?:每個|每一個|所有|全部|整個|全套|逐一|多個|四個).*(?:skill|技能|檔案|問題|版本|基準|測試|評估|稽核|比較|壓力)/i,
@@ -254,7 +254,8 @@ function run(userPrompt, context, options = {}) {
   const hasDocsTarget = /\b(?:readme|documentation|docs?)\b/i.test(userPrompt);
   const hasTinyEditSignal = /\b(?:typo|spelling|wording|one line|single line)\b/i.test(userPrompt);
   const isTrivialDocsEdit = !hasMacroSignal && hasTrivialEditVerb && hasDocsTarget && hasTinyEditSignal;
-  const hasTier3Keyword = TIER3_KEYWORDS.some(keyword => matchKeyword(promptLower, keyword));
+  const matchedTier3Keyword = TIER3_KEYWORDS.find(keyword => matchKeyword(promptLower, keyword)) || null;
+  const hasTier3Keyword = matchedTier3Keyword !== null;
   const hasTier2Keyword = TIER2_KEYWORDS.some(keyword => matchKeyword(promptLower, keyword));
 
   let recommendedTier = 'Unclassified';
@@ -273,7 +274,9 @@ function run(userPrompt, context, options = {}) {
     addReason(reasonCodes, 'trivial-docs-edit');
   } else if (hasMacroSignal || hasTier3Keyword) {
     recommendedTier = 'Tier 3 (Macro Task)';
-    rationale = 'Prompt implies repository-wide scope, audit/benchmark work, architectural refactoring, or multi-agent collaboration.';
+    rationale = hasMacroSignal
+      ? 'Prompt implies repository-wide scope, a structured comparative experiment, architectural refactoring, or multi-agent collaboration.'
+      : `Prompt matched configured Tier 3 keyword: "${matchedTier3Keyword}".`;
     reasonCodes.splice(loadedConfig.reasonCodes.length);
     addReason(reasonCodes, hasMacroSignal ? 'macro-scope-signal' : 'tier3-keyword');
   } else if (hasTier2Keyword) {
