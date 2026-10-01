@@ -194,7 +194,6 @@ function printKernelContract(plan) {
       emitted.add(skill);
       if (skill === 'fable-mode') emitted.add('fable-discipline');
     }
-    console.log('   - Read-before-skip: MUST evaluate every suggested skill entry before omission. If applicable, MUST follow its core contract; adopting one suggestion does not waive resolution of the others.');
     if (plan.strategy && plan.strategy.startsWith('fable-')) {
       console.log('   - Fable is not a universal pipeline, but a selected Fable topology must be entered and resolved before completion.');
     }

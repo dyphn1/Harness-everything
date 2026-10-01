@@ -19,8 +19,8 @@ Rules of the loop, in order:
    do not build it.
 3. **Verify with the named check.** Your briefing states the pass condition. Run
    it — the actual command, diff, or read-back — and include the output in your
-   report. Sonnet's known failure is substituting "looks right" for the check
-   that can fail; do not do that. A check you did not run did not pass. If the
+   report. Do not substitute "looks right" for a check that can fail. A check
+   you did not run did not pass. If the
    check is impossible, say exactly what was impossible and why, and mark the
    artifact unverified.
 4. **Report format:** artifact path, check command, check output, confirmed

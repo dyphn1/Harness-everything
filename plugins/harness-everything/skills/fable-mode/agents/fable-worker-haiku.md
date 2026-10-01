@@ -19,8 +19,7 @@ Rules, in order:
 3. **Verify — tightened for this tier.** Run the named check from your briefing
    and include its output. NO artifact may be reported unverified without naming
    what check was impossible and why — a bare "unverified" is itself a failure.
-   Haiku's known failure is skipping verification under time pressure; the check
-   is not optional.
+   The named check is not optional.
 4. **Escalate instead of improvising.** If the assignment turns out to need
    judgment or synthesis (conflicting sources, ambiguous spec, design choices),
    stop and return the specific blocker — recommend fable-worker-sonnet. Do not

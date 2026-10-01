@@ -151,7 +151,6 @@ function run(raw) {
   if (plan.strategySelection === 'selected') {
     console.log('   - Selected-topology required obligations are semantic MUSTs; implementation technique and local tactics MAY adapt.');
     console.log('   - Before claiming completion, MUST resolve required workflow evidence and objective verification, or report an explicit blocked/degraded disposition.');
-    console.log('   - Every suggested skill MUST resolve applicability. If applicable, follow its core contract; if not-applicable, keep a flow-grounded reason.');
     console.log('   - Tier 3 / Fable broad mutation MUST resolve isolation: verified linked worktree or explicit degraded fallback. Missing isolation is not a Harness lock.');
     console.log('   - Escape is only for genuinely uncovered declared scope with evidence; it does not erase covered MUST obligations.');
   }
