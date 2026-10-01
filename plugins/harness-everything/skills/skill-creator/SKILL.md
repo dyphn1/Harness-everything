@@ -32,7 +32,7 @@ metadata:
 
 1. Grep the registry for near-duplicates; the when-to-fire sentence becomes the description.
 2. Draft the Contract table first (forces the Enforcement Gate), then `## USE FOR:`/`## DO NOT USE FOR:`, then steps/flat reference; push branch-only detail to references/.
-3. A/B-test via `multi-agent-workspace` subagents; read both transcripts.
+3. A/B-test in two isolated evaluation lanes: control runs without the candidate skill, treatment runs with it; capture and read both transcripts. Describe the lanes and evidence, not an executor; let the router/host select the execution topology.
 4. Run the Quality Checklist; register (static quotes the description; dynamic below).
 
 ## Dynamic Skill Generation Contract
