@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.30.4](https://github.com/dyphn1/Harness-everything/compare/v0.30.3...v0.30.4) (2026-10-01)
+
+### Bug Fixes
+
+* **plugin:** sync skill-creator A/B contract ([2eeea6e](https://github.com/dyphn1/Harness-everything/commit/2eeea6ec3845c5affcbd38f8c44c8120155818c2))
+* **plugin:** sync to-spec design audit contract ([4a298e6](https://github.com/dyphn1/Harness-everything/commit/4a298e64477078e8c435ab90d1968d36f91bc648))
+* **plugin:** sync to-spec workspace contract ([591c50f](https://github.com/dyphn1/Harness-everything/commit/591c50f6a99819f51202e0fbebc0bdb3511746e0))
+* **skill-creator:** define executor-agnostic A/B lanes ([7294807](https://github.com/dyphn1/Harness-everything/commit/7294807da0c0c96f7baa148eb05913b476e192fa))
+* **skill-creator:** keep A/B invariant within token budget ([0e249ab](https://github.com/dyphn1/Harness-everything/commit/0e249ab2205daba3f11ad8aa7886e27821d63edb))
+* **skill-creator:** keep A/B invariant within token budget ([d0c7cba](https://github.com/dyphn1/Harness-everything/commit/d0c7cba2c9d2123a3a9c192d022dae3a70740efc))
+* **skill-creator:** keep topology router-owned in authoring guide ([842241d](https://github.com/dyphn1/Harness-everything/commit/842241dfadc98ed5983d744c9d615cf8e93b5e5e))
+* **skill-creator:** keep topology router-owned in authoring guide ([97ec713](https://github.com/dyphn1/Harness-everything/commit/97ec713580958629df11923be0acf25f4eaf92d2))
+* **skill-creator:** remove stale workspace spawner guidance ([37fbb99](https://github.com/dyphn1/Harness-everything/commit/37fbb99b992881fe4c93126c0198697e2d825240))
+* **skill-creator:** remove stale workspace spawner guidance ([14f0614](https://github.com/dyphn1/Harness-everything/commit/14f0614843d79fc1067384b1b5ffa3f22caf1b6b))
+* **to-spec:** define design audit outcome instead of executor ([ffe8e6e](https://github.com/dyphn1/Harness-everything/commit/ffe8e6e414edbb50412d48fd07cfe187b97cdc6f))
+* **to-spec:** keep audit invariant within token budget ([c29757a](https://github.com/dyphn1/Harness-everything/commit/c29757af92dc560a6fb15f16252ca931d4abc5cc))
+* **to-spec:** keep audit invariant within token budget ([5ab9667](https://github.com/dyphn1/Harness-everything/commit/5ab966710ca32e776a9cd9d8c608b92e2558898c))
+* **to-spec:** stop treating workspace as subagent executor ([32b797c](https://github.com/dyphn1/Harness-everything/commit/32b797c9fd9028ca26b8bb61f101bace23a5cd18))
+
 ## [0.30.3](https://github.com/dyphn1/Harness-everything/compare/v0.30.2...v0.30.3) (2026-10-01)
 
 ### Bug Fixes
