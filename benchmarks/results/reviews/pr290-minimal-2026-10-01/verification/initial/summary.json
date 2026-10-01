@@ -1,0 +1,58 @@
+[
+  {
+    "gate": "test",
+    "exitCode": 1
+  },
+  {
+    "gate": "test:mutations",
+    "exitCode": 0
+  },
+  {
+    "gate": "test:mechanism",
+    "exitCode": 1
+  },
+  {
+    "gate": "test:consistency",
+    "exitCode": 1
+  },
+  {
+    "gate": "test:repo-contract",
+    "exitCode": 0
+  },
+  {
+    "gate": "test:docs:capabilities",
+    "exitCode": 0
+  },
+  {
+    "gate": "test:references",
+    "exitCode": 1
+  },
+  {
+    "gate": "test:release",
+    "exitCode": 1
+  },
+  {
+    "gate": "test:collision",
+    "exitCode": 0
+  },
+  {
+    "gate": "test:routing:skills",
+    "exitCode": 0
+  },
+  {
+    "gate": "test:routing:invariants",
+    "exitCode": 0
+  },
+  {
+    "gate": "test:plugin:openai",
+    "exitCode": 0
+  },
+  {
+    "gate": "test:plugin:submission",
+    "exitCode": 0
+  },
+  {
+    "gate": "test:platform:compatibility",
+    "exitCode": 0
+  }
+]

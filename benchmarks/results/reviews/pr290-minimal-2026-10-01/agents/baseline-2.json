@@ -1,0 +1,56 @@
+{
+  "answer": {
+    "requestedProfile": "sonnect",
+    "effectiveProfile": "reasoning",
+    "profileAlias": "sonnect",
+    "assignedRole": "reasoning worker",
+    "runtimeModel": null,
+    "runtimeEffort": null
+  },
+  "strategy": "fable-staged",
+  "tier": "Tier 3 (Macro Task)",
+  "fileLedger": [
+    {
+      "path": "/private/tmp/harness-pr289-review/fable-mode/SKILL.md",
+      "bytes": 1904,
+      "sha256": "8af0a74725bd2915fa8e416eeac8f7738ab826fee3cc47e74764c91975c888a8"
+    },
+    {
+      "path": "/private/tmp/harness-pr289-review/fable-mode/references/model-matrix.md",
+      "bytes": 2813,
+      "sha256": "ae38b9bccb371dda348fef0c97a5b0fa456df8263522f5f8b1de262b10cef3cd"
+    }
+  ],
+  "runtimeExecutedFileSizes": [
+    {
+      "path": "/private/tmp/harness-pr289-review/harness-everything/scripts/tier-router.js",
+      "bytes": 24742
+    }
+  ],
+  "shellToolCallsBeforeReportWrite": [
+    "node harness-everything/scripts/tier-router.js \"Explain what 'fable on sonnect' means\"",
+    "cat fable-mode/SKILL.md",
+    "cat fable-mode/references/model-matrix.md",
+    "wc -c < fable-mode/SKILL.md",
+    "shasum -a 256 fable-mode/SKILL.md",
+    "wc -c < fable-mode/references/model-matrix.md",
+    "shasum -a 256 fable-mode/references/model-matrix.md",
+    "wc -c < harness-everything/scripts/tier-router.js",
+    "pwd -P"
+  ],
+  "unnecessaryRecommendationsOrLoads": {
+    "surfacedButNotLoaded": [
+      "fable-discipline/SKILL.md",
+      "multi-agent-workspace/SKILL.md",
+      "repo-docs/templates/agents-template.md",
+      "grill-with-docs/SKILL.md",
+      "fable-mode/model-matrix.json",
+      "fable-mode/scripts/model-selector.js",
+      "fable-mode/fable-haiku/SKILL.md",
+      "fable-mode/fable-sonnet/SKILL.md",
+      "fable-mode/fable-opus/SKILL.md"
+    ],
+    "unnecessaryLoads": []
+  },
+  "reportWrite": "cat heredoc via exec_command to /tmp/pr290-baseline-2.json"
+}
