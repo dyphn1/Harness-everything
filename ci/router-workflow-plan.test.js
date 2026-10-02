@@ -242,10 +242,17 @@ for (const prompt of [
   'Explain fable on sonnet then run it to analyze security.',
   'Explain fable on sonnet and analyze the authentication design.',
   'Explain fable on sonnet; then send the findings to Slack.',
+  'Explain fable on sonnet and update README.',
+  'Explain fable on haiku, add a regression test.',
+  'Explain fable on opus and commit the documentation change.',
+  '說明 fable on sonnet 並更新 README。',
+  '解釋 fable on haiku，新增回歸測試。',
+  '解析 fable on opus 並刪除過期文件。',
 ]) {
   const execution = runTier(prompt);
   if (validContract(execution, 'Fable execution boundary')) {
     check(execution.contract.workflowPlan.strategy === 'fable-staged', 'execution/macro scope preserves staged topology');
+    check(!execution.contract.workflowPlan.reasonCodes.includes('fable-profile-lookup'), 'mixed execution never records the bounded lookup reason');
     check(execution.contract.workflowPlan.requiredInvariants.includes('isolated-worktree-before-mutation'), 'execution retains isolation obligation');
   }
 }
