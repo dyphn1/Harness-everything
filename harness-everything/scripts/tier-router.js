@@ -93,11 +93,12 @@ function isFableProfileLookup(prompt, hasMacroSignal) {
 
   let continuationOperation = null;
   for (const clause of continuations) {
-    const output = /^(?:return|respond|output|show|provide)\b|^(?:只|僅)?(?:回傳|返回|輸出|顯示|提供)/i.test(clause);
-    const negative = /^(?:no|without|do not|don't)\b|^(?:不要|不需要|無需|不)/i.test(clause);
+    const output = /^(?:please\s+)?(?:return|respond|output|show|provide)\b|^(?:請\s*)?(?:只|僅)?(?:回傳|返回|輸出|顯示|提供)/i.test(clause);
+    const negative = /^(?:please\s+)?(?:no|without|do not|don't)\b|^(?:請\s*)?(?:不要|不需要|無需|不)/i.test(clause);
     if (output || negative) {
       continuationOperation = output ? 'output' : 'negative';
-      if (!containsOnlyLookupTerms(clause, continuationOperation)) return false;
+      const normalizedContinuation = clause.replace(/^(?:please\s+|請\s*)/i, '');
+      if (!containsOnlyLookupTerms(normalizedContinuation, continuationOperation)) return false;
     } else if (continuationOperation === 'output') {
       // Only named canonical fields may continue a comma/and-separated list.
       const remainder = clause.replace(PROFILE_LOOKUP_FIELDS, '').replace(/^(?:包含|欄位)/, '').replace(/[\s"'`“”‘’]/g, '');
