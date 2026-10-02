@@ -222,6 +222,12 @@ for (const prompt of [
   "Resolve fable on haiku into a profile JSON record; no orchestration or delegation.",
   "解釋 fable on opus 的意思，只回傳 JSON。",
   "Explain what 'run fable on sonnect' means; return only JSON.",
+  'Explain fable on sonnet; return JSON with requestedProfile, effectiveProfile.',
+  "Explain what 'fable on sonnect' means; return only a small JSON selection record with requestedProfile, effectiveProfile, profileAlias, assignedRole, runtimeModel, runtimeEffort. No orchestration or delegation.",
+  'Explain fable on haiku; output JSON with `requestedProfile`, `runtimeModel` and `runtimeEffort`.',
+  '解釋 fable on opus 的意思，只回傳 JSON，包含 requestedProfile、effectiveProfile、runtimeEffort。',
+  "Explain what 'use fable on opus' means; no execution or model switching.",
+  'Explain fable on sonnet; return JSON; no stages, delegation or execution.',
 ]) {
   const lookup = runTier(prompt);
   const repeat = runTier(prompt);
@@ -248,6 +254,18 @@ for (const prompt of [
   '說明 fable on sonnet 並更新 README。',
   '解釋 fable on haiku，新增回歸測試。',
   '解析 fable on opus 並刪除過期文件。',
+  'Explain fable on sonnet before updating README.',
+  'Explain fable on sonnet; return JSON after updating README.',
+  "Explain fable on sonnet before updating README.md to change 'Instalation' to 'Installation'.",
+  '解釋 fable on sonnet 後更新 README。',
+  'Explain fable on sonnet; no delegation before deleting stale files.',
+  'Explain fable on sonnet; return JSON with requestedProfile, update README.',
+  'Explain fable on sonnet; output JSON with requestedProfile and then publish the result.',
+  'Explain fable on sonnet; return JSON after restarting the server.',
+  'Explain fable on sonnet; no execution except updating README.',
+  'Explain fable on sonnet; provide a profile result while running the tests.',
+  'Explain fable on sonnet; return JSON with unknownField.',
+  'Explain fable on sonnet; some unknown continuation.',
 ]) {
   const execution = runTier(prompt);
   if (validContract(execution, 'Fable execution boundary')) {

@@ -46,22 +46,31 @@ function matchKeyword(prompt, keyword) {
   return new RegExp(`\\b${escaped}\\b`, 'i').test(prompt);
 }
 
+const FABLE_PROFILE_INVOCATION = /\bfable(?:[- ]mode)?\s+(?:on|with)\s+(haiku|sonnet|sonnect|opus)\b|\bfable-(haiku|sonnet|opus)\b/i;
+const PROFILE_LOOKUP_FIELDS = /\b(?:requestedProfile|effectiveProfile|profileAlias|assignedRole|runtimeModel|runtimeEffort)\b/gi;
+
 function detectFableModel(prompt) {
-  const match = prompt.match(/\bfable(?:[- ]mode)?\s+(?:on|with)\s+(haiku|sonnet|sonnect|opus)\b|\bfable-(haiku|sonnet|opus)\b/i);
+  const match = prompt.match(FABLE_PROFILE_INVOCATION);
   if (!match) return null;
   return (match[1] || match[2]).toLowerCase();
 }
 
 // A profile mention is data in a lookup, not an instruction to start Fable.
-// Accept only lookup-shaped clauses plus bounded output/negative constraints.
-// Any unrecognized continuation stays on the normal execution path.
-function isLookupOnlyContinuation(clause) {
-  const text = clause.trim();
-  if (!text) return true;
-  return /^(?:return|respond|output|show|provide)\b.*\b(?:json|record|selection|profile|result)\b/i.test(text)
-    || /^(?:no|without|do not|don't)\b.*\b(?:orchestration|delegation|stages?|staging|execution|model switch(?:ing)?)\b/i.test(text)
-    || /^(?:只|僅)?(?:回傳|返回|輸出|顯示|提供).*(?:json|記錄|紀錄|結果|profile|設定檔)/i.test(text)
-    || /^(?:不要|不需要|無需|不).*(?:編排|委派|階段|執行|切換模型)/i.test(text);
+// Validate the whole clause, not just its prefix. Unknown prose conservatively
+// retains execution routing; format field lists are recognized separately.
+function containsOnlyLookupTerms(text, operation) {
+  const terms = {
+    explanation: /\b(?:please|help|me|explain|resolve|define|what|is|does|mean|means|meaning|the|a|an|of|to|into|in|for|behavior|behaviour|profile|profiles|selection|json|record|alias|role|runtime|model|effort|floor|fableprofile)\b/gi,
+    output: /\b(?:return|respond|output|show|provide|only|a|an|small|compact|json|record|selection|profile|result|with|fields|containing|include|including)\b/gi,
+    negative: /\b(?:no|without|do|not|don't|or|orchestration|delegation|stage|stages|staging|execution|model|switch|switching)\b/gi,
+  };
+  const chineseTerms = {
+    explanation: /(?:請|幫我|解釋|說明|解析|的意思|意思|含義|意義|是什麼|設定檔|行為|角色)/g,
+    output: /(?:只|僅|回傳|返回|輸出|顯示|提供|包含|欄位|記錄|紀錄|結果|設定檔)/g,
+    negative: /(?:不要|不需要|無需|不|或|編排|委派|階段|執行|切換模型)/g,
+  };
+  return text.replace(PROFILE_LOOKUP_FIELDS, '').replace(terms[operation], '')
+    .replace(chineseTerms[operation], '').replace(/[\s"'`“”‘’?:：？]/g, '') === '';
 }
 
 function isFableProfileLookup(prompt, hasMacroSignal) {
@@ -69,15 +78,35 @@ function isFableProfileLookup(prompt, hasMacroSignal) {
   if (/\b(?:direct[- ]single|iterative[- ]single|fable[- ](?:staged|parallel|multi[- ]agent[- ]workspace))\b/i.test(prompt)) return false;
 
   const clauses = prompt
-    .split(/(?:[;,，；。]|\b(?:and|then|also|plus|afterwards|additionally)\b|(?:並且?|以及|接著|然後|另外))/i)
+    .split(/(?:[;,.，；。、]|\b(?:and|then|also|plus|afterwards|additionally)\b|(?:並且?|以及|接著|然後|另外))/i)
     .map(part => part.trim())
     .filter(Boolean);
   if (clauses.length === 0) return false;
 
   const [lookupClause, ...continuations] = clauses;
+  const quotedInvocation = new RegExp(`(["'\x60])(?:run|use|enter)\\s+(?:${FABLE_PROFILE_INVOCATION.source})\\1`, 'gi');
+  const normalizedLookup = lookupClause.replace(quotedInvocation, 'fableprofile')
+    .replace(new RegExp(FABLE_PROFILE_INVOCATION.source, 'gi'), 'fableprofile');
   const isLookupLead = /^(?:(?:please|help me)\s+)?(?:explain|resolve|define|what (?:is|does)|解釋|說明|解析)/i.test(lookupClause)
     && Boolean(detectFableModel(lookupClause));
-  return isLookupLead && continuations.every(isLookupOnlyContinuation);
+  if (!isLookupLead || !containsOnlyLookupTerms(normalizedLookup, 'explanation')) return false;
+
+  let continuationOperation = null;
+  for (const clause of continuations) {
+    const output = /^(?:return|respond|output|show|provide)\b|^(?:只|僅)?(?:回傳|返回|輸出|顯示|提供)/i.test(clause);
+    const negative = /^(?:no|without|do not|don't)\b|^(?:不要|不需要|無需|不)/i.test(clause);
+    if (output || negative) {
+      continuationOperation = output ? 'output' : 'negative';
+      if (!containsOnlyLookupTerms(clause, continuationOperation)) return false;
+    } else if (continuationOperation === 'output') {
+      // Only named canonical fields may continue a comma/and-separated list.
+      const remainder = clause.replace(PROFILE_LOOKUP_FIELDS, '').replace(/^(?:包含|欄位)/, '').replace(/[\s"'`“”‘’]/g, '');
+      if (remainder || !new RegExp(PROFILE_LOOKUP_FIELDS.source, 'i').test(clause)) return false;
+    } else if (continuationOperation !== 'negative' || !containsOnlyLookupTerms(clause, 'negative')) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function detectExplicitStrategy(prompt, requestedFableModel) {
