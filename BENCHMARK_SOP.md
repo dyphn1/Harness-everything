@@ -10,6 +10,12 @@ This SOP is therefore a **behavior** benchmark. Pair it with the mechanism/packa
 
 ## Testing Process
 
+The next public coding study is specified in
+[Public coding baseline](benchmarks/public-coding-baseline/README.md), with pinned
+QuixBugs, Aider Polyglot and Terminal-Bench 4.0 subsets. Use its neutral tasks and
+external graders for completion comparisons; the behavior scenarios below remain
+separate diagnostics. The public study has not yet run.
+
 To maintain controlled variables, please follow these steps for testing:
 
 1. **Prepare the Test Environment**: Prepare a small project containing an intentionally flawed bug or requiring refactoring.

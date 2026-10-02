@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "research_date": "2026-10-02",
+  "status": "design-only; execution-preflight-required; no-agent-trials-run",
+  "selection_manifest": "selection.json",
+  "effect": "skill-text",
+  "arms": ["vanilla", "corrected-pr291-skill-text"],
+  "optional_third_arm": "pr-base-skill-text",
+  "hooks_enabled": false,
+  "model_requested": "gpt-6-luna",
+  "reasoning_effort_requested": "xhigh",
+  "repeats_per_task_per_arm": 3,
+  "task_count": 9,
+  "planned_trial_count": 54,
+  "launch_order_seed": 20261002,
+  "primary_outcome": "all-required-external-acceptance-checks-pass",
+  "minimum_meaningful_effect_pp": 10,
+  "threshold_basis": "local proposed pilot threshold; not an official benchmark standard",
+  "uncertainty_method": "paired task-clustered bootstrap 95% interval",
+  "agent_timeout_seconds": {"small": 600, "medium": 1800, "large": 28800},
+  "timeout_basis": "small/medium are local caps; large preserves pinned Terminal-Bench task configuration",
+  "required_trial_columns": [
+    "task", "stratum", "arm", "repeat", "completion", "input_tokens",
+    "output_tokens", "cached_input_tokens", "cache_write_tokens",
+    "cost_usd", "cost_basis", "agent_wall_seconds", "setup_seconds",
+    "verifier_seconds", "total_elapsed_seconds", "failure_class", "evidence"
+  ],
+  "usage_scope": "all parent/child/reviewer/retry/failed requests within the episode",
+  "unavailable_telemetry": "unknown; never imputed as zero",
+  "preflight_required": [
+    "Freeze same CLI binary, Linux image digests, returned model ID and Harness commit",
+    "Validate fixture dependencies and external grader transfer paths",
+    "Reference solution passes and untouched fixture fails for every task",
+    "Activate all Polyglot skipped cases; freeze test counts and grader hashes",
+    "Freeze neutral prompt bytes, complete fixture inventory and scope constraints",
+    "Verify no Harness surface leaks into vanilla and tools/delegation match",
+    "Validate request-level token/cache/cost/time collection across all children",
+    "Declare identical per-task token and cost caps before launching either arm",
+    "Persist randomized launch order, repetitions and infrastructure retry policy"
+  ],
+  "frozen_execution_values": {
+    "cli_version": null,
+    "container_digests": null,
+    "returned_model_id": null,
+    "harness_commit": null,
+    "token_caps": null,
+    "cost_caps": null,
+    "prompt_hashes": null,
+    "grader_hashes": null
+  }
+}
