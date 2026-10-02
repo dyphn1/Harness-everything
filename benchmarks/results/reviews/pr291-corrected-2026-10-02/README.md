@@ -14,16 +14,18 @@ Six fresh `gpt-6-luna / xhigh` native collaboration agents; one sample per arm a
 
 ## Complete trial counters
 
-| Trial | Input incl. cache | Uncached input | Cached input | Cache writes | Output (reasoning subset) | Total | Standard USD-equivalent |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| small-A | 181,141 | 18,837 | 162,304 | 0 | 6,714 (5,136) | 187,855 | 0.00686374 |
-| small-B | 208,613 | 9,957 | 198,656 | 0 | 2,951 (1,685) | 211,564 | 0.00445776 |
-| medium-A | 355,282 | 40,658 | 314,624 | 0 | 8,895 (6,161) | 364,177 | 0.01165954 |
-| medium-B | 258,701 | 23,181 | 235,520 | 0 | 12,098 (9,583) | 270,799 | 0.0107223 |
-| large-A | 492,370 | 46,930 | 445,440 | 0 | 27,517 (14,672) | 519,887 | 0.0229059 |
-| large-B | 352,795 | 36,891 | 315,904 | 0 | 19,159 (13,833) | 371,954 | 0.01642764 |
+| Trial | Input incl. cache | Uncached input | Cached input | Cache writes | Output (reasoning subset) | Total | Standard USD-equivalent | Elapsed seconds |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| small-A | 181,141 | 18,837 | 162,304 | 0 | 6,714 (5,136) | 187,855 | 0.00686374 | 139.198 |
+| small-B | 208,613 | 9,957 | 198,656 | 0 | 2,951 (1,685) | 211,564 | 0.00445776 | 73.606 |
+| medium-A | 355,282 | 40,658 | 314,624 | 0 | 8,895 (6,161) | 364,177 | 0.01165954 | 192.723 |
+| medium-B | 258,701 | 23,181 | 235,520 | 0 | 12,098 (9,583) | 270,799 | 0.0107223 | 240.818 |
+| large-A | 492,370 | 46,930 | 445,440 | 0 | 27,517 (14,672) | 519,887 | 0.0229059 | 529.371 |
+| large-B | 352,795 | 36,891 | 315,904 | 0 | 19,159 (13,833) | 371,954 | 0.01642764 | 389.914 |
 
 A aggregate input **1,028,793**, cached **922,368**, output **43,126**, total **1,071,919**, equivalent **US$0.04142918**. B aggregate input **820,109**, cached **750,080**, output **34,208**, total **854,317**, equivalent **US$0.03160770**. Combined six-trial equivalent **US$0.07303688**. Shared parent fix/setup/verification/reporting and the independent boundary-review thread are excluded from both A/B arms.
+
+Elapsed seconds are native rollout `task_started` to `task_complete`, excluding launch/startup overhead; exact timestamps are in `timing.json`. Concurrent trial durations must not be summed as experiment wall time.
 
 Every per-request token record is summed once and reconciled to the completed thread's cumulative counter. Source model/effort, unique response IDs, rollout SHA-256 and sanitized counters are in `usage.json`; raw reasoning text is not exported. Input includes cached input; reasoning is included in output. All cache writes are zero, and no individual request exceeds 272K input. Official [Luna Standard rates](https://developers.openai.com/api/docs/models/gpt-6-luna), USD per million: uncached input 0.10, cached input 0.01, writes 0.125, output 0.50. Formula: `(uncached*.10 + cached*.01 + writes*.125 + output*.50)/1e6`. These are **Standard API-equivalent estimates**, not a subscription invoice or attributable quota percentage; actual settled charges are unavailable.
 

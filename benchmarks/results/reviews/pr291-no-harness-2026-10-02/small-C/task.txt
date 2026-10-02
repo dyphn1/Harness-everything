@@ -1,0 +1,1 @@
+Explain what 'fable on sonnect' means; return only a small JSON selection record with requestedProfile, effectiveProfile, profileAlias, assignedRole, runtimeModel, runtimeEffort. No orchestration or delegation.

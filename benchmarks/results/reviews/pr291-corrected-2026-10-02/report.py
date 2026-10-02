@@ -4,10 +4,11 @@ root=pathlib.Path(__file__).resolve().parent
 u=json.loads((root/'usage.json').read_text());m=json.loads((root/'manifest.json').read_text());v=json.loads((root/'verification-effective.json').read_text())
 assert len(v['gates'])==14 and not v['remaining'] and all(r['exitCode']==0 for r in v['gates'])
 boundary=json.loads((root/'boundary-check.json').read_text(encoding='utf8'));assert boundary['summary']['mismatches']==0
-table=['| Trial | Input incl. cache | Uncached input | Cached input | Cache writes | Output (reasoning subset) | Total | Standard USD-equivalent |','|---|---:|---:|---:|---:|---:|---:|---:|']
+timings=json.loads((root/'timing.json').read_text()) if (root/'timing.json').exists() else {}
+table=['| Trial | Input incl. cache | Uncached input | Cached input | Cache writes | Output (reasoning subset) | Total | Standard USD-equivalent | Elapsed seconds |','|---|---:|---:|---:|---:|---:|---:|---:|---:|']
 behavior=[]
 for t in u['trials']:
- s=t['usage'];table.append(f"| {t['id']} | {s['input_tokens']:,} | {s['uncached_input_tokens']:,} | {s['cached_input_tokens']:,} | {s['cache_write_input_tokens']:,} | {s['output_tokens']:,} ({s['reasoning_output_tokens']:,}) | {s['total_tokens']:,} | {t['standardAPIEquivalentUSD']} |")
+ s=t['usage'];table.append(f"| {t['id']} | {s['input_tokens']:,} | {s['uncached_input_tokens']:,} | {s['cached_input_tokens']:,} | {s['cache_write_input_tokens']:,} | {s['output_tokens']:,} ({s['reasoning_output_tokens']:,}) | {s['total_tokens']:,} | {t['standardAPIEquivalentUSD']} | {timings.get(t['id'],{}).get('elapsedSeconds','unavailable')} |")
  if t['arm']=='B':
   assert all(value is True for key,value in t['checks'].items() if key!='largeStageCount'),t['checks']
  behavior.append(f"| {t['id']} | {t['routerTier']} / {t['routerStrategy']} | {t['checks']['profileCanonical']} | {t['checks']['READMEEdit']} |")
@@ -35,6 +36,8 @@ Six fresh `gpt-6-luna / xhigh` native collaboration agents; one sample per arm a
 {chr(10).join(table)}
 
 A aggregate input **{a['input_tokens']:,}**, cached **{a['cached_input_tokens']:,}**, output **{a['output_tokens']:,}**, total **{a['total_tokens']:,}**, equivalent **US${a['standardAPIEquivalentUSD']}**. B aggregate input **{b['input_tokens']:,}**, cached **{b['cached_input_tokens']:,}**, output **{b['output_tokens']:,}**, total **{b['total_tokens']:,}**, equivalent **US${b['standardAPIEquivalentUSD']}**. Combined six-trial equivalent **US${totalcost}**. Shared parent fix/setup/verification/reporting and the independent boundary-review thread are excluded from both A/B arms.
+
+Elapsed seconds are native rollout `task_started` to `task_complete`, excluding launch/startup overhead; exact timestamps are in `timing.json`. Concurrent trial durations must not be summed as experiment wall time.
 
 Every per-request token record is summed once and reconciled to the completed thread's cumulative counter. Source model/effort, unique response IDs, rollout SHA-256 and sanitized counters are in `usage.json`; raw reasoning text is not exported. Input includes cached input; reasoning is included in output. All cache writes are zero, and no individual request exceeds 272K input. Official [Luna Standard rates](https://developers.openai.com/api/docs/models/gpt-6-luna), USD per million: uncached input 0.10, cached input 0.01, writes 0.125, output 0.50. Formula: `(uncached*.10 + cached*.01 + writes*.125 + output*.50)/1e6`. These are **Standard API-equivalent estimates**, not a subscription invoice or attributable quota percentage; actual settled charges are unavailable.
 
