@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-02",
+  "status": "superseded-encoding-artifact",
+  "note": "Preserved output from the initial PowerShell stdin pipeline, which converted Han characters to question marks before Node received the prompts. These are not valid Chinese router probes.",
+  "cases": [
+    {
+      "prompt": "??? fable on sonnet ????????? requestedProfile ? JSON?",
+      "expected": "Traditional Chinese bounded lookup: tier1/direct-single",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier2",
+        "strategy": "fable-staged",
+        "reasonCodes": [
+          "tier3-keyword",
+          "question-format",
+          "explicit-strategy-request"
+        ]
+      }
+    },
+    {
+      "prompt": "??? fable on sonnet????? README?",
+      "expected": "Traditional Chinese action: execution with workflow obligations",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier2",
+        "strategy": "fable-staged",
+        "reasonCodes": [
+          "tier3-keyword",
+          "question-format",
+          "explicit-strategy-request"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+﻿{
+  "routeTier": "tier1",
+  "strategy": "direct-single",
+  "profile": {
+    "requestedProfile": "reasoning",
+    "effectiveProfile": "reasoning",
+    "profileAlias": "sonnect",
+    "assignedRole": "reasoning-worker",
+    "runtimeModel": null,
+    "runtimeEffort": null
+  },
+  "answer": "The sonnect alias selects the reasoning behavior profile and reasoning-worker role; it does not select a runtime model.",
+  "mutationPerformed": false,
+  "plan": []
+}

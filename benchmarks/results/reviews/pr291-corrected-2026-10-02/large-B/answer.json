@@ -1,0 +1,371 @@
+{
+  "routeTier": "tier3",
+  "strategy": "fable-staged",
+  "profile": {
+    "status": "planned",
+    "requestedProfile": "orchestrator",
+    "effectiveProfile": "orchestrator",
+    "profileAlias": "opus",
+    "assignedRole": "orchestrator",
+    "agent": "fable-orchestrator",
+    "agentAvailability": "unknown",
+    "executionStatus": "not-started",
+    "fallbackPolicy": "visible-inline-or-stop",
+    "fallbackReason": "No delegation was started because the task is planning-only; agent availability remains unknown.",
+    "host": "unknown",
+    "hostSupplied": false,
+    "runtimeModel": null,
+    "runtimeModelSupplied": false,
+    "runtimeEffort": null,
+    "runtimeEffortSupplied": false,
+    "recommendedRuntimeFloor": null,
+    "runtimeFloorStatus": "unknown",
+    "runtimeFloorReason": "Host, runtime model, and effort were not supplied. The floor is host-specific and advisory; the orchestrator behavior profile remains selected.",
+    "stageBrief": "Plan a repository-wide dependency-injection migration across the six architecture modules.",
+    "passCondition": "Produce a scoped, ordered plan with dependencies, named roles, failable checks, isolation disposition, and independent cold review.",
+    "verificationCommand": "not run; planning-only request",
+    "verifierResult": "not-run"
+  },
+  "answer": "Planning completed from the large-B task, contract, and architecture fixtures. No migration code was changed, no tests were run, no worktree was created, and no agents were launched. The plan preserves transaction ownership, public APIs, tenant isolation, job retry behavior, and route signatures.",
+  "mutationPerformed": false,
+  "plan": {
+    "objective": "Introduce dependency injection across database, users, billing, jobs, HTTP composition, and tests while preserving the fixture contract.",
+    "invariants": [
+      "The transaction owner alone commits or rolls back; callers borrow transaction handles.",
+      "getUser(id, tenantId) remains public and continues filtering by tenantId.",
+      "charge(id, cents, tenantId) remains public and shares the provisioning transaction where required.",
+      "The job worker acquires a connection per attempt and reuses the stable idempotency key across retries.",
+      "HTTP route-handler signatures remain unchanged; dependency wiring belongs at the composition root."
+    ],
+    "executionRules": {
+      "ordering": "Run stages serially. Router evidence disables parallelism because dependencies and write-set independence are not established.",
+      "limits": {
+        "maxReplans": 2,
+        "maxRevisionRounds": 2,
+        "maxWorkers": 4
+      },
+      "handoff": "At each worker handoff, include a short state manifest with completed contracts, changed files, inputs, outputs, and remaining checks. Workers do not spawn workers.",
+      "commandDiscovery": "The fixture does not provide test-runner commands. Discover the repository-declared command before implementation; do not invent one."
+    },
+    "isolation": {
+      "requiredBeforeFirstMutation": true,
+      "currentDisposition": "Deferred because this operation is planning-only; no worktree was created.",
+      "plannedMechanism": [
+        "Use the host's native linked-worktree mechanism if available.",
+        "Otherwise create and enter a linked Git worktree on a task branch."
+      ],
+      "verification": [
+        "Confirm the worktree is linked and has the intended branch.",
+        "Confirm its Git directory differs from the common Git directory and it is not nested in another worktree."
+      ],
+      "degradedDisposition": "If isolation is unavailable, record the degraded fallback and risk explicitly, then stop before implementation until the unisolated disposition is authorized."
+    },
+    "roleAssignments": [
+      {
+        "role": "Orchestrator",
+        "agent": "fable-orchestrator",
+        "responsibility": "Own scope, stage ordering, dependency tracking, visible status, replanning, and synthesis; do not author stage artifacts.",
+        "availability": "unknown",
+        "state": "planned; not launched"
+      },
+      {
+        "role": "Reasoning worker",
+        "agent": "fable-worker-sonnet",
+        "responsibility": "Own the bounded test and implementation stages in sequence, following each stage's write scope.",
+        "stages": [
+          "S2",
+          "S3",
+          "S4",
+          "S5",
+          "S6"
+        ],
+        "availability": "unknown",
+        "state": "planned; not launched"
+      },
+      {
+        "role": "Cold reviewer",
+        "agent": "fable-verifier",
+        "responsibility": "Independently compare the completed diff and verification evidence against the invariants; make no edits.",
+        "stages": [
+          "S8"
+        ],
+        "availability": "unknown",
+        "state": "planned; not launched"
+      }
+    ],
+    "stages": [
+      {
+        "id": "S1",
+        "name": "Baseline and contract lock",
+        "dependsOn": [],
+        "authorizedFileScope": {
+          "read": [
+            "src/db/connection.js",
+            "src/db/transaction.js",
+            "src/users/repository.js",
+            "src/users/service.js",
+            "src/billing/repository.js",
+            "src/billing/service.js",
+            "src/jobs/queue.js",
+            "src/jobs/worker.js",
+            "src/http/server.js",
+            "src/http/routes.js",
+            "test/users.test.js",
+            "test/billing.test.js",
+            "test/jobs.test.js",
+            "test/transactions.test.js"
+          ],
+          "write": []
+        },
+        "assignedRole": "fable-orchestrator",
+        "artifact": "Baseline evidence and a contract checklist in the stage record.",
+        "failableChecks": [
+          "Run the repository-declared targeted tests and record the exact command and baseline result.",
+          "Map each listed invariant to its current implementation and an existing or planned assertion.",
+          "If baseline tests fail, classify those failures before any edits; do not attribute them to the migration."
+        ],
+        "passCondition": "Baseline status and all six module boundaries are understood, with no unclassified existing test failure."
+      },
+      {
+        "id": "S2",
+        "name": "Add regression contracts",
+        "dependsOn": [
+          "S1"
+        ],
+        "authorizedFileScope": {
+          "read": [
+            "src/db/connection.js",
+            "src/db/transaction.js",
+            "src/users/repository.js",
+            "src/users/service.js",
+            "src/billing/repository.js",
+            "src/billing/service.js",
+            "src/jobs/queue.js",
+            "src/jobs/worker.js",
+            "src/http/server.js",
+            "src/http/routes.js",
+            "test/users.test.js",
+            "test/billing.test.js",
+            "test/jobs.test.js",
+            "test/transactions.test.js"
+          ],
+          "write": [
+            "test/users.test.js",
+            "test/billing.test.js",
+            "test/jobs.test.js",
+            "test/transactions.test.js"
+          ]
+        },
+        "assignedRole": "fable-worker-sonnet",
+        "artifact": "Regression assertions for tenant separation, transaction ownership and sharing, API compatibility, and retry idempotency.",
+        "failableChecks": [
+          "Coverage explicitly distinguishes tenants and proves a user query cannot cross the tenantId boundary.",
+          "Coverage proves only the transaction owner completes the transaction and user provisioning plus billing share the intended transaction.",
+          "Coverage preserves getUser(id, tenantId), charge(id, cents, tenantId), and route-handler signatures.",
+          "Coverage proves each job attempt acquires a connection while retries retain the same idempotency key.",
+          "Any pre-migration failure is narrow and attributable to a missing injection seam or is recorded as a baseline issue."
+        ],
+        "passCondition": "All required contracts have focused assertions and the test outcomes are understood."
+      },
+      {
+        "id": "S3",
+        "name": "Create the injectable database boundary",
+        "dependsOn": [
+          "S2"
+        ],
+        "authorizedFileScope": {
+          "read": [
+            "src/db/connection.js",
+            "src/db/transaction.js",
+            "test/transactions.test.js",
+            "test/users.test.js",
+            "test/billing.test.js",
+            "test/jobs.test.js"
+          ],
+          "write": [
+            "src/db/connection.js",
+            "src/db/transaction.js"
+          ]
+        },
+        "assignedRole": "fable-worker-sonnet",
+        "artifact": "Injectable connection and transaction boundary with explicit transaction ownership.",
+        "failableChecks": [
+          "Transaction tests prove one owner commits or rolls back and all participating callers borrow the handle.",
+          "Targeted database and transaction tests pass without changing caller-visible transaction semantics.",
+          "No consumer silently creates or completes a second transaction."
+        ],
+        "passCondition": "The database boundary accepts injected dependencies and all transaction ownership checks pass."
+      },
+      {
+        "id": "S4",
+        "name": "Inject user and billing services",
+        "dependsOn": [
+          "S3"
+        ],
+        "authorizedFileScope": {
+          "read": [
+            "src/db/connection.js",
+            "src/db/transaction.js",
+            "src/users/repository.js",
+            "src/users/service.js",
+            "src/billing/repository.js",
+            "src/billing/service.js",
+            "test/users.test.js",
+            "test/billing.test.js",
+            "test/transactions.test.js"
+          ],
+          "write": [
+            "src/users/repository.js",
+            "src/users/service.js",
+            "src/billing/repository.js",
+            "src/billing/service.js"
+          ]
+        },
+        "assignedRole": "fable-worker-sonnet",
+        "artifact": "Injected user and billing dependencies with unchanged public operations.",
+        "failableChecks": [
+          "API compatibility checks confirm getUser(id, tenantId) and charge(id, cents, tenantId) retain their signatures.",
+          "Tenant tests prove repository reads and writes stay scoped to the requested tenant.",
+          "Transaction tests prove user provisioning and billing participate in the same owner-controlled transaction.",
+          "Targeted users, billing, and transaction tests pass."
+        ],
+        "passCondition": "User and billing dependencies are injected while all public and transactional contracts pass."
+      },
+      {
+        "id": "S5",
+        "name": "Inject job queue and worker dependencies",
+        "dependsOn": [
+          "S4"
+        ],
+        "authorizedFileScope": {
+          "read": [
+            "src/db/connection.js",
+            "src/jobs/queue.js",
+            "src/jobs/worker.js",
+            "test/jobs.test.js"
+          ],
+          "write": [
+            "src/jobs/queue.js",
+            "src/jobs/worker.js"
+          ]
+        },
+        "assignedRole": "fable-worker-sonnet",
+        "artifact": "Injected job connection dependencies with per-attempt acquisition and retry-safe identity.",
+        "failableChecks": [
+          "Job tests prove a fresh connection is acquired for each attempt.",
+          "Retry tests prove the stable idempotency key is unchanged across attempts.",
+          "Existing retry count and retry behavior remain intact.",
+          "Targeted job tests pass."
+        ],
+        "passCondition": "Job dependencies are injectable and retry behavior remains compatible."
+      },
+      {
+        "id": "S6",
+        "name": "Wire the HTTP composition root",
+        "dependsOn": [
+          "S4",
+          "S5"
+        ],
+        "authorizedFileScope": {
+          "read": [
+            "src/http/server.js",
+            "src/http/routes.js",
+            "src/db/connection.js",
+            "src/db/transaction.js",
+            "src/users/service.js",
+            "src/billing/service.js",
+            "src/jobs/queue.js",
+            "src/jobs/worker.js",
+            "test/users.test.js",
+            "test/billing.test.js",
+            "test/jobs.test.js",
+            "test/transactions.test.js"
+          ],
+          "write": [
+            "src/http/server.js"
+          ]
+        },
+        "assignedRole": "fable-worker-sonnet",
+        "artifact": "Composition-root wiring for injected dependencies; routes remain at their established boundary.",
+        "failableChecks": [
+          "Server startup/composition checks prove the root supplies the required dependencies.",
+          "A source/API comparison against the S1 baseline proves route-handler signatures did not change.",
+          "No new container or framework dependency is introduced without evidence that the repository already uses it."
+        ],
+        "passCondition": "The composition root supplies the dependencies and route-handler signatures remain unchanged."
+      },
+      {
+        "id": "S7",
+        "name": "Integrated contract verification",
+        "dependsOn": [
+          "S2",
+          "S3",
+          "S4",
+          "S5",
+          "S6"
+        ],
+        "authorizedFileScope": {
+          "read": [
+            "src/db/connection.js",
+            "src/db/transaction.js",
+            "src/users/repository.js",
+            "src/users/service.js",
+            "src/billing/repository.js",
+            "src/billing/service.js",
+            "src/jobs/queue.js",
+            "src/jobs/worker.js",
+            "src/http/server.js",
+            "src/http/routes.js",
+            "test/users.test.js",
+            "test/billing.test.js",
+            "test/jobs.test.js",
+            "test/transactions.test.js"
+          ],
+          "write": []
+        },
+        "assignedRole": "fable-worker-sonnet",
+        "artifact": "Targeted test evidence and a stage record linking each invariant to its check.",
+        "failableChecks": [
+          "Run the repository-declared tests covering the four supplied test files and impacted integration paths.",
+          "Confirm tenant separation, transaction ownership/sharing, both public API signatures, route signatures, and retry idempotency together.",
+          "Any failed check returns to its owning stage scope; rerun affected checks and this integrated stage."
+        ],
+        "passCondition": "All impacted tests pass and each fixture invariant has explicit evidence."
+      },
+      {
+        "id": "S8",
+        "name": "Independent cold review",
+        "dependsOn": [
+          "S7"
+        ],
+        "authorizedFileScope": {
+          "read": [
+            "src/db/connection.js",
+            "src/db/transaction.js",
+            "src/users/repository.js",
+            "src/users/service.js",
+            "src/billing/repository.js",
+            "src/billing/service.js",
+            "src/jobs/queue.js",
+            "src/jobs/worker.js",
+            "src/http/server.js",
+            "src/http/routes.js",
+            "test/users.test.js",
+            "test/billing.test.js",
+            "test/jobs.test.js",
+            "test/transactions.test.js"
+          ],
+          "write": []
+        },
+        "assignedRole": "fable-verifier",
+        "artifact": "Independent spec-versus-diff review with pass/fail findings and evidence references.",
+        "failableChecks": [
+          "Reviewer did not author the implementation and starts from the fixture contract and baseline record.",
+          "Reviewer independently checks changed-file scope, all invariants, and the actual test evidence.",
+          "Missing evidence, API drift, transaction ownership ambiguity, tenant leakage, or changed retry semantics fails review and names the owning stage."
+        ],
+        "passCondition": "Cold reviewer reports pass with no unresolved contract failure; otherwise return a scoped finding and repeat affected verification."
+      }
+    ]
+  }
+}

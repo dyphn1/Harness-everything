@@ -1,0 +1,17 @@
+[
+  {
+    "gate": "test",
+    "exitCode": 0,
+    "seconds": 248.323
+  },
+  {
+    "gate": "test:mutations",
+    "exitCode": 0,
+    "seconds": 25.086
+  },
+  {
+    "gate": "test:mechanism",
+    "exitCode": 0,
+    "seconds": 195.373
+  }
+]

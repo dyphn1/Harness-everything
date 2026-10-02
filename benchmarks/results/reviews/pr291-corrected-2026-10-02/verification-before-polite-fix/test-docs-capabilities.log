@@ -1,0 +1,131 @@
+
+> harness-everything@0.30.3 test:docs:capabilities
+> node ci/doc-capability-consistency.test.js
+
+✅ docs/platform-capabilities.md: local Codex plugin boundary
+✅ docs/platform-capabilities.md: public Skills-only boundary
+✅ docs/platform-capabilities.md: general Codex installer boundary
+✅ docs/platform-capabilities.md: Codex project skill target
+✅ docs/platform-capabilities.md: Continue global skill target
+✅ docs/platform-capabilities.md: Hermes global skill target
+✅ docs/platform-capabilities.md: Hermes trust boundary
+✅ docs/platform-capabilities.md: installer ownership boundary
+✅ docs/platform-capabilities.md: three-OS round-trip boundary
+✅ docs/platform-compatibility.json: machine-readable matrix format
+✅ docs/platform-compatibility.json: ten-dimension coverage
+✅ docs/platform-compatibility.json: official OpenAI source
+✅ docs/platform-compatibility.json: Continue unknown discovery boundary
+✅ README.md: local Codex plugin surface
+✅ README.md: public Skills-only distinction
+✅ README.md: canonical matrix link
+✅ README.md: Codex repo Agent Skills path
+✅ README.md: Continue native global skills path
+✅ README.md: Hermes native global skills path
+✅ README.md: installer round-trip evidence
+✅ AGENTS.md: canonical platform matrix rule
+✅ AGENTS.md: Codex local plugin distribution
+✅ AGENTS.md: public Skills-only boundary
+✅ BENCHMARK_SOP.md: behavior vs mechanism separation
+✅ BENCHMARK_SOP.md: Codex multi-surface distinction
+✅ docs/architecture.md: Codex local plugin host adapter
+✅ VERIFICATION.md: mechanism/behavior distinction
+✅ VERIFICATION.md: Codex local plugin verification surface
+✅ VERIFICATION.md: public Skills-only verification boundary
+✅ VERIFICATION.md: live-host evidence layer
+✅ VERIFICATION.md: Codex repo Agent Skills path
+✅ VERIFICATION.md: Continue native global skills path
+✅ VERIFICATION.md: Hermes native global skills path
+✅ docs/philosophy.md: platform-specific mechanism boundary
+✅ docs/philosophy.md: canonical capability link
+✅ docs/philosophy.md: automatic mechanism qualifier
+✅ docs/reflection.md: runtime state vs durable learning distinction
+✅ docs/reflection.md: Codex local plugin WAL boundary
+✅ docs/reflection.md: public Skills-only hook exclusion
+✅ docs/routing.md: host-specific enforcement boundary
+✅ docs/routing.md: no cross-host parity inference
+✅ docs/troubleshooting.md: Codex advisory installer troubleshooting
+✅ docs/troubleshooting.md: Codex local plugin troubleshooting
+✅ docs/troubleshooting.md: public Skills-only troubleshooting boundary
+✅ docs/openai-plugin.md: public submission excludes local hooks
+✅ submission/openai/README.md: submission excludes local hooks
+✅ README.md: OpenCode retained artifact path
+✅ README.md: OpenCode host/version/OS scope
+✅ README.md: OpenCode project .js scope
+✅ README.md: OpenCode loading and state evidence
+✅ README.md: OpenCode post-reset snapshot boundary
+✅ README.md: OpenCode operator-seeded reflection boundary
+✅ README.md: OpenCode hard-lock observation boundary
+✅ README.md: OpenCode missing blocked-tool trace
+✅ README.md: OpenCode unverified remainder
+✅ AGENTS.md: OpenCode retained artifact path
+✅ AGENTS.md: OpenCode host/version/OS scope
+✅ AGENTS.md: OpenCode project .js scope
+✅ AGENTS.md: OpenCode loading and state evidence
+✅ AGENTS.md: OpenCode post-reset snapshot boundary
+✅ AGENTS.md: OpenCode operator-seeded reflection boundary
+✅ AGENTS.md: OpenCode hard-lock observation boundary
+✅ AGENTS.md: OpenCode missing blocked-tool trace
+✅ AGENTS.md: OpenCode unverified remainder
+✅ BENCHMARK_SOP.md: OpenCode retained artifact path
+✅ BENCHMARK_SOP.md: OpenCode host/version/OS scope
+✅ BENCHMARK_SOP.md: OpenCode project .js scope
+✅ BENCHMARK_SOP.md: OpenCode loading and state evidence
+✅ BENCHMARK_SOP.md: OpenCode post-reset snapshot boundary
+✅ BENCHMARK_SOP.md: OpenCode operator-seeded reflection boundary
+✅ BENCHMARK_SOP.md: OpenCode hard-lock observation boundary
+✅ BENCHMARK_SOP.md: OpenCode missing blocked-tool trace
+✅ BENCHMARK_SOP.md: OpenCode unverified remainder
+✅ VERIFICATION.md: OpenCode retained artifact path
+✅ VERIFICATION.md: OpenCode host/version/OS scope
+✅ VERIFICATION.md: OpenCode project .js scope
+✅ VERIFICATION.md: OpenCode loading and state evidence
+✅ VERIFICATION.md: OpenCode post-reset snapshot boundary
+✅ VERIFICATION.md: OpenCode operator-seeded reflection boundary
+✅ VERIFICATION.md: OpenCode hard-lock observation boundary
+✅ VERIFICATION.md: OpenCode missing blocked-tool trace
+✅ VERIFICATION.md: OpenCode unverified remainder
+✅ docs/architecture.md: OpenCode retained artifact path
+✅ docs/architecture.md: OpenCode host/version/OS scope
+✅ docs/architecture.md: OpenCode project .js scope
+✅ docs/architecture.md: OpenCode loading and state evidence
+✅ docs/architecture.md: OpenCode post-reset snapshot boundary
+✅ docs/architecture.md: OpenCode operator-seeded reflection boundary
+✅ docs/architecture.md: OpenCode hard-lock observation boundary
+✅ docs/architecture.md: OpenCode missing blocked-tool trace
+✅ docs/architecture.md: OpenCode unverified remainder
+✅ docs/platform-capabilities.md: OpenCode retained artifact path
+✅ docs/platform-capabilities.md: OpenCode host/version/OS scope
+✅ docs/platform-capabilities.md: OpenCode project .js scope
+✅ docs/platform-capabilities.md: OpenCode loading and state evidence
+✅ docs/platform-capabilities.md: OpenCode post-reset snapshot boundary
+✅ docs/platform-capabilities.md: OpenCode operator-seeded reflection boundary
+✅ docs/platform-capabilities.md: OpenCode hard-lock observation boundary
+✅ docs/platform-capabilities.md: OpenCode missing blocked-tool trace
+✅ docs/platform-capabilities.md: OpenCode unverified remainder
+✅ docs/platform-compatibility.json: OpenCode retained artifact path
+✅ docs/platform-compatibility.json: OpenCode host/version/OS scope
+✅ docs/platform-compatibility.json: OpenCode project .js scope
+✅ docs/platform-compatibility.json: OpenCode loading and state evidence
+✅ docs/platform-compatibility.json: OpenCode post-reset snapshot boundary
+✅ docs/platform-compatibility.json: OpenCode operator-seeded reflection boundary
+✅ docs/platform-compatibility.json: OpenCode hard-lock observation boundary
+✅ docs/platform-compatibility.json: OpenCode missing blocked-tool trace
+✅ docs/platform-compatibility.json: OpenCode unverified remainder
+✅ opencode-plugin/README.md: OpenCode retained artifact path
+✅ opencode-plugin/README.md: OpenCode host/version/OS scope
+✅ opencode-plugin/README.md: OpenCode project .js scope
+✅ opencode-plugin/README.md: OpenCode loading and state evidence
+✅ opencode-plugin/README.md: OpenCode post-reset snapshot boundary
+✅ opencode-plugin/README.md: OpenCode operator-seeded reflection boundary
+✅ opencode-plugin/README.md: OpenCode hard-lock observation boundary
+✅ opencode-plugin/README.md: OpenCode missing blocked-tool trace
+✅ opencode-plugin/README.md: OpenCode unverified remainder
+✅ opencode-plugin/README.md: project install directory creation
+✅ opencode-plugin/README.md: global install directory creation
+✅ opencode-plugin/README.md: restart after installation
+✅ docs/audit.md: historical snapshot boundary
+✅ docs/audit.md: current platform matrix link
+✅ CHANGELOG.md: OpenAI/Codex plugin packaging release note
+✅ CHANGELOG.md: platform capability documentation drift gate release note
+
+Documentation capability consistency: PASSED

@@ -1,0 +1,81 @@
+{
+  "snapshot": "7a0f72e584ee16396d98b5322bc25feef2b4644c",
+  "gates": [
+    {
+      "gate": "test",
+      "exitCode": 0,
+      "seconds": 248.323
+    },
+    {
+      "gate": "test:mutations",
+      "exitCode": 0,
+      "seconds": 25.086
+    },
+    {
+      "gate": "test:mechanism",
+      "exitCode": 0,
+      "seconds": 195.373
+    },
+    {
+      "gate": "test:consistency",
+      "exitCode": 0,
+      "seconds": 1.008
+    },
+    {
+      "gate": "test:repo-contract",
+      "exitCode": 0,
+      "seconds": 0.311
+    },
+    {
+      "gate": "test:docs:capabilities",
+      "exitCode": 0,
+      "seconds": 0.343
+    },
+    {
+      "gate": "test:references",
+      "exitCode": 0,
+      "seconds": 0.322
+    },
+    {
+      "gate": "test:release",
+      "exitCode": 0,
+      "seconds": 9.161
+    },
+    {
+      "gate": "test:collision",
+      "exitCode": 0,
+      "seconds": 0.329
+    },
+    {
+      "gate": "test:routing:skills",
+      "exitCode": 0,
+      "seconds": 4.634
+    },
+    {
+      "gate": "test:routing:invariants",
+      "exitCode": 0,
+      "seconds": 11.566
+    },
+    {
+      "gate": "test:plugin:openai",
+      "exitCode": 0,
+      "seconds": 4.591
+    },
+    {
+      "gate": "test:plugin:submission",
+      "exitCode": 0,
+      "seconds": 0.575
+    },
+    {
+      "gate": "test:platform:compatibility",
+      "exitCode": 0,
+      "seconds": 0.36
+    }
+  ],
+  "finalAffectedGatesRun": [
+    "test",
+    "test:mutations",
+    "test:mechanism"
+  ],
+  "remaining": []
+}

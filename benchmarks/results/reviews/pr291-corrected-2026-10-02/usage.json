@@ -1,0 +1,1238 @@
+{
+  "date": "2026-10-02",
+  "pricingSource": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+  "ratesUSDPerMillion": {
+    "uncached": "0.10",
+    "cached": "0.01",
+    "write": "0.125",
+    "output": "0.50"
+  },
+  "wrapperEqualityVerified": false,
+  "costScope": "All requests of six completed fresh Luna trial threads. Standard API-equivalent only; actual invoice/subscription cost is unavailable. Shared parent review/setup/reporting overhead is excluded from both arms.",
+  "comparability": "One trial per size/arm; equal task/fixture hashes per pair. Wrapper equality is intended but not independently verifiable from encrypted native task messages. Warm caching is observed, not experimentally controlled. No full multi-agent Fable execution or live-host hook-enforcement claim.",
+  "trials": [
+    {
+      "id": "small-A",
+      "arm": "A",
+      "size": "small",
+      "threadId": "01a0fb01-34e3-7b41-9183-c2a48f0dcbc9",
+      "agentPath": "/root/r2_small_a",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T13-05-55-01a0fb01-34e3-7b41-9183-c2a48f0dcbc9.jsonl",
+      "sourceRolloutSHA256": "6e6daa2a87208b1dc1cc074099ffcaadb3a4a3868a7e701a6612fe2befb97231",
+      "agentPromptSHA256": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-02T05:06:05.518Z",
+          "responseId": "resp_0dcca3cd8d4e269b016abf3bb6c37087d0b81ffa57e0efcd90",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 23876,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 318,
+            "reasoning_output_tokens": 141,
+            "total_tokens": 24194
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:06:12.409Z",
+          "responseId": "resp_0dcca3cd8d4e269b016abf3bbef71c87d0886ebd47fc3aa01f",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 24261,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 256,
+            "reasoning_output_tokens": 64,
+            "total_tokens": 24517
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:06:36.370Z",
+          "responseId": "resp_0dcca3cd8d4e269b016abf3bc5d4cc87d0a63ec9a56470d04d",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 25746,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1167,
+            "reasoning_output_tokens": 797,
+            "total_tokens": 26913
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:07:00.368Z",
+          "responseId": "resp_0dcca3cd8d4e269b016abf3bdf311887d0b82c3ae6dcd737c6",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 33061,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1128,
+            "reasoning_output_tokens": 927,
+            "total_tokens": 34189
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:07:56.954Z",
+          "responseId": "resp_0dcca3cd8d4e269b016abf3bf5f32487d0a7f3826c7496d479",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 35532,
+            "cached_input_tokens": 32512,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2965,
+            "reasoning_output_tokens": 2493,
+            "total_tokens": 38497
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:08:14.882Z",
+          "responseId": "resp_0dcca3cd8d4e269b016abf3c2df64887d080adfce5eb61252f",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 38665,
+            "cached_input_tokens": 34560,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 880,
+            "reasoning_output_tokens": 714,
+            "total_tokens": 39545
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 181141,
+        "cached_input_tokens": 162304,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 6714,
+        "reasoning_output_tokens": 5136,
+        "total_tokens": 187855,
+        "uncached_input_tokens": 18837
+      },
+      "standardAPIEquivalentUSD": "0.00686374",
+      "costPartsUSD": {
+        "uncached": "0.0018837",
+        "cached": "0.00162304",
+        "write": "0.000",
+        "output": "0.003357"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "using-git-worktrees/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/fable-sonnet/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/scripts/model-selector.js"
+        },
+        {
+          "action": "read",
+          "file": "fable-discipline/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "verification-loop/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/model-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/references/model-matrix.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/behavior-profile-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/runtime-model-floor-matrix.json"
+        }
+      ],
+      "routerTier": "tier3",
+      "routerStrategy": "fable-staged",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": false,
+        "READMEEdit": true
+      }
+    },
+    {
+      "id": "small-B",
+      "arm": "B",
+      "size": "small",
+      "threadId": "01a0fb01-68e9-7f60-986f-144f4b17d70f",
+      "agentPath": "/root/r2_small_b",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T13-06-08-01a0fb01-68e9-7f60-986f-144f4b17d70f.jsonl",
+      "sourceRolloutSHA256": "5c1b8aa5ef4f91cc6923b53344105c8fc32d77e990226a6223fed534851a1d26",
+      "agentPromptSHA256": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-02T05:06:18.863Z",
+          "responseId": "resp_0696f8163fddc2dc016abf3bc3a9a087d082fbdfa0b6bdd316",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 23876,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 323,
+            "reasoning_output_tokens": 148,
+            "total_tokens": 24199
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:06:23.369Z",
+          "responseId": "resp_0696f8163fddc2dc016abf3bcc49e487d0a58e9c9d4328490f",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 24266,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 113,
+            "reasoning_output_tokens": 22,
+            "total_tokens": 24379
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:06:27.598Z",
+          "responseId": "resp_0696f8163fddc2dc016abf3bd0a65487d0a5697e4390840aa0",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 25131,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 122,
+            "reasoning_output_tokens": 44,
+            "total_tokens": 25253
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:06:35.525Z",
+          "responseId": "resp_0696f8163fddc2dc016abf3bd4efa087d0859b6e56b15303ee",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 25509,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 325,
+            "reasoning_output_tokens": 125,
+            "total_tokens": 25834
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:06:40.059Z",
+          "responseId": "resp_0696f8163fddc2dc016abf3bdd3dc087d095c2f6c89b0985dc",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 26349,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 108,
+            "reasoning_output_tokens": 8,
+            "total_tokens": 26457
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:07:04.729Z",
+          "responseId": "resp_0696f8163fddc2dc016abf3be14e5487d09f114e11ad65c03e",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 26781,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1251,
+            "reasoning_output_tokens": 888,
+            "total_tokens": 28032
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:07:14.954Z",
+          "responseId": "resp_0696f8163fddc2dc016abf3bfa192087d097809c52f8f65008",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 28059,
+            "cached_input_tokens": 26368,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 443,
+            "reasoning_output_tokens": 347,
+            "total_tokens": 28502
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:07:22.608Z",
+          "responseId": "resp_0696f8163fddc2dc016abf3c04659c87d088bb42843ab00d19",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 28642,
+            "cached_input_tokens": 27392,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 266,
+            "reasoning_output_tokens": 103,
+            "total_tokens": 28908
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 208613,
+        "cached_input_tokens": 198656,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2951,
+        "reasoning_output_tokens": 1685,
+        "total_tokens": 211564,
+        "uncached_input_tokens": 9957
+      },
+      "standardAPIEquivalentUSD": "0.00445776",
+      "costPartsUSD": {
+        "uncached": "0.0009957",
+        "cached": "0.00198656",
+        "write": "0.000",
+        "output": "0.0014755"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/references/profile-lookup.md"
+        }
+      ],
+      "routerTier": "tier1",
+      "routerStrategy": "direct-single",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": true,
+        "READMEEdit": true
+      }
+    },
+    {
+      "id": "medium-A",
+      "arm": "A",
+      "size": "medium",
+      "threadId": "01a0fb04-333e-74b3-9148-44d7355da00e",
+      "agentPath": "/root/r2_medium_a",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T13-09-11-01a0fb04-333e-74b3-9148-44d7355da00e.jsonl",
+      "sourceRolloutSHA256": "abf9148c23d276999a4228e0c73d3c7fa109721327c21b121c314c078df43dfc",
+      "agentPromptSHA256": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-02T05:09:21.379Z",
+          "responseId": "resp_081e31f896de40f9016abf3c7a541c87d0b1ef072ac2019751",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 23876,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 334,
+            "reasoning_output_tokens": 113,
+            "total_tokens": 24210
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:09:26.356Z",
+          "responseId": "resp_081e31f896de40f9016abf3c82a2e887d0a9cec178d9fe8078",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 24255,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 159,
+            "reasoning_output_tokens": 28,
+            "total_tokens": 24414
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:09:38.442Z",
+          "responseId": "resp_081e31f896de40f9016abf3c87d26c87d0bd38a37dca915b1c",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 25501,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 542,
+            "reasoning_output_tokens": 404,
+            "total_tokens": 26043
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:09:54.726Z",
+          "responseId": "resp_081e31f896de40f9016abf3c93b93487d0bf82c7f0d7f5fd63",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 26520,
+            "cached_input_tokens": 6912,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 790,
+            "reasoning_output_tokens": 472,
+            "total_tokens": 27310
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:10:14.386Z",
+          "responseId": "resp_081e31f896de40f9016abf3ca5041887d0a964e645d8ac82e3",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 32648,
+            "cached_input_tokens": 26368,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 875,
+            "reasoning_output_tokens": 665,
+            "total_tokens": 33523
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:10:19.009Z",
+          "responseId": "resp_081e31f896de40f9016abf3cb782ac87d0ae60443657912ef4",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 34178,
+            "cached_input_tokens": 32512,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 149,
+            "reasoning_output_tokens": 13,
+            "total_tokens": 34327
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:11:07.707Z",
+          "responseId": "resp_081e31f896de40f9016abf3cbc650c87d09027d8feb8f329b1",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 34362,
+            "cached_input_tokens": 33536,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2416,
+            "reasoning_output_tokens": 2076,
+            "total_tokens": 36778
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:11:25.340Z",
+          "responseId": "resp_081e31f896de40f9016abf3cecd20487d0a17d4d528875e294",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 36801,
+            "cached_input_tokens": 33536,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 860,
+            "reasoning_output_tokens": 715,
+            "total_tokens": 37661
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:12:01.045Z",
+          "responseId": "resp_081e31f896de40f9016abf3cfe7ec087d0b9180c22d5c796aa",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 37689,
+            "cached_input_tokens": 36608,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1801,
+            "reasoning_output_tokens": 1217,
+            "total_tokens": 39490
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:12:11.079Z",
+          "responseId": "resp_081e31f896de40f9016abf3d22131487d091b46218d00f1a1e",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 39513,
+            "cached_input_tokens": 36608,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 359,
+            "reasoning_output_tokens": 133,
+            "total_tokens": 39872
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:12:24.601Z",
+          "responseId": "resp_081e31f896de40f9016abf3d2c5e6487d08cf5c0abc69bc7f2",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 39939,
+            "cached_input_tokens": 38656,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 610,
+            "reasoning_output_tokens": 325,
+            "total_tokens": 40549
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 355282,
+        "cached_input_tokens": 314624,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 8895,
+        "reasoning_output_tokens": 6161,
+        "total_tokens": 364177,
+        "uncached_input_tokens": 40658
+      },
+      "standardAPIEquivalentUSD": "0.01165954",
+      "costPartsUSD": {
+        "uncached": "0.0040658",
+        "cached": "0.00314624",
+        "write": "0.000",
+        "output": "0.0044475"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "using-git-worktrees/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-discipline/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "verification-loop/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "repo-docs/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/model-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/scripts/model-selector.js"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/behavior-profile-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/runtime-model-floor-matrix.json"
+        }
+      ],
+      "routerTier": "tier3",
+      "routerStrategy": "fable-staged",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": true,
+        "READMEEdit": true
+      }
+    },
+    {
+      "id": "medium-B",
+      "arm": "B",
+      "size": "medium",
+      "threadId": "01a0fb03-fd6d-7e22-a854-2d931d422e0f",
+      "agentPath": "/root/r2_medium_b",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T13-08-57-01a0fb03-fd6d-7e22-a854-2d931d422e0f.jsonl",
+      "sourceRolloutSHA256": "0d550b4810c81b29764ea410e15edb05cfa012ba802f0404c55ab792e716c6dd",
+      "agentPromptSHA256": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-02T05:09:09.461Z",
+          "responseId": "resp_00f0bec756a64abc016abf3c6cf17487d0865333577f3e9b9a",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 23876,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 417,
+            "reasoning_output_tokens": 234,
+            "total_tokens": 24293
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:09:14.179Z",
+          "responseId": "resp_00f0bec756a64abc016abf3c76ae0487d098c893da6a0a43c1",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 24338,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 142,
+            "reasoning_output_tokens": 32,
+            "total_tokens": 24480
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:09:36.314Z",
+          "responseId": "resp_00f0bec756a64abc016abf3c7b741087d0b2cd919b685fa9b0",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 25567,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1116,
+            "reasoning_output_tokens": 774,
+            "total_tokens": 26683
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:10:15.501Z",
+          "responseId": "resp_00f0bec756a64abc016abf3c92586c87d0b374a3c668430e76",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 28960,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2022,
+            "reasoning_output_tokens": 1721,
+            "total_tokens": 30982
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:11:21.042Z",
+          "responseId": "resp_00f0bec756a64abc016abf3cb9497887d0ae802f98de2f445c",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 35252,
+            "cached_input_tokens": 28416,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3347,
+            "reasoning_output_tokens": 2996,
+            "total_tokens": 38599
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:11:49.680Z",
+          "responseId": "resp_00f0bec756a64abc016abf3cfa4e5c87d09f4b4c88456c8d4d",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 38626,
+            "cached_input_tokens": 34560,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1423,
+            "reasoning_output_tokens": 907,
+            "total_tokens": 40049
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:12:21.876Z",
+          "responseId": "resp_00f0bec756a64abc016abf3d161a6487d09aa9e0a3597ebea6",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 40082,
+            "cached_input_tokens": 37632,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1688,
+            "reasoning_output_tokens": 1215,
+            "total_tokens": 41770
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:12:58.906Z",
+          "responseId": "resp_00f0bec756a64abc016abf3d3717b087d09dffcdf2a79c5e00",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 42000,
+            "cached_input_tokens": 39680,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1943,
+            "reasoning_output_tokens": 1704,
+            "total_tokens": 43943
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 258701,
+        "cached_input_tokens": 235520,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 12098,
+        "reasoning_output_tokens": 9583,
+        "total_tokens": 270799,
+        "uncached_input_tokens": 23181
+      },
+      "standardAPIEquivalentUSD": "0.0107223",
+      "costPartsUSD": {
+        "uncached": "0.0023181",
+        "cached": "0.0023552",
+        "write": "0.000",
+        "output": "0.006049"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "using-git-worktrees/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "verification-loop/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "repo-docs/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-discipline/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/model-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/scripts/model-selector.js"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/references/profile-lookup.md"
+        }
+      ],
+      "routerTier": "tier3",
+      "routerStrategy": "fable-staged",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": true,
+        "READMEEdit": true
+      }
+    },
+    {
+      "id": "large-A",
+      "arm": "A",
+      "size": "large",
+      "threadId": "01a0fb07-f4a6-78d3-ab1b-7d1758a0fa7b",
+      "agentPath": "/root/r2_large_a",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T13-13-17-01a0fb07-f4a6-78d3-ab1b-7d1758a0fa7b.jsonl",
+      "sourceRolloutSHA256": "ee8fd28f832e3237d33d1c258697ac93ef0d05b785465d529c01043c072832da",
+      "agentPromptSHA256": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-02T05:13:29.675Z",
+          "responseId": "resp_05b6ca74ba420549016abf3d711fc487d0a3cceb6bf751a745",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 23876,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 351,
+            "reasoning_output_tokens": 158,
+            "total_tokens": 24227
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:13:35.563Z",
+          "responseId": "resp_05b6ca74ba420549016abf3d7b7cf887d09a1c8dddb3d1bb47",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 24327,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 184,
+            "reasoning_output_tokens": 19,
+            "total_tokens": 24511
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:13:45.804Z",
+          "responseId": "resp_05b6ca74ba420549016abf3d81188487d0bdc6d3f53d80cdf9",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 26096,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 443,
+            "reasoning_output_tokens": 261,
+            "total_tokens": 26539
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:14:18.920Z",
+          "responseId": "resp_05b6ca74ba420549016abf3d8bd2b887d08d8a61f6c94df6f8",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 28329,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1683,
+            "reasoning_output_tokens": 1254,
+            "total_tokens": 30012
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:14:39.463Z",
+          "responseId": "resp_05b6ca74ba420549016abf3dad0d5887d0aa917a6e5d3bcc73",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 31603,
+            "cached_input_tokens": 27392,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 979,
+            "reasoning_output_tokens": 734,
+            "total_tokens": 32582
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:14:47.186Z",
+          "responseId": "resp_05b6ca74ba420549016abf3dc1f83887d080e4c1970561a577",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 33930,
+            "cached_input_tokens": 31488,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 249,
+            "reasoning_output_tokens": 29,
+            "total_tokens": 34179
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:15:10.902Z",
+          "responseId": "resp_05b6ca74ba420549016abf3dc9567087d0af2aa4838f0196ce",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 39059,
+            "cached_input_tokens": 33536,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1154,
+            "reasoning_output_tokens": 681,
+            "total_tokens": 40213
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:19:14.453Z",
+          "responseId": "resp_05b6ca74ba420549016abf3de0fb2487d0bd94e83de03ff595",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 42066,
+            "cached_input_tokens": 38656,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 13376,
+            "reasoning_output_tokens": 9161,
+            "total_tokens": 55442
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:20:35.602Z",
+          "responseId": "resp_05b6ca74ba420549016abf3ed2e4ac87d0ac7c91812ece3aeb",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 55476,
+            "cached_input_tokens": 41728,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4434,
+            "reasoning_output_tokens": 1176,
+            "total_tokens": 59910
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:21:41.639Z",
+          "responseId": "resp_05b6ca74ba420549016abf3f242b7487d097384d717f67dc1b",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 59955,
+            "cached_input_tokens": 55040,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3584,
+            "reasoning_output_tokens": 502,
+            "total_tokens": 63539
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:21:53.514Z",
+          "responseId": "resp_05b6ca74ba420549016abf3f67832c87d0a9d711418574f4a4",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 63565,
+            "cached_input_tokens": 59136,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 457,
+            "reasoning_output_tokens": 261,
+            "total_tokens": 64022
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:22:07.378Z",
+          "responseId": "resp_05b6ca74ba420549016abf3f731da887d0bcf19ba7e4541c7e",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 64088,
+            "cached_input_tokens": 63232,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 623,
+            "reasoning_output_tokens": 436,
+            "total_tokens": 64711
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 492370,
+        "cached_input_tokens": 445440,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 27517,
+        "reasoning_output_tokens": 14672,
+        "total_tokens": 519887,
+        "uncached_input_tokens": 46930
+      },
+      "standardAPIEquivalentUSD": "0.0229059",
+      "costPartsUSD": {
+        "uncached": "0.004693",
+        "cached": "0.0044544",
+        "write": "0.000",
+        "output": "0.0137585"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "verification-loop/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-discipline/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "using-git-worktrees/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "tdd/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "improve-codebase-architecture/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "security-review/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "ledger.jsonl"
+        },
+        {
+          "action": "read",
+          "file": "contract.json"
+        },
+        {
+          "action": "read",
+          "file": "architecture.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/scripts/model-selector.js"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/model-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/runtime-model-floor-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/behavior-profile-matrix.json"
+        }
+      ],
+      "routerTier": "tier3",
+      "routerStrategy": "fable-staged",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": true,
+        "READMEEdit": true,
+        "largeStageCount": 8,
+        "largeDependenciesValid": true,
+        "largeAuthorizedFilesCovered": false,
+        "largeEveryStageHasFailableChecks": true,
+        "largeIsolationDispositionPresent": true,
+        "largeFinalColdVerifierPresent": false,
+        "largeNoMutationClaim": false
+      }
+    },
+    {
+      "id": "large-B",
+      "arm": "B",
+      "size": "large",
+      "threadId": "01a0fb08-2584-7641-af42-ec004079a613",
+      "agentPath": "/root/r2_large_b",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T13-13-30-01a0fb08-2584-7641-af42-ec004079a613.jsonl",
+      "sourceRolloutSHA256": "4a4122f4003cc0ce575d7ef51ba2092c063aeb2d7bf234bcf6b691a168cc8eca",
+      "agentPromptSHA256": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-02T05:13:40.816Z",
+          "responseId": "resp_033e2a01f948511b016abf3d7d2b8887d0aef5d178da363c36",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 23876,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 366,
+            "reasoning_output_tokens": 154,
+            "total_tokens": 24242
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:13:45.808Z",
+          "responseId": "resp_033e2a01f948511b016abf3d8610dc87d09e945ef575ba3484",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 24342,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 164,
+            "reasoning_output_tokens": 32,
+            "total_tokens": 24506
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:14:05.359Z",
+          "responseId": "resp_033e2a01f948511b016abf3d8bcf7c87d08dc12e57f70946e6",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 26091,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 931,
+            "reasoning_output_tokens": 694,
+            "total_tokens": 27022
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:14:23.741Z",
+          "responseId": "resp_033e2a01f948511b016abf3da0058487d08513a97c2afb206e",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 33557,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 789,
+            "reasoning_output_tokens": 492,
+            "total_tokens": 34346
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:14:34.540Z",
+          "responseId": "resp_033e2a01f948511b016abf3db1072087d0ae4b6a288b34bc28",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 34391,
+            "cached_input_tokens": 32512,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 489,
+            "reasoning_output_tokens": 298,
+            "total_tokens": 34880
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:14:46.115Z",
+          "responseId": "resp_033e2a01f948511b016abf3dbbbe8487d0aa6c0984fd16f8f5",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 35928,
+            "cached_input_tokens": 33536,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 528,
+            "reasoning_output_tokens": 339,
+            "total_tokens": 36456
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:14:55.022Z",
+          "responseId": "resp_033e2a01f948511b016abf3dc7b60c87d08683b54e725228d3",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 37799,
+            "cached_input_tokens": 35584,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 358,
+            "reasoning_output_tokens": 217,
+            "total_tokens": 38157
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:17:05.181Z",
+          "responseId": "resp_033e2a01f948511b016abf3dd08bc087d0ae96ce22b13f7268",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 38358,
+            "cached_input_tokens": 37632,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 6152,
+            "reasoning_output_tokens": 6043,
+            "total_tokens": 44510
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:19:42.708Z",
+          "responseId": "resp_033e2a01f948511b016abf3e529d3487d081991a052d55745d",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 44894,
+            "cached_input_tokens": 37632,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 8592,
+            "reasoning_output_tokens": 5048,
+            "total_tokens": 53486
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:20:00.721Z",
+          "responseId": "resp_033e2a01f948511b016abf3ef1855887d09cfb172ffaa02956",
+          "rootTurnId": "01a0faf4-dd8f-7222-a9a7-814ff2ab6a14",
+          "usage": {
+            "input_tokens": 53559,
+            "cached_input_tokens": 43776,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 790,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 54349
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 352795,
+        "cached_input_tokens": 315904,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 19159,
+        "reasoning_output_tokens": 13833,
+        "total_tokens": 371954,
+        "uncached_input_tokens": 36891
+      },
+      "standardAPIEquivalentUSD": "0.01642764",
+      "costPartsUSD": {
+        "uncached": "0.0036891",
+        "cached": "0.00315904",
+        "write": "0.000",
+        "output": "0.0095795"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "fable-discipline/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "architecture.json"
+        },
+        {
+          "action": "read",
+          "file": "verification-loop/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/model-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/scripts/model-selector.js"
+        },
+        {
+          "action": "read",
+          "file": "using-git-worktrees/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/fable-opus/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/behavior-profile-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/runtime-model-floor-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/references/model-matrix.md"
+        },
+        {
+          "action": "read",
+          "file": "tdd/SKILL.md"
+        }
+      ],
+      "routerTier": "tier3",
+      "routerStrategy": "fable-staged",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": true,
+        "READMEEdit": true,
+        "largeStageCount": 8,
+        "largeDependenciesValid": true,
+        "largeAuthorizedFilesCovered": true,
+        "largeEveryStageHasFailableChecks": true,
+        "largeIsolationDispositionPresent": true,
+        "largeFinalColdVerifierPresent": true,
+        "largeNoMutationClaim": true
+      }
+    }
+  ],
+  "totals": {
+    "A": {
+      "input_tokens": 1028793,
+      "cached_input_tokens": 922368,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 43126,
+      "reasoning_output_tokens": 25969,
+      "total_tokens": 1071919,
+      "uncached_input_tokens": 106425,
+      "standardAPIEquivalentUSD": "0.04142918"
+    },
+    "B": {
+      "input_tokens": 820109,
+      "cached_input_tokens": 750080,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 34208,
+      "reasoning_output_tokens": 25101,
+      "total_tokens": 854317,
+      "uncached_input_tokens": 70029,
+      "standardAPIEquivalentUSD": "0.03160770"
+    }
+  }
+}

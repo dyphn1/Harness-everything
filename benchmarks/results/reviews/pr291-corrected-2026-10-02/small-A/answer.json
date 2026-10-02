@@ -1,0 +1,18 @@
+﻿{
+  "routeTier": "tier3",
+  "strategy": "direct-answer",
+  "profile": "reasoning",
+  "answer": {
+    "requestedProfile": "reasoning",
+    "effectiveProfile": "reasoning",
+    "profileAlias": "sonnect",
+    "assignedRole": "reasoning-worker",
+    "runtimeModel": null,
+    "runtimeEffort": null
+  },
+  "mutationPerformed": false,
+  "plan": [
+    "Resolve the supplied alias to its behavior profile and role; honor the explicit no-orchestration/no-delegation constraint.",
+    "Runtime model and effort were not supplied, so retain them as unknown (null)."
+  ]
+}

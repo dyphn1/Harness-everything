@@ -1,0 +1,5 @@
+
+> harness-everything@0.30.3 test:plugin:submission
+> node ci/openai-plugin-submission.test.js
+
+OpenAI public submission verified: listing metadata, 5+3 review cases, and deterministic skills bundle.

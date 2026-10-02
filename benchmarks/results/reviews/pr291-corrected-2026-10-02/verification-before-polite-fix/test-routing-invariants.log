@@ -1,0 +1,559 @@
+
+> harness-everything@0.30.3 test:routing:invariants
+> node ci/invariant-routing.test.js && node ci/router-workflow-plan.test.js && node ci/workflow-execution-contract.test.js
+
+=== Semantic Contract-Strength Routing Contract ===
+  PASS kernel router exits successfully
+  PASS classifier result is preserved
+  PASS Tier 2 selects iterative-single workflow
+  PASS iterative work exposes loop-awareness instead of a hard budget
+  PASS skill applicability is explicitly mandatory
+  PASS orchestration policy preserves semantic MUST obligations
+  PASS kernel separates semantic contract from non-blocking observation
+  PASS worktree isolation disposition is a semantic MUST
+  PASS old planning-guidance label is absent
+  PASS old worktree hard-block wording is absent
+  PASS skill suggestions still require evaluation before omission
+  PASS workflow plan carries mandatory user-visible status invariant
+  PASS kernel emits the mandatory unified status contract
+  PASS kernel status contract includes readable Markdown field ### 🚦 Harness Status
+  PASS kernel status contract includes readable Markdown field - **Current:**
+  PASS kernel status contract includes readable Markdown field - **Read / Evidence:**
+  PASS kernel status contract includes readable Markdown field - **Next:**
+  PASS kernel status contract includes readable Markdown field - **Risk / Blocked:**
+  PASS routing checkpoint is marked internal rather than user-facing
+  PASS legacy duplicate-visible checkpoint label is absent
+  PASS kernel tells agents to split dense evidence into nested bullets
+  PASS kernel separates semantic MUST from mechanical blocking
+  PASS Tier 3 routing exits successfully
+  PASS macro task remains Tier 3
+  PASS Tier 3 still routes the worktree skill
+  PASS Tier 3 requires an isolation disposition without a hard lock
+  PASS Harness skill separates required obligations from adaptable tactics
+  PASS Harness skill names the only intentional blocking boundaries
+  PASS Harness skill requires the readable unified user-visible status
+  PASS Harness skill mirror matches
+  PASS worktree skill requires isolation disposition but permits degraded fallback
+  PASS worktree creation failure is not a cognitive blocked state
+  PASS worktree skill mirror matches
+  PASS triage reference uses contract-first policy
+  PASS triage defines the mandatory unified status contract
+  PASS triage mirror matches
+  PASS current doc docs/routing.md preserves explicit semantic strength
+  PASS current doc docs/architecture.md preserves explicit semantic strength
+  PASS current doc docs/philosophy.md preserves explicit semantic strength
+  PASS current doc docs/routing.md defines mandatory user-visible status
+  PASS current doc docs/architecture.md defines mandatory user-visible status
+  PASS current doc docs/workflow-runtime.md defines mandatory user-visible status
+  PASS philosophy defines canonical MUST/SHOULD/MAY strength
+  PASS contract-strength audit classifies Route before software/project execution
+  PASS contract-strength audit classifies Read/evaluate every suggested skill before omission
+  PASS contract-strength audit classifies Resolve selected-topology invariants/stages/checks/synthesis/verification
+  PASS contract-strength audit classifies Discover relevant environment/host facts
+  PASS contract-strength audit classifies Resolve Tier-3/Fable isolation before broad mutation
+  PASS contract-strength audit classifies Numeric iteration/revision/replan/worker values
+  PASS contract-strength audit classifies Durable memory writes
+  PASS old ambiguous philosophy wording is removed
+  PASS instruction-only installer preserves MUST/MAY semantics
+  PASS instruction-only installers carry the readable mandatory status contract
+  PASS installer text preserves Rule-of-3 and permission boundaries
+  PASS OpenAI advisory mirror matches
+  PASS repository agent contract is contract-first
+  PASS repository agent contract requires readable unified user-visible status
+  PASS repository worktree rule requires disposition without hard lock
+  PASS architecture skill aligns rollback with the third same-signature failure
+  PASS architecture skill no longer waits beyond the Rule-of-3 threshold
+  PASS architecture skill mirror matches
+  PASS environment discovery is a conditional semantic MUST
+  PASS environment skill mirror matches
+  PASS commit skill separates staged-diff MUST from split SHOULD
+  PASS git-commit skill mirror matches
+  PASS Claude packages workflow reminder hook
+  PASS Claude preserves Rule-of-3 boundary
+  PASS Claude preserves action permission gate
+
+PASS: semantic contract-strength routing contract (0 failures)
+=== Router Workflow Plan Contract — Phase 2 ===
+  PASS direct-single: tier router exits successfully
+  PASS direct-single: structured contract exists
+  PASS direct-single: contract validates (no errors)
+  PASS one-file trivial task remains tier1
+  PASS one-file trivial task selects direct-single
+  PASS direct-single is a selected strategy
+  PASS every selected workflow carries the user-visible status invariant
+  PASS every selected workflow carries conditional environment-alignment MUST
+  PASS direct-single does not require a workspace
+  PASS direct-single does not parallelize
+  PASS iterative-single: tier router exits successfully
+  PASS iterative-single: structured contract exists
+  PASS iterative-single: contract validates (no errors)
+  PASS ordinary test-first bug fix is tier2
+  PASS ordinary bug fix selects iterative-single
+  PASS iterative-single retains a MAY iteration planning value
+  PASS workflow exposes a MAY revision planning value
+  PASS workflow exposes a MAY replan planning value
+  PASS workflow exposes a MAY worker planning value
+  PASS iterative-single carries objective verification invariant
+  PASS iterative-single carries semantic loop-awareness obligation while numeric counts remain MAY
+  PASS TDD remains applicability-conditional rather than a universal invariant
+  PASS ordinary iterative work cannot write durable memory
+  PASS suggested skill names remain separate from plan invariants until applicability is resolved
+  PASS self-evolve persistence: tier router exits successfully
+  PASS self-evolve persistence: structured contract exists
+  PASS self-evolve persistence: contract validates (no errors)
+  PASS bounded explicit persistence request receives a selected workflow
+  PASS explicit persistence request authorizes only self-evolve durable write
+  PASS durable memory route carries runtime authorization invariant
+  PASS durable memory route suggests self-evolve explicitly
+  PASS persistence intent is recorded in task shape
+  PASS memory prohibition: tier router exits successfully
+  PASS memory prohibition: structured contract exists
+  PASS memory prohibition: contract validates (no errors)
+  PASS explicit memory prohibition overrides persistence intent
+  PASS memory prohibition conflict is auditable
+  PASS bounded operation: Audit this SKILL.md only.: tier router exits successfully
+  PASS bounded operation: Audit this SKILL.md only.: structured contract exists
+  PASS bounded operation: Audit this SKILL.md only.: contract validates (no errors)
+  PASS bounded operation verb does not force Tier 3: Audit this SKILL.md only.
+  PASS bounded operation verb does not emit macro-scope-signal: Audit this SKILL.md only.
+  PASS bounded operation records macroScope=false: Audit this SKILL.md only.
+  PASS bounded operation: Compare these two functions.: tier router exits successfully
+  PASS bounded operation: Compare these two functions.: structured contract exists
+  PASS bounded operation: Compare these two functions.: contract validates (no errors)
+  PASS bounded operation verb does not force Tier 3: Compare these two functions.
+  PASS bounded operation verb does not emit macro-scope-signal: Compare these two functions.
+  PASS bounded operation records macroScope=false: Compare these two functions.
+  PASS bounded operation: Benchmark this parser function.: tier router exits successfully
+  PASS bounded operation: Benchmark this parser function.: structured contract exists
+  PASS bounded operation: Benchmark this parser function.: contract validates (no errors)
+  PASS bounded operation verb does not force Tier 3: Benchmark this parser function.
+  PASS bounded operation verb does not emit macro-scope-signal: Benchmark this parser function.
+  PASS bounded operation records macroScope=false: Benchmark this parser function.
+  PASS controlled A/B benchmark: tier router exits successfully
+  PASS controlled A/B benchmark: structured contract exists
+  PASS controlled A/B benchmark: contract validates (no errors)
+  PASS structured A/B benchmark remains Tier 3
+  PASS structured A/B benchmark records macroScope=true
+  PASS structured A/B benchmark keeps macro-scope-signal
+  PASS Tier 3 keyword rationale: tier router exits successfully
+  PASS Tier 3 keyword rationale: structured contract exists
+  PASS Tier 3 keyword rationale: contract validates (no errors)
+  PASS new feature remains Tier 3
+  PASS new feature records tier3-keyword
+  PASS Tier 3 keyword rationale names the actual trigger class
+  PASS Tier 3 keyword rationale does not claim unrelated macro signals
+  PASS fable-staged: tier router exits successfully
+  PASS fable-staged: structured contract exists
+  PASS fable-staged: contract validates (no errors)
+  PASS multi-stage architecture work is tier3
+  PASS dependent multi-stage work selects fable-staged
+  PASS dependent stages remain sequential
+  PASS fable-staged requires cold verification
+  PASS fable-staged carries mandatory isolation disposition
+  PASS fable-staged surfaces worktree resolution skill
+  PASS fable-parallel: tier router exits successfully
+  PASS fable-parallel: structured contract exists
+  PASS fable-parallel: contract validates (no errors)
+  PASS parallel task records independent dependency graph
+  PASS parallel audit records read-only write set
+  PASS independent read-only audits select fable-parallel
+  PASS fable-parallel exposes allowed=true
+  PASS parallel strategy requires synthesis barrier
+  PASS shared-write serialization: tier router exits successfully
+  PASS shared-write serialization: structured contract exists
+  PASS shared-write serialization: contract validates (no errors)
+  PASS same-file writers are recorded as overlapping
+  PASS same-file writers are serialized instead of fable-parallel
+  PASS overlapping writes cannot dispatch in parallel
+  PASS multi-agent workspace: tier router exits successfully
+  PASS multi-agent workspace: structured contract exists
+  PASS multi-agent workspace: contract validates (no errors)
+  PASS durable reusable specialists select workspace topology
+  PASS workspace topology marks workspace required
+  PASS workspace topology scopes reads through workspace index
+  PASS workspace memory writes remain proposals
+  PASS unclassified: tier router exits successfully
+  PASS unclassified: structured contract exists
+  PASS unclassified: contract validates (no errors)
+  PASS no matched signal remains unclassified
+  PASS unclassified does not silently select direct-single
+  PASS unclassified strategy selection is deferred
+  PASS deferred selection has deterministic reason code
+  PASS actionGate: tier router exits successfully
+  PASS actionGate: structured contract exists
+  PASS actionGate: contract validates (no errors)
+  PASS irreversible command intent requires actionGate independent of tier
+  PASS actionGate records irreversible-action
+  PASS actionGate closes at pending approval before execution
+  PASS actionGate adds pre-action invariant
+  PASS external side effect: tier router exits successfully
+  PASS external side effect: structured contract exists
+  PASS external side effect: contract validates (no errors)
+  PASS external side effect requires actionGate
+  PASS external side effect reason is explicit
+  PASS fable keyword trivial edit: tier router exits successfully
+  PASS fable keyword trivial edit: structured contract exists
+  PASS fable keyword trivial edit: contract validates (no errors)
+  PASS fable keyword does not force Tier 3 on a trivial README typo
+  PASS fable README typo remains direct-single
+  PASS explicit Fable profile: tier router exits successfully
+  PASS explicit Fable profile: structured contract exists
+  PASS explicit Fable profile: contract validates (no errors)
+  PASS explicit Fable request selects Fable topology
+  PASS legacy opus alias normalizes to orchestrator profile
+  PASS legacy alias remains auditable
+  PASS explicit Fable profile remains visible
+  PASS explicit Fable sonnect alias: tier router exits successfully
+  PASS explicit Fable sonnect alias: structured contract exists
+  PASS explicit Fable sonnect alias: contract validates (no errors)
+  PASS sonnect normalizes to reasoning profile
+  PASS raw sonnect alias remains auditable end-to-end
+  PASS router output preserves raw sonnect alias
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS explicit strategy override: tier router exits successfully
+  PASS explicit strategy override: structured contract exists
+  PASS explicit strategy override: contract validates (no errors)
+  PASS explicit user strategy overrides derived Tier 3 topology
+  PASS explicit strategy override is recorded
+  PASS parallel prohibition: tier router exits successfully
+  PASS parallel prohibition: structured contract exists
+  PASS parallel prohibition: contract validates (no errors)
+  PASS explicit no-parallel prohibition serializes derived parallel work
+  PASS parallel prohibition is a visible reduced fallback
+  PASS parallel prohibition reason is recorded
+  PASS parallel capability fallback: tier router exits successfully
+  PASS parallel capability fallback: structured contract exists
+  PASS parallel capability fallback: contract validates (no errors)
+  PASS missing parallel capability serializes to fable-staged
+  PASS parallel capability fallback is visibly serialized
+  PASS missing parallel capability reason is recorded
+  PASS concurrency budget fallback: tier router exits successfully
+  PASS concurrency budget fallback: structured contract exists
+  PASS concurrency budget fallback: contract validates (no errors)
+  PASS concurrency=1 serializes fable-parallel
+  PASS concurrency budget reason is recorded
+  PASS workspace state block: tier router exits successfully
+  PASS workspace state block: structured contract exists
+  PASS workspace state block: contract validates (no errors)
+  PASS workspace requirement remains explicit when state is unavailable
+  PASS missing durable state blocks rather than silently downgrades
+  PASS workspace block reason is recorded
+  PASS runtime model capability advisory: tier router exits successfully
+  PASS runtime model capability advisory: structured contract exists
+  PASS runtime model capability advisory: contract validates (no errors)
+  PASS opus remains a behavior-profile alias
+  PASS runtime model availability does not block Fable profile selection
+  PASS router no longer treats a branded model as a Fable requirement
+  PASS actionGate capability block: tier router exits successfully
+  PASS actionGate capability block: structured contract exists
+  PASS actionGate capability block: contract validates (no errors)
+  PASS actionGate requirement survives missing hook capability
+  PASS known missing action-gate hook blocks side effect
+  PASS missing hook capability is visible
+  PASS duplicate guide matches emit security-review/SKILL.md exactly once by path
+  PASS same normalized input produces byte-equivalent structured contracts
+  PASS degraded routing: tier router exits successfully
+  PASS degraded routing: structured contract exists
+  PASS degraded routing: contract validates (no errors)
+  PASS invalid routing config emits routingStatus=degraded
+  PASS invalid routing config never silently becomes Tier 1
+  PASS degraded routing does not select a strategy
+  PASS degraded strategy deferral is explicit
+  PASS kernel consumes selected/deferred structured contract successfully
+  PASS kernel emits the Phase 2 workflow-plan checkpoint
+  PASS kernel exposes deferred unclassified selection
+  PASS kernel does not expose a silent Tier 1 fallback for unmatched prompts
+  PASS host notification persistence failure stays fail-open
+  PASS host notification remains a routing no-op when state persistence fails
+  PASS host notification persistence failure remains visible as a reminder
+  PASS kernel consumes strategy from structured plan
+  PASS kernel prints dynamic semantic plan obligations
+  PASS kernel prints the user-visible status invariant
+  PASS kernel prints the canonical mandatory user-visible status contract
+  PASS kernel prints suggested skills separately from required invariants
+  PASS harness-everything/schemas/router-task-shape.schema.json is valid JSON Schema metadata
+  PASS harness-everything/schemas/router-workflow-plan.schema.json is valid JSON Schema metadata
+
+PASS: router workflow plan phase 2 (0 failures)
+=== Workflow Guidance Contract ===
+  PASS harness-everything/scripts/kernel-router.js parses as valid JavaScript
+  PASS hooks/scripts/workflow-gate.js parses as valid JavaScript
+  PASS hooks/scripts/workflow-stop-gate.js parses as valid JavaScript
+  PASS hooks/scripts/workflow-disposition.js parses as valid JavaScript
+  PASS hooks/scripts/state-persist.js parses as valid JavaScript
+  PASS hooks/scripts/rule-of-3.js parses as valid JavaScript
+  PASS hooks/scripts/rule-of-3-tracker.js parses as valid JavaScript
+  PASS iteration remains a MAY planning hint rather than blocking
+  PASS revision remains a MAY planning hint rather than blocking
+  PASS replan remains a MAY planning hint rather than blocking
+  PASS worker-acquire remains a MAY planning hint rather than blocking
+  PASS mutation probes reserve no capacity
+  PASS mutation probe registration is a no-op
+  PASS reset-budget API is retired compatibility only
+  PASS reset-budget is no longer a controller command
+  PASS runtime contains no mutation-probe lock
+  PASS runtime contains no budget-exhausted transition
+  PASS workflow gate has no probe/budget enforcement
+  PASS workflow gate emits reminders
+  PASS Rule of 3 uses fixed third-failure boundary
+  PASS Rule of 3 has no second-stage permanent hard lock
+  PASS Rule of 3 has no category-specific thresholds
+  PASS OpenCode has no permanent hard-lock action
+  PASS obsolete mutation-probe PermissionDenied hook is removed
+  PASS Fable independent verifier accepts edits older than verifier evidence
+  PASS Fable independent verifier is invalidated by newer handoff shell-edit evidence
+
+PASS: workflow semantic contract mechanics (0 failures)

@@ -1,0 +1,42 @@
+{
+    "routeTier":  "tier3",
+    "strategy":  "fable-staged",
+    "profile":  {
+                    "schemaVersion":  2,
+                    "status":  "fallback",
+                    "requestedProfile":  "reasoning",
+                    "effectiveProfile":  "reasoning",
+                    "profileAlias":  "sonnet",
+                    "requestedInput":  "sonnet",
+                    "assignedRole":  "reasoning-worker",
+                    "agent":  null,
+                    "availableAgents":  [
+
+                                        ],
+                    "fallbackPolicy":  "inline",
+                    "fallbackReason":  "Subagent availability was not supplied; the bounded operation probe runs inline.",
+                    "host":  "codex",
+                    "runtimeModel":  null,
+                    "runtimeEffort":  null,
+                    "recommendedRuntimeFloor":  {
+                                                    "family":  "sol",
+                                                    "minGeneration":  6,
+                                                    "minEffort":  "medium",
+                                                    "display":  "GPT-6 Sol+ / medium+"
+                                                },
+                    "runtimeFloorStatus":  "unknown",
+                    "runtimeFloorReason":  "Runtime model and reasoning effort were not reported.",
+                    "stageBrief":  "Explain the Sonnet alias, then correct the supplied README typo.",
+                    "passCondition":  "README.md has the Installation heading and no Instalation typo.",
+                    "verificationCommand":  "Read-back check of the supplied README fixture.",
+                    "verifierResult":  "pass",
+                    "escalationRequired":  false
+                },
+    "answer":  "Fable is a staged workflow for large, multi-file, multi-source, or multi-session work. The router selected Tier 3 and the Sonnet alias. In the tested profile matrix, sonnet maps to the reasoning behavior profile and reasoning-worker role; it does not bind a runtime model. The Codex runtime floor is advisory, and its status is unknown because runtime model and effort were not supplied. This fixture needs one obvious spelling correction, so I made that bounded edit inline.",
+    "mutationPerformed":  true,
+    "plan":  {
+                 "scope":  "Single supplied README typo correction.",
+                 "isolationDisposition":  "Degraded: writable scope is limited to medium-A, so the edit was made in the fixture without creating a worktree.",
+                 "stagedWorkflow":  "Not executed under the bounded operation-probe constraint."
+             }
+}

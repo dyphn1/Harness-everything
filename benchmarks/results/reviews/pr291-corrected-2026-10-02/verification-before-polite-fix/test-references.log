@@ -1,0 +1,6 @@
+
+> harness-everything@0.30.3 test:references
+> node ci/reference-check.js
+
+Checked 70 skill path reference(s) across 26 skill(s).
+ALL SKILL REFERENCES RESOLVE.

@@ -1,0 +1,15 @@
+{
+  "routeTier": "tier3",
+  "strategy": "fable-staged",
+  "profile": {
+    "requestedProfile": "reasoning",
+    "effectiveProfile": "reasoning",
+    "profileAlias": "sonnet",
+    "assignedRole": "reasoning-worker",
+    "runtimeModel": null,
+    "runtimeEffort": null
+  },
+  "answer": "Fable on Sonnet selects the reasoning behavior profile and reasoning-worker role; the alias does not name a runtime model. No runtime model or effort was supplied, so both remain unknown, and the host runtime floor is advisory. The router selected Tier 3 / fable-staged because the request mentions Fable. This bounded probe allowed only the narrow README typo correction, so I corrected medium-B/README.md from 'Instalation' to 'Installation' without running the full staged workflow.",
+  "mutationPerformed": true,
+  "plan": []
+}

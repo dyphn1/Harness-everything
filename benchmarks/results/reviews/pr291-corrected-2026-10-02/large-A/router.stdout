@@ -1,0 +1,52 @@
+[Tier Routing Pre-check]
+
+=> RECOMMENDED TIER: Tier 3 (Macro Task)
+=> RATIONALE: Prompt implies repository-wide scope, a structured comparative experiment, architectural refactoring, or multi-agent collaboration.
+
+=> REQUESTED FABLE PROFILE: opus
+=> ROUTE: fable-mode/SKILL.md
+   Profile alias: opus; resolve behavior role plus advisory host runtime floor with fable-mode/scripts/model-selector.js.
+
+=> RECOMMENDED KNOWLEDGE GUIDES (Auto-loaded based on keywords):
+- tdd/SKILL.md (Test-Driven Development Red-Green-Refactor loop)
+- tdd/guides/mocking.md (Mocking principles & isolation)
+- tdd/guides/interface-design.md (Interface and contract design)
+- tdd/guides/deep-modules.md (Testing deep nested modules)
+- tdd/guides/tests.md (General test architecture)
+- environment-detection/SKILL.md (Detect active shell/OS & preflight syntax before running commands)
+- verify-before-claim/SKILL.md (Fact-audit discipline: verify external claims and unmeasured estimates before asserting them)
+- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)
+- git-commit/SKILL.md (Angular-style commit convention generation)
+- git-commit/guides/ANGULAR_STYLE.md (Commit conventions reference)
+- git-commit/guides/COMMIT_GENERATION.md (Commit generation patterns)
+- git-commit/guides/LANGUAGE_DETECTION.md (Multi-language commits)
+- git-commit/guides/MAIN_REPO.md (Commits in main repositories)
+- git-commit/guides/SUBMODULES.md (Submodule commit handling)
+- rewrite-commits/SKILL.md (Rewrite commit history safely to Angular style)
+- using-git-worktrees/SKILL.md (Git Worktrees isolation for feature work, avoids workspace pollution)
+- fable-mode/SKILL.md (v3 staged execution, model selection, delegation, and verification)
+- fable-discipline/SKILL.md (Shadow guard preventing context bloat and managing token limits)
+- multi-agent-workspace/SKILL.md (Verified workspace scaffolding and bounded agency specialist selection)
+- repo-docs/templates/agents-template.md (Agent onboarding instructions template)
+- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)
+- fable-mode/model-matrix.json (Machine-readable Haiku/Sonnet/Opus roles and fallback policies)
+- fable-mode/scripts/model-selector.js (Deterministic model selection and execution audit record)
+- fable-mode/fable-haiku/SKILL.md (Haiku mode entrypoint)
+- fable-mode/fable-sonnet/SKILL.md (Sonnet mode entrypoint)
+- fable-mode/fable-opus/SKILL.md (Opus mode entrypoint)
+- improve-codebase-architecture/SKILL.md (Codebase deepening, SRP object splitting & decoupling)
+- improve-codebase-architecture/guides/DEEPENING.md (Deepening opportunities & depth rules)
+- improve-codebase-architecture/guides/INTERFACE-DESIGN.md (Interface design principles)
+- improve-codebase-architecture/guides/LANGUAGE.md (Language-specific patterns)
+- improve-codebase-architecture/guides/HTML-REPORT.md (Mermaid dependency report generation)
+- grill-me/SKILL.md (Challenger interview to stress-test your architecture plan)
+- security-review/SKILL.md (Comprehensive security and vulnerability checklist)
+- zoom-out/SKILL.md (Reflect-first circuit breaker to rebuild full picture when stuck)
+
+=> FACT-AUDIT REMINDER:
+This looks like it may require a claim about an external framework/library/API/tool's current behavior.
+Verify via WebFetch/WebSearch against the authoritative source before asserting it - do not answer from training memory alone; it can be stale or confidently wrong (e.g. exit-code semantics, schema fields, defaults, pricing).
+
+=> WORKFLOW STRATEGY: fable-staged
+
+Treat the tier and strategy above as the default route. Explicit Human Partner choices/prohibitions win and are recorded in the plan; unavailable capabilities must remain visible rather than being silently downgraded.

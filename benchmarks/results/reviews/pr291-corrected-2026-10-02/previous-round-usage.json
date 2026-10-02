@@ -1,0 +1,1173 @@
+{
+  "date": "2026-10-02",
+  "pricingSource": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+  "ratesUSDPerMillion": {
+    "uncached": "0.10",
+    "cached": "0.01",
+    "write": "0.125",
+    "output": "0.50"
+  },
+  "costScope": "All requests of six completed fresh Luna trial threads. Standard API-equivalent only; actual invoice/subscription cost is unavailable. Shared parent review/setup/reporting overhead is excluded from both arms.",
+  "comparability": "One trial per size/arm; equal normalized agent instruction wrappers and equal task/fixture hashes per pair. Warm caching is observed, not experimentally controlled. No full multi-agent Fable execution or live-host hook-enforcement claim.",
+  "trials": [
+    {
+      "id": "small-A",
+      "arm": "A",
+      "size": "small",
+      "threadId": "01a0fada-bc6f-72f3-b8b8-ce01c5d045e6",
+      "agentPath": "/root/small_a",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T12-23-54-01a0fada-bc6f-72f3-b8b8-ce01c5d045e6.jsonl",
+      "sourceRolloutSHA256": "94a8e8ce9f448630c5a7a2bddd5922e9f7eb23a39209bb50afadc35dfc3a16c8",
+      "agentPromptSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "requests": [
+        {
+          "timestamp": "2026-10-02T04:24:07.321Z",
+          "responseId": "resp_0eae631e49903b71016abf31de29fc87d0a46bfb3b5553b9b0",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 23872,
+            "cached_input_tokens": 12032,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 436,
+            "reasoning_output_tokens": 216,
+            "total_tokens": 24308
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:24:12.173Z",
+          "responseId": "resp_0eae631e49903b71016abf31e8b68c87d0b33504e034a99d76",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 24375,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 146,
+            "reasoning_output_tokens": 18,
+            "total_tokens": 24521
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:24:28.049Z",
+          "responseId": "resp_0eae631e49903b71016abf31edd69487d09b3ce6e28428a8e4",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 25750,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 700,
+            "reasoning_output_tokens": 434,
+            "total_tokens": 26450
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:24:38.938Z",
+          "responseId": "resp_0eae631e49903b71016abf31fcb16887d08f2f67f400891f3b",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 26927,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 420,
+            "reasoning_output_tokens": 285,
+            "total_tokens": 27347
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:24:45.285Z",
+          "responseId": "resp_0eae631e49903b71016abf320874e087d08e31ec8e2f7f1379",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 31198,
+            "cached_input_tokens": 26368,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 220,
+            "reasoning_output_tokens": 44,
+            "total_tokens": 31418
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:25:46.824Z",
+          "responseId": "resp_0eae631e49903b71016abf320f086487d09982903e8885de4d",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 32051,
+            "cached_input_tokens": 30464,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3241,
+            "reasoning_output_tokens": 2683,
+            "total_tokens": 35292
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:26:00.761Z",
+          "responseId": "resp_0eae631e49903b71016abf324c217487d0a193ee71de4b0d1c",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 35505,
+            "cached_input_tokens": 31488,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 609,
+            "reasoning_output_tokens": 425,
+            "total_tokens": 36114
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 199678,
+        "cached_input_tokens": 172288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5772,
+        "reasoning_output_tokens": 4105,
+        "total_tokens": 205450,
+        "uncached_input_tokens": 27390
+      },
+      "standardAPIEquivalentUSD": "0.00734788",
+      "costPartsUSD": {
+        "uncached": "0.002739",
+        "cached": "0.00172288",
+        "write": "0.000",
+        "output": "0.002886"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/scripts/model-selector.js"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/runtime-model-floor-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/behavior-profile-matrix.json"
+        }
+      ],
+      "routerTier": "tier3",
+      "routerStrategy": "fable-staged",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": false,
+        "READMEEdit": true
+      }
+    },
+    {
+      "id": "small-B",
+      "arm": "B",
+      "size": "small",
+      "threadId": "01a0fada-eb28-71f2-888f-c7ad3062b484",
+      "agentPath": "/root/small_b",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T12-24-06-01a0fada-eb28-71f2-888f-c7ad3062b484.jsonl",
+      "sourceRolloutSHA256": "27bc838b7174074f9c2170a0ed49f28b0b7d14609ebabe2d816639956421d1d9",
+      "agentPromptSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "requests": [
+        {
+          "timestamp": "2026-10-02T04:24:19.626Z",
+          "responseId": "resp_0735dfd68214b34e016abf31eb3e3887d080058f97f8d5639e",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 23872,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 395,
+            "reasoning_output_tokens": 188,
+            "total_tokens": 24267
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:24:24.706Z",
+          "responseId": "resp_0735dfd68214b34e016abf31f4fd2887d083a5fdc588c29602",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 24334,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 159,
+            "reasoning_output_tokens": 49,
+            "total_tokens": 24493
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:24:37.162Z",
+          "responseId": "resp_0735dfd68214b34e016abf31fa33e087d09320195da66cf0c6",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 25722,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 563,
+            "reasoning_output_tokens": 257,
+            "total_tokens": 26285
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:24:51.231Z",
+          "responseId": "resp_0735dfd68214b34e016abf3207442c87d08265df2217690f88",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 28113,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 584,
+            "reasoning_output_tokens": 457,
+            "total_tokens": 28697
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:25:45.113Z",
+          "responseId": "resp_0735dfd68214b34e016abf32144bbc87d084621f9b46e35dbb",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 29021,
+            "cached_input_tokens": 27392,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2886,
+            "reasoning_output_tokens": 2421,
+            "total_tokens": 31907
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:25:53.017Z",
+          "responseId": "resp_0735dfd68214b34e016abf324a896887d0b5d80cb9c86aeca0",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 31933,
+            "cached_input_tokens": 28416,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 272,
+            "reasoning_output_tokens": 157,
+            "total_tokens": 32205
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:26:08.941Z",
+          "responseId": "resp_0735dfd68214b34e016abf325288c087d0a3ba698998912599",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 32429,
+            "cached_input_tokens": 31488,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 679,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 33108
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 195424,
+        "cached_input_tokens": 182528,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5538,
+        "reasoning_output_tokens": 4045,
+        "total_tokens": 200962,
+        "uncached_input_tokens": 12896
+      },
+      "standardAPIEquivalentUSD": "0.00588388",
+      "costPartsUSD": {
+        "uncached": "0.0012896",
+        "cached": "0.00182528",
+        "write": "0.000",
+        "output": "0.002769"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "verification-loop/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "using-git-worktrees/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-discipline/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/references/profile-lookup.md"
+        }
+      ],
+      "routerTier": "tier3",
+      "routerStrategy": "fable-staged",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": false,
+        "READMEEdit": true
+      }
+    },
+    {
+      "id": "medium-A",
+      "arm": "A",
+      "size": "medium",
+      "threadId": "01a0fadd-60bd-7c32-b7e9-c2f74d6fcb4c",
+      "agentPath": "/root/medium_a",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T12-26-47-01a0fadd-60bd-7c32-b7e9-c2f74d6fcb4c.jsonl",
+      "sourceRolloutSHA256": "60afae3296574f9674681216d21bdd649d51b401cfdd65f942ff6464e93e2ac5",
+      "agentPromptSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "requests": [
+        {
+          "timestamp": "2026-10-02T04:26:58.226Z",
+          "responseId": "resp_0ff6feeee4382418016abf328adc9087d0a3695f998ef9697c",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 23872,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 348,
+            "reasoning_output_tokens": 153,
+            "total_tokens": 24220
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:27:03.977Z",
+          "responseId": "resp_0ff6feeee4382418016abf3293962c87d0af02e18959991370",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 24265,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 180,
+            "reasoning_output_tokens": 49,
+            "total_tokens": 24445
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:27:15.569Z",
+          "responseId": "resp_0ff6feeee4382418016abf3299948c87d0a8be5c38cbc72189",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 25532,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 505,
+            "reasoning_output_tokens": 367,
+            "total_tokens": 26037
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:27:34.595Z",
+          "responseId": "resp_0ff6feeee4382418016abf32a5005487d0b278a3616fdf78b2",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 26514,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 900,
+            "reasoning_output_tokens": 575,
+            "total_tokens": 27414
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:27:58.815Z",
+          "responseId": "resp_0ff6feeee4382418016abf32b8f80887d0b71de83f6b20422b",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 33106,
+            "cached_input_tokens": 26368,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1151,
+            "reasoning_output_tokens": 910,
+            "total_tokens": 34257
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:28:17.764Z",
+          "responseId": "resp_0ff6feeee4382418016abf32d13dc087d0a8078af17eeb4831",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 40989,
+            "cached_input_tokens": 32512,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 837,
+            "reasoning_output_tokens": 601,
+            "total_tokens": 41826
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:28:28.896Z",
+          "responseId": "resp_0ff6feeee4382418016abf32e30bc487d091246c7cc9fb8356",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 41927,
+            "cached_input_tokens": 40704,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 438,
+            "reasoning_output_tokens": 232,
+            "total_tokens": 42365
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:29:12.043Z",
+          "responseId": "resp_0ff6feeee4382418016abf32ee194487d0ac1a7f01c61e42b2",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 43588,
+            "cached_input_tokens": 41728,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2255,
+            "reasoning_output_tokens": 2010,
+            "total_tokens": 45843
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:29:33.998Z",
+          "responseId": "resp_0ff6feeee4382418016abf3319798087d086212b03d32137b1",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 45869,
+            "cached_input_tokens": 42752,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1065,
+            "reasoning_output_tokens": 586,
+            "total_tokens": 46934
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:29:41.499Z",
+          "responseId": "resp_0ff6feeee4382418016abf332f7b9087d0bf86994a0b72e03c",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 46960,
+            "cached_input_tokens": 44800,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 277,
+            "reasoning_output_tokens": 94,
+            "total_tokens": 47237
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:30:00.126Z",
+          "responseId": "resp_0ff6feeee4382418016abf3336baf887d0af70beca4e161a7c",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 47549,
+            "cached_input_tokens": 45824,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 919,
+            "reasoning_output_tokens": 768,
+            "total_tokens": 48468
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 400171,
+        "cached_input_tokens": 369920,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 8875,
+        "reasoning_output_tokens": 6345,
+        "total_tokens": 409046,
+        "uncached_input_tokens": 30251
+      },
+      "standardAPIEquivalentUSD": "0.0111618",
+      "costPartsUSD": {
+        "uncached": "0.0030251",
+        "cached": "0.0036992",
+        "write": "0.000",
+        "output": "0.0044375"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-discipline/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "verification-loop/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "using-git-worktrees/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/scripts/model-selector.js"
+        },
+        {
+          "action": "read",
+          "file": "repo-docs/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/model-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "README.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/behavior-profile-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/runtime-model-floor-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/references/model-matrix.md"
+        }
+      ],
+      "routerTier": "tier3",
+      "routerStrategy": "fable-staged",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": true,
+        "READMEEdit": true
+      }
+    },
+    {
+      "id": "medium-B",
+      "arm": "B",
+      "size": "medium",
+      "threadId": "01a0fadd-21f2-75e0-ac8e-a28d59f57ef9",
+      "agentPath": "/root/medium_b",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T12-26-31-01a0fadd-21f2-75e0-ac8e-a28d59f57ef9.jsonl",
+      "sourceRolloutSHA256": "df21354d614072154b11d6a1a985c9d5dde17f8d7710b5c43a8708e8a3e835bc",
+      "agentPromptSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "requests": [
+        {
+          "timestamp": "2026-10-02T04:26:42.391Z",
+          "responseId": "resp_0ef3fae0b583fe39016abf327ac2a487d0bb96b0c162c91376",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 23872,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 358,
+            "reasoning_output_tokens": 187,
+            "total_tokens": 24230
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:26:46.196Z",
+          "responseId": "resp_0ef3fae0b583fe39016abf3283bb9c87d0857e626f5e4e497b",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 24275,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 99,
+            "reasoning_output_tokens": 10,
+            "total_tokens": 24374
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:26:51.565Z",
+          "responseId": "resp_0ef3fae0b583fe39016abf3287ad4487d0b094bc2a90f2465f",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 25126,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 179,
+            "reasoning_output_tokens": 77,
+            "total_tokens": 25305
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:27:01.806Z",
+          "responseId": "resp_0ef3fae0b583fe39016abf328d1ee887d08ff295f661459fbf",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 25820,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 405,
+            "reasoning_output_tokens": 237,
+            "total_tokens": 26225
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:27:08.462Z",
+          "responseId": "resp_0ef3fae0b583fe39016abf3297110087d08ce121a30eba3c8e",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 26549,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 247,
+            "reasoning_output_tokens": 150,
+            "total_tokens": 26796
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:27:17.928Z",
+          "responseId": "resp_0ef3fae0b583fe39016abf329dc0cc87d0a7563e3f8db1daed",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 30306,
+            "cached_input_tokens": 26368,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 407,
+            "reasoning_output_tokens": 302,
+            "total_tokens": 30713
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:27:26.873Z",
+          "responseId": "resp_0ef3fae0b583fe39016abf32a728f487d098316e647ab9df61",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 30808,
+            "cached_input_tokens": 29440,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 383,
+            "reasoning_output_tokens": 259,
+            "total_tokens": 31191
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:28:06.171Z",
+          "responseId": "resp_0ef3fae0b583fe39016abf32b05ec087d095b68e6d8943bcc8",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 31225,
+            "cached_input_tokens": 30464,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2054,
+            "reasoning_output_tokens": 1579,
+            "total_tokens": 33279
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:28:20.495Z",
+          "responseId": "resp_0ef3fae0b583fe39016abf32d6bad487d0907133ab805c0f7a",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 33313,
+            "cached_input_tokens": 30464,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 720,
+            "reasoning_output_tokens": 274,
+            "total_tokens": 34033
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:28:41.108Z",
+          "responseId": "resp_0ef3fae0b583fe39016abf32e60ba887d08e84e47ec9a04a1e",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 34222,
+            "cached_input_tokens": 32512,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1000,
+            "reasoning_output_tokens": 772,
+            "total_tokens": 35222
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 285516,
+        "cached_input_tokens": 268800,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5852,
+        "reasoning_output_tokens": 3847,
+        "total_tokens": 291368,
+        "uncached_input_tokens": 16716
+      },
+      "standardAPIEquivalentUSD": "0.0072856",
+      "costPartsUSD": {
+        "uncached": "0.0016716",
+        "cached": "0.002688",
+        "write": "0.000",
+        "output": "0.002926"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/references/profile-lookup.md"
+        },
+        {
+          "action": "read",
+          "file": "README.md"
+        },
+        {
+          "action": "read",
+          "file": "benchmarks/results/reviews/pr291-independent-2026-10-02/medium-B/README.md"
+        }
+      ],
+      "routerTier": "tier1",
+      "routerStrategy": "direct-single",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": false,
+        "READMEEdit": true
+      }
+    },
+    {
+      "id": "large-A",
+      "arm": "A",
+      "size": "large",
+      "threadId": "01a0fadf-6119-7d82-9913-d1b7f2d00bf7",
+      "agentPath": "/root/large_a",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T12-28-58-01a0fadf-6119-7d82-9913-d1b7f2d00bf7.jsonl",
+      "sourceRolloutSHA256": "0bd4a4c0286e3289e5b75d5cb824aa1c2ef59edadb64c12304804e90483116c3",
+      "agentPromptSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "requests": [
+        {
+          "timestamp": "2026-10-02T04:29:09.784Z",
+          "responseId": "resp_01eadecbf31e25e5016abf330e107c87d0815bdae6e57b6f7b",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 23872,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 364,
+            "reasoning_output_tokens": 176,
+            "total_tokens": 24236
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:29:14.502Z",
+          "responseId": "resp_01eadecbf31e25e5016abf3317204087d0afaf6d4341233ddc",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 24336,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 117,
+            "reasoning_output_tokens": 9,
+            "total_tokens": 24453
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:29:25.994Z",
+          "responseId": "resp_01eadecbf31e25e5016abf331bf58487d097fe98b54bd96400",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 26038,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 503,
+            "reasoning_output_tokens": 302,
+            "total_tokens": 26541
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:29:41.743Z",
+          "responseId": "resp_01eadecbf31e25e5016abf3328119c87d0857d00cce7f6aaa3",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 28331,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 721,
+            "reasoning_output_tokens": 430,
+            "total_tokens": 29052
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:29:55.038Z",
+          "responseId": "resp_01eadecbf31e25e5016abf33383d7c87d0b2390a756f22d4e4",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 29649,
+            "cached_input_tokens": 27392,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 530,
+            "reasoning_output_tokens": 286,
+            "total_tokens": 30179
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:30:11.643Z",
+          "responseId": "resp_01eadecbf31e25e5016abf3344bde087d0b7c881f6b22b1610",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 31342,
+            "cached_input_tokens": 29440,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 788,
+            "reasoning_output_tokens": 663,
+            "total_tokens": 32130
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:33:19.748Z",
+          "responseId": "resp_01eadecbf31e25e5016abf3354fe8887d09e00588833f33489",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 32827,
+            "cached_input_tokens": 30464,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 10332,
+            "reasoning_output_tokens": 6906,
+            "total_tokens": 43159
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:34:19.473Z",
+          "responseId": "resp_01eadecbf31e25e5016abf34104d1c87d09e867b5dd4c6cb82",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 43194,
+            "cached_input_tokens": 32512,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3231,
+            "reasoning_output_tokens": 333,
+            "total_tokens": 46425
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:34:37.760Z",
+          "responseId": "resp_01eadecbf31e25e5016abf344ca52487d0b173677b39648376",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 46452,
+            "cached_input_tokens": 42752,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 904,
+            "reasoning_output_tokens": 721,
+            "total_tokens": 47356
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:34:51.075Z",
+          "responseId": "resp_01eadecbf31e25e5016abf345f33f887d0807a29f9515d270d",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 47547,
+            "cached_input_tokens": 45824,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 568,
+            "reasoning_output_tokens": 299,
+            "total_tokens": 48115
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:35:02.402Z",
+          "responseId": "resp_01eadecbf31e25e5016abf346c91a087d08406688a89de0021",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 48171,
+            "cached_input_tokens": 46848,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 500,
+            "reasoning_output_tokens": 306,
+            "total_tokens": 48671
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 381759,
+        "cached_input_tokens": 350464,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 18558,
+        "reasoning_output_tokens": 10431,
+        "total_tokens": 400317,
+        "uncached_input_tokens": 31295
+      },
+      "standardAPIEquivalentUSD": "0.01591314",
+      "costPartsUSD": {
+        "uncached": "0.0031295",
+        "cached": "0.00350464",
+        "write": "0.000",
+        "output": "0.009279"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "using-git-worktrees/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "verification-loop/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-discipline/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/fable-opus/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/model-matrix.json"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/references/model-matrix.md"
+        }
+      ],
+      "routerTier": "tier3",
+      "routerStrategy": "fable-staged",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": true,
+        "READMEEdit": true,
+        "largeStageCount": 8,
+        "largeDependenciesValid": true,
+        "largeAuthorizedFilesCovered": true,
+        "largeEveryStageHasFailableChecks": true,
+        "largeIsolationDispositionPresent": true,
+        "largeFinalColdVerifierPresent": true,
+        "largeNoMutationClaim": true
+      }
+    },
+    {
+      "id": "large-B",
+      "arm": "B",
+      "size": "large",
+      "threadId": "01a0fadf-9ffc-7bf1-ba3f-6e906f133764",
+      "agentPath": "/root/large_b",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "sourceRolloutRelative": "sessions\\2026\\10\\02\\rollout-2026-10-02T12-29-14-01a0fadf-9ffc-7bf1-ba3f-6e906f133764.jsonl",
+      "sourceRolloutSHA256": "a499e3ba6c6694fd3f8fb702cf098f380dc43d5747a9028990c4fde193e2082c",
+      "agentPromptSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "requests": [
+        {
+          "timestamp": "2026-10-02T04:29:27.948Z",
+          "responseId": "resp_02a74a5ce863486b016abf331fd1ac87d090220c583224b074",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 23872,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 370,
+            "reasoning_output_tokens": 194,
+            "total_tokens": 24242
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:29:33.575Z",
+          "responseId": "resp_02a74a5ce863486b016abf3329257487d0b7c50e622738383c",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 24342,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 196,
+            "reasoning_output_tokens": 21,
+            "total_tokens": 24538
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:29:47.021Z",
+          "responseId": "resp_02a74a5ce863486b016abf332f264087d0b2febfc2d0319748",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 26123,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 520,
+            "reasoning_output_tokens": 323,
+            "total_tokens": 26643
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:30:04.167Z",
+          "responseId": "resp_02a74a5ce863486b016abf333d002487d086228f66dac7206d",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 28471,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 754,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 29225
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:30:17.974Z",
+          "responseId": "resp_02a74a5ce863486b016abf334d61c087d0994f8c0c32a37a21",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 29322,
+            "cached_input_tokens": 27392,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 475,
+            "reasoning_output_tokens": 301,
+            "total_tokens": 29797
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:30:27.137Z",
+          "responseId": "resp_02a74a5ce863486b016abf335bde0087d0a7a7031df87a570a",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 30943,
+            "cached_input_tokens": 28416,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 357,
+            "reasoning_output_tokens": 159,
+            "total_tokens": 31300
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:34:50.993Z",
+          "responseId": "resp_02a74a5ce863486b016abf3365412487d099b888d912d97951",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 36018,
+            "cached_input_tokens": 30464,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 13919,
+            "reasoning_output_tokens": 10978,
+            "total_tokens": 49937
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:35:01.107Z",
+          "responseId": "resp_02a74a5ce863486b016abf346ca12487d0bfe1077d3d14ad15",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 49964,
+            "cached_input_tokens": 35584,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 394,
+            "reasoning_output_tokens": 132,
+            "total_tokens": 50358
+          }
+        },
+        {
+          "timestamp": "2026-10-02T04:35:12.934Z",
+          "responseId": "resp_02a74a5ce863486b016abf3476799487d0adf088b5a7b5666f",
+          "rootTurnId": "01a0face-a534-7fa0-9901-c8825d6ad461",
+          "usage": {
+            "input_tokens": 50526,
+            "cached_input_tokens": 48896,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 462,
+            "reasoning_output_tokens": 374,
+            "total_tokens": 50988
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 299581,
+        "cached_input_tokens": 265984,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 17447,
+        "reasoning_output_tokens": 12998,
+        "total_tokens": 317028,
+        "uncached_input_tokens": 33597
+      },
+      "standardAPIEquivalentUSD": "0.01474304",
+      "costPartsUSD": {
+        "uncached": "0.0033597",
+        "cached": "0.00265984",
+        "write": "0.000",
+        "output": "0.0087235"
+      },
+      "readLedger": [
+        {
+          "action": "route"
+        },
+        {
+          "action": "read",
+          "file": "using-git-worktrees/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "verification-loop/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-discipline/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/references/profile-lookup.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/scripts/model-selector.js"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/fable-opus/SKILL.md"
+        },
+        {
+          "action": "read",
+          "file": "fable-mode/model-matrix.json"
+        }
+      ],
+      "routerTier": "tier3",
+      "routerStrategy": "fable-staged",
+      "checks": {
+        "profileCanonical": true,
+        "expectedRouterTopology": true,
+        "READMEEdit": true,
+        "largeStageCount": 8,
+        "largeDependenciesValid": true,
+        "largeAuthorizedFilesCovered": true,
+        "largeEveryStageHasFailableChecks": true,
+        "largeIsolationDispositionPresent": true,
+        "largeFinalColdVerifierPresent": true,
+        "largeNoMutationClaim": true
+      }
+    }
+  ],
+  "totals": {
+    "A": {
+      "input_tokens": 981608,
+      "cached_input_tokens": 892672,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 33205,
+      "reasoning_output_tokens": 20881,
+      "total_tokens": 1014813,
+      "uncached_input_tokens": 88936,
+      "standardAPIEquivalentUSD": "0.03442282"
+    },
+    "B": {
+      "input_tokens": 780521,
+      "cached_input_tokens": 717312,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 28837,
+      "reasoning_output_tokens": 20890,
+      "total_tokens": 809358,
+      "uncached_input_tokens": 63209,
+      "standardAPIEquivalentUSD": "0.02791252"
+    }
+  }
+}

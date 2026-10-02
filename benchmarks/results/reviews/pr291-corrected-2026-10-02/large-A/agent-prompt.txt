@@ -1,0 +1,1 @@
+Unavailable: native subagent task messages are encrypted in retained rollouts; SQLite first_user_message is empty. Task text is retained separately in task.txt. Wrapper equality cannot be independently verified from exported telemetry.
