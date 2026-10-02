@@ -53,14 +53,31 @@ function detectFableModel(prompt) {
 }
 
 // A profile mention is data in a lookup, not an instruction to start Fable.
-// Conservatively keep mixed execution requests on their normal topology.
+// Accept only lookup-shaped clauses plus bounded output/negative constraints.
+// Any unrecognized continuation stays on the normal execution path.
+function isLookupOnlyContinuation(clause) {
+  const text = clause.trim();
+  if (!text) return true;
+  return /^(?:return|respond|output|show|provide)\b.*\b(?:json|record|selection|profile|result)\b/i.test(text)
+    || /^(?:no|without|do not|don't)\b.*\b(?:orchestration|delegation|stages?|staging|execution|model switch(?:ing)?)\b/i.test(text)
+    || /^(?:只|僅)?(?:回傳|返回|輸出|顯示|提供).*(?:json|記錄|紀錄|結果|profile|設定檔)/i.test(text)
+    || /^(?:不要|不需要|無需|不).*(?:編排|委派|階段|執行|切換模型)/i.test(text);
+}
+
 function isFableProfileLookup(prompt, hasMacroSignal) {
-  const instructions = prompt.replace(/'[^']*'|"[^"]*"|`[^`]*`/g, '');
-  return Boolean(detectFableModel(prompt)) && !hasMacroSignal
-    && /^(?:(?:please|help me)\s+)?(?:explain|resolve|define|what (?:is|does)|解釋|說明|解析)/i.test(prompt.trim())
-    && !/\b(?:use|run|enter|implement|edit|modify|fix|debug|deploy|publish|migrate|audit|review|refactor|build|create|execute|analyze|research|test|compare|generate|write|verify|inspect|send)\b|(?:實作|修改|修正|部署|遷移|稽核|執行|分析|研究|測試|比較|生成|寫入|檢查|傳送)/i.test(instructions)
-    && !/\b(?:then|afterwards|additionally)\b|(?:接著|然後|另外)/i.test(instructions)
-    && !/\b(?:direct[- ]single|iterative[- ]single|fable[- ](?:staged|parallel|multi[- ]agent[- ]workspace))\b/i.test(prompt);
+  if (!detectFableModel(prompt) || hasMacroSignal) return false;
+  if (/\b(?:direct[- ]single|iterative[- ]single|fable[- ](?:staged|parallel|multi[- ]agent[- ]workspace))\b/i.test(prompt)) return false;
+
+  const clauses = prompt
+    .split(/(?:[;,，；。]|\b(?:and|then|also|plus|afterwards|additionally)\b|(?:並且?|以及|接著|然後|另外))/i)
+    .map(part => part.trim())
+    .filter(Boolean);
+  if (clauses.length === 0) return false;
+
+  const [lookupClause, ...continuations] = clauses;
+  const isLookupLead = /^(?:(?:please|help me)\s+)?(?:explain|resolve|define|what (?:is|does)|解釋|說明|解析)/i.test(lookupClause)
+    && Boolean(detectFableModel(lookupClause));
+  return isLookupLead && continuations.every(isLookupOnlyContinuation);
 }
 
 function detectExplicitStrategy(prompt, requestedFableModel) {
