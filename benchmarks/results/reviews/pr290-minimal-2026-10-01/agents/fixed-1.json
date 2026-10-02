@@ -1,0 +1,100 @@
+{
+  "answer": {
+    "requestedProfile": "reasoning",
+    "effectiveProfile": "reasoning",
+    "profileAlias": "sonnect",
+    "assignedRole": "reasoning-worker",
+    "runtimeModel": null,
+    "runtimeEffort": null
+  },
+  "route": {
+    "tier": "Tier 1 (Trivial)",
+    "rationale": "Bounded behavior-profile lookup; select compact reference before execution.",
+    "requestedFableProfile": "sonnect",
+    "skill": "fable-mode/SKILL.md",
+    "operation": "profile-lookup",
+    "references": [
+      "fable-mode/references/profile-lookup.md"
+    ],
+    "workflowStrategy": "direct-single",
+    "stageStateOrDelegation": false,
+    "routerRecommendedGuides": [
+      "fable-mode/SKILL.md",
+      "fable-discipline/SKILL.md",
+      "multi-agent-workspace/SKILL.md",
+      "repo-docs/templates/agents-template.md",
+      "grill-with-docs/SKILL.md",
+      "fable-mode/model-matrix.json",
+      "fable-mode/scripts/model-selector.js",
+      "fable-mode/fable-haiku/SKILL.md",
+      "fable-mode/fable-sonnet/SKILL.md",
+      "fable-mode/fable-opus/SKILL.md"
+    ]
+  },
+  "ledger": [
+    {
+      "path": "/private/tmp/harness-pr289-fix/harness-everything/scripts/tier-router.js",
+      "bytes_loaded": 26070,
+      "sha256": null,
+      "load": "executed by initial Node routing command; byte count from read-only stat after execution; no source inspection"
+    },
+    {
+      "path": "/private/tmp/harness-pr289-fix/fable-mode/SKILL.md",
+      "bytes_loaded": 2230,
+      "sha256": null,
+      "load": "initial content read before parent reported compression; prior version"
+    },
+    {
+      "path": "/private/tmp/harness-pr289-fix/fable-mode/references/profile-lookup.md",
+      "bytes_loaded": 1377,
+      "sha256": "bd53dd3cea62da7ccc2f30798f4252fbc392a945cf4ff069dbc6fe31e4d908e5",
+      "load": "content read for answer; same-size digest reread also performed"
+    },
+    {
+      "path": "/private/tmp/harness-pr289-fix/fable-mode/SKILL.md",
+      "bytes_loaded": 2194,
+      "sha256": "6c5ea2f7f572049921ee035a35eef86f2a9045e2ec33f5f2d2fb7893ed73845e",
+      "load": "current content reread after parent reported compression; used as final skill version"
+    },
+    {
+      "path": "/private/tmp/harness-pr289-fix/fable-mode/references/profile-lookup.md",
+      "bytes_loaded": 1377,
+      "sha256": "bd53dd3cea62da7ccc2f30798f4252fbc392a945cf4ff069dbc6fe31e4d908e5",
+      "load": "digest reread; no additional semantic review needed"
+    }
+  ],
+  "toolCalls": [
+    {
+      "command": "node harness-everything/scripts/tier-router.js \"Explain what 'fable on sonnect' means\"",
+      "cwd": "/private/tmp/harness-pr289-fix",
+      "exitCode": 0,
+      "purpose": "first action: obtain tier, classification, workflow strategy, and suggested guides"
+    },
+    {
+      "command": "python3 -c to read fable-mode/SKILL.md and print path, byte length, and content",
+      "cwd": "/private/tmp/harness-pr289-fix",
+      "exitCode": 0
+    },
+    {
+      "command": "python3 -c to read fable-mode/references/profile-lookup.md and print path, byte length, and content",
+      "cwd": "/private/tmp/harness-pr289-fix",
+      "exitCode": 0
+    },
+    {
+      "command": "python3 -c to read current fable-mode/SKILL.md, calculate SHA256, and print content",
+      "cwd": "/private/tmp/harness-pr289-fix",
+      "exitCode": 0
+    },
+    {
+      "command": "python3 -c to stat tier-router.js and read profile-lookup.md for size and SHA256",
+      "cwd": "/private/tmp/harness-pr289-fix",
+      "exitCode": 0
+    }
+  ],
+  "contradictions": [],
+  "unnecessaryLoads": [
+    "The first fable-mode/SKILL.md read captured the 2230-byte pre-compression version. Parent then reported a compressed current version; reread the current 2194-byte file and used it. The earlier load is disclosed here.",
+    "Router listed nine auto-recommended guides beyond the selected profile-lookup route. The profile-lookup contract says to read only profile-lookup.md; none of those guides or the model-selector implementation was opened."
+  ],
+  "evidenceLimit": "The router's entrypoint source was executed and its on-disk byte size recorded; transitive runtime file reads were not instrumented during that first invocation. Explicit content reads are listed above."
+}

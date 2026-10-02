@@ -1,0 +1,2758 @@
+
+> harness-everything@0.30.3 test
+> node self-evolve/scripts/self-regression.js
+
+=================================================
+     Harness OS - Self-Regression Test Suite     
+=================================================
+
+[Phase 1] Static Syntax Check...
+  PASS syntax: 228 JavaScript file(s)
+
+[Phase 1b] CLI Command Smoke Test...
+  PASS `harness next` produced routing + invariant contract.
+  PASS `harness verify` exited 0 on a skipped check.
+
+[Phase 2] Routing Verification Check...
+=== Harness Tier Verification Framework ===
+This framework simulates routing prompts to verify trigger rates.
+
+[Testing] Refactoring large module
+  Prompt: "We need to refactor the entire authentication architecture"
+  Expected Tier: Tier 3
+  -> Result: PASS (Got Tier 3)
+
+[Testing] Small feature
+  Prompt: "Add a small feature to validate phone numbers"
+  Expected Tier: Tier 2
+  -> Result: PASS (Got Tier 2)
+
+[Testing] One README typo
+  Prompt: "Update one README typo"
+  Expected Tier: Tier 1
+  -> Result: PASS (Got Tier 1)
+
+[Testing] Chinese full skill audit
+  Prompt: "請逐一評估所有 skill 的內容、檔案結構與版本，並用數據比較是否仍然有效"
+  Expected Tier: Tier 3
+  -> Result: PASS (Got Tier 3)
+
+[Testing] Small bugfix without matched routing signal
+  Prompt: "Fix the typo in the login screen"
+  Expected Tier: Unclassified
+  -> Result: PASS (Got Unclassified)
+
+[Testing] API implementation with tests
+  Prompt: "Implement the new payment API and write integration tests"
+  Expected Tier: Tier 2
+  -> Result: PASS (Got Tier 2)
+
+[Testing] Chinese prompt - API with tests
+  Prompt: "幫我實作新的付款 API 並寫整合測試"
+  Expected Tier: Tier 2
+  -> Result: PASS (Got Tier 2)
+
+[Testing] Chinese prompt - architectural refactor
+  Prompt: "重構整個認證模組的架構"
+  Expected Tier: Tier 3
+  -> Result: PASS (Got Tier 3)
+
+[Testing] Full skill efficacy audit
+  Prompt: "Evaluate every skill in this Harness repository and verify whether each one is still useful using data"
+  Expected Tier: Tier 3
+  -> Result: PASS (Got Tier 3)
+
+[Testing] All-skill stale reference review
+  Prompt: "Review all skills for stale references and compare the installed file tree with the release"
+  Expected Tier: Tier 3
+  -> Result: PASS (Got Tier 3)
+
+[Testing] Controlled A/B benchmark
+  Prompt: "Run a controlled A/B benchmark of the agent with and without the Harness skills and report confidence intervals"
+  Expected Tier: Tier 3
+  -> Result: PASS (Got Tier 3)
+
+[Testing] Repository version audit
+  Prompt: "Audit this repository version and fix four issues across routing, benchmarks, pressure cases, and missing files"
+  Expected Tier: Tier 3
+  -> Result: PASS (Got Tier 3)
+
+--- Summary: 12 passed, 0 failed ---
+  PASS routing matrix
+PASS fable-mode/execution-guardrails/SKILL.md: routing=internal
+PASS fable-mode/fable-haiku/SKILL.md: routing=parent
+PASS fable-mode/fable-opus/SKILL.md: routing=parent
+PASS fable-mode/fable-sonnet/SKILL.md: routing=parent
+PASS environment-detection/positive-trigger.yaml
+PASS eval-harness/positive-trigger.yaml
+PASS fable-discipline/positive-trigger.yaml
+PASS fable-mode/positive-haiku-mode.yaml
+PASS fable-mode/positive-opus-mode.yaml
+PASS fable-mode/positive-sonnet-mode.yaml
+PASS fable-mode/positive-trigger.yaml
+PASS find-skills/positive-trigger.yaml
+PASS git-commit/positive-trigger.yaml
+PASS grill-me/positive-trigger.yaml
+PASS grill-with-docs/positive-trigger.yaml
+PASS harness-everything/positive-tier1.yaml
+PASS harness-everything/positive-tier2.yaml
+PASS harness-everything/positive-tier3.yaml
+PASS improve-codebase-architecture/positive-trigger.yaml
+PASS install-cognitive-os/positive-trigger.yaml
+PASS multi-agent-workspace/positive-trigger.yaml
+PASS repo-docs/positive-trigger.yaml
+PASS rewrite-commits/positive-trigger.yaml
+PASS security-review/positive-trigger.yaml
+PASS self-evolve/positive-trigger.yaml
+PASS skill-creator/positive-trigger.yaml
+PASS skill-style/positive-trigger.yaml
+PASS tdd/positive-bugfix.yaml
+PASS tdd/positive-feature.yaml
+PASS tdd/positive-refactor.yaml
+PASS to-spec/positive-trigger.yaml
+PASS to-tickets/positive-trigger.yaml
+PASS todo-driven-workflow/positive-multi-step.yaml
+PASS todo-driven-workflow/positive-refactor-flow.yaml
+PASS using-git-worktrees/positive-trigger.yaml
+PASS verification-loop/positive-pre-ship.yaml
+PASS verify-before-claim/positive-trigger.yaml
+PASS zoom-out/positive-repeated-failure.yaml
+
+Route coverage: 34 positive case(s) checked across 26 direct skills; 4 nested skill(s) classified.
+  PASS skill route coverage
+=== Semantic Contract-Strength Routing Contract ===
+  PASS kernel router exits successfully
+  PASS classifier result is preserved
+  PASS Tier 2 selects iterative-single workflow
+  PASS iterative work exposes loop-awareness instead of a hard budget
+  PASS skill applicability is explicitly mandatory
+  PASS orchestration policy preserves semantic MUST obligations
+  PASS kernel separates semantic contract from non-blocking observation
+  PASS worktree isolation disposition is a semantic MUST
+  PASS old planning-guidance label is absent
+  PASS old worktree hard-block wording is absent
+  PASS skill suggestions still require evaluation before omission
+  PASS workflow plan carries mandatory user-visible status invariant
+  PASS kernel emits the mandatory unified status contract
+  PASS kernel status contract includes readable Markdown field ### 🚦 Harness Status
+  PASS kernel status contract includes readable Markdown field - **Current:**
+  PASS kernel status contract includes readable Markdown field - **Read / Evidence:**
+  PASS kernel status contract includes readable Markdown field - **Next:**
+  PASS kernel status contract includes readable Markdown field - **Risk / Blocked:**
+  PASS routing checkpoint is marked internal rather than user-facing
+  PASS legacy duplicate-visible checkpoint label is absent
+  PASS kernel tells agents to split dense evidence into nested bullets
+  PASS kernel separates semantic MUST from mechanical blocking
+  PASS Tier 3 routing exits successfully
+  PASS macro task remains Tier 3
+  PASS Tier 3 still routes the worktree skill
+  PASS Tier 3 requires an isolation disposition without a hard lock
+  PASS Harness skill separates required obligations from adaptable tactics
+  PASS Harness skill names the only intentional blocking boundaries
+  PASS Harness skill requires the readable unified user-visible status
+  PASS Harness skill mirror matches
+  PASS worktree skill requires isolation disposition but permits degraded fallback
+  PASS worktree creation failure is not a cognitive blocked state
+  PASS worktree skill mirror matches
+  PASS triage reference uses contract-first policy
+  PASS triage defines the mandatory unified status contract
+  PASS triage mirror matches
+  PASS current doc docs/routing.md preserves explicit semantic strength
+  PASS current doc docs/architecture.md preserves explicit semantic strength
+  PASS current doc docs/philosophy.md preserves explicit semantic strength
+  PASS current doc docs/routing.md defines mandatory user-visible status
+  PASS current doc docs/architecture.md defines mandatory user-visible status
+  PASS current doc docs/workflow-runtime.md defines mandatory user-visible status
+  PASS philosophy defines canonical MUST/SHOULD/MAY strength
+  PASS contract-strength audit classifies Route before software/project execution
+  PASS contract-strength audit classifies Read/evaluate every suggested skill before omission
+  PASS contract-strength audit classifies Resolve selected-topology invariants/stages/checks/synthesis/verification
+  PASS contract-strength audit classifies Discover relevant environment/host facts
+  PASS contract-strength audit classifies Resolve Tier-3/Fable isolation before broad mutation
+  PASS contract-strength audit classifies Numeric iteration/revision/replan/worker values
+  PASS contract-strength audit classifies Durable memory writes
+  PASS old ambiguous philosophy wording is removed
+  PASS instruction-only installer preserves MUST/MAY semantics
+  PASS instruction-only installers carry the readable mandatory status contract
+  PASS installer text preserves Rule-of-3 and permission boundaries
+  PASS OpenAI advisory mirror matches
+  PASS repository agent contract is contract-first
+  PASS repository agent contract requires readable unified user-visible status
+  PASS repository worktree rule requires disposition without hard lock
+  PASS architecture skill aligns rollback with the third same-signature failure
+  PASS architecture skill no longer waits beyond the Rule-of-3 threshold
+  PASS architecture skill mirror matches
+  PASS environment discovery is a conditional semantic MUST
+  PASS environment skill mirror matches
+  PASS commit skill separates staged-diff MUST from split SHOULD
+  PASS git-commit skill mirror matches
+  PASS Claude packages workflow reminder hook
+  PASS Claude preserves Rule-of-3 boundary
+  PASS Claude preserves action permission gate
+
+PASS: semantic contract-strength routing contract (0 failures)
+  PASS invariant-first routing contract
+=== Router Workflow Plan Contract — Phase 2 ===
+  PASS direct-single: tier router exits successfully
+  PASS direct-single: structured contract exists
+  PASS direct-single: contract validates (no errors)
+  PASS one-file trivial task remains tier1
+  PASS one-file trivial task selects direct-single
+  PASS direct-single is a selected strategy
+  PASS every selected workflow carries the user-visible status invariant
+  PASS every selected workflow carries conditional environment-alignment MUST
+  PASS direct-single does not require a workspace
+  PASS direct-single does not parallelize
+  PASS iterative-single: tier router exits successfully
+  PASS iterative-single: structured contract exists
+  PASS iterative-single: contract validates (no errors)
+  PASS ordinary test-first bug fix is tier2
+  PASS ordinary bug fix selects iterative-single
+  PASS iterative-single retains a MAY iteration planning value
+  PASS workflow exposes a MAY revision planning value
+  PASS workflow exposes a MAY replan planning value
+  PASS workflow exposes a MAY worker planning value
+  PASS iterative-single carries objective verification invariant
+  PASS iterative-single carries semantic loop-awareness obligation while numeric counts remain MAY
+  PASS TDD remains applicability-conditional rather than a universal invariant
+  PASS ordinary iterative work cannot write durable memory
+  PASS suggested skill names remain separate from plan invariants until applicability is resolved
+  PASS self-evolve persistence: tier router exits successfully
+  PASS self-evolve persistence: structured contract exists
+  PASS self-evolve persistence: contract validates (no errors)
+  PASS bounded explicit persistence request receives a selected workflow
+  PASS explicit persistence request authorizes only self-evolve durable write
+  PASS durable memory route carries runtime authorization invariant
+  PASS durable memory route suggests self-evolve explicitly
+  PASS persistence intent is recorded in task shape
+  PASS memory prohibition: tier router exits successfully
+  PASS memory prohibition: structured contract exists
+  PASS memory prohibition: contract validates (no errors)
+  PASS explicit memory prohibition overrides persistence intent
+  PASS memory prohibition conflict is auditable
+  PASS bounded operation: Audit this SKILL.md only.: tier router exits successfully
+  PASS bounded operation: Audit this SKILL.md only.: structured contract exists
+  PASS bounded operation: Audit this SKILL.md only.: contract validates (no errors)
+  PASS bounded operation verb does not force Tier 3: Audit this SKILL.md only.
+  PASS bounded operation verb does not emit macro-scope-signal: Audit this SKILL.md only.
+  PASS bounded operation records macroScope=false: Audit this SKILL.md only.
+  PASS bounded operation: Compare these two functions.: tier router exits successfully
+  PASS bounded operation: Compare these two functions.: structured contract exists
+  PASS bounded operation: Compare these two functions.: contract validates (no errors)
+  PASS bounded operation verb does not force Tier 3: Compare these two functions.
+  PASS bounded operation verb does not emit macro-scope-signal: Compare these two functions.
+  PASS bounded operation records macroScope=false: Compare these two functions.
+  PASS bounded operation: Benchmark this parser function.: tier router exits successfully
+  PASS bounded operation: Benchmark this parser function.: structured contract exists
+  PASS bounded operation: Benchmark this parser function.: contract validates (no errors)
+  PASS bounded operation verb does not force Tier 3: Benchmark this parser function.
+  PASS bounded operation verb does not emit macro-scope-signal: Benchmark this parser function.
+  PASS bounded operation records macroScope=false: Benchmark this parser function.
+  PASS controlled A/B benchmark: tier router exits successfully
+  PASS controlled A/B benchmark: structured contract exists
+  PASS controlled A/B benchmark: contract validates (no errors)
+  PASS structured A/B benchmark remains Tier 3
+  PASS structured A/B benchmark records macroScope=true
+  PASS structured A/B benchmark keeps macro-scope-signal
+  PASS Tier 3 keyword rationale: tier router exits successfully
+  PASS Tier 3 keyword rationale: structured contract exists
+  PASS Tier 3 keyword rationale: contract validates (no errors)
+  PASS new feature remains Tier 3
+  PASS new feature records tier3-keyword
+  PASS Tier 3 keyword rationale names the actual trigger class
+  PASS Tier 3 keyword rationale does not claim unrelated macro signals
+  PASS fable-staged: tier router exits successfully
+  PASS fable-staged: structured contract exists
+  PASS fable-staged: contract validates (no errors)
+  PASS multi-stage architecture work is tier3
+  PASS dependent multi-stage work selects fable-staged
+  PASS dependent stages remain sequential
+  PASS fable-staged requires cold verification
+  PASS fable-staged carries mandatory isolation disposition
+  PASS fable-staged surfaces worktree resolution skill
+  PASS fable-parallel: tier router exits successfully
+  PASS fable-parallel: structured contract exists
+  PASS fable-parallel: contract validates (no errors)
+  PASS parallel task records independent dependency graph
+  PASS parallel audit records read-only write set
+  PASS independent read-only audits select fable-parallel
+  PASS fable-parallel exposes allowed=true
+  PASS parallel strategy requires synthesis barrier
+  PASS shared-write serialization: tier router exits successfully
+  PASS shared-write serialization: structured contract exists
+  PASS shared-write serialization: contract validates (no errors)
+  PASS same-file writers are recorded as overlapping
+  PASS same-file writers are serialized instead of fable-parallel
+  PASS overlapping writes cannot dispatch in parallel
+  PASS multi-agent workspace: tier router exits successfully
+  PASS multi-agent workspace: structured contract exists
+  PASS multi-agent workspace: contract validates (no errors)
+  PASS durable reusable specialists select workspace topology
+  PASS workspace topology marks workspace required
+  PASS workspace topology scopes reads through workspace index
+  PASS workspace memory writes remain proposals
+  PASS unclassified: tier router exits successfully
+  PASS unclassified: structured contract exists
+  PASS unclassified: contract validates (no errors)
+  PASS no matched signal remains unclassified
+  PASS unclassified does not silently select direct-single
+  PASS unclassified strategy selection is deferred
+  PASS deferred selection has deterministic reason code
+  PASS actionGate: tier router exits successfully
+  PASS actionGate: structured contract exists
+  PASS actionGate: contract validates (no errors)
+  PASS irreversible command intent requires actionGate independent of tier
+  PASS actionGate records irreversible-action
+  PASS actionGate closes at pending approval before execution
+  PASS actionGate adds pre-action invariant
+  PASS external side effect: tier router exits successfully
+  PASS external side effect: structured contract exists
+  PASS external side effect: contract validates (no errors)
+  PASS external side effect requires actionGate
+  PASS external side effect reason is explicit
+  PASS fable keyword trivial edit: tier router exits successfully
+  PASS fable keyword trivial edit: structured contract exists
+  PASS fable keyword trivial edit: contract validates (no errors)
+  PASS fable keyword does not force Tier 3 on a trivial README typo
+  PASS fable README typo remains direct-single
+  PASS explicit Fable profile: tier router exits successfully
+  PASS explicit Fable profile: structured contract exists
+  PASS explicit Fable profile: contract validates (no errors)
+  PASS explicit Fable request selects Fable topology
+  PASS legacy opus alias normalizes to orchestrator profile
+  PASS legacy alias remains auditable
+  PASS explicit Fable profile remains visible
+  PASS explicit Fable sonnect alias: tier router exits successfully
+  PASS explicit Fable sonnect alias: structured contract exists
+  PASS explicit Fable sonnect alias: contract validates (no errors)
+  PASS sonnect normalizes to reasoning profile
+  PASS raw sonnect alias remains auditable end-to-end
+  PASS router output preserves raw sonnect alias
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS bounded Fable lookup: tier router exits successfully
+  PASS bounded Fable lookup: structured contract exists
+  PASS bounded Fable lookup: contract validates (no errors)
+  PASS lookup remains a bounded Tier 1 operation
+  PASS lookup selects direct-single before loading references
+  PASS lookup does not delegate
+  PASS lookup selects only compact reference
+  PASS lookup omits unrelated keyword guides
+  PASS lookup does not send agent to selector implementation
+  PASS lookup contract is deterministic
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS Fable execution boundary: tier router exits successfully
+  PASS Fable execution boundary: structured contract exists
+  PASS Fable execution boundary: contract validates (no errors)
+  PASS execution/macro scope preserves staged topology
+  PASS mixed execution never records the bounded lookup reason
+  PASS execution retains isolation obligation
+  PASS explicit strategy override: tier router exits successfully
+  PASS explicit strategy override: structured contract exists
+  PASS explicit strategy override: contract validates (no errors)
+  PASS explicit user strategy overrides derived Tier 3 topology
+  PASS explicit strategy override is recorded
+  PASS parallel prohibition: tier router exits successfully
+  PASS parallel prohibition: structured contract exists
+  PASS parallel prohibition: contract validates (no errors)
+  PASS explicit no-parallel prohibition serializes derived parallel work
+  PASS parallel prohibition is a visible reduced fallback
+  PASS parallel prohibition reason is recorded
+  PASS parallel capability fallback: tier router exits successfully
+  PASS parallel capability fallback: structured contract exists
+  PASS parallel capability fallback: contract validates (no errors)
+  PASS missing parallel capability serializes to fable-staged
+  PASS parallel capability fallback is visibly serialized
+  PASS missing parallel capability reason is recorded
+  PASS concurrency budget fallback: tier router exits successfully
+  PASS concurrency budget fallback: structured contract exists
+  PASS concurrency budget fallback: contract validates (no errors)
+  PASS concurrency=1 serializes fable-parallel
+  PASS concurrency budget reason is recorded
+  PASS workspace state block: tier router exits successfully
+  PASS workspace state block: structured contract exists
+  PASS workspace state block: contract validates (no errors)
+  PASS workspace requirement remains explicit when state is unavailable
+  PASS missing durable state blocks rather than silently downgrades
+  PASS workspace block reason is recorded
+  PASS runtime model capability advisory: tier router exits successfully
+  PASS runtime model capability advisory: structured contract exists
+  PASS runtime model capability advisory: contract validates (no errors)
+  PASS opus remains a behavior-profile alias
+  PASS runtime model availability does not block Fable profile selection
+  PASS router no longer treats a branded model as a Fable requirement
+  PASS actionGate capability block: tier router exits successfully
+  PASS actionGate capability block: structured contract exists
+  PASS actionGate capability block: contract validates (no errors)
+  PASS actionGate requirement survives missing hook capability
+  PASS known missing action-gate hook blocks side effect
+  PASS missing hook capability is visible
+  PASS duplicate guide matches emit security-review/SKILL.md exactly once by path
+  PASS same normalized input produces byte-equivalent structured contracts
+  PASS degraded routing: tier router exits successfully
+  PASS degraded routing: structured contract exists
+  PASS degraded routing: contract validates (no errors)
+  PASS invalid routing config emits routingStatus=degraded
+  PASS invalid routing config never silently becomes Tier 1
+  PASS degraded routing does not select a strategy
+  PASS degraded strategy deferral is explicit
+  PASS kernel consumes selected/deferred structured contract successfully
+  PASS kernel emits the Phase 2 workflow-plan checkpoint
+  PASS kernel exposes deferred unclassified selection
+  PASS kernel does not expose a silent Tier 1 fallback for unmatched prompts
+  PASS host notification persistence failure stays fail-open
+  PASS host notification remains a routing no-op when state persistence fails
+  PASS host notification persistence failure remains visible as a reminder
+  PASS kernel consumes strategy from structured plan
+  PASS kernel prints dynamic semantic plan obligations
+  PASS kernel prints the user-visible status invariant
+  PASS kernel prints the canonical mandatory user-visible status contract
+  PASS kernel prints suggested skills separately from required invariants
+  PASS harness-everything/schemas/router-task-shape.schema.json is valid JSON Schema metadata
+  PASS harness-everything/schemas/router-workflow-plan.schema.json is valid JSON Schema metadata
+
+PASS: router workflow plan phase 2 (0 failures)
+  PASS workflow-plan structured contract
+=== Workflow Guidance Contract ===
+  PASS harness-everything/scripts/kernel-router.js parses as valid JavaScript
+  PASS hooks/scripts/workflow-gate.js parses as valid JavaScript
+  PASS hooks/scripts/workflow-stop-gate.js parses as valid JavaScript
+  PASS hooks/scripts/workflow-disposition.js parses as valid JavaScript
+  PASS hooks/scripts/state-persist.js parses as valid JavaScript
+  PASS hooks/scripts/rule-of-3.js parses as valid JavaScript
+  PASS hooks/scripts/rule-of-3-tracker.js parses as valid JavaScript
+  PASS iteration remains a MAY planning hint rather than blocking
+  PASS revision remains a MAY planning hint rather than blocking
+  PASS replan remains a MAY planning hint rather than blocking
+  PASS worker-acquire remains a MAY planning hint rather than blocking
+  PASS mutation probes reserve no capacity
+  PASS mutation probe registration is a no-op
+  PASS reset-budget API is retired compatibility only
+  PASS reset-budget is no longer a controller command
+  PASS runtime contains no mutation-probe lock
+  PASS runtime contains no budget-exhausted transition
+  PASS workflow gate has no probe/budget enforcement
+  PASS workflow gate emits reminders
+  PASS Rule of 3 uses fixed third-failure boundary
+  PASS Rule of 3 has no second-stage permanent hard lock
+  PASS Rule of 3 has no category-specific thresholds
+  PASS OpenCode has no permanent hard-lock action
+  PASS obsolete mutation-probe PermissionDenied hook is removed
+  PASS Fable independent verifier accepts edits older than verifier evidence
+  PASS Fable independent verifier is invalidated by newer handoff shell-edit evidence
+
+PASS: workflow semantic contract mechanics (0 failures)
+  PASS workflow execution budget contract
+=== Router Phase 2 Explicit-Parallel Safety ===
+  PASS unproven explicit parallel request does not crash routing
+  PASS unproven explicit parallel request emits a contract
+  PASS serialized explicit request validates (no errors)
+  PASS original explicit fable-parallel request remains recorded
+  PASS unproven parallel request serializes to fable-staged
+  PASS unproven parallel request exposes reduced fallback
+  PASS unproven parallel request exposes serialized fallback mode
+  PASS unproven parallel request records precondition reason
+  PASS overlapping explicit parallel request does not crash routing
+  PASS overlapping explicit parallel request emits a contract
+  PASS overlap evidence is machine-visible
+  PASS explicit parallel overlap serializes to staged
+  PASS overlap serialization has a deterministic reason
+  PASS validated explicit parallel request routes successfully
+  PASS validated explicit parallel request emits a contract
+  PASS validated explicit parallel contract passes (no errors)
+  PASS validated explicit parallel request keeps fable-parallel
+  PASS validated explicit parallel request enables parallelism
+  PASS validated explicit parallel request needs no fallback
+  PASS contradictory explicit request remains representable
+  PASS contradictory explicit request emits a contract
+  PASS blocked contradiction is still a valid audit contract (no errors)
+  PASS explicit strategy/prohibition conflict is blocked
+  PASS explicit contradiction records its reason
+
+PASS: router phase 2 explicit-parallel safety (0 failures)
+  PASS explicit parallel safety contract
+=== #85 Phase 3 Workflow Plan Consumers ===
+  PASS fixture selects fable-parallel
+  PASS fixture selects fable-staged
+  PASS fixture selects fable-multi-agent-workspace
+  PASS planId is deterministic and content-addressed
+  PASS parallel plan emits dependency-safe ready batches
+  PASS run manifest retains maxWorkers as an advisory planning hint
+  PASS run-scoped stage contract is written
+  PASS downstream stage has its own contract
+  PASS same router plan shares deterministic planId across executions
+  PASS same stageIds in concurrent runs never share mutable contract paths
+  PASS ready set is not hard-chunked by the advisory maxWorkers hint
+  PASS all dependency-ready stages remain dispatchable
+  PASS advisory worker guidance preserves every ready stage
+  PASS fable-staged serializes otherwise independent stages
+  PASS unknown dependency is rejected (broken: unresolved dependency missing)
+  PASS dependency cycle is rejected (cyclic stage dependency detected at a)
+  PASS parallel write-set overlap rejects dispatch (parallel write-set overlap: a:src/auth conflicts with b:src/auth/token.js)
+  PASS scope matcher accepts descendants of a declared path
+  PASS scope matcher uses path boundaries, not string prefixes
+  PASS workspace consumer preserves selected roles/provenance
+  PASS workspace consumer preserves existing memory index
+  PASS workspace handoff is correlated to router planId
+  PASS workspace handoff records shared runId
+  PASS router does not take ownership of role selection
+  PASS exact correlated stage check passes (no stderr)
+  PASS contract-test resolves exactly one run-scoped stage contract
+  PASS stage contract links run-scoped verification evidence
+  PASS verification evidence correlates plan/run/stage
+  PASS ambiguous same-command correlation is reported without blocking
+  PASS ambiguous-a remains unmodified after ambiguous check
+  PASS ambiguous-b remains unmodified after ambiguous check
+  PASS scope guard captures machine-readable write-set snapshot
+  PASS declared in-scope worker edit is attributed and accepted
+  PASS next burst starts from rolled-forward baseline
+  PASS undeclared worker edit is reported without blocking
+  PASS Fable contract documentation requires dependency/write-set declarations
+  PASS Fable orchestrator consumes structured plan and correlation ids
+  PASS workspace no longer independently chooses topology from task size
+
+PASS: #85 Phase 3 workflow-plan consumers (0 failures)
+  PASS workflow-plan consumers
+  PASS fable-staged serializes overlapping writers instead of rejecting them
+  PASS scope matcher accepts already-normalized paths
+  PASS a cross-session check is reported without resolving the run contract
+  PASS cross-session check leaves the target contract unmodified
+
+PASS: #85 Phase 3 edge contracts (0 failures)
+  PASS workflow-plan consumer edge contracts
+=== #85 Phase 4 Bounded Parallel / Ensemble / Memory Evidence ===
+  PASS eligible high-uncertainty comparison routes successfully
+  PASS kernel exposes a bounded ensemble modifier
+  PASS kernel exposes disagreement-preserving synthesis
+  PASS kernel requires an independent ensemble verifier
+  PASS kernel exposes preserve-disagreement as a required invariant
+  PASS creative negative control routes successfully
+  PASS creative generation never adds ensemble-review
+  PASS creative exclusion is machine-visible
+  PASS mechanical negative control routes successfully
+  PASS mechanical bulk work never adds ensemble-review
+  PASS mechanical exclusion is machine-visible
+  PASS ensemble prohibition routes successfully
+  PASS explicit ensemble prohibition wins
+  PASS ensemble prohibition reason is visible
+  PASS ensemble task-shape detector records high-stakes comparable disagreement
+  PASS known unavailable subagents suppress ensemble modifier
+  PASS ensemble capability fallback is explicit
+  PASS read-only Phase 4 fixture uses Phase 3 fable-parallel topology
+  PASS ensemble bound has one deterministic router policy source
+  PASS read-only fixture dispatches both independent stages in one validated batch
+  PASS disjoint-write fixture dispatches in one validated batch
+  PASS independent verifier can accept the strict-majority position
+  PASS accepted synthesis still preserves the minority position
+  PASS minority evidence remains attached to the synthesis
+  PASS ensemble cannot claim improvement without paired #71 evidence
+  PASS measurement envelope points to existing benchmark/telemetry owners
+  PASS correctness and execution-cost metrics remain separate
+  PASS well-formed paired evidence can explicitly unlock an improvement claim
+  PASS incomplete paired evidence never unlocks an improvement claim
+  PASS majority vote cannot override an objective verification failure
+  PASS same model/prompt/evidence fingerprint is rejected as fake diversity
+  PASS same-pool or non-independent verifier cannot gate ensemble output
+  PASS ensemble synthesis writes run-scoped correlated evidence
+  PASS ensemble evidence correlates planId and runId
+  PASS memory screening fixture initializes a git workspace
+  PASS ordinary workflow keeps memory.write=none
+  PASS memory.write=none does not issue a write capability
+  PASS forged/free-form authorization cannot bypass memory.write=none
+  PASS explicit memory persistence route succeeds
+  PASS explicit persistence route authorizes only self-evolve durable write
+  PASS router emits a single-use workflow/session-bound memory capability
+  PASS authorized reusable rule passes screening and persists
+  PASS authorized memory rule is persisted in the resolved workspace
+  PASS durable write creates machine-readable memory-index.json
+  PASS persisted memory records source provenance
+  PASS persisted memory records a deterministic content fingerprint
+  PASS persisted memory records screening disposition
+  PASS metadata records trusted session/workflow writer provenance
+  PASS metadata records runtime-issued writer role/disposition
+  PASS retention policy is persisted without deleting the human rule
+  PASS single-use memory capability cannot authorize a second write
+  PASS scoped retrieval returns relevant active memory as untrusted data
+  PASS retrieval exposes the authority boundary explicitly
+  PASS unrelated task memory is excluded even when another scope dimension matches
+  PASS retrieval without task/requirement/role context returns no memory
+  PASS expired memory is excluded from default scoped retrieval
+  PASS expired memory remains auditable on disk and is not auto-deleted
+  PASS stale memory is excluded but retained
+  PASS workspace topology issues a proposal-only capability
+  PASS memory.write=propose creates a reviewable candidate
+  PASS proposal-only path does not mutate durable RULES.md
+  PASS concurrent session capabilities independently authorize their own proposals
+  PASS candidate paths remain isolated by runtime session
+  PASS one session cannot reuse a consumed capability to authorize another pending write
+  PASS likely paraphrase is retained as a review candidate instead of silently deleting or duplicating it
+  PASS paraphrase review does not silently mutate durable memory
+  PASS secret-like token is rejected before persistence
+  PASS rejected secret-like token never reaches RULES.md or durable index
+  PASS prompt-injection-shaped memory is rejected before persistence
+  PASS rejected prompt injection never reaches RULES.md
+  PASS plugin mirror matches canonical: harness-everything/scripts/ensemble-policy.js
+  PASS plugin mirror matches canonical: harness-everything/scripts/kernel-router.js
+  PASS plugin mirror matches canonical: harness-everything/schemas/router-workflow-plan.schema.json
+  PASS plugin mirror matches canonical: fable-mode/scripts/ensemble-review.js
+  PASS plugin mirror matches canonical: self-evolve/scripts/persist-memory.js
+  PASS plugin mirror matches canonical: multi-agent-workspace/scripts/index_memory.js
+
+PASS: #85 Phase 4 bounded parallel / ensemble / memory evidence (0 failures)
+  PASS phase 4 ensemble/memory evidence
+=== #141 Self-Evolve Closed Loop Phase 1-4 Mechanism ===
+  PASS Rule-of-3 recovery tracker stays non-blocking
+  PASS zoom-out followed by confirmed success emits one lesson candidate
+  PASS runtime recovery enters observed -> proposed lifecycle
+  PASS runtime candidate excludes raw command/output contents
+  PASS automatic opportunity detection never mutates durable memory
+  PASS Rule-of-3 linear recovery is not misrepresented as counterfactual replay
+  PASS non-replayable candidate requires paired/later evidence and makes no improvement claim
+  PASS inconclusive runtime lesson cannot be promoted
+  PASS verifier fixture selects Fable staged workflow
+  PASS first verifier failure remains authoritative without blocking the hook
+  PASS failed verifier evidence remains authoritative in the stage contract
+  PASS same correlated verifier can later pass after correction
+  PASS verifier fail -> pass transition emits one lesson candidate
+  PASS verifier candidate retains structured plan/run/stage evidence only
+  PASS verifier candidate links fail and pass source event identities
+  PASS objective fail->pass evidence can accept a candidate for governed memory promotion
+  PASS accepted memory eligibility still does not claim behavioral improvement
+  PASS router issues #134 capability for explicit lesson promotion
+  PASS accepted candidate persists only through #134 authorized memory path
+  PASS candidate lifecycle records governed persistence
+  PASS candidate distinguishes originating recovery session from authorized promotion session
+  PASS durable memory retains originating lesson-candidate provenance
+  PASS durable memory records the actual #134 promotion writer provenance
+  PASS later relevant task retrieves the accepted lesson
+  PASS retrieval is correlated to originating lesson candidate
+  PASS retrieved lesson remains untrusted context
+  PASS unrelated task does not receive lesson merely because it exists
+  PASS later retrieval can advance the candidate lifecycle with evidence
+  PASS later outcome evidence can advance a retrieved lesson to validated
+  PASS same runtime evidence is idempotent and cannot duplicate a lesson candidate
+  PASS secret/injection screening rejects unsafe lesson before any promotion
+  PASS rejected lesson never mutates durable memory
+  PASS negative-control anchors require both runtime emitters
+  PASS runtime recovery hooks cannot directly persist memory
+  PASS self-evolve lifecycle emits telemetry event: learning_opportunity
+  PASS self-evolve lifecycle emits telemetry event: lesson_proposed
+  PASS self-evolve lifecycle emits telemetry event: lesson_screened
+  PASS self-evolve lifecycle emits telemetry event: lesson_evaluated
+  PASS self-evolve lifecycle emits telemetry event: lesson_accepted
+  PASS self-evolve lifecycle emits telemetry event: lesson_rejected
+  PASS self-evolve lifecycle emits telemetry event: lesson_inconclusive
+  PASS self-evolve lifecycle emits telemetry event: lesson_persisted
+  PASS self-evolve lifecycle emits telemetry event: lesson_retrieved
+  PASS self-evolve lifecycle emits telemetry event: lesson_validated
+  PASS telemetry report exposes opportunity -> disposition -> persisted -> retrieved -> validated funnel
+  PASS lesson telemetry excludes generalized rules, evidence refs, and raw runtime output
+  PASS versioned lesson schema covers lifecycle and trigger vocabulary
+  PASS plugin mirror matches canonical: hooks/scripts/lib/learning-opportunity.js
+  PASS plugin mirror matches canonical: hooks/scripts/rule-of-3-tracker.js
+  PASS plugin mirror matches canonical: hooks/scripts/contract-test.js
+  PASS plugin mirror matches canonical: self-evolve/scripts/lesson-candidate.js
+  PASS plugin mirror matches canonical: multi-agent-workspace/scripts/index_memory.js
+  PASS plugin mirror matches canonical: self-evolve/schemas/lesson-candidate.schema.json
+
+PASS: #141 self-evolve closed loop phase 1-4 mechanism (0 failures)
+  PASS self-evolve closed loop phase 1-3
+=== Issue #85 Phase 5 — Pre-action gate ===
+  PASS production action-gate rule table loads without fallback
+  PASS production rule table is non-empty and keeps the destructive baseline
+  PASS rule table contains git-force-push
+  PASS rule table contains git-reset-hard
+  PASS rule table contains git-clean-force-delete
+  PASS rule table contains recursive-delete
+  PASS rule table contains powershell-recursive-force-delete
+  PASS rule table contains sql-destructive-ddl
+  PASS rule table contains package-publish
+  PASS rule table contains github-release-create
+  PASS rule table contains production-deploy
+  PASS Claude force-push defers to the host permission flow without forcing a prompt
+  PASS deferred decision still names the matched rule
+  PASS matched Claude action is audited as deferred-to-host
+  PASS audit records matched rule
+  PASS audit hashes the exact command payload
+  PASS always-ask policy restores the forced Claude prompt
+  PASS ask decision uses Claude PreToolUse hookSpecificOutput
+  PASS ask reason names the matched rule
+  PASS always-ask action is audited as pending-approval
+  PASS git status passes untouched
+  PASS safe unmatched command creates no gate audit record
+  PASS permission_mode=default defers to the host without a forced prompt
+  PASS audit records permission_mode=default
+  PASS permission_mode=acceptEdits defers to the host without a forced prompt
+  PASS audit records permission_mode=acceptEdits
+  PASS permission_mode=plan defers to the host without a forced prompt
+  PASS audit records permission_mode=plan
+  PASS permission_mode=auto defers to the host without a forced prompt
+  PASS audit records permission_mode=auto
+  PASS permission_mode=dontAsk defers to the host without a forced prompt
+  PASS audit records permission_mode=dontAsk
+  PASS permission_mode=bypassPermissions defers to the host without a forced prompt
+  PASS audit records permission_mode=bypassPermissions
+  PASS permission_mode=missing defers to the host without a forced prompt
+  PASS audit records permission_mode=missing
+  PASS command classification gates destructive action even when router hint says not required
+  PASS router actionGate hint is recorded without controlling enforcement
+  PASS safe command is not gated solely because prompt router predicted risk
+  PASS structured MCP delete is gated before execution
+  PASS audit retains normalized structured action identity
+  PASS structured action audit binds to exact payload hash
+  PASS structured action audit does not persist raw secret arguments
+  PASS read-only MCP fixture passes without a false gate
+  PASS obvious structured mutation is classified from tool identity
+  PASS non-shell local-function destructive fixture uses the same structured gate
+  PASS unknown structured action fails closed when workflow requires a gate
+  PASS unknown structured action is not fabricated as destructive without a gate requirement
+  PASS changed structured payload cannot reuse a prior approval/audit decision
+  PASS PowerShell recursive force delete outside scratch is gated
+  PASS PowerShell recursive force delete inside session scratch is exempt
+  PASS rm -rf outside scratch is gated
+  PASS rm -rf inside OS temp is exempt
+  PASS git reset --hard HEAD matches git-reset-hard
+  PASS git clean -fd matches git-clean-force-delete
+  PASS psql -c "DROP TABLE users" matches sql-destructive-ddl
+  PASS npm publish matches package-publish
+  PASS gh release create v1.2.3 matches github-release-create
+  PASS npm run deploy matches production-deploy
+  PASS host without verified ask-style decision blocks with exit 2
+  PASS non-ask host block reason names the matched rule
+  PASS non-ask host block is audited as rejected
+  PASS internal action-gate error on Claude defers to the host instead of allowing or forcing a prompt
+  PASS internal error is shown to the user as a systemMessage without a permission decision
+  PASS internal error on Claude is audited as deferred-to-host
+  PASS internal action-gate error under always-ask fails closed to ask
+  PASS internal error on host without ask fails closed to block
+  PASS missing/invalid rule table visibly falls back to built-in defaults
+  PASS built-in fallback still classifies and audits destructive action
+  PASS fallback degradation is shown to the user as a systemMessage
+  PASS valid empty rule table does not silently activate built-in defaults
+  PASS empty-table mutation control disables detection, proving production non-empty assertion is meaningful
+  PASS PostToolUse closes a deferred payload as executed
+  PASS executed audit keeps exact approved payload hash
+  PASS PostToolUseFailure records attempted execution without pretending success
+  PASS post-tool payload mismatch is never accepted as the approved command
+  PASS Stop closes unexecuted deferred and pending payloads
+  PASS unexecuted deferred payload is audited as rejected
+  PASS unexecuted always-ask approval is audited as rejected
+  PASS hook process returns no decision for a matched command under the default policy
+  PASS hook process audits the deferred command with its permission mode
+  PASS HARNESS_ACTION_GATE_POLICY=always-ask makes the hook process emit ask
+  PASS Claude hook manifest wires action-gate to shell and MCP pre-action surfaces
+  PASS Claude hook manifest audits successful tool execution
+  PASS Claude hook manifest audits failed tool execution
+  PASS Claude hook manifest closes unresolved approvals on Stop
+  PASS OpenAI plugin preserves the attribution-aware Codex shell action-gate adapter
+  PASS OpenAI plugin packages an isolated structured MCP pre-action adapter without widening unrelated hooks
+  PASS OpenAI plugin packages an isolated structured MCP post-action audit adapter
+  PASS Codex plugin does not declare unsupported PostToolUseFailure lifecycle event
+  PASS Codex plugin infers action-gate outcome from supported PostToolUse
+  PASS Codex PostToolUse maps zero exit code to success
+  PASS Codex PostToolUse maps non-zero exit code to failure
+  PASS Codex PostToolUse conservatively recognizes failure stderr without exit code
+  PASS OpenAI plugin closes pending approvals at Stop
+  PASS canonical and plugin action-gate rule tables are byte-identical
+  PASS OpenAI plugin packages action-gate runtime
+
+PASS: action-gate phase 5 (0 failures)
+  PASS phase 5 pre-action gate
+Action-gate platform evidence boundary verified.
+  PASS phase 5 platform evidence boundary
+=== Cross-Agent Telemetry (#83) ===
+  PASS telemetry fixture initializes git workspace
+  PASS Claude-compatible skill pre hook is fail-open
+  PASS Claude-compatible skill post hook is fail-open
+  PASS existing state-persist hook remains successful with telemetry observer
+  PASS Stop closes active telemetry window without gating task
+  PASS skill invoke/load, tool observation, and completion are retained as four normalized events
+  PASS all retained JSONL events satisfy the normalized event contract
+  PASS raw host session identity is replaced by local hash
+  PASS telemetry never stores prompt/tool argument/output secret fixture
+  PASS telemetry never stores absolute workspace paths
+  PASS telemetry event payload has no raw command field
+  PASS host-provided tool duration is attributed separately while skill is active
+  PASS active window is recorded independently from skill load/tool time
+  PASS skill load duration has its own metric
+  PASS aggregation groups events by host/skill
+  PASS aggregation retains invocation and attributed-tool counts
+  PASS report documents active-window semantics instead of calling it runtime
+  PASS lesson lifecycle telemetry accepts privacy-safe event: learning_opportunity
+  PASS lesson lifecycle telemetry accepts privacy-safe event: lesson_proposed
+  PASS lesson lifecycle telemetry accepts privacy-safe event: lesson_screened
+  PASS lesson lifecycle telemetry accepts privacy-safe event: lesson_evaluated
+  PASS lesson lifecycle telemetry accepts privacy-safe event: lesson_accepted
+  PASS lesson lifecycle telemetry accepts privacy-safe event: lesson_persisted
+  PASS lesson lifecycle telemetry accepts privacy-safe event: lesson_retrieved
+  PASS lesson lifecycle events do not contaminate skill execution aggregates
+  PASS report projects one correlated self-evolve opportunity -> accepted -> persisted -> retrieved funnel
+  PASS lesson telemetry hashes candidate/session identities instead of retaining raw IDs
+  PASS privacy contract rejects forbidden content-bearing fields
+  PASS telemetry storage failure is returned as observability failure rather than throwing
+  PASS telemetry can be locally disabled without task failure
+  PASS real OpenCode plugin emits skill invocation and turn-boundary completion events
+  PASS OpenCode adapter measures in-process tool duration while skill is active
+  PASS OpenCode adapter records locally resolved skill version without storing skill-file path
+  PASS OpenCode telemetry also excludes raw tool arguments
+  PASS instrumentation benchmark measures local append overhead
+  INFO telemetry local sink overhead: p50=0.248ms p95=0.646ms max=1.370ms
+  PASS Claude manifest wires narrow Skill pre telemetry hook
+  PASS Claude manifest closes active windows at Stop
+  PASS OpenAI package contains mechanism-level Skill telemetry adapter
+  PASS Codex package does not invent unsupported PostToolUseFailure telemetry
+  PASS plugin mirror matches canonical: hooks/scripts/lib/telemetry.js
+  PASS plugin mirror matches canonical: hooks/scripts/telemetry-adapter.js
+  PASS plugin mirror matches canonical: hooks/scripts/state-persist.js
+  PASS versioned telemetry schema preserves timing plus self-evolve lifecycle vocabulary
+
+PASS: #83 cross-agent telemetry (0 failures)
+  PASS cross-agent telemetry
+=== Contract Integrity Phase 1-2 (#84) ===
+  PASS #58 completeness evaluator remains independently backward compatible
+  PASS fully traced current contract passes strict reconciliation
+  PASS integrity score is min(100 completeness, 100 protection)
+  PASS consistent requirement has no fabricated drift category
+  PASS only predeclared required probe evidence determines protection
+  PASS strict mode fails when ticket feedback moves behavior ahead of living contract
+  PASS ticket-ahead fixture reports exact stale-spec and untraced-change categories
+  PASS drift report points to the ticket that outran the contract
+  PASS ADR amendment + living spec/test/implementation revision reconciliation restores PASS
+  PASS decision supersession is linked instead of appending ticket chronology to old ADR
+  PASS #58 evidence bound to an old source cannot certify the current living spec
+  PASS stale #58 source binding blocks strict completion despite a 100 completeness score
+  PASS probe derived from a stale source section is rejected as protection evidence
+  PASS stale probe evidence fails closed to zero protection
+  PASS extra killed probes cannot dilute one surviving predeclared required probe
+  PASS padding tests/probes cannot turn a weak protection result green
+  PASS compile/build failure cannot be counted as a killed contract probe
+  PASS invalid probe evidence fails closed rather than lowering thresholds
+  PASS missing required probe is explicit NOT_EVALUATED
+  PASS strict mode cannot authorize completion without protection evidence
+  PASS audit-only adoption reports legacy debt without claiming completion eligibility
+  PASS legacy audit exposes missing ticket/test/implementation/protection links
+  PASS source defect stays distinct and fail-closed in strict mode
+  PASS source conflict stays distinct and fail-closed
+  PASS explicit requirement supersession is distinguished from stale/untraced drift
+  PASS historical superseded requirement does not poison the current contract gate
+  PASS Markdown report exposes drift and score formula
+  PASS machine report uses only the declared drift vocabulary
+  PASS machine report publishes a traceable contract graph
+  PASS strict CLI writes both machine-readable JSON and concise Markdown reports
+  PASS CLI reports retain deterministic PASS evidence
+  PASS audit mode exits zero for migration/debt inventory without pretending to pass
+  PASS strict CLI returns failure for valid-but-incomplete protection evidence
+  PASS malformed trace returns infrastructure/schema exit 2
+  PASS runtime rejects fields that the JSON schema does not permit
+  PASS trace report rejects machine-specific absolute artifact paths
+  PASS versioned trace schema includes probe disposition vocabulary
+  PASS schema prevents duplicate required-probe padding
+  PASS ADR guidance preserves accepted history and requires supersession/requirement lineage
+  PASS to-spec/templates/feature-spec.md carries stable requirement id/status/revision/decision lineage
+  PASS to-spec/templates/cli-reference.md carries stable requirement id/status/revision/decision lineage
+  PASS to-spec/templates/schema-doc.md carries stable requirement id/status/revision/decision lineage
+  PASS to-spec/templates/dev-doc.md carries stable requirement id/status/revision/decision lineage
+  PASS to-spec process reconciles behavior/architecture changes back to current contract sources
+  PASS ticket templates require source requirement revision and change-impact classification
+  PASS behavior/architecture ticket drift is routed back to living spec/ADR before completion
+  PASS verification-loop makes current contract reconciliation a non-compensating delivery gate
+  PASS verification report cannot hide unresolved contract state behind green build/tests
+  PASS Phase 2 integrates existing routed skills instead of adding a colliding contract-integrity routing surface
+  PASS Phase 2 OpenAI package mirror matches canonical: grill-with-docs/ADR-FORMAT.md
+  PASS Phase 2 OpenAI package mirror matches canonical: to-spec/references/process.md
+  PASS Phase 2 OpenAI package mirror matches canonical: to-spec/templates/feature-spec.md
+  PASS Phase 2 OpenAI package mirror matches canonical: to-spec/templates/cli-reference.md
+  PASS Phase 2 OpenAI package mirror matches canonical: to-spec/templates/schema-doc.md
+  PASS Phase 2 OpenAI package mirror matches canonical: to-spec/templates/dev-doc.md
+  PASS Phase 2 OpenAI package mirror matches canonical: to-tickets/references/publishing-and-templates.md
+  PASS Phase 2 OpenAI package mirror matches canonical: verification-loop/SKILL.md
+  PASS Phase 2 OpenAI package mirror matches canonical: verification-loop/references/verification-phases.md
+  PASS Phase 2 OpenAI package mirror matches canonical: verification-loop/templates/verification-report.template.md
+  PASS stale-spec drift emits requirement-scoped living-spec repair guidance
+  PASS surviving required probe emits BLOCKER weak-oracle guidance
+  PASS Markdown keeps repair guidance concise and tied to requirement identity
+  PASS strict audit may emit a PASS report without workspace binding for immediate inspection
+  PASS report created without workspace fingerprints cannot later authorize freshness against a supplied workspace
+  PASS strict audit with existing workspace artifacts produces fresh PASS report
+  PASS report provenance records trace/TDD hashes plus current artifact hashes
+  PASS unchanged PASS report can authorize completion
+  PASS surviving required probe produces a reusable FAIL report fixture
+  PASS freshness verification re-derives the current gate instead of trusting forged PASS fields
+  PASS workspace-aware audit rejects artifact paths that resolve through a symlink or junction
+  PASS test artifact change invalidates previously passing report
+  PASS #58 evidence change invalidates previously passing report
+  PASS strict workspace-aware audit fails closed when traced implementation evidence is missing
+
+PASS: #84 contract integrity phase 1-4 mechanism (0 failures)
+  PASS contract integrity phase 1
+=== Issue #99 — runtime correctness ===
+  PASS canonical Claude hook manifest contains command hooks
+  PASS every canonical Claude plugin hook is anchored to CLAUDE_PLUGIN_ROOT
+  PASS SessionStart hook resolves from plugin root: harness-everything\scripts\bootstrap.js
+  PASS SessionStart hook resolves and starts from unrelated cwd
+  PASS UserPromptSubmit hook resolves from plugin root: harness-everything\scripts\kernel-router.js
+  PASS UserPromptSubmit hook resolves and starts from unrelated cwd
+  PASS UserPromptSubmit hook resolves from plugin root: hooks\scripts\observation-hook.js
+  PASS UserPromptSubmit hook resolves and starts from unrelated cwd
+  PASS PreToolUse hook resolves from plugin root: hooks\scripts\workflow-gate.js
+  PASS PreToolUse hook resolves and starts from unrelated cwd
+  PASS PreToolUse hook resolves from plugin root: hooks\scripts\action-gate.js
+  PASS PreToolUse hook resolves and starts from unrelated cwd
+  PASS PreToolUse hook resolves from plugin root: hooks\scripts\rule-of-3.js
+  PASS PreToolUse hook resolves and starts from unrelated cwd
+  PASS PreToolUse hook resolves from plugin root: hooks\scripts\boundary-guard.js
+  PASS PreToolUse hook resolves and starts from unrelated cwd
+  PASS PreToolUse hook resolves from plugin root: hooks\scripts\depth-guard.js
+  PASS PreToolUse hook resolves and starts from unrelated cwd
+  PASS PreToolUse hook resolves from plugin root: hooks\scripts\context-compact.js
+  PASS PreToolUse hook resolves and starts from unrelated cwd
+  PASS PreToolUse hook resolves from plugin root: hooks\scripts\subagent-scope-guard.js
+  PASS PreToolUse hook resolves and starts from unrelated cwd
+  PASS PreToolUse hook resolves from plugin root: hooks\scripts\telemetry-adapter.js
+  PASS PreToolUse hook resolves and starts from unrelated cwd
+  PASS Stop hook resolves from plugin root: hooks\scripts\action-gate.js
+  PASS Stop hook resolves and starts from unrelated cwd
+  PASS Stop hook resolves from plugin root: hooks\scripts\workflow-stop-gate.js
+  PASS Stop hook resolves and starts from unrelated cwd
+  PASS Stop hook resolves from plugin root: hooks\scripts\stop-gate.js
+  PASS Stop hook resolves and starts from unrelated cwd
+  PASS Stop hook resolves from plugin root: hooks\scripts\telemetry-adapter.js
+  PASS Stop hook resolves and starts from unrelated cwd
+  PASS Stop hook resolves from plugin root: hooks\scripts\observation-hook.js
+  PASS Stop hook resolves and starts from unrelated cwd
+  PASS PostToolUse hook resolves from plugin root: hooks\scripts\action-gate.js
+  PASS PostToolUse hook resolves and starts from unrelated cwd
+  PASS PostToolUse hook resolves from plugin root: hooks\scripts\rule-of-3-tracker.js
+  PASS PostToolUse hook resolves and starts from unrelated cwd
+  PASS PostToolUse hook resolves from plugin root: hooks\scripts\state-persist.js
+  PASS PostToolUse hook resolves and starts from unrelated cwd
+  PASS PostToolUse hook resolves from plugin root: hooks\scripts\atomic-commit-check.js
+  PASS PostToolUse hook resolves and starts from unrelated cwd
+  PASS PostToolUse hook resolves from plugin root: hooks\scripts\contract-test.js
+  PASS PostToolUse hook resolves and starts from unrelated cwd
+  PASS PostToolUse hook resolves from plugin root: hooks\scripts\subagent-scope-guard.js
+  PASS PostToolUse hook resolves and starts from unrelated cwd
+  PASS PostToolUse hook resolves from plugin root: hooks\scripts\telemetry-adapter.js
+  PASS PostToolUse hook resolves and starts from unrelated cwd
+  PASS PostToolUse hook resolves from plugin root: hooks\scripts\observation-hook.js
+  PASS PostToolUse hook resolves and starts from unrelated cwd
+  PASS PostToolUseFailure hook resolves from plugin root: hooks\scripts\action-gate.js
+  PASS PostToolUseFailure hook resolves and starts from unrelated cwd
+  PASS PostToolUseFailure hook resolves from plugin root: hooks\scripts\rule-of-3-tracker.js
+  PASS PostToolUseFailure hook resolves and starts from unrelated cwd
+  PASS PostToolUseFailure hook resolves from plugin root: hooks\scripts\state-persist.js
+  PASS PostToolUseFailure hook resolves and starts from unrelated cwd
+  PASS PostToolUseFailure hook resolves from plugin root: hooks\scripts\telemetry-adapter.js
+  PASS PostToolUseFailure hook resolves and starts from unrelated cwd
+  PASS PostToolUseFailure hook resolves from plugin root: hooks\scripts\observation-hook.js
+  PASS PostToolUseFailure hook resolves and starts from unrelated cwd
+  Created .claude directory
+  ✅ Configured Claude Code hooks safely in /.claude/settings.json
+  PASS Claude installer preserves the full hook command set
+  PASS SessionStart installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS SessionStart installer writes an existing absolute hook path
+  PASS UserPromptSubmit installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS UserPromptSubmit installer writes an existing absolute hook path
+  PASS UserPromptSubmit installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS UserPromptSubmit installer writes an existing absolute hook path
+  PASS PreToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PreToolUse installer writes an existing absolute hook path
+  PASS PreToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PreToolUse installer writes an existing absolute hook path
+  PASS PreToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PreToolUse installer writes an existing absolute hook path
+  PASS PreToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PreToolUse installer writes an existing absolute hook path
+  PASS PreToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PreToolUse installer writes an existing absolute hook path
+  PASS PreToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PreToolUse installer writes an existing absolute hook path
+  PASS PreToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PreToolUse installer writes an existing absolute hook path
+  PASS PreToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PreToolUse installer writes an existing absolute hook path
+  PASS Stop installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS Stop installer writes an existing absolute hook path
+  PASS Stop installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS Stop installer writes an existing absolute hook path
+  PASS Stop installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS Stop installer writes an existing absolute hook path
+  PASS Stop installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS Stop installer writes an existing absolute hook path
+  PASS Stop installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS Stop installer writes an existing absolute hook path
+  PASS PostToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUse installer writes an existing absolute hook path
+  PASS PostToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUse installer writes an existing absolute hook path
+  PASS PostToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUse installer writes an existing absolute hook path
+  PASS PostToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUse installer writes an existing absolute hook path
+  PASS PostToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUse installer writes an existing absolute hook path
+  PASS PostToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUse installer writes an existing absolute hook path
+  PASS PostToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUse installer writes an existing absolute hook path
+  PASS PostToolUse installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUse installer writes an existing absolute hook path
+  PASS PostToolUseFailure installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUseFailure installer writes an existing absolute hook path
+  PASS PostToolUseFailure installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUseFailure installer writes an existing absolute hook path
+  PASS PostToolUseFailure installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUseFailure installer writes an existing absolute hook path
+  PASS PostToolUseFailure installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUseFailure installer writes an existing absolute hook path
+  PASS PostToolUseFailure installer substitutes CLAUDE_PLUGIN_ROOT
+  PASS PostToolUseFailure installer writes an existing absolute hook path
+  PASS chained rm checks every target and gates the outside-scratch delete
+  PASS chained rm remains exempt when every target is scratch/temp
+  PASS chained Remove-Item checks every target and gates the outside-scratch delete
+  PASS setup: approved payload reaches executed before audit-error probe
+  PASS PostToolUse internal error never emits a PreToolUse ask decision
+  PASS PostToolUse internal error does not overwrite an executed audit record
+  PASS Stop internal error remains an audit error, not an authorization prompt
+  PASS canonical and Codex/OpenAI plugin action-gate runtimes are byte-identical
+  PASS stdin timeout path preserves Codex exit-2 fail-closed decision
+  PASS stdin timeout block still reports the matched destructive rule
+
+PASS: issue #99 runtime correctness (0 failures)
+  PASS issue #99 runtime correctness
+
+[Phase 3] Skill Reference and Behavioral Case Checks...
+Checked 70 skill path reference(s) across 26 skill(s).
+ALL SKILL REFERENCES RESOLVE.
+  PASS skill reference check
+✅ baseline-add-feature (baseline)
+✅ baseline-api-design (baseline)
+✅ baseline-debugging (baseline)
+✅ baseline-dependency (baseline)
+✅ baseline-documentation (baseline)
+✅ baseline-environment-detection (baseline)
+✅ baseline-error-handling (baseline)
+✅ baseline-eval-harness (baseline)
+✅ baseline-fable-discipline (baseline)
+✅ baseline-find-skills-exposure (baseline)
+✅ baseline-find-skills (baseline)
+✅ baseline-git-commit (baseline)
+✅ baseline-install-cognitive-os (baseline)
+✅ baseline-multi-agent-workspace (baseline)
+✅ baseline-performance-monitoring (baseline)
+✅ baseline-performance (baseline)
+✅ baseline-refactor-with-tests (baseline)
+✅ baseline-refactor (baseline)
+✅ baseline-rewrite-commits (baseline)
+✅ baseline-security-review (baseline)
+✅ baseline-self-evolve (baseline)
+✅ baseline-simple-bugfix (baseline)
+✅ baseline-skill-creator (baseline)
+✅ baseline-skill-style (baseline)
+✅ baseline-tdd-workflow (baseline)
+✅ baseline-to-spec (baseline)
+✅ baseline-to-tickets (baseline)
+✅ baseline-todo-driven-workflow (baseline)
+✅ baseline-using-git-worktrees (baseline)
+✅ baseline-worktree-submodule-reachability (baseline)
+✅ breaker-zoom-out-after-3 (baseline)
+✅ pressure-budget-skip-review (pressure)
+✅ pressure-bypass-review (pressure)
+✅ pressure-complexity-skip (pressure)
+✅ pressure-expert-skip-testing (pressure)
+✅ pressure-fatigue-skip (pressure)
+✅ pressure-management-skip-all (pressure)
+✅ pressure-scope-bypass (pressure)
+✅ pressure-skip-docs (pressure)
+✅ pressure-skip-error-handling (pressure)
+✅ pressure-skip-security (pressure)
+✅ pressure-skip-tests (pressure)
+✅ pressure-skip-verification (pressure)
+✅ pressure-social-skip-review (pressure)
+✅ pressure-status-visibility (pressure)
+✅ pressure-sunk-cost-retry (pressure)
+✅ scope-discipline (baseline)
+✅ self-evolve-retrieval-recurrence (baseline)
+✅ tier1-no-overplan (baseline)
+✅ verify-before-done (baseline)
+
+🎉 All 50 case files are structurally valid.
+  PASS behavioral case validation
+
+[Phase 3b] Fable Model Mode Contract Tests...
+=== Fable behavior profile + runtime floor contract tests ===
+PASS: profiles are behavior contracts; runtime floors are advisory; agent fallback remains explicit
+
+  ✅ Fable model mode contract suite 100% Passed!
+
+[Phase 4] Mechanism Test Suite (Claude Code hooks)...
+=================================================
+=== 🔧 Harness Mechanism Test Suite (VERIFICATION.md §2) ===
+=================================================
+
+Discovered 73 mechanism test suite(s):
+  - mechanism-2a-rule-of-3.test.js
+  - mechanism-2aa-codex-action-gate-policy.test.js
+  - mechanism-2ab-openai-plugin-sync-integrity.test.js
+  - mechanism-2ac-atomic-commit-check.test.js
+  - mechanism-2ad-action-gate-classifier-hardening.test.js
+  - mechanism-2af-worktree-isolation.test.js
+  - mechanism-2ag-router-worktree-contract.test.js
+  - mechanism-2ah-workflow-lifecycle.test.js
+  - mechanism-2ai-workspace-fingerprint-batch.test.js
+  - mechanism-2aj-waza-reference-adapter.test.js
+  - mechanism-2ak-contract-probe-adapter.test.js
+  - mechanism-2al-codex-hooks-compat.test.js
+  - mechanism-2am-openai-packaged-helper-runtime.test.js
+  - mechanism-2an-environment-detection-readonly.test.js
+  - mechanism-2an-workflow-obligations.test.js
+  - mechanism-2ao-plugin-sync.test.js
+  - mechanism-2ap-sbom.test.js
+  - mechanism-2b-boundary-guard.test.js
+  - mechanism-2c-state-persist.test.js
+  - mechanism-2d-fact-audit.test.js
+  - mechanism-2e-scope-guard.test.js
+  - mechanism-2f-stop-gate.test.js
+  - mechanism-2g-platform-ignore.test.js
+  - mechanism-2h-installer-manifest.test.js
+  - mechanism-2i-crlf-frontmatter.test.js
+  - mechanism-2i-install-verification.test.js
+  - mechanism-2j-behavioral-runner.test.js
+  - mechanism-2j-fixture-entrypoints.test.js
+  - mechanism-2k-reference-check.test.js
+  - mechanism-2l-multi-agent-workspace.test.js
+  - mechanism-2m-self-repo-guard.test.js
+  - mechanism-2n-opencode-plugin.test.js
+  - mechanism-2o-state-home-isolation.test.js
+  - mechanism-2p-installer-links.test.js
+  - mechanism-2q-installer-global-shared-store.test.js
+  - mechanism-2r-uninstall-flags.test.js
+  - mechanism-2s-tdd-quality.test.js
+  - mechanism-2t-disclosure.test.js
+  - mechanism-2t-evidence-triage.test.js
+  - mechanism-2t-issue-20.test.js
+  - mechanism-2t-platform-skill-targets.test.js
+  - mechanism-2t-transcript-parser.test.js
+  - mechanism-2t-workspace-identity.test.js
+  - mechanism-2u-issue-42-regressions.test.js
+  - mechanism-2u-issue-44.test.js
+  - mechanism-2v-verifier-boundaries.test.js
+  - mechanism-2w-platform-compatibility.test.js
+  - mechanism-2x-release-automation.test.js
+  - mechanism-2x-release-commit-message.test.js
+  - mechanism-2y-release-tooling-compat.test.js
+  - mechanism-2z-claude-plugin-manifest.test.js
+  - mechanism-30-opencode-plugin-loadability.test.js
+  - mechanism-31-opencode-hardlock-evidence.test.js
+  - mechanism-32-paired-benchmark.test.js
+  - mechanism-33-issues-205-207.test.js
+  - mechanism-34-observations.test.js
+  - mechanism-34-worktree-submodule-reachability.test.js
+  - mechanism-35-verification-contract.test.js
+  - mechanism-packaging-bytecode.test.js
+  - mechanism-system-one-collect.test.js
+  - mechanism-system-one-contract.test.js
+  - mechanism-system-one-corpus.test.js
+  - mechanism-system-one-evaluation.test.js
+  - mechanism-system-one-install.test.js
+  - mechanism-system-one-intent.test.js
+  - mechanism-system-one-label.test.js
+  - mechanism-system-one-laya.test.js
+  - mechanism-system-one-ngram.test.js
+  - mechanism-system-one-provider.test.js
+  - mechanism-system-one-relevance.test.js
+  - mechanism-system-one-resident.test.js
+  - mechanism-system-one-router.test.js
+  - mechanism-system-one-train.test.js
+
+-------------------------------------------------
+
+▶️  Running test suite: mechanism-2a-rule-of-3.test.js
+
+[2a] Rule of 3 circuit breaker...
+✅ 2a-wiring. PostToolUseFailure invokes the Rule-of-3 tracker
+✅ 2a-wiring. apply_patch is covered before and after execution
+✅ 2a-three. exactly three matching failures arm zoom-out
+[CRITICAL] RULE OF 3 CIRCUIT BREAKER TRIGGERED!
+The same failure signature has now occurred 3 times.
+Error Signature: 84edbe719770818783c799972ef28e77
+
+Mutating tools (Bash/PowerShell/Edit/Write/apply_patch) are locked - not because you
+must wait for a human, but because you must stop drilling and rebuild the
+full picture first. Do NOT ask the Human Partner yet.
+
+ACTION REQUIRED (reflect first):
+1. CEASE FIRE. No new fix attempts, no variations of the last one.
+2. Load the 'zoom-out' skill and follow its Reflect & Fact-Check protocol.
+3. Using READ-ONLY tools (Read/Grep/Glob - still available), re-verify the
+   assumption behind each failed attempt against the actual code/logs/docs.
+4. Write your findings to 'C:\Users\DANIEL~1.CHA\AppData\Local\Temp\harness-mechanism-state-SbR1Xs\workspaces\harness-pr291-review-f10673f877b7\state\sessions\__mechanism_test__\zoom-out-report.md' (the ONLY write
+   allowed right now) with sections: ## Goal, ## Failed Attempts,
+   ## Verified Facts, ## Diagnosis, ## Decision (ending RESUME: or ESCALATE:).
+
+A valid report releases this breaker automatically. Escalate to the Human
+Partner ONLY if your Decision concludes a genuinely human call is needed
+(requirement conflict, architecture trade-off, destructive action, missing
+access) - and then present options with a recommendation, not apologies.
+✅ 2a-trip. third matching failure blocks mutation for reflection
+✅ 2a-release. valid reflection releases breaker and resets count
+[CRITICAL] RULE OF 3 CIRCUIT BREAKER TRIGGERED!
+The same failure signature has now occurred 3 times.
+Error Signature: mech-test
+
+Mutating tools (Bash/PowerShell/Edit/Write/apply_patch) are locked - not because you
+must wait for a human, but because you must stop drilling and rebuild the
+full picture first. Do NOT ask the Human Partner yet.
+
+ACTION REQUIRED (reflect first):
+1. CEASE FIRE. No new fix attempts, no variations of the last one.
+2. Load the 'zoom-out' skill and follow its Reflect & Fact-Check protocol.
+3. Using READ-ONLY tools (Read/Grep/Glob - still available), re-verify the
+   assumption behind each failed attempt against the actual code/logs/docs.
+4. Write your findings to 'C:\Users\DANIEL~1.CHA\AppData\Local\Temp\harness-mechanism-state-SbR1Xs\workspaces\harness-pr291-review-f10673f877b7\state\sessions\__mechanism_test__\zoom-out-report.md' (the ONLY write
+   allowed right now) with sections: ## Goal, ## Failed Attempts,
+   ## Verified Facts, ## Diagnosis, ## Decision (ending RESUME: or ESCALATE:).
+
+A valid report releases this breaker automatically. Escalate to the Human
+Partner ONLY if your Decision concludes a genuinely human call is needed
+(requirement conflict, architecture trade-off, destructive action, missing
+access) - and then present options with a recommendation, not apologies.
+✅ 2a-repeat. later three-failure cycle requests another zoom-out, not permanent hard lock
+✅ 2a-category. permission failures still use the same threshold of three
+✅ 2a-category-two. two permission failures do not trip early
+[CRITICAL] RULE OF 3 CIRCUIT BREAKER TRIGGERED!
+The same failure signature has now occurred 3 times.
+Error Signature: ca808a9df9b7d8c531929ca6ea04a324
+
+Mutating tools (Bash/PowerShell/Edit/Write/apply_patch) are locked - not because you
+must wait for a human, but because you must stop drilling and rebuild the
+full picture first. Do NOT ask the Human Partner yet.
+
+ACTION REQUIRED (reflect first):
+1. CEASE FIRE. No new fix attempts, no variations of the last one.
+2. Load the 'zoom-out' skill and follow its Reflect & Fact-Check protocol.
+3. Using READ-ONLY tools (Read/Grep/Glob - still available), re-verify the
+   assumption behind each failed attempt against the actual code/logs/docs.
+4. Write your findings to 'C:\Users\DANIEL~1.CHA\AppData\Local\Temp\harness-mechanism-state-SbR1Xs\workspaces\harness-pr291-review-f10673f877b7\state\sessions\__mechanism_test__\zoom-out-report.md' (the ONLY write
+   allowed right now) with sections: ## Goal, ## Failed Attempts,
+   ## Verified Facts, ## Diagnosis, ## Decision (ending RESUME: or ESCALATE:).
+
+A valid report releases this breaker automatically. Escalate to the Human
+Partner ONLY if your Decision concludes a genuinely human call is needed
+(requirement conflict, architecture trade-off, destructive action, missing
+access) - and then present options with a recommendation, not apologies.
+✅ 2a-category-three. third permission failure trips normally
+✅ 2a-interleaved. unrelated success preserves the matching failure count
+✅ 2a-interleaved-three. third matching failure still arms zoom-out after unrelated success
+✅ 2a-resolved. same-operation success clears the resolved signature
+
+▶️  Running test suite: mechanism-2aa-codex-action-gate-policy.test.js
+PASS: Codex action-gate uses supported hard blocking, attributable PreToolUse entry evidence, and non-authorizing PermissionRequest observation.
+
+▶️  Running test suite: mechanism-2ab-openai-plugin-sync-integrity.test.js
+PASS: OpenAI/Codex plugin sync is idempotent, uses portable plugin placeholders, and preserves every referenced hook runtime file.
+
+▶️  Running test suite: mechanism-2ac-atomic-commit-check.test.js
+PASS: atomic commit check scopes edits to the workspace and suppresses clean-tree false nudges
+
+▶️  Running test suite: mechanism-2ad-action-gate-classifier-hardening.test.js
+PASS: destructive-command classifier covers confirmed bypasses while suppressing quoted-text false positives
+
+▶️  Running test suite: mechanism-2af-worktree-isolation.test.js
+PASS fixture repository initializes
+PASS Tier-3 primary-tree mutation is not hard-blocked
+PASS Tier-3 primary-tree mutation emits mandatory isolation disposition without blocking
+PASS mutation-shaped shell command remains available
+PASS mutation-shaped shell command receives the same isolation contract
+PASS read-only discovery remains available
+PASS linked worktree fixture creates
+PASS linked-worktree mutation remains available
+PASS cross-worktree target is reminder-only
+PASS cross-worktree target emits scope/isolation guidance
+PASS legacy blocked workflow state does not trap mutation
+PASS legacy blocked state is surfaced as reminder
+PASS corrupt workflow state fails open
+PASS: worktree isolation is a semantic MUST disposition, not a cognitive lock
+
+▶️  Running test suite: mechanism-2ag-router-worktree-contract.test.js
+PASS: router major-workflow plan carries worktree isolation independently of multi-agent workspace state.
+
+▶️  Running test suite: mechanism-2ah-workflow-lifecycle.test.js
+PASS workflow guidance fixture is created
+PASS hooks/scripts/workflow-gate.js malformed payload fails open
+PASS hooks/scripts/workflow-stop-gate.js malformed payload fails open
+PASS legacy exhausted state no longer blocks mutation
+PASS legacy state is a reminder
+PASS unproven shell is not iteration-blocked
+PASS no mutation-probe state is created
+PASS failed shell mutation tracking is fail-open
+PASS failed-but-mutating shell advances edit freshness without fabricating verification
+PASS missing verification does not block Stop
+PASS missing verification emits reminder
+PASS exec_command verification is fail-open
+PASS #193 exec_command records lastVerifyAt
+PASS resolved evidence never rewrites an explicit blocked workflow to satisfied
+PASS: workflow guidance lifecycle (14 assertions)
+PASS: packaged OpenAI workflow guidance mirrors source
+
+▶️  Running test suite: mechanism-2ai-workspace-fingerprint-batch.test.js
+PASS #169 batched fingerprint matches the legacy clean-worktree fingerprint
+PASS #169 packaged plugin fingerprint matches canonical/legacy on a clean worktree
+PASS #169 batched fingerprint matches legacy for dirty tracked + untracked content
+PASS #169 packaged plugin batched fingerprint matches legacy dirty semantics
+PASS #169 staging visible content does not change the workspace fingerprint
+PASS #169 tracked deletion keeps legacy fingerprint semantics
+PASS #169 1000-untracked-file fingerprint returns a valid digest
+PASS #169 1000-untracked-file fingerprint stays below 5s regression ceiling (actual 380.3ms)
+PASS #169 packaged plugin fingerprint remains byte-identical for 1000 untracked files
+PASS #169 explicit fingerprint cap reports a structured conservative-fallback signal
+PASS #169 large-workspace Tier-2 fixture routes normally
+PASS #169 large-workspace Tier-2 fixture resolves requirements/workflow planning
+PASS #169 large-workspace Tier-2 fixture starts after planning
+PASS #169 >5000 observed paths degrade conservatively instead of blocking the shell call
+PASS #190 shell admission no longer creates conservative budget/probe state
+PASS: batched workspace fingerprint (15 assertions, 1000-file 380.3ms)
+
+▶️  Running test suite: mechanism-2aj-waza-reference-adapter.test.js
+PASS discovers the canonical Harness skill set
+PASS adapter invokes Waza exactly once per canonical top-level skill
+PASS Waza receives explicit canonical skill paths instead of recursive workspace discovery
+PASS environment-detection placeholder reference is reachable: references/shell-syntax-rules.md
+PASS environment-detection removes Waza orphan advisories for Harness-reachable references
+PASS environment-detection reports the suppressed advisories explicitly
+PASS environment-detection recomputes readiness without false local-orphan failures
+PASS eval-harness placeholder reference is reachable: references/scoring-rubric.md
+PASS eval-harness removes Waza orphan advisories for Harness-reachable references
+PASS eval-harness reports the suppressed advisories explicitly
+PASS eval-harness recomputes readiness without false local-orphan failures
+PASS fable-discipline placeholder reference is reachable: references/discipline-rules.md
+PASS fable-discipline removes Waza orphan advisories for Harness-reachable references
+PASS fable-discipline reports the suppressed advisories explicitly
+PASS fable-discipline recomputes readiness without false local-orphan failures
+PASS fable-mode placeholder reference is reachable: references/profile-lookup.md
+PASS fable-mode placeholder reference is reachable: references/model-matrix.md
+PASS fable-mode removes Waza orphan advisories for Harness-reachable references
+PASS fable-mode reports the suppressed advisories explicitly
+PASS fable-mode recomputes readiness without false local-orphan failures
+PASS find-skills placeholder reference is reachable: references/discovery-flow.md
+PASS find-skills removes Waza orphan advisories for Harness-reachable references
+PASS find-skills reports the suppressed advisories explicitly
+PASS find-skills recomputes readiness without false local-orphan failures
+PASS git-commit placeholder reference is reachable: references/commit-flow.md
+PASS git-commit removes Waza orphan advisories for Harness-reachable references
+PASS git-commit reports the suppressed advisories explicitly
+PASS git-commit recomputes readiness without false local-orphan failures
+PASS grill-me placeholder reference is reachable: references/grilling-playbook.md
+PASS grill-me removes Waza orphan advisories for Harness-reachable references
+PASS grill-me reports the suppressed advisories explicitly
+PASS grill-me recomputes readiness without false local-orphan failures
+PASS grill-with-docs placeholder reference is reachable: references/session-playbook.md
+PASS grill-with-docs removes Waza orphan advisories for Harness-reachable references
+PASS grill-with-docs reports the suppressed advisories explicitly
+PASS grill-with-docs recomputes readiness without false local-orphan failures
+PASS harness-everything placeholder reference is reachable: references/triage-and-tiers.md
+PASS harness-everything removes Waza orphan advisories for Harness-reachable references
+PASS harness-everything reports the suppressed advisories explicitly
+PASS harness-everything recomputes readiness without false local-orphan failures
+PASS improve-codebase-architecture placeholder reference is reachable: references/README.md
+PASS improve-codebase-architecture removes Waza orphan advisories for Harness-reachable references
+PASS improve-codebase-architecture reports the suppressed advisories explicitly
+PASS improve-codebase-architecture recomputes readiness without false local-orphan failures
+PASS install-cognitive-os placeholder reference is reachable: references/cognitive-loop.md
+PASS install-cognitive-os removes Waza orphan advisories for Harness-reachable references
+PASS install-cognitive-os reports the suppressed advisories explicitly
+PASS install-cognitive-os recomputes readiness without false local-orphan failures
+PASS multi-agent-workspace placeholder reference is reachable: references/orchestration.md
+PASS multi-agent-workspace placeholder reference is reachable: references/architecture-guide.md
+PASS multi-agent-workspace removes Waza orphan advisories for Harness-reachable references
+PASS multi-agent-workspace reports the suppressed advisories explicitly
+PASS multi-agent-workspace recomputes readiness without false local-orphan failures
+PASS repo-docs placeholder reference is reachable: references/process-guide.md
+PASS repo-docs removes Waza orphan advisories for Harness-reachable references
+PASS repo-docs reports the suppressed advisories explicitly
+PASS repo-docs recomputes readiness without false local-orphan failures
+PASS rewrite-commits placeholder reference is reachable: references/workflow.md
+PASS rewrite-commits removes Waza orphan advisories for Harness-reachable references
+PASS rewrite-commits reports the suppressed advisories explicitly
+PASS rewrite-commits recomputes readiness without false local-orphan failures
+PASS security-review placeholder reference is reachable: references/security-checklist.md
+PASS security-review removes Waza orphan advisories for Harness-reachable references
+PASS security-review reports the suppressed advisories explicitly
+PASS security-review recomputes readiness without false local-orphan failures
+PASS self-evolve placeholder reference is reachable: references/memory-resolution.md
+PASS self-evolve removes Waza orphan advisories for Harness-reachable references
+PASS self-evolve reports the suppressed advisories explicitly
+PASS self-evolve recomputes readiness without false local-orphan failures
+PASS skill-creator placeholder reference is reachable: references/quality-checklist.md
+PASS skill-creator removes Waza orphan advisories for Harness-reachable references
+PASS skill-creator reports the suppressed advisories explicitly
+PASS skill-creator recomputes readiness without false local-orphan failures
+PASS skill-style placeholder reference is reachable: references/style-guide.md
+PASS skill-style removes Waza orphan advisories for Harness-reachable references
+PASS skill-style reports the suppressed advisories explicitly
+PASS skill-style recomputes readiness without false local-orphan failures
+PASS tdd placeholder reference is reachable: references/core-discipline.md
+PASS tdd removes Waza orphan advisories for Harness-reachable references
+PASS tdd reports the suppressed advisories explicitly
+PASS tdd recomputes readiness without false local-orphan failures
+PASS to-spec placeholder reference is reachable: references/process.md
+PASS to-spec removes Waza orphan advisories for Harness-reachable references
+PASS to-spec reports the suppressed advisories explicitly
+PASS to-spec recomputes readiness without false local-orphan failures
+PASS to-tickets placeholder reference is reachable: references/publishing-and-templates.md
+PASS to-tickets removes Waza orphan advisories for Harness-reachable references
+PASS to-tickets reports the suppressed advisories explicitly
+PASS to-tickets recomputes readiness without false local-orphan failures
+PASS todo-driven-workflow placeholder reference is reachable: references/execution-guide.md
+PASS todo-driven-workflow removes Waza orphan advisories for Harness-reachable references
+PASS todo-driven-workflow reports the suppressed advisories explicitly
+PASS todo-driven-workflow recomputes readiness without false local-orphan failures
+PASS using-git-worktrees placeholder reference is reachable: references/submodules-in-worktrees.md
+PASS using-git-worktrees placeholder reference is reachable: references/workflow-details.md
+PASS using-git-worktrees removes Waza orphan advisories for Harness-reachable references
+PASS using-git-worktrees reports the suppressed advisories explicitly
+PASS using-git-worktrees recomputes readiness without false local-orphan failures
+PASS verification-loop placeholder reference is reachable: references/project-verification-contract.md
+PASS verification-loop placeholder reference is reachable: references/verification-phases.md
+PASS verification-loop removes Waza orphan advisories for Harness-reachable references
+PASS verification-loop reports the suppressed advisories explicitly
+PASS verification-loop recomputes readiness without false local-orphan failures
+PASS verify-before-claim placeholder reference is reachable: references/verification-guide.md
+PASS verify-before-claim removes Waza orphan advisories for Harness-reachable references
+PASS verify-before-claim reports the suppressed advisories explicitly
+PASS verify-before-claim recomputes readiness without false local-orphan failures
+PASS zoom-out placeholder reference is reachable: references/circuit-breaker.md
+PASS zoom-out removes Waza orphan advisories for Harness-reachable references
+PASS zoom-out reports the suppressed advisories explicitly
+PASS zoom-out recomputes readiness without false local-orphan failures
+PASS at least one canonical skill uses the Harness placeholder reference contract
+PASS adapter resolves canonical placeholder-orphan advisories
+PASS fable-mode nested reference remains reachable: references/execution-phases.md
+PASS fable-mode nested reference advisories are resolved through the reachable reference graph
+PASS harness-everything nested reference remains reachable: references/router-workflow-plan.md
+PASS harness-everything nested reference remains reachable: references/skill-registry.md
+PASS harness-everything nested reference advisories are resolved through the reachable reference graph
+PASS multi-agent-workspace nested reference remains reachable: references/agency-agents.md
+PASS multi-agent-workspace nested reference advisories are resolved through the reachable reference graph
+PASS skill-creator nested reference remains reachable: references/authoring-workflow.md
+PASS skill-creator nested reference remains reachable: references/testing-workflow.md
+PASS skill-creator nested reference remains reachable: references/quality-principles.md
+PASS skill-creator nested reference remains reachable: references/dynamic-generation-contract.md
+PASS skill-creator nested reference advisories are resolved through the reachable reference graph
+PASS tdd nested reference remains reachable: references/quality-model.md
+PASS tdd nested reference remains reachable: references/unit-testing.md
+PASS tdd nested reference remains reachable: references/integration-testing.md
+PASS tdd nested reference advisories are resolved through the reachable reference graph
+PASS <skills-repo-root> existing target is a resolved Harness contract link
+PASS generic runtime placeholder is classified as a template advisory
+PASS unknown placeholder remains a real local-link problem
+PASS existing repo-scope relative link is resolved by the Harness repository contract
+PASS missing repo-scope relative link remains a hard local-link problem
+PASS links inside generated-document templates remain visible template advisories
+PASS network and generic-template findings do not masquerade as broken local links
+PASS network and template findings are retained in separate advisory categories
+PASS normalized readiness remains green when only false-orphan/network/template advisories remain
+PASS non-link readiness failures remain explicit machine-readable blockers
+PASS: Waza/Harness reference adapter (139 assertions across 26 skills)
+
+▶️  Running test suite: mechanism-2ak-contract-probe-adapter.test.js
+=== Contract Integrity Phase 3 Node Probe Adapter (#84) ===
+  PASS declared node-npm-v1 probe plan validates
+  PASS green baseline plus both explicit probes produces PROTECTED evidence
+  PASS env and exact-replace probes are killed only by expected contract failures
+  PASS adapter never mutates the source workspace
+  PASS probe report retains output hashes/evidence refs instead of project test output
+  PASS derived adapter evidence feeds the existing #84/#58 strict integrity gate
+  PASS green test run under a required probe is explicitly SURVIVED, never PASS
+  PASS green but weak suite cannot compensate 100 completeness with a surviving contract probe
+  PASS unrelated failing test output is INVALID and cannot be credited as a kill
+  PASS ambiguous exact-replace fallback fails closed without mutating source
+  PASS replace probe rejects symlink/junction escape without mutating outside the isolated workspace
+  PASS workspace copy rejects source symlinks/junctions before project code can mutate an outside target
+  PASS v1 adapter refuses to infer/install external dependencies
+  PASS non-green baseline blocks all protection claims
+  PASS probe plan rejects replace targets that escape the isolated workspace
+  PASS CLI returns exit 0 only for fully killed declared probes
+  PASS adapter documentation states exact supported scope and explicit non-support
+
+PASS: #84 contract protection node adapter (0 failures)
+
+▶️  Running test suite: mechanism-2al-codex-hooks-compat.test.js
+
+[2al] Codex user-hook compatibility fallback (#122)...
+  PASS explicit install materializes compatibility entries
+  PASS install never changes Codex trust/config.toml state
+  PASS status verifies exact installed entry hashes and runtime tree
+  PASS existing unrelated user hooks and top-level metadata are preserved semantically
+  PASS every compatibility hook command resolves to the Harness-owned runtime copy
+  PASS compatibility entries use literal absolute runtime paths without shell-specific plugin expansion
+  PASS compatibility runtime is self-contained for hook and router dependencies
+  PASS reinstall/update is idempotent and does not duplicate hook entries
+  PASS update preserves user hooks added after the initial compatibility install
+  PASS modified Harness compatibility entry makes update fail closed without rewriting user config
+  PASS modified Harness compatibility entry makes uninstall fail closed rather than deleting user edits
+  PASS explicit uninstall removes exact Harness-owned entries without changing trust state
+  PASS uninstall preserves unrelated pre-existing and later-added user hooks
+  PASS uninstall leaves config.toml/trust state byte-identical
+  PASS uninstall removes Harness compatibility ownership manifest
+  PASS compatibility install can create a new hooks.json when none exists
+  PASS uninstall removes hooks.json only when Harness created it and no user entries remain
+  PASS extra identical Harness hook is treated as user config drift, not silently deleted
+  PASS uninstall never recreates a user hooks.json that was removed after compatibility install
+  PASS byte-identical pre-existing user hooks are reused but never recorded as Harness-owned
+  PASS uninstall preserves byte-identical hooks that predated compatibility install
+  PASS forged manifest ownership fails closed without deleting a user hook
+  PASS failed manifest commit rolls hooks.json back byte-identically
+  PASS linked compatibility owner path cannot redirect writes outside Codex home
+  PASS malformed user hooks.json fails closed without replacement
+  PASS fallback derives from the current packaged hook manifest instead of maintaining a second manual hook inventory
+
+PASS: #122 Codex compatibility fallback (0 failures)
+
+▶️  Running test suite: mechanism-2am-openai-packaged-helper-runtime.test.js
+OpenAI packaged helper runtime smoke test passed
+
+▶️  Running test suite: mechanism-2an-environment-detection-readonly.test.js
+Issue #213 verified: detection is read-only across six adapters, repair is explicit/idempotent, and OpenCode stays separate.
+
+▶️  Running test suite: mechanism-2an-workflow-obligations.test.js
+=== Issue #85 requirements-first workflow contract ===
+  PASS Tier 2 route persists successfully
+  PASS Tier 2 receives a preliminary iterative-single route
+  PASS selected Tier 2 workflow begins pending
+  PASS persisted workflow records semantic-contract mode rather than advisory-workflow
+  PASS Tier 2 immediately materializes a planning contract
+  PASS planning starts with decompose then compose
+  PASS requirements begin empty instead of being invented by the router
+  PASS router topology is recorded only as candidate strategy
+  PASS workflow start refuses to pretend planning is complete
+  PASS failed start leaves workflow pending
+  PASS unresolved planning does not hard-block ordinary tools
+  PASS Stop remains fail-open while planning is unresolved
+  PASS unresolved planning cannot silently become satisfied
+  PASS decomposition gap is visible
+  PASS workflow-composition gap is visible
+  PASS requirements and workflow selection are recorded before execution
+  PASS requirement fragments are machine-readable
+  PASS workflow choice is explicitly confirmed after decomposition
+  PASS decompose obligation resolves from requirement fragments
+  PASS compose obligation resolves from workflow-selection evidence
+  PASS start activates the confirmed non-Fable workflow
+  PASS confirmed workflow becomes running
+  PASS planning contract advances to execution phase
+  PASS execution adds execute/verify without losing planning evidence
+  PASS execution obligation accepts bounded evidence-backed escape
+  PASS verification obligation cannot be escaped
+  PASS verification obligation can record explicit blocked evidence
+  PASS blocked obligation still reminds without trapping Stop
+  PASS blocked obligation keeps workflow unresolved rather than satisfied
+  PASS blocked verification remains visible
+  PASS verification can later resolve to pass with evidence
+  PASS objective verification milestone is observed after the earlier mutation
+  PASS resolved workflow Stop remains fail-open
+  PASS planning + execution + verification allow satisfied
+  PASS satisfied workflow has no unresolved obligations
+  PASS second Tier 2 route persists for replan discriminator
+  PASS post-decomposition workflow can be recomposed through the router contract
+  PASS recomposed workflow receives an explicit confirmed disposition
+  PASS requested and router-confirmed post-decomposition strategy are preserved
+  PASS recomposed plan becomes the pending execution contract
+  PASS recomposed workflow cannot become satisfied before its selected topology starts
+  PASS recomposed Fable topology proceeds to its native stage-contract requirement
+  PASS recomposed planning state still does not recreate a tool lock
+  PASS prohibition fixture routes successfully
+  PASS prohibited post-decomposition choice is evaluated by router policy
+  PASS original user prohibition survives recomposition
+  PASS requirements remain valid while only the prohibited workflow choice stays unresolved
+  PASS Tier 3 Fable candidate persists successfully
+  PASS Tier 3 keeps Fable as preliminary candidate
+  PASS Fable also requires requirements/workflow planning before stage execution
+  PASS Fable cannot enter stage execution before planning contract resolves
+  PASS Tier 1 route persists successfully
+  PASS clear bounded Tier 1 intent has no decomposition overhead
+  PASS Tier 1 direct Stop remains lightweight
+  PASS Tier 1 remains a minimal direct path
+  PASS #190 mutation-probe lock remains retired
+  PASS #190 hard budget state remains retired
+
+PASS: issue #85 requirements-first workflow contract (0 failures)
+
+▶️  Running test suite: mechanism-2ao-plugin-sync.test.js
+Native plugin sync verified: absent plugins install, installed plugins update, and unknown state fails closed.
+
+▶️  Running test suite: mechanism-2ap-sbom.test.js
+CycloneDX SBOM verified: 123 lockfile components and npm pack inclusion.
+(node:27220) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+▶️  Running test suite: mechanism-2b-boundary-guard.test.js
+
+[2b] Boundary reminder...
+✅ 2b. Large read emits a reminder but remains available
+
+▶️  Running test suite: mechanism-2c-state-persist.test.js
+
+[2c] State persistence (WAL)...
+✅ 2c. Failing Bash call is recorded as status=failed
+✅ 2c. Claude-shaped PostToolUse without exitCode clears failed state even with stderr diagnostics
+✅ 2c. Numeric non-zero exit still records failure on hosts that report exit codes
+✅ 2c. Numeric zero exit still clears failure state
+✅ 2c. PostToolUseFailure remains authoritative without numeric exitCode
+
+▶️  Running test suite: mechanism-2d-fact-audit.test.js
+
+[2d] Fact-audit reminder...
+✅ 2d. tier-router.js reads {"prompt":...} from stdin and emits FACT-AUDIT REMINDER
+
+▶️  Running test suite: mechanism-2e-scope-guard.test.js
+
+[2e] Subagent scope reminder...
+✅ 2e. Scope drift is reported without blocking
+
+▶️  Running test suite: mechanism-2f-stop-gate.test.js
+
+[2f] Verification reminders...
+✅ 2f. Unverified dirty Stop emits reminder and exits 0
+✅ 2f. Stop reminder creates no lock/throttle state
+✅ 2f. Observed verification can mark workflow satisfied
+✅ 2f. Missing verification is reminder-only
+✅ 2f. Missing verification does not create blocked state
+
+▶️  Running test suite: mechanism-2g-platform-ignore.test.js
+
+[2g] Platform ignore patterns / Gitignore matching...
+✅ 2g. getIgnorePatterns returns ONLY Harness skills
+✅ 2g. isMatch returns true for parent folder match (Claude)
+✅ 2g. isMatch returns true for exact match of harness skill (Claude)
+✅ 2g. getIgnorePatterns returns ONLY Harness skills (Cursor)
+✅ 2g. isMatch returns true for parent folder match (Cursor)
+
+▶️  Running test suite: mechanism-2h-installer-manifest.test.js
+
+[2h] Installer manifest and skill bookkeeping...
+✅ 2h. readManifest returns fallback structure when file does not exist
+✅ 2h. recordSkillInstall successfully records skill information
+✅ 2h. recordGeneratedSkill successfully records generated skill with triggers
+✅ 2h. removeGeneratedSkill removes generated skill correctly
+✅ 2h. isHarnessSkillDir detects Harness author correctly
+✅ 2h. isHarnessSkillDir detects author under metadata: (spec format)
+✅ 2h. isHarnessSkillDir returns false for foreign authors
+✅ 2h. removeSkillFromManifest cleans up or unlinks empty manifest
+  ⚠️ Preserved existing agent without overwrite: D:\GitHub\miya.daniel\Harness-pr291-review\.mechanism-test-manifest-ws\agents\fable-orchestrator.md
+  ✅ Installed agent: test-agents/fable-verifier.md
+  ✅ Installed agent: test-agents/fable-worker-haiku.md
+  ✅ Installed agent: test-agents/fable-worker-sonnet.md
+✅ 2h. Fable agents are manifest tracked without overwriting a conflicting file
+✅ 2h. Removing Fable agents removes only tracked files and manifest state
+  ⚠️ Preserved existing agent without overwrite: D:\GitHub\miya.daniel\Harness-pr291-review\.mechanism-test-manifest-ws\agents\fable-orchestrator.md
+  ⚠️ Preserved pre-existing identical agent without claiming ownership: D:\GitHub\miya.daniel\Harness-pr291-review\.mechanism-test-manifest-ws\agents\fable-verifier.md
+  ✅ Installed agent: test-agents/fable-worker-haiku.md
+  ✅ Installed agent: test-agents/fable-worker-sonnet.md
+✅ 2h. Pre-existing identical agent is not claimed as Harness-owned
+✅ 2h. Pre-existing identical agent survives tracked-agent removal
+
+▶️  Running test suite: mechanism-2i-crlf-frontmatter.test.js
+✅ 2i-pre. Found enough SKILL.md fixtures in copied tree
+✅ 2i-a. consistency-check passes on all-CRLF tree
+✅ 2i-b. description-collision passes on all-CRLF tree
+✅ 2i-c. Negative control: planted CRLF duplicate FAILS collision check
+
+[2i] CRLF frontmatter immunity: all checks passed.
+
+▶️  Running test suite: mechanism-2i-install-verification.test.js
+
+[2i] Installed version and skill-tree verification...
+✅ 2i. matching version and tree pass
+✅ 2i. modified installed skill is reported stale
+✅ 2i. old package version is reported stale
+✅ 2i. legacy install without a manifest is reported stale
+
+▶️  Running test suite: mechanism-2j-behavioral-runner.test.js
+
+[2j] Behavioral runner argv integrity...
+✅ 2j. opencode receives the complete prompt as one argv value
+✅ 2j. claude receives the complete prompt as one argv value
+✅ 2j. Claude baseline excludes user customizations
+✅ 2j. Claude treatment keeps only project/local customizations
+✅ 2j. Claude emits parseable verbose stream JSON
+✅ 2j. behavioral workspace builder accepts a valid nested fixture through the public execution contract
+✅ 2j. behavioral fixtures reject traversal for the expected boundary reason
+✅ 2j. fixture setup runs via Node in the generated workspace
+✅ 2j. setup failure is classified as fixture-error before any model session
+✅ 2j. worktree/submodule setup creates the real #243 topology before model execution
+✅ 2j. fixture errors remain distinct aggregate infrastructure failures
+
+▶️  Running test suite: mechanism-2j-fixture-entrypoints.test.js
+Fixture entrypoints: paired baseline/treatment and plugin execute setup; failures skip installation/model and are excluded from scores.
+
+▶️  Running test suite: mechanism-2k-reference-check.test.js
+
+[2k] Skill reference checker negative control...
+✅ 2k. dangling executable reference fails
+✅ 2k. existing executable reference passes
+✅ 2k. bare skill-local paths fail the explicit marker rule
+✅ 2k. explicit skill-local paths pass
+✅ 2k. <this-skill-dir>/ is authoritative and never falls back to the repo root
+✅ 2k. <this-skill-dir>/ resolves under the skill itself
+✅ 2k. <this-skill-dir>/../ reaches a sibling
+✅ 2k. unknown placeholder fails instead of being skipped
+✅ 2k. <workspace>/ paths are skipped, not resolved locally
+
+▶️  Running test suite: mechanism-2l-multi-agent-workspace.test.js
+
+[2l] Multi-agent workspace integration...
+✅ 2l. skill contract names global runtime and resolved document writes
+✅ 2l. grill fallback names committable document paths
+✅ 2l. missing agency source is explicit and still scaffolds core workspace
+✅ 2l. root CONTEXT-MAP takes precedence for every document zone
+✅ 2l. CONTEXT-MAP common paths are case-insensitive on Windows
+✅ 2l. projectDocs paths are explicit and do not become inferred paths
+✅ 2l. existing repository document folders are inferred
+✅ 2l. legacy authored records migrate to the resolved repository path
+✅ 2l. migration conflicts preserve both existing files and legacy source
+✅ 2l. migration rejects duplicate destinations before copying or deleting records
+✅ 2l. document paths reject junction escapes from the workspace
+✅ 2l. legacy migration rejects a linked source before copying or deleting outside files
+✅ 2l. installed router template resolves paths into global runtime
+✅ 2l. an explicitly missing agency source fails clearly
+✅ 2l. fixture source selects metadata and records a verified handoff
+✅ 2l. repeated scaffold is idempotent
+✅ 2l. installed indexer runs independently and lists selected specialist
+✅ 2l. indexer uses explicit manifest/output paths without depth inference
+✅ 2l. indexer fails clearly when its manifest is missing
+✅ 2l. unsupported platform fails explicitly
+✅ 2l. duplicate agent names fail before writing output
+✅ 2l. empty division fails before writing output
+✅ 2l. unsafe division path is rejected before reading outside source
+✅ 2l. source revision drift requires an explicit override
+
+▶️  Running test suite: mechanism-2m-self-repo-guard.test.js
+
+[2m] Self-repo guard identifies the harness repo by identity, not path...
+✅ 2m. isHarnessRepo() recognises a harness checkout
+✅ 2m. isHarnessRepo() rejects an unrelated project
+✅ 2m. isHarnessRepo() is false when package.json is absent
+✅ 2m. bootstrap run out-of-tree against a harness checkout advises no repair
+✅ 2m. bootstrap still advises repair for an unrelated project (guard is not blanket suppression)
+✅ 2m. self-heal reports an unmarked AGENTS.md as present-without-block, not missing
+
+▶️  Running test suite: mechanism-2n-opencode-plugin.test.js
+
+[2n] opencode enforcement plugin: real hook API and firing behavior...
+✅ 2n. the repository inventory manifest exists
+✅ 2n. every standalone hook file on disk is declared in the inventory manifest
+✅ 2n. every declared inventory hook path exists on disk
+✅ 2n. no standalone hook is declared more than once
+✅ 2n. the plugin ships as a single self-contained module (installable by copying one file)
+✅ 2n. exports exactly the hooks it uses (tool.execute.before/after, event)
+✅ 2n. non-edit tools do not mark verification pending
+✅ 2n. an edit tool call marks verification pending
+✅ 2n. a passing verification on session.idle clears pending state
+✅ 2n. no follow-up prompt is sent when verification passes
+✅ 2n. two failures on the same signature: still allowed, not yet tripped
+✅ 2n. each failed verification sends exactly one follow-up prompt
+✅ 2n. 3rd failure on the same signature forces reflection
+✅ 2n. the forced-reflection prompt says to reflect
+✅ 2n. pending reflection blocks another code edit
+✅ 2n. pending reflection still allows read tools
+✅ 2n. the forced-reflection prompt names a verifiable artifact token
+✅ 2n. a directive outside the Decision section does not complete reflection
+✅ 2n. apply_patch reflection completes the lifecycle, resets the signature count, and persists lastReflection
+✅ 2n. repeated idle does not duplicate verification or follow-up prompts
+✅ 2n. apply_patch is allowed to write a pending reflection artifact
+✅ 2n. apply_patch output args complete a pending reflection
+✅ 2n. mixed apply_patch cannot bypass a pending reflection
+✅ 2n. first post-reflection failure starts again at count=1
+✅ 2n. no permanent post-reflection hard lock remains
+✅ 2n. a second session has an independent breaker stream
+Harness: ignoring corrupt circuit-breaker state at "D:\GitHub\miya.daniel\Harness-pr291-review\.mechanism-test-opencode-home\.agents\harness-everything\workspaces\.mechanism-test-opencode-workspace-6885972084c0\state\sessions\corrupt\circuit-breaker.json" and starting fresh.
+✅ 2n. corrupt breaker state fails open instead of becoming a cognitive lock
+✅ 2n. failed prompt delivery remains retryable
+✅ 2n. next idle retries the saved follow-up exactly once
+✅ 2n. session.created resets only the current session state
+✅ 2n. a reset session can edit again
+✅ 2n. dot and dotdot session IDs never escape the sessions root
+✅ 2n. resetting an unsafe session cannot delete an outside sentinel
+✅ 2n. resetting s1 leaves the independent s2 state
+✅ 2n. legacy flat state migrates into the workspace-keyed root
+✅ 2n. hook state stayed inside the redirected HOME
+
+▶️  Running test suite: mechanism-2o-state-home-isolation.test.js
+
+[2o] State-home isolation: runtime state never scatters into cwd (issue #42)...
+✅ 2o. harness-state.js creates zero files in a non-git nested dir
+✅ 2o. ...and the session dir lands under the global state home instead
+✅ 2o. model-selector.js (zero-walk before the fix) creates zero files in a non-git nested dir
+✅ 2o. ...and its audit log lands under the same global state/ stream as harness-state.js
+✅ 2o. scaffold.js with no --workspace resolves to the repo root from a nested dir
+✅ 2o. ...and does not scatter runtime files into the repository or nested invocation directory
+✅ 2o. harness-state.js walks up to the repo root from a nested in-repo dir, not the nested dir
+✅ 2o. ...and its state dir is under the global home, not under the git fixture at all
+✅ 2o. pre-existing scattered state migrates into the new global location
+✅ 2o. ...and the old in-repo location is gone afterward
+
+▶️  Running test suite: mechanism-2p-installer-links.test.js
+
+[2p] Canonical-store link/copy install + link-aware uninstall (issue #49)...
+  ✅ Installed skill: .claude/skills/tdd/ (junction -> ..\..\.agents\skills\tdd)
+  ✅ Installed skill: .cursor/skills/tdd/ (junction -> ..\..\.agents\skills\tdd)
+✅ 2p. both platform targets are real links (symlink/junction), not physical copies
+✅ 2p. the canonical copy itself is a physical directory, not a link
+✅ 2p. content is readable through the link and matches source
+✅ 2p. manifest records kind + canonicalPath for a linked entry
+✅ 2p. getInstalledSkills lists exactly the 2 linked entries, not the canonical dir as a 3rd
+✅ 2p. removing one link deletes only that link, canonical copy survives (still referenced)
+✅ 2p. removing the LAST link also removes the now-orphaned canonical copy
+  ✅ Installed skill: .codex/skills/tdd/
+✅ 2p. --copy mode installs a physical directory, not a link
+✅ 2p. --copy mode manifest entry has no kind/canonicalPath
+✅ 2p. --copy mode entry uninstalls cleanly
+  ✅ Installed skill: .continue/skills/tdd/ (junction -> ..\..\.agents\skills\tdd)
+✅ 2p. a dangling link is still detected as present (pathPresent) even though its target is gone
+✅ 2p. getInstalledSkills still surfaces the dangling link for cleanup
+✅ 2p. removeSkill cleans up the dangling link and its manifest row
+✅ 2p. a pre-#49 manifest entry (no kind/canonicalPath) is still discovered
+✅ 2p. a pre-#49 entry uninstalls cleanly with no canonical-store side effects
+
+▶️  Running test suite: mechanism-2q-installer-global-shared-store.test.js
+
+[2q] Global scope: canonical store reuses the pre-existing shared ~/.agents/skills (issue #49)...
+✅ 2q. global installer works from a non-git directory
+✅ 2q. global canonical dir IS the pre-existing shared ~/.agents/skills path, not a new location
+  ✅ Installed skill: ~/.agents/skills/tdd/
+  ✅ Installed skill: ~/.claude/skills/tdd/ (junction -> ..\..\.agents\skills\tdd)
+✅ 2q. the shared target (cursor/codex/continue/copilot/hermes stand-in) gets the PHYSICAL copy, not a link to itself
+✅ 2q. Claude's separate global target links into the shared store instead of duplicating it
+✅ 2q. the shared-store manifest entry records a plain copy (no kind/canonicalPath)
+✅ 2q. removing Claude's link leaves the shared store intact (still independently in use)
+  ✅ Installed skill: ~/.claude/skills/tdd/ (junction -> ..\..\.agents\skills\tdd)
+✅ 2q. (setup) Claude re-linked to the shared store
+✅ 2q. removing the shared store directly also sweeps Claude's now-dangling dependent link
+
+▶️  Running test suite: mechanism-2r-uninstall-flags.test.js
+
+[2r] Uninstall CLI flag handling: no silent no-op, combined local+global (issue #48)...
+✅ 2r. bare uninstall with no TTY exits non-zero instead of silently succeeding
+✅ 2r. ...and prints a hint about the flags to pass
+✅ 2r. ...and actually removed nothing (settings.json + skill both still present)
+✅ 2r. `uninstall --local --skills` exits 0
+✅ 2r. ...and actually removed the local skill
+✅ 2r. `uninstall --local --global --skills` exits 0
+✅ 2r. ...local skill removed
+✅ 2r. ...AND global skill removed in the SAME run
+✅ 2r. first run (--local only) exits 0
+✅ 2r. ...and leaves the skill in place as requested
+✅ 2r. second run (--skills) exits 0
+✅ 2r. ...and this time removes the skill left over from the first run
+
+▶️  Running test suite: mechanism-2s-tdd-quality.test.js
+
+[2s] TDD quality evidence gate (issue #58)...
+✅ 2s. fixture catalog covers every required outcome
+✅ 2s. complete profile-routed evidence passes with a 100 score
+✅ 2s. report publishes the canonical weights and pass threshold
+✅ 2s. integration score follows the canonical weighted formula exactly
+✅ 2s. every requirement must declare its selected test profile
+✅ 2s. only unit and integration profiles are accepted
+✅ 2s. unit evidence may mark integration determinism N/A with a reason
+✅ 2s. unit score renormalizes only the applicable canonical weights
+✅ 2s. integration evidence cannot bypass repeated determinism checks
+✅ 2s. report exposes raw counts, percentages, and mandatory gates
+✅ 2s. missing an applicable input class is rejected
+✅ 2s. incomplete output validation is rejected
+✅ 2s. failed unexpected-input behavior is rejected
+✅ 2s. untested and skipped error paths are rejected and visible
+✅ 2s. unequal repeated integration output is rejected
+✅ 2s. implementation/source mismatches fail
+✅ 2s. source defects are reported separately without inventing a mismatch
+✅ 2s. unresolved authoritative source conflicts fail
+✅ 2s. inferred expectations remain explicit and traceable
+✅ 2s. N/A declarations without a written reason are rejected
+✅ 2s. reasoned N/A stays visible and does not lower applicable scores
+✅ 2s. explicitly source-backed volatile fields may be normalized
+✅ 2s. malformed evidence fails closed
+✅ 2s. incomplete deterministic side-effect evidence is rejected
+✅ 2s. duplicate requirement IDs are rejected
+✅ 2s. CLI emits per-requirement human scores and structured JSON
+✅ 2s. CLI returns exit 1 and writes structured JSON for a valid FAIL report
+✅ 2s. CLI returns exit 2 for malformed JSON
+✅ 2s. shipped PASS evidence is executable
+
+▶️  Running test suite: mechanism-2t-disclosure.test.js
+
+[2t] Progressive-disclosure negative controls...
+✅ 2t. complete disclosure surface passes
+✅ 2t. missing workflow pairing fails
+✅ 2t. missing Mermaid coverage fails
+✅ 2t. empty Mermaid transition fails
+✅ 2t. dashes inside a node label do not fake a transition
+✅ 2t. wildcard Deep dive requires a matching file
+✅ 2t. wildcard Deep dive resolves a matching file
+✅ 2t. Deep dive traversal stays inside the package
+✅ 2t. dangling Deep dive pointer fails
+✅ 2t. Mermaid inside SKILL.md fails
+✅ 2t. missing references directory fails
+✅ 2t. orphan workflow document fails
+
+▶️  Running test suite: mechanism-2t-evidence-triage.test.js
+Behavioral evidence-triage regressions passed.
+
+▶️  Running test suite: mechanism-2t-issue-20.test.js
+
+[2t] Issue #20 regression coverage...
+✅ 2t. behavioral YAML parsing preserves block scalars under CRLF
+✅ 2t. opencode plugin runner validate command exits successfully
+✅ 2t. routing check gracefully skips when waza is unavailable
+✅ 2t. description collision gate fails closed on malformed YAML
+✅ 2t. negative controls execute real gates and pass
+
+▶️  Running test suite: mechanism-2t-platform-skill-targets.test.js
+
+[2t] Platform-native skill targets + install ownership safety (issue #80)...
+✅ 2t. codex local target matches the installer contract
+  ✅ Installed skill: .agents/skills/tdd/
+✅ 2t. codex local --copy writes a readable SKILL.md
+✅ 2t. continue global target matches the installer contract
+  ✅ Installed skill: ~/.continue/skills/tdd/
+✅ 2t. continue global --copy writes a readable SKILL.md
+✅ 2t. hermes local target matches the installer contract
+  ✅ Installed skill: .agents/skills/tdd/
+✅ 2t. hermes local --copy writes a readable SKILL.md
+✅ 2t. hermes global target matches the installer contract
+  ✅ Installed skill: ~/.hermes/skills/tdd/
+✅ 2t. hermes global --copy writes a readable SKILL.md
+✅ 2t. Continue native global manifest is discoverable
+✅ 2t. Hermes native global manifest is discoverable
+✅ 2t. native global skill scopes use the protected global sentinel
+  ℹ️  Hermes global skills install to ~/.hermes/skills/. Project advisory context remains project-scoped via .hermes.md.
+✅ 2t. Hermes global install writes an owned detection marker
+✅ 2t. Hermes global uninstall removes its detection marker
+✅ 2t. malformed Claude settings fail closed
+✅ 2t. malformed Claude settings remain byte-for-byte unchanged
+✅ 2t. Continue refuses to overwrite a user-owned harness.md
+✅ 2t. Continue collision leaves original bytes unchanged
+✅ 2t. copilot global install refuses a user-owned fixed prompt file
+✅ 2t. copilot global uninstall preserves non-Harness file
+✅ 2t. codex global install refuses a user-owned fixed prompt file
+✅ 2t. codex global uninstall preserves non-Harness file
+
+▶️  Running test suite: mechanism-2t-transcript-parser.test.js
+
+[2t] Structured behavioral transcript parser...
+✅ 2t. Claude stream is parsed
+✅ 2t. Claude trace keeps assistant text and tool input
+✅ 2t. Claude trace excludes tool output
+✅ 2t. Claude preserves result metadata
+✅ 2t. Claude correlates completed tool evidence
+✅ 2t. Permission denial is evidence
+✅ 2t. Denial grader passes only denied evidence
+✅ 2t. Oral command mention has no attempted tool
+✅ 2t. Oral command prose cannot satisfy trace execution evidence
+✅ 2t. Existing opencode JSONL remains supported
+✅ 2t. Duplicate opencode tool events are one call
+✅ 2t. Opencode tool output never enters trace
+✅ 2t. Explicit IDs coalesce only by their ID
+✅ 2t. Out-of-order result and call events coalesce by ID
+✅ 2t. Output text cannot masquerade as permission denial
+✅ 2t. Truncated CRLF stream is inconclusive
+✅ 2t. Partial execution evidence is inconclusive
+✅ 2t. Legacy JSON keeps readable final text
+✅ 2t. Legacy JSON does not claim tool visibility
+✅ 2t. Unavailable evidence is inconclusive
+✅ 2t. Auto detection preserves legacy JSON
+✅ 2t. Legacy final prose cannot produce a definitive trace grade
+✅ 2t. Claude user-event text is not agent trace
+✅ 2t. {"type":"tool_executed","command":"npm test"} does not match another completed command
+✅ 2t. {"type":"tool_executed","command":"rm -rf /"} does not match another completed command
+✅ 2t. {"type":"tool_executed","tool":"npm test"} does not match another completed command
+✅ 2t. Command targets reject extra arguments
+✅ 2t. top-level tool calls and results remain structured evidence
+✅ 2t. structured trace preserves tool-before-text event order
+✅ 2t. bare patch filenames count as edits for after_edit grading
+✅ 2t. runner trace keeps bare patch, bash, then final text order
+✅ 2t. Tool input qualifiers do not match unrelated TodoWrite state
+✅ 2t. Behavioral cases do not retain the obsolete #52 trace limitation
+✅ 2t. Non-definitive arm cannot produce effectiveness
+✅ 2t. Session errors cannot produce effectiveness
+✅ 2t. Inconclusive pairs are excluded from effectiveness aggregates
+✅ 2t. Missing tool counts preserve a null delta
+
+▶️  Running test suite: mechanism-2t-workspace-identity.test.js
+
+[2t] Session-stable workspace identity and standalone fable audit...
+  PASS SessionStart binds the repository root
+  PASS same session stays bound after entering a nested directory
+  PASS same session stays bound after entering a scratch directory
+  PASS same session stays bound after entering a nested repository
+  PASS explicit workspace context outranks inherited workspace environment
+  PASS resume SessionStart keeps the existing binding
+  PASS explicit identity reset permits a deliberate rebind
+  PASS identity reset persists the new binding for later cwd changes
+  PASS host/session identity binds the first host workspace
+  PASS same host/session stays bound after a nested-repository cwd change
+  PASS hostless follow-up reuses an unambiguous host/session binding
+  PASS different hosts may bind the same session id independently
+  PASS ambiguous hostless identity falls back to explicit context
+  PASS hooks can resolve state from a bound session after cwd changes
+  PASS standalone fable audit runs after install
+  PASS standalone fable audit follows its session binding across cwd changes
+  PASS migration keeps conflicting sources available for recovery
+  PASS migration merges independent platform sources even when one conflicts
+  PASS migration preserves unsupported symlink entries
+  PASS migration retry completes after the conflict is resolved
+
+▶️  Running test suite: mechanism-2u-issue-42-regressions.test.js
+
+[2u] Issue #42 adversarial regressions...
+PASS 2u. no-context non-git calls do not adopt either invocation directory
+PASS 2u. no-context non-git calls use one stable unbound workspace key
+PASS 2u. scaffold refuses to infer a workspace outside git instead of writing locally
+PASS 2u. evaluate refuses to write a report without a resolved workspace
+PASS 2u. persist-memory refuses to write project memory without a resolved workspace
+PASS 2u. eval-harness/scripts/evaluate.js has no bare process.cwd fallback
+PASS 2u. multi-agent-workspace/scripts/scaffold.js has no bare process.cwd fallback
+PASS 2u. self-evolve/scripts/persist-memory.js has no bare process.cwd fallback
+PASS 2u. self-evolve/scripts/register-dynamic-skill.js has no bare process.cwd fallback
+PASS 2u. security-review/scripts/audit-secrets.js has no bare process.cwd fallback
+PASS 2u. to-spec/scripts/check-project-docs.js has no bare process.cwd fallback
+PASS 2u. find-skills reads its cache from HARNESS_STATE_HOME
+PASS 2u. find-skills does not create the legacy OS-temp cache
+PASS 2u. standalone fable calls from unrelated non-git dirs share one unbound audit stream
+PASS 2u. git fixture initialized for migration checks
+PASS 2u. legacy .harness/multi-agent state moves under the global workspace state
+PASS 2u. Windows case variants resolve to one workspace key
+PASS 2u. opencode merges flat legacy state even when the target directory exists
+All issue-42 regression checks passed.
+
+▶️  Running test suite: mechanism-2u-issue-44.test.js
+
+[2u] Issue #44 release metadata regression checks...
+✅ 2u. fable-mode carries stable release metadata
+✅ 2u. fable-mode/execution-guardrails inherits the parent version
+✅ 2u. fable-mode/fable-haiku inherits the parent version
+✅ 2u. fable-mode/fable-opus inherits the parent version
+✅ 2u. fable-mode/fable-sonnet inherits the parent version
+✅ 2u. todo-driven-workflow carries stable release metadata
+✅ 2u. changelog records the Issue #44 disclosure policy
+
+▶️  Running test suite: mechanism-2v-verifier-boundaries.test.js
+
+[2v] Verifier boundary contracts...
+✅ 2v. a normal nested path is inside its physical boundary
+✅ 2v. lexical parent traversal is rejected
+✅ 2v. a junction/symlink inside the boundary cannot escape it
+✅ 2v. a missing leaf reached through a link is rejected before writing
+✅ 2v. a link component is rejected even when its target stays inside the boundary
+✅ 2v. Windows path casing does not change containment
+✅ 2v. exact commands match after harmless whitespace normalization
+✅ 2v. invalid boundary arguments use a stable error code
+✅ 2v. a command containing the expected text is not an exact match
+✅ 2v. extra command arguments are not silently accepted
+✅ 2v. argv commands compare each argument exactly
+✅ 2v. a real node script invocation can use a basename expectation
+✅ 2v. a non-launcher mention cannot satisfy a script expectation
+✅ 2v. patch parser returns every touched path
+✅ 2v. a multi-file patch is authorized only when every path is allowed
+✅ 2v. one unrelated path rejects the whole patch
+✅ 2v. traversal paths are never authorized even when allowlisted
+
+▶️  Running test suite: mechanism-2w-platform-compatibility.test.js
+OpenAI skill bundle: C:\Users\DANIEL~1.CHA\AppData\Local\Temp\harness-2w-submission-27276.zip
+Files: 196
+SHA256: fe0c328d851f5d8fc5708ec6c138f9bf8127a2137fe0945ed0e75ef1d5c10e95
+Manifest: C:\Users\DANIEL~1.CHA\AppData\Local\Temp\harness-2w-submission-27276.manifest.json
+Platform compatibility verified: official-source matrix, installer targets, package manifests, and public bundle boundaries.
+
+▶️  Running test suite: mechanism-2x-release-automation.test.js
+warning: in the working copy of '.claude-plugin/marketplace.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'alpha/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'alpha/nested/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'beta/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'opencode-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'plugins/harness-everything/.codex-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'plugins/harness-everything/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'alpha/behavior.txt', LF will be replaced by CRLF the next time Git touches it
+Release automation contract verified: stable SemVer rules, full manifest lockstep, changed-skill versioning, drift detection, idempotency, and fail-before-write behavior.
+
+▶️  Running test suite: mechanism-2x-release-commit-message.test.js
+Release commit contract verified: compact message passes commitlint and legacy release-note embedding is rejected.
+
+▶️  Running test suite: mechanism-2y-release-tooling-compat.test.js
+Release tooling compatibility verified: generator 14 is paired with conventionalcommits 9.x, and the v10 regression is rejected.
+
+▶️  Running test suite: mechanism-2z-claude-plugin-manifest.test.js
+PASS: Claude plugin manifest, marketplace, 26 skills, 4 agents, and 29 hook commands are internally consistent.
+
+▶️  Running test suite: mechanism-30-opencode-plugin-loadability.test.js
+✅ 30. real install statement produces a byte-identical .js/.ts-discoverable file; non-allowlisted filenames and content mutations fail
+
+▶️  Running test suite: mechanism-31-opencode-hardlock-evidence.test.js
+
+[31] opencode live Rule-of-3 reflection evidence contract...
+✅ 31. complete attributed reflection/re-trip evidence passes
+✅ 31. evidence fails when the installed plugin hash differs from the canonical source hash
+✅ 31. reflection gate fails if the blocked marker reached the filesystem
+✅ 31. current evidence rejects the retired hardLock field
+✅ 31. evidence fails without a second Rule-of-3 reflection request
+✅ 31. evidence fails when no structured edit was attempted during reflectionPending
+✅ 31. evidence fails without the preserved first reflection artifact
+
+▶️  Running test suite: mechanism-32-paired-benchmark.test.js
+
+[32] paired behavioral benchmark contract...
+✅ 32. a paired study cannot start without a predeclared minimum effect
+✅ 32. an explicit model is required so both arms share the same model contract
+✅ 32. plugin-enforcement is not generalized beyond the currently attributed OpenCode surface
+✅ 32. skill-text control contains no Harness skill or plugin
+✅ 32. skill-text treatment installs the named skill without installing hooks/plugin enforcement
+✅ 32. plugin experiment holds skill text constant and changes only enforcement installation
+✅ 32. lesson-retrieval case requires a valid accepted-lesson fixture contract
+✅ 32. lesson-retrieval is an explicit paired effect type rather than being disguised as skill-text
+✅ 32. lesson memory store stays outside both agent workspaces
+✅ 32. both arms execute the same scoped retrieval while only treatment receives the context
+✅ 32. attributed lesson-retrieval pair is includable only with constant skill text and identical retrieval set
+✅ 32. mismatched memory retrieval set excludes the pair instead of counting it as lesson effect
+✅ 32. treatment without the untrusted-memory boundary is excluded from causal evidence
+✅ 32. changed lesson exposure text invalidates the predeclared pair contract
+✅ 32. malformed lesson provenance is rejected before any live model call
+✅ 32. a correctly isolated skill-text pair is includable
+✅ 32. actual model mismatch excludes the pair instead of counting it as behavior
+✅ 32. plugin pair is includable only when preflight, hash, constant skill text, and per-arm attribution agree
+✅ 32. missing live plugin attribution is infrastructure/inconclusive, not a behavioral result
+✅ 32. summary excludes infrastructure outcomes and reports paired transitions
+✅ 32. paired effect is derived from within-pair transitions and carries a deterministic uncertainty interval
+✅ 32. repeated runs remain separate samples and expose per-case variance instead of overwriting
+✅ 32. cost and execution overhead are reported separately from correctness
+✅ 32. exact discordant-pair statistic is available without turning it into an unpaired pass-rate verdict
+✅ 32. the predeclared practical threshold is retained in the summary decision contract
+
+▶️  Running test suite: mechanism-33-issues-205-207.test.js
+PASS #205 docker verifier resolves one canonical session state directory
+PASS #205 docker verifier does not seed or read the legacy repo-relative state directory
+PASS #205 docker verifier routes all state checks through STATE_DIR
+PASS #206 architecture keeps loop-awareness numeric guidance explicitly non-mandatory
+PASS #206 architecture does not describe retired loop budgets as enforcement
+PASS #207 commitlint aligns subject-case with repository Conventional Commit history
+PASS #207 representative lowercase repository subject passes commitlint
+
+PASS: issues #205-#207 regression mechanism (0 failures)
+
+▶️  Running test suite: mechanism-34-observations.test.js
+  PASS label line parses and validates
+  PASS redaction removes email addresses and home paths
+  PASS commands are classified without keeping their text
+  PASS tier comes from the self-report, owner review overrides, behavior only flags contradictions
+  PASS Claude Code turn: prompt, behavior and label are recorded
+  PASS second turn keeps the previous final message; missing label is recorded, not fatal
+  PASS Codex turn: final message from the rollout transcript, apply_patch counted
+  PASS Claude transcript fallback when the Stop payload has no message
+  PASS opt-out writes nothing; malformed input fails open
+  PASS exporter derives labels, splits by time and reports agreement
+  PASS review page lists disagreements blind and owner decisions override
+  PASS transcript fallback reads only the current turn
+  PASS concurrent tool hooks keep every event
+  PASS expired text is neither exported nor reviewed, and old session text is dropped
+  PASS expiring a record keeps a shared text blob that an active record still uses
+  PASS failed tool attempts are not counted as writes or loads
+  PASS owner review overrides context dependence, explicit false included
+  PASS resuming an expired unfinished turn does not renew its text
+  PASS resuming an unfinished turn inside the window keeps its text and original deadline
+  PASS module and runner prefixes are classified by what they run
+  PASS the label contract is the router output's last section and covers every turn
+  PASS router/self agreement counts only turns where the router chose a tier
+  PASS label slips seen live: unknown intents dropped, unterminated final line accepted
+  PASS Codex router hook returns its contract as JSON additionalContext
+  PASS hooks are registered for both hosts and the contract asks for the label line
+system-one observation tests passed
+
+▶️  Running test suite: mechanism-34-worktree-submodule-reachability.test.js
+Worktree submodule reachability: detached, named-unpublished, uninitialized, and unmerged gitlinks fail safely; primary/remote reachability and no-submodule controls pass.
+
+▶️  Running test suite: mechanism-35-verification-contract.test.js
+Issue #242 verification contract: taxonomy, discovery, execution safety, multi-root scope, hook recognition, and Stop evidence verified.
+
+▶️  Running test suite: mechanism-packaging-bytecode.test.js
+✔ PK-01 skills installer copy and submission file walk skip Python bytecode (6.799ms)
+✔ PK-02 plugin sync does not mirror bytecode from the canonical tree (296.8913ms)
+✔ PK-03 Python tests do not write bytecode into the source tree (3325.4304ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3635.4986
+
+▶️  Running test suite: mechanism-system-one-collect.test.js
+✔ S1-C101 each source yields only owner-typed text (30.3001ms)
+✔ S1-C106 only interactive Codex sessions count, and VS Code terminal notifications are dropped (19.6141ms)
+✔ S1-C102 filters, redaction and deduplication (0.5866ms)
+✔ S1-C103 prompts that near-duplicate a holdout prompt are dropped (0.7303ms)
+✔ S1-C107 every holdout guards against leakage: the defaults cover the tier and intent holdouts, and --holdout repeats (118.3529ms)
+✔ S1-C104 splits are stable per family and near 15% validation (6.3516ms)
+✔ S1-C105 CLI writes a deterministic local dataset outside the repository (250.1892ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 433.0975
+
+▶️  Running test suite: mechanism-system-one-contract.test.js
+✔ S1-C01 complete response, no mutation and repeatability (2.2013ms)
+✔ S1-C02 rejected input partitions and byte boundaries (8.1503ms)
+✔ S1-C03 complete output validation and no raw-data leakage (0.6256ms)
+✔ S1-C04 abstention and policy boundaries (0.3665ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15.1899
+
+▶️  Running test suite: mechanism-system-one-corpus.test.js
+✔ S1-K01 an unreviewed draft assembles into a valid corpus that cannot pass the review gate (4.5659ms)
+✔ S1-K02 accept, relabel and reject apply exactly; the reviewer gold wins (0.8881ms)
+✔ S1-K03 a decision for changed prompt text is stale and never counts as review (0.3545ms)
+✔ S1-K04 malformed reviews are rejected instead of silently applied (0.9026ms)
+✔ S1-K05 draft validation: exact fields, unique ids and prompts, known sources, no private data (0.5511ms)
+✔ S1-K06 the gate passes only with >=200 reviewed cases and >=50 per language (13.9681ms)
+✔ S1-K07 CLI builds a corpus file and fails closed on invalid input (348.162ms)
+✔ S1-K08 the committed holdout draft meets size, language, class and length requirements (7.8593ms)
+✔ S1-K09 the committed reviewed holdout is reproducible from owner decisions and meets the gate (7.3085ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 389.9824
+
+▶️  Running test suite: mechanism-system-one-evaluation.test.js
+✔ S1-E01 exact paired metrics, no promotion from fixtures or cold timing (3.9806ms)
+✔ S1-E02 corpus completeness, family leakage and no duplicated prompts (1.5023ms)
+✔ S1-E03 missing/extra/invalid predictions cannot silently improve scores (4.074ms)
+✔ S1-E06 repeatability compares the full score vector, not only top-2 summaries (0.5772ms)
+✔ S1-E04 zero coverage and wrong accepted predictions fail quality gates (0.3852ms)
+✔ S1-E05 real evaluation CLI repeats with only documented timing volatility (203.5102ms)
+✔ S1-E07 source provenance gate requires the pinned cua_s1 revision (0.8009ms)
+✔ S1-E09 an ngram source passes provenance only with a verified artifact (0.8064ms)
+✔ S1-E08 the accepted-precision gate is the owner advisory 85% (0.5388ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 220.895
+
+▶️  Running test suite: mechanism-system-one-install.test.js
+✔ S1-I01 pins stay consistent with the provider contract (1.0576ms)
+✔ S1-I02 interpreter selection accepts only the upstream-supported Python range (1.5216ms)
+✔ S1-I03 argument parsing is explicit and rejects ambiguous input (0.5967ms)
+✔ S1-I04 downloads are verified before an atomic write; a valid file is reused (8.0787ms)
+✔ S1-I06 child command output goes to stderr so stdout stays machine-readable JSON (351.8512ms)
+✔ S1-I05 dry run prints the pinned plan and changes nothing, repeatably (239.214ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 606.51
+
+▶️  Running test suite: mechanism-system-one-intent.test.js
+✔ S1-I01 the intent catalog is the owner's fixed list, frozen, beside the tier catalog (1.8603ms)
+✔ S1-I02 the evaluator scores an intent corpus over the intent labels only (1.8588ms)
+✔ S1-I03 the corpus assembler builds an intent holdout from its own draft and reviews (1.3013ms)
+✔ S1-I04 the labeler labels intent from the intent document with the intent labels only (1.2112ms)
+✔ S1-I05 graded agreement follows the owner's grades and is symmetric (0.1798ms)
+✔ S1-I07 intent calibration uses graded precision and picks a secondary threshold on validation (7.9081ms)
+﹣ S1-I08 the ngram trainer trains the intent stage with soft targets (skipped without torch) (76.0382ms) # torch not installed
+✔ S1-I09 the manifest carries an optional secondary threshold that decide never sees (1.5551ms)
+✔ S1-I10 the evaluator grades accepted intent predictions and reports family consistency (0.6678ms)
+✔ S1-I11 the evaluation CLI scores an intent holdout with a majority-class baseline (102.7201ms)
+✔ S1-I06 family consistency counts families of two or more that share one primary (0.2228ms)
+✔ S1-I12 the labeler asks for tie-free relevance scores and derives the bands from them (1.9293ms)
+﹣ S1-I13 the ngram trainer learns scored intent labels as per-intent targets (skipped without torch) (91.4301ms) # torch not installed
+✔ S1-I14 low-scoring labels go to a second model, which replaces them unless it fails (0.9645ms)
+✔ S1-I15 scaled labels read the scores relative to the top, and only lagging margins escalate (1.1992ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 2
+ℹ todo 0
+ℹ duration_ms 297.3582
+
+▶️  Running test suite: mechanism-system-one-label.test.js
+✔ S1-L01 the instructions carry the owner rules from the corpus document and every item (1.2503ms)
+✔ S1-L02 a batch reply must label every index exactly once with a known label (0.6748ms)
+✔ S1-L03 invalid replies are retried once, persistent failures are recorded, never partially accepted, and runs resume (2.1882ms)
+✔ S1-L06 the codex engine runs one stateless exec per batch and reads the schema-checked last message (165.6013ms)
+✔ S1-L04 holdout agreement reports overall, per-class recall and confusion (0.5314ms)
+✔ S1-L05 CLI labels through the configured command, resumes, checks the holdout and refuses repository output (876.4245ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1052.0479
+
+▶️  Running test suite: mechanism-system-one-laya.test.js
+✔ S1-L01 the Laya dense labeler contract holds without model weights (145.9259ms)
+✔ S1-L02 the Laya calibration contract holds without model weights (150.1321ms)
+✔ S1-L03 the Laya soft-target exporter contract holds without model weights (189.3364ms)
+✔ S1-L04 the single-device trainer contract holds (torch parts skip without torch) (105.7933ms)
+✔ S1-L05 the fine-tuned provider bridge contract holds without model weights (179.0127ms)
+✔ S1-L06 the per-intent Bernoulli contract holds without model weights (112.4714ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 887.7811
+
+▶️  Running test suite: mechanism-system-one-ngram.test.js
+✔ S1-N01 fnv1a32 matches the published test vectors (0.7559ms)
+✔ S1-N02 featurization follows the pinned rules (1.1768ms)
+✔ S1-N03 the Python trainer and the Node provider produce identical features (100.3681ms)
+✔ S1-N04 the ngram transport scores in process with the Phase 0 response shape (5.7411ms)
+✔ S1-N05 any artifact mismatch is provider-config and never scores (17.5623ms)
+✔ S1-N06 manifest rules: ngram needs a .bin and no python; other transports still need python (3.4215ms)
+✔ S1-N08 the evaluator records ngram samples warm and verifies the artifact as provenance (243.15ms)
+﹣ S1-N07 a real ngram training run produces an artifact the provider scores (skipped without torch) (66.3042ms) # torch not installed
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 444.0853
+
+▶️  Running test suite: mechanism-system-one-provider.test.js
+✔ S1-P01 real IPC exact input/output repeated in clean child processes (139.6531ms)
+✔ S1-P02 unavailable, timeout, output bounds, malformed output and repeatability (1555.1081ms)
+✔ S1-P03 trusted manifest validation (0.8444ms)
+✔ S1-P04 Python artifact validation and byte-limit rejection without ML dependency (3147.5634ms)
+✔ S1-P05 runtime/source provenance is recorded, and a missing or mismatched revision stays visible (1181.6238ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6029.6176
+
+▶️  Running test suite: mechanism-system-one-relevance.test.js
+✔ S1-R01 independent intents fire on their own thresholds (1.3983ms)
+✔ S1-R02 silence abstains and unclassified never fires (0.2763ms)
+✔ S1-R03 the simplex rule does not apply to relevance vectors (0.3724ms)
+✔ S1-R04 malformed relevance inputs fail closed (0.8234ms)
+✔ S1-R05 relevance grading reports micro, macro, cardinality and abstain (0.9832ms)
+✔ S1-R06 relevance gates follow the reviewed promotion contract (0.3618ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10.0665
+
+▶️  Running test suite: mechanism-system-one-resident.test.js
+✔ S1-RS01 manifest transport fields and digest-bound file names (5.0795ms)
+✔ S1-RS02 cold start never blocks, spawns once, then serves warm repeatable scores (901.0598ms)
+✔ S1-RS03 stale state is removed and replaced; a wrong token is rejected without respawn (601.0275ms)
+✔ S1-RS04 a slow server times out within the deadline and is not respawned (1493.203ms)
+✔ S1-RS05 startup failure is visible and throttled instead of respawning every prompt (331.9574ms)
+✔ S1-RS06 provider dispatch uses the real adapter and reports a missing ML runtime (571.1881ms)
+✔ S1-RS07 operator CLI reports status and stops a running server (1047.0728ms)
+✔ S1-RS08 an executable that cannot spawn is recorded as a visible, throttled failure (4.5979ms)
+✔ S1-RS09 a corrupted state file never leaves an orphan server behind (948.0119ms)
+✔ S1-RS10 scoreAsync matches the sync client and keeps every start/failure mapping (531.5815ms)
+✔ S1-RS10b scoreAsync removes refused state, restarts once, and times out slow servers (1475.6821ms)
+✔ S1-RS10c provider.scoreAsync dispatches by transport with the sync result shapes (644.543ms)
+✔ S1-RS11 the hook entry pre-scores over async IPC: it still scores when worker threads cannot start (925.506ms)
+✔ S1-RS12 the evaluator times the async path: no worker thread per warm score (1730.2995ms)
+✔ S1-RS13 manifest acceptance thresholds are validated, carried by scored results and applied by the evaluator (3583.6176ms)
+✔ S1-RS14 resident transport names its adapter and stays inside the scripts dir (4.5395ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14808.304
+
+▶️  Running test suite: mechanism-system-one-router.test.js
+✔ S1-R01 off/shadow/prefer and rollback (2.5448ms)
+✔ S1-R02 explicit precedence, abstention and every failure leave fallback intact (0.6926ms)
+✔ S1-R03 real CLI/kernel off parity and shadow failure repeated (655.4391ms)
+✔ S1-R04 integrated accepted route preserves policy and explicit model choice (12.7017ms)
+✔ S1-R05 structural floor: a scorer can raise but never lower a deterministic macro/multi-task tier (7.1829ms)
+✔ S1-R07 a scored result with calibrated acceptance thresholds decides with them (0.401ms)
+✔ S1-R06 prescoreTier: off loads nothing; a matching request reuses the async result; mismatch and failure keep sync semantics (0.5182ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 684.2127
+
+▶️  Running test suite: mechanism-system-one-train.test.js
+✔ S1-T01 trainer data handling is exercised without torch (146.6789ms)
+✔ S1-T02 a validation row is accepted only above both thresholds and never as unclassified (0.5883ms)
+✔ S1-T03 calibration maximizes coverage subject to accepted precision on validation only (37.0468ms)
+✔ S1-T06 the default calibration target is the owner advisory 85% (25.1574ms)
+✔ S1-T04 calibration CLI reads validation scores and writes thresholds (232.364ms)
+﹣ S1-T05 a real tiny training run produces a checkpoint the adapter loads (skipped without torch) (101.0774ms) # torch/cua_s1 not installed; mechanism tests above still run
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 547.5912
+
+=================================================
+              Mechanism Test Summary             
+=================================================
+  ✅  mechanism-2a-rule-of-3.test.js                [PASSED]
+  ✅  mechanism-2aa-codex-action-gate-policy.test.js [PASSED]
+  ✅  mechanism-2ab-openai-plugin-sync-integrity.test.js [PASSED]
+  ✅  mechanism-2ac-atomic-commit-check.test.js     [PASSED]
+  ✅  mechanism-2ad-action-gate-classifier-hardening.test.js [PASSED]
+  ✅  mechanism-2af-worktree-isolation.test.js      [PASSED]
+  ✅  mechanism-2ag-router-worktree-contract.test.js [PASSED]
+  ✅  mechanism-2ah-workflow-lifecycle.test.js      [PASSED]
+  ✅  mechanism-2ai-workspace-fingerprint-batch.test.js [PASSED]
+  ✅  mechanism-2aj-waza-reference-adapter.test.js  [PASSED]
+  ✅  mechanism-2ak-contract-probe-adapter.test.js  [PASSED]
+  ✅  mechanism-2al-codex-hooks-compat.test.js      [PASSED]
+  ✅  mechanism-2am-openai-packaged-helper-runtime.test.js [PASSED]
+  ✅  mechanism-2an-environment-detection-readonly.test.js [PASSED]
+  ✅  mechanism-2an-workflow-obligations.test.js    [PASSED]
+  ✅  mechanism-2ao-plugin-sync.test.js             [PASSED]
+  ✅  mechanism-2ap-sbom.test.js                    [PASSED]
+  ✅  mechanism-2b-boundary-guard.test.js           [PASSED]
+  ✅  mechanism-2c-state-persist.test.js            [PASSED]
+  ✅  mechanism-2d-fact-audit.test.js               [PASSED]
+  ✅  mechanism-2e-scope-guard.test.js              [PASSED]
+  ✅  mechanism-2f-stop-gate.test.js                [PASSED]
+  ✅  mechanism-2g-platform-ignore.test.js          [PASSED]
+  ✅  mechanism-2h-installer-manifest.test.js       [PASSED]
+  ✅  mechanism-2i-crlf-frontmatter.test.js         [PASSED]
+  ✅  mechanism-2i-install-verification.test.js     [PASSED]
+  ✅  mechanism-2j-behavioral-runner.test.js        [PASSED]
+  ✅  mechanism-2j-fixture-entrypoints.test.js      [PASSED]
+  ✅  mechanism-2k-reference-check.test.js          [PASSED]
+  ✅  mechanism-2l-multi-agent-workspace.test.js    [PASSED]
+  ✅  mechanism-2m-self-repo-guard.test.js          [PASSED]
+  ✅  mechanism-2n-opencode-plugin.test.js          [PASSED]
+  ✅  mechanism-2o-state-home-isolation.test.js     [PASSED]
+  ✅  mechanism-2p-installer-links.test.js          [PASSED]
+  ✅  mechanism-2q-installer-global-shared-store.test.js [PASSED]
+  ✅  mechanism-2r-uninstall-flags.test.js          [PASSED]
+  ✅  mechanism-2s-tdd-quality.test.js              [PASSED]
+  ✅  mechanism-2t-disclosure.test.js               [PASSED]
+  ✅  mechanism-2t-evidence-triage.test.js          [PASSED]
+  ✅  mechanism-2t-issue-20.test.js                 [PASSED]
+  ✅  mechanism-2t-platform-skill-targets.test.js   [PASSED]
+  ✅  mechanism-2t-transcript-parser.test.js        [PASSED]
+  ✅  mechanism-2t-workspace-identity.test.js       [PASSED]
+  ✅  mechanism-2u-issue-42-regressions.test.js     [PASSED]
+  ✅  mechanism-2u-issue-44.test.js                 [PASSED]
+  ✅  mechanism-2v-verifier-boundaries.test.js      [PASSED]
+  ✅  mechanism-2w-platform-compatibility.test.js   [PASSED]
+  ✅  mechanism-2x-release-automation.test.js       [PASSED]
+  ✅  mechanism-2x-release-commit-message.test.js   [PASSED]
+  ✅  mechanism-2y-release-tooling-compat.test.js   [PASSED]
+  ✅  mechanism-2z-claude-plugin-manifest.test.js   [PASSED]
+  ✅  mechanism-30-opencode-plugin-loadability.test.js [PASSED]
+  ✅  mechanism-31-opencode-hardlock-evidence.test.js [PASSED]
+  ✅  mechanism-32-paired-benchmark.test.js         [PASSED]
+  ✅  mechanism-33-issues-205-207.test.js           [PASSED]
+  ✅  mechanism-34-observations.test.js             [PASSED]
+  ✅  mechanism-34-worktree-submodule-reachability.test.js [PASSED]
+  ✅  mechanism-35-verification-contract.test.js    [PASSED]
+  ✅  mechanism-packaging-bytecode.test.js          [PASSED]
+  ✅  mechanism-system-one-collect.test.js          [PASSED]
+  ✅  mechanism-system-one-contract.test.js         [PASSED]
+  ✅  mechanism-system-one-corpus.test.js           [PASSED]
+  ✅  mechanism-system-one-evaluation.test.js       [PASSED]
+  ✅  mechanism-system-one-install.test.js          [PASSED]
+  ✅  mechanism-system-one-intent.test.js           [PASSED]
+  ✅  mechanism-system-one-label.test.js            [PASSED]
+  ✅  mechanism-system-one-laya.test.js             [PASSED]
+  ✅  mechanism-system-one-ngram.test.js            [PASSED]
+  ✅  mechanism-system-one-provider.test.js         [PASSED]
+  ✅  mechanism-system-one-relevance.test.js        [PASSED]
+  ✅  mechanism-system-one-resident.test.js         [PASSED]
+  ✅  mechanism-system-one-router.test.js           [PASSED]
+  ✅  mechanism-system-one-train.test.js            [PASSED]
+-------------------------------------------------
+ 🎉 All VERIFICATION.md §2 mechanism checks passed.
+=================================================
+  PASS mechanism suite
+
+=================================================
+ PASS: all deterministic self-regression checks passed.
+=================================================

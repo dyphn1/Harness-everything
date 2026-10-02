@@ -1,0 +1,39 @@
+{
+  "answer": {
+    "requestedProfile": "reasoning",
+    "effectiveProfile": "reasoning",
+    "profileAlias": "sonnect",
+    "assignedRole": "reasoning-worker",
+    "runtimeModel": null,
+    "runtimeEffort": null
+  },
+  "strategy": "direct-single",
+  "tier": "Tier 1 (Trivial)",
+  "context_file_ledger": [
+    {
+      "path": "/private/tmp/harness-pr289-fix/fable-mode/SKILL.md",
+      "bytes": 2194,
+      "sha256": "6c5ea2f7f572049921ee035a35eef86f2a9045e2ec33f5f2d2fb7893ed73845e"
+    },
+    {
+      "path": "/private/tmp/harness-pr289-fix/fable-mode/references/profile-lookup.md",
+      "bytes": 1377,
+      "sha256": "bd53dd3cea62da7ccc2f30798f4252fbc392a945cf4ff069dbc6fe31e4d908e5"
+    }
+  ],
+  "runtime_executed_files": [
+    {
+      "path": "/private/tmp/harness-pr289-fix/harness-everything/scripts/tier-router.js",
+      "bytes": 26202
+    }
+  ],
+  "shell_tool_calls": [
+    "exec_command: node harness-everything/scripts/tier-router.js \"Explain what 'fable on sonnect' means\"",
+    "exec_command: cat fable-mode/SKILL.md",
+    "exec_command: cat fable-mode/references/profile-lookup.md",
+    "exec_command: wc -c fable-mode/SKILL.md fable-mode/references/profile-lookup.md harness-everything/scripts/tier-router.js && shasum -a 256 fable-mode/SKILL.md fable-mode/references/profile-lookup.md",
+    "exec_command: write /tmp/pr290-fixed-2.json"
+  ],
+  "unnecessary_recommendations": [],
+  "unnecessary_loads": []
+}

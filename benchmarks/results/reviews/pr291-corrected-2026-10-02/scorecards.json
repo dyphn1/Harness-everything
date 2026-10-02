@@ -1,0 +1,56 @@
+[
+  {
+    "id": "small-A",
+    "correctness": 10,
+    "efficiency": 5,
+    "focus": 10,
+    "environment": 10,
+    "total": 35,
+    "rationale": "small-A: canonical profile check passed; bounded probe only. Artifact checks needing review: []. Efficiency 5/10 for avoidable reference reads, root-README reads or extended plan generation. No repeated three-signature failure loop was observed. Environment 10/10: no syntax/nonzero diagnostics observed. Router contract expectation failed; reported separately as product routing evidence. Token cost is in usage.json; this subjective agent-artifact rubric is not proof of full workflow enforcement or effectiveness."
+  },
+  {
+    "id": "small-B",
+    "correctness": 10,
+    "efficiency": 5,
+    "focus": 10,
+    "environment": 10,
+    "total": 35,
+    "rationale": "small-B: canonical profile check passed; bounded probe only. Artifact checks needing review: []. Efficiency 5/10 for avoidable reference reads, root-README reads or extended plan generation. No repeated three-signature failure loop was observed. Environment 10/10: no syntax/nonzero diagnostics observed. Router contract expectation passed. Token cost is in usage.json; this subjective agent-artifact rubric is not proof of full workflow enforcement or effectiveness."
+  },
+  {
+    "id": "medium-A",
+    "correctness": 10,
+    "efficiency": 5,
+    "focus": 10,
+    "environment": 10,
+    "total": 35,
+    "rationale": "medium-A: canonical profile check passed; bounded probe only. Artifact checks needing review: []. Efficiency 5/10 for avoidable reference reads, root-README reads or extended plan generation. No repeated three-signature failure loop was observed. Environment 10/10: no syntax/nonzero diagnostics observed. Router contract expectation passed. Token cost is in usage.json; this subjective agent-artifact rubric is not proof of full workflow enforcement or effectiveness."
+  },
+  {
+    "id": "medium-B",
+    "correctness": 10,
+    "efficiency": 5,
+    "focus": 10,
+    "environment": 5,
+    "total": 30,
+    "rationale": "medium-B: canonical profile check passed; bounded probe only. Artifact checks needing review: []. Efficiency 5/10 for avoidable reference reads, root-README reads or extended plan generation. No repeated three-signature failure loop was observed. Environment 5/10: nonzero/syntax tool diagnostics occurred; retained for inspection. Router contract expectation passed. Token cost is in usage.json; this subjective agent-artifact rubric is not proof of full workflow enforcement or effectiveness."
+  },
+  {
+    "id": "large-A",
+    "correctness": 5,
+    "efficiency": 5,
+    "focus": 10,
+    "environment": 5,
+    "total": 25,
+    "rationale": "large-A: canonical profile check passed; bounded probe only. Artifact checks needing review: ['largeAuthorizedFilesCovered', 'largeFinalColdVerifierPresent', 'largeNoMutationClaim']. Efficiency 5/10 for avoidable reference reads, root-README reads or extended plan generation. No repeated three-signature failure loop was observed. Environment 5/10: nonzero/syntax tool diagnostics occurred; retained for inspection. Router contract expectation passed. Token cost is in usage.json; this subjective agent-artifact rubric is not proof of full workflow enforcement or effectiveness."
+  },
+  {
+    "id": "large-B",
+    "correctness": 10,
+    "efficiency": 5,
+    "focus": 10,
+    "environment": 10,
+    "total": 35,
+    "rationale": "large-B: canonical profile check passed; bounded probe only. Artifact checks needing review: []. Efficiency 5/10 for avoidable reference reads, root-README reads or extended plan generation. No repeated three-signature failure loop was observed. Environment 10/10: no syntax/nonzero diagnostics observed. Router contract expectation passed. Token cost is in usage.json; this subjective agent-artifact rubric is not proof of full workflow enforcement or effectiveness."
+  }
+]

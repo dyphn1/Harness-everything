@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "checked_date": "2026-10-02",
+  "status": "source-selection-verified; execution-preflight-not-run",
+  "note": "Hashes prove retrieved source identity, not fixture, oracle, agent or verifier execution.",
+  "cases": [
+    {
+      "stratum": "small",
+      "id": "find_in_sorted",
+      "repository": "jkoppel/QuixBugs",
+      "revision": "4257f44b0ff1181dedaedee6a447e133219fcebf",
+      "reviewed_files": [
+        {
+          "path": "python_programs/find_in_sorted.py",
+          "sha256": "b640b4bcb1b2c0f7875de8f13df191f4e61ddf7e6fbdcfc42d477ec60885d3c7",
+          "url": "https://github.com/jkoppel/QuixBugs/blob/4257f44b0ff1181dedaedee6a447e133219fcebf/python_programs/find_in_sorted.py"
+        },
+        {
+          "path": "python_testcases/test_find_in_sorted.py",
+          "sha256": "a943c5c1df1e87360308b23341a651da9cfb31b1f1e2954cdca75c2cf4b6ba54",
+          "url": "https://github.com/jkoppel/QuixBugs/blob/4257f44b0ff1181dedaedee6a447e133219fcebf/python_testcases/test_find_in_sorted.py"
+        }
+      ]
+    },
+    {
+      "stratum": "small",
+      "id": "gcd",
+      "repository": "jkoppel/QuixBugs",
+      "revision": "4257f44b0ff1181dedaedee6a447e133219fcebf",
+      "reviewed_files": [
+        {
+          "path": "python_programs/gcd.py",
+          "sha256": "d68e155c2af40d787f617f03c596005edabee3d9e33626b9185d83650895636f",
+          "url": "https://github.com/jkoppel/QuixBugs/blob/4257f44b0ff1181dedaedee6a447e133219fcebf/python_programs/gcd.py"
+        },
+        {
+          "path": "python_testcases/test_gcd.py",
+          "sha256": "1e0f36211d258a295ec11359495202ff8491736ffe3a9b56336c1a633a1af589",
+          "url": "https://github.com/jkoppel/QuixBugs/blob/4257f44b0ff1181dedaedee6a447e133219fcebf/python_testcases/test_gcd.py"
+        }
+      ]
+    },
+    {
+      "stratum": "small",
+      "id": "flatten",
+      "repository": "jkoppel/QuixBugs",
+      "revision": "4257f44b0ff1181dedaedee6a447e133219fcebf",
+      "reviewed_files": [
+        {
+          "path": "python_programs/flatten.py",
+          "sha256": "5023275fe603f1ebade0027073c3d116274d405069ea350076f220f10ff451e2",
+          "url": "https://github.com/jkoppel/QuixBugs/blob/4257f44b0ff1181dedaedee6a447e133219fcebf/python_programs/flatten.py"
+        },
+        {
+          "path": "python_testcases/test_flatten.py",
+          "sha256": "8751773222d9310f75ef92e2111298a12e24389cb03aa62b905bcd6ae55f8ee5",
+          "url": "https://github.com/jkoppel/QuixBugs/blob/4257f44b0ff1181dedaedee6a447e133219fcebf/python_testcases/test_flatten.py"
+        }
+      ]
+    },
+    {
+      "stratum": "medium",
+      "id": "simple-linked-list",
+      "repository": "Aider-AI/polyglot-benchmark",
+      "revision": "7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f",
+      "reviewed_files": [
+        {
+          "path": "javascript/exercises/practice/simple-linked-list/.docs/instructions.md",
+          "sha256": "ddf0b0d7a6d0a7b39a70a8dac0ae2e5cc4b7d9ad4163f4a103988bb53abeb914",
+          "url": "https://github.com/Aider-AI/polyglot-benchmark/blob/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/simple-linked-list/.docs/instructions.md"
+        },
+        {
+          "path": "javascript/exercises/practice/simple-linked-list/package.json",
+          "sha256": "14a0a23e784a338496939c2f1a8719661c1b2eb36c17f4c7d6d146f2fa33519e",
+          "url": "https://github.com/Aider-AI/polyglot-benchmark/blob/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/simple-linked-list/package.json"
+        },
+        {
+          "path": "javascript/exercises/practice/simple-linked-list/simple-linked-list.spec.js",
+          "sha256": "7a181633077ca3586a47961a00858f1071b90d12cca9f114284707fb82d30255",
+          "url": "https://github.com/Aider-AI/polyglot-benchmark/blob/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/simple-linked-list/simple-linked-list.spec.js"
+        }
+      ]
+    },
+    {
+      "stratum": "medium",
+      "id": "react",
+      "repository": "Aider-AI/polyglot-benchmark",
+      "revision": "7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f",
+      "reviewed_files": [
+        {
+          "path": "javascript/exercises/practice/react/.docs/instructions.md",
+          "sha256": "2d227f7e0b99585c441704993f1ed93009b946ec1ab46c3e9cde89e4dbee500b",
+          "url": "https://github.com/Aider-AI/polyglot-benchmark/blob/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/react/.docs/instructions.md"
+        },
+        {
+          "path": "javascript/exercises/practice/react/package.json",
+          "sha256": "8b88bd5734e80c620b26c775626afc2917ef472f9bb1dd39d10ccf228f685610",
+          "url": "https://github.com/Aider-AI/polyglot-benchmark/blob/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/react/package.json"
+        },
+        {
+          "path": "javascript/exercises/practice/react/react.spec.js",
+          "sha256": "cde02c69b89b28e6fba1fcb59903936f0ac3083c7ad39985d3ad15904734a4a8",
+          "url": "https://github.com/Aider-AI/polyglot-benchmark/blob/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/react/react.spec.js"
+        }
+      ]
+    },
+    {
+      "stratum": "medium",
+      "id": "rest-api",
+      "repository": "Aider-AI/polyglot-benchmark",
+      "revision": "7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f",
+      "reviewed_files": [
+        {
+          "path": "javascript/exercises/practice/rest-api/.docs/instructions.md",
+          "sha256": "bcbbaeccabfca6fa8e8958c623f2ac972205c94e69e7b6c61310201a9fd131b2",
+          "url": "https://github.com/Aider-AI/polyglot-benchmark/blob/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/rest-api/.docs/instructions.md"
+        },
+        {
+          "path": "javascript/exercises/practice/rest-api/package.json",
+          "sha256": "b94a16f4dcf8dafc432a7b78a50af957bf96f72cc9ec79f0368387d831cd78f5",
+          "url": "https://github.com/Aider-AI/polyglot-benchmark/blob/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/rest-api/package.json"
+        },
+        {
+          "path": "javascript/exercises/practice/rest-api/rest-api.spec.js",
+          "sha256": "7a830491ee5476ab4004321e0dba3bc0405be64b00e7655993d9626af417ad00",
+          "url": "https://github.com/Aider-AI/polyglot-benchmark/blob/7e0611e77b54e2dea774cdc0aa00cf9f7ed6144f/javascript/exercises/practice/rest-api/rest-api.spec.js"
+        }
+      ]
+    },
+    {
+      "stratum": "large",
+      "id": "payments-pipeline-fix",
+      "repository": "harbor-framework/terminal-bench",
+      "revision": "452bf305c6daa62fc59061d22133a7cbc7c1572e",
+      "reviewed_files": [
+        {
+          "path": "tasks/payments-pipeline-fix/instruction.md",
+          "sha256": "791a0b832032970263283374703c6fd7c4c6ba275d7d285c0bd362c0724a45c3",
+          "url": "https://github.com/harbor-framework/terminal-bench/blob/452bf305c6daa62fc59061d22133a7cbc7c1572e/tasks/payments-pipeline-fix/instruction.md"
+        },
+        {
+          "path": "tasks/payments-pipeline-fix/task.toml",
+          "sha256": "7434c9d7142d08ccf8ec31a4fddaeef79ab9d47fc24bfa577db16ebf73ec9e65",
+          "url": "https://github.com/harbor-framework/terminal-bench/blob/452bf305c6daa62fc59061d22133a7cbc7c1572e/tasks/payments-pipeline-fix/task.toml"
+        }
+      ]
+    },
+    {
+      "stratum": "large",
+      "id": "live-database-cutover",
+      "repository": "harbor-framework/terminal-bench",
+      "revision": "452bf305c6daa62fc59061d22133a7cbc7c1572e",
+      "reviewed_files": [
+        {
+          "path": "tasks/live-database-cutover/instruction.md",
+          "sha256": "7c466c3b181bdda2751d8af68af5d030802bce94d3e9ece62d755af4aa9ec27e",
+          "url": "https://github.com/harbor-framework/terminal-bench/blob/452bf305c6daa62fc59061d22133a7cbc7c1572e/tasks/live-database-cutover/instruction.md"
+        },
+        {
+          "path": "tasks/live-database-cutover/task.toml",
+          "sha256": "3d92be60d134825cdc7c0dc70603938c912200f96cb9c4ffb9d8a297192b5941",
+          "url": "https://github.com/harbor-framework/terminal-bench/blob/452bf305c6daa62fc59061d22133a7cbc7c1572e/tasks/live-database-cutover/task.toml"
+        }
+      ]
+    },
+    {
+      "stratum": "large",
+      "id": "wal-recovery-ordering",
+      "repository": "harbor-framework/terminal-bench",
+      "revision": "452bf305c6daa62fc59061d22133a7cbc7c1572e",
+      "reviewed_files": [
+        {
+          "path": "tasks/wal-recovery-ordering/instruction.md",
+          "sha256": "f8e44418b9cb1329b1ac226d88a03c8c9654c496e1a32950ce31d768139a4ad3",
+          "url": "https://github.com/harbor-framework/terminal-bench/blob/452bf305c6daa62fc59061d22133a7cbc7c1572e/tasks/wal-recovery-ordering/instruction.md"
+        },
+        {
+          "path": "tasks/wal-recovery-ordering/task.toml",
+          "sha256": "147d7d1f314a9a0240335984d8ecb025baed41cb4e80f352e82dfba37b174fe0",
+          "url": "https://github.com/harbor-framework/terminal-bench/blob/452bf305c6daa62fc59061d22133a7cbc7c1572e/tasks/wal-recovery-ordering/task.toml"
+        }
+      ]
+    }
+  ]
+}

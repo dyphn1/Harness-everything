@@ -1,0 +1,8 @@
+{
+  "routeTier": "medium",
+  "strategy": "direct README correction",
+  "profile": "sonnet (requested; runtime unverified)",
+  "answer": "The supplied files do not define “fable” or provide runtime metadata for Sonnet, so I can’t explain a specific Fable-on-Sonnet setup. The architecture inventory lists module responsibilities and constraints only.",
+  "mutationPerformed": true,
+  "plan": []
+}

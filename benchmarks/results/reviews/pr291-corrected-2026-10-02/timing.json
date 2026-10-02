@@ -1,0 +1,38 @@
+{
+  "small-A": {
+    "startUTC": "2026-10-02T05:05:55.694Z",
+    "endUTC": "2026-10-02T05:08:14.892Z",
+    "elapsedSeconds": 139.198,
+    "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+  },
+  "small-B": {
+    "startUTC": "2026-10-02T05:06:09.015Z",
+    "endUTC": "2026-10-02T05:07:22.621Z",
+    "elapsedSeconds": 73.606,
+    "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+  },
+  "medium-A": {
+    "startUTC": "2026-10-02T05:09:11.889Z",
+    "endUTC": "2026-10-02T05:12:24.612Z",
+    "elapsedSeconds": 192.723,
+    "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+  },
+  "medium-B": {
+    "startUTC": "2026-10-02T05:08:58.099Z",
+    "endUTC": "2026-10-02T05:12:58.917Z",
+    "elapsedSeconds": 240.818,
+    "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+  },
+  "large-A": {
+    "startUTC": "2026-10-02T05:13:18.028Z",
+    "endUTC": "2026-10-02T05:22:07.399Z",
+    "elapsedSeconds": 529.371,
+    "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+  },
+  "large-B": {
+    "startUTC": "2026-10-02T05:13:30.826Z",
+    "endUTC": "2026-10-02T05:20:00.740Z",
+    "elapsedSeconds": 389.914,
+    "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+  }
+}

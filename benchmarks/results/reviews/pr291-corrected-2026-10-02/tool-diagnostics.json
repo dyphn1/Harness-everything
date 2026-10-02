@@ -1,0 +1,36 @@
+[
+  {
+    "id": "small-A",
+    "toolOutputs": 5,
+    "nonzeroOrSyntaxDiagnostics": []
+  },
+  {
+    "id": "small-B",
+    "toolOutputs": 7,
+    "nonzeroOrSyntaxDiagnostics": []
+  },
+  {
+    "id": "medium-A",
+    "toolOutputs": 10,
+    "nonzeroOrSyntaxDiagnostics": []
+  },
+  {
+    "id": "medium-B",
+    "toolOutputs": 7,
+    "nonzeroOrSyntaxDiagnostics": [
+      "[{'type': 'input_text', 'text': 'Script failed\\nWall time 0.0 seconds\\nOutput:\\n'}, {'type': 'input_text', 'text': 'Script error:\\nSyntaxError: Unexpected end of input'}]"
+    ]
+  },
+  {
+    "id": "large-A",
+    "toolOutputs": 11,
+    "nonzeroOrSyntaxDiagnostics": [
+      "[{'type': 'input_text', 'text': 'Script failed\\nWall time 0.0 seconds\\nOutput:\\n'}, {'type': 'input_text', 'text': \"Script error:\\nSyntaxError: Unexpected identifier 'exit'\"}]"
+    ]
+  },
+  {
+    "id": "large-B",
+    "toolOutputs": 9,
+    "nonzeroOrSyntaxDiagnostics": []
+  }
+]

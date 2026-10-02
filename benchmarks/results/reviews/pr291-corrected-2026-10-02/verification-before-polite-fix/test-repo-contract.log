@@ -1,0 +1,5 @@
+
+> harness-everything@0.30.3 test:repo-contract
+> node ci/repository-contract.test.js
+
+Repository contract verified: runtime, lockfile, workflows, action majors, schedule, gates, and generated docs are synchronized.

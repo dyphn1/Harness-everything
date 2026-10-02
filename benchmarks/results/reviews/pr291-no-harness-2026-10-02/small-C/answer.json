@@ -1,0 +1,15 @@
+{
+  "routeTier": "light",
+  "strategy": "direct answer; no orchestration",
+  "profile": {
+    "requestedProfile": null,
+    "effectiveProfile": null,
+    "profileAlias": null,
+    "assignedRole": null,
+    "runtimeModel": null,
+    "runtimeEffort": null
+  },
+  "answer": "“fable on sonnect” may be a typo for “Fable on Sonnet,” but the supplied files don’t define that phrase or provide profile and runtime details to confirm its meaning.",
+  "mutationPerformed": false,
+  "plan": []
+}

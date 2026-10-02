@@ -1,0 +1,37 @@
+{
+  "protocol": "native agent lookup comparison; two batches, one baseline and one treatment each",
+  "baseCommit": "2716be9feb3e6b986c0f5da884ed4a686b95791b",
+  "modelRequested": "gpt-6-luna",
+  "reasoningEffortRequested": "xhigh",
+  "nativeAgentTasks": [
+    "lookup_baseline_1",
+    "lookup_fixed_1",
+    "lookup_baseline_2",
+    "lookup_fixed_2"
+  ],
+  "maxConcurrentComparisonAgents": 2,
+  "trialCount": 4,
+  "cacheTokens": null,
+  "monetaryCost": null,
+  "secondBatch": {
+    "baselineContextFileBytes": 4717,
+    "fixedContextFileBytes": 3571,
+    "fileByteReductionPercent": 24.3,
+    "baselineReferenceBytes": 2813,
+    "fixedReferenceBytes": 1377,
+    "baselineStrategy": "fable-staged",
+    "fixedStrategy": "direct-single"
+  },
+  "limitations": [
+    "First batch exploratory; treatment reread skill while it was compressed; excluded from byte comparison.",
+    "Second batch agents shortened the exact task to its explanation clause despite protocol; both used the same shortened prompt.",
+    "Final packaging subsequently qualified reference paths, revised the contract table and restored Deep dive; reference link markup was also repaired. Behavior dispatch is unchanged, but final file sizes differ from compared snapshots.",
+    "No provider token or cost telemetry is exposed for these native subagents; file-byte reduction is not cache-token or monetary savings.",
+    "Two repetitions per arm are qualitative evidence, not statistically established effectiveness.",
+    "The fixed compact reference includes a concrete canonical JSON example; answer changes cannot be attributed to routing alone.",
+    "Printed content bytes exclude runtime-executed source, tool output, inherited session context and hidden model reasoning."
+  ],
+  "fixCommit": "38dc7ebebcd70acddc00402d4a967108da7db883",
+  "finalSkillBytes": 2166,
+  "finalReferenceBytes": 1387
+}

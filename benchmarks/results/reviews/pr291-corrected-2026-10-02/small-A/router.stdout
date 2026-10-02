@@ -1,0 +1,34 @@
+[Tier Routing Pre-check]
+
+=> RECOMMENDED TIER: Tier 3 (Macro Task)
+=> RATIONALE: Prompt matched configured Tier 3 keyword: "fable".
+
+=> REQUESTED FABLE PROFILE: sonnect
+=> ROUTE: fable-mode/SKILL.md
+   Profile alias: sonnect; resolve behavior role plus advisory host runtime floor with fable-mode/scripts/model-selector.js.
+
+=> RECOMMENDED KNOWLEDGE GUIDES (Auto-loaded based on keywords):
+- git-commit/SKILL.md (Angular-style commit convention generation)
+- git-commit/guides/ANGULAR_STYLE.md (Commit conventions reference)
+- git-commit/guides/COMMIT_GENERATION.md (Commit generation patterns)
+- git-commit/guides/LANGUAGE_DETECTION.md (Multi-language commits)
+- git-commit/guides/MAIN_REPO.md (Commits in main repositories)
+- git-commit/guides/SUBMODULES.md (Submodule commit handling)
+- rewrite-commits/SKILL.md (Rewrite commit history safely to Angular style)
+- using-git-worktrees/SKILL.md (Git Worktrees isolation for feature work, avoids workspace pollution)
+- verification-loop/SKILL.md (Pre-PR verification gate: build, types, lint, tests, security scan)
+- fable-mode/SKILL.md (v3 staged execution, model selection, delegation, and verification)
+- fable-discipline/SKILL.md (Shadow guard preventing context bloat and managing token limits)
+- multi-agent-workspace/SKILL.md (Verified workspace scaffolding and bounded agency specialist selection)
+- repo-docs/templates/agents-template.md (Agent onboarding instructions template)
+- grill-with-docs/SKILL.md (Decision tracking, Glossary & ADR-driven design grilling)
+- fable-mode/model-matrix.json (Machine-readable Haiku/Sonnet/Opus roles and fallback policies)
+- fable-mode/scripts/model-selector.js (Deterministic model selection and execution audit record)
+- fable-mode/fable-haiku/SKILL.md (Haiku mode entrypoint)
+- fable-mode/fable-sonnet/SKILL.md (Sonnet mode entrypoint)
+- fable-mode/fable-opus/SKILL.md (Opus mode entrypoint)
+- environment-detection/SKILL.md (Detect active shell/OS & preflight syntax before running commands)
+
+=> WORKFLOW STRATEGY: fable-staged
+
+Treat the tier and strategy above as the default route. Explicit Human Partner choices/prohibitions win and are recorded in the plan; unavailable capabilities must remain visible rather than being silently downgraded.

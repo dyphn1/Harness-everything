@@ -1,0 +1,137 @@
+{
+  "routeTier": "tier3",
+  "strategy": "fable-staged",
+  "profile": {
+    "schemaVersion": 2,
+    "requestedInput": "opus",
+    "requestedProfile": "orchestrator",
+    "effectiveProfile": "orchestrator",
+    "profileAlias": "opus",
+    "assignedRole": "orchestrator",
+    "plannedAgent": "fable-orchestrator",
+    "agentAvailability": "unknown",
+    "status": "profile-resolved-for-planning; no agent launched",
+    "host": "unknown",
+    "runtimeModel": "unknown",
+    "runtimeEffort": "unknown",
+    "recommendedRuntimeFloor": "host-specific; cannot resolve while host is unknown",
+    "runtimeFloorStatus": "unknown",
+    "runtimeFloorReason": "The router did not report host, runtime model, or effort. The opus alias selects behavior and does not bind a runtime model."
+  },
+  "answer": "Plan only. Keep migration changes inside the six fixture-defined modules and their listed files. Preserve public signatures, tenant filtering, single-owner transaction lifecycle and shared handle, and stable job idempotency across retries. Run stages serially. No agent was launched. Resolve target test commands during read-only baseline discovery because the fixture does not provide them.",
+  "mutationPerformed": true,
+  "plan": {
+    "scope": {
+      "sourceMutationThisTurn": false,
+      "authorizedModuleFiles": [
+        "src/db/connection.js", "src/db/transaction.js",
+        "src/users/repository.js", "src/users/service.js",
+        "src/billing/repository.js", "src/billing/service.js",
+        "src/jobs/queue.js", "src/jobs/worker.js",
+        "src/http/server.js", "src/http/routes.js",
+        "test/users.test.js", "test/billing.test.js",
+        "test/jobs.test.js", "test/transactions.test.js"
+      ],
+      "readOnlySetupScope": ["in-scope module/test files", "existing test-runner configuration needed to identify commands"],
+      "scopeRule": "No other source or test files are writable. If a new file or wider scope is needed, stop for a scope decision."
+    },
+    "profileAssignments": [
+      {"agent": "fable-orchestrator", "profile": "orchestrator", "alias": "opus", "role": "Plan, hold scope, coordinate dependencies, synthesize results; do not implement."},
+      {"agent": "fable-worker-haiku", "profile": "mechanical", "alias": "haiku", "role": "Stage 1 only: add or refine characterization assertions in the four authorized test files."},
+      {"agent": "fable-worker-sonnet", "profile": "reasoning", "alias": "sonnet", "role": "Stages 2-6: implement injection seams sequentially within each write scope."},
+      {"agent": "fable-orchestrator", "profile": "orchestrator", "alias": "opus", "role": "Stage 7 read-only cold reviewer; implementation worker must not review its own work."}
+    ],
+    "delegationDisposition": "Assignments are planning placeholders. No worker was launched; host agent availability is unknown.",
+    "parallelism": {"allowed": false, "reason": "Routing disallows parallel work while dependencies or disjoint write sets are unproven. Run serially, including jobs, whose functional dependency is only on the database seam."},
+    "isolationDisposition": {
+      "requiredBefore": "first source or test mutation",
+      "mechanism": "verified linked Git worktree",
+      "currentTurn": "deferred because this is planning-only; only answer.json is written",
+      "executionPlan": "Before Stage 1, verify or create a linked worktree. If isolation cannot be established, stop before source mutation and record the degraded fallback and collision risk for human disposition."
+    },
+    "verificationCommandStatus": "Fixture has no package manifest or test-runner configuration. Stage 0 must identify existing commands without changing configuration; do not invent commands.",
+    "maxFullReplans": 2,
+    "stages": [
+      {
+        "id": "stage-0", "name": "Scope lock and baseline", "dependsOn": [], "owner": "fable-orchestrator",
+        "readScope": ["all fourteen authorized module/test paths", "read-only test-runner configuration"], "writeScope": [],
+        "artifact": "Baseline contract map and exact existing test commands in task state.",
+        "work": "Record public signatures, transaction owner and handle flow into billing provisioning, tenant-filter behavior, per-attempt job connection behavior, and retry-key source. Run baseline tests and record pre-existing failures.",
+        "passCondition": "Each invariant has a source/test location and baseline evidence; exact commands are known. Replan if fixture contracts differ from source behavior or baseline failures make characterization unsafe.",
+        "failableChecks": ["Fail if an invariant has no baseline location.", "Fail if tenant filtering, transaction ownership, retry-key stability, or public signatures cannot be determined.", "Fail if commands are guessed rather than read from existing configuration."],
+        "verificationCommand": "Existing project-native baseline test command(s), discovered read-only in this stage.", "verifierResult": "pending"
+      },
+      {
+        "id": "stage-1", "name": "Characterization tests", "dependsOn": ["stage-0"], "owner": "fable-worker-haiku",
+        "readScope": ["all ten in-scope src paths", "all four in-scope test paths"],
+        "writeScope": ["test/users.test.js", "test/billing.test.js", "test/jobs.test.js", "test/transactions.test.js"],
+        "artifact": "Green characterization assertions for all preserved contracts.",
+        "work": "Add only missing assertions: cross-tenant lookup is rejected; one transaction owner commits or rolls back while borrowers share its handle; billing provisioning uses that handle and charge keeps its API; retries reacquire connections and reuse one idempotency key; route signatures remain compatible.",
+        "passCondition": "Characterization tests pass against unchanged implementation; no source module is changed.",
+        "failableChecks": ["Fail if getUser(id, tenantId) can return another tenant's record.", "Fail if a borrower owns commit/rollback or billing receives a different provisioning handle.", "Fail if charge(id, cents, tenantId) or route signatures change.", "Fail if retries change the idempotency key or violate per-attempt acquisition."],
+        "verificationCommand": "Existing project-native test command for the four authorized test files, resolved in Stage 0.", "verifierResult": "pending"
+      },
+      {
+        "id": "stage-2", "name": "Database and transaction injection seam", "dependsOn": ["stage-1"], "owner": "fable-worker-sonnet",
+        "readScope": ["src/db/connection.js", "src/db/transaction.js", "test/transactions.test.js"],
+        "writeScope": ["src/db/connection.js", "src/db/transaction.js"],
+        "artifact": "Injected database seam with preserved pool and transaction lifecycle semantics.",
+        "work": "Add the narrowest provider/factory seam supported by existing code. Preserve singleton pool behavior; keep begin/commit/rollback at the owning boundary and pass the same handle to borrowers.",
+        "passCondition": "Dependencies can be supplied at composition without changing transaction ownership or the connection/transaction contract.",
+        "failableChecks": ["Fail if a borrower commits or rolls back.", "Fail if success does not commit once or failure does not roll back once at the owner.", "Fail if calls create duplicate pools or lose the shared handle."],
+        "verificationCommand": "Stage 0 transaction-test command for test/transactions.test.js.", "verifierResult": "pending"
+      },
+      {
+        "id": "stage-3", "name": "Users repository and service injection", "dependsOn": ["stage-2"], "owner": "fable-worker-sonnet",
+        "readScope": ["src/users/repository.js", "src/users/service.js", "src/db/connection.js", "test/users.test.js"],
+        "writeScope": ["src/users/repository.js", "src/users/service.js"],
+        "artifact": "Users service and repository wired through the injected database seam.",
+        "work": "Replace static connection access with injected dependencies; keep getUser(id, tenantId) unchanged and retain the tenant predicate.",
+        "passCondition": "Injected dependencies work and API compatibility and tenant isolation checks pass.",
+        "failableChecks": ["Fail if getUser signature changes.", "Fail if a relevant query omits or weakens the tenant filter.", "Fail if the service falls back to an unintended global connection."],
+        "verificationCommand": "Stage 0 users-test command for test/users.test.js.", "verifierResult": "pending"
+      },
+      {
+        "id": "stage-4", "name": "Billing injection and shared provisioning transaction", "dependsOn": ["stage-3"], "owner": "fable-worker-sonnet",
+        "readScope": ["src/billing/repository.js", "src/billing/service.js", "src/users/service.js", "src/db/transaction.js", "test/billing.test.js", "test/transactions.test.js"],
+        "writeScope": ["src/billing/repository.js", "src/billing/service.js"],
+        "artifact": "Billing dependencies injected with provisioning sharing the users transaction.",
+        "work": "Wire billing through injected dependencies and carry the users provisioning handle through billing; preserve charge(id, cents, tenantId).",
+        "passCondition": "Provisioning has one shared handle and one lifecycle owner; public charge API stays compatible.",
+        "failableChecks": ["Fail if billing starts or commits an independent transaction during provisioning.", "Fail if charge signature or tenant context changes.", "Fail if success/error paths violate Stage 2 lifecycle ownership."],
+        "verificationCommand": "Stage 0 billing and transaction test commands for test/billing.test.js and test/transactions.test.js.", "verifierResult": "pending"
+      },
+      {
+        "id": "stage-5", "name": "Job queue and worker injection", "dependsOn": ["stage-2"], "owner": "fable-worker-sonnet",
+        "readScope": ["src/jobs/queue.js", "src/jobs/worker.js", "src/db/connection.js", "test/jobs.test.js"],
+        "writeScope": ["src/jobs/queue.js", "src/jobs/worker.js"],
+        "artifact": "Injected job dependencies preserving retry and per-attempt acquisition behavior.",
+        "work": "Inject queue and worker dependencies while acquiring a connection at each attempt boundary and carrying the same idempotency key through retries.",
+        "passCondition": "Each attempt acquires as specified and retries reuse the job's stable key.",
+        "failableChecks": ["Fail if a retry uses a different idempotency key.", "Fail if a later attempt improperly reuses the prior connection.", "Fail if injection alters covered queue/worker behavior."],
+        "verificationCommand": "Stage 0 jobs-test command for test/jobs.test.js.", "verifierResult": "pending"
+      },
+      {
+        "id": "stage-6", "name": "HTTP composition-root wiring", "dependsOn": ["stage-3", "stage-4", "stage-5"], "owner": "fable-worker-sonnet",
+        "readScope": ["src/http/server.js", "src/http/routes.js", "all in-scope services", "all four in-scope tests"],
+        "writeScope": ["src/http/server.js", "src/http/routes.js"],
+        "artifact": "Composition root injects the graph while route handlers keep their signatures.",
+        "work": "Construct and inject dependencies at the composition root. Preserve route signatures and behavior; add no files outside the locked scope.",
+        "passCondition": "Server wiring uses the injected graph, route signatures match Stage 0 baseline, and the full existing suite passes.",
+        "failableChecks": ["Fail if an exported route signature differs from baseline.", "Fail if an in-scope consumer remains bound to an unintended static dependency.", "Fail if the full in-scope suite regresses."],
+        "verificationCommand": "Stage 0 full project test command plus read-only exported-signature comparison.", "verifierResult": "pending"
+      },
+      {
+        "id": "stage-7", "name": "Cold integration verification and independent review", "dependsOn": ["stage-6"], "owner": "fable-orchestrator",
+        "reviewer": "fable-orchestrator in a fresh review context; it did not implement module changes",
+        "readScope": ["all fourteen authorized module/test paths", "final diff and stage evidence"], "writeScope": [],
+        "artifact": "Independent findings and evidence-backed completion decision.",
+        "work": "Cold-run full verification, inspect each diff against its stage contract, and check API compatibility, tenant separation, transaction ownership/handle sharing, retry idempotency, and HTTP wiring. Return fixes to the owning stage and rerun affected checks.",
+        "passCondition": "No unresolved contract violation and all checks have actual passing output; otherwise record a finding and reopen the affected stage.",
+        "failableChecks": ["Fail if a source write exceeds its stage scope.", "Fail if a required invariant lacks passing test or signature evidence.", "Fail if the reviewer did not independently inspect diff and evidence."],
+        "verificationCommand": "Cold run of Stage 0 full project test commands plus read-only scope and diff audit.", "verifierResult": "pending"
+      }
+    ],
+    "replanTriggers": ["Fixture contracts differ from source behavior.", "A required change needs a path outside authorized scope.", "A recurring stage failure or one fix creating new failures; stop and rebuild the error picture before another edit.", "Isolation cannot be established before first source or test mutation."]
+  }
+}

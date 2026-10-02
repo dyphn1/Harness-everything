@@ -1,0 +1,50 @@
+
+> harness-everything@0.30.3 test:release
+> node ci/release-consistency-check.js && node ci/mechanism-2x-release-automation.test.js && node ci/mechanism-2x-release-commit-message.test.js && node ci/mechanism-2ap-sbom.test.js
+
+Release v0.30.3: 26 skill(s); current tree: 26 skill(s).
+  environment-detection: 3 file(s) in v0.30.3; 3 file(s) in current source
+  eval-harness: 3 file(s) in v0.30.3; 3 file(s) in current source
+  fable-discipline: 2 file(s) in v0.30.3; 2 file(s) in current source
+  fable-mode: 18 file(s) in v0.30.3; 21 file(s) in current source
+  find-skills: 3 file(s) in v0.30.3; 3 file(s) in current source
+  git-commit: 7 file(s) in v0.30.3; 7 file(s) in current source
+  grill-me: 2 file(s) in v0.30.3; 2 file(s) in current source
+  grill-with-docs: 4 file(s) in v0.30.3; 4 file(s) in current source
+  harness-everything: 30 file(s) in v0.30.3; 30 file(s) in current source
+  improve-codebase-architecture: 7 file(s) in v0.30.3; 7 file(s) in current source
+  install-cognitive-os: 2 file(s) in v0.30.3; 2 file(s) in current source
+  multi-agent-workspace: 35 file(s) in v0.30.3; 35 file(s) in current source
+  repo-docs: 12 file(s) in v0.30.3; 12 file(s) in current source
+  rewrite-commits: 2 file(s) in v0.30.3; 2 file(s) in current source
+  security-review: 5 file(s) in v0.30.3; 5 file(s) in current source
+  self-evolve: 7 file(s) in v0.30.3; 7 file(s) in current source
+  skill-creator: 6 file(s) in v0.30.3; 6 file(s) in current source
+  skill-style: 2 file(s) in v0.30.3; 2 file(s) in current source
+  tdd: 15 file(s) in v0.30.3; 15 file(s) in current source
+  to-spec: 8 file(s) in v0.30.3; 8 file(s) in current source
+  to-tickets: 2 file(s) in v0.30.3; 2 file(s) in current source
+  todo-driven-workflow: 2 file(s) in v0.30.3; 2 file(s) in current source
+  using-git-worktrees: 4 file(s) in v0.30.3; 4 file(s) in current source
+  verification-loop: 7 file(s) in v0.30.3; 7 file(s) in current source
+  verify-before-claim: 2 file(s) in v0.30.3; 2 file(s) in current source
+  zoom-out: 3 file(s) in v0.30.3; 3 file(s) in current source
+Checked 71 release-tag skill reference(s).
+Checked 70 current skill path reference(s).
+RELEASE SKILL CATALOG PASSED for v0.30.3; current source has the same logical skill catalog (26 release entries, 26 current directories after merges).
+warning: in the working copy of '.claude-plugin/marketplace.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'alpha/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'alpha/nested/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'beta/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'opencode-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'plugins/harness-everything/.codex-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'plugins/harness-everything/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'alpha/behavior.txt', LF will be replaced by CRLF the next time Git touches it
+Release automation contract verified: stable SemVer rules, full manifest lockstep, changed-skill versioning, drift detection, idempotency, and fail-before-write behavior.
+Release commit contract verified: compact message passes commitlint and legacy release-note embedding is rejected.
+CycloneDX SBOM verified: 123 lockfile components and npm pack inclusion.
+(node:448) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)

@@ -1,0 +1,13 @@
+[Tier Routing Pre-check]
+
+=> RECOMMENDED TIER: Tier 1 (Trivial)
+=> RATIONALE: Bounded behavior-profile lookup; select compact reference before execution.
+
+=> REQUESTED FABLE PROFILE: sonnect
+=> ROUTE: fable-mode/SKILL.md
+=> FABLE OPERATION: profile-lookup
+=> REFERENCES: fable-mode/references/profile-lookup.md only; no stage state or delegation.
+
+=> WORKFLOW STRATEGY: direct-single
+
+Treat the tier and strategy above as the default route. Explicit Human Partner choices/prohibitions win and are recorded in the plan; unavailable capabilities must remain visible rather than being silently downgraded.

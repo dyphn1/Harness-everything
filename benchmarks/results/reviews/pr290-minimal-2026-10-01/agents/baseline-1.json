@@ -1,0 +1,90 @@
+{
+  "answer": "‘Fable on sonnect’ is an accepted legacy alias selecting Fable’s reasoning behavior profile. It describes the work style and role; it does not select a branded runtime model. No runtime model or effort was supplied, so those fields are null.",
+  "selectionRecord": {
+    "requestedProfile": "sonnect",
+    "effectiveProfile": "reasoning",
+    "profileAlias": "sonnect",
+    "assignedRole": "reasoning worker",
+    "runtimeModel": null,
+    "runtimeEffort": null
+  },
+  "route": {
+    "commit": "2716be9feb3e6b986c0f5da884ed4a686b95791b",
+    "recommendedTier": "Tier 3 (Macro Task)",
+    "routerRationale": "Prompt matched configured Tier 3 keyword: fable",
+    "requestedFableProfile": "sonnect",
+    "entrypoint": "fable-mode/SKILL.md",
+    "workflowStrategy": "fable-staged",
+    "routerProfileNote": "Resolve behavior role plus advisory host runtime floor with fable-mode/scripts/model-selector.js"
+  },
+  "ledger": [
+    {
+      "path": "/private/tmp/harness-pr289-review/harness-everything/scripts/tier-router.js",
+      "bytesLoaded": 24742,
+      "load": "Executed by Node for routing; not directly printed"
+    },
+    {
+      "path": "/private/tmp/harness-pr289-review/fable-mode/SKILL.md",
+      "bytesLoaded": 1904,
+      "load": "Read with cat"
+    },
+    {
+      "path": "/private/tmp/harness-pr289-review/fable-mode/references/model-matrix.md",
+      "bytesLoaded": 2813,
+      "load": "Read with cat"
+    },
+    {
+      "path": "/private/tmp/harness-pr289-review/fable-mode/model-matrix.json",
+      "bytesLoaded": 295,
+      "load": "Read with cat"
+    },
+    {
+      "path": "/private/tmp/harness-pr289-review/fable-mode/fable-sonnet/SKILL.md",
+      "bytesLoaded": 1863,
+      "load": "Read with cat"
+    }
+  ],
+  "toolCalls": [
+    {
+      "tool": "functions.exec -> exec_command",
+      "command": "node harness-everything/scripts/tier-router.js \"Explain what 'fable on sonnect' means; return only a small JSON selection record with requestedProfile,effectiveProfile,profileAlias,assignedRole,runtimeModel,runtimeEffort. No runtime model/effort was supplied, no execution or delegation requested.\"",
+      "result": "Router output inspected: Tier 3, sonnect alias, fable-mode entrypoint, fable-staged strategy, recommended knowledge guides"
+    },
+    {
+      "tool": "functions.exec -> exec_command",
+      "command": "wc -c fable-mode/SKILL.md && cat fable-mode/SKILL.md",
+      "result": "Read canonical fable-mode contract"
+    },
+    {
+      "tool": "functions.exec -> exec_command (parallel)",
+      "command": "wc -c fable-mode/references/model-matrix.md && cat fable-mode/references/model-matrix.md",
+      "result": "Read current profile and runtime-floor mapping"
+    },
+    {
+      "tool": "functions.exec -> exec_command (parallel)",
+      "command": "wc -c fable-mode/model-matrix.json && cat fable-mode/model-matrix.json",
+      "result": "Read deprecated notice pointing to split current matrices"
+    },
+    {
+      "tool": "functions.exec -> exec_command (parallel)",
+      "command": "wc -c fable-mode/fable-sonnet/SKILL.md && cat fable-mode/fable-sonnet/SKILL.md",
+      "result": "Read alias-specific profile contract"
+    },
+    {
+      "tool": "functions.exec -> exec_command (parallel)",
+      "command": "git rev-parse HEAD",
+      "result": "Confirmed requested PR 289 SHA"
+    },
+    {
+      "tool": "functions.exec -> exec_command (parallel)",
+      "command": "wc -c harness-everything/scripts/tier-router.js",
+      "result": "Measured executed router script size"
+    }
+  ],
+  "contradictionsOrUnnecessaryLoads": [
+    "The Tier 3 / fable-staged recommendation is broader than needed for a read-only definition and selection record; the task explicitly requested no execution or delegation.",
+    "The router suggested many commit, worktree, implementation, and verification guides unrelated to answering this query; none were opened.",
+    "fable-mode/model-matrix.json is deprecated and only points to replacement files, so loading it was unnecessary.",
+    "fable-mode/fable-sonnet/SKILL.md repeats alias details already available in the canonical profile matrix; its read was useful for confirmation but not required for the minimal answer."
+  ]
+}

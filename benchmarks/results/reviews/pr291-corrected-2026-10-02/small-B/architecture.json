@@ -1,0 +1,54 @@
+{
+  "modules": [
+    {
+      "name": "database",
+      "files": [
+        "src/db/connection.js",
+        "src/db/transaction.js"
+      ],
+      "behavior": "Singleton pool; transaction owner commits/rolls back; callers borrow transaction handles."
+    },
+    {
+      "name": "users",
+      "files": [
+        "src/users/repository.js",
+        "src/users/service.js"
+      ],
+      "behavior": "Static connection import; getUser(id,tenantId) public API must retain tenant filter."
+    },
+    {
+      "name": "billing",
+      "files": [
+        "src/billing/repository.js",
+        "src/billing/service.js"
+      ],
+      "behavior": "Shares transaction with user provisioning; charge(id,cents,tenantId) is public."
+    },
+    {
+      "name": "jobs",
+      "files": [
+        "src/jobs/queue.js",
+        "src/jobs/worker.js"
+      ],
+      "behavior": "Worker acquires connection per attempt; retries preserve stable idempotency key."
+    },
+    {
+      "name": "http",
+      "files": [
+        "src/http/server.js",
+        "src/http/routes.js"
+      ],
+      "behavior": "Composition root may inject dependencies; route handler signatures remain unchanged."
+    },
+    {
+      "name": "tests",
+      "files": [
+        "test/users.test.js",
+        "test/billing.test.js",
+        "test/jobs.test.js",
+        "test/transactions.test.js"
+      ],
+      "behavior": "Test tenant separation, one-owner commit/rollback, retry idempotency and API compatibility."
+    }
+  ]
+}

@@ -216,6 +216,69 @@ if (validContract(explicitSonnect, 'explicit Fable sonnect alias')) {
   check(explicitSonnect.result.stdout.includes('REQUESTED FABLE PROFILE: sonnect'), 'router output preserves raw sonnect alias');
 }
 
+// #290: mentioning a profile in a bounded lookup must not launch orchestration.
+for (const prompt of [
+  "Explain what 'fable on sonnect' means; return only a small JSON selection record.",
+  "Resolve fable on haiku into a profile JSON record; no orchestration or delegation.",
+  "解釋 fable on opus 的意思，只回傳 JSON。",
+  "Explain what 'run fable on sonnect' means; return only JSON.",
+  'Explain fable on sonnet; return JSON with requestedProfile, effectiveProfile.',
+  "Explain what 'fable on sonnect' means; return only a small JSON selection record with requestedProfile, effectiveProfile, profileAlias, assignedRole, runtimeModel, runtimeEffort. No orchestration or delegation.",
+  'Explain fable on haiku; output JSON with `requestedProfile`, `runtimeModel` and `runtimeEffort`.',
+  '解釋 fable on opus 的意思，只回傳 JSON，包含 requestedProfile、effectiveProfile、runtimeEffort。',
+  "Explain what 'use fable on opus' means; no execution or model switching.",
+  'Explain fable on sonnet; return JSON; no stages, delegation or execution.',
+  '請說明 fable on sonnet 的意思，並只回傳含 requestedProfile 的 JSON。',
+  'Explain fable on sonnet, please return JSON.',
+  'Explain fable on sonnet and please return only JSON.',
+  '請說明 fable on sonnet，請只回傳 JSON。',
+]) {
+  const lookup = runTier(prompt);
+  const repeat = runTier(prompt);
+  if (validContract(lookup, 'bounded Fable lookup')) {
+    check(lookup.contract.classification.tier === 'tier1', 'lookup remains a bounded Tier 1 operation');
+    check(lookup.contract.workflowPlan.strategy === 'direct-single', 'lookup selects direct-single before loading references');
+    check(lookup.contract.workflowPlan.parallelism.allowed === false, 'lookup does not delegate');
+    check(lookup.result.stdout.includes('references/profile-lookup.md'), 'lookup selects only compact reference');
+    check(!lookup.result.stdout.includes('RECOMMENDED KNOWLEDGE GUIDES'), 'lookup omits unrelated keyword guides');
+    check(!lookup.result.stdout.includes('with fable-mode/scripts/model-selector.js'), 'lookup does not send agent to selector implementation');
+    check(JSON.stringify(lookup.contract) === JSON.stringify(repeat.contract), 'lookup contract is deterministic');
+  }
+}
+for (const prompt of [
+  'Use fable on sonnect to implement a multi-stage architecture migration.',
+  'Explain fable on opus and then implement a repository-wide migration.',
+  'Explain how to run fable-staged across all modules.',
+  'Explain fable on sonnet then run it to analyze security.',
+  'Explain fable on sonnet and analyze the authentication design.',
+  'Explain fable on sonnet; then send the findings to Slack.',
+  'Explain fable on sonnet and update README.',
+  'Explain fable on haiku, add a regression test.',
+  'Explain fable on opus and commit the documentation change.',
+  '說明 fable on sonnet 並更新 README。',
+  '解釋 fable on haiku，新增回歸測試。',
+  '解析 fable on opus 並刪除過期文件。',
+  'Explain fable on sonnet before updating README.',
+  'Explain fable on sonnet; return JSON after updating README.',
+  "Explain fable on sonnet before updating README.md to change 'Instalation' to 'Installation'.",
+  '解釋 fable on sonnet 後更新 README。',
+  'Explain fable on sonnet; no delegation before deleting stale files.',
+  'Explain fable on sonnet; return JSON with requestedProfile, update README.',
+  'Explain fable on sonnet; output JSON with requestedProfile and then publish the result.',
+  'Explain fable on sonnet; return JSON after restarting the server.',
+  'Explain fable on sonnet; no execution except updating README.',
+  'Explain fable on sonnet; provide a profile result while running the tests.',
+  'Explain fable on sonnet; return JSON with unknownField.',
+  'Explain fable on sonnet; some unknown continuation.',
+]) {
+  const execution = runTier(prompt);
+  if (validContract(execution, 'Fable execution boundary')) {
+    check(execution.contract.workflowPlan.strategy === 'fable-staged', 'execution/macro scope preserves staged topology');
+    check(!execution.contract.workflowPlan.reasonCodes.includes('fable-profile-lookup'), 'mixed execution never records the bounded lookup reason');
+    check(execution.contract.workflowPlan.requiredInvariants.includes('isolated-worktree-before-mutation'), 'execution retains isolation obligation');
+  }
+}
+
 const explicitOverride = runTier('Use iterative-single to audit the entire repository architecture.');
 if (validContract(explicitOverride, 'explicit strategy override')) {
   check(explicitOverride.contract.workflowPlan.strategy === 'iterative-single', 'explicit user strategy overrides derived Tier 3 topology');

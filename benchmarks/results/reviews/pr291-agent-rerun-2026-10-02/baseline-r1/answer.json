@@ -1,0 +1,12 @@
+{
+  "answer": {
+    "requestedProfile": "sonnect",
+    "effectiveProfile": "reasoning",
+    "profileAlias": "sonnect",
+    "assignedRole": "reasoning worker (fable-worker-sonnet)",
+    "runtimeModel": null,
+    "runtimeEffort": null
+  },
+  "notes": ["sonnect is an accepted legacy alias for the reasoning behavior profile; it does not select a runtime model. No runtime model or effort was supplied, and no execution or delegation was requested."],
+  "extraCommands": []
+}

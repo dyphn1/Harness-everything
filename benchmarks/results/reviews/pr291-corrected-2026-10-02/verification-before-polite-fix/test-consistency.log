@@ -1,0 +1,615 @@
+
+> harness-everything@0.30.3 test:consistency
+> node ci/consistency-check.js && node ci/doc-capability-consistency.test.js && node ci/repository-contract.test.js && node ci/mechanism-2ao-plugin-sync.test.js && node ci/prompt-contract-regressions.test.js
+
+✅ Found 26 skills on disk
+✅ environment-detection: frontmatter name matches directory
+✅ environment-detection: has description in frontmatter
+✅ environment-detection: has "## USE FOR:" section
+✅ environment-detection: has "## DO NOT USE FOR:" section
+✅ eval-harness: frontmatter name matches directory
+✅ eval-harness: has description in frontmatter
+✅ eval-harness: has "## USE FOR:" section
+✅ eval-harness: has "## DO NOT USE FOR:" section
+✅ fable-discipline: frontmatter name matches directory
+✅ fable-discipline: has description in frontmatter
+✅ fable-discipline: has "## USE FOR:" section
+✅ fable-discipline: has "## DO NOT USE FOR:" section
+✅ fable-mode: frontmatter name matches directory
+✅ fable-mode: has description in frontmatter
+✅ fable-mode: has "## USE FOR:" section
+✅ fable-mode: has "## DO NOT USE FOR:" section
+✅ find-skills: frontmatter name matches directory
+✅ find-skills: has description in frontmatter
+✅ find-skills: has "## USE FOR:" section
+✅ find-skills: has "## DO NOT USE FOR:" section
+✅ git-commit: frontmatter name matches directory
+✅ git-commit: has description in frontmatter
+✅ git-commit: has "## USE FOR:" section
+✅ git-commit: has "## DO NOT USE FOR:" section
+✅ grill-me: frontmatter name matches directory
+✅ grill-me: has description in frontmatter
+✅ grill-me: has "## USE FOR:" section
+✅ grill-me: has "## DO NOT USE FOR:" section
+✅ grill-with-docs: frontmatter name matches directory
+✅ grill-with-docs: has description in frontmatter
+✅ grill-with-docs: has "## USE FOR:" section
+✅ grill-with-docs: has "## DO NOT USE FOR:" section
+✅ harness-everything: frontmatter name matches directory
+✅ harness-everything: has description in frontmatter
+✅ harness-everything: has "## USE FOR:" section
+✅ harness-everything: has "## DO NOT USE FOR:" section
+✅ improve-codebase-architecture: frontmatter name matches directory
+✅ improve-codebase-architecture: has description in frontmatter
+✅ improve-codebase-architecture: has "## USE FOR:" section
+✅ improve-codebase-architecture: has "## DO NOT USE FOR:" section
+✅ install-cognitive-os: frontmatter name matches directory
+✅ install-cognitive-os: has description in frontmatter
+✅ install-cognitive-os: has "## USE FOR:" section
+✅ install-cognitive-os: has "## DO NOT USE FOR:" section
+✅ multi-agent-workspace: frontmatter name matches directory
+✅ multi-agent-workspace: has description in frontmatter
+✅ multi-agent-workspace: has "## USE FOR:" section
+✅ multi-agent-workspace: has "## DO NOT USE FOR:" section
+✅ repo-docs: frontmatter name matches directory
+✅ repo-docs: has description in frontmatter
+✅ repo-docs: has "## USE FOR:" section
+✅ repo-docs: has "## DO NOT USE FOR:" section
+✅ rewrite-commits: frontmatter name matches directory
+✅ rewrite-commits: has description in frontmatter
+✅ rewrite-commits: has "## USE FOR:" section
+✅ rewrite-commits: has "## DO NOT USE FOR:" section
+✅ security-review: frontmatter name matches directory
+✅ security-review: has description in frontmatter
+✅ security-review: has "## USE FOR:" section
+✅ security-review: has "## DO NOT USE FOR:" section
+✅ self-evolve: frontmatter name matches directory
+✅ self-evolve: has description in frontmatter
+✅ self-evolve: has "## USE FOR:" section
+✅ self-evolve: has "## DO NOT USE FOR:" section
+✅ skill-creator: frontmatter name matches directory
+✅ skill-creator: has description in frontmatter
+✅ skill-creator: has "## USE FOR:" section
+✅ skill-creator: has "## DO NOT USE FOR:" section
+✅ skill-style: frontmatter name matches directory
+✅ skill-style: has description in frontmatter
+✅ skill-style: has "## USE FOR:" section
+✅ skill-style: has "## DO NOT USE FOR:" section
+✅ tdd: frontmatter name matches directory
+✅ tdd: has description in frontmatter
+✅ tdd: has "## USE FOR:" section
+✅ tdd: has "## DO NOT USE FOR:" section
+✅ to-spec: frontmatter name matches directory
+✅ to-spec: has description in frontmatter
+✅ to-spec: has "## USE FOR:" section
+✅ to-spec: has "## DO NOT USE FOR:" section
+✅ to-tickets: frontmatter name matches directory
+✅ to-tickets: has description in frontmatter
+✅ to-tickets: has "## USE FOR:" section
+✅ to-tickets: has "## DO NOT USE FOR:" section
+✅ todo-driven-workflow: frontmatter name matches directory
+✅ todo-driven-workflow: has description in frontmatter
+✅ todo-driven-workflow: has "## USE FOR:" section
+✅ todo-driven-workflow: has "## DO NOT USE FOR:" section
+✅ using-git-worktrees: frontmatter name matches directory
+✅ using-git-worktrees: has description in frontmatter
+✅ using-git-worktrees: has "## USE FOR:" section
+✅ using-git-worktrees: has "## DO NOT USE FOR:" section
+✅ verification-loop: frontmatter name matches directory
+✅ verification-loop: has description in frontmatter
+✅ verification-loop: has "## USE FOR:" section
+✅ verification-loop: has "## DO NOT USE FOR:" section
+✅ verify-before-claim: frontmatter name matches directory
+✅ verify-before-claim: has description in frontmatter
+✅ verify-before-claim: has "## USE FOR:" section
+✅ verify-before-claim: has "## DO NOT USE FOR:" section
+✅ zoom-out: frontmatter name matches directory
+✅ zoom-out: has description in frontmatter
+✅ zoom-out: has "## USE FOR:" section
+✅ zoom-out: has "## DO NOT USE FOR:" section
+✅ environment-detection: frontmatter YAML syntax valid
+✅ eval-harness: frontmatter YAML syntax valid
+✅ fable-discipline: frontmatter YAML syntax valid
+✅ fable-mode: frontmatter YAML syntax valid
+✅ find-skills: frontmatter YAML syntax valid
+✅ git-commit: frontmatter YAML syntax valid
+✅ grill-me: frontmatter YAML syntax valid
+✅ grill-with-docs: frontmatter YAML syntax valid
+✅ harness-everything: frontmatter YAML syntax valid
+✅ improve-codebase-architecture: frontmatter YAML syntax valid
+✅ install-cognitive-os: frontmatter YAML syntax valid
+✅ multi-agent-workspace: frontmatter YAML syntax valid
+✅ repo-docs: frontmatter YAML syntax valid
+✅ rewrite-commits: frontmatter YAML syntax valid
+✅ security-review: frontmatter YAML syntax valid
+✅ self-evolve: frontmatter YAML syntax valid
+✅ skill-creator: frontmatter YAML syntax valid
+✅ skill-style: frontmatter YAML syntax valid
+✅ tdd: frontmatter YAML syntax valid
+✅ to-spec: frontmatter YAML syntax valid
+✅ to-tickets: frontmatter YAML syntax valid
+✅ todo-driven-workflow: frontmatter YAML syntax valid
+✅ using-git-worktrees: frontmatter YAML syntax valid
+✅ verification-loop: frontmatter YAML syntax valid
+✅ verify-before-claim: frontmatter YAML syntax valid
+✅ zoom-out: frontmatter YAML syntax valid
+Checked disclosure for 26 skill(s) and 26 workflow doc(s).
+✅ zoom-out/references/circuit-breaker.md: retired enforcement claim absent (/breaker hard-locks/i)
+✅ zoom-out/references/circuit-breaker.md: retired enforcement claim absent (/clears a hard lock/i)
+✅ zoom-out/SKILL.md: retired enforcement claim absent (/reset only after the second cycle/i)
+✅ zoom-out/SKILL.md: retired enforcement claim absent (/Clear a repeated breaker cycle with/i)
+✅ opencode-plugin/README.md: retired enforcement claim absent (/hard-locks the breaker/i)
+✅ fable-mode/agents/fable-orchestrator.md: retired enforcement claim absent (/machine-blocked as/i)
+✅ fable-mode/agents/fable-orchestrator.md: retired enforcement claim absent (/replan-budget-exhausted/i)
+✅ harness-everything/references/router-workflow-plan.md: retired enforcement claim absent (/explicit iteration budget/i)
+✅ harness-everything/references/router-workflow-plan.md: retired enforcement claim absent (/policy bound chosen for control/i)
+✅ behavioral-evals/PAIRED-BENCHMARK.md: retired enforcement claim absent (/retained hard-lock preflight/i)
+✅ behavioral-evals/README.md: retired enforcement claim absent (/## OpenCode hard-lock live evidence/i)
+✅ behavioral-evals/README.md: retired enforcement claim absent (/pre-reset .*hardLock/i)
+✅ retired-claim scan: hard-lock escalation absent across the agent-facing surface
+✅ retired-claim scan: reset gated on a second cycle absent across the agent-facing surface
+✅ retired-claim scan: cycle-escalation reset branch absent across the agent-facing surface
+✅ retired-claim scan: machine-blocked disposition absent across the agent-facing surface
+✅ retired-claim scan: replan budget absent across the agent-facing surface
+✅ retired-claim scan: runtime worker leases absent across the agent-facing surface
+✅ retired-claim scan: retired loop-budget invariant absent across the agent-facing surface
+✅ retired-claim scan: explicit iteration budget absent across the agent-facing surface
+Scanned 321 file(s) for retired advisory-contract claims.
+✅ .claude-plugin/plugin.json exists
+✅ .claude-plugin/marketplace.json exists
+✅ plugin.json lists every on-disk skill
+✅ plugin.json lists no phantom skills
+✅ plugin.json hooks file exists
+✅ plugin.json agents entry is a .md file: ./fable-mode/agents/fable-orchestrator.md
+✅ plugin.json agents path exists: ./fable-mode/agents/fable-orchestrator.md
+✅ plugin.json agents entry is a .md file: ./fable-mode/agents/fable-verifier.md
+✅ plugin.json agents path exists: ./fable-mode/agents/fable-verifier.md
+✅ plugin.json agents entry is a .md file: ./fable-mode/agents/fable-worker-haiku.md
+✅ plugin.json agents path exists: ./fable-mode/agents/fable-worker-haiku.md
+✅ plugin.json agents entry is a .md file: ./fable-mode/agents/fable-worker-sonnet.md
+✅ plugin.json agents path exists: ./fable-mode/agents/fable-worker-sonnet.md
+✅ plugin.json skill path resolves: ./multi-agent-workspace
+✅ plugin.json skill path resolves: ./environment-detection
+✅ plugin.json skill path resolves: ./eval-harness
+✅ plugin.json skill path resolves: ./fable-discipline
+✅ plugin.json skill path resolves: ./fable-mode
+✅ plugin.json skill path resolves: ./find-skills
+✅ plugin.json skill path resolves: ./git-commit
+✅ plugin.json skill path resolves: ./grill-me
+✅ plugin.json skill path resolves: ./grill-with-docs
+✅ plugin.json skill path resolves: ./harness-everything
+✅ plugin.json skill path resolves: ./improve-codebase-architecture
+✅ plugin.json skill path resolves: ./install-cognitive-os
+✅ plugin.json skill path resolves: ./repo-docs
+✅ plugin.json skill path resolves: ./rewrite-commits
+✅ plugin.json skill path resolves: ./security-review
+✅ plugin.json skill path resolves: ./self-evolve
+✅ plugin.json skill path resolves: ./skill-creator
+✅ plugin.json skill path resolves: ./skill-style
+✅ plugin.json skill path resolves: ./tdd
+✅ plugin.json skill path resolves: ./to-spec
+✅ plugin.json skill path resolves: ./to-tickets
+✅ plugin.json skill path resolves: ./todo-driven-workflow
+✅ plugin.json skill path resolves: ./using-git-worktrees
+✅ plugin.json skill path resolves: ./verification-loop
+✅ plugin.json skill path resolves: ./verify-before-claim
+✅ plugin.json skill path resolves: ./zoom-out
+✅ version agrees: package.json vs plugin.json
+✅ marketplace.json references this plugin
+✅ version agrees: package.json vs marketplace.json
+✅ environment-detection: has routing eval (evals/environment-detection/eval.yaml)
+✅ eval-harness: has routing eval (evals/eval-harness/eval.yaml)
+✅ fable-discipline: has routing eval (evals/fable-discipline/eval.yaml)
+✅ fable-mode: has routing eval (evals/fable-mode/eval.yaml)
+✅ find-skills: has routing eval (evals/find-skills/eval.yaml)
+✅ git-commit: has routing eval (evals/git-commit/eval.yaml)
+✅ grill-me: has routing eval (evals/grill-me/eval.yaml)
+✅ grill-with-docs: has routing eval (evals/grill-with-docs/eval.yaml)
+✅ harness-everything: has routing eval (evals/harness-everything/eval.yaml)
+✅ improve-codebase-architecture: has routing eval (evals/improve-codebase-architecture/eval.yaml)
+✅ install-cognitive-os: has routing eval (evals/install-cognitive-os/eval.yaml)
+✅ multi-agent-workspace: has routing eval (evals/multi-agent-workspace/eval.yaml)
+✅ repo-docs: has routing eval (evals/repo-docs/eval.yaml)
+✅ rewrite-commits: has routing eval (evals/rewrite-commits/eval.yaml)
+✅ security-review: has routing eval (evals/security-review/eval.yaml)
+✅ self-evolve: has routing eval (evals/self-evolve/eval.yaml)
+✅ skill-creator: has routing eval (evals/skill-creator/eval.yaml)
+✅ skill-style: has routing eval (evals/skill-style/eval.yaml)
+✅ tdd: has routing eval (evals/tdd/eval.yaml)
+✅ to-spec: has routing eval (evals/to-spec/eval.yaml)
+✅ to-tickets: has routing eval (evals/to-tickets/eval.yaml)
+✅ todo-driven-workflow: has routing eval (evals/todo-driven-workflow/eval.yaml)
+✅ using-git-worktrees: has routing eval (evals/using-git-worktrees/eval.yaml)
+✅ verification-loop: has routing eval (evals/verification-loop/eval.yaml)
+✅ verify-before-claim: has routing eval (evals/verify-before-claim/eval.yaml)
+✅ zoom-out: has routing eval (evals/zoom-out/eval.yaml)
+✅ package.json version parses (0.30.3)
+✅ environment-detection: skill version 0.19.1 <= package base 0.30.3
+✅ eval-harness: skill version 0.4.0 <= package base 0.30.3
+✅ fable-discipline: skill version 0.4.0 <= package base 0.30.3
+✅ fable-mode: skill version 0.30.2 <= package base 0.30.3
+✅ find-skills: skill version 0.19.1 <= package base 0.30.3
+✅ git-commit: skill version 0.27.0 <= package base 0.30.3
+✅ grill-me: skill version 0.4.0 <= package base 0.30.3
+✅ grill-with-docs: skill version 0.12.0 <= package base 0.30.3
+✅ harness-everything: skill version 0.30.3 <= package base 0.30.3
+✅ improve-codebase-architecture: skill version 0.30.3 <= package base 0.30.3
+✅ install-cognitive-os: skill version 0.19.1 <= package base 0.30.3
+✅ multi-agent-workspace: skill version 0.13.0 <= package base 0.30.3
+✅ repo-docs: skill version 0.4.0 <= package base 0.30.3
+✅ rewrite-commits: skill version 0.19.1 <= package base 0.30.3
+✅ security-review: skill version 0.4.0 <= package base 0.30.3
+✅ self-evolve: skill version 0.12.0 <= package base 0.30.3
+✅ skill-creator: skill version 0.13.0 <= package base 0.30.3
+✅ skill-style: skill version 0.30.2 <= package base 0.30.3
+✅ tdd: skill version 0.13.0 <= package base 0.30.3
+✅ to-spec: skill version 0.12.0 <= package base 0.30.3
+✅ to-tickets: skill version 0.19.1 <= package base 0.30.3
+✅ todo-driven-workflow: skill version 0.4.0 <= package base 0.30.3
+✅ using-git-worktrees: skill version 0.27.0 <= package base 0.30.3
+✅ verification-loop: skill version 0.26.0 <= package base 0.30.3
+✅ verify-before-claim: skill version 0.4.0 <= package base 0.30.3
+✅ zoom-out: skill version 0.16.2 <= package base 0.30.3
+✅ fable-mode\execution-guardrails\SKILL.md: nested sub-skill inherits parent version (0.30.2)
+✅ fable-mode\fable-haiku\SKILL.md: nested sub-skill inherits parent version (0.30.2)
+✅ fable-mode\fable-opus\SKILL.md: nested sub-skill inherits parent version (0.30.2)
+✅ fable-mode\fable-sonnet\SKILL.md: nested sub-skill inherits parent version (0.30.2)
+✅ environment-detection: SKILL.md word count 234 <= 330
+✅ eval-harness: SKILL.md word count 175 <= 330
+✅ fable-discipline: SKILL.md word count 257 <= 330
+✅ fable-mode: SKILL.md word count 249 <= 330
+✅ find-skills: SKILL.md word count 188 <= 330
+✅ git-commit: SKILL.md word count 225 <= 330
+✅ grill-me: SKILL.md word count 239 <= 330
+✅ grill-with-docs: SKILL.md word count 211 <= 330
+✅ harness-everything: SKILL.md word count 208 <= 330
+✅ improve-codebase-architecture: SKILL.md word count 194 <= 330
+✅ install-cognitive-os: SKILL.md word count 240 <= 330
+✅ multi-agent-workspace: SKILL.md word count 221 <= 330
+✅ repo-docs: SKILL.md word count 201 <= 330
+✅ rewrite-commits: SKILL.md word count 255 <= 330
+✅ security-review: SKILL.md word count 214 <= 330
+✅ self-evolve: SKILL.md word count 179 <= 330
+✅ skill-creator: SKILL.md word count 225 <= 330
+✅ skill-style: SKILL.md word count 211 <= 330
+✅ tdd: SKILL.md word count 146 <= 330
+✅ to-spec: SKILL.md word count 200 <= 330
+✅ to-tickets: SKILL.md word count 256 <= 330
+✅ todo-driven-workflow: SKILL.md word count 212 <= 330
+✅ using-git-worktrees: SKILL.md word count 184 <= 330
+✅ verification-loop: SKILL.md word count 140 <= 330
+✅ verify-before-claim: SKILL.md word count 218 <= 330
+✅ zoom-out: SKILL.md word count 221 <= 330
+✅ link resolves: README.md -> docs/platform-capabilities.md
+✅ link resolves: README.md -> docs/repository-contract.md
+✅ link resolves: README.md -> docs/workflow-runtime.md
+✅ link resolves: README.md -> opencode-plugin/README.md
+✅ link resolves: README.md -> docs/openai-plugin.md
+✅ link resolves: README.md -> docs/platform-capabilities.md
+✅ link resolves: README.md -> opencode-plugin/
+✅ link resolves: README.md -> benchmarks/results/live-host/opencode-2026-09-16/README.md
+✅ link resolves: README.md -> opencode-plugin/index.mjs
+✅ link resolves: README.md -> docs/openai-plugin.md
+✅ link resolves: README.md -> docs/philosophy.md
+✅ link resolves: README.md -> docs/architecture.md
+✅ link resolves: README.md -> docs/enforcement-locks.md
+✅ link resolves: README.md -> docs/platform-capabilities.md
+✅ link resolves: README.md -> docs/repository-contract.md
+✅ link resolves: README.md -> docs/openai-plugin.md
+✅ link resolves: README.md -> docs/routing.md
+✅ link resolves: README.md -> docs/reflection.md
+✅ link resolves: README.md -> docs/audit.md
+✅ link resolves: README.md -> docs/system-one-routing.md
+✅ link resolves: README.md -> fable-mode/references/model-matrix.md
+✅ link resolves: README.md -> RELEASING.md
+✅ link resolves: README.md -> docs/release-evidence.md
+✅ link resolves: README.md -> docs/system-one-routing.md
+✅ link resolves: README.md -> benchmarks/results/system-one/pre-merge-review-2026-09-23/README.md
+✅ link resolves: README.md -> VERIFICATION.md
+✅ link resolves: README.md -> BENCHMARK_SOP.md
+✅ link resolves: README.md -> benchmarks/README.md
+✅ link resolves: README.md -> behavioral-evals/README.md
+✅ link resolves: README.md -> docs/repository-contract.md
+✅ link resolves: README.md -> docs/audit.md
+✅ link resolves: README.md -> docs/platform-capabilities.md
+✅ link resolves: README.md -> docs/audit.md
+✅ link resolves: docs\architecture.md -> platform-capabilities.md
+✅ link resolves: docs\architecture.md -> ../benchmarks/results/live-host/opencode-2026-09-16/README.md
+✅ link resolves: docs\audit.md -> ../VERIFICATION.md
+✅ link resolves: docs\audit.md -> platform-capabilities.md
+✅ link resolves: docs\enforcement-locks.md -> philosophy.md
+✅ link resolves: docs\mechanism-first-skill-mesh.md -> platform-capabilities.md
+✅ link resolves: docs\openai-plugin.md -> workflow-runtime.md
+✅ link resolves: docs\openai-plugin.md -> ../submission/openai/
+✅ link resolves: docs\openai-plugin.md -> platform-capabilities.md
+✅ link resolves: docs\philosophy.md -> platform-capabilities.md
+✅ link resolves: docs\philosophy.md -> mechanism-first-skill-mesh.md
+✅ link resolves: docs\philosophy.md -> platform-capabilities.md
+✅ link resolves: docs\platform-capabilities.md -> platform-compatibility.json
+✅ link resolves: docs\platform-capabilities.md -> workflow-runtime.md
+✅ link resolves: docs\platform-capabilities.md -> ../benchmarks/results/live-host/opencode-2026-09-16/README.md
+✅ link resolves: docs\platform-capabilities.md -> platform-compatibility.json
+✅ link resolves: docs\platform-capabilities.md -> ../benchmarks/results/live-host/opencode-2026-09-16/README.md
+✅ link resolves: docs\platform-capabilities.md -> system-one-routing.md
+✅ link resolves: docs\reflection.md -> platform-capabilities.md
+✅ link resolves: docs\release-evidence.md -> ../RELEASING.md
+✅ link resolves: docs\release-evidence.md -> repository-contract.md
+✅ link resolves: docs\routing.md -> system-one-observations.md
+✅ link resolves: docs\routing.md -> workflow-runtime.md
+✅ link resolves: docs\routing.md -> philosophy.md
+✅ link resolves: docs\system-one-corpus.md -> system-one-routing.md
+✅ link resolves: docs\system-one-corpus.md -> routing.md
+✅ link resolves: docs\system-one-intent-gates.md -> system-one-suggestion-gates.md
+✅ link resolves: docs\system-one-intent-gates.md -> system-one-intent.md
+✅ link resolves: docs\system-one-intent.md -> system-one-routing.md
+✅ link resolves: docs\system-one-intent.md -> system-one-corpus.md
+✅ link resolves: docs\system-one-intent.md -> system-one-training.md
+✅ link resolves: docs\system-one-intent.md -> system-one-routing.md
+✅ link resolves: docs\system-one-observations.md -> system-one-suggestion-gates.md
+✅ link resolves: docs\system-one-routing.md -> system-one-intent.md
+✅ link resolves: docs\system-one-routing.md -> ../benchmarks/results/system-one/harness-routing-v1-cpu-2026-09-24/README.md
+✅ link resolves: docs\system-one-routing.md -> ../benchmarks/results/system-one/cua-s1-forms-resident-async-cpu-2026-09-23/README.md
+✅ link resolves: docs\system-one-routing.md -> system-one-corpus.md
+✅ link resolves: docs\system-one-routing.md -> system-one-training.md
+✅ link resolves: docs\system-one-routing.md -> system-one-corpus.md
+✅ link resolves: docs\system-one-routing.md -> system-one-intent.md
+✅ link resolves: docs\system-one-routing.md -> system-one-suggestion-gates.md
+✅ link resolves: docs\system-one-routing.md -> system-one-suggestion-gates.md
+✅ link resolves: docs\system-one-suggestion-gates.md -> system-one-intent-gates.md
+✅ link resolves: docs\system-one-suggestion-gates.md -> system-one-routing.md
+✅ link resolves: docs\system-one-suggestion-gates.md -> system-one-intent.md
+✅ link resolves: docs\system-one-suggestion-gates.md -> system-one-intent-gates.md
+✅ link resolves: docs\system-one-training.md -> system-one-routing.md
+✅ link resolves: docs\system-one-training.md -> system-one-corpus.md
+✅ link resolves: docs\system-one-training.md -> system-one-corpus.md
+✅ link resolves: docs\system-one-training.md -> system-one-intent.md
+✅ link resolves: docs\system-one-training.md -> system-one-routing.md
+✅ link resolves: docs\system-one-training.md -> system-one-intent.md
+✅ link resolves: docs\troubleshooting.md -> platform-capabilities.md
+✅ link resolves: docs\troubleshooting.md -> repository-contract.md
+✅ link resolves: docs\troubleshooting.md -> openai-plugin.md
+✅ link resolves: docs\troubleshooting.md -> ../opencode-plugin/README.md
+✅ link resolves: docs\troubleshooting.md -> ../VERIFICATION.md
+
+Checked 90 local doc links.
+✅ environment-detection: SKILL.md word count 234 <= 500
+✅ eval-harness: SKILL.md word count 175 <= 500
+✅ fable-discipline: SKILL.md word count 257 <= 500
+✅ fable-mode: SKILL.md word count 249 <= 500
+✅ find-skills: SKILL.md word count 188 <= 500
+✅ git-commit: SKILL.md word count 225 <= 500
+✅ grill-me: SKILL.md word count 239 <= 500
+✅ grill-with-docs: SKILL.md word count 211 <= 500
+✅ harness-everything: SKILL.md word count 208 <= 500
+✅ improve-codebase-architecture: SKILL.md word count 194 <= 500
+✅ install-cognitive-os: SKILL.md word count 240 <= 500
+✅ multi-agent-workspace: SKILL.md word count 221 <= 500
+✅ repo-docs: SKILL.md word count 201 <= 500
+✅ rewrite-commits: SKILL.md word count 255 <= 500
+✅ security-review: SKILL.md word count 214 <= 500
+✅ self-evolve: SKILL.md word count 179 <= 500
+✅ skill-creator: SKILL.md word count 225 <= 500
+✅ skill-style: SKILL.md word count 211 <= 500
+✅ tdd: SKILL.md word count 146 <= 500
+✅ to-spec: SKILL.md word count 200 <= 500
+✅ to-tickets: SKILL.md word count 256 <= 500
+✅ todo-driven-workflow: SKILL.md word count 212 <= 500
+✅ using-git-worktrees: SKILL.md word count 184 <= 500
+✅ verification-loop: SKILL.md word count 140 <= 500
+✅ verify-before-claim: SKILL.md word count 218 <= 500
+✅ zoom-out: SKILL.md word count 221 <= 500
+✅ CHANGELOG.md exposes version headings
+✅ CHANGELOG 0.30.3: released heading has tag v0.30.3
+✅ CHANGELOG 0.30.2: released heading has tag v0.30.2
+✅ CHANGELOG 0.30.1: released heading has tag v0.30.1
+✅ CHANGELOG 0.30.0: released heading has tag v0.30.0
+✅ CHANGELOG 0.29.0: released heading has tag v0.29.0
+✅ CHANGELOG 0.28.0: released heading has tag v0.28.0
+✅ CHANGELOG 0.27.0: released heading has tag v0.27.0
+✅ CHANGELOG 0.26.0: released heading has tag v0.26.0
+✅ CHANGELOG 0.25.1: released heading has tag v0.25.1
+✅ CHANGELOG 0.25.0: released heading has tag v0.25.0
+✅ CHANGELOG 0.24.0: released heading has tag v0.24.0
+✅ CHANGELOG 0.23.0: released heading has tag v0.23.0
+✅ CHANGELOG 0.22.1: released heading has tag v0.22.1
+✅ CHANGELOG 0.22.0: released heading has tag v0.22.0
+✅ CHANGELOG 0.21.0: released heading has tag v0.21.0
+✅ CHANGELOG 0.20.7: released heading has tag v0.20.7
+✅ CHANGELOG 0.20.6: released heading has tag v0.20.6
+✅ CHANGELOG 0.20.5: released heading has tag v0.20.5
+✅ CHANGELOG 0.20.4: released heading has tag v0.20.4
+✅ CHANGELOG 0.20.3: released heading has tag v0.20.3
+✅ CHANGELOG 0.20.2: released heading has tag v0.20.2
+✅ CHANGELOG 0.20.1: released heading has tag v0.20.1
+✅ CHANGELOG 0.20.0: released heading has tag v0.20.0
+✅ CHANGELOG 0.19.1: released heading has tag v0.19.1
+✅ CHANGELOG 0.19.0: released heading has tag v0.19.0
+✅ CHANGELOG 0.18.1: released heading has tag v0.18.1
+✅ CHANGELOG 0.18.0: released heading has tag v0.18.0
+✅ CHANGELOG 0.17.0: released heading has tag v0.17.0
+✅ CHANGELOG 0.16.6: released heading has tag v0.16.6
+✅ CHANGELOG 0.16.5: released heading has tag v0.16.5
+✅ CHANGELOG 0.16.4: released heading has tag v0.16.4
+✅ CHANGELOG 0.16.3: released heading has tag v0.16.3
+✅ CHANGELOG 0.16.2: released heading has tag v0.16.2
+✅ CHANGELOG 0.16.1: released heading has tag v0.16.1
+✅ CHANGELOG 0.16.0: released heading has tag v0.16.0
+✅ CHANGELOG 0.15.0: released heading has tag v0.15.0
+✅ CHANGELOG 0.14.0: released heading has tag v0.14.0
+✅ CHANGELOG 0.13.0: released heading has tag v0.13.0
+✅ CHANGELOG 0.12.3: released heading has tag v0.12.3
+✅ CHANGELOG 0.12.2: released heading has tag v0.12.2
+✅ CHANGELOG 0.12.1: released heading has tag v0.12.1
+✅ CHANGELOG 0.12.0: released heading has tag v0.12.0
+✅ CHANGELOG 0.11.7: released heading has tag v0.11.7
+✅ CHANGELOG 0.11.6: released heading has tag v0.11.6
+✅ CHANGELOG 0.11.5: released heading has tag v0.11.5
+✅ CHANGELOG 0.11.4: released heading has tag v0.11.4
+✅ CHANGELOG 0.11.3: released heading has tag v0.11.3
+✅ CHANGELOG 0.11.2: released heading has tag v0.11.2
+✅ CHANGELOG 0.11.1: released heading has tag v0.11.1
+✅ CHANGELOG 0.11.0: released heading has tag v0.11.0
+✅ CHANGELOG 0.10.0: released heading has tag v0.10.0
+✅ CHANGELOG 0.9.0: released heading has tag v0.9.0
+✅ CHANGELOG 0.8.1: released heading has tag v0.8.1
+✅ CHANGELOG 0.8.0: released heading has tag v0.8.0
+✅ CHANGELOG 0.7.0: released heading has tag v0.7.0
+✅ CHANGELOG 0.6.1: released heading has tag v0.6.1
+✅ CHANGELOG 0.6.0: released heading has tag v0.6.0
+✅ CHANGELOG 0.5.3: released heading has tag v0.5.3
+✅ CHANGELOG 0.5.2: released heading has tag v0.5.2
+✅ CHANGELOG 0.5.1: released heading has tag v0.5.1
+✅ CHANGELOG 0.5.0: released heading has tag v0.5.0
+✅ CHANGELOG 0.4.4: released heading has tag v0.4.4
+✅ CHANGELOG 0.4.3: released heading has tag v0.4.3
+✅ CHANGELOG 0.4.2: released heading has tag v0.4.2
+✅ CHANGELOG 0.4.1: released heading has tag v0.4.1
+✅ CHANGELOG 0.4.0: released heading has tag v0.4.0
+OK CHANGELOG 0.3.7-beta: declared unreleased, no tag required
+✅ CHANGELOG 0.3.6: released heading has tag v0.3.6
+OK CHANGELOG 0.3.5-beta: declared unreleased, no tag required
+OK CHANGELOG 0.3.4-beta: declared unreleased, no tag required
+✅ CHANGELOG 0.3.3-beta: released heading has tag v0.3.3-beta
+✅ CHANGELOG 0.3.3-alpha: released heading has tag v0.3.3-alpha
+✅ CHANGELOG 0.3.2-alpha: released heading has tag v0.3.2-alpha
+✅ CHANGELOG 0.3.1-alpha: released heading has tag v0.3.1-alpha
+✅ CHANGELOG 0.3.0-beta: released heading has tag v0.3.0-beta
+✅ CHANGELOG 0.3.0-alpha: released heading has tag v0.3.0-alpha
+✅ CHANGELOG 0.2.1: released heading has tag v0.2.1
+✅ CHANGELOG 0.2.0: released heading has tag v0.2.0
+✅ CHANGELOG 0.2.0-beta: released heading has tag v0.2.0-beta
+✅ CHANGELOG 0.2.0-alpha: released heading has tag v0.2.0-alpha
+✅ CHANGELOG 0.1.0-beta: released heading has tag v0.1.0-beta
+✅ CHANGELOG 0.1.0-alpha: released heading has tag v0.1.0-alpha
+
+🎉 ALL CONSISTENCY CHECKS PASSED.
+✅ docs/platform-capabilities.md: local Codex plugin boundary
+✅ docs/platform-capabilities.md: public Skills-only boundary
+✅ docs/platform-capabilities.md: general Codex installer boundary
+✅ docs/platform-capabilities.md: Codex project skill target
+✅ docs/platform-capabilities.md: Continue global skill target
+✅ docs/platform-capabilities.md: Hermes global skill target
+✅ docs/platform-capabilities.md: Hermes trust boundary
+✅ docs/platform-capabilities.md: installer ownership boundary
+✅ docs/platform-capabilities.md: three-OS round-trip boundary
+✅ docs/platform-compatibility.json: machine-readable matrix format
+✅ docs/platform-compatibility.json: ten-dimension coverage
+✅ docs/platform-compatibility.json: official OpenAI source
+✅ docs/platform-compatibility.json: Continue unknown discovery boundary
+✅ README.md: local Codex plugin surface
+✅ README.md: public Skills-only distinction
+✅ README.md: canonical matrix link
+✅ README.md: Codex repo Agent Skills path
+✅ README.md: Continue native global skills path
+✅ README.md: Hermes native global skills path
+✅ README.md: installer round-trip evidence
+✅ AGENTS.md: canonical platform matrix rule
+✅ AGENTS.md: Codex local plugin distribution
+✅ AGENTS.md: public Skills-only boundary
+✅ BENCHMARK_SOP.md: behavior vs mechanism separation
+✅ BENCHMARK_SOP.md: Codex multi-surface distinction
+✅ docs/architecture.md: Codex local plugin host adapter
+✅ VERIFICATION.md: mechanism/behavior distinction
+✅ VERIFICATION.md: Codex local plugin verification surface
+✅ VERIFICATION.md: public Skills-only verification boundary
+✅ VERIFICATION.md: live-host evidence layer
+✅ VERIFICATION.md: Codex repo Agent Skills path
+✅ VERIFICATION.md: Continue native global skills path
+✅ VERIFICATION.md: Hermes native global skills path
+✅ docs/philosophy.md: platform-specific mechanism boundary
+✅ docs/philosophy.md: canonical capability link
+✅ docs/philosophy.md: automatic mechanism qualifier
+✅ docs/reflection.md: runtime state vs durable learning distinction
+✅ docs/reflection.md: Codex local plugin WAL boundary
+✅ docs/reflection.md: public Skills-only hook exclusion
+✅ docs/routing.md: host-specific enforcement boundary
+✅ docs/routing.md: no cross-host parity inference
+✅ docs/troubleshooting.md: Codex advisory installer troubleshooting
+✅ docs/troubleshooting.md: Codex local plugin troubleshooting
+✅ docs/troubleshooting.md: public Skills-only troubleshooting boundary
+✅ docs/openai-plugin.md: public submission excludes local hooks
+✅ submission/openai/README.md: submission excludes local hooks
+✅ README.md: OpenCode retained artifact path
+✅ README.md: OpenCode host/version/OS scope
+✅ README.md: OpenCode project .js scope
+✅ README.md: OpenCode loading and state evidence
+✅ README.md: OpenCode post-reset snapshot boundary
+✅ README.md: OpenCode operator-seeded reflection boundary
+✅ README.md: OpenCode hard-lock observation boundary
+✅ README.md: OpenCode missing blocked-tool trace
+✅ README.md: OpenCode unverified remainder
+✅ AGENTS.md: OpenCode retained artifact path
+✅ AGENTS.md: OpenCode host/version/OS scope
+✅ AGENTS.md: OpenCode project .js scope
+✅ AGENTS.md: OpenCode loading and state evidence
+✅ AGENTS.md: OpenCode post-reset snapshot boundary
+✅ AGENTS.md: OpenCode operator-seeded reflection boundary
+✅ AGENTS.md: OpenCode hard-lock observation boundary
+✅ AGENTS.md: OpenCode missing blocked-tool trace
+✅ AGENTS.md: OpenCode unverified remainder
+✅ BENCHMARK_SOP.md: OpenCode retained artifact path
+✅ BENCHMARK_SOP.md: OpenCode host/version/OS scope
+✅ BENCHMARK_SOP.md: OpenCode project .js scope
+✅ BENCHMARK_SOP.md: OpenCode loading and state evidence
+✅ BENCHMARK_SOP.md: OpenCode post-reset snapshot boundary
+✅ BENCHMARK_SOP.md: OpenCode operator-seeded reflection boundary
+✅ BENCHMARK_SOP.md: OpenCode hard-lock observation boundary
+✅ BENCHMARK_SOP.md: OpenCode missing blocked-tool trace
+✅ BENCHMARK_SOP.md: OpenCode unverified remainder
+✅ VERIFICATION.md: OpenCode retained artifact path
+✅ VERIFICATION.md: OpenCode host/version/OS scope
+✅ VERIFICATION.md: OpenCode project .js scope
+✅ VERIFICATION.md: OpenCode loading and state evidence
+✅ VERIFICATION.md: OpenCode post-reset snapshot boundary
+✅ VERIFICATION.md: OpenCode operator-seeded reflection boundary
+✅ VERIFICATION.md: OpenCode hard-lock observation boundary
+✅ VERIFICATION.md: OpenCode missing blocked-tool trace
+✅ VERIFICATION.md: OpenCode unverified remainder
+✅ docs/architecture.md: OpenCode retained artifact path
+✅ docs/architecture.md: OpenCode host/version/OS scope
+✅ docs/architecture.md: OpenCode project .js scope
+✅ docs/architecture.md: OpenCode loading and state evidence
+✅ docs/architecture.md: OpenCode post-reset snapshot boundary
+✅ docs/architecture.md: OpenCode operator-seeded reflection boundary
+✅ docs/architecture.md: OpenCode hard-lock observation boundary
+✅ docs/architecture.md: OpenCode missing blocked-tool trace
+✅ docs/architecture.md: OpenCode unverified remainder
+✅ docs/platform-capabilities.md: OpenCode retained artifact path
+✅ docs/platform-capabilities.md: OpenCode host/version/OS scope
+✅ docs/platform-capabilities.md: OpenCode project .js scope
+✅ docs/platform-capabilities.md: OpenCode loading and state evidence
+✅ docs/platform-capabilities.md: OpenCode post-reset snapshot boundary
+✅ docs/platform-capabilities.md: OpenCode operator-seeded reflection boundary
+✅ docs/platform-capabilities.md: OpenCode hard-lock observation boundary
+✅ docs/platform-capabilities.md: OpenCode missing blocked-tool trace
+✅ docs/platform-capabilities.md: OpenCode unverified remainder
+✅ docs/platform-compatibility.json: OpenCode retained artifact path
+✅ docs/platform-compatibility.json: OpenCode host/version/OS scope
+✅ docs/platform-compatibility.json: OpenCode project .js scope
+✅ docs/platform-compatibility.json: OpenCode loading and state evidence
+✅ docs/platform-compatibility.json: OpenCode post-reset snapshot boundary
+✅ docs/platform-compatibility.json: OpenCode operator-seeded reflection boundary
+✅ docs/platform-compatibility.json: OpenCode hard-lock observation boundary
+✅ docs/platform-compatibility.json: OpenCode missing blocked-tool trace
+✅ docs/platform-compatibility.json: OpenCode unverified remainder
+✅ opencode-plugin/README.md: OpenCode retained artifact path
+✅ opencode-plugin/README.md: OpenCode host/version/OS scope
+✅ opencode-plugin/README.md: OpenCode project .js scope
+✅ opencode-plugin/README.md: OpenCode loading and state evidence
+✅ opencode-plugin/README.md: OpenCode post-reset snapshot boundary
+✅ opencode-plugin/README.md: OpenCode operator-seeded reflection boundary
+✅ opencode-plugin/README.md: OpenCode hard-lock observation boundary
+✅ opencode-plugin/README.md: OpenCode missing blocked-tool trace
+✅ opencode-plugin/README.md: OpenCode unverified remainder
+✅ opencode-plugin/README.md: project install directory creation
+✅ opencode-plugin/README.md: global install directory creation
+✅ opencode-plugin/README.md: restart after installation
+✅ docs/audit.md: historical snapshot boundary
+✅ docs/audit.md: current platform matrix link
+✅ CHANGELOG.md: OpenAI/Codex plugin packaging release note
+✅ CHANGELOG.md: platform capability documentation drift gate release note
+
+Documentation capability consistency: PASSED
+Repository contract verified: runtime, lockfile, workflows, action majors, schedule, gates, and generated docs are synchronized.
+Native plugin sync verified: absent plugins install, installed plugins update, and unknown state fails closed.
+PASS: prompt contract regressions

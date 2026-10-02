@@ -1,0 +1,13 @@
+{"action":"route"}
+{"action":"read","file":"fable-discipline/SKILL.md"}
+{"action":"read","file":"architecture.json"}
+{"action":"read","file":"verification-loop/SKILL.md"}
+{"action":"read","file":"fable-mode/SKILL.md"}
+{"action":"read","file":"fable-mode/model-matrix.json"}
+{"action":"read","file":"fable-mode/scripts/model-selector.js"}
+{"action":"read","file":"using-git-worktrees/SKILL.md"}
+{"action":"read","file":"fable-mode/fable-opus/SKILL.md"}
+{"action":"read","file":"fable-mode/behavior-profile-matrix.json"}
+{"action":"read","file":"fable-mode/runtime-model-floor-matrix.json"}
+{"action":"read","file":"fable-mode/references/model-matrix.md"}
+{"action":"read","file":"tdd/SKILL.md"}

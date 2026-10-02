@@ -1,0 +1,125 @@
+{
+  "headRefOid": "7a0f72e584ee16396d98b5322bc25feef2b4644c",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:19:51Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855830",
+      "name": "self-regression (ubuntu-latest)",
+      "startedAt": "2026-10-02T05:18:27Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:22:13Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855772",
+      "name": "self-regression (windows-latest)",
+      "startedAt": "2026-10-02T05:18:28Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:20:12Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855693",
+      "name": "self-regression (macos-latest)",
+      "startedAt": "2026-10-02T05:18:31Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:19:38Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855814",
+      "name": "runtime-floor",
+      "startedAt": "2026-10-02T05:18:27Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:18:44Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855697",
+      "name": "release-semantics",
+      "startedAt": "2026-10-02T05:18:27Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:18:55Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855857",
+      "name": "skill-quality",
+      "startedAt": "2026-10-02T05:18:27Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:19:17Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855737",
+      "name": "consistency (ubuntu-latest)",
+      "startedAt": "2026-10-02T05:18:27Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:19:19Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855867",
+      "name": "consistency (windows-latest)",
+      "startedAt": "2026-10-02T05:18:28Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:19:05Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855727",
+      "name": "consistency (macos-latest)",
+      "startedAt": "2026-10-02T05:18:36Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:18:35Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855748",
+      "name": "installer-e2e (ubuntu-latest)",
+      "startedAt": "2026-10-02T05:18:27Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:18:58Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855715",
+      "name": "installer-e2e (windows-latest)",
+      "startedAt": "2026-10-02T05:18:28Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-02T05:18:49Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/dyphn1/Harness-everything/actions/runs/36968339221/job/110716855639",
+      "name": "installer-e2e (macos-latest)",
+      "startedAt": "2026-10-02T05:18:36Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    }
+  ]
+}

@@ -1,0 +1,820 @@
+{
+  "schemaVersion": "1.0.0",
+  "requirements": [
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "testProfile": "integration",
+      "source": {
+        "type": "SPEC",
+        "path": "docs/platform-capabilities.md",
+        "section": "Claude Code Fable entrypoint boundary",
+        "status": "AUTHORITATIVE"
+      },
+      "additionalSources": [],
+      "sourceConformance": "PASS",
+      "sourceValidity": "VALID",
+      "dimensions": {
+        "positiveParameters": {
+          "applicable": true,
+          "passed": 1,
+          "required": 1,
+          "percentage": 100,
+          "checks": [
+            {
+              "id": "supported-english-chinese-aliases",
+              "class": "supported-english-chinese-aliases",
+              "status": "PASS",
+              "evidence": "ci/router-workflow-plan.test.js (#290 regression block); verification/green-boundary.log; verification/tdd-evidence.json"
+            }
+          ]
+        },
+        "negativeParameters": {
+          "applicable": true,
+          "passed": 1,
+          "required": 1,
+          "percentage": 100,
+          "checks": [
+            {
+              "id": "mixed-execution-and-macro-scope",
+              "class": "mixed-execution-and-macro-scope",
+              "status": "PASS",
+              "evidence": "ci/router-workflow-plan.test.js (#290 regression block); verification/green-boundary.log; verification/tdd-evidence.json"
+            }
+          ]
+        },
+        "inputCompleteness": {
+          "applicable": true,
+          "passed": 2,
+          "required": 2,
+          "percentage": 100,
+          "checks": [
+            {
+              "id": "required",
+              "class": "required",
+              "status": "PASS",
+              "evidence": "ci/router-workflow-plan.test.js (#290 regression block); verification/green-boundary.log; verification/tdd-evidence.json"
+            },
+            {
+              "id": "boundary",
+              "class": "boundary",
+              "status": "PASS",
+              "evidence": "ci/router-workflow-plan.test.js (#290 regression block); verification/green-boundary.log; verification/tdd-evidence.json"
+            },
+            {
+              "id": "optional",
+              "class": "optional",
+              "status": "N/A",
+              "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+            },
+            {
+              "id": "omitted",
+              "class": "omitted",
+              "status": "N/A",
+              "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+            },
+            {
+              "id": "empty",
+              "class": "empty",
+              "status": "N/A",
+              "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+            },
+            {
+              "id": "null",
+              "class": "null",
+              "status": "N/A",
+              "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+            },
+            {
+              "id": "min",
+              "class": "min",
+              "status": "N/A",
+              "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+            },
+            {
+              "id": "max",
+              "class": "max",
+              "status": "N/A",
+              "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+            }
+          ]
+        },
+        "outputCompleteness": {
+          "applicable": true,
+          "passed": 5,
+          "required": 5,
+          "percentage": 100,
+          "checks": [
+            {
+              "id": "value",
+              "class": "value",
+              "status": "PASS",
+              "evidence": "ci/router-workflow-plan.test.js (#290 regression block); verification/green-boundary.log; verification/tdd-evidence.json"
+            },
+            {
+              "id": "type",
+              "class": "type",
+              "status": "PASS",
+              "evidence": "ci/router-workflow-plan.test.js (#290 regression block); verification/green-boundary.log; verification/tdd-evidence.json"
+            },
+            {
+              "id": "schema",
+              "class": "schema",
+              "status": "PASS",
+              "evidence": "ci/router-workflow-plan.test.js (#290 regression block); verification/green-boundary.log; verification/tdd-evidence.json"
+            },
+            {
+              "id": "required-field",
+              "class": "required-field",
+              "status": "PASS",
+              "evidence": "ci/router-workflow-plan.test.js (#290 regression block); verification/green-boundary.log; verification/tdd-evidence.json"
+            },
+            {
+              "id": "side-effect",
+              "class": "side-effect",
+              "status": "PASS",
+              "evidence": "ci/router-workflow-plan.test.js (#290 regression block); verification/green-boundary.log; verification/tdd-evidence.json"
+            },
+            {
+              "id": "prohibited-extra-field",
+              "class": "prohibited-extra-field",
+              "status": "N/A",
+              "reason": "No fields were added or prohibited; the existing router contract validator checks the schema."
+            }
+          ]
+        },
+        "errorHandling": {
+          "applicable": false,
+          "passed": 0,
+          "required": 0,
+          "percentage": null,
+          "reason": "The new branch introduces no error or rollback API; supported and unsupported prompt strings return the existing router contract. Contract-file emission and cleanup are exercised in output/determinism."
+        },
+        "unexpectedInput": {
+          "applicable": true,
+          "passed": 1,
+          "required": 1,
+          "percentage": 100,
+          "checks": [
+            {
+              "id": "unknown",
+              "class": "unknown",
+              "status": "PASS",
+              "evidence": "ci/router-workflow-plan.test.js (#290 regression block); verification/green-boundary.log; verification/tdd-evidence.json"
+            },
+            {
+              "id": "malformed",
+              "class": "malformed",
+              "status": "N/A",
+              "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+            },
+            {
+              "id": "extra",
+              "class": "extra",
+              "status": "N/A",
+              "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+            },
+            {
+              "id": "unsupported",
+              "class": "unsupported",
+              "status": "N/A",
+              "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+            },
+            {
+              "id": "out-of-range",
+              "class": "out-of-range",
+              "status": "N/A",
+              "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+            },
+            {
+              "id": "duplicate",
+              "class": "duplicate",
+              "status": "N/A",
+              "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+            },
+            {
+              "id": "wrong-type",
+              "class": "wrong-type",
+              "status": "N/A",
+              "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+            }
+          ]
+        },
+        "determinism": {
+          "applicable": true,
+          "passed": 2,
+          "required": 2,
+          "percentage": 100,
+          "matchingRuns": 2,
+          "totalRuns": 2,
+          "runs": [
+            {
+              "input": "Explain what 'fable on sonnect' means; return only a small JSON selection record.",
+              "exitStatus": 0,
+              "errorCategory": null,
+              "output": {
+                "schemaVersion": 1,
+                "routingStatus": "ok",
+                "classification": {
+                  "tier": "tier1",
+                  "label": "Tier 1 (Trivial)",
+                  "rationale": "Bounded behavior-profile lookup; select compact reference before execution.",
+                  "reasonCodes": [
+                    "fable-profile-lookup"
+                  ]
+                },
+                "taskShape": {
+                  "schemaVersion": 1,
+                  "scopeSize": "unknown",
+                  "estimatedStages": 1,
+                  "dependencyGraph": "unknown",
+                  "writeSetOverlap": "unknown",
+                  "domainDiversity": "single-domain",
+                  "expectedDuration": "one-turn",
+                  "reversibility": "unknown",
+                  "uncertainty": "low",
+                  "verificationRequirement": "basic",
+                  "hostCapabilities": {
+                    "subagents": "unknown",
+                    "parallelCalls": "unknown",
+                    "hooks": "unknown",
+                    "state": "unknown",
+                    "modelAvailability": "unknown"
+                  },
+                  "constraints": {
+                    "cost": "unspecified",
+                    "latency": "unspecified",
+                    "tokens": "unspecified",
+                    "concurrency": "unspecified"
+                  },
+                  "explicitRequest": {
+                    "fableProfile": "reasoning",
+                    "fableAlias": "sonnect",
+                    "strategy": null,
+                    "prohibitions": []
+                  },
+                  "observedSignals": {
+                    "macroScope": false,
+                    "trivialDocsEdit": false,
+                    "tier3Keyword": true,
+                    "tier2Keyword": false,
+                    "multipleTasks": false,
+                    "multipleSentences": false,
+                    "specificFile": false,
+                    "question": false,
+                    "independentWorkstreams": false,
+                    "readOnly": false,
+                    "disjointWrites": false,
+                    "sharedWrite": false,
+                    "dependentStages": false,
+                    "multiSession": false,
+                    "reusableSpecialists": false,
+                    "crossDomain": false,
+                    "highUncertainty": false,
+                    "irreversibleAction": false,
+                    "externalSideEffect": false,
+                    "memoryPersistenceRequested": false
+                  },
+                  "reasonCodes": [
+                    "fable-profile-lookup"
+                  ]
+                },
+                "workflowPlan": {
+                  "schemaVersion": 1,
+                  "routingStatus": "ok",
+                  "tier": "tier1",
+                  "strategy": "direct-single",
+                  "strategySelection": "selected",
+                  "patterns": [
+                    "router",
+                    "augmented-llm"
+                  ],
+                  "requiredInvariants": [
+                    "scope-lock",
+                    "environment-alignment",
+                    "verify-before-claim",
+                    "replan-after-repeated-failure",
+                    "visible-status-updates"
+                  ],
+                  "suggestedSkills": [],
+                  "actionGate": {
+                    "required": false,
+                    "reasonCodes": [],
+                    "approver": null,
+                    "disposition": null
+                  },
+                  "limits": {
+                    "maxIterations": null,
+                    "maxRevisionRounds": 2,
+                    "maxReplans": 2,
+                    "maxWorkers": 4
+                  },
+                  "parallelism": {
+                    "allowed": false,
+                    "requires": [
+                      "declared-dependsOn",
+                      "disjoint-writeSet"
+                    ],
+                    "reasonCodes": [
+                      "single-pass-topology"
+                    ]
+                  },
+                  "workspace": {
+                    "required": false,
+                    "reasonCodes": [
+                      "bounded-one-turn-work"
+                    ]
+                  },
+                  "memory": {
+                    "read": "none",
+                    "scope": "task-relevant-only",
+                    "write": "none"
+                  },
+                  "verification": {
+                    "mode": "verify-before-claim",
+                    "independent": false
+                  },
+                  "ensemble": null,
+                  "profileSelection": {
+                    "requested": "reasoning",
+                    "alias": "sonnect",
+                    "policy": "behavior-profile-with-advisory-runtime-floor"
+                  },
+                  "fallback": {
+                    "onMissingSubagents": "visible-inline-or-stop",
+                    "disposition": "none",
+                    "mode": "none",
+                    "reasonCodes": []
+                  },
+                  "reasonCodes": [
+                    "fable-profile-lookup",
+                    "tier1-bounded-single-pass"
+                  ]
+                }
+              },
+              "sideEffects": {
+                "createdFiles": [
+                  "determinism-contract.json"
+                ],
+                "changedFiles": [],
+                "deletedFiles": [
+                  "determinism-contract.json"
+                ],
+                "persistentState": {},
+                "events": [],
+                "logs": [
+                  "[Tier Routing Pre-check]\n\n=> RECOMMENDED TIER: Tier 1 (Trivial)\n=> RATIONALE: Bounded behavior-profile lookup; select compact reference before execution.\n\n=> REQUESTED FABLE PROFILE: sonnect\n=> ROUTE: fable-mode/SKILL.md\n=> FABLE OPERATION: profile-lookup\n=> REFERENCES: fable-mode/references/profile-lookup.md only; no stage state or delegation.\n\n=> WORKFLOW STRATEGY: direct-single\n\nTreat the tier and strategy above as the default route. Explicit Human Partner choices/prohibitions win and are recorded in the plan; unavailable capabilities must remain visible rather than being silently downgraded.\n"
+                ],
+                "externalCalls": []
+              },
+              "id": "run-1"
+            },
+            {
+              "input": "Explain what 'fable on sonnect' means; return only a small JSON selection record.",
+              "exitStatus": 0,
+              "errorCategory": null,
+              "output": {
+                "schemaVersion": 1,
+                "routingStatus": "ok",
+                "classification": {
+                  "tier": "tier1",
+                  "label": "Tier 1 (Trivial)",
+                  "rationale": "Bounded behavior-profile lookup; select compact reference before execution.",
+                  "reasonCodes": [
+                    "fable-profile-lookup"
+                  ]
+                },
+                "taskShape": {
+                  "schemaVersion": 1,
+                  "scopeSize": "unknown",
+                  "estimatedStages": 1,
+                  "dependencyGraph": "unknown",
+                  "writeSetOverlap": "unknown",
+                  "domainDiversity": "single-domain",
+                  "expectedDuration": "one-turn",
+                  "reversibility": "unknown",
+                  "uncertainty": "low",
+                  "verificationRequirement": "basic",
+                  "hostCapabilities": {
+                    "subagents": "unknown",
+                    "parallelCalls": "unknown",
+                    "hooks": "unknown",
+                    "state": "unknown",
+                    "modelAvailability": "unknown"
+                  },
+                  "constraints": {
+                    "cost": "unspecified",
+                    "latency": "unspecified",
+                    "tokens": "unspecified",
+                    "concurrency": "unspecified"
+                  },
+                  "explicitRequest": {
+                    "fableProfile": "reasoning",
+                    "fableAlias": "sonnect",
+                    "strategy": null,
+                    "prohibitions": []
+                  },
+                  "observedSignals": {
+                    "macroScope": false,
+                    "trivialDocsEdit": false,
+                    "tier3Keyword": true,
+                    "tier2Keyword": false,
+                    "multipleTasks": false,
+                    "multipleSentences": false,
+                    "specificFile": false,
+                    "question": false,
+                    "independentWorkstreams": false,
+                    "readOnly": false,
+                    "disjointWrites": false,
+                    "sharedWrite": false,
+                    "dependentStages": false,
+                    "multiSession": false,
+                    "reusableSpecialists": false,
+                    "crossDomain": false,
+                    "highUncertainty": false,
+                    "irreversibleAction": false,
+                    "externalSideEffect": false,
+                    "memoryPersistenceRequested": false
+                  },
+                  "reasonCodes": [
+                    "fable-profile-lookup"
+                  ]
+                },
+                "workflowPlan": {
+                  "schemaVersion": 1,
+                  "routingStatus": "ok",
+                  "tier": "tier1",
+                  "strategy": "direct-single",
+                  "strategySelection": "selected",
+                  "patterns": [
+                    "router",
+                    "augmented-llm"
+                  ],
+                  "requiredInvariants": [
+                    "scope-lock",
+                    "environment-alignment",
+                    "verify-before-claim",
+                    "replan-after-repeated-failure",
+                    "visible-status-updates"
+                  ],
+                  "suggestedSkills": [],
+                  "actionGate": {
+                    "required": false,
+                    "reasonCodes": [],
+                    "approver": null,
+                    "disposition": null
+                  },
+                  "limits": {
+                    "maxIterations": null,
+                    "maxRevisionRounds": 2,
+                    "maxReplans": 2,
+                    "maxWorkers": 4
+                  },
+                  "parallelism": {
+                    "allowed": false,
+                    "requires": [
+                      "declared-dependsOn",
+                      "disjoint-writeSet"
+                    ],
+                    "reasonCodes": [
+                      "single-pass-topology"
+                    ]
+                  },
+                  "workspace": {
+                    "required": false,
+                    "reasonCodes": [
+                      "bounded-one-turn-work"
+                    ]
+                  },
+                  "memory": {
+                    "read": "none",
+                    "scope": "task-relevant-only",
+                    "write": "none"
+                  },
+                  "verification": {
+                    "mode": "verify-before-claim",
+                    "independent": false
+                  },
+                  "ensemble": null,
+                  "profileSelection": {
+                    "requested": "reasoning",
+                    "alias": "sonnect",
+                    "policy": "behavior-profile-with-advisory-runtime-floor"
+                  },
+                  "fallback": {
+                    "onMissingSubagents": "visible-inline-or-stop",
+                    "disposition": "none",
+                    "mode": "none",
+                    "reasonCodes": []
+                  },
+                  "reasonCodes": [
+                    "fable-profile-lookup",
+                    "tier1-bounded-single-pass"
+                  ]
+                }
+              },
+              "sideEffects": {
+                "createdFiles": [
+                  "determinism-contract.json"
+                ],
+                "changedFiles": [],
+                "deletedFiles": [
+                  "determinism-contract.json"
+                ],
+                "persistentState": {},
+                "events": [],
+                "logs": [
+                  "[Tier Routing Pre-check]\n\n=> RECOMMENDED TIER: Tier 1 (Trivial)\n=> RATIONALE: Bounded behavior-profile lookup; select compact reference before execution.\n\n=> REQUESTED FABLE PROFILE: sonnect\n=> ROUTE: fable-mode/SKILL.md\n=> FABLE OPERATION: profile-lookup\n=> REFERENCES: fable-mode/references/profile-lookup.md only; no stage state or delegation.\n\n=> WORKFLOW STRATEGY: direct-single\n\nTreat the tier and strategy above as the default route. Explicit Human Partner choices/prohibitions win and are recorded in the plan; unavailable capabilities must remain visible rather than being silently downgraded.\n"
+                ],
+                "externalCalls": []
+              },
+              "id": "run-2"
+            }
+          ],
+          "normalizations": []
+        },
+        "sourceTraceability": {
+          "applicable": true,
+          "passed": 1,
+          "required": 1,
+          "traced": 1,
+          "total": 1,
+          "percentage": 100
+        }
+      },
+      "skippedTests": [],
+      "flakyTests": [],
+      "naDeclarations": [
+        {
+          "dimension": "inputCompleteness",
+          "checkId": "optional",
+          "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+        },
+        {
+          "dimension": "inputCompleteness",
+          "checkId": "omitted",
+          "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+        },
+        {
+          "dimension": "inputCompleteness",
+          "checkId": "empty",
+          "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+        },
+        {
+          "dimension": "inputCompleteness",
+          "checkId": "null",
+          "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+        },
+        {
+          "dimension": "inputCompleteness",
+          "checkId": "min",
+          "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+        },
+        {
+          "dimension": "inputCompleteness",
+          "checkId": "max",
+          "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+        },
+        {
+          "dimension": "outputCompleteness",
+          "checkId": "prohibited-extra-field",
+          "reason": "No fields were added or prohibited; the existing router contract validator checks the schema."
+        },
+        {
+          "dimension": "errorHandling",
+          "reason": "The new branch introduces no error or rollback API; supported and unsupported prompt strings return the existing router contract. Contract-file emission and cleanup are exercised in output/determinism."
+        },
+        {
+          "dimension": "unexpectedInput",
+          "checkId": "malformed",
+          "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+        },
+        {
+          "dimension": "unexpectedInput",
+          "checkId": "extra",
+          "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+        },
+        {
+          "dimension": "unexpectedInput",
+          "checkId": "unsupported",
+          "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+        },
+        {
+          "dimension": "unexpectedInput",
+          "checkId": "out-of-range",
+          "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+        },
+        {
+          "dimension": "unexpectedInput",
+          "checkId": "duplicate",
+          "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+        },
+        {
+          "dimension": "unexpectedInput",
+          "checkId": "wrong-type",
+          "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+        }
+      ],
+      "mandatoryGates": {
+        "applicableDimensionsExecuted": true,
+        "sourceTraceabilityComplete": true,
+        "noSourceMismatch": true,
+        "noSourceConflict": true,
+        "allRequiredInputOutputValidated": true,
+        "allDeclaredErrorPathsTested": true,
+        "integrationRepeated": true,
+        "deterministicOutputs": true,
+        "noSkippedOrFlakyTests": true,
+        "qualityScoreComplete": true
+      },
+      "scoring": {
+        "weights": {
+          "positiveParameters": 0.15,
+          "negativeParameters": 0.15,
+          "inputCompleteness": 0.15,
+          "outputCompleteness": 0.15,
+          "errorHandling": 0.15,
+          "unexpectedInput": 0.1,
+          "determinism": 0.1,
+          "sourceTraceability": 0.05
+        },
+        "method": "weightedPoints / applicableWeight",
+        "weightedPoints": 85,
+        "applicableWeight": 0.85,
+        "requiredScore": 100
+      },
+      "score": 100,
+      "result": "PASS"
+    }
+  ],
+  "dimensions": {
+    "positiveParameters": {
+      "applicable": true,
+      "passed": 1,
+      "required": 1,
+      "percentage": 100
+    },
+    "negativeParameters": {
+      "applicable": true,
+      "passed": 1,
+      "required": 1,
+      "percentage": 100
+    },
+    "inputCompleteness": {
+      "applicable": true,
+      "passed": 2,
+      "required": 2,
+      "percentage": 100
+    },
+    "outputCompleteness": {
+      "applicable": true,
+      "passed": 5,
+      "required": 5,
+      "percentage": 100
+    },
+    "errorHandling": {
+      "applicable": false,
+      "passed": 0,
+      "required": 0,
+      "percentage": null
+    },
+    "unexpectedInput": {
+      "applicable": true,
+      "passed": 1,
+      "required": 1,
+      "percentage": 100
+    },
+    "determinism": {
+      "applicable": true,
+      "passed": 2,
+      "required": 2,
+      "percentage": 100,
+      "matchingRuns": 2,
+      "totalRuns": 2
+    },
+    "sourceTraceability": {
+      "applicable": true,
+      "passed": 1,
+      "required": 1,
+      "percentage": 100,
+      "traced": 1,
+      "total": 1
+    }
+  },
+  "mandatoryGates": {
+    "applicableDimensionsExecuted": true,
+    "sourceTraceabilityComplete": true,
+    "noSourceMismatch": true,
+    "noSourceConflict": true,
+    "allRequiredInputOutputValidated": true,
+    "allDeclaredErrorPathsTested": true,
+    "integrationRepeated": true,
+    "deterministicOutputs": true,
+    "noSkippedOrFlakyTests": true,
+    "qualityScoreComplete": true
+  },
+  "skippedTests": [],
+  "naDeclarations": [
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "inputCompleteness",
+      "checkId": "optional",
+      "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "inputCompleteness",
+      "checkId": "omitted",
+      "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "inputCompleteness",
+      "checkId": "empty",
+      "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "inputCompleteness",
+      "checkId": "null",
+      "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "inputCompleteness",
+      "checkId": "min",
+      "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "inputCompleteness",
+      "checkId": "max",
+      "reason": "No new prompt API validation, optional parameter, or numeric/length constraint is introduced; this requirement applies only to supported string lookup prompts."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "outputCompleteness",
+      "checkId": "prohibited-extra-field",
+      "reason": "No fields were added or prohibited; the existing router contract validator checks the schema."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "errorHandling",
+      "reason": "The new branch introduces no error or rollback API; supported and unsupported prompt strings return the existing router contract. Contract-file emission and cleanup are exercised in output/determinism."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "unexpectedInput",
+      "checkId": "malformed",
+      "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "unexpectedInput",
+      "checkId": "extra",
+      "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "unexpectedInput",
+      "checkId": "unsupported",
+      "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "unexpectedInput",
+      "checkId": "out-of-range",
+      "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "unexpectedInput",
+      "checkId": "duplicate",
+      "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+    },
+    {
+      "requirementId": "ISSUE-290-PROFILE-LOOKUP",
+      "dimension": "unexpectedInput",
+      "checkId": "wrong-type",
+      "reason": "This scoped change introduces no new typed input interface; run() string API and host payload validation are unchanged. Unknown alias and mixed execution boundary are exercised."
+    }
+  ],
+  "scoring": {
+    "weights": {
+      "positiveParameters": 0.15,
+      "negativeParameters": 0.15,
+      "inputCompleteness": 0.15,
+      "outputCompleteness": 0.15,
+      "errorHandling": 0.15,
+      "unexpectedInput": 0.1,
+      "determinism": 0.1,
+      "sourceTraceability": 0.05
+    },
+    "method": "weightedPoints / applicableWeight",
+    "weightedPoints": 85,
+    "applicableWeight": 0.85,
+    "requiredScore": 100
+  },
+  "score": 100,
+  "result": "PASS",
+  "errors": []
+}

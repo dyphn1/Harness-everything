@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-02",
+  "arms": {
+    "A": "D:/GitHub/miya.daniel/Harness-pr291-base",
+    "B": "D:/GitHub/miya.daniel/Harness-pr291-review"
+  },
+  "commits": {
+    "A": "2716be9feb3e6b986c0f5da884ed4a686b95791b",
+    "B": "7a0f72e584ee16396d98b5322bc25feef2b4644c"
+  },
+  "model": "gpt-6-luna",
+  "effort": "xhigh",
+  "repetitions": 1,
+  "tasks": {
+    "small": "Explain what 'fable on sonnect' means; return only a small JSON selection record with requestedProfile, effectiveProfile, profileAlias, assignedRole, runtimeModel, runtimeEffort. No orchestration or delegation.",
+    "medium": "Explain fable on sonnet before updating README.md to change 'Instalation' to 'Installation'.",
+    "large": "Use fable on opus to plan a repository-wide dependency-injection migration for all six modules in architecture.json. Return an ordered stage plan with dependencies, authorized file scopes, named role assignments, failable verification checks, isolation disposition, and final independent review. Planning only; do not implement or delegate yet. Preserve transaction ownership, public API signatures, tenant isolation, and job retry behavior."
+  },
+  "scope": "Bounded instruction-surface probes. Large case is architecture planning, not full implementation or delegation. Medium may mutate only its isolated README fixture.",
+  "trials": [
+    {
+      "id": "small-A",
+      "size": "small",
+      "arm": "A",
+      "dir": "D:\\GitHub\\miya.daniel\\Harness-pr291-review\\benchmarks\\results\\reviews\\pr291-corrected-2026-10-02\\small-A",
+      "hashes": {
+        "task.txt": "7aea70de6429d23ac29a322c6047f21f5d0f5c74b7b1800d8b42364af88d2440",
+        "README.md": "a307abfda83bec3a7997fc3dbd17a2220df96587c1511eeed72e843d639d90ad",
+        "architecture.json": "f9c7cc33979e209424fcc0b5c0f1d6de7c521b838bca07248531e85ff8f9f8c5"
+      },
+      "agentPath": "/root/r2_small_a"
+    },
+    {
+      "id": "small-B",
+      "size": "small",
+      "arm": "B",
+      "dir": "D:\\GitHub\\miya.daniel\\Harness-pr291-review\\benchmarks\\results\\reviews\\pr291-corrected-2026-10-02\\small-B",
+      "hashes": {
+        "task.txt": "7aea70de6429d23ac29a322c6047f21f5d0f5c74b7b1800d8b42364af88d2440",
+        "README.md": "a307abfda83bec3a7997fc3dbd17a2220df96587c1511eeed72e843d639d90ad",
+        "architecture.json": "f9c7cc33979e209424fcc0b5c0f1d6de7c521b838bca07248531e85ff8f9f8c5"
+      },
+      "agentPath": "/root/r2_small_b"
+    },
+    {
+      "id": "medium-A",
+      "size": "medium",
+      "arm": "A",
+      "dir": "D:\\GitHub\\miya.daniel\\Harness-pr291-review\\benchmarks\\results\\reviews\\pr291-corrected-2026-10-02\\medium-A",
+      "hashes": {
+        "task.txt": "da99d6d3c5f115ad540a9930ce2ae41a733125ed4ca55bf5302e3dbaae49daad",
+        "README.md": "a307abfda83bec3a7997fc3dbd17a2220df96587c1511eeed72e843d639d90ad",
+        "architecture.json": "f9c7cc33979e209424fcc0b5c0f1d6de7c521b838bca07248531e85ff8f9f8c5"
+      },
+      "agentPath": "/root/r2_medium_a"
+    },
+    {
+      "id": "medium-B",
+      "size": "medium",
+      "arm": "B",
+      "dir": "D:\\GitHub\\miya.daniel\\Harness-pr291-review\\benchmarks\\results\\reviews\\pr291-corrected-2026-10-02\\medium-B",
+      "hashes": {
+        "task.txt": "da99d6d3c5f115ad540a9930ce2ae41a733125ed4ca55bf5302e3dbaae49daad",
+        "README.md": "a307abfda83bec3a7997fc3dbd17a2220df96587c1511eeed72e843d639d90ad",
+        "architecture.json": "f9c7cc33979e209424fcc0b5c0f1d6de7c521b838bca07248531e85ff8f9f8c5"
+      },
+      "agentPath": "/root/r2_medium_b"
+    },
+    {
+      "id": "large-A",
+      "size": "large",
+      "arm": "A",
+      "dir": "D:\\GitHub\\miya.daniel\\Harness-pr291-review\\benchmarks\\results\\reviews\\pr291-corrected-2026-10-02\\large-A",
+      "hashes": {
+        "task.txt": "fb2effa66f39b0066db18313e6c9518196ac2e9e4750776d904e2adac0bbf0aa",
+        "README.md": "a307abfda83bec3a7997fc3dbd17a2220df96587c1511eeed72e843d639d90ad",
+        "architecture.json": "f9c7cc33979e209424fcc0b5c0f1d6de7c521b838bca07248531e85ff8f9f8c5"
+      },
+      "agentPath": "/root/r2_large_a"
+    },
+    {
+      "id": "large-B",
+      "size": "large",
+      "arm": "B",
+      "dir": "D:\\GitHub\\miya.daniel\\Harness-pr291-review\\benchmarks\\results\\reviews\\pr291-corrected-2026-10-02\\large-B",
+      "hashes": {
+        "task.txt": "fb2effa66f39b0066db18313e6c9518196ac2e9e4750776d904e2adac0bbf0aa",
+        "README.md": "a307abfda83bec3a7997fc3dbd17a2220df96587c1511eeed72e843d639d90ad",
+        "architecture.json": "f9c7cc33979e209424fcc0b5c0f1d6de7c521b838bca07248531e85ff8f9f8c5"
+      },
+      "agentPath": "/root/r2_large_b"
+    }
+  ],
+  "previousPRHead": "c658e3a5c567e420c8bd86f894ac559aed67866f"
+}

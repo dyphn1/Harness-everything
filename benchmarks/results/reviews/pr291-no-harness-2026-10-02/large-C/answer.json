@@ -1,0 +1,140 @@
+{
+  "routeTier": "large",
+  "strategy": "planning_only; plan derived from architecture.json",
+  "profile": "Fable on Opus was requested, but no corresponding workflow definition or runtime metadata is supplied.",
+  "answer": "This is an inventory-based plan only. Role assignments are role labels, not named people; no delegates were started. README.md was not changed.",
+  "mutationPerformed": false,
+  "plan": {
+    "isolationDisposition": "No isolation or workflow execution was started because this is planning only; no files were changed.",
+    "stages": [
+      {
+        "stage": "Database foundation",
+        "dependsOn": [],
+        "authorizedFileScope": [
+          "src/db/connection.js",
+          "src/db/transaction.js"
+        ],
+        "roleAssignment": "Database migration owner",
+        "verificationChecks": [
+          "Fail if callers can commit or roll back a transaction they only borrow.",
+          "Fail if the transaction owner does not commit on success and roll back on failure.",
+          "Fail if one transaction is committed or rolled back more than once."
+        ]
+      },
+      {
+        "stage": "Users dependency injection",
+        "dependsOn": [
+          "Database foundation"
+        ],
+        "authorizedFileScope": [
+          "src/users/repository.js",
+          "src/users/service.js"
+        ],
+        "roleAssignment": "Users migration owner",
+        "verificationChecks": [
+          "Fail if the public getUser(id, tenantId) signature changes.",
+          "Fail if a lookup can return a user outside the supplied tenant."
+        ]
+      },
+      {
+        "stage": "Billing dependency injection",
+        "dependsOn": [
+          "Database foundation",
+          "Users dependency injection"
+        ],
+        "authorizedFileScope": [
+          "src/billing/repository.js",
+          "src/billing/service.js"
+        ],
+        "roleAssignment": "Billing migration owner",
+        "verificationChecks": [
+          "Fail if the public charge(id, cents, tenantId) signature changes.",
+          "Fail if user provisioning and billing stop sharing the same transaction.",
+          "Fail if tenant-scoped billing can act on a different tenant's data."
+        ]
+      },
+      {
+        "stage": "Jobs dependency injection",
+        "dependsOn": [
+          "Database foundation"
+        ],
+        "authorizedFileScope": [
+          "src/jobs/queue.js",
+          "src/jobs/worker.js"
+        ],
+        "roleAssignment": "Jobs migration owner",
+        "verificationChecks": [
+          "Fail if a worker does not acquire a connection for each attempt.",
+          "Fail if retrying a job changes its stable idempotency key."
+        ]
+      },
+      {
+        "stage": "HTTP composition",
+        "dependsOn": [
+          "Users dependency injection",
+          "Billing dependency injection",
+          "Jobs dependency injection"
+        ],
+        "authorizedFileScope": [
+          "src/http/server.js",
+          "src/http/routes.js"
+        ],
+        "roleAssignment": "HTTP composition owner",
+        "verificationChecks": [
+          "Fail if dependencies are not wired at the composition root.",
+          "Fail if any route handler signature changes."
+        ]
+      },
+      {
+        "stage": "Test updates and verification",
+        "dependsOn": [
+          "Database foundation",
+          "Users dependency injection",
+          "Billing dependency injection",
+          "Jobs dependency injection",
+          "HTTP composition"
+        ],
+        "authorizedFileScope": [
+          "test/users.test.js",
+          "test/billing.test.js",
+          "test/jobs.test.js",
+          "test/transactions.test.js"
+        ],
+        "roleAssignment": "Test and verification owner",
+        "verificationChecks": [
+          "Fail if tenant separation, transaction ownership, retry idempotency, or API compatibility regressions are not detected by the listed tests.",
+          "Fail if any required check from the preceding stages fails."
+        ]
+      },
+      {
+        "stage": "Final independent review",
+        "dependsOn": [
+          "Test updates and verification"
+        ],
+        "authorizedFileScope": [
+          "src/db/connection.js",
+          "src/db/transaction.js",
+          "src/users/repository.js",
+          "src/users/service.js",
+          "src/billing/repository.js",
+          "src/billing/service.js",
+          "src/jobs/queue.js",
+          "src/jobs/worker.js",
+          "src/http/server.js",
+          "src/http/routes.js",
+          "test/users.test.js",
+          "test/billing.test.js",
+          "test/jobs.test.js",
+          "test/transactions.test.js"
+        ],
+        "access": "Read-only review",
+        "roleAssignment": "Independent reviewer",
+        "verificationChecks": [
+          "Fail if transaction ownership, tenant isolation, public signatures, or retry idempotency differ from the architecture inventory.",
+          "Fail if changes extend beyond the authorized file scope.",
+          "Fail if required verification checks have not passed."
+        ]
+      }
+    ]
+  }
+}

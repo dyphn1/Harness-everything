@@ -6,6 +6,11 @@ dated, and traceable to exported session logs.
 
 ## Status
 
+For the next neutral coding comparison, use the researched
+[public coding baseline](public-coding-baseline/README.md): pinned small/medium/large
+tasks, same-host Luna controls, external grading and complete usage/time reporting.
+It is a design awaiting execution preflight, not a recorded effectiveness result.
+
 | Scenario | Vanilla | Harness |
 |---|---|---|
 | test-a-overengineering | not run | not run |

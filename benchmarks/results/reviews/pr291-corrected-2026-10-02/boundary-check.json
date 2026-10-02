@@ -1,0 +1,373 @@
+{
+  "date": "2026-10-02",
+  "scope": "Independent read-only router boundary check; HARNESS_SYSTEM_ONE_MODE=off; direct tier-router subprocesses. Chinese inputs reused from the prior Unicode-validated report.",
+  "summary": {
+    "cases": 14,
+    "mismatches": 0
+  },
+  "cases": [
+    {
+      "prompt": "Explain what 'run fable on sonnet' means; return only JSON with requestedProfile.",
+      "expected": "bounded lookup: tier1/direct-single",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier1",
+        "strategy": "direct-single",
+        "reasonCodes": [
+          "fable-profile-lookup",
+          "tier1-bounded-single-pass"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates"
+        ],
+        "stdoutProfileLookupReference": true,
+        "hanCharacterAssertion": null,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "Explain fable on sonnet; return JSON with requestedProfile, effectiveProfile, profileAlias, assignedRole, runtimeModel, runtimeEffort.",
+      "expected": "bounded lookup: tier1/direct-single; canonical JSON fields stay data",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier1",
+        "strategy": "direct-single",
+        "reasonCodes": [
+          "fable-profile-lookup",
+          "tier1-bounded-single-pass"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates"
+        ],
+        "stdoutProfileLookupReference": true,
+        "hanCharacterAssertion": null,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "Explain what 'use fable on sonnet' means; no execution or model switching.",
+      "expected": "bounded lookup: tier1/direct-single; quoted invocation is data",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier1",
+        "strategy": "direct-single",
+        "reasonCodes": [
+          "fable-profile-lookup",
+          "tier1-bounded-single-pass"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates"
+        ],
+        "stdoutProfileLookupReference": true,
+        "hanCharacterAssertion": null,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "Explain fable on sonnet before updating README.",
+      "expected": "execution: non-tier1 with workflow obligations",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier3",
+        "strategy": "fable-staged",
+        "reasonCodes": [
+          "tier3-keyword",
+          "explicit-strategy-request"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates",
+          "stage-contracts",
+          "cold-verification",
+          "isolated-worktree-before-mutation"
+        ],
+        "stdoutProfileLookupReference": false,
+        "hanCharacterAssertion": null,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "Explain fable on sonnet after updating README.",
+      "expected": "execution: non-tier1 with workflow obligations",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier3",
+        "strategy": "fable-staged",
+        "reasonCodes": [
+          "tier3-keyword",
+          "explicit-strategy-request"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates",
+          "stage-contracts",
+          "cold-verification",
+          "isolated-worktree-before-mutation"
+        ],
+        "stdoutProfileLookupReference": false,
+        "hanCharacterAssertion": null,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "Explain fable on sonnet while running the test suite.",
+      "expected": "execution: non-tier1 with workflow obligations",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier3",
+        "strategy": "fable-staged",
+        "reasonCodes": [
+          "tier3-keyword",
+          "explicit-strategy-request"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates",
+          "stage-contracts",
+          "cold-verification",
+          "isolated-worktree-before-mutation"
+        ],
+        "stdoutProfileLookupReference": false,
+        "hanCharacterAssertion": null,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "Explain fable on sonnet, except update README.",
+      "expected": "execution: non-tier1 with workflow obligations",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier3",
+        "strategy": "fable-staged",
+        "reasonCodes": [
+          "tier3-keyword",
+          "explicit-strategy-request"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates",
+          "stage-contracts",
+          "cold-verification",
+          "isolated-worktree-before-mutation"
+        ],
+        "stdoutProfileLookupReference": false,
+        "hanCharacterAssertion": null,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "Explain fable on sonnet; also summarize the moon.",
+      "expected": "unknown continuation: execution with workflow obligations",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier3",
+        "strategy": "fable-staged",
+        "reasonCodes": [
+          "tier3-keyword",
+          "explicit-strategy-request"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates",
+          "stage-contracts",
+          "cold-verification",
+          "isolated-worktree-before-mutation"
+        ],
+        "stdoutProfileLookupReference": false,
+        "hanCharacterAssertion": null,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "Explain how to run fable-staged across all modules.",
+      "expected": "macro scope: execution with workflow obligations",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier3",
+        "strategy": "fable-staged",
+        "reasonCodes": [
+          "macro-scope-signal",
+          "explicit-strategy-request"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates",
+          "stage-contracts",
+          "cold-verification",
+          "isolated-worktree-before-mutation"
+        ],
+        "stdoutProfileLookupReference": false,
+        "hanCharacterAssertion": null,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "Use fable-staged to explain profile selection and audit the architecture.",
+      "expected": "explicit topology: execution with workflow obligations",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier3",
+        "strategy": "fable-staged",
+        "reasonCodes": [
+          "tier3-keyword",
+          "explicit-strategy-request"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates",
+          "stage-contracts",
+          "cold-verification",
+          "isolated-worktree-before-mutation"
+        ],
+        "stdoutProfileLookupReference": false,
+        "hanCharacterAssertion": null,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "請解釋 fable on sonnet 的意思，並只回傳含 requestedProfile 的 JSON。",
+      "expected": "Traditional Chinese bounded lookup: tier1/direct-single",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier1",
+        "strategy": "direct-single",
+        "reasonCodes": [
+          "fable-profile-lookup",
+          "tier1-bounded-single-pass"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates"
+        ],
+        "stdoutProfileLookupReference": true,
+        "hanCharacterAssertion": true,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "請解釋 fable on sonnet，然後更新 README。",
+      "expected": "Traditional Chinese action: execution with workflow obligations",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier3",
+        "strategy": "fable-staged",
+        "reasonCodes": [
+          "tier3-keyword",
+          "explicit-strategy-request"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates",
+          "stage-contracts",
+          "cold-verification",
+          "isolated-worktree-before-mutation"
+        ],
+        "stdoutProfileLookupReference": false,
+        "hanCharacterAssertion": true,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "解釋 fable on sonnet 的意思，只回傳 JSON，包含 requestedProfile、effectiveProfile。",
+      "expected": "Traditional Chinese bounded lookup: tier1/direct-single; exact requested probe",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier1",
+        "strategy": "direct-single",
+        "reasonCodes": [
+          "fable-profile-lookup",
+          "tier1-bounded-single-pass"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates"
+        ],
+        "stdoutProfileLookupReference": true,
+        "hanCharacterAssertion": true,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    },
+    {
+      "prompt": "解釋 fable on sonnet 後更新 README。",
+      "expected": "Traditional Chinese action: execution with workflow obligations; exact requested probe",
+      "actual": {
+        "exitCode": 0,
+        "tier": "tier3",
+        "strategy": "fable-staged",
+        "reasonCodes": [
+          "tier3-keyword",
+          "explicit-strategy-request"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates",
+          "stage-contracts",
+          "cold-verification",
+          "isolated-worktree-before-mutation"
+        ],
+        "stdoutProfileLookupReference": false,
+        "hanCharacterAssertion": true,
+        "stderr": ""
+      },
+      "actionableFinding": null
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "answer": {
+    "requestedProfile": "reasoning",
+    "effectiveProfile": "reasoning",
+    "profileAlias": "sonnect",
+    "assignedRole": "reasoning-worker",
+    "runtimeModel": null,
+    "runtimeEffort": null
+  },
+  "notes": [
+    "\"sonnect\" is a compatibility alias for the sonnet reasoning profile; it selects behavior and does not imply a runtime model."
+  ],
+  "extraCommands": []
+}

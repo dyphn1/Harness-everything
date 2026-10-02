@@ -1,0 +1,2310 @@
+{
+  "scope": "Completed final rerun: four complete child threads plus the completed parent rerun/report/publish turn. Initial comparison and its implementation/verification parent turn are shown separately. Earlier PR review/OpenCode experiments and the ongoing audit turn are excluded.",
+  "pricingDate": "2026-10-02",
+  "pricingSource": "https://developers.openai.com/api/docs/pricing?tab=suite",
+  "creditPricingSource": "https://learn.chatgpt.com/docs/pricing",
+  "reasoningBillingSource": "https://developers.openai.com/api/docs/guides/reasoning",
+  "ratesUsdPerMillion": {
+    "gpt-6-luna": {
+      "uncached": 0.1,
+      "cache": 0.01,
+      "write": 0.125,
+      "output": 0.5
+    },
+    "gpt-6.1-sol": {
+      "uncached": 2.0,
+      "cache": 0.1,
+      "write": 2.5,
+      "output": 10.0
+    }
+  },
+  "currencyMethod": "Standard short-context API-equivalent USD, not an invoice; cached input is subtracted from input, reasoning is already included in output; cache writes are zero. Local request logs report default tier.",
+  "latestTrials": [
+    {
+      "threadId": "01a0f846-b2bf-7593-a055-0c504e4a9f6c",
+      "agentPath": "/root/rerun_baseline_1",
+      "scopeRootTurnId": null,
+      "sourceRolloutRelativePath": "sessions/2026/10/02/rollout-2026-10-02T00-22-57-01a0f846-b2bf-7593-a055-0c504e4a9f6c.jsonl",
+      "actualModel": "gpt-6-luna",
+      "actualEffort": "xhigh",
+      "requestServiceTiersObservedInLocalLogs": [
+        "default"
+      ],
+      "modelRequests": 6,
+      "toolCalls": 5,
+      "startUtc": "2026-10-01T16:22:58.047Z",
+      "endUtc": "2026-10-01T16:23:57.422Z",
+      "durationSeconds": 59.375,
+      "tokens": {
+        "input_tokens": 154869,
+        "cached_input_tokens": 144896,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2626,
+        "reasoning_output_tokens": 1986,
+        "total_tokens": 157495,
+        "uncached_input_tokens": 9973,
+        "nonreasoning_output_tokens": 640
+      },
+      "apiEquivalentCostUsdStandard": 0.00375926,
+      "apiCostComponentsUsd": {
+        "uncached": 0.0009973,
+        "cache": 0.00144896,
+        "write": 0.0,
+        "output": 0.001313
+      },
+      "creditEquivalentStandard": 0.0939815,
+      "actualBilledUsd": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-01T16:23:04.907Z",
+          "responseId": "resp_04b21d11968a4477016abe88e477f487d08c791af57f725a92",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "route ."
+          ],
+          "usage": {
+            "input_tokens": 23760,
+            "cached_input_tokens": 22272,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 163,
+            "reasoning_output_tokens": 92,
+            "total_tokens": 23923
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:23:08.388Z",
+          "responseId": "resp_04b21d11968a4477016abe88e97c4487d0bd8d4a94a28bf17d",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "read fable-mode/SKILL.md"
+          ],
+          "usage": {
+            "input_tokens": 24410,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 90,
+            "reasoning_output_tokens": 13,
+            "total_tokens": 24500
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:23:17.096Z",
+          "responseId": "resp_04b21d11968a4477016abe88ed09c887d08c3d9f0ca54120f3",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "read fable-mode/fable-sonnet/SKILL.md"
+          ],
+          "usage": {
+            "input_tokens": 25056,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 399,
+            "reasoning_output_tokens": 318,
+            "total_tokens": 25455
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:23:23.459Z",
+          "responseId": "resp_04b21d11968a4477016abe88f5942487d0ba53d6ba6ba8143a",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "read fable-mode/references/model-matrix.md"
+          ],
+          "usage": {
+            "input_tokens": 25988,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 262,
+            "reasoning_output_tokens": 183,
+            "total_tokens": 26250
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:23:53.154Z",
+          "responseId": "resp_04b21d11968a4477016abe88fbf34487d094ff934944e5e964",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "write-report"
+          ],
+          "usage": {
+            "input_tokens": 27032,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1564,
+            "reasoning_output_tokens": 1301,
+            "total_tokens": 28596
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:23:57.367Z",
+          "responseId": "resp_04b21d11968a4477016abe8919a7f087d0a3ef775877eeaa07",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "final-or-message"
+          ],
+          "usage": {
+            "input_tokens": 28623,
+            "cached_input_tokens": 26368,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 148,
+            "reasoning_output_tokens": 79,
+            "total_tokens": 28771
+          }
+        }
+      ],
+      "sourceUsageRecordsSha256": "d5efbc7a584d0fc667d41e99ecb5b02e21968b7d79dc4523007d73a98bc0de7f"
+    },
+    {
+      "threadId": "01a0f846-f435-7b40-9dac-752fe9611290",
+      "agentPath": "/root/rerun_fixed_1",
+      "scopeRootTurnId": null,
+      "sourceRolloutRelativePath": "sessions/2026/10/02/rollout-2026-10-02T00-23-14-01a0f846-f435-7b40-9dac-752fe9611290.jsonl",
+      "actualModel": "gpt-6-luna",
+      "actualEffort": "xhigh",
+      "requestServiceTiersObservedInLocalLogs": [
+        "default"
+      ],
+      "modelRequests": 5,
+      "toolCalls": 4,
+      "startUtc": "2026-10-01T16:23:14.799Z",
+      "endUtc": "2026-10-01T16:23:37.814Z",
+      "durationSeconds": 23.015,
+      "tokens": {
+        "input_tokens": 123910,
+        "cached_input_tokens": 117504,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 774,
+        "reasoning_output_tokens": 313,
+        "total_tokens": 124684,
+        "uncached_input_tokens": 6406,
+        "nonreasoning_output_tokens": 461
+      },
+      "apiEquivalentCostUsdStandard": 0.00220264,
+      "apiCostComponentsUsd": {
+        "uncached": 0.0006406,
+        "cache": 0.00117504,
+        "write": 0.0,
+        "output": 0.000387
+      },
+      "creditEquivalentStandard": 0.055066,
+      "actualBilledUsd": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-01T16:23:20.434Z",
+          "responseId": "resp_01e75f5e827ed161016abe88f533f887d0835bff29088a5c90",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "route ."
+          ],
+          "usage": {
+            "input_tokens": 23779,
+            "cached_input_tokens": 22272,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 121,
+            "reasoning_output_tokens": 50,
+            "total_tokens": 23900
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:23:23.398Z",
+          "responseId": "resp_01e75f5e827ed161016abe88f90a1087d08b2c51e4a72b2f47",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "read fable-mode/SKILL.md"
+          ],
+          "usage": {
+            "input_tokens": 24174,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 89,
+            "reasoning_output_tokens": 12,
+            "total_tokens": 24263
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:23:26.483Z",
+          "responseId": "resp_01e75f5e827ed161016abe88fbff7887d08a3f843918acb711",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "read fable-mode/references/profile-lookup.md"
+          ],
+          "usage": {
+            "input_tokens": 24863,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 92,
+            "reasoning_output_tokens": 13,
+            "total_tokens": 24955
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:23:33.819Z",
+          "responseId": "resp_01e75f5e827ed161016abe88ff03fc87d08b7c3cfc3d24ddcf",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "write-report"
+          ],
+          "usage": {
+            "input_tokens": 25366,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 339,
+            "reasoning_output_tokens": 166,
+            "total_tokens": 25705
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:23:37.754Z",
+          "responseId": "resp_01e75f5e827ed161016abe8906625c87d08ba0d067dea9ab23",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "final-or-message"
+          ],
+          "usage": {
+            "input_tokens": 25728,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 133,
+            "reasoning_output_tokens": 72,
+            "total_tokens": 25861
+          }
+        }
+      ],
+      "sourceUsageRecordsSha256": "8f41673afebaa524ec0b00b6f89a2d976b27e8249dff8a11ccb3e16aeb089863"
+    },
+    {
+      "threadId": "01a0f848-1b68-7c02-9afa-a35055df5a27",
+      "agentPath": "/root/rerun_baseline_2",
+      "scopeRootTurnId": null,
+      "sourceRolloutRelativePath": "sessions/2026/10/02/rollout-2026-10-02T00-24-30-01a0f848-1b68-7c02-9afa-a35055df5a27.jsonl",
+      "actualModel": "gpt-6-luna",
+      "actualEffort": "xhigh",
+      "requestServiceTiersObservedInLocalLogs": [
+        "default"
+      ],
+      "modelRequests": 5,
+      "toolCalls": 4,
+      "startUtc": "2026-10-01T16:24:30.389Z",
+      "endUtc": "2026-10-01T16:25:16.295Z",
+      "durationSeconds": 45.906,
+      "tokens": {
+        "input_tokens": 126942,
+        "cached_input_tokens": 118528,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2048,
+        "reasoning_output_tokens": 1558,
+        "total_tokens": 128990,
+        "uncached_input_tokens": 8414,
+        "nonreasoning_output_tokens": 490
+      },
+      "apiEquivalentCostUsdStandard": 0.00305068,
+      "apiCostComponentsUsd": {
+        "uncached": 0.0008414,
+        "cache": 0.00118528,
+        "write": 0.0,
+        "output": 0.001024
+      },
+      "creditEquivalentStandard": 0.076267,
+      "actualBilledUsd": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-01T16:24:36.640Z",
+          "responseId": "resp_00c23c49fe9a2283016abe8940fab487d0b3b71b2ea191b45c",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "route ."
+          ],
+          "usage": {
+            "input_tokens": 23760,
+            "cached_input_tokens": 22272,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 148,
+            "reasoning_output_tokens": 68,
+            "total_tokens": 23908
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:24:39.847Z",
+          "responseId": "resp_00c23c49fe9a2283016abe89454ce887d0811490628735b140",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "read fable-mode/SKILL.md"
+          ],
+          "usage": {
+            "input_tokens": 24399,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 97,
+            "reasoning_output_tokens": 11,
+            "total_tokens": 24496
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:24:47.079Z",
+          "responseId": "resp_00c23c49fe9a2283016abe89486dd887d09d3df14dd22ca225",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "read fable-mode/references/model-matrix.md"
+          ],
+          "usage": {
+            "input_tokens": 25056,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 327,
+            "reasoning_output_tokens": 239,
+            "total_tokens": 25383
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:25:12.876Z",
+          "responseId": "resp_00c23c49fe9a2283016abe894fa2f487d0a6851a1ee186e1f4",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "write-report"
+          ],
+          "usage": {
+            "input_tokens": 26169,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1362,
+            "reasoning_output_tokens": 1188,
+            "total_tokens": 27531
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:25:16.231Z",
+          "responseId": "resp_00c23c49fe9a2283016abe8969724887d088b91a06214ac253",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "final-or-message"
+          ],
+          "usage": {
+            "input_tokens": 27558,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 114,
+            "reasoning_output_tokens": 52,
+            "total_tokens": 27672
+          }
+        }
+      ],
+      "sourceUsageRecordsSha256": "daab6f05b80d7e072188beff409016827ccf904d38fbf9559815b319f624a147"
+    },
+    {
+      "threadId": "01a0f848-5366-7221-9c13-66f9f7b85c75",
+      "agentPath": "/root/rerun_fixed_2",
+      "scopeRootTurnId": null,
+      "sourceRolloutRelativePath": "sessions/2026/10/02/rollout-2026-10-02T00-24-44-01a0f848-5366-7221-9c13-66f9f7b85c75.jsonl",
+      "actualModel": "gpt-6-luna",
+      "actualEffort": "xhigh",
+      "requestServiceTiersObservedInLocalLogs": [
+        "default"
+      ],
+      "modelRequests": 5,
+      "toolCalls": 4,
+      "startUtc": "2026-10-01T16:24:44.704Z",
+      "endUtc": "2026-10-01T16:25:10.463Z",
+      "durationSeconds": 25.759,
+      "tokens": {
+        "input_tokens": 123995,
+        "cached_input_tokens": 117504,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 897,
+        "reasoning_output_tokens": 495,
+        "total_tokens": 124892,
+        "uncached_input_tokens": 6491,
+        "nonreasoning_output_tokens": 402
+      },
+      "apiEquivalentCostUsdStandard": 0.00227264,
+      "apiCostComponentsUsd": {
+        "uncached": 0.0006491,
+        "cache": 0.00117504,
+        "write": 0.0,
+        "output": 0.0004485
+      },
+      "creditEquivalentStandard": 0.056816,
+      "actualBilledUsd": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-01T16:24:50.570Z",
+          "responseId": "resp_06bff5fe54348d4b016abe894f36b487d0bf63dd425f6d047a",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "route ."
+          ],
+          "usage": {
+            "input_tokens": 23779,
+            "cached_input_tokens": 22272,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 132,
+            "reasoning_output_tokens": 67,
+            "total_tokens": 23911
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:24:53.608Z",
+          "responseId": "resp_06bff5fe54348d4b016abe895327ac87d0999a1b9e3ff368eb",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "read fable-mode/SKILL.md"
+          ],
+          "usage": {
+            "input_tokens": 24185,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 81,
+            "reasoning_output_tokens": 10,
+            "total_tokens": 24266
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:24:56.393Z",
+          "responseId": "resp_06bff5fe54348d4b016abe895625c487d0a804bcd3dc6b2b60",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "read fable-mode/references/profile-lookup.md"
+          ],
+          "usage": {
+            "input_tokens": 24866,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 82,
+            "reasoning_output_tokens": 9,
+            "total_tokens": 24948
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:25:05.281Z",
+          "responseId": "resp_06bff5fe54348d4b016abe8958ee4487d0af636501a2995d5c",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "write-report"
+          ],
+          "usage": {
+            "input_tokens": 25359,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 424,
+            "reasoning_output_tokens": 292,
+            "total_tokens": 25783
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:25:10.398Z",
+          "responseId": "resp_06bff5fe54348d4b016abe8961cd2887d09b9eadc6d7f7538b",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "final-or-message"
+          ],
+          "usage": {
+            "input_tokens": 25806,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 178,
+            "reasoning_output_tokens": 117,
+            "total_tokens": 25984
+          }
+        }
+      ],
+      "sourceUsageRecordsSha256": "904eef0aba13c14456946a1db3073134952093a635904cca0f8d781a73d548e8"
+    }
+  ],
+  "initialExploratoryTrials": [
+    {
+      "threadId": "01a0f821-9e8e-7500-b791-88d268edcc37",
+      "agentPath": "/root/lookup_baseline_1",
+      "scopeRootTurnId": null,
+      "sourceRolloutRelativePath": "sessions/2026/10/01/rollout-2026-10-01T23-42-28-01a0f821-9e8e-7500-b791-88d268edcc37.jsonl",
+      "actualModel": "gpt-6-luna",
+      "actualEffort": "xhigh",
+      "requestServiceTiersObservedInLocalLogs": [
+        "default"
+      ],
+      "modelRequests": 6,
+      "toolCalls": 5,
+      "startUtc": "2026-10-01T15:42:28.065Z",
+      "endUtc": "2026-10-01T15:44:44.254Z",
+      "durationSeconds": 136.189,
+      "tokens": {
+        "input_tokens": 164726,
+        "cached_input_tokens": 129792,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 6910,
+        "reasoning_output_tokens": 5028,
+        "total_tokens": 171636,
+        "uncached_input_tokens": 34934,
+        "nonreasoning_output_tokens": 1882
+      },
+      "apiEquivalentCostUsdStandard": 0.00824632,
+      "apiCostComponentsUsd": {
+        "uncached": 0.0034934,
+        "cache": 0.00129792,
+        "write": 0.0,
+        "output": 0.003455
+      },
+      "creditEquivalentStandard": 0.206158,
+      "actualBilledUsd": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-01T15:42:39.664Z",
+          "responseId": "resp_04be664dbb80dc1b016abe7f66e3a087d094937f9cb2c7edb7",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 23689,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 430,
+            "reasoning_output_tokens": 304,
+            "total_tokens": 24119
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:42:49.265Z",
+          "responseId": "resp_04be664dbb80dc1b016abe7f703dac87d0a3997ce423a7e0aa",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 24749,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 435,
+            "reasoning_output_tokens": 354,
+            "total_tokens": 25184
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:43:02.570Z",
+          "responseId": "resp_04be664dbb80dc1b016abe7f79d91887d09b1c05dce54709a1",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 25736,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 631,
+            "reasoning_output_tokens": 469,
+            "total_tokens": 26367
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:43:42.009Z",
+          "responseId": "resp_04be664dbb80dc1b016abe7f872f3087d08ef99acd1fc168e9",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 27788,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2114,
+            "reasoning_output_tokens": 1984,
+            "total_tokens": 29902
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:44:30.873Z",
+          "responseId": "resp_04be664dbb80dc1b016abe7fae9e9087d092aa1ea0308b6524",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 30037,
+            "cached_input_tokens": 27392,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2634,
+            "reasoning_output_tokens": 1367,
+            "total_tokens": 32671
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:44:44.201Z",
+          "responseId": "resp_04be664dbb80dc1b016abe7fdf5e9087d0b57f61261ff56a8e",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "final-or-message"
+          ],
+          "usage": {
+            "input_tokens": 32727,
+            "cached_input_tokens": 29440,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 666,
+            "reasoning_output_tokens": 550,
+            "total_tokens": 33393
+          }
+        }
+      ],
+      "sourceUsageRecordsSha256": "d2ddeb0626725a9c8d2bcdd4c4b9e51ad1f755c962ea5ee4eb70d199e394219f"
+    },
+    {
+      "threadId": "01a0f821-d42a-7770-92cc-cf3a5f2b96a0",
+      "agentPath": "/root/lookup_fixed_1",
+      "scopeRootTurnId": null,
+      "sourceRolloutRelativePath": "sessions/2026/10/01/rollout-2026-10-01T23-42-41-01a0f821-d42a-7770-92cc-cf3a5f2b96a0.jsonl",
+      "actualModel": "gpt-6-luna",
+      "actualEffort": "xhigh",
+      "requestServiceTiersObservedInLocalLogs": [
+        "default"
+      ],
+      "modelRequests": 7,
+      "toolCalls": 6,
+      "startUtc": "2026-10-01T15:42:41.781Z",
+      "endUtc": "2026-10-01T15:45:33.539Z",
+      "durationSeconds": 171.758,
+      "tokens": {
+        "input_tokens": 197348,
+        "cached_input_tokens": 182528,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 8141,
+        "reasoning_output_tokens": 6027,
+        "total_tokens": 205489,
+        "uncached_input_tokens": 14820,
+        "nonreasoning_output_tokens": 2114
+      },
+      "apiEquivalentCostUsdStandard": 0.00737778,
+      "apiCostComponentsUsd": {
+        "uncached": 0.001482,
+        "cache": 0.00182528,
+        "write": 0.0,
+        "output": 0.0040705
+      },
+      "creditEquivalentStandard": 0.1844445,
+      "actualBilledUsd": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-01T15:42:56.014Z",
+          "responseId": "resp_0d12d1012754844e016abe7f74e02487d09062b584f3b1b5d7",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 23688,
+            "cached_input_tokens": 22272,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 561,
+            "reasoning_output_tokens": 484,
+            "total_tokens": 24249
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:43:23.451Z",
+          "responseId": "resp_0d12d1012754844e016abe7f80936087d0af567b0c98560bb2",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 24679,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1416,
+            "reasoning_output_tokens": 1303,
+            "total_tokens": 26095
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:43:27.972Z",
+          "responseId": "resp_0d12d1012754844e016abe7f9bf1e087d09a4dab8def8d4c3b",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 26721,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 172,
+            "reasoning_output_tokens": 57,
+            "total_tokens": 26893
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:43:48.065Z",
+          "responseId": "resp_0d12d1012754844e016abe7fac52b887d0ad193495117b9eca",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 27907,
+            "cached_input_tokens": 26368,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 385,
+            "reasoning_output_tokens": 255,
+            "total_tokens": 28292
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:44:23.801Z",
+          "responseId": "resp_0d12d1012754844e016abe7fb4ccc487d086064337dec01366",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 28952,
+            "cached_input_tokens": 27392,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1891,
+            "reasoning_output_tokens": 1690,
+            "total_tokens": 30843
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:45:24.274Z",
+          "responseId": "resp_0d12d1012754844e016abe7fd85b2887d094e739b01826723c",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 31026,
+            "cached_input_tokens": 28416,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3283,
+            "reasoning_output_tokens": 1872,
+            "total_tokens": 34309
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:45:33.487Z",
+          "responseId": "resp_0d12d1012754844e016abe8014daec87d0b53866e74344f1d3",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "final-or-message"
+          ],
+          "usage": {
+            "input_tokens": 34375,
+            "cached_input_tokens": 30464,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 433,
+            "reasoning_output_tokens": 366,
+            "total_tokens": 34808
+          }
+        }
+      ],
+      "sourceUsageRecordsSha256": "f04cce1ad6a68a6d676f7cc44b535732e8a799747624f0c8317915994631be73"
+    },
+    {
+      "threadId": "01a0f825-5109-7941-8d78-3b70aadf9d8f",
+      "agentPath": "/root/lookup_baseline_2",
+      "scopeRootTurnId": null,
+      "sourceRolloutRelativePath": "sessions/2026/10/01/rollout-2026-10-01T23-46-30-01a0f825-5109-7941-8d78-3b70aadf9d8f.jsonl",
+      "actualModel": "gpt-6-luna",
+      "actualEffort": "xhigh",
+      "requestServiceTiersObservedInLocalLogs": [
+        "default"
+      ],
+      "modelRequests": 6,
+      "toolCalls": 5,
+      "startUtc": "2026-10-01T15:46:30.349Z",
+      "endUtc": "2026-10-01T15:48:41.206Z",
+      "durationSeconds": 130.857,
+      "tokens": {
+        "input_tokens": 160096,
+        "cached_input_tokens": 146944,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 6557,
+        "reasoning_output_tokens": 5371,
+        "total_tokens": 166653,
+        "uncached_input_tokens": 13152,
+        "nonreasoning_output_tokens": 1186
+      },
+      "apiEquivalentCostUsdStandard": 0.00606314,
+      "apiCostComponentsUsd": {
+        "uncached": 0.0013152,
+        "cache": 0.00146944,
+        "write": 0.0,
+        "output": 0.0032785
+      },
+      "creditEquivalentStandard": 0.1515785,
+      "actualBilledUsd": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-01T15:46:42.731Z",
+          "responseId": "resp_0a1655f3181d4fa4016abe8059340c87d0941e5d01c40af4f3",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 23702,
+            "cached_input_tokens": 22272,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 475,
+            "reasoning_output_tokens": 399,
+            "total_tokens": 24177
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:46:49.477Z",
+          "responseId": "resp_0a1655f3181d4fa4016abe8063b1b887d0b3cb5b96cb9f2fb4",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 24605,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 211,
+            "reasoning_output_tokens": 149,
+            "total_tokens": 24816
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:46:54.149Z",
+          "responseId": "resp_0a1655f3181d4fa4016abe806a1b6487d0b807cab9465096a8",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 25356,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 184,
+            "reasoning_output_tokens": 120,
+            "total_tokens": 25540
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:47:22.492Z",
+          "responseId": "resp_0a1655f3181d4fa4016abe806ec34c87d0836c63f102bc1a9a",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 26307,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1497,
+            "reasoning_output_tokens": 1322,
+            "total_tokens": 27804
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:48:29.189Z",
+          "responseId": "resp_0a1655f3181d4fa4016abe808b5b3c87d0a5e7c796f245493d",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 28228,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3613,
+            "reasoning_output_tokens": 2873,
+            "total_tokens": 31841
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:48:41.141Z",
+          "responseId": "resp_0a1655f3181d4fa4016abe80cdc53087d0beb36c2ddab5b0e0",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "final-or-message"
+          ],
+          "usage": {
+            "input_tokens": 31898,
+            "cached_input_tokens": 27392,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 577,
+            "reasoning_output_tokens": 508,
+            "total_tokens": 32475
+          }
+        }
+      ],
+      "sourceUsageRecordsSha256": "809a0968c8cb2d4e16fb4434b0ec0a7c5ca4ebb86b564d382300c5edf787718a"
+    },
+    {
+      "threadId": "01a0f825-854e-7411-89fd-363246bbe170",
+      "agentPath": "/root/lookup_fixed_2",
+      "scopeRootTurnId": null,
+      "sourceRolloutRelativePath": "sessions/2026/10/01/rollout-2026-10-01T23-46-43-01a0f825-854e-7411-89fd-363246bbe170.jsonl",
+      "actualModel": "gpt-6-luna",
+      "actualEffort": "xhigh",
+      "requestServiceTiersObservedInLocalLogs": [
+        "default"
+      ],
+      "modelRequests": 6,
+      "toolCalls": 5,
+      "startUtc": "2026-10-01T15:46:43.729Z",
+      "endUtc": "2026-10-01T15:47:47.325Z",
+      "durationSeconds": 63.596,
+      "tokens": {
+        "input_tokens": 151987,
+        "cached_input_tokens": 142848,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2952,
+        "reasoning_output_tokens": 1908,
+        "total_tokens": 154939,
+        "uncached_input_tokens": 9139,
+        "nonreasoning_output_tokens": 1044
+      },
+      "apiEquivalentCostUsdStandard": 0.00381838,
+      "apiCostComponentsUsd": {
+        "uncached": 0.0009139,
+        "cache": 0.00142848,
+        "write": 0.0,
+        "output": 0.001476
+      },
+      "creditEquivalentStandard": 0.0954595,
+      "actualBilledUsd": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-01T15:46:53.756Z",
+          "responseId": "resp_0d3f8578ac85c0e8016abe80662d1487d083c0e5c870b3ea0a",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 23707,
+            "cached_input_tokens": 22272,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 373,
+            "reasoning_output_tokens": 249,
+            "total_tokens": 24080
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:46:58.466Z",
+          "responseId": "resp_0d3f8578ac85c0e8016abe806e67a087d0a3ab457e44dcc74f",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 24247,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 161,
+            "reasoning_output_tokens": 100,
+            "total_tokens": 24408
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:47:01.121Z",
+          "responseId": "resp_0d3f8578ac85c0e8016abe8072fa6887d08e98e3a214813716",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 24925,
+            "cached_input_tokens": 23296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 78,
+            "reasoning_output_tokens": 15,
+            "total_tokens": 25003
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:47:13.743Z",
+          "responseId": "resp_0d3f8578ac85c0e8016abe80759c1887d09dd2cf5aabb29fed",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 25324,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 618,
+            "reasoning_output_tokens": 513,
+            "total_tokens": 25942
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:47:34.810Z",
+          "responseId": "resp_0d3f8578ac85c0e8016abe80824a3c87d0ad1e6955ac3872e9",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 26105,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1100,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 27205
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:47:47.246Z",
+          "responseId": "resp_0d3f8578ac85c0e8016abe8097517c87d0bbae9cf663b5d29c",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "final-or-message"
+          ],
+          "usage": {
+            "input_tokens": 27679,
+            "cached_input_tokens": 25344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 622,
+            "reasoning_output_tokens": 515,
+            "total_tokens": 28301
+          }
+        }
+      ],
+      "sourceUsageRecordsSha256": "dab5c41d7491fc4ca59249f38caf260728206a21d3b254a5b91954ec3e57c357"
+    }
+  ],
+  "parentTurns": [
+    {
+      "threadId": "01a0f7d4-ba11-7ce3-ac45-870ac544d5d5",
+      "agentPath": null,
+      "scopeRootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+      "sourceRolloutRelativePath": "sessions/2026/10/01/rollout-2026-10-01T22-18-28-01a0f7d4-ba11-7ce3-ac45-870ac544d5d5.jsonl",
+      "actualModel": "gpt-6.1-sol",
+      "actualEffort": "medium",
+      "requestServiceTiersObservedInLocalLogs": [
+        "default"
+      ],
+      "modelRequests": 13,
+      "toolCalls": 12,
+      "startUtc": "2026-10-01T16:21:24.546Z",
+      "endUtc": "2026-10-01T16:31:07.495Z",
+      "durationSeconds": 582.949,
+      "tokens": {
+        "input_tokens": 1455905,
+        "cached_input_tokens": 1436288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 9336,
+        "reasoning_output_tokens": 3169,
+        "total_tokens": 1465241,
+        "uncached_input_tokens": 19617,
+        "nonreasoning_output_tokens": 6167
+      },
+      "apiEquivalentCostUsdStandard": 0.2762228,
+      "apiCostComponentsUsd": {
+        "uncached": 0.039234,
+        "cache": 0.1436288,
+        "write": 0.0,
+        "output": 0.09336
+      },
+      "creditEquivalentStandard": 6.90557,
+      "actualBilledUsd": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-01T16:21:35.672Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8885234c87d0ac5db8f3686ff047",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 104025,
+            "cached_input_tokens": 100992,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 202,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 104227
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:22:39.946Z",
+          "responseId": "resp_0da6fa1e563628c5016abe889039a087d0bfae765a910d6d6c",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 105626,
+            "cached_input_tokens": 103808,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1309,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 106935
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:22:58.215Z",
+          "responseId": "resp_0da6fa1e563628c5016abe88d091dc87d0a4c5a6677634b6db",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "tool:spawn_agent"
+          ],
+          "usage": {
+            "input_tokens": 106992,
+            "cached_input_tokens": 105472,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 378,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 107370
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:23:14.878Z",
+          "responseId": "resp_0da6fa1e563628c5016abe88e2c19487d090eccd0b3971731a",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "tool:spawn_agent"
+          ],
+          "usage": {
+            "input_tokens": 107396,
+            "cached_input_tokens": 106752,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 398,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 107794
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:24:30.440Z",
+          "responseId": "resp_0da6fa1e563628c5016abe89302ffc87d0a4270c13477bc086",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "tool:spawn_agent"
+          ],
+          "usage": {
+            "input_tokens": 108769,
+            "cached_input_tokens": 108288,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 378,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 109147
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:24:44.799Z",
+          "responseId": "resp_0da6fa1e563628c5016abe893ed13087d0a173ceefc6bfe21c",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "tool:spawn_agent"
+          ],
+          "usage": {
+            "input_tokens": 109173,
+            "cached_input_tokens": 108544,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 398,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 109571
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:25:58.508Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8976b02487d0ad2be9e5ee12326b",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "write-report"
+          ],
+          "usage": {
+            "input_tokens": 110317,
+            "cached_input_tokens": 109440,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 791,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 111108
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:27:40.015Z",
+          "responseId": "resp_0da6fa1e563628c5016abe89970e2c87d08245fac0d7254917",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 112675,
+            "cached_input_tokens": 110080,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2144,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 114819
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:29:04.639Z",
+          "responseId": "resp_0da6fa1e563628c5016abe89fd685087d0b2276e27bc2f205f",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 115467,
+            "cached_input_tokens": 112512,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1295,
+            "reasoning_output_tokens": 1034,
+            "total_tokens": 116762
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:30:06.209Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8a51905487d09851fd5cc4f8ad42",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 117641,
+            "cached_input_tokens": 115328,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1081,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 118722
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:30:17.719Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8a90d50087d09811e8e0c9bd197a",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 118823,
+            "cached_input_tokens": 117504,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 165,
+            "reasoning_output_tokens": 71,
+            "total_tokens": 118988
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:30:57.260Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8a9b56d487d0ba1fcf58ab95c0e8",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 119118,
+            "cached_input_tokens": 118656,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 601,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 119719
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:31:07.416Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8ac27a7c87d08ef70072c16889c3",
+          "rootTurnId": "01a0f845-45bb-7af0-b87b-448c98fe7f4d",
+          "actions": [
+            "final-or-message"
+          ],
+          "usage": {
+            "input_tokens": 119883,
+            "cached_input_tokens": 118912,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 196,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 120079
+          }
+        }
+      ],
+      "sourceUsageRecordsSha256": "50cab935e35f11f1902df3005119462c67e5f3d93aedce04c384817d3f3673ad"
+    },
+    {
+      "threadId": "01a0f7d4-ba11-7ce3-ac45-870ac544d5d5",
+      "agentPath": null,
+      "scopeRootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+      "sourceRolloutRelativePath": "sessions/2026/10/01/rollout-2026-10-01T22-18-28-01a0f7d4-ba11-7ce3-ac45-870ac544d5d5.jsonl",
+      "actualModel": "gpt-6.1-sol",
+      "actualEffort": "medium",
+      "requestServiceTiersObservedInLocalLogs": [
+        "default"
+      ],
+      "modelRequests": 55,
+      "toolCalls": 53,
+      "startUtc": "2026-10-01T15:35:30.023Z",
+      "endUtc": "2026-10-01T16:06:02.504Z",
+      "durationSeconds": 1832.481,
+      "tokens": {
+        "input_tokens": 4118964,
+        "cached_input_tokens": 3979648,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 32312,
+        "reasoning_output_tokens": 10372,
+        "total_tokens": 4151276,
+        "uncached_input_tokens": 139316,
+        "nonreasoning_output_tokens": 21940
+      },
+      "apiEquivalentCostUsdStandard": 0.9997168,
+      "apiCostComponentsUsd": {
+        "uncached": 0.278632,
+        "cache": 0.3979648,
+        "write": 0.0,
+        "output": 0.32312
+      },
+      "creditEquivalentStandard": 24.99292,
+      "actualBilledUsd": null,
+      "requests": [
+        {
+          "timestamp": "2026-10-01T15:35:47.262Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7dc29bc887d0aa6d3afc6ca3b568",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 209713,
+            "cached_input_tokens": 206208,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 269,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 209982
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:38:55.830Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7dd47b2487d0bdfb115d6c18508b",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "final-or-message"
+          ],
+          "usage": {
+            "input_tokens": 216400,
+            "cached_input_tokens": 209536,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4384,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 220784
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:39:02.411Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7e9065dc87d0a8f2846c88d799fd",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 24700,
+            "cached_input_tokens": 12160,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 80,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 24780
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:39:10.135Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7e96f9ac87d098abf17cce8102b9",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 29277,
+            "cached_input_tokens": 24576,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 148,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 29425
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:39:18.131Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7e9ed55487d0949cefc42fe1d3e6",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 30350,
+            "cached_input_tokens": 29056,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 119,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 30469
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:39:32.271Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7ea6b3bc87d08758cd4c5f436e7a",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 35473,
+            "cached_input_tokens": 12160,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 255,
+            "reasoning_output_tokens": 129,
+            "total_tokens": 35728
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:39:57.450Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7eb4d40087d0a51ec990cc3e7b6e",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 40891,
+            "cached_input_tokens": 35328,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 423,
+            "reasoning_output_tokens": 189,
+            "total_tokens": 41314
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:40:10.306Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7ece024c87d0a6149e6273557eff",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 44067,
+            "cached_input_tokens": 40704,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 205,
+            "reasoning_output_tokens": 100,
+            "total_tokens": 44272
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:40:36.046Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7edae22087d096c49619a50feb59",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 45370,
+            "cached_input_tokens": 43904,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 619,
+            "reasoning_output_tokens": 53,
+            "total_tokens": 45989
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:41:42.476Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7ef702c487d0aeea10850299311a",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 46233,
+            "cached_input_tokens": 45184,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1498,
+            "reasoning_output_tokens": 176,
+            "total_tokens": 47731
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:42:28.104Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7f39612487d0a8888756c67b07f6",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:spawn_agent"
+          ],
+          "usage": {
+            "input_tokens": 47821,
+            "cached_input_tokens": 46080,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 778,
+            "reasoning_output_tokens": 299,
+            "total_tokens": 48599
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:42:41.904Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7f6494a087d094bb9ace403b8358",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:spawn_agent"
+          ],
+          "usage": {
+            "input_tokens": 48624,
+            "cached_input_tokens": 47616,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 308,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 48932
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:42:49.123Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7f726ea487d086348ef0ebd63f5e",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 48956,
+            "cached_input_tokens": 48384,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 102,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 49058
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:43:16.926Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7f79ee5487d0b04a8ede42ba827a",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 50724,
+            "cached_input_tokens": 48768,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 581,
+            "reasoning_output_tokens": 74,
+            "total_tokens": 51305
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:43:28.393Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7f9652e087d09405076cfd7de37b",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 51492,
+            "cached_input_tokens": 50560,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 237,
+            "reasoning_output_tokens": 11,
+            "total_tokens": 51729
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:43:38.347Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7fa3bdd887d0abcff4f9ce4f2149",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:send_message"
+          ],
+          "usage": {
+            "input_tokens": 51882,
+            "cached_input_tokens": 51328,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 79,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 51961
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:43:58.730Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7faac3cc87d0b6fad512d02a7391",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 51973,
+            "cached_input_tokens": 51712,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 301,
+            "reasoning_output_tokens": 206,
+            "total_tokens": 52274
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:44:20.454Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7fbfd33087d098789c1d03fd3f79",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 54462,
+            "cached_input_tokens": 51840,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 400,
+            "reasoning_output_tokens": 74,
+            "total_tokens": 54862
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:45:06.568Z",
+          "responseId": "resp_0da6fa1e563628c5016abe7ffb13cc87d0910fe180bb7a4128",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 55497,
+            "cached_input_tokens": 46080,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 110,
+            "reasoning_output_tokens": 27,
+            "total_tokens": 55607
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:45:15.217Z",
+          "responseId": "resp_0da6fa1e563628c5016abe80032d9087d08fce56a82227f924",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 58441,
+            "cached_input_tokens": 55296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 105,
+            "reasoning_output_tokens": 10,
+            "total_tokens": 58546
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:45:30.666Z",
+          "responseId": "resp_0da6fa1e563628c5016abe800bd5b887d0b4df3aa2179ff5f4",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 60149,
+            "cached_input_tokens": 58240,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 340,
+            "reasoning_output_tokens": 51,
+            "total_tokens": 60489
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:46:00.715Z",
+          "responseId": "resp_0da6fa1e563628c5016abe801e09f087d0a60c16d210c6c290",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 60712,
+            "cached_input_tokens": 60032,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 606,
+            "reasoning_output_tokens": 189,
+            "total_tokens": 61318
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:46:30.486Z",
+          "responseId": "resp_0da6fa1e563628c5016abe803c2dd487d08d3b778643d5adb1",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:spawn_agent"
+          ],
+          "usage": {
+            "input_tokens": 62716,
+            "cached_input_tokens": 60544,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 552,
+            "reasoning_output_tokens": 83,
+            "total_tokens": 63268
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:46:43.862Z",
+          "responseId": "resp_0da6fa1e563628c5016abe805768fc87d09655f5073cfe3c9e",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:spawn_agent"
+          ],
+          "usage": {
+            "input_tokens": 63293,
+            "cached_input_tokens": 62592,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 327,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 63620
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:46:52.838Z",
+          "responseId": "resp_0da6fa1e563628c5016abe80649aa087d0af41d0088c42a3c4",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 63644,
+            "cached_input_tokens": 63104,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 151,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 63795
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:47:04.173Z",
+          "responseId": "resp_0da6fa1e563628c5016abe806e2f0087d092db41ca669a9e4d",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 64838,
+            "cached_input_tokens": 63488,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 218,
+            "reasoning_output_tokens": 13,
+            "total_tokens": 65056
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:47:42.117Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8078ea5c87d0bf8cf3579cb7e895",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 67213,
+            "cached_input_tokens": 64640,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 677,
+            "reasoning_output_tokens": 265,
+            "total_tokens": 67890
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:48:10.637Z",
+          "responseId": "resp_0da6fa1e563628c5016abe80acc32887d0aa9d4674e7a2ffef",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 68657,
+            "cached_input_tokens": 62592,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 186,
+            "reasoning_output_tokens": 101,
+            "total_tokens": 68843
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:48:23.511Z",
+          "responseId": "resp_0da6fa1e563628c5016abe80bb1b9487d0b2ea0262341f7e9c",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 69955,
+            "cached_input_tokens": 68480,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 224,
+            "reasoning_output_tokens": 49,
+            "total_tokens": 70179
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:49:21.482Z",
+          "responseId": "resp_0da6fa1e563628c5016abe80f275e887d0b1c92cd8d62f9de6",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 70910,
+            "cached_input_tokens": 69760,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 253,
+            "reasoning_output_tokens": 27,
+            "total_tokens": 71163
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:50:11.594Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8102351887d0a729435f85d5084b",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 73476,
+            "cached_input_tokens": 70784,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 889,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 74365
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:50:37.242Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8135309087d08b709a192c08a841",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 74424,
+            "cached_input_tokens": 73344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 407,
+            "reasoning_output_tokens": 289,
+            "total_tokens": 74831
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:51:41.103Z",
+          "responseId": "resp_0da6fa1e563628c5016abe814db3ac87d0991dd48b7329274e",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 77164,
+            "cached_input_tokens": 74240,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1272,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 78436
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:53:08.548Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8192a3d487d09f223748b46eacf2",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 78624,
+            "cached_input_tokens": 76928,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1676,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 80300
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:53:27.475Z",
+          "responseId": "resp_0da6fa1e563628c5016abe81e543a087d0a8c88b45a91521d1",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 80721,
+            "cached_input_tokens": 78464,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 388,
+            "reasoning_output_tokens": 105,
+            "total_tokens": 81109
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:54:17.819Z",
+          "responseId": "resp_0da6fa1e563628c5016abe81f8409087d0ac62684b95526090",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 81627,
+            "cached_input_tokens": 80512,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 694,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 82321
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:55:00.347Z",
+          "responseId": "resp_0da6fa1e563628c5016abe822db45087d0a5097b590ef83130",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 82423,
+            "cached_input_tokens": 81408,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 826,
+            "reasoning_output_tokens": 195,
+            "total_tokens": 83249
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:55:21.730Z",
+          "responseId": "resp_0da6fa1e563628c5016abe82592b5887d0b34051208a7a0139",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 83356,
+            "cached_input_tokens": 82304,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 161,
+            "reasoning_output_tokens": 39,
+            "total_tokens": 83517
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:56:07.311Z",
+          "responseId": "resp_0da6fa1e563628c5016abe826a2dc487d0a81c40b30a74c8f3",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 84033,
+            "cached_input_tokens": 83200,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 633,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 84666
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:56:46.243Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8298b7bc87d0a3d1e6c7eb09857c",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 85085,
+            "cached_input_tokens": 83840,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 842,
+            "reasoning_output_tokens": 291,
+            "total_tokens": 85927
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:58:29.895Z",
+          "responseId": "resp_0da6fa1e563628c5016abe82bfc6f487d0bcf49be0f251ca69",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 85985,
+            "cached_input_tokens": 84864,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2089,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 88074
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:59:12.239Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8327078487d0b8ab7672b51676cb",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 88151,
+            "cached_input_tokens": 85760,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 686,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 88837
+          }
+        },
+        {
+          "timestamp": "2026-10-01T15:59:42.830Z",
+          "responseId": "resp_0da6fa1e563628c5016abe835121b487d0906d4e35e86a5897",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 89238,
+            "cached_input_tokens": 87936,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 573,
+            "reasoning_output_tokens": 263,
+            "total_tokens": 89811
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:00:37.939Z",
+          "responseId": "resp_0da6fa1e563628c5016abe836f99c087d0afa72b01f1f4f1e2",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 89987,
+            "cached_input_tokens": 89088,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 972,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 90959
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:01:32.285Z",
+          "responseId": "resp_0da6fa1e563628c5016abe83a78c5487d08c0e82231cdf0dc1",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 92337,
+            "cached_input_tokens": 89856,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1046,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 93383
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:01:45.723Z",
+          "responseId": "resp_0da6fa1e563628c5016abe83dd2f8c87d0a335aebd7469fcb1",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 94103,
+            "cached_input_tokens": 92160,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 228,
+            "reasoning_output_tokens": 83,
+            "total_tokens": 94331
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:02:11.237Z",
+          "responseId": "resp_0da6fa1e563628c5016abe83ea63cc87d0ac4edc291600d5da",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 94978,
+            "cached_input_tokens": 93952,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 358,
+            "reasoning_output_tokens": 275,
+            "total_tokens": 95336
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:02:52.122Z",
+          "responseId": "resp_0da6fa1e563628c5016abe8403bcf887d08ff78ecd441c2b17",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 95410,
+            "cached_input_tokens": 94848,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 791,
+            "reasoning_output_tokens": 306,
+            "total_tokens": 96201
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:03:21.672Z",
+          "responseId": "resp_0da6fa1e563628c5016abe842c7b9487d0b437c9aa413376b5",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 96939,
+            "cached_input_tokens": 95232,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 488,
+            "reasoning_output_tokens": 306,
+            "total_tokens": 97427
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:04:09.334Z",
+          "responseId": "resp_0da6fa1e563628c5016abe844b884c87d098f5ac4558a78440",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 97517,
+            "cached_input_tokens": 96768,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 851,
+            "reasoning_output_tokens": 309,
+            "total_tokens": 98368
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:04:18.135Z",
+          "responseId": "resp_0da6fa1e563628c5016abe847a158487d0afb138bd0e13369c",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 98526,
+            "cached_input_tokens": 97280,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 100,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 98626
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:04:55.924Z",
+          "responseId": "resp_0da6fa1e563628c5016abe848397c487d0bf186cceec588d9d",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 98684,
+            "cached_input_tokens": 98304,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 585,
+            "reasoning_output_tokens": 482,
+            "total_tokens": 99269
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:05:12.760Z",
+          "responseId": "resp_0da6fa1e563628c5016abe84a8828487d0b28ea1673772abfa",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 100067,
+            "cached_input_tokens": 98560,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 321,
+            "reasoning_output_tokens": 143,
+            "total_tokens": 100388
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:05:49.891Z",
+          "responseId": "resp_0da6fa1e563628c5016abe84ba472487d08596a7b35ebf14bc",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "tool:exec"
+          ],
+          "usage": {
+            "input_tokens": 100446,
+            "cached_input_tokens": 99840,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 608,
+            "reasoning_output_tokens": 516,
+            "total_tokens": 101054
+          }
+        },
+        {
+          "timestamp": "2026-10-01T16:06:02.403Z",
+          "responseId": "resp_0da6fa1e563628c5016abe84df73cc87d0b3558518f9c36088",
+          "rootTurnId": "01a0f81b-3de4-7b31-9bd5-16f3e3667943",
+          "actions": [
+            "final-or-message"
+          ],
+          "usage": {
+            "input_tokens": 101230,
+            "cached_input_tokens": 100224,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 293,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 101523
+          }
+        }
+      ],
+      "sourceUsageRecordsSha256": "1979e4fe0822af8b370aea50da025f4db39e1e895c92c09c0382976e784ab5d5"
+    }
+  ],
+  "latestMeans": {
+    "baseline": {
+      "tokens": {
+        "input_tokens": 140905.5,
+        "cached_input_tokens": 131712.0,
+        "cache_write_input_tokens": 0.0,
+        "output_tokens": 2337.0,
+        "reasoning_output_tokens": 1772.0,
+        "total_tokens": 143242.5,
+        "uncached_input_tokens": 9193.5,
+        "nonreasoning_output_tokens": 565.0
+      },
+      "apiEquivalentCostUsdStandard": 0.0034049700000000002,
+      "creditEquivalentStandard": 0.08512425,
+      "modelRequests": 5.5,
+      "toolCalls": 4.5,
+      "durationSeconds": 52.6405
+    },
+    "fixed": {
+      "tokens": {
+        "input_tokens": 123952.5,
+        "cached_input_tokens": 117504.0,
+        "cache_write_input_tokens": 0.0,
+        "output_tokens": 835.5,
+        "reasoning_output_tokens": 404.0,
+        "total_tokens": 124788.0,
+        "uncached_input_tokens": 6448.5,
+        "nonreasoning_output_tokens": 431.5
+      },
+      "apiEquivalentCostUsdStandard": 0.00223764,
+      "creditEquivalentStandard": 0.055941,
+      "modelRequests": 5.0,
+      "toolCalls": 4.0,
+      "durationSeconds": 24.387
+    }
+  },
+  "latestReductionPercent": {
+    "input_tokens": 12.0315,
+    "cached_input_tokens": 10.7872,
+    "output_tokens": 64.249,
+    "reasoning_output_tokens": 77.2009,
+    "total_tokens": 12.8834,
+    "uncached_input_tokens": 29.8581,
+    "nonreasoning_output_tokens": 23.6283,
+    "apiEquivalentCostUsdStandard": 34.2831
+  },
+  "latestCompleteOperation": {
+    "childrenApiEquivalentUsd": 0.01128522,
+    "parentApiEquivalentUsd": 0.2762228,
+    "totalApiEquivalentUsd": 0.28750802,
+    "parentSharePercent": 96.0748
+  },
+  "initialImplementationPlusComparison": {
+    "childrenApiEquivalentUsd": 0.02550562,
+    "parentApiEquivalentUsd": 0.9997168,
+    "totalApiEquivalentUsd": 1.02522242
+  },
+  "bothOperationsApiEquivalentUsd": 1.31273044,
+  "latestCostSavingsComponents": {
+    "uncached": {
+      "baselineUsd": 0.00091935,
+      "fixedUsd": 0.00064485,
+      "savedUsd": 0.0002745,
+      "shareOfSavingsPercent": 23.5152
+    },
+    "cache": {
+      "baselineUsd": 0.00131712,
+      "fixedUsd": 0.00117504,
+      "savedUsd": 0.00014207999999999994,
+      "shareOfSavingsPercent": 12.1714
+    },
+    "output": {
+      "baselineUsd": 0.0011684999999999998,
+      "fixedUsd": 0.00041775,
+      "savedUsd": 0.0007507499999999999,
+      "shareOfSavingsPercent": 64.3134
+    }
+  }
+}

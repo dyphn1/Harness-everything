@@ -1,0 +1,15 @@
+
+> harness-everything@0.30.3 test:mutations
+> node ci/mutation-check.js
+
+PASS mutation was caught: physical path boundaries (ci/mechanism-2v-verifier-boundaries.test.js)
+PASS mutation was caught: exact execution commands (ci/mechanism-2v-verifier-boundaries.test.js)
+PASS mutation was caught: archive output boundaries (ci/mechanism-2t-pr66-evidence-triage.test.js)
+PASS mutation was caught: legacy migration boundaries (ci/mechanism-2l-multi-agent-workspace.test.js)
+PASS mutation was caught: global installer fallback (ci/mechanism-2q-installer-global-shared-store.test.js)
+PASS mutation was caught: transcript command qualifiers (ci/mechanism-2t-transcript-parser.test.js)
+PASS mutation was caught: fixture path boundaries (ci/mechanism-2j-behavioral-runner.test.js)
+PASS mutation was caught: unbound workspace identity (ci/mechanism-2u-issue-42-regressions.test.js)
+PASS mutation was caught: worktree submodule reachability (ci/mechanism-34-worktree-submodule-reachability.test.js)
+PASS mutation was caught: verification contract precedence (ci/mechanism-35-verification-contract.test.js)
+Mutation check passed: 10 production mutations were rejected by focused tests.

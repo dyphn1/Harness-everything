@@ -1,0 +1,7 @@
+{
+  "chunk_id": "9e4421",
+  "wall_time_seconds": 0.5707511,
+  "exit_code": 0,
+  "original_token_count": 40,
+  "output": "\n> harness-everything@0.30.3 test:references\n> node ci/reference-check.js\n\nChecked 70 skill path reference(s) across 26 skill(s).\nALL SKILL REFERENCES RESOLVE.\n"
+}

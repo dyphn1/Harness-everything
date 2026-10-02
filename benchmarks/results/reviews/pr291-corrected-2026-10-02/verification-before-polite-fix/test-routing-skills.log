@@ -1,0 +1,44 @@
+
+> harness-everything@0.30.3 test:routing:skills
+> node ci/skill-routing-check.js
+
+PASS fable-mode/execution-guardrails/SKILL.md: routing=internal
+PASS fable-mode/fable-haiku/SKILL.md: routing=parent
+PASS fable-mode/fable-opus/SKILL.md: routing=parent
+PASS fable-mode/fable-sonnet/SKILL.md: routing=parent
+PASS environment-detection/positive-trigger.yaml
+PASS eval-harness/positive-trigger.yaml
+PASS fable-discipline/positive-trigger.yaml
+PASS fable-mode/positive-haiku-mode.yaml
+PASS fable-mode/positive-opus-mode.yaml
+PASS fable-mode/positive-sonnet-mode.yaml
+PASS fable-mode/positive-trigger.yaml
+PASS find-skills/positive-trigger.yaml
+PASS git-commit/positive-trigger.yaml
+PASS grill-me/positive-trigger.yaml
+PASS grill-with-docs/positive-trigger.yaml
+PASS harness-everything/positive-tier1.yaml
+PASS harness-everything/positive-tier2.yaml
+PASS harness-everything/positive-tier3.yaml
+PASS improve-codebase-architecture/positive-trigger.yaml
+PASS install-cognitive-os/positive-trigger.yaml
+PASS multi-agent-workspace/positive-trigger.yaml
+PASS repo-docs/positive-trigger.yaml
+PASS rewrite-commits/positive-trigger.yaml
+PASS security-review/positive-trigger.yaml
+PASS self-evolve/positive-trigger.yaml
+PASS skill-creator/positive-trigger.yaml
+PASS skill-style/positive-trigger.yaml
+PASS tdd/positive-bugfix.yaml
+PASS tdd/positive-feature.yaml
+PASS tdd/positive-refactor.yaml
+PASS to-spec/positive-trigger.yaml
+PASS to-tickets/positive-trigger.yaml
+PASS todo-driven-workflow/positive-multi-step.yaml
+PASS todo-driven-workflow/positive-refactor-flow.yaml
+PASS using-git-worktrees/positive-trigger.yaml
+PASS verification-loop/positive-pre-ship.yaml
+PASS verify-before-claim/positive-trigger.yaml
+PASS zoom-out/positive-repeated-failure.yaml
+
+Route coverage: 34 positive case(s) checked across 26 direct skills; 4 nested skill(s) classified.

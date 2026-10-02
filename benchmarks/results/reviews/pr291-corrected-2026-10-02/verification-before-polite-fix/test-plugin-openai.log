@@ -1,0 +1,6 @@
+
+> harness-everything@0.30.3 test:plugin:openai
+> node ci/openai-plugin-package.test.js && node ci/openai-plugin-runtime.test.js
+
+OpenAI plugin package verified: 26 skills, publication metadata, hooks, marketplace, deterministic semantic-contract routing.
+OpenAI plugin runtime compatibility verified.

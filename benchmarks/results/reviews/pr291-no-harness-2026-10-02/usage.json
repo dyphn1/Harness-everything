@@ -1,0 +1,279 @@
+{
+  "scope": "C: native clean CLI control, no Harness plugin/hooks/instructions loaded. Host/wrapper differs from earlier native collaboration A/B: descriptive comparison, not causal estimate.",
+  "pricingSource": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+  "ratesUSDPerMillion": {
+    "uncached": "0.10",
+    "cached": "0.01",
+    "write": "0.125",
+    "output": "0.50"
+  },
+  "trials": [
+    {
+      "id": "small-C",
+      "arm": "C",
+      "size": "small",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "threadId": "01a0fb1f-0838-7a31-bed7-26552a805d91",
+      "sourceRolloutSHA256": "4cc461c3b4a48b33d4d8ce5241bccbffe0e338e68b544a2075eb688e0b30b6b3",
+      "timing": {
+        "startUTC": "2026-10-02T05:38:31.303Z",
+        "endUTC": "2026-10-02T05:39:23.250Z",
+        "elapsedSeconds": 51.947,
+        "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+      },
+      "processWallSeconds": 55.045,
+      "usage": {
+        "input_tokens": 21572,
+        "cached_input_tokens": 9984,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2521,
+        "reasoning_output_tokens": 2280,
+        "total_tokens": 24093,
+        "uncached_input_tokens": 11588
+      },
+      "requests": [
+        {
+          "timestamp": "2026-10-02T05:38:37.936Z",
+          "responseId": "resp_0b28c107b71dacd6016abf435a94c087d095983e43b127d03b",
+          "usage": {
+            "input_tokens": 10486,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 131,
+            "reasoning_output_tokens": 24,
+            "total_tokens": 10617
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:39:23.218Z",
+          "responseId": "resp_0b28c107b71dacd6016abf435f7ccc87d0951fbe288375fec1",
+          "usage": {
+            "input_tokens": 11086,
+            "cached_input_tokens": 9984,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2390,
+            "reasoning_output_tokens": 2256,
+            "total_tokens": 13476
+          }
+        }
+      ],
+      "standardAPIEquivalentUSD": "0.00251914",
+      "checks": {
+        "noHarnessInstructionsObserved": true,
+        "noHarnessToolReadsObserved": true,
+        "taskAndArchitectureUnchanged": true,
+        "READMEBehavior": true
+      },
+      "semanticChecks": {
+        "customProfileResolved": false
+      },
+      "observableEventsExport": "events.jsonl excludes reasoning items; raw local rollout stays private",
+      "answerKeys": [
+        "routeTier",
+        "strategy",
+        "profile",
+        "answer",
+        "mutationPerformed",
+        "plan"
+      ]
+    },
+    {
+      "id": "medium-C",
+      "arm": "C",
+      "size": "medium",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "threadId": "01a0fb1f-0838-7911-83f9-f0df488656ee",
+      "sourceRolloutSHA256": "56550ca2f51b3f0a57172713837b3810d4b0d8202b00ffc0282f54ffe9118059",
+      "timing": {
+        "startUTC": "2026-10-02T05:38:31.302Z",
+        "endUTC": "2026-10-02T05:39:32.690Z",
+        "elapsedSeconds": 61.388,
+        "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+      },
+      "processWallSeconds": 64.012,
+      "usage": {
+        "input_tokens": 33842,
+        "cached_input_tokens": 19968,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2188,
+        "reasoning_output_tokens": 1776,
+        "total_tokens": 36030,
+        "uncached_input_tokens": 13874
+      },
+      "requests": [
+        {
+          "timestamp": "2026-10-02T05:38:39.877Z",
+          "responseId": "resp_0980c04a795b538c016abf435a985087d0a8879df81b4c3699",
+          "usage": {
+            "input_tokens": 10486,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 181,
+            "reasoning_output_tokens": 55,
+            "total_tokens": 10667
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:39:09.716Z",
+          "responseId": "resp_0980c04a795b538c016abf4360c20087d0be02ce7e91377f5a",
+          "usage": {
+            "input_tokens": 11076,
+            "cached_input_tokens": 9984,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1170,
+            "reasoning_output_tokens": 983,
+            "total_tokens": 12246
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:39:32.676Z",
+          "responseId": "resp_0980c04a795b538c016abf437ea6e487d0806e934019883ab9",
+          "usage": {
+            "input_tokens": 12280,
+            "cached_input_tokens": 9984,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 837,
+            "reasoning_output_tokens": 738,
+            "total_tokens": 13117
+          }
+        }
+      ],
+      "standardAPIEquivalentUSD": "0.00268108",
+      "checks": {
+        "noHarnessInstructionsObserved": true,
+        "noHarnessToolReadsObserved": true,
+        "taskAndArchitectureUnchanged": true,
+        "READMEBehavior": true
+      },
+      "semanticChecks": {
+        "customProfileResolved": false
+      },
+      "observableEventsExport": "events.jsonl excludes reasoning items; raw local rollout stays private",
+      "answerKeys": [
+        "routeTier",
+        "strategy",
+        "profile",
+        "answer",
+        "mutationPerformed",
+        "plan"
+      ]
+    },
+    {
+      "id": "large-C",
+      "arm": "C",
+      "size": "large",
+      "model": "gpt-6-luna",
+      "effort": "xhigh",
+      "threadId": "01a0fb1f-0838-7db2-9cbe-35841e11d23e",
+      "sourceRolloutSHA256": "cceb7a840ded2a88d6b072fe513e554f718c23a2cc9eb31f12e10d5ded2ba0b4",
+      "timing": {
+        "startUTC": "2026-10-02T05:38:31.291Z",
+        "endUTC": "2026-10-02T05:40:12.632Z",
+        "elapsedSeconds": 101.341,
+        "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+      },
+      "processWallSeconds": 103.963,
+      "usage": {
+        "input_tokens": 21600,
+        "cached_input_tokens": 9984,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5268,
+        "reasoning_output_tokens": 4105,
+        "total_tokens": 26868,
+        "uncached_input_tokens": 11616
+      },
+      "requests": [
+        {
+          "timestamp": "2026-10-02T05:38:39.185Z",
+          "responseId": "resp_017399779ae0915f016abf435a739c87d0a98c88d88c48fd60",
+          "usage": {
+            "input_tokens": 10486,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 164,
+            "reasoning_output_tokens": 38,
+            "total_tokens": 10650
+          }
+        },
+        {
+          "timestamp": "2026-10-02T05:40:12.601Z",
+          "responseId": "resp_017399779ae0915f016abf435ffce087d087488f6aeebfd663",
+          "usage": {
+            "input_tokens": 11114,
+            "cached_input_tokens": 9984,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5104,
+            "reasoning_output_tokens": 4067,
+            "total_tokens": 16218
+          }
+        }
+      ],
+      "standardAPIEquivalentUSD": "0.00389544",
+      "checks": {
+        "noHarnessInstructionsObserved": true,
+        "noHarnessToolReadsObserved": true,
+        "taskAndArchitectureUnchanged": true,
+        "READMEBehavior": true
+      },
+      "semanticChecks": {
+        "customProfileResolved": false,
+        "largeStageCount": 7,
+        "largeDependenciesValid": true,
+        "largeAuthorizedFilesCovered": true,
+        "largeEveryStageHasFailableChecks": true,
+        "largeIsolationDispositionPresent": true,
+        "largeGenericIndependentReviewPresent": true,
+        "largeNoMutationClaim": true
+      },
+      "observableEventsExport": "events.jsonl excludes reasoning items; raw local rollout stays private",
+      "answerKeys": [
+        "routeTier",
+        "strategy",
+        "profile",
+        "answer",
+        "mutationPerformed",
+        "plan"
+      ]
+    }
+  ],
+  "previousTimings": {
+    "small-A": {
+      "startUTC": "2026-10-02T05:05:55.694Z",
+      "endUTC": "2026-10-02T05:08:14.892Z",
+      "elapsedSeconds": 139.198,
+      "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+    },
+    "small-B": {
+      "startUTC": "2026-10-02T05:06:09.015Z",
+      "endUTC": "2026-10-02T05:07:22.621Z",
+      "elapsedSeconds": 73.606,
+      "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+    },
+    "medium-A": {
+      "startUTC": "2026-10-02T05:09:11.889Z",
+      "endUTC": "2026-10-02T05:12:24.612Z",
+      "elapsedSeconds": 192.723,
+      "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+    },
+    "medium-B": {
+      "startUTC": "2026-10-02T05:08:58.099Z",
+      "endUTC": "2026-10-02T05:12:58.917Z",
+      "elapsedSeconds": 240.818,
+      "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+    },
+    "large-A": {
+      "startUTC": "2026-10-02T05:13:18.028Z",
+      "endUTC": "2026-10-02T05:22:07.399Z",
+      "elapsedSeconds": 529.371,
+      "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+    },
+    "large-B": {
+      "startUTC": "2026-10-02T05:13:30.826Z",
+      "endUTC": "2026-10-02T05:20:00.740Z",
+      "elapsedSeconds": 389.914,
+      "definition": "Native rollout task_started to task_complete; excludes launch/startup overhead."
+    }
+  }
+}

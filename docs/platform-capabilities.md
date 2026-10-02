@@ -42,6 +42,8 @@ The full ten-dimension entries and official source URLs are in [platform-compati
 
 The Claude plugin registers `./fable-mode` as the public Fable skill. The nested `fable-opus`, `fable-sonnet`, `fable-haiku`, and `execution-guardrails` directories are reference contracts inside that skill tree; they are not independently registered or host-routable Claude skills. The legacy prompts `fable on opus`, `fable on sonnet`/`sonnect`, and `fable on haiku` select Fable behavior profiles (orchestrator/reasoning/mechanical), not branded runtime models. `model-selector.js` records the profile and separately evaluates the host-specific advisory runtime floor; a below-floor or unknown runtime does not block Fable by itself.
 
+The router distinguishes bounded profile explanations from Fable execution. Supported lookup prompts select `direct-single` and `references/profile-lookup.md`; the public skill dispatches before loading stage references. Entire explanation, format and negative-constraint clauses are checked against a bounded lookup vocabulary; comma/and-separated canonical output fields remain lookup data. Unknown continuations, same-clause actions (including `before`/`after`), mixed execution or macro scope retain execution routing and required invariants. This is a deterministic routing and packaged instruction contract, not a host-enforced reference-read limit or a measured token-cost guarantee.
+
 The nested execution-guardrails file is also not an always-on carrier. Fable agents that need those rules carry them inline; any non-Fable surface must load, copy, or inject the rules through a carrier the host actually executes before claiming that they apply there.
 
 ## Installer target contract
