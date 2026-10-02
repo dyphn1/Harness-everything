@@ -228,6 +228,7 @@ for (const prompt of [
   '解釋 fable on opus 的意思，只回傳 JSON，包含 requestedProfile、effectiveProfile、runtimeEffort。',
   "Explain what 'use fable on opus' means; no execution or model switching.",
   'Explain fable on sonnet; return JSON; no stages, delegation or execution.',
+  '請說明 fable on sonnet 的意思，並只回傳含 requestedProfile 的 JSON。',
 ]) {
   const lookup = runTier(prompt);
   const repeat = runTier(prompt);

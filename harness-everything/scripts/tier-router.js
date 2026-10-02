@@ -66,7 +66,7 @@ function containsOnlyLookupTerms(text, operation) {
   };
   const chineseTerms = {
     explanation: /(?:請|幫我|解釋|說明|解析|的意思|意思|含義|意義|是什麼|設定檔|行為|角色)/g,
-    output: /(?:只|僅|回傳|返回|輸出|顯示|提供|包含|欄位|記錄|紀錄|結果|設定檔)/g,
+    output: /(?:只|僅|回傳|返回|輸出|顯示|提供|包含|含|的|欄位|記錄|紀錄|結果|設定檔)/g,
     negative: /(?:不要|不需要|無需|不|或|編排|委派|階段|執行|切換模型)/g,
   };
   return text.replace(PROFILE_LOOKUP_FIELDS, '').replace(terms[operation], '')
@@ -87,7 +87,7 @@ function isFableProfileLookup(prompt, hasMacroSignal) {
   const quotedInvocation = new RegExp(`(["'\x60])(?:run|use|enter)\\s+(?:${FABLE_PROFILE_INVOCATION.source})\\1`, 'gi');
   const normalizedLookup = lookupClause.replace(quotedInvocation, 'fableprofile')
     .replace(new RegExp(FABLE_PROFILE_INVOCATION.source, 'gi'), 'fableprofile');
-  const isLookupLead = /^(?:(?:please|help me)\s+)?(?:explain|resolve|define|what (?:is|does)|解釋|說明|解析)/i.test(lookupClause)
+  const isLookupLead = /^(?:(?:please|help me)\s+|(?:請|幫我)\s*)?(?:explain|resolve|define|what (?:is|does)|解釋|說明|解析)/i.test(lookupClause)
     && Boolean(detectFableModel(lookupClause));
   if (!isLookupLead || !containsOnlyLookupTerms(normalizedLookup, 'explanation')) return false;
 
