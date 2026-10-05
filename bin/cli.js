@@ -55,6 +55,11 @@ Harness OS - AI Agent Operating System CLI
 
 Usage:
   npx github:dyphn1/Harness-everything <command> [options]
+  npx.cmd github:dyphn1/Harness-everything <command> [options]  # Windows PowerShell
+
+Windows PowerShell note:
+  Use npx.cmd so restrictive ExecutionPolicy cannot redirect this command to npx.ps1.
+  Harness does not require changing ExecutionPolicy.
   
 Commands:
   install            Install Harness OS hooks & skills into the local repository
