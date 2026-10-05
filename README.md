@@ -59,9 +59,10 @@ Harness integrates directly into your workspace. There is no heavy daemon, no pa
 npx github:dyphn1/Harness-everything install
 
 # Option C: install or update the native Claude Code/Codex plugin
-#   npx github:dyphn1/Harness-everything plugin-sync
-#   ./scripts/plugin-sync.sh              # POSIX shells / Git Bash
-#   powershell -File scripts/plugin-sync.ps1  # Windows PowerShell
+#   npx github:dyphn1/Harness-everything plugin-sync       # POSIX shells / Git Bash
+#   npx.cmd github:dyphn1/Harness-everything plugin-sync   # Windows PowerShell
+#   ./scripts/plugin-sync.sh                               # POSIX shells / Git Bash
+#   node scripts/plugin-sync.js                            # Windows-safe direct entry
 
 # OpenAI/Codex local plugin packaging is repository-owned under:
 #   .agents/plugins/marketplace.json
