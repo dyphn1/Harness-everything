@@ -152,6 +152,24 @@ try {
   fs.rmSync(tempOutput.replace(/\.zip$/i, '') + '.manifest.json', { force: true });
 }
 
+// Windows PowerShell 5.1 treats BOM-less UTF-8 as a legacy code page when
+// Get-Content has no explicit encoding, and resolves bare npm-family commands
+// to .ps1 shims before .cmd. The routing skill is the agent-facing boundary
+// that must prevent both failures before Harness itself starts.
+const canonicalHarnessSkill = fs.readFileSync(path.join(ROOT, 'harness-everything', 'SKILL.md'), 'utf8');
+const packagedHarnessSkill = fs.readFileSync(path.join(ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'SKILL.md'), 'utf8');
+assert.match(canonicalHarnessSkill, /Windows PowerShell/);
+assert.match(canonicalHarnessSkill, /npx\.cmd/);
+assert.match(canonicalHarnessSkill, /Get-Content -Encoding UTF8 -Raw/);
+assert.strictEqual(packagedHarnessSkill, canonicalHarnessSkill, 'packaged Harness skill must preserve the Windows shell contract byte-for-text');
+assert.match(canonicalHarnessSkill, /—/u, 'UTF-8 em dash must remain intact');
+assert.match(canonicalHarnessSkill, /🚦 Harness Status/u, 'UTF-8 Harness Status marker must remain intact');
+
+const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+assert.match(readme, /npx\.cmd github:dyphn1\/Harness-everything install/);
+assert.match(readme, /Get-Content -Encoding UTF8 -Raw/);
+assert.doesNotMatch(readme, /powershell -File scripts\/plugin-sync\.ps1/);
+
 const capabilityDocs = fs.readFileSync(path.join(ROOT, 'docs', 'platform-capabilities.md'), 'utf8');
 assert.match(capabilityDocs, /platform-compatibility\.json/);
 assert.match(capabilityDocs, /Continue\.dev[\s\S]*`Unknown` for standalone `SKILL\.md` discovery/);
