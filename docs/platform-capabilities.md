@@ -69,10 +69,15 @@ The package is tested at the mechanism layer and remains subject to the host’s
 The repository also ships a host-facing synchronization command for the native marketplace/plugin surfaces:
 
 ```bash
+# POSIX shells / Git Bash
 npx github:dyphn1/Harness-everything plugin-sync
 # or, from a checkout:
 ./scripts/plugin-sync.sh
-powershell -File scripts/plugin-sync.ps1
+
+# Windows PowerShell
+npx.cmd github:dyphn1/Harness-everything plugin-sync
+# or, from a checkout:
+node scripts/plugin-sync.js
 ```
 
 The command detects Claude Code and Codex independently, ensures the Harness marketplace is configured, reads the installed-plugin state, then refreshes that marketplace before choosing the operation:

@@ -9,6 +9,8 @@ This guide helps you resolve common issues with Harness OS installation and usag
 **Symptom:** `EACCES: permission denied` during installation
 
 **Solution:**
+
+POSIX shells / Git Bash:
 ```bash
 # Option 1: Install without sudo (recommended)
 npx github:dyphn1/Harness-everything install
@@ -20,6 +22,12 @@ npx github:dyphn1/Harness-everything install --global
 mkdir ~/.npm-global
 npm config set prefix '~/.npm-global'
 export PATH=~/.npm-global/bin:$PATH
+```
+
+Windows PowerShell:
+```powershell
+npx.cmd github:dyphn1/Harness-everything install
+npx.cmd github:dyphn1/Harness-everything install --global
 ```
 
 ### Node.js Version Issues
@@ -93,9 +101,15 @@ which node
 # Check if hooks directory exists
 ls -la hooks/scripts/
 
-# Reinstall Harness
+# Reinstall Harness (POSIX shells / Git Bash)
 npx github:dyphn1/Harness-everything uninstall
 npx github:dyphn1/Harness-everything install
+```
+
+Windows PowerShell:
+```powershell
+npx.cmd github:dyphn1/Harness-everything uninstall
+npx.cmd github:dyphn1/Harness-everything install
 ```
 
 ### Circuit Breaker Tripping Too Often
@@ -129,7 +143,12 @@ Do not expect this Claude Code state file merely because Harness skills or an in
    ```
 2. If missing, reinstall with Cursor flag:
    ```bash
+   # POSIX shells / Git Bash
    npx github:dyphn1/Harness-everything install --cursor
+   ```
+   ```powershell
+   # Windows PowerShell
+   npx.cmd github:dyphn1/Harness-everything install --cursor
    ```
 3. Restart Cursor.
 
@@ -156,7 +175,12 @@ Do not expect this Claude Code state file merely because Harness skills or an in
    ```
 2. Reinstall the advisory Codex target if needed:
    ```bash
+   # POSIX shells / Git Bash
    npx github:dyphn1/Harness-everything install --codex
+   ```
+   ```powershell
+   # Windows PowerShell
+   npx.cmd github:dyphn1/Harness-everything install --codex
    ```
 3. Remember that this is the instruction-oriented installer path. It is different from the **local OpenAI plugin** package described below.
 
@@ -192,7 +216,13 @@ The local plugin mechanically injects the session policy and invariant-first rou
 For the native host install/update path, run:
 
 ```bash
+# POSIX shells / Git Bash
 npx github:dyphn1/Harness-everything plugin-sync --json
+```
+
+```powershell
+# Windows PowerShell
+npx.cmd github:dyphn1/Harness-everything plugin-sync --json
 ```
 
 The command installs only when the plugin is absent. An installed Claude plugin uses the explicit Claude update command; an installed Codex plugin uses marketplace upgrade. If plugin state cannot be read, synchronization stops without re-adding or overwriting the plugin.
