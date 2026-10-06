@@ -25,7 +25,7 @@ Kernel routing entry.
 4. **Resolve suggestions (MUST)** — read/evaluate each suggested `SKILL.md`; applicable core contracts MUST run, otherwise retain a flow-grounded reason.
 5. **Surface status (MUST)** — non-trivial work renders `### 🚦 Harness Status` with bold `Current`, `Read / Evidence`, `Next`; optional `Risk / Blocked`.
 6. **Keep agency** — required obligations are MUST; tactics MAY adapt. Numeric planning values MAY guide, never hard-stop.
-7. **Honor host shell (MUST)** — on Windows PowerShell, read Harness Markdown as UTF-8 (`Get-Content -Encoding UTF8 -Raw`) and invoke npm-family CLIs through `.cmd` shims (for example `npx.cmd`); never weaken `ExecutionPolicy`.
+7. **Windows PowerShell (MUST)** — UTF-8 reads (`Get-Content -Encoding UTF8 -Raw`), npm `.cmd` shims (`npx.cmd`), no `ExecutionPolicy` weakening.
 
 ## Workflow
 1. Reuse kernel output or run `node "<this-skill-dir>/scripts/kernel-router.js" "<prompt summary>"`.
