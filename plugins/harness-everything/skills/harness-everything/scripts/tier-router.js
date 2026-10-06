@@ -62,15 +62,32 @@ function containsOnlyLookupTerms(text, operation) {
   const terms = {
     explanation: /\b(?:please|help|me|explain|resolve|define|what|is|does|mean|means|meaning|the|a|an|of|to|into|in|for|behavior|behaviour|profile|profiles|selection|json|record|alias|role|runtime|model|effort|floor|fableprofile)\b/gi,
     output: /\b(?:return|respond|output|show|provide|only|a|an|small|compact|json|record|selection|profile|result|with|fields|containing|include|including)\b/gi,
-    negative: /\b(?:no|without|do|not|don't|or|orchestration|delegation|stage|stages|staging|execution|model|switch|switching)\b/gi,
   };
   const chineseTerms = {
     explanation: /(?:請|幫我|解釋|說明|解析|的意思|意思|含義|意義|是什麼|設定檔|行為|角色)/g,
     output: /(?:只|僅|回傳|返回|輸出|顯示|提供|包含|含|的|欄位|記錄|紀錄|結果|設定檔)/g,
-    negative: /(?:不要|不需要|無需|不|或|編排|委派|階段|執行|切換模型)/g,
   };
   return text.replace(PROFILE_LOOKUP_FIELDS, '').replace(terms[operation], '')
     .replace(chineseTerms[operation], '').replace(/[\s"'`“”‘’?:：？]/g, '') === '';
+}
+
+// A negation scopes only its own noun/verb list. Vocabulary-only matching would
+// let "no delegation, do execution" pass, so English negations follow a grammar
+// and an un-negated continuation may only extend the noun list. Chinese nouns
+// and verbs share forms, so Chinese lists must stay inside the negated clause.
+const negatedList = unit => `${unit}(?:\\s+or\\s+${unit})*`;
+const NEGATED_ITEM = '(?:orchestration|delegation|stages?|staging|execution|model[- ]switch(?:ing)?)';
+const NEGATED_ACTION = '(?:switch(?:ing)?\\s+(?:the\\s+)?models?|delegate|orchestrate|stage|execute)';
+const ENGLISH_NEGATION = new RegExp(`^(?:(?:no|without)\\s+${negatedList(NEGATED_ITEM)}|(?:do not|don't)\\s+${negatedList(NEGATED_ACTION)})$`, 'i');
+const ENGLISH_NEGATION_CONTINUATION = new RegExp(`^(?:or\\s+)?${negatedList(NEGATED_ITEM)}$`, 'i');
+const CHINESE_NEGATION_TERMS = /(?:不要|不需要|無需|不|或|編排|委派|階段|執行|切換模型)/g;
+
+function isBoundedNegation(clause, continuation) {
+  const text = clause.replace(/’/g, "'").replace(/[“”"`?:：？]/g, '').replace(/\s+/g, ' ').trim();
+  if (/^(?:不要|不需要|無需|不)/.test(text)) {
+    return !continuation && text.replace(CHINESE_NEGATION_TERMS, '').replace(/\s/g, '') === '';
+  }
+  return (continuation ? ENGLISH_NEGATION_CONTINUATION : ENGLISH_NEGATION).test(text);
 }
 
 function isFableProfileLookup(prompt, hasMacroSignal) {
@@ -98,12 +115,14 @@ function isFableProfileLookup(prompt, hasMacroSignal) {
     if (output || negative) {
       continuationOperation = output ? 'output' : 'negative';
       const normalizedContinuation = clause.replace(/^(?:please\s+|請\s*)/i, '');
-      if (!containsOnlyLookupTerms(normalizedContinuation, continuationOperation)) return false;
+      const bounded = output ? containsOnlyLookupTerms(normalizedContinuation, 'output')
+        : isBoundedNegation(normalizedContinuation, false);
+      if (!bounded) return false;
     } else if (continuationOperation === 'output') {
       // Only named canonical fields may continue a comma/and-separated list.
       const remainder = clause.replace(PROFILE_LOOKUP_FIELDS, '').replace(/^(?:包含|欄位)/, '').replace(/[\s"'`“”‘’]/g, '');
       if (remainder || !new RegExp(PROFILE_LOOKUP_FIELDS.source, 'i').test(clause)) return false;
-    } else if (continuationOperation !== 'negative' || !containsOnlyLookupTerms(clause, 'negative')) {
+    } else if (continuationOperation !== 'negative' || !isBoundedNegation(clause, true)) {
       return false;
     }
   }

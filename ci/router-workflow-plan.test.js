@@ -232,6 +232,10 @@ for (const prompt of [
   'Explain fable on sonnet, please return JSON.',
   'Explain fable on sonnet and please return only JSON.',
   '請說明 fable on sonnet，請只回傳 JSON。',
+  'Explain fable on sonnet; no model switching.',
+  "Explain fable on sonnet; don't switch model or delegate.",
+  'Explain fable on sonnet; no stages and no delegation.',
+  '解釋 fable on sonnet，不要委派或切換模型。',
 ]) {
   const lookup = runTier(prompt);
   const repeat = runTier(prompt);
@@ -270,6 +274,14 @@ for (const prompt of [
   'Explain fable on sonnet; provide a profile result while running the tests.',
   'Explain fable on sonnet; return JSON with unknownField.',
   'Explain fable on sonnet; some unknown continuation.',
+  // A negation scopes only its own noun list; affirmative actions after it execute.
+  'Explain fable on sonnet; no delegation, do execution.',
+  'Explain fable on sonnet; no delegation, switch model.',
+  'Explain fable on sonnet; no delegation and stage execution.',
+  'Explain fable on sonnet; without orchestration do execution.',
+  'Explain fable on sonnet; no delegation or switch model.',
+  '解釋 fable on sonnet，不要委派，執行。',
+  '解釋 fable on sonnet，不要委派，切換模型。',
 ]) {
   const execution = runTier(prompt);
   if (validContract(execution, 'Fable execution boundary')) {
