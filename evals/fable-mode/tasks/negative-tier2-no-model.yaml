@@ -1,6 +1,6 @@
 id: negative-fable-model-005
-name: Ordinary Tier 2 work does not select a fable model
-description: A normal Tier 2 bugfix must not route to a model-pinned fable entrypoint.
+name: Ordinary Tier 2 work does not select a fable profile
+description: A normal Tier 2 bugfix must not route to an explicit Fable behavior profile.
 tags:
   - negative-trigger
   - tier-2
@@ -10,7 +10,7 @@ expected:
   should_trigger: false
 graders:
   - type: text
-    name: no-model-pinned-route
+    name: no-explicit-profile-route
     config:
       contains:
         - "fable-opus"

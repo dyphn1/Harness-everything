@@ -131,7 +131,9 @@ check('hooks can resolve state from a bound session after cwd changes', result.s
 const installed = path.join(fixture, 'installed', 'fable-mode', 'scripts');
 fs.mkdirSync(installed, { recursive: true });
 fs.copyFileSync(path.join(root, 'fable-mode', 'scripts', 'model-selector.js'), path.join(installed, 'model-selector.js'));
-fs.copyFileSync(path.join(root, 'fable-mode', 'model-matrix.json'), path.join(installed, '..', 'model-matrix.json'));
+for (const matrix of ['behavior-profile-matrix.json', 'runtime-model-floor-matrix.json']) {
+  fs.copyFileSync(path.join(root, 'fable-mode', matrix), path.join(installed, '..', matrix));
+}
 const fable = path.join(installed, 'model-selector.js');
 const fableArgs = ['--requested', 'haiku', '--available', 'haiku', '--available-agents', 'fable-worker-haiku', '--stage-brief', 'identity', '--pass-condition', 'audit', '--verification-command', 'node test', '--verifier-result', 'pass', '--session-id', 'issue-42-fable-session'];
 result = spawnSync(process.execPath, [fable, ...fableArgs], { cwd: outer, env: baseEnv, encoding: 'utf8' });

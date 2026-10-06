@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 2,
+  "profiles": {
+    "mechanical": {
+      "legacyAlias": "haiku",
+      "aliases": [
+        "mechanical",
+        "haiku"
+      ],
+      "role": "mechanical-worker",
+      "useFor": "bulk mechanical work, format conversion, boilerplate, structured extraction, and other low-ambiguity tasks",
+      "agent": "fable-worker-haiku"
+    },
+    "reasoning": {
+      "legacyAlias": "sonnet",
+      "aliases": [
+        "reasoning",
+        "sonnet",
+        "sonnect"
+      ],
+      "role": "reasoning-worker",
+      "useFor": "non-trivial implementation, research synthesis, analysis, document drafting, and bounded design reasoning",
+      "agent": "fable-worker-sonnet"
+    },
+    "orchestrator": {
+      "legacyAlias": "opus",
+      "aliases": [
+        "orchestrator",
+        "opus"
+      ],
+      "role": "orchestrator",
+      "useFor": "stage decomposition, dependency management, cross-stage synthesis, architecture, and high-stakes final decisions",
+      "agent": "fable-orchestrator"
+    }
+  }
+}

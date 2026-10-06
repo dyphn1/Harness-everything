@@ -1,6 +1,6 @@
 ---
 name: fable-mode
-description: "Stage large, multi-source or multi-session tasks through a written plan, named fable agents, failable per-stage checks, and skeptical delivery review; use fable-opus, fable-sonnet, or fable-haiku for explicit model selection."
+description: "Stage large tasks through plans, named fable agents, failable checks, and skeptical review; fable on opus|sonnet|haiku selects a behavior profile, not a runtime model."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -31,9 +31,9 @@ metadata:
 
 1. Discover the runtime and lock the authorized file scope before edits.
 2. Write a numbered stage map with one artifact and pass condition per stage; allow at most two full replans.
-3. Resolve the requested model with `model-selector.js`; never silently downgrade.
-4. Delegate by named agent where available: Opus orchestrates, Sonnet reasons, Haiku handles mechanical work, and workers never spawn workers.
-5. Write a stage contract, run its named check, then cold-review high-stakes artifacts with `fable-verifier`.
-6. Record requested/effective model, fallback reason, stage brief, pass condition, verification command, and verifier result for every stage. Escalate unresolved blockers.
+3. Resolve the requested behavior profile with `model-selector.js`; `opus`, `sonnet`/`sonnect`, and `haiku` are compatibility aliases, not model bindings.
+4. Delegate by profile: orchestrator coordinates, reasoning handles bounded judgment, mechanical handles low-ambiguity work, and workers never spawn workers.
+5. Treat the host runtime-model floor as advisory; record its status without blocking Fable solely for model choice.
+6. Run each stage check, cold-review high-stakes artifacts, and keep profile/runtime/fallback fields auditable.
 
 Deep dive: <this-skill-dir>/references/model-matrix.md

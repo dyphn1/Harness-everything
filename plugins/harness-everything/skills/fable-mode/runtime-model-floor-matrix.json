@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "policy": "advisory-floor",
+  "belowFloorDisposition": "continue-with-visible-status",
+  "hosts": {
+    "claude": {
+      "orchestrator": {
+        "family": "opus",
+        "minVersion": "5.5",
+        "minEffort": "medium",
+        "display": "Opus 5.5+ / medium+"
+      },
+      "reasoning": {
+        "family": "sonnet",
+        "minVersion": "5.5",
+        "minEffort": "medium",
+        "display": "Sonnet 5.5+ / medium+"
+      },
+      "mechanical": {
+        "family": "haiku",
+        "minVersion": "5.5",
+        "minEffort": null,
+        "display": "Haiku 5.5+"
+      }
+    },
+    "codex": {
+      "orchestrator": {
+        "family": "sol",
+        "minGeneration": 6,
+        "minEffort": "xhigh",
+        "display": "GPT-6 Sol+ / xhigh+"
+      },
+      "reasoning": {
+        "family": "sol",
+        "minGeneration": 6,
+        "minEffort": "medium",
+        "display": "GPT-6 Sol+ / medium+"
+      },
+      "mechanical": {
+        "family": "luna",
+        "minGeneration": 6,
+        "minEffort": "xhigh",
+        "display": "GPT-6 Luna 6+ / xhigh+"
+      }
+    }
+  }
+}

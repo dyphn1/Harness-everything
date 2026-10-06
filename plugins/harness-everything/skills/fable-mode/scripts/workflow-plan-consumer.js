@@ -272,7 +272,7 @@ function prepareRun({ routerContract, stages, workspaceRoot, runId, sessionId = 
       verification: plan.verification,
       workspace: plan.workspace,
       memory: plan.memory,
-      modelSelection: plan.modelSelection,
+      profileSelection: plan.profileSelection,
       limits: plan.limits,
     },
     stageIds: normalizedStages.map(stage => stage.stageId),

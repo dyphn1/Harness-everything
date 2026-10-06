@@ -202,10 +202,18 @@ if (validContract(fableTypo, 'fable keyword trivial edit')) {
 }
 
 const explicitFable = runTier('fable on opus audit the entire repository architecture');
-if (validContract(explicitFable, 'explicit Fable model')) {
+if (validContract(explicitFable, 'explicit Fable profile')) {
   check(explicitFable.contract.workflowPlan.strategy === 'fable-staged', 'explicit Fable request selects Fable topology');
-  check(explicitFable.contract.workflowPlan.modelSelection.requested === 'opus', 'explicit Fable model stays delegated to model selector');
-  check(explicitFable.result.stdout.includes('REQUESTED FABLE MODEL MODE: opus'), 'legacy explicit Fable route remains visible');
+  check(explicitFable.contract.workflowPlan.profileSelection.requested === 'orchestrator', 'legacy opus alias normalizes to orchestrator profile');
+  check(explicitFable.contract.workflowPlan.profileSelection.alias === 'opus', 'legacy alias remains auditable');
+  check(explicitFable.result.stdout.includes('REQUESTED FABLE PROFILE: opus'), 'explicit Fable profile remains visible');
+}
+
+const explicitSonnect = runTier('fable on sonnect for architecture synthesis');
+if (validContract(explicitSonnect, 'explicit Fable sonnect alias')) {
+  check(explicitSonnect.contract.workflowPlan.profileSelection.requested === 'reasoning', 'sonnect normalizes to reasoning profile');
+  check(explicitSonnect.contract.workflowPlan.profileSelection.alias === 'sonnect', 'raw sonnect alias remains auditable end-to-end');
+  check(explicitSonnect.result.stdout.includes('REQUESTED FABLE PROFILE: sonnect'), 'router output preserves raw sonnect alias');
 }
 
 const explicitOverride = runTier('Use iterative-single to audit the entire repository architecture.');
@@ -250,10 +258,10 @@ if (validContract(noWorkspaceState, 'workspace state block')) {
 const unavailableModel = runTier('fable on opus audit the entire repository architecture', {
   context: { hostCapabilities: { modelAvailability: 'unavailable', subagents: 'available' } },
 });
-if (validContract(unavailableModel, 'model capability block')) {
-  check(unavailableModel.contract.workflowPlan.modelSelection.requested === 'opus', 'router never remaps requested branded model');
-  check(unavailableModel.contract.workflowPlan.fallback.disposition === 'blocked', 'known unavailable model is visibly blocked');
-  check(unavailableModel.contract.workflowPlan.fallback.reasonCodes.includes('requested-model-capability-unavailable'), 'model capability block reason is recorded');
+if (validContract(unavailableModel, 'runtime model capability advisory')) {
+  check(unavailableModel.contract.workflowPlan.profileSelection.requested === 'orchestrator', 'opus remains a behavior-profile alias');
+  check(unavailableModel.contract.workflowPlan.fallback.disposition !== 'blocked', 'runtime model availability does not block Fable profile selection');
+  check(!unavailableModel.contract.workflowPlan.fallback.reasonCodes.includes('requested-model-capability-unavailable'), 'router no longer treats a branded model as a Fable requirement');
 }
 
 const hookUnavailable = runTier('Drop the prod database table.', {

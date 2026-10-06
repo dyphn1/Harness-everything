@@ -49,8 +49,7 @@ function matchKeyword(prompt, keyword) {
 function detectFableModel(prompt) {
   const match = prompt.match(/\bfable(?:[- ]mode)?\s+(?:on|with)\s+(haiku|sonnet|sonnect|opus)\b|\bfable-(haiku|sonnet|opus)\b/i);
   if (!match) return null;
-  const requested = (match[1] || match[2]).toLowerCase();
-  return requested === 'sonnect' ? 'sonnet' : requested;
+  return (match[1] || match[2]).toLowerCase();
 }
 
 function detectExplicitStrategy(prompt, requestedFableModel) {
@@ -334,9 +333,9 @@ function run(userPrompt, context, options = {}) {
 
   const requestedFableModel = detectFableModel(promptLower);
   if (requestedFableModel) {
-    console.log(`\n=> REQUESTED FABLE MODEL MODE: ${requestedFableModel}`);
-    console.log(`=> ROUTE: fable-mode/fable-${requestedFableModel}/SKILL.md`);
-    console.log(`   Resolve availability and record fallback status with fable-mode/scripts/model-selector.js.`);
+    console.log(`\n=> REQUESTED FABLE PROFILE: ${requestedFableModel}`);
+    console.log(`=> ROUTE: fable-mode/SKILL.md`);
+    console.log(`   Profile alias: ${requestedFableModel}; resolve behavior role plus advisory host runtime floor with fable-mode/scripts/model-selector.js.`);
   }
 
   const allRecommendedGuides = [];

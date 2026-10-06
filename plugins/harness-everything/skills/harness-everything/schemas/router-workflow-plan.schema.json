@@ -19,7 +19,7 @@
     "memory",
     "verification",
     "ensemble",
-    "modelSelection",
+    "profileSelection",
     "fallback",
     "reasonCodes"
   ],
@@ -120,13 +120,14 @@
         }
       ]
     },
-    "modelSelection": {
+    "profileSelection": {
       "type": "object",
-      "required": ["requested", "policy"],
+      "required": ["requested", "alias", "policy"],
       "additionalProperties": false,
       "properties": {
-        "requested": { "enum": ["haiku", "sonnet", "opus", null] },
-        "policy": { "enum": ["defer-to-fable-selector"] }
+        "requested": { "enum": ["mechanical", "reasoning", "orchestrator", null] },
+        "alias": { "enum": ["mechanical", "reasoning", "orchestrator", "haiku", "sonnet", "sonnect", "opus", null] },
+        "policy": { "enum": ["behavior-profile-with-advisory-runtime-floor"] }
       }
     },
     "fallback": {

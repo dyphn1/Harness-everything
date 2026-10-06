@@ -81,6 +81,18 @@ if (manifestHooks !== undefined) {
 }
 
 assert.ok(Array.isArray(manifest.skills) && manifest.skills.length > 0, 'Claude plugin must declare packaged skills');
+assert.ok(manifest.skills.includes('./fable-mode'), 'Claude plugin must expose fable-mode as the public Fable entrypoint');
+for (const nestedRef of [
+  './fable-mode/fable-opus',
+  './fable-mode/fable-sonnet',
+  './fable-mode/fable-haiku',
+  './fable-mode/execution-guardrails',
+]) {
+  assert.ok(
+    !manifest.skills.includes(nestedRef),
+    `${nestedRef} is a nested reference contract, not an independently routable Claude skill`
+  );
+}
 for (const skillRef of manifest.skills) {
   const skillDir = resolvePluginPath(skillRef, `skill ${skillRef}`);
   assert.ok(fs.statSync(skillDir).isDirectory(), `skill path must be a directory: ${skillRef}`);

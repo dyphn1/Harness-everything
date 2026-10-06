@@ -6,7 +6,8 @@ Details moved from SKILL.md.
 
 The worker is a real agent definition (`../agents/fable-worker-haiku.md`)
 invoked by name. Its system prompt carries the loop, the tightened verification
-rule, and the operational rules; this skill only routes.
+rule, and the operational rules; this reference profile documents the route used after
+`fable-mode` selects Haiku.
 
 ## Full run procedure
 

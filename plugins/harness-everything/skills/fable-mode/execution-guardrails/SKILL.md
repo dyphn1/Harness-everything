@@ -1,9 +1,6 @@
 ---
 name: execution-guardrails
-description: >-
-  Always-on guardrails: verify findings before flagging warnings, batch
-  minor caveats, and anchor search-and-replace edits with post-write checks.
-  Use when raising warnings or performing search-and-replace file edits.
+description: "Reference guardrails for verified warnings and safe replacements; active carriers must inject them explicitly."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -40,6 +37,6 @@ metadata:
 
 Repeated matching execution failures remain governed by Rule-of-3 / `zoom-out`; warning batching never substitutes for that recovery path.
 
-These rules are always-on, even when `fable-mode`'s staged loop is not running.
+This nested file is reference-only, not an always-on carrier; rules apply only when an active carrier injects them.
 
 Deep dive: <this-skill-dir>/references/guardrail-rules.md
