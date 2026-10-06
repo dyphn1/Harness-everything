@@ -56,7 +56,8 @@ Harness integrates directly into your workspace. There is no heavy daemon, no pa
 #   /plugin install harness-everything
 
 # Option B: install Harness hooks/skills/advisory integrations into your workspace
-npx github:dyphn1/Harness-everything install
+npx github:dyphn1/Harness-everything install                 # POSIX shells / Git Bash
+npx.cmd github:dyphn1/Harness-everything install             # Windows PowerShell
 
 # Option C: install or update the native Claude Code/Codex plugin
 #   npx github:dyphn1/Harness-everything plugin-sync       # POSIX shells / Git Bash
@@ -69,6 +70,8 @@ npx github:dyphn1/Harness-everything install
 #   plugins/harness-everything/.codex-plugin/plugin.json
 # See docs/openai-plugin.md for local import/install and public Skills-only submission.
 ```
+
+**Windows PowerShell:** use npm-family `.cmd` shims such as `npx.cmd` rather than weakening `ExecutionPolicy`. When reading Harness Markdown from Windows PowerShell 5.1, specify UTF-8 explicitly, for example `Get-Content -Encoding UTF8 -Raw <path>`.
 
 ### Expected Behavior After Installation:
 1. **Use the selected surface's real mechanism:** Claude Code hooks, the local OpenAI plugin lifecycle hooks, OpenCode's plugin API, or advisory instructions depending on what you installed.
