@@ -22,13 +22,13 @@ metadata:
 3. **Zoom out (MUST)** — after 3 same-signature failures, use `zoom-out`.
 4. **Resolve suggestions (MUST)** — evaluate each suggested `SKILL.md`; run applicable core contracts or retain a flow-grounded reason.
 5. **Surface status (MUST)** — non-trivial work renders `### 🚦 Harness Status` with bold `Current`, `Read / Evidence`, `Next`; `Risk / Blocked` optional.
-6. **Keep agency** — semantic MUST is not a hard block; tactics MAY adapt; numeric planning never hard-stops. Only Rule-of-3 reflection or explicit user/host permission may block.
+6. **Keep agency** — required obligations are MUST; tactics MAY adapt. Numeric planning MAY guide, never hard-stop; only Rule-of-3 reflection and explicit user/host permission boundaries may block.
 7. **Windows PowerShell (MUST)** — `Get-Content -Encoding UTF8 -Raw`; npm `.cmd` shims (`npx.cmd`); never weaken `ExecutionPolicy`.
 
 ## Workflow
 1. Reuse kernel output or run `node "<this-skill-dir>/scripts/kernel-router.js" "<prompt summary>"`.
 2. Keep the routing checkpoint internal.
-3. Resolve suggestions as `use`, `not-applicable`, or `unresolved`; `use` follows its core contract.
+3. Resolve suggestions as `use`, `not-applicable`, or `unresolved`.
 4. Complete selected-topology invariants/stages/checks.
 5. Tier-3/Fable broad mutation MUST use a linked worktree or explicit degraded fallback.
 
