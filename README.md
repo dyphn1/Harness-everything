@@ -104,9 +104,15 @@ The native `plugin-sync` command detects the installed host CLIs and applies the
 The installer records its state directories in `.git/info/exclude` — a local-only git ignore file — so Harness state never lands in a commit and your working tree (including `.gitignore`) is never modified. Everything owned by the general installer is removed with the built-in uninstaller:
 
 ```bash
-npx github:dyphn1/Harness-everything uninstall            # interactive
-npx github:dyphn1/Harness-everything uninstall --local --skills -y   # non-interactive, workspace only
-npx github:dyphn1/Harness-everything uninstall --global   # also remove Harness-owned global state
+# POSIX shells / Git Bash
+npx github:dyphn1/Harness-everything uninstall
+npx github:dyphn1/Harness-everything uninstall --local --skills -y
+npx github:dyphn1/Harness-everything uninstall --global
+
+# Windows PowerShell
+npx.cmd github:dyphn1/Harness-everything uninstall
+npx.cmd github:dyphn1/Harness-everything uninstall --local --skills -y
+npx.cmd github:dyphn1/Harness-everything uninstall --global
 ```
 
 ---
