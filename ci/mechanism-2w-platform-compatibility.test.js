@@ -167,10 +167,31 @@ assert.match(canonicalHarnessSkill, /🚦 Harness Status/u, 'UTF-8 Harness Statu
 
 const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
 assert.match(readme, /npx\.cmd github:dyphn1\/Harness-everything install/);
+assert.match(readme, /npx\.cmd github:dyphn1\/Harness-everything uninstall/);
+assert.match(readme, /npx\.cmd github:dyphn1\/Harness-everything uninstall --local --skills -y/);
+assert.match(readme, /npx\.cmd github:dyphn1\/Harness-everything uninstall --global/);
 assert.match(readme, /Get-Content -Encoding UTF8 -Raw/);
 assert.doesNotMatch(readme, /powershell -File scripts\/plugin-sync\.ps1/);
 
+const troubleshootingDocs = fs.readFileSync(path.join(ROOT, 'docs', 'troubleshooting.md'), 'utf8');
+for (const command of [
+  'install',
+  'install --global',
+  'uninstall',
+  'install --cursor',
+  'install --codex',
+  'plugin-sync --json'
+]) {
+  assert.ok(
+    troubleshootingDocs.includes(`npx.cmd github:dyphn1/Harness-everything ${command}`),
+    `troubleshooting must include Windows PowerShell form for: ${command}`
+  );
+}
+
 const capabilityDocs = fs.readFileSync(path.join(ROOT, 'docs', 'platform-capabilities.md'), 'utf8');
+assert.match(capabilityDocs, /npx\.cmd github:dyphn1\/Harness-everything plugin-sync/);
+assert.match(capabilityDocs, /node scripts\/plugin-sync\.js/);
+assert.doesNotMatch(capabilityDocs, /powershell -File scripts\/plugin-sync\.ps1/);
 assert.match(capabilityDocs, /platform-compatibility\.json/);
 assert.match(capabilityDocs, /Continue\.dev[\s\S]*`Unknown` for standalone `SKILL\.md` discovery/);
 assert.match(capabilityDocs, /live-host evidence|Partial` live-host loading/i);
