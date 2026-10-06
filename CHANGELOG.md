@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.30.6](https://github.com/dyphn1/Harness-everything/compare/v0.30.5...v0.30.6) (2026-10-06)
+
+### Bug Fixes
+
+* **fable-mode:** align Claude nested skill contract ([aadfe34](https://github.com/dyphn1/Harness-everything/commit/aadfe349e6f9a6ce9623f9b408ad8c6d9958208e))
+* **fable-mode:** compress guardrail reference contract ([302efcd](https://github.com/dyphn1/Harness-everything/commit/302efcd0433c75be10619dbad7aa2b925b57400f))
+* **fable-mode:** preserve unknown audit states and raw aliases ([2716be9](https://github.com/dyphn1/Harness-everything/commit/2716be9feb3e6b986c0f5da884ed4a686b95791b))
+* **fable-mode:** remove residual model-gated routing ([32fee42](https://github.com/dyphn1/Harness-everything/commit/32fee423e9af7416172bf146cb876f72d61e331e))
+* **fable-mode:** stay within skill token budget ([d934d36](https://github.com/dyphn1/Harness-everything/commit/d934d36cef17d5e0b30dfffd888cdab5d7c9a747))
+* **fable:** accept curly-quoted lookups and restore execution deep dive ([08517e4](https://github.com/dyphn1/Harness-everything/commit/08517e4469bab46042358df136446e2495144a7f)), closes [#290](https://github.com/dyphn1/Harness-everything/issues/290)
+* **fable:** dispatch profile lookups before loading stage references ([58ce883](https://github.com/dyphn1/Harness-everything/commit/58ce8834d3fa0ab288f9106f26758d4945ca49b6)), closes [#290](https://github.com/dyphn1/Harness-everything/issues/290)
+* **router:** preserve Fable profile alias across normalization ([50e84da](https://github.com/dyphn1/Harness-everything/commit/50e84da3f14216800e4c757996663debfb7a8f7a))
+* **router:** scope fable lookup negations to their own list ([032b52b](https://github.com/dyphn1/Harness-everything/commit/032b52bba809237c4b891e44fc7ee7b082262ddb)), closes [#290](https://github.com/dyphn1/Harness-everything/issues/290)
+* **router:** select bounded Fable profile lookups before staged topology ([0d6fdac](https://github.com/dyphn1/Harness-everything/commit/0d6fdac675a9225f9425fcb699444992032371a3)), closes [#290](https://github.com/dyphn1/Harness-everything/issues/290)
+
 ## [Unreleased]
 
 ### Fixed
