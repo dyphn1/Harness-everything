@@ -102,7 +102,8 @@ function isFableProfileLookup(prompt, hasMacroSignal) {
 
   const [lookupClause, ...continuations] = clauses;
   const quotedInvocation = new RegExp(`(["'\x60])(?:run|use|enter)\\s+(?:${FABLE_PROFILE_INVOCATION.source})\\1`, 'gi');
-  const normalizedLookup = lookupClause.replace(quotedInvocation, 'fableprofile')
+  const normalizedLookup = lookupClause.replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+    .replace(quotedInvocation, 'fableprofile')
     .replace(new RegExp(FABLE_PROFILE_INVOCATION.source, 'gi'), 'fableprofile');
   const isLookupLead = /^(?:(?:please|help me)\s+|(?:請|幫我)\s*)?(?:explain|resolve|define|what (?:is|does)|解釋|說明|解析)/i.test(lookupClause)
     && Boolean(detectFableModel(lookupClause));

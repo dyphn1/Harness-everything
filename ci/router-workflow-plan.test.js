@@ -232,6 +232,8 @@ for (const prompt of [
   'Explain fable on sonnet, please return JSON.',
   'Explain fable on sonnet and please return only JSON.',
   '請說明 fable on sonnet，請只回傳 JSON。',
+  'Explain what “run fable on sonnect” means; return only JSON.',
+  'Explain what ‘use fable on opus’ means.',
   'Explain fable on sonnet; no model switching.',
   "Explain fable on sonnet; don't switch model or delegate.",
   'Explain fable on sonnet; no stages and no delegation.',

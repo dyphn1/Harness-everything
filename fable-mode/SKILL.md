@@ -31,7 +31,7 @@ metadata:
 
 For explanation/profile-only lookup, read only `<this-skill-dir>/references/profile-lookup.md` and answer. No stage state, delegation, or selector source reads. Quoted aliases do not start Fable. Mixed execution retains its topology.
 
-Execution follows the workflow below; floor details: `<this-skill-dir>/references/model-matrix.md`.
+Execution follows the workflow below.
 
 ## Workflow
 
@@ -42,4 +42,4 @@ Execution follows the workflow below; floor details: `<this-skill-dir>/reference
 5. Treat the host runtime-model floor as advisory; record its status without blocking Fable solely for model choice.
 6. Run each stage check, cold-review high-stakes artifacts, and audit profile/runtime/fallback fields.
 
-Deep dive: <this-skill-dir>/references/profile-lookup.md
+Deep dive: <this-skill-dir>/references/model-matrix.md
