@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- Select a bounded Fable profile lookup before loading staged workflow references; preserve execution topology and required obligations (#290).
+- Validate entire Fable lookup clauses so same-clause execution keeps its obligations, while canonical JSON field lists remain bounded lookups (#294).
+- Scope lookup negations to their own noun list so an un-negated action after a negation keeps execution routing (#294).
+
 ## [0.30.5](https://github.com/dyphn1/Harness-everything/compare/v0.30.4...v0.30.5) (2026-10-06)
 
 ### Bug Fixes
