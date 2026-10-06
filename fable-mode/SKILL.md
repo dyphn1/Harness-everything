@@ -7,25 +7,31 @@ metadata:
   version: 0.30.2
 ---
 
-# Fable Mode (v3)
+# Fable Mode
 
 ## Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | Tier 3 work spanning multiple files, sources, or sessions. |
-| **Expected Output** | Stage map, named-agent briefs, failable checks, and skeptical review. |
-| **State Mutations** | Native host TODO tracker or a Markdown checklist; one JSON audit record per stage. |
-| **Enforcement Gate** | `<this-skill-dir>/scripts/model-selector.js`, stage contracts, and `<skills-repo-root>/harness-everything/scripts/verify-gate.js`. |
+| **Trigger / Input** | Profile lookup or Tier 3 execution. |
+| **Expected Output** | Profile record or verified stages. |
+| **State Mutations** | Execution only: stage checklist and audit records. |
+| **Enforcement Gate** | Execution: `<this-skill-dir>/scripts/model-selector.js`, stage contracts, and `<skills-repo-root>/harness-everything/scripts/verify-gate.js`. |
 
 ## USE FOR:
 - Large multi-file, multi-source, or multi-session work
-- Explicit `fable on haiku`, `fable on sonnet`, or `fable on opus` requests
+- Fable profile explanations or explicit Fable execution requests
 - Work needing named delegation and cold verification
 
 ## DO NOT USE FOR:
 - One obvious single-pass edit
 - Ordinary Tier 2 implementation or bugfix work
+
+## Select Operation First
+
+For explanation/profile-only lookup, read only `<this-skill-dir>/references/profile-lookup.md` and answer. No stage state, delegation, or selector source reads. Quoted aliases do not start Fable. Mixed execution retains its topology.
+
+Execution follows the workflow below.
 
 ## Workflow
 
@@ -34,6 +40,6 @@ metadata:
 3. Resolve the requested behavior profile with `model-selector.js`; `opus`, `sonnet`/`sonnect`, and `haiku` are compatibility aliases, not model bindings.
 4. Delegate by profile: orchestrator coordinates, reasoning handles bounded judgment, mechanical handles low-ambiguity work, and workers never spawn workers.
 5. Treat the host runtime-model floor as advisory; record its status without blocking Fable solely for model choice.
-6. Run each stage check, cold-review high-stakes artifacts, and keep profile/runtime/fallback fields auditable.
+6. Run each stage check, cold-review high-stakes artifacts, and audit profile/runtime/fallback fields.
 
 Deep dive: <this-skill-dir>/references/model-matrix.md
