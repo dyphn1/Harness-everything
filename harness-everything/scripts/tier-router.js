@@ -46,10 +46,68 @@ function matchKeyword(prompt, keyword) {
   return new RegExp(`\\b${escaped}\\b`, 'i').test(prompt);
 }
 
+const FABLE_PROFILE_INVOCATION = /\bfable(?:[- ]mode)?\s+(?:on|with)\s+(haiku|sonnet|sonnect|opus)\b|\bfable-(haiku|sonnet|opus)\b/i;
+const PROFILE_LOOKUP_FIELDS = /\b(?:requestedProfile|effectiveProfile|profileAlias|assignedRole|runtimeModel|runtimeEffort)\b/gi;
+
 function detectFableModel(prompt) {
-  const match = prompt.match(/\bfable(?:[- ]mode)?\s+(?:on|with)\s+(haiku|sonnet|sonnect|opus)\b|\bfable-(haiku|sonnet|opus)\b/i);
+  const match = prompt.match(FABLE_PROFILE_INVOCATION);
   if (!match) return null;
   return (match[1] || match[2]).toLowerCase();
+}
+
+// A profile mention is data in a lookup, not an instruction to start Fable.
+// Validate the whole clause, not just its prefix. Unknown prose conservatively
+// retains execution routing; format field lists are recognized separately.
+function containsOnlyLookupTerms(text, operation) {
+  const terms = {
+    explanation: /\b(?:please|help|me|explain|resolve|define|what|is|does|mean|means|meaning|the|a|an|of|to|into|in|for|behavior|behaviour|profile|profiles|selection|json|record|alias|role|runtime|model|effort|floor|fableprofile)\b/gi,
+    output: /\b(?:return|respond|output|show|provide|only|a|an|small|compact|json|record|selection|profile|result|with|fields|containing|include|including)\b/gi,
+    negative: /\b(?:no|without|do|not|don't|or|orchestration|delegation|stage|stages|staging|execution|model|switch|switching)\b/gi,
+  };
+  const chineseTerms = {
+    explanation: /(?:請|幫我|解釋|說明|解析|的意思|意思|含義|意義|是什麼|設定檔|行為|角色)/g,
+    output: /(?:只|僅|回傳|返回|輸出|顯示|提供|包含|含|的|欄位|記錄|紀錄|結果|設定檔)/g,
+    negative: /(?:不要|不需要|無需|不|或|編排|委派|階段|執行|切換模型)/g,
+  };
+  return text.replace(PROFILE_LOOKUP_FIELDS, '').replace(terms[operation], '')
+    .replace(chineseTerms[operation], '').replace(/[\s"'`“”‘’?:：？]/g, '') === '';
+}
+
+function isFableProfileLookup(prompt, hasMacroSignal) {
+  if (!detectFableModel(prompt) || hasMacroSignal) return false;
+  if (/\b(?:direct[- ]single|iterative[- ]single|fable[- ](?:staged|parallel|multi[- ]agent[- ]workspace))\b/i.test(prompt)) return false;
+
+  const clauses = prompt
+    .split(/(?:[;,.，；。、]|\b(?:and|then|also|plus|afterwards|additionally)\b|(?:並且?|以及|接著|然後|另外))/i)
+    .map(part => part.trim())
+    .filter(Boolean);
+  if (clauses.length === 0) return false;
+
+  const [lookupClause, ...continuations] = clauses;
+  const quotedInvocation = new RegExp(`(["'\x60])(?:run|use|enter)\\s+(?:${FABLE_PROFILE_INVOCATION.source})\\1`, 'gi');
+  const normalizedLookup = lookupClause.replace(quotedInvocation, 'fableprofile')
+    .replace(new RegExp(FABLE_PROFILE_INVOCATION.source, 'gi'), 'fableprofile');
+  const isLookupLead = /^(?:(?:please|help me)\s+|(?:請|幫我)\s*)?(?:explain|resolve|define|what (?:is|does)|解釋|說明|解析)/i.test(lookupClause)
+    && Boolean(detectFableModel(lookupClause));
+  if (!isLookupLead || !containsOnlyLookupTerms(normalizedLookup, 'explanation')) return false;
+
+  let continuationOperation = null;
+  for (const clause of continuations) {
+    const output = /^(?:please\s+)?(?:return|respond|output|show|provide)\b|^(?:請\s*)?(?:只|僅)?(?:回傳|返回|輸出|顯示|提供)/i.test(clause);
+    const negative = /^(?:please\s+)?(?:no|without|do not|don't)\b|^(?:請\s*)?(?:不要|不需要|無需|不)/i.test(clause);
+    if (output || negative) {
+      continuationOperation = output ? 'output' : 'negative';
+      const normalizedContinuation = clause.replace(/^(?:please\s+|請\s*)/i, '');
+      if (!containsOnlyLookupTerms(normalizedContinuation, continuationOperation)) return false;
+    } else if (continuationOperation === 'output') {
+      // Only named canonical fields may continue a comma/and-separated list.
+      const remainder = clause.replace(PROFILE_LOOKUP_FIELDS, '').replace(/^(?:包含|欄位)/, '').replace(/[\s"'`“”‘’]/g, '');
+      if (remainder || !new RegExp(PROFILE_LOOKUP_FIELDS.source, 'i').test(clause)) return false;
+    } else if (continuationOperation !== 'negative' || !containsOnlyLookupTerms(clause, 'negative')) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function detectExplicitStrategy(prompt, requestedFableModel) {
@@ -249,6 +307,7 @@ function run(userPrompt, context, options = {}) {
     /(?:評估|稽核|基準|壓力測試|比較).*(?:每個|所有|全部|整個|全套|技能|skill|檔案|版本)/i,
   ];
   const hasMacroSignal = macroSignals.some(signal => signal.test(userPrompt));
+  const profileLookup = isFableProfileLookup(userPrompt, hasMacroSignal);
   const hasTrivialEditVerb = /^(?:(?:please|help me)\s+)?(?:fix|update|correct|change)\b/i.test(userPrompt.trim());
   const hasDocsTarget = /\b(?:readme|documentation|docs?)\b/i.test(userPrompt);
   const hasTinyEditSignal = /\b(?:typo|spelling|wording|one line|single line)\b/i.test(userPrompt);
@@ -261,7 +320,12 @@ function run(userPrompt, context, options = {}) {
   let rationale = 'No structural/testing signals matched; unclassified is not equivalent to trivial.';
   const reasonCodes = [...loadedConfig.reasonCodes, 'no-classification-signal'];
 
-  if (memoryPersistenceRequested && !hasMacroSignal && !hasTier3Keyword && !hasTier2Keyword) {
+  if (profileLookup) {
+    recommendedTier = 'Tier 1 (Trivial)';
+    rationale = 'Bounded behavior-profile lookup; select compact reference before execution.';
+    reasonCodes.splice(loadedConfig.reasonCodes.length);
+    addReason(reasonCodes, 'fable-profile-lookup');
+  } else if (memoryPersistenceRequested && !hasMacroSignal && !hasTier3Keyword && !hasTier2Keyword) {
     recommendedTier = 'Tier 1 (Trivial)';
     rationale = 'Explicit bounded self-evolve memory persistence request.';
     reasonCodes.splice(loadedConfig.reasonCodes.length);
@@ -291,7 +355,7 @@ function run(userPrompt, context, options = {}) {
   const hasQuestionMarks = /\?|？/.test(userPrompt);
   const hasMultipleSentences = sentenceCount > 2;
 
-  if (!hasMacroSignal && !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences) {
+  if (!profileLookup && !hasMacroSignal && !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences) {
     if (recommendedTier === 'Unclassified' || recommendedTier.startsWith('Tier 1')) {
       recommendedTier = 'Tier 2 (Standard Task)';
       rationale = 'Multiple tasks detected with structural complexity - upgraded to Tier 2 for TDD validation.';
@@ -319,7 +383,7 @@ function run(userPrompt, context, options = {}) {
   const structuralFloor = hasMacroSignal ? 'tier3'
     : !isTrivialDocsEdit && hasMultipleTasks && hasMultipleSentences ? 'tier2' : null;
   const semantic = selectTier({ prompt: userPrompt, tier: recommendedTier, floor: structuralFloor,
-    explicit: Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) }, process.env, options.systemOneScorer || undefined);
+    explicit: profileLookup || Boolean(detectExplicitStrategy(userPrompt, detectFableModel(userPrompt))) }, process.env, options.systemOneScorer || undefined);
   if (semantic.diagnostic) console.log(`\n=> SYSTEM ONE: ${JSON.stringify(semantic.diagnostic)}`);
   if (semantic.diagnostic?.applied) {
     recommendedTier = semantic.tier;
@@ -335,11 +399,16 @@ function run(userPrompt, context, options = {}) {
   if (requestedFableModel) {
     console.log(`\n=> REQUESTED FABLE PROFILE: ${requestedFableModel}`);
     console.log(`=> ROUTE: fable-mode/SKILL.md`);
-    console.log(`   Profile alias: ${requestedFableModel}; resolve behavior role plus advisory host runtime floor with fable-mode/scripts/model-selector.js.`);
+    if (profileLookup) {
+      console.log('=> FABLE OPERATION: profile-lookup');
+      console.log('=> REFERENCES: fable-mode/references/profile-lookup.md only; no stage state or delegation.');
+    } else {
+      console.log(`   Profile alias: ${requestedFableModel}; resolve behavior role plus advisory host runtime floor with fable-mode/scripts/model-selector.js.`);
+    }
   }
 
   const allRecommendedGuides = [];
-  for (const group of routingConfig.guideGroups) {
+  for (const group of profileLookup ? [] : routingConfig.guideGroups) {
     let matched = false;
     if (typeof group.regex === 'string') {
       matched = new RegExp(group.regex, 'i').test(promptLower);
@@ -365,7 +434,7 @@ function run(userPrompt, context, options = {}) {
     });
   }
 
-  emitDynamicSkills(promptLower, context, recommendedGuides);
+  if (!profileLookup) emitDynamicSkills(promptLower, context, recommendedGuides);
 
   const externalClaimTriggers = routingConfig.factAudit.externalClaim || [];
   const estimateTriggers = routingConfig.factAudit.estimate || [];
@@ -396,7 +465,7 @@ function run(userPrompt, context, options = {}) {
   const actionGateReasonCodes = detectActionGateReasons(userPrompt);
   const irreversibleAction = actionGateReasonCodes.includes('irreversible-action');
   const externalSideEffect = actionGateReasonCodes.includes('external-side-effect');
-  const requestedStrategy = detectExplicitStrategy(userPrompt, requestedFableModel);
+  const requestedStrategy = profileLookup ? null : detectExplicitStrategy(userPrompt, requestedFableModel);
   const prohibitions = detectProhibitions(userPrompt);
   const plannerInputs = plannerInputsFromContext(context, promptLower);
 
