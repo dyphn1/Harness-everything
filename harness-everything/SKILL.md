@@ -1,6 +1,6 @@
 ---
 name: harness-everything
-description: "Route software/project work through Harness: classify tier/topology, resolve suggested skills, apply semantic obligations, and keep tactics flexible. Use for software triage/routing/re-routing; not general Q&A or non-software writing."
+description: "Route software/project work through Harness: classify tier/topology, resolve skills/contracts, verify results. Not for general Q&A or non-software writing."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -25,7 +25,7 @@ Kernel routing entry.
 4. **Resolve suggestions (MUST)** — read/evaluate each suggested `SKILL.md`; applicable core contracts MUST run, otherwise retain a flow-grounded reason.
 5. **Surface status (MUST)** — non-trivial work renders `### 🚦 Harness Status` with bold `Current`, `Read / Evidence`, `Next`; optional `Risk / Blocked`.
 6. **Keep agency** — required obligations are MUST; tactics MAY adapt. Numeric planning values MAY guide, never hard-stop.
-7. **Windows PowerShell (MUST)** — UTF-8 reads (`Get-Content -Encoding UTF8 -Raw`), npm `.cmd` shims (`npx.cmd`), no `ExecutionPolicy` weakening.
+7. **Windows PowerShell (MUST)** — `Get-Content -Encoding UTF8 -Raw`; `npx.cmd`; never weaken `ExecutionPolicy`.
 
 ## Workflow
 1. Reuse kernel output or run `node "<this-skill-dir>/scripts/kernel-router.js" "<prompt summary>"`.
