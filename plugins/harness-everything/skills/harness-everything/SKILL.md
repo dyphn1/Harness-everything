@@ -1,6 +1,6 @@
 ---
 name: harness-everything
-description: "Route software/project work through Harness: classify tier/topology, resolve skills/contracts, verify results. Not for general Q&A or non-software writing."
+description: "Route software/project work through Harness: classify tier/topology, resolve skills, verify results. Not for general Q&A."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
