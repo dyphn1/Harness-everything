@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.30.5](https://github.com/dyphn1/Harness-everything/compare/v0.30.4...v0.30.5) (2026-10-06)
+
+### Bug Fixes
+
+* align Windows PowerShell quick-start contract ([f780f77](https://github.com/dyphn1/Harness-everything/commit/f780f777559d14f9bcf929793d954ddcaf2c6cf7))
+* enforce Windows-safe shell contract ([a373a16](https://github.com/dyphn1/Harness-everything/commit/a373a16f5bdd3659e290715c971f530e66ffe2c1))
+* fit Harness routing contract within budget ([6fa9065](https://github.com/dyphn1/Harness-everything/commit/6fa90657611bcbc85f669e864a3245b469e99d23))
+* keep host-shell invariant within skill budget ([1381dc9](https://github.com/dyphn1/Harness-everything/commit/1381dc9877a0facccbea8f31a3047055eabaf5b2))
+* preserve semantic contract phrases within Waza budget ([ab29217](https://github.com/dyphn1/Harness-everything/commit/ab292175cc691c6bd01d1e0da219a15c6779f7be))
+* preserve skill metadata while restoring token budget ([189660a](https://github.com/dyphn1/Harness-everything/commit/189660ad6283ecad84d8a07232515fd80da6691c))
+* restore Harness skill token budget ([80b1eee](https://github.com/dyphn1/Harness-everything/commit/80b1eeeceb681d9551bfbe4d3c881ae2c3e5747f))
+* restore required skill sections within Waza budget ([acbb314](https://github.com/dyphn1/Harness-everything/commit/acbb314ec4e7769c2a2c253918ac67e1158052fe))
+* show Windows-safe npx entry point ([d208b77](https://github.com/dyphn1/Harness-everything/commit/d208b7735912b7282dc158068b3e5c17a5c62e0d))
+* sync packaged Windows shell contract ([201eb5a](https://github.com/dyphn1/Harness-everything/commit/201eb5a53cbea4e696db633f857b6c30c15f1855))
+
 ## [0.30.4](https://github.com/dyphn1/Harness-everything/compare/v0.30.3...v0.30.4) (2026-10-01)
 
 ### Bug Fixes
