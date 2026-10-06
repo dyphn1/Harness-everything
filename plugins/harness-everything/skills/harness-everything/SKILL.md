@@ -1,6 +1,6 @@
 ---
 name: harness-everything
-description: "Route software/project work through Harness: classify tier/topology, resolve skills, verify results. Not for general Q&A."
+description: "Route software/project work through Harness: classify tier/topology, resolve suggested skills, apply semantic obligations, and keep tactics flexible. Use for software triage/routing/re-routing; not general Q&A or non-software writing."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -8,15 +8,6 @@ metadata:
 ---
 
 # Harness Everything
-
-Kernel routing entry.
-
-## USE FOR:
-- Software/project triage, routing, re-routing, workflow selection.
-- Work that names or matches another skill.
-
-## DO NOT USE FOR:
-- General Q&A or non-software writing.
 
 ## Invariants
 1. **Route (MUST)** — establish scope/tier and selected/deferred topology.
