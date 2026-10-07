@@ -309,9 +309,20 @@ function scratchRoots(payload, sessionDir) {
   return roots.filter(Boolean);
 }
 
+function isStaticDeleteTarget(target) {
+  // Relative paths are safe only if the shell will not expand them. When cwd
+  // itself is inside scratch space, resolving "$S" as a literal path would
+  // incorrectly exempt a potentially destructive operation (#283).
+  // Variables, command substitution, globbing and brace/tilde expansion must
+  // be treated as unknown, not as a proven scratch location.
+  const raw = String(target || '');
+  return !raw.startsWith('~') && !['$', '%', '`', '*', '?', '[', ']', '{', '}'].some(marker => raw.includes(marker));
+}
+
 function outsideScratchMatchApplies(rule, command, payload, sessionDir) {
   const targets = deleteTargets(command, rule.id);
   if (targets.length === 0) return true; // uncertain target => gate conservatively
+  if (targets.some(target => !isStaticDeleteTarget(target))) return true;
   const cwd = (payload && payload.cwd) || process.cwd();
   const roots = scratchRoots(payload, sessionDir);
   return !targets.every(target => {
