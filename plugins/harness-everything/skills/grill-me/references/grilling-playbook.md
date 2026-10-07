@@ -12,9 +12,9 @@ flowchart TD
     UpdateGlossary --> MoreBranches{3. Unresolved Decision Branches Remain?}
     
     MoreBranches -- Yes --> Loop
-    MoreBranches -- No (Consensus Reached) --> ToSpec[4. Hand off to to-spec for Outline Preview & Spec/ADR Publishing]
+    MoreBranches -- No (Consensus Reached) --> ToSpec[4. Recommend explicit /to-spec handoff]
     
-    ToSpec --> Execution[5. Route to to-tickets / fable-mode / tdd via harness-everything]
+    ToSpec --> Execution[5. Suggest /to-tickets / fable-mode / tdd as appropriate]
 ```
 
 ## 1. Persona: The Relentless Challenger
@@ -29,10 +29,10 @@ Your goal is to find loopholes, undefined boundary conditions, and potential per
 - **Rule of Single Question**: **You MUST only ask one question at a time**. Listing a long questionnaire with 5 questions is STRICTLY PROHIBITED.
 - **Tree Parsing**: Go deep down every branch of the decision tree. Only move to the next blind spot after resolving the current one.
 - **Provide Your Insight**: When asking a question, attach your professional insight.
-- **Real-time Glossary & Spec Handoff**: As domain terms and blind spots resolve, update `CONTEXT.md` (glossary) inline. Once the interrogation concludes with a full consensus, hand off to `to-spec` to preview the outline and publish the formal specification document (PRD, CLI/API reference, Schema doc, or ADR).
+- **Real-time Glossary & Spec Handoff**: As domain terms and blind spots resolve, update `CONTEXT.md` (glossary) inline. Once consensus is complete, recommend explicit `/to-spec`. Do not auto-run `to-spec` or `to-tickets`; publication remains behind their user-approval gates.
 
 ## 3. Exit Conditions and Handoff
 
 - Continue until you and the user reach a **"Shared Understanding with no suspense"**, and all branches of the decision tree are parsed and resolved.
-- **Handoff to Specification (`to-spec`)**: Once grilling concludes and all decision-tree branches are resolved, **MUST** hand off to `to-spec/SKILL.md` to synthesize the conversation into an outline preview and publish the corresponding document (PRD, CLI reference, Schema doc, or ADR) using `to-spec`'s path resolution flow.
-- **Handoff to Execution**: After `to-spec` publishes the specification, route to `to-tickets` (for ticket breakdown), `fable-mode` (for macro scaffolding), or `tdd` (for feature implementation).
+- **Specification suggestion (`/to-spec`)**: Once grilling concludes and all branches resolve, recommend explicit `/to-spec`. Only that explicit invocation may enter `to-spec/SKILL.md` and its preview/publication flow.
+- **Execution suggestion**: Suggest `/to-tickets`, `fable-mode`, or `tdd` as appropriate; do not auto-invoke explicit-only skills.

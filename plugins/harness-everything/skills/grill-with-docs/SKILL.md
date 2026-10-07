@@ -18,7 +18,7 @@ Interview the design tree one question at a time with recommended answers; explo
 | **Trigger / Input** | Stress-testing a plan against domain language and documented decisions. |
 | **Expected Output** | Structured interview; inline `CONTEXT.md` updates; ADR handoff. |
 | **State Mutations** | Writes the context glossary and ADRs at resolved locations. |
-| **Enforcement Gate** | Pure glossary; ADRs meet the 3-part bar; hand to `to-spec` after. |
+| **Enforcement Gate** | Pure glossary; ADRs meet the 3-part bar; suggest explicit `/to-spec` after alignment. Never auto-run `to-spec` or `to-tickets`. |
 
 ## Workflow
 
@@ -27,7 +27,7 @@ Interview the design tree one question at a time with recommended answers; explo
 3. Stress-test relationships with concrete scenarios; cross-check claims against code.
 4. Update the context glossary inline, never batch; zero implementation details.
 5. Offer an ADR only if hard to reverse + surprising without context + a real trade-off.
-6. Hand off unverified design to `grill-me`; aligned design to `to-spec`; execution to `to-tickets`/`fable-mode`/`tdd`.
+6. Hand off unverified design to `grill-me`; for aligned design suggest explicit `/to-spec`; for execution suggest `/to-tickets`, `fable-mode`, or `tdd` as appropriate without auto-invoking explicit-only skills.
 
 Deep dive: <this-skill-dir>/references/session-playbook.md
 

@@ -1,6 +1,6 @@
 # Workflow: Grill Me
 
-> A demanding challenger that pressure-tests vague plans and architectures one question at a time, exposes loopholes and undefined boundaries, counters sycophantic agreement, keeps the CONTEXT.md glossary current, and passes settled decisions to to-spec for formal specs and ADRs.
+> A demanding challenger that pressure-tests vague plans and architectures one question at a time, keeps the CONTEXT.md glossary current, and recommends an explicit `/to-spec` handoff after consensus.
 
 Source of truth: `grill-me/SKILL.md`.
 
@@ -15,8 +15,11 @@ graph TD
   ResolveBranch --> UpdateGlossary["Update CONTEXT.md glossary inline"]
   UpdateGlossary --> ConsensusCheck{"Consensus on all branches?"}
   ConsensusCheck -->|No| AskOne
-  ConsensusCheck -->|Yes| HandoffSpec["Hand off to to-spec to preview outline and publish"]
-  HandoffSpec --> RouteExec["Route execution to to-tickets, fable-mode, or tdd"]
+  ConsensusCheck -->|Yes| SuggestSpec["Recommend explicit /to-spec"]
+  SuggestSpec --> InvokeSpec{"User explicitly invokes /to-spec?"}
+  InvokeSpec -->|No| Await["Keep aligned decisions; await explicit command"]
+  InvokeSpec -->|Yes| ToSpec["to-spec previews outline and publishes under its approval gate"]
+  ToSpec --> SuggestExec["Suggest /to-tickets, fable-mode, or tdd as appropriate"]
 ```
 
 ## 2. Triggering and Routing Path
@@ -26,10 +29,11 @@ graph LR
   VaguePlan["Input: vague plan proposal"] --> GrillMe["grill-me / SKILL.md"]
   EvaluateArch["Input: evaluate architecture request"] --> GrillMe
   ExplicitAsk["Input: explicit grill me request"] --> GrillMe
-  GrillMe --> ToSpec["to-spec: preview outline and publish PRD, CLI/API reference, Schema doc, or ADR"]
-  ToSpec --> ToTickets["to-tickets for execution"]
-  ToSpec --> FableMode["fable-mode for execution"]
-  ToSpec --> TDD["tdd for execution"]
+  GrillMe --> SuggestSpec["Suggest explicit /to-spec"]
+  SuggestSpec --> InvokeGate{"Explicit /to-spec invoked?"}
+  InvokeGate -->|No| Wait["Stop at recommendation"]
+  InvokeGate -->|Yes| ToSpec["to-spec preview / publication flow"]
+  ToSpec --> SuggestRoutes["Suggest /to-tickets, fable-mode, or tdd"]
 ```
 
 ## 3. Real-World Use Case
@@ -42,10 +46,13 @@ graph TD
   A1 --> Glossary1["Update CONTEXT.md glossary for sync and lock terms"]
   Glossary1 --> Q2["Q2: What are boundary conditions for partial state?"]
   Q2 --> Consensus["Consensus reached on failure and boundary handling"]
-  Consensus --> SpecHandoff["to-spec publishes ADR and spec"]
+  Consensus --> Recommend["Recommend explicit /to-spec"]
+  Recommend --> UserInvoke{"User invokes /to-spec?"}
+  UserInvoke -->|No| End["Preserve consensus; no publication"]
+  UserInvoke -->|Yes| Spec["to-spec previews and publishes ADR/spec"]
 ```
 
-Concrete example: a developer proposes a direct table-sync cron job. `grill-me` scans `CONTEXT.md` and related code, asks one question about mid-sync failure, resolves it, updates the glossary, asks the next question about monitoring and boundary conditions, then hands the hardened decisions to `to-spec` for a PRD or ADR. Execution follows via `to-tickets`, `fable-mode`, or `tdd`.
+Concrete example: a developer proposes a direct table-sync cron job. `grill-me` resolves the design one question at a time and updates glossary terms. Once consensus is reached, it recommends explicit `/to-spec`; it does not publish automatically. Only after that command is invoked does `to-spec` enter its preview/publication flow. Any later execution route is suggested rather than auto-invoked.
 
 Deep detail: `grill-me/references/grilling-playbook.md`.
 
@@ -54,7 +61,8 @@ Deep detail: `grill-me/references/grilling-playbook.md`.
 - [ ] Exactly ONE question asked at a time; questionnaires prohibited
 - [ ] Each question carries the agent's insight and its branch is resolved before advancing
 - [ ] Questions use the project's domain model and terminology from `CONTEXT.md`, `README.md`, and `docs/adr/`
-- [ ] `CONTEXT.md` glossary updated inline as terms resolve; document creation left to `to-spec`
-- [ ] On consensus, `to-spec` invoked to preview outline and publish PRD, CLI/API reference, Schema doc, or ADR
-- [ ] No code implementation or ticket breakdown inside this skill; execution routed to `to-tickets`, `fable-mode`, or `tdd`
+- [ ] `CONTEXT.md` glossary updated inline as terms resolve
+- [ ] On consensus, explicit `/to-spec` is recommended, not auto-run
+- [ ] Publication occurs only after explicit `/to-spec` invocation and its approval flow
+- [ ] Execution routes such as `/to-tickets`, `fable-mode`, or `tdd` are suggested; explicit-only skills are not auto-invoked
 - [ ] Not used for casual Q and A, direct spec writing, or ticket breakdown of an approved spec
