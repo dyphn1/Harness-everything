@@ -43,6 +43,23 @@ assert.ok(/Rule-of-3 owns mandatory reflection/i.test(fableDiscipline), 'Rule-of
 assert.ok(!/HALTS execution immediately/i.test(fableDiscipline), 'fable-discipline must not retain the divergent-build hard halt');
 assert.ok(!/If build errors diverge, HALT/i.test(fableDiscipline), 'fable-discipline must not issue an immediate divergence halt');
 
+// #274: grill skills may recommend the explicit publication/ticket commands,
+// but must not auto-invoke state-mutating explicit-only skills.
+const toSpec = read('to-spec/SKILL.md');
+const toTickets = read('to-tickets/SKILL.md');
+assert.ok(/Explicit \/to-spec; never auto-run/i.test(toSpec), 'to-spec remains explicit-only');
+assert.ok(/Explicit \/to-tickets only/i.test(toTickets), 'to-tickets remains explicit-only');
+for (const [canonical, packaged] of [
+  ['grill-me/SKILL.md', 'plugins/harness-everything/skills/grill-me/SKILL.md'],
+  ['grill-with-docs/SKILL.md', 'plugins/harness-everything/skills/grill-with-docs/SKILL.md'],
+]) {
+  const body = read(canonical);
+  assert.strictEqual(read(packaged), body, canonical + ' packaged contract matches');
+  assert.ok(/explicit \/to-spec/i.test(body), canonical + ' must surface the explicit to-spec handoff');
+  assert.ok(/Never auto-run `to-spec` or `to-tickets`/i.test(body), canonical + ' must preserve explicit-only publication/ticket gates');
+}
+assert.ok(!/on consensus, invoke `to-spec`/i.test(read('grill-me/SKILL.md')), 'grill-me must not auto-invoke to-spec');
+
 // #268: model aliases evolve, so worker prompts must encode behavior rather
 // than generation-specific personality/failure claims.
 const workerPairs = [
