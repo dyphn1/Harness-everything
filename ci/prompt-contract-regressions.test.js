@@ -59,6 +59,16 @@ for (const [canonical, packaged] of [
   assert.ok(/Never auto-run `to-spec` or `to-tickets`/i.test(body), canonical + ' must preserve explicit-only publication/ticket gates');
 }
 assert.ok(!/on consensus, invoke `to-spec`/i.test(read('grill-me/SKILL.md')), 'grill-me must not auto-invoke to-spec');
+for (const [canonical, packaged] of [
+  ['grill-me/references/grilling-playbook.md', 'plugins/harness-everything/skills/grill-me/references/grilling-playbook.md'],
+  ['grill-with-docs/references/session-playbook.md', 'plugins/harness-everything/skills/grill-with-docs/references/session-playbook.md'],
+]) {
+  const body = read(canonical);
+  assert.strictEqual(read(packaged), body, canonical + ' packaged reference matches');
+  assert.ok(/recommend explicit `?\/to-spec`?/i.test(body), canonical + ' keeps explicit specification handoff');
+  assert.ok(!/MUST[^\n]*hand off to `to-spec/i.test(body), canonical + ' must not mandate automatic to-spec handoff');
+}
+
 
 
 // #277: completing a task phase does not authorize a Git commit.
