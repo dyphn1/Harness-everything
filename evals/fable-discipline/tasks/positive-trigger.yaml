@@ -1,6 +1,6 @@
 id: positive-fable-discipline-001
 name: On-scope prompt triggers fable-discipline
-description: Guard fable-mode context, stage scope, handoffs, commit boundaries, and build-divergence signals without adding independent hard stops.
+description: Enforce fable-mode context discipline as a shadow guard. Use for staged multi-agent loops to compact state, constrain stage scope, verify handoffs, and surface build divergence without adding an independent hard stop.
 tags:
   - positive-trigger
 inputs:
