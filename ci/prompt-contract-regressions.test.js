@@ -69,6 +69,18 @@ for (const [canonical, packaged] of [
   assert.ok(!/MUST[^\n]*hand off to `to-spec/i.test(body), canonical + ' must not mandate automatic to-spec handoff');
 }
 
+for (const rel of [
+  'docs/workflows/grill-me.md',
+  'docs/workflows/grill-with-docs.md',
+]) {
+  const body = read(rel);
+  assert.ok(/suggest|recommend/i.test(body) && /explicit `?\/to-spec`?/i.test(body), rel + ' must recommend an explicit to-spec command');
+  assert.ok(/explicit `?\/to-spec`? invocation/i.test(body), rel + ' must preserve the explicit invocation gate');
+  assert.ok(/not auto-run|does not invoke|not auto-invoked|does not publish automatically/i.test(body), rel + ' must reject automatic explicit-only handoff');
+  assert.ok(!/On consensus, `?to-spec`? invoked/i.test(body), rel + ' must not auto-invoke to-spec on consensus');
+  assert.ok(!/aligned design to `?to-spec`?; execution to `?to-tickets/i.test(body), rel + ' must not encode automatic downstream handoff');
+}
+
 
 
 // #277: completing a task phase does not authorize a Git commit.
