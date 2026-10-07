@@ -1,6 +1,6 @@
 id: positive-git-commit-001
 name: On-scope prompt triggers git-commit
-description: "Generate Angular-style commits after inspecting repo state and staged changes; use only when the user or host workflow has authorized a commit."
+description: "Generate Angular-style commit messages after verifying repo state, submodules, and staged files. Use only for a user-requested or host/workflow-authorized commit; task completion alone is not authorization."
 tags:
   - positive-trigger
 inputs:
