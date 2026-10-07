@@ -6,7 +6,9 @@ Details moved from SKILL.md. Read when you need the full commit execution flow.
 
 ```mermaid
 flowchart TD
-    Start[Trigger: Commit Request / Task Complete] --> CheckGit{1. Is Git Repo Initialized?}
+    Start[Trigger: User / Host-Authorized Commit] --> CheckAuth{0. Commit Authorized?}
+    CheckAuth -- No --> Stop[Do Not Commit; Surface Status]
+    CheckAuth -- Yes --> CheckGit{1. Is Git Repo Initialized?}
     
     CheckGit -- No --> OfferInit[Prompt User: Run git init or Skip Commit]
     CheckGit -- Yes --> CheckSubmodules{2. Has Submodule Changes?}
@@ -16,7 +18,7 @@ flowchart TD
     
     CheckStatus --> StagedCheck{4. Are Files Staged?}
     
-    StagedCheck -- No Staged Files --> AskStage[Prompt User / Stage Targeted Files] --> Format
+    StagedCheck -- No Staged Files --> AskStage[Prompt User; Stage Only Authorized Targeted Files] --> Format
     StagedCheck -- Files Staged --> Format[5. Format Angular Commit Message]
     
     Format --> CheckShell{6. Shell / Multiline Escaping Check}
