@@ -60,6 +60,30 @@ for (const [canonical, packaged] of [
 }
 assert.ok(!/on consensus, invoke `to-spec`/i.test(read('grill-me/SKILL.md')), 'grill-me must not auto-invoke to-spec');
 
+
+// #277: completing a task phase does not authorize a Git commit.
+// Commit boundaries are guidance unless the user or active host/workflow grants permission.
+const gitCommit = read('git-commit/SKILL.md');
+const gitCommitFlow = read('git-commit/references/commit-flow.md');
+const fableDisciplineRules = read('fable-discipline/references/discipline-rules.md');
+assert.strictEqual(read('plugins/harness-everything/skills/git-commit/SKILL.md'), gitCommit, 'git-commit packaged contract matches canonical');
+assert.strictEqual(read('plugins/harness-everything/skills/git-commit/references/commit-flow.md'), gitCommitFlow, 'git-commit packaged flow matches canonical');
+assert.strictEqual(read('plugins/harness-everything/skills/fable-discipline/references/discipline-rules.md'), fableDisciplineRules, 'fable-discipline packaged rules match canonical');
+assert.ok(/task phase alone is not authorization/i.test(gitCommit), 'phase completion must not authorize a commit');
+assert.ok(/Require commit authorization first/i.test(gitCommit), 'git-commit must gate mutation on authorization');
+assert.ok(/User \/ Host-Authorized Commit/i.test(gitCommitFlow), 'commit flow must begin from explicit authorization');
+assert.ok(/Do Not Commit; Surface Status/i.test(gitCommitFlow), 'unauthorized flow must stop before mutation');
+assert.ok(/If the user\/host has authorized commits/i.test(fableDiscipline), 'fable discipline only applies atomic commits after authorization');
+assert.ok(/otherwise leave changes uncommitted/i.test(fableDiscipline), 'fable discipline must preserve uncommitted state without authorization');
+assert.ok(/Create the commit only when the user or active host\/workflow has authorized commits/i.test(fableDisciplineRules), 'fable reference must not autonomously commit');
+assert.ok(!/explicit commit requests or concluded task phases/i.test(gitCommit), 'concluded phases must not remain a commit trigger');
+assert.ok(!/Trigger: Commit Request \/ Task Complete/i.test(gitCommitFlow), 'task completion must not remain a flow trigger');
+
+// #275 reference surface must agree with the non-blocking divergence contract.
+assert.ok(/divergence alone is not a hard stop/i.test(fableDisciplineRules), 'fable reference keeps divergence advisory');
+assert.ok(/Mandatory reflection remains owned by Rule-of-3/i.test(fableDisciplineRules), 'fable reference keeps Rule-of-3 as reflection owner');
+assert.ok(!/HALT EXECUTION IMMEDIATELY/i.test(fableDisciplineRules), 'fable reference must not retain the old divergence hard halt');
+
 // #268: model aliases evolve, so worker prompts must encode behavior rather
 // than generation-specific personality/failure claims.
 const workerPairs = [
