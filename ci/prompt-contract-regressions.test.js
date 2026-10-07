@@ -47,15 +47,15 @@ assert.ok(!/If build errors diverge, HALT/i.test(fableDiscipline), 'fable-discip
 // but must not auto-invoke state-mutating explicit-only skills.
 const toSpec = read('to-spec/SKILL.md');
 const toTickets = read('to-tickets/SKILL.md');
-assert.ok(/Explicit \/to-spec; never auto-run/i.test(toSpec), 'to-spec remains explicit-only');
-assert.ok(/Explicit \/to-tickets only/i.test(toTickets), 'to-tickets remains explicit-only');
+assert.ok(/Explicit `?\/to-spec`?; never auto-run/i.test(toSpec), 'to-spec remains explicit-only');
+assert.ok(/Explicit `?\/to-tickets`? only/i.test(toTickets), 'to-tickets remains explicit-only');
 for (const [canonical, packaged] of [
   ['grill-me/SKILL.md', 'plugins/harness-everything/skills/grill-me/SKILL.md'],
   ['grill-with-docs/SKILL.md', 'plugins/harness-everything/skills/grill-with-docs/SKILL.md'],
 ]) {
   const body = read(canonical);
   assert.strictEqual(read(packaged), body, canonical + ' packaged contract matches');
-  assert.ok(/explicit \/to-spec/i.test(body), canonical + ' must surface the explicit to-spec handoff');
+  assert.ok(/explicit `?\/to-spec`?/i.test(body), canonical + ' must surface the explicit to-spec handoff');
   assert.ok(/Never auto-run `to-spec` or `to-tickets`/i.test(body), canonical + ' must preserve explicit-only publication/ticket gates');
 }
 assert.ok(!/on consensus, invoke `to-spec`/i.test(read('grill-me/SKILL.md')), 'grill-me must not auto-invoke to-spec');
@@ -83,6 +83,13 @@ assert.ok(!/Trigger: Commit Request \/ Task Complete/i.test(gitCommitFlow), 'tas
 assert.ok(/divergence alone is not a hard stop/i.test(fableDisciplineRules), 'fable reference keeps divergence advisory');
 assert.ok(/Mandatory reflection remains owned by Rule-of-3/i.test(fableDisciplineRules), 'fable reference keeps Rule-of-3 as reflection owner');
 assert.ok(!/HALT EXECUTION IMMEDIATELY/i.test(fableDisciplineRules), 'fable reference must not retain the old divergence hard halt');
+const fableWorkflow = read('docs/workflows/fable-discipline.md');
+const gitWorkflow = read('docs/workflows/git-commit.md');
+assert.ok(/Divergence surfaced without creating an independent hard stop/i.test(fableWorkflow), 'fable workflow keeps divergence advisory');
+assert.ok(!/HALT and call zoom-out|halt immediately/i.test(fableWorkflow), 'fable workflow must not retain divergence hard halt');
+assert.ok(/completed task phase does \*\*not\*\* authorize a commit/i.test(gitWorkflow), 'git workflow rejects phase-completion authorization');
+assert.ok(/Commit authorization existed before mutation/i.test(gitWorkflow), 'git workflow gates mutation on authorization');
+
 
 // #268: model aliases evolve, so worker prompts must encode behavior rather
 // than generation-specific personality/failure claims.
