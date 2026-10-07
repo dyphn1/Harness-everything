@@ -84,6 +84,20 @@ try {
   // fail-open path: the gate cannot prove that the target is scratch space.
   matched(table, 'rm -rf "$S"', 'recursive-delete');
 
+  // A repository checkout may itself live below os.tmpdir() (e.g. a review worktree).
+  // Unknown paths are not proven scratch paths merely because cwd is scratch.
+  const scratchCwd = path.join(sessionDir, 'scratch');
+  matched(table, 'rm -rf "$S"', 'recursive-delete', 'Bash', scratchCwd);
+  matched(table, 'rm -rf "${S}"', 'recursive-delete', 'Bash', scratchCwd);
+  matched(table, 'rm -rf "$HOME/important"', 'recursive-delete', 'Bash', scratchCwd);
+  matched(table, 'rm -rf "~/important"', 'recursive-delete', 'Bash', scratchCwd);
+  matched(table, 'rm -rf "*.txt"', 'recursive-delete', 'Bash', scratchCwd);
+  matched(table, 'ri -Recurse -Force "$env:TARGET"', 'powershell-recursive-force-delete', 'PowerShell', scratchCwd);
+  matched(table, 'rm -r -fo "%TEMP%/important"', 'powershell-recursive-force-delete', 'PowerShell', scratchCwd);
+  // A provably literal scratch path remains allowed even from the same cwd.
+  allowed(table, `rm -rf "${path.join(scratchCwd, 'output')}"`, 'Bash', scratchCwd);
+
+
   console.log('PASS: destructive-command classifier covers confirmed bypasses while suppressing quoted-text false positives');
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });
