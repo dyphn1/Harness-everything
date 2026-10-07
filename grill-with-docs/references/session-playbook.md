@@ -22,9 +22,9 @@ flowchart TD
     WriteFallback --> CheckMore
 
     CheckMore -- Unresolved Branches Remain --> Frontier
-    CheckMore -- All Branches Resolved --> ToSpec[6. Hand off to to-spec for Outline Preview & Spec/ADR Publishing]
+    CheckMore -- All Branches Resolved --> ToSpec[6. Recommend explicit /to-spec handoff]
 
-    ToSpec --> Execution[7. Route to to-tickets / fable-mode / tdd via harness-everything]
+    ToSpec --> Execution[7. Suggest /to-tickets / fable-mode / tdd via harness-everything]
 ```
 
 ## Core interview prompt
@@ -95,5 +95,5 @@ If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](
 
 1. **Pre-flight**: If the core proposal is highly vague or its technical robustness (SRE, security, locks, concurrency, fail-safes) is unverified, recommend the user run `grill-me` first. Do not attempt to align a glossary for a broken or unstable design.
 2. **Transition**: Once technical issues are hardened in `grill-me`, transition here to solidify domain terms and record architectural choices.
-3. **Downstream Specification Handoff**: Once alignment is complete and domain terms are updated, hand off to `to-spec/SKILL.md` to present an outline preview and publish the formal specification document or ADR.
-4. **Execution Handoff**: Route to `to-tickets` (for ticket decomposition), `fable-mode` (for macro scaffolding), or `tdd` (for feature implementation) via `harness-everything`.
+3. **Downstream Specification Suggestion**: Once alignment is complete, recommend explicit `/to-spec`. Do not auto-run `to-spec` or `to-tickets`; their approval gates remain authoritative.
+4. **Execution Suggestion**: Suggest `/to-tickets`, `fable-mode`, or `tdd` through `harness-everything` as appropriate.
