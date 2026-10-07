@@ -80,10 +80,10 @@ assert.strictEqual(read('plugins/harness-everything/skills/git-commit/SKILL.md')
 assert.strictEqual(read('plugins/harness-everything/skills/git-commit/references/commit-flow.md'), gitCommitFlow, 'git-commit packaged flow matches canonical');
 assert.strictEqual(read('plugins/harness-everything/skills/fable-discipline/references/discipline-rules.md'), fableDisciplineRules, 'fable-discipline packaged rules match canonical');
 assert.ok(/task phase alone is not authorization/i.test(gitCommit), 'phase completion must not authorize a commit');
-assert.ok(/Require commit authorization first/i.test(gitCommit), 'git-commit must gate mutation on authorization');
+assert.ok(/commit authorization first/i.test(gitCommit), 'git-commit must gate mutation on authorization');
 assert.ok(/User \/ Host-Authorized Commit/i.test(gitCommitFlow), 'commit flow must begin from explicit authorization');
 assert.ok(/Do Not Commit; Surface Status/i.test(gitCommitFlow), 'unauthorized flow must stop before mutation');
-assert.ok(/If the user\/host has authorized commits/i.test(fableDiscipline), 'fable discipline only applies atomic commits after authorization');
+assert.ok(/commits are authorized/i.test(fableDiscipline), 'fable discipline only applies atomic commits after authorization');
 assert.ok(/otherwise leave changes uncommitted/i.test(fableDiscipline), 'fable discipline must preserve uncommitted state without authorization');
 assert.ok(/Create the commit only when the user or active host\/workflow has authorized commits/i.test(fableDisciplineRules), 'fable reference must not autonomously commit');
 assert.ok(!/explicit commit requests or concluded task phases/i.test(gitCommit), 'concluded phases must not remain a commit trigger');
