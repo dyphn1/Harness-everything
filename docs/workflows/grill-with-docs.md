@@ -1,6 +1,6 @@
 # Workflow: Grill With Docs
 
-> Tests a plan against the recorded domain language and past decisions, tightens fuzzy terminology into canonical terms, and writes CONTEXT.md and ADR updates inline as choices settle.
+> Tests a plan against recorded domain language and decisions, sharpens terminology, updates CONTEXT.md/ADRs inline, and recommends explicit downstream commands after alignment.
 
 Source of truth: `grill-with-docs/SKILL.md`.
 
@@ -15,8 +15,12 @@ graph TD
   InlineUpdate --> ADRGate{"ADR warranted: hard to reverse plus surprising without context plus real trade-off?"}
   ADRGate -->|Yes| WriteADR["Offer and write ADR at resolved location"]
   ADRGate -->|No| SkipADR["Skip ADR; keep pure glossary"]
-  WriteADR --> Handoff["Hand off aligned design to to-spec"]
-  SkipADR --> Handoff
+  WriteADR --> SuggestSpec["Recommend explicit /to-spec"]
+  SkipADR --> SuggestSpec
+  SuggestSpec --> InvokeSpec{"User explicitly invokes /to-spec?"}
+  InvokeSpec -->|No| Await["Keep aligned design; await explicit command"]
+  InvokeSpec -->|Yes| ToSpec["to-spec enters preview / publication flow"]
+  ToSpec --> SuggestExec["Suggest /to-tickets, fable-mode, or tdd as appropriate"]
 ```
 
 ## 2. Triggering and Routing Path
@@ -24,11 +28,12 @@ graph TD
 ```mermaid
 graph LR
   DomainStress["Input: stress-testing a plan against domain language and documented decisions"] --> GWD["grill-with-docs / SKILL.md"]
-  GWD --> GrillMe["grill-me for unverified design"]
-  GWD --> ToSpec["to-spec for aligned design"]
-  ToSpec --> ToTickets["to-tickets for execution"]
-  ToSpec --> FableMode["fable-mode for execution"]
-  ToSpec --> TDD["tdd for execution"]
+  GWD --> GrillMe["Recommend grill-me for unverified design"]
+  GWD --> SuggestSpec["For aligned design, suggest explicit /to-spec"]
+  SuggestSpec --> InvokeGate{"Explicit /to-spec invoked?"}
+  InvokeGate -->|No| Wait["Stop at recommendation"]
+  InvokeGate -->|Yes| ToSpec["to-spec preview / publication flow"]
+  ToSpec --> SuggestRoutes["Suggest /to-tickets, fable-mode, or tdd"]
 ```
 
 ## 3. Real-World Use Case
@@ -40,10 +45,13 @@ graph TD
   Conflict --> Scenario["Scenario test: burst retry against overload protection limit"]
   Scenario --> GlossaryFix["Inline glossary fix to canonical terms"]
   GlossaryFix --> ADRDecision["ADR offered because limit change is hard to reverse and involves trade-off"]
-  ADRDecision --> AlignedHandoff["Aligned design to to-spec; execution to to-tickets, fable-mode, or tdd"]
+  ADRDecision --> Recommend["Recommend explicit /to-spec; suggest execution routes separately"]
+  Recommend --> Invoke{"User invokes /to-spec?"}
+  Invoke -->|No| End["Keep aligned design; no spec publication"]
+  Invoke -->|Yes| Spec["to-spec preview / publication flow"]
 ```
 
-Concrete example: a retry-limit change is checked against the existing rate-limiting ADR and code. Fuzzy retry language is sharpened, the glossary is fixed inline, and only because the decision is hard to reverse and surprising without context is an ADR written. An unverified design would go to `grill-me` first instead.
+Concrete example: a retry-limit change is checked against the existing rate-limiting ADR and code. Fuzzy language is sharpened and the glossary is fixed inline. Once alignment is complete, the skill recommends explicit `/to-spec`; it does not invoke publication or ticket generation automatically. An unverified design is directed back to `grill-me` first.
 
 Deep detail: `grill-with-docs/references/session-playbook.md`. Formats: `grill-with-docs/ADR-FORMAT.md`, `grill-with-docs/CONTEXT-FORMAT.md`.
 
@@ -54,6 +62,7 @@ Deep detail: `grill-with-docs/references/session-playbook.md`. Formats: `grill-w
 - [ ] Relationships tested with concrete scenarios and claims cross-checked against code
 - [ ] Context glossary updated inline, never batched
 - [ ] ADR offered only when hard to reverse plus surprising without context plus a real trade-off
-- [ ] ADRs meet the 3-part bar; handoff to `to-spec` after alignment
-- [ ] Routing respected: unverified design to `grill-me`; aligned design to `to-spec`; execution to `to-tickets`, `fable-mode`, or `tdd`
+- [ ] After alignment, explicit `/to-spec` is recommended rather than auto-run
+- [ ] Specification publication requires explicit `/to-spec` invocation
+- [ ] `/to-tickets`, `fable-mode`, and `tdd` are suggestions; explicit-only skills are not auto-invoked
 - [ ] Not used for verifying unstable designs without a grilling pass, and not used for spec publishing without grilling
