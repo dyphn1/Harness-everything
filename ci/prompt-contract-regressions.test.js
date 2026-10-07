@@ -33,6 +33,16 @@ const orchestratorContract = read('fable-mode/agents/fable-orchestrator.md');
 assert.ok(/maxReplans[\s\S]{0,60}is advisory/i.test(orchestratorContract), 'orchestrator keeps advisory replan guidance');
 assert.ok(/do not block execution/i.test(orchestratorContract), 'orchestrator does not block on replan count');
 
+// #275: build divergence is a diagnostic signal, not a second hard-stop.
+// Mandatory blocking/reflection remains limited to Rule-of-3 or permission boundaries.
+const fableDiscipline = read('fable-discipline/SKILL.md');
+assert.strictEqual(read('plugins/harness-everything/skills/fable-discipline/SKILL.md'), fableDiscipline, 'fable-discipline packaged contract matches canonical');
+assert.ok(/divergence is a warning signal/i.test(fableDiscipline), 'fable-discipline must classify divergence as warning guidance');
+assert.ok(/does not hard-stop execution/i.test(fableDiscipline), 'divergence must not create an independent hard stop');
+assert.ok(/Rule-of-3 owns mandatory reflection/i.test(fableDiscipline), 'Rule-of-3 remains the mandatory reflection owner');
+assert.ok(!/HALTS execution immediately/i.test(fableDiscipline), 'fable-discipline must not retain the divergent-build hard halt');
+assert.ok(!/If build errors diverge, HALT/i.test(fableDiscipline), 'fable-discipline must not issue an immediate divergence halt');
+
 // #268: model aliases evolve, so worker prompts must encode behavior rather
 // than generation-specific personality/failure claims.
 const workerPairs = [
