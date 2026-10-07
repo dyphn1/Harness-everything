@@ -16,7 +16,7 @@ metadata:
 | **Trigger / Input** | Background shadow for the whole duration `fable-mode` is active — not a standalone one-shot trigger. |
 | **Expected Output** | State compaction after milestones; one Git commit per independent logic block; a state manifest at every sub-agent handoff. |
 | **State Mutations** | None of its own — constrains how `fable-mode` and `multi-agent-workspace` mutate state. |
-| **Enforcement Gate** | **HALTS execution immediately** if build errors diverge (more fixes → more breakage); forces `zoom-out` instead of continued patching. |
+| **Enforcement Gate** | Build-error divergence is a warning signal: surface the regression and recommend `zoom-out`. It does not hard-stop execution; mandatory reflection remains owned by Rule-of-3 or explicit user/host permission boundaries. |
 
 Shadow guard for `fable-mode`: MUST run in the background for its whole duration.
 
@@ -24,7 +24,7 @@ Shadow guard for `fable-mode`: MUST run in the background for its whole duration
 - Long architectural tasks under `fable-mode`
 - Compacting state after milestones
 - Sub-agent handoffs via `multi-agent-workspace`
-- Halting on diverging build errors
+- Surfacing diverging build errors and recommending reassessment
 
 ## DO NOT USE FOR:
 - Small tasks where `fable-mode` is not active
@@ -36,6 +36,6 @@ Shadow guard for `fable-mode`: MUST run in the background for its whole duration
 1. **Anti-context bloat**: After each milestone, compact state and decisions; drop unneeded history. No broad regex without precise conditions; no reading irrelevant files over 1000 lines.
 2. **Physical boundaries**: Know your CWD before touching core architecture; one Git commit per independent logic block.
 3. **Agent handoff**: Outgoing agents MUST leave a state manifest (completed APIs, expected inputs/outputs); incoming agents MUST verify it first.
-4. **Circuit breaker**: If build errors diverge, HALT, call `zoom-out`, and map the error dependency graph for the human.
+4. **Divergence signal**: If build errors diverge, surface the regression, recommend `zoom-out`, and map the error dependency graph for the human. Do not create a separate hard stop; Rule-of-3 owns mandatory reflection after repeated same-signature failures.
 
 Deep dive: <this-skill-dir>/references/discipline-rules.md
