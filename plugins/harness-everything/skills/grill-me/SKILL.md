@@ -1,6 +1,6 @@
 ---
 name: grill-me
-description: Acts as a relentless challenger to stress-test plans and architectures by interrogating one question at a time, finding loopholes, combating AI sycophancy, updating the CONTEXT.md glossary in real time, and handing off resolved decisions to to-spec for formal specs/ADRs.
+description: Acts as a relentless challenger to stress-test plans and architectures by interrogating one question at a time, finding loopholes, combating AI sycophancy, updating the CONTEXT.md glossary in real time, and suggesting an explicit to-spec handoff for formal specs/ADRs.
 license: Apache-2.0
 metadata:
   author: Miya Daniel
@@ -9,7 +9,7 @@ metadata:
 
 # Grill Me (Interrogation & Stress Testing)
 
-Stress-tests plans one question at a time, then hands off to `to-spec`.
+Stress-tests plans one question at a time, then suggests an explicit `/to-spec` handoff.
 
 ## USE FOR:
 - Stress-test a vague plan or architecture proposal
@@ -27,9 +27,9 @@ Stress-tests plans one question at a time, then hands off to `to-spec`.
 | Component | Specification |
 | :--- | :--- |
 | **Trigger / Input** | Vague plan proposal, "evaluate architecture", or explicit "grill me". |
-| **Expected Output** | Single-question interrogation loop resolving decision-tree branches; handoff to `to-spec` for spec/ADR generation. |
-| **State Mutations** | Updates `CONTEXT.md` glossary inline; delegates document creation to `to-spec`. |
-| **Enforcement Gate** | ONE question at a time; on consensus, invoke `to-spec` to preview & publish spec/ADR docs. |
+| **Expected Output** | Single-question interrogation loop resolving decision-tree branches; explicit `/to-spec` handoff suggestion for spec/ADR generation. |
+| **State Mutations** | Updates `CONTEXT.md` glossary inline; does not auto-run publishing or ticket-generation skills. |
+| **Enforcement Gate** | ONE question at a time; on consensus, suggest explicit `/to-spec` invocation. Never auto-run `to-spec` or `to-tickets`. |
 
 ## Workflow
 
@@ -37,7 +37,7 @@ Stress-tests plans one question at a time, then hands off to `to-spec`.
 2. Grill strictly using the project's domain model and terminology.
 3. Ask exactly ONE question at a time (questionnaires prohibited); attach your insight; resolve each branch before moving on.
 4. Update `CONTEXT.md` glossary inline as terms resolve.
-5. On consensus, hand off to `<skills-repo-root>/to-spec/SKILL.md` to preview the outline and publish (PRD, CLI/API reference, Schema doc, or ADR).
-6. Route execution: `to-tickets`, `fable-mode`, or `tdd`.
+5. On consensus, recommend explicit `/to-spec`; only after that invocation may `<skills-repo-root>/to-spec/SKILL.md` preview the outline and publish (PRD, CLI/API reference, Schema doc, or ADR).
+6. Suggest the next execution route (`/to-tickets`, `fable-mode`, or `tdd`) without auto-invoking explicit-only skills.
 
 Deep dive: <this-skill-dir>/references/grilling-playbook.md
