@@ -28,9 +28,9 @@ metadata:
 
 ## Core Rules
 
-1. Compact state after milestones; avoid irrelevant broad reads.
-2. Know the CWD. If the user/host has authorized commits, keep independent logic blocks separate; otherwise leave changes uncommitted.
-3. Outgoing agents leave a state manifest; incoming agents verify it.
-4. On divergence, surface risk, recommend `zoom-out`, and map dependencies. Do not create a separate hard stop.
+1. **MUST** compact state after milestones; **SHOULD** avoid irrelevant broad reads.
+2. **MUST** know the CWD. If the user/host has authorized commits, **SHOULD** keep independent logic blocks separate; otherwise leave changes uncommitted.
+3. Outgoing agents **MUST** leave a state manifest; incoming agents **MUST** verify it.
+4. On divergence, **MUST** surface risk and recommend `zoom-out`; **SHOULD** map dependencies. Do not create a separate hard stop.
 
 Deep dive: <this-skill-dir>/references/discipline-rules.md
