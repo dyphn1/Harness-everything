@@ -20,10 +20,10 @@ metadata:
 
 ## Quick Workflow
 
-1. Confirm authorization, then run `git status`.
-2. Inspect `git diff --cached`; stage only user-authorized targeted files.
-3. Split unrelated concerns; format `<type>(<scope>): <subject>`.
-4. Commit, then verify with `git log -1`.
+1. **MUST** confirm authorization, then run `git status`.
+2. **MUST** inspect `git diff --cached`; stage only user-authorized targeted files.
+3. Unrelated concerns **SHOULD** split unless coupling or explicit user intent justifies one commit; format `<type>(<scope>): <subject>`.
+4. Commit, then **MUST** verify with `git log -1`.
 
 ## USE FOR:
 - authorized commit requests
