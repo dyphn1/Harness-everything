@@ -1,39 +1,38 @@
 ---
 name: git-commit
-description: "Generate Angular-style commit messages after verifying the environment, submodules, and staged files; use only when the user or host workflow has authorized a commit."
+description: "Generate Angular-style commits after inspecting repo state and staged changes; use only when the user or host workflow has authorized a commit."
 license: Apache-2.0
 metadata:
   author: Miya Daniel
   version: 0.27.0
 ---
 
-# Git Commit (Angular Style)
+# Git Commit
 
-## 📋 Skill Contract
+## Skill Contract
 
 | Component | Specification |
 | :--- | :--- |
-| **Trigger / Input** | User requests a commit, or the active host/workflow explicitly authorizes committing. A concluded task phase alone is not authorization. Input: staged git diff. |
-| **Expected Output** | Clean Angular-style commit via `git commit -m` or temp file (`git commit -F`). |
-| **State Mutations** | Authorized commit updates Git history; unrelated working-tree changes remain untouched. |
-| **Enforcement Gate** | Require commit authorization first. Then run `git status`; nothing staged → prompt user; non-git repo → offer `git init` or skip. |
+| **Trigger / Input** | User requests a commit or the active host/workflow authorizes one. A task phase alone is not authorization. |
+| **Expected Output** | Verified Angular-style commit. |
+| **State Mutations** | Authorized Git history update only. |
+| **Enforcement Gate** | Require commit authorization first; then inspect repo/staged state. |
 
 ## Quick Workflow
 
-1. **MUST** confirm the user or active host/workflow has authorized a commit; task completion alone never grants authorization. Then **MUST** run `git status`; no repo → offer `git init` or skip; submodules changed → commit first per `<this-skill-dir>/guides/SUBMODULES.md`, including its worktree reachability gate.
-2. **MUST** inspect `git diff --cached` before committing. Nothing staged → prompt user / stage only user-authorized targeted files. Unrelated concerns **SHOULD** be split unless coupling or explicit user intent justifies one commit.
-3. Format `<type>(<scope>): <subject>` per `<this-skill-dir>/guides/ANGULAR_STYLE.md`. Multiline/Windows → `.git-commit-msg.txt` + `git commit -F`, clean up.
-4. `git commit -m "..."`, then **MUST** verify the result with `git log -1`.
+1. Confirm authorization, then run `git status`.
+2. Inspect `git diff --cached`; stage only user-authorized targeted files.
+3. Split unrelated concerns; format `<type>(<scope>): <subject>`.
+4. Commit, then verify with `git log -1`.
 
 ## USE FOR:
-- Commit request from the user
-- Formatting conventional commit messages
-- Submodule or monorepo commits
+- authorized commit requests
+- conventional commit formatting
+- submodule/monorepo commits
 
 ## DO NOT USE FOR:
-- Autonomous commits merely because a task phase concluded
-- Staging without user confirmation
-- Branching, rebasing, merging, pushing
-- Non-git dirs where user declines `git init`
+- autonomous commits when a phase concludes
+- unauthorized staging
+- branching, rebasing, merging, or pushing
 
 Deep dive: <this-skill-dir>/references/commit-flow.md
