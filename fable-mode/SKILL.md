@@ -36,7 +36,7 @@ Execution follows the workflow below.
 ## Workflow
 
 1. Discover the runtime and lock the authorized file scope before edits.
-2. Write a numbered stage map with one artifact and pass condition per stage; allow at most two full replans.
+2. Write a numbered stage map with one artifact and pass condition per stage. Replan counts are advisory replan guidance, never a hard stop; after three same-signature failures, Rule-of-3 / `zoom-out` is mandatory.
 3. Resolve the requested behavior profile with `model-selector.js`; `opus`, `sonnet`/`sonnect`, and `haiku` are compatibility aliases, not model bindings.
 4. Delegate by profile: orchestrator coordinates, reasoning handles bounded judgment, mechanical handles low-ambiguity work, and workers never spawn workers.
 5. Treat the host runtime-model floor as advisory; record its status without blocking Fable solely for model choice.
