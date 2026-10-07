@@ -16,7 +16,8 @@ flowchart TD
 
 Read the relevant files and sources before producing an artifact. Lock the
 authorized write scope in the handoff. Number the stages, assign one artifact
-and one pass condition to each, and allow no more than two full replans.
+and one pass condition to each. Replan counts are advisory and never a hard
+stop; three same-signature failures still require Rule-of-3 `zoom-out`.
 
 ## Delegation
 

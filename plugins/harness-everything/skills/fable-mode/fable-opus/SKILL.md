@@ -32,7 +32,7 @@ metadata:
 
 1. Resolve legacy alias `opus` to the `orchestrator` behavior profile through `<this-skill-dir>/../scripts/model-selector.js`.
 2. Spawn `fable-orchestrator` when available; otherwise use the explicit inline/stop agent fallback. The runtime-model floor is advisory and never changes the profile.
-3. The orchestrator owns scope lock, at most two replans, stage contracts, named worker delegation, and escalation; it never produces artifacts itself.
+3. The orchestrator owns scope boundaries, advisory replan guidance (never a hard stop), stage contracts, named worker delegation, and escalation; it never produces artifacts itself. After three same-signature failures, Rule-of-3 / `zoom-out` is mandatory.
 4. Cold-review high-stakes deliverables with `fable-verifier`; report every unverified stage.
 
 Use `<this-skill-dir>/../references/model-matrix.md` for behavior-profile aliases, runtime floors, audit fields, and fallback policy.

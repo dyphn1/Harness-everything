@@ -10,6 +10,29 @@ function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
 }
 
+// #273: Fable replan counts are advisory, never execution hard-stops.
+// Only repeated same-signature failures invoke mandatory Rule-of-3 reflection.
+for (const [canonical, packaged] of [
+  ['fable-mode/SKILL.md', 'plugins/harness-everything/skills/fable-mode/SKILL.md'],
+  ['fable-mode/fable-opus/SKILL.md', 'plugins/harness-everything/skills/fable-mode/fable-opus/SKILL.md'],
+]) {
+  const body = read(canonical);
+  assert.strictEqual(read(packaged), body, canonical + ' packaged contract matches');
+  assert.ok(/advisory replan/i.test(body), canonical + ' must describe replans as advisory');
+  assert.ok(/Rule-of-3/i.test(body), canonical + ' must preserve same-signature failure reflection');
+  assert.ok(!/at most two (?:full )?replans/i.test(body), canonical + ' must not imply a two-replan hard cap');
+}
+for (const rel of [
+  'fable-mode/references/execution-phases.md',
+  'plugins/harness-everything/skills/fable-mode/references/execution-phases.md',
+  'docs/workflows/fable-mode.md',
+]) {
+  assert.ok(!/(?:at most|no more than) two (?:full )?replans/i.test(read(rel)), rel + ' must not imply a two-replan hard cap');
+}
+const orchestratorContract = read('fable-mode/agents/fable-orchestrator.md');
+assert.ok(/maxReplans[\s\S]{0,60}is advisory/i.test(orchestratorContract), 'orchestrator keeps advisory replan guidance');
+assert.ok(/do not block execution/i.test(orchestratorContract), 'orchestrator does not block on replan count');
+
 // #268: model aliases evolve, so worker prompts must encode behavior rather
 // than generation-specific personality/failure claims.
 const workerPairs = [
