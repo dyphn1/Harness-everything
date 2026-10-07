@@ -84,7 +84,7 @@ worker. A material confirmed blocker may stop the current stage immediately. Rep
 matching execution failures use the separate Rule-of-3 path: zoom out, reflect, then
 `RESUME` on a new approach or `ESCALATE` when a real decision is required.
 
-At most two full replans are allowed before unresolved blockers are escalated rather than hidden behind endless restructuring.
+Replan counts (`maxReplans`) are advisory and never halt execution on their own; unresolved blockers are escalated rather than hidden behind endless restructuring, and three same-signature failures still trigger the mandatory Rule-of-3 `zoom-out`.
 
 ## 5. Completion Boundary
 
