@@ -315,7 +315,8 @@ function isStaticDeleteTarget(target) {
   // incorrectly exempt a potentially destructive operation (#283).
   // Variables, command substitution, globbing and brace/tilde expansion must
   // be treated as unknown, not as a proven scratch location.
-  return !/[$%`*?\\[\\]{}]/.test(target) && !String(target).startsWith('~');
+  const raw = String(target || '');
+  return !raw.startsWith('~') && !['$', '%', '`', '*', '?', '[', ']', '{', '}'].some(marker => raw.includes(marker));
 }
 
 function outsideScratchMatchApplies(rule, command, payload, sessionDir) {
