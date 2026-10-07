@@ -10,6 +10,22 @@ function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
 }
 
+// #273: Fable replan counts are advisory, never execution hard-stops.
+// Only repeated same-signature failures invoke mandatory Rule-of-3 reflection.
+for (const [canonical, packaged] of [
+  ['fable-mode/SKILL.md', 'plugins/harness-everything/skills/fable-mode/SKILL.md'],
+  ['fable-mode/fable-opus/SKILL.md', 'plugins/harness-everything/skills/fable-mode/fable-opus/SKILL.md'],
+]) {
+  const body = read(canonical);
+  assert.strictEqual(read(packaged), body, canonical + ' packaged contract matches');
+  assert.ok(/advisory replan/i.test(body), canonical + ' must describe replans as advisory');
+  assert.ok(/Rule-of-3/i.test(body), canonical + ' must preserve same-signature failure reflection');
+  assert.ok(!/at most two (?:full )?replans/i.test(body), canonical + ' must not imply a two-replan hard cap');
+}
+const orchestratorContract = read('fable-mode/agents/fable-orchestrator.md');
+assert.ok(/maxReplans[\s\S]{0,60}is advisory/i.test(orchestratorContract), 'orchestrator keeps advisory replan guidance');
+assert.ok(/do not block execution/i.test(orchestratorContract), 'orchestrator does not block on replan count');
+
 // #268: model aliases evolve, so worker prompts must encode behavior rather
 // than generation-specific personality/failure claims.
 const workerPairs = [
@@ -89,22 +105,6 @@ assert.ok(/Execution topology belongs to the router\/host/i.test(read('skill-cre
 const workspaceContract = read('multi-agent-workspace/SKILL.md');
 assert.ok(/router owns that decision/i.test(workspaceContract), 'multi-agent-workspace keeps router-owned topology');
 assert.ok(/does not spawn workers/i.test(workspaceContract), 'multi-agent-workspace remains a topology/workspace consumer');
-
-// #273: Fable replan counts are advisory, never execution hard-stops.
-// Only repeated same-signature failures invoke mandatory Rule-of-3 reflection.
-for (const [canonical, packaged] of [
-  ['fable-mode/SKILL.md', 'plugins/harness-everything/skills/fable-mode/SKILL.md'],
-  ['fable-mode/fable-opus/SKILL.md', 'plugins/harness-everything/skills/fable-mode/fable-opus/SKILL.md'],
-]) {
-  const body = read(canonical);
-  assert.strictEqual(read(packaged), body, canonical + ' packaged contract matches');
-  assert.ok(/advisory replan/i.test(body), canonical + ' must describe replans as advisory');
-  assert.ok(/Rule-of-3/i.test(body), canonical + ' must preserve same-signature failure reflection');
-  assert.ok(!/at most two (?:full )?replans/i.test(body), canonical + ' must not imply a two-replan hard cap');
-}
-const orchestratorContract = read('fable-mode/agents/fable-orchestrator.md');
-assert.ok(/maxReplans[\s\S]{0,60}is advisory/i.test(orchestratorContract), 'orchestrator keeps advisory replan guidance');
-assert.ok(/do not block execution/i.test(orchestratorContract), 'orchestrator does not block on replan count');
 
 // #272: preserve one detailed checkpoint plus the invariant; remove duplicate
 // restatements from later sections of the same router injection.
