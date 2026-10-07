@@ -103,7 +103,7 @@ for (const [canonical, packaged] of [
   assert.ok(!/at most two (?:full )?replans/i.test(body), canonical + ' must not imply a two-replan hard cap');
 }
 const orchestratorContract = read('fable-mode/agents/fable-orchestrator.md');
-assert.ok(/maxReplans.*advisory/i.test(orchestratorContract), 'orchestrator keeps advisory replan guidance');
+assert.ok(/maxReplans[\s\S]{0,60}is advisory/i.test(orchestratorContract), 'orchestrator keeps advisory replan guidance');
 assert.ok(/do not block execution/i.test(orchestratorContract), 'orchestrator does not block on replan count');
 
 // #272: preserve one detailed checkpoint plus the invariant; remove duplicate
