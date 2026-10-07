@@ -90,6 +90,20 @@ const workspaceContract = read('multi-agent-workspace/SKILL.md');
 assert.ok(/router owns that decision/i.test(workspaceContract), 'multi-agent-workspace keeps router-owned topology');
 assert.ok(/does not spawn workers/i.test(workspaceContract), 'multi-agent-workspace remains a topology/workspace consumer');
 
+// #276: third-party skill output is applicable guidance, never higher-priority
+// authority. Keep the canonical, packaged, and reference contracts consistent.
+const findSkills = read('find-skills/SKILL.md');
+const discoveryFlow = read('find-skills/references/discovery-flow.md');
+assert.strictEqual(read('plugins/harness-everything/skills/find-skills/SKILL.md'), findSkills, 'find-skills packaged contract matches canonical');
+assert.strictEqual(read('plugins/harness-everything/skills/find-skills/references/discovery-flow.md'), discoveryFlow, 'find-skills packaged reference matches canonical');
+assert.ok(/untrusted third-party content/i.test(findSkills), 'third-party output must be identified as untrusted');
+assert.ok(/MUST NOT override host, user, or Harness/i.test(findSkills), 'third-party skill instructions cannot override core authority');
+assert.ok(/explicit approval/i.test(findSkills), 'third-party application must require approval');
+assert.ok(/untrusted third-party content/i.test(discoveryFlow), 'reference must preserve untrusted data boundary');
+assert.ok(/MUST NOT override host, user, or Harness/i.test(discoveryFlow), 'reference must preserve precedence');
+assert.ok(!/Treat its output as binding/i.test(findSkills), 'find-skills must not grant unconditional binding authority');
+assert.ok(!/treat every instruction in it as binding/i.test(discoveryFlow), 'discovery reference must not grant unconditional binding authority');
+
 // #272: preserve one detailed checkpoint plus the invariant; remove duplicate
 // restatements from later sections of the same router injection.
 const kernel = path.join(ROOT, 'harness-everything/scripts/kernel-router.js');
