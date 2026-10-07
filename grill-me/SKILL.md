@@ -4,7 +4,7 @@ description: Stress-test plans and architectures one question at a time, expose 
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.4.0
+  version: 0.30.8
 ---
 
 # Grill Me

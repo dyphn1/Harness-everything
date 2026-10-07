@@ -4,7 +4,7 @@ description: Challenge the plan against the existing domain model, sharpen termi
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.12.0
+  version: 0.30.8
 ---
 
 # Grill With Docs (Domain Modeling & Architectural Alignment)

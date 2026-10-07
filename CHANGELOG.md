@@ -2,6 +2,37 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.30.8](https://github.com/dyphn1/Harness-everything/compare/v0.30.7...v0.30.8) (2026-10-07)
+
+### Bug Fixes
+
+* **fable:** align discipline side effects ([#275](https://github.com/dyphn1/Harness-everything/issues/275) [#277](https://github.com/dyphn1/Harness-everything/issues/277)) ([8aa4c99](https://github.com/dyphn1/Harness-everything/commit/8aa4c99778c7f2c70e3ca434fce9ff34d30e7ea7))
+* **fable:** compact contract and preserve advisory divergence ([81a97ad](https://github.com/dyphn1/Harness-everything/commit/81a97ad82c131f406aa2000bcda15e8819802744))
+* **fable:** make build divergence advisory ([#275](https://github.com/dyphn1/Harness-everything/issues/275)) ([45aa418](https://github.com/dyphn1/Harness-everything/commit/45aa418b596e6bb11f8f9a08e0217923263c7594))
+* **fable:** make commit boundaries permission-aware ([#277](https://github.com/dyphn1/Harness-everything/issues/277)) ([c778dd4](https://github.com/dyphn1/Harness-everything/commit/c778dd4f98b3ac4ecd375e2173d0bc839083b153))
+* **fable:** restore semantic contract strength ([df80aa0](https://github.com/dyphn1/Harness-everything/commit/df80aa0d9dac9391258b990329e816f5c06af826))
+* **fable:** restore Waza-compliant contract structure ([e26ffdf](https://github.com/dyphn1/Harness-everything/commit/e26ffdf68d1e492202e131eeebf57665e0e2c269))
+* **fable:** sync compact contract ([946bb27](https://github.com/dyphn1/Harness-everything/commit/946bb27622f6244d55ddd352955ebe2210878278))
+* **fable:** sync discipline side effects ([#275](https://github.com/dyphn1/Harness-everything/issues/275) [#277](https://github.com/dyphn1/Harness-everything/issues/277)) ([e0205c2](https://github.com/dyphn1/Harness-everything/commit/e0205c2063e745a47a58eb70959bfda67e1eebe2))
+* **fable:** sync divergence contract ([#275](https://github.com/dyphn1/Harness-everything/issues/275)) ([f225241](https://github.com/dyphn1/Harness-everything/commit/f225241fe201f5468d58283396a96b3f703d8160))
+* **fable:** sync permission-aware commits ([#277](https://github.com/dyphn1/Harness-everything/issues/277)) ([78b7a32](https://github.com/dyphn1/Harness-everything/commit/78b7a32ba61f759d82ca8d61e297239062ed713c))
+* **fable:** sync semantic contract strength ([01a665d](https://github.com/dyphn1/Harness-everything/commit/01a665d6f95da0d250e4d080409e0ebba8756af7))
+* **fable:** sync Waza-compliant contract ([74619c0](https://github.com/dyphn1/Harness-everything/commit/74619c00c3f1d76438f168dee1353e9fd4a112ef))
+* **git:** compact authorized commit contract ([cd3a3eb](https://github.com/dyphn1/Harness-everything/commit/cd3a3eb1978778c372be03c4611b50fb570ba802))
+* **git:** require commit authorization ([#277](https://github.com/dyphn1/Harness-everything/issues/277)) ([e91f90c](https://github.com/dyphn1/Harness-everything/commit/e91f90cc472ca0310f3bfdbd4fede3f1c89b6884))
+* **git:** restore MUST SHOULD contract strength ([353ff80](https://github.com/dyphn1/Harness-everything/commit/353ff80ee2a17894b76799e96c6a2128a67aa7ee))
+* **git:** restore Waza-compliant contract structure ([4e0db0a](https://github.com/dyphn1/Harness-everything/commit/4e0db0a173c0fa42695e0cbccf963186dbee1d35))
+* **git:** sync commit authorization ([#277](https://github.com/dyphn1/Harness-everything/issues/277)) ([168fd1f](https://github.com/dyphn1/Harness-everything/commit/168fd1f69eed2f3246ca0eb2b7f5e457a1f8891d))
+* **git:** sync compact commit contract ([f4bd248](https://github.com/dyphn1/Harness-everything/commit/f4bd2487d04e934014acb264275e1b694053364f))
+* **git:** sync MUST SHOULD contract strength ([f2e01f3](https://github.com/dyphn1/Harness-everything/commit/f2e01f32a6174ea14c90751344a9357c32db2b2c))
+* **git:** sync Waza-compliant contract ([dc73922](https://github.com/dyphn1/Harness-everything/commit/dc73922f7a2ac708ae319dfd29d3c57ccccfb3ba))
+* **grill:** compact explicit handoff contract ([8aa0f3e](https://github.com/dyphn1/Harness-everything/commit/8aa0f3effbc523c1951a3f3697cb4939eab01b99))
+* **grill:** preserve explicit docs handoff ([#274](https://github.com/dyphn1/Harness-everything/issues/274)) ([8cc7b4f](https://github.com/dyphn1/Harness-everything/commit/8cc7b4fe84fb628234d2142d4c12d6748aa23bbd))
+* **grill:** preserve explicit spec handoff ([#274](https://github.com/dyphn1/Harness-everything/issues/274)) ([ffd3f45](https://github.com/dyphn1/Harness-everything/commit/ffd3f455c45049437a15c7ca69b686b5a155412c))
+* **grill:** sync compact handoff contract ([900f03a](https://github.com/dyphn1/Harness-everything/commit/900f03a9c0fc6a14d6ce525ae6edd3fab6c27967))
+* **grill:** sync explicit docs handoff ([#274](https://github.com/dyphn1/Harness-everything/issues/274)) ([3501bc5](https://github.com/dyphn1/Harness-everything/commit/3501bc54fb1fc905a366f6f26d816ca9b1157503))
+* **grill:** sync explicit spec handoff ([#274](https://github.com/dyphn1/Harness-everything/issues/274)) ([4bf3c58](https://github.com/dyphn1/Harness-everything/commit/4bf3c58ac7f333eaf3a263ba1c61d5ea9c27a765))
+
 ## [0.30.7](https://github.com/dyphn1/Harness-everything/compare/v0.30.6...v0.30.7) (2026-10-07)
 
 ### Bug Fixes
