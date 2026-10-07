@@ -4,7 +4,7 @@ description: "Reference reasoning behavior profile (legacy alias sonnet/sonnect)
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.30.6
+  version: 0.30.7
 ---
 
 # Fable Mode — Sonnet

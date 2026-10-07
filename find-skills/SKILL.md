@@ -4,7 +4,7 @@ description: Search the agent-skills ecosystem (skills.sh / npx skills) when no 
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.19.1
+  version: 0.30.7
 ---
 
 # Find Skills

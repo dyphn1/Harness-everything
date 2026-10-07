@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.30.7](https://github.com/dyphn1/Harness-everything/compare/v0.30.6...v0.30.7) (2026-10-07)
+
+### Bug Fixes
+
+* **action-gate:** reject dynamic scratch-target exemptions ([#283](https://github.com/dyphn1/Harness-everything/issues/283)) ([f722968](https://github.com/dyphn1/Harness-everything/commit/f722968021846a804fa8fceaddd9983addff51e7))
+* **action-gate:** use explicit shell-expansion marker check ([f02a105](https://github.com/dyphn1/Harness-everything/commit/f02a105e007104d20cde8fe46d24668624f7b343))
+* **action-gate:** use explicit shell-expansion marker check ([bedf24b](https://github.com/dyphn1/Harness-everything/commit/bedf24b1d2774e1d997f4b5c3f1f5d3c90694311))
+* **fable:** keep advisory replan contract within skill token budget ([b593c49](https://github.com/dyphn1/Harness-everything/commit/b593c49862d779f20919f8f1a7ff72043d76b637))
+* **fable:** keep advisory replan contract within skill token budget ([da6c5e8](https://github.com/dyphn1/Harness-everything/commit/da6c5e8f238d5dcae9632a5db0e71786d7dc5fe7))
+* **fable:** make replan guidance non-blocking ([#273](https://github.com/dyphn1/Harness-everything/issues/273)) ([64de668](https://github.com/dyphn1/Harness-everything/commit/64de668e91300e1c7f68ca07ebb08d87b5595c1c))
+* **fable:** make replan guidance non-blocking ([#273](https://github.com/dyphn1/Harness-everything/issues/273)) ([241cf46](https://github.com/dyphn1/Harness-everything/commit/241cf461baca6a6e739aa5114330ac1e20c0195b))
+* **fable:** make replan guidance non-blocking ([#273](https://github.com/dyphn1/Harness-everything/issues/273)) ([d834d9f](https://github.com/dyphn1/Harness-everything/commit/d834d9fffbae5d40583c1e0e41a1da1f03531382))
+* **fable:** make replan guidance non-blocking ([#273](https://github.com/dyphn1/Harness-everything/issues/273)) ([1430afe](https://github.com/dyphn1/Harness-everything/commit/1430afe9a96a1b849d18982644193bf7251264b1))
+* **fable:** preserve per-stage artifact and pass-check contract ([2c4feaf](https://github.com/dyphn1/Harness-everything/commit/2c4feafd503881296a8b656d2b6c8257db68be41))
+* **fable:** preserve per-stage artifact and pass-check contract ([d88a0b6](https://github.com/dyphn1/Harness-everything/commit/d88a0b6b054ca0810563519eed2a1d494c8b3e15))
+* **fable:** remove remaining two-replan caps from fable references ([63f9263](https://github.com/dyphn1/Harness-everything/commit/63f9263f3dd712c39ec49aa977e0229dc750bb52))
+* **find-skills:** retain authority boundary in reference contract ([#276](https://github.com/dyphn1/Harness-everything/issues/276)) ([9a5ed99](https://github.com/dyphn1/Harness-everything/commit/9a5ed99737be4fe0b8631370379eead2d54f6bf9))
+* **find-skills:** retain authority boundary in reference contract ([#276](https://github.com/dyphn1/Harness-everything/issues/276)) ([3e41033](https://github.com/dyphn1/Harness-everything/commit/3e410339df82dafccd2cef094b00e4efd7f4e2d7))
+* **find-skills:** retain authority boundary in skill contract ([#276](https://github.com/dyphn1/Harness-everything/issues/276)) ([3d01cd7](https://github.com/dyphn1/Harness-everything/commit/3d01cd7633261851529b214dbc01664b2a18a915))
+* **find-skills:** retain authority boundary in skill contract ([#276](https://github.com/dyphn1/Harness-everything/issues/276)) ([2112e3a](https://github.com/dyphn1/Harness-everything/commit/2112e3a04eb3c90786aa3316d2735d24435fc9f0))
+
 ## [0.30.6](https://github.com/dyphn1/Harness-everything/compare/v0.30.5...v0.30.6) (2026-10-06)
 
 ### Bug Fixes
