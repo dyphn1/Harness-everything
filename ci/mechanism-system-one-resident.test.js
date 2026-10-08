@@ -51,7 +51,7 @@ function cleanup(f) {
 // The upstream Windows Node libuv shutdown fix shipped in v24.20.0
 // (nodejs/node#61999). Never replace RS13's real evaluator subprocess.
 function affectedWindowsNode24(platform, version) {
-  const parts = /^24\\.(\\d+)\\.(\\d+)$/.exec(version);
+  const parts = /^24\.(\d+)\.(\d+)$/.exec(version);
   return platform === 'win32' && parts !== null && Number(parts[1]) < 20;
 }
 const affectedNode24Reason = affectedWindowsNode24(process.platform, process.versions.node)
