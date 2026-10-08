@@ -2,6 +2,7 @@
 
 const path = require('path');
 const { atomicWriteJson, readJson } = require('./fable-contracts');
+const { resolveBinding } = require('./binding-resolver');
 
 const OBLIGATION_SCHEMA_VERSION = 1;
 const OBLIGATION_FILE = 'workflow-obligations.json';
@@ -131,7 +132,7 @@ function initializePlanningContract(context, plan) {
   return set;
 }
 
-function parseRequirements(requirementsJson) {
+function parseRequirements(requirementsJson, workspaceRoot) {
   let parsed;
   try { parsed = JSON.parse(String(requirementsJson || '')); }
   catch (_) { throw new Error('--requirements-json must be valid JSON'); }
@@ -172,8 +173,8 @@ function parseRequirements(requirementsJson) {
     requirement.evidence = null;
     requirement.reasonCode = null;
     requirement.updatedAt = null;
-    requirement.requiredBindings = requiredBindings.map(binding => newBinding(binding.id, true, binding.path));
-    requirement.optionalBindings = optionalBindings.map(binding => newBinding(binding.id, false, binding.path));
+    requirement.requiredBindings = requiredBindings.map(binding => newBinding(binding.id, true, binding.path, workspaceRoot));
+    requirement.optionalBindings = optionalBindings.map(binding => newBinding(binding.id, false, binding.path, workspaceRoot));
     return requirement;
   });
 }
@@ -212,17 +213,23 @@ function normalizeBindingDeclarations(values) {
   return result;
 }
 
-function newBinding(id, required, declaredPath = null) {
+function resolveDeclaredBinding(binding, workspaceRoot) {
+  return resolveBinding(binding, workspaceRoot, { builtIn: Boolean(BINDING_PATHS[binding.id]) });
+}
+
+function newBinding(id, required, declaredPath = null, workspaceRoot = null) {
   if (declaredPath && BINDING_PATHS[id] && declaredPath !== BINDING_PATHS[id]) {
     throw new Error(`binding ${id} must use its registered path ${BINDING_PATHS[id]}`);
   }
   const bindingPath = declaredPath || BINDING_PATHS[id] || null;
+  const resolution = resolveDeclaredBinding({ id, path: bindingPath }, workspaceRoot);
   return {
     id,
     required,
     status: 'pending',
     path: bindingPath,
-    availability: bindingPath ? 'available' : 'unknown',
+    availability: resolution.availability,
+    resolvedPath: resolution.file,
     evidence: null,
     reasonCode: null,
     updatedAt: null,
@@ -242,6 +249,7 @@ function activeStepSnapshot(set) {
     status: binding.status,
     availability: binding.availability,
     path: binding.path,
+    resolvedPath: binding.resolvedPath || null,
   });
   return {
     id: step.id,
@@ -259,7 +267,7 @@ function recordPlanning(context, requirementsJson, selectedPlan, requestedStrate
   if (!needsPlanningContract(selectedPlan)) throw new Error('selected workflow does not require a planning contract');
   const loaded = loadObligationSet(context, selectedPlan);
   if (!loaded.set) throw new Error('workflow planning contract unavailable or invalid: ' + loaded.error);
-  const requirements = parseRequirements(requirementsJson);
+  const requirements = parseRequirements(requirementsJson, context.root);
   const hasTypedSteps = requirements.some(item => item.stepType);
   if (hasTypedSteps && requirements.some(item => !item.stepType)) {
     throw new Error('all requirement fragments must declare stepType when step bindings are used');
@@ -370,7 +378,8 @@ function validateObligationSet(context, set, plan = context.workflow?.pendingPla
           try { if (normalizeBindingPath(binding.path) !== binding.path) return 'step-binding-path-invalid'; }
           catch (_) { return 'step-binding-path-invalid'; }
         } else if (binding.path !== null) return 'step-binding-path-invalid';
-        if (binding.status === 'loaded' && !binding.path) return 'step-binding-unknown-loaded';
+        if (binding.resolvedPath !== undefined && binding.resolvedPath !== null && typeof binding.resolvedPath !== 'string') return 'step-binding-path-invalid';
+        if (binding.status === 'loaded' && !binding.path && !binding.resolvedPath) return 'step-binding-unknown-loaded';
       }
       if (step.status === 'pass' && (!step.evidence ||
           step.requiredBindings.some(binding => binding.status !== 'loaded') ||
@@ -452,16 +461,25 @@ function updateBinding(context, stepId, bindingId, disposition, options = {}) {
   if (!evidence) throw new Error('--evidence is required for every binding disposition');
   if (binding.required && disposition === 'not-needed') throw new Error('required bindings cannot be marked not-needed');
   if (!binding.required && disposition === 'unavailable') throw new Error('optional bindings require loaded or not-needed disposition');
-  if (disposition === 'loaded' && !binding.path) {
-    if (binding.required) {
-      binding.status = 'unavailable';
-      binding.availability = 'unknown';
-      binding.evidence = evidence;
-      binding.reasonCode = 'binding-path-unknown';
-      binding.updatedAt = new Date().toISOString();
-      atomicWriteJson(obligationPath(context.sessionDir), loaded.set);
+  if (disposition === 'loaded') {
+    const resolution = resolveDeclaredBinding(binding, context.root);
+    if (resolution.availability !== 'available') {
+      const reasonCode = resolution.availability === 'unknown' ? 'binding-path-unknown' : 'binding-path-missing';
+      if (binding.required) {
+        binding.status = 'unavailable';
+        binding.availability = resolution.availability;
+        binding.resolvedPath = null;
+        binding.evidence = evidence;
+        binding.reasonCode = reasonCode;
+        binding.updatedAt = new Date().toISOString();
+        atomicWriteJson(obligationPath(context.sessionDir), loaded.set);
+      }
+      throw new Error(resolution.availability === 'unknown'
+        ? `${binding.required ? 'required' : 'optional'} binding ${binding.id} has no registered load path`
+        : `${binding.required ? 'required' : 'optional'} binding ${binding.id} path ${binding.path || binding.id} does not resolve to a readable file`);
     }
-    throw new Error(`${binding.required ? 'required' : 'optional'} binding ${binding.id} has no registered load path`);
+    binding.availability = 'available';
+    binding.resolvedPath = resolution.file;
   }
   binding.status = disposition;
   binding.evidence = evidence;

@@ -6,6 +6,7 @@ const path = require('path');
 const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
 const { getWorkspaceRoot, readCurrentSession } = require('./lib/harness-state');
 const { atomicWriteJson, readJson } = require('./lib/fable-contracts');
+const { resolveBinding } = require('./lib/binding-resolver');
 const {
   planningUnresolved,
   recordPlanning,
@@ -102,16 +103,18 @@ function stageBindingDisposition(context, args) {
 
   let disposition = args.disposition;
   let reasonCode = disposition === 'unavailable' ? String(args.reasonCode || 'binding-unavailable') : null;
+  let availability = disposition === 'unavailable' ? 'unavailable' : binding.availability;
   if (disposition === 'loaded') {
-    if (!binding.path) {
+    const resolution = resolveBinding(binding, context.root);
+    availability = resolution.availability;
+    binding.resolvedPath = resolution.file;
+    if (resolution.availability !== 'available') {
       disposition = 'unavailable';
-      reasonCode = 'binding-path-unknown';
+      reasonCode = resolution.availability === 'unknown' ? 'binding-path-unknown' : 'binding-path-missing';
     }
   }
   binding.status = disposition;
-  binding.availability = disposition === 'unavailable'
-    ? (reasonCode === 'binding-path-unknown' ? 'unknown' : 'unavailable')
-    : 'available';
+  binding.availability = availability;
   binding.evidence = evidence;
   binding.reasonCode = reasonCode;
   binding.updatedAt = new Date().toISOString();
@@ -119,7 +122,7 @@ function stageBindingDisposition(context, args) {
   atomicWriteJson(contractPath, contract);
   return {
     stageId: contract.stageId,
-    binding: { id: binding.id, required, status: binding.status, availability: binding.availability, path: binding.path, reasonCode: binding.reasonCode },
+    binding: { id: binding.id, required, status: binding.status, availability: binding.availability, path: binding.path, resolvedPath: binding.resolvedPath || null, reasonCode: binding.reasonCode },
     activeStages: consumer().activeStageBindings(match.runRoot, context.workflow.escapes),
   };
 }
@@ -254,6 +257,7 @@ function main() {
         id: result.binding.id,
         status: result.binding.status,
         availability: result.binding.availability,
+        resolvedPath: result.binding.resolvedPath || null,
         evidence: result.binding.evidence,
       },
       activeStep: result.activeStep,

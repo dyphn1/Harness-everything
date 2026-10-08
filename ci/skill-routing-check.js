@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
  * Deterministic coverage gate for positive skill evals plus an explicit
- * classification gate for nested skills. The router may normalize prompt
- * signals, but it must not push canonical skill paths before an active step
- * binds them. A new nested SKILL.md must declare whether it is parent-routed
- * or internal; otherwise CI fails instead of silently ignoring it.
+ * classification gate for nested skills. Each positive prompt must surface the
+ * skill as a candidate step-binding id (relevance), while the router must not
+ * push canonical skill paths before an active step binds them. A new nested
+ * SKILL.md must declare whether it is parent-routed or internal; otherwise CI
+ * fails instead of silently ignoring it.
  */
 
 const fs = require('fs');
@@ -22,6 +23,18 @@ const NESTED_ROUTING = new Map([
   ['fable-mode/fable-sonnet', 'parent'],
   ['fable-mode/fable-opus', 'parent'],
 ]);
+
+// Skills whose positive evals prove a route shape rather than a binding: the
+// router itself and the todo-driven multi-step strategy.
+const ROUTE_SHAPE_SKILLS = new Map([
+  ['harness-everything', output => /=> RECOMMENDED TIER: \S/.test(output)],
+  ['todo-driven-workflow', output => /=> WORKFLOW STRATEGY: (?!deferred)\S+/.test(output)],
+]);
+
+function candidateBindingIds(output) {
+  const line = output.match(/Candidate step binding ids: ([^\r\n]+)/);
+  return line ? line[1].split(',').map(id => id.trim()).filter(Boolean) : [];
+}
 
 function walkPositiveTasks(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -130,16 +143,19 @@ for (const skill of skillDirs) {
     const missingParentPaths = requiredParentPaths.filter(skillPath => !output.includes(skillPath));
     const leakedPaths = canonicalSkillPaths
       .filter(skillPath => output.includes(skillPath) && !requiredParentPaths.includes(skillPath));
-    if (result.status !== 0 || missingPlanFields.length || missingParentPaths.length || leakedPaths.length) {
+    const routeShape = ROUTE_SHAPE_SKILLS.get(skill);
+    const relevant = routeShape ? routeShape(output) : candidateBindingIds(output).includes(skill);
+    if (result.status !== 0 || missingPlanFields.length || missingParentPaths.length || leakedPaths.length || !relevant) {
       const reasons = [];
       if (result.status !== 0) reasons.push(`router exited ${result.status}`);
       if (missingPlanFields.length) reasons.push(`missing ${missingPlanFields.join(', ')}`);
+      if (!relevant) reasons.push(routeShape ? 'expected route shape not emitted' : `skill is not a candidate step binding (got: ${candidateBindingIds(output).join(', ') || 'none'})`);
       if (missingParentPaths.length) reasons.push(`missing explicit parent route: ${missingParentPaths.join(', ')}`);
       if (leakedPaths.length) reasons.push(`pre-step skill paths leaked: ${leakedPaths.join(', ')}`);
       console.error(`FAIL ${path.relative(ROOT, taskFile)}: ${reasons.join('; ')}`);
       failures++;
     } else {
-      console.log(`PASS ${skill}/${path.basename(taskFile)}: matching positive eval accepted with only explicit parent bindings`);
+      console.log(`PASS ${skill}/${path.basename(taskFile)}: skill-specific relevance proven without pre-step path leaks`);
     }
   }
 }

@@ -5,6 +5,7 @@ const {
   buildRouterContract,
   writeRouterContract,
 } = require('./router-contract');
+const { getHarnessRoot, requireWorkspace } = require('./runtime-paths');
 
 const DEFAULT_ROUTING_CONFIG = {
   tiers: { tier3: [], tier2: [] },
@@ -238,6 +239,20 @@ function plannerInputsFromContext(context, promptLower) {
   return { hostCapabilities, constraints };
 }
 
+// Self-evolved skills are discovered from manifest metadata only: matching ids
+// become step inputs, and the SKILL.md path resolves when a declaring step is
+// active. Discovery is advisory and never breaks routing.
+function matchGeneratedSkillIds(promptLower, context) {
+  try {
+    const generated = require(path.join(getHarnessRoot(), 'scripts', 'lib', 'generated-skills.js'));
+    const { getWorkspaceRoot } = requireWorkspace();
+    const skills = generated.readGeneratedSkills(getWorkspaceRoot(context));
+    return { registered: skills.size, matched: generated.matchGeneratedSkills(promptLower, skills) };
+  } catch (_) {
+    return { registered: 0, matched: [] };
+  }
+}
+
 function run(userPrompt, context, options = {}) {
   console.log(`[Tier Routing Pre-check]`);
 
@@ -358,6 +373,7 @@ function run(userPrompt, context, options = {}) {
   }
 
   const knowledgeSignals = [];
+  const candidateBindings = [];
   for (const group of profileLookup ? [] : routingConfig.inputSignalGroups) {
     let matched = false;
     if (typeof group.regex === 'string') {
@@ -365,9 +381,17 @@ function run(userPrompt, context, options = {}) {
     } else if (Array.isArray(group.keywords)) {
       matched = group.keywords.some(keyword => matchKeyword(promptLower, keyword));
     }
-    if (matched && typeof group.id === 'string') knowledgeSignals.push(group.id);
+    if (matched && typeof group.id === 'string') {
+      knowledgeSignals.push(group.id);
+      if (Array.isArray(group.bindings)) candidateBindings.push(...group.bindings.filter(id => typeof id === 'string'));
+    }
   }
-  if (memoryPersistenceRequested && !knowledgeSignals.includes('memory-persistence')) knowledgeSignals.push('memory-persistence');
+  if (memoryPersistenceRequested && !knowledgeSignals.includes('memory-persistence')) {
+    knowledgeSignals.push('memory-persistence');
+    candidateBindings.push('self-evolve');
+  }
+  const generatedSkills = profileLookup ? { registered: 0, matched: [] } : matchGeneratedSkillIds(promptLower, context);
+  if (generatedSkills.matched.length > 0) knowledgeSignals.push('self-evolved-skill');
 
   const externalClaimTriggers = routingConfig.factAudit.externalClaim || [];
   const estimateTriggers = routingConfig.factAudit.estimate || [];
@@ -445,6 +469,14 @@ function run(userPrompt, context, options = {}) {
   if (knowledgeSignals.length > 0) {
     console.log(`\n=> KNOWLEDGE SIGNALS (STEP INPUT ONLY): ${knowledgeSignals.join(', ')}`);
     console.log('   These normalized prompt signals help compose requirement steps; they do not select or load documents.');
+    const bindingIds = [...new Set(candidateBindings)];
+    if (bindingIds.length > 0) console.log(`   Candidate step binding ids: ${bindingIds.join(', ')}`);
+  }
+  if (generatedSkills.matched.length > 0) {
+    console.log(`\n=> SELF-EVOLVED SKILL SIGNALS (STEP INPUT ONLY): ${generatedSkills.matched.join(', ')}`);
+    console.log('   Declare a matching id as a step binding; its SKILL.md resolves from the manifest only when that step is active.');
+  } else if (generatedSkills.registered > 0 && knowledgeSignals.length === 0) {
+    console.log(`\n=> SELF-EVOLVED SKILLS REGISTERED: ${generatedSkills.registered} (none matched this prompt; inspect manifest "generated" metadata if a past lesson may apply).`);
   }
 
   console.log(`\n=> WORKFLOW STRATEGY: ${contract.workflowPlan.strategy || 'deferred'}`);

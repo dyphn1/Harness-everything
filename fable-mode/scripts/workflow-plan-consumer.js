@@ -76,6 +76,27 @@ function normalizeWritePath(value) {
   return normalized;
 }
 
+// The resolver ships with the hook runtime. A Skills-only install has no hook
+// runtime, so declared paths stay `unverified` instead of claiming availability.
+function bindingResolver() {
+  for (const relative of ['../../hooks/scripts/lib/binding-resolver.js', '../../../hooks/scripts/lib/binding-resolver.js']) {
+    const file = path.resolve(__dirname, relative);
+    if (fs.existsSync(file)) return require(file);
+  }
+  return null;
+}
+
+function resolveStageBindingAvailability(bindings, workspaceRoot) {
+  const resolver = bindingResolver();
+  for (const binding of bindings) {
+    const resolution = resolver
+      ? resolver.resolveBinding(binding, workspaceRoot)
+      : { availability: binding.path ? 'unverified' : 'unknown', file: null };
+    binding.availability = resolution.availability;
+    binding.resolvedPath = resolution.file;
+  }
+}
+
 function normalizeBindings(values, label, required) {
   if (values === undefined) return [];
   if (!Array.isArray(values)) throw new Error(`${label} must be an array`);
@@ -94,7 +115,8 @@ function normalizeBindings(values, label, required) {
       required,
       path: bindingPath,
       status: 'pending',
-      availability: bindingPath ? 'available' : 'unknown',
+      availability: bindingPath ? 'unverified' : 'unknown',
+      resolvedPath: null,
       evidence: null,
       reasonCode: null,
       updatedAt: null,
@@ -131,10 +153,10 @@ function activeStageBindings(runRoot, escapes = []) {
       goal: stage.goal,
       status: stage.status === 'pass' && !bindingsResolved(stage) ? 'binding-unresolved' : stage.status,
       requiredBindings: (stage.requiredBindings || []).map(binding => ({
-        id: binding.id, status: binding.status, availability: binding.availability, path: binding.path,
+        id: binding.id, status: binding.status, availability: binding.availability, path: binding.path, resolvedPath: binding.resolvedPath || null,
       })),
       optionalBindings: (stage.optionalBindings || []).map(binding => ({
-        id: binding.id, status: binding.status, availability: binding.availability, path: binding.path,
+        id: binding.id, status: binding.status, availability: binding.availability, path: binding.path, resolvedPath: binding.resolvedPath || null,
       })),
     }));
 }
@@ -311,6 +333,7 @@ function prepareRun({ routerContract, stages, workspaceRoot, runId, sessionId = 
   fs.mkdirSync(evidenceDir, { recursive: true });
 
   for (const stage of normalizedStages) {
+    resolveStageBindingAvailability([...stage.requiredBindings, ...stage.optionalBindings], root);
     atomicWriteJson(path.join(contractsDir, `${stage.stageId}.json`), {
       schemaVersion: STAGE_CONTRACT_VERSION,
       planId,

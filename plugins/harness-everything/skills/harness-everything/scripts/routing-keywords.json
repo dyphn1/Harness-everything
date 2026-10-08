@@ -1,5 +1,5 @@
 {
-  "_readme": "Data file for tier-router.js. Tier keywords classify workflow topology; inputSignalGroups normalize prompt vocabulary into requirement-composition signals only. Signals never select or load a skill, reference, or guide. This config ships beside tier-router.js.",
+  "_readme": "Data file for tier-router.js. Tier keywords classify workflow topology; inputSignalGroups normalize prompt vocabulary into requirement-composition signals only. Each group's `bindings` lists candidate step-binding ids (ids, never paths) for requirement composition. Signals never select or load a skill, reference, or guide. This config ships beside tier-router.js.",
   "tiers": {
     "tier3": [
       "architecture",
@@ -179,7 +179,15 @@
         "錯誤",
         "修復",
         "實作",
-        "測試用例"
+        "測試用例",
+        "tests",
+        "regression test"
+      ],
+      "bindings": [
+        "tdd",
+        "verification-loop",
+        "verify-before-claim",
+        "environment-detection"
       ]
     },
     {
@@ -205,6 +213,12 @@
         "發行",
         "規範",
         "提交訊息"
+      ],
+      "bindings": [
+        "git-commit",
+        "rewrite-commits",
+        "using-git-worktrees",
+        "verification-loop"
       ]
     },
     {
@@ -219,6 +233,9 @@
         "專案說明",
         "文件記錄",
         "文件"
+      ],
+      "bindings": [
+        "repo-docs"
       ]
     },
     {
@@ -267,11 +284,20 @@
         "規劃",
         "智慧體",
         "角色"
+      ],
+      "bindings": [
+        "fable-mode",
+        "fable-discipline",
+        "multi-agent-workspace",
+        "grill-with-docs"
       ]
     },
     {
       "id": "fable-model-mode",
-      "regex": "\\bfable(?:[- ]mode)?\\s+(?:on|with)\\s+(?:haiku|sonnet|sonnect|opus)\\b|\\bfable-(?:haiku|sonnet|opus)\\b"
+      "regex": "\\bfable(?:[- ]mode)?\\s+(?:on|with)\\s+(?:haiku|sonnet|sonnect|opus)\\b|\\bfable-(?:haiku|sonnet|opus)\\b",
+      "bindings": [
+        "fable-mode"
+      ]
     },
     {
       "id": "arch-refactor",
@@ -323,7 +349,17 @@
         "職責分離",
         "物件拆分",
         "檔案過大",
-        "函式拆分"
+        "函式拆分",
+        "adrs",
+        "context.md",
+        "domain model",
+        "interview me"
+      ],
+      "bindings": [
+        "improve-codebase-architecture",
+        "grill-with-docs",
+        "grill-me",
+        "fable-mode"
       ]
     },
     {
@@ -355,6 +391,9 @@
         "設計文件",
         "檔案格式",
         "命令列說明"
+      ],
+      "bindings": [
+        "to-spec"
       ]
     },
     {
@@ -377,6 +416,9 @@
         "任務拆解",
         "垂直切分",
         "阻塞關係"
+      ],
+      "bindings": [
+        "to-tickets"
       ]
     },
     {
@@ -405,6 +447,10 @@
         "os",
         "作業系統",
         "工作區"
+      ],
+      "bindings": [
+        "environment-detection",
+        "using-git-worktrees"
       ]
     },
     {
@@ -449,7 +495,15 @@
         "洩漏",
         "漏洞",
         "弱點",
-        "安全審查"
+        "安全審查",
+        "verification",
+        "evidence"
+      ],
+      "bindings": [
+        "verification-loop",
+        "verify-before-claim",
+        "security-review",
+        "eval-harness"
       ]
     },
     {
@@ -460,6 +514,9 @@
         "install cognitive",
         "evidence assertion",
         "state handoff"
+      ],
+      "bindings": [
+        "install-cognitive-os"
       ]
     },
     {
@@ -479,6 +536,11 @@
         "動態索引",
         "註冊表",
         "進化"
+      ],
+      "bindings": [
+        "skill-creator",
+        "skill-style",
+        "self-evolve"
       ]
     },
     {
@@ -496,6 +558,9 @@
         "找找看有沒有",
         "安裝技能",
         "搜尋技能"
+      ],
+      "bindings": [
+        "find-skills"
       ]
     },
     {
@@ -517,6 +582,9 @@
         "機密",
         "金鑰",
         "防護"
+      ],
+      "bindings": [
+        "security-review"
       ]
     },
     {
@@ -539,6 +607,9 @@
         "停下來",
         "退一步",
         "卡"
+      ],
+      "bindings": [
+        "zoom-out"
       ]
     }
   ]

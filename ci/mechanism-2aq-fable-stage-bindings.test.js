@@ -127,6 +127,36 @@ try {
   check(contract.status === 'pass' && contract.unresolvedBindings.length === 0, 'stage passes only after check and binding dispositions both resolve');
   const finalEvidence = readJson(path.join(run.runRoot, 'evidence', 'implement.json'));
   check(finalEvidence.status === 'pass' && finalEvidence.exitCode === 0, 'passing stage retains correlated check evidence');
+  const implementContract = readJson(contractFile);
+  check(implementContract.requiredBindings[0].availability === 'available' &&
+    path.resolve(implementContract.requiredBindings[0].resolvedPath).toLowerCase() === path.join(workspace, 'tdd', 'SKILL.md').toLowerCase(),
+    'stage binding availability is resolved to a real file at run preparation');
+
+  const ghostSession = 'pr303-fable-missing-binding';
+  const ghostRun = prepareRun({
+    routerContract: plan, workspaceRoot: workspace, runId: 'pr303-missing-stage-binding', sessionId: ghostSession, workflowId,
+    stages: [{
+      stageId: 'ghost', goal: 'use a missing reference', agent: 'fable-worker-sonnet', task: 'load a reference that does not exist',
+      dependsOn: [], writeSet: ['src/ghost.js'], inputs: [], expectedOutputs: ['src/ghost.js'],
+      requiredBindings: [{ id: 'ghost-reference', path: 'docs/pr303-ghost.md' }],
+      checkCommand: 'node ghost-check.js', passCondition: 'exit 0',
+    }],
+  });
+  const ghostContractFile = path.join(ghostRun.runRoot, 'contracts', 'ghost.json');
+  check(readJson(ghostContractFile).requiredBindings[0].availability === 'missing',
+    'a declared stage path with no file is recorded as missing, not available');
+  fs.writeFileSync(path.join(getSessionDir(workspace, ghostSession), 'workflow-run.json'), JSON.stringify({
+    schemaVersion: 2, sessionId: ghostSession, workflowId, state: 'running', strategy: 'fable-staged', tier: 'tier3', revision: 1,
+    workflowPlan: { strategySelection: 'selected', strategy: 'fable-staged', tier: 'tier3', verification: { independent: false } },
+    runId: ghostRun.runId, escapes: [],
+  }, null, 2));
+  const ghostLoad = runNode(controller, [
+    'stage-binding', '--session-id', ghostSession, '--stage-id', 'ghost', '--binding-id', 'ghost-reference',
+    '--disposition', 'loaded', '--evidence', 'claimed to read the ghost reference',
+  ]);
+  const ghostBinding = readJson(ghostContractFile).requiredBindings[0];
+  check(ghostLoad.status === 0 && ghostBinding.status === 'unavailable' && ghostBinding.reasonCode === 'binding-path-missing',
+    'a missing stage binding cannot be recorded as loaded');
   console.log('PASS: #297 Fable stage binding gate mechanics');
 } finally {
   if (!tempRoot.startsWith(path.join(os.tmpdir(), 'harness-fable-stage-bindings-'))) throw new Error('unsafe fixture cleanup');

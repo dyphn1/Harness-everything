@@ -188,7 +188,7 @@ The checkpoint is runtime/source state, not a competing user-facing template. Re
 
 ## 8. Self-Healing and Dynamic Skills
 
-Self-heal and fact-audit behavior remain part of the runtime. Prompt keyword matches now emit normalized knowledge signals only; they do not discover or print dynamic skill/reference paths.
+Self-heal and fact-audit behavior remain part of the runtime. Prompt keyword matches emit normalized knowledge signals plus candidate step-binding ids; they do not print skill/reference paths. Self-evolved skills registered in a manifest's `generated` entries are matched on metadata (triggers) only: matching ids surface as `SELF-EVOLVED SKILL SIGNALS`, and a step that declares such an id resolves its `SKILL.md` from the manifest only once that step is active.
 
 If bootstrap reports missing integration touchpoints:
 
