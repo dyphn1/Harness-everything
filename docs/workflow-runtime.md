@@ -6,7 +6,7 @@ Harness uses workflow state to **observe, explain, and remind about semantic con
 
 The runtime follows **minimal rails, maximum freedom**:
 
-- routing **MUST** establish the selected/deferred topology and suggested-skill applicability set;
+- routing **MUST** establish the selected/deferred topology and normalized knowledge signals for ordered requirement composition;
 - workflow state records useful evidence and unresolved obligations without becoming a cognitive lock;
 - selected-topology required obligations and applicable skill core contracts are semantic **MUSTs**;
 - the agent **MUST** verify before claiming completion and use the single user-visible Harness Status at required phase boundaries for non-trivial work;
@@ -16,7 +16,7 @@ The runtime follows **minimal rails, maximum freedom**:
 
 Those cognitive workflow conditions **MUST NOT** trap a session or require a reset command.
 
-A semantic MUST is not the same thing as a hard runtime lock. User-visible status, routing/applicability obligations, and verification-before-claim can remain mandatory agent contracts while host hooks observe or remind on a best-effort basis. Do not downgrade a semantic obligation to optional advice merely because the host cannot block it.
+A semantic MUST is not the same thing as a hard runtime lock. User-visible status, active-binding obligations, and verification-before-claim can remain mandatory agent contracts while host hooks observe or remind on a best-effort basis. Do not downgrade a semantic obligation to optional advice merely because the host cannot block it.
 
 The unified status shape uses a visible Markdown hierarchy:
 
@@ -88,6 +88,8 @@ A workflow may retain `blocked` as a descriptive status recorded by the controll
 ## Fable and worktrees
 
 When a Fable topology is selected, its stage graphs, dependencies, write sets, objective checks, synthesis barrier, and required verifier are semantic **MUSTs**. `maxWorkers` remains a **MAY** planning hint and no longer chunks ready stages as a hard concurrency cap.
+
+Requirement steps and Fable stages may declare required/optional skill or reference bindings. Runtime output exposes only the active single-agent step or dependency-ready Fable stages. A successful Fable check with unresolved bindings records `binding-unresolved`; after dispositions resolve, the exact check must be rerun before the stage passes. Unknown/unavailable bindings remain visible, while workflow hooks and Stop remain fail-open reminders. A binding disposition is auditable agent evidence, not proof that a host actually loaded or followed the referenced document.
 
 For Tier-3/Fable broad mutation, isolation disposition is a semantic **MUST**: use/reuse a verified linked worktree, or record an explicit degraded fallback when isolation is unavailable or the user explicitly chooses to stay in place. Missing isolation is surfaced prominently, but Harness-owned cognitive workflow hooks do not turn it into a self-deadlocking runtime state.
 

@@ -11,13 +11,15 @@ check(tier2.status===0,'kernel router exits successfully');
 check(/RECOMMENDED TIER:\s*Tier 2/i.test(tier2.stdout),'classifier result is preserved');
 check(tier2.stdout.includes('"strategy":"iterative-single"'),'Tier 2 selects iterative-single workflow');
 check(tier2.stdout.includes('loop-awareness:'),'iterative work exposes loop-awareness instead of a hard budget');
-check(tier2.stdout.includes('WORKFLOW SKILLS (APPLICABILITY MUST BE RESOLVED)'),'skill applicability is explicitly mandatory');
+check(tier2.stdout.includes('ACTIVE-STEP KNOWLEDGE BINDINGS (MUST)'),'active-step binding resolution is explicitly mandatory');
 check(tier2.stdout.includes('ORCHESTRATION POLICY: Selected-topology required obligations and applicable skill core contracts are semantic MUSTs'),'orchestration policy preserves semantic MUST obligations');
 check(tier2.stdout.includes('WORKFLOW SEMANTIC CONTRACT (NON-BLOCKING OBSERVATION)'),'kernel separates semantic contract from non-blocking observation');
 check(tier2.stdout.includes('Tier 3 / Fable broad mutation MUST resolve isolation'),'worktree isolation disposition is a semantic MUST');
 check(!tier2.stdout.includes('SELECTED WORKFLOW IS GUIDANCE'),'old planning-guidance label is absent');
 check(!tier2.stdout.includes('unavailable isolation means BLOCKED'),'old worktree hard-block wording is absent');
-check(tier2.stdout.includes('evaluate-suggestions-before-skip'),'skill suggestions still require evaluation before omission');
+check(tier2.stdout.includes('future-step bindings remain undisclosed'),'future step knowledge stays undisclosed');
+check(tier2.stdout.includes('unknown/unavailable binding stays visible and unresolved'),'required binding gaps remain visible without adding a lock');
+check(!tier2.stdout.includes('evaluate-suggestions-before-skip'),'global read-every-suggestion invariant is removed');
 check(tier2.stdout.includes('visible-status-updates'),'workflow plan carries mandatory user-visible status invariant');
 check(tier2.stdout.includes('USER-VISIBLE HARNESS STATUS CONTRACT (MUST)'),'kernel emits the mandatory unified status contract');
 for(const field of ['### 🚦 Harness Status','- **Current:**','- **Read / Evidence:**','- **Next:**','- **Risk / Blocked:**']){
@@ -31,7 +33,8 @@ check(tier2.stdout.includes('semantic communication MUST, not a hard execution l
 const tier3=spawnSync(process.execPath,[kernel,'audit the entire repository architecture and coordinate multiple modules'],{cwd:ROOT,encoding:'utf8'});
 check(tier3.status===0,'Tier 3 routing exits successfully');
 check(/RECOMMENDED TIER:\s*Tier 3/i.test(tier3.stdout),'macro task remains Tier 3');
-check(tier3.stdout.includes('using-git-worktrees'),'Tier 3 still routes the worktree skill');
+check(tier3.stdout.includes('isolated-worktree-before-mutation'),'Tier 3 keeps the worktree isolation invariant');
+check(!tier3.stdout.includes('using-git-worktrees/SKILL.md'),'Tier 3 does not push a global worktree skill path');
 check(tier3.stdout.includes('Tier 3 / Fable broad mutation MUST resolve isolation'),'Tier 3 requires an isolation disposition without a hard lock');
 
 const hs=read('harness-everything/SKILL.md');
@@ -60,7 +63,7 @@ const philosophy=read('docs/philosophy.md');
 check(/Contract Strength: MUST \/ SHOULD \/ MAY/i.test(philosophy),'philosophy defines canonical MUST/SHOULD/MAY strength');
 for(const phrase of [
   'Route before software/project execution',
-  'Read/evaluate every suggested skill before omission',
+  'Resolve active required skill/reference bindings before their step',
   'Resolve selected-topology invariants/stages/checks/synthesis/verification',
   'Discover relevant environment/host facts',
   'Resolve Tier-3/Fable isolation before broad mutation',

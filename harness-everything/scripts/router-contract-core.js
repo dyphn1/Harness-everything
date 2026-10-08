@@ -327,6 +327,7 @@ function planMetadataForStrategy(strategy) {
     patterns: ['router'],
     requiredInvariants: ['scope-lock', 'environment-alignment', 'verify-before-claim', 'replan-after-repeated-failure', 'visible-status-updates'],
     suggestedSkills: [],
+    knowledgeSignals: [],
     maxIterations: null,
     parallelAllowed: null,
     parallelReasonCodes: [],
@@ -355,7 +356,6 @@ function planMetadataForStrategy(strategy) {
       ...base,
       patterns: ['router', 'react'],
       requiredInvariants: [...base.requiredInvariants, 'loop-awareness', 'objective-verification'],
-      suggestedSkills: ['tdd', 'verification-loop'],
       maxIterations: ITERATIVE_MAX_ITERATIONS,
       parallelAllowed: false,
       parallelReasonCodes: ['single-agent-loop'],
@@ -371,7 +371,6 @@ function planMetadataForStrategy(strategy) {
       ...base,
       patterns: ['router', 'planner-executor', 'evaluator-optimizer'],
       requiredInvariants: [...base.requiredInvariants, 'stage-contracts', 'cold-verification', 'isolated-worktree-before-mutation'],
-      suggestedSkills: ['using-git-worktrees', 'fable-mode', 'fable-discipline', 'verification-loop'],
       parallelAllowed: false,
       parallelReasonCodes: ['dependent-or-unproven-independent-stages'],
       workspaceRequired: false,
@@ -386,7 +385,6 @@ function planMetadataForStrategy(strategy) {
       ...base,
       patterns: ['router', 'planner-executor', 'evaluator-optimizer'],
       requiredInvariants: [...base.requiredInvariants, 'stage-contracts', 'cold-verification', 'isolated-worktree-before-mutation', 'parallel-scope-contract', 'synthesis-barrier'],
-      suggestedSkills: ['using-git-worktrees', 'fable-mode', 'fable-discipline', 'verification-loop'],
       parallelAllowed: true,
       parallelReasonCodes: ['independent-read-only-or-disjoint-scopes'],
       workspaceRequired: false,
@@ -401,7 +399,6 @@ function planMetadataForStrategy(strategy) {
       ...base,
       patterns: ['router', 'planner-executor', 'evaluator-optimizer', 'multi-agent-memory'],
       requiredInvariants: [...base.requiredInvariants, 'stage-contracts', 'cold-verification', 'isolated-worktree-before-mutation', 'handoff-contracts', 'workspace-state'],
-      suggestedSkills: ['using-git-worktrees', 'multi-agent-workspace', 'fable-mode', 'fable-discipline', 'verification-loop'],
       parallelAllowed: false,
       parallelReasonCodes: ['workspace-orchestrator-controls-concurrency'],
       workspaceRequired: true,
@@ -427,13 +424,12 @@ function buildWorkflowPlan(input = {}) {
 
   const requiredInvariants = [...meta.requiredInvariants];
   const patterns = [...meta.patterns];
-  const suggestedSkills = [...meta.suggestedSkills];
+  const knowledgeSignals = Array.from(new Set((input.knowledgeSignals || []).filter(value => typeof value === 'string' && value.trim())));
   const memoryPersistenceRequested = Boolean(taskShape.observedSignals && taskShape.observedSignals.memoryPersistenceRequested);
   const memoryProhibited = Boolean(taskShape.explicitRequest && taskShape.explicitRequest.prohibitions && taskShape.explicitRequest.prohibitions.includes('memory'));
   const memoryWrite = memoryProhibited ? 'none' : (memoryPersistenceRequested ? 'persist-via-self-evolve' : meta.memoryWrite);
   if (memoryPersistenceRequested && !memoryProhibited) {
     requiredInvariants.push('memory-write-authorization');
-    suggestedSkills.push('self-evolve');
   }
   if (actionGateRequired) {
     requiredInvariants.push('pre-action-approval');
@@ -467,7 +463,8 @@ function buildWorkflowPlan(input = {}) {
     strategySelection: selection.strategySelection,
     patterns: Array.from(new Set(patterns)),
     requiredInvariants: Array.from(new Set(requiredInvariants)),
-    suggestedSkills: Array.from(new Set(suggestedSkills)),
+    suggestedSkills: [],
+    knowledgeSignals,
     actionGate: {
       required: actionGateRequired,
       reasonCodes: actionGateReasonCodes,
@@ -527,6 +524,7 @@ function buildRouterContract(input = {}) {
     routingStatus: input.routingStatus,
     tier,
     taskShape,
+    knowledgeSignals: input.knowledgeSignals,
     actionGateReasonCodes: input.actionGateReasonCodes,
     reasonCodes,
   });
@@ -570,6 +568,8 @@ function validateWorkflowPlan(plan) {
   if (plan.strategySelection === 'deferred' && plan.strategy !== null) errors.push('deferred strategy must be null');
   if (!Array.isArray(plan.requiredInvariants)) errors.push('requiredInvariants must be an array');
   if (!Array.isArray(plan.suggestedSkills)) errors.push('suggestedSkills must be an array');
+  if (!Array.isArray(plan.knowledgeSignals) || plan.knowledgeSignals.some(value => typeof value !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(value)) ||
+      new Set(plan.knowledgeSignals).size !== plan.knowledgeSignals.length) errors.push('knowledgeSignals must be unique normalized signal ids');
   if (!plan.actionGate || typeof plan.actionGate.required !== 'boolean') errors.push('actionGate.required must be boolean');
   if (plan.actionGate && plan.actionGate.required && plan.actionGate.disposition !== 'pending-approval') errors.push('required actionGate must be pending-approval before execution');
   if (!plan.limits || !Object.prototype.hasOwnProperty.call(plan.limits, 'maxIterations')) errors.push('limits.maxIterations is required');

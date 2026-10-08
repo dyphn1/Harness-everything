@@ -360,9 +360,9 @@ small model only has to separate a few options at a time.
    `discuss`, `git`, `fix`, `edit`, `feature`, `refactor`, `review`, `test`,
    `docs`, `plan`, `investigate` or `unclassified`. A prompt has one primary
    intent and may have secondary intents.
-3. **Skills**: which canonical skills fit the prompt, scored against skill
-   descriptions. Only skills above the stage's calibrated threshold are
-   suggested, and they are suggestions, never required reads.
+3. **Skill relevance**: candidate signals for requirement composition,
+   scored against canonical skill descriptions. These candidates do not select
+   paths, trigger loads, or bypass the active-step binding contract.
 
 Each stage has its own gates, and a stage ships only when it passes them.
 The relevance-native plan in
@@ -371,8 +371,10 @@ adds a validity stage first and runs intent before tier, because tier3 is
 composed from the intent scores. Tier was trained first because the
 reviewed holdout exists for it. Later stages reuse the
 same collector, labeler, trainer and evaluator with a different catalog.
-Suggestions are advisory: explicit workflow requests, action gates, memory
-ownership, the Rule of 3 and deterministic policy always take precedence.
+Relevance candidates are advisory inputs to requirement composition: explicit
+workflow requests, action gates, memory ownership, the Rule of 3 and
+deterministic policy always take precedence. A candidate becomes a skill path
+only when a specific ordered requirement declares it as a binding.
 
 ## Rollout gates
 
@@ -383,8 +385,9 @@ provenance, repeatability and advisory rules below still apply.
 
 Phase 4 requires a separately reviewed, family-disjoint holdout of at least 200
 cases, at least 50 each in English and Traditional Chinese. System One output is
-advisory: it informs the agent and suggests skills. It never grants or removes
-policy. The owner therefore set the target at accepted precision ≥85% (the
+advisory: it informs requirement composition and provides skill-relevance
+candidates. It never grants, removes policy, or loads paths. The owner therefore
+set the target at accepted precision ≥85% (the
 80–90% band), coverage ≥80%, and macro-F1 at least the lexical baseline. A
 probabilistic scorer small enough to ship inside a skills plugin (a few MB, not
 hundreds) is not expected to reach 98%.

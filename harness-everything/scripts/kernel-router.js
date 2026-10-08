@@ -105,6 +105,27 @@ function persistWorkflow(contract, payload, prompt) {
   return { ...context, hooksRoot, retained: false, memoryCapability };
 }
 
+function activeExecutionFor(persisted, plan) {
+  if (!persisted?.workflow || !persisted.hooksRoot) return null;
+  try {
+    if (String(persisted.workflow.strategy || '').startsWith('fable-')) {
+      const runtime = require(path.join(persisted.hooksRoot, 'lib/workflow-runtime'));
+      const match = runtime.matchingRun(persisted);
+      if (!match) return { activeStages: [] };
+      for (const relative of ['../../fable-mode/scripts/workflow-plan-consumer.js', '../../skills/fable-mode/scripts/workflow-plan-consumer.js']) {
+        const file = path.resolve(__dirname, relative);
+        if (fs.existsSync(file)) return { activeStages: require(file).activeStageBindings(match.runRoot, persisted.workflow.escapes) };
+      }
+      return { activeStages: [] };
+    }
+    const obligations = require(path.join(persisted.hooksRoot, 'lib/workflow-obligations'));
+    const loaded = obligations.loadObligationSet(persisted, plan);
+    return { activeStep: loaded.set ? obligations.activeStepSnapshot(loaded.set) : null };
+  } catch (_) {
+    return null;
+  }
+}
+
 // Printed last so it is the nearest instruction when the turn ends (docs/system-one-observations.md#label-line).
 function printLabelContract() {
   console.log('\n=> TURN LABEL LINE (MUST, EVERY TURN — short answers, lookups and trivial edits included):');
@@ -134,14 +155,35 @@ function run(raw) {
     if (persisted?.retained && persisted.workflow) plan = persisted.workflow.workflowPlan;
   } catch (error) { failure = error; }
   if (hostNotification && !persisted?.workflow) {
-    console.log('\n=> Host notification — no active execution contract; ignored for routing.');
+    console.log('\n=> Host notification: no active execution contract; ignored for routing.');
+    if (failure) console.error('[Workflow Reminder] routing state was not persisted: ' + failure.message);
+    printLabelContract();
+    return;
+  }
+  if (persisted?.retained && persisted.workflow) {
+    if (persisted.hostNotification) console.log('\n=> Host notification: routing unchanged; keeping the active execution contract.');
+    else console.log('\n=> Retaining unresolved workflow; showing its compact active contract.');
+    const activeExecution = activeExecutionFor(persisted, plan) || {};
+    const activeStep = activeExecution.activeStep || null;
+    const activeStages = activeExecution.activeStages || [];
+    core.printRetainedWorkflow(plan, persisted.workflow, activeStep, activeStages);
+    if (activeStep) {
+      const controller = path.join(persisted.hooksRoot, 'workflow-disposition.js');
+      console.log('   - Resolve only bindings for this active step, then pass this step with evidence.');
+      console.log('   - Controller: ' + controller + '; session: ' + persisted.sessionId + '; step: ' + activeStep.id + '.');
+      console.log('   - Resolve binding: node "' + controller + '" binding --session-id "' + persisted.sessionId + '" --step-id "' + activeStep.id + '" --binding-id "<active-binding-id>" --disposition <loaded|not-needed|unavailable> --evidence "<binding evidence>"');
+      console.log('   - Pass step: node "' + controller + '" step --session-id "' + persisted.sessionId + '" --step-id "' + activeStep.id + '" --disposition pass --evidence "<completion evidence>"');
+    } else if (activeStages.length) {
+      const controller = path.join(persisted.hooksRoot, 'workflow-disposition.js');
+      console.log('   - Resolve only declared bindings with stage-binding --stage-id <active-stage> --binding-id <binding> --disposition <loaded|not-needed|unavailable> --evidence <evidence>.');
+      console.log('   - Controller: ' + controller + '; session: ' + persisted.sessionId + '.');
+    }
+    printLabelContract();
     if (failure) console.error('[Workflow Reminder] routing state was not persisted: ' + failure.message);
     return;
   }
   if (result?.sanitized) console.log(result.sanitized);
   if (result?.stderr) process.stderr.write(result.stderr);
-  if (persisted?.hostNotification) console.log('\n=> Host notification — routing unchanged; keeping the active execution contract.');
-  else if (persisted?.retained) console.log('\n=> Retaining unresolved workflow from earlier prompts; the checkpoint below is the active execution contract.');
   core.printWorkflowPlan(plan);
   core.printRoutingCheckpoint(plan);
   core.printKernelContract(plan);
@@ -163,7 +205,8 @@ function run(raw) {
     if (plan.strategySelection === 'selected' && ['tier2', 'tier3'].includes(plan.tier)) {
       console.log('   - Planning contract: ' + path.join(persisted.sessionDir, 'workflow-obligations.json'));
       console.log('   - Requirements first: decompose intent into requirement fragments, then confirm the smallest sufficient workflow.');
-      console.log('   - Record plan: node "' + controller + '" plan --session-id "' + persisted.sessionId + '" --requirements-json "[{\\\"id\\\":\\\"req-1\\\",\\\"summary\\\":\\\"...\\\",\\\"acceptance\\\":\\\"...\\\"}]" --strategy "' + plan.strategy + '" --evidence "<why this workflow fits>"');
+      console.log('   - Record ordered step types (review, behavior-change, verification, commit) and their bindings before execution.');
+      console.log('   - Record plan: node "' + controller + '" plan --session-id "' + persisted.sessionId + '" --requirements-json "[{\\"id\\":\\"req-1\\",\\"stepType\\":\\"behavior-change\\",\\"summary\\":\\"...\\",\\"acceptance\\":\\"...\\"},{\\"id\\":\\"req-verify\\",\\"stepType\\":\\"verification\\",\\"summary\\":\\"...\\",\\"acceptance\\":\\"...\\"}]" --strategy "' + plan.strategy + '" --evidence "<why this workflow fits>"');
     }
     console.log('   - Enter selected workflow after planning: node "' + controller + '" start --session-id "' + persisted.sessionId + '"');
     console.log('   - Escape one declared stage: node "' + controller + '" escape --session-id "' + persisted.sessionId + '" --stage-id "<id>" --reason-code workflow-uncovered-scope --scope "<uncovered scope>" --evidence "<evidence>"');
@@ -175,7 +218,7 @@ function run(raw) {
   if (result && result.status !== 0) console.error('[Workflow Reminder] router returned status ' + result.status + '; contract observation is degraded, not blocking.');
 }
 
-if (typeof module !== 'undefined') module.exports = { isHostNotificationPrompt };
+if (typeof module !== 'undefined') module.exports = { isHostNotificationPrompt, activeExecutionFor };
 
 if (process.argv.length > 2 || process.stdin.isTTY) run('');
 else {  let input = '';

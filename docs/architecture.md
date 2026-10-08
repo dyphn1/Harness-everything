@@ -10,7 +10,7 @@ The minimal kernel establishes:
 
 - scope/tier before mutation,
 - a selected workflow topology as a semantic execution contract when task evidence supports one,
-- applicability evaluation for every suggested skill before omission,
+- ordered requirement decomposition and step-scoped knowledge bindings,
 - objective evidence before completion,
 - bounded re-plan/recovery after repeated failure,
 - explicit warnings/degraded/escape evidence instead of silent workflow deletion;
@@ -18,7 +18,7 @@ The minimal kernel establishes:
 
 > **Contract-first lifecycle; flexible reasoning/implementation and execution.**
 >
-> Suggested skills MUST be evaluated from their real flows. Applicable skill core contracts and selected-topology obligations are semantic MUSTs; missing evidence produces reminders rather than persistent Harness locks.
+> Active required bindings and selected-topology obligations are semantic MUSTs; keyword signals are planning inputs, and unrelated future bindings stay undisclosed.
 
 This avoids both extremes: no universal Tier-2/Tier-3 pipeline and no maze of self-deadlocking cognitive gates.
 
@@ -31,10 +31,9 @@ flowchart TD
     P --> A{Strategy selected?}
     A -- No / deferred --> D[Preserve invariants<br/>choose smallest justified workflow]
     A -- Yes --> C[ACTIVE workflow contract]
-    C --> S{Suggested skills?}
-    S -- Yes --> E[Read SKILL.md<br/>resolve applicability]
-    S -- No --> X[Execute topology]
-    E --> X
+    C --> D[Decompose ordered requirements]
+    D --> B[Bind skills/references per step]
+    B --> X[Execute active step/stage]
     X --> V{Required stage/check resolved?}
     V -- Yes --> Done[Evidence-backed completion]
     V -- No --> R[Diagnose / bounded re-plan]
@@ -49,7 +48,8 @@ flowchart TD
 - tier + rationale,
 - selected/deferred execution strategy,
 - required invariants,
-- suggested skills that require applicability evaluation,
+- normalized knowledge signals for planning, not document selection,
+- bindings only for the active step or dependency-ready Fable stage,
 - the internal routing checkpoint,
 - the semantic workflow contract.
 
@@ -74,9 +74,9 @@ Use nested evidence bullets when multiple items would otherwise become one dense
 
 This is a semantic contract, not another cognitive lock. Hook-capable hosts may observe or remind about compliance; instruction-only hosts still receive the MUST contract without pretending they can mechanically enforce it.
 
-### Skill applicability vs. topology execution
+### Step-scoped knowledge vs. topology execution
 
-Router suggestions remain useful domain/workflow knowledge, not a universal sequence. Before omission, the agent reads the complete `SKILL.md` entry and evaluates `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules. Name/description/router-summary or “routine task” is insufficient evidence.
+Keyword/domain matches are planning signals, not skill/reference paths. Requirement composition declares bindings on ordered steps; only active bindings are disclosed. A required skill binding MUST be read and its applicable core contract followed before the step passes. Unknown/unavailable paths remain visible and unresolved, while unrelated and future-step knowledge is not preloaded.
 
 The selected topology is a semantic lifecycle contract, not a persistent execution lock. Required obligations MUST resolve; implementation tactics MAY adapt.
 
@@ -89,7 +89,7 @@ For selected Fable topologies on Claude:
 - `workflow-gate.js` observes supported mutation/worktree/Fable state and emits reminders;
 - Fable owns stage contracts, `dependsOn`/`writeSet`, validated execution batches, objective per-stage checks, synthesis, cold verification, and bounded re-plans;
 - `workflow-stop-gate.js` reports unresolved stage/verification evidence without rejecting Stop;
-- `workflow-disposition.js` records explicit lifecycle/audit decisions; numeric budgets are no longer authoritative control state.
+- `workflow-disposition.js` records explicit lifecycle/audit decisions and active step/stage binding dispositions; numeric budgets are no longer authoritative control state.
 
 Other topologies use their own applicable mechanisms: MAY-level loop-awareness planning hints, regular verification stop-gates, action gates, and task-specific skills. Mechanism coverage is not assumed identical across hosts.
 

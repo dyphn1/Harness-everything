@@ -19,7 +19,7 @@ AI coding agents are highly capable, but they struggle with self-regulation, env
 
 Harness acts as an automated system supervisor. It remains completely silent and out of the way, intervening only when execution boundaries are violated or failures are detected.
 
-Harness deliberately follows a **minimal rails, maximum freedom** design: semantic obligations are explicit, while runtime observation remains lightweight and mostly fail-open. It does not hard-stop work on iteration/revision/replan/worker counts. The one cognitive hard boundary is Rule of 3: three matching failures pause mutation for a zoom-out reflection. Router suggestions are conditional by applicability, not optional by default: the agent MUST read/evaluate each suggested skill; if applicable, its core contract MUST be followed, and if not applicable a flow-grounded reason MUST be retained. Implementation tactics remain flexible inside those obligations.
+Harness deliberately follows a **minimal rails, maximum freedom** design: semantic obligations are explicit, while runtime observation remains lightweight and mostly fail-open. It does not hard-stop work on iteration/revision/replan/worker counts. The one cognitive hard boundary is Rule of 3: three matching failures pause mutation for a zoom-out reflection. Router keywords are planning signals, not document selectors. Ordered requirement steps declare their required/optional skills and references; only active bindings are exposed, and required bindings resolve before the step passes. Implementation tactics remain flexible inside those obligations.
 
 ### Comparison: Prompt vs. Skill vs. Harness
 
@@ -77,7 +77,7 @@ npx.cmd github:dyphn1/Harness-everything install             # Windows PowerShel
 1. **Use the selected surface's real mechanism:** Claude Code hooks, the local OpenAI plugin lifecycle hooks, OpenCode's plugin API, or advisory instructions depending on what you installed.
 2. **Preflight / session context where packaged:** Hook-capable surfaces can inject environment/session context automatically; advisory-only surfaces must not be described as if they do.
 3. **Verification boundary:** Completion claims require objective evidence; whether that boundary is mechanically invoked or explicitly called depends on the host surface.
-4. **Mandatory applicable workflow:** MUST evaluate each suggested skill's complete `SKILL.md`; applicable core contracts MUST be followed, while not-applicable needs a flow-grounded reason. Selected-topology required obligations MUST resolve with objective evidence. Reasoning and implementation remain flexible; escape applies only to declared uncovered scope with evidence. Tier-3/Fable broad mutation MUST resolve isolation: verified linked worktree or explicit degraded fallback. See the [workflow runtime contract](docs/workflow-runtime.md). Harness does not impose one universal TODO/TDD/Fable sequence.
+4. **Mandatory active workflow:** Ordered steps MUST declare the required/optional skill and reference bindings they need; load/resolve only the active step or dependency-ready Fable stage. Required bindings and objective evidence MUST resolve before step/stage pass. Unknown/unavailable bindings stay visible; hooks and Stop remain fail-open. Reasoning and implementation remain flexible; escape applies only to declared uncovered scope with evidence. Tier-3/Fable broad mutation MUST resolve isolation: verified linked worktree or explicit degraded fallback. See the [workflow runtime contract](docs/workflow-runtime.md). Harness does not impose one universal TODO/TDD/Fable sequence.
 5. **Unified user-visible status:** For non-trivial software/project work, the agent MUST render one scannable Markdown `### 🚦 Harness Status` block with bold bullet labels for `Current`, `Read / Evidence`, `Next`, plus optional `Risk / Blocked`; multiple evidence items may use nested bullets. Use it at major phase/direction boundaries and before final completion. The routing checkpoint remains internal source state. This is a communication contract, not a hard runtime lock.
 
 ### What Gets Installed (and How to Remove It)
@@ -138,10 +138,9 @@ flowchart TD
 flowchart TD
     U([User Request]) --> K[Harness Kernel<br/>classify scope + establish invariants]
     K --> T{Tier classification}
-    T --> S{Suggested skills?}
-    S -->|Yes| R[Read each suggested SKILL.md<br/>evaluate flow + applicability]
-    S -->|No| A[Agent chooses smallest useful tactic / skill set]
-    R --> A
+    T --> D[Decompose ordered requirements]
+    D --> B[Bind knowledge per step]
+    B --> A[Agent resolves active bindings and chooses tactics]
     A --> Exec[Execute Code / Run Commands]
     Exec --> Gate{Objective evidence supports completion?}
     Gate -->|No| Retry[Diagnose / iterate]
@@ -157,7 +156,7 @@ flowchart TD
     style Gate fill:#ffcdd2,stroke:#c62828,stroke-width:1px,color:#000000
 ```
 
-The Tier changes task shape and the set of **suggested skills**, not a universal required order. Tier 2 may suggest `tdd`, `todo-driven-workflow`, or `verification-loop`; Tier 3 may select Fable or multi-agent topologies. Every suggestion is **MUST-evaluate**: if its real flow is applicable, the core contract becomes **MUST-follow**; otherwise retain a flow-grounded not-applicable reason. Tactics inside the resulting contract remain model-controlled.
+The Tier changes task shape and selected topology, not a universal required order. Tier 2 decomposes behavior-change and verification steps so TDD and verification-loop bindings appear only when active; Tier 3 may select Fable or multi-agent topologies, with binding visibility following the existing stage dependencies. Tactics inside the resulting contract remain model-controlled.
 
 ---
 
@@ -165,7 +164,7 @@ The Tier changes task shape and the set of **suggested skills**, not a universal
 
 Harness operates through six core cognitive concepts:
 
-1. **Kernel Router (`kernel-router.js` + `tier-router.js`):** `tier-router.js` remains the classifier, dynamic-skill detector, and knowledge-guide matcher. `kernel-router.js` is the public runtime boundary: it preserves the classifier result, injects baseline MUST invariants, and adds `evaluate-suggestions-before-skip` whenever domain skills are suggested. Suggestions MUST be evaluated from their real `SKILL.md` flow; an applicable skill's core contract MUST be followed, while not-applicable needs evidence. Selected-topology obligations are also semantic MUSTs, but the runtime generally observes/reminds rather than hard-blocking. This preserves agent autonomy over tactics without allowing confidence to erase the lifecycle. If nothing matches at all — including nothing already kept from the open skills ecosystem — `find-skills` checks `npx skills list` live and, if still nothing, searches `skills.sh`/`npx skills` with explicit approval before installation.
+1. **Kernel Router (`kernel-router.js` + `tier-router.js`):** `tier-router.js` classifies tasks and emits normalized knowledge signals; it does not select skill/reference paths. `kernel-router.js` is the public runtime boundary: it preserves the classifier result, injects baseline MUST invariants, and records ordered active-step bindings after requirement composition. Active required skills MUST be read and followed before their step passes. Selected-topology obligations are semantic MUSTs, but the runtime generally observes/reminds rather than hard-blocking. This preserves agent autonomy over tactics without allowing confidence to erase the lifecycle. If a step needs a skill not already available, `find-skills` checks `npx skills list` and searches `skills.sh`/`npx skills` under its own installation contract.
 2. **Guard (`rule-of-3.js`):** The fail-safe circuit breaker. Tracks failure signatures across terminal runs on integration surfaces that package the required lifecycle hooks. If a test or command fails 3 times with the same signature, it locks mutating tools and forces a `zoom-out` reflection: re-verify every assumption with read-only tools, write a fact-checked report, then resume on a fresh diagnosis. A companion `Stop` hook (`stop-gate.js`) emits a non-blocking reminder when edits were never followed by successful verification on hosts where that hook is installed.
 3. **Memory (`state-persist.js`):** Session transaction logging for stateful hook/plugin integrations. Static skills/instructions alone do not create WAL state.
 4. **Reflection (`self-evolve`):** Long-term workspace immunization. Upon task completion, the agent reflects on the root cause of resolved issues, then judges whether the lesson is a simple rule or a reusable, complex pattern: simple rules are appended to local workspace rules (`RULES.md`); genuinely reusable patterns are instead packaged as a dynamic skill (via `skill-creator`'s Dynamic Skill Generation Contract) and registered in `manifest.json` so the Router picks it up in future sessions. Either path is validated by a hermetic self-regression suite before it's persisted.
@@ -339,7 +338,7 @@ Mechanism tests prove individual packaged mechanisms; only real host/session evi
 
 ### Catalog hygiene
 
-`npm run test:consistency` keeps distribution manifests, docs links, skill frontmatter, routing-eval coverage, platform capability claims, and the generated repository runtime/workflow contract in lockstep with what is actually on disk. `npm run test:repo-contract` runs the runtime/workflow drift gate directly, while `npm run docs:sync` regenerates [docs/repository-contract.md](docs/repository-contract.md) after an intentional change. `npm run test:docs:capabilities` runs the platform-doc drift check directly. `npm run test:references` checks every executable/deep-dive path named by `SKILL.md`; `npm run test:release` compares release/catalog evidence; `npm run test:routing:skills` recursively classifies nested skills and executes the real router for every directly-routable skill's positive cases; `npm run test:routing:invariants` guards the invariant-first architecture including read-before-skip; and `harness verify-install` detects stale installed versions or file trees. The installer E2E gate performs install → verify-install → uninstall against seeded user-owned files on Ubuntu, Windows, and macOS so path and ownership symmetry regressions fail CI. `npm run test:collision` fails CI when two skills' descriptions overlap enough to confuse the router.
+`npm run test:consistency` keeps distribution manifests, docs links, skill frontmatter, routing-eval coverage, platform capability claims, and the generated repository runtime/workflow contract in lockstep with what is actually on disk. `npm run test:repo-contract` runs the runtime/workflow drift gate directly, while `npm run docs:sync` regenerates [docs/repository-contract.md](docs/repository-contract.md) after an intentional change. `npm run test:docs:capabilities` runs the platform-doc drift check directly. `npm run test:references` checks every executable/deep-dive path named by `SKILL.md`; `npm run test:release` compares release/catalog evidence; `npm run test:routing:skills` recursively classifies nested skills and executes the real router for every directly-routable skill's positive cases; `npm run test:routing:invariants` guards active-step bindings, disclosure, and the fail-open workflow contract; and `harness verify-install` detects stale installed versions or file trees. The installer E2E gate performs install → verify-install → uninstall against seeded user-owned files on Ubuntu, Windows, and macOS so path and ownership symmetry regressions fail CI. `npm run test:collision` fails CI when two skills' descriptions overlap enough to confuse the router.
 
 ---
 

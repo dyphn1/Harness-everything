@@ -45,6 +45,12 @@ first. Every stage declares `stageId`, goal, named agent, self-contained task,
 expected output, `dependsOn`, and `writeSet` per
 `fable-mode/CONTRACT-FORMAT.md`. `dependsOn: []` means no prerequisite;
 `writeSet: []` means read-only. Workers never widen their own write set.
+Declare stage-specific `requiredBindings` and `optionalBindings` in the same
+contract. The consumer/start/check output exposes paths only for dependency-ready
+stages; never preload bindings from future stages. Resolve active bindings with
+`workflow-disposition.js stage-binding` and evidence before passing the stage.
+If its objective check passes while bindings remain unresolved, the contract
+records `binding-unresolved`; resolve the bindings and rerun that exact check.
 
 Pass the router contract and stage array through
 `fable-mode/scripts/workflow-plan-consumer.js` before spawning anything. Use the
@@ -97,10 +103,11 @@ that stage's check before continuing.
 The run-scoped contract already exists before execution. When its exact
 `checkCommand` runs, `contract-test.js` correlates it to one
 `planId/runId/stageId`, updates that contract, and writes
-`evidence/<stageId>.json`. If the command is ambiguous across runs, none of the
-contracts is updated and the ambiguity must be resolved. Before delivery,
+`evidence/<stageId>.json`. A `pass` requires both an objective check and
+resolved declared bindings. If the command is ambiguous across runs, none of
+the contracts is updated and the ambiguity must be resolved. Before delivery,
 confirm every check-bearing contract in this run is `pass`; `planned`,
-`running`, `pending`, or `fail` is not delivery evidence.
+`running`, `pending`, `fail`, or `binding-unresolved` is not delivery evidence.
 
 The subagent scope guard separately compares worker changes to the immutable
 `writeSet` snapshot captured at burst start. An in-scope change is not proof of

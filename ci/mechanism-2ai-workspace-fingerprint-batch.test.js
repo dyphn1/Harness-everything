@@ -189,7 +189,8 @@ try {
   });
   check(routed.status === 0, '#169 large-workspace Tier-2 fixture routes normally');
   const requirements = JSON.stringify([
-    { id: 'req-fingerprint', summary: 'Exercise large-workspace shell admission', acceptance: 'the shell call remains available above the fingerprint observation cap' },
+    { id: 'req-fingerprint', stepType: 'behavior-change', summary: 'Exercise large-workspace shell admission', acceptance: 'the shell call remains available above the fingerprint observation cap' },
+    { id: 'req-verify', stepType: 'verification', summary: 'Verify shell admission', acceptance: 'objective test evidence is recorded' },
   ]);
   const planned = node('hooks/scripts/workflow-disposition.js', undefined, [
     'plan', '--session-id', sessionId,

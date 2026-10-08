@@ -16,7 +16,7 @@ const tier3 = router.buildRouterContract({
 
 assert.strictEqual(tier3.strategy, 'fable-staged');
 assert.ok(tier3.requiredInvariants.includes('isolated-worktree-before-mutation'), 'Tier 3 plan must carry mutation isolation invariant');
-assert.ok(tier3.suggestedSkills.includes('using-git-worktrees'), 'Tier 3 plan must surface the worktree workflow');
+assert.strictEqual(tier3.suggestedSkills.length, 0, 'Tier 3 must not push a global worktree skill list');
 assert.strictEqual(tier3.workspace.required, false, 'Git worktree isolation must remain distinct from durable multi-agent workspace state');
 assert.strictEqual(tier3.mutationIsolation.onUnavailable, 'degraded', 'unavailable isolation records an explicit degraded fallback instead of a cognitive hard block');
 
@@ -29,7 +29,7 @@ const tier2 = router.buildRouterContract({
 
 assert.strictEqual(tier2.strategy, 'iterative-single');
 assert.ok(!tier2.requiredInvariants.includes('isolated-worktree-before-mutation'), 'Tier 2 must not be globally forced into major-workflow isolation');
-assert.ok(!tier2.suggestedSkills.includes('using-git-worktrees'), 'Tier 2 keeps worktree use task-dependent');
+assert.strictEqual(tier2.suggestedSkills.length, 0, 'Tier 2 also has no topology-wide skill suggestions');
 
 const explicitFable = router.buildWorkflowPlan({
   routingStatus: 'ok',

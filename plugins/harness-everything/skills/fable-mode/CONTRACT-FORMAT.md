@@ -37,6 +37,8 @@ Every planned stage declares dependency and write scope before dispatch:
   "outputPath": "path/to/artifact-or-null",
   "dependsOn": ["stage-1"],
   "writeSet": ["src/auth", "tests/auth.test.js"],
+  "requiredBindings": [{ "id": "tdd", "path": "tdd/SKILL.md" }],
+  "optionalBindings": [{ "id": "security-review", "path": "security-review/SKILL.md" }],
   "checkCommand": "node --test tests/auth.test.js",
   "passCondition": "exit 0",
   "failureReturn": "failure summary + evidence + missing prerequisite"
@@ -48,6 +50,7 @@ Rules:
 - `stageId`, `goal`, `agent`, and `task` are required.
 - `dependsOn` is always explicit. Use `[]` for a root stage.
 - `writeSet` is always explicit. Use `[]` for a read-only stage.
+- `requiredBindings` and `optionalBindings` are optional arrays. Each entry is a stable `id` and may declare a concrete repository-relative `path`; paths reject absolute names, globs, and traversal. Availability is `available` only when the path resolves to a readable file: workspace references resolve only under the workspace, while recognized Harness bindings (a registered id at its registered path, or a skill id naming its own `<id>/SKILL.md`) also search installed Harness skill roots (`missing` otherwise; `unverified` when no hook runtime is installed). An id without a path resolves through self-evolved manifest metadata, else remains visible with unknown availability. A binding that does not resolve cannot be recorded as `loaded`.
 - `writeSet` contains concrete repository-relative path scopes, not globs,
   absolute paths, or `..` traversal.
 - a directory scope covers descendants; overlapping scopes cannot run in the
@@ -60,7 +63,7 @@ Rules:
 
 ## Workflow-plan consumer
 
-For a session with an active mandatory workflow, write the stage array to the router-displayed `workflow-stages.json` path and invoke its `workflow-disposition.js start --session-id <id>` command. This binds the run to the active `workflowId` and bound workspace even after entering a linked worktree. Every required stage needs an objective check, and an independent plan needs a read-only `fable-verifier` stage depending on all other stages. Stage results need observed worker identities and numeric exit codes; missing metadata is blocked/degraded, not success.
+For a session with an active mandatory workflow, write the stage array to the router-displayed `workflow-stages.json` path and invoke its `workflow-disposition.js start --session-id <id>` command. This binds the run to the active `workflowId` and bound workspace even after entering a linked worktree. The start/check output exposes bindings only for dependency-ready stages; future-stage paths stay undisclosed. Resolve an active binding with `workflow-disposition.js stage-binding --stage-id <id> --binding-id <id> --disposition loaded|not-needed|unavailable --evidence <evidence>`. A successful check with unresolved bindings records `binding-unresolved`; resolve them, then rerun the exact check before the stage can pass. This state is a reminder, not a tool or Stop lock. Every required stage needs an objective check, and an independent plan needs a read-only `fable-verifier` stage depending on all other stages. Stage results need observed worker identities and numeric exit codes; missing metadata is unresolved, not success.
 
 For standalone use without an active session contract, write the router contract and stage array to files and run:
 

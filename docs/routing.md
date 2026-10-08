@@ -6,7 +6,7 @@ The current architecture follows two coupled rules:
 
 > **Contract-first lifecycle; flexible reasoning/implementation and execution.**
 >
-> **Skill applicability is explicit: evaluation is mandatory, applicable core contracts are mandatory, and not-applicable dispositions require evidence.**
+> **Knowledge is step-scoped: the active step declares required/optional bindings, and required bindings resolve before that step passes.**
 
 A strong model remains free to decide *how* to perform the work. It may not decide that an applicable selected lifecycle can be skipped because the task feels simple or already understood.
 
@@ -17,7 +17,7 @@ For software/project work, Harness establishes routing context and lightweight r
 1. **Route before execution** — establish scope/tier and the smallest justified topology.
 2. **Verify before claim** — completion requires objective evidence appropriate to the change.
 3. **Re-plan after repeated failure** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
-4. **Evaluate before omission** — read every suggested skill's complete `SKILL.md` entry before deciding applicability.
+4. **Bind knowledge by step** — compose ordered requirement steps and declare their required/optional skill or reference bindings before execution.
 5. **Resolve selected workflow** — satisfy the selected topology's required obligations before completion; tactics MAY adapt, but required lifecycle evidence cannot be silently skipped.
 6. **Surface status** — non-trivial work MUST keep the user informed through the single Harness Status format at required phase boundaries.
 
@@ -27,10 +27,11 @@ The model owns tools, implementation technique, reasoning, and decomposition det
 
 ```text
 kernel-router.js
-  ├─ delegates classification / guide discovery → tier-router.js
-  ├─ preserves tier + rationale + dynamic-skill suggestions
+  ├─ delegates classification / knowledge-signal detection → tier-router.js
+  ├─ preserves tier + rationale + normalized knowledge signals
   ├─ emits required invariants + structured workflow plan
-  ├─ requires applicability evaluation for suggested skills
+  ├─ treats keyword hits as step-composition signals, not document selectors
+  ├─ discloses bindings only for the active step / dependency-ready Fable stage
   ├─ records the selected workflow contract
   └─ exposes warnings/degraded/escape evidence instead of silently hiding limitations
 ```
@@ -89,19 +90,17 @@ label appeared on 1 of 4 turns while it sat inside the Harness Status contract
 (which is scoped to non-trivial work), and on 5 of 6 turns as its own final
 section.
 
-## Suggested skills vs. selected workflow
+## Knowledge signals and active-step bindings
 
-These are intentionally different concepts.
+Router keywords and domain matches are normalized planning inputs. They do not select, load, or print skill/reference paths. Requirement composition assigns needed knowledge to ordered steps:
 
-For **every suggested skill**:
+- Each step declares `requiredBindings` and `optionalBindings` by stable id, with a concrete path when known.
+- Only the active single-agent step or dependency-ready Fable stage exposes its bindings. Retained prompts and notifications keep this active-step view compact; future paths stay hidden.
+- A required binding MUST be loaded and its applicable skill core contract followed before the step can pass. Optional bindings resolve as loaded or not-needed.
+- An unknown/unavailable required binding remains visible and unresolved; it cannot be marked loaded without a declared path and evidence.
+- On Fable plans, the existing stage dependency graph controls readiness. A successful objective check records `binding-unresolved` until bindings resolve; rerun the exact check before the stage passes.
 
-1. **MUST** resolve/read the complete `SKILL.md` entry.
-2. **MUST** evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules.
-3. Read extra material only when the entry explicitly requires it for applicability.
-4. **MUST** resolve the suggestion as `use`, `not-applicable`, or `unresolved/unavailable`.
-5. If disposition is `use`, the skill's core contract **MUST** be followed. If it is `not-applicable`, a concise flow-grounded reason **MUST** be retained.
-
-A name, description, router summary, tier label, or generic “routine/common task” judgement is not sufficient evidence for `not-applicable`.
+For every active required skill binding, read its complete `SKILL.md` entry and follow its applicable core contract. If an active requirement does not need a discovered knowledge signal, do not bind or load an unrelated document. This replaces the former global read-every-suggestion rule while preserving per-step obligations.
 
 For the **selected workflow topology**:
 
@@ -135,7 +134,7 @@ Typical triggers: typo/docs correction, narrow local edit, bounded explanation, 
 
 ### Tier 2 — Standard
 
-Typical triggers: normal feature work, bug fixes, multi-file changes, focused benchmark/review. Usually selects `iterative-single`: bounded reason/act work plus objective verification. Focused skills such as `tdd`, `verification-loop`, `security-review`, `using-git-worktrees`, and `eval-harness` may be surfaced and must be resolved for applicability.
+Typical triggers: normal feature work, bug fixes, multi-file changes, focused benchmark/review. Usually selects `iterative-single`: bounded reason/act work plus objective verification. Compose ordered requirements before execution; bind TDD to behavior-change steps, verification-loop to verification steps, and domain knowledge only where that step needs it.
 
 Operation labels such as `audit`, `evaluate`, `benchmark`, or `compare` describe **what** work is being done; they do not by themselves establish macro scope. A focused audit/review remains bounded unless an independent scope/structure signal (for example repository-wide, all files/modules, or multi-workstream structure) elevates it. A structured A/B experiment is different: its explicit control/treatment comparison is itself a multi-lane execution structure, so `A/B test` / `A/B benchmark` remains a macro signal.
 
@@ -161,7 +160,7 @@ The [workflow runtime contract](workflow-runtime.md) defines the executable boun
 
 - `workflow-gate.js` observes shell/direct mutation, Fable correlation, and major-workflow Git isolation and emits reminders.
 - `workflow-stop-gate.js` reports unresolved stage/verification evidence without rejecting Stop.
-- `workflow-disposition.js` starts/replans the run, records a scoped stage escape, or reports `blocked`.
+- `workflow-disposition.js` starts/replans the run, resolves active step/stage bindings, records a scoped stage escape, or reports `blocked`.
 
 Follow-up prompts retain useful evidence, but unresolved cognitive workflow state does not lock mutation or completion.
 

@@ -207,17 +207,18 @@ assert.ok(/MUST NOT override host, user, or Harness/i.test(discoveryFlow), 'refe
 assert.ok(!/Treat its output as binding/i.test(findSkills), 'find-skills must not grant unconditional binding authority');
 assert.ok(!/treat every instruction in it as binding/i.test(discoveryFlow), 'discovery reference must not grant unconditional binding authority');
 
-// #272: preserve one detailed checkpoint plus the invariant; remove duplicate
-// restatements from later sections of the same router injection.
+// #297: resolve declared knowledge only at the active step; do not repeat the
+// global read-before-skip rule or emit topology-wide skill lists.
 const kernel = path.join(ROOT, 'harness-everything/scripts/kernel-router.js');
 const routed = spawnSync(process.execPath, [kernel, 'add a login endpoint with tests and update the implementation'], {
   cwd: ROOT,
   encoding: 'utf8',
 });
 assert.strictEqual(routed.status, 0, routed.stderr || 'kernel router must exit successfully');
-assert.ok(routed.stdout.includes('Suggestion evaluation: MANDATORY.'), 'checkpoint keeps the detailed suggestion-resolution rule');
-assert.ok(routed.stdout.includes('evaluate-suggestions-before-skip:'), 'semantic invariant remains emitted');
-assert.ok(!routed.stdout.includes('Read-before-skip:'), 'workflow-skill footer must not duplicate suggestion resolution');
-assert.ok(!routed.stdout.includes('Every suggested skill MUST resolve applicability.'), 'semantic-contract footer must not duplicate suggestion resolution');
+assert.ok(routed.stdout.includes('ACTIVE-STEP KNOWLEDGE BINDINGS (MUST)'), 'checkpoint explains active-step binding resolution');
+assert.ok(routed.stdout.includes('required binding MUST be loaded and its core contract followed'), 'active required bindings retain core-contract obligations');
+assert.ok(!routed.stdout.includes('evaluate-suggestions-before-skip'), 'router removes the global read-before-skip invariant');
+assert.ok(!routed.stdout.includes('tdd/SKILL.md'), 'router does not disclose a skill before its requirement step is active');
+assert.ok(!routed.stdout.includes('RECOMMENDED KNOWLEDGE GUIDES'), 'router does not push keyword guide lists');
 
 console.log('PASS: prompt contract regressions');
