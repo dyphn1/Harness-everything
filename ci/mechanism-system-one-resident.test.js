@@ -48,23 +48,35 @@ function cleanup(f) {
   }
   fs.rmSync(f.dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
 }
-// The upstream Windows Node libuv shutdown fix shipped in v24.20.0
-// (nodejs/node#61999). Never replace RS13's real evaluator subprocess.
-function affectedWindowsNode24(platform, version) {
-  const parts = /^24\.(\d+)\.(\d+)$/.exec(version);
-  return platform === 'win32' && parts !== null && Number(parts[1]) < 20;
-}
-const affectedNode24Reason = affectedWindowsNode24(process.platform, process.versions.node)
-  ? 'Windows Node 24 < 24.20.0 lacks upstream libuv shutdown fix nodejs/node#61999; use Node 24.20+ or Node 22'
-  : false;
-
-test('S1-RS00 Windows Node 24 shutdown compatibility boundary', () => {
-  for (const version of ['24.0.0', '24.15.0', '24.18.0', '24.19.9']) {
-    assert.equal(affectedWindowsNode24('win32', version), true, version);
-    assert.equal(affectedWindowsNode24('linux', version), false, version);
+// Windows Node 23 (nodejs/node#56645) and Node 24 before the fix in
+// 24.20.0 (nodejs/node#61999) can abort during libuv/process shutdown.
+// Preserve RS13's actual evaluator subprocess on unaffected runtimes.
+function windowsNodeShutdownIssue(platform, version) {
+  const parts = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  if (platform !== 'win32' || !parts) return false;
+  const major = Number(parts[1]);
+  if (major === 23) {
+    return 'Windows Node 23.x has a known process-shutdown assertion (nodejs/node#56645); use Node 22 or Node 24.20+';
   }
-  for (const version of ['22.16.0', '24.20.0', '24.21.0', '25.0.0']) {
-    assert.equal(affectedWindowsNode24('win32', version), false, version);
+  if (major === 24 && Number(parts[2]) < 20) {
+    return 'Windows Node 24 < 24.20.0 lacks upstream shutdown fix nodejs/node#61999; use Node 24.20+ or Node 22';
+  }
+  return false;
+}
+const nodeShutdownIssue = windowsNodeShutdownIssue(process.platform, process.versions.node);
+
+test('S1-RS00 Windows Node 23 and 24 shutdown compatibility boundary', () => {
+  for (const version of ['23.0.0', '23.4.0', '23.6.0', '23.11.1']) {
+    assert.match(windowsNodeShutdownIssue('win32', version), /Node 23/);
+    assert.equal(windowsNodeShutdownIssue('linux', version), false);
+    assert.equal(windowsNodeShutdownIssue('darwin', version), false);
+  }
+  for (const version of ['24.0.0', '24.15.0', '24.18.0', '24.19.9']) {
+    assert.match(windowsNodeShutdownIssue('win32', version), /Node 24/);
+    assert.equal(windowsNodeShutdownIssue('linux', version), false);
+  }
+  for (const version of ['22.16.0', '24.20.0', '24.21.0', '25.0.0', '26.0.0', 'bogus']) {
+    assert.equal(windowsNodeShutdownIssue('win32', version), false, version);
   }
 });
 
@@ -330,7 +342,7 @@ test('S1-RS12 the evaluator times the async path: no worker thread per warm scor
   } finally { cleanup(f); }
 });
 
-test('S1-RS13 manifest acceptance thresholds are validated, carried by scored results and applied by the evaluator', { skip: affectedNode24Reason }, async () => {
+test('S1-RS13 manifest acceptance thresholds are validated, carried by scored results and applied by the evaluator', { skip: nodeShutdownIssue }, async () => {
   const acceptance = { minConfidence: 0.6, minMargin: 0.3 };
   const base = fixture();
   try {

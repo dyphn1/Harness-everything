@@ -42,15 +42,21 @@ jobs:
       - name: Exercise real evaluator subprocess and repeated resident teardown
         run: node --test ci/mechanism-system-one-resident.test.js
 
-  system-one-windows-node24-legacy-policy:
+  # Node >=22 also includes the odd-numbered Node 23 line. Keep its
+  # documented Windows shutdown failure visible, without narrowing engines.
+  system-one-windows-node-legacy-policy:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['23.6.0', '24.15.0']
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '24.15.0'
-      - name: Verify exact pre-fix runtime
-        run: node -e "if (process.versions.node !== '24.15.0') process.exit(1)"
+          node-version: ${{ matrix.node }}
+      - name: Verify exact affected runtime
+        run: node -e "if (process.versions.node !== '${{ matrix.node }}') process.exit(1)"
       - name: Confirm explicit RS13 skip with version-policy unit coverage
         run: node --test --test-name-pattern="S1-RS00|S1-RS13" ci/mechanism-system-one-resident.test.js
 
