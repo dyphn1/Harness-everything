@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.30.9](https://github.com/dyphn1/Harness-everything/compare/v0.30.8...v0.30.9) (2026-10-08)
+
+### Bug Fixes
+
+* **system-one:** cover Windows Node 23 shutdown regression ([75ef983](https://github.com/dyphn1/Harness-everything/commit/75ef9833e4fcfb697c8323836f08eed3dfc7ff8d))
+* **test:** correct Windows Node version policy regex ([c0b63cc](https://github.com/dyphn1/Harness-everything/commit/c0b63cc3f18dc7126e4680f4fa7682ea2a4729ef))
+
 ## [0.30.8](https://github.com/dyphn1/Harness-everything/compare/v0.30.7...v0.30.8) (2026-10-07)
 
 ### Bug Fixes
