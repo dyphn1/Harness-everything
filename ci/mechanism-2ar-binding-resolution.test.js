@@ -97,19 +97,64 @@ check(run(controller, [
 // 2. Deployed plugin layouts resolve built-in skill bindings.
 const emptyWorkspace = fs.mkdtempSync(path.join(stateHome, 'empty-workspace-'));
 const canonicalResolver = require(path.join(ROOT, 'hooks/scripts/lib/binding-resolver.js'));
-const canonical = canonicalResolver.resolveBinding({ id: 'tdd', path: 'tdd/SKILL.md' }, emptyWorkspace, { builtIn: true });
+const canonical = canonicalResolver.resolveBinding({ id: 'tdd', path: 'tdd/SKILL.md' }, emptyWorkspace);
 check(canonical.availability === 'available' && samePath(canonical.file, path.join(ROOT, 'tdd/SKILL.md')),
   'repository/Claude plugin layout resolves tdd/SKILL.md at the package root');
 const codexResolverPath = path.join(ROOT, 'plugins/harness-everything/hooks/scripts/lib/binding-resolver.js');
 check(fs.existsSync(codexResolverPath), 'Codex plugin package ships the binding resolver');
 if (fs.existsSync(codexResolverPath)) {
-  const packaged = require(codexResolverPath).resolveBinding({ id: 'tdd', path: 'tdd/SKILL.md' }, emptyWorkspace, { builtIn: true });
+  const packaged = require(codexResolverPath).resolveBinding({ id: 'tdd', path: 'tdd/SKILL.md' }, emptyWorkspace);
   check(packaged.availability === 'available' &&
     samePath(packaged.file, path.join(ROOT, 'plugins/harness-everything/skills/tdd/SKILL.md')),
     'Codex plugin layout resolves tdd/SKILL.md under its skills/ root');
 }
 const absent = canonicalResolver.resolveBinding({ id: 'nowhere', path: 'nowhere/SKILL.md' }, emptyWorkspace);
 check(absent.availability === 'missing', 'a path absent from workspace and package roots is missing');
+
+// 2b. A workspace reference never falls back to a same-named Harness file.
+check(fs.existsSync(path.join(ROOT, 'docs/architecture.md')), 'fixture precondition: Harness ships docs/architecture.md');
+const collision = canonicalResolver.resolveBinding({ id: 'architecture-reference', path: 'docs/architecture.md' }, emptyWorkspace);
+check(collision.availability === 'missing' && collision.file === null,
+  'a missing workspace reference does not resolve to the Harness package copy');
+const packagedSkill = canonicalResolver.resolveBinding({ id: 'verification-loop', path: 'verification-loop/SKILL.md' }, emptyWorkspace);
+check(packagedSkill.availability === 'available', 'a skill id naming its own SKILL.md still resolves from the package');
+const disguised = canonicalResolver.resolveBinding({ id: 'tdd', path: 'docs/architecture.md' }, emptyWorkspace);
+check(disguised.availability === 'missing', 'a registered id at an unregistered path is treated as a workspace reference');
+
+const collisionSession = 'pr303-collision-binding';
+const collisionPayload = { session_id: collisionSession, cwd: emptyWorkspace, prompt: 'Fix this checkout bug and add a regression test.' };
+check(run(kernel, [], emptyWorkspace, collisionPayload).status === 0, 'Tier 2 route persists in a client workspace');
+check(run(controller, [
+  'plan', '--session-id', collisionSession, '--requirements-json', JSON.stringify([
+    { id: 'req-change', stepType: 'behavior-change', summary: 'Change behavior', acceptance: 'changed',
+      requiredBindings: [{ id: 'architecture-reference', path: 'docs/architecture.md' }] },
+    { id: 'req-verify', stepType: 'verification', summary: 'Verify', acceptance: 'verified' },
+  ]),
+  '--strategy', 'iterative-single', '--evidence', 'client workspace without its own architecture doc',
+], emptyWorkspace).status === 0, 'client plan declares a workspace reference that collides with a Harness file');
+const collisionState = readJson(sessionFile(emptyWorkspace, collisionSession, collisionPayload, 'workflow-obligations.json'));
+check(collisionState.requirements[0].requiredBindings.find(item => item.id === 'architecture-reference').availability === 'missing',
+  'step flow records the colliding workspace reference as missing');
+check(run(controller, ['start', '--session-id', collisionSession], emptyWorkspace).status === 0, 'client workflow starts');
+check(run(controller, [
+  'binding', '--session-id', collisionSession, '--step-id', 'req-change', '--binding-id', 'architecture-reference',
+  '--disposition', 'loaded', '--evidence', 'claimed to read the architecture doc',
+], emptyWorkspace).status !== 0, 'step flow cannot load the Harness copy as the workspace reference');
+
+const { prepareRun } = require(path.join(ROOT, 'fable-mode/scripts/workflow-plan-consumer.js'));
+const stageRun = prepareRun({
+  routerContract: { workflowPlan: { strategySelection: 'selected', strategy: 'fable-staged', tier: 'tier3' } },
+  workspaceRoot: emptyWorkspace, runId: 'pr303-collision-stage', sessionId: 'pr303-collision-stage',
+  stages: [{
+    stageId: 'design', goal: 'design', agent: 'fable-worker-sonnet', task: 'use the architecture doc',
+    dependsOn: [], writeSet: [], inputs: [], expectedOutputs: ['notes'],
+    requiredBindings: [{ id: 'architecture-reference', path: 'docs/architecture.md' }],
+    checkCommand: 'node check.js', passCondition: 'exit 0',
+  }],
+});
+const stageBinding = readJson(path.join(stageRun.runRoot, 'contracts', 'design.json')).requiredBindings[0];
+check(stageBinding.availability === 'missing' && stageBinding.resolvedPath === null,
+  'stage flow records the colliding workspace reference as missing');
 
 // 3. Self-evolved skills: ids at routing time, file only at the active step.
 const workspace = fs.mkdtempSync(path.join(stateHome, 'generated-workspace-'));

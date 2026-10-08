@@ -128,9 +128,13 @@ try {
   const finalEvidence = readJson(path.join(run.runRoot, 'evidence', 'implement.json'));
   check(finalEvidence.status === 'pass' && finalEvidence.exitCode === 0, 'passing stage retains correlated check evidence');
   const implementContract = readJson(contractFile);
+  const sameFile = (left, right) => fs.realpathSync(left).toLowerCase() === fs.realpathSync(right).toLowerCase();
   check(implementContract.requiredBindings[0].availability === 'available' &&
-    fs.realpathSync(implementContract.requiredBindings[0].resolvedPath).toLowerCase() === fs.realpathSync(path.join(workspace, 'tdd', 'SKILL.md')).toLowerCase(),
-    'stage binding availability is resolved to a real file at run preparation');
+    sameFile(implementContract.requiredBindings[0].resolvedPath, path.join(ROOT, 'tdd', 'SKILL.md')),
+    'packaged skill binding resolves to the installed Harness skill at run preparation');
+  check(implementContract.optionalBindings[0].availability === 'available' &&
+    sameFile(implementContract.optionalBindings[0].resolvedPath, path.join(workspace, 'docs', 'architecture.md')),
+    'workspace reference binding resolves to the workspace file, not the Harness copy');
 
   const ghostSession = 'pr303-fable-missing-binding';
   const ghostRun = prepareRun({

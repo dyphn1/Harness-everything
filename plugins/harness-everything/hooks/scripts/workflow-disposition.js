@@ -70,6 +70,7 @@ function recomposePlan(workflow, requestedStrategy) {
     taskShape,
     actionGateReasonCodes: workflow.workflowPlan.actionGate?.reasonCodes || [],
     reasonCodes: ['post-decomposition-workflow-selection'],
+    knowledgeSignals: workflow.workflowPlan.knowledgeSignals || [],
   });
 }
 

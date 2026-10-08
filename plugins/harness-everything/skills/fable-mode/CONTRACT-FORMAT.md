@@ -50,7 +50,7 @@ Rules:
 - `stageId`, `goal`, `agent`, and `task` are required.
 - `dependsOn` is always explicit. Use `[]` for a root stage.
 - `writeSet` is always explicit. Use `[]` for a read-only stage.
-- `requiredBindings` and `optionalBindings` are optional arrays. Each entry is a stable `id` and may declare a concrete repository-relative `path`; paths reject absolute names, globs, and traversal. Availability is `available` only when the path resolves to a readable file under the workspace or an installed Harness skill root (`missing` otherwise; `unverified` when no hook runtime is installed). An id without a path resolves through self-evolved manifest metadata, else remains visible with unknown availability. A binding that does not resolve cannot be recorded as `loaded`.
+- `requiredBindings` and `optionalBindings` are optional arrays. Each entry is a stable `id` and may declare a concrete repository-relative `path`; paths reject absolute names, globs, and traversal. Availability is `available` only when the path resolves to a readable file: workspace references resolve only under the workspace, while recognized Harness bindings (a registered id at its registered path, or a skill id naming its own `<id>/SKILL.md`) also search installed Harness skill roots (`missing` otherwise; `unverified` when no hook runtime is installed). An id without a path resolves through self-evolved manifest metadata, else remains visible with unknown availability. A binding that does not resolve cannot be recorded as `loaded`.
 - `writeSet` contains concrete repository-relative path scopes, not globs,
   absolute paths, or `..` traversal.
 - a directory scope covers descendants; overlapping scopes cannot run in the

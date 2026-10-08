@@ -407,6 +407,8 @@ const mismatchSession = 'issue85-replan';
 const mismatchPayload = { session_id: mismatchSession, cwd: ROOT, prompt: 'Fix this checkout bug and add a regression test.' };
 check(run(kernel, [], mismatchPayload).status === 0, 'second Tier 2 route persists for replan discriminator');
 const mismatchDir = getSessionDir(ROOT, mismatchSession, mismatchPayload);
+const initialSignals = readJson(path.join(mismatchDir, 'workflow-run.json')).workflowPlan.knowledgeSignals || [];
+check(initialSignals.includes('tdd-test'), 'initial route records normalized knowledge signals');
 const mismatchPlan = run(controller, [
   'plan', '--session-id', mismatchSession,
   '--requirements-json', requirements,
@@ -421,6 +423,8 @@ check(mismatchObligations.workflowSelection.requestedStrategy === 'fable-staged'
   mismatchObligations.workflowSelection.confirmedStrategy === 'fable-staged',
   'requested and router-confirmed post-decomposition strategy are preserved');
 check(mismatchWorkflow.pendingPlan?.strategy === 'fable-staged', 'recomposed plan becomes the pending execution contract');
+check(JSON.stringify(mismatchWorkflow.pendingPlan?.knowledgeSignals) === JSON.stringify(initialSignals),
+  'strategy recomposition preserves the original knowledge signals');
 const mismatchStop = run(stopGate, [], { session_id: mismatchSession, cwd: ROOT, hook_event_name: 'Stop' });
 const mismatchAfterStop = readJson(path.join(mismatchDir, 'workflow-run.json'));
 check(mismatchStop.status === 0 && mismatchAfterStop.state === 'pending' &&

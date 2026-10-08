@@ -2,7 +2,7 @@
 
 const path = require('path');
 const { atomicWriteJson, readJson } = require('./fable-contracts');
-const { resolveBinding } = require('./binding-resolver');
+const { resolveBinding, PACKAGED_BINDING_PATHS: BINDING_PATHS } = require('./binding-resolver');
 
 const OBLIGATION_SCHEMA_VERSION = 1;
 const OBLIGATION_FILE = 'workflow-obligations.json';
@@ -14,13 +14,6 @@ const REQUIRED_BINDINGS_BY_STEP = {
   'behavior-change': ['tdd'],
   verification: ['verification-loop'],
   commit: ['git-commit'],
-};
-const BINDING_PATHS = {
-  tdd: 'tdd/SKILL.md',
-  'verification-loop': 'verification-loop/SKILL.md',
-  'git-commit': 'git-commit/SKILL.md',
-  'security-review': 'security-review/SKILL.md',
-  'review-guidance': 'harness-everything/references/triage-and-tiers.md',
 };
 
 function obligationPath(sessionDir) {
@@ -213,16 +206,12 @@ function normalizeBindingDeclarations(values) {
   return result;
 }
 
-function resolveDeclaredBinding(binding, workspaceRoot) {
-  return resolveBinding(binding, workspaceRoot, { builtIn: Boolean(BINDING_PATHS[binding.id]) });
-}
-
 function newBinding(id, required, declaredPath = null, workspaceRoot = null) {
   if (declaredPath && BINDING_PATHS[id] && declaredPath !== BINDING_PATHS[id]) {
     throw new Error(`binding ${id} must use its registered path ${BINDING_PATHS[id]}`);
   }
   const bindingPath = declaredPath || BINDING_PATHS[id] || null;
-  const resolution = resolveDeclaredBinding({ id, path: bindingPath }, workspaceRoot);
+  const resolution = resolveBinding({ id, path: bindingPath }, workspaceRoot);
   return {
     id,
     required,
@@ -462,7 +451,7 @@ function updateBinding(context, stepId, bindingId, disposition, options = {}) {
   if (binding.required && disposition === 'not-needed') throw new Error('required bindings cannot be marked not-needed');
   if (!binding.required && disposition === 'unavailable') throw new Error('optional bindings require loaded or not-needed disposition');
   if (disposition === 'loaded') {
-    const resolution = resolveDeclaredBinding(binding, context.root);
+    const resolution = resolveBinding(binding, context.root);
     if (resolution.availability !== 'available') {
       const reasonCode = resolution.availability === 'unknown' ? 'binding-path-unknown' : 'binding-path-missing';
       if (binding.required) {
