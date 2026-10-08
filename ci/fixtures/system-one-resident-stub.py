@@ -1,5 +1,6 @@
 """Stub scorer behind the real resident server code; never model-quality evidence."""
 import importlib.util
+import json
 from pathlib import Path
 import sys
 import time
@@ -28,4 +29,9 @@ def factory(weights, manifest):
 if __name__ == '__main__':
     if sys.argv[1:2] != ['--serve']:
         sys.exit(2)
-    sys.exit(adapter.serve_main(sys.argv[2:], scorer_factory=factory))
+    result = adapter.serve_main(sys.argv[2:], scorer_factory=factory)
+    # Deterministic teardown fixture: the state/socket are closed, but PID is
+    # deliberately alive to distinguish state unlink from full process exit.
+    if json.loads(sys.argv[2]).get('modelId') == 'stub-exit-linger':
+        time.sleep(0.5)
+    sys.exit(result)

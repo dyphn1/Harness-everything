@@ -29,10 +29,57 @@ function fixture(modelId = 'stub', extra = {}) {
   const deps = { command: m => { spawns.push(m.modelId); return [python, [stub, '--serve']]; } };
   return { dir, manifest, manifestPath, spawns, deps };
 }
-function cleanup(f) {
-  try { resident.stop(f.manifest, f.manifestPath); } catch (_) { /* best effort */ }
-  fs.rmSync(f.dir, { recursive: true, force: true });
+// State-file unlink precedes process exit. Windows cleanup must wait for the
+// captured resident PID, not merely for the disappearance of its state file.
+function pidAlive(pid) {
+  try { process.kill(pid, 0); return true; }
+  catch (err) { return err.code === 'EPERM'; }
 }
+function cleanup(f) {
+  const { state } = resident.stateFiles(f.manifest, f.manifestPath);
+  const server = resident.readState(state);
+  try { resident.stop(f.manifest, f.manifestPath); } catch (_) { /* best effort after an assertion failure */ }
+  const deadline = Date.now() + 7500;
+  while ((fs.existsSync(state) || (process.platform === 'win32' && server && pidAlive(server.pid)))
+      && Date.now() < deadline) sleep(25);
+  assert.equal(fs.existsSync(state), false, 'resident state must disappear before fixture removal');
+  if (process.platform === 'win32' && server) {
+    assert.equal(pidAlive(server.pid), false, `detached resident PID ${server.pid} survived shutdown`);
+  }
+  fs.rmSync(f.dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
+}
+// Windows Node 23 (nodejs/node#56645) and Node 24 before the fix in
+// 24.20.0 (nodejs/node#61999) can abort during libuv/process shutdown.
+// Preserve RS13's actual evaluator subprocess on unaffected runtimes.
+function windowsNodeShutdownIssue(platform, version) {
+  const parts = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  if (platform !== 'win32' || !parts) return false;
+  const major = Number(parts[1]);
+  if (major === 23) {
+    return 'Windows Node 23.x has a known process-shutdown assertion (nodejs/node#56645); use Node 22 or Node 24.20+';
+  }
+  if (major === 24 && Number(parts[2]) < 20) {
+    return 'Windows Node 24 < 24.20.0 lacks upstream shutdown fix nodejs/node#61999; use Node 24.20+ or Node 22';
+  }
+  return false;
+}
+const nodeShutdownIssue = windowsNodeShutdownIssue(process.platform, process.versions.node);
+
+test('S1-RS00 Windows Node 23 and 24 shutdown compatibility boundary', () => {
+  for (const version of ['23.0.0', '23.4.0', '23.6.0', '23.11.1']) {
+    assert.match(windowsNodeShutdownIssue('win32', version), /Node 23/);
+    assert.equal(windowsNodeShutdownIssue('linux', version), false);
+    assert.equal(windowsNodeShutdownIssue('darwin', version), false);
+  }
+  for (const version of ['24.0.0', '24.15.0', '24.18.0', '24.19.9']) {
+    assert.match(windowsNodeShutdownIssue('win32', version), /Node 24/);
+    assert.equal(windowsNodeShutdownIssue('linux', version), false);
+  }
+  for (const version of ['22.16.0', '24.20.0', '24.21.0', '25.0.0', '26.0.0', 'bogus']) {
+    assert.equal(windowsNodeShutdownIssue('win32', version), false, version);
+  }
+});
+
 // A client view whose state file names the live server with a wrong token. The server polls only its own
 // state file and exits once that file stops naming it, so rewriting it would race the wrong-token request.
 function wrongTokenView(f) {
@@ -295,7 +342,7 @@ test('S1-RS12 the evaluator times the async path: no worker thread per warm scor
   } finally { cleanup(f); }
 });
 
-test('S1-RS13 manifest acceptance thresholds are validated, carried by scored results and applied by the evaluator', async () => {
+test('S1-RS13 manifest acceptance thresholds are validated, carried by scored results and applied by the evaluator', { skip: nodeShutdownIssue }, async () => {
   const acceptance = { minConfidence: 0.6, minMargin: 0.3 };
   const base = fixture();
   try {
@@ -343,4 +390,24 @@ test('S1-RS14 resident transport names its adapter and stays inside the scripts 
     assert.ok(layaPrefix[0].endsWith(path.join('system-one', 'laya_adapter.py')));
     assert.throws(() => resident.defaultCommand({ ...f.manifest, adapter: '../evil.py' }));
   } finally { cleanup(f); }
+});
+
+
+// The test server keeps its PID alive for 500 ms after state-file unlink.
+// A state-only teardown passes too early, whereas PID-aware cleanup cannot.
+test('S1-RS15 repeated teardown waits for resident PID and removes every fixture', () => {
+  for (let round = 0; round < 6; round++) {
+    const f = fixture('stub-exit-linger');
+    let pid;
+    try {
+      assert.equal(resident.ensureReady(f.manifest, f.manifestPath, 20000, f.deps), true);
+      const state = resident.readState(resident.stateFiles(f.manifest, f.manifestPath).state);
+      assert.ok(state && state.pid > 0);
+      pid = state.pid;
+    } finally { cleanup(f); }
+    assert.equal(fs.existsSync(f.dir), false, `fixture remained after teardown ${round}`);
+    if (process.platform === 'win32') {
+      assert.equal(pidAlive(pid), false, `resident PID ${pid} leaked in teardown ${round}`);
+    }
+  }
 });
