@@ -29,10 +29,45 @@ function fixture(modelId = 'stub', extra = {}) {
   const deps = { command: m => { spawns.push(m.modelId); return [python, [stub, '--serve']]; } };
   return { dir, manifest, manifestPath, spawns, deps };
 }
-function cleanup(f) {
-  try { resident.stop(f.manifest, f.manifestPath); } catch (_) { /* best effort */ }
-  fs.rmSync(f.dir, { recursive: true, force: true });
+// State-file unlink precedes process exit. Windows cleanup must wait for the
+// captured resident PID, not merely for the disappearance of its state file.
+function pidAlive(pid) {
+  try { process.kill(pid, 0); return true; }
+  catch (err) { return err.code === 'EPERM'; }
 }
+function cleanup(f) {
+  const { state } = resident.stateFiles(f.manifest, f.manifestPath);
+  const server = resident.readState(state);
+  try { resident.stop(f.manifest, f.manifestPath); } catch (_) { /* best effort after an assertion failure */ }
+  const deadline = Date.now() + 7500;
+  while ((fs.existsSync(state) || (process.platform === 'win32' && server && pidAlive(server.pid)))
+      && Date.now() < deadline) sleep(25);
+  assert.equal(fs.existsSync(state), false, 'resident state must disappear before fixture removal');
+  if (process.platform === 'win32' && server) {
+    assert.equal(pidAlive(server.pid), false, `detached resident PID ${server.pid} survived shutdown`);
+  }
+  fs.rmSync(f.dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
+}
+// The upstream Windows Node libuv shutdown fix shipped in v24.20.0
+// (nodejs/node#61999). Never replace RS13's real evaluator subprocess.
+function affectedWindowsNode24(platform, version) {
+  const parts = /^24\\.(\\d+)\\.(\\d+)$/.exec(version);
+  return platform === 'win32' && parts !== null && Number(parts[1]) < 20;
+}
+const affectedNode24Reason = affectedWindowsNode24(process.platform, process.versions.node)
+  ? 'Windows Node 24 < 24.20.0 lacks upstream libuv shutdown fix nodejs/node#61999; use Node 24.20+ or Node 22'
+  : false;
+
+test('S1-RS00 Windows Node 24 shutdown compatibility boundary', () => {
+  for (const version of ['24.0.0', '24.15.0', '24.18.0', '24.19.9']) {
+    assert.equal(affectedWindowsNode24('win32', version), true, version);
+    assert.equal(affectedWindowsNode24('linux', version), false, version);
+  }
+  for (const version of ['22.16.0', '24.20.0', '24.21.0', '25.0.0']) {
+    assert.equal(affectedWindowsNode24('win32', version), false, version);
+  }
+});
+
 // A client view whose state file names the live server with a wrong token. The server polls only its own
 // state file and exits once that file stops naming it, so rewriting it would race the wrong-token request.
 function wrongTokenView(f) {
@@ -295,7 +330,7 @@ test('S1-RS12 the evaluator times the async path: no worker thread per warm scor
   } finally { cleanup(f); }
 });
 
-test('S1-RS13 manifest acceptance thresholds are validated, carried by scored results and applied by the evaluator', async () => {
+test('S1-RS13 manifest acceptance thresholds are validated, carried by scored results and applied by the evaluator', { skip: affectedNode24Reason }, async () => {
   const acceptance = { minConfidence: 0.6, minMargin: 0.3 };
   const base = fixture();
   try {
@@ -343,4 +378,24 @@ test('S1-RS14 resident transport names its adapter and stays inside the scripts 
     assert.ok(layaPrefix[0].endsWith(path.join('system-one', 'laya_adapter.py')));
     assert.throws(() => resident.defaultCommand({ ...f.manifest, adapter: '../evil.py' }));
   } finally { cleanup(f); }
+});
+
+
+// The test server keeps its PID alive for 500 ms after state-file unlink.
+// A state-only teardown passes too early, whereas PID-aware cleanup cannot.
+test('S1-RS15 repeated teardown waits for resident PID and removes every fixture', () => {
+  for (let round = 0; round < 6; round++) {
+    const f = fixture('stub-exit-linger');
+    let pid;
+    try {
+      assert.equal(resident.ensureReady(f.manifest, f.manifestPath, 20000, f.deps), true);
+      const state = resident.readState(resident.stateFiles(f.manifest, f.manifestPath).state);
+      assert.ok(state && state.pid > 0);
+      pid = state.pid;
+    } finally { cleanup(f); }
+    assert.equal(fs.existsSync(f.dir), false, `fixture remained after teardown ${round}`);
+    if (process.platform === 'win32') {
+      assert.equal(pidAlive(pid), false, `resident PID ${pid} leaked in teardown ${round}`);
+    }
+  }
 });

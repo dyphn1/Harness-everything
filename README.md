@@ -48,7 +48,7 @@ The exact "Harness" behavior depends on the installation surface. Claude Code ha
 
 Harness integrates directly into your workspace. There is no heavy daemon, no paid external APIs, and zero configuration required.
 
-**Runtime:** Harness supports **Node.js 22+**. Node.js **24** is the primary development and CI runtime (`.nvmrc`). The generated current-state runtime/workflow summary is [docs/repository-contract.md](docs/repository-contract.md).
+**Runtime:** Harness supports **Node.js 22+**. Node.js **24** is the primary development and CI runtime (`.nvmrc`). **On Windows, System One resident/evaluator subprocess verification requires Node 24.20+ when using Node 24**: Node 24.0–24.19 predates the upstream libuv shutdown fix ([nodejs/node#61999](https://github.com/nodejs/node/pull/61999)) and may crash on process exit (`0xC0000409`). RS13 visibly skips on these Windows Node 24 builds rather than bypassing its evaluator subprocess. Use Node 24.20+ or the supported Node 22 line; a skip is not a pass. CI verifies both a pinned patched version and the old-version skip policy. The generated current-state runtime/workflow summary is [docs/repository-contract.md](docs/repository-contract.md).
 
 ```bash
 # Option A: Claude Code plugin (marketplace manifest included)

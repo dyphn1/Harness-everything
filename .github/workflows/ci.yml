@@ -29,6 +29,31 @@ jobs:
       - name: Run focused mutation checks
         run: npm run test:mutations
 
+  # Pin the patched version: floating Node 24 already passed before #284.
+  system-one-windows-node24-patched:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.20.0'
+      - name: Verify exact patched runtime
+        run: node -e "if (process.versions.node !== '24.20.0') process.exit(1)"
+      - name: Exercise real evaluator subprocess and repeated resident teardown
+        run: node --test ci/mechanism-system-one-resident.test.js
+
+  system-one-windows-node24-legacy-policy:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+      - name: Verify exact pre-fix runtime
+        run: node -e "if (process.versions.node !== '24.15.0') process.exit(1)"
+      - name: Confirm explicit RS13 skip with version-policy unit coverage
+        run: node --test --test-name-pattern="S1-RS00|S1-RS13" ci/mechanism-system-one-resident.test.js
+
   runtime-floor:
     runs-on: ubuntu-latest
     steps:
