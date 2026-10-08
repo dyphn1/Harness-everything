@@ -42,7 +42,7 @@ A turn runs from `UserPromptSubmit` to `Stop`. Its record:
 | `id`, `sessionId`, `turn`, `host`, `observedAt` | hooks | `id` = hash of session id + turn |
 | `prompt` | `UserPromptSubmit` | stored in the private text store only (see Storage) |
 | `previous` | the last assistant message before the prompt | truncated to 2 KB; text store only |
-| `router` | kernel-router output | lexical tier, strategy, suggested skills; System One shadow scores when present |
+| `router` | kernel-router output | lexical tier, strategy, normalized knowledge signals, active step/stage bindings; System One shadow scores when present |
 | `behavior` | `PostToolUse`, `PostToolUseFailure` | counts and categories, never arguments: files written, distinct repositories written, files created, commands by class (git, gh, test, build, package, shell), skills loaded or read, subagents started. Failed attempts are counted separately (`toolFailures`, `failedWrites`, `failedSkillLoads`) and never count as a write or a load |
 | `workflow` | `workflow-run.json` / `workflow-disposition` | selected and confirmed strategy |
 | `selfReport` | label line in the final message | see below; `null` if missing or invalid |

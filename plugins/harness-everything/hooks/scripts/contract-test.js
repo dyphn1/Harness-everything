@@ -39,16 +39,26 @@ function resultState(payload) {
   return { failed, exitCode, evidence };
 }
 
+function unresolvedBindings(contract) {
+  const bindings = [...(contract.requiredBindings || []), ...(contract.optionalBindings || [])];
+  return bindings.filter(binding => binding.required !== false
+    ? binding.status !== 'loaded'
+    : !['loaded', 'not-needed'].includes(binding.status));
+}
+
 function updateRunContract(entry, payload, command, sessionId) {
   const { failed, exitCode, evidence } = resultState(payload);
+  const unresolved = unresolvedBindings(entry.contract);
+  const status = failed ? 'fail' : unresolved.length ? 'binding-unresolved' : 'pass';
   const observedAt = new Date().toISOString();
   const contract = {
     ...entry.contract,
     workerId: entry.contract.workerId || getWorkerId(payload),
-    status: failed ? 'fail' : 'pass',
+    status,
     lastObservedCommand: command,
     lastObservedExitCode: exitCode ?? null,
     evidence,
+    unresolvedBindings: unresolved.map(binding => binding.id),
     verifiedAt: observedAt,
     updatedAt: observedAt,
   };
@@ -63,13 +73,24 @@ function updateRunContract(entry, payload, command, sessionId) {
     sessionId: sessionId || contract.sessionId || null,
     workerId: contract.workerId || null,
     checkCommand: command,
-    status: failed ? 'fail' : 'pass',
+    status,
+    checkStatus: failed ? 'fail' : 'pass',
+    unresolvedBindings: unresolved.map(binding => binding.id),
     exitCode: exitCode ?? null,
     evidence,
     observedAt,
   });
   atomicWriteJson(entry.filePath, contract);
   return contract;
+}
+
+function activeFableStages(runRoot) {
+  for (const relative of ['../../fable-mode/scripts/workflow-plan-consumer.js', '../../skills/fable-mode/scripts/workflow-plan-consumer.js']) {
+    const file = path.resolve(__dirname, relative);
+    if (!fs.existsSync(file)) continue;
+    try { return require(file).activeStageBindings(runRoot); } catch (_) { return []; }
+  }
+  return [];
 }
 
 function resolveLegacyContract(stateRoot, command, payload) {
@@ -110,7 +131,7 @@ process.stdin.on('end', () => {
     const workflowContext = loadWorkflow(payload);
     const activeRun = workflowContext.workflow?.workflowId ? matchingRun(workflowContext) : null;
     const runMatches = listRunContracts(stateRoot).filter(({ contract }) =>
-      (contract.workflowId ? ['pending', 'planned', 'running', 'fail', 'pass'] : ['pending', 'planned', 'running']).includes(contract.status) && commandMatches(contract, command) &&
+      (contract.workflowId ? ['pending', 'planned', 'running', 'fail', 'pass', 'binding-unresolved'] : ['pending', 'planned', 'running', 'fail', 'binding-unresolved']).includes(contract.status) && commandMatches(contract, command) &&
       (!workflowContext.workflow?.workflowId || (activeRun && contract.runId === activeRun.run.runId && contract.sessionId === sessionId))
     );
 
@@ -163,6 +184,11 @@ process.stdin.on('end', () => {
         }
       }
       console.log(`[Contract Test] ${contract.planId}/${contract.runId}/${contract.stageId}: ${contract.status.toUpperCase()} ${contract.checkCommand}`);
+      if (contract.status === 'binding-unresolved') {
+        console.error(`Resolve declared stage bindings before this stage can pass: ${contract.unresolvedBindings.join(', ')}`);
+      }
+      const activeStages = activeFableStages(entry.runRoot);
+      if (activeStages.length) console.log('[Contract Test] Active stage bindings: ' + JSON.stringify(activeStages));
       if (contract.status === 'fail') {
         console.error(`Evidence: ${contract.evidence || '(no output captured)'}`);
         console.error(`Review this failed stage before relying on its output. Artifact: ${contract.outputPath || '(no path recorded)'}`);

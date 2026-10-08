@@ -7,7 +7,7 @@ const { atomicWriteJson, readJson } = require('./fable-contracts');
 
 const OPEN_STATES = new Set(['pending', 'active', 'running', 'failed', 'blocked', 'escaped']);
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-const WORKFLOW_CONTROLLER_COMMANDS = new Set(['plan', 'start', 'revision', 'obligation', 'escape', 'block']);
+const WORKFLOW_CONTROLLER_COMMANDS = new Set(['plan', 'start', 'revision', 'obligation', 'binding', 'stage-binding', 'step', 'escape', 'block']);
 
 function activeWorkflowPlan(workflow) {
   if (!workflow) return null;
@@ -99,6 +99,13 @@ function unresolvedStages(match, workflow, lastEditAt = 0) {
     const escape = (workflow.escapes || []).find(item => item.stageId === stageId && item.runId === match.run.runId);
     if (escape && escape.evidence && escape.uncoveredScope &&
         ['workflow-uncovered-scope', 'host-capability-unavailable'].includes(escape.reasonCode)) continue;
+    const bindings = [...(contract.requiredBindings || []), ...(contract.optionalBindings || [])];
+    const unresolvedBindings = bindings.filter(binding => binding.required !== false
+      ? binding.status !== 'loaded'
+      : !['loaded', 'not-needed'].includes(binding.status));
+    if (unresolvedBindings.length) {
+      unresolved.push(`${stageId}:binding-unresolved:${unresolvedBindings.map(binding => binding.id).join(',')}`);
+    }
     const evidence = readJson(path.join(match.runRoot, 'evidence', `${stageId}.json`));
     if (contract.status !== 'pass' || !contract.checkCommand || !evidence || evidence.status !== 'pass' ||
         evidence.exitCode !== 0 || evidence.planId !== contract.planId || evidence.runId !== contract.runId ||

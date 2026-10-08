@@ -14,10 +14,9 @@ flowchart TD
     K --> W{Workflow selected?}
     W -- No / deferred --> D[Preserve invariants<br/>choose smallest justified workflow]
     W -- Yes --> A[ACTIVE workflow contract]
-    A --> G{Suggested skills?}
-    G -- Yes --> R[Read each suggested SKILL.md<br/>resolve applicability]
-    G -- No --> E[Execute selected workflow]
-    R --> E
+    A --> P[Decompose requirements<br/>into ordered steps]
+    P --> B[Bind skills/references<br/>to each step]
+    B --> E[Execute active step only]
     E --> V{Required checks / stages resolved?}
     V -- Yes --> O([Claim completion])
     V -- No --> P[Diagnose / re-plan]
@@ -42,7 +41,7 @@ The kernel protects lifecycle obligations without micromanaging model reasoning.
 1. **Route before execution** — establish task scope/tier and the smallest justified topology.
 2. **Verify before claim** — completion requires objective evidence appropriate to the change.
 3. **Re-plan on repetition** — after three same-signature failures, stop micro-retrying and use a fresh diagnosis / `zoom-out`.
-4. **Evaluate before omission** — when the router suggests a skill, read its complete `SKILL.md` entry/basic flow before deciding applicability.
+4. **Bind knowledge by step** — compose ordered requirement steps and declare required/optional skills or references before execution.
 5. **Resolve selected workflow** — selected-topology required obligations are semantic MUSTs; implementation tactics MAY adapt where the contract allows.
 6. **Surface status** — non-trivial software/project work MUST use the single Harness Status format at required phase boundaries.
 
@@ -52,10 +51,10 @@ The model remains free to choose tools, implementation technique, decomposition 
 
 - One universal `TODO → TDD → verification-loop` sequence for every Tier 2/3 task.
 - Multi-agent execution merely because a task is Tier 3.
-- Every router-suggested skill when its evaluated flow is objectively not applicable.
+- Every keyword-matched skill/reference regardless of whether an active requirement needs it.
 - Every optional deep-dive/reference linked from a skill.
 
-A suggested skill may resolve as `use`, `not-applicable`, or `unresolved/unavailable`. Resolution is a **MUST**. `not-applicable` needs a flow-grounded reason; a metadata-only or confidence-only judgement is insufficient. If disposition is `use`, the skill's core contract is a **MUST**. The selected **topology** is also a semantic execution contract; neither concept implies a persistent runtime lock.
+Keyword/domain matches are normalized planning signals, not document selectors. Each ordered step declares its required and optional skill/reference bindings; only the active step or dependency-ready Fable stage exposes those paths. Read a required skill's complete entry and follow its applicable core contract before the step passes. Required bindings without a known path remain visible and unresolved. Optional bindings resolve as loaded or not-needed. Hooks may remind, but missing bindings do not hard-block ordinary tools or Stop.
 
 ## 2. Routing Mechanism
 
@@ -67,28 +66,27 @@ node "<this-skill-dir>/scripts/kernel-router.js" "<brief prompt summary>"
 npx github:dyphn1/Harness-everything next "<brief prompt summary>"
 ```
 
-`kernel-router.js` delegates classification/guide discovery to `tier-router.js` and emits:
+`kernel-router.js` delegates classification/knowledge-signal detection to `tier-router.js` and emits:
 
 - classified tier + rationale,
 - structured workflow plan,
 - compact **Harness Routing Checkpoint**,
 - required invariants,
-- suggested skills whose applicability must be evaluated,
+- normalized knowledge signals that help compose requirement steps, not paths to read,
+- ordered requirement steps and their active required/optional bindings after planning,
 - **Workflow Contract** for the selected topology.
 
 If `UserPromptSubmit` already ran the kernel this turn, reuse that output. Do not infer a silent Tier 1/direct path from missing or degraded routing.
 
-### Suggestion applicability contract
+### Active binding contract
 
-For every router-suggested skill:
+- Before a selected Tier 2/3 workflow starts, decompose the request into ordered requirement steps and confirm the smallest sufficient topology.
+- Put a required skill/reference only on steps whose acceptance criteria need it; put optional knowledge on its actual consumer step.
+- Load/resolve only bindings for the active step. Do not print or preload future-step bindings.
+- A required binding MUST resolve as loaded before the step passes; optional bindings resolve as loaded or not-needed. Unknown/unavailable required bindings stay visible and unresolved.
+- Fable uses its existing dependency/write-set graph as the step graph. Only dependency-ready stage bindings are disclosed; unresolved bindings keep a successful check at `binding-unresolved` until they are resolved and that exact check is rerun.
 
-1. **MUST** read the complete `SKILL.md` entry.
-2. **MUST** evaluate `USE FOR`, `DO NOT USE FOR`, workflow/basic flow, and hard rules.
-3. Read extra material only when the entry explicitly requires it to decide applicability.
-4. **MUST** resolve the suggestion as `use`, `not-applicable`, or `unresolved/unavailable`.
-5. `use` means the skill's core contract **MUST** be followed; `not-applicable` **MUST** keep a flow-grounded reason.
-
-A name, description, router summary, tier label, or generic "routine/common task" judgement is not enough to mark a suggestion not applicable. Using one suggestion does not resolve the others automatically.
+The binding disposition is an execution contract, not proof that a real host loaded a file. Preserve a host/session trace before making live-host claims. Missing evidence stays a reminder and does not create a persistent Harness lock.
 
 ### Workflow escape contract
 
@@ -111,7 +109,7 @@ Default topology is normally `direct-single`. Keep the lifecycle minimal, but st
 
 Typical shape: specific feature/bug fix, multi-file coordination, behavioral change, focused benchmark/review.
 
-The router normally selects `iterative-single`: bounded reason/act work plus objective verification. It may surface `tdd`, `verification-loop`, `security-review`, `using-git-worktrees`, or other focused skills. Those suggestions are applicability decisions, not a universal sequence.
+The router normally selects `iterative-single`: bounded reason/act work plus objective verification. Compose ordered steps and bind TDD to behavior-change, verification-loop to verification, and domain references only to steps whose acceptance needs them. Keyword matches alone never select or load documents.
 
 When an evaluated skill is applicable, follow its workflow rather than reading it and then discarding it because the implementation seems obvious.
 
@@ -181,16 +179,16 @@ For software/project work, consume this internal runtime state when producing th
 - Strategy: <selected/deferred strategy>
 - Workflow state: <pending | running | satisfied | deferred | blocked>
 - Required invariants: <router invariants>
-- Suggested skills: <deduplicated suggestions or none>
-- Suggestion applicability: <use | not-applicable + reason | unresolved/unavailable>
+- Knowledge signals: <normalized planning inputs; not document paths>
+- Active step: <ordered requirement id/type, with only its declared bindings>
 - Escape: <none | reason + uncovered scope + evidence>
 ```
 
-The checkpoint is runtime/source state, not a competing user-facing template. Render user progress through the single Harness Status contract above. The key distinction is: **skill suggestions MUST resolve applicability; applicable skill core contracts and selected-topology obligations are MUSTs, while tactics MAY adapt.**
+The checkpoint is runtime/source state, not a competing user-facing template. Render user progress through the single Harness Status contract above. The key distinction is: **active required bindings and selected-topology obligations are MUSTs; unrelated future knowledge stays undisclosed, while tactics MAY adapt.**
 
 ## 8. Self-Healing and Dynamic Skills
 
-Self-heal, generated-skill discovery, knowledge-guide matching, and fact-audit behavior remain part of the runtime. Dynamic skill suggestions still require applicability evaluation.
+Self-heal and fact-audit behavior remain part of the runtime. Prompt keyword matches now emit normalized knowledge signals only; they do not discover or print dynamic skill/reference paths.
 
 If bootstrap reports missing integration touchpoints:
 

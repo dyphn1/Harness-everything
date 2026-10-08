@@ -42,12 +42,12 @@ All stages share the scoring and the calibration. Only the readout differs.
 | Intent | the 12 intents of [system-one-intent.md](system-one-intent.md) | set: every intent at or above its threshold, highest `p` first, truncated at the cap | 3 |
 | Tier | `tier1`, `tier2`, `tier3` | composed (see [Tier composition](#tier-composition)): tier3 when `feature` or `refactor` reaches its intent threshold; otherwise the tier scorer's pick; final tier = max(that, structural floor); none → abstain | 1 |
 | Workflow | the router's strategies (`direct-single`, `iterative-single`, `fable-staged`, `fable-parallel`, `fable-multi-agent-workspace`) | pick one, same rule; an explicit workflow request always wins | 1 |
-| Skills | canonical skills, scored against their descriptions | set, same rule | 3 |
+| Skill relevance | canonical skills, scored against their descriptions | candidate signals for requirement composition; never a document path/load decision | 3 |
 
-The cap of 3 for set stages comes from AGENTS.md rule 10: a suggested skill
-must be read before it can be dismissed, so each extra suggestion has a
-reading cost. The cap is part of the readout, so noise is bounded by
-construction; the gates then judge what survives the cap.
+The cap of 3 for set stages bounds scorer output noise in this proposed model;
+it is not a cap on the number of required workflow bindings. Under issue #297,
+any candidate knowledge signal must still be composed onto a specific ordered
+requirement step before a skill/reference path is disclosed or loaded.
 
 Stages run in table order: validity, intent, tier, workflow, skills. Tier
 reads the intent scores, so intent runs before it.

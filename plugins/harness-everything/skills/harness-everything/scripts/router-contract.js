@@ -12,10 +12,8 @@ function isMajorWorkflow(plan) {
 function augmentWorkflowPlan(plan) {
   if (!plan || !isMajorWorkflow(plan)) return plan;
   const requiredInvariants = Array.isArray(plan.requiredInvariants) ? [...plan.requiredInvariants] : [];
-  const suggestedSkills = Array.isArray(plan.suggestedSkills) ? [...plan.suggestedSkills] : [];
   if (!requiredInvariants.includes('isolated-worktree-before-mutation')) requiredInvariants.push('isolated-worktree-before-mutation');
-  if (!suggestedSkills.includes('using-git-worktrees')) suggestedSkills.push('using-git-worktrees');
-  return { ...plan, requiredInvariants, suggestedSkills, mutationIsolation: {
+  return { ...plan, requiredInvariants, mutationIsolation: {
     required: true, mechanism: 'git-worktree', transition: 'before-first-mutation', onUnavailable: 'degraded',
   } };
 }

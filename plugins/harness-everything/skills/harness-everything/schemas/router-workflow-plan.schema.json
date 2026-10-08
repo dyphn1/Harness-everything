@@ -12,6 +12,7 @@
     "patterns",
     "requiredInvariants",
     "suggestedSkills",
+    "knowledgeSignals",
     "actionGate",
     "limits",
     "parallelism",
@@ -34,6 +35,7 @@
     "patterns": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "requiredInvariants": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "suggestedSkills": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "knowledgeSignals": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" }, "uniqueItems": true },
     "actionGate": {
       "type": "object",
       "required": ["required", "reasonCodes", "approver", "disposition"],

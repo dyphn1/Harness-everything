@@ -22,6 +22,7 @@ const {
   prepareRun,
   validateStageGraph,
 } = require(path.join(ROOT, 'fable-mode', 'scripts', 'workflow-plan-consumer.js'));
+const { activeStageBindings } = require(path.join(ROOT, 'fable-mode', 'scripts', 'workflow-plan-consumer.js'));
 const { consumeWorkspacePlan } = require(path.join(ROOT, 'multi-agent-workspace', 'scripts', 'consume-workflow-plan.js'));
 const { pathWithinScope } = require(path.join(ROOT, 'hooks', 'scripts', 'lib', 'fable-contracts.js'));
 
@@ -70,17 +71,20 @@ const parallelStages = [
   {
     stageId: 'security', goal: 'read security state', agent: 'fable-worker-sonnet', task: 'audit security',
     inputs: [], expectedOutputs: ['security notes'], outputPath: null, dependsOn: [], writeSet: [],
+    requiredBindings: ['unknown-security-check'],
     checkCommand: 'node --test security.test.js', passCondition: 'exit 0',
   },
   {
     stageId: 'architecture', goal: 'read architecture state', agent: 'fable-worker-sonnet', task: 'audit architecture',
     inputs: [], expectedOutputs: ['architecture notes'], outputPath: null, dependsOn: [], writeSet: [],
+    optionalBindings: [{ id: 'architecture-reference', path: 'docs/architecture.md' }],
     checkCommand: 'node --test architecture.test.js', passCondition: 'exit 0',
   },
   {
     stageId: 'synthesis', goal: 'synthesize results', agent: 'fable-worker-sonnet', task: 'write synthesis',
     inputs: [], expectedOutputs: ['summary'], outputPath: 'reports/summary.md', dependsOn: ['security', 'architecture'],
-    writeSet: ['reports/summary.md'], checkCommand: 'node --test synthesis.test.js', passCondition: 'exit 0',
+    writeSet: ['reports/summary.md'], requiredBindings: [{ id: 'verification-loop', path: 'verification-loop/SKILL.md' }],
+    checkCommand: 'node --test synthesis.test.js', passCondition: 'exit 0',
   },
 ];
 
@@ -95,6 +99,30 @@ check(JSON.stringify(runA.execution.batches) === JSON.stringify([['architecture'
 check(runA.execution.limits.maxWorkers === 4, 'run manifest retains maxWorkers as an advisory planning hint');
 check(fs.existsSync(path.join(runA.runRoot, 'contracts', 'security.json')), 'run-scoped stage contract is written');
 check(fs.existsSync(path.join(runA.runRoot, 'contracts', 'synthesis.json')), 'downstream stage has its own contract');
+const initialActiveStages = activeStageBindings(runA.runRoot);
+check(initialActiveStages.map(stage => stage.stageId).join(',') === 'security,architecture', 'only dependency-ready Fable stages expose bindings');
+check(initialActiveStages[0].requiredBindings[0].path === null &&
+  initialActiveStages[0].requiredBindings[0].status === 'pending', 'unknown required binding remains visible and unresolved');
+check(initialActiveStages[1].optionalBindings[0].path === 'docs/architecture.md' &&
+  initialActiveStages[1].optionalBindings[0].status === 'pending', 'active optional reference path appears only on its ready stage');
+check(!JSON.stringify(initialActiveStages).includes('verification-loop/SKILL.md'), 'future-stage binding paths stay hidden until dependencies pass');
+for (const stageId of ['security', 'architecture']) {
+  const file = path.join(runA.runRoot, 'contracts', `${stageId}.json`);
+  const contract = JSON.parse(fs.readFileSync(file, 'utf8'));
+  contract.status = 'pass';
+  fs.writeFileSync(file, JSON.stringify(contract));
+}
+const unresolvedDependencies = activeStageBindings(runA.runRoot);
+check(!unresolvedDependencies.some(stage => stage.stageId === 'synthesis'), 'a stage marked pass with unresolved bindings does not activate dependents');
+for (const stageId of ['security', 'architecture']) {
+  const file = path.join(runA.runRoot, 'contracts', `${stageId}.json`);
+  const contract = JSON.parse(fs.readFileSync(file, 'utf8'));
+  for (const binding of [...contract.requiredBindings, ...contract.optionalBindings]) binding.status = 'loaded';
+  fs.writeFileSync(file, JSON.stringify(contract));
+}
+const nextActiveStages = activeStageBindings(runA.runRoot);
+check(nextActiveStages.map(stage => stage.stageId).join(',') === 'synthesis', 'downstream bindings appear only after every dependency passes');
+check(nextActiveStages[0].requiredBindings[0].path === 'verification-loop/SKILL.md', 'current stage receives only its own declared binding path');
 
 const runB = prepareRun({
   routerContract: parallelContract,
@@ -142,6 +170,18 @@ expectThrow(() => validateStageGraph([
   { stageId: 'a', goal: 'a', agent: 'a', task: 'a', dependsOn: ['b'], writeSet: [], inputs: [], expectedOutputs: [] },
   { stageId: 'b', goal: 'b', agent: 'a', task: 'b', dependsOn: ['a'], writeSet: [], inputs: [], expectedOutputs: [] },
 ]), /cyclic/, 'dependency cycle is rejected');
+
+expectThrow(() => validateStageGraph([
+  { stageId: 'unsafe-binding', goal: 'x', agent: 'a', task: 'x', dependsOn: [], writeSet: [], requiredBindings: [{ id: 'escaped', path: '../outside.md' }] },
+]), /repository-relative|escapes/, 'binding paths reject traversal outside the repository');
+
+expectThrow(() => validateStageGraph([
+  { stageId: 'drive-binding', goal: 'x', agent: 'a', task: 'x', dependsOn: [], writeSet: [], requiredBindings: [{ id: 'drive', path: 'C:outside.md' }] },
+]), /repository-relative|escapes/, 'binding paths reject Windows drive-relative names');
+
+expectThrow(() => validateStageGraph([
+  { stageId: 'duplicate-binding', goal: 'x', agent: 'a', task: 'x', dependsOn: [], writeSet: [], requiredBindings: ['same'], optionalBindings: ['same'] },
+]), /both required and optional/, 'a stage binding cannot be both required and optional');
 
 expectThrow(() => prepareRun({
   routerContract: parallelContract,

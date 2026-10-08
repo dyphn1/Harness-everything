@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Deterministic route coverage gate for directly-routable skills plus an
- * explicit classification gate for nested skills. A new nested SKILL.md must
- * declare whether it is parent-routed or internal; otherwise CI fails instead
- * of silently ignoring it.
+ * Deterministic coverage gate for positive skill evals plus an explicit
+ * classification gate for nested skills. The router may normalize prompt
+ * signals, but it must not push canonical skill paths before an active step
+ * binds them. A new nested SKILL.md must declare whether it is parent-routed
+ * or internal; otherwise CI fails instead of silently ignoring it.
  */
 
 const fs = require('fs');
@@ -47,12 +48,6 @@ function discoverNestedSkills(skillDir) {
   return found;
 }
 
-function expectedMarker(skill) {
-  if (skill === 'harness-everything') return 'RECOMMENDED TIER';
-  if (skill === 'todo-driven-workflow') return 'WORKFLOW STRATEGY';
-  return `${skill}/SKILL.md`;
-}
-
 const skillDirs = fs.readdirSync(ROOT, { withFileTypes: true })
   .filter(entry => entry.isDirectory() && fs.existsSync(path.join(ROOT, entry.name, 'SKILL.md')))
   .map(entry => entry.name)
@@ -62,6 +57,8 @@ let failures = 0;
 let cases = 0;
 
 const nestedOnDisk = skillDirs.flatMap(skill => discoverNestedSkills(path.join(ROOT, skill))).sort();
+const canonicalSkillPaths = [...skillDirs, ...nestedOnDisk]
+  .map(skill => `${skill.replace(/\\/g, '/')}/SKILL.md`);
 for (const nested of nestedOnDisk) {
   const classification = NESTED_ROUTING.get(nested);
   if (!classification) {
@@ -121,15 +118,31 @@ for (const skill of skillDirs) {
 
     const result = spawnSync(process.execPath, [ROUTER, prompt], { cwd: ROOT, encoding: 'utf8' });
     const output = `${result.stdout || ''}\n${result.stderr || ''}`;
-    const marker = expectedMarker(skill);
-    if (result.status !== 0 || !output.includes(marker)) {
-      console.error(`FAIL ${path.relative(ROOT, taskFile)}: expected "${marker}"`);
+    const missingPlanFields = [
+      '=> RECOMMENDED TIER:',
+      '=> WORKFLOW STRATEGY:',
+    ].filter(marker => !output.includes(marker));
+    const requestedNested = nestedOnDisk
+      .filter(nested => NESTED_ROUTING.get(nested) === 'parent')
+      .filter(nested => (task.tags || []).includes(path.posix.basename(nested)));
+    const requiredParentPaths = requestedNested
+      .map(nested => `${nested.split('/')[0]}/SKILL.md`);
+    const missingParentPaths = requiredParentPaths.filter(skillPath => !output.includes(skillPath));
+    const leakedPaths = canonicalSkillPaths
+      .filter(skillPath => output.includes(skillPath) && !requiredParentPaths.includes(skillPath));
+    if (result.status !== 0 || missingPlanFields.length || missingParentPaths.length || leakedPaths.length) {
+      const reasons = [];
+      if (result.status !== 0) reasons.push(`router exited ${result.status}`);
+      if (missingPlanFields.length) reasons.push(`missing ${missingPlanFields.join(', ')}`);
+      if (missingParentPaths.length) reasons.push(`missing explicit parent route: ${missingParentPaths.join(', ')}`);
+      if (leakedPaths.length) reasons.push(`pre-step skill paths leaked: ${leakedPaths.join(', ')}`);
+      console.error(`FAIL ${path.relative(ROOT, taskFile)}: ${reasons.join('; ')}`);
       failures++;
     } else {
-      console.log(`PASS ${skill}/${path.basename(taskFile)}`);
+      console.log(`PASS ${skill}/${path.basename(taskFile)}: matching positive eval accepted with only explicit parent bindings`);
     }
   }
 }
 
-console.log(`\nRoute coverage: ${cases} positive case(s) checked across ${skillDirs.length} direct skills; ${nestedOnDisk.length} nested skill(s) classified.`);
+console.log(`\nPositive skill-eval coverage: ${cases} case(s) checked across ${skillDirs.length} direct skills; ${nestedOnDisk.length} nested skill(s) classified.`);
 process.exit(failures ? 1 : 0);

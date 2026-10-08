@@ -19,9 +19,9 @@ All `liveHostVerification` rows except OpenCode are `Unknown`. OpenCode's row is
 
 ### Routing contract vs. host evidence
 
-The repository routing contract uses **guidance-first workflow selection**. Each suggested skill still requires reading its complete `SKILL.md` entry/basic flow before omission; the selected topology is planning guidance and unresolved evidence produces reminders rather than a persistent workflow lock. A name, description, router summary, tier label, or generic “routine task” judgement is not enough skip evidence; unreadable suggestions are `unresolved/unavailable`, not silent skips.
+The repository routing contract uses **step-scoped workflow selection**. Normalized keyword/domain signals help compose ordered requirements but never select or load document paths. Each step/stage declares its required and optional skill/reference bindings; only active bindings are disclosed, and required bindings resolve before the step/stage passes. Unknown or unavailable required bindings stay visible and unresolved; missing evidence produces reminders rather than a persistent workflow lock.
 
-This is a **repository/agent contract**, not an automatic upgrade to any platform row below. A hook can prove that the contract was injected into a session; it does not prove the model actually read every suggested skill. Instruction-only surfaces can carry the same rule without mechanically enforcing it. Promoting this behavior to live-host compliance requires retained host/session evidence under the #82 compatibility program. The Claude and local OpenAI packages carry workflow entry/completion **reminders** plus separate Rule-of-3/permission boundaries, but this package/mechanism change does not upgrade `platform-compatibility.json` live-host status values. See [workflow runtime](workflow-runtime.md) for scope, worktree isolation, and failure behavior. OpenCode and instruction-only/public Skills-only surfaces do not acquire equivalent runtime gating. Shell inspection is not a filesystem sandbox; absent hooks, agent-writable state, and indirect script effects remain limits.
+This is a **repository/agent contract**, not an automatic upgrade to any platform row below. A hook can prove that the contract was injected and record an agent's binding disposition; neither proves that a live host actually loaded or followed the referenced content. Instruction-only surfaces can carry the same rule without mechanically enforcing it. Promoting behavior to live-host compliance requires retained host/session evidence under the #82 compatibility program. Claude and local OpenAI packages carry workflow entry/completion **reminders** plus separate Rule-of-3/permission boundaries, but this package/mechanism change does not upgrade `platform-compatibility.json` live-host status values. See [workflow runtime](workflow-runtime.md) for scope, worktree isolation, and failure behavior. OpenCode and instruction-only/public Skills-only surfaces do not acquire equivalent runtime gating. Shell inspection is not a filesystem sandbox; absent hooks, agent-writable state, and indirect script effects remain limits.
 
 ## Current capability summary
 
@@ -61,16 +61,16 @@ The general installer’s target paths are tested independently from host discov
 
 These targets apply to both default link mode and explicit `--copy` mode. A canonical store is only a deduplication detail; it cannot make an unsupported host path supported. Install/uninstall tests also protect user-owned files and cover Linux, Windows, and macOS round-trip fixtures.
 
-The advisory installer text generated for Codex/Cursor/Copilot/Continue/Hermes carries the same read-before-skip rule. That proves only what Harness writes, not that the host/model complied with it.
+The advisory installer text generated for Codex/Cursor/Copilot/Continue/Hermes carries the same step-scoped binding rule. That proves only what Harness writes, not that the host/model loaded or followed an active binding.
 
 ## Codex / local OpenAI plugin boundary
 
 Codex has two paths that must not be collapsed:
 
-1. The general `--codex` installer writes advisory `AGENTS.md` plus repo-scoped skills under `.agents/skills/`. Its generated instructions require reading/evaluating every router-suggested skill before omission, but this remains instruction-governed.
+1. The general `--codex` installer writes advisory `AGENTS.md` plus repo-scoped skills under `.agents/skills/`. Its generated instructions require resolving bindings declared for the active step, but this remains instruction-governed.
 2. The local OpenAI plugin at `plugins/harness-everything/` packages the skills plus lifecycle hooks for session start, prompt routing, supported local tool calls, subagent lifecycle, and stop verification. Those hooks are mechanically checked, but no live plugin/session artifact is committed.
 
-The package is tested at the mechanism layer and remains subject to the host’s hook review/trust flow. A fresh host session is still required before claiming that a particular ChatGPT/Codex installation loaded and fired the hooks or that the model followed read-before-skip.
+The package is tested at the mechanism layer and remains subject to the host’s hook review/trust flow. A fresh host session is still required before claiming that a particular ChatGPT/Codex installation loaded and fired the hooks or followed an active binding.
 
 ### Native plugin install/update synchronization
 
