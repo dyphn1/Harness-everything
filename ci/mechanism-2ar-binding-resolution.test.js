@@ -45,7 +45,9 @@ function sessionFile(workspace, sessionId, payload, name) {
 }
 function readJson(file) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
 function samePath(left, right) {
-  return Boolean(left && right) && path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase();
+  if (!left || !right) return false;
+  const real = value => { try { return fs.realpathSync(value); } catch (_) { return path.resolve(value); } };
+  return real(left).toLowerCase() === real(right).toLowerCase();
 }
 
 console.log('=== PR #303 binding resolution ===');

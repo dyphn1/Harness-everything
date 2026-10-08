@@ -129,7 +129,7 @@ try {
   check(finalEvidence.status === 'pass' && finalEvidence.exitCode === 0, 'passing stage retains correlated check evidence');
   const implementContract = readJson(contractFile);
   check(implementContract.requiredBindings[0].availability === 'available' &&
-    path.resolve(implementContract.requiredBindings[0].resolvedPath).toLowerCase() === path.join(workspace, 'tdd', 'SKILL.md').toLowerCase(),
+    fs.realpathSync(implementContract.requiredBindings[0].resolvedPath).toLowerCase() === fs.realpathSync(path.join(workspace, 'tdd', 'SKILL.md')).toLowerCase(),
     'stage binding availability is resolved to a real file at run preparation');
 
   const ghostSession = 'pr303-fable-missing-binding';
