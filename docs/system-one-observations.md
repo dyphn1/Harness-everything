@@ -172,6 +172,7 @@ warning sign. The review page samples the turns where they differ.
     `configured-unverified` when the files are healthy, because this command
     cannot read Codex trust state.
   - The final message comes from the rollout's `task_complete` event.
+- Fresh live-host verification on Windows (Codex CLI 0.162.1, 2026-10-13) exercised the user-hook compatibility fallback: only the `UserPromptSubmit` and `Stop` observation hooks were individually reviewed/trusted. Two consecutive real turns produced `host: "codex"` records with distinct current `turn_id` values and their respective valid self-reports. The sanitized record excerpt and scope limits are preserved in [Codex live-host evidence](../benchmarks/results/live-host/codex-2026-10-13/README.md). This does not verify native plugin-bundled hooks, other lifecycle events, or tool behavior capture.
 - The final message must belong to the current turn. A transcript scan
   stops at the start of the current turn (Codex `task_started` or a user
   message; a Claude user prompt) and a Codex `task_complete` must carry the
