@@ -15,7 +15,7 @@ Statuses are intentionally explicit:
 - `Unsupported`: official host documentation explicitly rules out the capability.
 - `Unknown`: the capability or its current host behavior was not established.
 
-All `liveHostVerification` rows except OpenCode are `Unknown`. OpenCode's row is `Partial`: retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS), not durable hard enforcement. No fresh artifacts exist yet for the other surfaces, managed-workspace import, or public OpenAI approval.
+Codex and OpenCode are `Partial` in `liveHostVerification`. The Codex artifact verifies user-hook compatibility capture for two consecutive turns on one Windows Codex CLI host; native plugin-hook mounting and other host/version combinations remain unverified. OpenCode's retained evidence supports project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS), not durable hard enforcement. No fresh artifacts exist yet for the other surfaces, managed-workspace import, or public OpenAI approval.
 
 ### Routing contract vs. host evidence
 
@@ -29,7 +29,7 @@ This is a **repository/agent contract**, not an automatic upgrade to any platfor
 
 | Platform surface | Standalone skills | Plugin support | Hooks/lifecycle | Project scope | Global scope | Current evidence boundary |
 | --- | --- | --- | --- | --- | --- | --- |
-| Codex | `Supported` | `Mechanism verified` | `Mechanism verified` for the local OpenAI package, including session, prompt, supported-tool, subagent, and stop hooks | `.agents/skills/`, `AGENTS.md` | `~/.agents/skills/` | Local package hooks and the state-specific marketplace sync command are mechanically checked; live loading and marketplace refresh remain unverified. |
+| Codex | `Supported` | `Mechanism verified` | `Partial`: user-hook compatibility capture is live-verified for `UserPromptSubmit` and `Stop` on one Windows Codex CLI host; native plugin hooks remain mechanism-verified | `.agents/skills/`, `AGENTS.md` | `~/.agents/skills/` | [Live evidence](../benchmarks/results/live-host/codex-2026-10-13/README.md) verifies two consecutive turns on Codex CLI 0.162.1; native plugin mounting, other lifecycle events, and other versions remain unverified. |
 | ChatGPT / OpenAI Plugin | `Unknown` for a repository-local standalone path | `Mechanism verified` | `Partial`: local Work/Codex hooks are separate from ordinary Chat | Managed workspace marketplace | Not established | The public Skills-only bundle is mechanically reproducible; import, approval, and live behavior remain `Unknown`. |
 | Claude Code | `Supported` | `Supported` | `Mechanism verified` for Harness configuration | `.claude/skills/` | `~/.claude/skills/` | Native Claude surfaces and the state-specific plugin sync command are mechanically checked; fresh-host execution is not preserved here. |
 | OpenCode | `Supported` | `Partial` live-host loading for the project-scope, `.js`-filename install path on OpenCode 1.18.31 (macOS); other install paths remain `Mechanism verified` | `Partial` live-host evidence for project-scope `.js` loading and edit/verification state; hard lock reported only, with no retained blocked-tool trace and a post-reset final snapshot | `.opencode/skills/`, `.agents/skills/`, `.opencode/plugins/` | `~/.config/opencode/skills/`, `~/.agents/skills/`, `~/.config/opencode/plugins/` | [Retained evidence](../benchmarks/results/live-host/opencode-2026-09-16/README.md): loading and state effects verified in one host session; final snapshot post-reset; hard lock only an interactive observation; reflection operator-seeded, then agent-rewritten; no raw transcript or behavioral-effectiveness claim. `.mjs` auto-discovery broken (issue #127); global scope, npm-package installation, and other host versions remain unverified. |
@@ -70,9 +70,9 @@ The advisory installer text generated for Codex/Cursor/Copilot/Continue/Hermes c
 Codex has two paths that must not be collapsed:
 
 1. The general `--codex` installer writes advisory `AGENTS.md` plus repo-scoped skills under `.agents/skills/`. Its generated instructions require resolving bindings declared for the active step, but this remains instruction-governed.
-2. The local OpenAI plugin at `plugins/harness-everything/` packages the skills plus lifecycle hooks for session start, prompt routing, supported local tool calls, subagent lifecycle, and stop verification. Those hooks are mechanically checked, but no live plugin/session artifact is committed.
+2. The local OpenAI plugin at `plugins/harness-everything/` packages the skills plus lifecycle hooks for session start, prompt routing, supported local tool calls, subagent lifecycle, and stop verification. Those hooks are mechanically checked. A separate live run verifies the user-hook compatibility fallback for prompt/stop observation only; native plugin hook mounting remains unverified.
 
-The package is tested at the mechanism layer and remains subject to the host’s hook review/trust flow. A fresh host session is still required before claiming that a particular ChatGPT/Codex installation loaded and fired the hooks or followed an active binding.
+The package remains subject to the host’s hook review/trust flow. The retained Codex CLI session proves that the selected user-level observation hooks were trusted and fired on one Windows setup; it does not prove that the model loaded or followed an active binding or that another ChatGPT/Codex installation loaded the same hooks.
 
 ### Native plugin install/update synchronization
 
@@ -100,13 +100,13 @@ The command detects Claude Code and Codex independently, ensures the Harness mar
 
 Mutating commands are issued with the current option set and retried without any option the host rejects, covering both commander wording (`unknown option '--json'`) and clap wording (`unexpected argument '--json' found`), so older Claude and Codex builds stay supported.
 
-The installed branch is intentionally an update branch even when the current release is already the newest version; the host command may report “already latest.” Codex marketplace upgrade is the current native refresh operation; the command does not edit private cache paths or `config.toml`. These are deterministic command/state tests, not live-host evidence, so `liveHostVerification` remains `Unknown` in the matrix.
+The installed branch is intentionally an update branch even when the current release is already the newest version; the host command may report “already latest.” Codex marketplace upgrade is the current native refresh operation. After successful Codex plugin install/update and verification, `plugin-sync.js` reads the installed plugin's tagged JSON source. It refreshes compatibility hooks only for `source: "local"` with an absolute filesystem path; `git`, `git-subdir`, `npm`, `remote`, unknown or missing variants, and relative paths fail closed before the installer runs. It does not reinterpret a repository subdirectory relative to the sync process working directory. An ownership/configuration error also makes Codex sync report failure. The installer does not alter trust state or private `config.toml`. Deterministic tests cover this source-shape policy; live Codex marketplace source reporting/sync remains unverified. The separate compatibility fallback has one retained live dispatch artifact on Windows, as recorded in the matrix.
 
 On Windows, the synchronizer resolves `codex`/`claude` the same way an interactive shell does: it walks `PATH` directories in order and tries `PATHEXT` extensions within each directory before moving on, so directory order — not which candidate happens to be a directly launchable `.exe` — decides the match. This matters because Node's non-shell `spawnSync` cannot execute a `.cmd`/`.bat` shim directly and, left to its own resolution, can silently prefer an unrelated, older standalone `.exe` elsewhere on `PATH` over a newer npm-installed shim with no error to signal it. Only the one case Windows genuinely requires an interpreter for — a resolved `.cmd`/`.bat` target — is run through `ComSpec`, using the already-resolved absolute path rather than re-resolving the bare command name.
 
 ### Explicit Codex user-hook compatibility fallback
 
-Current Codex documentation supports plugin-bundled hooks, so native plugin mounting remains the preferred path. Some host/source combinations have nevertheless failed to expose enabled plugin hooks for review/entry attribution (#122 and upstream Codex reports). Harness therefore provides an **explicit compatibility fallback**, not an automatic replacement for native plugin hooks:
+Current Codex documentation supports lifecycle hooks for manually installed Codex desktop plugins and requires users to review and trust non-managed hook definitions. The retained codex-cli 0.157.1 evidence records plugin_hooks as removed, so the user-hook compatibility installer remains necessary for that CLI path. Harness provides the compatibility path alongside the native plugin package:
 
 ```bash
 harness codex-hooks install
@@ -114,11 +114,11 @@ harness codex-hooks status
 harness codex-hooks uninstall
 ```
 
-The fallback copies the current packaged runtime into `$CODEX_HOME/harness-everything/compat-hooks/` and merges absolute-path entries into `$CODEX_HOME/hooks.json`. It does **not** modify `config.toml`, trust hashes, approval policy, or hook enablement. Codex must still show/review/trust the resulting non-managed hooks through its normal `/hooks` flow.
+The installer copies the current packaged runtime into `$CODEX_HOME/harness-everything/compat-hooks/` and merges absolute-path entries into `$CODEX_HOME/hooks.json`. harness codex-hooks status reports `inactive` when the compatibility hooks are absent, or `configured-unverified` when their files are healthy; it cannot read Codex trust state. A successful Codex run of plugin-sync.js installs or refreshes this copy automatically. The installer does **not** modify `config.toml`, trust hashes, approval policy, or hook enablement. Codex must still show/review/trust the resulting non-managed hooks through its normal `/hooks` flow.
 
 Ownership is deliberately strict: update/uninstall removes only exact entries recorded in the Harness compatibility manifest. If an installed Harness entry was edited after installation, the operation fails closed rather than overwriting or deleting that user-modified entry. Unrelated pre-existing and later-added user hooks are preserved.
 
-This fallback solves only plugin-source discovery/mounting. It does not claim to repair a Codex carrier that fails to dispatch `PreToolUse` at all; those host-level execution-path limitations remain a live compatibility boundary.
+The compatibility path registers hook commands in Codex user configuration and covers the missing plugin-mount route where user hooks dispatch. It does not repair a Codex carrier that fails to dispatch `PreToolUse` at all; those host-level execution-path limitations remain a live compatibility boundary.
 
 The public OpenAI Skills-only plugin is narrower again. Its ZIP contains the packaged `skills/` tree and referenced files, but not the local `.codex-plugin` lifecycle hooks. Public submission readiness is therefore a package/form contract, not evidence of public-directory approval or live hook execution.
 

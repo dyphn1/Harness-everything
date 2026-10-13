@@ -14,6 +14,14 @@ function option(args, name, fallback) {
   return i !== -1 ? args[i + 1] : fallback;
 }
 
+function parseSince(value) {
+  const text = String(value || '');
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(text) ? text + 'T00:00:00.000Z' : text;
+  const timestamp = Date.parse(normalized);
+  if (!Number.isFinite(timestamp)) throw new Error('--since must be an ISO date or timestamp');
+  return timestamp;
+}
+
 function family(text) {
   const normalized = String(text || '').toLowerCase().replace(/[\p{P}\p{S}\d]+/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 48);
   return crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 12);
@@ -37,6 +45,7 @@ function loadReview(file) {
 
 function derive(record, owner) {
   const self = record.selfReport;
+  const behavior = record.captureMethod === 'session-backfill' ? null : record.behavior;
   let validity = self ? self.validity : null;
   let contextDependent = self ? self.contextDependent : null;
   if (owner && owner.validity && owner.validity !== 'unsure') validity = owner.validity;
@@ -48,7 +57,9 @@ function derive(record, owner) {
   return {
     id: record.id, validity, contextDependent, tier, tierSource,
     intents: self ? self.intents : [], workflow: (self && self.workflow) || (record.router && record.router.strategy) || null,
-    skills, contradictions: obs.contradictions(self, record.behavior),
+    skills,
+    behaviorEvidence: behavior ? 'observed' : 'unobserved',
+    contradictions: obs.contradictions(self, behavior),
     selfReportReason: record.selfReportReason || null, host: record.host,
   };
 }
@@ -63,13 +74,23 @@ function run(args) {
   if (!out) throw new Error('--out is required');
   const share = Number(option(args, '--validation-share', '0.15'));
   const owner = loadReview(option(args, '--owner-review'));
+  const sinceText = option(args, '--since', null);
+  const since = sinceText ? parseSince(sinceText) : null;
+  const selfReportOnly = args.includes('--self-report-only');
   obs.sweep(store);
   const index = obs.readJson(path.join(store, 'observations-index.json'), null);
   if (!index || index.schemaVersion !== 1 || !Array.isArray(index.records)) throw new Error(`no observation index in ${store}`);
   const rows = [];
   let skippedNoText = 0;
+  let skippedBeforeSince = 0;
+  let skippedUnlabeled = 0;
   const now = Date.now();
   for (const record of index.records) {
+    if (since !== null) {
+      const observedAt = Date.parse(record.observedAt || '');
+      if (!Number.isFinite(observedAt) || observedAt < since) { skippedBeforeSince++; continue; }
+    }
+    if (selfReportOnly && !record.selfReport) { skippedUnlabeled++; continue; }
     // Expiry holds on read too, even if no later turn has swept the store.
     const text = obs.recordText(store, record, now);
     if (!text || !text.prompt) { skippedNoText++; continue; }
@@ -91,9 +112,15 @@ function run(args) {
   const count = key => rows.reduce((acc, r) => { const k = String(key(r)); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
   const report = {
     schemaVersion: 1, exportedAt: new Date().toISOString(), records: index.records.length, exported: rows.length,
+    since: sinceText, selfReportOnly, skippedBeforeSince, skippedUnlabeled,
     skippedNoText, validationRows: validation, withSelfReport: withSelf.length,
     selfReportReasons: count(r => r.record.selfReportReason || 'ok'), hosts: count(r => r.record.host),
     validity: count(r => r.label.validity), tiers: count(r => r.label.tier), tierSources: count(r => r.label.tierSource),
+    behaviorEvidence: {
+      observed: rows.filter(r => r.label.behaviorEvidence === 'observed').length,
+      unobserved: rows.filter(r => r.label.behaviorEvidence === 'unobserved').length,
+    },
+    contradictionEvidence: 'observed-behavior-only',
     ownerDecisions: Object.keys(owner).length, agreement, contradictions,
   };
   fs.writeFileSync(path.join(out, 'export-report.json'), JSON.stringify(report, null, 2) + '\n');
@@ -103,4 +130,4 @@ function run(args) {
 if (require.main === module) {
   try { console.log(JSON.stringify(run(process.argv.slice(2)), null, 2)); } catch (error) { console.error(`ERROR: ${error.message}`); process.exitCode = 1; }
 }
-module.exports = { run, derive, family };
+module.exports = { run, derive, family, parseSince };

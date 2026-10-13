@@ -190,6 +190,7 @@ for (const rel of OPENCODE_SURFACES) {
 
 const matrix = JSON.parse(read('docs/platform-compatibility.json'));
 const opencode = matrix.platforms.find(platform => platform.id === 'opencode');
+const codex = matrix.platforms.find(platform => platform.id === 'codex');
 for (const dimension of ['hooksLifecycle', 'liveHostVerification']) {
   if (opencode?.capabilities[dimension]?.status !== 'Partial') {
     fail(`OpenCode ${dimension}: must remain Partial`);
@@ -198,7 +199,16 @@ for (const dimension of ['hooksLifecycle', 'liveHostVerification']) {
 if (opencode?.capabilities.liveHostVerification.evidence !== OPENCODE_EVIDENCE) {
   fail('OpenCode liveHostVerification: missing exact retained artifact path');
 }
-for (const platform of matrix.platforms.filter(platform => platform.id !== 'opencode')) {
+if (codex?.capabilities.hooksLifecycle.status !== 'Partial') {
+  fail('Codex hooksLifecycle: expected partial live verification for the compatibility fallback');
+}
+if (codex?.capabilities.liveHostVerification.status !== 'Partial') {
+  fail('Codex liveHostVerification: expected partial status with preserved evidence');
+}
+if (codex?.capabilities.liveHostVerification.evidence !== 'benchmarks/results/live-host/codex-2026-10-13/README.md') {
+  fail('Codex liveHostVerification: missing exact retained artifact path');
+}
+for (const platform of matrix.platforms.filter(platform => !['opencode', 'codex'].includes(platform.id))) {
   if (platform.capabilities.liveHostVerification.status !== 'Unknown') {
     fail(`${platform.id}: liveHostVerification must remain Unknown without its own evidence`);
   }

@@ -10,6 +10,19 @@ All notable changes to this project are documented in this file.
 * **router:** emit normalized knowledge signals as requirement-composition inputs and preserve bounded Fable lookup behavior across #294–#296.
 * **workflow:** resolve step/stage binding availability against real files (workspace references stay workspace-scoped; only recognized Harness bindings search installed plugin layouts); preserve knowledge signals across strategy recomposition; keep self-evolved manifest skills discoverable as metadata-only ids; positive skill evals assert skill-specific candidate bindings (#303 review).
 * **workflow:** reject present non-array required/optional binding declarations before accepting a requirement plan, preserving workflow state on invalid input (#303 review).
+* **test:** isolate verification fixtures from an inherited project-check recursion guard while preserving explicit guard coverage.
+
+### Bug Fixes
+
+* **codex:** keep compatibility hooks and session labels in sync
+
+## [0.30.10](https://github.com/dyphn1/Harness-everything/compare/v0.30.9...v0.30.10) (2026-10-13)
+
+### Bug Fixes
+
+* **codex:** address observation review findings ([b869cfb](https://github.com/dyphn1/Harness-everything/commit/b869cfbdb44172ee88ad6ae3f76e29c8da6e9da8))
+* **codex:** sync hooks and recover turn labels ([d29112e](https://github.com/dyphn1/Harness-everything/commit/d29112e15ac255c5ded6fcf2aab3a21c710b3def)), closes [#304](https://github.com/dyphn1/Harness-everything/issues/304)
+* **codex:** validate sources and report import failures ([3f57b8b](https://github.com/dyphn1/Harness-everything/commit/3f57b8b376bfd437c8cff6ddbe4ddbf036380198)), closes [#304](https://github.com/dyphn1/Harness-everything/issues/304)
 
 ## [0.30.9](https://github.com/dyphn1/Harness-everything/compare/v0.30.8...v0.30.9) (2026-10-08)
 

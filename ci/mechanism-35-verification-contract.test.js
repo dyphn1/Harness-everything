@@ -16,7 +16,7 @@ function run(command, args, cwd, options = {}) {
   const result = spawnSync(command, args, {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, ...(options.env || {}) },
+    env: { ...process.env, HARNESS_SKIP_PROJECT_CHECKS: '', ...(options.env || {}) },
     timeout: options.timeout || 30000,
   });
   if (!options.allowFailure && result.status !== 0) {

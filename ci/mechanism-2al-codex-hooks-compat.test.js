@@ -73,6 +73,8 @@ try {
   const state = compat.status({ codexHome });
   check(state.installed && state.healthy && state.exactEntriesPresent === state.expectedEntries,
     'status verifies exact installed entry hashes and runtime tree');
+  check(state.observationCapture.status === 'configured-unverified' && state.observationCapture.trustRequired,
+    'status distinguishes installed hooks from Codex-trusted live capture');
 
   const config = read(hooksFile);
   check(config.description === original.description &&
@@ -157,6 +159,18 @@ try {
   compat.uninstall({ codexHome: emptyHome });
   check(!fs.existsSync(path.join(emptyHome, 'hooks.json')),
     'uninstall removes hooks.json only when Harness created it and no user entries remain');
+
+  const marketplaceSource = path.join(root, 'marketplace-plugin');
+  const marketplaceHome = path.join(root, 'marketplace-codex');
+  fs.cpSync(compat.SOURCE_PLUGIN_ROOT, marketplaceSource, { recursive: true });
+  fs.writeFileSync(path.join(marketplaceSource, 'hooks', 'marketplace-source-marker.txt'), 'newer marketplace source\n');
+  const marketplaceInstall = compat.install({ codexHome: marketplaceHome, sourcePluginRoot: marketplaceSource });
+  const marketplaceManifest = read(path.join(marketplaceHome, 'harness-everything', 'compat-hooks', 'manifest.json'));
+  check(marketplaceInstall.sourcePluginSha256 === compat.treeHash(marketplaceSource) &&
+    marketplaceManifest.sourcePluginSha256 === compat.treeHash(marketplaceSource) &&
+    fs.readFileSync(path.join(marketplaceManifest.runtimeDir, 'hooks', 'marketplace-source-marker.txt'), 'utf8') === 'newer marketplace source\n',
+    'compatibility runtime is copied from the verified installed marketplace source');
+  compat.uninstall({ codexHome: marketplaceHome });
 
   const duplicateHome = path.join(root, 'duplicate-codex');
   fs.mkdirSync(duplicateHome, { recursive: true });
@@ -272,6 +286,11 @@ try {
   try { compat.install({ codexHome: malformedHome }); } catch (_) { malformedRefused = true; }
   check(malformedRefused && fs.readFileSync(malformed, 'utf8') === malformedBefore,
     'malformed user hooks.json fails closed without replacement');
+
+  const inactive = compat.status({ codexHome: path.join(root, 'not-installed') });
+  check(inactive.observationCapture.status === 'inactive' &&
+    inactive.observationCapture.reason === 'compatibility-hooks-not-installed',
+    'status clearly reports inactive observation capture when hooks are absent');
 
   const source = read(path.join(compat.SOURCE_PLUGIN_ROOT, 'hooks', 'hooks.json'));
   const sourceCount = Object.values(source.hooks).reduce((sum, entries) => sum + entries.length, 0);
