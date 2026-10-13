@@ -232,6 +232,7 @@ function createContext(options = {}) {
       return result && result.status === 0 && !result.error;
     })
   };
+  context.codexHooksInstall = options.codexHooksInstall || (() => require('./codex-hooks-compat').install({ codexHome: options.codexHome, env: options.env }));
   context.repositorySource = options.repositorySource || (
     /^https?:\/\//.test(context.repository) || /^git@/.test(context.repository)
       ? context.repository
@@ -477,6 +478,19 @@ function syncClaude(context) {
   return { host: 'claude', status: 'synchronized', action };
 }
 
+function refreshCodexCompatibilityHooks(context) {
+  if (context.dryRun) return { ok: true, result: { status: 'dry-run', entries: 0, trustChanged: false } };
+  try {
+    const result = context.codexHooksInstall();
+    if (!result || !['installed', 'updated'].includes(result.status)) {
+      return { ok: false, error: 'Codex compatibility-hook installer returned an unexpected result' };
+    }
+    return { ok: true, result };
+  } catch (error) {
+    return { ok: false, error: error && error.message ? error.message : String(error) };
+  }
+}
+
 function syncCodex(context) {
   if (!context.commandAvailable('codex')) return { host: 'codex', status: 'skipped', reasonCode: 'cli-not-found', reason: 'codex CLI not found' };
   const marketplace = ensureCodexMarketplace(context);
@@ -527,7 +541,9 @@ function syncCodex(context) {
 
   const verification = verifyPlugin(context, 'Codex', queryCodexPlugin);
   if (!verification.ok) return { host: 'codex', status: 'failed', error: verification.error };
-  return { host: 'codex', status: 'synchronized', action };
+  const compatHooks = refreshCodexCompatibilityHooks(context);
+  if (!compatHooks.ok) return { host: 'codex', status: 'failed', action, error: 'Codex plugin ' + action + ' succeeded but compatibility hooks could not be refreshed: ' + compatHooks.error };
+  return { host: 'codex', status: 'synchronized', action, compatHooks: compatHooks.result };
 }
 
 function parseArgs(argv) {
@@ -560,7 +576,9 @@ function help() {
 
 Synchronize the native Harness Everything plugin on installed host CLIs.
 Existing installations take the explicit update/upgrade path; absent
-installations take the install path.
+installations take the install path. Successful Codex sync also refreshes the
+local compatibility-hook runtime and user hook entries; Codex trust remains a
+separate host review.
 
 Options:
   --host <all|claude|codex>  Limit synchronization to one host (default: all)
@@ -615,7 +633,7 @@ function main(argv = process.argv.slice(2)) {
   if (options.json) console.log(JSON.stringify(summary, null, 2));
   else {
     for (const result of summary.results) {
-      if (result.status === 'synchronized') console.log(`[ok] ${result.host}: ${result.action}`);
+      if (result.status === 'synchronized') console.log('[ok] ' + result.host + ': ' + result.action + (result.compatHooks ? '; Codex hooks ' + result.compatHooks.status : ''));
       else if (result.status === 'skipped') console.log(`[skip] ${result.host}: ${result.reason}`);
       else console.error(`[fail] ${result.host}: ${result.error}`);
     }

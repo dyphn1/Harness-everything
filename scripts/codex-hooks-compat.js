@@ -443,10 +443,13 @@ function status(options = {}) {
   const p = pathsFor(codexHome);
   assertCompatibilityPaths(p);
   const prior = readManifest(p.manifestFile, p);
-  if (!prior) return { installed: false, codexHome, hooksFile: p.hooksFile, trustChanged: false };
+  if (!prior) return { installed: false, codexHome, hooksFile: p.hooksFile, trustChanged: false,
+    observationCapture: { status: 'inactive', reason: 'compatibility-hooks-not-installed', trustRequired: true } };
   const config = readHooksFile(p.hooksFile);
   const removal = removePriorEntries(config, prior);
   const expected = prior.entries.length;
+  const healthy = removal.removed.length === expected && removal.drift.length === 0 &&
+    fs.existsSync(prior.runtimeDir) && treeHash(prior.runtimeDir) === prior.sourcePluginSha256;
   return {
     installed: true,
     codexHome,
@@ -457,8 +460,12 @@ function status(options = {}) {
     expectedEntries: expected,
     exactEntriesPresent: removal.removed.length,
     drift: removal.drift,
-    healthy: removal.removed.length === expected && removal.drift.length === 0 &&
-      fs.existsSync(prior.runtimeDir) && treeHash(prior.runtimeDir) === prior.sourcePluginSha256,
+    healthy,
+    observationCapture: {
+      status: healthy ? 'configured-unverified' : 'inactive',
+      reason: healthy ? 'codex-hook-trust-state-is-not-readable-here' : 'compatibility-hooks-unhealthy',
+      trustRequired: true,
+    },
     trustChanged: false,
   };
 }

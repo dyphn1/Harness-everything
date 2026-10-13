@@ -14,9 +14,11 @@ const {
 } = require('../scripts/plugin-sync');
 
 const ROOT = path.resolve(__dirname, '..');
+const codexHooksCompat = require('../scripts/codex-hooks-compat');
 
-function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false, clapCodexJsonFlag = false, missingCodexPluginCommand = false } = {}) {
+function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false, clapCodexJsonFlag = false, missingCodexPluginCommand = false, codexHooksError = null } = {}) {
   const calls = [];
+  const codexHookInstalls = [];
   const state = {
     claudeInstalled,
     codexInstalled,
@@ -110,7 +112,13 @@ function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarke
   return {
     calls,
     runner,
-    commandAvailable: () => true
+    commandAvailable: () => true,
+    codexHookInstalls,
+    codexHooksInstall: options => {
+      codexHookInstalls.push(options);
+      if (codexHooksError) throw new Error(codexHooksError);
+      return { status: codexInstalled ? 'updated' : 'installed', entries: 8, trustChanged: false };
+    }
   };
 }
 
@@ -176,6 +184,8 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   assert.strictEqual(result.failed, 0);
   assert.strictEqual(result.results[0].action, 'install');
   assert.strictEqual(callsFor(fake.calls, 'codex', 'plugin add').length, 1, 'absent Codex plugin must install');
+  assert.strictEqual(fake.codexHookInstalls.length, 1, 'install must also refresh the Codex compatibility hooks');
+  assert.strictEqual(result.results[0].compatHooks.status, 'installed');
 }
 
 {
@@ -185,8 +195,28 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   assert.strictEqual(result.results[0].action, 'update');
   assert.strictEqual(callsFor(fake.calls, 'codex', 'plugin marketplace upgrade').length, 1, 'installed Codex plugin must upgrade its marketplace');
   assert.strictEqual(callsFor(fake.calls, 'codex', 'plugin add').length, 0, 'installed Codex plugin must not be re-added');
+  assert.strictEqual(fake.codexHookInstalls.length, 1, 'marketplace update must refresh the copied Codex hooks');
+  assert.strictEqual(result.results[0].compatHooks.status, 'updated');
 }
 
+{
+  const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-plugin-sync-codex-home-'));
+  try {
+    const fake = fakeHost({ codexInstalled: true });
+    const result = sync({ host: 'codex', codexHome }, {
+      runner: fake.runner,
+      commandAvailable: fake.commandAvailable,
+      log: () => {},
+      warn: () => {},
+    });
+    assert.strictEqual(result.failed, 0);
+    assert.strictEqual(result.results[0].compatHooks.status, 'installed');
+    const state = codexHooksCompat.status({ codexHome });
+    assert(state.installed && state.healthy, 'plugin-sync default path installs the actual packaged compatibility hooks');
+  } finally {
+    fs.rmSync(codexHome, { recursive: true, force: true });
+  }
+}
 {
   const fake = fakeHost({ codexInstalled: false, codexMarketplace: false, clapCodexJsonFlag: true });
   const result = runHost('codex', fake);
@@ -208,6 +238,20 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   assert.strictEqual(result.results[0].action, 'update');
   assert.strictEqual(upgradeCalls.length, 2, 'unsupported Codex --json must cause one upgrade retry');
   assert.ok(!upgradeCalls[1].args.includes('--json'), 'Codex upgrade retry must omit unsupported --json');
+}
+
+{
+  const fake = fakeHost({ codexInstalled: true, codexHooksError: 'user hook config drift' });
+  const result = runHost('codex', fake);
+  assert.strictEqual(result.failed, 1, 'a failed compatibility-hook refresh must be visible');
+  assert.match(result.results[0].error, /compatibility hooks/i);
+}
+
+{
+  const fake = fakeHost({ codexInstalled: true });
+  const result = sync({ host: 'codex', dryRun: true }, { ...fake, log: () => {}, warn: () => {} });
+  assert.strictEqual(result.results[0].compatHooks.status, 'dry-run');
+  assert.strictEqual(fake.codexHookInstalls.length, 0, 'dry-run must not install or rewrite Codex hooks');
 }
 
 {

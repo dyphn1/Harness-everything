@@ -432,20 +432,23 @@ function sweep(root, now = Date.now()) {
   });
 }
 
-function appendRecord(root, record, text) {
-  return withLock(root, () => {
+function appendRecord(root, record, text, options = {}) {
+  let appended = false;
+  const locked = withLock(root, () => {
+    const file = path.join(root, 'observations-index.json');
+    const index = readJson(file, null) || { schemaVersion: 1, kind: 'system-one-observations', records: [] };
+    if (options.dedupeById && index.records.some(existing => existing.id === record.id)) return;
     // The blob is written under the lock, so a concurrent sweep cannot remove it before its record lands.
     const textDir = path.join(root, 'text');
     fs.mkdirSync(textDir, { recursive: true, mode: 0o700 });
-    if (text) fs.writeFileSync(path.join(textDir, `${record.contentSha256}.json`), JSON.stringify(text), { mode: 0o600 });
-    const file = path.join(root, 'observations-index.json');
-    const index = readJson(file, null) || { schemaVersion: 1, kind: 'system-one-observations', records: [] };
+    if (text) fs.writeFileSync(path.join(textDir, record.contentSha256 + '.json'), JSON.stringify(text), { mode: 0o600 });
     index.records.push(record);
     sweepLocked(root, index, Date.now());
     writeJsonAtomic(file, index);
+    appended = true;
   });
+  return Boolean(locked && appended);
 }
-
 // Tool events are immutable files, one per event, so parallel hooks never
 // overwrite each other; Stop adds them up.
 function eventsDir(root, sessionId, turn) {
@@ -575,7 +578,7 @@ function handle(payload, env = process.env) {
 }
 
 module.exports = {
-  INTENTS, TIERS, STRATEGIES, enabled, storeRoot, redact, parseLabelLine, classifyCommand, labelTier, contradictions,
-  normalizeTerms, transcriptMessage, recordTool, emptyBehavior, mergeBehavior, toolFailed, handle, readJson,
+  INTENTS, TIERS, STRATEGIES, RETENTION_MS, PREVIOUS_BYTES, enabled, storeRoot, redact, parseLabelLine, stripLabels, tailBytes, sha, classifyCommand, labelTier, contradictions,
+  normalizeTerms, transcriptMessage, recordTool, emptyBehavior, mergeBehavior, toolFailed, handle, readJson, appendRecord,
   expired, recordText, sweep,
 };

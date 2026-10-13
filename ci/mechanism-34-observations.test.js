@@ -222,6 +222,31 @@ test('exporter derives labels, splits by time and reports agreement', () => {
   assert(!fs.readFileSync(path.join(out, 'export-report.json'), 'utf8').includes('parser'), 'the report holds no text');
 });
 
+test('exporter can select post-cutoff rows with self-reported labels for training', () => {
+  const s = sandbox();
+  writeFixtureStore(s);
+  const indexFile = path.join(s.store, 'observations-index.json');
+  const index = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
+  index.records[0].observedAt = '2026-09-26T23:59:59.000Z';
+  index.records.push({ ...index.records[1], id: 'missing-self-report', selfReport: null });
+  fs.writeFileSync(indexFile, JSON.stringify(index));
+  const out = path.join(s.dir, 'filtered-export');
+  const r = spawnSync('node', [EXPORTER, '--store', s.store, '--out', out, '--since', '2026-09-27', '--self-report-only'], {
+    encoding: 'utf8',
+    env: s.env,
+  });
+  assert.strictEqual(r.status, 0, r.stderr);
+  const prompts = fs.readFileSync(path.join(out, 'prompts-observed.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  const labels = fs.readFileSync(path.join(out, 'labels-observed.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.strictEqual(prompts.length, 3);
+  assert.strictEqual(labels.length, 3);
+  assert(labels.every(label => label.validity && label.intents.length >= 0), 'only self-reported turns are included');
+  const report = JSON.parse(fs.readFileSync(path.join(out, 'export-report.json'), 'utf8'));
+  assert.strictEqual(report.since, '2026-09-27');
+  assert.strictEqual(report.selfReportOnly, true);
+  assert.strictEqual(report.skippedBeforeSince, 1);
+  assert.strictEqual(report.skippedUnlabeled, 1);
+});
 test('review page lists disagreements blind and owner decisions override', () => {
   const s = sandbox();
   writeFixtureStore(s);

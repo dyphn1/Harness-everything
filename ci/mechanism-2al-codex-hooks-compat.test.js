@@ -73,6 +73,8 @@ try {
   const state = compat.status({ codexHome });
   check(state.installed && state.healthy && state.exactEntriesPresent === state.expectedEntries,
     'status verifies exact installed entry hashes and runtime tree');
+  check(state.observationCapture.status === 'configured-unverified' && state.observationCapture.trustRequired,
+    'status distinguishes installed hooks from Codex-trusted live capture');
 
   const config = read(hooksFile);
   check(config.description === original.description &&
@@ -272,6 +274,11 @@ try {
   try { compat.install({ codexHome: malformedHome }); } catch (_) { malformedRefused = true; }
   check(malformedRefused && fs.readFileSync(malformed, 'utf8') === malformedBefore,
     'malformed user hooks.json fails closed without replacement');
+
+  const inactive = compat.status({ codexHome: path.join(root, 'not-installed') });
+  check(inactive.observationCapture.status === 'inactive' &&
+    inactive.observationCapture.reason === 'compatibility-hooks-not-installed',
+    'status clearly reports inactive observation capture when hooks are absent');
 
   const source = read(path.join(compat.SOURCE_PLUGIN_ROOT, 'hooks', 'hooks.json'));
   const sourceCount = Object.values(source.hooks).reduce((sum, entries) => sum + entries.length, 0);

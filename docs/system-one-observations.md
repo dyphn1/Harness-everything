@@ -2,8 +2,8 @@
 
 Status: **accepted**, 2026-09-27. Owner decisions are recorded below.
 Implementation: `hooks/scripts/observation-hook.js`,
-`hooks/scripts/lib/observations.js`, `scripts/system-one-observations-export.js`
-and `scripts/system-one-observations-review.js`; tests in
+`hooks/scripts/lib/observations.js`, `scripts/system-one-observations-export.js`, `scripts/system-one-observations-import-codex-sessions.js` and
+`scripts/system-one-observations-review.js`; tests in
 `ci/mechanism-34-observations.test.js`. Issue
 [#233](https://github.com/dyphn1/Harness-everything/issues/233).
 
@@ -157,10 +157,14 @@ warning sign. The review page samples the turns where they differ.
     it wrote no label; the same text as JSON reached the model and all five
     test turns carried a label. The Codex manifest therefore runs the router
     through `hooks/scripts/codex-user-prompt.js`, which wraps its output.
-  - Plugin-bundled hooks do not run on this version (`plugin_hooks` is
-    `removed`); the explicit fallback `harness codex-hooks install` is
-    needed, and Codex runs the hooks only after they are trusted in
-    `/hooks`.
+  - The retained `codex-cli 0.157.1` evidence found plugin hooks removed
+    (`plugin_hooks`); the local CLI path therefore uses the user-hook
+    compatibility installer. Successful `plugin:hosts` runs now install or
+    refresh that copied runtime and its `hooks.json` entries. The installer
+    does not change trust state; Codex still requires hook review/trust in
+    `/hooks`. Status reports `inactive` when absent and
+    `configured-unverified` when the files are healthy, because this command
+    cannot read Codex trust state.
   - The final message comes from the rollout's `task_complete` event.
 - The final message must belong to the current turn. A transcript scan
   stops at the start of the current turn (Codex `task_started` or a user
@@ -174,6 +178,14 @@ warning sign. The review page samples the turns where they differ.
 - A missing field records `null` with a reason code. Collection must never
   block, slow down, or fail a turn; each hook has a short time budget.
 
+## Session backfill
+
+To recover self-reported labels written before the observation hooks were active, run:
+
+    node scripts/system-one-observations-import-codex-sessions.js --since 2026-09-27
+
+The importer scans local Codex rollout files, pairs each completed turn with its first user text item, and reads the final label from `task_complete.last_agent_message` or, when that field omits it, from the last assistant `response_item` in the same turn. It accepts only valid label lines, applies the same email/home-path redaction, and appends idempotently to the private observations store. It reports missing prompts and invalid labels without printing session text. The cutoff defaults to the date the label contract was accepted. It never uploads or writes session content into the repository.
+
 ## Export
 
 `scripts/system-one-observations-export.js` writes to the private data
@@ -185,6 +197,12 @@ repository:
 `family` groups near-duplicate prompts. The split is by time: the newest 15%
 is validation. The existing holdouts stay frozen and separate. Observed data
 may later seed a new holdout, but only after owner review.
+
+For a training candidate restricted to labels from the accepted label-line date, use an output directory outside the repository:
+
+    node scripts/system-one-observations-export.js --out <private-output-dir> --since 2026-09-27 --self-report-only
+
+This keeps unlabeled observations out of the candidate and leaves existing model and holdout directories untouched.
 
 ## Phases
 
