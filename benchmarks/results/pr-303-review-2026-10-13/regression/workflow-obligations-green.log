@@ -1,0 +1,254 @@
+=== Issue #85 requirements-first workflow contract ===
+  PASS Tier 2 route persists successfully
+  PASS Tier 2 receives a preliminary iterative-single route
+  PASS selected Tier 2 workflow begins pending
+  PASS persisted workflow records semantic-contract mode rather than advisory-workflow
+  PASS Tier 2 immediately materializes a planning contract
+  PASS planning starts with decompose then compose
+  PASS requirements begin empty instead of being invented by the router
+  PASS router topology is recorded only as candidate strategy
+  PASS workflow start refuses to pretend planning is complete
+  PASS failed start leaves workflow pending
+  PASS unresolved planning does not hard-block ordinary tools
+  PASS Stop remains fail-open while planning is unresolved
+  PASS unresolved planning cannot silently become satisfied
+  PASS decomposition gap is visible
+  PASS workflow-composition gap is visible
+  PASS new single-agent plans cannot bypass active step typing
+  PASS requirements and workflow selection are recorded before execution
+  PASS requirement fragments are machine-readable
+  PASS workflow choice is explicitly confirmed after decomposition
+  PASS decompose obligation resolves from requirement fragments
+  PASS compose obligation resolves from workflow-selection evidence
+  PASS start activates the confirmed non-Fable workflow
+  PASS confirmed workflow becomes running
+  PASS planning contract advances to execution phase
+  PASS execution adds execute/verify without losing planning evidence
+  PASS execution obligation accepts bounded evidence-backed escape
+  PASS verification obligation cannot be escaped
+  PASS verification obligation can record explicit blocked evidence
+  PASS blocked obligation still reminds without trapping Stop
+  PASS blocked obligation keeps workflow unresolved rather than satisfied
+  PASS blocked verification remains visible
+  PASS verification can later resolve to pass with evidence
+  PASS behavior-change binding resolves before its active step passes
+  PASS behavior-change step advances after TDD binding resolution
+  PASS verification skill resolves only when the verification step becomes active
+  PASS verification step passes with objective evidence
+  PASS objective verification milestone is observed after the earlier mutation
+  PASS resolved workflow Stop remains fail-open
+  PASS planning + execution + verification allow satisfied
+  PASS satisfied workflow has no unresolved obligations
+  PASS Tier 2 route persists for active-step binding coverage
+
+=== Binding declaration validation ===
+  PASS invalid requiredBindings null fixture route persists (typed)
+  PASS plan exits 2 for requiredBindings null (typed requirement)
+  PASS rejected requiredBindings null plan writes no stdout (typed)
+  PASS rejection identifies requiredBindings for null (typed requirement)
+  PASS rejected requiredBindings null plan leaves workflow state unchanged (typed)
+  PASS rejected requiredBindings null plan leaves obligation state unchanged (typed)
+  PASS invalid requiredBindings null fixture route persists (untyped)
+  PASS plan exits 2 for requiredBindings null (untyped requirement)
+  PASS rejected requiredBindings null plan writes no stdout (untyped)
+  PASS rejection identifies requiredBindings for null (untyped requirement)
+  PASS rejected requiredBindings null plan leaves workflow state unchanged (untyped)
+  PASS rejected requiredBindings null plan leaves obligation state unchanged (untyped)
+  PASS invalid requiredBindings object fixture route persists (typed)
+  PASS plan exits 2 for requiredBindings object (typed requirement)
+  PASS rejected requiredBindings object plan writes no stdout (typed)
+  PASS rejection identifies requiredBindings for object (typed requirement)
+  PASS rejected requiredBindings object plan leaves workflow state unchanged (typed)
+  PASS rejected requiredBindings object plan leaves obligation state unchanged (typed)
+  PASS invalid requiredBindings object fixture route persists (untyped)
+  PASS plan exits 2 for requiredBindings object (untyped requirement)
+  PASS rejected requiredBindings object plan writes no stdout (untyped)
+  PASS rejection identifies requiredBindings for object (untyped requirement)
+  PASS rejected requiredBindings object plan leaves workflow state unchanged (untyped)
+  PASS rejected requiredBindings object plan leaves obligation state unchanged (untyped)
+  PASS invalid requiredBindings string fixture route persists (typed)
+  PASS plan exits 2 for requiredBindings string (typed requirement)
+  PASS rejected requiredBindings string plan writes no stdout (typed)
+  PASS rejection identifies requiredBindings for string (typed requirement)
+  PASS rejected requiredBindings string plan leaves workflow state unchanged (typed)
+  PASS rejected requiredBindings string plan leaves obligation state unchanged (typed)
+  PASS invalid requiredBindings string fixture route persists (untyped)
+  PASS plan exits 2 for requiredBindings string (untyped requirement)
+  PASS rejected requiredBindings string plan writes no stdout (untyped)
+  PASS rejection identifies requiredBindings for string (untyped requirement)
+  PASS rejected requiredBindings string plan leaves workflow state unchanged (untyped)
+  PASS rejected requiredBindings string plan leaves obligation state unchanged (untyped)
+  PASS invalid requiredBindings boolean fixture route persists (typed)
+  PASS plan exits 2 for requiredBindings boolean (typed requirement)
+  PASS rejected requiredBindings boolean plan writes no stdout (typed)
+  PASS rejection identifies requiredBindings for boolean (typed requirement)
+  PASS rejected requiredBindings boolean plan leaves workflow state unchanged (typed)
+  PASS rejected requiredBindings boolean plan leaves obligation state unchanged (typed)
+  PASS invalid requiredBindings boolean fixture route persists (untyped)
+  PASS plan exits 2 for requiredBindings boolean (untyped requirement)
+  PASS rejected requiredBindings boolean plan writes no stdout (untyped)
+  PASS rejection identifies requiredBindings for boolean (untyped requirement)
+  PASS rejected requiredBindings boolean plan leaves workflow state unchanged (untyped)
+  PASS rejected requiredBindings boolean plan leaves obligation state unchanged (untyped)
+  PASS invalid requiredBindings number fixture route persists (typed)
+  PASS plan exits 2 for requiredBindings number (typed requirement)
+  PASS rejected requiredBindings number plan writes no stdout (typed)
+  PASS rejection identifies requiredBindings for number (typed requirement)
+  PASS rejected requiredBindings number plan leaves workflow state unchanged (typed)
+  PASS rejected requiredBindings number plan leaves obligation state unchanged (typed)
+  PASS invalid requiredBindings number fixture route persists (untyped)
+  PASS plan exits 2 for requiredBindings number (untyped requirement)
+  PASS rejected requiredBindings number plan writes no stdout (untyped)
+  PASS rejection identifies requiredBindings for number (untyped requirement)
+  PASS rejected requiredBindings number plan leaves workflow state unchanged (untyped)
+  PASS rejected requiredBindings number plan leaves obligation state unchanged (untyped)
+  PASS invalid optionalBindings null fixture route persists (typed)
+  PASS plan exits 2 for optionalBindings null (typed requirement)
+  PASS rejected optionalBindings null plan writes no stdout (typed)
+  PASS rejection identifies optionalBindings for null (typed requirement)
+  PASS rejected optionalBindings null plan leaves workflow state unchanged (typed)
+  PASS rejected optionalBindings null plan leaves obligation state unchanged (typed)
+  PASS invalid optionalBindings null fixture route persists (untyped)
+  PASS plan exits 2 for optionalBindings null (untyped requirement)
+  PASS rejected optionalBindings null plan writes no stdout (untyped)
+  PASS rejection identifies optionalBindings for null (untyped requirement)
+  PASS rejected optionalBindings null plan leaves workflow state unchanged (untyped)
+  PASS rejected optionalBindings null plan leaves obligation state unchanged (untyped)
+  PASS invalid optionalBindings object fixture route persists (typed)
+  PASS plan exits 2 for optionalBindings object (typed requirement)
+  PASS rejected optionalBindings object plan writes no stdout (typed)
+  PASS rejection identifies optionalBindings for object (typed requirement)
+  PASS rejected optionalBindings object plan leaves workflow state unchanged (typed)
+  PASS rejected optionalBindings object plan leaves obligation state unchanged (typed)
+  PASS invalid optionalBindings object fixture route persists (untyped)
+  PASS plan exits 2 for optionalBindings object (untyped requirement)
+  PASS rejected optionalBindings object plan writes no stdout (untyped)
+  PASS rejection identifies optionalBindings for object (untyped requirement)
+  PASS rejected optionalBindings object plan leaves workflow state unchanged (untyped)
+  PASS rejected optionalBindings object plan leaves obligation state unchanged (untyped)
+  PASS invalid optionalBindings string fixture route persists (typed)
+  PASS plan exits 2 for optionalBindings string (typed requirement)
+  PASS rejected optionalBindings string plan writes no stdout (typed)
+  PASS rejection identifies optionalBindings for string (typed requirement)
+  PASS rejected optionalBindings string plan leaves workflow state unchanged (typed)
+  PASS rejected optionalBindings string plan leaves obligation state unchanged (typed)
+  PASS invalid optionalBindings string fixture route persists (untyped)
+  PASS plan exits 2 for optionalBindings string (untyped requirement)
+  PASS rejected optionalBindings string plan writes no stdout (untyped)
+  PASS rejection identifies optionalBindings for string (untyped requirement)
+  PASS rejected optionalBindings string plan leaves workflow state unchanged (untyped)
+  PASS rejected optionalBindings string plan leaves obligation state unchanged (untyped)
+  PASS invalid optionalBindings boolean fixture route persists (typed)
+  PASS plan exits 2 for optionalBindings boolean (typed requirement)
+  PASS rejected optionalBindings boolean plan writes no stdout (typed)
+  PASS rejection identifies optionalBindings for boolean (typed requirement)
+  PASS rejected optionalBindings boolean plan leaves workflow state unchanged (typed)
+  PASS rejected optionalBindings boolean plan leaves obligation state unchanged (typed)
+  PASS invalid optionalBindings boolean fixture route persists (untyped)
+  PASS plan exits 2 for optionalBindings boolean (untyped requirement)
+  PASS rejected optionalBindings boolean plan writes no stdout (untyped)
+  PASS rejection identifies optionalBindings for boolean (untyped requirement)
+  PASS rejected optionalBindings boolean plan leaves workflow state unchanged (untyped)
+  PASS rejected optionalBindings boolean plan leaves obligation state unchanged (untyped)
+  PASS invalid optionalBindings number fixture route persists (typed)
+  PASS plan exits 2 for optionalBindings number (typed requirement)
+  PASS rejected optionalBindings number plan writes no stdout (typed)
+  PASS rejection identifies optionalBindings for number (typed requirement)
+  PASS rejected optionalBindings number plan leaves workflow state unchanged (typed)
+  PASS rejected optionalBindings number plan leaves obligation state unchanged (typed)
+  PASS invalid optionalBindings number fixture route persists (untyped)
+  PASS plan exits 2 for optionalBindings number (untyped requirement)
+  PASS rejected optionalBindings number plan writes no stdout (untyped)
+  PASS rejection identifies optionalBindings for number (untyped requirement)
+  PASS rejected optionalBindings number plan leaves workflow state unchanged (untyped)
+  PASS rejected optionalBindings number plan leaves obligation state unchanged (untyped)
+  PASS empty-array binding fixture route persists
+  PASS plan accepts omitted and explicit empty binding arrays
+  PASS omitted binding arrays remain empty after normalization
+  PASS explicit empty binding arrays remain empty after normalization
+  PASS normalized ordered steps are recorded in the existing requirements contract
+  PASS typed steps preserve request order
+  PASS behavior-change step materializes required TDD binding
+  PASS verification step owns its verification-loop binding
+  PASS commit step materializes required git-commit binding
+  PASS typed-step plan cannot omit the mandatory verification step
+  PASS start accepts a confirmed typed-step workflow
+  PASS start returns the first ordered step as active
+  PASS start returns concrete commands for resolving the active binding and passing the step
+  PASS review starts without TDD and surfaces only its optional binding
+  PASS active optional binding includes its load path
+  PASS start does not disclose future-step bindings
+  PASS future-step binding cannot be resolved before its step becomes active
+  PASS active step is persisted in workflow-obligations state
+  PASS typed-step workflows do not reintroduce global suggested-skill pushes
+  PASS active step cannot pass before surfaced optional bindings are resolved
+  PASS active optional binding can be loaded with evidence
+  PASS optional binding cannot be marked not-needed without evidence
+  PASS active optional binding can be marked not-needed with evidence
+  PASS review step can pass after its surfaced optional binding is resolved
+  PASS review advance returns only the behavior-change step and its required TDD binding
+  PASS behavior-change output includes its TDD path but keeps later bindings hidden
+  PASS behavior-change cannot pass before required TDD binding is resolved
+  PASS required TDD binding resolves with load evidence
+  PASS resolved behavior-change advances to the mandatory verification step
+  PASS verification binding is disclosed only when verification becomes active
+  PASS verification binding resolves at its own step
+  PASS verification step advances to commit only after its binding resolves
+  PASS commit binding is disclosed only when the commit step becomes active
+  PASS required git-commit binding resolves at the commit step
+  PASS advancing the last step leaves no active-step bindings
+  PASS completed typed steps resolve their aggregate execute and verify obligations with linked evidence
+  PASS all typed steps can satisfy the workflow without separate aggregate dispositions
+  PASS satisfied typed-step workflow has no unresolved obligations
+  PASS verification-only workflow route persists
+  PASS verification-only typed plan is accepted
+  PASS verification-only typed plan starts at its verification step
+  PASS empty typed execution group resolves as explicit verification-only evidence
+  PASS verification-only step resolves its required binding
+  PASS verification-only step passes with objective evidence
+  PASS verification-only workflow can satisfy without an execution step
+  PASS verification-only completion also resolves the aggregate verify obligation
+  PASS route persists for unknown-required-binding coverage
+  PASS unknown required binding is accepted into the auditable contract
+  PASS start surfaces rather than silently discarding an unknown required binding
+  PASS unknown required binding remains visible as pending/unavailable
+  PASS unknown required binding cannot be falsely marked loaded
+  PASS step with unknown required binding cannot pass
+  PASS unknown required binding does not hard-block ordinary tools
+  PASS missing binding keeps Stop fail-open while workflow remains unresolved
+  PASS Stop reports the unresolved unknown binding
+  PASS custom-reference workflow route persists
+  PASS step contracts accept an explicit skill/reference path
+  PASS custom reference path is normalized and disclosed only at its active step
+  PASS explicit reference binding can resolve with evidence
+  PASS active step can pass after its explicit reference binding is resolved
+  PASS unsafe-reference workflow route persists
+  PASS step bindings reject paths that traverse outside repository scope
+  PASS drive-reference workflow route persists
+  PASS step bindings reject Windows drive-relative paths
+  PASS second Tier 2 route persists for replan discriminator
+  PASS initial route records normalized knowledge signals
+  PASS post-decomposition workflow can be recomposed through the router contract
+  PASS recomposed workflow receives an explicit confirmed disposition
+  PASS requested and router-confirmed post-decomposition strategy are preserved
+  PASS recomposed plan becomes the pending execution contract
+  PASS strategy recomposition preserves the original knowledge signals
+  PASS recomposed workflow cannot become satisfied before its selected topology starts
+  PASS recomposed Fable topology proceeds to its native stage-contract requirement
+  PASS recomposed planning state still does not recreate a tool lock
+  PASS prohibition fixture routes successfully
+  PASS prohibited post-decomposition choice is evaluated by router policy
+  PASS original user prohibition survives recomposition
+  PASS requirements remain valid while only the prohibited workflow choice stays unresolved
+  PASS Tier 3 Fable candidate persists successfully
+  PASS Tier 3 keeps Fable as preliminary candidate
+  PASS Fable also requires requirements/workflow planning before stage execution
+  PASS Fable cannot enter stage execution before planning contract resolves
+  PASS Tier 1 route persists successfully
+  PASS clear bounded Tier 1 intent has no decomposition overhead
+  PASS Tier 1 direct Stop remains lightweight
+  PASS Tier 1 remains a minimal direct path
+  PASS #190 mutation-probe lock remains retired
+  PASS #190 hard budget state remains retired
+
+PASS: issue #85 requirements-first workflow contract (0 failures)

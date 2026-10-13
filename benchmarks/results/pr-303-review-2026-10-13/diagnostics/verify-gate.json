@@ -1,0 +1,46 @@
+{
+  "status": "FAILED",
+  "reason": "check package-test exited 1",
+  "repoRoot": "<workspace>",
+  "roots": [
+    {
+      "path": "<workspace>",
+      "status": "FAILED",
+      "reason": "check package-test exited 1",
+      "checks": [
+        {
+          "id": "package-test",
+          "run": "npm run test",
+          "cwd": "<workspace>",
+          "source": "package-auto",
+          "exitCode": 1,
+          "durationMs": 240451
+        }
+      ],
+      "candidates": [
+        {
+          "source": "git-hook",
+          "run": "git commit (pre-commit hook configured)",
+          "cwd": "<workspace>"
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "id": "package-test",
+      "run": "npm run test",
+      "cwd": "<workspace>",
+      "source": "package-auto",
+      "exitCode": 1,
+      "durationMs": 240451
+    }
+  ],
+  "candidates": [
+    {
+      "source": "git-hook",
+      "run": "git commit (pre-commit hook configured)",
+      "cwd": "<workspace>"
+    }
+  ]
+}

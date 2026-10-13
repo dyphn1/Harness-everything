@@ -1,0 +1,46 @@
+{
+  "status": "UNCHECKED_DISCOVERED",
+  "reason": "1 verification candidate(s) detected but not executed",
+  "repoRoot": "<workspace>",
+  "roots": [
+    {
+      "path": "<workspace>",
+      "status": "UNCHECKED_DISCOVERED",
+      "reason": "1 verification candidate(s) detected but not executed",
+      "checks": [
+        {
+          "id": "package-test",
+          "run": "npm run test",
+          "cwd": "<workspace>",
+          "source": "package-auto",
+          "exitCode": 0,
+          "durationMs": 245096
+        }
+      ],
+      "candidates": [
+        {
+          "source": "git-hook",
+          "run": "git commit (pre-commit hook configured)",
+          "cwd": "<workspace>"
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "id": "package-test",
+      "run": "npm run test",
+      "cwd": "<workspace>",
+      "source": "package-auto",
+      "exitCode": 0,
+      "durationMs": 245096
+    }
+  ],
+  "candidates": [
+    {
+      "source": "git-hook",
+      "run": "git commit (pre-commit hook configured)",
+      "cwd": "<workspace>"
+    }
+  ]
+}

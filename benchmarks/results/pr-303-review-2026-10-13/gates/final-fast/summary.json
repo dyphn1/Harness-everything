@@ -1,0 +1,12 @@
+[
+  {
+    "gate": "test:consistency",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-tree-8f6c2c-fast-gates\\test-consistency.log"
+  },
+  {
+    "gate": "test:release",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-tree-8f6c2c-fast-gates\\test-release.log"
+  }
+]

@@ -1,0 +1,90 @@
+[CRITICAL] RULE OF 3 CIRCUIT BREAKER TRIGGERED!
+The same failure signature has now occurred 3 times.
+Error Signature: 84edbe719770818783c799972ef28e77
+
+Mutating tools (Bash/PowerShell/Edit/Write/apply_patch) are locked - not because you
+must wait for a human, but because you must stop drilling and rebuild the
+full picture first. Do NOT ask the Human Partner yet.
+
+ACTION REQUIRED (reflect first):
+1. CEASE FIRE. No new fix attempts, no variations of the last one.
+2. Load the 'zoom-out' skill and follow its Reflect & Fact-Check protocol.
+3. Using READ-ONLY tools (Read/Grep/Glob - still available), re-verify the
+   assumption behind each failed attempt against the actual code/logs/docs.
+4. Write your findings to '<temp>\harness-mechanism-state-Fl2Oxr\workspaces\harness-everything-issue-297-6eb1109f6a2a\state\sessions\__mechanism_test__\zoom-out-report.md' (the ONLY write
+   allowed right now) with sections: ## Goal, ## Failed Attempts,
+   ## Verified Facts, ## Diagnosis, ## Decision (ending RESUME: or ESCALATE:).
+
+A valid report releases this breaker automatically. Escalate to the Human
+Partner ONLY if your Decision concludes a genuinely human call is needed
+(requirement conflict, architecture trade-off, destructive action, missing
+access) - and then present options with a recommendation, not apologies.
+[CRITICAL] RULE OF 3 CIRCUIT BREAKER TRIGGERED!
+The same failure signature has now occurred 3 times.
+Error Signature: mech-test
+
+Mutating tools (Bash/PowerShell/Edit/Write/apply_patch) are locked - not because you
+must wait for a human, but because you must stop drilling and rebuild the
+full picture first. Do NOT ask the Human Partner yet.
+
+ACTION REQUIRED (reflect first):
+1. CEASE FIRE. No new fix attempts, no variations of the last one.
+2. Load the 'zoom-out' skill and follow its Reflect & Fact-Check protocol.
+3. Using READ-ONLY tools (Read/Grep/Glob - still available), re-verify the
+   assumption behind each failed attempt against the actual code/logs/docs.
+4. Write your findings to '<temp>\harness-mechanism-state-Fl2Oxr\workspaces\harness-everything-issue-297-6eb1109f6a2a\state\sessions\__mechanism_test__\zoom-out-report.md' (the ONLY write
+   allowed right now) with sections: ## Goal, ## Failed Attempts,
+   ## Verified Facts, ## Diagnosis, ## Decision (ending RESUME: or ESCALATE:).
+
+A valid report releases this breaker automatically. Escalate to the Human
+Partner ONLY if your Decision concludes a genuinely human call is needed
+(requirement conflict, architecture trade-off, destructive action, missing
+access) - and then present options with a recommendation, not apologies.
+[CRITICAL] RULE OF 3 CIRCUIT BREAKER TRIGGERED!
+The same failure signature has now occurred 3 times.
+Error Signature: ca808a9df9b7d8c531929ca6ea04a324
+
+Mutating tools (Bash/PowerShell/Edit/Write/apply_patch) are locked - not because you
+must wait for a human, but because you must stop drilling and rebuild the
+full picture first. Do NOT ask the Human Partner yet.
+
+ACTION REQUIRED (reflect first):
+1. CEASE FIRE. No new fix attempts, no variations of the last one.
+2. Load the 'zoom-out' skill and follow its Reflect & Fact-Check protocol.
+3. Using READ-ONLY tools (Read/Grep/Glob - still available), re-verify the
+   assumption behind each failed attempt against the actual code/logs/docs.
+4. Write your findings to '<temp>\harness-mechanism-state-Fl2Oxr\workspaces\harness-everything-issue-297-6eb1109f6a2a\state\sessions\__mechanism_test__\zoom-out-report.md' (the ONLY write
+   allowed right now) with sections: ## Goal, ## Failed Attempts,
+   ## Verified Facts, ## Diagnosis, ## Decision (ending RESUME: or ESCALATE:).
+
+A valid report releases this breaker automatically. Escalate to the Human
+Partner ONLY if your Decision concludes a genuinely human call is needed
+(requirement conflict, architecture trade-off, destructive action, missing
+access) - and then present options with a recommendation, not apologies.
+(node:29656) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  ⚠️ Preserved existing agent without overwrite: <workspace>\.mechanism-test-manifest-ws\agents\fable-orchestrator.md
+  ⚠️ Preserved existing agent without overwrite: <workspace>\.mechanism-test-manifest-ws\agents\fable-orchestrator.md
+  ⚠️ Preserved pre-existing identical agent without claiming ownership: <workspace>\.mechanism-test-manifest-ws\agents\fable-verifier.md
+Harness: ignoring corrupt circuit-breaker state at "<workspace>\.mechanism-test-opencode-home\.agents\harness-everything\workspaces\.mechanism-test-opencode-workspace-f1d77c78973a\state\sessions\corrupt\circuit-breaker.json" and starting fresh.
+warning: in the working copy of '.claude-plugin/marketplace.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'alpha/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'alpha/nested/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'beta/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'opencode-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'plugins/harness-everything/.codex-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'plugins/harness-everything/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude-plugin/marketplace.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'alpha/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'alpha/nested/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'beta/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'opencode-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'plugins/harness-everything/.codex-plugin/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'plugins/harness-everything/plugin.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'alpha/behavior.txt', LF will be replaced by CRLF the next time Git touches it

@@ -1,0 +1,57 @@
+[
+  {
+    "gate": "test:consistency",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-contracts\\test-consistency.log"
+  },
+  {
+    "gate": "test:repo-contract",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-contracts\\test-repo-contract.log"
+  },
+  {
+    "gate": "test:docs:capabilities",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-contracts\\test-docs-capabilities.log"
+  },
+  {
+    "gate": "test:references",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-contracts\\test-references.log"
+  },
+  {
+    "gate": "test:release",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-contracts\\test-release.log"
+  },
+  {
+    "gate": "test:collision",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-contracts\\test-collision.log"
+  },
+  {
+    "gate": "test:routing:skills",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-contracts\\test-routing-skills.log"
+  },
+  {
+    "gate": "test:routing:invariants",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-contracts\\test-routing-invariants.log"
+  },
+  {
+    "gate": "test:plugin:openai",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-contracts\\test-plugin-openai.log"
+  },
+  {
+    "gate": "test:plugin:submission",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-contracts\\test-plugin-submission.log"
+  },
+  {
+    "gate": "test:platform:compatibility",
+    "exitCode": 0,
+    "log": "<temp>\\harness-pr303-final-contracts\\test-platform-compatibility.log"
+  }
+]

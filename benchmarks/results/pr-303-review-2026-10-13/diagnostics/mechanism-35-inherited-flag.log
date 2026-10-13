@@ -1,0 +1,34 @@
+node.exe : node:assert:152
+位於 線路:4 字元:1
++ & node ci/mechanism-35-verification-contract.test.js *> (Join-Path $o ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (node:assert:152:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+  throw new AssertionError(obj);
+  ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'SKIPPED'
+- 'UNCHECKED_NO_CHECKS'
+
+    at Object.<anonymous> (<workspace>\ci\mechanism-35-verification-contract.tes
+t.js:90:10)
+    at Module._compile (node:internal/modules/cjs/loader:1871:14)
+    at Object..js (node:internal/modules/cjs/loader:2002:10)
+    at Module.load (node:internal/modules/cjs/loader:1594:32)
+    at Module._load (node:internal/modules/cjs/loader:1396:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'SKIPPED',
+  expected: 'UNCHECKED_NO_CHECKS',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.18.0

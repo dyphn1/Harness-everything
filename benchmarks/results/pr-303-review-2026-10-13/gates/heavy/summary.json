@@ -1,0 +1,79 @@
+{
+  "finalSnapshot": {
+    "head": "788ea75",
+    "tree": "8f6c2c942d3f6c1af6ca4332b8ba1f2529b5cc95"
+  },
+  "directGates": [
+    {
+      "name": "test",
+      "command": "npm.cmd test",
+      "exitCode": 0,
+      "status": "PASSED"
+    },
+    {
+      "name": "test-mutations",
+      "command": "npm.cmd run test:mutations",
+      "exitCode": 0,
+      "status": "PASSED",
+      "mutationCasesRejected": 11
+    },
+    {
+      "name": "test-mechanism",
+      "command": "npm.cmd run test:mechanism",
+      "exitCode": 0,
+      "status": "PASSED",
+      "suitesPassed": 76,
+      "optionalSkips": 4,
+      "optionalSkipReason": "Three cases require torch; one case requires torch/cua_s1."
+    }
+  ],
+  "targetedMechanism35": [
+    {
+      "environment": "HARNESS_SKIP_PROJECT_CHECKS=1",
+      "exitCode": 0,
+      "status": "PASSED",
+      "log": "mechanism-35-inherited-flag-fixed.log"
+    },
+    {
+      "environment": "HARNESS_SKIP_PROJECT_CHECKS absent",
+      "exitCode": 0,
+      "status": "PASSED",
+      "log": "mechanism-35-clean-env-fixed.log"
+    }
+  ],
+  "verifyGateHistory": [
+    {
+      "status": "FAILED",
+      "checkExitCode": 1,
+      "durationMs": 240451,
+      "cause": "Pre-fix run inherited the recursion guard; mechanism-35 fixture expected ordinary discovery.",
+      "log": "verify-gate.json"
+    },
+    {
+      "status": "FAILED",
+      "cause": "Capture preload propagated NODE_OPTIONS into fixture subprocess; invalid-package fixture failed at Node startup (instrumentation artifact).",
+      "log": "verify-gate-captured.json",
+      "childStderr": "nested-test.stderr.log"
+    },
+    {
+      "status": "UNCHECKED_DISCOVERED",
+      "processExitCode": 0,
+      "checkExitCode": 0,
+      "durationMs": 245096,
+      "reason": "1 verification candidate(s) detected but not executed",
+      "candidate": {
+        "source": "git-hook",
+        "run": "git commit (pre-commit hook configured)",
+        "cwd": "<workspace>"
+      },
+      "log": "verify-gate-final.json",
+      "nestedStdout": "nested-test.stdout.log",
+      "nestedStderr": "nested-test.stderr.log"
+    }
+  ],
+  "notes": [
+    "The latest package-test completed the full npm self-regression suite successfully.",
+    "The final structured gate is UNCHECKED_DISCOVERED because one git-hook candidate is configured but not executed; it is not PASSED evidence.",
+    "No repository files were changed by this verification worker; all capture files and reports are in this temp directory."
+  ]
+}

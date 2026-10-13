@@ -1,0 +1,36 @@
+=== PR #303 binding resolution ===
+  PASS Tier 2 route persists for declared-path coverage
+  PASS plan with a missing declared path is still recorded
+  PASS a declared path with no file is recorded as missing, not available
+  PASS a declared path that exists resolves to its readable file
+  PASS workflow starts with a visible missing binding
+  PASS a missing required binding cannot be marked loaded
+  PASS the failed load leaves the required binding visibly unavailable
+  PASS the step cannot pass while its required binding is unresolved
+  PASS an existing optional binding can be loaded
+  PASS repository/Claude plugin layout resolves tdd/SKILL.md at the package root
+  PASS Codex plugin package ships the binding resolver
+  PASS Codex plugin layout resolves tdd/SKILL.md under its skills/ root
+  PASS a path absent from workspace and package roots is missing
+  PASS fixture precondition: Harness ships docs/architecture.md
+  PASS a missing workspace reference does not resolve to the Harness package copy
+  PASS a skill id naming its own SKILL.md still resolves from the package
+  PASS a registered id at an unregistered path is treated as a workspace reference
+  PASS Tier 2 route persists in a client workspace
+  PASS client plan declares a workspace reference that collides with a Harness file
+  PASS step flow records the colliding workspace reference as missing
+  PASS client workflow starts
+  PASS step flow cannot load the Harness copy as the workspace reference
+  PASS stage flow records the colliding workspace reference as missing
+  PASS router runs against a workspace with a generated-skill manifest
+  PASS matching self-evolved skill surfaces as a metadata-only id
+  PASS router does not disclose the generated skill path or text
+  PASS unrelated prompts do not surface the generated skill
+  PASS Tier 2 route persists in the generated-skill workspace
+  PASS a step can declare the generated skill id as a binding
+  PASS the generated binding is not disclosed before its step is active
+  PASS built-in TDD binding resolves from the package root outside the Harness repo
+  PASS the generated binding becomes available with its SKILL.md once its step is active
+  PASS the active generated binding can be loaded
+
+PASS: PR #303 binding resolution (0 failures)

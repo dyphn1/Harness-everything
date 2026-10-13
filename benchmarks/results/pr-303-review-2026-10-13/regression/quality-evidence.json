@@ -1,0 +1,314 @@
+{
+  "schemaVersion": "1.0.0",
+  "requirements": [
+    {
+      "requirementId": "REQ-303-BINDING-DECLARATION-TYPE",
+      "testProfile": "integration",
+      "source": {
+        "type": "SPEC",
+        "path": "docs/workflow-runtime.md",
+        "section": "Fable and worktrees",
+        "status": "AUTHORITATIVE"
+      },
+      "sourceConformance": "PASS",
+      "sourceValidity": "VALID",
+      "sourceNotes": "Present declaration type contract is verified across both fields and typed/untyped fragments; omitted and empty arrays are accepted.",
+      "dimensions": {
+        "positiveParameters": {
+          "applicable": true,
+          "checks": [
+            {
+              "id": "positive-arrays",
+              "class": "supported-parameter-class",
+              "status": "PASS",
+              "evidence": "ci/mechanism-2an-workflow-obligations.test.js:193-211: explicit empty arrays and omitted arrays plan successfully"
+            }
+          ]
+        },
+        "negativeParameters": {
+          "applicable": true,
+          "checks": [
+            {
+              "id": "negative-non-array-declarations",
+              "class": "rejected-parameter-class",
+              "status": "PASS",
+              "evidence": "ci/mechanism-2an-workflow-obligations.test.js:152-188: null, object, string, boolean, and number for both fields in typed and untyped fragments"
+            }
+          ]
+        },
+        "inputCompleteness": {
+          "applicable": true,
+          "checks": [
+            {
+              "id": "input-optional",
+              "class": "optional",
+              "status": "PASS",
+              "evidence": "ci/mechanism-2an-workflow-obligations.test.js:193-211: declarations omitted"
+            },
+            {
+              "id": "input-omitted",
+              "class": "omitted",
+              "status": "PASS",
+              "evidence": "ci/mechanism-2an-workflow-obligations.test.js:193-211: declarations omitted"
+            },
+            {
+              "id": "input-empty",
+              "class": "empty",
+              "status": "PASS",
+              "evidence": "ci/mechanism-2an-workflow-obligations.test.js:193-211: both declarations explicitly []"
+            },
+            {
+              "id": "input-null",
+              "class": "null",
+              "status": "PASS",
+              "evidence": "ci/mechanism-2an-workflow-obligations.test.js:152-188: both fields tested with null"
+            },
+            {
+              "id": "input-required",
+              "class": "required",
+              "status": "N/A",
+              "reason": "Binding declarations are optional by the authoritative contract."
+            },
+            {
+              "id": "input-min",
+              "class": "min",
+              "status": "N/A",
+              "reason": "The declarations have no minimum array length; empty arrays are explicitly supported."
+            },
+            {
+              "id": "input-max",
+              "class": "max",
+              "status": "N/A",
+              "reason": "The authoritative contract defines no maximum binding-array length."
+            },
+            {
+              "id": "input-boundary",
+              "class": "boundary",
+              "status": "N/A",
+              "reason": "No numeric or length boundary is defined for binding declarations."
+            }
+          ]
+        },
+        "outputCompleteness": {
+          "applicable": true,
+          "checks": [
+            {
+              "id": "output-side-effect",
+              "class": "side-effect",
+              "status": "PASS",
+              "evidence": "ci/mechanism-2an-workflow-obligations.test.js:152-188: rejected plans preserve both workflow and obligation JSON state"
+            },
+            {
+              "id": "output-value",
+              "class": "value",
+              "status": "N/A",
+              "reason": "Rejected plan command has no stdout payload by contract."
+            },
+            {
+              "id": "output-type",
+              "class": "type",
+              "status": "N/A",
+              "reason": "Rejected plan command has no stdout payload by contract."
+            },
+            {
+              "id": "output-schema",
+              "class": "schema",
+              "status": "N/A",
+              "reason": "Rejected plan command has no stdout payload by contract."
+            },
+            {
+              "id": "output-required-field",
+              "class": "required-field",
+              "status": "N/A",
+              "reason": "Rejected plan command has no stdout payload by contract."
+            },
+            {
+              "id": "output-no-extra",
+              "class": "prohibited-extra-field",
+              "status": "N/A",
+              "reason": "Rejected plan command has no stdout payload by contract."
+            }
+          ]
+        },
+        "errorHandling": {
+          "applicable": true,
+          "checks": [
+            {
+              "id": "error-type",
+              "class": "error-type",
+              "status": "PASS",
+              "evidence": "The repeated plan-command probe exits 2 for a declaration validation error."
+            },
+            {
+              "id": "error-message",
+              "class": "message",
+              "status": "PASS",
+              "evidence": "The repeated plan-command probe names req-review.requiredBindings and requires an array."
+            },
+            {
+              "id": "error-cleanup",
+              "class": "state-cleanup",
+              "status": "PASS",
+              "evidence": "The repeated plan-command probe preserves the pre-plan session file hashes."
+            },
+            {
+              "id": "error-rollback",
+              "class": "rollback",
+              "status": "PASS",
+              "evidence": "The rejected plan does not alter workflow or obligation state."
+            },
+            {
+              "id": "error-no-output",
+              "class": "no-unintended-output",
+              "status": "PASS",
+              "evidence": "The repeated plan-command probe has empty stdout."
+            },
+            {
+              "id": "error-code",
+              "class": "error-code",
+              "status": "N/A",
+              "reason": "The authoritative contract specifies rejection but no stable machine-readable error code."
+            }
+          ]
+        },
+        "unexpectedInput": {
+          "applicable": true,
+          "checks": [
+            {
+              "id": "unexpected-type",
+              "class": "wrong-type",
+              "status": "PASS",
+              "evidence": "ci/mechanism-2an-workflow-obligations.test.js:152-188: null, object, string, boolean, and number"
+            },
+            {
+              "id": "unexpected-malformed",
+              "class": "malformed",
+              "status": "N/A",
+              "reason": "The targeted defect concerns valid JSON with a declaration of the wrong type."
+            },
+            {
+              "id": "unexpected-unknown",
+              "class": "unknown",
+              "status": "N/A",
+              "reason": "Unknown declaration names are outside this contract."
+            },
+            {
+              "id": "unexpected-extra",
+              "class": "extra",
+              "status": "N/A",
+              "reason": "Extra object properties are outside this contract."
+            },
+            {
+              "id": "unexpected-unsupported",
+              "class": "unsupported",
+              "status": "N/A",
+              "reason": "Unsupported enum values are outside this contract."
+            },
+            {
+              "id": "unexpected-range",
+              "class": "out-of-range",
+              "status": "N/A",
+              "reason": "No binding declaration range is defined."
+            },
+            {
+              "id": "unexpected-duplicate",
+              "class": "duplicate",
+              "status": "N/A",
+              "reason": "Duplicate declaration semantics are outside this type-validation contract."
+            }
+          ]
+        },
+        "determinism": {
+          "applicable": true,
+          "runs": [
+            {
+              "id": "run-1",
+              "input": [
+                {
+                  "id": "req-review",
+                  "stepType": "review",
+                  "summary": "Review the change",
+                  "acceptance": "the change is reviewed",
+                  "requiredBindings": null
+                },
+                {
+                  "id": "req-verify",
+                  "stepType": "verification",
+                  "summary": "Verify the change",
+                  "acceptance": "objective evidence is recorded"
+                }
+              ],
+              "exitStatus": 2,
+              "errorCategory": "validation-error",
+              "output": {
+                "stdout": "",
+                "stderr": "[Workflow Disposition] req-review.requiredBindings must be an array\n"
+              },
+              "sideEffects": {
+                "createdFiles": [],
+                "changedFiles": [],
+                "deletedFiles": [],
+                "persistentState": {
+                  "sessionFilesEqualToBefore": true,
+                  "sessionFileHashes": {
+                    "workflow-obligations.json": "dbc03590ec7bbd9745cfd5aa45fd4f1757c827beb243e0c98149a272d3e2caa7",
+                    "workflow-run.json": "5aa69cd0e787811f4b88bc3379d77ba85d403f5d8b298287d554ccce572f579c"
+                  }
+                },
+                "events": [],
+                "logs": [],
+                "externalCalls": []
+              }
+            },
+            {
+              "id": "run-2",
+              "input": [
+                {
+                  "id": "req-review",
+                  "stepType": "review",
+                  "summary": "Review the change",
+                  "acceptance": "the change is reviewed",
+                  "requiredBindings": null
+                },
+                {
+                  "id": "req-verify",
+                  "stepType": "verification",
+                  "summary": "Verify the change",
+                  "acceptance": "objective evidence is recorded"
+                }
+              ],
+              "exitStatus": 2,
+              "errorCategory": "validation-error",
+              "output": {
+                "stdout": "",
+                "stderr": "[Workflow Disposition] req-review.requiredBindings must be an array\n"
+              },
+              "sideEffects": {
+                "createdFiles": [],
+                "changedFiles": [],
+                "deletedFiles": [],
+                "persistentState": {
+                  "sessionFilesEqualToBefore": true,
+                  "sessionFileHashes": {
+                    "workflow-obligations.json": "dbc03590ec7bbd9745cfd5aa45fd4f1757c827beb243e0c98149a272d3e2caa7",
+                    "workflow-run.json": "5aa69cd0e787811f4b88bc3379d77ba85d403f5d8b298287d554ccce572f579c"
+                  }
+                },
+                "events": [],
+                "logs": [],
+                "externalCalls": []
+              }
+            }
+          ],
+          "normalizations": []
+        },
+        "sourceTraceability": {
+          "applicable": true
+        }
+      },
+      "skippedTests": [],
+      "flakyTests": [],
+      "naDeclarations": []
+    }
+  ]
+}
