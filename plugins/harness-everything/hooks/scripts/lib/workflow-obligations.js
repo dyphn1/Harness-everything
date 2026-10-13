@@ -146,16 +146,21 @@ function parseRequirements(requirementsJson, workspaceRoot) {
       : [];
     const rawStepType = item.stepType === undefined ? '' : String(item.stepType).trim();
     if (rawStepType && !STEP_TYPES.has(rawStepType)) throw new Error(`unsupported requirement stepType: ${rawStepType}`);
+    for (const field of ['requiredBindings', 'optionalBindings']) {
+      if (Object.prototype.hasOwnProperty.call(item, field) && !Array.isArray(item[field])) {
+        throw new Error(`${id}.${field} must be an array`);
+      }
+    }
     const requirement = { id, order: index + 1, summary, acceptance, suggestedSkills };
     if (!rawStepType) return requirement;
 
     const requiredBindings = normalizeBindingDeclarations([
       ...(REQUIRED_BINDINGS_BY_STEP[rawStepType] || []),
-      ...(Array.isArray(item.requiredBindings) ? item.requiredBindings : []),
+      ...(item.requiredBindings || []),
     ]);
     const requiredIds = new Set(requiredBindings.map(binding => binding.id));
     const optionalBindings = normalizeBindingDeclarations([
-      ...(Array.isArray(item.optionalBindings) ? item.optionalBindings : []),
+      ...(item.optionalBindings || []),
       ...suggestedSkills,
     ]).filter(binding => !requiredIds.has(binding.id));
     if (rawStepType === 'review' && [...requiredBindings, ...optionalBindings].some(binding => binding.id === 'tdd')) {

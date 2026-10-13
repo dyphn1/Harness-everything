@@ -87,6 +87,8 @@ A workflow may retain `blocked` as a descriptive status recorded by the controll
 
 ## Fable and worktrees
 
+Any present `requiredBindings` or `optionalBindings` declaration MUST be an array. Omitted declarations and empty arrays are supported; `null`, objects, strings, booleans, and numbers are rejected before a requirement plan changes workflow state, including fragments without `stepType`.
+
 When a Fable topology is selected, its stage graphs, dependencies, write sets, objective checks, synthesis barrier, and required verifier are semantic **MUSTs**. `maxWorkers` remains a **MAY** planning hint and no longer chunks ready stages as a hard concurrency cap.
 
 Requirement steps and Fable stages may declare required/optional skill or reference bindings. Runtime output exposes only the active single-agent step or dependency-ready Fable stages. A successful Fable check with unresolved bindings records `binding-unresolved`; after dispositions resolve, the exact check must be rerun before the stage passes. Unknown/unavailable bindings remain visible, while workflow hooks and Stop remain fail-open reminders. A binding disposition is auditable agent evidence, not proof that a host actually loaded or followed the referenced document.

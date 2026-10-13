@@ -146,6 +146,70 @@ check(run(kernel, [], stepPayload).status === 0, 'Tier 2 route persists for acti
 const stepDir = getSessionDir(ROOT, stepSession, stepPayload);
 const stepWorkflowFile = path.join(stepDir, 'workflow-run.json');
 const stepObligationFile = path.join(stepDir, 'workflow-obligations.json');
+
+console.log('\n=== Binding declaration validation ===');
+let invalidBindingCase = 0;
+for (const field of ['requiredBindings', 'optionalBindings']) {
+  for (const [valueName, value] of [
+    ['null', null],
+    ['object', { id: 'silently-dropped' }],
+    ['string', 'silently-dropped'],
+    ['boolean', false],
+    ['number', 0],
+  ]) {
+    for (const typed of [true, false]) {
+      invalidBindingCase++;
+      const sessionId = `issue303-invalid-binding-${invalidBindingCase}`;
+      const payload = { session_id: sessionId, cwd: ROOT, prompt: 'Fix this checkout bug and add a regression test.' };
+      const routed = run(kernel, [], payload);
+      check(routed.status === 0, `invalid ${field} ${valueName} fixture route persists (${typed ? 'typed' : 'untyped'})`);
+      const dir = getSessionDir(ROOT, sessionId, payload);
+      const workflowFile = path.join(dir, 'workflow-run.json');
+      const obligationFile = path.join(dir, 'workflow-obligations.json');
+      const workflowBefore = readJson(workflowFile);
+      const obligationsBefore = readJson(obligationFile);
+      const malformed = { id: 'req-review', summary: 'Review a change', acceptance: 'the change is reviewed', [field]: value };
+      const requirements = typed
+        ? [
+          { ...malformed, stepType: 'review' },
+          { id: 'req-verify', stepType: 'verification', summary: 'Verify the change', acceptance: 'objective evidence is recorded' },
+        ]
+        : [malformed];
+      const result = run(controller, [
+        'plan', '--session-id', sessionId, '--requirements-json', JSON.stringify(requirements),
+        '--strategy', 'iterative-single', '--evidence', 'validate binding declaration types',
+      ]);
+      check(result.status === 2, `plan exits 2 for ${field} ${valueName} (${typed ? 'typed' : 'untyped'} requirement)`);
+      check(result.stdout === '', `rejected ${field} ${valueName} plan writes no stdout (${typed ? 'typed' : 'untyped'})`);
+      check(new RegExp(field).test(result.stderr || ''), `rejection identifies ${field} for ${valueName} (${typed ? 'typed' : 'untyped'} requirement)`);
+      check(JSON.stringify(readJson(workflowFile)) === JSON.stringify(workflowBefore),
+        `rejected ${field} ${valueName} plan leaves workflow state unchanged (${typed ? 'typed' : 'untyped'})`);
+      check(JSON.stringify(readJson(obligationFile)) === JSON.stringify(obligationsBefore),
+        `rejected ${field} ${valueName} plan leaves obligation state unchanged (${typed ? 'typed' : 'untyped'})`);
+    }
+  }
+}
+
+const emptyBindingsSession = 'issue303-empty-binding-arrays';
+const emptyBindingsPayload = { session_id: emptyBindingsSession, cwd: ROOT, prompt: 'Fix this checkout bug and add a regression test.' };
+check(run(kernel, [], emptyBindingsPayload).status === 0, 'empty-array binding fixture route persists');
+const emptyBindingsDir = getSessionDir(ROOT, emptyBindingsSession, emptyBindingsPayload);
+const emptyBindingsRequirements = JSON.stringify([
+  { id: 'req-review-omitted', stepType: 'review', summary: 'Review a change', acceptance: 'the change is reviewed' },
+  { id: 'req-review-empty', stepType: 'review', summary: 'Review another change', acceptance: 'the second change is reviewed', requiredBindings: [], optionalBindings: [] },
+  { id: 'req-verify', stepType: 'verification', summary: 'Verify both reviews', acceptance: 'objective evidence is recorded' },
+]);
+const emptyBindingsPlan = run(controller, [
+  'plan', '--session-id', emptyBindingsSession, '--requirements-json', emptyBindingsRequirements,
+  '--strategy', 'iterative-single', '--evidence', 'omitted and empty binding arrays are supported',
+]);
+check(emptyBindingsPlan.status === 0, 'plan accepts omitted and explicit empty binding arrays');
+const emptyBindingsState = readJson(path.join(emptyBindingsDir, 'workflow-obligations.json'));
+check(emptyBindingsState.requirements[0].requiredBindings.length === 0 && emptyBindingsState.requirements[0].optionalBindings.length === 0,
+  'omitted binding arrays remain empty after normalization');
+check(emptyBindingsState.requirements[1].requiredBindings.length === 0 && emptyBindingsState.requirements[1].optionalBindings.length === 0,
+  'explicit empty binding arrays remain empty after normalization');
+
 const stepRequirements = JSON.stringify([
   { id: 'req-review', stepType: 'review', summary: 'Inspect the existing checkout change', acceptance: 'the relevant diff has been reviewed', optionalBindings: ['security-review', 'review-guidance'] },
   { id: 'req-change', stepType: 'behavior-change', summary: 'Correct the checkout behavior', acceptance: 'the reported behavior is corrected' },
