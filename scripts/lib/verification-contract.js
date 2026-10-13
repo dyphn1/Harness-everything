@@ -303,6 +303,7 @@ function verificationCommandSet(cwd, options = {}) {
       contract,
       contractInvalid: false,
       commands: contract.checks.map(check => check.run),
+      checks: contract.checks.map(check => ({ run: check.run, cwd: check.cwd })),
       commitHookDeclared: contract.checks.some(check => /^pre-commit\s+/i.test(normalizeCommand(check.run))),
     };
   }
@@ -326,7 +327,10 @@ function verificationCommandSet(cwd, options = {}) {
 // Hosts such as Claude Code on Windows Bash may prefix a shell call with a
 // working-directory prelude: `cd <workspace> && <command>`. Recognize exactly
 // one such prelude lexically (never evaluating shell text) and only when the
-// target is an existing directory inside the repository root. The remaining
+// target is an existing directory inside the repository root. Only spellings
+// whose Bash destination is stable are accepted: absolute paths or explicit
+// ./ and ../ relatives. Bare relatives are CDPATH-sensitive, and option-like
+// targets (-, --, -P ...) change cd semantics, so both fail closed. The remaining
 // command must be one plain command: no further control operators,
 // redirection, substitution, expansion, subshell, or background syntax.
 const CWD_PRELUDE_RE = /^cd\s+(?:"([^"]*)"|'([^']*)'|([A-Za-z0-9_./:@%+,-]+))\s*&&\s*([\s\S]+)$/;
@@ -339,6 +343,18 @@ function hostPathToNative(value, platform = process.platform) {
   return drive ? `${drive[1].toUpperCase()}:\\${(drive[2] || '').replace(/\//g, '\\')}` : value;
 }
 
+function stableCdTarget(target, platform = process.platform) {
+  if (target.startsWith('-')) return false;
+  if (/^\.\.?(?:\/|$)/.test(target)) return true;
+  if (platform === 'win32') {
+    if (/^\.\.?\\/.test(target) || /^[A-Za-z]:[\\/]/.test(target)) return true;
+    // Git Bash maps only /<drive>/... onto Windows paths; other absolute
+    // POSIX paths (/tmp, /usr) are MSYS mounts that Node cannot resolve alike.
+    return /^\/[A-Za-z](?:\/|$)/.test(target);
+  }
+  return target.startsWith('/');
+}
+
 function parseCwdPrelude(command, options = {}) {
   const match = String(command || '').trim().match(CWD_PRELUDE_RE);
   if (!match) return null;
@@ -348,6 +364,7 @@ function parseCwdPrelude(command, options = {}) {
   if (!target || !rest) return null;
   if (doubleQuoted !== undefined && UNSAFE_DOUBLE_QUOTED_RE.test(target)) return null;
   if (UNSAFE_WRAPPED_RE.test(rest) || hasControlOperators(rest)) return null;
+  if (!stableCdTarget(target, options.platform)) return null;
 
   const cwd = path.resolve(options.cwd || process.cwd());
   let resolved;
@@ -369,6 +386,12 @@ function isVerificationCommand(command, options = {}) {
   return isPlainVerificationCommand(command, options);
 }
 
+function cwdKey(dir) {
+  let resolved = path.resolve(dir);
+  try { resolved = fs.realpathSync.native(resolved); } catch (_) {}
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
 function isPlainVerificationCommand(command, options = {}) {
   const cwd = path.resolve(options.cwd || process.cwd());
   const actual = normalizeCommand(command);
@@ -379,8 +402,15 @@ function isPlainVerificationCommand(command, options = {}) {
   if (isGitCommit(actual)) {
     return !!set.commitHookDeclared && !bypassesHooks(actual) && hasCommitHook(set.repoRoot);
   }
+  // A declared contract check counts only when it ran in its declared cwd;
+  // otherwise a matching command in another directory (e.g. a subproject)
+  // would be credited as the root check.
+  if (set.contract) {
+    const executed = cwdKey(cwd);
+    return set.checks.some(check => commandMatches(actual, check.run) && cwdKey(check.cwd) === executed);
+  }
   if (set.commands.some(expected => commandMatches(actual, expected))) return true;
-  return !set.contract && legacyVerificationCommand(actual);
+  return legacyVerificationCommand(actual);
 }
 
 module.exports = {

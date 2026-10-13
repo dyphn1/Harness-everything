@@ -418,6 +418,8 @@ try {
   const posixRepo = physicalRepo.replace(/\\/g, '/');
   const outside = fs.mkdtempSync(path.join(temp, 'outside-'));
   fs.mkdirSync(path.join(classifyRepo, 'pkg'), { recursive: true });
+  fs.mkdirSync(path.join(classifyRepo, '--'), { recursive: true });
+  fs.mkdirSync(path.join(outside, 'pkg'), { recursive: true });
   fs.writeFileSync(path.join(classifyRepo, 'not-a-dir.txt'), 'x\n');
   const classifiers = {
     canonical: require('../hooks/scripts/lib/workflow-isolation').isVerificationShell,
@@ -430,7 +432,9 @@ try {
       `cd '${posixRepo}' && npm test`,
       `cd   "${physicalRepo}"   &&   npm   test`,
       `cd "${physicalRepo}" && pre-commit run --all-files`,
-      `cd pkg && npm test`,
+      `cd ./pkg && npm test`,
+      `cd "./pkg" && npm test`,
+      `cd . && npm test`,
       'npm test',
     ];
     if (!/[^A-Za-z0-9_./:@%+,-]/.test(posixRepo)) positive.push(`cd ${posixRepo} && npm test`);
@@ -465,7 +469,16 @@ try {
       `cd "${physicalRepo}" || npm test`,
       `pushd "${physicalRepo}" && npm test`,
       `cd "${physicalRepo}" &&`,
+      // Bash destination differs from a naive path.resolve: CDPATH-sensitive
+      // bare relatives and option-like targets fail closed (PR #307 review).
+      'cd pkg && npm test',
+      'cd "pkg" && npm test',
+      'cd -- && npm test',
+      'cd "--" && npm test',
+      'cd - && npm test',
+      `cd -P "${physicalRepo}" && npm test`,
     ];
+    if (process.platform === 'win32') negative.push('cd /usr && npm test', 'cd /tmp && npm test');
     return { positive, negative, repo };
   };
   for (const [label, classify] of Object.entries(classifiers)) {
@@ -482,17 +495,44 @@ try {
     }
   }
 
+  // Where Bash is available, prove the CDPATH hazard is real: `cd pkg` leaves
+  // the repository even though <repo>/pkg exists, so the bare form must not count.
+  const bashProbe = spawnSync('bash', ['-c', 'cd pkg >/dev/null && pwd'], {
+    cwd: classifyRepo,
+    encoding: 'utf8',
+    // Native path on purpose: MSYS Bash converts it, while a `C:/...` spelling
+    // would be split at the drive colon as a CDPATH separator.
+    env: { ...process.env, CDPATH: outside },
+  });
+  if (!bashProbe.error && bashProbe.status === 0) {
+    assert.match(bashProbe.stdout.trim(), new RegExp(`${path.basename(outside)}[\\\\/]pkg$`), 'CDPATH redirects a bare cd outside the repository');
+  }
+
   // A declared contract still governs the wrapped command: declared checks
-  // count through the wrapper, undeclared legacy commands do not.
+  // count through the wrapper only in their declared cwd; undeclared legacy
+  // commands and declared commands run elsewhere do not (PR #307 review).
   writeJson(path.join(classifyRepo, '.harness', 'verify.json'), {
     version: 1,
-    checks: [{ id: 'e2e', run: 'bash scripts/e2e.sh' }],
+    checks: [
+      { id: 'e2e', run: 'bash scripts/e2e.sh' },
+      { id: 'root-test', run: 'npm test', cwd: '.' },
+      { id: 'pkg-make', run: 'make test', cwd: 'pkg' },
+    ],
   });
   for (const [label, classify] of Object.entries(classifiers)) {
     const options = { cwd: classifyRepo, root: classifyRepo };
+    const pkgOptions = { cwd: path.join(classifyRepo, 'pkg'), root: classifyRepo };
     assert.strictEqual(classify(`cd "${physicalRepo}" && bash scripts/e2e.sh`, options), true, `${label}: declared contract check through wrapper`);
-    assert.strictEqual(classify(`cd "${physicalRepo}" && npm test`, options), false, `${label}: wrapper must not bypass the declared contract`);
+    assert.strictEqual(classify(`cd "${physicalRepo}" && npx jest`, options), false, `${label}: wrapper must not bypass the declared contract`);
     assert.strictEqual(classify(`cd "${physicalRepo}" && bash scripts/e2e.sh && rm -rf build`, options), false, `${label}: chained contract check`);
+    assert.strictEqual(classify(`cd "${physicalRepo}" && npm test`, options), true, `${label}: root check in its declared cwd`);
+    assert.strictEqual(classify('cd ./pkg && npm test', options), false, `${label}: root check run in a subproject is not root verification`);
+    assert.strictEqual(classify(`cd "${path.join(physicalRepo, 'pkg')}" && npm test`, options), false, `${label}: absolute wrong-cwd root check`);
+    assert.strictEqual(classify('cd ./pkg && make test', options), true, `${label}: subproject check in its declared cwd`);
+    assert.strictEqual(classify(`cd "${physicalRepo}" && make test`, options), false, `${label}: subproject check run at root`);
+    assert.strictEqual(classify('npm test', options), true, `${label}: standalone root check at root`);
+    assert.strictEqual(classify('npm test', pkgOptions), false, `${label}: standalone root check from the wrong cwd`);
+    assert.strictEqual(classify('make test', pkgOptions), true, `${label}: standalone subproject check in its cwd`);
   }
   fs.writeFileSync(path.join(classifyRepo, '.harness', 'verify.json'), '{ broken');
   assert.strictEqual(isVerificationShell(`cd "${physicalRepo}" && npm test`, { cwd: classifyRepo }), false, 'invalid contract still fails closed through the wrapper');
