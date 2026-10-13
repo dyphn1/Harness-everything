@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.31.1](https://github.com/dyphn1/Harness-everything/compare/v0.31.0...v0.31.1) (2026-10-13)
+
+### Bug Fixes
+
+* **verify:** pin wrapped checks to stable cd targets and declared cwd ([527b746](https://github.com/dyphn1/Harness-everything/commit/527b746d09db0db1a0b9310f1831bcaf312b1bf0)), closes [#307](https://github.com/dyphn1/Harness-everything/issues/307) [#306](https://github.com/dyphn1/Harness-everything/issues/306)
+* **verify:** recognize safe host cwd wrappers as verification evidence ([de7953f](https://github.com/dyphn1/Harness-everything/commit/de7953f9562bf4d31984cecf053725e1b4219eb2)), closes [#306](https://github.com/dyphn1/Harness-everything/issues/306)
+
 ## [0.31.0](https://github.com/dyphn1/Harness-everything/compare/v0.30.10...v0.31.0) (2026-10-13)
 
 ### Features
