@@ -43,7 +43,7 @@ A turn runs from `UserPromptSubmit` to `Stop`. Its record:
 | `prompt` | `UserPromptSubmit` | stored in the private text store only (see Storage) |
 | `previous` | the last assistant message before the prompt | truncated to 2 KB; text store only |
 | `router` | kernel-router output | lexical tier, strategy, suggested skills; System One shadow scores when present |
-| `behavior` | `PostToolUse`, `PostToolUseFailure` | counts and categories, never arguments: files written, distinct repositories written, files created, commands by class (git, gh, test, build, package, shell), skills loaded or read, subagents started. Failed attempts are counted separately (`toolFailures`, `failedWrites`, `failedSkillLoads`) and never count as a write or a load |
+| `behavior` | `PostToolUse`, `PostToolUseFailure` | counts and categories, never arguments: files written, distinct repositories written, files created, commands by class (git, gh, test, build, package, shell), skills loaded or read, subagents started. Failed attempts are counted separately (`toolFailures`, `failedWrites`, `failedSkillLoads`) and never count as a write or a load. `null` means the capture source did not observe tool events; it is not a zero count. |
 | `workflow` | `workflow-run.json` / `workflow-disposition` | selected and confirmed strategy |
 | `selfReport` | label line in the final message | see below; `null` if missing or invalid |
 | `derived` | exporter | labels computed from the fields above |
@@ -97,6 +97,12 @@ purposes:
   change). These records go to the owner's review page.
 - **Future features.** The counters can train or check later models
   without re-reading transcripts.
+
+Session backfill reads prompts and final labels, but does not reconstruct
+tool events or file writes. Its `behavior` is therefore `null`. Exports count
+observed and unobserved behavior separately and derive contradictions only
+from observed behavior. The default review page includes unobserved records
+and identifies the evidence gap.
 
 **Owner review.** Missing labels, contradictions, and turns where the
 router's tier and the self-reported tier differ go to a blind review page.
@@ -184,7 +190,7 @@ To recover self-reported labels written before the observation hooks were active
 
     node scripts/system-one-observations-import-codex-sessions.js --since 2026-09-27
 
-The importer scans local Codex rollout files, pairs each completed turn with its first user text item, and reads the final label from `task_complete.last_agent_message` or, when that field omits it, from the last assistant `response_item` in the same turn. It accepts only valid label lines, applies the same email/home-path redaction, and appends idempotently to the private observations store. It reports missing prompts and invalid labels without printing session text. The cutoff defaults to the date the label contract was accepted. It never uploads or writes session content into the repository.
+The importer scans local Codex rollout files, pairs each completed turn with its first user text item, and reads the final label from `task_complete.last_agent_message`. It consults the last assistant `response_item` only when that completion field has no string value, so an earlier label cannot replace an explicit unlabeled final reply. It accepts only valid label lines, applies the same email/home-path redaction, and appends idempotently to the private observations store. Backfill and live hook records deduplicate by host, session ID, and Codex turn ID. For older live records without a turn ID, an exact turn-and-text match is skipped; a partial match is counted as ambiguous and skipped to avoid silently duplicating training data. Existing backfill behavior placeholders are migrated to `null`. The importer reports missing prompts and invalid labels without printing session text. The cutoff defaults to the date the label contract was accepted. It never uploads or writes session content into the repository.
 
 ## Export
 
@@ -192,7 +198,7 @@ The importer scans local Codex rollout files, pairs each completed turn with its
 repository:
 
 - `prompts-observed.jsonl`: `{id, family, source: "observation", split, text}`
-- `labels-observed.jsonl`: `{id, validity, contextDependent, tier, tierSource, intents, workflow, skills}`
+- `labels-observed.jsonl`: `{id, validity, contextDependent, tier, tierSource, intents, workflow, skills, behaviorEvidence, contradictions}`
 
 `family` groups near-duplicate prompts. The split is by time: the newest 15%
 is validation. The existing holdouts stay frozen and separate. Observed data

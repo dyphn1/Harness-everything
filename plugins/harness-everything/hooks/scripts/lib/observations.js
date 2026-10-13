@@ -438,6 +438,7 @@ function appendRecord(root, record, text, options = {}) {
     const file = path.join(root, 'observations-index.json');
     const index = readJson(file, null) || { schemaVersion: 1, kind: 'system-one-observations', records: [] };
     if (options.dedupeById && index.records.some(existing => existing.id === record.id)) return;
+    if (options.dedupeByTurn && observationTurnMatch(index.records, record)) return;
     // The blob is written under the lock, so a concurrent sweep cannot remove it before its record lands.
     const textDir = path.join(root, 'text');
     fs.mkdirSync(textDir, { recursive: true, mode: 0o700 });
@@ -449,6 +450,58 @@ function appendRecord(root, record, text, options = {}) {
   });
   return Boolean(locked && appended);
 }
+
+function observationTurnMatch(records, record) {
+  const writer = record && record.writer || {};
+  const sessionId = String(writer.sessionId || '');
+  const turnId = String(writer.turnId || '');
+  if (!sessionId || !record.host) return null;
+  const sameSession = (Array.isArray(records) ? records : []).filter(existing =>
+    existing && existing.host === record.host &&
+    String(existing.writer && existing.writer.sessionId || '') === sessionId
+  );
+  if (!sameSession.length) return null;
+
+  if (turnId && sameSession.some(existing => String(existing.writer && existing.writer.turnId || '') === turnId)) {
+    return 'same-turn-id';
+  }
+
+  // Older live records have no turn ID. Only treat matching ordinal plus text
+  // as a definite duplicate; a partial match is ambiguous and the importer
+  // skips it instead of risking a second training row for the same turn.
+  const legacy = sameSession.filter(existing => existing.captureMethod !== 'session-backfill' &&
+    (!turnId || !String(existing.writer && existing.writer.turnId || '')));
+  if (!legacy.length) return null;
+  const sameTurn = existing => Number.isInteger(existing.turn) && existing.turn === record.turn;
+  const sameText = existing => Boolean(existing.contentSha256 && existing.contentSha256 === record.contentSha256);
+  if (legacy.some(existing => sameTurn(existing) && sameText(existing))) return 'legacy-same-turn';
+  if (legacy.some(existing => sameTurn(existing) || sameText(existing))) return 'ambiguous-legacy-turn';
+  return null;
+}
+
+function findObservationTurnMatch(root, record) {
+  const index = readJson(path.join(root, 'observations-index.json'), null);
+  return observationTurnMatch(index && index.records, record);
+}
+
+function markSessionBackfillBehaviorUnobserved(root) {
+  const file = path.join(root, 'observations-index.json');
+  if (!fs.existsSync(file)) return 0;
+  let changed = 0;
+  const locked = withLock(root, () => {
+    const index = readJson(file, null);
+    if (!index || !Array.isArray(index.records)) return;
+    for (const record of index.records) {
+      if (record.captureMethod === 'session-backfill' && record.behavior !== null) {
+        record.behavior = null;
+        changed++;
+      }
+    }
+    if (changed) writeJsonAtomic(file, index);
+  });
+  return locked ? changed : null;
+}
+
 // Tool events are immutable files, one per event, so parallel hooks never
 // overwrite each other; Stop adds them up.
 function eventsDir(root, sessionId, turn) {
@@ -487,6 +540,7 @@ function startTurn(payload, root) {
   session.turn++;
   session.pending = {
     turn: session.turn,
+    turnId: String(payload.turn_id || payload.turnId || ''),
     startedAt: new Date().toISOString(),
     prompt: redact(typeof payload.prompt === 'string' ? payload.prompt : ''),
     previous: session.lastFinal || '',
@@ -508,6 +562,7 @@ function toolTurn(payload, root, failed, codex) {
 
 function finishPending(session, payload, root, final) {
   const pending = session.pending;
+  const turnId = String(payload.turn_id || payload.turnId || pending.turnId || '');
   const { label, reason } = final.text === null && final.reason ? { label: null, reason: final.reason } : parseLabelLine(final.text);
   const collected = collectEvents(root, payload.session_id, pending.turn);
   const behavior = { ...collected };
@@ -534,7 +589,10 @@ function finishPending(session, payload, root, final) {
     contentSha256,
     host: detectHost(payload, { codex: final.codex || collected._codex }),
     turn: pending.turn,
-    writer: { sessionId: String(payload.session_id || 'unknown') },
+    writer: {
+      sessionId: String(payload.session_id || 'unknown'),
+      ...(turnId ? { turnId } : {}),
+    },
     scope: { taskTerms: normalizeTerms(pending.prompt), requirementTerms: [], roles: [] },
     promptBytes: Buffer.byteLength(pending.prompt, 'utf8'),
     router: routerState(payload),
@@ -579,6 +637,6 @@ function handle(payload, env = process.env) {
 
 module.exports = {
   INTENTS, TIERS, STRATEGIES, RETENTION_MS, PREVIOUS_BYTES, enabled, storeRoot, redact, parseLabelLine, stripLabels, tailBytes, sha, classifyCommand, labelTier, contradictions,
-  normalizeTerms, transcriptMessage, recordTool, emptyBehavior, mergeBehavior, toolFailed, handle, readJson, appendRecord,
+  normalizeTerms, transcriptMessage, recordTool, emptyBehavior, mergeBehavior, toolFailed, handle, readJson, appendRecord, observationTurnMatch, findObservationTurnMatch, markSessionBackfillBehaviorUnobserved,
   expired, recordText, sweep,
 };

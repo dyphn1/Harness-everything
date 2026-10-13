@@ -177,8 +177,12 @@ function findMarketplace(payload, marketplace) {
 }
 
 function findPlugin(payload, plugin, marketplace) {
+  return Boolean(findPluginEntry(payload, plugin, marketplace)) || collectStrings(payload).some(value => value.trim() === `${plugin}@${marketplace}`);
+}
+
+function findPluginEntry(payload, plugin, marketplace) {
   const pluginId = `${plugin}@${marketplace}`;
-  return collectStrings(payload).some(value => value.trim() === pluginId) || collectObjects(payload).some(({ value, keyHint }) => {
+  return collectObjects(payload).find(({ value, keyHint }) => {
     const identifiers = [value.id, value.pluginId, value.identifier, keyHint];
     if (identifiers.some(candidate => exactString(candidate, pluginId))) return true;
     const names = [value.name, value.plugin, value.pluginName];
@@ -190,7 +194,7 @@ function findPlugin(payload, plugin, marketplace) {
       value.source && value.source.id
     ].filter(Boolean);
     return sources.length === 0 || sources.some(source => exactString(source, marketplace));
-  });
+  })?.value || null;
 }
 
 function escapeRegExp(value) {
@@ -232,7 +236,11 @@ function createContext(options = {}) {
       return result && result.status === 0 && !result.error;
     })
   };
-  context.codexHooksInstall = options.codexHooksInstall || (() => require('./codex-hooks-compat').install({ codexHome: options.codexHome, env: options.env }));
+  context.codexHooksInstall = options.codexHooksInstall || (installOptions => require('./codex-hooks-compat').install({
+    ...installOptions,
+    codexHome: options.codexHome,
+    env: options.env
+  }));
   context.repositorySource = options.repositorySource || (
     /^https?:\/\//.test(context.repository) || /^git@/.test(context.repository)
       ? context.repository
@@ -376,25 +384,30 @@ function queryCodexMarketplace(context) {
 }
 
 function queryCodexPlugin(context) {
-  const state = listState(context, {
+  const query = (jsonArgs, plainArgs) => listState(context, {
     command: 'codex',
-    jsonArgs: ['plugin', 'list', '--marketplace', context.marketplace, '--json'],
-    plainArgs: ['plugin', 'list', '--marketplace', context.marketplace],
-    detectJson: payload => findPlugin(payload, context.plugin, context.marketplace),
+    jsonArgs,
+    plainArgs,
+    detectJson: payload => findPluginEntry(payload, context.plugin, context.marketplace) ||
+      (findPlugin(payload, context.plugin, context.marketplace) ? { detected: true } : null),
     detectText: output => textHasPlugin(output, context.plugin, context.marketplace)
   });
-  if (state.known) return state;
+  let state = query(
+    ['plugin', 'list', '--marketplace', context.marketplace, '--json'],
+    ['plugin', 'list', '--marketplace', context.marketplace]
+  );
 
   // Older Codex builds may not accept --marketplace on plugin list. A full
   // list still lets us fail closed while supporting those builds when JSON is
   // available.
-  return listState(context, {
-    command: 'codex',
-    jsonArgs: ['plugin', 'list', '--json'],
-    plainArgs: ['plugin', 'list'],
-    detectJson: payload => findPlugin(payload, context.plugin, context.marketplace),
-    detectText: output => textHasPlugin(output, context.plugin, context.marketplace)
-  });
+  if (!state.known) {
+    state = query(['plugin', 'list', '--json'], ['plugin', 'list']);
+  }
+  if (state.known) {
+    state.plugin = state.value && typeof state.value === 'object' ? state.value : null;
+    state.value = Boolean(state.plugin || state.value);
+  }
+  return state;
 }
 
 function ensureClaudeMarketplace(context) {
@@ -453,7 +466,7 @@ function verifyPlugin(context, host, queryPlugin) {
   const state = queryPlugin(context);
   if (!state.known) return { ok: false, error: `${host} plugin state could not be verified: ${state.error}` };
   if (!state.value) return { ok: false, error: `${host} reports ${context.plugin}@${context.marketplace} is not installed after synchronization` };
-  return { ok: true };
+  return { ok: true, state };
 }
 
 function syncClaude(context) {
@@ -478,10 +491,13 @@ function syncClaude(context) {
   return { host: 'claude', status: 'synchronized', action };
 }
 
-function refreshCodexCompatibilityHooks(context) {
+function refreshCodexCompatibilityHooks(context, sourcePluginRoot) {
   if (context.dryRun) return { ok: true, result: { status: 'dry-run', entries: 0, trustChanged: false } };
+  if (!sourcePluginRoot) {
+    return { ok: false, error: 'Codex did not report the installed plugin source path; refusing to copy hooks from the sync package' };
+  }
   try {
-    const result = context.codexHooksInstall();
+    const result = context.codexHooksInstall({ sourcePluginRoot });
     if (!result || !['installed', 'updated'].includes(result.status)) {
       return { ok: false, error: 'Codex compatibility-hook installer returned an unexpected result' };
     }
@@ -541,7 +557,8 @@ function syncCodex(context) {
 
   const verification = verifyPlugin(context, 'Codex', queryCodexPlugin);
   if (!verification.ok) return { host: 'codex', status: 'failed', error: verification.error };
-  const compatHooks = refreshCodexCompatibilityHooks(context);
+  const sourcePluginRoot = verification.state && verification.state.plugin && verification.state.plugin.source && verification.state.plugin.source.path;
+  const compatHooks = refreshCodexCompatibilityHooks(context, sourcePluginRoot);
   if (!compatHooks.ok) return { host: 'codex', status: 'failed', action, error: 'Codex plugin ' + action + ' succeeded but compatibility hooks could not be refreshed: ' + compatHooks.error };
   return { host: 'codex', status: 'synchronized', action, compatHooks: compatHooks.result };
 }

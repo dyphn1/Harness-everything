@@ -16,14 +16,15 @@ const {
 const ROOT = path.resolve(__dirname, '..');
 const codexHooksCompat = require('../scripts/codex-hooks-compat');
 
-function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false, clapCodexJsonFlag = false, missingCodexPluginCommand = false, codexHooksError = null } = {}) {
+function fakeHost({ claudeInstalled = false, codexInstalled = false, codexPluginSourcePath = path.join(ROOT, 'plugins', 'harness-everything'), claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false, clapCodexJsonFlag = false, missingCodexPluginCommand = false, codexHooksError = null } = {}) {
   const calls = [];
   const codexHookInstalls = [];
   const state = {
     claudeInstalled,
     codexInstalled,
     claudeMarketplace,
-    codexMarketplace
+    codexMarketplace,
+    codexPluginSourcePath
   };
   const runner = (command, args) => {
     calls.push({ command, args: [...args] });
@@ -95,7 +96,8 @@ function fakeHost({ claudeInstalled = false, codexInstalled = false, claudeMarke
       }
       if (joined.startsWith('plugin marketplace upgrade')) return { status: 0, stdout: '{}', stderr: '' };
       if (joined.includes('plugin list --marketplace harness-everything --json') || joined === 'plugin list --json') {
-        return { status: 0, stdout: JSON.stringify({ plugins: state.codexInstalled ? [{ name: 'harness-everything', marketplace: 'harness-everything' }] : [] }), stderr: '' };
+        const plugin = state.codexInstalled ? [{ name: 'harness-everything', marketplace: 'harness-everything', ...(state.codexPluginSourcePath ? { source: { path: state.codexPluginSourcePath } } : {}) }] : [];
+        return { status: 0, stdout: JSON.stringify({ plugins: plugin }), stderr: '' };
       }
       if (joined === 'plugin list --marketplace harness-everything' || joined === 'plugin list') {
         return { status: 0, stdout: state.codexInstalled ? 'harness-everything@harness-everything\n' : '', stderr: '' };
@@ -197,6 +199,24 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   assert.strictEqual(callsFor(fake.calls, 'codex', 'plugin add').length, 0, 'installed Codex plugin must not be re-added');
   assert.strictEqual(fake.codexHookInstalls.length, 1, 'marketplace update must refresh the copied Codex hooks');
   assert.strictEqual(result.results[0].compatHooks.status, 'updated');
+}
+
+{
+  const installedSource = path.join(os.tmpdir(), 'newer-marketplace-plugin');
+  const fake = fakeHost({ codexInstalled: true, codexPluginSourcePath: installedSource });
+  const result = runHost('codex', fake);
+  assert.strictEqual(result.failed, 0);
+  assert.strictEqual(fake.codexHookInstalls[0].sourcePluginRoot, installedSource,
+    'compatibility hooks must be copied from the installed marketplace plugin, not this older package checkout');
+  assert.notStrictEqual(fake.codexHookInstalls[0].sourcePluginRoot, codexHooksCompat.SOURCE_PLUGIN_ROOT);
+}
+
+{
+  const fake = fakeHost({ codexInstalled: true, codexPluginSourcePath: null });
+  const result = runHost('codex', fake);
+  assert.strictEqual(result.failed, 1, 'sync must fail visibly when it cannot identify the installed plugin source');
+  assert.strictEqual(fake.codexHookInstalls.length, 0, 'sync must not overwrite compatibility hooks from an unverified local package');
+  assert.match(result.results[0].error, /source/i);
 }
 
 {

@@ -160,6 +160,18 @@ try {
   check(!fs.existsSync(path.join(emptyHome, 'hooks.json')),
     'uninstall removes hooks.json only when Harness created it and no user entries remain');
 
+  const marketplaceSource = path.join(root, 'marketplace-plugin');
+  const marketplaceHome = path.join(root, 'marketplace-codex');
+  fs.cpSync(compat.SOURCE_PLUGIN_ROOT, marketplaceSource, { recursive: true });
+  fs.writeFileSync(path.join(marketplaceSource, 'hooks', 'marketplace-source-marker.txt'), 'newer marketplace source\n');
+  const marketplaceInstall = compat.install({ codexHome: marketplaceHome, sourcePluginRoot: marketplaceSource });
+  const marketplaceManifest = read(path.join(marketplaceHome, 'harness-everything', 'compat-hooks', 'manifest.json'));
+  check(marketplaceInstall.sourcePluginSha256 === compat.treeHash(marketplaceSource) &&
+    marketplaceManifest.sourcePluginSha256 === compat.treeHash(marketplaceSource) &&
+    fs.readFileSync(path.join(marketplaceManifest.runtimeDir, 'hooks', 'marketplace-source-marker.txt'), 'utf8') === 'newer marketplace source\n',
+    'compatibility runtime is copied from the verified installed marketplace source');
+  compat.uninstall({ codexHome: marketplaceHome });
+
   const duplicateHome = path.join(root, 'duplicate-codex');
   fs.mkdirSync(duplicateHome, { recursive: true });
   compat.install({ codexHome: duplicateHome });

@@ -45,6 +45,7 @@ function loadReview(file) {
 
 function derive(record, owner) {
   const self = record.selfReport;
+  const behavior = record.captureMethod === 'session-backfill' ? null : record.behavior;
   let validity = self ? self.validity : null;
   let contextDependent = self ? self.contextDependent : null;
   if (owner && owner.validity && owner.validity !== 'unsure') validity = owner.validity;
@@ -56,7 +57,9 @@ function derive(record, owner) {
   return {
     id: record.id, validity, contextDependent, tier, tierSource,
     intents: self ? self.intents : [], workflow: (self && self.workflow) || (record.router && record.router.strategy) || null,
-    skills, contradictions: obs.contradictions(self, record.behavior),
+    skills,
+    behaviorEvidence: behavior ? 'observed' : 'unobserved',
+    contradictions: obs.contradictions(self, behavior),
     selfReportReason: record.selfReportReason || null, host: record.host,
   };
 }
@@ -113,6 +116,11 @@ function run(args) {
     skippedNoText, validationRows: validation, withSelfReport: withSelf.length,
     selfReportReasons: count(r => r.record.selfReportReason || 'ok'), hosts: count(r => r.record.host),
     validity: count(r => r.label.validity), tiers: count(r => r.label.tier), tierSources: count(r => r.label.tierSource),
+    behaviorEvidence: {
+      observed: rows.filter(r => r.label.behaviorEvidence === 'observed').length,
+      unobserved: rows.filter(r => r.label.behaviorEvidence === 'unobserved').length,
+    },
+    contradictionEvidence: 'observed-behavior-only',
     ownerDecisions: Object.keys(owner).length, agreement, contradictions,
   };
   fs.writeFileSync(path.join(out, 'export-report.json'), JSON.stringify(report, null, 2) + '\n');

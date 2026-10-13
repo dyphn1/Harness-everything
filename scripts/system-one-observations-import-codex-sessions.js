@@ -80,6 +80,7 @@ function blankReport(filesScanned) {
     eligibleTurns: 0,
     validLabels: 0,
     imported: 0,
+    migratedUnobservedBehavior: 0,
     skipped: {
       beforeCutoff: 0,
       missingLabel: 0,
@@ -88,6 +89,7 @@ function blankReport(filesScanned) {
       invalidTimestamp: 0,
       turnMismatch: 0,
       duplicate: 0,
+      ambiguousLiveMatch: 0,
     },
   };
 }
@@ -100,6 +102,9 @@ async function importSessions(options = {}) {
   const files = sessionFiles(sessionsRoot);
   const report = blankReport(files.length);
   report.since = since;
+  const migrated = obs.markSessionBackfillBehaviorUnobserved(store);
+  if (migrated === null) throw new Error('could not lock the observations store to migrate backfill behavior evidence');
+  report.migratedUnobservedBehavior = migrated;
 
   for (const file of files) {
     let sessionId = path.basename(file, '.jsonl');
@@ -156,10 +161,13 @@ async function importSessions(options = {}) {
         report.skipped.turnMismatch++;
         continue;
       }
+      if (!current.turnId && completedTurnId) current.turnId = completedTurnId;
 
       report.turnsScanned++;
       const startedMs = Date.parse(current.startedAt || '');
-      let finalMessage = typeof payload.last_agent_message === 'string' ? payload.last_agent_message : '';
+      const hasCompletionMessage = Object.prototype.hasOwnProperty.call(payload, 'last_agent_message') &&
+        typeof payload.last_agent_message === 'string';
+      let finalMessage = hasCompletionMessage ? payload.last_agent_message : '';
       if (!Number.isFinite(startedMs)) {
         report.skipped.invalidTimestamp++;
       } else if (startedMs < cutoff) {
@@ -167,7 +175,7 @@ async function importSessions(options = {}) {
       } else {
         report.eligibleTurns++;
         let parsed = completionLabel(finalMessage);
-        if (!parsed.label && current.lastAssistantMessage) {
+        if (!hasCompletionMessage && current.lastAssistantMessage) {
           const assistantParsed = completionLabel(current.lastAssistantMessage);
           if (assistantParsed.label) {
             finalMessage = current.lastAssistantMessage;
@@ -201,21 +209,24 @@ async function importSessions(options = {}) {
               contentSha256: obs.sha(JSON.stringify(text)),
               host: 'codex',
               turn: current.turn,
-              writer: { sessionId },
+              writer: { sessionId, ...(current.turnId ? { turnId: current.turnId } : {}) },
               scope: { taskTerms: obs.normalizeTerms(prompt), requirementTerms: [], roles: [] },
               promptBytes: Buffer.byteLength(prompt, 'utf8'),
               router: null,
-              behavior: {
-                filesWritten: 0, reposWritten: 0, filesCreated: 0,
-                commands: { git: 0, gh: 0, test: 0, build: 0, package: 0, shell: 0 },
-                skills: [], subagents: 0, toolCalls: 0, toolFailures: 0, failedWrites: 0, failedSkillLoads: 0,
-              },
+              behavior: null,
               selfReport: parsed.label,
               selfReportReason: null,
             };
-            const appended = obs.appendRecord(store, record, expired ? null : text, { dedupeById: true });
-            if (appended) report.imported++;
-            else report.skipped.duplicate++;
+            const existing = obs.findObservationTurnMatch(store, record);
+            if (existing === 'ambiguous-legacy-turn') {
+              report.skipped.ambiguousLiveMatch++;
+            } else if (existing) {
+              report.skipped.duplicate++;
+            } else {
+              const appended = obs.appendRecord(store, record, expired ? null : text, { dedupeById: true, dedupeByTurn: true });
+              if (appended) report.imported++;
+              else report.skipped.duplicate++;
+            }
           }
         }
       }

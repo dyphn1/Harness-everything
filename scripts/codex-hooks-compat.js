@@ -52,10 +52,23 @@ function defaultCodexHome(env = process.env) {
   return path.resolve(env.CODEX_HOME || path.join(os.homedir(), '.codex'));
 }
 
-function pathsFor(codexHome, sourceHash = null) {
+function sourcePluginVersion(sourcePluginRoot) {
+  for (const manifestFile of [
+    path.join(sourcePluginRoot, '.codex-plugin', 'plugin.json'),
+    path.join(sourcePluginRoot, 'plugin.json')
+  ]) {
+    const manifest = readJsonObject(manifestFile, null);
+    if (manifest && typeof manifest.version === 'string' && /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/.test(manifest.version)) {
+      return manifest.version;
+    }
+  }
+  throw new Error('installed plugin source is missing a valid plugin version: ' + sourcePluginRoot);
+}
+
+function pathsFor(codexHome, sourceHash = null, packageVersion = PACKAGE_VERSION) {
   const home = path.resolve(codexHome);
   const ownerRoot = path.join(home, 'harness-everything', 'compat-hooks');
-  const runtimeId = sourceHash ? PACKAGE_VERSION + '-' + sourceHash.slice(0, 12) : null;
+  const runtimeId = sourceHash ? packageVersion + '-' + sourceHash.slice(0, 12) : null;
   return {
     codexHome: home,
     hooksFile: path.join(home, 'hooks.json'),
@@ -290,11 +303,11 @@ function hookEntriesFrom(pluginRoot, runtimeDir) {
   return records;
 }
 
-function sourceHookEntries(runtimeDir) {
-  return hookEntriesFrom(SOURCE_PLUGIN_ROOT, runtimeDir);
+function sourceHookEntries(runtimeDir, sourcePluginRoot = SOURCE_PLUGIN_ROOT) {
+  return hookEntriesFrom(sourcePluginRoot, runtimeDir);
 }
 
-function ensureRuntime(runtimeDir, sourceHash) {
+function ensureRuntime(runtimeDir, sourceHash, sourcePluginRoot = SOURCE_PLUGIN_ROOT) {
   if (fs.existsSync(runtimeDir)) {
     if (treeHash(runtimeDir) === sourceHash) return;
     fs.rmSync(runtimeDir, { recursive: true, force: true });
@@ -303,7 +316,7 @@ function ensureRuntime(runtimeDir, sourceHash) {
   const temp = runtimeDir + '.tmp-' + process.pid;
   try {
     fs.rmSync(temp, { recursive: true, force: true });
-    fs.cpSync(SOURCE_PLUGIN_ROOT, temp, { recursive: true });
+    fs.cpSync(sourcePluginRoot, temp, { recursive: true });
     if (treeHash(temp) !== sourceHash) throw new Error('copied compatibility runtime hash mismatch');
     fs.renameSync(temp, runtimeDir);
   } finally {
@@ -313,8 +326,10 @@ function ensureRuntime(runtimeDir, sourceHash) {
 
 function install(options = {}) {
   const codexHome = path.resolve(options.codexHome || defaultCodexHome(options.env));
-  const sourceHash = treeHash(SOURCE_PLUGIN_ROOT);
-  const p = pathsFor(codexHome, sourceHash);
+  const sourcePluginRoot = path.resolve(options.sourcePluginRoot || SOURCE_PLUGIN_ROOT);
+  const packageVersion = sourcePluginVersion(sourcePluginRoot);
+  const sourceHash = treeHash(sourcePluginRoot);
+  const p = pathsFor(codexHome, sourceHash, packageVersion);
   assertCompatibilityPaths(p);
   const existedBefore = fs.existsSync(p.hooksFile);
   const hooksBefore = existedBefore ? fs.readFileSync(p.hooksFile) : null;
@@ -331,9 +346,9 @@ function install(options = {}) {
     base = removal.config;
   }
 
-  ensureRuntime(p.runtimeDir, sourceHash);
+  ensureRuntime(p.runtimeDir, sourceHash, sourcePluginRoot);
   assertCompatibilityPaths(p);
-  const generated = sourceHookEntries(p.runtimeDir);
+  const generated = sourceHookEntries(p.runtimeDir, sourcePluginRoot);
   const ownedEntries = [];
   const next = { ...base, hooks: { ...base.hooks } };
   for (const record of generated) {
@@ -349,7 +364,7 @@ function install(options = {}) {
     schemaVersion: MANIFEST_SCHEMA,
     package: 'harness-everything',
     mode: MANIFEST_MODE,
-    packageVersion: PACKAGE_VERSION,
+    packageVersion,
     sourcePluginSha256: sourceHash,
     runtimeDir: p.runtimeDir,
     hooksFile: p.hooksFile,
@@ -385,6 +400,8 @@ function install(options = {}) {
     codexHome,
     hooksFile: p.hooksFile,
     runtimeDir: p.runtimeDir,
+    packageVersion,
+    sourcePluginSha256: sourceHash,
     entries: generated.length,
     trustChanged: false,
   };
@@ -518,6 +535,7 @@ module.exports = {
   main,
   pathsFor,
   readHooksFile,
+  sourcePluginVersion,
   removePriorEntries,
   sourceHookEntries,
   stableJson,
