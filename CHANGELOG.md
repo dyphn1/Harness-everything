@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.31.0](https://github.com/dyphn1/Harness-everything/compare/v0.30.10...v0.31.0) (2026-10-13)
+
+### Features
+
+* **workflow:** bind knowledge to active steps ([cc673fc](https://github.com/dyphn1/Harness-everything/commit/cc673fc3d580e4e4d6d9017b59846ea85da3c489)), closes [#297](https://github.com/dyphn1/Harness-everything/issues/297)
+
+### Bug Fixes
+
+* **workflow:** reject malformed binding arrays ([2faa451](https://github.com/dyphn1/Harness-everything/commit/2faa4514f213afac383ca4bf70ad086e68690216))
+* **workflow:** resolve binding availability against real files ([d65f34d](https://github.com/dyphn1/Harness-everything/commit/d65f34d597f60c9bf01f5feabb9b1b26c754e221)), closes [#303](https://github.com/dyphn1/Harness-everything/issues/303)
+* **workflow:** scope workspace bindings and keep signals on recompose ([8ad41ac](https://github.com/dyphn1/Harness-everything/commit/8ad41ac28aec84ab1373e305aeb35c3bf5423291)), closes [#303](https://github.com/dyphn1/Harness-everything/issues/303)
+
 ## [Unreleased]
 
 ### Changes
