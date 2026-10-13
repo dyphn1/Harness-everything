@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.30.10](https://github.com/dyphn1/Harness-everything/compare/v0.30.9...v0.30.10) (2026-10-13)
+
+### Bug Fixes
+
+* **codex:** address observation review findings ([b869cfb](https://github.com/dyphn1/Harness-everything/commit/b869cfbdb44172ee88ad6ae3f76e29c8da6e9da8))
+* **codex:** sync hooks and recover turn labels ([d29112e](https://github.com/dyphn1/Harness-everything/commit/d29112e15ac255c5ded6fcf2aab3a21c710b3def)), closes [#304](https://github.com/dyphn1/Harness-everything/issues/304)
+* **codex:** validate sources and report import failures ([3f57b8b](https://github.com/dyphn1/Harness-everything/commit/3f57b8b376bfd437c8cff6ddbe4ddbf036380198)), closes [#304](https://github.com/dyphn1/Harness-everything/issues/304)
+
 ## [Unreleased]
 
 ### Bug Fixes
