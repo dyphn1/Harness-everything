@@ -323,7 +323,53 @@ function verificationCommandSet(cwd, options = {}) {
   };
 }
 
+// Hosts such as Claude Code on Windows Bash may prefix a shell call with a
+// working-directory prelude: `cd <workspace> && <command>`. Recognize exactly
+// one such prelude lexically (never evaluating shell text) and only when the
+// target is an existing directory inside the repository root. The remaining
+// command must be one plain command: no further control operators,
+// redirection, substitution, expansion, subshell, or background syntax.
+const CWD_PRELUDE_RE = /^cd\s+(?:"([^"]*)"|'([^']*)'|([A-Za-z0-9_./:@%+,-]+))\s*&&\s*([\s\S]+)$/;
+const UNSAFE_WRAPPED_RE = /[`$<>&|;()\r\n]/;
+const UNSAFE_DOUBLE_QUOTED_RE = /[$`!]|\\[\\"$`]|\\$/;
+
+function hostPathToNative(value, platform = process.platform) {
+  if (platform !== 'win32') return value;
+  const drive = value.match(/^\/([A-Za-z])(?:\/([\s\S]*))?$/);
+  return drive ? `${drive[1].toUpperCase()}:\\${(drive[2] || '').replace(/\//g, '\\')}` : value;
+}
+
+function parseCwdPrelude(command, options = {}) {
+  const match = String(command || '').trim().match(CWD_PRELUDE_RE);
+  if (!match) return null;
+  const [, doubleQuoted, singleQuoted, bare, restRaw] = match;
+  const target = doubleQuoted ?? singleQuoted ?? bare;
+  const rest = restRaw.trim();
+  if (!target || !rest) return null;
+  if (doubleQuoted !== undefined && UNSAFE_DOUBLE_QUOTED_RE.test(target)) return null;
+  if (UNSAFE_WRAPPED_RE.test(rest) || hasControlOperators(rest)) return null;
+
+  const cwd = path.resolve(options.cwd || process.cwd());
+  let resolved;
+  let root;
+  try {
+    resolved = fs.realpathSync.native(path.resolve(cwd, hostPathToNative(target, options.platform)));
+    if (!fs.statSync(resolved).isDirectory()) return null;
+    root = fs.realpathSync.native(path.resolve(options.root || findGitRoot(cwd)));
+  } catch (_) {
+    return null;
+  }
+  if (!within(root, resolved)) return null;
+  return { cwd: resolved, command: rest };
+}
+
 function isVerificationCommand(command, options = {}) {
+  const wrapped = parseCwdPrelude(command, options);
+  if (wrapped) return isPlainVerificationCommand(wrapped.command, { ...options, cwd: wrapped.cwd });
+  return isPlainVerificationCommand(command, options);
+}
+
+function isPlainVerificationCommand(command, options = {}) {
   const cwd = path.resolve(options.cwd || process.cwd());
   const actual = normalizeCommand(command);
   if (!actual || hasControlOperators(actual)) return false;
@@ -350,6 +396,7 @@ module.exports = {
   isVerificationCommand,
   legacyVerificationCommand,
   normalizeCommand,
+  parseCwdPrelude,
   readContract,
   resolveContained,
   verificationCommandSet,

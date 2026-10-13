@@ -27,6 +27,7 @@ All notable changes to this project are documented in this file.
 ### Bug Fixes
 
 * **codex:** keep compatibility hooks and session labels in sync
+* **verify:** recognize a validated in-root host `cd <workspace> && <check>` prelude (Claude Code Windows Bash) as verification evidence for exactly one plain check; chaining, redirection, substitution, and out-of-root targets still never count, and verification evidence now requires a confirmed `PostToolUse` or zero exit (#306).
 
 ## [0.30.10](https://github.com/dyphn1/Harness-everything/compare/v0.30.9...v0.30.10) (2026-10-13)
 
