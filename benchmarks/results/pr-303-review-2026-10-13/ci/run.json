@@ -1,0 +1,1330 @@
+{
+  "attempt": 1,
+  "conclusion": "success",
+  "createdAt": "2026-10-13T06:08:46Z",
+  "event": "pull_request",
+  "headBranch": "fix/297-workflow-first",
+  "headSha": "788ea75b7ab69af678734c87ef3cba920b0b892f",
+  "jobs": [
+    {
+      "completedAt": "2026-10-13T06:09:29Z",
+      "conclusion": "success",
+      "databaseId": 115156001461,
+      "name": "system-one-windows-node24-patched",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:50Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:55Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:04Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:08:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:05Z",
+          "conclusion": "success",
+          "name": "Verify exact patched runtime",
+          "number": 4,
+          "startedAt": "2026-10-13T06:09:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:25Z",
+          "conclusion": "success",
+          "name": "Exercise real evaluator subprocess and repeated resident teardown",
+          "number": 5,
+          "startedAt": "2026-10-13T06:09:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:25Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 9,
+          "startedAt": "2026-10-13T06:09:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:27Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 10,
+          "startedAt": "2026-10-13T06:09:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:27Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-10-13T06:09:27Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001461"
+    },
+    {
+      "completedAt": "2026-10-13T06:09:22Z",
+      "conclusion": "success",
+      "databaseId": 115156001685,
+      "name": "consistency (macos-latest)",
+      "startedAt": "2026-10-13T06:08:56Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:59Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:02Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:03Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:09:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:06Z",
+          "conclusion": "success",
+          "name": "Install Node dependencies",
+          "number": 4,
+          "startedAt": "2026-10-13T06:09:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:08Z",
+          "conclusion": "success",
+          "name": "Docs, manifest, and eval-coverage consistency",
+          "number": 5,
+          "startedAt": "2026-10-13T06:09:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:08Z",
+          "conclusion": "success",
+          "name": "Skill executable and deep-dive references resolve",
+          "number": 6,
+          "startedAt": "2026-10-13T06:09:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:13Z",
+          "conclusion": "success",
+          "name": "Release tag skill tree and references remain verifiable",
+          "number": 7,
+          "startedAt": "2026-10-13T06:09:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:14Z",
+          "conclusion": "success",
+          "name": "Skill description collision detection",
+          "number": 8,
+          "startedAt": "2026-10-13T06:09:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:17Z",
+          "conclusion": "success",
+          "name": "OpenAI plugin package is in sync and runnable",
+          "number": 9,
+          "startedAt": "2026-10-13T06:09:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:18Z",
+          "conclusion": "success",
+          "name": "OpenAI public submission artifacts are reproducible",
+          "number": 10,
+          "startedAt": "2026-10-13T06:09:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:18Z",
+          "conclusion": "success",
+          "name": "Platform compatibility matrix matches official-source and installer contracts",
+          "number": 11,
+          "startedAt": "2026-10-13T06:09:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:18Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 21,
+          "startedAt": "2026-10-13T06:09:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:19Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 22,
+          "startedAt": "2026-10-13T06:09:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:20Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 23,
+          "startedAt": "2026-10-13T06:09:19Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001685"
+    },
+    {
+      "completedAt": "2026-10-13T06:09:21Z",
+      "conclusion": "success",
+      "databaseId": 115156001746,
+      "name": "skill-quality",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:51Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:53Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:54Z",
+          "conclusion": "success",
+          "name": "Install pinned waza CLI",
+          "number": 3,
+          "startedAt": "2026-10-13T06:08:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:03Z",
+          "conclusion": "success",
+          "name": "Run Harness Waza adapter against canonical skills",
+          "number": 4,
+          "startedAt": "2026-10-13T06:08:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:13Z",
+          "conclusion": "success",
+          "name": "Check every canonical SKILL.md passes waza readiness gates",
+          "number": 5,
+          "startedAt": "2026-10-13T06:09:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:18Z",
+          "conclusion": "success",
+          "name": "Verify eval coverage against SKILL.md requirements",
+          "number": 6,
+          "startedAt": "2026-10-13T06:09:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:19Z",
+          "conclusion": "success",
+          "name": "Block canonical SKILL.md token growth vs base branch",
+          "number": 7,
+          "startedAt": "2026-10-13T06:09:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:19Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 14,
+          "startedAt": "2026-10-13T06:09:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:19Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 15,
+          "startedAt": "2026-10-13T06:09:19Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001746"
+    },
+    {
+      "completedAt": "2026-10-13T06:10:35Z",
+      "conclusion": "success",
+      "databaseId": 115156001774,
+      "name": "self-regression (ubuntu-latest)",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:51Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:53Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:54Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:08:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:56Z",
+          "conclusion": "success",
+          "name": "Install dependencies for regression suite",
+          "number": 4,
+          "startedAt": "2026-10-13T06:08:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:10:26Z",
+          "conclusion": "success",
+          "name": "Run hermetic self-regression suite",
+          "number": 5,
+          "startedAt": "2026-10-13T06:08:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:10:32Z",
+          "conclusion": "success",
+          "name": "Run focused mutation checks",
+          "number": 6,
+          "startedAt": "2026-10-13T06:10:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:10:32Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 11,
+          "startedAt": "2026-10-13T06:10:32Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:10:32Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 12,
+          "startedAt": "2026-10-13T06:10:32Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:10:33Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "startedAt": "2026-10-13T06:10:33Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001774"
+    },
+    {
+      "completedAt": "2026-10-13T06:14:19Z",
+      "conclusion": "success",
+      "databaseId": 115156001783,
+      "name": "self-regression (windows-latest)",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:52Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:59Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:07Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:08:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:18Z",
+          "conclusion": "success",
+          "name": "Install dependencies for regression suite",
+          "number": 4,
+          "startedAt": "2026-10-13T06:09:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:13:50Z",
+          "conclusion": "success",
+          "name": "Run hermetic self-regression suite",
+          "number": 5,
+          "startedAt": "2026-10-13T06:09:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:14:14Z",
+          "conclusion": "success",
+          "name": "Run focused mutation checks",
+          "number": 6,
+          "startedAt": "2026-10-13T06:13:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:14:15Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 11,
+          "startedAt": "2026-10-13T06:14:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:14:17Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 12,
+          "startedAt": "2026-10-13T06:14:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:14:17Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "startedAt": "2026-10-13T06:14:17Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001783"
+    },
+    {
+      "completedAt": "2026-10-13T06:09:46Z",
+      "conclusion": "success",
+      "databaseId": 115156001825,
+      "name": "consistency (windows-latest)",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:52Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:59Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:06Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:08:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:14Z",
+          "conclusion": "success",
+          "name": "Install Node dependencies",
+          "number": 4,
+          "startedAt": "2026-10-13T06:09:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:17Z",
+          "conclusion": "success",
+          "name": "Docs, manifest, and eval-coverage consistency",
+          "number": 5,
+          "startedAt": "2026-10-13T06:09:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:19Z",
+          "conclusion": "success",
+          "name": "Skill executable and deep-dive references resolve",
+          "number": 6,
+          "startedAt": "2026-10-13T06:09:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:33Z",
+          "conclusion": "success",
+          "name": "Release tag skill tree and references remain verifiable",
+          "number": 7,
+          "startedAt": "2026-10-13T06:09:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:34Z",
+          "conclusion": "success",
+          "name": "Skill description collision detection",
+          "number": 8,
+          "startedAt": "2026-10-13T06:09:33Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:39Z",
+          "conclusion": "success",
+          "name": "OpenAI plugin package is in sync and runnable",
+          "number": 9,
+          "startedAt": "2026-10-13T06:09:34Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:40Z",
+          "conclusion": "success",
+          "name": "OpenAI public submission artifacts are reproducible",
+          "number": 10,
+          "startedAt": "2026-10-13T06:09:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:42Z",
+          "conclusion": "success",
+          "name": "Platform compatibility matrix matches official-source and installer contracts",
+          "number": 11,
+          "startedAt": "2026-10-13T06:09:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:42Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 21,
+          "startedAt": "2026-10-13T06:09:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:45Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 22,
+          "startedAt": "2026-10-13T06:09:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:45Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 23,
+          "startedAt": "2026-10-13T06:09:45Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001825"
+    },
+    {
+      "completedAt": "2026-10-13T06:09:19Z",
+      "conclusion": "success",
+      "databaseId": 115156001827,
+      "name": "system-one-windows-node-legacy-policy (23.6.0)",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:52Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:03Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:14Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:09:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:15Z",
+          "conclusion": "success",
+          "name": "Verify exact affected runtime",
+          "number": 4,
+          "startedAt": "2026-10-13T06:09:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:15Z",
+          "conclusion": "success",
+          "name": "Confirm explicit RS13 skip with version-policy unit coverage",
+          "number": 5,
+          "startedAt": "2026-10-13T06:09:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:16Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 9,
+          "startedAt": "2026-10-13T06:09:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:18Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 10,
+          "startedAt": "2026-10-13T06:09:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:18Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-10-13T06:09:18Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001827"
+    },
+    {
+      "completedAt": "2026-10-13T06:08:59Z",
+      "conclusion": "success",
+      "databaseId": 115156001846,
+      "name": "installer-e2e (ubuntu-latest)",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:52Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:54Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:55Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:08:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:55Z",
+          "conclusion": "success",
+          "name": "CLI --help works",
+          "number": 4,
+          "startedAt": "2026-10-13T06:08:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:57Z",
+          "conclusion": "success",
+          "name": "Install, verify, uninstall, and restore seeded user files",
+          "number": 5,
+          "startedAt": "2026-10-13T06:08:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:57Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 9,
+          "startedAt": "2026-10-13T06:08:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:57Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 10,
+          "startedAt": "2026-10-13T06:08:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:57Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-10-13T06:08:57Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001846"
+    },
+    {
+      "completedAt": "2026-10-13T06:09:10Z",
+      "conclusion": "success",
+      "databaseId": 115156001868,
+      "name": "installer-e2e (macos-latest)",
+      "startedAt": "2026-10-13T06:08:56Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:58Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:02Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:03Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:09:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:04Z",
+          "conclusion": "success",
+          "name": "CLI --help works",
+          "number": 4,
+          "startedAt": "2026-10-13T06:09:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:06Z",
+          "conclusion": "success",
+          "name": "Install, verify, uninstall, and restore seeded user files",
+          "number": 5,
+          "startedAt": "2026-10-13T06:09:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:06Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 9,
+          "startedAt": "2026-10-13T06:09:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:07Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 10,
+          "startedAt": "2026-10-13T06:09:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:07Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-10-13T06:09:07Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001868"
+    },
+    {
+      "completedAt": "2026-10-13T06:09:18Z",
+      "conclusion": "success",
+      "databaseId": 115156001877,
+      "name": "installer-e2e (windows-latest)",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:53Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:59Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:04Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:08:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:05Z",
+          "conclusion": "success",
+          "name": "CLI --help works",
+          "number": 4,
+          "startedAt": "2026-10-13T06:09:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:13Z",
+          "conclusion": "success",
+          "name": "Install, verify, uninstall, and restore seeded user files",
+          "number": 5,
+          "startedAt": "2026-10-13T06:09:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:14Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 9,
+          "startedAt": "2026-10-13T06:09:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:16Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 10,
+          "startedAt": "2026-10-13T06:09:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:16Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-10-13T06:09:16Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001877"
+    },
+    {
+      "completedAt": "2026-10-13T06:10:30Z",
+      "conclusion": "success",
+      "databaseId": 115156001880,
+      "name": "runtime-floor",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:51Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:53Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:53Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:08:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:56Z",
+          "conclusion": "success",
+          "name": "Install dependencies on minimum supported Node",
+          "number": 4,
+          "startedAt": "2026-10-13T06:08:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:10:26Z",
+          "conclusion": "success",
+          "name": "Run representative regression suite on Node 22",
+          "number": 5,
+          "startedAt": "2026-10-13T06:08:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:10:28Z",
+          "conclusion": "success",
+          "name": "Verify installer contract on Node 22",
+          "number": 6,
+          "startedAt": "2026-10-13T06:10:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:10:28Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 11,
+          "startedAt": "2026-10-13T06:10:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:10:28Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 12,
+          "startedAt": "2026-10-13T06:10:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:10:28Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "startedAt": "2026-10-13T06:10:28Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001880"
+    },
+    {
+      "completedAt": "2026-10-13T06:09:16Z",
+      "conclusion": "success",
+      "databaseId": 115156001917,
+      "name": "system-one-windows-node-legacy-policy (24.15.0)",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:53Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:00Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:10Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:09:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:11Z",
+          "conclusion": "success",
+          "name": "Verify exact affected runtime",
+          "number": 4,
+          "startedAt": "2026-10-13T06:09:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:12Z",
+          "conclusion": "success",
+          "name": "Confirm explicit RS13 skip with version-policy unit coverage",
+          "number": 5,
+          "startedAt": "2026-10-13T06:09:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:12Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 9,
+          "startedAt": "2026-10-13T06:09:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:14Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 10,
+          "startedAt": "2026-10-13T06:09:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:15Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-10-13T06:09:14Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001917"
+    },
+    {
+      "completedAt": "2026-10-13T06:09:08Z",
+      "conclusion": "success",
+      "databaseId": 115156001920,
+      "name": "consistency (ubuntu-latest)",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:52Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:54Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:55Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:08:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:57Z",
+          "conclusion": "success",
+          "name": "Install Node dependencies",
+          "number": 4,
+          "startedAt": "2026-10-13T06:08:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:58Z",
+          "conclusion": "success",
+          "name": "Docs, manifest, and eval-coverage consistency",
+          "number": 5,
+          "startedAt": "2026-10-13T06:08:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:59Z",
+          "conclusion": "success",
+          "name": "Skill executable and deep-dive references resolve",
+          "number": 6,
+          "startedAt": "2026-10-13T06:08:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:02Z",
+          "conclusion": "success",
+          "name": "Release tag skill tree and references remain verifiable",
+          "number": 7,
+          "startedAt": "2026-10-13T06:08:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:02Z",
+          "conclusion": "success",
+          "name": "Skill description collision detection",
+          "number": 8,
+          "startedAt": "2026-10-13T06:09:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:04Z",
+          "conclusion": "success",
+          "name": "OpenAI plugin package is in sync and runnable",
+          "number": 9,
+          "startedAt": "2026-10-13T06:09:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:04Z",
+          "conclusion": "success",
+          "name": "OpenAI public submission artifacts are reproducible",
+          "number": 10,
+          "startedAt": "2026-10-13T06:09:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:05Z",
+          "conclusion": "success",
+          "name": "Platform compatibility matrix matches official-source and installer contracts",
+          "number": 11,
+          "startedAt": "2026-10-13T06:09:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:05Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 21,
+          "startedAt": "2026-10-13T06:09:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:05Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 22,
+          "startedAt": "2026-10-13T06:09:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:05Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 23,
+          "startedAt": "2026-10-13T06:09:05Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001920"
+    },
+    {
+      "completedAt": "2026-10-13T06:11:42Z",
+      "conclusion": "success",
+      "databaseId": 115156001951,
+      "name": "self-regression (macos-latest)",
+      "startedAt": "2026-10-13T06:08:55Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:57Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:00Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:01Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:09:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:03Z",
+          "conclusion": "success",
+          "name": "Install dependencies for regression suite",
+          "number": 4,
+          "startedAt": "2026-10-13T06:09:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:11:25Z",
+          "conclusion": "success",
+          "name": "Run hermetic self-regression suite",
+          "number": 5,
+          "startedAt": "2026-10-13T06:09:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:11:36Z",
+          "conclusion": "success",
+          "name": "Run focused mutation checks",
+          "number": 6,
+          "startedAt": "2026-10-13T06:11:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:11:37Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 11,
+          "startedAt": "2026-10-13T06:11:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:11:37Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 12,
+          "startedAt": "2026-10-13T06:11:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:11:40Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "startedAt": "2026-10-13T06:11:37Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001951"
+    },
+    {
+      "completedAt": "2026-10-13T06:09:12Z",
+      "conclusion": "success",
+      "databaseId": 115156001981,
+      "name": "release-semantics",
+      "startedAt": "2026-10-13T06:08:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-13T06:08:52Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-13T06:08:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:54Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7",
+          "number": 2,
+          "startedAt": "2026-10-13T06:08:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:55Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v7",
+          "number": 3,
+          "startedAt": "2026-10-13T06:08:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:08:57Z",
+          "conclusion": "success",
+          "name": "Install project dependencies",
+          "number": 4,
+          "startedAt": "2026-10-13T06:08:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:09Z",
+          "conclusion": "success",
+          "name": "Install pinned semantic-release analyzer tooling",
+          "number": 5,
+          "startedAt": "2026-10-13T06:08:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:09Z",
+          "conclusion": "success",
+          "name": "Verify semantic-release against real Git histories",
+          "number": 6,
+          "startedAt": "2026-10-13T06:09:09Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:10Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v7",
+          "number": 11,
+          "startedAt": "2026-10-13T06:09:09Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:10Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7",
+          "number": 12,
+          "startedAt": "2026-10-13T06:09:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-13T06:09:10Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "startedAt": "2026-10-13T06:09:10Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624/job/115156001981"
+    }
+  ],
+  "status": "completed",
+  "updatedAt": "2026-10-13T06:14:19Z",
+  "url": "https://github.com/dyphn1/Harness-everything/actions/runs/38355092624"
+}

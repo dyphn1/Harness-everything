@@ -104,22 +104,27 @@ Irreversible or external side-effect intent (for example destructive database ch
 
 This does not choose a topology and does not itself enforce the gate. Phase 5 owns PreToolUse enforcement. The router only declares the invariant so any eventual executor must preserve it.
 
-## Invariants vs advisory skills
+## Invariants vs knowledge signals
 
-`requiredInvariants` and `suggestedSkills` are separate plan fields. The kernel prints both separately and consumes them from the structured plan instead of reconstructing suggestions from tier.
+`requiredInvariants` and `knowledgeSignals` have separate roles. Invariants state semantic MUSTs; normalized knowledge signals help decompose requirements but never select document paths. `suggestedSkills` remains an empty compatibility field and is not populated from topology or keywords.
 
 Examples:
 
 - `loop-awareness` and `objective-verification` are mandatory for `iterative-single`, on top of the base `scope-lock`, `verify-before-claim`, and `replan-after-repeated-failure`;
-- `tdd` and `verification-loop` remain advisory skill suggestions;
+- TDD and verification-loop bindings are declared on behavior-change and verification steps, respectively;
 - `stage-contracts` and `cold-verification` are mandatory for Fable topologies;
-- `multi-agent-workspace` is suggested only when the selected topology actually requires durable workspace behavior.
+- domain skills and references are bound only to steps that need them;
+- `fable-multi-agent-workspace` selects durable workspace behavior without globally loading a skill path.
 
 There is no universal `TODO → TDD → verification` pipeline.
 
-## Guide deduplication
+## Binding and disclosure rule
 
-Knowledge-guide recommendations are deduplicated by the referenced guide path, not by full line text. If two routing groups describe `security-review/SKILL.md` differently, the path is still emitted once.
+Each ordered requirement or Fable stage may declare `requiredBindings` and `optionalBindings` by stable id and concrete repository-relative path. Only the active requirement or dependency-ready stage exposes its paths. Required bindings must resolve before that step/stage passes; unknown required bindings remain visible and unresolved. Future-step paths and keyword-matched documents are never preloaded.
+
+For single-agent steps, `workflow-disposition.js start`, `binding`, and `step` return command templates for resolving the current binding and passing the active step. Retained workflow reminders print the same commands. Record the binding evidence before the step disposition; the next step and its paths are disclosed only after the current step passes.
+
+In typed-step mode, the aggregate `execute` and `verify` obligations resolve from their corresponding passed steps. A verification-only plan records an explicit no-execution disposition for `execute`; it still requires the verification binding, step evidence, and objective check.
 
 ## Determinism rule
 

@@ -63,7 +63,7 @@ function normalizeWritePath(value) {
   if (typeof value !== 'string' || !value.trim()) throw new Error('writeSet entries must be non-empty strings');
   let normalized = value.trim().replace(/\\/g, '/').replace(/^\.\//, '');
   normalized = normalized.replace(/\/+$/g, '');
-  if (!normalized || normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)) {
+  if (!normalized || normalized.startsWith('/') || /^[A-Za-z]:/.test(normalized)) {
     throw new Error(`writeSet paths must be repository-relative: ${value}`);
   }
   const parts = normalized.split('/');
@@ -74,6 +74,95 @@ function normalizeWritePath(value) {
     throw new Error(`writeSet uses unsupported glob syntax; declare concrete path scopes: ${value}`);
   }
   return normalized;
+}
+
+// The resolver ships with the hook runtime. A Skills-only install has no hook
+// runtime, so declared paths stay `unverified` instead of claiming availability.
+function bindingResolver() {
+  for (const relative of ['../../hooks/scripts/lib/binding-resolver.js', '../../../hooks/scripts/lib/binding-resolver.js']) {
+    const file = path.resolve(__dirname, relative);
+    if (fs.existsSync(file)) return require(file);
+  }
+  return null;
+}
+
+function resolveStageBindingAvailability(bindings, workspaceRoot) {
+  const resolver = bindingResolver();
+  for (const binding of bindings) {
+    const resolution = resolver
+      ? resolver.resolveBinding(binding, workspaceRoot)
+      : { availability: binding.path ? 'unverified' : 'unknown', file: null };
+    binding.availability = resolution.availability;
+    binding.resolvedPath = resolution.file;
+  }
+}
+
+function normalizeBindings(values, label, required) {
+  if (values === undefined) return [];
+  if (!Array.isArray(values)) throw new Error(`${label} must be an array`);
+  const seen = new Set();
+  return values.map(raw => {
+    const value = typeof raw === 'string' ? { id: raw } : raw;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} entries must be ids or objects`);
+    const id = sanitizeId(value.id, `${label}.id`);
+    if (seen.has(id)) throw new Error(`${label} contains duplicate binding: ${id}`);
+    seen.add(id);
+    const bindingPath = value.path === undefined || value.path === null || value.path === ''
+      ? null
+      : normalizeWritePath(value.path);
+    return {
+      id,
+      required,
+      path: bindingPath,
+      status: 'pending',
+      availability: bindingPath ? 'unverified' : 'unknown',
+      resolvedPath: null,
+      evidence: null,
+      reasonCode: null,
+      updatedAt: null,
+    };
+  });
+}
+
+function activeStageBindings(runRoot, escapes = []) {
+  const run = readJson(path.join(runRoot, 'run.json'));
+  if (!run || !Array.isArray(run.stageIds)) return [];
+  const contractsDir = path.join(runRoot, 'contracts');
+  const stages = new Map();
+  for (const stageId of run.stageIds) {
+    const stage = readJson(path.join(contractsDir, `${stageId}.json`));
+    if (stage && stage.runId === run.runId && stage.stageId === stageId) stages.set(stageId, stage);
+  }
+  const escapedIds = new Set((escapes || []).filter(item => item?.runId === run.runId && item?.evidence && item?.uncoveredScope &&
+    ['workflow-uncovered-scope', 'host-capability-unavailable'].includes(item.reasonCode))
+    .map(item => item.stageId));
+  const stagePassed = stage => stage?.status === 'pass' &&
+    (stage.requiredBindings || []).every(binding => binding.status === 'loaded') &&
+    (stage.optionalBindings || []).every(binding => ['loaded', 'not-needed'].includes(binding.status));
+  const bindingsResolved = stage =>
+    (stage.requiredBindings || []).every(binding => binding.status === 'loaded') &&
+    (stage.optionalBindings || []).every(binding => ['loaded', 'not-needed'].includes(binding.status));
+  return run.stageIds
+    .map(stageId => stages.get(stageId))
+    .filter(stage => stage && !escapedIds.has(stage.stageId) &&
+      (['planned', 'running', 'fail', 'binding-unresolved'].includes(stage.status) ||
+        (stage.status === 'pass' && !bindingsResolved(stage))) &&
+      (stage.dependsOn || []).every(id => stagePassed(stages.get(id)) || escapedIds.has(id)))
+    .map(stage => ({
+      stageId: stage.stageId,
+      goal: stage.goal,
+      status: stage.status === 'pass' && !bindingsResolved(stage) ? 'binding-unresolved' : stage.status,
+      requiredBindings: (stage.requiredBindings || []).map(binding => ({
+        id: binding.id, status: binding.status, availability: binding.availability, path: binding.path, resolvedPath: binding.resolvedPath || null,
+      })),
+      optionalBindings: (stage.optionalBindings || []).map(binding => ({
+        id: binding.id, status: binding.status, availability: binding.availability, path: binding.path, resolvedPath: binding.resolvedPath || null,
+      })),
+    }));
+}
+
+function readJson(filePath) {
+  try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (_) { return null; }
 }
 
 function normalizeStage(raw) {
@@ -87,6 +176,12 @@ function normalizeStage(raw) {
 
   const dependsOn = [...new Set(raw.dependsOn.map(value => sanitizeId(value, `${stageId}.dependsOn`)))];
   const writeSet = [...new Set(raw.writeSet.map(normalizeWritePath))].sort();
+  const requiredBindings = normalizeBindings(raw.requiredBindings, `${stageId}.requiredBindings`, true);
+  const optionalBindings = normalizeBindings(raw.optionalBindings, `${stageId}.optionalBindings`, false);
+  const bindingIds = new Set(requiredBindings.map(binding => binding.id));
+  for (const binding of optionalBindings) {
+    if (bindingIds.has(binding.id)) throw new Error(`${stageId}: binding cannot be both required and optional: ${binding.id}`);
+  }
 
   return {
     stageId,
@@ -98,6 +193,8 @@ function normalizeStage(raw) {
     outputPath: raw.outputPath === undefined ? null : raw.outputPath,
     dependsOn,
     writeSet,
+    requiredBindings,
+    optionalBindings,
     checkCommand: typeof raw.checkCommand === 'string' && raw.checkCommand.trim() ? raw.checkCommand.trim() : null,
     passCondition: typeof raw.passCondition === 'string' && raw.passCondition.trim() ? raw.passCondition.trim() : null,
     failureReturn: typeof raw.failureReturn === 'string' && raw.failureReturn.trim()
@@ -236,6 +333,7 @@ function prepareRun({ routerContract, stages, workspaceRoot, runId, sessionId = 
   fs.mkdirSync(evidenceDir, { recursive: true });
 
   for (const stage of normalizedStages) {
+    resolveStageBindingAvailability([...stage.requiredBindings, ...stage.optionalBindings], root);
     atomicWriteJson(path.join(contractsDir, `${stage.stageId}.json`), {
       schemaVersion: STAGE_CONTRACT_VERSION,
       planId,
@@ -319,7 +417,7 @@ if (require.main === module) {
       runId: args.runId,
       sessionId: args.sessionId || null,
     });
-    process.stdout.write(`${JSON.stringify(manifest)}\n`);
+    process.stdout.write(`${JSON.stringify({ ...manifest, activeStages: activeStageBindings(manifest.runRoot) })}\n`);
   } catch (err) {
     console.error(`[FABLE PLAN CONSUMER] ${err.message}`);
     process.exit(2);
@@ -328,6 +426,7 @@ if (require.main === module) {
 
 module.exports = {
   STAGE_CONTRACT_VERSION,
+  activeStageBindings,
   derivePlanId,
   getWorkspaceKey,
   getWorkspaceStateRoot,

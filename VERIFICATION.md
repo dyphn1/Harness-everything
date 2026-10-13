@@ -257,7 +257,7 @@ Check that each `SKILL.md` has precise trigger/use boundaries, expected output, 
 
 ### 7b. Routing accuracy
 
-Verify `kernel-router.js` / `tier-router.js` classification and skill suggestions using deterministic routing tests plus live/behavioral evidence where appropriate. Heuristic routing should not be graded as a hard workflow scheduler.
+Verify `kernel-router.js` / `tier-router.js` classification and normalized knowledge signals using deterministic routing tests plus live/behavioral evidence where appropriate. Signals are composition inputs, not document selectors; routing should not be graded as a hard workflow scheduler.
 
 ### 7c. Test coverage
 

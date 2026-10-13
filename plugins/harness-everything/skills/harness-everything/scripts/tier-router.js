@@ -5,11 +5,11 @@ const {
   buildRouterContract,
   writeRouterContract,
 } = require('./router-contract');
-const { requireWorkspace } = require('./runtime-paths');
+const { getHarnessRoot, requireWorkspace } = require('./runtime-paths');
 
 const DEFAULT_ROUTING_CONFIG = {
   tiers: { tier3: [], tier2: [] },
-  guideGroups: [],
+  inputSignalGroups: [],
   factAudit: { externalClaim: [], estimate: [] },
 };
 
@@ -21,7 +21,7 @@ function loadRoutingConfig() {
     return {
       config: {
         tiers: parsed.tiers || DEFAULT_ROUTING_CONFIG.tiers,
-        guideGroups: Array.isArray(parsed.guideGroups) ? parsed.guideGroups : DEFAULT_ROUTING_CONFIG.guideGroups,
+        inputSignalGroups: Array.isArray(parsed.inputSignalGroups) ? parsed.inputSignalGroups : DEFAULT_ROUTING_CONFIG.inputSignalGroups,
         factAudit: parsed.factAudit || DEFAULT_ROUTING_CONFIG.factAudit,
       },
       routingStatus: 'ok',
@@ -60,15 +60,25 @@ function detectFableModel(prompt) {
 // retains execution routing; format field lists are recognized separately.
 function containsOnlyLookupTerms(text, operation) {
   const terms = {
-    explanation: /\b(?:please|help|me|explain|resolve|define|what|is|does|mean|means|meaning|the|a|an|of|to|into|in|for|behavior|behaviour|profile|profiles|selection|json|record|alias|role|runtime|model|effort|floor|fableprofile)\b/gi,
-    output: /\b(?:return|respond|output|show|provide|only|a|an|small|compact|json|record|selection|profile|result|with|fields|containing|include|including)\b/gi,
+    explanation: /\b(?:please|help|me|could|would|you|explain|resolve|define|what|is|does|mean|means|meaning|the|a|an|of|to|into|in|for|as|compact|small|only|behavior|behaviour|profile|profiles|selection|json|record|object|alias|role|runtime|model|effort|floor|fableprofile)\b/gi,
+    output: /\b(?:as|return|respond|output|show|provide|only|a|an|small|compact|short|json|record|object|selection|profile|result|with|fields|containing|include|including)\b/gi,
   };
   const chineseTerms = {
-    explanation: /(?:請|幫我|解釋|說明|解析|的意思|意思|含義|意義|是什麼|設定檔|行為|角色)/g,
+    explanation: /(?:請問|麻煩|請|幫我|解釋|說明|解析|的意思|意思|含義|意義|是什麼|設定檔|行為|角色|精簡|簡短|緊湊|JSON|紀錄|記錄)/g,
     output: /(?:只|僅|回傳|返回|輸出|顯示|提供|包含|含|的|欄位|記錄|紀錄|結果|設定檔)/g,
   };
   return text.replace(PROFILE_LOOKUP_FIELDS, '').replace(terms[operation], '')
-    .replace(chineseTerms[operation], '').replace(/[\s"'`“”‘’?:：？]/g, '') === '';
+    .replace(chineseTerms[operation], '').replace(/[.!?]+$/g, '').replace(/[\s"'`“”‘’?:：？]/g, '') === '';
+}
+
+function splitProfileLookupClauses(prompt) {
+  let text = String(prompt || '').trim()
+    .replace(/^(?:could\s+you(?:\s+please)?|would\s+you(?:\s+please)?|please)\s*,?\s+/i, '')
+    .replace(/^(?:麻煩請|麻煩|請問|請)\s*/u, '');
+  const outputLead = String.raw`(?:please\s+)?(?:return|respond|output|show|provide|no|without|do\s+not|don't)\b|(?:請(?:問)?\s*)?(?:只|僅|回傳|返回|輸出|顯示|提供|不要|不需要|無需|無須|不必|毋須|不用|不會|不)`;
+  text = text.replace(new RegExp(String.raw`\.(?=\s*${outputLead})|[—–](?=\s*(?:${outputLead}|as\s+(?:a\s+)?(?:compact\s+|small\s+|short\s+)?json\s+(?:record|object)\b))`, 'giu'), ';');
+  return text.split(/(?:\.{3,}|[;!?？！,，；。、…]|\b(?:and\s+then|and|then|also|plus|afterwards|additionally)\b|(?:並且?|以及|接著|然後|另外))/iu)
+    .map(part => part.trim().replace(/[.!?…]+$/g, '')).filter(Boolean);
 }
 
 // A negation scopes only its own noun/verb list. Vocabulary-only matching would
@@ -80,11 +90,12 @@ const NEGATED_ITEM = '(?:orchestration|delegation|stages?|staging|execution|mode
 const NEGATED_ACTION = '(?:switch(?:ing)?\\s+(?:the\\s+)?models?|delegate|orchestrate|stage|execute)';
 const ENGLISH_NEGATION = new RegExp(`^(?:(?:no|without)\\s+${negatedList(NEGATED_ITEM)}|(?:do not|don't)\\s+${negatedList(NEGATED_ACTION)})$`, 'i');
 const ENGLISH_NEGATION_CONTINUATION = new RegExp(`^(?:or\\s+)?${negatedList(NEGATED_ITEM)}$`, 'i');
-const CHINESE_NEGATION_TERMS = /(?:不要|不需要|無需|不|或|編排|委派|階段|執行|切換模型)/g;
+const CHINESE_NEGATION_PREFIX = /^(?:不要|不需要|無需|無須|不必|毋須|不用|不會|不)/;
+const CHINESE_NEGATION_TERMS = /(?:不要|不需要|無需|無須|不必|毋須|不用|不會|不|或|也|任何|一切|啟動|開始|開啟|進入|執行|進行|運行|啟用|切換|模型|階段|流程|任務|操作|編排|委派)/g;
 
 function isBoundedNegation(clause, continuation) {
-  const text = clause.replace(/’/g, "'").replace(/[“”"`?:：？]/g, '').replace(/\s+/g, ' ').trim();
-  if (/^(?:不要|不需要|無需|不)/.test(text)) {
+  const text = clause.replace(/’/g, "'").replace(/[.!?…]+$/g, '').replace(/[“”"`?:：？]/g, '').replace(/\s+/g, ' ').trim();
+  if (CHINESE_NEGATION_PREFIX.test(text)) {
     return !continuation && text.replace(CHINESE_NEGATION_TERMS, '').replace(/\s/g, '') === '';
   }
   return (continuation ? ENGLISH_NEGATION_CONTINUATION : ENGLISH_NEGATION).test(text);
@@ -94,8 +105,7 @@ function isFableProfileLookup(prompt, hasMacroSignal) {
   if (!detectFableModel(prompt) || hasMacroSignal) return false;
   if (/\b(?:direct[- ]single|iterative[- ]single|fable[- ](?:staged|parallel|multi[- ]agent[- ]workspace))\b/i.test(prompt)) return false;
 
-  const clauses = prompt
-    .split(/(?:[;,.，；。、]|\b(?:and|then|also|plus|afterwards|additionally)\b|(?:並且?|以及|接著|然後|另外))/i)
+  const clauses = splitProfileLookupClauses(prompt)
     .map(part => part.trim())
     .filter(Boolean);
   if (clauses.length === 0) return false;
@@ -105,14 +115,15 @@ function isFableProfileLookup(prompt, hasMacroSignal) {
   const normalizedLookup = lookupClause.replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
     .replace(quotedInvocation, 'fableprofile')
     .replace(new RegExp(FABLE_PROFILE_INVOCATION.source, 'gi'), 'fableprofile');
-  const isLookupLead = /^(?:(?:please|help me)\s+|(?:請|幫我)\s*)?(?:explain|resolve|define|what (?:is|does)|解釋|說明|解析)/i.test(lookupClause)
+  const isLookupLead = /^(?:(?:please|help me|could you(?: please)?|would you(?: please)?)\s+|(?:請問|麻煩請|麻煩|請|幫我)\s*)?(?:explain|resolve|define|what (?:is|does)|解釋|說明|解析)/i.test(lookupClause)
     && Boolean(detectFableModel(lookupClause));
-  if (!isLookupLead || !containsOnlyLookupTerms(normalizedLookup, 'explanation')) return false;
+  const normalizedFormatRequest = normalizedLookup.replace(/\bas\s+(?:a\s+)?(?:compact|small|short)?\s*json\s+(?:record|object)\b/gi, '');
+  if (!isLookupLead || !containsOnlyLookupTerms(normalizedFormatRequest, 'explanation')) return false;
 
   let continuationOperation = null;
   for (const clause of continuations) {
-    const output = /^(?:please\s+)?(?:return|respond|output|show|provide)\b|^(?:請\s*)?(?:只|僅)?(?:回傳|返回|輸出|顯示|提供)/i.test(clause);
-    const negative = /^(?:please\s+)?(?:no|without|do not|don't)\b|^(?:請\s*)?(?:不要|不需要|無需|不)/i.test(clause);
+    const output = /^(?:please\s+)?(?:return|respond|output|show|provide)\b|^as\s+(?:a\s+)?(?:compact\s+|small\s+|short\s+)?json\s+(?:record|object)\b|^(?:請\s*)?(?:只|僅)?(?:回傳|返回|輸出|顯示|提供)/i.test(clause);
+    const negative = /^(?:please\s+)?(?:no|without|do not|don't)\b|^(?:請\s*)?(?:不要|不需要|無需|無須|不必|毋須|不用|不會|不)/i.test(clause);
     if (output || negative) {
       continuationOperation = output ? 'output' : 'negative';
       const normalizedContinuation = clause.replace(/^(?:please\s+|請\s*)/i, '');
@@ -184,16 +195,6 @@ function addReason(reasonCodes, code) {
   if (code && !reasonCodes.includes(code)) reasonCodes.push(code);
 }
 
-function deduplicateGuidesByPath(guides) {
-  const byPath = new Map();
-  for (const guide of guides) {
-    const match = String(guide).match(/^\s*-\s+([^\s]+)/);
-    const key = match ? match[1].replace(/\\/g, '/') : String(guide).trim();
-    if (!byPath.has(key)) byPath.set(key, guide);
-  }
-  return Array.from(byPath.values());
-}
-
 function countDomainSignals(promptLower) {
   const domains = [
     /\bsecurity\b|安全|資安/i,
@@ -238,73 +239,17 @@ function plannerInputsFromContext(context, promptLower) {
   return { hostCapabilities, constraints };
 }
 
-function emitDynamicSkills(promptLower, context, recommendedGuides) {
+// Self-evolved skills are discovered from manifest metadata only: matching ids
+// become step inputs, and the SKILL.md path resolves when a declaring step is
+// active. Discovery is advisory and never breaks routing.
+function matchGeneratedSkillIds(promptLower, context) {
   try {
-    const userHome = process.env.HOME || process.env.USERPROFILE || '';
+    const generated = require(path.join(getHarnessRoot(), 'scripts', 'lib', 'generated-skills.js'));
     const { getWorkspaceRoot } = requireWorkspace();
-    const workspaceRoot = getWorkspaceRoot(context);
-
-    const manifestPaths = [
-      path.join(workspaceRoot, '.claude', 'harness-everything', 'manifest.json'),
-      path.join(workspaceRoot, '.cursor', 'harness-everything', 'manifest.json'),
-      path.join(workspaceRoot, '.github', 'harness-everything', 'manifest.json'),
-      path.join(workspaceRoot, '.codex', 'harness-everything', 'manifest.json'),
-      path.join(workspaceRoot, '.continue', 'harness-everything', 'manifest.json'),
-      path.join(userHome, '.agents', 'harness-everything', 'manifest.json'),
-      path.join(userHome, '.claude', 'harness-everything', 'manifest.json'),
-    ];
-
-    const generatedSkills = new Map();
-    for (const manifestPath of manifestPaths) {
-      if (!fs.existsSync(manifestPath)) continue;
-      try {
-        const manifestData = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        if (Array.isArray(manifestData.generated)) {
-          for (const skill of manifestData.generated) generatedSkills.set(skill.id, skill);
-        }
-      } catch (err) {
-        // Ignore malformed generated-skill manifests; they are advisory only.
-      }
-    }
-
-    const allDynamicSkills = Array.from(generatedSkills.values());
-    const matchedDynamicSkills = [];
-
-    for (const skill of allDynamicSkills) {
-      let score = 0;
-      for (const rawTrigger of skill.triggers || []) {
-        const trigger = rawTrigger.toLowerCase().trim();
-        if (!trigger || trigger.length < 2) continue;
-        if (['the', 'and', 'for', 'with', 'your', 'this', 'that', 'some', 'from', 'prevent', 'resolved'].includes(trigger)) continue;
-
-        if (/[\u4e00-\u9fa5]/.test(trigger)) {
-          if (promptLower.includes(trigger)) score += trigger.length * 2;
-        } else {
-          const escapedTrigger = trigger.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-          const regex = new RegExp(`\\b${escapedTrigger}\\b`, 'i');
-          if (regex.test(promptLower)) score += trigger.length >= 4 ? 3 : 1.5;
-        }
-      }
-      if (score >= 3) matchedDynamicSkills.push({ skill, score });
-    }
-
-    if (matchedDynamicSkills.length > 0) {
-      matchedDynamicSkills.sort((a, b) => b.score - a.score);
-      console.log(`\n=> 🎯 HIGH-RELEVANCE SELF-EVOLVED SKILL(S) DETECTED:`);
-      matchedDynamicSkills.forEach(({ skill }) => {
-        let displayPath = skill.dirPath;
-        if (displayPath.startsWith(workspaceRoot)) displayPath = path.relative(workspaceRoot, displayPath);
-        console.log(`- ${displayPath}/SKILL.md (${skill.description} [DYNAMIC SKILL])`);
-      });
-    } else if (recommendedGuides.length === 0 && allDynamicSkills.length > 0) {
-      console.log(`\n=> ℹ️ UNMATCHED PROMPT HINT:`);
-      console.log(`No standard or dynamic skills matched your prompt directly.`);
-      console.log(`However, you have ${allDynamicSkills.length} self-evolved dynamic skill(s) registered in your manifest.json.`);
-      console.log(`To ensure you don't miss past lessons, you should inspect the "generated" section of your manifest.json or check .claude/harness-everything/skills/generated/ to see if any apply to your current task.`);
-      console.log(`If genuinely nothing covers this - including nothing already fetched via find-skills - load find-skills/SKILL.md: it checks "npx skills list" for anything already installed, then searches skills.sh/npx skills if not, and always requires explicit approval before installing anything.`);
-    }
-  } catch (err) {
-    // Dynamic-skill discovery is advisory and must never break core routing.
+    const skills = generated.readGeneratedSkills(getWorkspaceRoot(context));
+    return { registered: skills.size, matched: generated.matchGeneratedSkills(promptLower, skills) };
+  } catch (_) {
+    return { registered: 0, matched: [] };
   }
 }
 
@@ -427,34 +372,26 @@ function run(userPrompt, context, options = {}) {
     }
   }
 
-  const allRecommendedGuides = [];
-  for (const group of profileLookup ? [] : routingConfig.guideGroups) {
+  const knowledgeSignals = [];
+  const candidateBindings = [];
+  for (const group of profileLookup ? [] : routingConfig.inputSignalGroups) {
     let matched = false;
     if (typeof group.regex === 'string') {
       matched = new RegExp(group.regex, 'i').test(promptLower);
     } else if (Array.isArray(group.keywords)) {
-      matched = group.keywords.some(keyword => promptLower.includes(keyword));
+      matched = group.keywords.some(keyword => matchKeyword(promptLower, keyword));
     }
-    if (matched && Array.isArray(group.guides)) allRecommendedGuides.push(...group.guides);
+    if (matched && typeof group.id === 'string') {
+      knowledgeSignals.push(group.id);
+      if (Array.isArray(group.bindings)) candidateBindings.push(...group.bindings.filter(id => typeof id === 'string'));
+    }
   }
-  const recommendedGuides = deduplicateGuidesByPath(allRecommendedGuides);
-
-  if (recommendedGuides.length > 0) {
-    console.log(`\n=> RECOMMENDED KNOWLEDGE GUIDES (Auto-loaded based on keywords):`);
-    recommendedGuides.forEach(guide => {
-      const match = guide.match(/^- ([^\s]+)/);
-      if (match) {
-        const guidePath = path.join(__dirname, '..', '..', match[1]);
-        if (!fs.existsSync(guidePath)) {
-          console.log(`${guide} [NOT INSTALLED - Ignore this recommendation]`);
-          return;
-        }
-      }
-      console.log(guide);
-    });
+  if (memoryPersistenceRequested && !knowledgeSignals.includes('memory-persistence')) {
+    knowledgeSignals.push('memory-persistence');
+    candidateBindings.push('self-evolve');
   }
-
-  if (!profileLookup) emitDynamicSkills(promptLower, context, recommendedGuides);
+  const generatedSkills = profileLookup ? { registered: 0, matched: [] } : matchGeneratedSkillIds(promptLower, context);
+  if (generatedSkills.matched.length > 0) knowledgeSignals.push('self-evolved-skill');
 
   const externalClaimTriggers = routingConfig.factAudit.externalClaim || [];
   const estimateTriggers = routingConfig.factAudit.estimate || [];
@@ -495,6 +432,7 @@ function run(userPrompt, context, options = {}) {
     rationale,
     reasonCodes,
     requestedFableModel,
+    knowledgeSignals,
     explicitRequest: {
       fableModel: requestedFableModel,
       strategy: requestedStrategy,
@@ -527,6 +465,19 @@ function run(userPrompt, context, options = {}) {
       highRisk: irreversibleAction || externalSideEffect,
     },
   });
+
+  if (knowledgeSignals.length > 0) {
+    console.log(`\n=> KNOWLEDGE SIGNALS (STEP INPUT ONLY): ${knowledgeSignals.join(', ')}`);
+    console.log('   These normalized prompt signals help compose requirement steps; they do not select or load documents.');
+    const bindingIds = [...new Set(candidateBindings)];
+    if (bindingIds.length > 0) console.log(`   Candidate step binding ids: ${bindingIds.join(', ')}`);
+  }
+  if (generatedSkills.matched.length > 0) {
+    console.log(`\n=> SELF-EVOLVED SKILL SIGNALS (STEP INPUT ONLY): ${generatedSkills.matched.join(', ')}`);
+    console.log('   Declare a matching id as a step binding; its SKILL.md resolves from the manifest only when that step is active.');
+  } else if (generatedSkills.registered > 0 && knowledgeSignals.length === 0) {
+    console.log(`\n=> SELF-EVOLVED SKILLS REGISTERED: ${generatedSkills.registered} (none matched this prompt; inspect manifest "generated" metadata if a past lesson may apply).`);
+  }
 
   console.log(`\n=> WORKFLOW STRATEGY: ${contract.workflowPlan.strategy || 'deferred'}`);
   if (contract.workflowPlan.memory.write !== 'none') {
@@ -586,4 +537,4 @@ if (process.argv[2]) {
   });
 }
 }
-module.exports = { run };
+module.exports = { run, splitProfileLookupClauses, isFableProfileLookup, containsOnlyLookupTerms, detectFableModel };

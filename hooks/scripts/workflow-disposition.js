@@ -6,11 +6,15 @@ const path = require('path');
 const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, WORKFLOW_CONTROLLER_COMMANDS } = require('./lib/workflow-runtime');
 const { getWorkspaceRoot, readCurrentSession } = require('./lib/harness-state');
 const { atomicWriteJson, readJson } = require('./lib/fable-contracts');
+const { resolveBinding } = require('./lib/binding-resolver');
 const {
   planningUnresolved,
   recordPlanning,
   materializeExecutionObligations,
   updateObligation,
+  updateBinding,
+  updateStep,
+  activeStepSnapshot,
 } = require('./lib/workflow-obligations');
 
 const ALLOWED_ESCAPE_REASONS = new Set(['workflow-uncovered-scope', 'host-capability-unavailable']);
@@ -21,6 +25,7 @@ function parseArgs(argv) {
     ['--reason-code', 'reasonCode'], ['--scope', 'scope'], ['--evidence', 'evidence'],
     ['--session-id', 'sessionId'], ['--stage-id', 'stageId'],
     ['--obligation-id', 'obligationId'], ['--disposition', 'disposition'],
+    ['--step-id', 'stepId'], ['--binding-id', 'bindingId'],
     ['--requirements-json', 'requirementsJson'], ['--strategy', 'strategy'],
   ]);
   for (let i = 1; i < argv.length; i++) {
@@ -32,7 +37,7 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  return `Usage: workflow-disposition.js <${[...WORKFLOW_CONTROLLER_COMMANDS].join('|')}> --session-id <id> [--requirements-json <json> --strategy <strategy> --obligation-id <id> --disposition <pass|escaped|blocked> --reason-code <reason> --scope <scope> --evidence <evidence>]`;
+  return `Usage: workflow-disposition.js <${[...WORKFLOW_CONTROLLER_COMMANDS].join('|')}> --session-id <id> [--requirements-json <json> --strategy <strategy> --obligation-id <id> --step-id <id> --binding-id <id> --disposition <pass|blocked|escaped|loaded|not-needed|unavailable> --reason-code <reason> --scope <scope> --evidence <evidence>]`;
 }
 
 const SELECTABLE_STRATEGIES = new Set(['direct-single', 'iterative-single', 'fable-staged', 'fable-parallel', 'fable-multi-agent-workspace']);
@@ -65,6 +70,7 @@ function recomposePlan(workflow, requestedStrategy) {
     taskShape,
     actionGateReasonCodes: workflow.workflowPlan.actionGate?.reasonCodes || [],
     reasonCodes: ['post-decomposition-workflow-selection'],
+    knowledgeSignals: workflow.workflowPlan.knowledgeSignals || [],
   });
 }
 
@@ -74,6 +80,61 @@ function consumer() {
     if (fs.existsSync(file)) return require(file);
   }
   throw new Error('Fable consumer unavailable');
+}
+
+function stageBindingDisposition(context, args) {
+  if (!String(context.workflow.strategy || '').startsWith('fable-')) throw new Error('stage bindings are only available on Fable workflows');
+  if (context.workflow.state !== 'running') throw new Error('start the selected Fable workflow before resolving stage bindings');
+  const match = matchingRun(context);
+  if (!match || !match.run.stageIds.includes(args.stageId)) throw new Error('--stage-id must name a stage in the correlated active run');
+  if (!['loaded', 'not-needed', 'unavailable'].includes(args.disposition)) throw new Error('--disposition must be loaded, not-needed, or unavailable');
+  const evidence = String(args.evidence || '').trim();
+  if (!evidence) throw new Error('--evidence is required for every binding disposition');
+  const active = consumer().activeStageBindings(match.runRoot, context.workflow.escapes);
+  if (!active.some(stage => stage.stageId === args.stageId)) throw new Error('stage bindings may only be resolved for a dependency-ready active stage');
+  const contractPath = path.join(match.runRoot, 'contracts', `${args.stageId}.json`);
+  const contract = readJson(contractPath);
+  if (!contract || contract.runId !== match.run.runId || contract.stageId !== args.stageId) throw new Error('stage contract is missing or uncorrelated');
+  const binding = [...(contract.requiredBindings || []), ...(contract.optionalBindings || [])]
+    .find(item => item.id === args.bindingId);
+  if (!binding) throw new Error('--binding-id must name a binding declared on the stage');
+  const required = binding.required !== false;
+  if (required && args.disposition === 'not-needed') throw new Error('required bindings cannot be marked not-needed');
+  if (!required && args.disposition === 'unavailable') throw new Error('optional bindings require loaded or not-needed disposition');
+
+  let disposition = args.disposition;
+  let reasonCode = disposition === 'unavailable' ? String(args.reasonCode || 'binding-unavailable') : null;
+  let availability = disposition === 'unavailable' ? 'unavailable' : binding.availability;
+  if (disposition === 'loaded') {
+    const resolution = resolveBinding(binding, context.root);
+    availability = resolution.availability;
+    binding.resolvedPath = resolution.file;
+    if (resolution.availability !== 'available') {
+      disposition = 'unavailable';
+      reasonCode = resolution.availability === 'unknown' ? 'binding-path-unknown' : 'binding-path-missing';
+    }
+  }
+  binding.status = disposition;
+  binding.availability = availability;
+  binding.evidence = evidence;
+  binding.reasonCode = reasonCode;
+  binding.updatedAt = new Date().toISOString();
+  contract.updatedAt = binding.updatedAt;
+  atomicWriteJson(contractPath, contract);
+  return {
+    stageId: contract.stageId,
+    binding: { id: binding.id, required, status: binding.status, availability: binding.availability, path: binding.path, resolvedPath: binding.resolvedPath || null, reasonCode: binding.reasonCode },
+    activeStages: consumer().activeStageBindings(match.runRoot, context.workflow.escapes),
+  };
+}
+
+function activeStepCommandHints(sessionId, activeStep) {
+  if (!activeStep) return null;
+  const controller = path.resolve(__filename);
+  return {
+    resolveBinding: `node "${controller}" binding --session-id "${sessionId}" --step-id "${activeStep.id}" --binding-id "<active-binding-id>" --disposition <loaded|not-needed|unavailable> --evidence "<binding evidence>"`,
+    passStep: `node "${controller}" step --session-id "${sessionId}" --step-id "${activeStep.id}" --disposition pass --evidence "<completion evidence>"`,
+  };
 }
 
 function activatePlan(workflow, plan) {
@@ -129,11 +190,14 @@ function main() {
       delete workflow.blockReason;
       const obligations = materializeExecutionObligations(context, plan);
       saveWorkflow(context);
+      const activeStep = activeStepSnapshot(obligations);
       process.stdout.write(JSON.stringify({
         state: workflow.state,
         workflowId: workflow.workflowId,
         revision: workflow.revision,
         obligations: obligations ? obligations.obligations.map(item => ({ id: item.id, status: item.status })) : [],
+        activeStep,
+        activeStepCommands: activeStepCommandHints(sessionId, activeStep),
       }) + '\n');
       return;
     }
@@ -156,6 +220,11 @@ function main() {
     workflow.escapes = [];
     delete workflow.pendingPlan;
     delete workflow.blockReason;
+  } else if (args.command === 'stage-binding') {
+    const result = stageBindingDisposition(context, args);
+    saveWorkflow(context);
+    process.stdout.write(JSON.stringify({ state: workflow.state, workflowId: workflow.workflowId, runId: workflow.runId, ...result }) + '\n');
+    return;
   } else if (args.command === 'obligation') {
     if (String(workflow.strategy || '').startsWith('fable-')) throw new Error('Fable workflows use correlated stage contracts, not generic execution obligations');
     if (workflow.state !== 'running') throw new Error('start the selected workflow before recording execution obligation dispositions');
@@ -173,6 +242,46 @@ function main() {
         reasonCode: obligation.reasonCode,
         evidence: obligation.evidence,
       },
+    }) + '\n');
+    return;
+  } else if (args.command === 'binding') {
+    if (String(workflow.strategy || '').startsWith('fable-')) throw new Error('Fable workflows use correlated stage contracts, not generic step bindings');
+    if (workflow.state !== 'running') throw new Error('start the selected workflow before resolving step bindings');
+    const result = updateBinding(context, args.stepId, args.bindingId, args.disposition, {
+      evidence: args.evidence,
+      reasonCode: args.reasonCode,
+    });
+    process.stdout.write(JSON.stringify({
+      state: workflow.state,
+      workflowId: workflow.workflowId,
+      binding: {
+        id: result.binding.id,
+        status: result.binding.status,
+        availability: result.binding.availability,
+        resolvedPath: result.binding.resolvedPath || null,
+        evidence: result.binding.evidence,
+      },
+      activeStep: result.activeStep,
+      activeStepCommands: activeStepCommandHints(sessionId, result.activeStep),
+    }) + '\n');
+    return;
+  } else if (args.command === 'step') {
+    if (String(workflow.strategy || '').startsWith('fable-')) throw new Error('Fable workflows use correlated stage contracts, not generic step dispositions');
+    if (workflow.state !== 'running') throw new Error('start the selected workflow before recording step dispositions');
+    const result = updateStep(context, args.stepId, args.disposition, {
+      evidence: args.evidence,
+      reasonCode: args.reasonCode,
+    });
+    process.stdout.write(JSON.stringify({
+      state: workflow.state,
+      workflowId: workflow.workflowId,
+      step: {
+        id: result.step.id,
+        status: result.step.status,
+        evidence: result.step.evidence,
+      },
+      activeStep: result.activeStep,
+      activeStepCommands: activeStepCommandHints(sessionId, result.activeStep),
     }) + '\n');
     return;
   } else if (args.command === 'revision') {
@@ -198,7 +307,12 @@ function main() {
   } else throw new Error(usage());
 
   saveWorkflow(context);
-  process.stdout.write(JSON.stringify({ state: workflow.state, workflowId: workflow.workflowId, runId: workflow.runId, revision: workflow.revision, escapes: workflow.escapes }) + '\n');
+  const match = matchingRun(context);
+  process.stdout.write(JSON.stringify({
+    state: workflow.state, workflowId: workflow.workflowId, runId: workflow.runId,
+    revision: workflow.revision, escapes: workflow.escapes,
+    activeStages: match && String(workflow.strategy || '').startsWith('fable-') ? consumer().activeStageBindings(match.runRoot, workflow.escapes) : undefined,
+  }) + '\n');
 }
 
 try { main(); } catch (error) { console.error('[Workflow Disposition] ' + error.message); process.exitCode = 2; }

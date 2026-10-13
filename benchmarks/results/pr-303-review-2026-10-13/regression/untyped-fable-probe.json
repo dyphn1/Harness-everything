@@ -1,0 +1,22 @@
+{
+  "scenarios": [
+    {
+      "field": "requiredBindings",
+      "routeExit": 0,
+      "routeStrategy": "fable-staged",
+      "planExit": 2,
+      "stdout": "",
+      "stderr": "[Workflow Disposition] req-untyped.requiredBindings must be an array\n",
+      "persistentStateUnchanged": true
+    },
+    {
+      "field": "optionalBindings",
+      "routeExit": 0,
+      "routeStrategy": "fable-staged",
+      "planExit": 2,
+      "stdout": "",
+      "stderr": "[Workflow Disposition] req-untyped.optionalBindings must be an array\n",
+      "persistentStateUnchanged": true
+    }
+  ]
+}

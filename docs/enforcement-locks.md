@@ -7,7 +7,7 @@ Harness deliberately separates **semantic obligation strength** from **mechanica
 | Mechanism / obligation | Semantic strength | Runtime behavior | Hard block? |
 |---|---|---|---|
 | Workflow routing / selected topology | **MUST** resolve required obligations | Observe/remind about unresolved lifecycle evidence | No |
-| Suggested skill applicability | **MUST** evaluate; applicable core contract **MUST** run | Kernel/instructions expose dispositions | No |
+| Active required skill/reference binding | **MUST** load/resolve before its step passes; applicable skill core contract **MUST** be followed | Step/stage contract records declared binding dispositions; active paths only | No |
 | Iteration/revision/replan/worker numbers | **MAY** guide planning | Planning hints only | No |
 | Verification before claim | **MUST** | Stop/hooks remind when evidence is missing | No |
 | Boundary guard / huge-noisy context | **SHOULD** narrow reads/searches | Warn | No |

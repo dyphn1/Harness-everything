@@ -27,7 +27,6 @@ const INVARIANT_TEXT = {
   'verify-before-claim': 'MUST verify before claim with objective evidence appropriate to the change.',
   'visible-status-updates': 'MUST render the single Markdown Harness Status with a visible heading, bullet-aligned bold labels, Current, Read / Evidence, and Next; add Risk / Blocked only when materially applicable.',
   'replan-after-repeated-failure': 'MUST stop micro-retrying after 3 same-signature failures and zoom out/re-diagnose.',
-  'evaluate-suggestions-before-skip': 'MUST read/evaluate each suggested skill\'s complete SKILL.md entry/basic flow before omission; an applicable skill core contract MUST be followed.',
   'loop-awareness': 'MUST reconsider assumptions/re-plan when evidence shows iterative stagnation; numeric iteration values MAY guide but never hard-stop.',
   'objective-verification': 'MUST use an objective check for iterative work; self-critique alone is not verification.',
   'stage-contracts': 'When Fable is selected, stages MUST have explicit stage contracts and pass conditions.',
@@ -41,16 +40,6 @@ const INVARIANT_TEXT = {
   'preserve-disagreement': 'Selected ensemble synthesis MUST retain unresolved minority positions and evidence gaps.',
   'independent-ensemble-verifier': 'Selected ensemble delivery MUST use a verifier independent from candidate identities; agreement alone is not proof.',
   'isolated-worktree-before-mutation': 'Tier-3/Fable broad mutation MUST resolve isolation: verified linked worktree or explicit degraded fallback.',
-};
-
-const SKILL_TEXT = {
-  'tdd': 'tdd: useful for behavioral changes where executable tests can drive the implementation.',
-  'verification-loop': 'verification-loop: useful for systematic build/lint/test/diff evidence before delivery.',
-  'using-git-worktrees': 'using-git-worktrees: resolves required Tier-3/Fable isolation disposition before broad mutation.',
-  'fable-mode': 'fable-mode / fable-discipline: useful for macro planning or deliberate multi-agent decomposition.',
-  'fable-discipline': null,
-  'multi-agent-workspace': 'multi-agent-workspace: useful when durable bounded delegation, handoffs, or workspace memory are required.',
-  'self-evolve': 'self-evolve: classify an evidence-backed lesson and use the authorized memory persistence path.',
 };
 
 function sanitizeClassifierOutput(stdout) {
@@ -121,23 +110,10 @@ function printWorkflowPlan(plan) {
     fallback: plan.fallback,
     reasonCodes: plan.reasonCodes,
     requiredInvariants: plan.requiredInvariants,
-    suggestedSkills: plan.suggestedSkills,
+    knowledgeSignals: plan.knowledgeSignals,
     mutationIsolation: plan.mutationIsolation,
   };
   console.log(`\n=> ROUTER WORKFLOW PLAN (JSON): ${JSON.stringify(visible)}`);
-}
-
-function uniqueSuggestedSkills(plan) {
-  if (!Array.isArray(plan.suggestedSkills)) return [];
-  return [...new Set(plan.suggestedSkills.filter(skill => typeof skill === 'string' && skill.trim()))];
-}
-
-function enforceSuggestionEvaluation(plan) {
-  if (uniqueSuggestedSkills(plan).length === 0) return;
-  if (!Array.isArray(plan.requiredInvariants)) plan.requiredInvariants = [];
-  if (!plan.requiredInvariants.includes('evaluate-suggestions-before-skip')) {
-    plan.requiredInvariants.push('evaluate-suggestions-before-skip');
-  }
 }
 
 function displayTier(tier) {
@@ -149,25 +125,25 @@ function displayTier(tier) {
 
 function printRoutingCheckpoint(plan) {
   const invariants = Array.isArray(plan.requiredInvariants) ? plan.requiredInvariants : [];
-  const suggestions = uniqueSuggestedSkills(plan);
+  const signals = Array.isArray(plan.knowledgeSignals) ? plan.knowledgeSignals : [];
 
   console.log('\n=> HARNESS ROUTING CHECKPOINT (INTERNAL SOURCE STATE — DO NOT RENDER SEPARATELY):');
   console.log(`   - Tier: ${displayTier(plan.tier)}`);
   console.log(`   - Strategy: ${plan.strategy || 'deferred'}`);
   console.log(`   - Required invariants: ${invariants.length ? invariants.join(', ') : 'none'}`);
-  console.log(`   - Suggested skills: ${suggestions.length ? suggestions.join(', ') : 'none'}`);
-  console.log('   - User-visible progress: use this checkpoint as source state for the single Harness Status contract below; do not invent a per-skill progress format.');
-  if (suggestions.length > 0) {
-    console.log('   - Suggestion evaluation: MANDATORY. Before skipping any listed skill, read its complete SKILL.md entry and evaluate USE FOR, DO NOT USE FOR, workflow/basic flow, and hard rules.');
-    console.log('   - Skip evidence: do not reject from only the skill name, description, router summary, or a generic "routine/common task" judgement. If the entry cannot be resolved/read, mark it unresolved/unavailable rather than skipped.');
-    console.log('   - Suggestion disposition: applicability is conditional, but resolution is mandatory. If a skill is applicable, follow its core contract; if not-applicable, keep one brief flow-grounded reason. The selected workflow is a semantic execution contract, not optional advice.');
-  }
+  console.log(`   - Knowledge signals: ${signals.length ? signals.join(', ') : 'none'} (planning input only; not document selectors)`);
+  console.log('   - User-visible progress: use this checkpoint as source state for the single Harness Status contract below.');
 }
 
 function printKernelContract(plan) {
   console.log('\n=> REQUIRED HARNESS INVARIANTS (SEMANTIC MUST):');
   for (const invariant of plan.requiredInvariants || []) {
     console.log(`   - ${invariant}: ${INVARIANT_TEXT[invariant] || 'Required by the selected workflow plan.'}`);
+  }
+
+  if (plan.strategy && ['tier2', 'tier3'].includes(plan.tier)) {
+    console.log('\n=> PLANNING STEP: decompose → compose');
+    console.log('   - Define ordered requirement steps and their bindings before starting execution.');
   }
 
   console.log('\n=> USER-VISIBLE HARNESS STATUS CONTRACT (MUST):');
@@ -184,26 +160,10 @@ function printKernelContract(plan) {
   console.log('   - Emit it before substantive execution, after a major phase, when direction materially changes, at meaningful long-running phase boundaries, and before final completion (the final response may merge it naturally).');
   console.log('   - This is a semantic communication MUST, not a hard execution lock, counter, or reset condition.');
 
-  console.log('\n=> WORKFLOW SKILLS (APPLICABILITY MUST BE RESOLVED):');
-  if (Array.isArray(plan.suggestedSkills) && plan.suggestedSkills.length > 0) {
-    const emitted = new Set();
-    for (const skill of plan.suggestedSkills) {
-      if (emitted.has(skill)) continue;
-      const text = Object.prototype.hasOwnProperty.call(SKILL_TEXT, skill) ? SKILL_TEXT[skill] : `${skill}: evaluate applicability inside the selected topology.`;
-      if (text) console.log(`   - ${text}`);
-      emitted.add(skill);
-      if (skill === 'fable-mode') emitted.add('fable-discipline');
-    }
-    if (plan.strategy && plan.strategy.startsWith('fable-')) {
-      console.log('   - Fable is not a universal pipeline, but a selected Fable topology must be entered and resolved before completion.');
-    }
-  } else if (plan.strategy === 'direct-single') {
-    console.log('   - No domain skill was suggested. The bounded direct path SHOULD remain minimal; a focused skill MAY be loaded when it adds value.');
-  } else if (plan.strategySelection === 'deferred') {
-    console.log('   - Strategy is deferred/unclassified. Do not infer triviality; choose the smallest justified approach from task evidence.');
-  } else {
-    console.log('   - No additional skill suggestion from the workflow plan.');
-  }
+  console.log('\n=> ACTIVE-STEP KNOWLEDGE BINDINGS (MUST):');
+  console.log('   - Compose ordered requirement steps before execution. Each step declares the required/optional skills or references for that step.');
+  console.log('   - MUST load/resolve only bindings declared for the active step; future-step bindings remain undisclosed until that step becomes active.');
+  console.log('   - A required binding MUST be loaded and its core contract followed before the active step passes. An unknown/unavailable binding stays visible and unresolved; it does not hard-block ordinary tools or Stop.');
 
   if (plan.ensemble) {
     console.log(`\n=> ENSEMBLE REVIEW: bounded to ${plan.ensemble.maxCandidates} candidates; synthesis=${plan.ensemble.synthesis}; verifier=${plan.ensemble.verifier}. Preserve minority positions and do not claim improvement without paired evidence.`);
@@ -222,6 +182,44 @@ function printKernelContract(plan) {
   }
 
   console.log('\n=> ORCHESTRATION POLICY: Selected-topology required obligations and applicable skill core contracts are semantic MUSTs; implementation tactics MAY adapt. Lifecycle hooks observe/remind rather than hard-block, except user/host permission boundaries and the Rule-of-3 zoom-out.');
+}
+
+function printRetainedWorkflow(plan, workflow, activeStep = null, activeStages = []) {
+  const invariants = Array.isArray(workflow?.requiredInvariants) ? workflow.requiredInvariants : plan.requiredInvariants || [];
+  const state = workflow?.state || 'unknown';
+  console.log('\n=> RETAINED EXECUTION CONTRACT (COMPACT):');
+  console.log(`   - Workflow: ${workflow?.workflowId || 'unavailable'}; state=${state}; tier=${displayTier(workflow?.tier || plan.tier)}; strategy=${workflow?.strategy || plan.strategy || 'deferred'}.`);
+  console.log(`   - Invariants remain active: ${invariants.length ? invariants.join(', ') : 'none'}.`);
+  console.log(`   - Action gate: ${plan.actionGate?.required ? `MUST remain ${plan.actionGate.disposition} (${plan.actionGate.reasonCodes.join(', ')})` : 'not required'}.`);
+  console.log(`   - Isolation: ${plan.mutationIsolation?.required ? 'MUST be resolved before broad mutation; missing host evidence remains visible, not a tool lock' : 'no topology-level isolation requirement'}.`);
+  if (activeStages.length) {
+    console.log(`   - Active Fable stage${activeStages.length === 1 ? '' : 's'}: ${activeStages.map(stage => `${stage.stageId} [${stage.status}]`).join(', ')}.`);
+    for (const stage of activeStages) {
+      console.log(`     - ${stage.stageId}: ${stage.goal}`);
+      for (const kind of ['requiredBindings', 'optionalBindings']) {
+        const bindings = stage[kind] || [];
+        if (bindings.length) {
+          console.log(`       - ${kind === 'requiredBindings' ? 'Required' : 'Optional'}: ${bindings.map(binding => `${binding.id} [${binding.status}; ${binding.path || 'path unavailable'}]`).join(', ')}.`);
+        }
+      }
+    }
+    console.log('   - Future-stage bindings remain undisclosed until their dependencies pass.');
+  } else if (activeStep) {
+    console.log(`   - Active step: ${activeStep.id} (${activeStep.stepType}) — ${activeStep.summary}; status=${activeStep.status}.`);
+    for (const kind of ['requiredBindings', 'optionalBindings']) {
+      const bindings = activeStep[kind] || [];
+      if (bindings.length) {
+        console.log(`   - ${kind === 'requiredBindings' ? 'Required' : 'Optional'} active bindings: ${bindings.map(binding => `${binding.id} [${binding.status}; ${binding.path || 'path unavailable'}]`).join(', ')}.`);
+      }
+    }
+    console.log('   - Do not resolve, load, or disclose bindings for future steps yet.');
+  } else if (String(workflow?.strategy || plan.strategy || '').startsWith('fable-')) {
+    console.log('   - No dependency-ready Fable stage bindings are currently available.');
+  } else {
+    console.log('   - Active step: planning/execution obligations; step bindings are not composed or started yet.');
+  }
+  console.log('   - Harness Status stays MUST: one block with Current, Read / Evidence, and Next; add Risk / Blocked only when material. Turn label stays MUST.');
+  console.log('   - Permission boundary and Rule-of-3 remain active; this reminder is non-blocking.');
 }
 
 function route(prompt, stdinPayload) {
@@ -244,7 +242,6 @@ function route(prompt, stdinPayload) {
 
   const contract = readStructuredContract(contractPath);
   applyEnsemblePolicy(contract, resolvePrompt(prompt, stdinPayload));
-  enforceSuggestionEvaluation(contract.workflowPlan);
   try {
     fs.rmSync(contractPath, { force: true });
   } catch (err) {
@@ -279,4 +276,4 @@ if (prompt) {
 }
 }
 
-module.exports = { route, printWorkflowPlan, printRoutingCheckpoint, printKernelContract };
+module.exports = { route, printWorkflowPlan, printRoutingCheckpoint, printKernelContract, printRetainedWorkflow };

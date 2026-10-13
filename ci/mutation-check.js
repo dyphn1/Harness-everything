@@ -17,6 +17,7 @@ const checks = [
   ['unbound workspace identity', 'scripts/lib/workspace.js', 'ci/mechanism-2u-issue-42-regressions.test.js'],
   ['worktree submodule reachability', 'using-git-worktrees/scripts/submodule-reachability.js', 'ci/mechanism-34-worktree-submodule-reachability.test.js'],
   ['verification contract precedence', 'harness-everything/scripts/verify-gate.js', 'ci/mechanism-35-verification-contract.test.js'],
+  ['positive skill-eval relevance', 'harness-everything/scripts/tier-router.js', 'ci/skill-routing-check.js'],
 ];
 
 let failures = 0;
@@ -36,6 +37,7 @@ for (const [label, target, testFile] of checks) {
         'scripts/lib/workspace.js': 'workspace-identity',
         'using-git-worktrees/scripts/submodule-reachability.js': 'submodule-reachability',
         'harness-everything/scripts/verify-gate.js': 'verify-contract-precedence',
+        'harness-everything/scripts/tier-router.js': 'knowledge-signal-matcher',
       }[target],
       HARNESS_MUTATION_TARGET: path.join(ROOT, target),
       NODE_OPTIONS: `--require=${loader}`,

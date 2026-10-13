@@ -4,7 +4,7 @@ Harness coordinates independently useful skills through a small workflow runtime
 
 The preferred shape is:
 
-> **guidance-first workflow + local skill autonomy + narrow runtime mechanisms**
+> **step-scoped knowledge bindings + local skill autonomy + narrow runtime mechanisms**
 
 Platform-specific enforcement claims remain bounded by [platform-capabilities.md](platform-capabilities.md).
 
@@ -19,7 +19,7 @@ A skill should answer:
 3. **What workflow/mechanism do I expose?** A local flow, verifier, script, gate, or stable result when useful.
 4. **What evidence means I am done?** A check, artifact, or explicit blocked state.
 
-The router may surface several skills. Those suggestions must be evaluated from their actual `SKILL.md` flows before omission. They are **not** automatically all executed. Separately, the router selects one smallest sufficient outer topology. **The selected topology guides the run.**
+The router emits normalized keyword/domain signals for requirement composition; these signals are not document selectors. Ordered requirement steps declare the skills/references they need, and only the active step or dependency-ready Fable stage exposes those paths. Separately, the router selects one smallest sufficient outer topology. **The selected topology governs the run.**
 
 ## Why Not One Global Skill Sequence?
 
@@ -33,16 +33,15 @@ A universal TODO/TDD/Fable sequence would:
 So Harness separates **topology** from **capabilities/domain skills**:
 
 ```text
-tier / task shape
       +
 selected execution topology
       +
-applicable skills/capabilities
+active-step knowledge bindings
       +
 required invariants/gates
 ```
 
-The topology is the lifecycle contract. Skills are resolved for applicability within/around that contract.
+The topology is the lifecycle contract. Skills and references are bound to the requirement steps that consume them.
 
 ## Mechanisms Over Prose
 
@@ -56,8 +55,9 @@ tier: 2
 strategy: iterative-single
 workflow_state: active
 required: scope-lock, objective-verification, loop-awareness
-suggest: tdd, verification-loop
-suggestion_policy: evaluate-applicability
+knowledge_signals: test-related
+active_step: behavior-change
+required_bindings: tdd/SKILL.md
 escape_policy: workflow-uncovered-scope-only
 ```
 
@@ -81,18 +81,19 @@ Every skill should retain:
 - explicit neighbor links rather than hidden dependencies;
 - blocked/exit discipline.
 
-Read-before-omission exists so the agent can inspect this local contract without loading the entire ecosystem. If the skill flow applies, follow it; reading a skill is not permission to discard an applicable discipline because the model believes it already knows the answer.
+An active required binding exists so the agent can inspect the local contract without loading the entire ecosystem. If the skill applies to that step, follow its core contract; later or unrelated bindings remain undisclosed.
 
 ## Coordination Patterns
 
 ### Router Decision
 
-`harness-everything/scripts/kernel-router.js` emits tier, strategy, invariants, skill suggestions, and an execution contract.
+`harness-everything/scripts/kernel-router.js` emits tier, strategy, invariants, normalized knowledge signals, and an execution contract.
 
-- Suggested skills: read and resolve applicability (`use`, `not-applicable`, `unresolved/unavailable`).
+- Knowledge signals: planning inputs only; they never choose paths.
+- Active bindings: declare required/optional skill/reference ids and paths on ordered steps; future-step bindings remain hidden.
 - Selected topology: execute to resolution (`active` → verified/satisfied, blocked, or explicit evidence-backed escape).
 
-Names/descriptions/router summaries or “routine task” judgements cannot resolve applicability by themselves.
+Required bindings must resolve before the current step/stage passes. Unknown/unavailable bindings stay visible; hooks and Stop remain fail-open.
 
 ### Fable Stage Contracts
 

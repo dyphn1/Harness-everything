@@ -103,7 +103,7 @@ Commands:
                      error instead of silently doing nothing.
   self-regression    Run syntax and routing checks before committing changes (alias: test)
   next "<prompt>"    Print the Harness Kernel routing recommendation for a prompt:
-                     tier/rationale + mandatory invariants + advisory skill suggestions.
+                     tier/rationale + mandatory invariants + normalized knowledge signals.
                      Hookless platforms can call this explicitly at the start of software
                      work; hosts with UserPromptSubmit hooks receive it automatically.
   verify-install     Compare installed Harness manifests and skill trees with

@@ -1,0 +1,319 @@
+{
+  "schemaVersion": 1,
+  "pr": "https://github.com/dyphn1/Harness-everything/pull/303",
+  "evidenceCommit": "788ea75b7ab69af678734c87ef3cba920b0b892f",
+  "finalSourceTree": "8f6c2c942d3f6c1af6ca4332b8ba1f2529b5cc95",
+  "directGateTreeBeforeFixtureCorrection": "09ff1e72d936ce56d58b1cbde6ae44cd6486fd39",
+  "transformations": [
+    "Replace local workspace, temporary-directory and user-home paths with placeholders.",
+    "Normalize text to UTF-8 without BOM and LF.",
+    "Reformat JSON without changing non-path values.",
+    "Remove trailing spaces/tabs and blank EOF lines from captured .log files; preserve content and internal blank lines."
+  ],
+  "files": [
+    {
+      "path": "regression/red.log",
+      "source": "harness-issue303-binding-declarations-red.log",
+      "phase": "binding-regression",
+      "originalSha256": "78c0227964222e3f4b3704de301ce761b89252c554911ffa4192c83ff4dde5cd",
+      "publishedSha256": "e7b6aedaafbd3b20a7f8758505bf462903e4cb1a887e7e5edf8f7b44f1a2d569",
+      "publishedBytes": 16487
+    },
+    {
+      "path": "regression/workflow-obligations-green.log",
+      "source": "harness-issue303-workflow-obligations-green.log",
+      "phase": "binding-regression",
+      "originalSha256": "635ad4681e12ccbd01322dea194b19bd308c39ea2789a0839ed6f91409e3e953",
+      "publishedSha256": "e804227295dda359d12e0b22d4639dc901ccec5e8d1d2682e8a3a4e404f5caa0",
+      "publishedBytes": 17663
+    },
+    {
+      "path": "regression/binding-resolution-green.log",
+      "source": "harness-issue303-binding-resolution-green.log",
+      "phase": "binding-regression",
+      "originalSha256": "f3afd23d462c3d09a1ce6c0cb303c1d8046894554d7d5431fd6798896e9c517c",
+      "publishedSha256": "1262bf223f24fc087c7080e38f16a7eb942fbe1d2dd5a0f6138cdc4a37ba237c",
+      "publishedBytes": 2274
+    },
+    {
+      "path": "regression/determinism.json",
+      "source": "harness-issue303-green-determinism.json",
+      "phase": "binding-regression",
+      "originalSha256": "c407cd7ddc541bc79b146d690a2fb86e1f36d1fc316534c9e61b4fe8aa2705af",
+      "publishedSha256": "ebceb1eb1f88d065652455174d40b6e7594a93b142959eff719ce75b4bdf9e52",
+      "publishedBytes": 5802
+    },
+    {
+      "path": "regression/quality-evidence.json",
+      "source": "harness-issue303-quality-evidence.json",
+      "phase": "binding-regression",
+      "originalSha256": "f98a0d9a2adeda084fa7512efa2e94694f9ea3f932e3bfa6dbc90235c0ce9b67",
+      "publishedSha256": "f98a0d9a2adeda084fa7512efa2e94694f9ea3f932e3bfa6dbc90235c0ce9b67",
+      "publishedBytes": 11383
+    },
+    {
+      "path": "regression/quality-report.json",
+      "source": "harness-issue303-quality-report.json",
+      "phase": "binding-regression",
+      "originalSha256": "edd05382031c1097ad4b1302561abfd1507581f4e559d735452e318c9d8458ef",
+      "publishedSha256": "edd05382031c1097ad4b1302561abfd1507581f4e559d735452e318c9d8458ef",
+      "publishedBytes": 21802
+    },
+    {
+      "path": "regression/untyped-fable-probe.json",
+      "source": "harness-pr303-final-contracts/untyped-fable-probe.json",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "fafbc548813273fe5f6bbdba86b078927eb9d29a7d245544dca59928c16f2ddf",
+      "publishedSha256": "fafbc548813273fe5f6bbdba86b078927eb9d29a7d245544dca59928c16f2ddf",
+      "publishedBytes": 582
+    },
+    {
+      "path": "gates/heavy/summary.json",
+      "source": "harness-pr303-final-heavy/summary.json",
+      "phase": "retrospective-summary",
+      "originalSha256": "2a48f951783e9e21f44e4ce63ce1bce4aeaf5806cbcd27b10d1d84497309d00e",
+      "publishedSha256": "3b93ba86170f2a4dccaf577f77f4af6b033bf4dc5c86e93dedab957aa2c41c22",
+      "publishedBytes": 2482
+    },
+    {
+      "path": "gates/heavy/test.log",
+      "source": "harness-pr303-final-heavy/test.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "398be165bc6e92a05f0cb1bab1f5f3d52f28e396f05b8fd281f27db35138394b",
+      "publishedSha256": "d2465e5a2ebe82a3c0d6b49d1c182a6f80dfa39b08122dd9a75d3af4dde4dfc6",
+      "publishedBytes": 210986
+    },
+    {
+      "path": "gates/heavy/test-mutations.log",
+      "source": "harness-pr303-final-heavy/test-mutations.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "d3ed04bfeddddf7352962e031af16e7a0b618b935572f5742b2e380ac254773b",
+      "publishedSha256": "f8d5df88e573774362c9f6e0e1f3636b4bf5a81e507edfb0b0209c6d740d3ca2",
+      "publishedBytes": 1257
+    },
+    {
+      "path": "gates/heavy/test-mechanism.log",
+      "source": "harness-pr303-final-heavy/test-mechanism.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "42328b18e6bc982a0ca86e8088b6daa876d66b7fc9cd471fcbddf7505ca69444",
+      "publishedSha256": "6d581d6b1a9a00b9f13097869ea240ed5fc71fd791fddae1414b3601ae97fce1",
+      "publishedBytes": 106226
+    },
+    {
+      "path": "gates/contracts/summary.json",
+      "source": "harness-pr303-final-contracts/summary.json",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "e2f28f2c615dc676ec5f16dc250ca1f0108d40c799ab86a5d530b2a6ebfa0c06",
+      "publishedSha256": "595de9a32a8760d4cfbd39cbed34b0b8cec32912d0d8748fa039d9f7cdebf99a",
+      "publishedBytes": 1526
+    },
+    {
+      "path": "gates/contracts/test-consistency.log",
+      "source": "harness-pr303-final-contracts/test-consistency.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "60d50d37d5d28fa438840a1703cf4308442d4aa9aa924ae69ddb1e747ff2e8b3",
+      "publishedSha256": "a8fd3443667656958ffd05f3a46961e6b0ec919dd466b75e46f3b704bb8aac29",
+      "publishedBytes": 37174
+    },
+    {
+      "path": "gates/contracts/test-repo-contract.log",
+      "source": "harness-pr303-final-contracts/test-repo-contract.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "839adc8ba7de1780d5efefaddb6ac555c663ecc4f46e8f75ad9a290088a2423a",
+      "publishedSha256": "3918c1d02ee865c7f46867381baabc98832372cc7e9c7fda3bc3c9b3c3f975ca",
+      "publishedBytes": 217
+    },
+    {
+      "path": "gates/contracts/test-docs-capabilities.log",
+      "source": "harness-pr303-final-contracts/test-docs-capabilities.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "fdbfcca3eede1b4734bad899b5f8b6a5df6956139b63d2250252027bb044a581",
+      "publishedSha256": "f752740c5256c6f9729b6119840b4652b7e43223c14246825d3e2bef7cf97573",
+      "publishedBytes": 7537
+    },
+    {
+      "path": "gates/contracts/test-references.log",
+      "source": "harness-pr303-final-contracts/test-references.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "dbfb35c40feb197bb54a9e2f1be0fbf85556720933ad546b8b0c6de133e83a49",
+      "publishedSha256": "ee4acf640ef00c738bb66af6c3346cc801d8299b0f5ece341c72aa81f8cfec53",
+      "publishedBytes": 161
+    },
+    {
+      "path": "gates/contracts/test-release.log",
+      "source": "harness-pr303-final-contracts/test-release.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "bad510bab76026d6aa6a351b9d4ef6515cb7c83eca6ed0a9c5f770f31a65c3fa",
+      "publishedSha256": "a57b5323608ecff2c4b6153b1d4137cfa6cbb667e15cd026bc551b0e7c378fcc",
+      "publishedBytes": 5689
+    },
+    {
+      "path": "gates/contracts/test-collision.log",
+      "source": "harness-pr303-final-contracts/test-collision.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "fcfb23c788b50a92616b3dc70f77e90dadf523c2cb0e25016d449e5b02f9eb97",
+      "publishedSha256": "8a3a3124837242bbea274e15ab8f61abfabf71e8134ca29d1203b9d53b237846",
+      "publishedBytes": 167
+    },
+    {
+      "path": "gates/contracts/test-routing-skills.log",
+      "source": "harness-pr303-final-contracts/test-routing-skills.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "bab15b187538c592cca1606254381fc946a539b1d197158fa3ea6b7a0439e061",
+      "publishedSha256": "8b4ac739b39aadb63c3c9396506af487ffc3cb11da66ef02ac8f27f81f205be3",
+      "publishedBytes": 3920
+    },
+    {
+      "path": "gates/contracts/test-routing-invariants.log",
+      "source": "harness-pr303-final-contracts/test-routing-invariants.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "8de9a89b9a31a89705a26b7fade7ee0c20eafd21de5a070b7ccee65691c2653a",
+      "publishedSha256": "db568983fc9d5e4863b35559d12d11e16c7f5513f9bd622199c27549a81aaca0",
+      "publishedBytes": 56231
+    },
+    {
+      "path": "gates/contracts/test-plugin-openai.log",
+      "source": "harness-pr303-final-contracts/test-plugin-openai.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "f8a46befdf3f63c15369fe2225d32615404aeaa06c56ffd5a08aeb9b618e9fc2",
+      "publishedSha256": "bf0c601214aae1268445bc1971fcdb8f43fb10150974c1c1673d416485e854c6",
+      "publishedBytes": 303
+    },
+    {
+      "path": "gates/contracts/test-plugin-submission.log",
+      "source": "harness-pr303-final-contracts/test-plugin-submission.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "6b0d61ed007ba77cfdbaa9662aeb706859646a3c5ad315d15a9562604677caea",
+      "publishedSha256": "81b3d8dbd7f0e325a9c29139fc39f24064667f8ee2492ddd9742b687256cc8b8",
+      "publishedBytes": 201
+    },
+    {
+      "path": "gates/contracts/test-platform-compatibility.log",
+      "source": "harness-pr303-final-contracts/test-platform-compatibility.log",
+      "phase": "integrated-before-fixture-fix",
+      "originalSha256": "8ce621c56b4cee6ab6bfddf1c6e635df33c8e10e825bf5a0f36a84691ea3a0dd",
+      "publishedSha256": "59eb50fe70cb0c06fba3cfd6b3b5ca51e748c96bd1bc07a2e77b24d3e14789ee",
+      "publishedBytes": 441
+    },
+    {
+      "path": "gates/final-fast/summary.json",
+      "source": "harness-pr303-final-tree-8f6c2c-fast-gates/summary.json",
+      "phase": "final-source-tree",
+      "originalSha256": "464614ddac7bc29b9e52768440739e16d407daf6bc33b50814b8dc7271b38bf9",
+      "publishedSha256": "eb30209c2200896a903e884719506c74ae4dbe96e1a5b13e5683a2d9d54e3be1",
+      "publishedBytes": 287
+    },
+    {
+      "path": "gates/final-fast/test-consistency.log",
+      "source": "harness-pr303-final-tree-8f6c2c-fast-gates/test-consistency.log",
+      "phase": "final-source-tree",
+      "originalSha256": "60d50d37d5d28fa438840a1703cf4308442d4aa9aa924ae69ddb1e747ff2e8b3",
+      "publishedSha256": "a8fd3443667656958ffd05f3a46961e6b0ec919dd466b75e46f3b704bb8aac29",
+      "publishedBytes": 37174
+    },
+    {
+      "path": "gates/final-fast/test-release.log",
+      "source": "harness-pr303-final-tree-8f6c2c-fast-gates/test-release.log",
+      "phase": "final-source-tree",
+      "originalSha256": "61bf9aefab0a5771e504c39b5e52bb2d376477cecd901a73749e3649df14e55b",
+      "publishedSha256": "c79fa6631771e6526824ca8e63a43d8b4dfd2963846f93909f658d595e7d8482",
+      "publishedBytes": 5689
+    },
+    {
+      "path": "verification/verify-gate-final.json",
+      "source": "harness-pr303-final-heavy/verify-gate-final.json",
+      "phase": "final-source-tree",
+      "originalSha256": "fb3ec5635eb654d30865b249d1fdbeddfac46ab2bbdf9960f93ebf969278c748",
+      "publishedSha256": "c804853a12adb2afafacb02982f219ea120edd2dd6c535a03f39530300d4adcf",
+      "publishedBytes": 1060
+    },
+    {
+      "path": "verification/nested-test.stdout.log",
+      "source": "harness-pr303-final-heavy/nested-test.stdout.log",
+      "phase": "final-source-tree",
+      "originalSha256": "dc082a18a7e50ebd13fdafc08bf51ba2611d347eb3f2d18413713df83b93245b",
+      "publishedSha256": "688b8795350357e41ea462e7bdd34713e6347db9acf8b4dcbcef1a265358db47",
+      "publishedBytes": 203407
+    },
+    {
+      "path": "verification/nested-test.stderr.log",
+      "source": "harness-pr303-final-heavy/nested-test.stderr.log",
+      "phase": "final-source-tree",
+      "originalSha256": "73c6deb966cc324ebc3981c55f038fe30916348f42301ce74985229fdd3043fa",
+      "publishedSha256": "8a4ccc0f6bfa773e698462abf23341997c5c1df0907fdea6f995fe4e0df4bccf",
+      "publishedBytes": 7307
+    },
+    {
+      "path": "verification/nested-test.meta.json",
+      "source": "harness-pr303-final-heavy/nested-test.meta.json",
+      "phase": "final-source-tree",
+      "originalSha256": "fe53bff2e58cce5b9418aee485a5f8cc573d8ff92527f102b7640b821f1c170e",
+      "publishedSha256": "819d51c45b93d81f5543eaf47c65ed45898909881a5435fda4c07b782c9a9f7d",
+      "publishedBytes": 117
+    },
+    {
+      "path": "verification/mechanism-35-clean-env-fixed.log",
+      "source": "harness-pr303-final-heavy/mechanism-35-clean-env-fixed.log",
+      "phase": "final-source-tree",
+      "originalSha256": "ba0174d76e6eca4fb951940d85de886e3c101df6cac39e4f40c8830a57476511",
+      "publishedSha256": "38cda46cb6a065fb164850f6b2193a4c90e516e6621f1480cd9f913a84490718",
+      "publishedBytes": 137
+    },
+    {
+      "path": "verification/mechanism-35-inherited-flag-fixed.log",
+      "source": "harness-pr303-final-heavy/mechanism-35-inherited-flag-fixed.log",
+      "phase": "final-source-tree",
+      "originalSha256": "ba0174d76e6eca4fb951940d85de886e3c101df6cac39e4f40c8830a57476511",
+      "publishedSha256": "38cda46cb6a065fb164850f6b2193a4c90e516e6621f1480cd9f913a84490718",
+      "publishedBytes": 137
+    },
+    {
+      "path": "diagnostics/verify-gate.json",
+      "source": "harness-pr303-final-heavy/verify-gate.json",
+      "phase": "failed-attempt-or-reproduction",
+      "originalSha256": "8208c5b685e0eb3af8452179682496dc14732ca01e4dadc04ab17a28b35ac5f5",
+      "publishedSha256": "41417f0a170d6ef180bc79ce35a7e2f8e5f59bf5f0b5955025224a7a5fa5d9e9",
+      "publishedBytes": 980
+    },
+    {
+      "path": "diagnostics/verify-gate-captured.json",
+      "source": "harness-pr303-final-heavy/verify-gate-captured.json",
+      "phase": "failed-attempt-or-reproduction",
+      "originalSha256": "ec7cfc0eb2cd4e2ce7b63a100cf83fb9a32b30810ff1fd84969f1f54024c1972",
+      "publishedSha256": "2a3c29b132ae411caa927347879b5fd3c7b247165c7b80b015a81ad51ecb68de",
+      "publishedBytes": 980
+    },
+    {
+      "path": "diagnostics/verify-gate-diagnosis.md",
+      "source": "harness-pr303-final-heavy/verify-gate-diagnosis.md",
+      "phase": "failed-attempt-or-reproduction",
+      "originalSha256": "449f2322c15e2dac0f5cdcc02b9b2f7d15edca183bff62837c3c756d617e185a",
+      "publishedSha256": "bcb5d6c172c62a20def96ff97b5940c9b09b999fe0e4533bda60800be0b465d0",
+      "publishedBytes": 1160
+    },
+    {
+      "path": "diagnostics/mechanism-35-inherited-flag.log",
+      "source": "harness-pr303-final-heavy/mechanism-35-inherited-flag.log",
+      "phase": "failed-attempt-or-reproduction",
+      "originalSha256": "c3f5495879af612d0b65bfc1facfe7dba581f147a97831e5d4645404e216d2c9",
+      "publishedSha256": "3ec341a19b76402d895cabcd6c6a27489cfc1c7778c18e3e7fbdf0c89b3bb50a",
+      "publishedBytes": 1223
+    },
+    {
+      "path": "diagnostics/mechanism-35-clean-env.log",
+      "source": "harness-pr303-final-heavy/mechanism-35-clean-env.log",
+      "phase": "failed-attempt-or-reproduction",
+      "originalSha256": "ba0174d76e6eca4fb951940d85de886e3c101df6cac39e4f40c8830a57476511",
+      "publishedSha256": "38cda46cb6a065fb164850f6b2193a4c90e516e6621f1480cd9f913a84490718",
+      "publishedBytes": 137
+    },
+    {
+      "path": "ci/run.json",
+      "source": "harness-pr303-ci-run.json",
+      "phase": "github-ci",
+      "originalSha256": "b3854ccd23605bf6111c6473e648fe996105bd253392ed9e660f92850f818556",
+      "publishedSha256": "6a5b71ddb76d3509ab7cdc6597edf936acd3bb0e27a1495091788e3aa20523a0",
+      "publishedBytes": 43222
+    }
+  ]
+}

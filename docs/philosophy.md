@@ -10,7 +10,7 @@ The mechanism/enforcement boundary remains platform-specific; see [Platform Capa
 
 1. **Reasoning autonomy remains high.** The model chooses implementation technique, tools, decomposition details, and tactics inside the selected workflow.
 2. **Selected lifecycle obligations are contracts, not advice.** Once a topology is selected, its required invariants, stages, checks, synthesis barriers, and verification obligations are semantic MUSTs. The model remains free to decide how to satisfy them.
-3. **Skill applicability is explicit.** Every router-suggested skill MUST be read/evaluated before omission. If its real flow is applicable, its core contract MUST be followed; if it is not applicable, the agent MUST keep a flow-grounded reason.
+3. **Knowledge is step-scoped.** Normalized keyword signals help requirement composition but do not select documents. Ordered steps declare required/optional skill or reference bindings; active required bindings MUST be read and their applicable core contracts followed before the step passes.
 4. **Escape is conditional, not default.** If the selected workflow genuinely cannot represent part of the task, record the uncovered scope and evidence, then allow model-defined handling only for that uncovered portion.
 5. **Mechanisms do not define obligation strength.** Hooks/plugins may observe, remind, or mechanically block where the host supports them, but a missing blocking mechanism does not downgrade a semantic MUST to optional advice.
 
@@ -26,7 +26,7 @@ Harness uses three semantic strengths. Recommendation-style language is the last
 
 | Strength | Meaning | Typical use |
 |---|---|---|
-| **MUST** | Skipping the obligation violates the Harness semantic contract. Host enforcement may still be reminder-only. | routing, applicability resolution, applicable skill core contracts, selected-topology obligations, verification-before-claim, status, scope/safety/authorization evidence |
+| **MUST** | Skipping the obligation violates the Harness semantic contract. Host enforcement may still be reminder-only. | routing, active required binding resolution, applicable skill core contracts, selected-topology obligations, verification-before-claim, status, scope/safety/authorization evidence |
 | **SHOULD** | The default is expected, but a concrete evidence-based exception is legitimate. | ordinary isolation, targeted editing, splitting mixed commit concerns, context-size/noisy-search discipline |
 | **MAY** | Optional optimization/capability. Omitting it needs no exception unless another contract selected it. | numeric planning hints, optional ensemble selection, extra deep references, opportunistic parallelism |
 
@@ -37,8 +37,9 @@ The repository-wide classification for #217 is:
 | Obligation | Strength |
 |---|---|
 | Route before software/project execution | **MUST** |
-| Read/evaluate every suggested skill before omission | **MUST** |
-| Follow an applicable suggested skill's core contract; otherwise keep a flow-grounded not-applicable reason | **MUST** |
+| Resolve active required skill/reference bindings before their step | **MUST** |
+| Follow an active skill binding's applicable core contract | **MUST** |
+| Load unrelated keyword-matched documents or future-step bindings | Not required |
 | Resolve selected-topology invariants/stages/checks/synthesis/verification | **MUST** |
 | Choose tools, implementation technique, decomposition details, and local tactics | **MAY** within the MUST contract |
 | Verify before claiming completion | **MUST** |
@@ -67,7 +68,7 @@ The router chooses the **smallest sufficient topology**:
 - `fable-parallel` only for validated independent workstreams;
 - `fable-multi-agent-workspace` when persistent roles/handoffs/memory are materially needed.
 
-Domain skills remain conditional on applicability. The contract says “execute the selected lifecycle”, not “execute every skill in the repository.”
+Domain skills and references are conditional on the needs of each requirement step. The contract says “execute the selected lifecycle”, not “execute every skill in the repository.” Unknown required bindings remain visible and unresolved; they do not turn workflow hooks into a persistent lock.
 
 ## The 4 Pillars of AI Model Guidance
 
@@ -81,7 +82,7 @@ Circuit breakers, action gates, workflow gates, scope guards, and completion gat
 
 ### 3. Context Preservation — Progressive Disclosure
 
-**SHOULD** load the smallest useful context. A suggested skill's complete entry **MUST** be read before deciding applicability; optional deep references **MAY** remain unloaded unless needed. Machine-visible workflow state SHOULD carry lifecycle facts instead of repeating large prompt blocks.
+**SHOULD** load the smallest useful context. An active required skill's complete entry **MUST** be read and followed; optional bindings resolve as loaded or not-needed. Future-step bindings remain undisclosed until active. Machine-visible workflow state SHOULD carry lifecycle facts instead of repeating large prompt blocks.
 
 ### 4. Self-Evolution — Learn from Workflow Evidence
 

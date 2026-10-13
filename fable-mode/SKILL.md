@@ -29,17 +29,15 @@ metadata:
 
 ## Select Operation First
 
-For explanation/profile-only lookup, read only `<this-skill-dir>/references/profile-lookup.md` and answer. No stage state, delegation, or selector source reads. Quoted aliases do not start Fable. Mixed execution retains its topology.
-
-Execution follows the workflow below.
+For explanation/profile-only lookup, read only `<this-skill-dir>/references/profile-lookup.md` and answer. No stage state, delegation, or selector source reads. Quoted aliases do not start Fable. Mixed execution retains its topology; execution follows the workflow below.
 
 ## Workflow
 
 1. Discover the runtime and lock the authorized file scope before edits.
-2. Set artifact/check per stage; advisory replans never halt. Rule-of-3 applies to 3 same-signature failures.
+2. Per stage, set artifact, check, and required/optional bindings; dependency-ready stages disclose them, passing once resolved. Gaps never lock tools or Stop; advisory replans never halt. Rule-of-3 covers same-signature failures.
 3. Resolve the requested behavior profile with `model-selector.js`; `opus`, `sonnet`/`sonnect`, and `haiku` are compatibility aliases, not model bindings.
-4. Delegate by profile: orchestrator coordinates, reasoning handles bounded judgment, mechanical handles low-ambiguity work, and workers never spawn workers.
-5. Treat the host runtime-model floor as advisory; record its status without blocking Fable solely for model choice.
-6. Run each stage check, cold-review high-stakes artifacts, and audit profile/runtime/fallback fields.
+4. Delegate by profile: orchestrator coordinates, reasoning takes bounded judgment, mechanical takes low-ambiguity work; workers never spawn workers.
+5. The host runtime-model floor is advisory; record it, never block on model choice alone.
+6. Run stage checks, cold-review high-stakes artifacts, and audit profile/runtime/fallback fields.
 
 Deep dive: <this-skill-dir>/references/model-matrix.md

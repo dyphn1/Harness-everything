@@ -48,6 +48,10 @@ const mutations = {
     '  finalize(contract ? contractPlan(contract) : discoveredPlan());',
     '  finalize(discoveredPlan()); // mutation: ignore the authoritative project contract'
   ),
+  'knowledge-signal-matcher': (source) => source.replace(
+    "    if (matched && typeof group.id === 'string') {",
+    "    if (matched && typeof group.id === 'string' && group.id !== 'tdd-test') { // mutation: remove the tdd-test matcher"
+  ),
 };
 
 if (target && mutation && mutations[mutation]) {

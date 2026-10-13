@@ -1,0 +1,174 @@
+{
+  "generatedBy": "harness-issue303-green-determinism.js",
+  "cwd": "<workspace>",
+  "scenarios": [
+    {
+      "id": "typed-required-null",
+      "routeExit": 0,
+      "baselineSessionFileHashes": {
+        "workflow-obligations.json": "dbc03590ec7bbd9745cfd5aa45fd4f1757c827beb243e0c98149a272d3e2caa7",
+        "workflow-run.json": "5aa69cd0e787811f4b88bc3379d77ba85d403f5d8b298287d554ccce572f579c"
+      },
+      "runs": [
+        {
+          "id": "run-1",
+          "input": [
+            {
+              "id": "req-review",
+              "stepType": "review",
+              "summary": "Review the change",
+              "acceptance": "the change is reviewed",
+              "requiredBindings": null
+            },
+            {
+              "id": "req-verify",
+              "stepType": "verification",
+              "summary": "Verify the change",
+              "acceptance": "objective evidence is recorded"
+            }
+          ],
+          "exitStatus": 2,
+          "errorCategory": "validation-error",
+          "output": {
+            "stdout": "",
+            "stderr": "[Workflow Disposition] req-review.requiredBindings must be an array\n"
+          },
+          "sideEffects": {
+            "createdFiles": [],
+            "changedFiles": [],
+            "deletedFiles": [],
+            "persistentState": {
+              "sessionFilesEqualToBefore": true,
+              "sessionFileHashes": {
+                "workflow-obligations.json": "dbc03590ec7bbd9745cfd5aa45fd4f1757c827beb243e0c98149a272d3e2caa7",
+                "workflow-run.json": "5aa69cd0e787811f4b88bc3379d77ba85d403f5d8b298287d554ccce572f579c"
+              }
+            },
+            "events": [],
+            "logs": [],
+            "externalCalls": []
+          }
+        },
+        {
+          "id": "run-2",
+          "input": [
+            {
+              "id": "req-review",
+              "stepType": "review",
+              "summary": "Review the change",
+              "acceptance": "the change is reviewed",
+              "requiredBindings": null
+            },
+            {
+              "id": "req-verify",
+              "stepType": "verification",
+              "summary": "Verify the change",
+              "acceptance": "objective evidence is recorded"
+            }
+          ],
+          "exitStatus": 2,
+          "errorCategory": "validation-error",
+          "output": {
+            "stdout": "",
+            "stderr": "[Workflow Disposition] req-review.requiredBindings must be an array\n"
+          },
+          "sideEffects": {
+            "createdFiles": [],
+            "changedFiles": [],
+            "deletedFiles": [],
+            "persistentState": {
+              "sessionFilesEqualToBefore": true,
+              "sessionFileHashes": {
+                "workflow-obligations.json": "dbc03590ec7bbd9745cfd5aa45fd4f1757c827beb243e0c98149a272d3e2caa7",
+                "workflow-run.json": "5aa69cd0e787811f4b88bc3379d77ba85d403f5d8b298287d554ccce572f579c"
+              }
+            },
+            "events": [],
+            "logs": [],
+            "externalCalls": []
+          }
+        }
+      ],
+      "identical": true
+    },
+    {
+      "id": "untyped-optional-object",
+      "routeExit": 0,
+      "baselineSessionFileHashes": {
+        "workflow-obligations.json": "7241ba0c1664d3349285c55edeaf915171d30b4013af8390f0281a87210a32af",
+        "workflow-run.json": "c84c795cdc35d4b57eb064cb1ded7d932ee06fede4a987dda9463180a4d5a3a1"
+      },
+      "runs": [
+        {
+          "id": "run-1",
+          "input": [
+            {
+              "id": "req-review",
+              "summary": "Review the change",
+              "acceptance": "the change is reviewed",
+              "optionalBindings": {
+                "id": "ignored"
+              }
+            }
+          ],
+          "exitStatus": 2,
+          "errorCategory": "validation-error",
+          "output": {
+            "stdout": "",
+            "stderr": "[Workflow Disposition] req-review.optionalBindings must be an array\n"
+          },
+          "sideEffects": {
+            "createdFiles": [],
+            "changedFiles": [],
+            "deletedFiles": [],
+            "persistentState": {
+              "sessionFilesEqualToBefore": true,
+              "sessionFileHashes": {
+                "workflow-obligations.json": "7241ba0c1664d3349285c55edeaf915171d30b4013af8390f0281a87210a32af",
+                "workflow-run.json": "c84c795cdc35d4b57eb064cb1ded7d932ee06fede4a987dda9463180a4d5a3a1"
+              }
+            },
+            "events": [],
+            "logs": [],
+            "externalCalls": []
+          }
+        },
+        {
+          "id": "run-2",
+          "input": [
+            {
+              "id": "req-review",
+              "summary": "Review the change",
+              "acceptance": "the change is reviewed",
+              "optionalBindings": {
+                "id": "ignored"
+              }
+            }
+          ],
+          "exitStatus": 2,
+          "errorCategory": "validation-error",
+          "output": {
+            "stdout": "",
+            "stderr": "[Workflow Disposition] req-review.optionalBindings must be an array\n"
+          },
+          "sideEffects": {
+            "createdFiles": [],
+            "changedFiles": [],
+            "deletedFiles": [],
+            "persistentState": {
+              "sessionFilesEqualToBefore": true,
+              "sessionFileHashes": {
+                "workflow-obligations.json": "7241ba0c1664d3349285c55edeaf915171d30b4013af8390f0281a87210a32af",
+                "workflow-run.json": "c84c795cdc35d4b57eb064cb1ded7d932ee06fede4a987dda9463180a4d5a3a1"
+              }
+            },
+            "events": [],
+            "logs": [],
+            "externalCalls": []
+          }
+        }
+      ],
+      "identical": true
+    }
+  ]
+}
