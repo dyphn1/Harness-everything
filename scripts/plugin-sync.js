@@ -177,24 +177,36 @@ function findMarketplace(payload, marketplace) {
 }
 
 function findPlugin(payload, plugin, marketplace) {
-  return Boolean(findPluginEntry(payload, plugin, marketplace)) || collectStrings(payload).some(value => value.trim() === `${plugin}@${marketplace}`);
+  if (findPluginEntry(payload, plugin, marketplace)) return true;
+  if (hasExplicitUninstalledPlugin(payload, plugin, marketplace)) return false;
+  return collectStrings(payload).some(value => value.trim() === `${plugin}@${marketplace}`);
+}
+
+function pluginEntryMatches(value, keyHint, plugin, marketplace) {
+  const pluginId = `${plugin}@${marketplace}`;
+  const identifiers = [value.id, value.pluginId, value.identifier, keyHint];
+  if (identifiers.some(candidate => exactString(candidate, pluginId))) return true;
+  const names = [value.name, value.plugin, value.pluginName];
+  if (!names.some(candidate => exactString(candidate, plugin))) return false;
+  const sources = [
+    value.marketplace,
+    value.marketplaceName,
+    value.source && value.source.name,
+    value.source && value.source.id
+  ].filter(Boolean);
+  return sources.length === 0 || sources.some(source => exactString(source, marketplace));
 }
 
 function findPluginEntry(payload, plugin, marketplace) {
-  const pluginId = `${plugin}@${marketplace}`;
-  return collectObjects(payload).find(({ value, keyHint }) => {
-    const identifiers = [value.id, value.pluginId, value.identifier, keyHint];
-    if (identifiers.some(candidate => exactString(candidate, pluginId))) return true;
-    const names = [value.name, value.plugin, value.pluginName];
-    if (!names.some(candidate => exactString(candidate, plugin))) return false;
-    const sources = [
-      value.marketplace,
-      value.marketplaceName,
-      value.source && value.source.name,
-      value.source && value.source.id
-    ].filter(Boolean);
-    return sources.length === 0 || sources.some(source => exactString(source, marketplace));
-  })?.value || null;
+  return collectObjects(payload).find(({ value, keyHint }) =>
+    value.installed !== false && pluginEntryMatches(value, keyHint, plugin, marketplace)
+  )?.value || null;
+}
+
+function hasExplicitUninstalledPlugin(payload, plugin, marketplace) {
+  return collectObjects(payload).some(({ value, keyHint }) =>
+    value.installed === false && pluginEntryMatches(value, keyHint, plugin, marketplace)
+  );
 }
 
 function escapeRegExp(value) {
@@ -507,6 +519,21 @@ function refreshCodexCompatibilityHooks(context, sourcePluginRoot) {
   }
 }
 
+function codexLocalPluginRoot(plugin) {
+  const source = plugin && plugin.source;
+  if (!source || typeof source !== 'object') {
+    return { ok: false, error: 'Codex did not report a tagged installed plugin source' };
+  }
+  if (source.source !== 'local') {
+    const variant = typeof source.source === 'string' ? source.source : 'missing';
+    return { ok: false, error: `Codex installed plugin source variant "${variant}" is unsupported; compatibility hooks require source "local"` };
+  }
+  if (typeof source.path !== 'string' || !source.path.trim() || !path.isAbsolute(source.path)) {
+    return { ok: false, error: 'Codex local plugin source must report an absolute filesystem path' };
+  }
+  return { ok: true, path: source.path };
+}
+
 function syncCodex(context) {
   if (!context.commandAvailable('codex')) return { host: 'codex', status: 'skipped', reasonCode: 'cli-not-found', reason: 'codex CLI not found' };
   const marketplace = ensureCodexMarketplace(context);
@@ -557,7 +584,16 @@ function syncCodex(context) {
 
   const verification = verifyPlugin(context, 'Codex', queryCodexPlugin);
   if (!verification.ok) return { host: 'codex', status: 'failed', error: verification.error };
-  const sourcePluginRoot = verification.state && verification.state.plugin && verification.state.plugin.source && verification.state.plugin.source.path;
+  const localSource = context.dryRun ? { ok: true, path: null } : codexLocalPluginRoot(verification.state && verification.state.plugin);
+  if (!localSource.ok) {
+    return {
+      host: 'codex',
+      status: 'failed',
+      action,
+      error: `Codex plugin ${action} succeeded but compatibility hooks could not be refreshed: ${localSource.error}`
+    };
+  }
+  const sourcePluginRoot = localSource.path;
   const compatHooks = refreshCodexCompatibilityHooks(context, sourcePluginRoot);
   if (!compatHooks.ok) return { host: 'codex', status: 'failed', action, error: 'Codex plugin ' + action + ' succeeded but compatibility hooks could not be refreshed: ' + compatHooks.error };
   return { host: 'codex', status: 'synchronized', action, compatHooks: compatHooks.result };

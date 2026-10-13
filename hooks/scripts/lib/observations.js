@@ -370,15 +370,16 @@ function routerState(payload) {
   }
 }
 
-function withLock(root, fn) {
+function withLock(root, fn, options = {}) {
   fs.mkdirSync(root, { recursive: true, mode: 0o700 });
   const lock = path.join(root, '.index.lock');
-  const deadline = Date.now() + 2000;
+  const timeoutMs = Number.isFinite(options.timeoutMs) && options.timeoutMs >= 0 ? options.timeoutMs : 2000;
+  const deadline = Date.now() + timeoutMs;
   let fd = null;
   while (fd === null) {
     try { fd = fs.openSync(lock, 'wx'); } catch (_) {
       try { if (Date.now() - fs.statSync(lock).mtimeMs > 5000) fs.unlinkSync(lock); } catch (__) { /* raced */ }
-      if (Date.now() > deadline) return false;
+      if (Date.now() >= deadline) return false;
       const until = Date.now() + 10;
       while (Date.now() < until) { /* short spin; hooks are short-lived */ }
     }
@@ -432,13 +433,22 @@ function sweep(root, now = Date.now()) {
   });
 }
 
-function appendRecord(root, record, text, options = {}) {
-  let appended = false;
+function appendRecordDetailed(root, record, text, options = {}) {
+  let outcome = null;
   const locked = withLock(root, () => {
     const file = path.join(root, 'observations-index.json');
     const index = readJson(file, null) || { schemaVersion: 1, kind: 'system-one-observations', records: [] };
-    if (options.dedupeById && index.records.some(existing => existing.id === record.id)) return;
-    if (options.dedupeByTurn && observationTurnMatch(index.records, record)) return;
+    if (options.dedupeById && index.records.some(existing => existing.id === record.id)) {
+      outcome = 'duplicate';
+      return;
+    }
+    if (options.dedupeByTurn) {
+      const match = observationTurnMatch(index.records, record);
+      if (match) {
+        outcome = match === 'ambiguous-legacy-turn' ? 'ambiguous' : 'duplicate';
+        return;
+      }
+    }
     // The blob is written under the lock, so a concurrent sweep cannot remove it before its record lands.
     const textDir = path.join(root, 'text');
     fs.mkdirSync(textDir, { recursive: true, mode: 0o700 });
@@ -446,9 +456,14 @@ function appendRecord(root, record, text, options = {}) {
     index.records.push(record);
     sweepLocked(root, index, Date.now());
     writeJsonAtomic(file, index);
-    appended = true;
-  });
-  return Boolean(locked && appended);
+    outcome = 'appended';
+  }, { timeoutMs: options.lockTimeoutMs });
+  if (!locked) return { status: 'lock-timeout' };
+  return { status: outcome || 'appended' };
+}
+
+function appendRecord(root, record, text, options = {}) {
+  return appendRecordDetailed(root, record, text, options).status === 'appended';
 }
 
 function observationTurnMatch(records, record) {
@@ -484,7 +499,7 @@ function findObservationTurnMatch(root, record) {
   return observationTurnMatch(index && index.records, record);
 }
 
-function markSessionBackfillBehaviorUnobserved(root) {
+function markSessionBackfillBehaviorUnobserved(root, options = {}) {
   const file = path.join(root, 'observations-index.json');
   if (!fs.existsSync(file)) return 0;
   let changed = 0;
@@ -498,7 +513,7 @@ function markSessionBackfillBehaviorUnobserved(root) {
       }
     }
     if (changed) writeJsonAtomic(file, index);
-  });
+  }, { timeoutMs: options.lockTimeoutMs });
   return locked ? changed : null;
 }
 
@@ -637,6 +652,6 @@ function handle(payload, env = process.env) {
 
 module.exports = {
   INTENTS, TIERS, STRATEGIES, RETENTION_MS, PREVIOUS_BYTES, enabled, storeRoot, redact, parseLabelLine, stripLabels, tailBytes, sha, classifyCommand, labelTier, contradictions,
-  normalizeTerms, transcriptMessage, recordTool, emptyBehavior, mergeBehavior, toolFailed, handle, readJson, appendRecord, observationTurnMatch, findObservationTurnMatch, markSessionBackfillBehaviorUnobserved,
+  normalizeTerms, transcriptMessage, recordTool, emptyBehavior, mergeBehavior, toolFailed, handle, readJson, appendRecord, appendRecordDetailed, observationTurnMatch, findObservationTurnMatch, markSessionBackfillBehaviorUnobserved,
   expired, recordText, sweep,
 };

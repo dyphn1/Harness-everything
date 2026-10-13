@@ -72,6 +72,35 @@ function completionLabel(message) {
   return { label: null, reason: result.reason };
 }
 
+function reconcileFinalMessage(payload, current) {
+  const hasCompletionMessage = Object.prototype.hasOwnProperty.call(payload, 'last_agent_message') &&
+    typeof payload.last_agent_message === 'string';
+  const assistantCanRepresentFinal = current.lastAssistantPhase !== 'commentary';
+  const assistantMessage = assistantCanRepresentFinal ? current.lastAssistantMessage : '';
+  let message = hasCompletionMessage ? payload.last_agent_message : assistantMessage;
+  let parsed = completionLabel(message);
+  let ambiguous = false;
+
+  if (hasCompletionMessage && parsed.reason === 'label-missing' && assistantMessage) {
+    const assistantParsed = completionLabel(assistantMessage);
+    if (assistantParsed.label) {
+      const sameBody = obs.stripLabels(message) === obs.stripLabels(assistantMessage);
+      if (sameBody) {
+        message = assistantMessage;
+        parsed = assistantParsed;
+      } else if (!sameBody) {
+        // Both sources describe the final reply, but disagree about its body.
+        // Do not guess which text is authoritative or let either seed context.
+        message = null;
+        parsed = { label: null, reason: 'label-missing' };
+        ambiguous = true;
+      }
+    }
+  }
+
+  return { message, parsed, ambiguous };
+}
+
 function blankReport(filesScanned) {
   return {
     since: DEFAULT_SINCE,
@@ -90,7 +119,10 @@ function blankReport(filesScanned) {
       turnMismatch: 0,
       duplicate: 0,
       ambiguousLiveMatch: 0,
+      ambiguousFinalMessage: 0,
     },
+    failed: { lockTimeout: 0 },
+    errors: [],
   };
 }
 
@@ -102,8 +134,12 @@ async function importSessions(options = {}) {
   const files = sessionFiles(sessionsRoot);
   const report = blankReport(files.length);
   report.since = since;
-  const migrated = obs.markSessionBackfillBehaviorUnobserved(store);
-  if (migrated === null) throw new Error('could not lock the observations store to migrate backfill behavior evidence');
+  const migrated = obs.markSessionBackfillBehaviorUnobserved(store, { lockTimeoutMs: options.lockTimeoutMs });
+  if (migrated === null) {
+    report.failed.lockTimeout++;
+    report.errors.push('Observation store lock timed out during behavior migration; no session rows were imported.');
+    return report;
+  }
   report.migratedUnobservedBehavior = migrated;
 
   for (const file of files) {
@@ -133,6 +169,7 @@ async function importSessions(options = {}) {
           prompt: '',
           promptSeen: false,
           lastAssistantMessage: '',
+          lastAssistantPhase: null,
           previous: '',
           previousAt: null,
         };
@@ -153,6 +190,7 @@ async function importSessions(options = {}) {
       }
       if (row.type === 'response_item' && payload.type === 'message' && payload.role === 'assistant') {
         current.lastAssistantMessage = assistantText(payload);
+        current.lastAssistantPhase = typeof payload.phase === 'string' ? payload.phase : null;
         continue;
       }
       if (row.type !== 'event_msg' || payload.type !== 'task_complete') continue;
@@ -165,24 +203,18 @@ async function importSessions(options = {}) {
 
       report.turnsScanned++;
       const startedMs = Date.parse(current.startedAt || '');
-      const hasCompletionMessage = Object.prototype.hasOwnProperty.call(payload, 'last_agent_message') &&
-        typeof payload.last_agent_message === 'string';
-      let finalMessage = hasCompletionMessage ? payload.last_agent_message : '';
+      const reconciledFinal = reconcileFinalMessage(payload, current);
+      const finalMessage = reconciledFinal.message;
       if (!Number.isFinite(startedMs)) {
         report.skipped.invalidTimestamp++;
       } else if (startedMs < cutoff) {
         report.skipped.beforeCutoff++;
       } else {
         report.eligibleTurns++;
-        let parsed = completionLabel(finalMessage);
-        if (!hasCompletionMessage && current.lastAssistantMessage) {
-          const assistantParsed = completionLabel(current.lastAssistantMessage);
-          if (assistantParsed.label) {
-            finalMessage = current.lastAssistantMessage;
-            parsed = assistantParsed;
-          }
-        }
-        if (!parsed.label) {
+        const parsed = reconciledFinal.parsed;
+        if (reconciledFinal.ambiguous) {
+          report.skipped.ambiguousFinalMessage++;
+        } else if (!parsed.label) {
           report.skipped[parsed.reason === 'label-missing' ? 'missingLabel' : 'invalidLabel']++;
         } else {
           report.validLabels++;
@@ -217,22 +249,26 @@ async function importSessions(options = {}) {
               selfReport: parsed.label,
               selfReportReason: null,
             };
-            const existing = obs.findObservationTurnMatch(store, record);
-            if (existing === 'ambiguous-legacy-turn') {
-              report.skipped.ambiguousLiveMatch++;
-            } else if (existing) {
-              report.skipped.duplicate++;
-            } else {
-              const appended = obs.appendRecord(store, record, expired ? null : text, { dedupeById: true, dedupeByTurn: true });
-              if (appended) report.imported++;
-              else report.skipped.duplicate++;
+            const appendOptions = {
+              dedupeById: true,
+              dedupeByTurn: true,
+              ...(options.lockTimeoutMs === undefined ? {} : { lockTimeoutMs: options.lockTimeoutMs }),
+            };
+            const appended = obs.appendRecordDetailed(store, record, expired ? null : text, appendOptions);
+            if (appended.status === 'appended') report.imported++;
+            else if (appended.status === 'duplicate') report.skipped.duplicate++;
+            else if (appended.status === 'ambiguous') report.skipped.ambiguousLiveMatch++;
+            else if (appended.status === 'lock-timeout') {
+              report.failed.lockTimeout++;
+              report.errors.push('Observation store lock timed out while appending a session turn; the record was not persisted.');
+              return report;
             }
           }
         }
       }
 
-      previousFinal = typeof finalMessage === 'string' ? finalMessage : '';
-      previousAt = isoTimestamp(payload.completed_at || row.timestamp);
+      previousFinal = reconciledFinal.ambiguous ? '' : (typeof finalMessage === 'string' ? finalMessage : '');
+      previousAt = previousFinal ? isoTimestamp(payload.completed_at || row.timestamp) : null;
       current = null;
     }
   }
@@ -259,7 +295,7 @@ async function main(args = process.argv.slice(2)) {
   try {
     const report = await importSessions(parseArgs(args));
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
-    return 0;
+    return report.failed.lockTimeout ? 1 : 0;
   } catch (error) {
     process.stderr.write('ERROR: ' + error.message + '\n');
     return 1;
@@ -268,4 +304,4 @@ async function main(args = process.argv.slice(2)) {
 
 if (require.main === module) main().then(code => { process.exitCode = code; });
 
-module.exports = { DEFAULT_SINCE, assistantText, firstUserText, importSessions, parseSince, sessionFiles };
+module.exports = { DEFAULT_SINCE, assistantText, firstUserText, importSessions, parseSince, reconcileFinalMessage, sessionFiles };

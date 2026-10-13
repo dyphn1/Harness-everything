@@ -16,7 +16,7 @@ const {
 const ROOT = path.resolve(__dirname, '..');
 const codexHooksCompat = require('../scripts/codex-hooks-compat');
 
-function fakeHost({ claudeInstalled = false, codexInstalled = false, codexPluginSourcePath = path.join(ROOT, 'plugins', 'harness-everything'), claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false, clapCodexJsonFlag = false, missingCodexPluginCommand = false, codexHooksError = null } = {}) {
+function fakeHost({ claudeInstalled = false, codexInstalled = false, codexPluginSourcePath = path.join(ROOT, 'plugins', 'harness-everything'), codexPluginSourceType = 'local', codexAvailableOnly = false, claudeMarketplace = true, codexMarketplace = true, unknownClaudePluginState = false, unknownClaudeYesFlag = false, unknownClaudeJsonFlag = false, clapCodexJsonFlag = false, missingCodexPluginCommand = false, codexHooksError = null } = {}) {
   const calls = [];
   const codexHookInstalls = [];
   const state = {
@@ -24,7 +24,8 @@ function fakeHost({ claudeInstalled = false, codexInstalled = false, codexPlugin
     codexInstalled,
     claudeMarketplace,
     codexMarketplace,
-    codexPluginSourcePath
+    codexPluginSourcePath,
+    codexAvailableOnly
   };
   const runner = (command, args) => {
     calls.push({ command, args: [...args] });
@@ -96,7 +97,21 @@ function fakeHost({ claudeInstalled = false, codexInstalled = false, codexPlugin
       }
       if (joined.startsWith('plugin marketplace upgrade')) return { status: 0, stdout: '{}', stderr: '' };
       if (joined.includes('plugin list --marketplace harness-everything --json') || joined === 'plugin list --json') {
-        const plugin = state.codexInstalled ? [{ name: 'harness-everything', marketplace: 'harness-everything', ...(state.codexPluginSourcePath ? { source: { path: state.codexPluginSourcePath } } : {}) }] : [];
+        const source = state.codexPluginSourcePath ? {
+          source: codexPluginSourceType,
+          ...(codexPluginSourceType === 'git-subdir' ? { url: 'https://github.com/dyphn1/Harness-everything.git' } : {}),
+          path: state.codexPluginSourcePath
+        } : null;
+        if (state.codexAvailableOnly) {
+          return { status: 0, stdout: JSON.stringify({ installed: [], available: [{
+            pluginId: 'harness-everything@harness-everything',
+            name: 'harness-everything',
+            marketplaceName: 'harness-everything',
+            installed: false,
+            source
+          }] }), stderr: '' };
+        }
+        const plugin = state.codexInstalled ? [{ name: 'harness-everything', marketplace: 'harness-everything', ...(source ? { source } : {}) }] : [];
         return { status: 0, stdout: JSON.stringify({ plugins: plugin }), stderr: '' };
       }
       if (joined === 'plugin list --marketplace harness-everything' || joined === 'plugin list') {
@@ -104,6 +119,7 @@ function fakeHost({ claudeInstalled = false, codexInstalled = false, codexPlugin
       }
       if (joined.startsWith('plugin add')) {
         state.codexInstalled = true;
+        state.codexAvailableOnly = false;
         return { status: 0, stdout: '{}', stderr: '' };
       }
     }
@@ -191,6 +207,15 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
 }
 
 {
+  const fake = fakeHost({ codexAvailableOnly: true });
+  const result = runHost('codex', fake);
+  assert.strictEqual(result.failed, 0, 'an available-only entry must be installed and verified after its state changes');
+  assert.strictEqual(result.results[0].action, 'install', 'installed:false must not make an available plugin appear installed');
+  assert.strictEqual(callsFor(fake.calls, 'codex', 'plugin add').length, 1, 'available-only entries must take the plugin add path');
+  assert.strictEqual(fake.codexHookInstalls.length, 1, 'hooks refresh only after the post-add listing verifies an installed local source');
+}
+
+{
   const fake = fakeHost({ codexInstalled: true });
   const result = runHost('codex', fake);
   assert.strictEqual(result.failed, 0);
@@ -217,6 +242,42 @@ assert.strictEqual(findPlugin({ plugins: [{ id: 'harness-everything@harness-ever
   assert.strictEqual(result.failed, 1, 'sync must fail visibly when it cannot identify the installed plugin source');
   assert.strictEqual(fake.codexHookInstalls.length, 0, 'sync must not overwrite compatibility hooks from an unverified local package');
   assert.match(result.results[0].error, /source/i);
+}
+
+{
+  const staleCheckout = path.join(ROOT, 'plugins', 'harness-everything');
+  const fake = fakeHost({ codexInstalled: true, codexPluginSourcePath: staleCheckout, codexPluginSourceType: 'git-subdir' });
+  const result = runHost('codex', fake);
+  assert.strictEqual(result.failed, 1, 'a tagged git-subdir source must not be treated as a local plugin directory');
+  assert.strictEqual(fake.codexHookInstalls.length, 0, 'an unsupported source variant must not copy hooks from the stale package checkout');
+  assert.match(result.results[0].error, /git-subdir|source/i);
+}
+
+{
+  const fake = fakeHost({
+    codexInstalled: true,
+    codexPluginSourcePath: 'plugins/harness-everything',
+    codexPluginSourceType: 'git-subdir'
+  });
+  const result = runHost('codex', fake);
+  assert.strictEqual(result.failed, 1, 'a repository-relative git-subdir path must not be resolved against the sync process CWD');
+  assert.strictEqual(fake.codexHookInstalls.length, 0, 'a git-subdir URL and relative path must not be passed to the local compatibility installer');
+  assert.match(result.results[0].error, /git-subdir|source/i);
+}
+
+for (const sourceType of ['git', 'npm', 'remote', 'unknown']) {
+  const fake = fakeHost({ codexInstalled: true, codexPluginSourcePath: path.join(ROOT, 'plugins', 'harness-everything'), codexPluginSourceType: sourceType });
+  const result = runHost('codex', fake);
+  assert.strictEqual(result.failed, 1, `the ${sourceType} source variant must fail closed`);
+  assert.strictEqual(fake.codexHookInstalls.length, 0, `the ${sourceType} source variant must not run the compatibility installer`);
+}
+
+{
+  const fake = fakeHost({ codexInstalled: true, codexPluginSourcePath: 'plugins/harness-everything' });
+  const result = runHost('codex', fake);
+  assert.strictEqual(result.failed, 1, 'a relative local source path is not a verified installed plugin directory');
+  assert.strictEqual(fake.codexHookInstalls.length, 0, 'a relative source path must not be copied from the sync process CWD');
+  assert.match(result.results[0].error, /absolute|source/i);
 }
 
 {

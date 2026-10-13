@@ -58,6 +58,45 @@ test('commands are classified without keeping their text', () => {
   assert.strictEqual(lib.classifyCommand('cd x && git push'), 'git', 'the first recognizable segment decides');
 });
 
+test('detailed appends distinguish duplicates and bounded lock timeouts', () => {
+  const s = sandbox();
+  const record = {
+    id: 'append-detail-one',
+    host: 'codex',
+    turn: 1,
+    writer: { sessionId: 'append-detail-session' },
+    contentSha256: 'append-detail-content-one',
+  };
+  const options = { dedupeById: true, dedupeByTurn: true };
+  assert.deepStrictEqual(lib.appendRecordDetailed(s.store, record, { prompt: 'first' }, options), { status: 'appended' });
+  assert.strictEqual(lib.appendRecord(s.store, record, { prompt: 'first' }, options), false,
+    'the legacy boolean wrapper still reports a duplicate as false');
+  assert.deepStrictEqual(lib.appendRecordDetailed(s.store, {
+    ...record,
+    id: 'append-detail-ambiguous',
+    captureMethod: 'session-backfill',
+    writer: { sessionId: 'append-detail-session', turnId: 'turn-one' },
+    contentSha256: 'different-content-for-legacy-turn',
+  }, { prompt: 'uncertain match' }, options), { status: 'ambiguous' },
+  'a partial legacy live-turn match is checked under the append lock and remains distinct from an exact duplicate');
+
+  const lockPath = path.join(s.store, '.index.lock');
+  fs.writeFileSync(lockPath, 'held by deterministic fixture');
+  const blocked = lib.appendRecordDetailed(s.store, {
+    ...record,
+    id: 'append-detail-two',
+    turn: 2,
+    writer: { sessionId: 'append-detail-session', turnId: 'turn-two' },
+    contentSha256: 'append-detail-content-two',
+  }, { prompt: 'second' }, { ...options, lockTimeoutMs: 25 });
+  assert.deepStrictEqual(blocked, { status: 'lock-timeout' }, 'lock contention is distinct from a duplicate');
+  assert.strictEqual(lib.markSessionBackfillBehaviorUnobserved(s.store, { lockTimeoutMs: 25 }), null,
+    'migration reports lock acquisition failure consistently');
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(s.store, 'observations-index.json'), 'utf8')).records.length, 1,
+    'a timed out append leaves no durable index record');
+  fs.unlinkSync(lockPath);
+});
+
 test('tier comes from the self-report, owner review overrides, behavior only flags contradictions', () => {
   assert.strictEqual(typeof lib.breadthTier, 'undefined', 'no file-count tier rule');
   assert.deepStrictEqual(lib.labelTier({ tier: 'tier2' }, null), { tier: 'tier2', source: 'self-report' });
