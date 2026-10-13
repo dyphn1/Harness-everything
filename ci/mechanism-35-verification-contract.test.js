@@ -410,7 +410,192 @@ try {
   assert.strictEqual(stop.status, 0);
   assert.doesNotMatch(String(stop.stderr || ''), /Verification Reminder/i);
 
+  // Issue #306: a host working-directory prelude (`cd <workspace> && <check>`)
+  // is recognized only for a validated in-root directory followed by exactly
+  // one plain verification command. Canonical and packaged copies must agree.
+  fs.rmSync(path.join(classifyRepo, '.harness', 'verify.json'));
+  const physicalRepo = fs.realpathSync.native(classifyRepo);
+  const posixRepo = physicalRepo.replace(/\\/g, '/');
+  const outside = fs.mkdtempSync(path.join(temp, 'outside-'));
+  fs.mkdirSync(path.join(classifyRepo, 'pkg'), { recursive: true });
+  fs.mkdirSync(path.join(classifyRepo, '--'), { recursive: true });
+  fs.mkdirSync(path.join(outside, 'pkg'), { recursive: true });
+  fs.writeFileSync(path.join(classifyRepo, 'not-a-dir.txt'), 'x\n');
+  const classifiers = {
+    canonical: require('../hooks/scripts/lib/workflow-isolation').isVerificationShell,
+    packaged: require('../plugins/harness-everything/hooks/scripts/lib/workflow-isolation').isVerificationShell,
+  };
+  const wrapperCases = (repo) => {
+    const positive = [
+      `cd "${physicalRepo}" && npm test`,
+      `cd '${physicalRepo}' && npm test`,
+      `cd '${posixRepo}' && npm test`,
+      `cd   "${physicalRepo}"   &&   npm   test`,
+      `cd "${physicalRepo}" && pre-commit run --all-files`,
+      `cd ./pkg && npm test`,
+      `cd "./pkg" && npm test`,
+      `cd . && npm test`,
+      'npm test',
+    ];
+    if (!/[^A-Za-z0-9_./:@%+,-]/.test(posixRepo)) positive.push(`cd ${posixRepo} && npm test`);
+    if (process.platform === 'win32') {
+      positive.push(`cd '/${physicalRepo[0].toLowerCase()}${posixRepo.slice(2)}' && npm test`);
+    }
+    const negative = [
+      `cd "${physicalRepo}" && npm test && rm -rf build`,
+      `cd "${physicalRepo}" && npm test || true`,
+      'npm test || true',
+      'npm test; rm -rf build',
+      `cd "${physicalRepo}" && npm test | tee out.txt`,
+      `cd "${physicalRepo}" && npm test > out.txt`,
+      `cd "${physicalRepo}" && npm test 2>&1`,
+      `cd "${physicalRepo}" && npm test $(rm -rf build)`,
+      `cd "${physicalRepo}" && npm test \`rm -rf build\``,
+      `cd "${physicalRepo}" && npm test &`,
+      `cd "${physicalRepo}" && (npm test)`,
+      `cd "${physicalRepo}" && npm test\nrm -rf build`,
+      `cd "${physicalRepo}" && echo npm test`,
+      'echo npm test',
+      `cd "${physicalRepo}" && cd "${physicalRepo}" && npm test`,
+      `cd "${physicalRepo}\\" && npm test" && rm -rf build`,
+      `cd "${physicalRepo};rm -rf build" && npm test`,
+      'cd "$HOME" && npm test',
+      'cd ~ && npm test',
+      `cd "${outside}" && npm test`,
+      `cd "${path.join(physicalRepo, '..')}" && npm test`,
+      `cd "${path.join(physicalRepo, 'missing')}" && npm test`,
+      `cd "${path.join(physicalRepo, 'not-a-dir.txt')}" && npm test`,
+      `cd "${physicalRepo}" ; npm test`,
+      `cd "${physicalRepo}" || npm test`,
+      `pushd "${physicalRepo}" && npm test`,
+      `cd "${physicalRepo}" &&`,
+      // Bash destination differs from a naive path.resolve: CDPATH-sensitive
+      // bare relatives and option-like targets fail closed (PR #307 review).
+      'cd pkg && npm test',
+      'cd "pkg" && npm test',
+      'cd -- && npm test',
+      'cd "--" && npm test',
+      'cd - && npm test',
+      `cd -P "${physicalRepo}" && npm test`,
+    ];
+    if (process.platform === 'win32') negative.push('cd /usr && npm test', 'cd /tmp && npm test');
+    return { positive, negative, repo };
+  };
+  for (const [label, classify] of Object.entries(classifiers)) {
+    const { positive, negative } = wrapperCases(classifyRepo);
+    for (const command of positive) {
+      assert.strictEqual(classify(command, { cwd: classifyRepo, root: classifyRepo }), true, `${label}: wrapper must count: ${command}`);
+    }
+    for (const command of negative) {
+      assert.strictEqual(classify(command, { cwd: classifyRepo, root: classifyRepo }), false, `${label}: must not count: ${JSON.stringify(command)}`);
+    }
+    // Unexpected inputs fail closed rather than throwing.
+    for (const value of [undefined, null, '', '   ', 42, 'cd', 'cd ""  && npm test']) {
+      assert.strictEqual(classify(value, { cwd: classifyRepo, root: classifyRepo }), false, `${label}: unexpected input ${JSON.stringify(value)}`);
+    }
+  }
+
+  // Where Bash is available, prove the CDPATH hazard is real: `cd pkg` leaves
+  // the repository even though <repo>/pkg exists, so the bare form must not count.
+  const bashProbe = spawnSync('bash', ['-c', 'cd pkg >/dev/null && pwd'], {
+    cwd: classifyRepo,
+    encoding: 'utf8',
+    // Native path on purpose: MSYS Bash converts it, while a `C:/...` spelling
+    // would be split at the drive colon as a CDPATH separator.
+    env: { ...process.env, CDPATH: outside },
+  });
+  if (!bashProbe.error && bashProbe.status === 0) {
+    assert.match(bashProbe.stdout.trim(), new RegExp(`${path.basename(outside)}[\\\\/]pkg$`), 'CDPATH redirects a bare cd outside the repository');
+  }
+
+  // A declared contract still governs the wrapped command: declared checks
+  // count through the wrapper only in their declared cwd; undeclared legacy
+  // commands and declared commands run elsewhere do not (PR #307 review).
+  writeJson(path.join(classifyRepo, '.harness', 'verify.json'), {
+    version: 1,
+    checks: [
+      { id: 'e2e', run: 'bash scripts/e2e.sh' },
+      { id: 'root-test', run: 'npm test', cwd: '.' },
+      { id: 'pkg-make', run: 'make test', cwd: 'pkg' },
+    ],
+  });
+  for (const [label, classify] of Object.entries(classifiers)) {
+    const options = { cwd: classifyRepo, root: classifyRepo };
+    const pkgOptions = { cwd: path.join(classifyRepo, 'pkg'), root: classifyRepo };
+    assert.strictEqual(classify(`cd "${physicalRepo}" && bash scripts/e2e.sh`, options), true, `${label}: declared contract check through wrapper`);
+    assert.strictEqual(classify(`cd "${physicalRepo}" && npx jest`, options), false, `${label}: wrapper must not bypass the declared contract`);
+    assert.strictEqual(classify(`cd "${physicalRepo}" && bash scripts/e2e.sh && rm -rf build`, options), false, `${label}: chained contract check`);
+    assert.strictEqual(classify(`cd "${physicalRepo}" && npm test`, options), true, `${label}: root check in its declared cwd`);
+    assert.strictEqual(classify('cd ./pkg && npm test', options), false, `${label}: root check run in a subproject is not root verification`);
+    assert.strictEqual(classify(`cd "${path.join(physicalRepo, 'pkg')}" && npm test`, options), false, `${label}: absolute wrong-cwd root check`);
+    assert.strictEqual(classify('cd ./pkg && make test', options), true, `${label}: subproject check in its declared cwd`);
+    assert.strictEqual(classify(`cd "${physicalRepo}" && make test`, options), false, `${label}: subproject check run at root`);
+    assert.strictEqual(classify('npm test', options), true, `${label}: standalone root check at root`);
+    assert.strictEqual(classify('npm test', pkgOptions), false, `${label}: standalone root check from the wrong cwd`);
+    assert.strictEqual(classify('make test', pkgOptions), true, `${label}: standalone subproject check in its cwd`);
+  }
+  fs.writeFileSync(path.join(classifyRepo, '.harness', 'verify.json'), '{ broken');
+  assert.strictEqual(isVerificationShell(`cd "${physicalRepo}" && npm test`, { cwd: classifyRepo }), false, 'invalid contract still fails closed through the wrapper');
+  fs.rmSync(path.join(classifyRepo, '.harness', 'verify.json'));
+
+  // End-to-end hook replay (Windows-Bash-shaped Claude payload, no exit code):
+  // edit -> wrapped verification -> Stop is clean. Repeated twice for determinism.
+  const wrappedCommand = `cd "${physicalRepo}" && npm test`;
+  for (const scripts of [
+    { label: 'canonical', persist: statePersist, stop: stopGate },
+    { label: 'packaged', persist: path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'state-persist.js'), stop: path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'stop-gate.js') },
+  ]) {
+    for (let round = 0; round < 2; round++) {
+      const wrapSession = `verify-wrapper-${scripts.label}-${round}`;
+      const wrapStateFile = path.join(stateHome, 'workspaces', getWorkspaceKey(classifyRepo), 'state', 'sessions', wrapSession, 'handoff-state.json');
+      const readWrapState = () => JSON.parse(fs.readFileSync(wrapStateFile, 'utf8'));
+      const bash = (command, extra = {}) => invokeHook(scripts.persist, {
+        session_id: wrapSession,
+        cwd: classifyRepo,
+        hook_event_name: 'PostToolUse',
+        tool_name: 'Bash',
+        tool_input: { command },
+        tool_response: { stdout: 'ok', stderr: '' },
+        ...extra,
+      });
+
+      assert.strictEqual(invokeHook(scripts.persist, {
+        session_id: wrapSession,
+        cwd: classifyRepo,
+        hook_event_name: 'PostToolUse',
+        tool_name: 'Edit',
+        tool_input: { file_path: path.join(classifyRepo, 'README.md') },
+        tool_response: { stdout: '' },
+      }).status, 0);
+      const editedAt = readWrapState().lastEditAt;
+      assert.ok(Number.isFinite(editedAt), `${scripts.label}: edit recorded`);
+
+      // Failed or unconfirmed outcomes never mark a passing verification.
+      assert.strictEqual(bash(wrappedCommand, { hook_event_name: 'PostToolUseFailure', tool_response: { stderr: 'boom' } }).status, 0);
+      assert.ok(!readWrapState().lastVerifyAt, `${scripts.label}: PostToolUseFailure must not verify`);
+      assert.strictEqual(bash(wrappedCommand, { tool_response: { stdout: '', stderr: 'boom', exitCode: 1 } }).status, 0);
+      assert.ok(!readWrapState().lastVerifyAt, `${scripts.label}: nonzero exit must not verify`);
+      assert.strictEqual(bash(wrappedCommand, { hook_event_name: undefined }).status, 0);
+      assert.ok(!readWrapState().lastVerifyAt, `${scripts.label}: unknown event without exit code must not verify`);
+      assert.strictEqual(bash(`${wrappedCommand} && rm -rf build`).status, 0);
+      assert.ok(!readWrapState().lastVerifyAt, `${scripts.label}: chained wrapper must not verify`);
+
+      const failingStop = invokeHook(scripts.stop, { session_id: wrapSession, cwd: classifyRepo });
+      assert.strictEqual(failingStop.status, 0, `${scripts.label}: Stop stays fail-open`);
+      assert.match(String(failingStop.stderr || ''), /Verification Reminder/i, `${scripts.label}: reminder before verification`);
+
+      assert.strictEqual(bash(wrappedCommand).status, 0);
+      const verified = readWrapState();
+      assert.ok(verified.lastVerifyAt >= verified.lastEditAt, `${scripts.label}: wrapper verification recorded ${JSON.stringify(verified)}`);
+      assert.strictEqual(verified.lastVerifyExitCode, null);
+      const cleanStop = invokeHook(scripts.stop, { session_id: wrapSession, cwd: classifyRepo });
+      assert.strictEqual(cleanStop.status, 0);
+      assert.doesNotMatch(String(cleanStop.stderr || ''), /Verification Reminder/i, `${scripts.label}: clean Stop after wrapped verification`);
+    }
+  }
+
   console.log('Issue #242 verification contract: taxonomy, discovery, execution safety, multi-root scope, hook recognition, and Stop evidence verified.');
+  console.log('Issue #306 host cwd wrapper: validated prelude recognition, negative chaining/injection/out-of-root cases, contract governance, canonical/packaged parity, and hook-to-Stop replay verified.');
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });
 }
