@@ -58,6 +58,45 @@ test('commands are classified without keeping their text', () => {
   assert.strictEqual(lib.classifyCommand('cd x && git push'), 'git', 'the first recognizable segment decides');
 });
 
+test('detailed appends distinguish duplicates and bounded lock timeouts', () => {
+  const s = sandbox();
+  const record = {
+    id: 'append-detail-one',
+    host: 'codex',
+    turn: 1,
+    writer: { sessionId: 'append-detail-session' },
+    contentSha256: 'append-detail-content-one',
+  };
+  const options = { dedupeById: true, dedupeByTurn: true };
+  assert.deepStrictEqual(lib.appendRecordDetailed(s.store, record, { prompt: 'first' }, options), { status: 'appended' });
+  assert.strictEqual(lib.appendRecord(s.store, record, { prompt: 'first' }, options), false,
+    'the legacy boolean wrapper still reports a duplicate as false');
+  assert.deepStrictEqual(lib.appendRecordDetailed(s.store, {
+    ...record,
+    id: 'append-detail-ambiguous',
+    captureMethod: 'session-backfill',
+    writer: { sessionId: 'append-detail-session', turnId: 'turn-one' },
+    contentSha256: 'different-content-for-legacy-turn',
+  }, { prompt: 'uncertain match' }, options), { status: 'ambiguous' },
+  'a partial legacy live-turn match is checked under the append lock and remains distinct from an exact duplicate');
+
+  const lockPath = path.join(s.store, '.index.lock');
+  fs.writeFileSync(lockPath, 'held by deterministic fixture');
+  const blocked = lib.appendRecordDetailed(s.store, {
+    ...record,
+    id: 'append-detail-two',
+    turn: 2,
+    writer: { sessionId: 'append-detail-session', turnId: 'turn-two' },
+    contentSha256: 'append-detail-content-two',
+  }, { prompt: 'second' }, { ...options, lockTimeoutMs: 25 });
+  assert.deepStrictEqual(blocked, { status: 'lock-timeout' }, 'lock contention is distinct from a duplicate');
+  assert.strictEqual(lib.markSessionBackfillBehaviorUnobserved(s.store, { lockTimeoutMs: 25 }), null,
+    'migration reports lock acquisition failure consistently');
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(s.store, 'observations-index.json'), 'utf8')).records.length, 1,
+    'a timed out append leaves no durable index record');
+  fs.unlinkSync(lockPath);
+});
+
 test('tier comes from the self-report, owner review overrides, behavior only flags contradictions', () => {
   assert.strictEqual(typeof lib.breadthTier, 'undefined', 'no file-count tier rule');
   assert.deepStrictEqual(lib.labelTier({ tier: 'tier2' }, null), { tier: 'tier2', source: 'self-report' });
@@ -222,6 +261,31 @@ test('exporter derives labels, splits by time and reports agreement', () => {
   assert(!fs.readFileSync(path.join(out, 'export-report.json'), 'utf8').includes('parser'), 'the report holds no text');
 });
 
+test('exporter can select post-cutoff rows with self-reported labels for training', () => {
+  const s = sandbox();
+  writeFixtureStore(s);
+  const indexFile = path.join(s.store, 'observations-index.json');
+  const index = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
+  index.records[0].observedAt = '2026-09-26T23:59:59.000Z';
+  index.records.push({ ...index.records[1], id: 'missing-self-report', selfReport: null });
+  fs.writeFileSync(indexFile, JSON.stringify(index));
+  const out = path.join(s.dir, 'filtered-export');
+  const r = spawnSync('node', [EXPORTER, '--store', s.store, '--out', out, '--since', '2026-09-27', '--self-report-only'], {
+    encoding: 'utf8',
+    env: s.env,
+  });
+  assert.strictEqual(r.status, 0, r.stderr);
+  const prompts = fs.readFileSync(path.join(out, 'prompts-observed.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  const labels = fs.readFileSync(path.join(out, 'labels-observed.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.strictEqual(prompts.length, 3);
+  assert.strictEqual(labels.length, 3);
+  assert(labels.every(label => label.validity && label.intents.length >= 0), 'only self-reported turns are included');
+  const report = JSON.parse(fs.readFileSync(path.join(out, 'export-report.json'), 'utf8'));
+  assert.strictEqual(report.since, '2026-09-27');
+  assert.strictEqual(report.selfReportOnly, true);
+  assert.strictEqual(report.skippedBeforeSince, 1);
+  assert.strictEqual(report.skippedUnlabeled, 1);
+});
 test('review page lists disagreements blind and owner decisions override', () => {
   const s = sandbox();
   writeFixtureStore(s);

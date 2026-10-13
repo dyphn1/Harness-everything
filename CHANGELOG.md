@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Bug Fixes
+
+* **codex:** keep compatibility hooks and session labels in sync
+
 ## [0.30.9](https://github.com/dyphn1/Harness-everything/compare/v0.30.8...v0.30.9) (2026-10-08)
 
 ### Bug Fixes

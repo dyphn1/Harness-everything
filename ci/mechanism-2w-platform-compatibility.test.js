@@ -85,6 +85,18 @@ for (const platform of matrix.platforms) {
     assert.ok(compliance.totalEdits > 0);
     assert.ok(fs.statSync(path.join(session, 'edit-state.json')).size > 0);
     assert.ok(fs.statSync(path.join(session, 'zoom-out-report.md')).size > 0);
+  } else if (platform.id === 'codex') {
+    const capability = platform.capabilities.liveHostVerification;
+    assert.strictEqual(capability.status, 'Partial');
+    assert.strictEqual(capability.evidence, 'benchmarks/results/live-host/codex-2026-10-13/README.md');
+    const artifactRoot = path.dirname(path.join(ROOT, capability.evidence));
+    for (const file of ['README.md', 'observation-records.json']) {
+      assert.ok(fs.statSync(path.join(artifactRoot, file)).size > 0, `Missing Codex evidence: ${file}`);
+    }
+    const evidence = JSON.parse(fs.readFileSync(path.join(artifactRoot, 'observation-records.json'), 'utf8'));
+    assert.strictEqual(evidence.format, 'harness-codex-live-observation-evidence-v1');
+    assert.strictEqual(evidence.turns.length, 2, 'Codex artifact must preserve both consecutive turns');
+    assert.ok(evidence.turns.every(turn => turn.host === 'codex' && turn.selfReportReason === null));
   } else {
     assert.strictEqual(platform.capabilities.liveHostVerification.status, 'Unknown', `${platform.id}: no preserved live evidence`);
   }

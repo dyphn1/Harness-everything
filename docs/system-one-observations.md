@@ -2,8 +2,8 @@
 
 Status: **accepted**, 2026-09-27. Owner decisions are recorded below.
 Implementation: `hooks/scripts/observation-hook.js`,
-`hooks/scripts/lib/observations.js`, `scripts/system-one-observations-export.js`
-and `scripts/system-one-observations-review.js`; tests in
+`hooks/scripts/lib/observations.js`, `scripts/system-one-observations-export.js`, `scripts/system-one-observations-import-codex-sessions.js` and
+`scripts/system-one-observations-review.js`; tests in
 `ci/mechanism-34-observations.test.js`. Issue
 [#233](https://github.com/dyphn1/Harness-everything/issues/233).
 
@@ -43,7 +43,7 @@ A turn runs from `UserPromptSubmit` to `Stop`. Its record:
 | `prompt` | `UserPromptSubmit` | stored in the private text store only (see Storage) |
 | `previous` | the last assistant message before the prompt | truncated to 2 KB; text store only |
 | `router` | kernel-router output | lexical tier, strategy, suggested skills; System One shadow scores when present |
-| `behavior` | `PostToolUse`, `PostToolUseFailure` | counts and categories, never arguments: files written, distinct repositories written, files created, commands by class (git, gh, test, build, package, shell), skills loaded or read, subagents started. Failed attempts are counted separately (`toolFailures`, `failedWrites`, `failedSkillLoads`) and never count as a write or a load |
+| `behavior` | `PostToolUse`, `PostToolUseFailure` | counts and categories, never arguments: files written, distinct repositories written, files created, commands by class (git, gh, test, build, package, shell), skills loaded or read, subagents started. Failed attempts are counted separately (`toolFailures`, `failedWrites`, `failedSkillLoads`) and never count as a write or a load. `null` means the capture source did not observe tool events; it is not a zero count. |
 | `workflow` | `workflow-run.json` / `workflow-disposition` | selected and confirmed strategy |
 | `selfReport` | label line in the final message | see below; `null` if missing or invalid |
 | `derived` | exporter | labels computed from the fields above |
@@ -97,6 +97,12 @@ purposes:
   change). These records go to the owner's review page.
 - **Future features.** The counters can train or check later models
   without re-reading transcripts.
+
+Session backfill reads prompts and final labels, but does not reconstruct
+tool events or file writes. Its `behavior` is therefore `null`. Exports count
+observed and unobserved behavior separately and derive contradictions only
+from observed behavior. The default review page includes unobserved records
+and identifies the evidence gap.
 
 **Owner review.** Missing labels, contradictions, and turns where the
 router's tier and the self-reported tier differ go to a blind review page.
@@ -157,11 +163,16 @@ warning sign. The review page samples the turns where they differ.
     it wrote no label; the same text as JSON reached the model and all five
     test turns carried a label. The Codex manifest therefore runs the router
     through `hooks/scripts/codex-user-prompt.js`, which wraps its output.
-  - Plugin-bundled hooks do not run on this version (`plugin_hooks` is
-    `removed`); the explicit fallback `harness codex-hooks install` is
-    needed, and Codex runs the hooks only after they are trusted in
-    `/hooks`.
+  - The retained `codex-cli 0.157.1` evidence found plugin hooks removed
+    (`plugin_hooks`); the local CLI path therefore uses the user-hook
+    compatibility installer. Successful `plugin:hosts` runs now install or
+    refresh that copied runtime and its `hooks.json` entries. The installer
+    does not change trust state; Codex still requires hook review/trust in
+    `/hooks`. Status reports `inactive` when absent and
+    `configured-unverified` when the files are healthy, because this command
+    cannot read Codex trust state.
   - The final message comes from the rollout's `task_complete` event.
+- Fresh live-host verification on Windows (Codex CLI 0.162.1, 2026-10-13) exercised the user-hook compatibility fallback: only the `UserPromptSubmit` and `Stop` observation hooks were individually reviewed/trusted. Two consecutive real turns produced `host: "codex"` records with distinct current `turn_id` values and their respective valid self-reports. The sanitized record excerpt and scope limits are preserved in [Codex live-host evidence](../benchmarks/results/live-host/codex-2026-10-13/README.md). This does not verify native plugin-bundled hooks, other lifecycle events, or tool behavior capture.
 - The final message must belong to the current turn. A transcript scan
   stops at the start of the current turn (Codex `task_started` or a user
   message; a Claude user prompt) and a Codex `task_complete` must carry the
@@ -174,17 +185,33 @@ warning sign. The review page samples the turns where they differ.
 - A missing field records `null` with a reason code. Collection must never
   block, slow down, or fail a turn; each hook has a short time budget.
 
+## Session backfill
+
+To recover self-reported labels written before the observation hooks were active, run:
+
+    node scripts/system-one-observations-import-codex-sessions.js --since 2026-09-27
+
+The importer scans local Codex rollout files and pairs each completed turn with its first user text item. It reads the final label from `task_complete.last_agent_message`; when that field is absent or not a string, the last assistant `response_item` can provide it unless that item is marked `commentary`. When a string completion has no label and the last assistant item is not marked `commentary` and has a valid label, their bodies are compared after `obs.stripLabels` removes label comments and trims surrounding whitespace. A match lets the assistant label provide the missing label; a difference reports `ambiguousFinalMessage`, skips the turn, and clears previous-message context rather than choosing one representation. An explicitly unlabeled completion never inherits a commentary or earlier assistant label, and an invalid completion label is not replaced by the assistant label.
+
+The importer accepts only valid label lines, applies the same email/home-path redaction, and appends idempotently to the private observations store. Backfill and live hook records deduplicate by `(host, writer.sessionId, writer.turnId)`. For older live records without a turn ID, an exact turn-and-text match is skipped; a partial match is counted as ambiguous and skipped to avoid silently duplicating training data. Duplicate and ambiguous legacy live matches are checked atomically under the store lock. A bounded lock timeout is reported as a persistence failure, not as a duplicate, and gives the importer a nonzero exit status; migration lock timeouts are reported the same way. Existing backfill behavior placeholders are migrated to `null`. Reports contain counts and generic error descriptions without printing session text. The cutoff defaults to the date the label contract was accepted. The importer never uploads or writes session content into the repository.
+
 ## Export
 
 `scripts/system-one-observations-export.js` writes to the private data
 repository:
 
 - `prompts-observed.jsonl`: `{id, family, source: "observation", split, text}`
-- `labels-observed.jsonl`: `{id, validity, contextDependent, tier, tierSource, intents, workflow, skills}`
+- `labels-observed.jsonl`: `{id, validity, contextDependent, tier, tierSource, intents, workflow, skills, behaviorEvidence, contradictions}`
 
 `family` groups near-duplicate prompts. The split is by time: the newest 15%
 is validation. The existing holdouts stay frozen and separate. Observed data
 may later seed a new holdout, but only after owner review.
+
+For a training candidate restricted to labels from the accepted label-line date, use an output directory outside the repository:
+
+    node scripts/system-one-observations-export.js --out <private-output-dir> --since 2026-09-27 --self-report-only
+
+This keeps unlabeled observations out of the candidate and leaves existing model and holdout directories untouched.
 
 ## Phases
 

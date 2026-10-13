@@ -1,0 +1,88 @@
+{
+  "format": "harness-codex-live-observation-evidence-v1",
+  "testedAt": "2026-10-13",
+  "source": {
+    "pr": 305,
+    "commit": "3f57b8b376bfd437c8cff6ddbe4ddbf036380198",
+    "runtimeVersion": "0.30.9",
+    "runtimeSha256": "7f4e7801d9fdb7350072b01c91034cd28890dfe7190d143ec7760c85fd5a29df"
+  },
+  "host": {
+    "product": "Codex CLI",
+    "version": "0.162.1",
+    "os": "win32 10.0.26200 x64",
+    "node": "v24.18.0"
+  },
+  "capture": {
+    "path": "user-hook compatibility fallback",
+    "trustedHandlers": [
+      "UserPromptSubmit: Recording a local System One turn observation",
+      "Stop: Recording a local System One turn observation"
+    ],
+    "trustBypass": false,
+    "rawPromptCommitted": false,
+    "rawSessionCommitted": false
+  },
+  "sessionId": "01a1338c-914c-7bf0-b893-3b5e538a129d",
+  "turns": [
+    {
+      "recordId": "09ba6878d736e3f7183e7c3a",
+      "host": "codex",
+      "observedAt": "2026-10-13T04:37:02.348Z",
+      "turn": 1,
+      "turnId": "01a1338c-9727-7743-824d-92f8ceb51f00",
+      "selfReport": {
+        "v": 1,
+        "validity": "actionable",
+        "contextDependent": false,
+        "tier": "tier1",
+        "intents": [
+          "test"
+        ],
+        "workflow": null,
+        "skills": []
+      },
+      "selfReportReason": null,
+      "behavior": {
+        "toolCalls": 0,
+        "toolFailures": 0,
+        "filesWritten": 0,
+        "filesCreated": 0
+      }
+    },
+    {
+      "recordId": "81a4c3a35f7894653aaf9f64",
+      "host": "codex",
+      "observedAt": "2026-10-13T04:40:07.308Z",
+      "turn": 2,
+      "turnId": "01a1338f-6ea2-7671-997f-e9a205b96102",
+      "selfReport": {
+        "v": 1,
+        "validity": "actionable",
+        "contextDependent": false,
+        "tier": "tier1",
+        "intents": [
+          "discuss"
+        ],
+        "workflow": null,
+        "skills": []
+      },
+      "selfReportReason": null,
+      "behavior": {
+        "toolCalls": 0,
+        "toolFailures": 0,
+        "filesWritten": 0,
+        "filesCreated": 0
+      }
+    }
+  ],
+  "assertions": {
+    "oneRecordPerTurn": true,
+    "bothHostCodex": true,
+    "sameSession": true,
+    "sequentialTurns": true,
+    "distinctTurnIds": true,
+    "currentTurnLabelsMatch": true,
+    "promptContentOmitted": true
+  }
+}
