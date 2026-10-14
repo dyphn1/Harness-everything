@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "registered_date": "2026-10-14",
+  "status": "preregistered-before-model-calls",
+  "source_revision": "ac519fa204ec90feb5067bc2525381b8820d045e",
+  "question": "Does active-step reference disclosure reduce observed reference reads and execution overhead without losing required workflow behavior?",
+  "models": [
+    {"engine": "codex", "model": "gpt-6-luna", "effort": "high", "cli": "0.162.1"},
+    {"engine": "claude", "model": "claude-haiku-5-5", "effort": "high", "cli": "2.1.299"}
+  ],
+  "arms": {
+    "A": "Same canonical router and available documents, plus experiment-only eager document-read timing instruction.",
+    "B": "Same canonical router and available documents, current active-step-only disclosure/read timing."
+  },
+  "workloads": ["profile-lookup", "quixbugs-find-in-sorted", "polyglot-simple-linked-list-staged"],
+  "repeats_per_model_workload": 2,
+  "planned_episodes": 24,
+  "host_preflight_episodes": 2,
+  "order": "Repeat 1 AB; repeat 2 BA within each model/workload block; alternating model blocks. Provider cache residency is uncontrolled.",
+  "episode_timeout_seconds": {"profile-lookup": 180, "quixbugs-find-in-sorted": 300, "polyglot-simple-linked-list-staged": 600},
+  "aggregate_wall_budget_seconds": 7200,
+  "episode_output_token_cap": 80000,
+  "aggregate_output_token_cap": 500000,
+  "budget_note": "Subscription login, no new API keys. Caps checked at emitted usage events; telemetry can arrive only at episode end. No actual-billing assertion. Stop on inaccessible model, absent router attribution or invalid grader before expanding trials.",
+  "useful_effect": "At least 10% lower paired price-weighted input cost or reference-read content tokens, with no observed critical correctness/semantic regression; workload-specific screening only.",
+  "quality": "External acceptance checks plus attributed router/read/workflow evidence. Two repeats cannot establish a <=2 pp non-inferiority bound.",
+  "exclusions": "Infrastructure failures retained and marked inconclusive. Agent errors, valid budget exhaustion and incomplete work count as failures. No outcome-selected reruns.",
+  "closure": "Pilot only. Does not satisfy issue290 >=5 paired repeats per family; no automatic closure or general benefit claim.",
+  "public_selection_provenance": "0b221bf75b89b5834bc72869ddb9a6847db9760d; source selection reused, not the unrelated skill-text vs vanilla contrast.",
+  "required_preflight": ["pinned public fixture downloaded", "untouched fixture fails", "reference solution passes", "normal Node require and fixture commands work", "real host invokes canonical router", "actual model/effort recorded", "reference-open trace and usage collected"],
+  "reporting": "Per model/host and workload: completion, actual reference reads, uncached/cache creation/cache read/input/output/reasoning where exposed, estimated cost only where priced, wall time, tool counts, all errors/exclusions. Missing fields are unknown."
+}
