@@ -30,6 +30,8 @@ All notable changes to this project are documented in this file.
 * **workflow:** resolve step/stage binding availability against real files (workspace references stay workspace-scoped; only recognized Harness bindings search installed plugin layouts); preserve knowledge signals across strategy recomposition; keep self-evolved manifest skills discoverable as metadata-only ids; positive skill evals assert skill-specific candidate bindings (#303 review).
 * **workflow:** reject present non-array required/optional binding declarations before accepting a requirement plan, preserving workflow state on invalid input (#303 review).
 * **test:** isolate verification fixtures from an inherited project-check recursion guard while preserving explicit guard coverage.
+* **workflow:** document blocked Fable recovery by revising the stage map while retaining approved requirements (#316).
+* **fable:** align execution phases with correlated workflow stages and scope the legacy/manual path (#317).
 
 ### Bug Fixes
 
