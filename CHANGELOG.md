@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.31.2](https://github.com/dyphn1/Harness-everything/compare/v0.31.1...v0.31.2) (2026-10-15)
+
+### Bug Fixes
+
+* **cli:** support successful workflow disposition help ([2bf55f9](https://github.com/dyphn1/Harness-everything/commit/2bf55f92d9a6ffab5e41152dfb38a5ef01659f05)), closes [#310](https://github.com/dyphn1/Harness-everything/issues/310) [#310](https://github.com/dyphn1/Harness-everything/issues/310)
+
 ## [0.31.1](https://github.com/dyphn1/Harness-everything/compare/v0.31.0...v0.31.1) (2026-10-13)
 
 ### Bug Fixes
