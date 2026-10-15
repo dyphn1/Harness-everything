@@ -149,6 +149,10 @@ function activatePlan(workflow, plan) {
 }
 
 function main() {
+  if (process.argv[2] === '--help' || process.argv[2] === '-h') {
+    process.stdout.write(usage() + '\n');
+    return;
+  }
   const args = parseArgs(process.argv.slice(2));
   if (!WORKFLOW_CONTROLLER_COMMANDS.has(args.command)) throw new Error(usage());
   const sessionId = args.sessionId || readCurrentSession(getWorkspaceRoot());

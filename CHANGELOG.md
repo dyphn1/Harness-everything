@@ -37,6 +37,7 @@ All notable changes to this project are documented in this file.
 
 ### Bug Fixes
 
+* **workflow:** make `workflow-disposition --help` and `-h` print usage successfully (#310).
 * **codex:** keep compatibility hooks and session labels in sync
 * **verify:** recognize a validated in-root host `cd <workspace> && <check>` prelude (Claude Code Windows Bash) as verification evidence for exactly one plain check; chaining, redirection, substitution, and out-of-root targets still never count, and verification evidence now requires a confirmed `PostToolUse` or zero exit (#306). Only CDPATH-stable `cd` targets (absolute or explicit `./`/`../`) are accepted, and a declared `.harness/verify.json` check counts only when run in its declared `cwd` (#307 review).
 
