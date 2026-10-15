@@ -116,6 +116,10 @@ harness codex-hooks uninstall
 
 The installer copies the current packaged runtime into `$CODEX_HOME/harness-everything/compat-hooks/` and merges absolute-path entries into `$CODEX_HOME/hooks.json`. harness codex-hooks status reports `inactive` when the compatibility hooks are absent, or `configured-unverified` when their files are healthy; it cannot read Codex trust state. A successful Codex run of plugin-sync.js installs or refreshes this copy automatically. The installer does **not** modify `config.toml`, trust hashes, approval policy, or hook enablement. Codex must still show/review/trust the resulting non-managed hooks through its normal `/hooks` flow.
 
+Updates retain at most two fingerprinted runtimes: the current runtime and the immediately previous distinct runtime. A third distinct install collects the oldest; sessions older than one update must restart. Reinstalling the same fingerprint preserves the previous runtime. Uninstall removes all retained Harness-owned runtimes. Command paths remain fingerprinted: updates may require normal Codex hook review again; Harness does not bypass that security decision.
+
+Installs from a linked Git worktree or dirty checkout refuse before writing, unless the operator explicitly passes `--allow-unreleased-source`. Packaged plugin cache sources outside Git checkouts remain supported. Tests must pass temporary Codex homes or mock the hook installer; mocking host commands alone does not isolate filesystem writes.
+
 Ownership is deliberately strict: update/uninstall removes only exact entries recorded in the Harness compatibility manifest. If an installed Harness entry was edited after installation, the operation fails closed rather than overwriting or deleting that user-modified entry. Unrelated pre-existing and later-added user hooks are preserved.
 
 The compatibility path registers hook commands in Codex user configuration and covers the missing plugin-mount route where user hooks dispatch. It does not repair a Codex carrier that fails to dispatch `PreToolUse` at all; those host-level execution-path limitations remain a live compatibility boundary.

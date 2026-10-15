@@ -23,6 +23,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Codex compatibility updates retain the current and previous runtime, reject unreleased checkout sources without explicit opt-in, and isolate plugin-sync tests from the real user hook installation (#323).
+
 ### Changes
 
 * **workflow:** replace topology-wide skill/reference pushes with ordered active-step bindings; carry the same contract through dependency-ready Fable stages while keeping hooks and Stop fail-open (#297).

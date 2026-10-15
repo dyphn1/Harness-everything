@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..');
 const SOURCE_PLUGIN_ROOT = path.join(PACKAGE_ROOT, 'plugins', 'harness-everything');
@@ -182,6 +183,16 @@ function readManifest(file, expectedPaths = null) {
     throw new Error('refusing unknown/corrupt Harness compatibility manifest: ' + file);
   }
 
+  if (data.previousRuntimeDir != null) {
+    const previous = data.previousRuntimeDir;
+    if (typeof previous !== 'string' ||
+        !samePath(path.dirname(previous), expectedPaths.runtimeRoot) ||
+        !/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?-[0-9a-f]{12}$/.test(path.basename(previous))) {
+      throw new Error('refusing corrupt previous compatibility runtime: ' + file);
+    }
+    assertOwnedPath(expectedPaths.codexHome, previous, 'previous runtime');
+  }
+
   const allowed = new Map();
   for (const record of hookEntriesFrom(path.resolve(data.runtimeDir), path.resolve(data.runtimeDir))) {
     const key = record.event + '\0' + record.hash;
@@ -324,9 +335,43 @@ function ensureRuntime(runtimeDir, sourceHash, sourcePluginRoot = SOURCE_PLUGIN_
   }
 }
 
+// Cache packages have no enclosing .git marker. Inspect the actual source,
+// rather than the installer checkout or the caller's working directory.
+function assertReleasedSource(sourcePluginRoot, allowUnreleasedSource) {
+  if (allowUnreleasedSource) return;
+  let root = fs.realpathSync(sourcePluginRoot);
+  while (!fs.existsSync(path.join(root, '.git'))) {
+    const parent = path.dirname(root);
+    if (parent === root) return;
+    root = parent;
+  }
+  if (fs.statSync(path.join(root, '.git')).isFile()) {
+    throw new Error('refusing unreleased linked Git worktree source; use --allow-unreleased-source explicitly');
+  }
+  const result = spawnSync('git', ['-C', root, 'status', '--porcelain', '--untracked-files=normal'], {
+    encoding: 'utf8',
+  });
+  if (result.error || result.status !== 0 || result.stdout.trim()) {
+    throw new Error('refusing dirty or unverifiable Git source; use --allow-unreleased-source explicitly');
+  }
+}
+
+function collectRuntimes(paths, keep) {
+  if (!fs.existsSync(paths.runtimeRoot)) return;
+  for (const name of fs.readdirSync(paths.runtimeRoot)) {
+    // Only fingerprinted runtime directories belong to this installer.
+    if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?-[0-9a-f]{12}$/.test(name)) continue;
+    const runtime = path.join(paths.runtimeRoot, name);
+    if (keep.some(retained => retained && samePath(runtime, retained))) continue;
+    assertOwnedPath(paths.codexHome, runtime, 'retired runtime');
+    fs.rmSync(runtime, { recursive: true, force: true });
+  }
+}
+
 function install(options = {}) {
   const codexHome = path.resolve(options.codexHome || defaultCodexHome(options.env));
   const sourcePluginRoot = path.resolve(options.sourcePluginRoot || SOURCE_PLUGIN_ROOT);
+  assertReleasedSource(sourcePluginRoot, options.allowUnreleasedSource);
   const packageVersion = sourcePluginVersion(sourcePluginRoot);
   const sourceHash = treeHash(sourcePluginRoot);
   const p = pathsFor(codexHome, sourceHash, packageVersion);
@@ -367,6 +412,8 @@ function install(options = {}) {
     packageVersion,
     sourcePluginSha256: sourceHash,
     runtimeDir: p.runtimeDir,
+    previousRuntimeDir: prior && !samePath(prior.runtimeDir, p.runtimeDir)
+      ? prior.runtimeDir : (prior && prior.previousRuntimeDir) || null,
     hooksFile: p.hooksFile,
     createdHooksFile: prior ? Boolean(prior.createdHooksFile) : !existedBefore,
     installedAt: new Date().toISOString(),
@@ -389,11 +436,7 @@ function install(options = {}) {
     throw error;
   }
 
-  if (prior && prior.runtimeDir && path.resolve(prior.runtimeDir) !== path.resolve(p.runtimeDir)) {
-    const ownedRoot = path.resolve(p.runtimeRoot) + path.sep;
-    const oldRuntime = path.resolve(prior.runtimeDir);
-    if (oldRuntime.startsWith(ownedRoot)) fs.rmSync(oldRuntime, { recursive: true, force: true });
-  }
+  collectRuntimes(p, [manifest.runtimeDir, manifest.previousRuntimeDir]);
 
   return {
     status: prior ? 'updated' : 'installed',
@@ -437,11 +480,7 @@ function uninstall(options = {}) {
     atomicWriteJson(p.hooksFile, next);
   }
 
-  if (prior.runtimeDir) {
-    const ownedRoot = path.resolve(p.runtimeRoot) + path.sep;
-    const runtime = path.resolve(prior.runtimeDir);
-    if (runtime.startsWith(ownedRoot)) fs.rmSync(runtime, { recursive: true, force: true });
-  }
+  collectRuntimes(p, []);
   fs.rmSync(p.manifestFile, { force: true });
   try { fs.rmdirSync(p.runtimeRoot); } catch (_) {}
   try { fs.rmdirSync(p.ownerRoot); } catch (_) {}
@@ -490,14 +529,16 @@ function status(options = {}) {
 function parseArgs(argv) {
   const action = argv[0] || 'status';
   if (!['install', 'uninstall', 'status'].includes(action)) {
-    throw new Error('Usage: harness codex-hooks <install|uninstall|status> [--codex-home <path>]');
+    throw new Error('Usage: harness codex-hooks <install|uninstall|status> [--codex-home <path>] [--allow-unreleased-source]');
   }
   let codexHome;
+  let allowUnreleasedSource = false;
   for (let i = 1; i < argv.length; i++) {
     if (argv[i] === '--codex-home') codexHome = path.resolve(argv[++i]);
+    else if (argv[i] === '--allow-unreleased-source') allowUnreleasedSource = true;
     else throw new Error('unknown argument: ' + argv[i]);
   }
-  return { action, codexHome };
+  return { action, codexHome, allowUnreleasedSource };
 }
 
 function main(argv = process.argv.slice(2)) {
@@ -510,7 +551,7 @@ function main(argv = process.argv.slice(2)) {
 
   try {
     const result = args.action === 'install'
-      ? install({ codexHome: args.codexHome })
+      ? install({ codexHome: args.codexHome, allowUnreleasedSource: args.allowUnreleasedSource })
       : args.action === 'uninstall'
         ? uninstall({ codexHome: args.codexHome })
         : status({ codexHome: args.codexHome });

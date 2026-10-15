@@ -64,7 +64,7 @@ fs.writeFileSync(configFile, 'model = "test"\n# user trust/config state\n', 'utf
 const configBefore = fs.readFileSync(configFile, 'utf8');
 
 try {
-  const installed = compat.install({ codexHome });
+  const installed = compat.install({ allowUnreleasedSource: true, codexHome });
   check(installed.status === 'installed' && installed.entries > 0,
     'explicit install materializes compatibility entries');
   check(installed.trustChanged === false && fs.readFileSync(configFile, 'utf8') === configBefore,
@@ -95,7 +95,7 @@ try {
     'compatibility runtime is self-contained for hook and router dependencies');
 
   const countsBefore = Object.fromEntries(Object.entries(config.hooks).map(([event, entries]) => [event, entries.length]));
-  const updated = compat.install({ codexHome });
+  const updated = compat.install({ allowUnreleasedSource: true, codexHome });
   const configAfterUpdate = read(hooksFile);
   const countsAfter = Object.fromEntries(Object.entries(configAfterUpdate.hooks).map(([event, entries]) => [event, entries.length]));
   check(updated.status === 'updated' && JSON.stringify(countsAfter) === JSON.stringify(countsBefore),
@@ -105,7 +105,7 @@ try {
   const addedUserHook = { hooks: [{ type: 'command', command: 'node "/user/later.js"', timeout: 3 }] };
   configAfterUpdate.hooks.PostToolUse.unshift(addedUserHook);
   fs.writeFileSync(hooksFile, JSON.stringify(configAfterUpdate, null, 2) + '\n', 'utf8');
-  compat.install({ codexHome });
+  compat.install({ allowUnreleasedSource: true, codexHome });
   check(read(hooksFile).hooks.PostToolUse.some(entry => entry.hooks?.[0]?.command === 'node "/user/later.js"'),
     'update preserves user hooks added after the initial compatibility install');
 
@@ -125,7 +125,7 @@ try {
   fs.writeFileSync(hooksFile, JSON.stringify(tampered, null, 2) + '\n', 'utf8');
   const tamperedBytes = fs.readFileSync(hooksFile, 'utf8');
   let updateRefused = false;
-  try { compat.install({ codexHome }); } catch (error) { updateRefused = /modified/.test(error.message); }
+  try { compat.install({ allowUnreleasedSource: true, codexHome }); } catch (error) { updateRefused = /modified/.test(error.message); }
   check(updateRefused && fs.readFileSync(hooksFile, 'utf8') === tamperedBytes,
     'modified Harness compatibility entry makes update fail closed without rewriting user config');
 
@@ -136,7 +136,7 @@ try {
 
   // Restore the exact generated config by starting from the pre-tamper bytes.
   fs.writeFileSync(hooksFile, beforeTamper, 'utf8');
-  compat.install({ codexHome });
+  compat.install({ allowUnreleasedSource: true, codexHome });
   const removed = compat.uninstall({ codexHome });
   const finalConfig = read(hooksFile);
   check(removed.status === 'uninstalled' && removed.removed > 0 && removed.trustChanged === false,
@@ -153,7 +153,7 @@ try {
 
   const emptyHome = path.join(root, 'empty-codex');
   fs.mkdirSync(emptyHome, { recursive: true });
-  compat.install({ codexHome: emptyHome });
+  compat.install({ allowUnreleasedSource: true, codexHome: emptyHome });
   check(fs.existsSync(path.join(emptyHome, 'hooks.json')),
     'compatibility install can create a new hooks.json when none exists');
   compat.uninstall({ codexHome: emptyHome });
@@ -164,7 +164,7 @@ try {
   const marketplaceHome = path.join(root, 'marketplace-codex');
   fs.cpSync(compat.SOURCE_PLUGIN_ROOT, marketplaceSource, { recursive: true });
   fs.writeFileSync(path.join(marketplaceSource, 'hooks', 'marketplace-source-marker.txt'), 'newer marketplace source\n');
-  const marketplaceInstall = compat.install({ codexHome: marketplaceHome, sourcePluginRoot: marketplaceSource });
+  const marketplaceInstall = compat.install({ allowUnreleasedSource: true, codexHome: marketplaceHome, sourcePluginRoot: marketplaceSource });
   const marketplaceManifest = read(path.join(marketplaceHome, 'harness-everything', 'compat-hooks', 'manifest.json'));
   check(marketplaceInstall.sourcePluginSha256 === compat.treeHash(marketplaceSource) &&
     marketplaceManifest.sourcePluginSha256 === compat.treeHash(marketplaceSource) &&
@@ -174,7 +174,7 @@ try {
 
   const duplicateHome = path.join(root, 'duplicate-codex');
   fs.mkdirSync(duplicateHome, { recursive: true });
-  compat.install({ codexHome: duplicateHome });
+  compat.install({ allowUnreleasedSource: true, codexHome: duplicateHome });
   const duplicateConfig = read(path.join(duplicateHome, 'hooks.json'));
   duplicateConfig.hooks.PreToolUse.push(JSON.parse(JSON.stringify(duplicateConfig.hooks.PreToolUse[0])));
   fs.writeFileSync(path.join(duplicateHome, 'hooks.json'), JSON.stringify(duplicateConfig, null, 2) + '\n', 'utf8');
@@ -187,7 +187,7 @@ try {
   const removedConfigHome = path.join(root, 'removed-config-codex');
   fs.mkdirSync(removedConfigHome, { recursive: true });
   fs.writeFileSync(path.join(removedConfigHome, 'hooks.json'), JSON.stringify(original, null, 2) + '\n', 'utf8');
-  compat.install({ codexHome: removedConfigHome });
+  compat.install({ allowUnreleasedSource: true, codexHome: removedConfigHome });
   fs.rmSync(path.join(removedConfigHome, 'hooks.json'), { force: true });
   const removedConfigResult = compat.uninstall({ codexHome: removedConfigHome });
   check(removedConfigResult.status === 'uninstalled' && !fs.existsSync(path.join(removedConfigHome, 'hooks.json')),
@@ -206,7 +206,7 @@ try {
   fs.writeFileSync(path.join(preexistingHome, 'hooks.json'),
     JSON.stringify({ hooks: preexistingHooks }, null, 2) + '\n', 'utf8');
   const preexistingBefore = fs.readFileSync(path.join(preexistingHome, 'hooks.json'), 'utf8');
-  const preexistingInstall = compat.install({ codexHome: preexistingHome });
+  const preexistingInstall = compat.install({ allowUnreleasedSource: true, codexHome: preexistingHome });
   const preexistingManifest = read(path.join(preexistingHome, 'harness-everything', 'compat-hooks', 'manifest.json'));
   check(preexistingInstall.status === 'installed' && preexistingManifest.entries.length === 0,
     'byte-identical pre-existing user hooks are reused but never recorded as Harness-owned');
@@ -219,7 +219,7 @@ try {
   fs.mkdirSync(forgedManifestHome, { recursive: true });
   fs.writeFileSync(path.join(forgedManifestHome, 'hooks.json'),
     JSON.stringify({ hooks: { PreToolUse: [userHook] } }, null, 2) + '\n', 'utf8');
-  compat.install({ codexHome: forgedManifestHome });
+  compat.install({ allowUnreleasedSource: true, codexHome: forgedManifestHome });
   const forgedManifestPath = path.join(
     forgedManifestHome, 'harness-everything', 'compat-hooks', 'manifest.json');
   const forgedManifest = read(forgedManifestPath);
@@ -254,7 +254,7 @@ try {
     }
     return realRenameSync(source, destination);
   };
-  try { compat.install({ codexHome: failedInstallHome }); }
+  try { compat.install({ allowUnreleasedSource: true, codexHome: failedInstallHome }); }
   catch (error) { failedInstallRefused = /injected manifest commit failure/.test(error.message); }
   finally { fs.renameSync = realRenameSync; }
   check(failedInstallRefused &&
@@ -272,7 +272,7 @@ try {
     process.platform === 'win32' ? 'junction' : 'dir'
   );
   let linkedOwnerRefused = false;
-  try { compat.install({ codexHome: linkedOwnerHome }); }
+  try { compat.install({ allowUnreleasedSource: true, codexHome: linkedOwnerHome }); }
   catch (error) { linkedOwnerRefused = /linked|outside/.test(error.message); }
   check(linkedOwnerRefused && fs.readdirSync(linkedOwnerOutside).length === 0,
     'linked compatibility owner path cannot redirect writes outside Codex home');
@@ -283,7 +283,7 @@ try {
   fs.writeFileSync(malformed, '{ this is not json', 'utf8');
   const malformedBefore = fs.readFileSync(malformed, 'utf8');
   let malformedRefused = false;
-  try { compat.install({ codexHome: malformedHome }); } catch (_) { malformedRefused = true; }
+  try { compat.install({ allowUnreleasedSource: true, codexHome: malformedHome }); } catch (_) { malformedRefused = true; }
   check(malformedRefused && fs.readFileSync(malformed, 'utf8') === malformedBefore,
     'malformed user hooks.json fails closed without replacement');
 
