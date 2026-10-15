@@ -25,6 +25,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Codex source guards ignore unrelated repository dirtiness and untracked packaged copies; test runners isolate child HOME and CODEX_HOME directories (#323).
 - Codex compatibility updates retain the current and previous runtime, reject unreleased checkout sources without explicit opt-in, and isolate plugin-sync tests from the real user hook installation (#323).
 
 ### Changes

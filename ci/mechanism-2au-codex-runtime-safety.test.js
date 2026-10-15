@@ -50,15 +50,24 @@ try {
   git(repo, ['init']);
   git(repo, ['add', '.']);
   git(repo, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'fixture']);
+  test('tracked plugin in ordinary checkout allows unrelated untracked files', () => {
+    fs.writeFileSync(path.join(repo, 'unrelated.txt'), 'unrelated');
+    compat.install({ codexHome: path.join(root, 'unrelated-home'), sourcePluginRoot: source });
+  });
+  test('packaged source inside unrelated dirty repository is allowed', () => {
+    const packaged = path.join(repo, 'node_modules', 'harness', 'plugins', 'harness-everything');
+    fs.cpSync(compat.SOURCE_PLUGIN_ROOT, packaged, { recursive: true });
+    compat.install({ codexHome: path.join(root, 'packaged-home'), sourcePluginRoot: packaged });
+  });
   test('clean ordinary checkout installs; dirty checkout refuses before writes; explicit opt-in works', () => {
     const codexHome = path.join(root, 'dirty-home');
     compat.install({ codexHome, sourcePluginRoot: source });
-    fs.writeFileSync(path.join(repo, 'unreleased.txt'), 'dirty');
+    fs.writeFileSync(path.join(source, 'unreleased.txt'), 'dirty');
     const before = fs.readFileSync(path.join(codexHome, 'hooks.json'));
     assert.throws(() => compat.install({ codexHome, sourcePluginRoot: source }), /unreleased|dirty/i);
     assert.deepStrictEqual(fs.readFileSync(path.join(codexHome, 'hooks.json')), before);
     compat.install({ codexHome, sourcePluginRoot: source, allowUnreleasedSource: true });
-    fs.rmSync(path.join(repo, 'unreleased.txt'));
+    fs.rmSync(path.join(source, 'unreleased.txt'));
   });
   test('linked worktree refuses even when clean; explicit opt-in works', () => {
     const linked = path.join(root, 'linked');
@@ -68,6 +77,9 @@ try {
     assert.throws(() => compat.install({ codexHome, sourcePluginRoot }), /unreleased|worktree/i);
     assert(!fs.existsSync(codexHome), 'source refusal must happen before writes');
     compat.install({ codexHome, sourcePluginRoot, allowUnreleasedSource: true });
+    const packaged = path.join(linked, 'cache', 'harness');
+    fs.cpSync(compat.SOURCE_PLUGIN_ROOT, packaged, { recursive: true });
+    compat.install({ codexHome: path.join(root, 'linked-cache-home'), sourcePluginRoot: packaged });
   });
   test('CLI forwards explicit unreleased-source opt-in', () => {
     const codexHome = path.join(root, 'cli-home');

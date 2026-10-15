@@ -335,8 +335,8 @@ function ensureRuntime(runtimeDir, sourceHash, sourcePluginRoot = SOURCE_PLUGIN_
   }
 }
 
-// Cache packages have no enclosing .git marker. Inspect the actual source,
-// rather than the installer checkout or the caller's working directory.
+// Inspect the actual source rather than the installer checkout or caller CWD.
+// An enclosing repository only owns this source if it tracks a plugin manifest.
 function assertReleasedSource(sourcePluginRoot, allowUnreleasedSource) {
   if (allowUnreleasedSource) return;
   let root = fs.realpathSync(sourcePluginRoot);
@@ -345,12 +345,24 @@ function assertReleasedSource(sourcePluginRoot, allowUnreleasedSource) {
     if (parent === root) return;
     root = parent;
   }
+  const sourceRelative = path.relative(root, fs.realpathSync(sourcePluginRoot)).replace(/\\/g, '/');
+  let tracked = false;
+  for (const manifest of ['.codex-plugin/plugin.json', 'plugin.json']) {
+    const relative = path.posix.join(sourceRelative, manifest);
+    const result = spawnSync('git', ['-C', root, 'ls-files', '--error-unmatch', '--', ':(literal)' + relative], {
+      encoding: 'utf8',
+    });
+    if (result.error || ![0, 1].includes(result.status)) {
+      throw new Error('refusing unverifiable Git source; use --allow-unreleased-source explicitly');
+    }
+    if (result.status === 0) { tracked = true; break; }
+  }
+  if (!tracked) return;
   if (fs.statSync(path.join(root, '.git')).isFile()) {
     throw new Error('refusing unreleased linked Git worktree source; use --allow-unreleased-source explicitly');
   }
-  const result = spawnSync('git', ['-C', root, 'status', '--porcelain', '--untracked-files=normal'], {
-    encoding: 'utf8',
-  });
+  const result = spawnSync('git', ['-C', root, 'status', '--porcelain', '--untracked-files=normal',
+    '--', ':(literal)' + (sourceRelative || '.')], { encoding: 'utf8' });
   if (result.error || result.status !== 0 || result.stdout.trim()) {
     throw new Error('refusing dirty or unverifiable Git source; use --allow-unreleased-source explicitly');
   }
