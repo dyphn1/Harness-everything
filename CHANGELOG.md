@@ -31,6 +31,10 @@ All notable changes to this project are documented in this file.
 * **workflow:** reject present non-array required/optional binding declarations before accepting a requirement plan, preserving workflow state on invalid input (#303 review).
 * **test:** isolate verification fixtures from an inherited project-check recursion guard while preserving explicit guard coverage.
 
+### Security
+
+* **deps:** update the locked `fast-uri` transitive dependency to patched version 3.1.8 (#309).
+
 ### Bug Fixes
 
 * **codex:** keep compatibility hooks and session labels in sync
