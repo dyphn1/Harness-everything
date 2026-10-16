@@ -4,7 +4,7 @@ description: "Reference guardrails for verified warnings and safe replacements; 
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.31.0
+  version: 0.31.3
 ---
 
 # Execution Guardrails

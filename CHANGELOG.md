@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.31.3](https://github.com/dyphn1/Harness-everything/compare/v0.31.2...v0.31.3) (2026-10-16)
+
+### Bug Fixes
+
+* **codex:** build runtime from tracked files and check previous runtime ([6bbb2c4](https://github.com/dyphn1/Harness-everything/commit/6bbb2c4c21c8bdecc69148e19126d0fe2b168328)), closes [#323](https://github.com/dyphn1/Harness-everything/issues/323)
+* **codex:** guard stale-lock reclaim with token checks ([abf4026](https://github.com/dyphn1/Harness-everything/commit/abf40263766c33619f8a2c62dd3c16752774b654)), closes [#323](https://github.com/dyphn1/Harness-everything/issues/323)
+* **codex:** retain compat runtimes and isolate test installs ([c5ee4e8](https://github.com/dyphn1/Harness-everything/commit/c5ee4e8c54dec758d77625913f1096aa281626a6))
+* **codex:** scope source guards and isolate test runner homes ([c9cf30b](https://github.com/dyphn1/Harness-everything/commit/c9cf30b6bb1a336f4eff03037de0e08ab7bf49e7))
+* **codex:** serialize compat installs on an owner lock ([b67e1c0](https://github.com/dyphn1/Harness-everything/commit/b67e1c0b95f16d0eae37485ab23ae4dfb1dc954a)), closes [#323](https://github.com/dyphn1/Harness-everything/issues/323) [#323](https://github.com/dyphn1/Harness-everything/issues/323)
+
 ## [0.31.2](https://github.com/dyphn1/Harness-everything/compare/v0.31.1...v0.31.2) (2026-10-15)
 
 ### Bug Fixes
