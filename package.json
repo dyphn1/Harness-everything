@@ -63,7 +63,7 @@
     "waza:check": "node scripts/waza-harness-check.js",
     "test:waza:compat": "node ci/mechanism-2aj-waza-reference-adapter.test.js",
     "codex:hooks": "node scripts/codex-hooks-compat.js",
-    "test:codex:hooks-compat": "node ci/mechanism-2al-codex-hooks-compat.test.js"
+    "test:codex:hooks-compat": "node ci/mechanism-2al-codex-hooks-compat.test.js && node ci/mechanism-2au-codex-runtime-safety.test.js"
   },
   "engines": {
     "node": ">=22"

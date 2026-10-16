@@ -29,6 +29,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Codex source guards ignore unrelated repository dirtiness and untracked packaged copies; test runners isolate child HOME and CODEX_HOME directories (#323).
+- Codex compatibility runtimes copy only Git-tracked plugin files, so ignored files cannot enter the runtime and do not block installs; `codex-hooks status` reports a missing or modified previous runtime as unhealthy, and the mechanism test fixture uses a portable Git config on Windows (#323).
+- Codex compatibility install/update/uninstall serialize on an owner lock so concurrent installs cannot garbage-collect each other's current runtime; stale-lock recovery is guarded and token-checked so it cannot remove a live holder's lock (#323).
+- Codex compatibility updates retain the current and previous runtime, reject unreleased checkout sources without explicit opt-in, and isolate plugin-sync tests from the real user hook installation (#323).
+
 ### Changes
 
 * **workflow:** replace topology-wide skill/reference pushes with ordered active-step bindings; carry the same contract through dependency-ready Fable stages while keeping hooks and Stop fail-open (#297).

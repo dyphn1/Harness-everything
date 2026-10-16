@@ -7,7 +7,7 @@
  * keeps the test code highly decoupled, and simplifies debugging and adding new test suites.
  */
 
-const { spawnSync } = require('child_process');
+const { spawnTestNode } = require('./lib/isolated-test-process');
 const fs = require('fs');
 const path = require('path');
 
@@ -35,7 +35,7 @@ files.forEach(file => {
   const filePath = path.join(evalDir, file);
   console.log(`\n▶️  Running test suite: ${file}`);
   
-  const testRun = spawnSync('node', [filePath], {
+  const testRun = spawnTestNode([filePath], {
     stdio: 'inherit',
     cwd: projectRoot,
     env: { ...process.env, CLAUDE: '1' }

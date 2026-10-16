@@ -6,7 +6,6 @@
  * their results must not be confused with a local tracker simulation.
  */
 
-const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -22,12 +21,15 @@ if (pkgName !== 'harness-everything') {
   process.exit(0);
 }
 
+// This development-only helper is absent from installed skill packages.
+const { spawnTestNode } = require('../../ci/lib/isolated-test-process');
+
 console.log('=================================================');
 console.log('     Harness OS - Self-Regression Test Suite     ');
 console.log('=================================================');
 
 function runNode(label, script, args = [], options = {}) {
-  const result = spawnSync('node', [script, ...args], {
+  const result = spawnTestNode([script, ...args], {
     cwd: projectRoot,
     stdio: 'inherit',
     ...options,
@@ -54,7 +56,7 @@ function walkDir(dir) {
 }
 for (const folder of foldersToScan) walkDir(path.join(projectRoot, folder));
 for (const file of jsFiles) {
-  const check = spawnSync('node', ['--check', file]);
+  const check = spawnTestNode(['--check', file]);
   if (check.status !== 0) {
     console.error(`  FAIL syntax: ${path.relative(projectRoot, file)}`);
     console.error(check.stderr.toString().trim());
@@ -65,7 +67,7 @@ console.log(`  PASS syntax: ${jsFiles.length} JavaScript file(s)`);
 
 console.log('\n[Phase 1b] CLI Command Smoke Test...');
 const cliPath = path.join(projectRoot, 'bin', 'cli.js');
-const nextCheck = spawnSync('node', [cliPath, 'next', 'add a new login endpoint with tests'], { cwd: projectRoot });
+const nextCheck = spawnTestNode([cliPath, 'next', 'add a new login endpoint with tests'], { cwd: projectRoot });
 if (nextCheck.status !== 0 || !nextCheck.stdout.toString().includes('RECOMMENDED TIER')) {
   console.error('  FAIL `harness next` did not produce a routing recommendation.');
   hasErrors = true;
@@ -73,7 +75,7 @@ if (nextCheck.status !== 0 || !nextCheck.stdout.toString().includes('RECOMMENDED
   console.error('  FAIL `harness next` did not establish the invariant-first kernel contract.');
   hasErrors = true;
 } else console.log('  PASS `harness next` produced routing + invariant contract.');
-const verifyCheck = spawnSync('node', [cliPath, 'verify'], {
+const verifyCheck = spawnTestNode([cliPath, 'verify'], {
   cwd: projectRoot,
   env: { ...process.env, HARNESS_SKIP_PROJECT_CHECKS: '1' },
 });
@@ -105,7 +107,7 @@ runNode('behavioral case validation', path.join(projectRoot, 'behavioral-evals',
 console.log('\n[Phase 3b] Fable Model Mode Contract Tests...');
 const fableModeTestPath = path.join(projectRoot, 'ci', 'fable-mode-test.js');
 if (fs.existsSync(fableModeTestPath)) {
-  const fableModeCheck = spawnSync('node', [fableModeTestPath], { stdio: 'inherit', cwd: projectRoot });
+  const fableModeCheck = spawnTestNode([fableModeTestPath], { stdio: 'inherit', cwd: projectRoot });
   if (fableModeCheck.status !== 0) {
     console.error("\n  ❌ Fable model mode contract suite failed!");
     hasErrors = true;
