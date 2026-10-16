@@ -403,6 +403,74 @@ function releasedSourceFiles(sourcePluginRoot, allowUnreleasedSource) {
     .filter(file => file.startsWith(prefix)).map(file => file.slice(prefix.length)));
 }
 
+const LOCK_STALE_MS = 10 * 60 * 1000;
+const LOCK_TIMEOUT_MS = 60 * 1000;
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function readLockOwner(lockDir) {
+  try { return JSON.parse(fs.readFileSync(path.join(lockDir, 'owner.json'), 'utf8')); }
+  catch (_) { return null; }
+}
+
+function lockOwnerIsStale(lockDir) {
+  const owner = readLockOwner(lockDir);
+  if (owner && owner.hostname === os.hostname() && Number.isInteger(owner.pid) && owner.pid > 0) {
+    try { process.kill(owner.pid, 0); return false; }
+    catch (error) { return error.code === 'ESRCH'; }
+  }
+  // Unknown or foreign-host owner (or owner.json not yet written): only age proves abandonment.
+  try { return Date.now() - fs.statSync(lockDir).mtimeMs > LOCK_STALE_MS; }
+  catch (_) { return false; }
+}
+
+// Serializes read-manifest → prepare runtime → commit hooks/manifest → collect runtimes
+// across processes, so one installer's GC cannot delete another installer's runtime.
+// mkdir is atomic on every supported platform.
+function withOwnerLock(paths, options, fn) {
+  const lockDir = paths.ownerRoot + '.lock';
+  assertOwnedPath(paths.codexHome, lockDir, 'compatibility lock');
+  fs.mkdirSync(path.dirname(lockDir), { recursive: true });
+  const timeoutMs = Number.isFinite(options.lockTimeoutMs) ? options.lockTimeoutMs : LOCK_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      fs.mkdirSync(lockDir);
+      break;
+    } catch (error) {
+      // Windows can report EPERM while a released lock directory is still being deleted.
+      if (error.code !== 'EEXIST' && error.code !== 'EPERM') throw error;
+    }
+    if (lockOwnerIsStale(lockDir)) {
+      const stale = lockDir + '.stale-' + process.pid + '-' + crypto.randomBytes(4).toString('hex');
+      try {
+        fs.renameSync(lockDir, stale);
+        // Another waiter may have broken the stale lock and re-acquired it first; give it back.
+        if (!lockOwnerIsStale(stale) && !fs.existsSync(lockDir)) fs.renameSync(stale, lockDir);
+        else fs.rmSync(stale, { recursive: true, force: true });
+      } catch (_) {}
+      continue;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error('timed out waiting for Harness compatibility lock ' + lockDir +
+        '; remove it only if no Harness codex-hooks install/uninstall is running');
+    }
+    sleepSync(25 + Math.floor(Math.random() * 50));
+  }
+  try {
+    fs.writeFileSync(path.join(lockDir, 'owner.json'), JSON.stringify({
+      pid: process.pid,
+      hostname: os.hostname(),
+      createdAt: new Date().toISOString(),
+    }));
+    return fn();
+  } finally {
+    try { fs.rmSync(lockDir, { recursive: true, force: true }); } catch (_) {}
+  }
+}
+
 function collectRuntimes(paths, keep) {
   if (!fs.existsSync(paths.runtimeRoot)) return;
   for (const name of fs.readdirSync(paths.runtimeRoot)) {
@@ -423,6 +491,14 @@ function install(options = {}) {
   const sourceHash = treeHash(sourcePluginRoot, include);
   const p = pathsFor(codexHome, sourceHash, packageVersion);
   assertCompatibilityPaths(p);
+  return withOwnerLock(p, options, () => installLocked(p, {
+    codexHome, sourcePluginRoot, include, packageVersion, sourceHash,
+    onRuntimeReady: options.onRuntimeReady,
+  }));
+}
+
+// Every manifest read and runtime/hooks write happens inside the owner lock.
+function installLocked(p, { codexHome, sourcePluginRoot, include, packageVersion, sourceHash, onRuntimeReady }) {
   const existedBefore = fs.existsSync(p.hooksFile);
   const hooksBefore = existedBefore ? fs.readFileSync(p.hooksFile) : null;
   const runtimeExistedBefore = fs.existsSync(p.runtimeDir);
@@ -439,6 +515,8 @@ function install(options = {}) {
   }
 
   ensureRuntime(p.runtimeDir, sourceHash, sourcePluginRoot, include);
+  // Test seam: lets regressions force two installers to overlap before commit.
+  if (typeof onRuntimeReady === 'function') onRuntimeReady(p.runtimeDir);
   assertCompatibilityPaths(p);
   const generated = sourceHookEntries(p.runtimeDir, sourcePluginRoot);
   const ownedEntries = [];
@@ -508,8 +586,17 @@ function uninstall(options = {}) {
   const codexHome = path.resolve(options.codexHome || defaultCodexHome(options.env));
   const p = pathsFor(codexHome);
   assertCompatibilityPaths(p);
+  const notInstalled = { status: 'not-installed', codexHome, removed: 0, trustChanged: false };
+  // Avoid creating lock directories in a Codex home that was never installed.
+  if (!fs.existsSync(p.manifestFile)) return notInstalled;
+  const result = withOwnerLock(p, options, () => uninstallLocked(p, codexHome) || notInstalled);
+  try { fs.rmdirSync(path.dirname(p.ownerRoot)); } catch (_) {}
+  return result;
+}
+
+function uninstallLocked(p, codexHome) {
   const prior = readManifest(p.manifestFile, p);
-  if (!prior) return { status: 'not-installed', codexHome, removed: 0, trustChanged: false };
+  if (!prior) return null;
 
   const hooksFileExists = fs.existsSync(p.hooksFile);
   const config = readHooksFile(p.hooksFile);
@@ -538,7 +625,6 @@ function uninstall(options = {}) {
   fs.rmSync(p.manifestFile, { force: true });
   try { fs.rmdirSync(p.runtimeRoot); } catch (_) {}
   try { fs.rmdirSync(p.ownerRoot); } catch (_) {}
-  try { fs.rmdirSync(path.dirname(p.ownerRoot)); } catch (_) {}
 
   return {
     status: 'uninstalled',

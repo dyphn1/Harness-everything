@@ -17,6 +17,10 @@ const gitConfig = path.join(root, 'empty.gitconfig');
 const gitHooks = path.join(root, 'no-git-hooks');
 fs.writeFileSync(gitConfig, '');
 fs.mkdirSync(gitHooks);
+function samePathOf(left, right) {
+  const normalize = value => path.resolve(value).toLowerCase();
+  return Boolean(left && right) && normalize(left) === normalize(right);
+}
 function git(cwd, args) {
   const result = spawnSync('git', ['-c', 'core.hooksPath=' + gitHooks, ...args], {
     cwd, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: gitConfig, GIT_CONFIG_NOSYSTEM: '1' },
@@ -81,6 +85,100 @@ try {
     assert.strictEqual(report.healthy, true);
     assert.strictEqual(report.runtimes.previous.status, 'none');
     compat.uninstall({ codexHome });
+  });
+
+  test('overlapping installs serialize; neither collects the other current runtime', () => {
+    const codexHome = path.join(root, 'concurrent-home');
+    const base = path.join(root, 'cache', 'plugin-concurrent');
+    fs.cpSync(compat.SOURCE_PLUGIN_ROOT, base, { recursive: true });
+    const a = compat.install({ codexHome, sourcePluginRoot: base });
+    const sources = {};
+    for (const id of ['B', 'C']) {
+      sources[id] = path.join(root, 'cache', 'plugin-concurrent-' + id);
+      fs.cpSync(base, sources[id], { recursive: true });
+      fs.writeFileSync(path.join(sources[id], 'revision.txt'), id);
+    }
+    const barrier = path.join(root, 'barrier');
+    fs.mkdirSync(barrier);
+    // Each child waits after preparing its runtime until the peer has also prepared one,
+    // forcing the reviewer's interleaving. A serialized peer never arrives, so the wait
+    // is bounded and the first holder proceeds alone.
+    const child = path.join(root, 'concurrent-child.js');
+    fs.writeFileSync(child, `
+      const fs = require('fs');
+      const path = require('path');
+      const [compatPath, codexHome, source, barrier, id, peer] = process.argv.slice(2);
+      const compat = require(compatPath);
+      const result = compat.install({ codexHome, sourcePluginRoot: source, onRuntimeReady() {
+        fs.writeFileSync(path.join(barrier, id), '');
+        const deadline = Date.now() + 1500;
+        while (!fs.existsSync(path.join(barrier, peer)) && Date.now() < deadline) {
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+        }
+      } });
+      process.stdout.write(JSON.stringify(result));
+    `);
+    const driver = path.join(root, 'concurrent-driver.js');
+    fs.writeFileSync(driver, `
+      const { spawn } = require('child_process');
+      const [child, compatPath, codexHome, barrier, sourceB, sourceC] = process.argv.slice(2);
+      const runs = [['B', 'C', sourceB], ['C', 'B', sourceC]].map(([id, peer, source]) => new Promise(resolve => {
+        const proc = spawn(process.execPath, [child, compatPath, codexHome, source, barrier, id, peer]);
+        let out = '', err = '';
+        proc.stdout.on('data', chunk => { out += chunk; });
+        proc.stderr.on('data', chunk => { err += chunk; });
+        proc.on('close', code => resolve({ id, code, out, err }));
+      }));
+      Promise.all(runs).then(results => process.stdout.write(JSON.stringify(results)));
+    `);
+    const compatPath = path.resolve(__dirname, '../scripts/codex-hooks-compat.js');
+    const run = spawnSync(process.execPath, [driver, child, compatPath, codexHome, barrier, sources.B, sources.C],
+      { encoding: 'utf8', timeout: 120000 });
+    assert.strictEqual(run.status, 0, run.stderr);
+    const results = JSON.parse(run.stdout);
+    for (const result of results) assert.strictEqual(result.code, 0, result.id + ': ' + result.err);
+    const installed = Object.fromEntries(results.map(result => [result.id, JSON.parse(result.out).runtimeDir]));
+
+    const manifest = JSON.parse(fs.readFileSync(compat.pathsFor(codexHome).manifestFile, 'utf8'));
+    assert(fs.existsSync(manifest.runtimeDir), 'final current runtime must exist');
+    assert.strictEqual(compat.treeHash(manifest.runtimeDir), manifest.sourcePluginSha256);
+    const other = samePathOf(manifest.runtimeDir, installed.B) ? installed.C : installed.B;
+    assert(samePathOf(manifest.previousRuntimeDir, other), 'serialized peer becomes the previous runtime');
+    assert(fs.existsSync(other), 'no installer may collect the peer runtime it just committed');
+    assert(!fs.existsSync(a.runtimeDir), 'only the oldest runtime is collected');
+    const hooks = fs.readFileSync(path.join(codexHome, 'hooks.json'), 'utf8').replace(/\\\\/g, '/');
+    const runtime = manifest.runtimeDir.replace(/\\/g, '/');
+    const referenced = hooks.match(new RegExp(runtime.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/[^"\\s]+\\.js', 'g')) || [];
+    assert(referenced.length > 0, 'hooks.json must reference the current runtime');
+    for (const file of referenced) assert(fs.existsSync(file), 'configured command must resolve: ' + file);
+    assert.strictEqual(compat.status({ codexHome }).healthy, true);
+    assert(!fs.existsSync(compat.pathsFor(codexHome).ownerRoot + '.lock'), 'lock must be released');
+    compat.uninstall({ codexHome });
+  });
+
+  test('stale lock from a dead process is broken; a live lock times out before writes', () => {
+    const source = path.join(root, 'cache', 'plugin-lock');
+    fs.cpSync(compat.SOURCE_PLUGIN_ROOT, source, { recursive: true });
+    const codexHome = path.join(root, 'lock-home');
+    const lockDir = compat.pathsFor(codexHome).ownerRoot + '.lock';
+    const dead = spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' });
+    fs.mkdirSync(lockDir, { recursive: true });
+    fs.writeFileSync(path.join(lockDir, 'owner.json'),
+      JSON.stringify({ pid: Number(dead.stdout), hostname: os.hostname() }));
+    compat.install({ codexHome, sourcePluginRoot: source, lockTimeoutMs: 5000 });
+    assert(!fs.existsSync(lockDir), 'stale lock must be replaced and released');
+
+    fs.mkdirSync(lockDir);
+    fs.writeFileSync(path.join(lockDir, 'owner.json'), JSON.stringify({ pid: process.pid, hostname: os.hostname() }));
+    const before = fs.readFileSync(path.join(codexHome, 'hooks.json'));
+    fs.writeFileSync(path.join(source, 'revision.txt'), 'locked');
+    assert.throws(() => compat.install({ codexHome, sourcePluginRoot: source, lockTimeoutMs: 200 }), /timed out.*lock/i);
+    assert.throws(() => compat.uninstall({ codexHome, lockTimeoutMs: 200 }), /timed out.*lock/i);
+    assert.deepStrictEqual(fs.readFileSync(path.join(codexHome, 'hooks.json')), before);
+    assert.strictEqual(fs.readdirSync(compat.pathsFor(codexHome).runtimeRoot).length, 1, 'no runtime created while locked');
+    fs.rmSync(lockDir, { recursive: true });
+    compat.uninstall({ codexHome });
+    assert(!fs.existsSync(path.join(codexHome, 'harness-everything')), 'uninstall leaves no owner or lock directories');
   });
 
   const repo = path.join(root, 'repo');
