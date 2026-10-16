@@ -162,11 +162,14 @@ try {
     const codexHome = path.join(root, 'lock-home');
     const lockDir = compat.pathsFor(codexHome).ownerRoot + '.lock';
     const dead = spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' });
-    fs.mkdirSync(lockDir, { recursive: true });
-    fs.writeFileSync(path.join(lockDir, 'owner.json'),
-      JSON.stringify({ pid: Number(dead.stdout), hostname: os.hostname() }));
+    for (const dir of [lockDir, lockDir + '.guard']) {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'owner.json'),
+        JSON.stringify({ pid: Number(dead.stdout), hostname: os.hostname(), token: 'crashed' }));
+    }
     compat.install({ codexHome, sourcePluginRoot: source, lockTimeoutMs: 5000 });
     assert(!fs.existsSync(lockDir), 'stale lock must be replaced and released');
+    assert(!fs.existsSync(lockDir + '.guard'), 'guard left by a crashed process must be reclaimed');
 
     fs.mkdirSync(lockDir);
     fs.writeFileSync(path.join(lockDir, 'owner.json'), JSON.stringify({ pid: process.pid, hostname: os.hostname() }));
@@ -179,6 +182,95 @@ try {
     fs.rmSync(lockDir, { recursive: true });
     compat.uninstall({ codexHome });
     assert(!fs.existsSync(path.join(codexHome, 'harness-everything')), 'uninstall leaves no owner or lock directories');
+  });
+
+  test('three-contender stale-lock recovery admits at most one holder', () => {
+    const codexHome = path.join(root, 'stale-race-home');
+    const base = path.join(root, 'cache', 'plugin-stale-race');
+    fs.cpSync(compat.SOURCE_PLUGIN_ROOT, base, { recursive: true });
+    compat.install({ codexHome, sourcePluginRoot: base });
+    const sources = {};
+    for (const id of ['A', 'B', 'C']) {
+      sources[id] = path.join(root, 'cache', 'plugin-stale-race-' + id);
+      fs.cpSync(base, sources[id], { recursive: true });
+      fs.writeFileSync(path.join(sources[id], 'revision.txt'), id);
+    }
+    // Leave a lock owned by a dead local process.
+    const lockDir = compat.pathsFor(codexHome).ownerRoot + '.lock';
+    const dead = spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' });
+    fs.mkdirSync(lockDir);
+    fs.writeFileSync(path.join(lockDir, 'owner.json'),
+      JSON.stringify({ pid: Number(dead.stdout), hostname: os.hostname(), token: 'dead' }));
+    const barrier = path.join(root, 'stale-barrier');
+    fs.mkdirSync(barrier);
+    // Reviewer interleaving: A and B both observe the stale owner; A reclaims and holds;
+    // B then reclaims late and pauses after its rename, so C can take the vacated path.
+    // Each holder claims an exclusive marker for 1.5 s inside its critical section.
+    const child = path.join(root, 'stale-race-child.js');
+    fs.writeFileSync(child, `
+      const fs = require('fs');
+      const path = require('path');
+      const [compatPath, codexHome, source, barrier, id] = process.argv.slice(2);
+      const compat = require(compatPath);
+      const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+      const waitFor = (names, ms) => {
+        const deadline = Date.now() + ms;
+        while (!names.every(name => fs.existsSync(path.join(barrier, name))) && Date.now() < deadline) sleep(10);
+      };
+      if (id === 'C') waitFor(['A-stale', 'B-stale'], 3000);
+      let overlap = false;
+      const result = compat.install({
+        codexHome, sourcePluginRoot: source,
+        onLockEvent(event) {
+          if (event === 'stale-observed' && id !== 'C') {
+            fs.writeFileSync(path.join(barrier, id + '-stale'), '');
+            waitFor(['A-stale', 'B-stale'], 1500);
+            if (id === 'B') sleep(400);
+          }
+          if (event === 'reclaim-renamed' && id === 'B') sleep(800);
+        },
+        onRuntimeReady() {
+          const marker = path.join(barrier, 'holder');
+          try { fs.writeFileSync(marker, id, { flag: 'wx' }); }
+          catch (_) { overlap = true; return; }
+          sleep(1500);
+          fs.rmSync(marker);
+        },
+      });
+      if (overlap) { process.stderr.write(id + ' entered the critical section concurrently'); process.exit(3); }
+      process.stdout.write(JSON.stringify(result));
+    `);
+    const driver = path.join(root, 'stale-race-driver.js');
+    fs.writeFileSync(driver, `
+      const { spawn } = require('child_process');
+      const [child, compatPath, codexHome, barrier, ...sources] = process.argv.slice(2);
+      const runs = ['A', 'B', 'C'].map((id, index) => new Promise(resolve => {
+        const proc = spawn(process.execPath, [child, compatPath, codexHome, sources[index], barrier, id]);
+        let out = '', err = '';
+        proc.stdout.on('data', chunk => { out += chunk; });
+        proc.stderr.on('data', chunk => { err += chunk; });
+        proc.on('close', code => resolve({ id, code, out, err }));
+      }));
+      Promise.all(runs).then(results => process.stdout.write(JSON.stringify(results)));
+    `);
+    const compatPath = path.resolve(__dirname, '../scripts/codex-hooks-compat.js');
+    const run = spawnSync(process.execPath,
+      [driver, child, compatPath, codexHome, barrier, sources.A, sources.B, sources.C],
+      { encoding: 'utf8', timeout: 180000 });
+    assert.strictEqual(run.status, 0, run.stderr);
+    const failed = JSON.parse(run.stdout).filter(result => result.code !== 0)
+      .map(result => result.id + ' exit ' + result.code + ': ' +
+        (result.err.split('\n').find(line => /Error|concurrently/.test(line)) || result.err.trim()));
+    assert.deepStrictEqual(failed, [], 'every contender must succeed exclusively');
+    const manifest = JSON.parse(fs.readFileSync(compat.pathsFor(codexHome).manifestFile, 'utf8'));
+    assert(fs.existsSync(manifest.runtimeDir), 'final current runtime must exist');
+    assert.strictEqual(compat.treeHash(manifest.runtimeDir), manifest.sourcePluginSha256);
+    assert(manifest.previousRuntimeDir && fs.existsSync(manifest.previousRuntimeDir), 'previous runtime must exist');
+    assert.strictEqual(compat.status({ codexHome }).healthy, true);
+    assert(!fs.existsSync(lockDir), 'lock must be released');
+    const leftovers = fs.readdirSync(path.dirname(lockDir)).filter(name => name !== 'compat-hooks');
+    assert.deepStrictEqual(leftovers, [], 'no stale tombs or guards may remain');
+    compat.uninstall({ codexHome });
   });
 
   const repo = path.join(root, 'repo');

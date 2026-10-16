@@ -404,70 +404,119 @@ function releasedSourceFiles(sourcePluginRoot, allowUnreleasedSource) {
 }
 
 const LOCK_STALE_MS = 10 * 60 * 1000;
+const GUARD_STALE_MS = 30 * 1000;
 const LOCK_TIMEOUT_MS = 60 * 1000;
 
 function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-function readLockOwner(lockDir) {
-  try { return JSON.parse(fs.readFileSync(path.join(lockDir, 'owner.json'), 'utf8')); }
+function readLockOwner(dir) {
+  try { return JSON.parse(fs.readFileSync(path.join(dir, 'owner.json'), 'utf8')); }
   catch (_) { return null; }
 }
 
-function lockOwnerIsStale(lockDir) {
-  const owner = readLockOwner(lockDir);
+// Returns the stale owner's token (or '' for an ownerless/corrupt dir), or null when not stale.
+function staleLockToken(dir, staleMs) {
+  const owner = readLockOwner(dir);
   if (owner && owner.hostname === os.hostname() && Number.isInteger(owner.pid) && owner.pid > 0) {
-    try { process.kill(owner.pid, 0); return false; }
-    catch (error) { return error.code === 'ESRCH'; }
+    try { process.kill(owner.pid, 0); return null; }
+    catch (error) { return error.code === 'ESRCH' ? String(owner.token || '') : null; }
   }
-  // Unknown or foreign-host owner (or owner.json not yet written): only age proves abandonment.
-  try { return Date.now() - fs.statSync(lockDir).mtimeMs > LOCK_STALE_MS; }
-  catch (_) { return false; }
+  // Foreign-host or unreadable owner: only age proves abandonment.
+  try { return Date.now() - fs.statSync(dir).mtimeMs > staleMs ? String((owner && owner.token) || '') : null; }
+  catch (_) { return null; }
+}
+
+// Creates `dir` together with its owner record: rename never replaces a non-empty
+// directory, so a lock is never observable without its owner token.
+function tryCreateLockDir(dir, token) {
+  const pending = dir + '.pending-' + token;
+  fs.mkdirSync(pending);
+  try {
+    fs.writeFileSync(path.join(pending, 'owner.json'), JSON.stringify({
+      pid: process.pid,
+      hostname: os.hostname(),
+      token,
+      createdAt: new Date().toISOString(),
+    }));
+    fs.renameSync(pending, dir);
+    return true;
+  } catch (error) {
+    if (!['EEXIST', 'ENOTEMPTY', 'EPERM', 'EACCES', 'EBUSY'].includes(error.code)) throw error;
+    return false;
+  } finally {
+    try { fs.rmSync(pending, { recursive: true, force: true }); } catch (_) {}
+  }
+}
+
+// Removes `dir` only if it still carries `expectedToken`. The rename isolates one exact
+// directory; a mismatched (live) owner is put back instead of being deleted.
+function removeLockDirIfOwned(dir, expectedToken, onRenamed) {
+  const tomb = dir + '.tomb-' + crypto.randomBytes(6).toString('hex');
+  try { fs.renameSync(dir, tomb); } catch (_) { return false; }
+  if (onRenamed) onRenamed();
+  const owner = readLockOwner(tomb);
+  if (String((owner && owner.token) || '') === expectedToken) {
+    fs.rmSync(tomb, { recursive: true, force: true });
+    return true;
+  }
+  try { fs.renameSync(tomb, dir); } catch (_) {}
+  return false;
+}
+
+function waitOrTimeout(deadline, lockDir) {
+  if (Date.now() >= deadline) {
+    throw new Error('timed out waiting for Harness compatibility lock ' + lockDir +
+      '; remove it only if no Harness codex-hooks install/uninstall is running');
+  }
+  sleepSync(25 + Math.floor(Math.random() * 50));
+}
+
+// The guard serializes every non-holder mutation of the main lock path (acquire and
+// stale reclaim), so a stale observation is always revalidated before it is acted on.
+// It is held for milliseconds; a guard left by a crash is reclaimed by token after
+// its owner dies or GUARD_STALE_MS passes.
+function withGuard(guardDir, deadline, fn) {
+  const token = crypto.randomBytes(12).toString('hex');
+  while (!tryCreateLockDir(guardDir, token)) {
+    const stale = staleLockToken(guardDir, GUARD_STALE_MS);
+    if (stale === null || !removeLockDirIfOwned(guardDir, stale)) waitOrTimeout(deadline, guardDir);
+  }
+  try { return fn(); }
+  finally { removeLockDirIfOwned(guardDir, token); }
 }
 
 // Serializes read-manifest → prepare runtime → commit hooks/manifest → collect runtimes
 // across processes, so one installer's GC cannot delete another installer's runtime.
-// mkdir is atomic on every supported platform.
 function withOwnerLock(paths, options, fn) {
   const lockDir = paths.ownerRoot + '.lock';
+  const guardDir = lockDir + '.guard';
   assertOwnedPath(paths.codexHome, lockDir, 'compatibility lock');
+  assertOwnedPath(paths.codexHome, guardDir, 'compatibility lock guard');
   fs.mkdirSync(path.dirname(lockDir), { recursive: true });
   const timeoutMs = Number.isFinite(options.lockTimeoutMs) ? options.lockTimeoutMs : LOCK_TIMEOUT_MS;
   const deadline = Date.now() + timeoutMs;
+  const emit = event => { if (typeof options.onLockEvent === 'function') options.onLockEvent(event); };
+  const token = crypto.randomBytes(12).toString('hex');
   for (;;) {
-    try {
-      fs.mkdirSync(lockDir);
-      break;
-    } catch (error) {
-      // Windows can report EPERM while a released lock directory is still being deleted.
-      if (error.code !== 'EEXIST' && error.code !== 'EPERM') throw error;
-    }
-    if (lockOwnerIsStale(lockDir)) {
-      const stale = lockDir + '.stale-' + process.pid + '-' + crypto.randomBytes(4).toString('hex');
-      try {
-        fs.renameSync(lockDir, stale);
-        // Another waiter may have broken the stale lock and re-acquired it first; give it back.
-        if (!lockOwnerIsStale(stale) && !fs.existsSync(lockDir)) fs.renameSync(stale, lockDir);
-        else fs.rmSync(stale, { recursive: true, force: true });
-      } catch (_) {}
-      continue;
-    }
-    if (Date.now() >= deadline) {
-      throw new Error('timed out waiting for Harness compatibility lock ' + lockDir +
-        '; remove it only if no Harness codex-hooks install/uninstall is running');
-    }
-    sleepSync(25 + Math.floor(Math.random() * 50));
+    const acquired = withGuard(guardDir, deadline, () => {
+      if (tryCreateLockDir(lockDir, token)) return true;
+      const stale = staleLockToken(lockDir, LOCK_STALE_MS);
+      if (stale === null) return false;
+      emit('stale-observed');
+      // Revalidated under the guard; still token-checked in case a crashed guard was reclaimed.
+      return removeLockDirIfOwned(lockDir, stale, () => emit('reclaim-renamed')) &&
+        tryCreateLockDir(lockDir, token);
+    });
+    if (acquired) break;
+    waitOrTimeout(deadline, lockDir);
   }
   try {
-    fs.writeFileSync(path.join(lockDir, 'owner.json'), JSON.stringify({
-      pid: process.pid,
-      hostname: os.hostname(),
-      createdAt: new Date().toISOString(),
-    }));
     return fn();
   } finally {
-    try { fs.rmSync(lockDir, { recursive: true, force: true }); } catch (_) {}
+    // Only this holder's own token is released; a live same-host holder is never stale.
+    removeLockDirIfOwned(lockDir, token);
   }
 }
 
