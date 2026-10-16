@@ -12,9 +12,14 @@ function test(name, run) {
   try { run(); console.log('PASS ' + name); }
   catch (error) { failures++; console.error('FAIL ' + name + ': ' + error.message); }
 }
+// Git for Windows rejects the NUL device as a config file; use real empty paths.
+const gitConfig = path.join(root, 'empty.gitconfig');
+const gitHooks = path.join(root, 'no-git-hooks');
+fs.writeFileSync(gitConfig, '');
+fs.mkdirSync(gitHooks);
 function git(cwd, args) {
-  const result = spawnSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
-    cwd, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: os.devNull, GIT_CONFIG_NOSYSTEM: '1' },
+  const result = spawnSync('git', ['-c', 'core.hooksPath=' + gitHooks, ...args], {
+    cwd, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: gitConfig, GIT_CONFIG_NOSYSTEM: '1' },
   });
   assert.strictEqual(result.status, 0, result.stderr);
   return result.stdout.trim();
@@ -44,6 +49,40 @@ try {
     assert(!fs.existsSync(path.dirname(c.runtimeDir)), 'uninstall removes every retained runtime');
   });
 
+  test('status reports a lost previous runtime; same-fingerprint reinstall resets it', () => {
+    const source = path.join(root, 'cache', 'plugin-health');
+    fs.cpSync(compat.SOURCE_PLUGIN_ROOT, source, { recursive: true });
+    const codexHome = path.join(root, 'health-home');
+    const install = () => compat.install({ codexHome, sourcePluginRoot: source });
+    const a = install();
+    fs.writeFileSync(path.join(source, 'revision.txt'), 'B');
+    const b = install();
+    let report = compat.status({ codexHome });
+    assert.strictEqual(report.healthy, true);
+    assert.strictEqual(report.runtimes.previous.status, 'present');
+    assert(report.runtimes.previous.runtimeDir === a.runtimeDir);
+    fs.writeFileSync(path.join(a.runtimeDir, 'tampered.txt'), 'x');
+    report = compat.status({ codexHome });
+    assert.strictEqual(report.healthy, false);
+    assert.strictEqual(report.runtimes.previous.status, 'modified');
+    fs.rmSync(a.runtimeDir, { recursive: true, force: true });
+    report = compat.status({ codexHome });
+    assert.strictEqual(report.healthy, false, 'missing previous runtime must not report healthy');
+    assert.strictEqual(report.runtimes.current.healthy, true);
+    assert.strictEqual(report.runtimes.previous.status, 'missing');
+    assert.strictEqual(report.observationCapture.status, 'configured-unverified');
+    assert.strictEqual(report.observationCapture.reason, 'previous-runtime-missing');
+    const cli = spawnSync(process.execPath, [path.resolve(__dirname, '../scripts/codex-hooks-compat.js'),
+      'status', '--codex-home', codexHome], { encoding: 'utf8' });
+    assert.strictEqual(cli.status, 1, 'CLI status must fail when the previous runtime is lost');
+    const again = install();
+    assert.strictEqual(again.runtimeDir, b.runtimeDir);
+    report = compat.status({ codexHome });
+    assert.strictEqual(report.healthy, true);
+    assert.strictEqual(report.runtimes.previous.status, 'none');
+    compat.uninstall({ codexHome });
+  });
+
   const repo = path.join(root, 'repo');
   const source = path.join(repo, 'plugins', 'harness-everything');
   fs.cpSync(compat.SOURCE_PLUGIN_ROOT, source, { recursive: true });
@@ -58,6 +97,24 @@ try {
     const packaged = path.join(repo, 'node_modules', 'harness', 'plugins', 'harness-everything');
     fs.cpSync(compat.SOURCE_PLUGIN_ROOT, packaged, { recursive: true });
     compat.install({ codexHome: path.join(root, 'packaged-home'), sourcePluginRoot: packaged });
+  });
+  test('ignored files inside plugin subtree are excluded from the runtime, not refused', () => {
+    fs.writeFileSync(path.join(repo, '.gitignore'), '*.ignored\n.DS_Store\n');
+    git(repo, ['add', '.gitignore']);
+    git(repo, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'ignore']);
+    const codexHome = path.join(root, 'ignored-home');
+    const baseline = compat.install({ codexHome, sourcePluginRoot: source });
+    const ignored = [path.join(source, 'hooks', 'scripts', 'payload.ignored'), path.join(source, '.DS_Store')];
+    for (const file of ignored) fs.writeFileSync(file, 'ignored content');
+    try {
+      const result = compat.install({ codexHome, sourcePluginRoot: source });
+      assert.strictEqual(result.runtimeDir, baseline.runtimeDir, 'ignored files must not change the fingerprint');
+      assert(!fs.existsSync(path.join(result.runtimeDir, 'hooks', 'scripts', 'payload.ignored')));
+      assert(!fs.existsSync(path.join(result.runtimeDir, '.DS_Store')));
+      assert.strictEqual(compat.status({ codexHome }).healthy, true);
+    } finally {
+      for (const file of ignored) fs.rmSync(file);
+    }
   });
   test('clean ordinary checkout installs; dirty checkout refuses before writes; explicit opt-in works', () => {
     const codexHome = path.join(root, 'dirty-home');

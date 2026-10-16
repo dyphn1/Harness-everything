@@ -12,6 +12,7 @@ const SOURCE_PLUGIN_ROOT = path.join(PACKAGE_ROOT, 'plugins', 'harness-everythin
 const PACKAGE_VERSION = require(path.join(PACKAGE_ROOT, 'package.json')).version;
 const MANIFEST_SCHEMA = 1;
 const MANIFEST_MODE = 'codex-user-hooks-compat';
+const RUNTIME_NAME_RE = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?-([0-9a-f]{12})$/;
 
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -27,7 +28,8 @@ function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-function treeHash(root) {
+// `include` (relative paths) limits a Git-tracked source to its released file set.
+function treeHash(root, include = null) {
   if (fs.lstatSync(root).isSymbolicLink()) {
     throw new Error('refusing linked compatibility runtime: ' + root);
   }
@@ -37,7 +39,9 @@ function treeHash(root) {
       const full = path.join(dir, entry.name);
       const rel = path.relative(root, full).replace(/\\/g, '/');
       if (entry.isDirectory()) walk(full);
-      else if (entry.isFile()) rows.push(rel + ':' + sha256(fs.readFileSync(full)));
+      else if (entry.isFile()) {
+        if (!include || include.has(rel)) rows.push(rel + ':' + sha256(fs.readFileSync(full)));
+      }
       else if (entry.isSymbolicLink()) throw new Error('refusing linked compatibility runtime entry: ' + full);
     }
   }
@@ -185,9 +189,12 @@ function readManifest(file, expectedPaths = null) {
 
   if (data.previousRuntimeDir != null) {
     const previous = data.previousRuntimeDir;
-    if (typeof previous !== 'string' ||
+    const previousHash = data.previousSourcePluginSha256;
+    const match = typeof previous === 'string' && RUNTIME_NAME_RE.exec(path.basename(previous));
+    if (!match ||
         !samePath(path.dirname(previous), expectedPaths.runtimeRoot) ||
-        !/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?-[0-9a-f]{12}$/.test(path.basename(previous))) {
+        (previousHash != null && (typeof previousHash !== 'string' ||
+          !/^[0-9a-f]{64}$/.test(previousHash) || previousHash.slice(0, 12) !== match[1]))) {
       throw new Error('refusing corrupt previous compatibility runtime: ' + file);
     }
     assertOwnedPath(expectedPaths.codexHome, previous, 'previous runtime');
@@ -318,7 +325,21 @@ function sourceHookEntries(runtimeDir, sourcePluginRoot = SOURCE_PLUGIN_ROOT) {
   return hookEntriesFrom(sourcePluginRoot, runtimeDir);
 }
 
-function ensureRuntime(runtimeDir, sourceHash, sourcePluginRoot = SOURCE_PLUGIN_ROOT) {
+// Filesystem integrity only: Codex hook trust and dispatch are not observable here.
+function previousRuntimeHealth(manifest) {
+  const runtimeDir = manifest.previousRuntimeDir;
+  if (!runtimeDir) return { status: 'none', runtimeDir: null, healthy: true };
+  if (!fs.existsSync(runtimeDir)) return { status: 'missing', runtimeDir, healthy: false };
+  const actual = treeHash(runtimeDir);
+  const intact = manifest.previousSourcePluginSha256
+    ? actual === manifest.previousSourcePluginSha256
+    : actual.slice(0, 12) === RUNTIME_NAME_RE.exec(path.basename(runtimeDir))[1];
+  return intact
+    ? { status: 'present', runtimeDir, healthy: true }
+    : { status: 'modified', runtimeDir, healthy: false };
+}
+
+function ensureRuntime(runtimeDir, sourceHash, sourcePluginRoot = SOURCE_PLUGIN_ROOT, include = null) {
   if (fs.existsSync(runtimeDir)) {
     if (treeHash(runtimeDir) === sourceHash) return;
     fs.rmSync(runtimeDir, { recursive: true, force: true });
@@ -327,7 +348,11 @@ function ensureRuntime(runtimeDir, sourceHash, sourcePluginRoot = SOURCE_PLUGIN_
   const temp = runtimeDir + '.tmp-' + process.pid;
   try {
     fs.rmSync(temp, { recursive: true, force: true });
-    fs.cpSync(sourcePluginRoot, temp, { recursive: true });
+    fs.cpSync(sourcePluginRoot, temp, {
+      recursive: true,
+      filter: src => !include || fs.lstatSync(src).isDirectory() ||
+        include.has(path.relative(sourcePluginRoot, src).replace(/\\/g, '/')),
+    });
     if (treeHash(temp) !== sourceHash) throw new Error('copied compatibility runtime hash mismatch');
     fs.renameSync(temp, runtimeDir);
   } finally {
@@ -337,12 +362,14 @@ function ensureRuntime(runtimeDir, sourceHash, sourcePluginRoot = SOURCE_PLUGIN_
 
 // Inspect the actual source rather than the installer checkout or caller CWD.
 // An enclosing repository only owns this source if it tracks a plugin manifest.
-function assertReleasedSource(sourcePluginRoot, allowUnreleasedSource) {
-  if (allowUnreleasedSource) return;
+// Returns the tracked file set for a Git-owned source, or null to copy the whole tree.
+// Ignored files (.DS_Store, __pycache__) are excluded from the runtime instead of refusing.
+function releasedSourceFiles(sourcePluginRoot, allowUnreleasedSource) {
+  if (allowUnreleasedSource) return null;
   let root = fs.realpathSync(sourcePluginRoot);
   while (!fs.existsSync(path.join(root, '.git'))) {
     const parent = path.dirname(root);
-    if (parent === root) return;
+    if (parent === root) return null;
     root = parent;
   }
   const sourceRelative = path.relative(root, fs.realpathSync(sourcePluginRoot)).replace(/\\/g, '/');
@@ -357,22 +384,30 @@ function assertReleasedSource(sourcePluginRoot, allowUnreleasedSource) {
     }
     if (result.status === 0) { tracked = true; break; }
   }
-  if (!tracked) return;
+  if (!tracked) return null;
   if (fs.statSync(path.join(root, '.git')).isFile()) {
     throw new Error('refusing unreleased linked Git worktree source; use --allow-unreleased-source explicitly');
   }
-  const result = spawnSync('git', ['-C', root, 'status', '--porcelain', '--untracked-files=normal',
-    '--', ':(literal)' + (sourceRelative || '.')], { encoding: 'utf8' });
+  const pathspec = ':(literal)' + (sourceRelative || '.');
+  const result = spawnSync('git', ['-C', root, 'status', '--porcelain', '--untracked-files=all',
+    '--', pathspec], { encoding: 'utf8' });
   if (result.error || result.status !== 0 || result.stdout.trim()) {
     throw new Error('refusing dirty or unverifiable Git source; use --allow-unreleased-source explicitly');
   }
+  const listed = spawnSync('git', ['-C', root, 'ls-files', '-z', '--', pathspec], { encoding: 'utf8' });
+  if (listed.error || listed.status !== 0) {
+    throw new Error('refusing unverifiable Git source; use --allow-unreleased-source explicitly');
+  }
+  const prefix = sourceRelative ? sourceRelative + '/' : '';
+  return new Set(listed.stdout.split('\0').filter(Boolean)
+    .filter(file => file.startsWith(prefix)).map(file => file.slice(prefix.length)));
 }
 
 function collectRuntimes(paths, keep) {
   if (!fs.existsSync(paths.runtimeRoot)) return;
   for (const name of fs.readdirSync(paths.runtimeRoot)) {
     // Only fingerprinted runtime directories belong to this installer.
-    if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?-[0-9a-f]{12}$/.test(name)) continue;
+    if (!RUNTIME_NAME_RE.test(name)) continue;
     const runtime = path.join(paths.runtimeRoot, name);
     if (keep.some(retained => retained && samePath(runtime, retained))) continue;
     assertOwnedPath(paths.codexHome, runtime, 'retired runtime');
@@ -383,9 +418,9 @@ function collectRuntimes(paths, keep) {
 function install(options = {}) {
   const codexHome = path.resolve(options.codexHome || defaultCodexHome(options.env));
   const sourcePluginRoot = path.resolve(options.sourcePluginRoot || SOURCE_PLUGIN_ROOT);
-  assertReleasedSource(sourcePluginRoot, options.allowUnreleasedSource);
+  const include = releasedSourceFiles(sourcePluginRoot, options.allowUnreleasedSource);
   const packageVersion = sourcePluginVersion(sourcePluginRoot);
-  const sourceHash = treeHash(sourcePluginRoot);
+  const sourceHash = treeHash(sourcePluginRoot, include);
   const p = pathsFor(codexHome, sourceHash, packageVersion);
   assertCompatibilityPaths(p);
   const existedBefore = fs.existsSync(p.hooksFile);
@@ -403,7 +438,7 @@ function install(options = {}) {
     base = removal.config;
   }
 
-  ensureRuntime(p.runtimeDir, sourceHash, sourcePluginRoot);
+  ensureRuntime(p.runtimeDir, sourceHash, sourcePluginRoot, include);
   assertCompatibilityPaths(p);
   const generated = sourceHookEntries(p.runtimeDir, sourcePluginRoot);
   const ownedEntries = [];
@@ -417,6 +452,13 @@ function install(options = {}) {
     next.hooks[record.event] = list;
   }
 
+  // A lost or modified previous runtime cannot be restored; drop it so status recovers.
+  let previous = null;
+  if (prior && !samePath(prior.runtimeDir, p.runtimeDir)) {
+    previous = { runtimeDir: prior.runtimeDir, sourcePluginSha256: prior.sourcePluginSha256 };
+  } else if (prior && previousRuntimeHealth(prior).status === 'present') {
+    previous = { runtimeDir: prior.previousRuntimeDir, sourcePluginSha256: prior.previousSourcePluginSha256 || null };
+  }
   const manifest = {
     schemaVersion: MANIFEST_SCHEMA,
     package: 'harness-everything',
@@ -424,8 +466,8 @@ function install(options = {}) {
     packageVersion,
     sourcePluginSha256: sourceHash,
     runtimeDir: p.runtimeDir,
-    previousRuntimeDir: prior && !samePath(prior.runtimeDir, p.runtimeDir)
-      ? prior.runtimeDir : (prior && prior.previousRuntimeDir) || null,
+    previousRuntimeDir: previous ? previous.runtimeDir : null,
+    previousSourcePluginSha256: previous ? previous.sourcePluginSha256 : null,
     hooksFile: p.hooksFile,
     createdHooksFile: prior ? Boolean(prior.createdHooksFile) : !existedBefore,
     installedAt: new Date().toISOString(),
@@ -516,13 +558,22 @@ function status(options = {}) {
   const config = readHooksFile(p.hooksFile);
   const removal = removePriorEntries(config, prior);
   const expected = prior.entries.length;
-  const healthy = removal.removed.length === expected && removal.drift.length === 0 &&
-    fs.existsSync(prior.runtimeDir) && treeHash(prior.runtimeDir) === prior.sourcePluginSha256;
+  const currentHealthy = fs.existsSync(prior.runtimeDir) && treeHash(prior.runtimeDir) === prior.sourcePluginSha256;
+  const previousRuntime = previousRuntimeHealth(prior);
+  const entriesHealthy = removal.removed.length === expected && removal.drift.length === 0;
+  const healthy = entriesHealthy && currentHealthy && previousRuntime.healthy;
+  const reason = healthy ? 'codex-hook-trust-state-is-not-readable-here'
+    : !entriesHealthy || !currentHealthy ? 'compatibility-hooks-unhealthy'
+      : 'previous-runtime-' + previousRuntime.status;
   return {
     installed: true,
     codexHome,
     hooksFile: p.hooksFile,
     runtimeDir: prior.runtimeDir,
+    runtimes: {
+      current: { status: currentHealthy ? 'present' : 'missing-or-modified', runtimeDir: prior.runtimeDir, healthy: currentHealthy },
+      previous: previousRuntime,
+    },
     packageVersion: prior.packageVersion,
     sourcePluginSha256: prior.sourcePluginSha256,
     expectedEntries: expected,
@@ -530,8 +581,9 @@ function status(options = {}) {
     drift: removal.drift,
     healthy,
     observationCapture: {
-      status: healthy ? 'configured-unverified' : 'inactive',
-      reason: healthy ? 'codex-hook-trust-state-is-not-readable-here' : 'compatibility-hooks-unhealthy',
+      // A lost previous runtime breaks older sessions, not new-session capture.
+      status: entriesHealthy && currentHealthy ? 'configured-unverified' : 'inactive',
+      reason,
       trustRequired: true,
     },
     trustChanged: false,
