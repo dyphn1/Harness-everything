@@ -7,15 +7,20 @@ const { loadWorkflow, saveWorkflow, matchingRun, OPEN_STATES, WORKFLOW_CONTROLLE
 const { getWorkspaceRoot, readCurrentSession } = require('./lib/harness-state');
 const { atomicWriteJson, readJson } = require('./lib/fable-contracts');
 const { resolveBinding } = require('./lib/binding-resolver');
-const {
-  planningUnresolved,
-  recordPlanning,
-  materializeExecutionObligations,
-  updateObligation,
-  updateBinding,
-  updateStep,
-  activeStepSnapshot,
-} = require('./lib/workflow-obligations');
+
+let obligationApi;
+function workflowObligations() {
+  if (!obligationApi) obligationApi = require('./lib/workflow-obligations');
+  return obligationApi;
+}
+
+const planningUnresolved = (...args) => workflowObligations().planningUnresolved(...args);
+const recordPlanning = (...args) => workflowObligations().recordPlanning(...args);
+const materializeExecutionObligations = (...args) => workflowObligations().materializeExecutionObligations(...args);
+const updateObligation = (...args) => workflowObligations().updateObligation(...args);
+const updateBinding = (...args) => workflowObligations().updateBinding(...args);
+const updateStep = (...args) => workflowObligations().updateStep(...args);
+const activeStepSnapshot = (...args) => workflowObligations().activeStepSnapshot(...args);
 
 const ALLOWED_ESCAPE_REASONS = new Set(['workflow-uncovered-scope', 'host-capability-unavailable']);
 
@@ -149,6 +154,8 @@ function activatePlan(workflow, plan) {
 }
 
 function main() {
+  // The step-type registry loads lazily through the wrappers above, only for commands that
+  // consume typed obligations; the top-level handler turns a load failure into one semantic line.
   if (process.argv[2] === '--help' || process.argv[2] === '-h') {
     process.stdout.write(usage() + '\n');
     return;
