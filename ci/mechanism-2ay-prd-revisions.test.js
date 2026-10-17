@@ -1485,7 +1485,7 @@ checkCase('2ay fix2. Unicode paths use Git stored-byte semantics across text, eo
     { autocrlf: 'true', attributes: '*.md text\n' },
     { autocrlf: 'input', attributes: '*.md text=auto\n' }
   ];
-  const relativePath = 'docs/prd/契約: "signed" [v1].md';
+  const relativePath = 'docs/prd/契約 signed [v1].md';
   for (const [index, variant] of cases.entries()) {
     const root = gitRepo(`unicode-stored-bytes-${index}`, variant.autocrlf);
     fs.writeFileSync(path.join(root, '.gitattributes'), variant.attributes, 'utf8');
@@ -1687,6 +1687,134 @@ checkCase('2ay fix3 P2. autocrlf=true preserves NUL-containing binary bodies byt
 
 checkCase('2ay fix3 P2. autocrlf=input preserves NUL-containing binary bodies byte-for-byte without attributes', () => {
   assertAutocrlfBinaryIdentity('input');
+});
+
+// Owner P1 regressions: path-role PRDs must not use the old mutable living
+// status vocabulary as an alternate route around D6.9.
+checkCase('2ay owner P1. changed active or superseded PRDs require D6.9 schema, while unchanged living files warn', () => {
+  const cases = [
+    docObject('docs/prd/no-id-active.md', { status: 'active' }, '# Old living text\n'),
+    docObject('docs/prd/active-with-id.md', { id: 'PRD-GRPH-020', status: 'active' }, '# Old living text\n'),
+    docObject('docs/prd/superseded.md', { id: 'PRD-GRPH-021', status: 'superseded' }, '# Old living text\n'),
+    docObject('docs/prd/active-with-revision.md', { id: 'PRD-GRPH-022', revision: 1, status: 'active' }, '# Invalid D6.9 active revision\n')
+  ];
+  for (const doc of cases) {
+    const diagnostics = analyzeDocs([doc], { changedPaths: [doc.path] }).diagnostics;
+    const finding = doc.frontmatter.revision === undefined
+      ? expectCode(diagnostics, 'prd-migration-required', `changed compatibility PRD ${doc.path}`)[0]
+      : expectCode(diagnostics, 'invalid-status', `revisioned PRD cannot use active status ${doc.path}`)[0];
+    assert.strictEqual(finding.severity, 'error');
+  }
+
+  const old = cases[1];
+  const unchanged = analyzeDocs([old], {
+    baseInventory: [{ id: old.frontmatter.id, path: old.path, status: old.frontmatter.status, bytes: old.storedBytes }],
+    changedPaths: []
+  }).diagnostics;
+  const warning = expectCode(unchanged, 'prd-migration-required', 'unchanged living PRD stays visible')[0];
+  assert.strictEqual(warning.severity, 'warning');
+  const unbased = expectCode(analyzeDocs([old], { changedPaths: [] }).diagnostics, 'prd-migration-required')[0];
+  assert.match(unbased.message, /no trusted base proves it is unchanged/i, 'an unbased warning states the evidence limit');
+
+  const validDraft = revisionDoc({ revision: 1, status: 'draft' });
+  const draftDiagnostics = analyzeDocs([validDraft], { all: true }).diagnostics;
+  for (const code of ['invalid-prd-id', 'invalid-revision', 'invalid-status', 'prd-migration-required']) forbidCode(draftDiagnostics, code);
+  const missingIdAndRevision = docObject('docs/prd/new-no-id.md', { status: 'active' }, '# New active PRD\n');
+  assert.ok(analyzeDocs([missingIdAndRevision], { changedPaths: [missingIdAndRevision.path] }).diagnostics.some(item => item.severity === 'error'), 'new PRDs without an ID or revision are rejected');
+});
+
+checkCase('2ay owner P1. trusted-base byte differences and newly governed paths join the ratchet input', () => {
+  const root = gitRepo('owner-p1-objective-ratchet');
+  const relativePath = 'docs/prd/living.md';
+  const originalBody = '# Existing living contract\n\nAcceptance: keep current behavior.\n';
+  writeDoc(root, relativePath, { id: 'PRD-GRPH-031', status: 'active' }, originalBody);
+  const base = commitAll(root, 'old living PRD');
+  writeDoc(root, relativePath, { id: 'PRD-GRPH-031', status: 'active' }, `${originalBody}\nChanged behavior.\n`);
+  const changedDocs = lifecycle.collectDocs(root, CONFIG);
+  const changed = lifecycle.analyzeDocs(changedDocs, CONFIG, { workspace: root, base, changedPaths: [] });
+  const changedFinding = expectCode(changed.diagnostics, 'prd-migration-required', 'base-visible content edit cannot be omitted from changedPaths')[0];
+  assert.strictEqual(changedFinding.severity, 'error');
+
+  const adoptedRoot = gitRepo('owner-p1-newly-governed');
+  const adoptedPath = 'specifications/prd/living.md';
+  const adoptedBody = '# Existing contract outside prior governance\n';
+  const priorConfig = { governed: [], legacy: [] };
+  fs.writeFileSync(path.join(adoptedRoot, 'lifecycle-config.json'), JSON.stringify(priorConfig), 'utf8');
+  writeDoc(adoptedRoot, adoptedPath, { id: 'PRD-GRPH-032', status: 'active' }, adoptedBody);
+  const prior = commitAll(adoptedRoot, 'path before PRD governance');
+  const currentConfig = { ...CONFIG, governed: [{ path: 'specifications/prd/**', role: 'prd' }] };
+  const adoptedDocs = lifecycle.collectDocs(adoptedRoot, currentConfig);
+  const adopted = lifecycle.analyzeDocs(adoptedDocs, currentConfig, { workspace: adoptedRoot, base: prior, changedPaths: [] });
+  const adoptionFinding = expectCode(adopted.diagnostics, 'prd-migration-required', 'newly governed old living PRD requires schema adoption')[0];
+  assert.strictEqual(adoptionFinding.severity, 'error');
+});
+
+checkCase('2ay owner P1. revision-one stamping cannot hide a changed living baseline', () => {
+  const root = gitRepo('owner-p1-forged-migration');
+  const relativePath = 'docs/prd/living.md';
+  const originalBody = '# Existing living contract\n\nAcceptance: keep old behavior.\n';
+  writeDoc(root, relativePath, { id: 'PRD-GRPH-033', status: 'active' }, originalBody);
+  const base = commitAll(root, 'living PRD before migration');
+  const forged = revisionDoc({
+    id: 'PRD-GRPH-033', revision: 1, status: 'effective', relativePath,
+    body: `${originalBody}\nUnreviewed new behavior.\n`
+  });
+  writeDoc(root, relativePath, forged.frontmatter, forged.body);
+  const result = lifecycle.analyzeDocs(lifecycle.collectDocs(root, CONFIG), CONFIG, {
+    workspace: root, base, changedPaths: []
+  });
+  expectCode(result.diagnostics, 'migration-record-missing', 'baseline content change requires recorded metadata-only adoption');
+
+  const renamedRoot = gitRepo('owner-p1-renamed-forged-migration');
+  const oldPath = 'docs/prd/living.md';
+  const oldBody = '# Existing living contract\n\nAcceptance: keep old behavior.\n';
+  writeDoc(renamedRoot, oldPath, { id: 'PRD-GRPH-034', status: 'active' }, oldBody);
+  const renamedBase = commitAll(renamedRoot, 'living PRD before rename and revision stamp');
+  const moved = revisionDoc({
+    id: 'PRD-GRPH-034', revision: 1, status: 'effective',
+    relativePath: 'docs/prd/renamed/r001.md', body: `${oldBody}\nUnreviewed edit.\n`
+  });
+  writeDoc(renamedRoot, moved.path, moved.frontmatter, moved.body);
+  const renamedResult = lifecycle.analyzeDocs(lifecycle.collectDocs(renamedRoot, CONFIG), CONFIG, {
+    workspace: renamedRoot, base: renamedBase, changedPaths: []
+  });
+  expectCode(renamedResult.diagnostics, 'migration-record-missing', 'moving a living PRD cannot bypass migration evidence');
+});
+
+checkCase('2ay owner P1. graph diagnostic severity includes changed candidate paths', () => {
+  const parent = revisionDoc({ revision: 1, status: 'effective', relativePath: 'docs/prd/graph/r001.md' });
+  const child = revisionDoc({
+    revision: 2, status: 'draft', previousRevision: 1,
+    previousDigest: sha256(Buffer.from('wrong parent bytes', 'utf8')),
+    relativePath: 'docs/prd/graph/r002.md'
+  }, parent);
+  const diagnostics = analyzeDocs([parent, child], { changedPaths: [parent.path] }).diagnostics;
+  const digestMismatch = expectCode(diagnostics, 'revision-digest-mismatch')[0];
+  assert.strictEqual(digestMismatch.path, child.path, 'the graph diagnostic remains attached to its declaring child');
+  assert.strictEqual(digestMismatch.severity, 'error', 'a changed parent candidate escalates the child diagnostic');
+});
+
+checkCase('2ay owner P1. source and packaged lifecycle implementations agree on the active-status rejection', () => {
+  const sourceSkillRoot = path.dirname(path.dirname(modulePath));
+  const codexSkillRoot = path.join(__dirname, '..', 'plugins', 'harness-everything', 'skills', 'harness-everything');
+  const claudeCopyRoot = path.join(tempRoot, 'owner P1 isolated Claude', 'harness-everything');
+  const codexCopyRoot = path.join(tempRoot, 'owner P1 isolated Codex', 'harness-everything');
+  fs.cpSync(sourceSkillRoot, claudeCopyRoot, { recursive: true });
+  fs.cpSync(codexSkillRoot, codexCopyRoot, { recursive: true });
+  const packageRoots = [
+    modulePath,
+    path.join(claudeCopyRoot, 'scripts', 'doc-lifecycle.js'),
+    path.join(codexCopyRoot, 'scripts', 'doc-lifecycle.js')
+  ];
+  const oldLiving = docObject('docs/prd/parity.md', { id: 'PRD-GRPH-023', status: 'active' }, '# Compatibility only.\n');
+  const outputs = packageRoots.map(runtimePath => {
+    const implementation = require(runtimePath);
+    return implementation.analyzeDocs([oldLiving], CONFIG, { changedPaths: [oldLiving.path] }).diagnostics;
+  });
+  assert.deepStrictEqual(outputs[0], outputs[1], 'source and isolated Claude tree return identical lifecycle diagnostics');
+  assert.deepStrictEqual(outputs[0], outputs[2], 'source and Codex package return identical lifecycle diagnostics');
+  assert.strictEqual(outputs[0][0].code, 'prd-migration-required');
+  assert.strictEqual(outputs[0][0].severity, 'error');
 });
 
 helper.finish();
