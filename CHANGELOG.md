@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.33.0](https://github.com/dyphn1/Harness-everything/compare/v0.32.0...v0.33.0) (2026-10-17)
+
+### Features
+
+* **code-review:** add evidence-tiered independent review skill ([#329](https://github.com/dyphn1/Harness-everything/issues/329)) ([2acb220](https://github.com/dyphn1/Harness-everything/commit/2acb22098a5fc360306b0ed34fa3ddcf21592fea))
+
+### Bug Fixes
+
+* **code-review:** register the code-review binding so review steps can load it ([acb766a](https://github.com/dyphn1/Harness-everything/commit/acb766aea36361262f3536db36069265aa66d871))
+
 ## [0.32.0](https://github.com/dyphn1/Harness-everything/compare/v0.31.3...v0.32.0) (2026-10-17)
 
 ### Features
