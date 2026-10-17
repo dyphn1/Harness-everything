@@ -154,9 +154,8 @@ function activatePlan(workflow, plan) {
 }
 
 function main() {
-  // Load inside main so the CLI's existing error handler can turn a missing or
-  // malformed package registry into a semantic message instead of a raw stack.
-  workflowObligations();
+  // The step-type registry loads lazily through the wrappers above, only for commands that
+  // consume typed obligations; the top-level handler turns a load failure into one semantic line.
   if (process.argv[2] === '--help' || process.argv[2] === '-h') {
     process.stdout.write(usage() + '\n');
     return;

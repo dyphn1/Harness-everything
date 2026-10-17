@@ -54,7 +54,7 @@ function isHostNotificationPrompt(prompt) {
 
 function stepTypeIdsFor(hooksRoot) {
   try {
-    return require(path.join(hooksRoot, 'lib/workflow-obligations')).STEP_TYPE_IDS;
+    return require(path.join(hooksRoot, 'lib/workflow-obligations')).stepTypeIds();
   } catch {
     return null;
   }
@@ -68,7 +68,7 @@ function persistWorkflow(contract, payload, prompt) {
   const hasRetainedWorkflow = Boolean(context.workflow && runtime.OPEN_STATES.has(context.workflow.state));
   const activePlan = hasRetainedWorkflow ? context.workflow.workflowPlan : plan;
   if (needsStepTypeRegistry(activePlan)) {
-    try { require(path.join(hooksRoot, 'lib/workflow-obligations')); }
+    try { require(path.join(hooksRoot, 'lib/workflow-obligations')).loadStepTypeRegistry(); }
     catch (error) {
       if (hasRetainedWorkflow) return { ...context, hooksRoot, retained: true, registryError: error };
       throw error;

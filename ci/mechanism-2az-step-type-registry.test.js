@@ -124,7 +124,7 @@ function frozenObligation(value, workspace) {
 function createRuntimeFixture(name) {
   const root = path.join(tempRoot, name);
   fs.mkdirSync(root, { recursive: true });
-  for (const directory of ['hooks', 'harness-everything', 'scripts']) {
+  for (const directory of ['hooks', 'harness-everything', 'scripts', 'fable-mode']) {
     fs.cpSync(path.join(ROOT, directory), path.join(root, directory), { recursive: true });
   }
   for (const skill of ['git-commit', 'security-review', 'tdd', 'verification-loop']) {
@@ -354,6 +354,84 @@ checkCase('registry optional defaults precede declarations and suggestions, with
   assert.deepStrictEqual(doc.optionalBindings.map(binding => binding.id), ['review-guidance', 'security-review']);
 });
 
+const FABLE_STRATEGIES = ['fable-staged', 'fable-parallel', 'fable-multi-agent-workspace'];
+const UNTYPED_REQUIREMENTS = [{ id: 'req-work', summary: 'Do the work', acceptance: 'the outcome is verified' }];
+const TYPED_FABLE_REQUIREMENTS = [{ id: 'req-docs', stepType: 'doc-change', summary: 'Update the docs', acceptance: 'the contract text is clear', optionalBindings: ['tdd'] }];
+const FABLE_STAGES = [
+  {
+    stageId: 'implement', goal: 'implement a bounded change', agent: 'fable-worker-sonnet', task: 'implement the change',
+    dependsOn: [], writeSet: ['src/change.js'], inputs: [], expectedOutputs: ['src/change.js'], requiredBindings: [], optionalBindings: [],
+    checkCommand: 'node fixture-check.js', passCondition: 'exit 0',
+  },
+  {
+    stageId: 'verify', goal: 'verify the implementation', agent: 'fable-verifier', task: 'independently check the implementation',
+    dependsOn: ['implement'], writeSet: [], inputs: ['src/change.js'], expectedOutputs: ['verification evidence'], requiredBindings: [], optionalBindings: [],
+    checkCommand: 'node verifier-check.js', passCondition: 'exit 0',
+  },
+];
+
+// Runs one stage check through the contract hook, which records the correlated stage evidence.
+function runContractCheck(fixture, sessionId, workerId, command) {
+  return run(path.join(fixture.root, 'hooks', 'scripts', 'contract-test.js'), [], fixture.workspace, {
+    tool_name: 'Bash', session_id: sessionId, cwd: fixture.workspace, worker_id: workerId,
+    tool_input: { command }, tool_response: { stdout: `${command} passed`, exitCode: 0 },
+  });
+}
+
+// A persisted legacy untyped single-agent plan: the typed plan rewritten to the pre-registry obligation shape.
+function legacyUntypedPlan(fixture, sessionId) {
+  const session = planSession(sessionId, [
+    { id: 'req-docs', stepType: 'doc-change', summary: 'Update the docs', acceptance: 'the contract text is clear' },
+    { id: 'req-verify', stepType: 'verification', summary: 'Verify the docs', acceptance: 'links and examples are checked' },
+  ], 'iterative-single', fixture.workspace, FIX_PROMPT, 'prepare legacy untyped registry-fault fixture', fixture.root);
+  const set = readJson(session.obligationsFile);
+  set.stepBindingsEnabled = false;
+  set.activeStepId = null;
+  set.requirements = set.requirements.map(item => ({
+    id: item.id, order: item.order, summary: item.summary, acceptance: item.acceptance, suggestedSkills: item.suggestedSkills || [],
+  }));
+  fs.writeFileSync(session.obligationsFile, JSON.stringify(set, null, 2));
+  return session;
+}
+
+function plannedFableSession(fixture, sessionId, requirements, strategy) {
+  const session = planSession(sessionId, requirements, strategy, fixture.workspace, FIX_PROMPT, 'prepare Fable start registry-fault fixture', fixture.root);
+  fs.writeFileSync(path.join(session.sessionDir, 'workflow-stages.json'), JSON.stringify(FABLE_STAGES, null, 2));
+  return session;
+}
+
+function createFableRun(fixture, sessionId) {
+  const { prepareRun } = require(path.join(fixture.root, 'fable-mode', 'scripts', 'workflow-plan-consumer.js'));
+  fs.mkdirSync(path.join(fixture.workspace, 'tdd'), { recursive: true });
+  fs.writeFileSync(path.join(fixture.workspace, 'tdd', 'SKILL.md'), '# TDD\n');
+  const workflowId = `workflow-${sessionId}`;
+  const workflowPlan = { strategySelection: 'selected', strategy: 'fable-staged', tier: 'tier3', verification: { independent: false } };
+  const run = prepareRun({
+    routerContract: { workflowPlan },
+    workspaceRoot: fixture.workspace,
+    runId: `${sessionId}-run`,
+    sessionId,
+    workflowId,
+    stages: [{
+      stageId: 'implement', goal: 'implement a bounded change', agent: 'fable-worker-sonnet', task: 'use declared guidance and verify',
+      dependsOn: [], writeSet: ['src/change.js'], inputs: [], expectedOutputs: ['src/change.js'],
+      requiredBindings: [{ id: 'tdd', path: 'tdd/SKILL.md' }], checkCommand: 'node fixture-check.js', passCondition: 'exit 0',
+    }, {
+      stageId: 'verify', goal: 'verify the implementation', agent: 'fable-verifier', task: 'independently check the implementation',
+      dependsOn: ['implement'], writeSet: [], inputs: ['src/change.js'], expectedOutputs: ['verification evidence'],
+      requiredBindings: [{ id: 'verification-loop', path: 'verification-loop/SKILL.md' }], checkCommand: 'node verifier-check.js', passCondition: 'exit 0',
+    }],
+  });
+  const sessionDir = getSessionDir(fixture.workspace, sessionId);
+  fs.mkdirSync(sessionDir, { recursive: true });
+  const workflowFile = path.join(sessionDir, 'workflow-run.json');
+  fs.writeFileSync(workflowFile, JSON.stringify({
+    schemaVersion: 2, sessionId, workflowId, state: 'running', strategy: 'fable-staged', tier: 'tier3', revision: 1,
+    workflowPlan, runId: run.runId, escapes: [],
+  }, null, 2));
+  return { payload: { session_id: sessionId, cwd: fixture.workspace, prompt: FIX_PROMPT }, workflowFile };
+}
+
 for (const registryFault of ['missing', 'malformed']) {
   const fixture = createRuntimeFixture(`registry-${registryFault}-fixture`);
   const retained = planSession(`registry-${registryFault}-retained`, [
@@ -363,6 +441,66 @@ for (const registryFault of ['missing', 'malformed']) {
   checkCase(`registry ${registryFault} retained-session precondition`, () => {
     assert.strictEqual(retained.routed.status, 0, retained.routed.stderr);
     assert.strictEqual(retained.planned.status, 0, retained.planned.stderr);
+  });
+  const typedRequirements = [
+    { id: 'req-docs', stepType: 'doc-change', summary: 'Update the docs', acceptance: 'the contract text is clear' },
+    { id: 'req-verify', stepType: 'verification', summary: 'Verify the docs', acceptance: 'links and examples are checked' },
+  ];
+  // Prepared while the registry is healthy: a started typed workflow, a pending block target, and a Fable run.
+  const running = planSession(`registry-${registryFault}-running`, typedRequirements, 'iterative-single', fixture.workspace, FIX_PROMPT, 'prepare running typed registry-fault fixture', fixture.root);
+  const started = run(fixture.controller, ['start', '--session-id', running.payload.session_id], fixture.workspace);
+  const blockTarget = planSession(`registry-${registryFault}-block`, typedRequirements, 'iterative-single', fixture.workspace, FIX_PROMPT, 'prepare block registry-fault fixture', fixture.root);
+  const fable = createFableRun(fixture, `registry-${registryFault}-fable`);
+  // Registry-independent fixtures, prepared while healthy and exercised under the fault.
+  const legacyStart = legacyUntypedPlan(fixture, `registry-${registryFault}-legacy-start`);
+  const legacyRunning = legacyUntypedPlan(fixture, `registry-${registryFault}-legacy-running`);
+  const legacyRunningStart = run(fixture.controller, ['start', '--session-id', legacyRunning.payload.session_id], fixture.workspace);
+  const fableUntypedPlans = FABLE_STRATEGIES.map(strategy => ({
+    strategy, session: routeSession(`registry-${registryFault}-fable-untyped-plan-${strategy}`, FIX_PROMPT, fixture.workspace, fixture.root),
+  }));
+  const fableStarts = FABLE_STRATEGIES.map(strategy => ({
+    strategy,
+    untyped: plannedFableSession(fixture, `registry-${registryFault}-fable-untyped-start-${strategy}`, UNTYPED_REQUIREMENTS, strategy),
+    typed: plannedFableSession(fixture, `registry-${registryFault}-fable-typed-start-${strategy}`, TYPED_FABLE_REQUIREMENTS, strategy),
+  }));
+  const fableControls = FABLE_STRATEGIES.flatMap(strategy => [
+    { name: `${strategy} untyped`, session: plannedFableSession(fixture, `registry-${registryFault}-fable-untyped-control-${strategy}`, UNTYPED_REQUIREMENTS, strategy) },
+    { name: `${strategy} typed`, session: plannedFableSession(fixture, `registry-${registryFault}-fable-typed-control-${strategy}`, TYPED_FABLE_REQUIREMENTS, strategy) },
+  ]).map(control => ({ ...control, start: run(fixture.controller, ['start', '--session-id', control.session.payload.session_id], fixture.workspace) }));
+  // Ready registry-independent workflows: every required obligation or stage passes before the fault.
+  const readyLegacy = legacyUntypedPlan(fixture, `registry-${registryFault}-legacy-ready`);
+  const readyLegacyStart = run(fixture.controller, ['start', '--session-id', readyLegacy.payload.session_id], fixture.workspace);
+  const readyLegacyPasses = ['execute', 'verify'].map(obligationId => run(fixture.controller, [
+    'obligation', '--session-id', readyLegacy.payload.session_id, '--obligation-id', obligationId,
+    '--disposition', 'pass', '--evidence', `${obligationId} evidence for the ready untyped fixture`,
+  ], fixture.workspace));
+  const readyFable = plannedFableSession(fixture, `registry-${registryFault}-fable-ready`, UNTYPED_REQUIREMENTS, 'fable-staged');
+  const readyFableStart = run(fixture.controller, ['start', '--session-id', readyFable.payload.session_id], fixture.workspace);
+  const readyFableChecks = [
+    runContractCheck(fixture, readyFable.payload.session_id, 'worker-1', 'node fixture-check.js'),
+    runContractCheck(fixture, readyFable.payload.session_id, 'worker-2', 'node verifier-check.js'),
+  ];
+  checkCase(`registry ${registryFault} ready registry-independent workflows are fully evidenced before the fault`, () => {
+    assert.strictEqual(readyLegacyStart.status, 0, readyLegacyStart.stderr);
+    for (const pass of readyLegacyPasses) assert.strictEqual(pass.status, 0, pass.stderr);
+    assert.strictEqual(readyFableStart.status, 0, readyFableStart.stderr);
+    for (const check of readyFableChecks) assert.strictEqual(check.status, 0, check.stderr);
+  });
+
+  checkCase(`registry ${registryFault} registry-independent fixtures are prepared and healthy controls start`, () => {
+    assert.strictEqual(legacyStart.planned.status, 0, legacyStart.planned.stderr);
+    assert.strictEqual(legacyRunningStart.status, 0, legacyRunningStart.stderr);
+    for (const { session } of fableUntypedPlans) assert.strictEqual(session.routed.status, 0, session.routed.stderr);
+    for (const { untyped, typed } of fableStarts) {
+      assert.strictEqual(untyped.planned.status, 0, untyped.planned.stderr);
+      assert.strictEqual(typed.planned.status, 0, typed.planned.stderr);
+    }
+    for (const control of fableControls) assert.strictEqual(control.start.status, 0, `${control.name} healthy start: ${control.start.stderr}`);
+  });
+  checkCase(`registry ${registryFault} running, block, and Fable fixtures are prepared while the registry is healthy`, () => {
+    assert.strictEqual(running.planned.status, 0, running.planned.stderr);
+    assert.strictEqual(started.status, 0, started.stderr);
+    assert.strictEqual(blockTarget.planned.status, 0, blockTarget.planned.stderr);
   });
   const beforeWorkflow = fs.readFileSync(retained.workflowFile);
   const beforeObligations = fs.readFileSync(retained.obligationsFile);
@@ -435,6 +573,111 @@ for (const registryFault of ['missing', 'malformed']) {
     assert.deepStrictEqual(fs.readFileSync(retained.workflowFile), beforeWorkflow);
     assert.deepStrictEqual(fs.readFileSync(retained.obligationsFile), beforeObligations);
   });
+  checkCase(`registry ${registryFault} controller --help prints usage with exit 0 without loading the registry`, () => {
+    const help = run(fixture.controller, ['--help'], fixture.workspace);
+    assert.strictEqual(help.status, 0, help.stderr);
+    assert.match(help.stdout, /Usage: workflow-disposition\.js/);
+    assert.doesNotMatch(`${help.stdout}\n${help.stderr}`, /step-type registry/);
+  });
+
+  checkCase(`registry ${registryFault} controller block records the blocked disposition with exit 0`, () => {
+    const blocked = run(fixture.controller, ['block', '--session-id', blockTarget.payload.session_id, '--evidence', 'registry fault: blocked for owner review'], fixture.workspace);
+    assert.strictEqual(blocked.status, 0, blocked.stderr);
+    const workflow = readJson(blockTarget.workflowFile);
+    assert.strictEqual(workflow.state, 'blocked');
+    assert.strictEqual(workflow.blockReason, 'registry fault: blocked for owner review');
+  });
+
+  checkCase(`registry ${registryFault} Fable stage-binding resolves with exit 0 and no registry`, () => {
+    const result = run(fixture.controller, [
+      'stage-binding', '--session-id', fable.payload.session_id, '--stage-id', 'implement', '--binding-id', 'tdd',
+      '--disposition', 'loaded', '--evidence', 'Read tdd/SKILL.md before implementation.',
+    ], fixture.workspace);
+    assert.strictEqual(result.status, 0, result.stderr);
+    assert.strictEqual(JSON.parse(result.stdout).binding.status, 'loaded');
+  });
+
+  checkCase(`registry ${registryFault} Fable escape persists on the workflow with exit 0 and no registry`, () => {
+    const result = run(fixture.controller, [
+      'escape', '--session-id', fable.payload.session_id, '--stage-id', 'implement', '--reason-code', 'workflow-uncovered-scope',
+      '--scope', 'fixture-only uncovered scope', '--evidence', 'registry fault fixture escape',
+    ], fixture.workspace);
+    assert.strictEqual(result.status, 0, result.stderr);
+    assert.ok(readJson(fable.workflowFile).escapes.some(item => item.stageId === 'implement'), 'escape must persist for implement');
+  });
+
+  const stopPayload = session => ({ hook_event_name: 'Stop', session_id: session.payload.session_id, cwd: fixture.workspace });
+  const registryFree = output => assert.doesNotMatch(output, /step-type registry|step-type-registry-unavailable/, output);
+
+  checkCase(`registry ${registryFault} ready untyped generic workflow completes on Stop without a registry read`, () => {
+    const stop = run(fixture.stopGate, [], fixture.workspace, stopPayload(readyLegacy));
+    assert.strictEqual(stop.status, 0, stop.stderr);
+    registryFree(`${stop.stdout}\n${stop.stderr}`);
+    assert.strictEqual(readJson(readyLegacy.workflowFile).state, 'satisfied', 'a fully evidenced untyped workflow must complete');
+  });
+
+  checkCase(`registry ${registryFault} ready Fable workflow completes on Stop without a registry read`, () => {
+    const stop = run(fixture.stopGate, [], fixture.workspace, stopPayload(readyFable));
+    assert.strictEqual(stop.status, 0, stop.stderr);
+    registryFree(`${stop.stdout}\n${stop.stderr}`);
+    assert.strictEqual(readJson(readyFable.workflowFile).state, 'satisfied', 'a fully evidenced Fable workflow must complete');
+  });
+
+  checkCase(`registry ${registryFault} unresolved Fable verifier evidence stays visible on Stop without a registry diagnostic`, () => {
+    const stop = run(fixture.stopGate, [], fixture.workspace, stopPayload(fable));
+    assert.strictEqual(stop.status, 0, stop.stderr);
+    registryFree(`${stop.stdout}\n${stop.stderr}`);
+    assert.match(stop.stderr, /verify:verification-unresolved/);
+    assert.notStrictEqual(readJson(fable.workflowFile).state, 'satisfied', 'an unresolved Fable workflow must never be marked satisfied');
+  });
+
+  checkCase(`registry ${registryFault} typed start, step, and binding still fail with the actionable registry error`, () => {
+    for (const args of [
+      ['start', '--session-id', retained.payload.session_id],
+      ['step', '--session-id', running.payload.session_id, '--step-id', 'req-docs', '--disposition', 'pass', '--evidence', 'fixture step'],
+      ['binding', '--session-id', running.payload.session_id, '--step-id', 'req-docs', '--binding-id', 'verification-loop', '--disposition', 'not-needed', '--evidence', 'fixture binding'],
+    ]) {
+      const result = run(fixture.controller, args, fixture.workspace);
+      assert.strictEqual(result.status, 2, `${args[0]} exited ${result.status}: ${result.stderr}`);
+      semanticRegistryError(result, fixture.registryFile);
+    }
+  });
+
+  checkCase(`registry ${registryFault} legacy untyped single-agent start exits 0 without a registry read`, () => {
+    const result = run(fixture.controller, ['start', '--session-id', legacyStart.payload.session_id], fixture.workspace);
+    assert.strictEqual(result.status, 0, result.stderr);
+    assert.strictEqual(readJson(legacyStart.workflowFile).state, 'running');
+  });
+
+  checkCase(`registry ${registryFault} legacy untyped single-agent execute pass exits 0 without a registry read`, () => {
+    const result = run(fixture.controller, [
+      'obligation', '--session-id', legacyRunning.payload.session_id, '--obligation-id', 'execute',
+      '--disposition', 'pass', '--evidence', 'legacy execution evidence',
+    ], fixture.workspace);
+    assert.strictEqual(result.status, 0, result.stderr);
+  });
+
+  for (const { strategy, session } of fableUntypedPlans) {
+    checkCase(`registry ${registryFault} untyped ${strategy} plan exits 0 without a registry read`, () => {
+      const result = run(fixture.controller, [
+        'plan', '--session-id', session.payload.session_id,
+        '--requirements-json', JSON.stringify(UNTYPED_REQUIREMENTS),
+        '--strategy', strategy, '--evidence', 'untyped Fable plan under registry fault',
+      ], fixture.workspace);
+      assert.strictEqual(result.status, 0, result.stderr);
+    });
+  }
+
+  for (const { strategy, untyped, typed } of fableStarts) {
+    checkCase(`registry ${registryFault} pending ${strategy} start exits 0 for typed metadata and untyped plans`, () => {
+      for (const session of [typed, untyped]) {
+        const result = run(fixture.controller, ['start', '--session-id', session.payload.session_id], fixture.workspace);
+        assert.strictEqual(result.status, 0, `${session.payload.session_id}: ${result.stderr}`);
+        assert.strictEqual(readJson(session.workflowFile).state, 'running');
+      }
+    });
+  }
+
   if (registryFault === 'malformed') fs.writeFileSync(fixture.registryFile, registryBytes);
 }
 
