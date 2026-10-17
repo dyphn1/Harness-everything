@@ -442,6 +442,45 @@ checkCase('2aw consensus-C5. validateDocsConfig rejects non-canonical globs with
   assert.strictEqual(acceptable.valid, true, `canonical globs must be accepted: ${JSON.stringify(acceptable.diagnostics)}`);
 });
 
+checkCase('2aw fix-325. validateDocsConfig rejects globs with empty path segments and accepts canonical globs', () => {
+  for (const [field, buildValue, diagCode] of [
+    ['governed', v => [{ path: v, role: 'prd' }], 'invalid-governed-entry'],
+    ['legacy', v => [v], 'invalid-legacy-entry'],
+    ['derived', v => [{ path: v, generator: 'npm run docs:index' }], 'invalid-derived-entry'],
+  ]) {
+    for (const value of ['docs//prd/**', 'docs/prd//**', 'docs/prd/']) {
+      const validation = resolver.validateDocsConfig({
+        docLocation: 'docs/',
+        domains: ['GRPH'],
+        [field]: buildValue(value),
+      });
+      assert.strictEqual(validation.valid, false, `${field} value ${JSON.stringify(value)} must be rejected`);
+      const diag = validation.diagnostics.find(item => item.code === diagCode);
+      assert.ok(diag, `expected diagnostic ${diagCode} for ${field} value ${JSON.stringify(value)}; got ${JSON.stringify(validation.diagnostics)}`);
+      assert.strictEqual(diag.severity, 'error');
+      assert.ok(diag.message.includes('must not contain empty path segments'), `diagnostic must state the empty-segment rule; got: ${diag.message}`);
+    }
+  }
+
+  const canonical = resolver.validateDocsConfig({
+    docLocation: 'docs/',
+    domains: ['GRPH'],
+    governed: [{ path: 'docs/prd/**', role: 'prd' }],
+  });
+  assert.strictEqual(canonical.valid, true, `docs/prd/** must stay valid: ${JSON.stringify(canonical.diagnostics)}`);
+});
+
+checkCase('2aw fix-325. resolver selection rejects a governed empty-segment glob as invalid with no config', () => {
+  assert.strictEqual(typeof resolveDocsConfig, 'function', 'resolveDocsConfig export is required');
+  const root = workspace('invalid-empty-segment-selection');
+  const projectFile = writeProjectConfig(root, { ...validConfig, governed: [{ path: 'docs//prd/**', role: 'prd' }] });
+  const result = resolveDocsConfig(root);
+  assert.strictEqual(result.status, 'invalid');
+  assert.deepStrictEqual(result.sources, [relative(root, projectFile)]);
+  assert.strictEqual(result.config, null);
+  assert.ok(diagnosticCodes(result).includes('invalid-governed-entry'), `expected invalid-governed-entry; got ${JSON.stringify(diagnosticCodes(result))}`);
+});
+
 checkCase('2aw owner-p2. heuristic inference applies only when the selection status is none', () => {
   const project = workspace('owner-p2-inference-project');
   const projectFull = {};
