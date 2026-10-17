@@ -665,6 +665,7 @@ function unresolvedObligations(context) {
 module.exports = {
   OBLIGATION_FILE,
   ALLOWED_ESCAPE_REASONS,
+  STEP_TYPE_IDS,
   validateStepTypeRegistry,
   obligationPath,
   needsPlanningContract,
