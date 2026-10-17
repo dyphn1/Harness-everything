@@ -8,6 +8,14 @@ const resolverPath = path.join(__dirname, '..', 'multi-agent-workspace', 'script
 const toSpecResolverPath = path.join(__dirname, '..', 'to-spec', 'scripts', 'project-docs-resolver.js');
 const harnessResolverPath = path.join(__dirname, '..', 'harness-everything', 'scripts', 'project-docs-resolver.js');
 const toSpecCheckPath = path.join(__dirname, '..', 'to-spec', 'scripts', 'check-project-docs.js');
+const packagedToSpecCheckPath = path.join(__dirname, '..', 'plugins', 'harness-everything', 'skills', 'to-spec', 'scripts', 'check-project-docs.js');
+const packagedToSpecResolverPath = path.join(__dirname, '..', 'plugins', 'harness-everything', 'skills', 'to-spec', 'scripts', 'project-docs-resolver.js');
+const packagedMultiAgentResolverPath = path.join(__dirname, '..', 'plugins', 'harness-everything', 'skills', 'multi-agent-workspace', 'scripts', 'project-docs-resolver.js');
+const packagedHarnessResolverPath = path.join(__dirname, '..', 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'project-docs-resolver.js');
+const toSpecCliLegs = Object.freeze([
+  ['source', toSpecCheckPath],
+  ['packaged', packagedToSpecCheckPath]
+]);
 const resolver = require(resolverPath);
 const toSpecResolver = require(toSpecResolverPath);
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2aw-project-docs-'));
@@ -342,8 +350,12 @@ checkCase('2aw. project file zone fields drive existing zone resolution', () => 
 checkCase('2aw. to-spec ships the same standalone resolver implementation', () => {
   const source = fs.readFileSync(toSpecResolverPath, 'utf8');
   assert.strictEqual(source, fs.readFileSync(resolverPath, 'utf8'));
+  assert.strictEqual(source, fs.readFileSync(packagedToSpecResolverPath, 'utf8'));
+  assert.strictEqual(source, fs.readFileSync(packagedMultiAgentResolverPath, 'utf8'));
+  assert.strictEqual(source, fs.readFileSync(packagedHarnessResolverPath, 'utf8'));
   assert.ok(!source.includes("require('../../multi-agent-workspace"), 'standalone resolver must not defer to a sibling skill');
   assert.strictEqual(typeof toSpecResolver.resolveDocsConfig, 'function');
+  assert.strictEqual(typeof toSpecResolver.normalizeHostProjectDocs, 'function');
 });
 
 checkCase('2aw dogfood. harness-everything ships the byte-identical standalone resolver', () => {
@@ -628,12 +640,12 @@ checkCase('2aw owner-p2. init rejects whitespace-only required values consistent
   assert.strictEqual(fs.readFileSync(hostFile2, 'utf8'), host2Before, 'whitespace-only host init must write nothing');
 });
 
-function runToSpecCheck(root) {
-  return spawnSync(process.execPath, [toSpecCheckPath, 'check', '--workspace', root], { encoding: 'utf8' });
+function runToSpecCheck(root, scriptPath = toSpecCheckPath) {
+  return spawnSync(process.execPath, [scriptPath, 'check', '--workspace', root], { encoding: 'utf8' });
 }
 
-function runToSpecInit(root, args) {
-  return spawnSync(process.execPath, [toSpecCheckPath, 'init', '--workspace', root, ...args], { encoding: 'utf8' });
+function runToSpecInit(root, args, scriptPath = toSpecCheckPath) {
+  return spawnSync(process.execPath, [scriptPath, 'init', '--workspace', root, ...args], { encoding: 'utf8' });
 }
 
 checkCase('2aw owner-p2. init fills only missing fields in an existing valid project file and preserves the rest', () => {
@@ -701,24 +713,188 @@ checkCase('2aw owner-p2. init leaves malformed or schema-invalid project files u
   assert.strictEqual(fs.readFileSync(invalidFile, 'utf8'), invalidBefore, 'invalid schema file untouched');
 });
 
+checkCase('2aw issue331. host-only init rejects malformed JSON without losing a registered custom skill', () => {
+  const malformed = '{\n  "package": "harness-everything",\n  "skills": [{"id":"custom-skill","dirPath":"custom-skill"}],\n  "agents": [],\n  "projectDocs": {"governed": [';
+  for (const [leg, scriptPath] of toSpecCliLegs) {
+    const root = workspace(`issue331-${leg}-host-init-malformed`);
+    const hostFile = writeHostConfig(root, 'claude', null, malformed);
+    const before = fs.readFileSync(hostFile);
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    assert.strictEqual(result.status, 1, `${leg} malformed host manifest must fail init: ${result.stdout}${result.stderr}`);
+    assert.match(`${result.stdout}\n${result.stderr}`, /\.claude\/harness-everything\/manifest\.json/);
+    assert.match(`${result.stdout}\n${result.stderr}`, /invalid JSON/i);
+    assert.match(`${result.stdout}\n${result.stderr}`, /repair|fix/i);
+    assert.deepStrictEqual(fs.readFileSync(hostFile), before, 'malformed host manifest stays byte-identical');
+  }
+});
+
+checkCase('2aw issue331. host-only init rejects schema-invalid projectDocs without writing', () => {
+  for (const [leg, scriptPath] of toSpecCliLegs) {
+    const root = workspace(`issue331-${leg}-host-init-invalid-schema`);
+    const hostFile = writeHostConfig(root, 'claude', { governed: 'not-an-array', domains: ['GRPH'] });
+    const before = fs.readFileSync(hostFile);
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    assert.strictEqual(result.status, 1, `${leg} schema-invalid host projectDocs must fail init: ${result.stdout}${result.stderr}`);
+    assert.match(`${result.stdout}\n${result.stderr}`, /\.claude\/harness-everything\/manifest\.json/);
+    assert.match(`${result.stdout}\n${result.stderr}`, /invalid-governed/);
+    assert.match(`${result.stdout}\n${result.stderr}`, /repair|fix/i);
+    assert.deepStrictEqual(fs.readFileSync(hostFile), before, 'schema-invalid host manifest stays byte-identical');
+  }
+});
+
+for (const [leg, scriptPath] of toSpecCliLegs) {
+  checkCase(`2aw issue331. ${leg} host-only init accepts legacy string domains without changing its on-disk value`, () => {
+    const root = workspace(`issue331-${leg}-legacy-host-domains`);
+    const hostFile = writeHostConfig(root, 'claude', {
+      domains: 'records/domain',
+      governed: [{ path: 'docs/prd/**', role: 'prd' }]
+    });
+    const before = JSON.parse(fs.readFileSync(hostFile, 'utf8'));
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    assert.strictEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const after = JSON.parse(fs.readFileSync(hostFile, 'utf8'));
+    assert.deepStrictEqual(after.projectDocs.domains, before.projectDocs.domains, 'deprecated string domains remains unchanged on disk');
+    assert.strictEqual(after.projectDocs.docLocation, 'docs/');
+    assert.strictEqual(after.projectDocs.tracker, 'GitHub Issues');
+    assert.strictEqual(after.projectDocs.issueDefinition, 'Title and acceptance');
+    const check = runToSpecCheck(root, scriptPath);
+    assert.strictEqual(check.status, 0, `check accepts host legacy value after init: ${check.stdout}\n${check.stderr}`);
+  });
+
+  checkCase(`2aw issue331. ${leg} complete legacy host permits a no-op init`, () => {
+    const root = workspace(`issue331-${leg}-legacy-host-complete`);
+    const hostFile = writeHostConfig(root, 'claude', {
+      domains: 'records/domain',
+      docLocation: 'docs/', tracker: 'GitHub Issues', issueDefinition: 'Title and acceptance'
+    });
+    const before = fs.readFileSync(hostFile);
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    assert.strictEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.deepStrictEqual(fs.readFileSync(hostFile), before, 'complete host config remains byte-identical');
+  });
+
+  checkCase(`2aw issue331. ${leg} directory manifest reports a read failure and leaves contents intact`, () => {
+    const root = workspace(`issue331-${leg}-directory-manifest`);
+    const manifestPath = path.join(root, '.claude', 'harness-everything', 'manifest.json');
+    fs.mkdirSync(manifestPath, { recursive: true });
+    const marker = path.join(manifestPath, 'registration.json');
+    fs.writeFileSync(marker, '{"skills":[{"id":"custom-skill"}]}', 'utf8');
+    const before = fs.readFileSync(marker);
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.strictEqual(result.status, 1, `directory manifest must fail init: ${output}`);
+    assert.match(output, /\.claude\/harness-everything\/manifest\.json/);
+    assert.match(output, /cannot be read/i);
+    assert.doesNotMatch(output, /invalid JSON/i);
+    assert.match(output, /repair|restore|readable/i);
+    assert.deepStrictEqual(fs.readFileSync(marker), before, 'directory contents remain byte-identical');
+  });
+}
+
+checkCase('2aw issue331. modern array domains remain accepted on source and packaged CLIs', () => {
+  for (const [leg, scriptPath] of toSpecCliLegs) {
+    const root = workspace(`issue331-${leg}-modern-host-domains`);
+    const hostFile = writeHostConfig(root, 'claude', {
+      domains: ['GRPH'], governed: [{ path: 'docs/prd/**', role: 'prd' }]
+    });
+    const before = JSON.parse(fs.readFileSync(hostFile, 'utf8'));
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    assert.strictEqual(result.status, 0, `${leg}: ${result.stdout}\n${result.stderr}`);
+    const after = JSON.parse(fs.readFileSync(hostFile, 'utf8'));
+    assert.deepStrictEqual(after.projectDocs.domains, before.projectDocs.domains, 'modern domains array is preserved');
+    assert.strictEqual(runToSpecCheck(root, scriptPath).status, 0, 'modern host config passes check after init');
+  }
+});
+
+checkCase('2aw issue331. project-file domains string remains invalid on source and packaged CLIs', () => {
+  for (const [leg, scriptPath] of toSpecCliLegs) {
+    const root = workspace(`issue331-${leg}-project-domains-string`);
+    const projectFile = writeProjectConfig(root, {
+      governed: [{ path: 'docs/prd/**', role: 'prd' }],
+      domains: 'records/domain'
+    });
+    const before = fs.readFileSync(projectFile);
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.strictEqual(result.status, 1, `${leg} project-file legacy value must remain invalid: ${output}`);
+    assert.match(output, /invalid-domains/);
+    assert.deepStrictEqual(fs.readFileSync(projectFile), before, 'invalid project file remains byte-identical');
+  }
+});
+
+checkCase('2aw issue331. source and packaged host validators still reject malformed governed globs without writes', () => {
+  for (const [leg, scriptPath] of toSpecCliLegs) {
+    const root = workspace(`issue331-${leg}-invalid-host-glob`);
+    const hostFile = writeHostConfig(root, 'claude', {
+      governed: [{ path: 'docs//prd/**', role: 'prd' }], domains: ['GRPH']
+    });
+    const before = fs.readFileSync(hostFile);
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.strictEqual(result.status, 1, `${leg} malformed host glob must fail: ${output}`);
+    assert.match(output, /invalid-governed-path|failed schema validation/i);
+    assert.deepStrictEqual(fs.readFileSync(hostFile), before, 'invalid host config remains byte-identical');
+  }
+});
+
+checkCase('2aw issue331. malformed host aborts a multi-host init before any manifest changes', () => {
+  for (const [leg, scriptPath] of toSpecCliLegs) {
+    const root = workspace(`issue331-${leg}-host-init-multi-host-atomic`);
+    const validHost = writeHostConfig(root, 'claude', {
+      governed: [{ path: 'docs/prd/**', role: 'prd' }], domains: ['GRPH'], docLocation: 'host-docs/'
+    });
+    const malformedHost = writeHostConfig(root, 'codex', null, '{"skills":[{"id":"custom-skill"}], broken');
+    const validBefore = fs.readFileSync(validHost);
+    const malformedBefore = fs.readFileSync(malformedHost);
+    const result = runToSpecInit(root, ['--doc-location', 'host-docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    assert.strictEqual(result.status, 1, `${leg} malformed host must abort the full plan: ${result.stdout}${result.stderr}`);
+    assert.match(`${result.stdout}\n${result.stderr}`, /\.codex\/harness-everything\/manifest\.json/);
+    assert.deepStrictEqual(fs.readFileSync(validHost), validBefore, 'valid host is not written before malformed peer is rejected');
+    assert.deepStrictEqual(fs.readFileSync(malformedHost), malformedBefore, 'malformed host remains byte-identical');
+  }
+});
+
+checkCase('2aw issue331. absent host manifest still receives the requested projectDocs fields', () => {
+  for (const [leg, scriptPath] of toSpecCliLegs) {
+    const root = workspace(`issue331-${leg}-host-init-absent`);
+    const hostDir = path.join(root, '.claude', 'harness-everything');
+    fs.mkdirSync(hostDir, { recursive: true });
+    const hostFile = path.join(hostDir, 'manifest.json');
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    assert.strictEqual(result.status, 0, `${leg}: ${result.stdout}\n${result.stderr}`);
+    const created = JSON.parse(fs.readFileSync(hostFile, 'utf8'));
+    assert.deepStrictEqual(created.projectDocs.docLocation, 'docs/');
+    assert.strictEqual(created.projectDocs.tracker, 'GitHub Issues');
+    assert.strictEqual(created.projectDocs.issueDefinition, 'Title and acceptance');
+  }
+});
+
 checkCase('2aw owner-p2. host-only init preserves existing host projectDocs keys and fills only missing fields', () => {
   const root = workspace('owner-p2-init-host-preserve');
-  const hostFile = writeHostConfig(root, 'claude', {
-    governed: [{ path: 'docs/prd/**', role: 'prd' }],
-    domains: ['GRPH'],
-    docLocation: 'host-docs/',
-    updatedAt: '2026-01-01T00:00:00.000Z'
-  });
+  const hostFile = path.join(root, '.claude', 'harness-everything', 'manifest.json');
+  fs.mkdirSync(path.dirname(hostFile), { recursive: true });
+  const registration = { id: 'custom-skill', dirPath: 'custom-skill', installedAt: '2026-01-01T00:00:00.000Z' };
+  fs.writeFileSync(hostFile, `${JSON.stringify({
+    package: 'harness-everything', skills: [registration], agents: [], projectDocs: {
+      governed: [{ path: 'docs/prd/**', role: 'prd' }],
+      domains: ['GRPH'],
+      docLocation: 'host-docs/',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    }
+  }, null, 2)}\n`, 'utf8');
   const before = JSON.parse(fs.readFileSync(hostFile, 'utf8'));
   const result = runToSpecInit(root, ['--doc-location', 'host-docs/', '--tracker', 'host-tracker', '--issue-definition', 'host-template']);
   assert.strictEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
   const after = JSON.parse(fs.readFileSync(hostFile, 'utf8'));
+  assert.deepStrictEqual(after.skills, before.skills, 'custom skill registrations preserved');
   assert.deepStrictEqual(after.projectDocs.governed, before.projectDocs.governed, 'host governed governance keys preserved');
   assert.deepStrictEqual(after.projectDocs.domains, before.projectDocs.domains, 'host domains preserved');
   assert.strictEqual(after.projectDocs.docLocation, 'host-docs/', 'configured docLocation preserved');
   assert.strictEqual(after.projectDocs.tracker, 'host-tracker', 'missing tracker filled');
   assert.strictEqual(after.projectDocs.issueDefinition, 'host-template', 'missing issueDefinition filled');
   assert.strictEqual(after.projectDocs.updatedAt, before.projectDocs.updatedAt, 'existing updatedAt preserved');
+  const check = runToSpecCheck(root);
+  assert.strictEqual(check.status, 0, `check succeeds after host-only init: ${check.stdout}\n${check.stderr}`);
   const conflicting = runToSpecInit(root, ['--doc-location', 'host-docs/', '--tracker', 'different-tracker', '--issue-definition', 'host-template']);
   assert.strictEqual(conflicting.status, 1, `conflicting host flag must fail: ${conflicting.stdout}${conflicting.stderr}`);
   assert.match(`${conflicting.stdout}\n${conflicting.stderr}`, /tracker/);
