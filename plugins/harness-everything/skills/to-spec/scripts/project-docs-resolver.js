@@ -629,6 +629,7 @@ function resolveProjectDocs(workspaceRoot, options = {}) {
 }
 
 function detectProjectDocsConventions(workspaceRoot, options = {}) {
+  const REQUIRED_CONFIG_FIELDS = ['docLocation', 'tracker', 'issueDefinition'];
   const resolvedRoot = workspaceRoot || getWorkspaceRoot();
   if (!resolvedRoot) return {};
   const root = path.resolve(resolvedRoot);
@@ -638,13 +639,29 @@ function detectProjectDocsConventions(workspaceRoot, options = {}) {
       status: selection.status,
       sources: selection.sources || [],
       warnings: selection.warnings || [],
-      diagnostics: selection.diagnostics || []
+      diagnostics: selection.diagnostics || [],
+      missing: []
     };
   }
   const configured = selection.config || {};
   const inferred = {};
-  for (const field of ['docLocation', 'tracker', 'issueDefinition']) {
+  for (const field of REQUIRED_CONFIG_FIELDS) {
     if (typeof configured[field] === 'string' && configured[field].trim()) inferred[field] = configured[field];
+  }
+  // Heuristic completion is a resource for UNSELECTED workspaces only: a
+  // project or selected-host configuration is authoritative for exactly the
+  // fields it declares, so missing selected fields are reported instead of
+  // being silently authorized from workspace conventions.
+  if (selection.status !== 'none') {
+    const missing = REQUIRED_CONFIG_FIELDS.filter(field => !inferred[field]);
+    return {
+      ...inferred,
+      status: selection.status,
+      sources: selection.sources || [],
+      warnings: selection.warnings || [],
+      diagnostics: selection.diagnostics || [],
+      missing
+    };
   }
   if (!inferred.docLocation) {
     for (const dir of ['docs/roadmaps', 'docs/reference', 'docs/specs', 'docs', 'doc']) {
@@ -674,12 +691,14 @@ function detectProjectDocsConventions(workspaceRoot, options = {}) {
       inferred.issueDefinition = 'Title + acceptance criteria + Status: ready-for-agent';
     }
   }
+  const missing = REQUIRED_CONFIG_FIELDS.filter(field => !inferred[field]);
   return {
     ...inferred,
     status: selection.status,
     sources: selection.sources || [],
     warnings: selection.warnings || [],
-    diagnostics: selection.diagnostics || []
+    diagnostics: selection.diagnostics || [],
+    missing
   };
 }
 

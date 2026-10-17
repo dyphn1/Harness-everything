@@ -402,9 +402,175 @@ checkCase('2aw fix. invalid project files never authorize zone paths and surface
   }
 });
 
+checkCase('2aw owner-p2. heuristic inference applies only when the selection status is none', () => {
+  const project = workspace('owner-p2-inference-project');
+  const projectFull = {};
+  for (const field of ['docLocation', 'tracker', 'issueDefinition']) {
+    if (field === 'docLocation') projectFull[field] = field === 'docLocation' ? 'specs/' : `p-${field}`;
+    else projectFull[field] = `p-${field}`;
+  }
+  writeProjectConfig(project, projectFull);
+  fs.mkdirSync(path.join(project, '.github', 'ISSUE_TEMPLATE'), { recursive: true });
+  const resolved = resolver.detectProjectDocsConventions(project);
+  assert.strictEqual(resolved.status, 'project');
+  assert.deepStrictEqual(resolved.missing, [], 'fully configured project selection reports no missing fields');
+  assert.strictEqual(resolved.tracker, 'p-tracker', 'configured tracker is returned verbatim');
+
+  const partial = workspace('owner-p2-inference-partial');
+  writeProjectConfig(partial, { docLocation: 'specs/' });
+  fs.mkdirSync(path.join(partial, '.github', 'ISSUE_TEMPLATE'), { recursive: true });
+  const partialResult = toSpecResolver.detectProjectDocsConventions(partial);
+  assert.strictEqual(partialResult.status, 'project');
+  assert.strictEqual(partialResult.docLocation, 'specs/', 'configured field kept');
+  assert.strictEqual(partialResult.tracker, undefined, 'host conventions must not be inferred for a project selection');
+  assert.strictEqual(partialResult.issueDefinition, undefined, 'issue definition must not be inferred for a project selection');
+  assert.deepStrictEqual(partialResult.missing, ['tracker', 'issueDefinition'], 'missing-field list is returned');
+
+  const selectedHost = workspace('owner-p2-inference-host');
+  writeHostConfig(selectedHost, 'claude', { docLocation: 'specs/' });
+  fs.mkdirSync(path.join(selectedHost, '.github', 'ISSUE_TEMPLATE'), { recursive: true });
+  const hostResult = resolver.detectProjectDocsConventions(selectedHost, { activeHost: 'claude' });
+  assert.strictEqual(hostResult.status, 'host');
+  assert.strictEqual(hostResult.tracker, undefined, 'host conventions must not be inferred for a selected host');
+  assert.deepStrictEqual(hostResult.missing, ['tracker', 'issueDefinition'], 'missing-field list is returned for host selections');
+
+  const empty = workspace('owner-p2-inference-empty');
+  writeProjectConfig(empty, {});
+  fs.mkdirSync(path.join(empty, '.github', 'ISSUE_TEMPLATE'), { recursive: true });
+  fs.mkdirSync(path.join(empty, 'docs'), { recursive: true });
+  const emptyResult = resolver.detectProjectDocsConventions(empty);
+  assert.strictEqual(emptyResult.status, 'project', 'an empty project file stays selected');
+  assert.deepStrictEqual(emptyResult.missing, ['docLocation', 'tracker', 'issueDefinition'], 'empty selection stays incomplete');
+
+  const plain = workspace('owner-p2-inference-none');
+  fs.mkdirSync(path.join(plain, 'docs'), { recursive: true });
+  const noneResult = resolver.detectProjectDocsConventions(plain);
+  assert.strictEqual(noneResult.status, 'none');
+  assert.strictEqual(noneResult.docLocation, 'docs/', 'status none still permits workspace inference');
+});
+
+checkCase('2aw owner-p2. CLI exits 1 listing the actual missing fields for selected/incomplete configs', () => {
+  const partial = workspace('owner-p2-cli-partial');
+  writeProjectConfig(partial, { docLocation: 'specs/' });
+  fs.mkdirSync(path.join(partial, '.github', 'ISSUE_TEMPLATE'), { recursive: true });
+  const partialRun = runToSpecCheck(partial);
+  assert.strictEqual(partialRun.status, 1, `partial selected config must fail: ${partialRun.stdout}`);
+  assert.match(partialRun.stdout, /missing fields: tracker, issueDefinition/);
+  assert.ok(!partialRun.stdout.includes('GitHub Issues via .github/ISSUE_TEMPLATE/'), 'invented tracker must not appear');
+
+  const empty = workspace('owner-p2-cli-empty');
+  writeProjectConfig(empty, {});
+  fs.mkdirSync(path.join(empty, '.github', 'ISSUE_TEMPLATE'), { recursive: true });
+  fs.mkdirSync(path.join(empty, 'docs'), { recursive: true });
+  const emptyRun = runToSpecCheck(empty);
+  assert.strictEqual(emptyRun.status, 1, `empty {} selection must stay selected and incomplete: ${emptyRun.stdout}`);
+  assert.match(emptyRun.stdout, /Selected project projectDocs configuration/i);
+  assert.match(emptyRun.stdout, /missing fields: docLocation, tracker, issueDefinition/);
+
+  const ambiguousRoot = workspace('owner-p2-cli-ambiguous');
+  writeHostConfig(ambiguousRoot, 'claude', { docLocation: 'a-docs', tracker: 'a-tracker', issueDefinition: 'a-def' });
+  writeHostConfig(ambiguousRoot, 'codex', { docLocation: 'b-docs', tracker: 'b-tracker', issueDefinition: 'b-def' });
+  const ambiguousRun = runToSpecCheck(ambiguousRoot);
+  assert.strictEqual(ambiguousRun.status, 1);
+  assert.match(ambiguousRun.stdout + ambiguousRun.stderr, /ambiguous/i);
+});
+
 function runToSpecCheck(root) {
   return spawnSync(process.execPath, [toSpecCheckPath, 'check', '--workspace', root], { encoding: 'utf8' });
 }
+
+function runToSpecInit(root, args) {
+  return spawnSync(process.execPath, [toSpecCheckPath, 'init', '--workspace', root, ...args], { encoding: 'utf8' });
+}
+
+checkCase('2aw owner-p2. init fills only missing fields in an existing valid project file and preserves the rest', () => {
+  const root = workspace('owner-p2-init-project-fill');
+  const project = {
+    docLocation: 'specs/',
+    governed: [{ path: 'docs/prd/**', role: 'prd' }],
+    domains: ['GRPH'],
+    derived: [{ path: 'docs/roadmap/index.md', generator: 'npm run docs:index' }],
+    unknownKey: 'preserve-me'
+  };
+  const projectFile = writeProjectConfig(root, project, `${JSON.stringify(project, null, 2)}\n`);
+  const before = fs.readFileSync(projectFile, 'utf8');
+  const homesBefore = Object.values(HOSTS).map(h => path.join(root, h, 'harness-everything', 'manifest.json'));
+  const result = runToSpecInit(root, ['--doc-location', 'specs/', '--tracker', 'tracker/board', '--issue-definition', 'templates/issue.md']);
+  assert.strictEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  const after = JSON.parse(fs.readFileSync(projectFile, 'utf8'));
+  assert.strictEqual(after.docLocation, 'specs/', 'configured docLocation preserved, not overwritten');
+  assert.strictEqual(after.tracker, 'tracker/board', 'missing tracker filled in the project file');
+  assert.strictEqual(after.issueDefinition, 'templates/issue.md', 'missing issueDefinition filled in the project file');
+  assert.deepStrictEqual(after.governed, project.governed, 'governed preserved');
+  assert.deepStrictEqual(after.domains, project.domains, 'domains preserved');
+  assert.deepStrictEqual(after.derived, project.derived, 'derived preserved');
+  assert.strictEqual(after.unknownKey, project.unknownKey, 'unknown keys preserved');
+  assert.ok(!result.stdout.includes('manifest.json'), 'init with a project file must not touch host manifests');
+  for (const hostFile of homesBefore) assert.ok(!fs.existsSync(hostFile), 'no host manifest may be created');
+  const check = runToSpecCheck(root);
+  assert.strictEqual(check.status, 0, `${check.stdout}`);
+  assert.match(check.stdout, /docLocation: specs\//);
+  assert.match(check.stdout, /tracker: tracker\/board/);
+  assert.match(check.stdout, /issueDefinition: templates\/issue\.md/);
+  const afterFirstRead = fs.readFileSync(projectFile, 'utf8');
+  const result2 = runToSpecInit(root, ['--doc-location', 'specs/', '--tracker', 'tracker/board', '--issue-definition', 'templates/issue.md']);
+  assert.strictEqual(result2.status, 0, `${result2.stdout}\n${result2.stderr}`);
+  assert.strictEqual(fs.readFileSync(projectFile, 'utf8'), afterFirstRead, 'repeat init stays byte-identical when nothing is missing');
+});
+
+checkCase('2aw owner-p2. init rejects conflicting flags for configured project fields with no writes', () => {
+  const root = workspace('owner-p2-init-conflict');
+  const project = { docLocation: 'specs/', tracker: 'tracker/board' };
+  const projectFile = writeProjectConfig(root, project);
+  const before = fs.readFileSync(projectFile, 'utf8');
+  const result = runToSpecInit(root, ['--doc-location', 'other/', '--tracker', 'different', '--issue-definition', 'templates/issue.md']);
+  assert.strictEqual(result.status, 1, `conflicting flags must fail: ${result.stdout}${result.stderr}`);
+  assert.match(`${result.stdout}\n${result.stderr}`, /doc-location/);
+  assert.match(`${result.stdout}\n${result.stderr}`, /specs\//);
+  assert.strictEqual(fs.readFileSync(projectFile, 'utf8'), before, 'untouched on conflict');
+});
+
+checkCase('2aw owner-p2. init leaves malformed or schema-invalid project files untouched with guidance', () => {
+  const malformed = workspace('owner-p2-init-malformed');
+  const malformedFile = writeProjectConfig(malformed, null, '{ broken json');
+  const malformedBefore = fs.readFileSync(malformedFile, 'utf8');
+  const malformedResult = runToSpecInit(malformed, ['--doc-location', 'a/', '--tracker', 'b/', '--issue-definition', 'c']);
+  assert.strictEqual(malformedResult.status, 1, `malformed project JSON must fail: ${malformedResult.stdout}${malformedResult.stderr}`);
+  assert.match(`${malformedResult.stdout}\n${malformedResult.stderr}`, /project-docs\.json|valid JSON|malformed/i);
+  assert.strictEqual(fs.readFileSync(malformedFile, 'utf8'), malformedBefore, 'malformed file untouched');
+
+  const invalid = workspace('owner-p2-init-invalid-schema');
+  const invalidFile = writeProjectConfig(invalid, { ...validConfig, domains: 'bad' });
+  const invalidBefore = fs.readFileSync(invalidFile, 'utf8');
+  const invalidResult = runToSpecInit(invalid, ['--doc-location', 'a/', '--tracker', 'b/', '--issue-definition', 'c']);
+  assert.strictEqual(invalidResult.status, 1, `schema-invalid project file must fail: ${invalidResult.stdout}${invalidResult.stderr}`);
+  assert.match(`${invalidResult.stdout}\n${invalidResult.stderr}`, /invalid-domains/);
+  assert.strictEqual(fs.readFileSync(invalidFile, 'utf8'), invalidBefore, 'invalid schema file untouched');
+});
+
+checkCase('2aw owner-p2. host-only init preserves existing host projectDocs keys and fills only missing fields', () => {
+  const root = workspace('owner-p2-init-host-preserve');
+  const hostFile = writeHostConfig(root, 'claude', {
+    governed: [{ path: 'docs/prd/**', role: 'prd' }],
+    domains: ['GRPH'],
+    docLocation: 'host-docs/',
+    updatedAt: '2026-01-01T00:00:00.000Z'
+  });
+  const before = JSON.parse(fs.readFileSync(hostFile, 'utf8'));
+  const result = runToSpecInit(root, ['--doc-location', 'host-docs/', '--tracker', 'host-tracker', '--issue-definition', 'host-template']);
+  assert.strictEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  const after = JSON.parse(fs.readFileSync(hostFile, 'utf8'));
+  assert.deepStrictEqual(after.projectDocs.governed, before.projectDocs.governed, 'host governed governance keys preserved');
+  assert.deepStrictEqual(after.projectDocs.domains, before.projectDocs.domains, 'host domains preserved');
+  assert.strictEqual(after.projectDocs.docLocation, 'host-docs/', 'configured docLocation preserved');
+  assert.strictEqual(after.projectDocs.tracker, 'host-tracker', 'missing tracker filled');
+  assert.strictEqual(after.projectDocs.issueDefinition, 'host-template', 'missing issueDefinition filled');
+  assert.strictEqual(after.projectDocs.updatedAt, before.projectDocs.updatedAt, 'existing updatedAt preserved');
+  const conflicting = runToSpecInit(root, ['--doc-location', 'host-docs/', '--tracker', 'different-tracker', '--issue-definition', 'host-template']);
+  assert.strictEqual(conflicting.status, 1, `conflicting host flag must fail: ${conflicting.stdout}${conflicting.stderr}`);
+  assert.match(`${conflicting.stdout}\n${conflicting.stderr}`, /tracker/);
+  assert.strictEqual(JSON.parse(fs.readFileSync(hostFile, 'utf8')).projectDocs.tracker, 'host-tracker', 'no overwrite on conflict');
+});
 
 checkCase('2aw fix. to-spec CLI consumes complete project-only fields without inventing host defaults', () => {
   const root = workspace('to-spec-project-only');
