@@ -1,0 +1,1 @@
+{"all":true,"diagnostics":[{"code":"supersede-status-mismatch","severity":"error","path":"docs/adr/GRPH-002.md"}],"resolve":{"GRPH-001":"docs/adr/GRPH-001.md","GRPH-002":"docs/adr/GRPH-002.md"},"indexContains":[]}

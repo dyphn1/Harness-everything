@@ -17,6 +17,15 @@ const PROJECT_DOC_FIELDS = Object.freeze({
   domain: ['domainLocation', 'domains', 'contextLocation', 'contexts', 'domain'],
   architecture: ['architectureLocation', 'architectures', 'architecture']
 });
+const PROJECT_DOCS_CONFIG = path.join('.agents', 'harness-everything', 'project-docs.json');
+const PROJECT_DOC_ROLES = Object.freeze(['prd', 'adr', 'ticket', 'reference', 'log', 'report']);
+const PROJECT_DOC_CONFIG_KEYS = new Set([
+  'governed', 'domains', 'legacy', 'derived', 'tickets',
+  'docLocation', 'tracker', 'issueDefinition', 'contextMap', 'contextMapPath',
+  'decisionLocation', 'decisions', 'adrLocation', 'adr',
+  'domainLocation', 'contextLocation', 'contexts', 'domain',
+  'architectureLocation', 'architectures', 'architecture'
+]);
 const UNBOUND_WORKSPACE_KEY = 'unbound-workspace';
 
 function getWorkspaceRoot(start, allowNonGit = false) {
@@ -63,20 +72,373 @@ function getRepoManifestHomes(workspaceRoot) {
   return PLATFORM_HOMES.map(home => path.join(workspaceRoot, home));
 }
 
-function readProjectDocs(workspaceRoot) {
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function projectDocsConfigPath(workspaceRoot) {
+  return path.join(workspaceRoot, PROJECT_DOCS_CONFIG);
+}
+
+function normalizedHostHome(activeHost) {
+  if (typeof activeHost !== 'string') return null;
+  const name = activeHost.trim().toLowerCase().replace(/^\./, '');
+  return PLATFORM_HOMES.find(home => home.slice(1) === name) || null;
+}
+
+function readHostProjectDocsConfigs(workspaceRoot) {
   const manifests = [];
-  for (const home of getRepoManifestHomes(workspaceRoot)) {
+  for (let index = 0; index < PLATFORM_HOMES.length; index++) {
+    const homeName = PLATFORM_HOMES[index];
+    const home = path.join(workspaceRoot, homeName);
     const file = path.join(home, 'harness-everything', 'manifest.json');
     if (!fs.existsSync(file)) continue;
     const data = readJson(file);
-    if (data && data.projectDocs && typeof data.projectDocs === 'object') {
-      manifests.push({ file, projectDocs: data.projectDocs });
+    if (data && data.projectDocs && isPlainObject(data.projectDocs)) {
+      manifests.push({ file, home: homeName, projectDocs: data.projectDocs });
     }
   }
-  const complete = manifests.find(entry =>
-    ['docLocation', 'tracker', 'issueDefinition'].every(field => String(entry.projectDocs[field] || '').trim())
-  );
-  return complete || manifests[0] || null;
+  return manifests;
+}
+
+function inspectHostProjectDocs(workspaceRoot) {
+  const entries = [];
+  for (const home of PLATFORM_HOMES) {
+    const file = path.join(workspaceRoot, home, 'harness-everything', 'manifest.json');
+    if (!fs.existsSync(file)) continue;
+    const entry = { file, home, projectDocs: null, warnings: [], diagnostics: [], hasProjectDocs: false };
+    let manifest;
+    try {
+      manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch {
+      entry.diagnostics.push({
+        code: 'invalid-host-config',
+        severity: 'error',
+        path: configSource(workspaceRoot, file),
+        message: `host manifest at ${configSource(workspaceRoot, file)} is not valid JSON`
+      });
+      entries.push(entry);
+      continue;
+    }
+    if (!isPlainObject(manifest)) {
+      entry.diagnostics.push({
+        code: 'invalid-host-config',
+        severity: 'error',
+        path: configSource(workspaceRoot, file),
+        message: `host manifest at ${configSource(workspaceRoot, file)} must contain a JSON object`
+      });
+      entries.push(entry);
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(manifest, 'projectDocs')) {
+      entries.push(entry);
+      continue;
+    }
+    entry.hasProjectDocs = true;
+    if (!isPlainObject(manifest.projectDocs)) {
+      entry.diagnostics.push({
+        code: 'invalid-host-config',
+        severity: 'error',
+        path: configSource(workspaceRoot, file),
+        message: `projectDocs in ${configSource(workspaceRoot, file)} must be a JSON object`
+      });
+      entries.push(entry);
+      continue;
+    }
+
+    const projectDocs = { ...manifest.projectDocs };
+    if (typeof projectDocs.domains === 'string') {
+      if (typeof projectDocs.domainLocation !== 'string' || !projectDocs.domainLocation.trim()) {
+        projectDocs.domainLocation = projectDocs.domains;
+      }
+      delete projectDocs.domains;
+      entry.warnings.push({
+        code: 'deprecated-domains-string',
+        severity: 'warning',
+        path: configSource(workspaceRoot, file),
+        message: 'host projectDocs.domains as a string is deprecated; use domainLocation for the zone path and domains as the ID-prefix array'
+      });
+    }
+
+    const validation = validateDocsConfig(projectDocs);
+    const source = configSource(workspaceRoot, file);
+    entry.warnings.push(...validation.warnings.map(item => ({ ...item, path: source })));
+    if (!validation.valid) {
+      const details = validation.diagnostics.map(item => item.message).join('; ');
+      entry.diagnostics.push({
+        code: 'invalid-host-config',
+        severity: 'error',
+        path: source,
+        message: `projectDocs in ${source} failed validation${details ? `: ${details}` : ''}`
+      });
+      entries.push(entry);
+      continue;
+    }
+    entry.projectDocs = projectDocs;
+    entries.push(entry);
+  }
+  return entries;
+}
+
+function readProjectDocs(workspaceRoot, options = {}) {
+  const resolvedRoot = workspaceRoot || getWorkspaceRoot();
+  if (!resolvedRoot) throw new Error('cannot resolve project docs outside a git workspace; pass a workspace root explicitly');
+  const root = path.resolve(resolvedRoot);
+  const selection = resolveDocsConfig(root, options);
+  const firstSource = selection.sources && selection.sources[0];
+  const file = firstSource ? path.resolve(root, ...firstSource.split('/')) : null;
+  return {
+    file,
+    projectDocs: selection.config,
+    source: selection.status,
+    status: selection.status,
+    invalid: selection.status === 'invalid',
+    sources: selection.sources || [],
+    warnings: selection.warnings || [],
+    diagnostics: selection.diagnostics || []
+  };
+}
+
+function isRepoRelativePath(value) {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  const normalized = value.trim().replace(/\\/g, '/');
+  if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)) return false;
+  if (path.isAbsolute(value) || path.win32.isAbsolute(value)) return false;
+  return !normalized.split('/').includes('..');
+}
+
+// Config globs must match the shape the matcher canonicalizes against:
+// forward slashes, repo-relative, no "./" or "../" leading segments. A
+// non-canonical value would validate but silently match nothing.
+function getPatternIssue(value) {
+  if (typeof value !== 'string' || !value.trim()) return 'must be a non-empty string';
+  if (value.includes('\\')) return 'must use forward slashes (backslashes are not allowed)';
+  if (value.startsWith('/') || /^[A-Za-z]:\//.test(value)) return 'must be repo-relative (no leading "/")';
+  if (value.startsWith('./') || value === '.') return 'must be canonical (no leading "./")';
+  if (value.startsWith('../')) return 'must be canonical (no leading "../")';
+  if (value.split('/').includes('..')) return 'must not contain ".." segments';
+  if (value.split('/').includes('.')) return 'must not contain "." path segments';
+  if (value.split('/').includes('')) return 'must not contain empty path segments (no "//" or trailing "/")';
+  return null;
+}
+
+function validateDocsConfig(config) {
+  const diagnostics = [];
+  const warnings = [];
+  function invalid(code, message) {
+    diagnostics.push({ code, severity: 'error', path: PROJECT_DOCS_CONFIG.replace(/\\/g, '/'), message });
+  }
+
+  if (!isPlainObject(config)) {
+    invalid('invalid-config-root', 'project-docs.json must contain a JSON object');
+    return { valid: false, diagnostics, warnings };
+  }
+
+  for (const key of Object.keys(config).sort()) {
+    if (!PROJECT_DOC_CONFIG_KEYS.has(key)) {
+      warnings.push({
+        code: 'unknown-config-key',
+        severity: 'warning',
+        path: PROJECT_DOCS_CONFIG.replace(/\\/g, '/'),
+        message: `unknown project-docs.json key: ${key}`
+      });
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(config, 'governed')) {
+    if (!Array.isArray(config.governed)) {
+      invalid('invalid-governed', 'governed must be an array');
+    } else {
+      config.governed.forEach((entry, index) => {
+        if (!isPlainObject(entry) || getPatternIssue(entry.path)) {
+          const issue = isPlainObject(entry) ? getPatternIssue(entry.path) : 'must be an object with a path';
+          invalid('invalid-governed-entry', `governed[${index}].path ${issue} (must be a canonical repo-relative glob like "docs/**"); got ${JSON.stringify(entry && entry.path)}`);
+          return;
+        }
+        if (!PROJECT_DOC_ROLES.includes(entry.role)) {
+          invalid('invalid-governed-role', `governed[${index}].role must be one of ${PROJECT_DOC_ROLES.join(', ')}`);
+        }
+      });
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(config, 'domains')) {
+    if (!Array.isArray(config.domains)) {
+      invalid('invalid-domains', 'domains must be an array');
+    } else {
+      const seen = new Set();
+      config.domains.forEach((domain, index) => {
+        if (typeof domain !== 'string' || !/^[A-Z][A-Z0-9]{1,9}$/.test(domain)) {
+          invalid('invalid-domain', `domains[${index}] must match ^[A-Z][A-Z0-9]{1,9}$`);
+        } else if (seen.has(domain)) {
+          invalid('duplicate-domain', `domains contains duplicate value ${domain}`);
+        }
+        seen.add(domain);
+      });
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(config, 'legacy')) {
+    if (!Array.isArray(config.legacy)) {
+      invalid('invalid-legacy', 'legacy must be an array of repo-relative globs');
+    } else {
+      config.legacy.forEach((pattern, index) => {
+        const issue = getPatternIssue(pattern);
+        if (issue) invalid('invalid-legacy-entry', `legacy[${index}] ${issue} (must be a canonical repo-relative glob like "docs/**"); got ${JSON.stringify(pattern)}`);
+      });
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(config, 'derived')) {
+    if (!Array.isArray(config.derived)) {
+      invalid('invalid-derived', 'derived must be an array');
+    } else {
+      config.derived.forEach((entry, index) => {
+        if (!isPlainObject(entry) || getPatternIssue(entry.path) ||
+            typeof entry.generator !== 'string' || !entry.generator.trim()) {
+          const issue = isPlainObject(entry) ? (getPatternIssue(entry.path) || null) : null;
+          if (issue) {
+            invalid('invalid-derived-entry', `derived[${index}].path ${issue} (must be a canonical repo-relative path like "docs/gen/index.md"); got ${JSON.stringify(entry && entry.path)}`);
+          } else {
+            invalid('invalid-derived-entry', `derived[${index}] must have non-empty path and generator strings`);
+          }
+        }
+      });
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(config, 'tickets') &&
+      config.tickets !== 'tracker' && !isRepoRelativePath(config.tickets)) {
+    invalid('invalid-tickets', 'tickets must be "tracker" or a repo-relative path');
+  }
+
+  return { valid: diagnostics.length === 0, diagnostics, warnings };
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (!isPlainObject(value)) return value;
+  const normalized = {};
+  for (const key of Object.keys(value).sort()) normalized[key] = canonicalize(value[key]);
+  return normalized;
+}
+
+function canonicalJson(value) {
+  return JSON.stringify(canonicalize(value));
+}
+
+function configSource(workspaceRoot, file) {
+  return relativePath(workspaceRoot, file);
+}
+
+function resolveDocsConfig(workspaceRoot, options = {}) {
+  const resolvedRoot = workspaceRoot || getWorkspaceRoot();
+  if (!resolvedRoot) throw new Error('cannot resolve project docs outside a git workspace; pass a workspace root explicitly');
+  const root = path.resolve(resolvedRoot);
+  const projectFile = projectDocsConfigPath(root);
+  if (fs.existsSync(projectFile)) {
+    const source = configSource(root, projectFile);
+    let config;
+    try {
+      config = JSON.parse(fs.readFileSync(projectFile, 'utf8'));
+    } catch {
+      return {
+        status: 'invalid',
+        sources: [source],
+        config: null,
+        warnings: [],
+        diagnostics: [{ code: 'invalid-project-config-json', severity: 'error', path: source, message: 'project-docs.json must contain valid JSON' }]
+      };
+    }
+
+    const validation = validateDocsConfig(config);
+    const diagnostics = validation.diagnostics.map(item => ({ ...item, path: source }));
+    const warnings = validation.warnings.map(item => ({ ...item, path: source }));
+    if (!validation.valid) {
+      return { status: 'invalid', sources: [source], config: null, warnings, diagnostics };
+    }
+
+    const hosts = inspectHostProjectDocs(root);
+    const hostDiagnostics = hosts.flatMap(entry => entry.diagnostics);
+    const hostWarnings = hosts.flatMap(entry => entry.warnings);
+    const validHosts = hosts.filter(entry => entry.projectDocs);
+    const differing = validHosts.filter(entry => canonicalJson(entry.projectDocs) !== canonicalJson(config));
+    if (differing.length) {
+      warnings.push({
+        code: 'project-overrides-host',
+        severity: 'warning',
+        path: source,
+        message: 'project-docs.json wholly overrides differing host projectDocs values',
+        candidates: differing.map(entry => configSource(root, entry.file))
+      });
+    }
+    return { status: 'project', sources: [source], config, warnings: [...warnings, ...hostWarnings], diagnostics: [...diagnostics, ...hostDiagnostics] };
+  }
+
+  const hosts = inspectHostProjectDocs(root);
+  const hostDiagnostics = hosts.flatMap(entry => entry.diagnostics);
+  const hostWarnings = hosts.flatMap(entry => entry.warnings);
+  const activeHome = normalizedHostHome(options.activeHost);
+  if (activeHome) {
+    const activeHost = hosts.find(entry => entry.home === activeHome);
+    const activeFile = activeHost ? activeHost.file : path.join(root, activeHome, 'harness-everything', 'manifest.json');
+    const activeSource = configSource(root, activeFile);
+    if (activeHost && activeHost.diagnostics.length) {
+      return {
+        status: 'invalid',
+        sources: [activeSource],
+        config: null,
+        warnings: [...hostWarnings],
+        diagnostics: [...hostDiagnostics]
+      };
+    }
+    if (!activeHost || !activeHost.hasProjectDocs) {
+      return {
+        status: 'none',
+        sources: [activeSource],
+        config: null,
+        warnings: [
+          ...hostWarnings,
+          {
+            code: 'missing-project-docs-config',
+            severity: 'warning',
+            path: activeSource,
+            message: `active host has no projectDocs config; add .agents/harness-everything/project-docs.json`
+          }
+        ],
+        diagnostics: [...hostDiagnostics]
+      };
+    }
+    return {
+      status: 'host',
+      sources: [activeSource],
+      config: activeHost.projectDocs,
+      warnings: [...hostWarnings],
+      diagnostics: [...hostDiagnostics]
+    };
+  }
+
+  const validHosts = hosts.filter(entry => entry.projectDocs);
+  if (!validHosts.length) return { status: 'none', sources: [], config: null, warnings: hostWarnings, diagnostics: hostDiagnostics };
+  const sources = validHosts.map(entry => configSource(root, entry.file));
+  const firstConfig = validHosts[0].projectDocs;
+  const equal = validHosts.every(entry => canonicalJson(entry.projectDocs) === canonicalJson(firstConfig));
+  if (equal) return { status: 'host', sources, config: firstConfig, warnings: hostWarnings, diagnostics: hostDiagnostics };
+  return {
+    status: 'ambiguous',
+    sources,
+    config: null,
+    warnings: hostWarnings,
+    diagnostics: [{
+      code: 'ambiguous-host-project-docs',
+      severity: 'error',
+      path: sources[0],
+      message: 'host projectDocs configurations differ and no active host selects one',
+      candidates: sources
+    }, ...hostDiagnostics]
+  };
 }
 
 function cleanConfiguredPath(value) {
@@ -230,8 +592,9 @@ function resolveProjectDocs(workspaceRoot, options = {}) {
   const resolvedRoot = workspaceRoot || getWorkspaceRoot();
   if (!resolvedRoot) throw new Error('cannot resolve project docs outside a git workspace; pass --workspace <path> explicitly');
   const root = path.resolve(resolvedRoot);
-  const manifest = readProjectDocs(root);
-  const projectDocs = manifest ? manifest.projectDocs : {};
+  const manifest = readProjectDocs(root, options);
+  const hasValidConfig = manifest.status === 'project' || manifest.status === 'host';
+  const projectDocs = hasValidConfig ? manifest.projectDocs || {} : {};
   const contextMap = parseContextMap(root, projectDocs.contextMap || projectDocs.contextMapPath);
   const paths = {};
 
@@ -272,7 +635,11 @@ function resolveProjectDocs(workspaceRoot, options = {}) {
       logs: path.join(runtimeRoot, 'logs'),
       roles: path.join(runtimeRoot, 'roles')
     },
-    projectDocs: manifest ? { ...projectDocs, manifestPath: manifest.file } : null,
+    projectDocsStatus: manifest.status,
+    projectDocsSources: manifest.sources,
+    projectDocsWarnings: manifest.warnings,
+    projectDocsDiagnostics: manifest.diagnostics,
+    projectDocs: hasValidConfig && manifest.file ? { ...projectDocs, manifestPath: manifest.file } : null,
     contextMap: contextMap ? { path: contextMap.path, links: contextMap.links } : null,
     paths,
     // Plural aliases make the contract readable to callers that treat these
@@ -283,14 +650,40 @@ function resolveProjectDocs(workspaceRoot, options = {}) {
   };
 }
 
-function detectProjectDocsConventions(workspaceRoot) {
+function detectProjectDocsConventions(workspaceRoot, options = {}) {
+  const REQUIRED_CONFIG_FIELDS = ['docLocation', 'tracker', 'issueDefinition'];
   const resolvedRoot = workspaceRoot || getWorkspaceRoot();
   if (!resolvedRoot) return {};
   const root = path.resolve(resolvedRoot);
-  const configured = readProjectDocs(root);
+  const selection = resolveDocsConfig(root, options);
+  if (selection.status === 'invalid' || selection.status === 'ambiguous') {
+    return {
+      status: selection.status,
+      sources: selection.sources || [],
+      warnings: selection.warnings || [],
+      diagnostics: selection.diagnostics || [],
+      missing: []
+    };
+  }
+  const configured = selection.config || {};
   const inferred = {};
-  if (configured && configured.projectDocs && configured.projectDocs.docLocation) {
-    inferred.docLocation = configured.projectDocs.docLocation;
+  for (const field of REQUIRED_CONFIG_FIELDS) {
+    if (typeof configured[field] === 'string' && configured[field].trim()) inferred[field] = configured[field];
+  }
+  // Heuristic completion is a resource for UNSELECTED workspaces only: a
+  // project or selected-host configuration is authoritative for exactly the
+  // fields it declares, so missing selected fields are reported instead of
+  // being silently authorized from workspace conventions.
+  if (selection.status !== 'none') {
+    const missing = REQUIRED_CONFIG_FIELDS.filter(field => !inferred[field]);
+    return {
+      ...inferred,
+      status: selection.status,
+      sources: selection.sources || [],
+      warnings: selection.warnings || [],
+      diagnostics: selection.diagnostics || [],
+      missing
+    };
   }
   if (!inferred.docLocation) {
     for (const dir of ['docs/roadmaps', 'docs/reference', 'docs/specs', 'docs', 'doc']) {
@@ -300,23 +693,35 @@ function detectProjectDocsConventions(workspaceRoot) {
       }
     }
   }
-  if (pathIsDir(path.join(root, '.github', 'ISSUE_TEMPLATE'))) {
-    inferred.tracker = 'GitHub Issues via .github/ISSUE_TEMPLATE/';
-  } else if (pathIsDir(path.join(root, 'docs', 'roadmaps'))) {
-    inferred.tracker = 'docs/roadmaps/ local markdown tickets';
-  } else if (pathIsDir(path.join(root, 'tasks', 'tickets'))) {
-    inferred.tracker = 'tasks/tickets/ local markdown tickets';
-  } else if (pathIsDir(path.join(root, '.scratch'))) {
-    inferred.tracker = '.scratch/ local markdown workspace';
-  } else if (inferred.docLocation) {
-    inferred.tracker = `${inferred.docLocation}tickets/ local markdown tickets`;
+  if (!inferred.tracker) {
+    if (pathIsDir(path.join(root, '.github', 'ISSUE_TEMPLATE'))) {
+      inferred.tracker = 'GitHub Issues via .github/ISSUE_TEMPLATE/';
+    } else if (pathIsDir(path.join(root, 'docs', 'roadmaps'))) {
+      inferred.tracker = 'docs/roadmaps/ local markdown tickets';
+    } else if (pathIsDir(path.join(root, 'tasks', 'tickets'))) {
+      inferred.tracker = 'tasks/tickets/ local markdown tickets';
+    } else if (pathIsDir(path.join(root, '.scratch'))) {
+      inferred.tracker = '.scratch/ local markdown workspace';
+    } else if (inferred.docLocation) {
+      inferred.tracker = `${inferred.docLocation}tickets/ local markdown tickets`;
+    }
   }
-  if (inferred.tracker && inferred.tracker.includes('ISSUE_TEMPLATE')) {
-    inferred.issueDefinition = '.github/ISSUE_TEMPLATE/ template structure';
-  } else if (inferred.tracker) {
-    inferred.issueDefinition = 'Title + acceptance criteria + Status: ready-for-agent';
+  if (!inferred.issueDefinition) {
+    if (inferred.tracker && inferred.tracker.includes('ISSUE_TEMPLATE')) {
+      inferred.issueDefinition = '.github/ISSUE_TEMPLATE/ template structure';
+    } else if (inferred.tracker) {
+      inferred.issueDefinition = 'Title + acceptance criteria + Status: ready-for-agent';
+    }
   }
-  return inferred;
+  const missing = REQUIRED_CONFIG_FIELDS.filter(field => !inferred[field]);
+  return {
+    ...inferred,
+    status: selection.status,
+    sources: selection.sources || [],
+    warnings: selection.warnings || [],
+    diagnostics: selection.diagnostics || [],
+    missing
+  };
 }
 
 function isIgnored(workspaceRoot, target) {
@@ -347,6 +752,8 @@ module.exports = {
   getRuntimeRoot,
   getRepoManifestHomes,
   readProjectDocs,
+  resolveDocsConfig,
+  validateDocsConfig,
   parseContextMap,
   resolveProjectDocs,
   detectProjectDocsConventions,

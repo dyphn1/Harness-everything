@@ -1,0 +1,1 @@
+{"governed":[{"path":"docs/adr/**","role":"adr"},{"path":"docs/prd/**","role":"prd"}],"domains":["GRPH","GRAPH"],"legacy":["docs/adr/legacy/**"]}
