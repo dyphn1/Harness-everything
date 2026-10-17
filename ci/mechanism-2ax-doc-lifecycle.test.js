@@ -917,6 +917,9 @@ checkCase('2ax dogfood. repeated --changed-path transports one lossless path per
   const combined = cli(['--changed', 'docs/adr/GRPH-101.md', '--changed-path', 'docs/adr/GRPH-001,extra.md']);
   assert.strictEqual(combined.status, 1, `--changed and --changed-path may be combined: ${combined.stdout} ${combined.stderr}`);
   assert.ok(JSON.parse(combined.stdout).diagnostics.some(item => item.path === 'docs/adr/GRPH-001,extra.md' && item.code === 'missing-id'), 'the combined run audits both the CSV entry and the --changed-path entry');
+  const repeated = cli(['--changed', 'docs/adr/GRPH-101.md', '--changed', 'docs/adr/GRPH-102.md']);
+  assert.strictEqual(repeated.status, 1, `repeated --changed occurrences accumulate instead of overwriting: ${repeated.stdout} ${repeated.stderr}`);
+  assert.ok(JSON.parse(repeated.stdout).diagnostics.some(item => item.path === 'docs/adr/GRPH-102.md' && item.code === 'missing-id'), 'both repeated CSV declarations are audited');
   const outside = cli(['--changed-path', path.resolve(root, '..', 'outside-workspace.md')]);
   assert.strictEqual(outside.status, 2, `--changed-path outside workspace is a usage failure: ${outside.stdout} ${outside.stderr}`);
   assert.match(outside.stderr, /outside .*workspace/i);
@@ -926,6 +929,35 @@ checkCase('2ax dogfood. repeated --changed-path transports one lossless path per
   const missingValue = cli(['--changed-path']);
   assert.strictEqual(missingValue.status, 2, `--changed-path requires a value: ${missingValue.stdout} ${missingValue.stderr}`);
   assert.match(missingValue.stderr, /--changed-path requires a value/);
+});
+
+checkCase('2ax dogfood. --changed-path preserves outer filename whitespace end to end', () => {
+  const root = workspace('cli-changed-path-lossless');
+  writeDoc(root, ' GRPH-001,extra.md', { status: 'accepted' }, 'Leading-space root filename with missing-id changed-only schema.\n');
+  let trailingCreated = true;
+  try {
+    writeDoc(root, 'docs/adr/GRPH-002,extra.md ', { status: 'accepted' }, 'Trailing-space filename with missing-id changed-only schema.\n');
+  } catch (error) {
+    trailingCreated = false;
+    console.log(`  SKIP trailing-space case: file creation with a trailing space failed on this host (${error.message.split('\n')[0]})`);
+  }
+  writeDoc(root, 'GRPH-004.md', { id: 'GRPH-004', status: 'accepted' });
+  const configFile = path.join(root, 'config.json');
+  fs.writeFileSync(configFile, JSON.stringify({ governed: [{ path: '*.md', role: 'adr' }, { path: 'docs/adr/**', role: 'adr' }], domains: ['GRPH'] }), 'utf8');
+  const cli = extraArgs => {
+    const result = spawnSync(process.execPath, [modulePath, 'lint', '--workspace', root, '--config', configFile, ...extraArgs], { cwd: root, encoding: 'utf8' });
+    assert.ifError(result.error);
+    return result;
+  };
+  const audit = (result, relativePath, label) => {
+    assert.strictEqual(result.status, 1, `${label} must audit the real changed document: ${result.stdout} ${result.stderr}`);
+    assert.ok(JSON.parse(result.stdout).diagnostics.some(item => item.path === relativePath && item.code === 'missing-id' && item.severity === 'error'), `${label} diagnostics: ${result.stdout}`);
+  };
+  audit(cli(['--changed-path', ' GRPH-001,extra.md']), ' GRPH-001,extra.md', 'the raw leading-space argument');
+  audit(cli(['--changed-path', './ GRPH-001,extra.md']), ' GRPH-001,extra.md', 'the dot-relative leading-space argument');
+  if (trailingCreated) audit(cli(['--changed-path', 'docs/adr/GRPH-002,extra.md ']), 'docs/adr/GRPH-002,extra.md ', 'the trailing-space argument');
+  const valid = cli(['--changed-path', 'GRPH-004.md']);
+  assert.strictEqual(valid.status, 0, `a valid governed document still passes via --changed-path: ${valid.stdout} ${valid.stderr}`);
 });
 
 checkCase('2ax dogfood. relative --config resolves from --workspace even when CLI cwd differs', () => {

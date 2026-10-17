@@ -2316,15 +2316,15 @@ function parseCli(argv) {
       if (arg === '--base') options.base = value;
     } else throw new Error(`unknown argument: ${arg}`);
   }
-  if (!['lint', 'index'].includes(command)) throw new Error('usage: doc-lifecycle.js <lint|index> --workspace <dir> --config <json-file, relative to --workspace> [--changed a,b | --changed-path <path> | --all] [--base <git-rev>]');
+  if (!['lint', 'index'].includes(command)) throw new Error('usage: doc-lifecycle.js <lint|index> --workspace <dir> --config <json-file, relative to --workspace> [--changed a,b | --changed-path <path> (repeatable, cumulative) | --all] [--base <git-rev>]');
   if (!options.workspace || !options.configFile) throw new Error('--workspace and --config are required');
-  if (!options.changedProvided && !options.all) throw new Error('lint and index require --changed or --all');
-  if (options.all && options.changedProvided) throw new Error('choose either --changed or --all');
+  if (!options.changedProvided && !options.all) throw new Error('lint and index require --changed, --changed-path, or --all');
+  if (options.all && options.changedProvided) throw new Error('choose either --changed/--changed-path or --all');
   return options;
 }
 
 function normalizeChangedPath(workspacePath, value) {
-  const input = String(value).trim().replace(/\\/g, '/');
+  const input = String(value).replace(/\\/g, '/');
   if (!input) throw new Error('--changed entries must name files within --workspace');
   if (path.sep !== '\\' && /^[A-Za-z]:\//.test(input)) {
     throw new Error(`--changed path is outside --workspace: ${value}`);
