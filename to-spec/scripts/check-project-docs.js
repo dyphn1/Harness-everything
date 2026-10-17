@@ -4,23 +4,21 @@
  *
  * Mechanized gate for `to-spec` (and `to-tickets`, once installed): has this
  * repo already pinned down where reference docs live, how issues are
- * tracked, and what counts as a valid issue? Stored as a `projectDocs` entry
- * inside the SAME harness-everything/manifest.json this package already
- * owns (see scripts/lib/manifest.js and self-evolve's `generated` skill
- * registry) - not a new docs/agents/ file convention, so there's one config
- * surface, not two.
+ * tracked, and what counts as a valid issue? Read the validated project
+ * configuration first; its project-docs.json file wholly overrides host
+ * manifest values. Without it, host configuration is used only when selected
+ * unambiguously by the shared resolver.
  *
  * Deliberately repo-local only: unlike self-evolve's `generated` skills
  * (intentionally reusable across projects), doc location / tracker / issue
  * definition are PER-REPO facts. Reading or writing them through the global
  * ~/.agents or ~/.claude manifest homes would leak one project's tracker
- * into every other project sharing that global install, so this script
- * scans only the workspace-relative platform homes, never the user-home ones.
+ * into every other project sharing that global install, so the resolver reads
+ * only the workspace project file and workspace-relative platform manifests.
  *
- * Exit 0 -> at least one detected platform's manifest.json (inside this
- *           repo) has a complete projectDocs entry. Read it, skip Step 0.
- * Exit 1 -> missing or incomplete everywhere. Run the Step 0 interview in
- *           to-spec/SKILL.md for the flagged field(s), then persist with `init`.
+ * Exit 0 -> a complete effective config or allowed workspace inference exists.
+ * Exit 1 -> required fields are missing, or configuration is invalid/ambiguous.
+ *           Run the Step 0 interview in to-spec/SKILL.md, then persist with `init`.
  *
  * manifest.json is read on every single tier-router.js invocation (every
  * prompt, not just to-spec runs) to scan for self-evolve's generated
@@ -102,32 +100,31 @@ function detectWorkspaceConventions(workspaceRoot) {
 }
 
 function runCheck(workspaceRoot) {
-  const existingPaths = getRepoManifestHomes(workspaceRoot)
-    .map(getManifestPath)
-    .filter(p => fs.existsSync(p));
-
-  // Check explicit projectDocs entries in manifest files
-  for (const manifestPath of existingPaths) {
-    const docs = readManifest(manifestPath).projectDocs;
-    if (docs && missingFields(docs).length === 0) {
-      console.log(`[Project Docs Check] OK: ${manifestPath} defines document location, issue tracker, and issue definition.`);
-      process.exit(0);
+  // Selection and validation happen in the shared resolver. Invalid or
+  // ambiguous sources cannot authorize a destination or fall through to a
+  // different host; only `none` permits workspace convention inference.
+  const effective = detectWorkspaceConventions(workspaceRoot);
+  if (effective.status === 'invalid' || effective.status === 'ambiguous') {
+    console.log(`[Project Docs Check] ${effective.status.toUpperCase()}: no usable projectDocs selection.`);
+    for (const diagnostic of effective.diagnostics || []) {
+      console.log(`  - ${diagnostic.code}: ${diagnostic.message} (${diagnostic.path})`);
     }
+    process.exit(1);
   }
 
-  // Fallback to heuristic workspace detection
-  const inferred = detectWorkspaceConventions(workspaceRoot);
-  const missingInferred = missingFields(inferred);
-
-  if (missingInferred.length === 0) {
-    console.log(`[Project Docs Check] OK (Inferred from workspace structure):`);
-    console.log(`  - docLocation: ${inferred.docLocation}`);
-    console.log(`  - tracker: ${inferred.tracker}`);
-    console.log(`  - issueDefinition: ${inferred.issueDefinition}`);
+  const missing = missingFields(effective);
+  if (missing.length === 0) {
+    const source = effective.status === 'none'
+      ? 'Inferred from workspace structure'
+      : `Selected ${effective.status} projectDocs configuration`;
+    console.log(`[Project Docs Check] OK (${source}):`);
+    console.log(`  - docLocation: ${effective.docLocation}`);
+    console.log(`  - tracker: ${effective.tracker}`);
+    console.log(`  - issueDefinition: ${effective.issueDefinition}`);
     process.exit(0);
   }
 
-  console.log(`[Project Docs Check] INCOMPLETE: no manifest.json or standard folder structure covers all fields. Missing: ${missingInferred.join(', ')}`);
+  console.log(`[Project Docs Check] INCOMPLETE: selected config and allowed workspace inference do not cover all fields. Missing: ${missing.join(', ')}`);
   console.log('=> Run the Step 0 framework interview for missing fields, or proceed using default workspace fallbacks.');
   process.exit(1);
 }
@@ -202,7 +199,7 @@ if (process.argv[2] === '--help' || process.argv[2] === '-h') {
   console.log(`Gate: has this repo already pinned doc location / issue tracker / issue definition?
 
 Usage:
-  node check-project-docs.js [check]                                                Exit 0 if a complete projectDocs entry already exists in this repo's manifest.json; exit 1 with the missing field(s) otherwise.
+  node check-project-docs.js [check]                                                Exit 0 for complete effective config or allowed inference; exit 1 for missing, invalid, or ambiguous config.
   node check-project-docs.js init --doc-location "..." --tracker "..." --issue-definition "..."
                                                                                        Persist all three fields (each <= ${MAX_FIELD_LENGTH} chars - a pointer, not the content) to every already-bootstrapped platform manifest.json in this repo.
 
