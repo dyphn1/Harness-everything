@@ -31,7 +31,7 @@ const CONFIG = Object.freeze({
     { path: 'docs/log/**', role: 'log' },
     { path: 'docs/report/**', role: 'report' }
   ],
-  domains: ['GRAPH', 'IFCE'],
+  domains: ['GRAPH', 'GRPH', 'IFCE'],
   legacy: ['docs/adr/legacy/**']
 });
 
@@ -123,7 +123,7 @@ function roleConfig() {
       { path: 'docs/log/**', role: 'log' },
       { path: 'docs/report/**', role: 'report' }
     ],
-    domains: ['GRAPH', 'IFCE'],
+    domains: ['GRAPH', 'GRPH', 'IFCE'],
     legacy: []
   };
 }

@@ -81,6 +81,11 @@ function checkCase(name, run) {
   }
 }
 
+const xreviewRetirementCases = [];
+function rememberXreviewRetirementCase(name, docs, unresolvedConflictPaths) {
+  xreviewRetirementCases.push({ name, docs, unresolvedConflictPaths: unresolvedConflictPaths.slice().sort() });
+}
+
 function scalar(value) {
   if (value === null) return 'null';
   if (typeof value === 'string') return JSON.stringify(value);
@@ -673,6 +678,31 @@ checkCase('2ay case 3. approved-to-effective activation changes only allowlisted
   assert.strictEqual(current.digest, sha256(fs.readFileSync(path.join(root, ...second.path.split('/')))), 'resolver reports complete candidate artifact bytes');
 });
 
+checkCase('2ay review2 P1. approved revision cannot move while activating or remain approved at a new path', () => {
+  const makeApprovedRepo = name => {
+    const root = gitRepo(name);
+    const first = revisionDoc({ revision: 1, status: 'effective', relativePath: 'docs/prd/sample/r001.md' });
+    const second = revisionDoc({ revision: 2, status: 'approved', previousRevision: 1, relativePath: 'docs/prd/sample/r002.md' }, first);
+    writeDoc(root, first.path, first.frontmatter, first.body);
+    writeDoc(root, second.path, second.frontmatter, second.body);
+    writeDoc(root, 'docs/approvals/prd-review.md', { id: 'APPROVAL-001', status: 'final' }, '# Independent review record\n');
+    return { root, second, base: commitAll(root, 'r1 effective and r2 approved') };
+  };
+
+  const activating = makeApprovedRepo('approved-path-move-on-activation');
+  const movedPath = 'docs/prd/sample/moved-r002.md';
+  fs.mkdirSync(path.dirname(path.join(activating.root, movedPath)), { recursive: true });
+  fs.renameSync(path.join(activating.root, ...activating.second.path.split('/')), path.join(activating.root, ...movedPath.split('/')));
+  mutateRevision(activating.root, { status: 'effective', effective_at: '2026-10-17T00:02:00Z' }, undefined, movedPath);
+  expectCode(baseLint(activating.root, activating.base).diagnostics, 'invalid-transition', 'activation preserves the trusted approved baseline path');
+
+  const remainingApproved = makeApprovedRepo('approved-path-move-still-approved');
+  const approvedMovedPath = 'docs/prd/sample/moved-r002.md';
+  fs.mkdirSync(path.dirname(path.join(remainingApproved.root, approvedMovedPath)), { recursive: true });
+  fs.renameSync(path.join(remainingApproved.root, ...remainingApproved.second.path.split('/')), path.join(remainingApproved.root, ...approvedMovedPath.split('/')));
+  expectCode(baseLint(remainingApproved.root, remainingApproved.base).diagnostics, 'invalid-transition', 'an approved revision cannot move while retaining approved status');
+});
+
 checkCase('2ay case 3. missing approval is diagnosed independently from digest mismatch', () => {
   const missing = revisionDoc({ revision: 1, status: 'effective', approval: undefined });
   delete missing.frontmatter.approval;
@@ -1034,6 +1064,342 @@ checkCase('2ay case 7. cross-PRD retirement records exact pinned targets without
   assertResolve(docs, 'PRD-GRPH-001', { path: oldGraph.path, revision: 1, status: 'effective', digest: true });
   for (const [relative, bytes] of before) {
     assert.deepStrictEqual(fs.readFileSync(path.join(root, ...relative.split('/'))), bytes, `lint/index left stored target/source bytes unchanged for ${relative}`);
+  }
+});
+
+checkCase('2ay xreview T1. valid historical retirement remains issued by the effective prefix', () => {
+  const target = revisionDoc({
+    id: 'PRD-GRPH-041', revision: 1, status: 'effective',
+    relativePath: 'docs/prd/retirement-target/r001.md'
+  });
+  const targetPin = pin(target.frontmatter.id, target.frontmatter.revision);
+  const issuerR1 = revisionDoc({
+    id: 'PRD-IFCE-041', revision: 1, status: 'effective',
+    relativePath: 'docs/prd/retirement-issuer/r001.md', supersedes: [targetPin], conflicts_with: [targetPin]
+  });
+  const issuerR2 = revisionDoc({
+    id: 'PRD-IFCE-041', revision: 2, previousRevision: 1, status: 'effective',
+    relativePath: 'docs/prd/retirement-issuer/r002.md'
+  }, issuerR1);
+  const docs = [target, issuerR1, issuerR2];
+  rememberXreviewRetirementCase('T1', docs, []);
+  const analysis = analyzeDocs(docs);
+  forbidCode(analysis.diagnostics, 'recorded-conflict', 'the valid pinned retirement resolves the owner-recorded pair');
+  const index = lifecycle.buildIndex(docs, CONFIG, { all: true });
+  const targetLine = index.split('\n').find(line => line.includes(target.path)) || '';
+  const issuerLine = index.split('\n').find(line => line.includes(issuerR1.path)) || '';
+  assert.ok(targetLine.includes('superseded by:'), `a historical effective retirement edge keeps the target retired: ${targetLine}`);
+  assert.ok(targetLine.includes(`${issuerR1.frontmatter.id}@r1`), `the index identifies the revision that issued retirement: ${targetLine}`);
+  assert.ok(issuerLine.includes(`retires: \`${targetPin}\``), `the historical issuer retains its outgoing retirement provenance: ${issuerLine}`);
+  const latestLine = index.split('\n').find(line => line.includes(issuerR2.path)) || '';
+  assert.ok(!latestLine.includes('pending supersedes:'), 'an omitted edge on the current revision does not create a new pending edge');
+  assert.ok(issuerLine.includes('derived state: historical'), `r1 remains historical: ${issuerLine}`);
+  assert.ok(latestLine.includes('derived state: current'), `r2 remains current: ${latestLine}`);
+});
+
+checkCase('2ay xreview T2. invalid later draft preserves r1 retirement while current stays none', () => {
+  const targetA = revisionDoc({ id: 'PRD-GRPH-042', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t2-a/r001.md' });
+  const targetB = revisionDoc({ id: 'PRD-GRPH-043', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t2-b/r001.md' });
+  const pinA = pin(targetA.frontmatter.id, 1);
+  const pinB = pin(targetB.frontmatter.id, 1);
+  const r1 = revisionDoc({ id: 'PRD-IFCE-042', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t2-issuer/r001.md', supersedes: [pinA], conflicts_with: [pinA] });
+  const r2 = revisionDoc({ id: 'PRD-IFCE-042', revision: 2, status: 'effective', previousRevision: 1, relativePath: 'docs/prd/xreview/t2-issuer/r002.md' }, r1);
+  const r3 = revisionDoc({ id: 'PRD-IFCE-042', revision: 3, status: 'draft', previousRevision: 999, previousDigest: sha256(r2.storedBytes), relativePath: 'docs/prd/xreview/t2-issuer/r003.md', supersedes: [pinB], conflicts_with: [pinB] }, r2);
+  const docs = [targetA, targetB, r1, r2, r3];
+  rememberXreviewRetirementCase('T2', docs, [r3.path]);
+  const analysis = analyzeDocs(docs);
+  expectCode(analysis.diagnostics, 'missing-parent', 'the later draft has an absent parent');
+  expectCode(analysis.diagnostics, 'recorded-conflict', 'the draft cannot resolve its recorded conflict');
+  assert.ok(!lifecycle.resolveRef(docs, 'PRD-IFCE-042').doc, 'whole-graph validation still reports no current revision');
+  const index = lifecycle.buildIndex(docs, CONFIG, { all: true });
+  const lineA = index.split('\n').find(line => line.includes(targetA.path)) || '';
+  const lineB = index.split('\n').find(line => line.includes(targetB.path)) || '';
+  const issuerLine = index.split('\n').find(line => line.includes(r1.path)) || '';
+  const draftLine = index.split('\n').find(line => line.includes(r3.path)) || '';
+  assert.ok(lineA.includes('retirement provenance:') && lineA.includes(r1.frontmatter.id + '@r1'), 'the exact r1 event survives: ' + lineA);
+  assert.ok(!lineB.includes('superseded by:'), 'the invalid draft edge does not retire target B: ' + lineB);
+  assert.ok(issuerLine.includes('retires:'), 'r1 retains its outgoing event: ' + issuerLine);
+  assert.ok(draftLine.includes('pending supersedes:'), 'draft edge remains visibly pending: ' + draftLine);
+});
+
+checkCase('2ay xreview T3. invalid effective r2 cannot issue its edge or erase r1-prefix eligibility', () => {
+  const target = revisionDoc({ id: 'PRD-GRPH-044', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t3-target/r001.md' });
+  const targetPin = pin(target.frontmatter.id, 1);
+  const r1 = revisionDoc({ id: 'PRD-IFCE-044', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t3-issuer/r001.md' });
+  const validR2 = revisionDoc({ id: 'PRD-IFCE-044', revision: 2, status: 'effective', previousRevision: 1, relativePath: 'docs/prd/xreview/t3-issuer/r002.md', supersedes: [targetPin], conflicts_with: [targetPin] }, r1);
+  const invalidFrontmatter = { ...validR2.frontmatter };
+  delete invalidFrontmatter.approval;
+  const r2 = docObject(validR2.path, invalidFrontmatter, validR2.body);
+  const docs = [target, r1, r2];
+  rememberXreviewRetirementCase('T3', docs, [r2.path]);
+  const diagnostics = analyzeDocs(docs).diagnostics;
+  expectCode(diagnostics, 'approval-missing', 'r2 has no independent approval evidence');
+  expectCode(diagnostics, 'recorded-conflict', 'the invalid edge remains unresolved');
+  const index = lifecycle.buildIndex(docs, CONFIG, { all: true });
+  const targetLine = index.split('\n').find(line => line.includes(target.path)) || '';
+  const sourceLine = index.split('\n').find(line => line.includes(r2.path)) || '';
+  assert.ok(!targetLine.includes('superseded by:'), 'unapproved r2 does not retire the target: ' + targetLine);
+  assert.ok(sourceLine.includes('pending supersedes:'), 'unapproved r2 edge stays pending: ' + sourceLine);
+});
+
+checkCase('2ay xreview T4. invalid effective descendants preserve valid events and cannot add new ones', () => {
+  const cases = [];
+  for (const variant of ['independence', 'digest']) {
+    const suffix = variant === 'independence' ? 'a' : 'b';
+    const domainNumber = variant === 'independence' ? '045' : '046';
+    const targetA = revisionDoc({ id: 'PRD-GRPH-' + domainNumber, revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t4-' + suffix + '-a/r001.md' });
+    const targetB = revisionDoc({ id: 'PRD-GRPH-' + (variant === 'independence' ? '047' : '048'), revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t4-' + suffix + '-b/r001.md' });
+    const pinA = pin(targetA.frontmatter.id, 1);
+    const pinB = pin(targetB.frontmatter.id, 1);
+    const r1 = revisionDoc({ id: 'PRD-IFCE-' + domainNumber, revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t4-' + suffix + '-issuer/r001.md', supersedes: [pinA], conflicts_with: [pinA] });
+    let r2 = revisionDoc({ id: r1.frontmatter.id, revision: 2, status: 'effective', previousRevision: 1, ...(variant === 'digest' ? { previousDigest: sha256(Buffer.from('wrong predecessor')) } : {}), relativePath: 'docs/prd/xreview/t4-' + suffix + '-issuer/r002.md', supersedes: [pinB], conflicts_with: [pinB] }, r1);
+    if (variant === 'independence') r2 = reviseFixture(r2, { approval: { ...r2.frontmatter.approval, by: r2.frontmatter.drafted_by } });
+    const docs = [targetA, targetB, r1, r2];
+    rememberXreviewRetirementCase('T4-' + variant, docs, [r2.path]);
+    cases.push({ variant, targetA, targetB, r1, r2, docs });
+  }
+  for (const { variant, targetA, targetB, r1, r2, docs } of cases) {
+    const diagnostics = analyzeDocs(docs).diagnostics;
+    expectCode(diagnostics, variant === 'independence' ? 'approval-not-independent' : 'revision-digest-mismatch', variant + ' invalidates only r2');
+    expectCode(diagnostics, 'recorded-conflict', 'r2 cannot resolve target B conflict');
+    const index = lifecycle.buildIndex(docs, CONFIG, { all: true });
+    const lineA = index.split('\n').find(line => line.includes(targetA.path)) || '';
+    const lineB = index.split('\n').find(line => line.includes(targetB.path)) || '';
+    assert.ok(lineA.includes('retirement provenance:') && lineA.includes(r1.frontmatter.id + '@r1'), 'prior retirement survives ' + variant + ': ' + lineA);
+    assert.ok(!lineB.includes('superseded by:'), 'invalid ' + variant + ' child cannot retire target B: ' + lineB);
+  }
+});
+
+checkCase('2ay xreview T5. effective fork keeps r1 event but neither ambiguous child issues', () => {
+  const targetA = revisionDoc({ id: 'PRD-GRPH-049', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t5-a/r001.md' });
+  const targetB = revisionDoc({ id: 'PRD-GRPH-050', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t5-b/r001.md' });
+  const targetC = revisionDoc({ id: 'PRD-GRPH-051', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t5-c/r001.md' });
+  const pinA = pin(targetA.frontmatter.id, 1);
+  const pinB = pin(targetB.frontmatter.id, 1);
+  const pinC = pin(targetC.frontmatter.id, 1);
+  const r1 = revisionDoc({ id: 'PRD-IFCE-049', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t5-issuer/r001.md', supersedes: [pinA], conflicts_with: [pinA] });
+  const r2 = revisionDoc({ id: 'PRD-IFCE-049', revision: 2, status: 'effective', previousRevision: 1, relativePath: 'docs/prd/xreview/t5-issuer/r002.md', supersedes: [pinB], conflicts_with: [pinB] }, r1);
+  const r3 = revisionDoc({ id: 'PRD-IFCE-049', revision: 3, status: 'effective', previousRevision: 1, relativePath: 'docs/prd/xreview/t5-issuer/r003.md', supersedes: [pinC], conflicts_with: [pinC] }, r1);
+  const docs = [targetA, targetB, targetC, r1, r2, r3];
+  rememberXreviewRetirementCase('T5', docs, [r2.path, r3.path]);
+  const diagnostics = analyzeDocs(docs).diagnostics;
+  expectCode(diagnostics, 'revision-fork');
+  expectCode(diagnostics, 'recorded-conflict');
+  assert.ok(!lifecycle.resolveRef(docs, 'PRD-IFCE-049').doc, 'a fork has no arbitrarily selected current revision');
+  const index = lifecycle.buildIndex(docs, CONFIG, { all: true });
+  const lineA = index.split('\n').find(line => line.includes(targetA.path)) || '';
+  const lineB = index.split('\n').find(line => line.includes(targetB.path)) || '';
+  const lineC = index.split('\n').find(line => line.includes(targetC.path)) || '';
+  assert.ok(lineA.includes('retirement provenance:') && lineA.includes(r1.frontmatter.id + '@r1'), 'unambiguous r1 event remains: ' + lineA);
+  assert.ok(!lineB.includes('superseded by:') && !lineC.includes('superseded by:'), 'neither ambiguous effective child retires its target');
+});
+
+checkCase('2ay xreview T6. disconnected effective and pending statuses cannot issue or erase prefix events', () => {
+  const targets = ['052', '053', '054', '055', '056'].map((number, index) => revisionDoc({ id: 'PRD-GRPH-' + number, revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t6-target-' + index + '/r001.md' }));
+  const pins = targets.map(target => pin(target.frontmatter.id, 1));
+  const r1 = revisionDoc({ id: 'PRD-IFCE-052', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t6-issuer/r001.md', supersedes: [pins[0]], conflicts_with: [pins[0]] });
+  const disconnected = revisionDoc({ id: 'PRD-IFCE-052', revision: 3, status: 'effective', previousRevision: 2, previousDigest: sha256(Buffer.from('missing parent')), relativePath: 'docs/prd/xreview/t6-issuer/r003.md', supersedes: [pins[1]], conflicts_with: [pins[1]] }, r1);
+  const pending = ['draft', 'approved', 'rejected'].map((status, index) => revisionDoc({
+    id: 'PRD-IFCE-05' + (3 + index), revision: 1, status,
+    relativePath: 'docs/prd/xreview/t6-pending-' + status + '/r001.md',
+    supersedes: [pins[index + 2]], conflicts_with: [pins[index + 2]]
+  }));
+  const docs = [...targets, r1, disconnected, ...pending];
+  const unresolvedPaths = [disconnected, ...pending].map(doc => doc.path);
+  rememberXreviewRetirementCase('T6', docs, unresolvedPaths);
+  const diagnostics = analyzeDocs(docs).diagnostics;
+  expectCode(diagnostics, 'missing-parent', 'effective node is disconnected from its declared parent');
+  expectCode(diagnostics, 'recorded-conflict', 'disconnected and non-effective edges leave recorded conflicts unresolved');
+  const index = lifecycle.buildIndex(docs, CONFIG, { all: true });
+  const lineA = index.split('\n').find(line => line.includes(targets[0].path)) || '';
+  assert.ok(lineA.includes('retirement provenance:') && lineA.includes(r1.frontmatter.id + '@r1'), 'the accepted prefix event remains: ' + lineA);
+  for (const target of targets.slice(1)) {
+    const line = index.split('\n').find(item => item.includes(target.path)) || '';
+    assert.ok(!line.includes('superseded by:'), 'no disconnected or pending issuer retires ' + target.path + ': ' + line);
+  }
+  for (const issuer of [disconnected, ...pending]) {
+    const line = index.split('\n').find(item => item.includes(issuer.path)) || '';
+    assert.ok(line.includes('pending supersedes:'), 'non-eligible edge remains pending for ' + issuer.frontmatter.status + ': ' + line);
+  }
+});
+
+checkCase('2ay xreview T7. activation, independence and REQ-continuity evidence gate child issuers', () => {
+  const root = gitRepo('xreview-t7-invalid-activation');
+  const targetA = revisionDoc({ id: 'PRD-GRPH-057', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t7-a/r001.md' });
+  const targetB = revisionDoc({ id: 'PRD-GRPH-058', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t7-b/r001.md' });
+  const pinA = pin(targetA.frontmatter.id, 1);
+  const pinB = pin(targetB.frontmatter.id, 1);
+  const r1 = revisionDoc({ id: 'PRD-IFCE-057', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t7-issuer/r001.md', supersedes: [pinA], conflicts_with: [pinA] });
+  const approved = revisionDoc({ id: 'PRD-IFCE-057', revision: 2, status: 'approved', previousRevision: 1, release_channel: 'stable', relativePath: 'docs/prd/xreview/t7-issuer/r002.md', supersedes: [pinB], conflicts_with: [pinB] }, r1);
+  for (const doc of [targetA, targetB, r1, approved]) writeDoc(root, doc.path, doc.frontmatter, doc.body);
+  const base = commitAll(root, 'xreview activation base');
+  const forgedActivation = reviseFixture(approved, {
+    status: 'effective', effective_at: '2026-10-17T00:02:00Z', release_channel: 'beta'
+  });
+  writeDoc(root, forgedActivation.path, forgedActivation.frontmatter, forgedActivation.body);
+  const activatedDocs = lifecycle.collectDocs(root, CONFIG);
+  const activationAnalysis = analyzeDocs(activatedDocs, { workspace: root, base, configPath: path.join(root, 'lifecycle-config.json'), all: true });
+  expectCode(activationAnalysis.diagnostics, 'invalid-transition', 'the trusted-base activation changed a frozen field');
+  expectCode(activationAnalysis.diagnostics, 'recorded-conflict', 'the forged activation does not resolve the conflict');
+  const activationIndex = lifecycle.buildIndex(activatedDocs, CONFIG, {
+    all: true,
+    diagnostics: activationAnalysis.diagnostics,
+    _graph: activationAnalysis._graph,
+    _retirementEligibleSources: activationAnalysis._retirementEligibleSources
+  });
+  const targetALine = activationIndex.split('\n').find(line => line.includes(targetA.path)) || '';
+  const targetBLine = activationIndex.split('\n').find(line => line.includes(targetB.path)) || '';
+  assert.ok(targetALine.includes('retirement provenance:') && targetALine.includes(r1.frontmatter.id + '@r1'), 'validated prefix event remains after invalid activation: ' + targetALine);
+  assert.ok(!targetBLine.includes('superseded by:'), 'transition-invalid r2 cannot retire target B: ' + targetBLine);
+
+  const independentBase = revisionDoc({ id: 'PRD-IFCE-058', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t7-independent/r001.md' });
+  const independentTarget = revisionDoc({ id: 'PRD-GRPH-059', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t7-independent-target/r001.md' });
+  const independentPin = pin(independentTarget.frontmatter.id, 1);
+  const selfApproved = revisionDoc({ id: independentBase.frontmatter.id, revision: 2, status: 'effective', previousRevision: 1, relativePath: 'docs/prd/xreview/t7-independent/r002.md', supersedes: [independentPin], conflicts_with: [independentPin] }, independentBase);
+  const invalidIndependent = reviseFixture(selfApproved, { approval: { ...selfApproved.frontmatter.approval, by: selfApproved.frontmatter.drafted_by } });
+  const independentDocs = [independentTarget, independentBase, invalidIndependent];
+  const independentDiagnostics = analyzeDocs(independentDocs).diagnostics;
+  expectCode(independentDiagnostics, 'approval-not-independent', 'self-review is not independent approval evidence');
+  expectCode(independentDiagnostics, 'recorded-conflict', 'self-reviewed edge remains unresolved');
+  const independentIndex = lifecycle.buildIndex(independentDocs, CONFIG, { all: true });
+  assert.ok(!independentIndex.split('\n').find(line => line.includes(independentTarget.path))?.includes('superseded by:'), 'self-reviewed child does not retire its target');
+
+  const reqA = revisionDoc({ id: 'PRD-GRPH-060', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t7-req-target-a/r001.md' });
+  const reqB = revisionDoc({ id: 'PRD-GRPH-061', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t7-req-target-b/r001.md' });
+  const reqPinA = pin(reqA.frontmatter.id, 1);
+  const reqPinB = pin(reqB.frontmatter.id, 1);
+  const reqR1 = revisionDoc({ id: 'PRD-IFCE-060', revision: 1, status: 'effective', relativePath: 'docs/prd/xreview/t7-req-issuer/r001.md', supersedes: [reqPinA], conflicts_with: [reqPinA], body: '### REQ-GRPH-160: Stable behavior\n\nAcceptance: retain the stable behavior.\n' });
+  const droppedReqR2 = revisionDoc({ id: 'PRD-IFCE-060', revision: 2, status: 'effective', previousRevision: 1, relativePath: 'docs/prd/xreview/t7-req-issuer/r002.md', supersedes: [reqPinB], conflicts_with: [reqPinB], body: '### REQ-GRPH-161: New behavior\n\nAcceptance: add the new behavior without silently dropping the old requirement.\n' }, reqR1);
+  const reqDocs = [reqA, reqB, reqR1, droppedReqR2];
+  const reqDiagnostics = analyzeDocs(reqDocs).diagnostics;
+  expectCode(reqDiagnostics, 'req-dropped', 'required REQ continuity fails on the proposed child');
+  expectCode(reqDiagnostics, 'recorded-conflict', 'REQ-invalid child cannot resolve its conflict');
+  const reqIndex = lifecycle.buildIndex(reqDocs, CONFIG, { all: true });
+  const reqALine = reqIndex.split('\n').find(line => line.includes(reqA.path)) || '';
+  const reqBLine = reqIndex.split('\n').find(line => line.includes(reqB.path)) || '';
+  assert.ok(reqALine.includes('retirement provenance:') && reqALine.includes(reqR1.frontmatter.id + '@r1'), 'prior event remains under REQ continuity error: ' + reqALine);
+  assert.ok(!reqBLine.includes('superseded by:'), 'REQ-invalid r2 cannot retire target B: ' + reqBLine);
+});
+
+checkCase('2ay xreview C4. trusted base governance controls immutable enforcement, not conventional paths', () => {
+  const scopedConfig = {
+    governed: [{ path: 'specifications/contracts/**', role: 'prd' }],
+    domains: ['GRPH', 'IFCE'],
+    legacy: []
+  };
+  const writeConfig = root => fs.writeFileSync(path.join(root, 'lifecycle-config.json'), JSON.stringify(scopedConfig, null, 2), 'utf8');
+
+  const ungovernedRoot = gitRepo('xreview-c4-ungoverned-conventional-path');
+  writeConfig(ungovernedRoot);
+  const ungoverned = revisionDoc({ id: 'PRD-GRPH-062', revision: 1, status: 'effective', relativePath: 'docs/prd/unconfigured/r001.md' });
+  writeDoc(ungovernedRoot, ungoverned.path, ungoverned.frontmatter, ungoverned.body);
+  const ungovernedBase = commitAll(ungovernedRoot, 'unconfigured conventional-path artifact');
+  writeDoc(ungovernedRoot, ungoverned.path, ungoverned.frontmatter, ungoverned.body + '\nAn ungoverned edit.\n');
+  const ungovernedResult = baseLint(ungovernedRoot, ungovernedBase);
+  forbidCode(ungovernedResult.diagnostics, 'immutable-revision-modified', 'docs/prd/ discovery must not confer trusted-base authority');
+  forbidCode(ungovernedResult.diagnostics, 'immutable-revision-deleted');
+
+  const narrowedRoot = gitRepo('xreview-c4-governed-then-narrowed');
+  writeConfig(narrowedRoot);
+  const governed = revisionDoc({ id: 'PRD-GRPH-063', revision: 1, status: 'effective', relativePath: 'specifications/contracts/graph/r001.md' });
+  writeDoc(narrowedRoot, governed.path, governed.frontmatter, governed.body);
+  const governedBase = commitAll(narrowedRoot, 'base-governed effective artifact');
+  fs.writeFileSync(path.join(narrowedRoot, 'lifecycle-config.json'), JSON.stringify({ governed: [], domains: ['GRPH', 'IFCE'], legacy: [] }, null, 2), 'utf8');
+  writeDoc(narrowedRoot, governed.path, governed.frontmatter, governed.body + '\nA governed edit after candidate narrowing.\n');
+  const narrowedResult = baseLint(narrowedRoot, governedBase);
+  expectCode(narrowedResult.diagnostics, 'immutable-revision-modified', 'trusted base governance survives candidate narrowing');
+});
+
+checkCase('2ay xreview F1. base-config legacy exclusions stay scoped to their own source for freeze and transition checks', () => {
+  const governedConfig = {
+    governed: [{ path: 'specifications/contracts/**', role: 'prd' }],
+    domains: ['GRPH', 'IFCE'],
+    legacy: []
+  };
+  const narrowedConfig = { governed: [], domains: ['GRPH', 'IFCE'], legacy: [] };
+  const writeLifecycleConfig = (root, config) => fs.writeFileSync(
+    path.join(root, 'lifecycle-config.json'), JSON.stringify(config, null, 2), 'utf8'
+  );
+  const addCompetingLegacySource = root => {
+    const manifest = path.join(root, '.claude', 'harness-everything', 'manifest.json');
+    fs.mkdirSync(path.dirname(manifest), { recursive: true });
+    fs.writeFileSync(manifest, JSON.stringify({ projectDocs: {
+      governed: [], domains: ['GRPH'], legacy: ['specifications/contracts/**']
+    } }, null, 2), 'utf8');
+  };
+
+  const deletedRoot = gitRepo('xreview-f1-delete-narrow-with-competing-legacy');
+  writeLifecycleConfig(deletedRoot, governedConfig);
+  addCompetingLegacySource(deletedRoot);
+  const deleted = revisionDoc({ id: 'PRD-GRPH-064', revision: 1, status: 'effective', relativePath: 'specifications/contracts/graph/r001.md' });
+  writeDoc(deletedRoot, deleted.path, deleted.frontmatter, deleted.body);
+  const deletedBase = commitAll(deletedRoot, 'trusted governed effective PRD plus unrelated host legacy exclusion');
+  fs.rmSync(path.join(deletedRoot, ...deleted.path.split('/')));
+  writeLifecycleConfig(deletedRoot, narrowedConfig);
+  const deletedResult = baseLint(deletedRoot, deletedBase);
+  expectCode(deletedResult.diagnostics, 'immutable-revision-deleted', 'another base source legacy exclusion cannot cancel trusted governance');
+
+  const controlRoot = gitRepo('xreview-f1-delete-narrow-control');
+  writeLifecycleConfig(controlRoot, governedConfig);
+  const controlDoc = revisionDoc({ id: 'PRD-GRPH-065', revision: 1, status: 'effective', relativePath: 'specifications/contracts/graph/r001.md' });
+  writeDoc(controlRoot, controlDoc.path, controlDoc.frontmatter, controlDoc.body);
+  const controlBase = commitAll(controlRoot, 'trusted governed effective PRD without competing host config');
+  fs.rmSync(path.join(controlRoot, ...controlDoc.path.split('/')));
+  writeLifecycleConfig(controlRoot, narrowedConfig);
+  expectCode(baseLint(controlRoot, controlBase).diagnostics, 'immutable-revision-deleted', 'control without a competing legacy source remains protected');
+
+  const editedRoot = gitRepo('xreview-f1-edit-transition-with-competing-legacy');
+  writeLifecycleConfig(editedRoot, governedConfig);
+  addCompetingLegacySource(editedRoot);
+  const approved = revisionDoc({ id: 'PRD-GRPH-066', revision: 1, status: 'approved', relativePath: 'specifications/contracts/graph/r001.md' });
+  writeDoc(editedRoot, approved.path, approved.frontmatter, approved.body);
+  const editedBase = commitAll(editedRoot, 'trusted governed approved PRD plus unrelated host legacy exclusion');
+  writeLifecycleConfig(editedRoot, narrowedConfig);
+  writeDoc(editedRoot, approved.path, approved.frontmatter, `${approved.body}\nAn edit to the approved candidate.\n`);
+  const editedResult = baseLint(editedRoot, editedBase);
+  expectCode(editedResult.diagnostics, 'invalid-transition', 'base-governed approved candidate remains in transition checks after narrowing');
+
+  const ownLegacyRoot = gitRepo('xreview-f1-own-config-legacy-exemption');
+  writeLifecycleConfig(ownLegacyRoot, {
+    ...governedConfig,
+    legacy: ['specifications/contracts/**']
+  });
+  const exempt = revisionDoc({ id: 'PRD-GRPH-067', revision: 1, status: 'effective', relativePath: 'specifications/contracts/graph/r001.md' });
+  writeDoc(ownLegacyRoot, exempt.path, exempt.frontmatter, exempt.body);
+  const ownLegacyBase = commitAll(ownLegacyRoot, 'source config explicitly exempts its governed path as legacy');
+  writeLifecycleConfig(ownLegacyRoot, narrowedConfig);
+  writeDoc(ownLegacyRoot, exempt.path, exempt.frontmatter, `${exempt.body}\nAn edit remains exempt by its own base source.\n`);
+  const ownLegacyResult = baseLint(ownLegacyRoot, ownLegacyBase);
+  forbidCode(ownLegacyResult.diagnostics, 'immutable-revision-modified');
+  forbidCode(ownLegacyResult.diagnostics, 'immutable-revision-deleted');
+});
+
+checkCase('2ay xreview T8. lint, index, input order and packaged module agree for T1-T6', () => {
+  const packagePath = path.join(__dirname, '..', 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'doc-lifecycle.js');
+  const packagedLifecycle = require(packagePath);
+  assert.strictEqual(xreviewRetirementCases.length, 7, 'T1, T2, T3, both T4 negatives, T5 and T6 are all represented');
+  for (const scenario of xreviewRetirementCases) {
+    const forward = {
+      diagnostics: lifecycle.lintDocs(scenario.docs, CONFIG, { all: true }),
+      index: lifecycle.buildIndex(scenario.docs, CONFIG, { all: true })
+    };
+    const reverse = {
+      diagnostics: lifecycle.lintDocs([...scenario.docs].reverse(), CONFIG, { all: true }),
+      index: lifecycle.buildIndex([...scenario.docs].reverse(), CONFIG, { all: true })
+    };
+    assert.deepStrictEqual(reverse, forward, scenario.name + ' source output is deterministic under reversed input');
+    const unresolvedPaths = forward.diagnostics.filter(item => item.code === 'recorded-conflict').map(item => item.path).sort();
+    assert.deepStrictEqual(unresolvedPaths, scenario.unresolvedConflictPaths, scenario.name + ' leaves only unissued pairs unresolved');
+    const packageForward = {
+      diagnostics: packagedLifecycle.lintDocs(scenario.docs, CONFIG, { all: true }),
+      index: packagedLifecycle.buildIndex(scenario.docs, CONFIG, { all: true })
+    };
+    const packageReverse = {
+      diagnostics: packagedLifecycle.lintDocs([...scenario.docs].reverse(), CONFIG, { all: true }),
+      index: packagedLifecycle.buildIndex([...scenario.docs].reverse(), CONFIG, { all: true })
+    };
+    assert.deepStrictEqual(packageReverse, packageForward, scenario.name + ' package output is deterministic');
+    assert.deepStrictEqual(packageForward, forward, scenario.name + ' packaged and source consumers agree');
   }
 });
 
@@ -1779,6 +2145,72 @@ checkCase('2ay owner P1. revision-one stamping cannot hide a changed living base
     workspace: renamedRoot, base: renamedBase, changedPaths: []
   });
   expectCode(renamedResult.diagnostics, 'migration-record-missing', 'moving a living PRD cannot bypass migration evidence');
+});
+
+checkCase('2ay review2 P2. lifecycle file reads stay within document scope and skip unrelated subtrees', () => {
+  const root = gitRepo('bounded-lifecycle-file-reads');
+  const effective = revisionDoc({ revision: 1, status: 'effective', relativePath: 'docs/prd/sample/r001.md' });
+  writeDoc(root, effective.path, effective.frontmatter, effective.body);
+  const base = commitAll(root, 'bounded scan baseline');
+  const unrelatedRoot = path.join(root, 'unrelated-generated-tree');
+  const nodeModulesRoot = path.join(root, 'node_modules');
+  fs.mkdirSync(path.join(unrelatedRoot, 'large-binary-batch'), { recursive: true });
+  fs.mkdirSync(path.join(nodeModulesRoot, 'unrelated-package'), { recursive: true });
+  const unrelatedFileCount = 40;
+  const unrelatedBytesPerFile = 128 * 1024;
+  for (let index = 0; index < unrelatedFileCount; index++) {
+    fs.writeFileSync(path.join(unrelatedRoot, 'large-binary-batch', `chunk-${index}.bin`), Buffer.alloc(unrelatedBytesPerFile, index));
+  }
+  fs.writeFileSync(path.join(nodeModulesRoot, 'unrelated-package', 'payload.bin'), Buffer.alloc(unrelatedBytesPerFile, 0xff));
+
+  const originalReadFileSync = fs.readFileSync;
+  const originalReaddirSync = fs.readdirSync;
+  const reads = [];
+  const visitedDirectories = [];
+  const rootPrefix = `${path.resolve(root)}${path.sep}`;
+  fs.readFileSync = function instrumentedReadFileSync(file, ...args) {
+    if (typeof file === 'string') {
+      const absolute = path.resolve(file);
+      if (absolute.startsWith(rootPrefix)) reads.push(path.relative(root, absolute).split(path.sep).join('/'));
+    }
+    return originalReadFileSync.call(this, file, ...args);
+  };
+  fs.readdirSync = function instrumentedReaddirSync(directory, ...args) {
+    if (typeof directory === 'string') {
+      const absolute = path.resolve(directory);
+      if (absolute === path.resolve(root) || absolute.startsWith(rootPrefix)) {
+        visitedDirectories.push(path.relative(root, absolute).split(path.sep).join('/'));
+      }
+    }
+    return originalReaddirSync.call(this, directory, ...args);
+  };
+
+  let measured;
+  try {
+    const docs = lifecycle.collectDocs(root, CONFIG);
+    const collectReads = reads.length;
+    const collectVisited = [...visitedDirectories];
+
+    const noBaseStart = reads.length;
+    lifecycle.analyzeDocs(docs, CONFIG, { workspace: root, all: true });
+    const noBaseReads = reads.length - noBaseStart;
+
+    const withBaseStart = reads.length;
+    lifecycle.analyzeDocs(docs, CONFIG, { workspace: root, base, all: true });
+    const baselineReads = reads.slice(withBaseStart);
+    measured = { collectReads, noBaseReads, baselineReads, collectVisited, visitedDirectories: [...visitedDirectories] };
+  } finally {
+    fs.readFileSync = originalReadFileSync;
+    fs.readdirSync = originalReaddirSync;
+  }
+
+  assert.ok(measured.collectReads <= 1, `collectDocs reads only its one governed document: ${measured.collectReads} reads (${reads.join(', ')})`);
+  assert.strictEqual(measured.noBaseReads, 0, 'analysis without a trusted baseline reuses collected docs instead of inventorying the checkout');
+  assert.ok(measured.baselineReads.length <= 2, `baseline candidate reads stay bounded to governed/provenance paths: ${measured.baselineReads.length} reads (${measured.baselineReads.join(', ')})`);
+  for (const ignored of ['.git', 'node_modules', 'unrelated-generated-tree']) {
+    assert.ok(!measured.visitedDirectories.some(directory => directory === ignored || directory.startsWith(`${ignored}/`)), `traversal prunes ${ignored} before descending`);
+  }
+  console.log(`[2ay] review2 measured reads: ${unrelatedFileCount} unrelated binary files (${unrelatedFileCount * unrelatedBytesPerFile} bytes); collectDocs=${measured.collectReads}, no-baseline analyze=${measured.noBaseReads}, baseline analyze=${measured.baselineReads.length}`);
 });
 
 checkCase('2ay owner P1. graph diagnostic severity includes changed candidate paths', () => {

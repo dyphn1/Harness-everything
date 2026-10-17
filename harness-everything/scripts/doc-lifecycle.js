@@ -33,6 +33,16 @@ const RESOLUTION_DIAGNOSTICS = new Set([
   'immutable-revision-deleted', 'req-dropped', 'incomplete-snapshot',
   'invalid-req-clause', 'replacement-alias-overlap', 'replacement-cycle'
 ]);
+const RETIREMENT_PREFIX_BLOCKERS = new Set([
+  'invalid-prd-id', 'invalid-revision', 'invalid-status', 'invalid-alias',
+  'duplicate-revision', 'missing-parent', 'multiple-baselines', 'revision-cycle',
+  'revision-fork', 'revision-digest-mismatch', 'req-dropped', 'incomplete-snapshot',
+  'invalid-req-clause', 'duplicate-req', 'replacement-alias-overlap', 'replacement-cycle',
+  'approval-missing', 'approval-not-independent', 'approval-content-mismatch',
+  'invalid-transition', 'stale-draft-base', 'migration-record-missing', 'migration-record-mismatch',
+  'immutable-revision-modified', 'immutable-revision-deleted', 'duplicate-id', 'alias-collision',
+  'unknown-domain', 'invalid-id', 'role-mismatch'
+]);
 
 function stripTrailingComment(value) {
   const source = String(value);
@@ -212,22 +222,73 @@ function matchesAny(relativePath, globs) {
   return (Array.isArray(globs) ? globs : []).some(glob => typeof glob === 'string' && globToRegExp(glob).test(relativePath));
 }
 
+function globSegmentToRegExp(segment) {
+  return new RegExp(`^${String(segment).split('*').map(part => part.replace(/[|\\{}()[\]^$+?.]/g, '\\$&')).join('.*')}$`);
+}
+
+function globCanMatchDescendant(relativeDirectory, glob) {
+  const normalizedDirectory = String(relativeDirectory || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  const directorySegments = normalizedDirectory ? normalizedDirectory.split('/') : [];
+  const patternSegments = String(glob || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+  if (!patternSegments.length) return false;
+  const visited = new Set();
+  function visit(patternIndex, directoryIndex) {
+    const key = `${patternIndex}:${directoryIndex}`;
+    if (visited.has(key)) return false;
+    visited.add(key);
+    if (directoryIndex === directorySegments.length) return patternIndex < patternSegments.length;
+    if (patternIndex >= patternSegments.length) return false;
+    const segment = patternSegments[patternIndex];
+    if (segment === '**') return visit(patternIndex + 1, directoryIndex) || visit(patternIndex, directoryIndex + 1);
+    // A non-component ** can span slashes in globToRegExp. Keep such patterns
+    // conservative during pruning instead of risking a false-negative walk.
+    if (segment.includes('**')) return true;
+    return globSegmentToRegExp(segment).test(directorySegments[directoryIndex])
+      && visit(patternIndex + 1, directoryIndex + 1);
+  }
+  return visit(0, 0);
+}
+
+function ignoredTraversalPath(relativePath) {
+  return String(relativePath || '').split('/').some(segment => segment === '.git' || segment === 'node_modules');
+}
+
+function exactPathCanMatchDescendant(relativeDirectory, paths) {
+  const directory = String(relativeDirectory || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  const prefix = directory ? `${directory}/` : '';
+  return [...(paths || [])].some(item => typeof item === 'string' && item !== directory && item.startsWith(prefix));
+}
+
+function directoryCanContainMatch(relativeDirectory, globs, exactPaths = []) {
+  if (ignoredTraversalPath(relativeDirectory)) return false;
+  if ((Array.isArray(exactPaths) ? exactPaths : []).some(item => typeof item === 'string' && item === relativeDirectory)) return false;
+  return (Array.isArray(globs) ? globs : []).some(glob => typeof glob === 'string' && globCanMatchDescendant(relativeDirectory, glob))
+    || exactPathCanMatchDescendant(relativeDirectory, exactPaths);
+}
+
 function collectDocs(root, config) {
   const workspace = path.resolve(root);
   const governed = Array.isArray(config && config.governed) ? config.governed : [];
   const legacyGlobs = Array.isArray(config && config.legacy) ? config.legacy : [];
+  const globs = [
+    ...governed.map(entry => entry && entry.path),
+    ...legacyGlobs
+  ].filter(value => typeof value === 'string');
   const files = [];
-  function walk(directory) {
+  function walk(directory, relativeDirectory) {
     let entries;
     try { entries = fs.readdirSync(directory, { withFileTypes: true }); } catch { return; }
     entries.sort((a, b) => compareText(a.name, b.name));
     for (const entry of entries) {
+      if (entry.name === '.git' || entry.name === 'node_modules') continue;
       const absolute = path.join(directory, entry.name);
-      if (entry.isDirectory()) walk(absolute);
-      else if (entry.isFile()) files.push(absolute);
+      const relativePath = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        if (directoryCanContainMatch(relativePath, globs)) walk(absolute, relativePath);
+      } else if (entry.isFile() && matchesAny(relativePath, globs)) files.push(absolute);
     }
   }
-  walk(workspace);
+  walk(workspace, '');
 
   const selected = [];
   for (const absolute of files) {
@@ -336,17 +397,86 @@ function isRevisionPrd(doc) {
   return Boolean(doc && !doc.legacy && doc.role === 'prd' && doc.frontmatter && !isPrdCompatibility(doc));
 }
 
-function supersessionEligibility(source, target, ref, effectiveRevisionSources, graph = null) {
+function eligibleRetirementSource(source, validatedEffectivePrefix) {
+  return validatedEffectivePrefix instanceof Set && validatedEffectivePrefix.has(source);
+}
+
+function supersessionEligibility(source, target, ref, validatedEffectivePrefix, graph = null) {
   const sameLogicalPrd = graph && isRevisionPrd(source) && isRevisionPrd(target)
     && graph.logicalIdByDoc.get(source) === graph.logicalIdByDoc.get(target);
   const retirement = isRevisionPrd(source) && isRevisionPrd(target)
     && !sameLogicalPrd
     && /@r[1-9]\d*$/.test(ref);
   const effective = retirement
-    ? effectiveRevisionSources instanceof Set && effectiveRevisionSources.has(source)
+    ? eligibleRetirementSource(source, validatedEffectivePrefix)
     : (source.role === 'adr' && source.frontmatter.status === 'accepted')
-      || (source.role === 'prd' && isRevisionPrd(source) && effectiveRevisionSources instanceof Set && effectiveRevisionSources.has(source));
+      || (source.role === 'prd' && isRevisionPrd(source) && eligibleRetirementSource(source, validatedEffectivePrefix));
   return { retirement, effective };
+}
+
+function validatedEffectivePrefix(docs, graph, config = null, validationDiagnostics = []) {
+  const entries = Array.isArray(docs) ? docs : [];
+  const diagnostics = [...(graph && Array.isArray(graph.diagnostics) ? graph.diagnostics : []),
+    ...(Array.isArray(validationDiagnostics) ? validationDiagnostics : [])];
+  const blockedPaths = new Set(diagnostics
+    .filter(item => item && typeof item.path === 'string' && RETIREMENT_PREFIX_BLOCKERS.has(item.code))
+    .map(item => item.path));
+  const domains = new Set(Array.isArray(config && config.domains) ? config.domains : []);
+  const validEffectiveRevision = doc => {
+    if (!isRevisionPrd(doc) || doc.error || blockedPaths.has(doc.path)) return false;
+    const data = doc.frontmatter || {};
+    const idMatch = typeof data.id === 'string' ? data.id.match(/^PRD-([A-Z][A-Z0-9]{1,9})-\d{3,}$/) : null;
+    if (!idMatch || !Number.isInteger(data.revision) || data.revision <= 0 || data.status !== 'effective') return false;
+    if (!domains.has(idMatch[1])) return false;
+    if (data.role !== undefined && data.role !== 'prd') return false;
+    if (typeof data.drafted_by !== 'string' || !data.drafted_by.trim()) return false;
+    const approval = data.approval;
+    if (!approval || typeof approval !== 'object'
+      || ['by', 'at', 'ref', 'content_digest', 'role'].some(key => typeof approval[key] !== 'string' || !approval[key].trim())
+      || !['human', 'cold-verifier'].includes(approval.role)
+      || approval.by === data.drafted_by
+      || approval.content_digest !== approvalDigest(doc)) return false;
+    const approvalTime = isoTimestamp(approval.at);
+    const effectiveTime = isoTimestamp(data.effective_at);
+    if (approvalTime === null || effectiveTime === null || effectiveTime < approvalTime) return false;
+    return true;
+  };
+
+  const eligible = new Set();
+  for (const [logicalId, group] of (graph && graph.groups || new Map())) {
+    const logicalNames = graph.namesByLogicalId.get(logicalId) || new Set();
+    if ([...logicalNames].some(name => (graph.logicalIdsByName.get(name) || new Set()).size !== 1)) continue;
+    const baselines = group.filter(doc => doc.frontmatter.previous_revision === undefined
+      || doc.frontmatter.previous_revision === null || doc.frontmatter.previous_revision === '');
+    if (baselines.length !== 1) continue;
+    const baseline = baselines[0];
+    if (!validEffectiveRevision(baseline)) continue;
+    const byRevision = new Map();
+    for (const doc of group) {
+      const revision = doc.frontmatter.revision;
+      if (!byRevision.has(revision)) byRevision.set(revision, []);
+      byRevision.get(revision).push(doc);
+    }
+    eligible.add(baseline);
+    let cursor = baseline;
+    const visited = new Set([baseline]);
+    while (cursor) {
+      const children = group.filter(doc => doc.frontmatter.status === 'effective'
+        && doc.frontmatter.previous_revision === cursor.frontmatter.revision);
+      if (!children.length || children.length !== 1) break;
+      const child = children[0];
+      if (visited.has(child)
+        || (byRevision.get(child.frontmatter.revision) || []).length !== 1
+        || graph.logicalIdByDoc.get(child) !== logicalId
+        || child.frontmatter.revision <= cursor.frontmatter.revision
+        || child.frontmatter.previous_digest !== artifactDigest(cursor)
+        || !validEffectiveRevision(child)) break;
+      eligible.add(child);
+      visited.add(child);
+      cursor = child;
+    }
+  }
+  return eligible;
 }
 
 function parseRequirementBlocks(doc) {
@@ -905,7 +1035,9 @@ function lintDocs(docs, config, options = {}) {
   const domains = new Set(Array.isArray(config && config.domains) ? config.domains : []);
 
   const graph = options._graph || revisionGraph(entries);
-  const effectiveRevisionSources = new Set(graph.currentById.values());
+  const validatedPrefix = options._retirementEligibleSources instanceof Set
+    ? options._retirementEligibleSources
+    : validatedEffectivePrefix(entries, graph, config, options._retirementValidationDiagnostics);
   for (const item of graph.diagnostics) {
     const source = entries.find(doc => doc.path === item.path);
     const candidates = (item.candidates || []).map(candidate => entries.find(doc => doc.path === candidate) || { path: candidate });
@@ -1081,7 +1213,7 @@ function lintDocs(docs, config, options = {}) {
       const result = resolveRef(entries, ref, { graph });
       if (!result.doc) { unresolved(result.error, doc, ref, result); continue; }
       const target = result.doc;
-      const eligibility = supersessionEligibility(doc, target, ref, effectiveRevisionSources, graph);
+      const eligibility = supersessionEligibility(doc, target, ref, validatedPrefix, graph);
       const edge = { source: doc, target, ref, ...eligibility };
       edges.push(edge);
       if (target.path === doc.path) {
@@ -1261,32 +1393,56 @@ function parseInventoryDoc(relativePath, bytes) {
   };
 }
 
-function scanWorkspaceFiles(root) {
+function scanWorkspaceFiles(root, scope = null) {
   if (!root) return [];
   const workspace = path.resolve(root);
+  const scoped = scope !== null;
+  const globs = Array.isArray(scope && scope.globs) ? scope.globs.filter(value => typeof value === 'string') : [];
+  const exactPaths = Array.isArray(scope && scope.paths) ? scope.paths.filter(value => typeof value === 'string') : [];
   const files = [];
-  function walk(directory) {
+  function walk(directory, relativeDirectory) {
     let entries;
     try { entries = fs.readdirSync(directory, { withFileTypes: true }); } catch { return; }
     entries.sort((a, b) => compareText(a.name, b.name));
     for (const entry of entries) {
       if (entry.name === '.git' || entry.name === 'node_modules') continue;
       const absolute = path.join(directory, entry.name);
-      if (entry.isDirectory()) { walk(absolute); continue; }
+      const relative = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        if (!scoped || directoryCanContainMatch(relative, globs, exactPaths)) walk(absolute, relative);
+        continue;
+      }
       if (!entry.isFile()) continue;
+      if (scoped && !matchesAny(relative, globs) && !exactPaths.includes(relative)) continue;
       let bytes;
       try { bytes = fs.readFileSync(absolute); } catch { continue; }
-      const relative = path.relative(workspace, absolute).split(path.sep).join('/');
       files.push({ relative, bytes });
     }
   }
-  walk(workspace);
+  walk(workspace, '');
   const rules = readWorkingTreeRules(workspace, files.filter(item => item.bytes.includes(0x0d)).map(item => item.relative));
   return files.map(item => ({ path: item.relative, bytes: workingStoredBytes(workspace, item.relative, item.bytes, rules) }));
 }
 
 function scanWorkspaceInventory(root) {
   return scanWorkspaceFiles(root).map(item => parseInventoryDoc(item.path, item.bytes)).filter(Boolean);
+}
+
+function provenancePaths(docs) {
+  const paths = new Set();
+  for (const item of docs || []) {
+    let frontmatter = item && item.frontmatter;
+    if ((!frontmatter || typeof frontmatter !== 'object') && item && typeof item.path === 'string') {
+      const bytes = item.bytes || item.storedBytes;
+      if (bytes) frontmatter = parseInventoryDoc(item.path, bytes)?.frontmatter;
+    }
+    if (!frontmatter || typeof frontmatter !== 'object') continue;
+    const candidates = [frontmatter.migration_record, frontmatter.approval && frontmatter.approval.ref];
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && validLegacySelectorPath(candidate) && !/^https?:\/\//i.test(candidate)) paths.add(candidate);
+    }
+  }
+  return [...paths];
 }
 
 function readGitBlobBatches(root, records) {
@@ -1368,6 +1524,8 @@ function readGitBaseInventory(root, baseRef, config, explicitConfigPath = null) 
     const configRecords = tree.filter(item => configPaths.has(item.path));
     const currentGoverned = Array.isArray(config && config.governed) ? config.governed.map(item => item && item.path).filter(item => typeof item === 'string') : [];
     const currentLegacy = Array.isArray(config && config.legacy) ? config.legacy : [];
+    // Conventional PRD paths remain conservative artifact discovery only.
+    // Frozen authority is selected later from the trusted base configuration.
     const isRelevantDocument = item => matchesAny(item.path, currentGoverned)
       || matchesAny(item.path, currentLegacy)
       || item.path.startsWith('docs/prd/') && /\.md$/i.test(item.path);
@@ -1411,9 +1569,9 @@ function readGitBaseInventory(root, baseRef, config, explicitConfigPath = null) 
       governed: baseConfigs.flatMap(item => Array.isArray(item.governed) ? item.governed : []),
       legacy: baseConfigs.flatMap(item => Array.isArray(item.legacy) ? item.legacy : [])
     } : null;
-    return { available: true, commit, inventory, files, config: baseConfig };
+    return { available: true, commit, inventory, files, config: baseConfig, configSources: baseConfigs };
   } catch {
-    return { available: false, inventory: [], files: [] };
+    return { available: false, inventory: [], files: [], configSources: [] };
   }
 }
 
@@ -1447,6 +1605,24 @@ function baseIdPaths(inventory, config, baseConfig = null) {
   }
   for (const paths of result.values()) paths.sort(compareText);
   return result;
+}
+
+function governedPrdPath(relativePath, configSources) {
+  const sources = Array.isArray(configSources) ? configSources : [configSources];
+  return sources.some(config => {
+    const prdGlobs = (Array.isArray(config && config.governed) ? config.governed : [])
+      .filter(item => item && item.role === 'prd' && typeof item.path === 'string')
+      .map(item => item.path);
+    return prdGlobs.length > 0
+      && matchesAny(relativePath, prdGlobs)
+      && !matchesAny(relativePath, Array.isArray(config && config.legacy) ? config.legacy : []);
+  });
+}
+
+function immutableBasePrdInventory(inventory, baseConfig, explicitInventory = false) {
+  const entries = Array.isArray(inventory) ? inventory : [];
+  if (explicitInventory) return entries;
+  return entries.filter(item => item && typeof item.path === 'string' && governedPrdPath(item.path, baseConfig));
 }
 
 function immutabilityDiagnostics(baseInventory, candidateInventory) {
@@ -1581,7 +1757,9 @@ function transitionDiagnostics(docs, baseInventory, root, candidateGraph = null)
     const nextProjection = { ...data };
     for (const key of ['status', 'effective_at']) { delete priorProjection[key]; delete nextProjection[key]; }
     const candidateBody = Buffer.from(doc.body || '', 'utf8');
-    if (sortedJson(priorProjection) !== sortedJson(nextProjection) || !Buffer.from(base.body || '', 'utf8').equals(candidateBody)) {
+    if (doc.path !== base.path
+      || sortedJson(priorProjection) !== sortedJson(nextProjection)
+      || !Buffer.from(base.body || '', 'utf8').equals(candidateBody)) {
       diagnostics.push(makeDiagnostic('invalid-transition', 'error', doc, 'approved-to-effective activation may change only status and effective_at', data.id));
     }
     const baseLogicalId = baseGraph.logicalIdByDoc.get(base);
@@ -1643,11 +1821,12 @@ function analyzeDocs(docs, config, options = {}) {
   const entries = Array.isArray(docs) ? docs : [];
   const graph = options._graph || revisionGraph(entries);
   const root = options.workspace || entries.find(doc => typeof doc.workspace === 'string')?.workspace || null;
+  const explicitBaseInventory = Array.isArray(options.baseInventory);
   let inventory = null;
   let baseState = null;
   let baseFiles = null;
   let disposition = 'not-observed';
-  if (Array.isArray(options.baseInventory)) {
+  if (explicitBaseInventory) {
     baseFiles = options.baseInventory.filter(item => item && typeof item.path === 'string')
       .map(item => ({ path: item.path, bytes: Buffer.from(item.bytes || []) }));
     inventory = options.baseInventory.map(item => {
@@ -1661,21 +1840,33 @@ function analyzeDocs(docs, config, options = {}) {
     else disposition = 'unavailable';
   }
   const normalizedInventory = inventory || [];
-  const candidateFiles = root
-    ? scanWorkspaceFiles(root)
+  const candidatePatterns = [
+    ...(Array.isArray(config && config.governed) ? config.governed.map(item => item && item.path) : []),
+    ...(Array.isArray(config && config.legacy) ? config.legacy : []),
+    ...(Array.isArray(baseState && baseState.config && baseState.config.governed) ? baseState.config.governed.map(item => item && item.path) : []),
+    ...(Array.isArray(baseState && baseState.config && baseState.config.legacy) ? baseState.config.legacy : []),
+    // Discover conventional artifacts, but do not grant them base authority.
+    'docs/prd/**'
+  ].filter(value => typeof value === 'string');
+  const candidatePaths = [...new Set([
+    ...entries.map(doc => doc.path),
+    ...(baseFiles || []).map(item => item.path),
+    ...provenancePaths(entries),
+    ...provenancePaths(normalizedInventory)
+  ].filter(value => typeof value === 'string'))];
+  const candidateFiles = root && disposition === 'observed'
+    ? scanWorkspaceFiles(root, { globs: candidatePatterns, paths: candidatePaths })
     : entries.map(doc => ({ path: doc.path, bytes: docBytes(doc) }));
   const changedPaths = new Set((Array.isArray(options.changedPaths) ? options.changedPaths : []).map(String));
   if (disposition === 'observed') {
     for (const relativePath of objectiveChangedPaths(baseFiles, candidateFiles, config, baseState && baseState.config)) changedPaths.add(relativePath);
   }
-  const effectiveOptions = {
-    ...options,
-    changedPaths: [...changedPaths],
-    _trustedBaseObserved: disposition === 'observed',
-    _graph: graph,
-    _baseIdPaths: disposition === 'observed' ? baseIdPaths(normalizedInventory, config, baseState && baseState.config) : undefined
-  };
-  const diagnostics = lintDocs(entries, config, effectiveOptions);
+  const frozenBaseInventory = immutableBasePrdInventory(
+    normalizedInventory,
+    baseState && baseState.configSources,
+    explicitBaseInventory
+  );
+  const additionalDiagnostics = [];
   if (disposition === 'observed') {
     const candidateInventory = root
       ? candidateFiles.map(item => parseInventoryDoc(item.path, item.bytes)).filter(Boolean)
@@ -1684,14 +1875,53 @@ function analyzeDocs(docs, config, options = {}) {
         revision: doc.frontmatter && doc.frontmatter.revision,
         path: doc.path,
         status: doc.frontmatter && doc.frontmatter.status,
-        bytes: docBytes(doc)
+        bytes: docBytes(doc),
+        frontmatter: doc.frontmatter,
+        body: doc.body
       }));
-    diagnostics.push(...immutabilityDiagnostics(normalizedInventory, candidateInventory));
-    diagnostics.push(...transitionDiagnostics(entries, normalizedInventory, root, graph));
-    diagnostics.push(...migrationDiagnostics(entries, root, normalizedInventory, baseFiles, baseState && baseState.config));
+    additionalDiagnostics.push(...immutabilityDiagnostics(frozenBaseInventory, candidateInventory));
+
+    const transitionDocs = new Map(entries.map(doc => [doc.path, doc]));
+    const explicitBaselinePaths = new Set(explicitBaseInventory ? normalizedInventory.map(item => item.path) : []);
+    for (const file of candidateFiles) {
+      const basePrd = explicitBaselinePaths.has(file.path) || governedPrdPath(file.path, baseState && baseState.configSources);
+      const currentPrd = roleAtPath(file.path, config) === 'prd' && !isLegacyPath(file.path, config);
+      if (!basePrd && !currentPrd) continue;
+      if (transitionDocs.has(file.path)) continue;
+      const parsed = parseFrontmatter(Buffer.from(file.bytes).toString('utf8'));
+      if (parsed.error || !parsed.data || typeof parsed.data.id !== 'string') continue;
+      transitionDocs.set(file.path, {
+        path: file.path,
+        role: 'prd',
+        legacy: false,
+        frontmatter: parsed.data,
+        body: parsed.body,
+        error: parsed.error,
+        workspace: root,
+        storedBytes: Buffer.from(file.bytes)
+      });
+    }
+    const transitionCandidates = [...transitionDocs.values()];
+    additionalDiagnostics.push(...transitionDiagnostics(transitionCandidates, frozenBaseInventory, root));
+    additionalDiagnostics.push(...migrationDiagnostics(entries, root, normalizedInventory, baseFiles, baseState && baseState.config));
   }
+  const retirementEligibleSources = options._retirementEligibleSources instanceof Set
+    ? options._retirementEligibleSources
+    : validatedEffectivePrefix(entries, graph, config, additionalDiagnostics);
+  const effectiveOptions = {
+    ...options,
+    changedPaths: [...changedPaths],
+    _trustedBaseObserved: disposition === 'observed',
+    _graph: graph,
+    _retirementEligibleSources: retirementEligibleSources,
+    _retirementValidationDiagnostics: additionalDiagnostics,
+    _baseIdPaths: disposition === 'observed' ? baseIdPaths(normalizedInventory, config, baseState && baseState.config) : undefined
+  };
+  const diagnostics = lintDocs(entries, config, effectiveOptions);
+  diagnostics.push(...additionalDiagnostics);
   const result = { diagnostics: sortDiagnostics(diagnostics), evidence: { immutability: disposition } };
   Object.defineProperty(result, '_graph', { value: graph, enumerable: false });
+  Object.defineProperty(result, '_retirementEligibleSources', { value: retirementEligibleSources, enumerable: false });
   return result;
 }
 
@@ -1781,6 +2011,9 @@ function effectiveRevisionHistory(group, parentByDoc) {
 function buildIndex(docs, config, options = {}) {
   const entries = Array.isArray(docs) ? docs : [];
   const graph = options._graph || revisionGraph(entries);
+  const validatedPrefix = options._retirementEligibleSources instanceof Set
+    ? options._retirementEligibleSources
+    : validatedEffectivePrefix(entries, graph, config, options._retirementValidationDiagnostics || options.diagnostics);
   let diagnostics;
   if (Array.isArray(options.diagnostics)) {
     diagnostics = options.diagnostics;
@@ -1788,18 +2021,22 @@ function buildIndex(docs, config, options = {}) {
     const mode = options.all === true
       ? { all: true }
       : { changedPaths: Array.isArray(options.changedPaths) ? options.changedPaths : [] };
-    diagnostics = lintDocs(entries, config, { ...mode, _graph: graph });
+    diagnostics = lintDocs(entries, config, {
+      ...mode,
+      _graph: graph,
+      _retirementEligibleSources: validatedPrefix,
+      _retirementValidationDiagnostics: options._retirementValidationDiagnostics
+    });
   }
   diagnostics = diagnostics.filter(item => RESOLUTION_DIAGNOSTICS.has(item.code));
   const edges = [];
-  const effectiveRevisionSources = new Set(graph.currentById.values());
   for (const doc of entries) {
     if (doc.legacy || doc.error || !doc.frontmatter) continue;
     for (const ref of asList(doc.frontmatter.supersedes)) {
       if (typeof ref !== 'string') continue;
       const result = resolveRef(entries, ref, { graph });
       if (result.doc) {
-        const eligibility = supersessionEligibility(doc, result.doc, ref, effectiveRevisionSources, graph);
+        const eligibility = supersessionEligibility(doc, result.doc, ref, validatedPrefix, graph);
         edges.push({ source: doc, target: result.doc, ref, ...eligibility });
       }
     }
@@ -1915,7 +2152,12 @@ function main(argv = process.argv.slice(2)) {
   const mode = { ...(options.all ? { all: true } : { changedPaths: options.changedPaths }), workspace: path.resolve(options.workspace), base: options.base, configPath: path.resolve(options.configFile) };
   const analysis = analyzeDocs(docs, config, mode);
   if (options.command === 'index') {
-    process.stdout.write(buildIndex(docs, config, { ...mode, diagnostics: analysis.diagnostics, _graph: analysis._graph }));
+    process.stdout.write(buildIndex(docs, config, {
+      ...mode,
+      diagnostics: analysis.diagnostics,
+      _graph: analysis._graph,
+      _retirementEligibleSources: analysis._retirementEligibleSources
+    }));
     return 0;
   }
   process.stdout.write(`${JSON.stringify(analysis, null, 2)}\n`);
