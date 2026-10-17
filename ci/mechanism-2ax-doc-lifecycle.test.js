@@ -889,6 +889,45 @@ checkCase('2ax dogfood. CLI normalizes --changed spellings and rejects paths out
   assert.match(outside.stderr, /outside .*workspace/i);
 });
 
+checkCase('2ax dogfood. repeated --changed-path transports one lossless path per occurrence and keeps legacy --changed', () => {
+  const root = workspace('cli-changed-path-option');
+  writeDoc(root, 'docs/adr/GRPH-001,extra.md', { status: 'accepted' }, 'Comma filename with missing-id changed-only schema.\n');
+  writeDoc(root, 'docs/adr/GRPH-003,extra.md', { id: 'GRPH-003', status: 'accepted' });
+  writeDoc(root, 'docs/adr/GRPH-101.md', { id: 'GRPH-101', status: 'accepted' });
+  writeDoc(root, 'docs/adr/GRPH-102.md', { status: 'accepted' }, 'Legacy CSV control: invalid changed-only schema.\n');
+  const configFile = path.join(root, 'config.json');
+  fs.writeFileSync(configFile, JSON.stringify(CONFIG), 'utf8');
+  const cli = extraArgs => {
+    const result = spawnSync(process.execPath, [modulePath, 'lint', '--workspace', root, '--config', configFile, ...extraArgs], { cwd: root, encoding: 'utf8' });
+    assert.ifError(result.error);
+    return result;
+  };
+  const commaInvalid = cli(['--changed-path', 'docs/adr/GRPH-001,extra.md']);
+  assert.strictEqual(commaInvalid.status, 1, `--changed-path must run the changed-only schema check on the comma filename: ${commaInvalid.stdout} ${commaInvalid.stderr}`);
+  assert.ok(JSON.parse(commaInvalid.stdout).diagnostics.some(item => item.code === 'missing-id' && item.severity === 'error'), commaInvalid.stdout);
+  writeDoc(root, 'docs/adr/ GRPH-005.md', { status: 'accepted' }, 'Leading-space basename with missing-id changed-only schema.\n');
+  const spaceInvalid = cli(['--changed-path', 'docs/adr/ GRPH-005.md']);
+  assert.strictEqual(spaceInvalid.status, 1, `--changed-path must pass the leading-space basename through untrimmed: ${spaceInvalid.stdout} ${spaceInvalid.stderr}`);
+  assert.ok(JSON.parse(spaceInvalid.stdout).diagnostics.some(item => item.path === 'docs/adr/ GRPH-005.md' && item.code === 'missing-id' && item.severity === 'error'), spaceInvalid.stdout);
+  const commaValid = cli(['--changed-path', 'docs/adr/GRPH-003,extra.md']);
+  assert.strictEqual(commaValid.status, 0, `a valid comma-named ADR must pass via --changed-path: ${commaValid.stdout} ${commaValid.stderr}`);
+  const csvLegacy = cli(['--changed', 'docs/adr/GRPH-101.md,docs/adr/GRPH-102.md']);
+  assert.strictEqual(csvLegacy.status, 1, `legacy comma-separated --changed still checks every listed document: ${csvLegacy.stdout} ${csvLegacy.stderr}`);
+  assert.ok(JSON.parse(csvLegacy.stdout).diagnostics.some(item => item.path === 'docs/adr/GRPH-102.md' && item.code === 'missing-id'), 'legacy CSV audits both listed paths');
+  const combined = cli(['--changed', 'docs/adr/GRPH-101.md', '--changed-path', 'docs/adr/GRPH-001,extra.md']);
+  assert.strictEqual(combined.status, 1, `--changed and --changed-path may be combined: ${combined.stdout} ${combined.stderr}`);
+  assert.ok(JSON.parse(combined.stdout).diagnostics.some(item => item.path === 'docs/adr/GRPH-001,extra.md' && item.code === 'missing-id'), 'the combined run audits both the CSV entry and the --changed-path entry');
+  const outside = cli(['--changed-path', path.resolve(root, '..', 'outside-workspace.md')]);
+  assert.strictEqual(outside.status, 2, `--changed-path outside workspace is a usage failure: ${outside.stdout} ${outside.stderr}`);
+  assert.match(outside.stderr, /outside .*workspace/i);
+  const withAll = cli(['--all', '--changed-path', 'docs/adr/GRPH-003,extra.md']);
+  assert.strictEqual(withAll.status, 2, `--changed-path is mutually exclusive with --all: ${withAll.stdout} ${withAll.stderr}`);
+  assert.match(withAll.stderr, /choose either/);
+  const missingValue = cli(['--changed-path']);
+  assert.strictEqual(missingValue.status, 2, `--changed-path requires a value: ${missingValue.stdout} ${missingValue.stderr}`);
+  assert.match(missingValue.stderr, /--changed-path requires a value/);
+});
+
 checkCase('2ax dogfood. relative --config resolves from --workspace even when CLI cwd differs', () => {
   const root = workspace('cli-relative-config');
   const configFile = path.join(root, '.agents/harness-everything/project-docs.json');

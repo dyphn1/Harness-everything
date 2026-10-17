@@ -2296,20 +2296,27 @@ function buildIndex(docs, config, options = {}) {
 
 function parseCli(argv) {
   const [command, ...rest] = argv;
-  const options = { command, changedProvided: false, all: false };
+  const options = { command, changedProvided: false, changedPaths: [], all: false };
   for (let index = 0; index < rest.length; index++) {
     const arg = rest[index];
     if (arg === '--all') options.all = true;
+    else if (arg === '--changed-path') {
+      if (index + 1 >= rest.length) throw new Error(`${arg} requires a value`);
+      const value = rest[++index];
+      if (!value.trim()) throw new Error(`${arg} requires a non-empty path`);
+      options.changedProvided = true;
+      options.changedPaths.push(value);
+    }
     else if (arg === '--workspace' || arg === '--config' || arg === '--changed' || arg === '--base') {
       if (index + 1 >= rest.length) throw new Error(`${arg} requires a value`);
       const value = rest[++index];
       if (arg === '--workspace') options.workspace = value;
       if (arg === '--config') options.configFile = value;
-      if (arg === '--changed') { options.changedProvided = true; options.changedPaths = value.split(',').map(item => item.trim()).filter(Boolean); }
+      if (arg === '--changed') { options.changedProvided = true; options.changedPaths = options.changedPaths.concat(value.split(',').map(item => item.trim()).filter(Boolean)); }
       if (arg === '--base') options.base = value;
     } else throw new Error(`unknown argument: ${arg}`);
   }
-  if (!['lint', 'index'].includes(command)) throw new Error('usage: doc-lifecycle.js <lint|index> --workspace <dir> --config <json-file, relative to --workspace> [--changed a,b | --all] [--base <git-rev>]');
+  if (!['lint', 'index'].includes(command)) throw new Error('usage: doc-lifecycle.js <lint|index> --workspace <dir> --config <json-file, relative to --workspace> [--changed a,b | --changed-path <path> | --all] [--base <git-rev>]');
   if (!options.workspace || !options.configFile) throw new Error('--workspace and --config are required');
   if (!options.changedProvided && !options.all) throw new Error('lint and index require --changed or --all');
   if (options.all && options.changedProvided) throw new Error('choose either --changed or --all');
