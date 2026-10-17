@@ -402,6 +402,46 @@ checkCase('2aw fix. invalid project files never authorize zone paths and surface
   }
 });
 
+checkCase('2aw consensus-C5. validateDocsConfig rejects non-canonical globs with field-specific diagnostics', () => {
+  for (const [field, buildValue, diagCode] of [
+    ['governed', v => [{ path: v, role: 'prd' }], 'invalid-governed-entry'],
+    ['legacy', v => [v], 'invalid-legacy-entry'],
+    ['derived', v => [{ path: v, generator: 'npm run docs:index' }], 'invalid-derived-entry'],
+  ]) {
+    for (const value of ['./docs/**', '/docs/**', 'docs\\prd\\**', 'docs/../x', 'docs\\prd']) {
+      const root = workspace(`consensus-c5-${field}-${value.length}`);
+      const config = {
+        docLocation: 'docs/',
+        domains: ['GRPH'],
+        [field]: buildValue(value),
+      };
+      const validation = resolver.validateDocsConfig(config);
+      assert.strictEqual(validation.valid, false, `${field} value ${JSON.stringify(value)} must be rejected`);
+      const diag = validation.diagnostics.find(item => item.code === diagCode);
+      assert.ok(diag, `expected diagnostic ${diagCode} for ${field} value ${JSON.stringify(value)}; got ${JSON.stringify(validation.diagnostics)}`);
+      assert.strictEqual(diag.severity, 'error');
+      assert.match(diag.message, new RegExp(field === 'legacy' ? `legacy\\[[0-9]+\\]` : `${field}\\[[0-9]+\\]\\.path`), 'diagnostic must name the offending field');
+      assert.ok(diag.message.includes(JSON.stringify(value)), `diagnostic must quote the offending value; got: ${diag.message}`);
+      assert.match(diag.message, /canonical repo-relative|forward slashes|leading "\.\/"|leading "\/"|"\.\." segments/i, `diagnostic must state the rule; got: ${diag.message}`);
+
+      const read = resolver.readProjectDocs(root, { activeHost: 'claude' });
+      writeProjectConfig(root, config);
+      const afterWrite = resolver.readProjectDocs(root, { activeHost: 'claude' });
+      assert.strictEqual(afterWrite.status, 'invalid', `non-canonical ${field} value must leave the selection invalid`);
+      assert.strictEqual(afterWrite.projectDocs, null);
+    }
+  }
+
+  const acceptable = resolver.validateDocsConfig({
+    docLocation: 'docs/',
+    domains: ['GRPH'],
+    governed: [{ path: 'docs/prd/**', role: 'prd' }],
+    legacy: ['docs/**'],
+    derived: [{ path: 'docs/gen/index.md', generator: 'npm run docs:index' }],
+  });
+  assert.strictEqual(acceptable.valid, true, `canonical globs must be accepted: ${JSON.stringify(acceptable.diagnostics)}`);
+});
+
 checkCase('2aw owner-p2. heuristic inference applies only when the selection status is none', () => {
   const project = workspace('owner-p2-inference-project');
   const projectFull = {};
@@ -473,6 +513,31 @@ checkCase('2aw owner-p2. CLI exits 1 listing the actual missing fields for selec
   const ambiguousRun = runToSpecCheck(ambiguousRoot);
   assert.strictEqual(ambiguousRun.status, 1);
   assert.match(ambiguousRun.stdout + ambiguousRun.stderr, /ambiguous/i);
+});
+
+checkCase('2aw owner-p2. init rejects whitespace-only required values consistently with the resolver', () => {
+  const projectRoot = workspace('owner-p2-init-whitespace-project');
+  const project = { docLocation: 'specs/' };
+  const projectFile = writeProjectConfig(projectRoot, project, `${JSON.stringify(project, null, 2)}\n`);
+  writeHostConfig(projectRoot, 'claude', { skills: true });
+  const hostFile = path.join(projectRoot, '.claude', 'harness-everything', 'manifest.json');
+  const projectBefore = fs.readFileSync(projectFile, 'utf8');
+  const hostBefore = fs.readFileSync(hostFile, 'utf8');
+  const result = runToSpecInit(projectRoot, ['--doc-location', '   ', '--tracker', '   ', '--issue-definition', '   ']);
+  assert.strictEqual(result.status, 1, `whitespace-only flags must be rejected: ${result.stdout}${result.stderr}`);
+  assert.match(`${result.stdout}\n${result.stderr}`, /whitespace-only|must not be empty/i);
+  assert.strictEqual(fs.readFileSync(projectFile, 'utf8'), projectBefore, 'whitespace-only init wrote the project file');
+  assert.strictEqual(fs.readFileSync(hostFile, 'utf8'), hostBefore, 'whitespace-only init wrote the host manifest');
+  const check = runToSpecCheck(projectRoot);
+  assert.strictEqual(check.status, 1, 'a whitespace-only init attempt must not make the config complete');
+  assert.match(check.stdout, /missing fields: tracker, issueDefinition/);
+
+  const hostRoot = workspace('owner-p2-init-whitespace-host');
+  const hostFile2 = writeHostConfig(hostRoot, 'claude', { skills: true });
+  const host2Before = fs.readFileSync(hostFile2, 'utf8');
+  const result2 = runToSpecInit(hostRoot, ['--doc-location', '   ', '--tracker', '\t\t', '--issue-definition', ' \n ']);
+  assert.strictEqual(result2.status, 1, `whitespace-only host init must be rejected: ${result2.stdout}${result2.stderr}`);
+  assert.strictEqual(fs.readFileSync(hostFile2, 'utf8'), host2Before, 'whitespace-only host init must write nothing');
 });
 
 function runToSpecCheck(root) {

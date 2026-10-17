@@ -209,6 +209,19 @@ function isRepoRelativePath(value) {
   return !normalized.split('/').includes('..');
 }
 
+// Config globs must match the shape the matcher canonicalizes against:
+// forward slashes, repo-relative, no "./" or "../" leading segments. A
+// non-canonical value would validate but silently match nothing.
+function getPatternIssue(value) {
+  if (typeof value !== 'string' || !value.trim()) return 'must be a non-empty string';
+  if (value.includes('\\')) return 'must use forward slashes (backslashes are not allowed)';
+  if (value.startsWith('/') || /^[A-Za-z]:\//.test(value)) return 'must be repo-relative (no leading "/")';
+  if (value.startsWith('./') || value === '.') return 'must be canonical (no leading "./")';
+  if (value.startsWith('../')) return 'must be canonical (no leading "../")';
+  if (value.split('/').includes('..')) return 'must not contain ".." segments';
+  return null;
+}
+
 function validateDocsConfig(config) {
   const diagnostics = [];
   const warnings = [];
@@ -237,8 +250,9 @@ function validateDocsConfig(config) {
       invalid('invalid-governed', 'governed must be an array');
     } else {
       config.governed.forEach((entry, index) => {
-        if (!isPlainObject(entry) || !isRepoRelativePath(entry.path)) {
-          invalid('invalid-governed-entry', `governed[${index}] must have a repo-relative path`);
+        if (!isPlainObject(entry) || getPatternIssue(entry.path)) {
+          const issue = isPlainObject(entry) ? getPatternIssue(entry.path) : 'must be an object with a path';
+          invalid('invalid-governed-entry', `governed[${index}].path ${issue} (must be a canonical repo-relative glob like "docs/**"); got ${JSON.stringify(entry && entry.path)}`);
           return;
         }
         if (!PROJECT_DOC_ROLES.includes(entry.role)) {
@@ -269,7 +283,8 @@ function validateDocsConfig(config) {
       invalid('invalid-legacy', 'legacy must be an array of repo-relative globs');
     } else {
       config.legacy.forEach((pattern, index) => {
-        if (!isRepoRelativePath(pattern)) invalid('invalid-legacy-entry', `legacy[${index}] must be a repo-relative glob`);
+        const issue = getPatternIssue(pattern);
+        if (issue) invalid('invalid-legacy-entry', `legacy[${index}] ${issue} (must be a canonical repo-relative glob like "docs/**"); got ${JSON.stringify(pattern)}`);
       });
     }
   }
@@ -279,9 +294,14 @@ function validateDocsConfig(config) {
       invalid('invalid-derived', 'derived must be an array');
     } else {
       config.derived.forEach((entry, index) => {
-        if (!isPlainObject(entry) || typeof entry.path !== 'string' || !entry.path.trim() ||
+        if (!isPlainObject(entry) || getPatternIssue(entry.path) ||
             typeof entry.generator !== 'string' || !entry.generator.trim()) {
-          invalid('invalid-derived-entry', `derived[${index}] must have non-empty path and generator strings`);
+          const issue = isPlainObject(entry) ? (getPatternIssue(entry.path) || null) : null;
+          if (issue) {
+            invalid('invalid-derived-entry', `derived[${index}].path ${issue} (must be a canonical repo-relative path like "docs/gen/index.md"); got ${JSON.stringify(entry && entry.path)}`);
+          } else {
+            invalid('invalid-derived-entry', `derived[${index}] must have non-empty path and generator strings`);
+          }
         }
       });
     }

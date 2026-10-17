@@ -181,11 +181,16 @@ function printConflicts(conflicts) {
 
 function runInit(workspaceRoot, args) {
   const flags = parseFlags(args);
-  const missingFlags = Object.keys(FLAG_TO_FIELD).filter(f => !flags[f]);
+  // Required values must be non-empty after trimming, the same presence rule
+  // the resolver applies when reading the configuration; whitespace-only
+  // pointers are rejected before anything is read or written, and accepted
+  // values are stored trimmed.
+  const missingFlags = Object.keys(FLAG_TO_FIELD).filter(f => !flags[f] || !String(flags[f]).trim());
   if (missingFlags.length > 0) {
-    console.error(`[Project Docs Check] init requires --${missingFlags.join(', --')}`);
+    console.error(`[Project Docs Check] init requires --${missingFlags.join(', --')} (values must not be empty or whitespace-only)`);
     process.exit(1);
   }
+  for (const f of Object.keys(FLAG_TO_FIELD)) flags[f] = String(flags[f]).trim();
 
   const oversizedFlags = Object.keys(FLAG_TO_FIELD).filter(f => flags[f].length > MAX_FIELD_LENGTH);
   if (oversizedFlags.length > 0) {
