@@ -7,6 +7,8 @@ Use this checklist for the applicable risks; do not force irrelevant categories.
 - [ ] Pin repository, PR, base/head SHA, user requirement or PRD/ADR, changed files, relevant callers/callees, and current CI state. Avoid unrelated checkout areas.
 - [ ] Make an independent pass. Treat author explanations and tests as leads, not proof; derive expected behavior from contracts and source.
 - [ ] Label evidence honestly: **executed/reproduced** (command, result, environment, SHA); **source-traced** (concrete path and preconditions); **inconclusive** (missing facts or ambiguous semantics; do not present as a proven blocker).
+- [ ] Inventory user-facing entry points and configuration handoffs (CLI flags, cwd, path spellings, config loading). Exercise them end-to-end, not only the recently edited internals.
+- [ ] Reproduce a candidate finding against the PR base before classifying it as new. Pre-existing defects are follow-ups, not new blockers.
 
 ## Try applicable counterexamples
 
@@ -19,7 +21,7 @@ Use this checklist for the applicable risks; do not force irrelevant categories.
 ## Check tests and output
 
 - [ ] Ask whether each test still passes if the behavior is disabled, bypassed, or broken (mutation thought experiment). Confirm the test is included in CI.
-- [ ] Compare intended-changed output lines with literal templates; do not exclude changed lines from assertions.
+- [ ] When output text changes, compare the intended changed lines with literal templates; do not exclude changed lines from assertions.
 - [ ] Dedupe findings. Use P1 for severe merge blockers, P2 for meaningful correctness/contract defects, P3 for low-risk issues; avoid speculation.
 - [ ] For each finding, include exact path:line or diff anchor at HEAD SHA, trigger, observed behavior, violated contract and impact, evidence tier, smallest fix, negative regression, positive control, and disposition.
 
