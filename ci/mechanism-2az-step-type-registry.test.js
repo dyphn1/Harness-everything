@@ -832,6 +832,92 @@ checkCase('Claude hook copy is byte-identical and a tracked Codex runtime includ
   compat.uninstall({ codexHome });
 });
 
+checkCase('registered code-review optional binding activates review steps from source and packaged roots', () => {
+  const requirements = [
+    { id: 'req-review', stepType: 'review', summary: 'Review the change', acceptance: 'findings recorded with evidence tiers', optionalBindings: ['code-review'] },
+    { id: 'req-verify', stepType: 'verification', summary: 'Verify the change', acceptance: 'objective checks pass' },
+  ];
+  for (const leg of [
+    { root: ROOT, sessionId: 'code-review-source-root', expected: path.join(ROOT, 'code-review', 'SKILL.md') },
+    { root: path.join(tempRoot, 'code-review-packaged-root'), sessionId: 'code-review-packaged-root', expected: path.join(tempRoot, 'code-review-packaged-root', 'skills', 'code-review', 'SKILL.md') },
+  ]) {
+    if (leg.root !== ROOT) {
+      fs.mkdirSync(leg.root, { recursive: true });
+      for (const directory of ['hooks', 'harness-everything', 'scripts', 'fable-mode']) {
+        fs.cpSync(path.join(ROOT, directory), path.join(leg.root, directory), { recursive: true });
+      }
+      fs.cpSync(path.join(packageRoot, 'skills'), path.join(leg.root, 'skills'), { recursive: true });
+    }
+    const session = planSession(leg.sessionId, requirements, 'iterative-single', leg.root, FIX_PROMPT, 'author-declared plan with an optional code-review binding', leg.root);
+    assert.strictEqual(session.planned.status, 0, session.planned.stderr);
+    const declared = readJson(session.obligationsFile).requirements[0].optionalBindings.find(item => item.id === 'code-review');
+    assert.strictEqual(declared.availability, 'available', 'the registered optional binding must resolve from the declared runtime root');
+    assert.strictEqual(fs.realpathSync(declared.resolvedPath), fs.realpathSync(leg.expected), 'the optional binding resolves to the canonical code-review skill file');
+    const legController = path.join(leg.root, 'hooks/scripts/workflow-disposition.js');
+    const started = run(legController, ['start', '--session-id', leg.sessionId], leg.root);
+    assert.strictEqual(started.status, 0, started.stderr);
+    const load = run(legController, [
+      'binding', '--session-id', leg.sessionId, '--step-id', 'req-review', '--binding-id', 'code-review',
+      '--disposition', 'loaded', '--evidence', 'Read code-review/SKILL.md and applied its evidence-tier rubric.',
+    ], leg.root);
+    assert.strictEqual(load.status, 0, load.stderr);
+    const loaded = readJson(session.obligationsFile).requirements[0].optionalBindings.find(item => item.id === 'code-review');
+    assert.strictEqual(loaded.status, 'loaded');
+    assert.strictEqual(fs.realpathSync(loaded.resolvedPath), fs.realpathSync(leg.expected), 'the loaded binding keeps its canonical resolved path');
+    const passed = run(legController, [
+      'step', '--session-id', leg.sessionId, '--step-id', 'req-review', '--disposition', 'pass',
+      '--evidence', 'Review findings filed against the diff with evidence tiers.',
+    ], leg.root);
+    assert.strictEqual(passed.status, 0, passed.stderr);
+  }
+
+  const notNeeded = planSession('code-review-not-needed', requirements, 'iterative-single', ROOT, FIX_PROMPT, 'author-declared plan marks code-review not needed');
+  assert.strictEqual(notNeeded.planned.status, 0, notNeeded.planned.stderr);
+  assert.strictEqual(run(controller, ['start', '--session-id', 'code-review-not-needed'], ROOT).status, 0);
+  assert.strictEqual(run(controller, [
+    'binding', '--session-id', 'code-review-not-needed', '--step-id', 'req-review', '--binding-id', 'code-review',
+    '--disposition', 'not-needed', '--evidence', 'Reviewed inline against the agentic-commons review rubric.',
+  ], ROOT).status, 0, 'an optional binding can be marked not-needed');
+  assert.strictEqual(run(controller, [
+    'step', '--session-id', 'code-review-not-needed', '--step-id', 'req-review', '--disposition', 'pass',
+    '--evidence', 'Review completed without the optional skill.',
+  ], ROOT).status, 0, 'marking code-review not-needed still lets the review step pass');
+
+  const unknown = planSession('code-review-unknown-optional', [
+    { id: 'req-review', stepType: 'review', summary: 'Review the change', acceptance: 'findings recorded with evidence tiers', optionalBindings: ['no-such-skill'] },
+    { id: 'req-verify', stepType: 'verification', summary: 'Verify the change', acceptance: 'objective checks pass' },
+  ]);
+  assert.strictEqual(unknown.planned.status, 0, unknown.planned.stderr);
+  const undeclared = readJson(unknown.obligationsFile).requirements[0].optionalBindings.find(item => item.id === 'no-such-skill');
+  assert.strictEqual(undeclared.availability, 'unknown', 'an unregistered binding id stays unknown');
+  assert.strictEqual(run(controller, ['start', '--session-id', 'code-review-unknown-optional'], ROOT).status, 0);
+  const cannotLoad = run(controller, [
+    'binding', '--session-id', 'code-review-unknown-optional', '--step-id', 'req-review', '--binding-id', 'no-such-skill',
+    '--disposition', 'loaded', '--evidence', 'attempted load without a registered path',
+  ], ROOT);
+  assert.strictEqual(cannotLoad.status, 2, cannotLoad.stderr);
+  assert.match(cannotLoad.stderr, /no registered load path/, cannotLoad.stderr);
+  assert.strictEqual(run(controller, [
+    'step', '--session-id', 'code-review-unknown-optional', '--step-id', 'req-review', '--disposition', 'pass',
+    '--evidence', 'premature pass while the unknown optional binding is pending',
+  ], ROOT).status, 2, 'a pending unknown optional binding still blocks a premature step pass');
+  assert.strictEqual(run(controller, [
+    'binding', '--session-id', 'code-review-unknown-optional', '--step-id', 'req-review', '--binding-id', 'no-such-skill',
+    '--disposition', 'not-needed', '--evidence', 'No Harness skill exists under that id.',
+  ], ROOT).status, 0, 'an unknown optional binding is marked not-needed instead');
+  assert.strictEqual(run(controller, [
+    'step', '--session-id', 'code-review-unknown-optional', '--step-id', 'req-review', '--disposition', 'pass',
+    '--evidence', 'Review completed without any optional skill.',
+  ], ROOT).status, 0, 'marking the unknown optional binding not-needed lets the step pass');
+
+  const forbidden = planSession('code-review-review-still-forbids-tdd', [
+    { id: 'req-review', stepType: 'review', summary: 'Review the change', acceptance: 'the change is reviewed', optionalBindings: ['tdd'] },
+    { id: 'req-verify', stepType: 'verification', summary: 'Verify the change', acceptance: 'objective checks pass' },
+  ]);
+  assert.strictEqual(forbidden.planned.status, 2);
+  assert.match(forbidden.planned.stderr, /review steps cannot bind tdd/);
+});
+
 fs.rmSync(tempRoot, { recursive: true, force: true });
 console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'}: Stage A workflow step-type registry (${failed} failures)`);
 process.exit(failed === 0 ? 0 : 1);
