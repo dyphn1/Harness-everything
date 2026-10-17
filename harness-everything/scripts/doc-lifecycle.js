@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
+const { isDeepStrictEqual } = require('node:util');
 
 const ROLE_STATUSES = Object.freeze({
   prd: new Set(['draft', 'approved', 'effective', 'rejected', 'withdrawn']),
@@ -30,7 +31,7 @@ const RESOLUTION_DIAGNOSTICS = new Set([
   'multiple-baselines', 'revision-cycle', 'revision-fork', 'stale-draft-base',
   'invalid-transition', 'approval-missing', 'approval-content-mismatch',
   'revision-digest-mismatch', 'immutable-revision-modified',
-  'immutable-revision-deleted', 'req-dropped', 'incomplete-snapshot',
+  'immutable-revision-deleted', 'legacy-frozen-modified', 'req-dropped', 'incomplete-snapshot',
   'invalid-req-clause', 'replacement-alias-overlap', 'replacement-cycle'
 ]);
 const RETIREMENT_PREFIX_BLOCKERS = new Set([
@@ -40,7 +41,7 @@ const RETIREMENT_PREFIX_BLOCKERS = new Set([
   'invalid-req-clause', 'duplicate-req', 'replacement-alias-overlap', 'replacement-cycle',
   'approval-missing', 'approval-not-independent', 'approval-content-mismatch',
   'invalid-transition', 'stale-draft-base', 'migration-record-missing', 'migration-record-mismatch',
-  'immutable-revision-modified', 'immutable-revision-deleted', 'duplicate-id', 'alias-collision',
+  'immutable-revision-modified', 'immutable-revision-deleted', 'legacy-frozen-modified', 'duplicate-id', 'alias-collision',
   'unknown-domain', 'invalid-id', 'role-mismatch'
 ]);
 
@@ -1488,6 +1489,49 @@ function readGitBlobBatches(root, records) {
   return result;
 }
 
+function configPathsForWorkspace(root, explicitConfigPath = null) {
+  const configPaths = new Set([
+    '.agents/harness-everything/project-docs.json',
+    'project-docs.json',
+    'lifecycle-config.json',
+    ...['.claude', '.cursor', '.github', '.codex', '.continue'].map(home => `${home}/harness-everything/manifest.json`)
+  ]);
+  if (typeof explicitConfigPath === 'string' && explicitConfigPath) {
+    const absoluteConfigPath = path.isAbsolute(explicitConfigPath)
+      ? path.resolve(explicitConfigPath)
+      : path.resolve(root, explicitConfigPath);
+    const relativeConfigPath = path.relative(path.resolve(root), absoluteConfigPath).split(path.sep).join('/');
+    if (relativeConfigPath && relativeConfigPath !== '..' && !relativeConfigPath.startsWith('../') && !path.isAbsolute(relativeConfigPath)) {
+      configPaths.add(relativeConfigPath);
+    }
+  }
+  return configPaths;
+}
+
+function readWorkspaceConfigSources(root, explicitConfigPath, fallbackConfig) {
+  if (!root) return [fallbackConfig];
+  const sources = [];
+  const resolvedExplicitPath = typeof explicitConfigPath === 'string' && explicitConfigPath
+    ? path.resolve(explicitConfigPath)
+    : null;
+  let explicitSourceLoaded = false;
+  for (const relativePath of configPathsForWorkspace(root, explicitConfigPath)) {
+    const absolutePath = path.join(root, ...relativePath.split('/'));
+    if (!fs.existsSync(absolutePath)) continue;
+    try {
+      const parsed = JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) continue;
+      const source = parsed.projectDocs && typeof parsed.projectDocs === 'object' && !Array.isArray(parsed.projectDocs)
+        ? parsed.projectDocs
+        : parsed;
+      sources.push(source);
+      if (resolvedExplicitPath && path.resolve(absolutePath) === resolvedExplicitPath) explicitSourceLoaded = true;
+    } catch { /* a malformed candidate source cannot grant or cancel authority */ }
+  }
+  if (!explicitSourceLoaded) sources.unshift(fallbackConfig);
+  return sources.length ? sources : [fallbackConfig];
+}
+
 function readGitBaseInventory(root, baseRef, config, explicitConfigPath = null) {
   if (!root || typeof baseRef !== 'string' || !baseRef.trim()) return { available: false, inventory: [], files: [] };
   try {
@@ -1506,21 +1550,7 @@ function readGitBaseInventory(root, baseRef, config, explicitConfigPath = null) 
       if (!Number.isSafeInteger(size) || size < 0) throw new Error(`invalid base blob size for ${relative}`);
       tree.push({ mode, oid, path: relative, size });
     }
-    const configPaths = new Set([
-      '.agents/harness-everything/project-docs.json',
-      'project-docs.json',
-      'lifecycle-config.json',
-      ...['.claude', '.cursor', '.github', '.codex', '.continue'].map(home => `${home}/harness-everything/manifest.json`)
-    ]);
-    if (typeof explicitConfigPath === 'string' && explicitConfigPath) {
-      const absoluteConfigPath = path.isAbsolute(explicitConfigPath)
-        ? path.resolve(explicitConfigPath)
-        : path.resolve(root, explicitConfigPath);
-      const relativeConfigPath = path.relative(path.resolve(root), absoluteConfigPath).split(path.sep).join('/');
-      if (relativeConfigPath && relativeConfigPath !== '..' && !relativeConfigPath.startsWith('../') && !path.isAbsolute(relativeConfigPath)) {
-        configPaths.add(relativeConfigPath);
-      }
-    }
+    const configPaths = configPathsForWorkspace(root, explicitConfigPath);
     const configRecords = tree.filter(item => configPaths.has(item.path));
     const currentGoverned = Array.isArray(config && config.governed) ? config.governed.map(item => item && item.path).filter(item => typeof item === 'string') : [];
     const currentLegacy = Array.isArray(config && config.legacy) ? config.legacy : [];
@@ -1602,16 +1632,25 @@ function baseIdPaths(inventory, config, baseConfigSources = []) {
   return result;
 }
 
-function governedPrdPath(relativePath, configSources) {
+function positivelyGovernedPath(relativePath, configSources, role = null) {
   const sources = Array.isArray(configSources) ? configSources : [configSources];
   return sources.some(config => {
-    const prdGlobs = (Array.isArray(config && config.governed) ? config.governed : [])
-      .filter(item => item && item.role === 'prd' && typeof item.path === 'string')
+    const governedGlobs = (Array.isArray(config && config.governed) ? config.governed : [])
+      .filter(item => item && typeof item.path === 'string' && (!role || item.role === role))
       .map(item => item.path);
-    return prdGlobs.length > 0
-      && matchesAny(relativePath, prdGlobs)
+    return matchesAny(relativePath, governedGlobs)
       && !matchesAny(relativePath, Array.isArray(config && config.legacy) ? config.legacy : []);
   });
+}
+
+function governedPrdPath(relativePath, configSources) {
+  return positivelyGovernedPath(relativePath, configSources, 'prd');
+}
+
+function isLegacyInConfigSources(relativePath, configSources) {
+  const sources = Array.isArray(configSources) ? configSources : configSources ? [configSources] : [];
+  return sources.some(config => matchesAny(relativePath, Array.isArray(config && config.legacy) ? config.legacy : []))
+    && !positivelyGovernedPath(relativePath, sources);
 }
 
 function immutableBasePrdInventory(inventory, baseConfig, explicitInventory = false) {
@@ -1641,6 +1680,57 @@ function immutabilityDiagnostics(baseInventory, candidateInventory) {
       const candidate = matches.slice().sort((a, b) => compareText(a.path, b.path))[0];
       diagnostics.push({ code: 'immutable-revision-modified', severity: 'error', path: candidate.path, id: base.id, message: `effective revision ${base.id}@r${base.revision} must retain its path and stored bytes`, candidates: [base.path] });
     }
+  }
+  return diagnostics;
+}
+
+function frontmatterEnvelope(source) {
+  const text = String(source);
+  const lines = text.split('\n');
+  if ((lines[0] || '').replace(/\r$/, '') !== '---') return '';
+  for (let index = 1; index < lines.length; index++) {
+    const line = lines[index].replace(/\r$/, '');
+    if (/^---[ \t]*$/.test(line) || /^\.\.\.[ \t]*$/.test(line)) return lines.slice(0, index + 1).join('\n');
+  }
+  return text;
+}
+
+function legacyHistoryDiagnostics(baseFiles, candidateFiles, candidateConfigSources, baseConfigSources = null) {
+  const candidateByPath = new Map((candidateFiles || []).filter(item => item && typeof item.path === 'string')
+    .map(item => [item.path, Buffer.from(item.bytes || [])]));
+  const legacyBaseFiles = (baseFiles || []).filter(item => item && typeof item.path === 'string'
+    && (Array.isArray(baseConfigSources)
+      ? isLegacyInConfigSources(item.path, baseConfigSources)
+      : item.legacy === true));
+  const diagnostics = [];
+  for (const base of legacyBaseFiles) {
+    const candidateBytes = candidateByPath.get(base.path);
+    // Deleted and moved archives are handled by existing explicit legacy ref escalation.
+    if (!candidateBytes) continue;
+    const baseBytes = Buffer.from(base.bytes || []);
+    const baseText = baseBytes.toString('utf8');
+    const candidateText = candidateBytes.toString('utf8');
+    const baseFrontmatter = parseFrontmatter(baseText);
+    const candidateFrontmatter = parseFrontmatter(candidateText);
+    const problems = [];
+    if (!isLegacyInConfigSources(base.path, candidateConfigSources)) problems.push('archive is reclassified outside legacy scope');
+    if (baseFrontmatter.error) {
+      if (!candidateFrontmatter.error || frontmatterEnvelope(baseText) !== frontmatterEnvelope(candidateText)) {
+        problems.push('frontmatter differs from the unparseable trusted-base frontmatter');
+      }
+    } else if (candidateFrontmatter.error) {
+      problems.push(`frontmatter no longer parses: ${candidateFrontmatter.error}`);
+    } else if (!isDeepStrictEqual(baseFrontmatter.data, candidateFrontmatter.data)) {
+      problems.push('parsed frontmatter differs from the trusted base');
+    }
+    if (!problems.length) continue;
+    const id = baseFrontmatter.data && baseFrontmatter.data.id
+      || candidateFrontmatter.data && candidateFrontmatter.data.id;
+    diagnostics.push({
+      code: 'legacy-frozen-modified', severity: 'error', path: base.path,
+      ...(typeof id === 'string' ? { id } : {}),
+      message: `legacy archive is frozen against normative frontmatter changes: ${problems.join('; ')}`
+    });
   }
   return diagnostics;
 }
@@ -1829,16 +1919,26 @@ function objectiveChangedPaths(baseFiles, candidateFiles, config, baseConfig, ba
 
 function analyzeDocs(docs, config, options = {}) {
   const entries = Array.isArray(docs) ? docs : [];
+  const candidateConfigSources = Array.isArray(options.configSources) ? options.configSources : [config];
   const graph = options._graph || revisionGraph(entries);
   const root = options.workspace || entries.find(doc => typeof doc.workspace === 'string')?.workspace || null;
   const explicitBaseInventory = Array.isArray(options.baseInventory);
+  const suppliedBaseConfigSources = Array.isArray(options.baseConfigSources) ? options.baseConfigSources : null;
+  let legacyClassificationObserved = true;
   let inventory = null;
   let baseState = null;
   let baseFiles = null;
   let disposition = 'not-observed';
   if (explicitBaseInventory) {
+    const inventoryRows = options.baseInventory.filter(item => item && typeof item.path === 'string');
+    legacyClassificationObserved = suppliedBaseConfigSources !== null
+      || inventoryRows.length > 0 && inventoryRows.every(item => typeof item.legacy === 'boolean');
     baseFiles = options.baseInventory.filter(item => item && typeof item.path === 'string')
-      .map(item => ({ path: item.path, bytes: Buffer.from(item.bytes || []) }));
+      .map(item => ({
+        path: item.path,
+        bytes: Buffer.from(item.bytes || []),
+        ...(typeof item.legacy === 'boolean' ? { legacy: item.legacy } : {})
+      }));
     inventory = options.baseInventory.map(item => {
       if (!item || typeof item.path !== 'string') return null;
       return parseInventoryDoc(item.path, Buffer.from(item.bytes || []));
@@ -1853,6 +1953,10 @@ function analyzeDocs(docs, config, options = {}) {
   const candidatePatterns = [
     ...(Array.isArray(config && config.governed) ? config.governed.map(item => item && item.path) : []),
     ...(Array.isArray(config && config.legacy) ? config.legacy : []),
+    ...candidateConfigSources.flatMap(source => [
+      ...(Array.isArray(source && source.governed) ? source.governed.map(item => item && item.path) : []),
+      ...(Array.isArray(source && source.legacy) ? source.legacy : [])
+    ]),
     ...(Array.isArray(baseState && baseState.config && baseState.config.governed) ? baseState.config.governed.map(item => item && item.path) : []),
     ...(Array.isArray(baseState && baseState.config && baseState.config.legacy) ? baseState.config.legacy : []),
     // Discover conventional artifacts, but do not grant them base authority.
@@ -1878,6 +1982,8 @@ function analyzeDocs(docs, config, options = {}) {
   );
   const additionalDiagnostics = [];
   if (disposition === 'observed') {
+    const baseLegacyConfigSources = explicitBaseInventory ? suppliedBaseConfigSources : baseState && baseState.configSources;
+    additionalDiagnostics.push(...legacyHistoryDiagnostics(baseFiles, candidateFiles, candidateConfigSources, baseLegacyConfigSources));
     const candidateInventory = root
       ? candidateFiles.map(item => parseInventoryDoc(item.path, item.bytes)).filter(Boolean)
       : entries.map(doc => ({
@@ -1929,7 +2035,9 @@ function analyzeDocs(docs, config, options = {}) {
   };
   const diagnostics = lintDocs(entries, config, effectiveOptions);
   diagnostics.push(...additionalDiagnostics);
-  const result = { diagnostics: sortDiagnostics(diagnostics), evidence: { immutability: disposition } };
+  const evidence = { immutability: disposition };
+  if (explicitBaseInventory && !legacyClassificationObserved) evidence.legacyImmutability = 'not-observed';
+  const result = { diagnostics: sortDiagnostics(diagnostics), evidence };
   Object.defineProperty(result, '_graph', { value: graph, enumerable: false });
   Object.defineProperty(result, '_retirementEligibleSources', { value: retirementEligibleSources, enumerable: false });
   return result;
@@ -2159,7 +2267,11 @@ function main(argv = process.argv.slice(2)) {
     return 2;
   }
   const docs = collectDocs(path.resolve(options.workspace), config);
-  const mode = { ...(options.all ? { all: true } : { changedPaths: options.changedPaths }), workspace: path.resolve(options.workspace), base: options.base, configPath: path.resolve(options.configFile) };
+  const mode = {
+    ...(options.all ? { all: true } : { changedPaths: options.changedPaths }),
+    workspace: path.resolve(options.workspace), base: options.base, configPath: path.resolve(options.configFile),
+    configSources: readWorkspaceConfigSources(path.resolve(options.workspace), path.resolve(options.configFile), config)
+  };
   const analysis = analyzeDocs(docs, config, mode);
   if (options.command === 'index') {
     process.stdout.write(buildIndex(docs, config, {

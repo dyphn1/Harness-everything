@@ -128,6 +128,87 @@ function roleConfig() {
   };
 }
 
+function gitAt(root, args) {
+  const result = spawnSync('git', ['-C', root, ...args], {
+    encoding: 'utf8',
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' }
+  });
+  if (result.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr || result.stdout}`);
+  return String(result.stdout || '').trim();
+}
+
+function gitBytesAt(root, revision, relativePath) {
+  const result = spawnSync('git', ['-C', root, 'show', `${revision}:${relativePath}`], {
+    encoding: 'buffer',
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' }
+  });
+  if (result.status !== 0) throw new Error(`git show ${revision}:${relativePath} failed: ${String(result.stderr || result.stdout)}`);
+  return Buffer.from(result.stdout);
+}
+
+function legacyHistory(name, {
+  frontmatter = { id: 'GRAPH-900', status: 'accepted', aliases: [], supersedes: [] },
+  reference = false,
+  baseProjectConfig = null,
+  baseHostConfig = null
+} = {}) {
+  const root = workspace(name);
+  gitAt(root, ['init', '--quiet']);
+  const configPath = path.join(root, 'lifecycle-config.json');
+  const projectConfig = baseProjectConfig || { governed: [], domains: CONFIG.domains, legacy: [] };
+  fs.writeFileSync(configPath, `${JSON.stringify(projectConfig, null, 2)}\n`, 'utf8');
+  const hostManifestPath = path.join(root, '.claude', 'harness-everything', 'manifest.json');
+  fs.mkdirSync(path.dirname(hostManifestPath), { recursive: true });
+  fs.writeFileSync(hostManifestPath, `${JSON.stringify({ projectDocs: baseHostConfig || {
+    governed: [], domains: CONFIG.domains, legacy: ['docs/adr/legacy/**']
+  } }, null, 2)}\n`, 'utf8');
+  const legacyPath = writeDoc(root, 'docs/adr/legacy/GRAPH-900.md', frontmatter, '# Archived decision\n\nOriginal editorial text.\n');
+  if (reference) {
+    writeDoc(root, 'docs/adr/current.md', {
+      id: 'GRAPH-901', status: 'accepted',
+      supersedes: ['legacy:GRAPH-900@docs/adr/legacy/GRAPH-900.md']
+    }, 'This decision refers to the archived decision.\n');
+  }
+  gitAt(root, ['add', '--all']);
+  gitAt(root, ['-c', 'user.name=2ax fixture', '-c', 'user.email=2ax@example.invalid', 'commit', '--quiet', '-m', 'trusted legacy base']);
+  const base = gitAt(root, ['rev-parse', 'HEAD']);
+  fs.writeFileSync(configPath, `${JSON.stringify(CONFIG, null, 2)}\n`, 'utf8');
+  return { root, base, configPath, legacyPath, legacyRelative: 'docs/adr/legacy/GRAPH-900.md' };
+}
+
+function runLegacyLint(root, config, base, mode, changedPath = 'docs/adr/legacy/GRAPH-900.md') {
+  const configPath = path.join(root, 'lifecycle-config.json');
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+  const args = [modulePath, 'lint', '--workspace', root, '--config', configPath];
+  if (base) args.push('--base', base);
+  if (mode === 'all') args.push('--all');
+  else args.push('--changed', changedPath);
+  const result = spawnSync(process.execPath, args, { encoding: 'utf8' });
+  if (![0, 1].includes(result.status)) throw new Error(`doc-lifecycle exited ${result.status}: ${result.stderr || result.stdout}`);
+  return { status: result.status, analysis: JSON.parse(result.stdout) };
+}
+
+function legacyModePair(root, config, base, changedPath = 'docs/adr/legacy/GRAPH-900.md') {
+  const changed = runLegacyLint(root, config, base, 'changed', changedPath);
+  const all = runLegacyLint(root, config, base, 'all', changedPath);
+  assert.strictEqual(changed.status, all.status, 'changed/all CLI exit codes must agree');
+  assert.deepStrictEqual(changed.analysis.diagnostics, all.analysis.diagnostics, 'changed/all diagnostics must agree');
+  assert.deepStrictEqual(changed.analysis.evidence, all.analysis.evidence, 'changed/all evidence must agree');
+  return changed.analysis;
+}
+
+function legacyAnalysisModePair(root, config, base, configSources, changedPath = 'docs/adr/legacy/GRAPH-900.md') {
+  const analyze = mode => lifecycle.analyzeDocs(collect(root, config), config, {
+    workspace: root, base, configSources,
+    ...(mode === 'all' ? { all: true } : { changedPaths: [changedPath] })
+  });
+  const changed = analyze('changed');
+  const all = analyze('all');
+  assert.deepStrictEqual(changed.diagnostics, all.diagnostics, 'changed/all diagnostics must agree');
+  assert.deepStrictEqual(changed.evidence, all.evidence, 'changed/all evidence must agree');
+  return changed;
+}
+
 checkCase('2ax. frontmatter parser supports scalars, inline arrays, and block lists', () => {
   const parsed = lifecycle.parseFrontmatter('---\nid: GRAPH-007\naliases: [GRPH-007, IFCE-002]\nsupersedes:\n  - GRAPH-006\n  - legacy:GRPH-004\n---\n# Body\n');
   assert.strictEqual(parsed.error, null);
@@ -320,6 +401,178 @@ checkCase('2ax. legacy globs take precedence over governed overlap and stay sche
   assert.strictEqual(docs[0].legacy, true);
   assert.strictEqual(docs[0].role, 'adr');
   assert.deepStrictEqual(lifecycle.lintDocs(docs, CONFIG, { all: true }), []);
+});
+
+checkCase('2ax. trusted base legacy frontmatter stays frozen while body-only editorial fixes remain allowed', () => {
+  const unchanged = legacyHistory('legacy-frozen-unchanged');
+  const unchangedResult = legacyModePair(unchanged.root, CONFIG, unchanged.base);
+  assert.strictEqual(unchangedResult.evidence.immutability, 'observed');
+  assert.ok(!unchangedResult.diagnostics.some(item => item.code === 'legacy-frozen-modified'), JSON.stringify(unchangedResult.diagnostics));
+
+  const editorial = legacyHistory('legacy-frozen-editorial');
+  fs.writeFileSync(editorial.legacyPath,
+    '---\nid: GRAPH-900\nstatus: accepted\naliases: []\nsupersedes: []\n---\n# Archived decision\n\nCorrected editorial link: [guide](../guide.md).\n', 'utf8');
+  const editorialResult = legacyModePair(editorial.root, CONFIG, editorial.base);
+  assert.strictEqual(editorialResult.evidence.immutability, 'observed');
+  assert.ok(!editorialResult.diagnostics.some(item => item.code === 'legacy-frozen-modified'), JSON.stringify(editorialResult.diagnostics));
+});
+
+for (const [key, value] of [
+  ['id', 'GRAPH-990'],
+  ['status', 'rejected'],
+  ['supersedes', ['GRAPH-899']],
+  ['aliases', ['GRAPH-899']],
+  ['historical_note', 'changed normative metadata']
+]) {
+  checkCase(`2ax. trusted-base legacy ${key} change is rejected at the archive`, () => {
+    const fixture = legacyHistory(`legacy-frozen-${key}`);
+    const nextFrontmatter = {
+      id: 'GRAPH-900', status: 'accepted', aliases: [], supersedes: [], [key]: value
+    };
+    writeDoc(fixture.root, fixture.legacyRelative, nextFrontmatter, '# Archived decision\n\nOriginal editorial text.\n');
+    const result = legacyModePair(fixture.root, CONFIG, fixture.base);
+    const finding = result.diagnostics.find(item => item.code === 'legacy-frozen-modified');
+    assert.ok(finding, `${key} edit was accepted: ${JSON.stringify(result.diagnostics)}`);
+    assert.strictEqual(finding.severity, 'error');
+    assert.strictEqual(finding.path, fixture.legacyRelative);
+  });
+}
+
+checkCase('2ax. trusted-base legacy frontmatter that no longer parses is rejected', () => {
+  const malformed = legacyHistory('legacy-frozen-malformed');
+  writeDoc(malformed.root, malformed.legacyRelative, 'id: [broken', '# Archived decision\n');
+  const malformedResult = legacyModePair(malformed.root, CONFIG, malformed.base);
+  assert.ok(malformedResult.diagnostics.some(item => item.code === 'legacy-frozen-modified' && item.severity === 'error'), JSON.stringify(malformedResult.diagnostics));
+});
+
+checkCase('2ax. legacy classification from any trusted config source is retained and current reclassification errors', () => {
+  const fixture = legacyHistory('legacy-frozen-reclassified');
+  const base = legacyModePair(fixture.root, CONFIG, fixture.base);
+  assert.ok(!base.diagnostics.some(item => item.code === 'legacy-frozen-modified'), JSON.stringify(base.diagnostics));
+  const reclassified = legacyModePair(fixture.root, { ...CONFIG, legacy: [] }, fixture.base);
+  const finding = reclassified.diagnostics.find(item => item.code === 'legacy-frozen-modified');
+  assert.ok(finding, JSON.stringify(reclassified.diagnostics));
+  assert.strictEqual(finding.severity, 'error');
+  assert.strictEqual(finding.path, fixture.legacyRelative);
+});
+
+checkCase('2ax. legacy freeze preserves each source authority and offsets only its own governed overlap', () => {
+  const competing = legacyHistory('legacy-frozen-competing-source', {
+    baseProjectConfig: {
+      governed: [{ path: 'docs/adr/**', role: 'adr' }], domains: CONFIG.domains, legacy: []
+    }
+  });
+  writeDoc(competing.root, competing.legacyRelative,
+    { id: 'GRAPH-999', status: 'accepted', aliases: [], supersedes: [] },
+    '# Archived decision\n\nChanged metadata under independent governance.\n');
+  const competingResult = legacyModePair(competing.root, CONFIG, competing.base);
+  assert.ok(!competingResult.diagnostics.some(item => item.code === 'legacy-frozen-modified'), JSON.stringify(competingResult.diagnostics));
+
+  const ownOverlap = legacyHistory('legacy-frozen-own-source-overlap', {
+    baseProjectConfig: {
+      governed: [{ path: 'docs/adr/**', role: 'adr' }], domains: CONFIG.domains,
+      legacy: ['docs/adr/legacy/**']
+    }
+  });
+  writeDoc(ownOverlap.root, ownOverlap.legacyRelative,
+    { id: 'GRAPH-999', status: 'accepted', aliases: [], supersedes: [] },
+    '# Archived decision\n\nChanged metadata where the same source marks legacy.\n');
+  const ownOverlapResult = legacyModePair(ownOverlap.root, CONFIG, ownOverlap.base);
+  assert.ok(ownOverlapResult.diagnostics.some(item => item.code === 'legacy-frozen-modified' && item.severity === 'error'), JSON.stringify(ownOverlapResult.diagnostics));
+});
+
+checkCase('2ax. candidate legacy reclassification uses the same per-source authority rule', () => {
+  const fixture = legacyHistory('legacy-frozen-candidate-competing-source');
+  const candidateSources = [
+    { governed: [{ path: 'docs/adr/**', role: 'adr' }], legacy: [] },
+    { governed: [], legacy: ['docs/adr/legacy/**'] }
+  ];
+  const result = legacyAnalysisModePair(fixture.root, CONFIG, fixture.base, candidateSources);
+  const finding = result.diagnostics.find(item => item.code === 'legacy-frozen-modified');
+  assert.ok(finding, JSON.stringify(result.diagnostics));
+  assert.match(finding.message, /reclassified outside legacy scope/);
+});
+
+checkCase('2ax. offline legacy flags and base config sources match Git legacy-freeze diagnostics', () => {
+  const fixture = legacyHistory('legacy-frozen-offline-equivalence', {
+    frontmatter: 'id: GRAPH-900\nstatus: accepted\naliases: []\nsupersedes: []\ncustom:\n  owner: alice\n  enabled: true'
+  });
+  const trustedBytes = gitBytesAt(fixture.root, fixture.base, fixture.legacyRelative);
+  writeDoc(fixture.root, fixture.legacyRelative,
+    'id: GRAPH-900\nstatus: accepted\naliases: []\nsupersedes: []\ncustom:\n  owner: bob\n  enabled: true',
+    '# Archived decision\n\nOriginal editorial text.\n');
+  const docs = collect(fixture.root, CONFIG);
+  const hostSource = { governed: [], domains: CONFIG.domains, legacy: ['docs/adr/legacy/**'] };
+  const candidateSources = [CONFIG, hostSource];
+  const fromGit = lifecycle.analyzeDocs(docs, CONFIG, {
+    workspace: fixture.root, base: fixture.base, configPath: fixture.configPath,
+    configSources: candidateSources, all: true
+  });
+  const fromInventoryFlag = lifecycle.analyzeDocs(docs, CONFIG, {
+    workspace: fixture.root,
+    baseInventory: [{ path: fixture.legacyRelative, bytes: trustedBytes, id: 'GRAPH-900', status: 'accepted', legacy: true }],
+    configSources: candidateSources,
+    all: true
+  });
+  assert.deepStrictEqual(fromInventoryFlag.diagnostics, fromGit.diagnostics, 'preclassified offline legacy inventory matches the Git-base diagnostics');
+  assert.deepStrictEqual(fromInventoryFlag.evidence, fromGit.evidence, 'preclassified offline legacy evidence matches Git');
+
+  const fromInventorySources = lifecycle.analyzeDocs(docs, CONFIG, {
+    workspace: fixture.root,
+    baseInventory: [{ path: fixture.legacyRelative, bytes: trustedBytes, id: 'GRAPH-900', status: 'accepted' }],
+    baseConfigSources: [
+      { governed: [], domains: CONFIG.domains, legacy: [] },
+      hostSource
+    ],
+    configSources: candidateSources,
+    all: true
+  });
+  assert.deepStrictEqual(fromInventorySources.diagnostics, fromGit.diagnostics, 'per-source offline base config matches Git-base diagnostics');
+  assert.deepStrictEqual(fromInventorySources.evidence, fromGit.evidence, 'per-source offline base evidence matches Git');
+});
+
+checkCase('2ax. offline inventory without legacy classification reports legacy immutability not observed', () => {
+  const fixture = legacyHistory('legacy-frozen-offline-unclassified', {
+    frontmatter: 'id: GRAPH-900\nstatus: accepted\naliases: []\nsupersedes: []\ncustom:\n  owner: alice\n  enabled: true'
+  });
+  const trustedBytes = gitBytesAt(fixture.root, fixture.base, fixture.legacyRelative);
+  writeDoc(fixture.root, fixture.legacyRelative,
+    'id: GRAPH-900\nstatus: accepted\naliases: []\nsupersedes: []\ncustom:\n  owner: bob\n  enabled: true',
+    '# Archived decision\n\nOriginal editorial text.\n');
+  const result = lifecycle.analyzeDocs(collect(fixture.root, CONFIG), CONFIG, {
+    workspace: fixture.root,
+    baseInventory: [{ path: fixture.legacyRelative, bytes: trustedBytes, id: 'GRAPH-900', status: 'accepted' }],
+    configSources: [CONFIG],
+    all: true
+  });
+  assert.strictEqual(result.evidence.immutability, 'observed', 'stored-byte revision immutability remains observed');
+  assert.strictEqual(result.evidence.legacyImmutability, 'not-observed', 'missing offline base legacy authority is visible');
+  assert.ok(!result.diagnostics.some(item => item.code === 'legacy-frozen-modified'), JSON.stringify(result.diagnostics));
+});
+
+checkCase('2ax. deleted legacy files rely on explicit path refs and are quiet when unreferenced', () => {
+  const referenced = legacyHistory('legacy-frozen-deleted-referenced', { reference: true });
+  fs.rmSync(referenced.legacyPath);
+  const result = legacyModePair(referenced.root, CONFIG, referenced.base, referenced.legacyRelative);
+  const refs = result.diagnostics.filter(item => item.code === 'unresolved-ref');
+  assert.ok(refs.some(item => item.severity === 'error' && item.path === 'docs/adr/current.md'), JSON.stringify(result.diagnostics));
+  assert.ok(!result.diagnostics.some(item => item.code === 'legacy-frozen-modified'), JSON.stringify(result.diagnostics));
+  const repeated = legacyModePair(referenced.root, CONFIG, referenced.base, referenced.legacyRelative);
+  assert.deepStrictEqual(repeated.diagnostics, result.diagnostics, 'deleted archive escalation is deterministic');
+
+  const unreferenced = legacyHistory('legacy-frozen-deleted-unreferenced');
+  fs.rmSync(unreferenced.legacyPath);
+  const quiet = legacyModePair(unreferenced.root, CONFIG, unreferenced.base, unreferenced.legacyRelative);
+  assert.strictEqual(quiet.evidence.immutability, 'observed');
+  assert.ok(!quiet.diagnostics.some(item => item.code === 'legacy-frozen-modified' || item.severity === 'error'), JSON.stringify(quiet.diagnostics));
+});
+
+checkCase('2ax. no trusted base reports not-observed without claiming legacy immutability', () => {
+  const root = workspace('legacy-frozen-no-base');
+  writeDoc(root, 'docs/adr/legacy/GRAPH-900.md', { id: 'GRAPH-999', status: 'rejected', aliases: [], supersedes: [] }, '# Edited archive\n');
+  const result = legacyModePair(root, CONFIG, null);
+  assert.strictEqual(result.evidence.immutability, 'not-observed');
+  assert.ok(!result.diagnostics.some(item => item.code === 'legacy-frozen-modified'), JSON.stringify(result.diagnostics));
 });
 
 checkCase('2ax. plain prose mention of a legacy-superseded ID still produces the legacy hint', () => {

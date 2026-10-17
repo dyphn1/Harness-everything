@@ -65,7 +65,7 @@ Globs are repo-relative POSIX paths supporting `*` (one segment) and `**` (any d
 | `log`, `report` | `final` / `archived` | Optional |
 
 - Role comes from the first matching `governed` entry; a frontmatter `role` must agree with it.
-- **`legacy` beats `governed`** on overlap. Legacy files are frozen, ratchet-exempt and outside the active ID namespace.
+- **Legacy immutability:** Legacy files remain outside the active ID namespace. With an observed trusted base, a path is frozen only when some base source's `legacy` matches it and no base source positively governs it after that source's own legacy exclusion; parsed frontmatter stays deep-equal while body/editorial/link edits remain allowed. A surviving path is reclassified when it is no longer legacy under the same per-source rule for candidate sources and emits `legacy-frozen-modified`; deletion/move relies on existing escalation for surviving explicit `legacy:ID@path` references. Without a trusted base, legacy immutability is not-observed or unavailable.
 - Frontmatter fields: `id`, `role`, `status`, `supersedes`, `aliases`. `superseded_by` and `amends` are not stored; `superseded_by` is derived in the index.
 - **Ratchet:** schema checks (role/status/ID) apply to governed files named in `changedPaths`. Full mode is explicit (`--all` / `{ all: true }`); the CLI refuses to run without `--changed` or `--all`. Cross-file integrity diagnostics are errors when any involved file is changed (deleted and renamed paths count as changed), warnings otherwise. Warnings that affect resolution still appear in the index's unresolved list. Without a trusted base, escalation for deleted or renamed targets covers explicit `legacy:ID@path` selectors only; ID-only references escalate when a trusted base (`--base` or a supplied inventory, see D6.9) maps the ID to a changed path.
 - Parsing conventions: role comes from the first matching `governed` entry; frontmatter is the leading `---` block in a YAML subset (scalars, inline `[a, b]` lists, `- a` block lists); references inside fenced code blocks are ignored.
@@ -104,7 +104,7 @@ Selector grammar: `legacy:` + ID, optionally `@` + path, split at the **first** 
 
 Each diagnostic is `{ code, severity, path, id?, message, candidates? }`, sorted by `path`, `code`, `id`, then `message`.
 
-Anchors for cross-file diagnostics: `supersede-*`, `unresolved-ref`, `ambiguous-legacy-ref`, `invalid-ref` and `recorded-conflict` attach to the document that declares the reference or edge. `duplicate-id`, `alias-collision` and `duplicate-req` emit one diagnostic on **every** involved document, each listing the others in `candidates`.
+Anchors for cross-file diagnostics: `supersede-*`, `unresolved-ref`, `ambiguous-legacy-ref`, `invalid-ref` and `recorded-conflict` attach to the document that declares the reference or edge. `legacy-frozen-modified` attaches to the trusted-base archive path. `duplicate-id`, `alias-collision` and `duplicate-req` emit one diagnostic on **every** involved document, each listing the others in `candidates`.
 
 | Code | Trigger |
 | --- | --- |
@@ -116,6 +116,7 @@ Anchors for cross-file diagnostics: `supersede-*`, `unresolved-ref`, `ambiguous-
 | `alias-collision` | Alias equals another active canonical ID or alias |
 | `duplicate-req` / `missing-req` | REQ defined twice in active PRDs, or referenced in a governed doc but never defined |
 | `unresolved-ref` / `ambiguous-legacy-ref` / `invalid-ref` | Reference resolves to nothing, to several legacy documents, or is malformed |
+| `legacy-frozen-modified` | With a trusted base, legacy frontmatter changed or a surviving archive was reclassified out of legacy scope (error) |
 | `invalid-alias` | Alias is not a string ID, is self-referential, or uses the reserved `legacy:` prefix |
 | `invalid-host-config` | A host manifest's `projectDocs` failed to parse or validate |
 | `supersede-status-mismatch` / `supersede-cycle` | Effective edge to an active target that is not `superseded`; self or cyclic supersession |
@@ -155,7 +156,7 @@ Anchors for cross-file diagnostics: `supersede-*`, `unresolved-ref`, `ambiguous-
 - **Approval content digest** (`approval.content_digest`): sha256 over `JSON(frontmatter without status, effective_at, approval; keys sorted; UTF-8) + "\n" + body` (body in stored bytes). Excluding `approval` avoids self-reference; excluding activation fields lets activation keep the digest valid.
 - **Independence:** `drafted_by` (required on `approved` and `effective` revisions; missing → `approval-missing`) names the drafting author; `approval.by` equal to `drafted_by` → `approval-not-independent`. `approval.role` is `human` or `cold-verifier`. The checker verifies the record's presence, binding and independence, not that a review actually happened.
 - **Evidence envelope:** `analyzeDocs(docs, config, opts)` returns `{ diagnostics, evidence }` with `evidence.immutability` = `observed` | `not-observed` | `unavailable`. `lintDocs` stays the diagnostics-only projection. CLI JSON prints the envelope; exit 1 only for error diagnostics, and `not-observed` is always printed, never folded into success.
-- **Offline base inventory:** `analyzeDocs(docs, config, { baseInventory: [{ id, revision, path, status, bytes }] })` is equivalent to a Git base; `bytes` are stored bytes. It must yield the same diagnostics as the equivalent `--base`.
+- **Offline base inventory:** `analyzeDocs(docs, config, { baseInventory: [{ id, revision, path, status, bytes }] })` supplies stored baseline bytes for offline checks. For Git-equivalent legacy freezing, supply either per-entry boolean `legacy` classifications computed under the per-source rule or `baseConfigSources`; when both are supplied, `baseConfigSources` takes precedence and applies the source rule. Without either, legacy classification is not established for unflagged rows, which are not frozen, and `evidence.legacyImmutability` reports `not-observed` while byte-based `evidence.immutability` remains `observed`. Candidate classification uses `options.configSources` when supplied, otherwise `config`; equivalent trusted bytes and authority inputs must yield the same diagnostics as `--base`.
 - Tests isolate Git (no global/system config, hooks, templates or signing; explicit `core.autocrlf` and attributes) and compute expected digests independently of the system under test.
 
 ### Immutability evidence
