@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.32.0](https://github.com/dyphn1/Harness-everything/compare/v0.31.3...v0.32.0) (2026-10-17)
+
+### Features
+
+* **workflow:** add declarative step-type registry with doc-change ([#326](https://github.com/dyphn1/Harness-everything/issues/326)) ([aca941a](https://github.com/dyphn1/Harness-everything/commit/aca941ae704da48653d9f4d2654496e399e62fbc))
+
+### Bug Fixes
+
+* **workflow:** keep registry-independent commands working when the registry fails ([46900fd](https://github.com/dyphn1/Harness-everything/commit/46900fd4c8342163b1c5013a0d7e14dca920c560))
+* **workflow:** restore record-plan spacing and state registry revision policy ([a5283cd](https://github.com/dyphn1/Harness-everything/commit/a5283cd203ea664b59659bdf7fd101ad27972ed9))
+
 ## [0.31.3](https://github.com/dyphn1/Harness-everything/compare/v0.31.2...v0.31.3) (2026-10-16)
 
 ### Bug Fixes
