@@ -33,6 +33,14 @@ function issueMemoryCapability(workflow) {
   return token;
 }
 
+function needsStepTypeRegistry(plan) {
+  return Boolean(
+    plan && plan.strategySelection === 'selected' &&
+    ['tier2', 'tier3'].includes(plan.tier) && plan.strategy &&
+    !String(plan.strategy).startsWith('fable-')
+  );
+}
+
 // Host-generated background-task notifications arrive as UserPromptSubmit
 // hook payloads but are not user input (#168). Routing them like prompts
 // replaces the workflow contract mid-turn (e.g. deferred -> a new Tier-2).
@@ -49,6 +57,15 @@ function persistWorkflow(contract, payload, prompt) {
   if (!payload || !(payload.session_id || payload.sessionId)) return null;
   const { runtime, hooksRoot } = loadRuntime();
   const context = runtime.loadWorkflow(payload);
+  const hasRetainedWorkflow = Boolean(context.workflow && runtime.OPEN_STATES.has(context.workflow.state));
+  const activePlan = hasRetainedWorkflow ? context.workflow.workflowPlan : plan;
+  if (needsStepTypeRegistry(activePlan)) {
+    try { require(path.join(hooksRoot, 'lib/workflow-obligations')); }
+    catch (error) {
+      if (hasRetainedWorkflow) return { ...context, hooksRoot, retained: true, registryError: error };
+      throw error;
+    }
+  }
   const { writeCurrentSession } = require(path.join(hooksRoot, 'lib/harness-state'));
   writeCurrentSession(context.root, context.sessionId);
   if (isHostNotificationPrompt(prompt)) {
@@ -121,8 +138,8 @@ function activeExecutionFor(persisted, plan) {
     const obligations = require(path.join(persisted.hooksRoot, 'lib/workflow-obligations'));
     const loaded = obligations.loadObligationSet(persisted, plan);
     return { activeStep: loaded.set ? obligations.activeStepSnapshot(loaded.set) : null };
-  } catch (_) {
-    return null;
+  } catch (error) {
+    return { error: error && error.message ? error.message : String(error) };
   }
 }
 
@@ -163,10 +180,15 @@ function run(raw) {
   if (persisted?.retained && persisted.workflow) {
     if (persisted.hostNotification) console.log('\n=> Host notification: routing unchanged; keeping the active execution contract.');
     else console.log('\n=> Retaining unresolved workflow; showing its compact active contract.');
-    const activeExecution = activeExecutionFor(persisted, plan) || {};
+    const activeExecution = persisted.registryError
+      ? { error: persisted.registryError.message || String(persisted.registryError) }
+      : activeExecutionFor(persisted, plan) || {};
     const activeStep = activeExecution.activeStep || null;
     const activeStages = activeExecution.activeStages || [];
     core.printRetainedWorkflow(plan, persisted.workflow, activeStep, activeStages);
+    if (activeExecution.error) {
+      console.log('   - [Workflow Reminder] Active-step context unavailable: ' + activeExecution.error);
+    }
     if (activeStep) {
       const controller = path.join(persisted.hooksRoot, 'workflow-disposition.js');
       console.log('   - Resolve only bindings for this active step, then pass this step with evidence.');

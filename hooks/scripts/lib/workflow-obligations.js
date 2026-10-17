@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { atomicWriteJson, readJson } = require('./fable-contracts');
 const { resolveBinding, PACKAGED_BINDING_PATHS: BINDING_PATHS } = require('./binding-resolver');
@@ -8,13 +9,88 @@ const OBLIGATION_SCHEMA_VERSION = 1;
 const OBLIGATION_FILE = 'workflow-obligations.json';
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const ALLOWED_ESCAPE_REASONS = new Set(['workflow-uncovered-scope', 'host-capability-unavailable']);
-const STEP_TYPES = new Set(['review', 'behavior-change', 'verification', 'commit']);
-const REQUIRED_BINDINGS_BY_STEP = {
-  review: [],
-  'behavior-change': ['tdd'],
-  verification: ['verification-loop'],
-  commit: ['git-commit'],
-};
+const STEP_TYPE_REGISTRY_FILE = path.join(__dirname, 'step-types.json');
+
+function validateStepTypeRegistry(registry) {
+  const errors = [];
+  if (!Array.isArray(registry) || registry.length === 0) {
+    throw new Error('invalid step-type registry: expected a non-empty array');
+  }
+  const idCounts = new Map();
+  const bindingFields = ['requiredBindings', 'optionalBindings', 'forbiddenBindings'];
+  for (const entry of registry) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      errors.push('entry must be an object');
+      continue;
+    }
+    const id = typeof entry.id === 'string' ? entry.id : '';
+    const validId = SAFE_ID.test(id) && id === id.trim();
+    const label = validId ? `step type ${id}` : 'step type with invalid id';
+    if (!validId) errors.push(`${label} must declare a stable id`);
+    else idCounts.set(id, (idCounts.get(id) || 0) + 1);
+    if (typeof entry.evidenceHint !== 'string' || !entry.evidenceHint.trim()) {
+      errors.push(`${label} evidenceHint must be a non-empty string`);
+    }
+    const valuesByField = new Map();
+    for (const field of bindingFields) {
+      if (!Array.isArray(entry[field])) {
+        errors.push(`${label} ${field} must be an array`);
+        valuesByField.set(field, []);
+        continue;
+      }
+      const values = [];
+      for (const binding of entry[field]) {
+        if (typeof binding !== 'string' || !SAFE_ID.test(binding) || binding !== binding.trim()) {
+          errors.push(`${label} ${field} entries must be stable binding ids`);
+          continue;
+        }
+        values.push(binding);
+      }
+      const unique = [...new Set(values)].sort();
+      if (unique.length !== values.length) errors.push(`${label} ${field} contains duplicate binding ids`);
+      valuesByField.set(field, unique);
+    }
+    for (const [left, right] of [
+      ['requiredBindings', 'optionalBindings'],
+      ['requiredBindings', 'forbiddenBindings'],
+      ['optionalBindings', 'forbiddenBindings'],
+    ]) {
+      const rightValues = new Set(valuesByField.get(right) || []);
+      for (const binding of valuesByField.get(left) || []) {
+        if (rightValues.has(binding)) errors.push(`${label} has conflicting ${left} and ${right} default for ${binding}`);
+      }
+    }
+  }
+  for (const id of [...idCounts.keys()].sort()) {
+    if (idCounts.get(id) > 1) errors.push(`duplicate step type id ${id}`);
+  }
+  if (errors.length) throw new Error('invalid step-type registry: ' + [...new Set(errors)].sort().join('; '));
+  return registry.map(entry => ({
+    id: entry.id,
+    requiredBindings: [...entry.requiredBindings],
+    optionalBindings: [...entry.optionalBindings],
+    forbiddenBindings: [...entry.forbiddenBindings],
+    evidenceHint: entry.evidenceHint.trim(),
+  })).sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+}
+
+function loadStepTypeRegistry(registryFile = STEP_TYPE_REGISTRY_FILE) {
+  const resolvedRegistryFile = path.resolve(registryFile);
+  try {
+    const parsed = JSON.parse(fs.readFileSync(resolvedRegistryFile, 'utf8'));
+    return validateStepTypeRegistry(parsed);
+  } catch (error) {
+    throw new Error(
+      `cannot load step-type registry ${resolvedRegistryFile}: ${error.message}. ` +
+      `Repair action: reinstall or update the Harness plugin so this file is restored; in a Harness source checkout, restore it and run npm run plugin:sync.`,
+    );
+  }
+}
+
+const STEP_TYPE_REGISTRY = loadStepTypeRegistry();
+const STEP_TYPE_REGISTRY_BY_ID = new Map(STEP_TYPE_REGISTRY.map(entry => [entry.id, entry]));
+const STEP_TYPE_IDS = [...STEP_TYPE_REGISTRY_BY_ID.keys()].sort();
+const STEP_TYPES = new Set(STEP_TYPE_IDS);
 
 function obligationPath(sessionDir) {
   return path.join(sessionDir, OBLIGATION_FILE);
@@ -145,7 +221,9 @@ function parseRequirements(requirementsJson, workspaceRoot) {
       ? [...new Set(item.suggestedSkills.filter(value => typeof value === 'string' && value.trim()).map(value => value.trim()))]
       : [];
     const rawStepType = item.stepType === undefined ? '' : String(item.stepType).trim();
-    if (rawStepType && !STEP_TYPES.has(rawStepType)) throw new Error(`unsupported requirement stepType: ${rawStepType}`);
+    if (rawStepType && !STEP_TYPES.has(rawStepType)) {
+      throw new Error(`unsupported requirement stepType: ${rawStepType}; registered step types: ${STEP_TYPE_IDS.join(', ')}`);
+    }
     for (const field of ['requiredBindings', 'optionalBindings']) {
       if (Object.prototype.hasOwnProperty.call(item, field) && !Array.isArray(item[field])) {
         throw new Error(`${id}.${field} must be an array`);
@@ -154,18 +232,20 @@ function parseRequirements(requirementsJson, workspaceRoot) {
     const requirement = { id, order: index + 1, summary, acceptance, suggestedSkills };
     if (!rawStepType) return requirement;
 
+    const stepType = STEP_TYPE_REGISTRY_BY_ID.get(rawStepType);
     const requiredBindings = normalizeBindingDeclarations([
-      ...(REQUIRED_BINDINGS_BY_STEP[rawStepType] || []),
+      ...(stepType.requiredBindings || []),
       ...(item.requiredBindings || []),
     ]);
     const requiredIds = new Set(requiredBindings.map(binding => binding.id));
     const optionalBindings = normalizeBindingDeclarations([
+      ...(stepType.optionalBindings || []),
       ...(item.optionalBindings || []),
       ...suggestedSkills,
     ]).filter(binding => !requiredIds.has(binding.id));
-    if (rawStepType === 'review' && [...requiredBindings, ...optionalBindings].some(binding => binding.id === 'tdd')) {
-      throw new Error('review steps cannot bind tdd');
-    }
+    const forbiddenBinding = [...requiredBindings, ...optionalBindings]
+      .find(binding => stepType.forbiddenBindings.includes(binding.id));
+    if (forbiddenBinding) throw new Error(`${rawStepType} steps cannot bind ${forbiddenBinding.id}`);
     requirement.stepType = rawStepType;
     requirement.status = 'pending';
     requirement.evidence = null;
@@ -268,7 +348,7 @@ function recordPlanning(context, requirementsJson, selectedPlan, requestedStrate
   }
   const isFable = String(selectedPlan.strategy || '').startsWith('fable-');
   if (!isFable && !hasTypedSteps) {
-    throw new Error('selected single-agent workflows require ordered stepType values: review, behavior-change, verification, or commit');
+    throw new Error(`selected single-agent workflows require ordered stepType values: ${STEP_TYPE_IDS.join(', ')}`);
   }
   if (!isFable && !requirements.some(item => item.stepType === 'verification')) {
     throw new Error('step-bound workflows require an explicit verification step');
@@ -585,6 +665,7 @@ function unresolvedObligations(context) {
 module.exports = {
   OBLIGATION_FILE,
   ALLOWED_ESCAPE_REASONS,
+  validateStepTypeRegistry,
   obligationPath,
   needsPlanningContract,
   needsGenericExecutionObligations,

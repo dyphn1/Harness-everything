@@ -3,13 +3,13 @@
 const path = require('path');
 const { readJson } = require('./lib/fable-contracts');
 const { loadWorkflow, saveWorkflow, matchingRun, unresolvedStages, readHookInput } = require('./lib/workflow-runtime');
-const { planningUnresolved, unresolvedObligations } = require('./lib/workflow-obligations');
 
 function warn(message) { console.error('[Workflow Reminder] ' + message); }
 
 function decide(payload) {
   if (!payload) return;
   try {
+    const { planningUnresolved, unresolvedObligations } = require('./lib/workflow-obligations');
     const context = loadWorkflow(payload);
     const { workflow, sessionDir } = context;
     if (!workflow || workflow.state === 'deferred') return;
