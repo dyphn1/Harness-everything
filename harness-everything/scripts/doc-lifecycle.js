@@ -1279,7 +1279,7 @@ function lintDocs(docs, config, options = {}) {
 
   // Scan prose for references, excluding fenced examples. REQ references get a
   // dedicated missing-req diagnostic when no active PRD defines that ID.
-  const referencePattern = /(?:^|[^A-Za-z0-9_-])((?:legacy:)?(?:PRD-[A-Z][A-Z0-9]{1,9}-\d{3,}|REQ-[A-Z][A-Z0-9]{1,9}-\d{3,}|[A-Z][A-Z0-9]{1,9}-\d{3,})(?:@[^\s`<>()\[\]{}]+)?)/g;
+  const referencePattern = /(?:^|[^A-Za-z0-9_-])((?:legacy:)?(?:PRD-[A-Z][A-Z0-9]{1,9}-\d{3,}|REQ-[A-Z][A-Z0-9]{1,9}-\d{3,}|[A-Z][A-Z0-9]{1,9}-\d{3,})(?:[@#][^\s`<>()\[\]{}]+)?)/g;
   for (const doc of governed) {
     if (doc.error) continue;
     const body = withoutFencedCode(doc.body || '');
@@ -1604,7 +1604,7 @@ function readGitBaseInventory(root, baseRef, config, explicitConfigPath = null) 
   }
 }
 
-function baseIdPaths(inventory, config, baseConfigSources = []) {
+function baseIdPaths(inventory, config, baseConfigSources = null) {
   const result = new Map();
   const add = (id, relative) => {
     if (typeof id !== 'string' || !id || typeof relative !== 'string') return;
@@ -1615,7 +1615,9 @@ function baseIdPaths(inventory, config, baseConfigSources = []) {
     if (!item || typeof item.id !== 'string' || typeof item.path !== 'string') continue;
     add(item.id, item.path);
     for (const alias of asList(item.frontmatter && item.frontmatter.aliases)) add(alias, item.path);
-    const isPrdArtifact = governedPrdPath(item.path, [config, ...(baseConfigSources || [])])
+    const isPrdArtifact = (Array.isArray(baseConfigSources)
+      ? governedPrdPath(item.path, baseConfigSources)
+      : governedPrdPath(item.path, [config]))
       || item.frontmatter && item.frontmatter.role === 'prd'
       || item.frontmatter && Object.prototype.hasOwnProperty.call(item.frontmatter, 'revision')
       || item.path.startsWith('docs/prd/') && !item.path.includes('/legacy/');
@@ -1741,7 +1743,7 @@ function migrationDiagnostics(docs, root, baseInventory, baseFiles = null, baseC
   const livingSources = [...baseByPath.values()].filter(item => {
     const parsed = parseFrontmatter(item.bytes.toString('utf8'));
     return !parsed.error
-      && (baseConfigSources && baseConfigSources.length
+      && (Array.isArray(baseConfigSources)
         ? governedPrdPath(item.path, baseConfigSources)
         : roleAtPath(item.path, null, true) === 'prd')
       && !Object.prototype.hasOwnProperty.call(parsed.data || {}, 'revision')
@@ -1879,7 +1881,17 @@ function isLegacyPath(relativePath, config) {
   return matchesAny(relativePath, Array.isArray(config && config.legacy) ? config.legacy : []);
 }
 
-function objectiveChangedPaths(baseFiles, candidateFiles, config, baseConfig, baseConfigSources = null) {
+function roleInConfigSources(relativePath, configSources) {
+  for (const source of Array.isArray(configSources) ? configSources : configSources ? [configSources] : []) {
+    const entry = (Array.isArray(source && source.governed) ? source.governed : [])
+      .find(item => item && typeof item.path === 'string' && matchesAny(relativePath, [item.path]));
+    if (!entry || matchesAny(relativePath, Array.isArray(source.legacy) ? source.legacy : [])) continue;
+    if (typeof entry.role === 'string') return entry.role;
+  }
+  return null;
+}
+
+function objectiveChangedPaths(baseFiles, candidateFiles, config, baseConfig, baseConfigSources = null, candidateConfigSources = null) {
   const baseByPath = new Map((baseFiles || []).filter(item => item && typeof item.path === 'string')
     .map(item => [item.path, Buffer.from(item.bytes || [])]));
   const candidateByPath = new Map((candidateFiles || []).filter(item => item && typeof item.path === 'string')
@@ -1888,17 +1900,28 @@ function objectiveChangedPaths(baseFiles, candidateFiles, config, baseConfig, ba
     ...(Array.isArray(config && config.governed) ? config.governed.map(item => item && item.path) : []),
     ...(Array.isArray(config && config.legacy) ? config.legacy : [])
   ].filter(value => typeof value === 'string');
+  const currentSources = Array.isArray(candidateConfigSources) ? candidateConfigSources : [config];
   const basePatterns = [
     ...(Array.isArray(baseConfig && baseConfig.governed) ? baseConfig.governed.map(item => item && item.path) : []),
     ...(Array.isArray(baseConfig && baseConfig.legacy) ? baseConfig.legacy : [])
   ].filter(value => typeof value === 'string');
+  if (Array.isArray(baseConfigSources)) {
+    basePatterns.push(...baseConfigSources.flatMap(source => [
+      ...(Array.isArray(source && source.governed) ? source.governed.map(item => item && item.path) : []),
+      ...(Array.isArray(source && source.legacy) ? source.legacy : [])
+    ]).filter(value => typeof value === 'string'));
+  }
   const paths = new Set([...baseByPath.keys(), ...candidateByPath.keys()]);
   const changed = new Set();
   for (const relativePath of paths) {
-    const currentRole = roleAtPath(relativePath, config);
-    const baseRole = roleAtPath(relativePath, baseConfig, !baseConfig);
-    const currentLegacy = isLegacyPath(relativePath, config);
-    const baseLegacy = isLegacyPath(relativePath, baseConfig);
+    const currentRole = roleInConfigSources(relativePath, currentSources);
+    const baseRole = Array.isArray(baseConfigSources)
+      ? roleInConfigSources(relativePath, baseConfigSources)
+      : roleAtPath(relativePath, baseConfig, !baseConfig);
+    const currentLegacy = isLegacyInConfigSources(relativePath, currentSources);
+    const baseLegacy = Array.isArray(baseConfigSources)
+      ? isLegacyInConfigSources(relativePath, baseConfigSources)
+      : isLegacyPath(relativePath, baseConfig);
     const currentInScope = Boolean(currentRole || currentLegacy);
     const baseInScope = Boolean(baseRole || baseLegacy);
     if (!currentInScope && !baseInScope && !matchesAny(relativePath, [...currentPatterns, ...basePatterns])) continue;
@@ -1908,7 +1931,7 @@ function objectiveChangedPaths(baseFiles, candidateFiles, config, baseConfig, ba
       changed.add(relativePath);
       continue;
     }
-    const basePrd = baseConfigSources && baseConfigSources.length
+    const basePrd = Array.isArray(baseConfigSources)
       ? governedPrdPath(relativePath, baseConfigSources)
       : baseRole === 'prd' && !baseLegacy;
     if (currentRole === 'prd' && !currentLegacy && !basePrd) changed.add(relativePath);
@@ -1948,6 +1971,16 @@ function analyzeDocs(docs, config, options = {}) {
     if (baseState.available) { inventory = baseState.inventory; baseFiles = baseState.files; disposition = 'observed'; }
     else disposition = 'unavailable';
   }
+  const resolvedBaseConfigSources = suppliedBaseConfigSources !== null
+    ? suppliedBaseConfigSources
+    : baseState && Array.isArray(baseState.configSources) && baseState.configSources.length
+      ? baseState.configSources
+      : null;
+  const resolvedBaseConfig = baseState && baseState.config
+    || (Array.isArray(resolvedBaseConfigSources) ? {
+      governed: resolvedBaseConfigSources.flatMap(source => Array.isArray(source && source.governed) ? source.governed : []),
+      legacy: resolvedBaseConfigSources.flatMap(source => Array.isArray(source && source.legacy) ? source.legacy : [])
+    } : null);
   const normalizedInventory = inventory || [];
   const candidatePatterns = [
     ...(Array.isArray(config && config.governed) ? config.governed.map(item => item && item.path) : []),
@@ -1956,8 +1989,12 @@ function analyzeDocs(docs, config, options = {}) {
       ...(Array.isArray(source && source.governed) ? source.governed.map(item => item && item.path) : []),
       ...(Array.isArray(source && source.legacy) ? source.legacy : [])
     ]),
-    ...(Array.isArray(baseState && baseState.config && baseState.config.governed) ? baseState.config.governed.map(item => item && item.path) : []),
-    ...(Array.isArray(baseState && baseState.config && baseState.config.legacy) ? baseState.config.legacy : []),
+    ...(Array.isArray(resolvedBaseConfig && resolvedBaseConfig.governed) ? resolvedBaseConfig.governed.map(item => item && item.path) : []),
+    ...(Array.isArray(resolvedBaseConfig && resolvedBaseConfig.legacy) ? resolvedBaseConfig.legacy : []),
+    ...(Array.isArray(resolvedBaseConfigSources) ? resolvedBaseConfigSources.flatMap(source => [
+      ...(Array.isArray(source && source.governed) ? source.governed.map(item => item && item.path) : []),
+      ...(Array.isArray(source && source.legacy) ? source.legacy : [])
+    ]) : []),
     // Discover conventional artifacts, but do not grant them base authority.
     'docs/prd/**'
   ].filter(value => typeof value === 'string');
@@ -1972,16 +2009,16 @@ function analyzeDocs(docs, config, options = {}) {
     : entries.map(doc => ({ path: doc.path, bytes: docBytes(doc) }));
   const changedPaths = new Set((Array.isArray(options.changedPaths) ? options.changedPaths : []).map(String));
   if (disposition === 'observed') {
-    for (const relativePath of objectiveChangedPaths(baseFiles, candidateFiles, config, baseState && baseState.config, baseState && baseState.configSources)) changedPaths.add(relativePath);
+    for (const relativePath of objectiveChangedPaths(baseFiles, candidateFiles, config, resolvedBaseConfig, resolvedBaseConfigSources, candidateConfigSources)) changedPaths.add(relativePath);
   }
   const frozenBaseInventory = immutableBasePrdInventory(
     normalizedInventory,
-    baseState && baseState.configSources,
+    resolvedBaseConfigSources,
     explicitBaseInventory
   );
   const additionalDiagnostics = [];
   if (disposition === 'observed') {
-    const baseLegacyConfigSources = explicitBaseInventory ? suppliedBaseConfigSources : baseState && baseState.configSources;
+    const baseLegacyConfigSources = resolvedBaseConfigSources;
     additionalDiagnostics.push(...legacyHistoryDiagnostics(baseFiles, candidateFiles, candidateConfigSources, baseLegacyConfigSources));
     const candidateInventory = root
       ? candidateFiles.map(item => parseInventoryDoc(item.path, item.bytes)).filter(Boolean)
@@ -1999,7 +2036,7 @@ function analyzeDocs(docs, config, options = {}) {
     const transitionDocs = new Map(entries.map(doc => [doc.path, doc]));
     const explicitBaselinePaths = new Set(explicitBaseInventory ? normalizedInventory.map(item => item.path) : []);
     for (const file of candidateFiles) {
-      const basePrd = explicitBaselinePaths.has(file.path) || governedPrdPath(file.path, baseState && baseState.configSources);
+      const basePrd = explicitBaselinePaths.has(file.path) || governedPrdPath(file.path, resolvedBaseConfigSources);
       const currentPrd = roleAtPath(file.path, config) === 'prd' && !isLegacyPath(file.path, config);
       if (!basePrd && !currentPrd) continue;
       if (transitionDocs.has(file.path)) continue;
@@ -2018,7 +2055,7 @@ function analyzeDocs(docs, config, options = {}) {
     }
     const transitionCandidates = [...transitionDocs.values()];
     additionalDiagnostics.push(...transitionDiagnostics(transitionCandidates, frozenBaseInventory, root));
-    additionalDiagnostics.push(...migrationDiagnostics(entries, root, normalizedInventory, baseFiles, baseState && baseState.configSources));
+    additionalDiagnostics.push(...migrationDiagnostics(entries, root, normalizedInventory, baseFiles, resolvedBaseConfigSources));
   }
   const preliminaryRetirementPrefix = options._retirementEligibleSources instanceof Set
     ? options._retirementEligibleSources
@@ -2030,7 +2067,7 @@ function analyzeDocs(docs, config, options = {}) {
     _graph: graph,
     _retirementEligibleSources: preliminaryRetirementPrefix,
     _retirementValidationDiagnostics: additionalDiagnostics,
-    _baseIdPaths: disposition === 'observed' ? baseIdPaths(normalizedInventory, config, baseState && baseState.configSources) : undefined
+    _baseIdPaths: disposition === 'observed' ? baseIdPaths(normalizedInventory, config, resolvedBaseConfigSources) : undefined
   };
   // Namespace and REQ collisions are computed by lintDocs and do not depend on
   // retirement eligibility. Collect the complete authority findings once with
@@ -2271,26 +2308,71 @@ function parseCli(argv) {
       if (arg === '--base') options.base = value;
     } else throw new Error(`unknown argument: ${arg}`);
   }
-  if (!['lint', 'index'].includes(command)) throw new Error('usage: doc-lifecycle.js <lint|index> --workspace <dir> --config <json-file> [--changed a,b | --all] [--base <git-rev>]');
+  if (!['lint', 'index'].includes(command)) throw new Error('usage: doc-lifecycle.js <lint|index> --workspace <dir> --config <json-file, relative to --workspace> [--changed a,b | --all] [--base <git-rev>]');
   if (!options.workspace || !options.configFile) throw new Error('--workspace and --config are required');
   if (!options.changedProvided && !options.all) throw new Error('lint and index require --changed or --all');
   if (options.all && options.changedProvided) throw new Error('choose either --changed or --all');
   return options;
 }
 
+function normalizeChangedPath(workspacePath, value) {
+  const input = String(value).trim().replace(/\\/g, '/');
+  if (!input) throw new Error('--changed entries must name files within --workspace');
+  if (path.sep !== '\\' && /^[A-Za-z]:\//.test(input)) {
+    throw new Error(`--changed path is outside --workspace: ${value}`);
+  }
+  const absolute = path.isAbsolute(input) ? path.resolve(input) : path.resolve(workspacePath, input);
+  const relative = path.relative(workspacePath, absolute);
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error(`--changed path is outside --workspace or does not name a file: ${value}`);
+  }
+  return relative.split(path.sep).join('/');
+}
+
+function validateExplicitConfig(config, configPath) {
+  let validateDocsConfig;
+  try {
+    ({ validateDocsConfig } = require('../../multi-agent-workspace/scripts/project-docs-resolver'));
+  } catch (error) {
+    throw new Error(`cannot load shared project-docs validator for ${configPath}: ${error.message}`);
+  }
+  if (typeof validateDocsConfig !== 'function') {
+    throw new Error(`shared project-docs validator for ${configPath} does not export validateDocsConfig`);
+  }
+  const result = validateDocsConfig(config);
+  if (!result.valid) {
+    const details = result.diagnostics.map(item => `${item.code}: ${item.message}`).join('; ');
+    throw new Error(`invalid project-docs config at ${configPath}: ${details}`);
+  }
+}
+
 function main(argv = process.argv.slice(2)) {
   let options;
   try { options = parseCli(argv); } catch (error) { process.stderr.write(`${error.message}\n`); return 2; }
+  const workspacePath = path.resolve(options.workspace);
+  if (options.changedProvided) {
+    try { options.changedPaths = options.changedPaths.map(item => normalizeChangedPath(workspacePath, item)); } catch (error) {
+      process.stderr.write(`${error.message}\n`);
+      return 2;
+    }
+  }
+  const configPath = path.isAbsolute(options.configFile)
+    ? path.resolve(options.configFile)
+    : path.resolve(workspacePath, options.configFile);
   let config;
-  try { config = JSON.parse(fs.readFileSync(path.resolve(options.configFile), 'utf8')); } catch (error) {
+  try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch (error) {
     process.stderr.write(`cannot read config: ${error.message}\n`);
     return 2;
   }
-  const docs = collectDocs(path.resolve(options.workspace), config);
+  try { validateExplicitConfig(config, configPath); } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    return 2;
+  }
+  const docs = collectDocs(workspacePath, config);
   const mode = {
     ...(options.all ? { all: true } : { changedPaths: options.changedPaths }),
-    workspace: path.resolve(options.workspace), base: options.base, configPath: path.resolve(options.configFile),
-    configSources: readWorkspaceConfigSources(path.resolve(options.workspace), path.resolve(options.configFile), config)
+    workspace: workspacePath, base: options.base, configPath,
+    configSources: readWorkspaceConfigSources(workspacePath, configPath, config)
   };
   const analysis = analyzeDocs(docs, config, mode);
   if (options.command === 'index') {

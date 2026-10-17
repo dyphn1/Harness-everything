@@ -1831,6 +1831,14 @@ checkCase('2ay case 8. isolated source, Claude, and Codex package trees agree on
   const codexCopyRoot = path.join(tempRoot, 'isolated Codex plugin', 'harness-everything');
   fs.cpSync(sourceSkillRoot, claudeCopyRoot, { recursive: true });
   fs.cpSync(packagedRoot, codexCopyRoot, { recursive: true });
+  const resolverCopies = [
+    [path.join(__dirname, '..', 'multi-agent-workspace', 'scripts', 'project-docs-resolver.js'), path.join(path.dirname(claudeCopyRoot), 'multi-agent-workspace', 'scripts', 'project-docs-resolver.js')],
+    [path.join(path.dirname(packagedRoot), 'multi-agent-workspace', 'scripts', 'project-docs-resolver.js'), path.join(path.dirname(codexCopyRoot), 'multi-agent-workspace', 'scripts', 'project-docs-resolver.js')]
+  ];
+  for (const [source, target] of resolverCopies) {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(source, target);
+  }
 
   const packageFixtureRoot = path.join(fixtureRoot, 'packaged');
   const expected = JSON.parse(fs.readFileSync(path.join(packageFixtureRoot, 'expected.json'), 'utf8'));
@@ -1932,6 +1940,19 @@ checkCase('2ay case 8. isolated source, Claude, and Codex package trees agree on
   assert.strictEqual(JSON.stringify(valid.diff), JSON.stringify(valid.reverseDiff), 'diff output is deterministic under reversed history input');
   assert.ok(results[0].invalid.diagnostics.some(item => item.code === 'revision-fork'), 'packaged diagnostic fixture produces its specified fork finding');
   assert.strictEqual(results[0].invalid.current.path, null, 'forked graph has no arbitrary current revision');
+
+  const invalidConfigRoot = path.join(tempRoot, 'package-cli-invalid-config');
+  fs.mkdirSync(invalidConfigRoot, { recursive: true });
+  const invalidConfigPath = path.join(invalidConfigRoot, 'config.json');
+  fs.writeFileSync(invalidConfigPath, JSON.stringify({ governed: 'docs/adr/**' }), 'utf8');
+  for (const [name, runtimePath] of runtimes) {
+    const child = spawnSync(process.execPath, [runtimePath, 'lint', '--workspace', invalidConfigRoot, '--config', invalidConfigPath, '--all'], {
+      cwd: tempRoot, encoding: 'utf8', env: gitEnvironment()
+    });
+    assert.ifError(child.error);
+    assert.strictEqual(child.status, 2, `${name} CLI rejects malformed explicit config: ${child.stdout} ${child.stderr}`);
+    assert.match(child.stderr, /invalid project-docs config.*invalid-governed/i, `${name} CLI uses the shared config validator`);
+  }
 });
 
 // Codex review fix round 1 — close parity, authorization, continuity and
@@ -2644,6 +2665,144 @@ checkCase('2ay review3 P1. independent PRD authority retains deleted living requ
   assert.ok(finding, 'consumer has an unresolved requirement reference');
   assert.strictEqual(finding.severity, 'error', 'deleted governed requirement contributes its changed base path');
   assert.ok(finding.candidates.includes(relativePath), 'diagnostic retains the trusted requirement path');
+});
+
+checkCase('2ay dogfood A. offline baseInventory shares historical sources across migration, REQ identity and objective change checks', () => {
+  const governedSource = {
+    governed: [
+      { path: 'specifications/contracts/**', role: 'prd' },
+      { path: 'docs/reports/**', role: 'report' }
+    ],
+    domains: ['GRPH'], legacy: []
+  };
+  const competingLegacySource = {
+    governed: [], domains: ['GRPH'], legacy: ['specifications/contracts/**']
+  };
+  const configSources = [governedSource, competingLegacySource];
+  const config = governedSource;
+  const offlineRun = (root, inventory, extras = {}) => {
+    const {
+      config: candidateConfig = config,
+      configSources: candidateConfigSources = configSources,
+      baseConfigSources = configSources,
+      ...analysisExtras
+    } = extras;
+    const inputPath = path.join(tempRoot, `offline-authority-${crypto.randomBytes(6).toString('hex')}.json`);
+    fs.writeFileSync(inputPath, JSON.stringify({
+      root,
+      config: candidateConfig,
+      inventory: inventory.map(item => ({ ...item, bytes: Buffer.from(item.bytes || []).toString('base64') })),
+      configSources: candidateConfigSources,
+      baseConfigSources,
+      extras: analysisExtras
+    }), 'utf8');
+    const script = `
+      const fs = require('fs');
+      const lifecycle = require(process.argv[2]);
+      const input = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+      const inventory = input.inventory.map(item => ({ ...item, bytes: Buffer.from(item.bytes, 'base64') }));
+      const docs = lifecycle.collectDocs(input.root, input.config);
+      const result = lifecycle.analyzeDocs(docs, input.config, {
+        workspace: input.root,
+        baseInventory: inventory,
+        baseConfigSources: input.baseConfigSources,
+        configSources: input.configSources,
+        all: true,
+        ...input.extras
+      });
+      process.stdout.write(JSON.stringify(result));
+    `;
+    const child = spawnSync(process.execPath, ['-e', script, inputPath, modulePath], { cwd: tempRoot, encoding: 'utf8' });
+    assert.ifError(child.error);
+    assert.strictEqual(child.status, 0, `offline analyzer subprocess exits cleanly: ${child.stderr}`);
+    return JSON.parse(child.stdout);
+  };
+  const writeAuthoritySources = root => {
+    fs.writeFileSync(path.join(root, 'lifecycle-config.json'), JSON.stringify(config, null, 2), 'utf8');
+    const manifest = path.join(root, '.claude/harness-everything/manifest.json');
+    fs.mkdirSync(path.dirname(manifest), { recursive: true });
+    fs.writeFileSync(manifest, JSON.stringify({ projectDocs: competingLegacySource }, null, 2), 'utf8');
+  };
+
+  const migrationRoot = gitRepo('dogfood-offline-custom-migration');
+  writeAuthoritySources(migrationRoot);
+  const livingPath = 'specifications/contracts/graph/living.md';
+  const livingBody = '# Living contract\n\nAcceptance: keep this behavior.\n';
+  writeDoc(migrationRoot, livingPath, { id: 'PRD-GRPH-081', status: 'active' }, livingBody);
+  const base = commitAll(migrationRoot, 'custom-scope living baseline');
+  const oldBytes = gitBytes(migrationRoot, ['show', `${base}:${livingPath}`]);
+  const migratedFromDigest = sha256(oldBytes);
+  const migrationRecordPath = 'docs/migrations/prd-graph-081.json';
+  const approvalPath = 'docs/approvals/prd-migration-review.md';
+  const adoptedSeed = revisionDoc({
+    id: 'PRD-GRPH-081', revision: 1, status: 'effective', draftedBy: 'Legacy Contract Owner',
+    relativePath: livingPath, body: livingBody
+  });
+  const unrecordedAdoption = reviseFixture(adoptedSeed, {
+    approval: { ...adoptedSeed.frontmatter.approval, ref: approvalPath }
+  });
+  writeDoc(migrationRoot, livingPath, unrecordedAdoption.frontmatter, livingBody);
+  writeDoc(migrationRoot, approvalPath, { id: 'APPROVAL-081', status: 'final' }, '# Migration review\n');
+
+  const inventory = inventoryAt(migrationRoot, base);
+  const gitMissing = baseLint(migrationRoot, base);
+  const offlineMissing = offlineRun(migrationRoot, inventory);
+  expectCode(gitMissing.diagnostics, 'migration-record-missing');
+  expectCode(offlineMissing.diagnostics, 'migration-record-missing');
+  assert.deepStrictEqual(offlineMissing.diagnostics, gitMissing.diagnostics, 'custom-scope offline migration matches trusted Git analysis');
+
+  const adoptedSeedWithMetadata = revisionDoc({
+    id: 'PRD-GRPH-081', revision: 1, status: 'effective', draftedBy: 'Legacy Contract Owner',
+    migrated_from_digest: migratedFromDigest, migration_record: migrationRecordPath,
+    relativePath: livingPath, body: livingBody
+  });
+  const adopted = reviseFixture(adoptedSeedWithMetadata, {
+    approval: { ...adoptedSeedWithMetadata.frontmatter.approval, ref: approvalPath }
+  });
+  writeDoc(migrationRoot, livingPath, adopted.frontmatter, livingBody);
+  const migrationRecord = {
+    record: 'prd-baseline-migration', id: 'PRD-GRPH-081', revision: 1,
+    source: livingPath, migrated_from_digest: migratedFromDigest,
+    approved_by: adopted.frontmatter.approval.by
+  };
+  const recordPath = path.join(migrationRoot, ...migrationRecordPath.split('/'));
+  fs.mkdirSync(path.dirname(recordPath), { recursive: true });
+  fs.writeFileSync(recordPath, `${JSON.stringify(migrationRecord, null, 2)}\n`, 'utf8');
+  const gitValid = baseLint(migrationRoot, base);
+  const offlineValid = offlineRun(migrationRoot, inventory);
+  assert.deepStrictEqual(offlineValid.diagnostics, gitValid.diagnostics, 'valid metadata-only custom-scope adoption matches Git analysis');
+  forbidCode(offlineValid.diagnostics, 'migration-record-missing');
+  forbidCode(offlineValid.diagnostics, 'migration-record-mismatch');
+
+  const unchangedRoot = gitRepo('dogfood-offline-objective-unchanged');
+  writeAuthoritySources(unchangedRoot);
+  writeDoc(unchangedRoot, livingPath, { id: 'PRD-GRPH-082', status: 'active' }, livingBody);
+  const unchangedBase = commitAll(unchangedRoot, 'unchanged custom living PRD');
+  const unchangedResult = offlineRun(unchangedRoot, inventoryAt(unchangedRoot, unchangedBase));
+  const unchangedMigration = expectCode(unchangedResult.diagnostics, 'prd-migration-required');
+  assert.ok(unchangedMigration.every(item => item.severity === 'warning'), `competing historical legacy source cannot turn unchanged governed PRD into an error: ${JSON.stringify(unchangedMigration)}`);
+
+  const reqRoot = gitRepo('dogfood-offline-base-req-path');
+  writeAuthoritySources(reqRoot);
+  const reqPath = 'specifications/contracts/graph/requirements.md';
+  writeDoc(reqRoot, reqPath, { id: 'PRD-GRPH-083', status: 'active' }, '### REQ-GRPH-083: Retained requirement\n\nAcceptance: keep identity.\n');
+  const consumer = docObject('docs/reports/consumer.md', {
+    id: 'GRPH-084', status: 'final', supersedes: ['REQ-GRPH-083']
+  }, '# Consumer\n');
+  writeDoc(reqRoot, consumer.path, consumer.frontmatter, consumer.body);
+  const reqBase = commitAll(reqRoot, 'custom governed requirement baseline');
+  fs.rmSync(path.join(reqRoot, ...reqPath.split('/')));
+  const reportOnlyConfig = { governed: [{ path: 'docs/reports/**', role: 'report' }], domains: ['GRPH'], legacy: [] };
+  const reqResult = offlineRun(reqRoot, inventoryAt(reqRoot, reqBase), {
+    config: reportOnlyConfig,
+    configSources: [reportOnlyConfig],
+    all: false,
+    changedPaths: []
+  });
+  const unresolved = expectCode(reqResult.diagnostics, 'unresolved-ref').find(item => item.id === 'REQ-GRPH-083');
+  assert.ok(unresolved, `removed REQ resolves to the base identity entry: ${JSON.stringify(reqResult.diagnostics)}`);
+  assert.strictEqual(unresolved.severity, 'error', 'deleted custom governed requirement contributes its changed base path');
+  assert.ok(unresolved.candidates.includes(reqPath), 'unresolved ref retains the historical target path');
 });
 
 helper.finish();

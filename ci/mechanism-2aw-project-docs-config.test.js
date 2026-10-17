@@ -470,6 +470,46 @@ checkCase('2aw fix-325. validateDocsConfig rejects globs with empty path segment
   assert.strictEqual(canonical.valid, true, `docs/prd/** must stay valid: ${JSON.stringify(canonical.diagnostics)}`);
 });
 
+checkCase('2aw fix-327. validateDocsConfig rejects internal dot path segments and accepts canonical globs', () => {
+  for (const [field, buildValue, diagCode] of [
+    ['governed', v => [{ path: v, role: 'adr' }], 'invalid-governed-entry'],
+    ['legacy', v => [v], 'invalid-legacy-entry'],
+    ['derived', v => [{ path: v, generator: 'npm run docs:index' }], 'invalid-derived-entry'],
+  ]) {
+    for (const value of ['docs/./adr/**', 'docs/adr/./**']) {
+      const validation = resolver.validateDocsConfig({
+        docLocation: 'docs/',
+        domains: ['GRPH'],
+        [field]: buildValue(value),
+      });
+      assert.strictEqual(validation.valid, false, `${field} value ${JSON.stringify(value)} must be rejected`);
+      const diag = validation.diagnostics.find(item => item.code === diagCode);
+      assert.ok(diag, `expected diagnostic ${diagCode} for ${field} value ${JSON.stringify(value)}; got ${JSON.stringify(validation.diagnostics)}`);
+      assert.strictEqual(diag.severity, 'error');
+      assert.ok(diag.message.includes('must not contain "." path segments'), `diagnostic must state the internal-dot rule; got: ${diag.message}`);
+    }
+  }
+
+  const canonical = resolver.validateDocsConfig({
+    docLocation: 'docs/',
+    domains: ['GRPH'],
+    governed: [{ path: 'docs/adr/**', role: 'adr' }],
+    legacy: ['docs/adr/**'],
+    derived: [{ path: 'docs/gen/index.md', generator: 'npm run docs:index' }],
+  });
+  assert.strictEqual(canonical.valid, true, `docs/adr/** must stay valid: ${JSON.stringify(canonical.diagnostics)}`);
+});
+
+checkCase('2aw fix-327. resolver selection rejects a governed internal-dot glob as invalid with no config', () => {
+  const root = workspace('invalid-internal-dot-selection');
+  const projectFile = writeProjectConfig(root, { ...validConfig, governed: [{ path: 'docs/./adr/**', role: 'adr' }] });
+  const result = resolveDocsConfig(root);
+  assert.strictEqual(result.status, 'invalid');
+  assert.deepStrictEqual(result.sources, [relative(root, projectFile)]);
+  assert.strictEqual(result.config, null);
+  assert.ok(diagnosticCodes(result).includes('invalid-governed-entry'), `expected invalid-governed-entry; got ${JSON.stringify(diagnosticCodes(result))}`);
+});
+
 checkCase('2aw fix-325. resolver selection rejects a governed empty-segment glob as invalid with no config', () => {
   assert.strictEqual(typeof resolveDocsConfig, 'function', 'resolveDocsConfig export is required');
   const root = workspace('invalid-empty-segment-selection');

@@ -219,6 +219,7 @@ function getPatternIssue(value) {
   if (value.startsWith('./') || value === '.') return 'must be canonical (no leading "./")';
   if (value.startsWith('../')) return 'must be canonical (no leading "../")';
   if (value.split('/').includes('..')) return 'must not contain ".." segments';
+  if (value.split('/').includes('.')) return 'must not contain "." path segments';
   if (value.split('/').includes('')) return 'must not contain empty path segments (no "//" or trailing "/")';
   return null;
 }

@@ -817,6 +817,89 @@ checkCase('2ax. CLI requires explicit ratchet mode and exits 0 clean / 1 for err
   assert.strictEqual(output.evidence.immutability, 'not-observed');
 });
 
+checkCase('2ax dogfood. prose resolver receives whole scoped PRD tokens through the CLI', () => {
+  const root = workspace('cli-scoped-prose-reference');
+  const firstBody = '### REQ-IFCE-001: First requirement\n\nAcceptance: retain the first requirement.\n';
+  const secondBody = '### REQ-IFCE-002: Second requirement\n\nAcceptance: retain the second requirement.\n';
+  writeRevisionPrd(root, 'docs/prd/interface/r001.md', 'PRD-IFCE-001', firstBody);
+  writeRevisionPrd(root, 'docs/prd/interface/r002.md', 'PRD-IFCE-002', secondBody);
+  const configFile = path.join(root, 'config.json');
+  fs.writeFileSync(configFile, JSON.stringify(CONFIG), 'utf8');
+  const reportPath = 'docs/report/interface.md';
+  const writeReport = body => writeDoc(root, reportPath, { id: 'GRPH-901', status: 'final' }, body);
+  const run = () => spawnSync(process.execPath, [modulePath, 'lint', '--workspace', root, '--config', configFile, '--all'], { cwd: root, encoding: 'utf8' });
+
+  writeReport('See PRD-IFCE-001#REQ-IFCE-002.\n');
+  const wrongUnversioned = run();
+  assert.strictEqual(wrongUnversioned.status, 1, `foreign unversioned scoped REQ must fail: ${wrongUnversioned.stdout} ${wrongUnversioned.stderr}`);
+  assert.ok(JSON.parse(wrongUnversioned.stdout).diagnostics.some(item => item.code === 'unresolved-ref' && item.id === 'PRD-IFCE-001#REQ-IFCE-002'));
+
+  writeReport('See PRD-IFCE-001#REQ-IFCE-001 and PRD-IFCE-001@r1#REQ-IFCE-001.\n');
+  const validOwnRequirements = run();
+  assert.strictEqual(validOwnRequirements.status, 0, `unversioned and @r1 same-PRD scopes remain valid: ${validOwnRequirements.stdout} ${validOwnRequirements.stderr}`);
+  assert.deepStrictEqual(JSON.parse(validOwnRequirements.stdout).diagnostics, []);
+
+  writeReport('See PRD-IFCE-001@r1#REQ-IFCE-002.\n');
+  const wrongVersioned = run();
+  assert.strictEqual(wrongVersioned.status, 1, `versioned foreign scope remains rejected: ${wrongVersioned.stdout} ${wrongVersioned.stderr}`);
+});
+
+checkCase('2ax dogfood. lifecycle CLI validates explicit configs before collecting documents', () => {
+  const root = workspace('cli-config-validation');
+  writeDoc(root, 'docs/adr/decision.md', { status: 'accepted' }, 'A decision without an ID.\n');
+  const configFile = path.join(root, 'config.json');
+  const run = config => {
+    fs.writeFileSync(configFile, JSON.stringify(config), 'utf8');
+    return spawnSync(process.execPath, [modulePath, 'lint', '--workspace', root, '--config', configFile, '--all'], { cwd: root, encoding: 'utf8' });
+  };
+  for (const [name, invalidConfig, code] of [
+    ['malformed governed', { governed: 'docs/adr/**' }, 'invalid-governed'],
+    ['unknown role', { governed: [{ path: 'docs/adr/**', role: 'adrr' }] }, 'invalid-governed-role']
+  ]) {
+    const result = run(invalidConfig);
+    assert.notStrictEqual(result.status, 0, `${name} config must fail before collection: ${result.stdout} ${result.stderr}`);
+    assert.match(result.stderr, /invalid project-docs config/i);
+    assert.ok(result.stderr.includes(code), `${name} message identifies ${code}: ${result.stderr}`);
+  }
+  const valid = run({ governed: [{ path: 'docs/adr/**', role: 'adr' }] });
+  assert.strictEqual(valid.status, 1, `valid config reaches document schema checks: ${valid.stdout} ${valid.stderr}`);
+  assert.ok(JSON.parse(valid.stdout).diagnostics.some(item => item.code === 'missing-id'));
+});
+
+checkCase('2ax dogfood. CLI normalizes --changed spellings and rejects paths outside workspace', () => {
+  const root = workspace('cli-changed-path-normalization');
+  writeDoc(root, 'docs/adr/GRPH-001.md', { id: 'GRPH-001', status: 'accepted' });
+  writeDoc(root, 'docs/adr/GRPH-002.md', { id: 'GRPH-002', status: 'accepted', supersedes: ['GRPH-001'] });
+  const configFile = path.join(root, 'config.json');
+  fs.writeFileSync(configFile, JSON.stringify(CONFIG), 'utf8');
+  const run = changedPath => spawnSync(process.execPath, [modulePath, 'lint', '--workspace', root, '--config', configFile, '--changed', changedPath], { cwd: root, encoding: 'utf8' });
+  const expectedError = result => {
+    assert.strictEqual(result.status, 1, `changed invalid ADR must remain an error: ${result.stdout} ${result.stderr}`);
+    assert.ok(JSON.parse(result.stdout).diagnostics.some(item => item.code === 'supersede-status-mismatch' && item.severity === 'error'));
+  };
+  expectedError(run('docs/adr/GRPH-002.md'));
+  expectedError(run('./docs/adr/GRPH-002.md'));
+  expectedError(run(path.join(root, 'docs/adr/GRPH-002.md')));
+  expectedError(run('docs\\adr\\GRPH-002.md'));
+  const unrelated = run('docs/adr/unrelated.md');
+  assert.strictEqual(unrelated.status, 0, `unrelated changed path keeps cross-file warning severity: ${unrelated.stdout} ${unrelated.stderr}`);
+  assert.ok(JSON.parse(unrelated.stdout).diagnostics.some(item => item.code === 'supersede-status-mismatch' && item.severity === 'warning'));
+  const outside = run(path.resolve(root, '..', 'outside-workspace.md'));
+  assert.strictEqual(outside.status, 2, `outside path is a usage failure: ${outside.stdout} ${outside.stderr}`);
+  assert.match(outside.stderr, /outside .*workspace/i);
+});
+
+checkCase('2ax dogfood. relative --config resolves from --workspace even when CLI cwd differs', () => {
+  const root = workspace('cli-relative-config');
+  const configFile = path.join(root, '.agents/harness-everything/project-docs.json');
+  fs.mkdirSync(path.dirname(configFile), { recursive: true });
+  fs.writeFileSync(configFile, JSON.stringify(CONFIG), 'utf8');
+  writeDoc(root, 'docs/adr/clean.md', { id: 'GRPH-991', status: 'accepted' });
+  const result = spawnSync(process.execPath, [modulePath, 'lint', '--workspace', root, '--config', '.agents/harness-everything/project-docs.json', '--all'], { cwd: tempRoot, encoding: 'utf8' });
+  assert.strictEqual(result.status, 0, `workspace-relative config should load outside the workspace cwd: ${result.stdout} ${result.stderr}`);
+  assert.deepStrictEqual(JSON.parse(result.stdout).diagnostics, []);
+});
+
 const EXPECTED_SCENARIOS = Object.freeze([
   'active-to-active',
   'active-to-active-mismatch',
