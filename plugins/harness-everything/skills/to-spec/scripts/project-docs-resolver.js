@@ -78,6 +78,25 @@ function isPlainObject(value) {
   return prototype === Object.prototype || prototype === null;
 }
 
+function normalizeHostProjectDocs(projectDocs) {
+  if (!isPlainObject(projectDocs)) return { projectDocs, warnings: [] };
+
+  const normalized = { ...projectDocs };
+  const warnings = [];
+  if (typeof normalized.domains === 'string') {
+    if (typeof normalized.domainLocation !== 'string' || !normalized.domainLocation.trim()) {
+      normalized.domainLocation = normalized.domains;
+    }
+    delete normalized.domains;
+    warnings.push({
+      code: 'deprecated-domains-string',
+      severity: 'warning',
+      message: 'host projectDocs.domains as a string is deprecated; use domainLocation for the zone path and domains as the ID-prefix array'
+    });
+  }
+  return { projectDocs: normalized, warnings };
+}
+
 function projectDocsConfigPath(workspaceRoot) {
   return path.join(workspaceRoot, PROJECT_DOCS_CONFIG);
 }
@@ -148,22 +167,12 @@ function inspectHostProjectDocs(workspaceRoot) {
       continue;
     }
 
-    const projectDocs = { ...manifest.projectDocs };
-    if (typeof projectDocs.domains === 'string') {
-      if (typeof projectDocs.domainLocation !== 'string' || !projectDocs.domainLocation.trim()) {
-        projectDocs.domainLocation = projectDocs.domains;
-      }
-      delete projectDocs.domains;
-      entry.warnings.push({
-        code: 'deprecated-domains-string',
-        severity: 'warning',
-        path: configSource(workspaceRoot, file),
-        message: 'host projectDocs.domains as a string is deprecated; use domainLocation for the zone path and domains as the ID-prefix array'
-      });
-    }
+    const normalizedHost = normalizeHostProjectDocs(manifest.projectDocs);
+    const projectDocs = normalizedHost.projectDocs;
 
     const validation = validateDocsConfig(projectDocs);
     const source = configSource(workspaceRoot, file);
+    entry.warnings.push(...normalizedHost.warnings.map(item => ({ ...item, path: source })));
     entry.warnings.push(...validation.warnings.map(item => ({ ...item, path: source })));
     if (!validation.valid) {
       const details = validation.diagnostics.map(item => item.message).join('; ');
@@ -754,6 +763,7 @@ module.exports = {
   readProjectDocs,
   resolveDocsConfig,
   validateDocsConfig,
+  normalizeHostProjectDocs,
   parseContextMap,
   resolveProjectDocs,
   detectProjectDocsConventions,

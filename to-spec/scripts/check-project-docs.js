@@ -37,7 +37,7 @@ const fs = require('fs');
 const path = require('path');
 // Keep project-doc path decisions in the resolver carried by the installed
 // multi-agent-workspace skill. This script consumes the same contract.
-const { getWorkspaceRoot, getRepoManifestHomes, detectProjectDocsConventions, validateDocsConfig } =
+const { getWorkspaceRoot, getRepoManifestHomes, detectProjectDocsConventions, validateDocsConfig, normalizeHostProjectDocs } =
   require('./project-docs-resolver');
 
 function loadManifestHelper() {
@@ -179,6 +179,54 @@ function printConflicts(conflicts) {
   }
 }
 
+function readHostManifestForInit(manifestPath) {
+  if (!fs.existsSync(manifestPath)) return { data: readManifest(manifestPath) };
+
+  let raw;
+  try {
+    raw = fs.readFileSync(manifestPath, 'utf8');
+  } catch (error) {
+    return { error: `cannot be read (${error.message})` };
+  }
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (error) {
+    return { error: `invalid JSON (${error.message})` };
+  }
+  if (!isPlainObject(data)) return { error: 'manifest root must be a JSON object' };
+
+  for (const field of ['skills', 'agents', 'generated']) {
+    if (Object.prototype.hasOwnProperty.call(data, field) && !Array.isArray(data[field])) {
+      return { error: `manifest ${field} must be an array` };
+    }
+  }
+  if (!Array.isArray(data.skills)) data.skills = [];
+  if (!Array.isArray(data.agents)) data.agents = [];
+
+  if (Object.prototype.hasOwnProperty.call(data, 'projectDocs')) {
+    const normalizedProjectDocs = normalizeHostProjectDocs(data.projectDocs).projectDocs;
+    const validation = validateDocsConfig(normalizedProjectDocs);
+    if (!validation.valid) {
+      const details = validation.diagnostics.map(item => `${item.code}: ${item.message}`).join('; ');
+      return { error: `projectDocs failed schema validation (${details})` };
+    }
+  }
+
+  return { data };
+}
+
+function rejectHostManifestInit(workspaceRoot, manifestPath, reason) {
+  const relativePath = path.relative(workspaceRoot, manifestPath).replace(/\\/g, '/');
+  console.error(`[Project Docs Check] ${relativePath} cannot be safely updated: ${reason}; no host manifests were changed.`);
+  const guidance = reason.startsWith('cannot be read')
+    ? `Make ${relativePath} a readable manifest file (not a directory), then rerun init.`
+    : `Repair the JSON structure or projectDocs schema in ${relativePath}, then rerun init.`;
+  console.error(`=> ${guidance}`);
+  process.exit(1);
+}
+
 function runInit(workspaceRoot, args) {
   const flags = parseFlags(args);
   // Required values must be non-empty after trimming, the same presence rule
@@ -253,7 +301,9 @@ function runInit(workspaceRoot, args) {
   for (const home of homes) {
     const manifestPath = getManifestPath(home);
     if (!fs.existsSync(path.dirname(manifestPath))) continue;
-    const data = readManifest(manifestPath);
+    const result = readHostManifestForInit(manifestPath);
+    if (result.error) rejectHostManifestInit(workspaceRoot, manifestPath, result.error);
+    const data = result.data;
     const existingProjectDocs = isPlainObject(data.projectDocs) ? data.projectDocs : null;
     writableHomes.push({ manifestPath, data, existingProjectDocs });
   }
