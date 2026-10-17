@@ -355,7 +355,9 @@ checkCase('2ax. changed archive selector paths escalate declaring-doc unresolved
   fs.writeFileSync(configFile, JSON.stringify(CONFIG), 'utf8');
   const cli = spawnSync(process.execPath, [modulePath, 'lint', '--workspace', root, '--config', configFile, '--changed', 'docs/adr/legacy/old.md'], { encoding: 'utf8' });
   assert.strictEqual(cli.status, 1, `CLI should exit 1: ${cli.stderr}`);
-  assert.ok(JSON.parse(cli.stdout).some(item => item.code === 'unresolved-ref' && item.severity === 'error'));
+  const output = JSON.parse(cli.stdout);
+  assert.ok(output.diagnostics.some(item => item.code === 'unresolved-ref' && item.severity === 'error'));
+  assert.strictEqual(output.evidence.immutability, 'not-observed');
 });
 
 checkCase('2ax. active-to-active supersession requires the target to be superseded', () => {
@@ -500,11 +502,13 @@ checkCase('2ax. CLI requires explicit ratchet mode and exits 0 clean / 1 for err
   assert.notStrictEqual(missingMode.status, 0);
   const clean = spawnSync(process.execPath, [cli, 'lint', '--workspace', root, '--config', configFile, '--changed', 'docs/adr/clean.md'], { encoding: 'utf8' });
   assert.strictEqual(clean.status, 0, clean.stderr);
-  assert.deepStrictEqual(JSON.parse(clean.stdout), []);
+  assert.deepStrictEqual(JSON.parse(clean.stdout), { diagnostics: [], evidence: { immutability: 'not-observed' } });
   writeDoc(root, 'docs/adr/bad.md', { id: 'GRAPH-2', status: 'accepted' });
   const bad = spawnSync(process.execPath, [cli, 'lint', '--workspace', root, '--config', configFile, '--all'], { encoding: 'utf8' });
   assert.strictEqual(bad.status, 1);
-  assert.ok(JSON.parse(bad.stdout).some(item => item.code === 'invalid-id'));
+  const output = JSON.parse(bad.stdout);
+  assert.ok(output.diagnostics.some(item => item.code === 'invalid-id'));
+  assert.strictEqual(output.evidence.immutability, 'not-observed');
 });
 
 const EXPECTED_SCENARIOS = Object.freeze([

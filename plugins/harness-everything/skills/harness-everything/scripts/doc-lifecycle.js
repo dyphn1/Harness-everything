@@ -5,6 +5,8 @@
 // load a host resolver or execute configured derived-document generators.
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 
 const ROLE_STATUSES = Object.freeze({
   prd: new Set(['draft', 'active', 'superseded']),
@@ -17,12 +19,19 @@ const ROLE_STATUSES = Object.freeze({
 const ADR_ID = /^([A-Z][A-Z0-9]{1,9})-(\d{3,})$/;
 const REQ_ID = /^REQ-([A-Z][A-Z0-9]{1,9})-(\d{3,})$/;
 const ANY_ID = /^(?:REQ-)?[A-Z][A-Z0-9]{1,9}-\d{3,}$/;
+const PRD_ID = /^PRD-[A-Z][A-Z0-9]{1,9}-\d{3,}$/;
 const RESOLUTION_DIAGNOSTICS = new Set([
   'malformed-frontmatter', 'missing-id', 'invalid-id', 'unknown-domain',
   'duplicate-id', 'alias-collision', 'duplicate-req', 'missing-req',
   'unresolved-ref', 'ambiguous-legacy-ref', 'invalid-ref', 'invalid-alias',
   'missing-status', 'invalid-status', 'role-mismatch',
-  'supersede-status-mismatch', 'supersede-cycle', 'recorded-conflict'
+  'supersede-status-mismatch', 'supersede-cycle', 'recorded-conflict',
+  'invalid-prd-id', 'invalid-revision', 'duplicate-revision', 'missing-parent',
+  'multiple-baselines', 'revision-cycle', 'revision-fork', 'stale-draft-base',
+  'invalid-transition', 'approval-missing', 'approval-content-mismatch',
+  'revision-digest-mismatch', 'immutable-revision-modified',
+  'immutable-revision-deleted', 'req-dropped', 'incomplete-snapshot',
+  'invalid-req-clause', 'replacement-alias-overlap', 'replacement-cycle'
 ]);
 
 function stripTrailingComment(value) {
@@ -89,6 +98,7 @@ function parseScalar(source) {
   if (plain === 'null' || plain === '~') return null;
   if (plain === 'true') return true;
   if (plain === 'false') return false;
+  if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(plain)) return Number(plain);
   return plain;
 }
 
@@ -147,6 +157,18 @@ function parseFrontmatter(text) {
           else throw new Error(`empty block-list item for ${key}`);
         }
         data[key] = list;
+        index = cursor - 1;
+      } else if (cursor < lines.length && /^  [A-Za-z0-9_-]+:(?:[ \t].*)?$/.test(lines[cursor])) {
+        const mapping = {};
+        for (; cursor < lines.length; cursor++) {
+          const itemLine = lines[cursor];
+          if (!itemLine.trim()) continue;
+          const item = itemLine.match(/^  ([A-Za-z0-9_-]+):(?:[ \t]*(.*))?$/);
+          if (!item) break;
+          if (Object.prototype.hasOwnProperty.call(mapping, item[1])) throw new Error(`duplicate nested key: ${item[1]}`);
+          mapping[item[1]] = parseScalar(item[2] || '');
+        }
+        data[key] = mapping;
         index = cursor - 1;
       } else {
         data[key] = '';
@@ -207,23 +229,34 @@ function collectDocs(root, config) {
   }
   walk(workspace);
 
-  const docs = [];
+  const selected = [];
   for (const absolute of files) {
     const relativePath = path.relative(workspace, absolute).split(path.sep).join('/');
     const roleEntry = governed.find(entry => entry && typeof entry.path === 'string' && matchesAny(relativePath, [entry.path]));
     const legacy = matchesAny(relativePath, legacyGlobs);
     if (!roleEntry && !legacy) continue;
-    let text;
-    try { text = fs.readFileSync(absolute, 'utf8'); } catch { continue; }
-    const parsed = parseFrontmatter(text);
-    docs.push({
-      path: relativePath,
-      role: roleEntry ? roleEntry.role : null,
-      legacy,
+    let bytes;
+    try { bytes = fs.readFileSync(absolute); } catch { continue; }
+    selected.push({ relativePath, role: roleEntry ? roleEntry.role : null, legacy, bytes });
+  }
+  const rules = readWorkingTreeRules(workspace, selected.filter(item => item.bytes.includes(0x0d)).map(item => item.relativePath));
+  const docs = [];
+  for (const item of selected) {
+    const bytes = workingStoredBytes(workspace, item.relativePath, item.bytes, rules);
+    const parsed = parseFrontmatter(bytes.toString('utf8'));
+    const doc = {
+      path: item.relativePath,
+      role: item.role,
+      legacy: item.legacy,
       frontmatter: parsed.data,
       body: parsed.body,
       error: parsed.error
+    };
+    Object.defineProperties(doc, {
+      workspace: { value: workspace, enumerable: false, writable: true },
+      storedBytes: { value: bytes, enumerable: false, writable: true }
     });
+    docs.push(doc);
   }
   docs.sort((a, b) => compareText(a.path, b.path));
   return docs;
@@ -242,44 +275,533 @@ function validLegacySelectorPath(value) {
   return !segments.some(segment => segment === '.' || segment === '..');
 }
 
-function reqDeclarations(docs) {
-  const declarations = [];
-  for (const doc of docs || []) {
-    if (doc.legacy || doc.role !== 'prd' || !doc.frontmatter || doc.frontmatter.status !== 'active') continue;
-    const body = withoutFencedCode(doc.body || '');
-    for (const line of body.split(/\r?\n/)) {
-      const heading = line.match(/^#{1,6}[ \t]+(REQ-[A-Z][A-Z0-9]{1,9}-\d{3,})(?:[ \t]+\(aliases:[ \t]*([^)]*)\))?(?::|[ \t]|$)/);
-      if (!heading) continue;
-      const aliases = heading[2] === undefined ? [] : heading[2].split(',').map(item => item.trim());
-      declarations.push({ id: heading[1], aliases, doc });
+function sha256(bytes) {
+  return `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+function sortedJson(value) {
+  if (Array.isArray(value)) return `[${value.map(sortedJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort(compareText).map(key => `${JSON.stringify(key)}:${sortedJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function isoTimestamp(value) {
+  if (typeof value !== 'string') return null;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})$/);
+  if (!match) return null;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, zone] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  if (month < 1 || month > 12 || day < 1 || day > new Date(Date.UTC(year, month, 0)).getUTCDate()) return null;
+  if (hour > 23 || minute > 59 || second > 59) return null;
+  if (zone !== 'Z' && Number(zone.slice(1, 3)) > 23) return null;
+  const milliseconds = Date.parse(value);
+  return Number.isFinite(milliseconds) ? milliseconds : null;
+}
+
+function docBytes(doc) {
+  if (doc && Buffer.isBuffer(doc.storedBytes)) return doc.storedBytes;
+  if (doc && doc.storedBytes instanceof Uint8Array) return Buffer.from(doc.storedBytes);
+  return Buffer.from(String(doc && doc.body || ''), 'utf8');
+}
+
+function artifactDigest(doc) {
+  return sha256(docBytes(doc));
+}
+
+function approvalDigest(doc) {
+  const data = { ...(doc.frontmatter || {}) };
+  delete data.status;
+  delete data.effective_at;
+  delete data.approval;
+  const bodyBytes = Buffer.from(String(doc.body || ''), 'utf8');
+  return sha256(Buffer.concat([Buffer.from(`${sortedJson(data)}\n`, 'utf8'), bodyBytes]));
+}
+
+function isRevisionPrd(doc) {
+  if (!doc || doc.legacy || doc.role !== 'prd' || !doc.frontmatter) return false;
+  const data = doc.frontmatter;
+  return Object.prototype.hasOwnProperty.call(data, 'revision')
+    || Object.prototype.hasOwnProperty.call(data, 'previous_revision')
+    || ['draft', 'approved', 'effective', 'rejected', 'withdrawn'].includes(data.status);
+}
+
+function supersessionEligibility(source, target, ref, effectiveRevisionSources, graph = null) {
+  const sameLogicalPrd = graph && isRevisionPrd(source) && isRevisionPrd(target)
+    && graph.logicalIdByDoc.get(source) === graph.logicalIdByDoc.get(target);
+  const retirement = isRevisionPrd(source) && isRevisionPrd(target)
+    && !sameLogicalPrd
+    && /@r[1-9]\d*$/.test(ref);
+  const effective = retirement
+    ? effectiveRevisionSources instanceof Set && effectiveRevisionSources.has(source)
+    : (source.role === 'adr' && source.frontmatter.status === 'accepted')
+      || (source.role === 'prd' && (source.frontmatter.status === 'active' || source.frontmatter.status === 'effective'));
+  return { retirement, effective };
+}
+
+function parseRequirementBlocks(doc) {
+  const lines = withoutFencedCode(doc.body || '').split(/\r?\n/);
+  const headings = [];
+  for (let index = 0; index < lines.length; index++) {
+    const match = lines[index].match(/^#{1,6}[ \t]+(REQ-[A-Z][A-Z0-9]{1,9}-\d{3,})(.*)$/);
+    if (match) headings.push({ index, id: match[1], tail: match[2] });
+  }
+  return headings.map((heading, position) => {
+    const end = position + 1 < headings.length ? headings[position + 1].index : lines.length;
+    const block = lines.slice(heading.index + 1, end).join('\n');
+    const item = { id: heading.id, aliases: [], replaces: [], doc, title: '', block, validClause: true };
+    let tail = heading.tail;
+    if (/^[ \t]*\(/.test(tail)) {
+      const open = tail.indexOf('(');
+      const close = tail.indexOf(')', open + 1);
+      if (close < 0) item.validClause = false;
+      else {
+        const clauseText = tail.slice(open + 1, close);
+        tail = tail.slice(close + 1);
+        const seen = new Set();
+        for (const clause of clauseText.split(';')) {
+          const match = clause.trim().match(/^([a-z][a-z_-]*):[ \t]*(.*)$/);
+          if (!match || !['replaces', 'aliases'].includes(match[1]) || seen.has(match[1]) || !match[2].trim()) {
+            item.validClause = false;
+            continue;
+          }
+          seen.add(match[1]);
+          const values = match[2].split(',').map(value => value.trim());
+          if (values.some(value => !REQ_ID.test(value))) item.validClause = false;
+          if (match[1] === 'replaces') item.replaces = values;
+          else item.aliases = values;
+        }
+      }
+    }
+    item.title = tail.replace(/^[: \t]+/, '').trim();
+    const acceptance = block.match(/(?:^|\n)[ \t]*Acceptance:[ \t]*([^\n]*(?:\n(?!#{1,6}[ \t]+)[^\n]*)*)/i);
+    item.acceptance = acceptance ? acceptance[1].trim() : '';
+    return item;
+  });
+}
+
+function allRevisionRequirements(docs) {
+  return (docs || []).filter(isRevisionPrd).flatMap(parseRequirementBlocks);
+}
+
+function revisionGraph(docs) {
+  const entries = (Array.isArray(docs) ? docs : []).filter(isRevisionPrd).slice().sort((a, b) => compareText(a.path, b.path));
+  const groups = new Map();
+  const diagnostics = [];
+  const artifactDigests = new Map();
+  const digestFor = doc => {
+    if (!artifactDigests.has(doc)) artifactDigests.set(doc, artifactDigest(doc));
+    return artifactDigests.get(doc);
+  };
+  const add = (code, doc, message, id, candidates) => diagnostics.push(makeDiagnostic(code, 'error', doc, message, id, candidates));
+  const validEntries = [];
+  for (const doc of entries) {
+    const data = doc.frontmatter || {};
+    if (typeof data.id !== 'string' || !PRD_ID.test(data.id)) add('invalid-prd-id', doc, 'PRD id must match PRD-<DOMAIN>-NNN', data.id);
+    if (!Number.isInteger(data.revision) || data.revision <= 0) {
+      add('invalid-revision', doc, 'revision must be a positive integer without leading zeros', data.id);
+    }
+    if (!['draft', 'approved', 'effective', 'rejected', 'withdrawn'].includes(data.status)) add('invalid-status', doc, `status ${String(data.status)} is not valid for revisioned PRDs`, data.id);
+    if (data.aliases !== undefined && data.aliases !== '' && !Array.isArray(data.aliases)) {
+      add('invalid-alias', doc, 'document aliases must be a list', data.id);
+    }
+    for (const alias of Array.isArray(data.aliases) ? data.aliases : []) {
+      if (typeof alias !== 'string' || !PRD_ID.test(alias) || alias === data.id) {
+        add('invalid-alias', doc, `invalid PRD alias ${String(alias)}`, typeof alias === 'string' ? alias : data.id);
+      }
+    }
+    if (typeof data.id === 'string' && PRD_ID.test(data.id) && Number.isInteger(data.revision) && data.revision > 0) validEntries.push(doc);
+  }
+
+  // A PRD can change its canonical spelling between revisions. Union only
+  // identities linked by an adjacent previous_revision edge; a free-standing
+  // alias that collides with another logical PRD remains ambiguous and is
+  // reported by the active namespace checks below.
+  const identityParent = new Map(validEntries.map(doc => [doc, doc]));
+  const findIdentity = doc => {
+    const parent = identityParent.get(doc);
+    if (parent !== doc) identityParent.set(doc, findIdentity(parent));
+    return identityParent.get(doc);
+  };
+  const joinIdentity = (left, right) => {
+    const a = findIdentity(left);
+    const b = findIdentity(right);
+    if (a !== b) identityParent.set(b, a);
+  };
+  const docsByCanonicalId = new Map();
+  for (const doc of validEntries) {
+    const id = doc.frontmatter.id;
+    if (!docsByCanonicalId.has(id)) docsByCanonicalId.set(id, []);
+    docsByCanonicalId.get(id).push(doc);
+  }
+  for (const sameId of docsByCanonicalId.values()) for (let index = 1; index < sameId.length; index++) joinIdentity(sameId[0], sameId[index]);
+  for (const doc of validEntries) {
+    const data = doc.frontmatter;
+    if (!Number.isInteger(data.previous_revision)) continue;
+    for (const alias of Array.isArray(data.aliases) ? data.aliases : []) {
+      for (const candidate of docsByCanonicalId.get(alias) || []) {
+        if (candidate.frontmatter.revision === data.previous_revision) joinIdentity(doc, candidate);
+      }
     }
   }
+  const components = new Map();
+  for (const doc of validEntries) {
+    const root = findIdentity(doc);
+    if (!components.has(root)) components.set(root, []);
+    components.get(root).push(doc);
+  }
+  const logicalIdByDoc = new Map();
+  for (const component of components.values()) {
+    component.sort((a, b) => a.frontmatter.revision - b.frontmatter.revision || compareText(a.path, b.path));
+    const baselines = component.filter(doc => doc.frontmatter.previous_revision === undefined || doc.frontmatter.previous_revision === null || doc.frontmatter.previous_revision === '');
+    const logicalId = (baselines[0] || component[0]).frontmatter.id;
+    groups.set(logicalId, component);
+    for (const doc of component) logicalIdByDoc.set(doc, logicalId);
+  }
+
+  const currentById = new Map();
+  const structurallyValid = new Map();
+  const parentByDoc = new Map();
+  for (const [id, group] of groups) {
+    group.sort((a, b) => a.frontmatter.revision - b.frontmatter.revision || compareText(a.path, b.path));
+    const byRevision = new Map();
+    for (const doc of group) {
+      const revision = doc.frontmatter.revision;
+      if (!byRevision.has(revision)) byRevision.set(revision, []);
+      byRevision.get(revision).push(doc);
+    }
+    let valid = true;
+    for (const [revision, members] of byRevision) if (members.length > 1) {
+      valid = false;
+      const paths = members.map(item => item.path).sort(compareText);
+      for (const doc of members) add('duplicate-revision', doc, `${id}@r${revision} is declared more than once`, id, paths.filter(item => item !== doc.path));
+    }
+    const baselines = group.filter(doc => doc.frontmatter.previous_revision === undefined || doc.frontmatter.previous_revision === null || doc.frontmatter.previous_revision === '');
+    if (baselines.length !== 1) {
+      valid = false;
+      const involved = baselines.length ? baselines : group;
+      for (const doc of involved) add('multiple-baselines', doc, `${id} must have exactly one baseline revision`, id, involved.filter(item => item.path !== doc.path).map(item => item.path).sort(compareText));
+    }
+    const parentEdges = new Map();
+    const effectiveChildren = new Map();
+    for (const doc of group) {
+      const data = doc.frontmatter;
+      if (data.previous_revision === undefined || data.previous_revision === null || data.previous_revision === '') continue;
+      const parentRevision = data.previous_revision;
+      const parent = Number.isInteger(parentRevision) ? byRevision.get(parentRevision) : null;
+      if (!parent || parent.length !== 1) {
+        valid = false;
+        add('missing-parent', doc, `parent revision ${String(parentRevision)} of ${id} does not exist uniquely`, id);
+        continue;
+      }
+      if (parentRevision >= data.revision) {
+        valid = false;
+        add('missing-parent', doc, 'parent revision must be smaller than its child', id, [parent[0].path]);
+      }
+      parentEdges.set(doc, parent[0]);
+      parentByDoc.set(doc, parent[0]);
+      if (data.previous_digest !== digestFor(parent[0])) {
+        add('revision-digest-mismatch', doc, `previous_digest does not match ${id}@r${parentRevision}`, id, [parent[0].path]);
+      }
+      if (data.status === 'effective') {
+        if (!effectiveChildren.has(parent[0])) effectiveChildren.set(parent[0], []);
+        effectiveChildren.get(parent[0]).push(doc);
+      }
+    }
+    const visiting = new Set();
+    const visited = new Set();
+    let cycleFound = false;
+    const visit = doc => {
+      if (visiting.has(doc)) { cycleFound = true; return; }
+      if (visited.has(doc)) return;
+      visiting.add(doc);
+      const parent = parentEdges.get(doc);
+      if (parent) visit(parent);
+      visiting.delete(doc);
+      visited.add(doc);
+    };
+    for (const doc of group) visit(doc);
+    if (cycleFound) {
+      valid = false;
+      for (const doc of group) add('revision-cycle', doc, `${id} contains a revision parent cycle`, id);
+    }
+    for (const [parent, children] of effectiveChildren) if (children.length > 1) {
+      valid = false;
+      const involved = [parent, ...children].sort((a, b) => compareText(a.path, b.path));
+      for (const doc of children) add('revision-fork', doc, `effective revisions fork from ${parent.path}`, id, involved.filter(item => item.path !== doc.path).map(item => item.path));
+    }
+    const baseline = baselines.length === 1 ? baselines[0] : null;
+    let current = null;
+    if (valid && baseline) {
+      if (baseline.frontmatter.status === 'effective') current = baseline;
+      const effectiveSet = new Set(group.filter(doc => doc.frontmatter.status === 'effective'));
+      let cursor = baseline;
+      const reached = new Set();
+      if (current) reached.add(cursor);
+      while (current) {
+        const children = (effectiveChildren.get(cursor) || []).filter(child => effectiveSet.has(child));
+        if (children.length > 1) { current = null; valid = false; break; }
+        if (!children.length) break;
+        cursor = children[0];
+        reached.add(cursor);
+        current = cursor;
+      }
+      if ([...effectiveSet].some(doc => !reached.has(doc))) {
+        valid = false;
+        current = null;
+        const disconnected = [...effectiveSet].filter(doc => !reached.has(doc));
+        for (const doc of disconnected) add('revision-fork', doc, 'effective revision is disconnected from the baseline effective chain', id);
+      }
+    }
+    structurallyValid.set(id, valid);
+    if (valid && current) currentById.set(id, current);
+
+    const reqsByDoc = new Map(group.map(doc => [doc, parseRequirementBlocks(doc)]));
+    const replacementTargetsByDoc = new Map();
+    const lineageFor = doc => {
+      const lineage = [];
+      const seen = new Set();
+      let cursor = doc;
+      while (cursor && !seen.has(cursor)) {
+        seen.add(cursor);
+        lineage.unshift(cursor);
+        cursor = parentEdges.get(cursor);
+      }
+      return lineage;
+    };
+    for (const [doc, reqs] of reqsByDoc) {
+      const seen = new Set();
+      for (const req of reqs) {
+        if (!REQ_ID.test(req.id)) add('invalid-req-clause', doc, `invalid requirement ID ${req.id}`, req.id);
+        if (seen.has(req.id)) add('duplicate-req', doc, `requirement ${req.id} is repeated in this revision`, req.id);
+        seen.add(req.id);
+        if (!req.validClause) add('invalid-req-clause', doc, `requirement ${req.id} has an invalid clause`, req.id);
+        if (!req.acceptance) add('incomplete-snapshot', doc, `requirement ${req.id} has no non-empty Acceptance content`, req.id);
+        if (req.replaces.some(oldId => req.aliases.includes(oldId))) add('replacement-alias-overlap', doc, `requirement ${req.id} aliases an ID that it replaces`, req.id);
+      }
+
+      const ancestors = lineageFor(doc).slice(0, -1);
+      const historicalNames = new Map();
+      for (const ancestor of ancestors) for (const priorReq of reqsByDoc.get(ancestor) || []) {
+        for (const name of [priorReq.id, ...priorReq.aliases]) {
+          if (!historicalNames.has(name)) historicalNames.set(name, new Set());
+          historicalNames.get(name).add(priorReq.id);
+        }
+      }
+      const targetsByRequirement = new Map();
+      for (const req of reqs) {
+        const targets = [];
+        for (const name of req.replaces) {
+          const candidates = historicalNames.get(name);
+          if (!candidates || !candidates.size) {
+            add('invalid-req-clause', doc, `replacement target ${name} is absent from predecessor history`, name);
+          } else if (candidates.size > 1) {
+            add('invalid-req-clause', doc, `replacement target ${name} is ambiguous in predecessor history`, name, [...candidates].sort(compareText));
+          } else {
+            targets.push([...candidates][0]);
+          }
+        }
+        const overlapsReplacement = targets.some(target => req.aliases.some(alias => alias === target || (historicalNames.get(alias) || new Set()).has(target)));
+        if (overlapsReplacement && !req.replaces.some(name => req.aliases.includes(name))) {
+          add('replacement-alias-overlap', doc, `requirement ${req.id} aliases an ID that it replaces`, req.id);
+        }
+        targetsByRequirement.set(req, targets);
+      }
+      replacementTargetsByDoc.set(doc, targetsByRequirement);
+    }
+
+    // A removed or replaced identity is a tombstone along each parent chain.
+    // Reusing it with different title/acceptance content would recycle meaning.
+    for (const doc of group) {
+      const lineage = lineageFor(doc);
+      const tombstones = new Map();
+      for (let index = 0; index < lineage.length; index++) {
+        const currentDoc = lineage[index];
+        const currentReqs = reqsByDoc.get(currentDoc) || [];
+        const currentById = new Map(currentReqs.map(req => [req.id, req]));
+        const previousDoc = index > 0 ? lineage[index - 1] : null;
+        const previousReqs = previousDoc ? reqsByDoc.get(previousDoc) || [] : [];
+        const previousIds = new Set(previousReqs.map(req => req.id));
+        for (const req of currentReqs) {
+          const retired = tombstones.get(req.id);
+          if (retired && !previousIds.has(req.id)
+            && (req.title !== retired.title || req.acceptance !== retired.acceptance)) {
+            add('invalid-req-clause', currentDoc, `tombstoned requirement ${req.id} cannot be reused with a new meaning`, req.id, [retired.doc.path]);
+          }
+        }
+        if (!previousDoc) continue;
+        const removed = new Set(asList(currentDoc.frontmatter.removed_reqs));
+        const replaced = new Set([...(replacementTargetsByDoc.get(currentDoc) || new Map()).values()].flat());
+        for (const priorReq of previousReqs) {
+          if (!currentById.has(priorReq.id) && (removed.has(priorReq.id) || replaced.has(priorReq.id)) && !tombstones.has(priorReq.id)) {
+            tombstones.set(priorReq.id, { ...priorReq, doc: previousDoc });
+          }
+        }
+      }
+    }
+
+    for (const doc of group) {
+      const data = doc.frontmatter;
+      const parent = parentEdges.get(doc);
+      if (parent) {
+        const parentReqs = reqsByDoc.get(parent) || [];
+        const childReqs = reqsByDoc.get(doc) || [];
+        const childIds = new Set(childReqs.map(req => req.id));
+        const replaced = new Set([...(replacementTargetsByDoc.get(doc) || new Map()).values()].flat());
+        const removed = new Set(asList(data.removed_reqs));
+        for (const req of parentReqs) if (!childIds.has(req.id) && !replaced.has(req.id) && !removed.has(req.id)) {
+          add('req-dropped', doc, `parent requirement ${req.id} is missing without removed_reqs or a replaces edge`, req.id, [parent.path]);
+        }
+      }
+      if (['approved', 'effective'].includes(data.status)) {
+        if (typeof data.drafted_by !== 'string' || !data.drafted_by.trim()) {
+          add('approval-missing', doc, 'approved/effective revisions must include non-empty drafted_by', id);
+        }
+        const approval = data.approval;
+        const required = ['by', 'at', 'ref', 'content_digest', 'role'];
+        if (!approval || typeof approval !== 'object' || required.some(key => typeof approval[key] !== 'string' || !approval[key].trim())) {
+          add('approval-missing', doc, `approval must include ${required.join(', ')}`, id);
+        } else {
+          if (!['human', 'cold-verifier'].includes(approval.role)) add('approval-missing', doc, 'approval.role must be human or cold-verifier', id);
+          if (approval.by === data.drafted_by) add('approval-not-independent', doc, 'approval.by must differ from drafted_by', id);
+          if (approval.content_digest !== approvalDigest(doc)) add('approval-content-mismatch', doc, 'approval digest does not match the body and non-activation frontmatter', id);
+          if (isoTimestamp(approval.at) === null) add('invalid-transition', doc, 'approval.at must be an ISO 8601 timestamp with timezone', id);
+          if (!/^https?:\/\//i.test(approval.ref)) {
+            const workspace = doc.workspace;
+            const target = typeof workspace === 'string' && validLegacySelectorPath(approval.ref) ? path.join(workspace, ...approval.ref.split('/')) : null;
+            if (!target || !fs.existsSync(target)) add('approval-missing', doc, `approval evidence ref ${approval.ref} cannot be resolved`, id);
+          }
+        }
+        if (data.status === 'effective' && (typeof data.effective_at !== 'string' || !data.effective_at.trim())) {
+          add('invalid-transition', doc, 'effective revisions must record effective_at', id);
+        }
+        if (data.status === 'effective' && typeof data.effective_at === 'string' && data.effective_at.trim()) {
+          const approvalTime = approval && isoTimestamp(approval.at);
+          const effectiveTime = isoTimestamp(data.effective_at);
+          if (effectiveTime === null) add('invalid-transition', doc, 'effective_at must be an ISO 8601 timestamp with timezone', id);
+          else if (approvalTime !== null && effectiveTime < approvalTime) add('invalid-transition', doc, 'effective_at must not precede approval.at', id);
+        }
+      }
+    }
+
+    const replacementEdges = group.flatMap(doc => (reqsByDoc.get(doc) || []).flatMap(req => (replacementTargetsByDoc.get(doc).get(req) || []).map(from => ({ from, to: req.id, doc }))));
+    const adjacency = new Map();
+    for (const edge of replacementEdges) {
+      if (!adjacency.has(edge.from)) adjacency.set(edge.from, []);
+      adjacency.get(edge.from).push(edge.to);
+    }
+    const reqVisiting = new Set();
+    const reqVisited = new Set();
+    let replacementCycle = false;
+    const reqVisit = idValue => {
+      if (reqVisiting.has(idValue)) { replacementCycle = true; return; }
+      if (reqVisited.has(idValue)) return;
+      reqVisiting.add(idValue);
+      for (const next of adjacency.get(idValue) || []) reqVisit(next);
+      reqVisiting.delete(idValue);
+      reqVisited.add(idValue);
+    };
+    for (const reqId of adjacency.keys()) reqVisit(reqId);
+    if (replacementCycle) for (const doc of group) add('replacement-cycle', doc, `${id} contains a REQ replacement cycle`, id);
+    const authoritativePaths = new Set(group.filter(doc => doc.frontmatter.status === 'effective').map(doc => doc.path));
+    const currentValidationCodes = new Set([
+      'invalid-prd-id', 'invalid-revision', 'invalid-status', 'duplicate-revision',
+      'invalid-alias',
+      'missing-parent', 'multiple-baselines', 'revision-cycle', 'revision-fork',
+      'revision-digest-mismatch', 'req-dropped', 'incomplete-snapshot',
+      'invalid-req-clause', 'replacement-alias-overlap', 'replacement-cycle',
+      'approval-missing', 'approval-not-independent', 'approval-content-mismatch', 'invalid-transition'
+    ]);
+    if (diagnostics.some(item => authoritativePaths.has(item.path) && currentValidationCodes.has(item.code))) {
+      structurallyValid.set(id, false);
+      currentById.delete(id);
+    }
+  }
+
+  const namesByLogicalId = new Map();
+  const logicalIdsByName = new Map();
+  for (const [logicalId, group] of groups) {
+    const names = new Set();
+    for (const doc of group) {
+      names.add(doc.frontmatter.id);
+      for (const alias of Array.isArray(doc.frontmatter.aliases) ? doc.frontmatter.aliases : []) if (typeof alias === 'string' && PRD_ID.test(alias)) names.add(alias);
+    }
+    namesByLogicalId.set(logicalId, names);
+    for (const name of names) {
+      if (!logicalIdsByName.has(name)) logicalIdsByName.set(name, new Set());
+      logicalIdsByName.get(name).add(logicalId);
+    }
+  }
+  const namesAtRevision = new Map();
+  for (const group of groups.values()) for (const doc of group) {
+    const names = new Set();
+    const seen = new Set();
+    let cursor = doc;
+    while (cursor && !seen.has(cursor)) {
+      seen.add(cursor);
+      names.add(cursor.frontmatter.id);
+      for (const alias of Array.isArray(cursor.frontmatter.aliases) ? cursor.frontmatter.aliases : []) if (typeof alias === 'string' && PRD_ID.test(alias)) names.add(alias);
+      cursor = parentByDoc.get(cursor);
+    }
+    namesAtRevision.set(doc, names);
+  }
+  return { groups, currentById, structurallyValid, logicalIdByDoc, logicalIdsByName, namesByLogicalId, namesAtRevision, parentByDoc, artifactDigests, diagnostics: sortDiagnostics(diagnostics) };
+}
+
+function reqDeclarations(docs, graph = null) {
+  const entries = Array.isArray(docs) ? docs : [];
+  const revisionState = graph || revisionGraph(entries);
+  const declarations = [];
+  for (const doc of entries) {
+    if (doc.legacy || doc.role !== 'prd' || isRevisionPrd(doc) || !doc.frontmatter || doc.frontmatter.status !== 'active') continue;
+    declarations.push(...parseRequirementBlocks(doc));
+  }
+  for (const doc of revisionState.currentById.values()) declarations.push(...parseRequirementBlocks(doc));
   return declarations;
 }
 
-function activeDeclarations(docs) {
+function activeDeclarations(docs, graph = null) {
   const result = [];
+  const revisionState = graph || revisionGraph(docs);
+  const currentDocs = new Set(revisionState.currentById.values());
   for (const doc of docs || []) {
-    if (doc.legacy || !doc.frontmatter) continue;
+    if (doc.legacy || !doc.frontmatter || (isRevisionPrd(doc) && !currentDocs.has(doc))) continue;
     const id = doc.frontmatter.id;
     if (typeof id === 'string' && id) result.push({ id, aliases: Array.isArray(doc.frontmatter.aliases) ? doc.frontmatter.aliases : [], doc, kind: 'document' });
   }
-  for (const req of reqDeclarations(docs || [])) result.push({ ...req, kind: 'requirement' });
+  for (const req of reqDeclarations(docs || [], revisionState)) result.push({ ...req, kind: 'requirement' });
   return result;
 }
 
-function resolveRef(docs, ref) {
+function revisionResult(doc, requirement, digest = null) {
+  const result = {
+    doc,
+    revision: doc.frontmatter.revision,
+    status: doc.frontmatter.status,
+    digest: digest || artifactDigest(doc),
+    provenance: { id: doc.frontmatter.id, revision: doc.frontmatter.revision, path: doc.path, parent: doc.frontmatter.previous_revision }
+  };
+  if (requirement) result.requirement = { id: requirement.id };
+  return result;
+}
+
+function resolveRef(docs, ref, context = {}) {
   if (typeof ref !== 'string' || !ref.trim()) return { error: 'unresolved-ref', candidates: [] };
   const value = ref.trim();
   const allDocs = Array.isArray(docs) ? docs : [];
+  const graph = context.graph || revisionGraph(allDocs);
   if (value.startsWith('legacy:')) {
     const selector = value.slice('legacy:'.length);
     const at = selector.indexOf('@');
     const id = at < 0 ? selector : selector.slice(0, at);
     const archivePath = at < 0 ? null : selector.slice(at + 1);
-    if (!ANY_ID.test(id) || (archivePath !== null && !validLegacySelectorPath(archivePath))) {
-      return { error: 'invalid-ref', candidates: [] };
-    }
+    if (!ANY_ID.test(id) || (archivePath !== null && !validLegacySelectorPath(archivePath))) return { error: 'invalid-ref', candidates: [] };
     let candidates = allDocs.filter(doc => doc.legacy && idFromLegacy(doc) === id);
     if (archivePath !== null) candidates = candidates.filter(doc => doc.path === archivePath);
     candidates.sort((a, b) => compareText(a.path, b.path));
@@ -288,16 +810,52 @@ function resolveRef(docs, ref) {
     return { error: 'unresolved-ref', candidates: [] };
   }
 
-  const matches = [];
-  for (const declaration of activeDeclarations(allDocs)) {
-    if (declaration.id === value || declaration.aliases.includes(value)) matches.push(declaration.doc);
+  const prdMatch = value.match(/^(PRD-[A-Z][A-Z0-9]{1,9}-\d{3,})(?:@r([1-9]\d*))?(?:#(REQ-[A-Z][A-Z0-9]{1,9}-\d{3,}))?$/);
+  if (value.startsWith('PRD-') || value.includes('@r') || value.includes('#')) {
+    if (!prdMatch || !PRD_ID.test(prdMatch[1])) return { error: 'invalid-ref', candidates: [] };
+    const logicalIds = graph.logicalIdsByName.get(prdMatch[1]) || new Set();
+    if (logicalIds.size > 1) {
+      const candidates = [...logicalIds].flatMap(id => graph.groups.get(id) || []).sort((a, b) => compareText(a.path, b.path));
+      return { doc: null, error: 'unresolved-ref', candidates, message: `PRD identity ${prdMatch[1]} is ambiguous across logical PRDs` };
+    }
+    const logicalId = [...logicalIds][0];
+    const group = logicalId ? graph.groups.get(logicalId) || [] : [];
+    if (prdMatch[2] || prdMatch[3] || group.length) {
+      let target;
+      if (prdMatch[2]) {
+        const exact = group.filter(doc => doc.frontmatter.revision === Number(prdMatch[2]));
+        if (exact.length > 1) return { doc: null, error: 'unresolved-ref', candidates: exact.sort((a, b) => compareText(a.path, b.path)) };
+        target = exact[0];
+      }
+      else target = logicalId ? graph.currentById.get(logicalId) : undefined;
+      if (!target) return { doc: null, error: 'unresolved-ref', candidates: group.slice().sort((a, b) => compareText(a.path, b.path)) };
+      if (!graph.namesAtRevision.get(target)?.has(prdMatch[1])) {
+        return { doc: null, error: 'unresolved-ref', candidates: [target], message: `PRD identity ${prdMatch[1]} was not declared by ${target.frontmatter.id}@r${target.frontmatter.revision}` };
+      }
+      const digest = graph.artifactDigests.get(target);
+      if (!prdMatch[3]) return revisionResult(target, null, digest);
+      const requested = prdMatch[3];
+      const requirement = parseRequirementBlocks(target).find(item => item.id === requested || item.aliases.includes(requested));
+      return requirement ? revisionResult(target, requirement, digest) : { error: 'unresolved-ref', candidates: [target], message: `requirement ${requested} is not declared by ${prdMatch[1]}@r${target.frontmatter.revision}` };
+    }
   }
-  const uniqueMatches = [...new Map(matches.map(doc => [doc.path, doc])).values()]
-    .sort((a, b) => compareText(a.path, b.path));
-  if (uniqueMatches.length === 1) return { doc: uniqueMatches[0] };
-  if (uniqueMatches.length > 1) return { error: 'unresolved-ref', candidates: uniqueMatches };
-  const legacyMatches = allDocs.filter(doc => doc.legacy && idFromLegacy(doc) === value)
-    .sort((a, b) => compareText(a.path, b.path));
+
+  const matches = [];
+  for (const declaration of activeDeclarations(allDocs, graph)) if (declaration.id === value || declaration.aliases.includes(value)) matches.push(declaration);
+  const uniqueMatches = [...new Map(matches.map(item => [`${item.doc.path}\0${item.id}`, item])).values()]
+    .sort((a, b) => compareText(a.doc.path, b.doc.path));
+  if (uniqueMatches.length === 1) {
+    const match = uniqueMatches[0];
+    if (match.kind === 'requirement') return { doc: match.doc, requirement: { id: match.id } };
+    return { doc: match.doc };
+  }
+  if (uniqueMatches.length > 1) return { error: 'unresolved-ref', candidates: [...new Map(uniqueMatches.map(item => [item.doc.path, item.doc])).values()] };
+  const legacyMatches = allDocs.filter(doc => doc.legacy && idFromLegacy(doc) === value).sort((a, b) => compareText(a.path, b.path));
+  if (!legacyMatches.length && /^REQ-/.test(value)) {
+    const historical = allRevisionRequirements(allDocs).filter(item => item.id === value || item.aliases.includes(value));
+    const replacement = allRevisionRequirements(allDocs).flatMap(item => item.replaces.includes(value) ? [{ item }] : []);
+    if (historical.length || replacement.length) return { error: 'unresolved-ref', candidates: historical.map(item => item.doc), message: replacement.length ? `historical requirement ${value} was replaced by ${replacement.map(item => item.item.id).sort(compareText).join(', ')}` : `requirement ${value} is historical and not current` };
+  }
   return { error: 'unresolved-ref', candidates: legacyMatches, ...(legacyMatches.length ? { message: `legacy-only ID; use legacy:${value}` } : {}) };
 }
 
@@ -345,6 +903,13 @@ function lintDocs(docs, config, options = {}) {
   const crossSeverity = involved => full || involved.some(doc => doc && changedSet.has(doc.path)) ? 'error' : 'warning';
   const domains = new Set(Array.isArray(config && config.domains) ? config.domains : []);
 
+  const graph = options._graph || revisionGraph(entries);
+  const effectiveRevisionSources = new Set(graph.currentById.values());
+  for (const item of graph.diagnostics) {
+    const source = entries.find(doc => doc.path === item.path);
+    diagnostics.push({ ...item, severity: crossSeverity(source ? [source] : []) });
+  }
+
   for (const doc of governed) {
     if (!changed(doc)) continue;
     if (doc.error) {
@@ -355,7 +920,11 @@ function lintDocs(docs, config, options = {}) {
     if (data.role !== undefined && data.role !== doc.role) {
       diagnostics.push(makeDiagnostic('role-mismatch', 'error', doc, `frontmatter role ${String(data.role)} does not match path role ${String(doc.role)}`));
     }
-    const statusSet = ROLE_STATUSES[doc.role];
+    if (doc.role === 'prd' && isRevisionPrd(doc) && typeof data.id === 'string') {
+      const match = data.id.match(/^PRD-([A-Z][A-Z0-9]{1,9})-\d{3,}$/);
+      if (match && !domains.has(match[1])) diagnostics.push(makeDiagnostic('unknown-domain', 'error', doc, `PRD ID domain ${match[1]} is not declared`, data.id));
+    }
+    const statusSet = isRevisionPrd(doc) ? null : ROLE_STATUSES[doc.role];
     if (statusSet) {
       if (data.status === undefined || data.status === '') diagnostics.push(makeDiagnostic('missing-status', 'error', doc, `status is required for ${doc.role} documents`, data.id));
       else if (typeof data.status !== 'string' || !statusSet.has(data.status)) diagnostics.push(makeDiagnostic('invalid-status', 'error', doc, `status ${String(data.status)} is not valid for ${doc.role}`, data.id));
@@ -372,7 +941,8 @@ function lintDocs(docs, config, options = {}) {
         diagnostics.push(makeDiagnostic('invalid-alias', 'error', doc, `document aliases must be a list, received scalar ${JSON.stringify(data.aliases)}`));
       } else {
         for (const alias of data.aliases) {
-          if (typeof alias !== 'string' || alias.startsWith('legacy:') || !ANY_ID.test(alias) || alias === data.id) {
+          const aliasPattern = isRevisionPrd(doc) ? PRD_ID : ANY_ID;
+          if (typeof alias !== 'string' || alias.startsWith('legacy:') || !aliasPattern.test(alias) || alias === data.id) {
             diagnostics.push(makeDiagnostic('invalid-alias', 'error', doc, `invalid document alias ${String(alias)}`, typeof alias === 'string' ? alias : undefined));
           }
         }
@@ -390,6 +960,7 @@ function lintDocs(docs, config, options = {}) {
   }
   for (const [id, group] of idGroups) {
     if (group.length < 2) continue;
+    if (group.every(isRevisionPrd) && group.every(doc => doc.frontmatter.id === id)) continue;
     const severity = crossSeverity(group);
     const paths = [...new Set(group.map(item => item.path))].sort(compareText);
     for (const doc of group.slice().sort((a, b) => compareText(a.path, b.path))) {
@@ -398,7 +969,7 @@ function lintDocs(docs, config, options = {}) {
     }
   }
 
-  const reqs = reqDeclarations(entries);
+  const reqs = reqDeclarations(entries, graph);
   const reqGroups = new Map();
   for (const declaration of reqs) {
     if (!reqGroups.has(declaration.id)) reqGroups.set(declaration.id, []);
@@ -429,10 +1000,19 @@ function lintDocs(docs, config, options = {}) {
     if (!claims.has(name)) claims.set(name, []);
     claims.get(name).push({ name, doc, kind, canonical });
   }
+  const effectiveRevisionDocs = new Set(graph.currentById.values());
   for (const doc of governed) {
+    if (isRevisionPrd(doc) && !effectiveRevisionDocs.has(doc)) continue;
     if (!doc.frontmatter || doc.error) continue;
     addClaim(doc.frontmatter.id, doc, 'document', true);
-    for (const alias of asList(doc.frontmatter.aliases)) if (typeof alias === 'string') addClaim(alias, doc, 'document', false);
+    if (isRevisionPrd(doc)) {
+      const logicalId = graph.logicalIdByDoc.get(doc);
+      for (const name of graph.namesByLogicalId.get(logicalId) || []) {
+        if (name !== doc.frontmatter.id) addClaim(name, doc, 'document', false);
+      }
+    } else {
+      for (const alias of asList(doc.frontmatter.aliases)) if (typeof alias === 'string') addClaim(alias, doc, 'document', false);
+    }
   }
   for (const declaration of reqs) {
     addClaim(declaration.id, declaration.doc, 'requirement', true);
@@ -460,20 +1040,24 @@ function lintDocs(docs, config, options = {}) {
     unresolvedSeen.add(key);
     const candidates = (result.candidates || []).map(doc => doc.path).sort(compareText);
     const detail = message || result.message || `reference ${String(ref)} cannot be resolved`;
-    // Ratchet involvement: an explicit archive selector names its target path,
-    // so a changed (deleted/renamed) target path escalates this diagnostic even
-    // when the declaring document is unchanged. ID-only refs name no path; we
-    // keep no per-ref baseline data, so we do not claim deletion coverage for
-    // them and keep declaring-doc-only involvement.
     const involved = [source];
+    let basePaths = [];
     if (typeof ref === 'string' && ref.startsWith('legacy:')) {
-      const at = ref.indexOf('@');
+      const selector = ref.slice('legacy:'.length);
+      const at = selector.indexOf('@');
+      const id = at < 0 ? selector : selector.slice(0, at);
       if (at >= 0) {
-        const archivePath = ref.slice(at + 1);
+        const archivePath = selector.slice(at + 1);
         if (validLegacySelectorPath(archivePath)) involved.push({ path: archivePath });
       }
+      basePaths = options._baseIdPaths ? options._baseIdPaths.get(id) || [] : [];
+    } else if (options._baseIdPaths) {
+      const identity = String(ref || '').match(/^(PRD-[A-Z][A-Z0-9]{1,9}-\d{3,}|REQ-[A-Z][A-Z0-9]{1,9}-\d{3,}|[A-Z][A-Z0-9]{1,9}-\d{3,})(?:@r[1-9]\d*)?(?:#.*)?$/);
+      basePaths = identity ? options._baseIdPaths.get(identity[1]) || [] : [];
     }
-    diagnostics.push(makeDiagnostic(code || result.error || 'unresolved-ref', crossSeverity(involved), source, detail, ref, candidates));
+    for (const targetPath of basePaths) if (!entries.some(doc => doc.path === targetPath)) involved.push({ path: targetPath });
+    const allCandidates = [...new Set([...candidates, ...basePaths.filter(targetPath => !entries.some(doc => doc.path === targetPath))])].sort(compareText);
+    diagnostics.push(makeDiagnostic(code || result.error || 'unresolved-ref', crossSeverity(involved), source, detail, ref, allCandidates));
   }
 
   for (const doc of governed) {
@@ -481,14 +1065,15 @@ function lintDocs(docs, config, options = {}) {
     const supersedes = asList(doc.frontmatter.supersedes);
     for (const ref of supersedes) {
       if (typeof ref !== 'string') { unresolved('unresolved-ref', doc, ref, { candidates: [] }, 'supersedes entries must be string references'); continue; }
-      const result = resolveRef(entries, ref);
+      const result = resolveRef(entries, ref, { graph });
       if (!result.doc) { unresolved(result.error, doc, ref, result); continue; }
       const target = result.doc;
-      const edge = { source: doc, target, ref, effective: (doc.role === 'adr' && doc.frontmatter.status === 'accepted') || (doc.role === 'prd' && doc.frontmatter.status === 'active') };
+      const eligibility = supersessionEligibility(doc, target, ref, effectiveRevisionSources, graph);
+      const edge = { source: doc, target, ref, ...eligibility };
       edges.push(edge);
       if (target.path === doc.path) {
         diagnostics.push(makeDiagnostic('supersede-cycle', crossSeverity([doc]), doc, `${doc.path} supersedes itself`, doc.frontmatter.id));
-      } else if (edge.effective && !target.legacy && (!target.frontmatter || target.frontmatter.status !== 'superseded')) {
+      } else if (edge.effective && !edge.retirement && !target.legacy && (!target.frontmatter || target.frontmatter.status !== 'superseded')) {
         diagnostics.push(makeDiagnostic('supersede-status-mismatch', crossSeverity([doc, target]), doc, `${target.path} must have status superseded`, target.frontmatter && target.frontmatter.id));
       }
     }
@@ -549,25 +1134,28 @@ function lintDocs(docs, config, options = {}) {
 
   // Scan prose for references, excluding fenced examples. REQ references get a
   // dedicated missing-req diagnostic when no active PRD defines that ID.
-  const referencePattern = /(?:^|[^A-Za-z0-9_-])((?:legacy:)?(?:REQ-[A-Z][A-Z0-9]{1,9}-\d{3,}|[A-Z][A-Z0-9]{1,9}-\d{3,})(?:@[^\s`<>()\[\]{}]+)?)/g;
+  const referencePattern = /(?:^|[^A-Za-z0-9_-])((?:legacy:)?(?:PRD-[A-Z][A-Z0-9]{1,9}-\d{3,}|REQ-[A-Z][A-Z0-9]{1,9}-\d{3,}|[A-Z][A-Z0-9]{1,9}-\d{3,})(?:@[^\s`<>()\[\]{}]+)?)/g;
   for (const doc of governed) {
     if (doc.error) continue;
     const body = withoutFencedCode(doc.body || '');
     const seen = new Set();
-    for (const match of body.matchAll(referencePattern)) {
+    for (const line of body.split(/\r?\n/)) {
+      if (/^#{1,6}[ \t]+REQ-[A-Z][A-Z0-9]{1,9}-\d{3,}/.test(line)) continue;
+      for (const match of line.matchAll(referencePattern)) {
       const ref = match[1].replace(/[.,;:!?]+$/, '');
       if (seen.has(ref)) continue;
       seen.add(ref);
       if (ref.startsWith('REQ-') && !allReqIds.has(ref)) {
-        diagnostics.push(makeDiagnostic('missing-req', crossSeverity([doc]), doc, `requirement ${ref} is referenced but is not defined in an active PRD`, ref));
+        unresolved('missing-req', doc, ref, { error: 'missing-req', candidates: [] }, `requirement ${ref} is referenced but is not defined in an active PRD`);
         continue;
       }
-      const result = resolveRef(entries, ref);
+      const result = resolveRef(entries, ref, { graph });
       // A duplicate canonical ID or alias already has a structural diagnostic;
       // avoid adding a second unresolved-reference finding for prose that names
       // that conflicted identity.
       if (result.error === 'unresolved-ref' && result.candidates && result.candidates.length > 1 && result.candidates.some(candidate => !candidate.legacy)) continue;
       if (!result.doc) unresolved(result.error, doc, ref, result);
+      }
     }
   }
 
@@ -577,7 +1165,7 @@ function lintDocs(docs, config, options = {}) {
   for (const doc of governed) {
     if (doc.error || !doc.frontmatter) continue;
     for (const ref of asList(doc.frontmatter.conflicts_with)) {
-      const result = resolveRef(entries, ref);
+      const result = resolveRef(entries, ref, { graph });
       if (!result.doc) { unresolved(result.error, doc, ref, result); continue; }
       const target = result.doc;
       if (target.path === doc.path || effectivePairs.has(`${doc.path}\0${target.path}`) || effectivePairs.has(`${target.path}\0${doc.path}`)) continue;
@@ -588,12 +1176,511 @@ function lintDocs(docs, config, options = {}) {
   return sortDiagnostics(diagnostics);
 }
 
+function workingStoredBytes(root, relativePath, bytes, rules = null) {
+  const source = Buffer.from(bytes);
+  if (!root || !relativePath || !source.includes(0x0d)) return source;
+  const currentRules = rules || readWorkingTreeRules(root, [relativePath]);
+  const attrs = currentRules.attributes.get(relativePath) || {};
+  const textValue = attrs.text || 'unspecified';
+  const eolValue = attrs.eol || 'unspecified';
+  if (textValue === 'unset') return source;
+  const forcedText = textValue === 'set' || textValue === 'auto' || eolValue === 'lf' || eolValue === 'crlf';
+  const autocrlfText = textValue === 'unspecified' && ['true', 'input'].includes(currentRules.autocrlf);
+  if (!forcedText && !autocrlfText) return source;
+  const automaticText = textValue === 'auto' || autocrlfText;
+  if (automaticText && source.includes(0)) return source;
+  return Buffer.from(source.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
+}
+
+function readWorkingTreeRules(root, paths) {
+  const attributes = new Map();
+  const uniquePaths = [...new Set((paths || []).filter(item => typeof item === 'string' && item))].sort(compareText);
+  let autocrlf = '';
+  if (!root || !uniquePaths.length) return { attributes, autocrlf };
+  const batches = [];
+  let batch = [];
+  let byteCount = 0;
+  for (const relativePath of uniquePaths) {
+    const length = Buffer.byteLength(relativePath, 'utf8') + 1;
+    if (batch.length && (batch.length >= 2048 || byteCount + length > 1024 * 1024)) {
+      batches.push(batch);
+      batch = [];
+      byteCount = 0;
+    }
+    batch.push(relativePath);
+    byteCount += length;
+  }
+  if (batch.length) batches.push(batch);
+  for (const group of batches) {
+    try {
+      const input = Buffer.from(`${group.join('\0')}\0`, 'utf8');
+      const output = execFileSync('git', ['-C', root, 'check-attr', '-z', '--stdin', 'text', 'eol'], { encoding: 'buffer', input, maxBuffer: 8 * 1024 * 1024 });
+      const fields = output.toString('utf8').split('\0');
+      for (let index = 0; index + 2 < fields.length; index += 3) {
+        const [relativePath, attribute, value] = fields.slice(index, index + 3);
+        if (!relativePath || !attribute) continue;
+        if (!attributes.has(relativePath)) attributes.set(relativePath, {});
+        attributes.get(relativePath)[attribute] = value;
+      }
+    } catch { /* outside a Git worktree: retain caller-provided bytes */ }
+  }
+  try {
+    autocrlf = execFileSync('git', ['-C', root, 'config', '--get', 'core.autocrlf'], { encoding: 'utf8', maxBuffer: 4096 }).trim();
+  } catch { /* unset */ }
+  return { attributes, autocrlf };
+}
+
+function gitOutput(root, args, encoding = 'buffer') {
+  return execFileSync('git', ['-C', root, ...args], { encoding, maxBuffer: 64 * 1024 * 1024 });
+}
+
+function parseInventoryDoc(relativePath, bytes) {
+  const parsed = parseFrontmatter(Buffer.from(bytes).toString('utf8'));
+  if (parsed.error || !parsed.data || typeof parsed.data.id !== 'string') return null;
+  return {
+    id: parsed.data.id,
+    revision: parsed.data.revision,
+    path: relativePath,
+    status: parsed.data.status,
+    bytes: Buffer.from(bytes),
+    frontmatter: parsed.data,
+    body: parsed.body
+  };
+}
+
+function scanWorkspaceInventory(root) {
+  if (!root) return [];
+  const workspace = path.resolve(root);
+  const files = [];
+  function walk(directory) {
+    let entries;
+    try { entries = fs.readdirSync(directory, { withFileTypes: true }); } catch { return; }
+    entries.sort((a, b) => compareText(a.name, b.name));
+    for (const entry of entries) {
+      if (entry.name === '.git' || entry.name === 'node_modules') continue;
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) { walk(absolute); continue; }
+      if (!entry.isFile()) continue;
+      let bytes;
+      try { bytes = fs.readFileSync(absolute); } catch { continue; }
+      const relative = path.relative(workspace, absolute).split(path.sep).join('/');
+      files.push({ relative, bytes });
+    }
+  }
+  walk(workspace);
+  const rules = readWorkingTreeRules(workspace, files.filter(item => item.bytes.includes(0x0d)).map(item => item.relative));
+  const inventory = [];
+  for (const item of files) {
+      const record = parseInventoryDoc(item.relative, workingStoredBytes(workspace, item.relative, item.bytes, rules));
+      if (record) inventory.push(record);
+  }
+  return inventory;
+}
+
+function readGitBlobBatches(root, records) {
+  const result = new Map();
+  const maxBatchBytes = 16 * 1024 * 1024;
+  const maxBatchObjects = 128;
+  const maxBlobBytes = 32 * 1024 * 1024;
+  const batches = [];
+  let batch = [];
+  let batchBytes = 0;
+  for (const record of records) {
+    if (!Number.isInteger(record.size) || record.size < 0 || record.size > maxBlobBytes) throw new Error(`base blob ${record.oid} exceeds the bounded read limit`);
+    const estimated = record.size + 128;
+    if (batch.length && (batch.length >= maxBatchObjects || batchBytes + estimated > maxBatchBytes)) {
+      batches.push(batch);
+      batch = [];
+      batchBytes = 0;
+    }
+    batch.push(record);
+    batchBytes += estimated;
+  }
+  if (batch.length) batches.push(batch);
+  for (const group of batches) {
+    const input = Buffer.from(`${group.map(item => item.oid).join('\n')}\n`, 'ascii');
+    const maxOutput = Math.min(40 * 1024 * 1024, group.reduce((total, item) => total + item.size + 128, 0));
+    const output = execFileSync('git', ['-C', root, 'cat-file', '--batch'], { encoding: 'buffer', input, maxBuffer: Math.max(1024 * 1024, maxOutput) });
+    let offset = 0;
+    for (const expected of group) {
+      const newline = output.indexOf(0x0a, offset);
+      if (newline < 0) throw new Error(`malformed cat-file header for ${expected.oid}`);
+      const header = output.subarray(offset, newline).toString('ascii').split(' ');
+      if (header.length !== 3 || header[0] !== expected.oid || header[1] !== 'blob' || Number(header[2]) !== expected.size) {
+        throw new Error(`unexpected cat-file response for ${expected.oid}`);
+      }
+      const start = newline + 1;
+      const end = start + expected.size;
+      if (end >= output.length || output[end] !== 0x0a) throw new Error(`truncated cat-file body for ${expected.oid}`);
+      result.set(expected.oid, Buffer.from(output.subarray(start, end)));
+      offset = end + 1;
+    }
+    if (offset !== output.length) throw new Error('cat-file batch returned trailing bytes');
+  }
+  return result;
+}
+
+function readGitBaseInventory(root, baseRef, config, explicitConfigPath = null) {
+  if (!root || typeof baseRef !== 'string' || !baseRef.trim()) return { available: false, inventory: [] };
+  try {
+    const commit = gitOutput(root, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${baseRef}^{commit}`], 'utf8').trim();
+    const entries = gitOutput(root, ['ls-tree', '-r', '-l', '-z', '--full-tree', commit], 'buffer').toString('utf8').split('\0').filter(Boolean);
+    const tree = [];
+    for (const entry of entries) {
+      const tab = entry.indexOf('\t');
+      if (tab < 0) continue;
+      const header = entry.slice(0, tab).match(/^(\d+) (blob|commit) ([0-9a-f]+)\s+(\d+)$/);
+      if (!header) continue;
+      const [, mode, type, oid, sizeText] = header;
+      const relative = entry.slice(tab + 1);
+      if (type !== 'blob' || !/^[0-9a-f]{40,64}$/.test(oid)) continue;
+      const size = Number(sizeText);
+      if (!Number.isSafeInteger(size) || size < 0) throw new Error(`invalid base blob size for ${relative}`);
+      tree.push({ mode, oid, path: relative, size });
+    }
+    const configPaths = new Set([
+      '.agents/harness-everything/project-docs.json',
+      'project-docs.json',
+      'lifecycle-config.json',
+      ...['.claude', '.cursor', '.github', '.codex', '.continue'].map(home => `${home}/harness-everything/manifest.json`)
+    ]);
+    if (typeof explicitConfigPath === 'string' && explicitConfigPath) {
+      const absoluteConfigPath = path.isAbsolute(explicitConfigPath)
+        ? path.resolve(explicitConfigPath)
+        : path.resolve(root, explicitConfigPath);
+      const relativeConfigPath = path.relative(path.resolve(root), absoluteConfigPath).split(path.sep).join('/');
+      if (relativeConfigPath && relativeConfigPath !== '..' && !relativeConfigPath.startsWith('../') && !path.isAbsolute(relativeConfigPath)) {
+        configPaths.add(relativeConfigPath);
+      }
+    }
+    const configRecords = tree.filter(item => configPaths.has(item.path));
+    const currentGoverned = Array.isArray(config && config.governed) ? config.governed.map(item => item && item.path).filter(item => typeof item === 'string') : [];
+    const currentLegacy = Array.isArray(config && config.legacy) ? config.legacy : [];
+    const isRelevantDocument = item => matchesAny(item.path, currentGoverned)
+      || matchesAny(item.path, currentLegacy)
+      || item.path.startsWith('docs/prd/') && /\.md$/i.test(item.path);
+    const initialDocuments = tree.filter(isRelevantDocument);
+    const initial = [...new Map([...configRecords, ...initialDocuments].map(item => [item.path, item])).values()];
+    const initialBlobs = readGitBlobBatches(root, initial);
+    const baseConfigs = [];
+    for (const item of configRecords) {
+      const bytes = initialBlobs.get(item.oid);
+      if (!bytes) continue;
+      try {
+        const parsed = JSON.parse(bytes.toString('utf8'));
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const projectDocs = parsed.projectDocs && typeof parsed.projectDocs === 'object' && !Array.isArray(parsed.projectDocs)
+            ? parsed.projectDocs
+            : parsed;
+          baseConfigs.push(projectDocs);
+        }
+      } catch { /* malformed historical config cannot add scan globs */ }
+    }
+    const baseGoverned = baseConfigs.flatMap(item => Array.isArray(item.governed) ? item.governed.map(entry => entry && entry.path).filter(value => typeof value === 'string') : []);
+    const baseLegacy = baseConfigs.flatMap(item => Array.isArray(item.legacy) ? item.legacy : []);
+    const selectedDocuments = tree.filter(item => isRelevantDocument(item)
+      || matchesAny(item.path, baseGoverned)
+      || matchesAny(item.path, baseLegacy));
+    const selectedByPath = new Map(selectedDocuments.map(item => [item.path, item]));
+    const extraDocuments = [...selectedByPath.values()].filter(item => !initialBlobs.has(item.oid));
+    const extraBlobs = readGitBlobBatches(root, extraDocuments);
+    const blobByOid = new Map([...initialBlobs, ...extraBlobs]);
+    const inventory = [];
+    for (const item of selectedByPath.values()) {
+      const bytes = blobByOid.get(item.oid);
+      if (!bytes) continue;
+      const relative = item.path;
+      const record = parseInventoryDoc(relative, bytes);
+      if (record) inventory.push(record);
+    }
+    const baseConfig = baseConfigs.length ? {
+      governed: baseConfigs.flatMap(item => Array.isArray(item.governed) ? item.governed : []),
+      legacy: baseConfigs.flatMap(item => Array.isArray(item.legacy) ? item.legacy : [])
+    } : null;
+    return { available: true, commit, inventory, config: baseConfig };
+  } catch {
+    return { available: false, inventory: [] };
+  }
+}
+
+function baseIdPaths(inventory, config, baseConfig = null) {
+  const result = new Map();
+  const add = (id, relative) => {
+    if (typeof id !== 'string' || !id || typeof relative !== 'string') return;
+    if (!result.has(id)) result.set(id, []);
+    if (!result.get(id).includes(relative)) result.get(id).push(relative);
+  };
+  for (const item of inventory || []) {
+    if (!item || typeof item.id !== 'string' || typeof item.path !== 'string') continue;
+    add(item.id, item.path);
+    for (const alias of asList(item.frontmatter && item.frontmatter.aliases)) add(alias, item.path);
+    const governed = [
+      ...(Array.isArray(config && config.governed) ? config.governed : []),
+      ...(Array.isArray(baseConfig && baseConfig.governed) ? baseConfig.governed : [])
+    ];
+    const configuredRole = governed.find(entry => entry && typeof entry.path === 'string' && matchesAny(item.path, [entry.path]))?.role;
+    const isPrdArtifact = configuredRole === 'prd'
+      || item.frontmatter && item.frontmatter.role === 'prd'
+      || item.frontmatter && Object.prototype.hasOwnProperty.call(item.frontmatter, 'revision')
+      || item.path.startsWith('docs/prd/') && !item.path.includes('/legacy/');
+    if (isPrdArtifact && item.frontmatter && item.body !== undefined) {
+      const doc = { ...item, role: 'prd', legacy: false };
+      for (const requirement of parseRequirementBlocks(doc)) {
+        add(requirement.id, item.path);
+        for (const alias of requirement.aliases) add(alias, item.path);
+      }
+    }
+  }
+  for (const paths of result.values()) paths.sort(compareText);
+  return result;
+}
+
+function immutabilityDiagnostics(baseInventory, candidateInventory) {
+  const diagnostics = [];
+  const candidateByKey = new Map();
+  for (const item of candidateInventory || []) {
+    if (!Number.isInteger(item.revision) || typeof item.id !== 'string') continue;
+    const key = `${item.id}\0${item.revision}`;
+    if (!candidateByKey.has(key)) candidateByKey.set(key, []);
+    candidateByKey.get(key).push(item);
+  }
+  for (const base of baseInventory || []) {
+    if (base.status !== 'effective' || !Number.isInteger(base.revision) || typeof base.id !== 'string') continue;
+    const matches = candidateByKey.get(`${base.id}\0${base.revision}`) || [];
+    if (!matches.length) {
+      diagnostics.push({ code: 'immutable-revision-deleted', severity: 'error', path: base.path, id: base.id, message: `effective revision ${base.id}@r${base.revision} was deleted or moved outside the candidate inventory` });
+      continue;
+    }
+    const exact = matches.find(item => item.path === base.path && Buffer.from(item.bytes).equals(Buffer.from(base.bytes)));
+    if (!exact) {
+      const candidate = matches.slice().sort((a, b) => compareText(a.path, b.path))[0];
+      diagnostics.push({ code: 'immutable-revision-modified', severity: 'error', path: candidate.path, id: base.id, message: `effective revision ${base.id}@r${base.revision} must retain its path and stored bytes`, candidates: [base.path] });
+    }
+  }
+  return diagnostics;
+}
+
+function migrationDiagnostics(docs, root, baseInventory) {
+  const diagnostics = [];
+  const baseByPath = new Map((baseInventory || []).filter(item => item && typeof item.path === 'string').map(item => [item.path, item]));
+  const candidates = (docs || []).filter(doc => isRevisionPrd(doc)
+    && doc.frontmatter.revision === 1
+    && (doc.frontmatter.previous_revision === undefined || doc.frontmatter.previous_revision === null)
+    && doc.frontmatter.migrated_from_digest !== undefined);
+  for (const doc of candidates) {
+    const recordPath = doc.frontmatter.migration_record;
+    if (typeof recordPath !== 'string' || !validLegacySelectorPath(recordPath)) {
+      diagnostics.push(makeDiagnostic('migration-record-missing', 'error', doc, 'baseline migration_record must name an in-repository JSON record', doc.frontmatter.id));
+      continue;
+    }
+    if (!root) {
+      diagnostics.push(makeDiagnostic('migration-record-missing', 'error', doc, `migration record ${recordPath} cannot be checked without a workspace`, doc.frontmatter.id));
+      continue;
+    }
+    let record;
+    try { record = JSON.parse(fs.readFileSync(path.join(root, ...recordPath.split('/')), 'utf8')); } catch {
+      diagnostics.push(makeDiagnostic('migration-record-missing', 'error', doc, `migration record ${recordPath} cannot be read`, doc.frontmatter.id));
+      continue;
+    }
+    const source = typeof record.source === 'string' ? baseByPath.get(record.source) : null;
+    if (!source || !Buffer.isBuffer(source.bytes)) {
+      diagnostics.push(makeDiagnostic('migration-record-mismatch', 'error', doc, `migration source ${String(record.source)} is absent from the trusted base`, doc.frontmatter.id));
+      continue;
+    }
+    const priorBytes = Buffer.from(source.bytes);
+    const priorDigest = sha256(priorBytes);
+    let recordMatches = record.record === 'prd-baseline-migration'
+      && record.id === doc.frontmatter.id
+      && record.revision === 1
+      && record.source === doc.path
+      && record.migrated_from_digest === doc.frontmatter.migrated_from_digest
+      && record.migrated_from_digest === priorDigest
+      && record.approved_by === (doc.frontmatter.approval && doc.frontmatter.approval.by);
+    const prior = parseFrontmatter(priorBytes.toString('utf8'));
+    const currentBody = Buffer.from(doc.body || '', 'utf8');
+    const priorBody = Buffer.from(prior.body || '', 'utf8');
+    if (!prior || prior.error || !priorBody.equals(currentBody)) recordMatches = false;
+    if (!recordMatches) diagnostics.push(makeDiagnostic('migration-record-mismatch', 'error', doc, `migration record ${recordPath} does not bind the metadata-only baseline adoption`, doc.frontmatter.id));
+  }
+  return diagnostics;
+}
+
+function transitionDiagnostics(docs, baseInventory, root, candidateGraph = null) {
+  const diagnostics = [];
+  const baseDocs = (baseInventory || []).filter(item => item && item.frontmatter && item.frontmatter.revision)
+    .map(item => ({ path: item.path, role: 'prd', legacy: false, frontmatter: item.frontmatter, body: item.body || '', storedBytes: item.bytes }));
+  const baseGraph = revisionGraph(baseDocs);
+  const liveGraph = candidateGraph || revisionGraph(docs);
+  for (const doc of (docs || []).filter(isRevisionPrd)) {
+    const data = doc.frontmatter;
+    const logicalId = liveGraph.logicalIdByDoc.get(doc);
+    const names = liveGraph.namesByLogicalId.get(logicalId) || new Set([data.id]);
+    const baseLogicalIds = new Set([...names].flatMap(name => [...(baseGraph.logicalIdsByName.get(name) || [])]));
+    const baseCandidates = [...baseLogicalIds].flatMap(id => (baseGraph.groups.get(id) || []).filter(item => item.frontmatter.revision === data.revision));
+    const base = baseCandidates.length === 1 ? baseCandidates[0] : null;
+    if (!base) continue;
+    const candidateBytes = docBytes(doc);
+    if (base.frontmatter.status === 'approved' && data.status === 'approved') {
+      if (!candidateBytes.equals(Buffer.from(base.storedBytes)) || doc.path !== base.path) {
+        diagnostics.push(makeDiagnostic('invalid-transition', 'error', doc, 'approved revisions are frozen until returned to draft or activated', data.id));
+      }
+      continue;
+    }
+    if (base.frontmatter.status === 'approved' && data.status === 'draft') continue;
+    if (base.frontmatter.status === 'approved' && !['approved', 'draft', 'effective'].includes(data.status)) {
+      diagnostics.push(makeDiagnostic('invalid-transition', 'error', doc, 'approved revisions may only remain approved, return to draft, or activate', data.id));
+      continue;
+    }
+    if (data.status !== 'effective') continue;
+    if (base.frontmatter.status !== 'approved' && base.frontmatter.status !== 'effective') {
+      diagnostics.push(makeDiagnostic('invalid-transition', 'error', doc, `effective revision must activate from approved, found base status ${String(base.frontmatter.status)}`, data.id));
+      continue;
+    }
+    if (base.frontmatter.status === 'effective') continue;
+    const priorProjection = { ...base.frontmatter };
+    const nextProjection = { ...data };
+    for (const key of ['status', 'effective_at']) { delete priorProjection[key]; delete nextProjection[key]; }
+    const candidateBody = Buffer.from(doc.body || '', 'utf8');
+    if (sortedJson(priorProjection) !== sortedJson(nextProjection) || !Buffer.from(base.body || '', 'utf8').equals(candidateBody)) {
+      diagnostics.push(makeDiagnostic('invalid-transition', 'error', doc, 'approved-to-effective activation may change only status and effective_at', data.id));
+    }
+    const baseLogicalId = baseGraph.logicalIdByDoc.get(base);
+    const priorCurrent = baseGraph.currentById.get(baseLogicalId);
+    if (priorCurrent && data.previous_revision !== priorCurrent.frontmatter.revision) {
+      diagnostics.push(makeDiagnostic('stale-draft-base', 'error', doc, `activation parent ${String(data.previous_revision)} is not the base current effective revision r${priorCurrent.frontmatter.revision}`, data.id));
+    }
+  }
+  return diagnostics;
+}
+
+function analyzeDocs(docs, config, options = {}) {
+  const entries = Array.isArray(docs) ? docs : [];
+  const graph = options._graph || revisionGraph(entries);
+  const root = options.workspace || entries.find(doc => typeof doc.workspace === 'string')?.workspace || null;
+  let inventory = null;
+  let baseState = null;
+  let disposition = 'not-observed';
+  if (Array.isArray(options.baseInventory)) {
+    inventory = options.baseInventory.map(item => {
+      if (!item || typeof item.path !== 'string') return null;
+      return parseInventoryDoc(item.path, Buffer.from(item.bytes || []));
+    }).filter(Boolean);
+    disposition = 'observed';
+  } else if (options.base !== undefined) {
+    baseState = readGitBaseInventory(root, options.base, config, options.configPath);
+    if (baseState.available) { inventory = baseState.inventory; disposition = 'observed'; }
+    else disposition = 'unavailable';
+  }
+  const normalizedInventory = inventory || [];
+  const effectiveOptions = {
+    ...options,
+    _graph: graph,
+    _baseIdPaths: disposition === 'observed' ? baseIdPaths(normalizedInventory, config, baseState && baseState.config) : undefined
+  };
+  const diagnostics = lintDocs(entries, config, effectiveOptions);
+  if (disposition === 'observed') {
+    const candidateInventory = root ? scanWorkspaceInventory(root) : entries.map(doc => ({
+      id: doc.frontmatter && doc.frontmatter.id,
+      revision: doc.frontmatter && doc.frontmatter.revision,
+      path: doc.path,
+      status: doc.frontmatter && doc.frontmatter.status,
+      bytes: docBytes(doc)
+    }));
+    diagnostics.push(...immutabilityDiagnostics(normalizedInventory, candidateInventory));
+    diagnostics.push(...transitionDiagnostics(entries, normalizedInventory, root, graph));
+    diagnostics.push(...migrationDiagnostics(entries, root, normalizedInventory));
+  }
+  const result = { diagnostics: sortDiagnostics(diagnostics), evidence: { immutability: disposition } };
+  Object.defineProperty(result, '_graph', { value: graph, enumerable: false });
+  return result;
+}
+
+function diffRevisions(docs, refA, refB) {
+  const graph = revisionGraph(docs);
+  const from = resolveRef(docs, refA, { graph });
+  const to = resolveRef(docs, refB, { graph });
+  if (!from.doc || !to.doc) return { error: 'unresolved-revision', from: from.error || null, to: to.error || null };
+  const before = parseRequirementBlocks(from.doc);
+  const after = parseRequirementBlocks(to.doc);
+  const beforeById = new Map(before.map(item => [item.id, item]));
+  const afterById = new Map(after.map(item => [item.id, item]));
+  const beforeNames = new Map();
+  for (const item of before) for (const name of [item.id, ...item.aliases]) {
+    if (!beforeNames.has(name)) beforeNames.set(name, new Set());
+    beforeNames.get(name).add(item.id);
+  }
+  const replaced = [];
+  for (const item of after) for (const replacedName of item.replaces) {
+    const targets = beforeNames.get(replacedName);
+    if (targets && targets.size === 1) replaced.push({ from: [...targets][0], to: item.id });
+  }
+  replaced.sort((a, b) => compareText(a.from, b.from) || compareText(a.to, b.to));
+  const replacementSources = new Set(replaced.map(item => item.from));
+  const kept = [];
+  const changed = [];
+  for (const [id, prior] of beforeById) {
+    const next = afterById.get(id);
+    if (!next) continue;
+    if (prior.title === next.title && prior.block.trim() === next.block.trim()) kept.push(id);
+    else changed.push({ id, reviewRequired: true });
+  }
+  const removed = [...beforeById.keys()].filter(id => !afterById.has(id) && !replacementSources.has(id)).sort(compareText);
+  const added = [...afterById.keys()].filter(id => !beforeById.has(id) && !replaced.some(edge => edge.to === id)).sort(compareText);
+  return {
+    from: { id: from.doc.frontmatter.id, revision: from.doc.frontmatter.revision, path: from.doc.path, digest: from.digest },
+    to: { id: to.doc.frontmatter.id, revision: to.doc.frontmatter.revision, path: to.doc.path, digest: to.digest },
+    requirements: {
+      kept: kept.sort(compareText),
+      added,
+      changed: changed.sort((a, b) => compareText(a.id, b.id)),
+      removed,
+      replaced
+    }
+  };
+}
+
 function documentId(doc) {
   return doc.legacy ? idFromLegacy(doc) : doc.frontmatter && typeof doc.frontmatter.id === 'string' ? doc.frontmatter.id : null;
 }
 
+function documentPin(doc) {
+  if (isRevisionPrd(doc)) return `${doc.frontmatter.id}@r${doc.frontmatter.revision}`;
+  return documentId(doc) || doc.path;
+}
+
+function effectiveRevisionHistory(group, parentByDoc) {
+  const effective = group.filter(doc => doc.frontmatter.status === 'effective');
+  if (!effective.length) return 'none';
+  const effectiveSet = new Set(effective);
+  const children = new Map();
+  for (const doc of effective) {
+    const parent = parentByDoc.get(doc);
+    if (!effectiveSet.has(parent)) continue;
+    if (!children.has(parent)) children.set(parent, []);
+    children.get(parent).push(doc);
+  }
+  for (const values of children.values()) values.sort((a, b) => a.frontmatter.revision - b.frontmatter.revision || compareText(a.path, b.path));
+  const roots = effective.filter(doc => doc.frontmatter.previous_revision === undefined
+    || doc.frontmatter.previous_revision === null || doc.frontmatter.previous_revision === '');
+  const paths = [];
+  const visited = new Set();
+  const walk = (doc, chain, visiting) => {
+    if (visiting.has(doc)) return;
+    visiting.add(doc);
+    visited.add(doc);
+    const next = children.get(doc) || [];
+    if (!next.length) paths.push([...chain, documentPin(doc)]);
+    else for (const child of next) walk(child, [...chain, documentPin(doc)], visiting);
+    visiting.delete(doc);
+  };
+  for (const root of roots) walk(root, [], new Set());
+  for (const doc of effective) if (!visited.has(doc)) paths.push([`unlinked: ${documentPin(doc)}`]);
+  return paths.map(chain => chain.join(' -> ')).join('; ') || 'none';
+}
+
 function buildIndex(docs, config, options = {}) {
   const entries = Array.isArray(docs) ? docs : [];
+  const graph = options._graph || revisionGraph(entries);
   let diagnostics;
   if (Array.isArray(options.diagnostics)) {
     diagnostics = options.diagnostics;
@@ -601,17 +1688,20 @@ function buildIndex(docs, config, options = {}) {
     const mode = options.all === true
       ? { all: true }
       : { changedPaths: Array.isArray(options.changedPaths) ? options.changedPaths : [] };
-    diagnostics = lintDocs(entries, config, mode);
+    diagnostics = lintDocs(entries, config, { ...mode, _graph: graph });
   }
   diagnostics = diagnostics.filter(item => RESOLUTION_DIAGNOSTICS.has(item.code));
   const edges = [];
+  const effectiveRevisionSources = new Set(graph.currentById.values());
   for (const doc of entries) {
     if (doc.legacy || doc.error || !doc.frontmatter) continue;
-    const effective = (doc.role === 'adr' && doc.frontmatter.status === 'accepted') || (doc.role === 'prd' && doc.frontmatter.status === 'active');
     for (const ref of asList(doc.frontmatter.supersedes)) {
       if (typeof ref !== 'string') continue;
-      const result = resolveRef(entries, ref);
-      if (result.doc) edges.push({ source: doc, target: result.doc, ref, effective });
+      const result = resolveRef(entries, ref, { graph });
+      if (result.doc) {
+        const eligibility = supersessionEligibility(doc, result.doc, ref, effectiveRevisionSources, graph);
+        edges.push({ source: doc, target: result.doc, ref, ...eligibility });
+      }
     }
   }
   const incoming = new Map();
@@ -627,15 +1717,51 @@ function buildIndex(docs, config, options = {}) {
   for (const doc of active) {
     const data = doc.frontmatter || {};
     const id = documentId(doc) || '(no id)';
-    const details = [`role: ${doc.role || 'unassigned'}`, `status: ${data.status || '(missing)'}`];
+    const details = [`role: ${doc.role || 'unassigned'}`];
+    if (isRevisionPrd(doc)) {
+      const logicalId = graph.logicalIdByDoc.get(doc);
+      const current = graph.currentById.get(logicalId);
+      const valid = graph.structurallyValid.get(logicalId) !== false;
+      const derivedState = !valid ? 'invalid' : current === doc ? 'current' : current ? (data.status === 'effective' ? 'historical' : 'pending') : 'pre-activation';
+      details.push(`stored status: ${data.status || '(missing)'}`, `derived state: ${derivedState}`);
+    } else {
+      details.push(`status: ${data.status || '(missing)'}`);
+    }
     const aliases = Array.isArray(data.aliases) ? data.aliases.filter(item => typeof item === 'string').slice().sort(compareText) : [];
     if (aliases.length) details.push(`aliases: ${aliases.map(item => `\`${item}\``).join(', ')}`);
     const successors = (incoming.get(doc.path) || []).slice().sort(sortDocs);
-    if (successors.length) details.push(`superseded by: ${successors.map(item => `\`${documentId(item) || item.path}\``).join(', ')}`);
+    if (successors.length) {
+      const provenance = successors.map(source => {
+        const edge = edges.find(item => item.effective && item.source.path === source.path && item.target.path === doc.path);
+        return edge && edge.retirement ? `\`${documentPin(source)}\` -> \`${documentPin(doc)}\`` : `\`${documentId(source) || source.path}\``;
+      });
+      details.push(`superseded by: ${provenance.join(', ')}`);
+      const retirementEdges = successors.map(source => edges.find(item => item.effective && item.retirement && item.source.path === source.path && item.target.path === doc.path)).filter(Boolean);
+      if (retirementEdges.length) details.push(`retirement provenance: ${retirementEdges.map(edge => `\`${documentPin(edge.source)}\` -> \`${documentPin(edge.target)}\``).sort(compareText).join(', ')}`);
+    }
     const outgoing = edges.filter(edge => edge.source.path === doc.path);
     const pending = outgoing.filter(edge => !edge.effective);
     if (pending.length) details.push(`pending supersedes: ${pending.map(edge => `\`${edge.ref}\``).sort(compareText).join(', ')}`);
+    const retirements = outgoing.filter(edge => edge.retirement);
+    if (retirements.length) details.push(`retires: ${retirements.map(edge => `\`${edge.ref}\``).sort(compareText).join(', ')}`);
     lines.push(`- \`${id}\` — \`${doc.path}\` (${details.join('; ')})`);
+  }
+  lines.push('', '## PRD revision chains', '');
+  if (!graph.groups.size) lines.push('_None._', '');
+  for (const [logicalId, group] of [...graph.groups.entries()].sort((a, b) => compareText(a[0], b[0]))) {
+    const revisions = group.slice().sort((a, b) => a.frontmatter.revision - b.frontmatter.revision || compareText(a.path, b.path));
+    const current = graph.currentById.get(logicalId);
+    const valid = graph.structurallyValid.get(logicalId) !== false;
+    const state = !valid ? 'invalid' : current ? 'valid' : 'pre-activation';
+    const currentText = current
+      ? `\`${documentPin(current)}\` (\`${current.path}\`; digest: \`${graph.artifactDigests.get(current) || artifactDigest(current)}\`)`
+      : 'none';
+    const history = effectiveRevisionHistory(revisions, graph.parentByDoc).replace(/(PRD-[A-Z][A-Z0-9]{1,9}-\d{3,}@r[1-9]\d*)/g, '`$1`');
+    const pending = revisions.filter(doc => ['draft', 'approved'].includes(doc.frontmatter.status));
+    const pendingText = pending.length
+      ? pending.map(doc => `\`${documentPin(doc)}\` (${doc.frontmatter.status})`).join(', ')
+      : 'none';
+    lines.push(`- \`${logicalId}\` — state: ${state}; current: ${currentText}; history: ${history}; pending: ${pendingText}`);
   }
   lines.push('', '## Legacy documents', '');
   if (!legacy.length) lines.push('_None._', '');
@@ -660,15 +1786,16 @@ function parseCli(argv) {
   for (let index = 0; index < rest.length; index++) {
     const arg = rest[index];
     if (arg === '--all') options.all = true;
-    else if (arg === '--workspace' || arg === '--config' || arg === '--changed') {
+    else if (arg === '--workspace' || arg === '--config' || arg === '--changed' || arg === '--base') {
       if (index + 1 >= rest.length) throw new Error(`${arg} requires a value`);
       const value = rest[++index];
       if (arg === '--workspace') options.workspace = value;
       if (arg === '--config') options.configFile = value;
       if (arg === '--changed') { options.changedProvided = true; options.changedPaths = value.split(',').map(item => item.trim()).filter(Boolean); }
+      if (arg === '--base') options.base = value;
     } else throw new Error(`unknown argument: ${arg}`);
   }
-  if (!['lint', 'index'].includes(command)) throw new Error('usage: doc-lifecycle.js <lint|index> --workspace <dir> --config <json-file> [--changed a,b | --all]');
+  if (!['lint', 'index'].includes(command)) throw new Error('usage: doc-lifecycle.js <lint|index> --workspace <dir> --config <json-file> [--changed a,b | --all] [--base <git-rev>]');
   if (!options.workspace || !options.configFile) throw new Error('--workspace and --config are required');
   if (!options.changedProvided && !options.all) throw new Error('lint and index require --changed or --all');
   if (options.all && options.changedProvided) throw new Error('choose either --changed or --all');
@@ -684,16 +1811,16 @@ function main(argv = process.argv.slice(2)) {
     return 2;
   }
   const docs = collectDocs(path.resolve(options.workspace), config);
-  const mode = options.all ? { all: true } : { changedPaths: options.changedPaths };
+  const mode = { ...(options.all ? { all: true } : { changedPaths: options.changedPaths }), workspace: path.resolve(options.workspace), base: options.base, configPath: path.resolve(options.configFile) };
+  const analysis = analyzeDocs(docs, config, mode);
   if (options.command === 'index') {
-    process.stdout.write(buildIndex(docs, config, mode));
+    process.stdout.write(buildIndex(docs, config, { ...mode, diagnostics: analysis.diagnostics, _graph: analysis._graph }));
     return 0;
   }
-  const diagnostics = lintDocs(docs, config, options.all ? { all: true } : { changedPaths: options.changedPaths });
-  process.stdout.write(`${JSON.stringify(diagnostics, null, 2)}\n`);
-  return diagnostics.some(item => item.severity === 'error') ? 1 : 0;
+  process.stdout.write(`${JSON.stringify(analysis, null, 2)}\n`);
+  return analysis.diagnostics.some(item => item.severity === 'error') ? 1 : 0;
 }
 
-module.exports = { parseFrontmatter, collectDocs, resolveRef, lintDocs, buildIndex };
+module.exports = { parseFrontmatter, collectDocs, analyzeDocs, resolveRef, lintDocs, buildIndex, diffRevisions };
 
 if (require.main === module) process.exitCode = main();
