@@ -133,6 +133,14 @@ checkCase('2ba. router prints the explicit-choice guidance line exactly once in 
   if (matches.length !== 1) throw new Error(`expected the guidance line exactly once; found ${matches.length}`);
 });
 
+checkCase('2ba. router record-plan guidance keeps the space after "node" in fresh tier2 output', () => {
+  const routed = routeFixPrompt(ROOT, ROOT);
+  if (routed.status !== 0) throw new Error(`router exited ${routed.status}: ${routed.stderr}`);
+  if (!routed.stdout.includes('   - Record plan: node "')) {
+    throw new Error(`router record-plan line lacks "Record plan: node"; got: ${routed.stdout.split('\n').find(line => line.includes('Record plan')) || '(none)'}`);
+  }
+});
+
 checkCase('2ba. router never crashes or prints a stale step-type list when the registry is missing', () => {
   const copy = path.join(tempRoot, 'runtime-without-registry');
   fs.cpSync(ROOT, copy, {

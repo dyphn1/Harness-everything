@@ -238,7 +238,7 @@ function run(raw) {
       const stepTypeIds = stepTypeIdsFor(persisted.hooksRoot);
       console.log('   - Record ordered step types' + (stepTypeIds ? ' (' + stepTypeIds.join(', ') + ')' : '') + ' and their bindings before execution.');
       console.log('   - Replace <step-type-id> with a registered type you choose explicitly; mixed docs+code work uses separate doc-change and behavior-change steps; keep the verification step.');
-      console.log('   - Record plan:node "' + controller + '" plan --session-id "' + persisted.sessionId + '" --requirements-json "[{\\"id\\":\\"req-1\\",\\"stepType\\":\\"<step-type-id>\\",\\"summary\\":\\"...\\",\\"acceptance\\":\\"...\\"},{\\"id\\":\\"req-verify\\",\\"stepType\\":\\"verification\\",\\"summary\\":\\"...\\",\\"acceptance\\":\\"...\\"}]" --strategy "' + plan.strategy + '" --evidence "<why this workflow fits>"');
+      console.log('   - Record plan: node "' + controller + '" plan --session-id "' + persisted.sessionId + '" --requirements-json "[{\\"id\\":\\"req-1\\",\\"stepType\\":\\"<step-type-id>\\",\\"summary\\":\\"...\\",\\"acceptance\\":\\"...\\"},{\\"id\\":\\"req-verify\\",\\"stepType\\":\\"verification\\",\\"summary\\":\\"...\\",\\"acceptance\\":\\"...\\"}]" --strategy "' + plan.strategy + '" --evidence "<why this workflow fits>"');
     }
     console.log('   - Enter selected workflow after planning: node "' + controller + '" start --session-id "' + persisted.sessionId + '"');
     console.log('   - Escape one declared stage: node "' + controller + '" escape --session-id "' + persisted.sessionId + '" --stage-id "<id>" --reason-code workflow-uncovered-scope --scope "<uncovered scope>" --evidence "<evidence>"');

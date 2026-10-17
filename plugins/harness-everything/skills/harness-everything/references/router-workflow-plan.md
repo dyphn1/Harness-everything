@@ -134,6 +134,8 @@ The allowed step types are the entries of `hooks/scripts/lib/step-types.json`. T
 
 Old runtimes reject a persisted non-Fable `doc-change` plan visibly at the controller and Stop boundaries (`planning:steps-invalid`). The old retained router does not show that rejection: it shows no active step. Persisted bytes are not renamed or reset. Inert Fable planning metadata is not rejected by old runtimes, because step bindings are disabled there.
 
+Registry revisions: binding defaults and required/forbidden binding policy are materialized when a plan is recorded and are not reapplied on ordinary load. Existing typed plans must still reference currently registered step types; removing a type can invalidate a plan rather than migrate or waive its stored bindings. A policy fingerprint or migration path is future work and is not implemented today.
+
 ## Binding and disclosure rule
 
 Each ordered requirement or Fable stage may declare `requiredBindings` and `optionalBindings` by stable id and concrete repository-relative path. Only the active requirement or dependency-ready stage exposes its paths. Required bindings must resolve before that step/stage passes; unknown required bindings remain visible and unresolved. Future-step paths and keyword-matched documents are never preloaded.
