@@ -145,7 +145,7 @@ Anchors for cross-file diagnostics: `supersede-*`, `unresolved-ref`, `ambiguous-
 | `rejected` / `withdrawn` | Not enforced in this slice | Never selectable as current |
 
 - **Approval record (owner decision 2026-10-17):** `approval: { by, at, ref, content_digest }`. `by` is a human or an independent cold verifier, never the drafting agent. `ref` is a URL or an in-repo record path (offline-checkable). `content_digest` covers the revision body plus non-activation frontmatter; a content edit after approval invalidates it (`approval-content-mismatch`).
-- **Activation:** sets `status: effective` and `effective_at`; only these fields may change between `approved` and `effective`. Activation requires the parent to be the current effective revision (`stale-draft-base`).
+- **Activation:** sets `status: effective` and `effective_at`; only these fields may change between `approved` and `effective`. An `approved` revision is frozen except for activation; any other edit, including rebinding `approval`, requires returning it to `draft` and re-approving (`invalid-transition`). Timestamps are ISO 8601 with timezone; `effective_at` must not precede `approval.at`. Activation requires the parent to be the current effective revision (`stale-draft-base`).
 - **Current effective** is derived after validating the whole graph: a connected chain of `effective` revisions from the baseline; two effective children of one parent → `revision-fork`; no effective revision → explicit pre-activation state. Older effective revisions are derived `historical`; their files are never edited.
 
 ### Digests and evidence envelope
@@ -153,15 +153,16 @@ Anchors for cross-file diagnostics: `supersede-*`, `unresolved-ref`, `ambiguous-
 - **Stored bytes:** the bytes Git stores for the file (after `git add` end-of-line normalization). Base content comes from the trusted base tree; candidate content is normalized the same way. Comparisons may use Git blob object IDs; frontmatter digests are `sha256:<hex>` over stored bytes. Pure API callers pass stored bytes directly.
 - **Artifact digest** (`previous_digest`, immutability): sha256 over the complete stored bytes of the revision file.
 - **Approval content digest** (`approval.content_digest`): sha256 over `JSON(frontmatter without status, effective_at, approval; keys sorted; UTF-8) + "\n" + body` (body in stored bytes). Excluding `approval` avoids self-reference; excluding activation fields lets activation keep the digest valid.
-- **Independence:** `drafted_by` names the drafting author; `approval.by` equal to `drafted_by` → `approval-not-independent`. `approval.role` is `human` or `cold-verifier`. The checker verifies the record's presence, binding and independence, not that a review actually happened.
+- **Independence:** `drafted_by` (required on `approved` and `effective` revisions; missing → `approval-missing`) names the drafting author; `approval.by` equal to `drafted_by` → `approval-not-independent`. `approval.role` is `human` or `cold-verifier`. The checker verifies the record's presence, binding and independence, not that a review actually happened.
 - **Evidence envelope:** `analyzeDocs(docs, config, opts)` returns `{ diagnostics, evidence }` with `evidence.immutability` = `observed` | `not-observed` | `unavailable`. `lintDocs` stays the diagnostics-only projection. CLI JSON prints the envelope; exit 1 only for error diagnostics, and `not-observed` is always printed, never folded into success.
+- **Offline base inventory:** `analyzeDocs(docs, config, { baseInventory: [{ id, revision, path, status, bytes }] })` is equivalent to a Git base; `bytes` are stored bytes. It must yield the same diagnostics as the equivalent `--base`.
 - Tests isolate Git (no global/system config, hooks, templates or signing; explicit `core.autocrlf` and attributes) and compute expected digests independently of the system under test.
 
 ### Immutability evidence
 
 - **Byte basis (owner decision 2026-10-17):** digests use the repository-stored content (Git blob bytes, or an exported snapshot of them), so checkout line-ending conversion cannot change identity.
 - `previous_digest` in each revision is an **internal consistency** check only; editing a parent and its child's digest together stays self-consistent.
-- **Immutability** needs a trusted baseline: CLI `--base <git-rev>` or a supplied snapshot inventory. Base and candidate inventories are compared by `(logical id, revision)` and by path: a base-effective revision must remain present with identical bytes regardless of status edits, moves, deletions or config exclusions (`immutable-revision-modified`, `immutable-revision-deleted`). Without a trusted baseline the result is `not-observed`, never pass. Git is read with argument arrays, never shell interpolation; missing history is never fetched.
+- **Immutability** needs a trusted baseline: CLI `--base <git-rev>` or a supplied snapshot inventory. Base and candidate inventories are compared by `(logical id, revision)` and by path: a base-effective revision must remain present with identical bytes regardless of status edits, moves, deletions or config exclusions (`immutable-revision-modified`, `immutable-revision-deleted`). Without a trusted baseline the result is `not-observed`, never pass. The immutability scope is the **union** of governed, legacy and PRD globs from the current config and from every config source in the base tree (`project-docs.json`, each host manifest's `projectDocs`, and the base copy of an explicit `--config` path); narrowing the current config never removes a base-effective revision from checking. Stored-byte normalization follows Git's text/binary decision (including NUL detection for `text=auto` and for `core.autocrlf` without attributes); content Git stores unchanged is compared unchanged. Git is read with argument arrays, never shell interpolation; missing history is never fetched.
 
 ### REQ continuity
 
@@ -184,8 +185,9 @@ Anchors for cross-file diagnostics: `supersede-*`, `unresolved-ref`, `ambiguous-
 
 ### Cross-PRD replacement and migration
 
+- **Retirement eligibility:** only an `effective` source revision retires a target or resolves a recorded conflict; edges from `draft`/`approved`/`rejected` revisions are pending (same rule as ADR effective edges).
 - **Retirement (owner decision 2026-10-17):** `supersedes: [PRD-GRPH-001@r4]` on another logical PRD retires that contract by external projection, like legacy targets: no file is edited, splits and merges are allowed, the exact source/target revisions are recorded, and the retired PRD stays addressable.
-- **Baseline adoption (owner decision 2026-10-17):** an existing non-legacy living PRD gets one reviewed metadata-only edit adding `revision: 1`, approval and a `migrated_from_digest` of its prior content, recorded in a migration record. `baseline` status never exempts later edits. Legacy PRDs stay frozen outside the graph.
+- **Baseline adoption (owner decision 2026-10-17):** an existing non-legacy living PRD gets one reviewed metadata-only edit adding `revision: 1`, approval and a `migrated_from_digest` of its prior content, recorded in a migration record. The baseline frontmatter names the record with `migration_record: <repo-relative path>`; the record is JSON `{ record: "prd-baseline-migration", id, revision, source, migrated_from_digest, approved_by }` and must match the frontmatter and the base content of `source` (`migration-record-missing` / `migration-record-mismatch`). `baseline` status never exempts later edits. Legacy PRDs stay frozen outside the graph.
 
 ### Diagnostics (D6.9)
 
