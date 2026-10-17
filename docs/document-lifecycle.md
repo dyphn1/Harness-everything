@@ -58,7 +58,7 @@ Globs are repo-relative POSIX paths supporting `*` (one segment) and `**` (any d
 
 | Role | Status vocabulary | `id` |
 | --- | --- | --- |
-| `prd` | `draft` / `approved` / `effective` / `rejected` / `withdrawn` (D6.9) | Required: `PRD-<DOMAIN>-NNN` plus `revision` (D6.9) |
+| `prd` | `draft` / `approved` / `effective` / `rejected` / `withdrawn` (D6.9); pre-migration `active` / `superseded` warn unchanged and error when added or changed | Required: `PRD-<DOMAIN>-NNN` plus `revision` (D6.9) |
 | `adr` | `proposed` / `accepted` / `rejected` / `superseded` | Required: `<DOMAIN>-NNN` |
 | `ticket` | `open` / `blocked` / `done` / `withdrawn` | Optional |
 | `reference` | `active` / `deprecated` | Optional |

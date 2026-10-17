@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -57,6 +58,36 @@ function writeDoc(root, relativePath, frontmatter, body = '') {
     : Object.entries(frontmatter || {}).map(([key, value]) => `${key}: ${yaml(value)}`).join('\n');
   fs.writeFileSync(file, `---\n${header}\n---\n${body}`, 'utf8');
   return file;
+}
+
+function sortedJson(value) {
+  if (Array.isArray(value)) return `[${value.map(sortedJson).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${sortedJson(value[key])}`).join(',')}}`;
+  return JSON.stringify(value);
+}
+
+function writeRevisionPrd(root, relativePath, id, body, extra = {}) {
+  const frontmatter = {
+    id, revision: 1, status: 'effective', drafted_by: 'PRD Draft Author',
+    effective_at: '2026-10-17T00:01:00Z', ...extra
+  };
+  const approval = {
+    by: 'Independent PRD Verifier', at: '2026-10-17T00:00:00Z',
+    ref: 'https://approvals.example.invalid/2ax', role: 'human', content_digest: ''
+  };
+  const projection = { ...frontmatter };
+  delete projection.status;
+  delete projection.effective_at;
+  approval.content_digest = `sha256:${crypto.createHash('sha256').update(`${sortedJson(projection)}\n${body}`, 'utf8').digest('hex')}`;
+  const values = { ...frontmatter, approval };
+  const lines = [];
+  for (const [key, value] of Object.entries(values)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      lines.push(`${key}:`);
+      for (const [child, nested] of Object.entries(value)) lines.push(`  ${child}: ${yaml(nested)}`);
+    } else lines.push(`${key}: ${yaml(value)}`);
+  }
+  return writeDoc(root, relativePath, lines.join('\n'), body);
 }
 
 function yaml(value) {
@@ -126,7 +157,7 @@ checkCase('2ax. frontmatter supports trailing comments and unindented block list
 checkCase('2ax. every role accepts its vocabulary and reports missing or invalid status', () => {
   const config = roleConfig();
   const valid = [
-    ...['draft', 'active', 'superseded'].map((status, index) => [`docs/prd/${index}.md`, { id: `PRD-${index}`, status }]),
+    ...['draft', 'approved', 'effective', 'rejected', 'withdrawn'].map((status, index) => [`docs/prd/${index}.md`, { id: `PRD-GRAPH-${String(index + 1).padStart(3, '0')}`, revision: 1, status }]),
     ...['proposed', 'accepted', 'rejected', 'superseded'].map((status, index) => [`docs/adr/${index}.md`, { id: `GRAPH-${String(index + 1).padStart(3, '0')}`, status }]),
     ...['open', 'blocked', 'done', 'withdrawn'].map((status, index) => [`docs/ticket/${index}.md`, { status }]),
     ...['active', 'deprecated'].map((status, index) => [`docs/reference/${index}.md`, { status }]),
@@ -141,6 +172,7 @@ checkCase('2ax. every role accepts its vocabulary and reports missing or invalid
   const badRoot = workspace('role-status-errors');
   writeDoc(badRoot, 'docs/prd/missing.md', { id: 'PRD-B' });
   writeDoc(badRoot, 'docs/adr/invalid.md', { id: 'GRAPH-002', status: 'active' });
+  writeDoc(badRoot, 'docs/ticket/missing.md', { id: 'TICKET-002' });
   const bad = lifecycle.lintDocs(collect(badRoot, config), config, { all: true });
   assert.ok(codes(bad).includes('missing-status'));
   assert.ok(codes(bad).includes('invalid-status'));
@@ -166,30 +198,32 @@ checkCase('2ax. ADR id is required and validates format and declared domain', ()
   assert.ok(codes(diagnostics).includes('unknown-domain'));
 });
 
-checkCase('2ax. PRD id is optional but duplicate active canonical IDs are rejected', () => {
+checkCase('2ax. PRD identity and revision are mandatory and duplicate revision pairs are rejected', () => {
   const root = workspace('duplicate-id');
   writeDoc(root, 'docs/prd/no-id.md', { status: 'draft' });
-  writeDoc(root, 'docs/prd/one.md', { id: 'PRD-ONE', status: 'active' });
-  writeDoc(root, 'docs/prd/two.md', { id: 'PRD-ONE', status: 'draft' });
+  writeDoc(root, 'docs/prd/one.md', { id: 'PRD-GRPH-001', revision: 1, status: 'draft' });
+  writeDoc(root, 'docs/prd/two.md', { id: 'PRD-GRPH-001', revision: 1, status: 'draft' });
   const diagnostics = lint(root, CONFIG, 'all');
-  assert.strictEqual(byCode(diagnostics, 'missing-id').length, 0);
-  const duplicates = byCode(diagnostics, 'duplicate-id');
+  assert.ok(byCode(diagnostics, 'invalid-prd-id').some(item => item.path === 'docs/prd/no-id.md'));
+  assert.ok(byCode(diagnostics, 'invalid-revision').some(item => item.path === 'docs/prd/no-id.md'));
+  const duplicates = byCode(diagnostics, 'duplicate-revision');
   assert.deepStrictEqual(duplicates.map(item => item.path), ['docs/prd/one.md', 'docs/prd/two.md']);
   assert.deepStrictEqual(duplicates.map(item => item.candidates), [['docs/prd/two.md'], ['docs/prd/one.md']]);
 });
 
 checkCase('2ax. REQ definitions, aliases, duplicate definitions, and missing REQ references', () => {
   const root = workspace('requirements');
-  writeDoc(root, 'docs/prd/active.md', { status: 'active' }, [
+  writeRevisionPrd(root, 'docs/prd/active.md', 'PRD-GRPH-012', [
     '### REQ-GRAPH-012 (aliases: REQ-GRPH-012, REQ-GRPH-099): Render graph',
     '',
     'See REQ-GRPH-012 and REQ-IFCE-404.',
+    'Acceptance: graph output remains visible.',
     '```md',
     'REQ-IFCE-405 is only an example in code.',
     '```',
     ''
   ].join('\n'));
-  writeDoc(root, 'docs/prd/duplicate.md', { status: 'active' }, '### REQ-GRAPH-012: duplicate\n');
+  writeRevisionPrd(root, 'docs/prd/duplicate.md', 'PRD-IFCE-012', '### REQ-GRAPH-012: duplicate\n\nAcceptance: duplicate clause.\n');
   const docs = collect(root, CONFIG);
   const found = lifecycle.lintDocs(docs, CONFIG, { all: true });
   const duplicates = byCode(found, 'duplicate-req');
@@ -202,8 +236,9 @@ checkCase('2ax. REQ definitions, aliases, duplicate definitions, and missing REQ
 
 checkCase('2ax. fence closers must match delimiter char and length with only trailing whitespace', () => {
   const root = workspace('fence-closers');
-  writeDoc(root, 'docs/prd/fences.md', { status: 'active' }, [
+  writeRevisionPrd(root, 'docs/prd/fences.md', 'PRD-GRPH-121', [
     '### REQ-GRAPH-121: real',
+    'Acceptance: preserve the rendered graph.',
     '',
     '```md',
     'Plain code line mentioning REQ-GRAPH-140 inline.',
@@ -427,14 +462,32 @@ checkCase('2ax. cycle severity and candidates are scoped to each strongly connec
 
 checkCase('2ax. recorded conflicts remain unresolved until an effective supersession is recorded', () => {
   const root = workspace('recorded-conflict');
-  writeDoc(root, 'docs/prd/a.md', { id: 'PRD-A', status: 'active', conflicts_with: ['GRAPH-071'] });
+  writeRevisionPrd(root, 'docs/prd/a.md', 'PRD-GRPH-071', '', { conflicts_with: ['GRAPH-071'] });
   writeDoc(root, 'docs/adr/b.md', { id: 'GRAPH-071', status: 'accepted' });
   let docs = collect(root);
   assert.ok(codes(lifecycle.lintDocs(docs, CONFIG, { all: true })).includes('recorded-conflict'));
   writeDoc(root, 'docs/adr/b.md', { id: 'GRAPH-071', status: 'superseded' });
-  writeDoc(root, 'docs/prd/a.md', { id: 'PRD-A', status: 'active', conflicts_with: ['GRAPH-071'], supersedes: ['GRAPH-071'] });
+  writeRevisionPrd(root, 'docs/prd/a.md', 'PRD-GRPH-071', '', { conflicts_with: ['GRAPH-071'], supersedes: ['GRAPH-071'] });
   docs = collect(root);
   assert.ok(!codes(lifecycle.lintDocs(docs, CONFIG, { all: true })).includes('recorded-conflict'));
+});
+
+checkCase('2ax. pre-migration active PRDs cannot resolve refs, declare REQs, or project conflict retirement', () => {
+  const root = workspace('active-prd-not-authoritative');
+  writeDoc(root, 'docs/prd/living.md', {
+    id: 'PRD-GRPH-071', status: 'active', conflicts_with: ['GRAPH-071'], supersedes: ['GRAPH-071']
+  }, '### REQ-GRAPH-071: Mutable requirement\n\nAcceptance: old living text.\n');
+  writeDoc(root, 'docs/adr/target.md', { id: 'GRAPH-071', status: 'accepted' });
+  writeDoc(root, 'docs/report/consumer.md', { id: 'REPORT-071', status: 'final' }, 'See PRD-GRPH-071 and REQ-GRAPH-071.\n');
+  const docs = collect(root, CONFIG);
+  assert.strictEqual(lifecycle.resolveRef(docs, 'PRD-GRPH-071').error, 'unresolved-ref');
+  assert.strictEqual(lifecycle.resolveRef(docs, 'REQ-GRAPH-071').error, 'unresolved-ref');
+  const diagnostics = lifecycle.lintDocs(docs, CONFIG, { all: true });
+  assert.ok(codes(diagnostics).includes('recorded-conflict'), JSON.stringify(diagnostics));
+  assert.ok(byCode(diagnostics, 'missing-req').some(item => item.id === 'REQ-GRAPH-071'), JSON.stringify(diagnostics));
+  const index = lifecycle.buildIndex(docs, CONFIG, { all: true });
+  const targetRow = index.split('\n').find(line => line.includes('docs/adr/target.md')) || '';
+  assert.ok(!targetRow.includes('superseded by: `PRD-GRPH-071`'), `old living PRD cannot project retirement: ${targetRow}`);
 });
 
 checkCase('2ax. ratchet suppresses unchanged schema errors and promotes them when changed', () => {
@@ -478,7 +531,7 @@ checkCase('2ax. index accepts ratchet modes or precomputed diagnostics and prese
   writeDoc(root, 'docs/adr/one.md', { id: 'GRAPH-331', status: 'active' });
   writeDoc(root, 'docs/adr/two.md', { id: 'GRAPH-332', status: 'accepted' });
   writeDoc(root, 'docs/adr/three.md', { id: 'GRAPH-332', status: 'accepted' });
-  writeDoc(root, 'docs/prd/wrong-role.md', { status: 'accepted' });
+  writeDoc(root, 'docs/prd/wrong-role.md', { id: 'PRD-GRPH-330', status: 'active' });
   const docs = collect(root, CONFIG);
   const indexRatchet = lifecycle.buildIndex(docs, CONFIG, { changedPaths: [] });
   assert.ok(!/invalid-status/.test(indexRatchet), `unchanged schema error leaked into ratcheted index: ${indexRatchet}`);

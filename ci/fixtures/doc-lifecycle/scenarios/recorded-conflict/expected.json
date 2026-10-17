@@ -1,1 +1,1 @@
-{"all":true,"diagnostics":[{"code":"recorded-conflict","severity":"error","path":"docs/prd/graph.md"}],"resolve":{"GRPH-003":"docs/adr/GRPH-003.md","REQ-GRPH-012":"docs/prd/graph.md"},"indexContains":[]}
+{"all":true,"diagnostics":[{"code":"prd-migration-required","severity":"warning","path":"docs/prd/graph.md"},{"code":"recorded-conflict","severity":"error","path":"docs/prd/graph.md"}],"resolve":{"GRPH-003":"docs/adr/GRPH-003.md","REQ-GRPH-012":"unresolved-ref"},"indexContains":["pre-D6.9 compatibility: migration required"]}

@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 
 const ROLE_STATUSES = Object.freeze({
-  prd: new Set(['draft', 'active', 'superseded']),
+  prd: new Set(['draft', 'approved', 'effective', 'rejected', 'withdrawn']),
   adr: new Set(['proposed', 'accepted', 'rejected', 'superseded']),
   ticket: new Set(['open', 'blocked', 'done', 'withdrawn']),
   reference: new Set(['active', 'deprecated']),
@@ -25,7 +25,7 @@ const RESOLUTION_DIAGNOSTICS = new Set([
   'duplicate-id', 'alias-collision', 'duplicate-req', 'missing-req',
   'unresolved-ref', 'ambiguous-legacy-ref', 'invalid-ref', 'invalid-alias',
   'missing-status', 'invalid-status', 'role-mismatch',
-  'supersede-status-mismatch', 'supersede-cycle', 'recorded-conflict',
+  'supersede-status-mismatch', 'supersede-cycle', 'recorded-conflict', 'prd-migration-required',
   'invalid-prd-id', 'invalid-revision', 'duplicate-revision', 'missing-parent',
   'multiple-baselines', 'revision-cycle', 'revision-fork', 'stale-draft-base',
   'invalid-transition', 'approval-missing', 'approval-content-mismatch',
@@ -324,12 +324,16 @@ function approvalDigest(doc) {
   return sha256(Buffer.concat([Buffer.from(`${sortedJson(data)}\n`, 'utf8'), bodyBytes]));
 }
 
-function isRevisionPrd(doc) {
+function isPrdCompatibility(doc) {
   if (!doc || doc.legacy || doc.role !== 'prd' || !doc.frontmatter) return false;
   const data = doc.frontmatter;
-  return Object.prototype.hasOwnProperty.call(data, 'revision')
-    || Object.prototype.hasOwnProperty.call(data, 'previous_revision')
-    || ['draft', 'approved', 'effective', 'rejected', 'withdrawn'].includes(data.status);
+  return !Object.prototype.hasOwnProperty.call(data, 'revision')
+    && !Object.prototype.hasOwnProperty.call(data, 'previous_revision')
+    && ['active', 'superseded'].includes(data.status);
+}
+
+function isRevisionPrd(doc) {
+  return Boolean(doc && !doc.legacy && doc.role === 'prd' && doc.frontmatter && !isPrdCompatibility(doc));
 }
 
 function supersessionEligibility(source, target, ref, effectiveRevisionSources, graph = null) {
@@ -341,7 +345,7 @@ function supersessionEligibility(source, target, ref, effectiveRevisionSources, 
   const effective = retirement
     ? effectiveRevisionSources instanceof Set && effectiveRevisionSources.has(source)
     : (source.role === 'adr' && source.frontmatter.status === 'accepted')
-      || (source.role === 'prd' && (source.frontmatter.status === 'active' || source.frontmatter.status === 'effective'));
+      || (source.role === 'prd' && isRevisionPrd(source) && effectiveRevisionSources instanceof Set && effectiveRevisionSources.has(source));
   return { retirement, effective };
 }
 
@@ -758,10 +762,6 @@ function reqDeclarations(docs, graph = null) {
   const entries = Array.isArray(docs) ? docs : [];
   const revisionState = graph || revisionGraph(entries);
   const declarations = [];
-  for (const doc of entries) {
-    if (doc.legacy || doc.role !== 'prd' || isRevisionPrd(doc) || !doc.frontmatter || doc.frontmatter.status !== 'active') continue;
-    declarations.push(...parseRequirementBlocks(doc));
-  }
   for (const doc of revisionState.currentById.values()) declarations.push(...parseRequirementBlocks(doc));
   return declarations;
 }
@@ -771,7 +771,8 @@ function activeDeclarations(docs, graph = null) {
   const revisionState = graph || revisionGraph(docs);
   const currentDocs = new Set(revisionState.currentById.values());
   for (const doc of docs || []) {
-    if (doc.legacy || !doc.frontmatter || (isRevisionPrd(doc) && !currentDocs.has(doc))) continue;
+    if (doc.legacy || !doc.frontmatter
+      || (doc.role === 'prd' && (!isRevisionPrd(doc) || !currentDocs.has(doc)))) continue;
     const id = doc.frontmatter.id;
     if (typeof id === 'string' && id) result.push({ id, aliases: Array.isArray(doc.frontmatter.aliases) ? doc.frontmatter.aliases : [], doc, kind: 'document' });
   }
@@ -907,10 +908,20 @@ function lintDocs(docs, config, options = {}) {
   const effectiveRevisionSources = new Set(graph.currentById.values());
   for (const item of graph.diagnostics) {
     const source = entries.find(doc => doc.path === item.path);
-    diagnostics.push({ ...item, severity: crossSeverity(source ? [source] : []) });
+    const candidates = (item.candidates || []).map(candidate => entries.find(doc => doc.path === candidate) || { path: candidate });
+    diagnostics.push({ ...item, severity: crossSeverity([...(source ? [source] : []), ...candidates]) });
   }
 
   for (const doc of governed) {
+    if (isPrdCompatibility(doc)) {
+      const severity = changedSet.has(doc.path) ? 'error' : 'warning';
+      const evidence = changedSet.has(doc.path)
+        ? 'changed or newly governed'
+        : options._trustedBaseObserved === true ? 'unchanged in the trusted base' : 'not shown changed, but no trusted base proves it is unchanged';
+      diagnostics.push(makeDiagnostic('prd-migration-required', severity, doc,
+        `pre-migration PRD status ${doc.frontmatter.status} is compatibility-only (${evidence}); adopt the D6.9 revision contract`, doc.frontmatter.id));
+      continue;
+    }
     if (!changed(doc)) continue;
     if (doc.error) {
       diagnostics.push(makeDiagnostic('malformed-frontmatter', 'error', doc, `frontmatter cannot be parsed: ${doc.error}`));
@@ -953,6 +964,7 @@ function lintDocs(docs, config, options = {}) {
   // Canonical document IDs occupy one active namespace; legacy IDs do not.
   const idGroups = new Map();
   for (const doc of governed) {
+    if (isPrdCompatibility(doc)) continue;
     const id = doc.frontmatter && doc.frontmatter.id;
     if (typeof id !== 'string' || !id || doc.error) continue;
     if (!idGroups.has(id)) idGroups.set(id, []);
@@ -1002,6 +1014,7 @@ function lintDocs(docs, config, options = {}) {
   }
   const effectiveRevisionDocs = new Set(graph.currentById.values());
   for (const doc of governed) {
+    if (isPrdCompatibility(doc)) continue;
     if (isRevisionPrd(doc) && !effectiveRevisionDocs.has(doc)) continue;
     if (!doc.frontmatter || doc.error) continue;
     addClaim(doc.frontmatter.id, doc, 'document', true);
@@ -1248,7 +1261,7 @@ function parseInventoryDoc(relativePath, bytes) {
   };
 }
 
-function scanWorkspaceInventory(root) {
+function scanWorkspaceFiles(root) {
   if (!root) return [];
   const workspace = path.resolve(root);
   const files = [];
@@ -1269,12 +1282,11 @@ function scanWorkspaceInventory(root) {
   }
   walk(workspace);
   const rules = readWorkingTreeRules(workspace, files.filter(item => item.bytes.includes(0x0d)).map(item => item.relative));
-  const inventory = [];
-  for (const item of files) {
-      const record = parseInventoryDoc(item.relative, workingStoredBytes(workspace, item.relative, item.bytes, rules));
-      if (record) inventory.push(record);
-  }
-  return inventory;
+  return files.map(item => ({ path: item.relative, bytes: workingStoredBytes(workspace, item.relative, item.bytes, rules) }));
+}
+
+function scanWorkspaceInventory(root) {
+  return scanWorkspaceFiles(root).map(item => parseInventoryDoc(item.path, item.bytes)).filter(Boolean);
 }
 
 function readGitBlobBatches(root, records) {
@@ -1321,7 +1333,7 @@ function readGitBlobBatches(root, records) {
 }
 
 function readGitBaseInventory(root, baseRef, config, explicitConfigPath = null) {
-  if (!root || typeof baseRef !== 'string' || !baseRef.trim()) return { available: false, inventory: [] };
+  if (!root || typeof baseRef !== 'string' || !baseRef.trim()) return { available: false, inventory: [], files: [] };
   try {
     const commit = gitOutput(root, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${baseRef}^{commit}`], 'utf8').trim();
     const entries = gitOutput(root, ['ls-tree', '-r', '-l', '-z', '--full-tree', commit], 'buffer').toString('utf8').split('\0').filter(Boolean);
@@ -1386,10 +1398,12 @@ function readGitBaseInventory(root, baseRef, config, explicitConfigPath = null) 
     const extraBlobs = readGitBlobBatches(root, extraDocuments);
     const blobByOid = new Map([...initialBlobs, ...extraBlobs]);
     const inventory = [];
+    const files = [];
     for (const item of selectedByPath.values()) {
       const bytes = blobByOid.get(item.oid);
       if (!bytes) continue;
       const relative = item.path;
+      files.push({ path: relative, bytes: Buffer.from(bytes) });
       const record = parseInventoryDoc(relative, bytes);
       if (record) inventory.push(record);
     }
@@ -1397,9 +1411,9 @@ function readGitBaseInventory(root, baseRef, config, explicitConfigPath = null) 
       governed: baseConfigs.flatMap(item => Array.isArray(item.governed) ? item.governed : []),
       legacy: baseConfigs.flatMap(item => Array.isArray(item.legacy) ? item.legacy : [])
     } : null;
-    return { available: true, commit, inventory, config: baseConfig };
+    return { available: true, commit, inventory, files, config: baseConfig };
   } catch {
-    return { available: false, inventory: [] };
+    return { available: false, inventory: [], files: [] };
   }
 }
 
@@ -1460,14 +1474,38 @@ function immutabilityDiagnostics(baseInventory, candidateInventory) {
   return diagnostics;
 }
 
-function migrationDiagnostics(docs, root, baseInventory) {
+function migrationDiagnostics(docs, root, baseInventory, baseFiles = null, baseConfig = null) {
   const diagnostics = [];
-  const baseByPath = new Map((baseInventory || []).filter(item => item && typeof item.path === 'string').map(item => [item.path, item]));
+  const baseByPath = new Map((baseFiles || baseInventory || []).filter(item => item && typeof item.path === 'string')
+    .map(item => [item.path, { ...item, bytes: Buffer.from(item.bytes || []) }]));
+  const livingSources = [...baseByPath.values()].filter(item => {
+    const parsed = parseFrontmatter(item.bytes.toString('utf8'));
+    return !parsed.error
+      && roleAtPath(item.path, baseConfig, !baseConfig) === 'prd'
+      && !isLegacyPath(item.path, baseConfig)
+      && !Object.prototype.hasOwnProperty.call(parsed.data || {}, 'revision')
+      && !Object.prototype.hasOwnProperty.call(parsed.data || {}, 'previous_revision')
+      && ['active', 'superseded'].includes(parsed.data && parsed.data.status);
+  });
   const candidates = (docs || []).filter(doc => isRevisionPrd(doc)
     && doc.frontmatter.revision === 1
-    && (doc.frontmatter.previous_revision === undefined || doc.frontmatter.previous_revision === null)
-    && doc.frontmatter.migrated_from_digest !== undefined);
+    && (doc.frontmatter.previous_revision === undefined || doc.frontmatter.previous_revision === null));
   for (const doc of candidates) {
+    const samePathSource = livingSources.find(item => item.path === doc.path);
+    const sameIdentitySources = livingSources.filter(item => {
+      const parsed = parseFrontmatter(item.bytes.toString('utf8'));
+      return parsed.data && parsed.data.id === doc.frontmatter.id;
+    });
+    const priorWasLivingPrd = Boolean(samePathSource || sameIdentitySources.length);
+    const priorSource = samePathSource || (sameIdentitySources.length === 1 ? sameIdentitySources[0] : null);
+    const hasMigrationMetadata = doc.frontmatter.migrated_from_digest !== undefined
+      || doc.frontmatter.migration_record !== undefined;
+    if (!priorWasLivingPrd && !hasMigrationMetadata) continue;
+    if (priorWasLivingPrd && (!priorSource || doc.frontmatter.migrated_from_digest === undefined || doc.frontmatter.migration_record === undefined)) {
+      diagnostics.push(makeDiagnostic('migration-record-missing', 'error', doc,
+        'existing living PRD adoption requires an unambiguous source, migrated_from_digest, and a migration_record', doc.frontmatter.id));
+      continue;
+    }
     const recordPath = doc.frontmatter.migration_record;
     if (typeof recordPath !== 'string' || !validLegacySelectorPath(recordPath)) {
       diagnostics.push(makeDiagnostic('migration-record-missing', 'error', doc, 'baseline migration_record must name an in-repository JSON record', doc.frontmatter.id));
@@ -1483,7 +1521,9 @@ function migrationDiagnostics(docs, root, baseInventory) {
       continue;
     }
     const source = typeof record.source === 'string' ? baseByPath.get(record.source) : null;
-    if (!source || !Buffer.isBuffer(source.bytes)) {
+    if (!source || !Buffer.isBuffer(source.bytes)
+      || (priorSource && record.source !== priorSource.path)
+      || (!priorSource && record.source !== doc.path && !livingSources.some(item => item.path === record.source))) {
       diagnostics.push(makeDiagnostic('migration-record-mismatch', 'error', doc, `migration source ${String(record.source)} is absent from the trusted base`, doc.frontmatter.id));
       continue;
     }
@@ -1496,10 +1536,10 @@ function migrationDiagnostics(docs, root, baseInventory) {
       && record.migrated_from_digest === doc.frontmatter.migrated_from_digest
       && record.migrated_from_digest === priorDigest
       && record.approved_by === (doc.frontmatter.approval && doc.frontmatter.approval.by);
-    const prior = parseFrontmatter(priorBytes.toString('utf8'));
+    const priorFrontmatter = parseFrontmatter(priorBytes.toString('utf8'));
     const currentBody = Buffer.from(doc.body || '', 'utf8');
-    const priorBody = Buffer.from(prior.body || '', 'utf8');
-    if (!prior || prior.error || !priorBody.equals(currentBody)) recordMatches = false;
+    const priorBody = Buffer.from(priorFrontmatter.body || '', 'utf8');
+    if (!priorFrontmatter || priorFrontmatter.error || !priorBody.equals(currentBody)) recordMatches = false;
     if (!recordMatches) diagnostics.push(makeDiagnostic('migration-record-mismatch', 'error', doc, `migration record ${recordPath} does not bind the metadata-only baseline adoption`, doc.frontmatter.id));
   }
   return diagnostics;
@@ -1553,14 +1593,63 @@ function transitionDiagnostics(docs, baseInventory, root, candidateGraph = null)
   return diagnostics;
 }
 
+function roleAtPath(relativePath, config, inferDefaultPrd = false) {
+  const entry = (Array.isArray(config && config.governed) ? config.governed : [])
+    .find(item => item && typeof item.path === 'string' && matchesAny(relativePath, [item.path]));
+  if (entry && typeof entry.role === 'string') return entry.role;
+  if (inferDefaultPrd && relativePath.startsWith('docs/prd/') && !relativePath.includes('/legacy/')) return 'prd';
+  return null;
+}
+
+function isLegacyPath(relativePath, config) {
+  return matchesAny(relativePath, Array.isArray(config && config.legacy) ? config.legacy : []);
+}
+
+function objectiveChangedPaths(baseFiles, candidateFiles, config, baseConfig) {
+  const baseByPath = new Map((baseFiles || []).filter(item => item && typeof item.path === 'string')
+    .map(item => [item.path, Buffer.from(item.bytes || [])]));
+  const candidateByPath = new Map((candidateFiles || []).filter(item => item && typeof item.path === 'string')
+    .map(item => [item.path, Buffer.from(item.bytes || [])]));
+  const currentPatterns = [
+    ...(Array.isArray(config && config.governed) ? config.governed.map(item => item && item.path) : []),
+    ...(Array.isArray(config && config.legacy) ? config.legacy : [])
+  ].filter(value => typeof value === 'string');
+  const basePatterns = [
+    ...(Array.isArray(baseConfig && baseConfig.governed) ? baseConfig.governed.map(item => item && item.path) : []),
+    ...(Array.isArray(baseConfig && baseConfig.legacy) ? baseConfig.legacy : [])
+  ].filter(value => typeof value === 'string');
+  const paths = new Set([...baseByPath.keys(), ...candidateByPath.keys()]);
+  const changed = new Set();
+  for (const relativePath of paths) {
+    const currentRole = roleAtPath(relativePath, config);
+    const baseRole = roleAtPath(relativePath, baseConfig, !baseConfig);
+    const currentLegacy = isLegacyPath(relativePath, config);
+    const baseLegacy = isLegacyPath(relativePath, baseConfig);
+    const currentInScope = Boolean(currentRole || currentLegacy);
+    const baseInScope = Boolean(baseRole || baseLegacy);
+    if (!currentInScope && !baseInScope && !matchesAny(relativePath, [...currentPatterns, ...basePatterns])) continue;
+    const prior = baseByPath.get(relativePath);
+    const current = candidateByPath.get(relativePath);
+    if (!prior || !current || !prior.equals(current)) {
+      changed.add(relativePath);
+      continue;
+    }
+    if (currentRole === 'prd' && !currentLegacy && (baseRole !== 'prd' || baseLegacy)) changed.add(relativePath);
+  }
+  return changed;
+}
+
 function analyzeDocs(docs, config, options = {}) {
   const entries = Array.isArray(docs) ? docs : [];
   const graph = options._graph || revisionGraph(entries);
   const root = options.workspace || entries.find(doc => typeof doc.workspace === 'string')?.workspace || null;
   let inventory = null;
   let baseState = null;
+  let baseFiles = null;
   let disposition = 'not-observed';
   if (Array.isArray(options.baseInventory)) {
+    baseFiles = options.baseInventory.filter(item => item && typeof item.path === 'string')
+      .map(item => ({ path: item.path, bytes: Buffer.from(item.bytes || []) }));
     inventory = options.baseInventory.map(item => {
       if (!item || typeof item.path !== 'string') return null;
       return parseInventoryDoc(item.path, Buffer.from(item.bytes || []));
@@ -1568,27 +1657,38 @@ function analyzeDocs(docs, config, options = {}) {
     disposition = 'observed';
   } else if (options.base !== undefined) {
     baseState = readGitBaseInventory(root, options.base, config, options.configPath);
-    if (baseState.available) { inventory = baseState.inventory; disposition = 'observed'; }
+    if (baseState.available) { inventory = baseState.inventory; baseFiles = baseState.files; disposition = 'observed'; }
     else disposition = 'unavailable';
   }
   const normalizedInventory = inventory || [];
+  const candidateFiles = root
+    ? scanWorkspaceFiles(root)
+    : entries.map(doc => ({ path: doc.path, bytes: docBytes(doc) }));
+  const changedPaths = new Set((Array.isArray(options.changedPaths) ? options.changedPaths : []).map(String));
+  if (disposition === 'observed') {
+    for (const relativePath of objectiveChangedPaths(baseFiles, candidateFiles, config, baseState && baseState.config)) changedPaths.add(relativePath);
+  }
   const effectiveOptions = {
     ...options,
+    changedPaths: [...changedPaths],
+    _trustedBaseObserved: disposition === 'observed',
     _graph: graph,
     _baseIdPaths: disposition === 'observed' ? baseIdPaths(normalizedInventory, config, baseState && baseState.config) : undefined
   };
   const diagnostics = lintDocs(entries, config, effectiveOptions);
   if (disposition === 'observed') {
-    const candidateInventory = root ? scanWorkspaceInventory(root) : entries.map(doc => ({
-      id: doc.frontmatter && doc.frontmatter.id,
-      revision: doc.frontmatter && doc.frontmatter.revision,
-      path: doc.path,
-      status: doc.frontmatter && doc.frontmatter.status,
-      bytes: docBytes(doc)
-    }));
+    const candidateInventory = root
+      ? candidateFiles.map(item => parseInventoryDoc(item.path, item.bytes)).filter(Boolean)
+      : entries.map(doc => ({
+        id: doc.frontmatter && doc.frontmatter.id,
+        revision: doc.frontmatter && doc.frontmatter.revision,
+        path: doc.path,
+        status: doc.frontmatter && doc.frontmatter.status,
+        bytes: docBytes(doc)
+      }));
     diagnostics.push(...immutabilityDiagnostics(normalizedInventory, candidateInventory));
     diagnostics.push(...transitionDiagnostics(entries, normalizedInventory, root, graph));
-    diagnostics.push(...migrationDiagnostics(entries, root, normalizedInventory));
+    diagnostics.push(...migrationDiagnostics(entries, root, normalizedInventory, baseFiles, baseState && baseState.config));
   }
   const result = { diagnostics: sortDiagnostics(diagnostics), evidence: { immutability: disposition } };
   Object.defineProperty(result, '_graph', { value: graph, enumerable: false });
@@ -1726,6 +1826,7 @@ function buildIndex(docs, config, options = {}) {
       details.push(`stored status: ${data.status || '(missing)'}`, `derived state: ${derivedState}`);
     } else {
       details.push(`status: ${data.status || '(missing)'}`);
+      if (isPrdCompatibility(doc)) details.push('pre-D6.9 compatibility: migration required; not current authority');
     }
     const aliases = Array.isArray(data.aliases) ? data.aliases.filter(item => typeof item === 'string').slice().sort(compareText) : [];
     if (aliases.length) details.push(`aliases: ${aliases.map(item => `\`${item}\``).join(', ')}`);
