@@ -1,0 +1,16 @@
+id: negative-code-review-004
+name: Implementing the fix must route to tdd, not code-review
+description: Writing the fix test-first is implementation work that belongs to tdd; code-review is read-only and must stay dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Fix the off-by-one error in the pagination helper. Write a regression test first, then make it pass."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "source-anchored"
+        - "source-traced"

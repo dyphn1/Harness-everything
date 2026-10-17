@@ -184,7 +184,7 @@ The authoritative current matrix is [docs/platform-capabilities.md](docs/platfor
 | **Claude Code** | Native lifecycle hooks (`PreToolUse`, `PostToolUse`, `SessionStart`, `UserPromptSubmit`, `Stop`) | `.claude/settings.json`, `.claude/skills/`, `.claude/agents/` | Semantic workflow contracts are reminder-observed; Rule-of-3 reflection and explicit permission boundaries may block |
 | **OpenCode** | Native plugin module ([`opencode-plugin/index.mjs`](opencode-plugin/index.mjs), install as `harness-enforcement.js`) | `.opencode/plugins/` | **Partial live-host evidence** — project-scope `.js` loading and edit/verification state on OpenCode 1.18.31 (macOS); current workflow/verification behavior is reminder-oriented, with only the third-failure reflection boundary blocking edits |
 | **Codex — general installer path** | Skills + `AGENTS.md` instructions | `AGENTS.md` + repo-scoped `.agents/skills/` | **Instruction/advisory delivery only**; semantic MUST/SHOULD/MAY still applies, without a hard-enforcement claim |
-| **Codex / local OpenAI plugin** | `.codex-plugin` package with session, prompt, supported-tool, subagent, and stop hooks plus 26 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanism-tested local contract observation plus explicit permission/Rule-of-3 boundaries** for the packaged mappings; live host loading remains unverified |
+| **Codex / local OpenAI plugin** | `.codex-plugin` package with session, prompt, supported-tool, subagent, and stop hooks plus 27 canonical skills | `.agents/plugins/marketplace.json` → `plugins/harness-everything/` | **Mechanism-tested local contract observation plus explicit permission/Rule-of-3 boundaries** for the packaged mappings; live host loading remains unverified |
 | **Public OpenAI Skills-only plugin** | Public Skills-only bundle | Generated submission ZIP from `plugins/harness-everything/skills/` | **Skill/workflow behavior only**; no local `.codex-plugin` lifecycle hooks in the public artifact |
 | **Cursor** | Native Project Rules + project skills | `.cursorrules` + `.cursor/skills/` | Advisory only |
 | **GitHub Copilot agent surfaces** | Agent Skills + repository custom instructions | `.github/copilot-instructions.md` + `.github/skills/` | Agent Skills path is documented; no live Harness session or plugin install is verified |
@@ -229,7 +229,7 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `.agents/plugins` | **Distribution** | OpenAI/Codex repository marketplace metadata |
 | `plugins/harness-everything` | **Distribution** | Local OpenAI/Codex plugin package plus canonical skill copies |
 | `submission/openai` | **Distribution / Review** | Public OpenAI Skills-only listing/test inputs |
-| `evals` | **Routing Evals** | 26 trigger/routing eval suites (waza format) |
+| `evals` | **Routing Evals** | 27 trigger/routing eval suites (waza format) |
 | `eval-framework` | **Quality Gates** | Negative-control fixtures for consistency/collision gates (not a skill) |
 | `contract-integrity` | **Quality Gates** | ADR→spec→ticket→test→implementation trace audit (Phase 1; not a directly routed skill) |
 | `telemetry` | **Quality Gates** | Local JSONL operational evidence layer with report/benchmark scripts (not a skill) |
@@ -238,6 +238,7 @@ This repo uses a flat layout (waza/agentskills.io convention). The table below m
 | `docs` | **Documentation** | Philosophy, architecture, routing, reflection, platform capabilities, generated repository contract, audit |
 | `references` | **Documentation** | Shared checklists (security, performance, definition-of-done) |
 | `multi-agent-workspace` | **Skill (Tier 3)** | Scaffold a verified multi-agent workspace and select bounded specialists from an external catalog without vendoring the full roster |
+| `code-review` | **Skill (Tier 2)** | Independent, evidence-tiered PR/diff code review (read-only by default) |
 | `environment-detection` | **Foundation** | Preflight: detect OS, shell, package manager |
 | `eval-harness` | **Skill (Tier 2)** | Evaluate agent outputs against rubrics |
 | `fable-discipline` | **Skill (Tier 3)** | Fable execution guardrails when Fable is selected |

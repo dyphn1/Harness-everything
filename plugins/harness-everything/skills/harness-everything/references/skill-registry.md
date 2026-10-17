@@ -18,6 +18,7 @@ Every skill in this repository is reachable from this router. If a task matches 
 | `grill-me` | Tier 2 | User asks to be grilled on a plan (pure Q&A). |
 | `improve-codebase-architecture` | Tier 2 | Deep architectural analysis / refactor planning. |
 | `eval-harness` | Tier 2 | Scoring, stress testing, benchmark comparison. |
+| `code-review` | Tier 2 | Explicit review requests of a PR/diff/finished implementation: correctness, contract, and negative-path findings with evidence tiers, read-only by default — not threat modeling (`security-review`), plan interrogation (`grill-me`), or gate running (`verification-loop`). |
 | `verification-loop` | Tier 2/3 gate | Before declaring done or creating a PR. |
 | `security-review` | Tier 2/3 gate | Changes touching auth, input handling, secrets, network boundaries. |
 | `fable-mode` | Tier 3 | v3 staged planning, named-agent delegation, model selection, failable gates, and cold review. |
