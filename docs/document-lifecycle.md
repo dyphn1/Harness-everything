@@ -67,7 +67,7 @@ Globs are repo-relative POSIX paths supporting `*` (one segment) and `**` (any d
 - Role comes from the first matching `governed` entry; a frontmatter `role` must agree with it.
 - **`legacy` beats `governed`** on overlap. Legacy files are frozen, ratchet-exempt and outside the active ID namespace.
 - Frontmatter fields: `id`, `role`, `status`, `supersedes`, `aliases`. `superseded_by` and `amends` are not stored; `superseded_by` is derived in the index.
-- **Ratchet:** schema checks (role/status/ID) apply to governed files named in `changedPaths`. Full mode is explicit (`--all` / `{ all: true }`); the CLI refuses to run without `--changed` or `--all`. Cross-file integrity diagnostics are errors when any involved file is changed (deleted and renamed paths count as changed), warnings otherwise. Warnings that affect resolution still appear in the index's unresolved list.
+- **Ratchet:** schema checks (role/status/ID) apply to governed files named in `changedPaths`. Full mode is explicit (`--all` / `{ all: true }`); the CLI refuses to run without `--changed` or `--all`. Cross-file integrity diagnostics are errors when any involved file is changed (deleted and renamed paths count as changed), warnings otherwise. Warnings that affect resolution still appear in the index's unresolved list. Without a trusted base, escalation for deleted or renamed targets covers explicit `legacy:ID@path` selectors only; ID-only references escalate when a trusted base (`--base` or a supplied inventory, see D6.9) maps the ID to a changed path.
 - Parsing conventions: role comes from the first matching `governed` entry; frontmatter is the leading `---` block in a YAML subset (scalars, inline `[a, b]` lists, `- a` block lists); references inside fenced code blocks are ignored.
 
 ## IDs, aliases and references (D6.2, D6.8)
@@ -147,6 +147,15 @@ Anchors for cross-file diagnostics: `supersede-*`, `unresolved-ref`, `ambiguous-
 - **Approval record (owner decision 2026-10-17):** `approval: { by, at, ref, content_digest }`. `by` is a human or an independent cold verifier, never the drafting agent. `ref` is a URL or an in-repo record path (offline-checkable). `content_digest` covers the revision body plus non-activation frontmatter; a content edit after approval invalidates it (`approval-content-mismatch`).
 - **Activation:** sets `status: effective` and `effective_at`; only these fields may change between `approved` and `effective`. Activation requires the parent to be the current effective revision (`stale-draft-base`).
 - **Current effective** is derived after validating the whole graph: a connected chain of `effective` revisions from the baseline; two effective children of one parent → `revision-fork`; no effective revision → explicit pre-activation state. Older effective revisions are derived `historical`; their files are never edited.
+
+### Digests and evidence envelope
+
+- **Stored bytes:** the bytes Git stores for the file (after `git add` end-of-line normalization). Base content comes from the trusted base tree; candidate content is normalized the same way. Comparisons may use Git blob object IDs; frontmatter digests are `sha256:<hex>` over stored bytes. Pure API callers pass stored bytes directly.
+- **Artifact digest** (`previous_digest`, immutability): sha256 over the complete stored bytes of the revision file.
+- **Approval content digest** (`approval.content_digest`): sha256 over `JSON(frontmatter without status, effective_at, approval; keys sorted; UTF-8) + "\n" + body` (body in stored bytes). Excluding `approval` avoids self-reference; excluding activation fields lets activation keep the digest valid.
+- **Independence:** `drafted_by` names the drafting author; `approval.by` equal to `drafted_by` → `approval-not-independent`. `approval.role` is `human` or `cold-verifier`. The checker verifies the record's presence, binding and independence, not that a review actually happened.
+- **Evidence envelope:** `analyzeDocs(docs, config, opts)` returns `{ diagnostics, evidence }` with `evidence.immutability` = `observed` | `not-observed` | `unavailable`. `lintDocs` stays the diagnostics-only projection. CLI JSON prints the envelope; exit 1 only for error diagnostics, and `not-observed` is always printed, never folded into success.
+- Tests isolate Git (no global/system config, hooks, templates or signing; explicit `core.autocrlf` and attributes) and compute expected digests independently of the system under test.
 
 ### Immutability evidence
 
