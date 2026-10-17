@@ -2650,7 +2650,7 @@ checkCase('2ay dogfood. harness-everything skill archive lints without optional 
   const archivePath = path.join(tempRoot, 'harness-only.tar');
   fs.writeFileSync(archivePath, gitBytes(archiveSource, ['archive', '--format=tar', 'HEAD', 'harness-everything']));
   fs.mkdirSync(archiveDestination, { recursive: true });
-  execFileSync('tar', ['-xf', archivePath, '-C', archiveDestination]);
+  execFileSync('tar', ['-xf', 'harness-only.tar', '-C', 'harness-only-archive-layout'], { cwd: tempRoot });
 
   const runtime = path.join(archiveDestination, 'harness-everything', 'scripts', 'doc-lifecycle.js');
   assert.ok(fs.existsSync(runtime), 'the archive contains the harness-everything lifecycle runtime');
