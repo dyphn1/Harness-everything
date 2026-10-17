@@ -74,7 +74,7 @@ The local package path is distinct from the general `--codex` installer. The gen
 The package tests prove the following repository-side contract:
 
 - the portable root manifest and `.codex-plugin` compatibility manifest agree on identity, version, interface, and hook entry point;
-- the root `skills/` tree contains exactly the 26 canonical skills;
+- the root `skills/` tree contains exactly the 27 canonical skills;
 - Windows and POSIX hook commands resolve through `PLUGIN_ROOT`;
 - session start emits the compact policy and prompt submission invokes invariant-first routing;
 - supported local `Bash` and `apply_patch` calls receive the packaged guards and state tracking;

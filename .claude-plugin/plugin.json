@@ -23,6 +23,7 @@
   ],
   "skills": [
     "./multi-agent-workspace",
+    "./code-review",
     "./environment-detection",
     "./eval-harness",
     "./fable-discipline",

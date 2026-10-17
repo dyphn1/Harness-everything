@@ -1,0 +1,16 @@
+id: negative-code-review-001
+name: Security threat modeling must route to security-review, not code-review
+description: A security-only threat modeling request is in code-review's DO NOT USE FOR scope and belongs to security-review; code-review must stay dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Re-review the STRIDE threat model for security only: do a full threat model of the new payments endpoint against the OWASP Top 10, including secrets exposure."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "source-anchored"
+        - "source-traced"
