@@ -1,0 +1,1824 @@
+[
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "A",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 88.905,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.01959743,
+    "api_equivalent_input_cost_usd": 0.01159493,
+    "parent_api_equivalent_cost_usd": 0.01959743,
+    "reference_returned_bytes": 9016,
+    "exact_reference_bytes_lower_bound": 9016,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 26,
+      "output_tokens": 16005,
+      "cache_read_input_tokens": 407613,
+      "cache_creation_input_tokens": 37581,
+      "output_tokens_details": {
+        "thinking_tokens": 10197
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "B",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 154.669,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.03243657,
+    "api_equivalent_input_cost_usd": 0.02028157,
+    "parent_api_equivalent_cost_usd": 0.03243657,
+    "reference_returned_bytes": 14746,
+    "exact_reference_bytes_lower_bound": 0,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 56,
+      "output_tokens": 24310,
+      "cache_read_input_tokens": 1094997,
+      "cache_creation_input_tokens": 46630,
+      "output_tokens_details": {
+        "thinking_tokens": 12569
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "A",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 84.91,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.01798511,
+    "api_equivalent_input_cost_usd": 0.01129711,
+    "parent_api_equivalent_cost_usd": 0.01798511,
+    "reference_returned_bytes": 0,
+    "exact_reference_bytes_lower_bound": 0,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 32,
+      "output_tokens": 13376,
+      "cache_read_input_tokens": 474871,
+      "cache_creation_input_tokens": 32726,
+      "output_tokens_details": {
+        "thinking_tokens": 7416
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "B",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 110.124,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.023325329999999995,
+    "api_equivalent_input_cost_usd": 0.014302330000000002,
+    "parent_api_equivalent_cost_usd": 0.023325329999999995,
+    "reference_returned_bytes": 8353,
+    "exact_reference_bytes_lower_bound": 6832,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 40,
+      "output_tokens": 18046,
+      "cache_read_input_tokens": 660493,
+      "cache_creation_input_tokens": 38467,
+      "output_tokens_details": {
+        "thinking_tokens": 9036
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "profile-lookup",
+    "arm": "A",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 12.103,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.00581582,
+    "api_equivalent_input_cost_usd": 0.00481082,
+    "parent_api_equivalent_cost_usd": 0.00581582,
+    "reference_returned_bytes": 18957,
+    "exact_reference_bytes_lower_bound": 18957,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 4,
+      "output_tokens": 2010,
+      "cache_read_input_tokens": 27422,
+      "cache_creation_input_tokens": 22681,
+      "output_tokens_details": {
+        "thinking_tokens": 990
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": false,
+      "selection_pass": true,
+      "exit": null,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "profile-lookup",
+    "arm": "B",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 16.151,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.0050241700000000005,
+    "api_equivalent_input_cost_usd": 0.004093670000000001,
+    "parent_api_equivalent_cost_usd": 0.0050241700000000005,
+    "reference_returned_bytes": 3571,
+    "exact_reference_bytes_lower_bound": 3571,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 10,
+      "output_tokens": 1861,
+      "cache_read_input_tokens": 88627,
+      "cache_creation_input_tokens": 16032,
+      "output_tokens_details": {
+        "thinking_tokens": 826
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": false,
+      "selection_pass": true,
+      "exit": null,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "profile-lookup",
+    "arm": "A",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 12.116,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.005840049999999999,
+    "api_equivalent_input_cost_usd": 0.0048185500000000004,
+    "parent_api_equivalent_cost_usd": 0.005840049999999999,
+    "reference_returned_bytes": 18957,
+    "exact_reference_bytes_lower_bound": 18957,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 4,
+      "output_tokens": 2043,
+      "cache_read_input_tokens": 27415,
+      "cache_creation_input_tokens": 22720,
+      "output_tokens_details": {
+        "thinking_tokens": 1046
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": false,
+      "selection_pass": true,
+      "exit": null,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "profile-lookup",
+    "arm": "B",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 15.131,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.00497036,
+    "api_equivalent_input_cost_usd": 0.00400936,
+    "parent_api_equivalent_cost_usd": 0.00497036,
+    "reference_returned_bytes": 3571,
+    "exact_reference_bytes_lower_bound": 3571,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 8,
+      "output_tokens": 1922,
+      "cache_read_input_tokens": 66076,
+      "cache_creation_input_tokens": 16739,
+      "output_tokens_details": {
+        "thinking_tokens": 1072
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": false,
+      "selection_pass": true,
+      "exit": null,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "quixbugs-find-in-sorted",
+    "arm": "A",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 36.318,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.009865480000000001,
+    "api_equivalent_input_cost_usd": 0.00746998,
+    "parent_api_equivalent_cost_usd": 0.009865480000000001,
+    "reference_returned_bytes": 15078,
+    "exact_reference_bytes_lower_bound": 15078,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 16,
+      "output_tokens": 4791,
+      "cache_read_input_tokens": 223878,
+      "cache_creation_input_tokens": 26148,
+      "output_tokens_details": {
+        "thinking_tokens": 2000
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "quixbugs-find-in-sorted",
+    "arm": "B",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 84.865,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.01780674,
+    "api_equivalent_input_cost_usd": 0.012818239999999998,
+    "parent_api_equivalent_cost_usd": 0.01780674,
+    "reference_returned_bytes": 4207,
+    "exact_reference_bytes_lower_bound": 0,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 36,
+      "output_tokens": 9977,
+      "cache_read_input_tokens": 581524,
+      "cache_creation_input_tokens": 34997,
+      "output_tokens_details": {
+        "thinking_tokens": 4265
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "quixbugs-find-in-sorted",
+    "arm": "A",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 54.511,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.01293407,
+    "api_equivalent_input_cost_usd": 0.008934570000000001,
+    "parent_api_equivalent_cost_usd": 0.01293407,
+    "reference_returned_bytes": 21112,
+    "exact_reference_bytes_lower_bound": 15078,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 16,
+      "output_tokens": 7999,
+      "cache_read_input_tokens": 248117,
+      "cache_creation_input_tokens": 32259,
+      "output_tokens_details": {
+        "thinking_tokens": 3456
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "quixbugs-find-in-sorted",
+    "arm": "B",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 69.67,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.01267222,
+    "api_equivalent_input_cost_usd": 0.008777720000000001,
+    "parent_api_equivalent_cost_usd": 0.01267222,
+    "reference_returned_bytes": 3065,
+    "exact_reference_bytes_lower_bound": 1467,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 30,
+      "output_tokens": 7789,
+      "cache_read_input_tokens": 378512,
+      "cache_creation_input_tokens": 24948,
+      "output_tokens_details": {
+        "thinking_tokens": 3083
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": true,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "A",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 218.852,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.02572438,
+    "api_equivalent_input_cost_usd": 0.015737880000000003,
+    "parent_api_equivalent_cost_usd": 0.02572438,
+    "reference_returned_bytes": 36543,
+    "exact_reference_bytes_lower_bound": 32003,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 1015158,
+      "cached_input_tokens": 953088,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 19973,
+      "reasoning_output_tokens": 14391
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "B",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 250.42,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.02799634,
+    "api_equivalent_input_cost_usd": 0.016671340000000003,
+    "parent_api_equivalent_cost_usd": 0.02799634,
+    "reference_returned_bytes": 22946,
+    "exact_reference_bytes_lower_bound": 17256,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 1111123,
+      "cached_input_tokens": 1049344,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 22650,
+      "reasoning_output_tokens": 18178
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 1,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "A",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 237.141,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.0254005,
+    "api_equivalent_input_cost_usd": 0.015807000000000005,
+    "parent_api_equivalent_cost_usd": 0.0254005,
+    "reference_returned_bytes": 40131,
+    "exact_reference_bytes_lower_bound": 28639,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 1024374,
+      "cached_input_tokens": 962560,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 19187,
+      "reasoning_output_tokens": 9718
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "B",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 177.548,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.022629200000000002,
+    "api_equivalent_input_cost_usd": 0.014696699999999998,
+    "parent_api_equivalent_cost_usd": 0.022629200000000002,
+    "reference_returned_bytes": 31618,
+    "exact_reference_bytes_lower_bound": 13599,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 790935,
+      "cached_input_tokens": 715520,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 15865,
+      "reasoning_output_tokens": 9734
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "profile-lookup",
+    "arm": "A",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 17.148,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.00220756,
+    "api_equivalent_input_cost_usd": 0.00194956,
+    "parent_api_equivalent_cost_usd": 0.00220756,
+    "reference_returned_bytes": 18957,
+    "exact_reference_bytes_lower_bound": 18957,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 48526,
+      "cached_input_tokens": 32256,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 516,
+      "reasoning_output_tokens": 282
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": true,
+      "selection_pass": true,
+      "exit": null,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "profile-lookup",
+    "arm": "B",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 17.136,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.00229032,
+    "api_equivalent_input_cost_usd": 0.00192282,
+    "parent_api_equivalent_cost_usd": 0.00229032,
+    "reference_returned_bytes": 3571,
+    "exact_reference_bytes_lower_bound": 3571,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 42729,
+      "cached_input_tokens": 26112,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 735,
+      "reasoning_output_tokens": 596
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": true,
+      "selection_pass": true,
+      "exit": null,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "profile-lookup",
+    "arm": "A",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 19.145,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.00204398,
+    "api_equivalent_input_cost_usd": 0.00154448,
+    "parent_api_equivalent_cost_usd": 0.00204398,
+    "reference_returned_bytes": 18957,
+    "exact_reference_bytes_lower_bound": 18957,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 47240,
+      "cached_input_tokens": 35328,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 999,
+      "reasoning_output_tokens": 533
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": true,
+      "selection_pass": true,
+      "exit": null,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "profile-lookup",
+    "arm": "B",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 16.12,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.0029894,
+    "api_equivalent_input_cost_usd": 0.0026714,
+    "parent_api_equivalent_cost_usd": 0.0029894,
+    "reference_returned_bytes": 3571,
+    "exact_reference_bytes_lower_bound": 3571,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 42842,
+      "cached_input_tokens": 17920,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 636,
+      "reasoning_output_tokens": 425
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": true,
+      "selection_pass": true,
+      "exit": null,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "quixbugs-find-in-sorted",
+    "arm": "A",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 69.562,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.00857276,
+    "api_equivalent_input_cost_usd": 0.00615976,
+    "parent_api_equivalent_cost_usd": 0.00857276,
+    "reference_returned_bytes": 22189,
+    "exact_reference_bytes_lower_bound": 19859,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 325636,
+      "cached_input_tokens": 293376,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 4826,
+      "reasoning_output_tokens": 2452
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "quixbugs-find-in-sorted",
+    "arm": "B",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 179.458,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.01922112,
+    "api_equivalent_input_cost_usd": 0.014933620000000002,
+    "parent_api_equivalent_cost_usd": 0.01922112,
+    "reference_returned_bytes": 33150,
+    "exact_reference_bytes_lower_bound": 31919,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 1032229,
+      "cached_input_tokens": 980992,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 8575,
+      "reasoning_output_tokens": 4907
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "quixbugs-find-in-sorted",
+    "arm": "A",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 146.2,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.01109618,
+    "api_equivalent_input_cost_usd": 0.007470180000000001,
+    "parent_api_equivalent_cost_usd": 0.01109618,
+    "reference_returned_bytes": 9980,
+    "exact_reference_bytes_lower_bound": 9980,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 465921,
+      "cached_input_tokens": 434688,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 7252,
+      "reasoning_output_tokens": 4126
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-formal-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "quixbugs-find-in-sorted",
+    "arm": "B",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 98.86,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.0148342,
+    "api_equivalent_input_cost_usd": 0.0114482,
+    "parent_api_equivalent_cost_usd": 0.0148342,
+    "reference_returned_bytes": 29295,
+    "exact_reference_bytes_lower_bound": 25068,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 546482,
+      "cached_input_tokens": 480000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 6772,
+      "reasoning_output_tokens": 3457
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "iterative-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "A",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "inconclusive",
+    "wall_seconds": 1.013,
+    "exit": 1,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "unknown",
+    "api_equivalent_cost_usd": null,
+    "api_equivalent_input_cost_usd": null,
+    "parent_api_equivalent_cost_usd": null,
+    "reference_returned_bytes": 0,
+    "exact_reference_bytes_lower_bound": 0,
+    "effective_effort_reported": null,
+    "input_usage_reconciles": false,
+    "usage": null,
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 1,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "B",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "inconclusive",
+    "wall_seconds": 1.013,
+    "exit": 1,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "unknown",
+    "api_equivalent_cost_usd": null,
+    "api_equivalent_input_cost_usd": null,
+    "parent_api_equivalent_cost_usd": null,
+    "reference_returned_bytes": 0,
+    "exact_reference_bytes_lower_bound": 0,
+    "effective_effort_reported": null,
+    "input_usage_reconciles": false,
+    "usage": null,
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 1,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "A",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "inconclusive",
+    "wall_seconds": 1.012,
+    "exit": 1,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "unknown",
+    "api_equivalent_cost_usd": null,
+    "api_equivalent_input_cost_usd": null,
+    "parent_api_equivalent_cost_usd": null,
+    "reference_returned_bytes": 0,
+    "exact_reference_bytes_lower_bound": 0,
+    "effective_effort_reported": null,
+    "input_usage_reconciles": false,
+    "usage": null,
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 1,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "B",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "inconclusive",
+    "wall_seconds": 1.013,
+    "exit": 1,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "unknown",
+    "api_equivalent_cost_usd": null,
+    "api_equivalent_input_cost_usd": null,
+    "parent_api_equivalent_cost_usd": null,
+    "reference_returned_bytes": 0,
+    "exact_reference_bytes_lower_bound": 0,
+    "effective_effort_reported": null,
+    "input_usage_reconciles": false,
+    "usage": null,
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 1,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "A",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive-agent-budget-failure",
+    "wall_seconds": 600.392,
+    "exit": 0,
+    "stop_reason": "wall-time-budget",
+    "budget_failure": true,
+    "cost_observability": "partial; final aggregate unavailable",
+    "api_equivalent_cost_usd": null,
+    "api_equivalent_input_cost_usd": null,
+    "parent_api_equivalent_cost_usd": null,
+    "reference_returned_bytes": 101783,
+    "exact_reference_bytes_lower_bound": 32003,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": false,
+    "usage": null,
+    "child_usage_observability": "unknown; dispatched worker usage/model ID not exposed in parent CLI stream",
+    "strategies": [
+      "fable-staged"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 1,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "B",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive-agent-budget-failure",
+    "wall_seconds": 601.001,
+    "exit": 0,
+    "stop_reason": "wall-time-budget",
+    "budget_failure": true,
+    "cost_observability": "partial; final aggregate unavailable",
+    "api_equivalent_cost_usd": null,
+    "api_equivalent_input_cost_usd": null,
+    "parent_api_equivalent_cost_usd": null,
+    "reference_returned_bytes": 32947,
+    "exact_reference_bytes_lower_bound": 32947,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": false,
+    "usage": null,
+    "child_usage_observability": "unknown; dispatched worker usage/model ID not exposed in parent CLI stream",
+    "strategies": [
+      "fable-staged"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 1,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "A",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 439.355,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": null,
+    "api_equivalent_input_cost_usd": null,
+    "parent_api_equivalent_cost_usd": 0.07149232000000001,
+    "reference_returned_bytes": 42296,
+    "exact_reference_bytes_lower_bound": 32003,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 3781415,
+      "cached_input_tokens": 3645952,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 42973,
+      "reasoning_output_tokens": 24126
+    },
+    "child_usage_observability": "unknown; dispatched worker usage/model ID not exposed in parent CLI stream",
+    "strategies": [
+      "fable-staged"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "B",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive-agent-budget-failure",
+    "wall_seconds": 600.761,
+    "exit": 0,
+    "stop_reason": "wall-time-budget",
+    "budget_failure": true,
+    "cost_observability": "partial; final aggregate unavailable",
+    "api_equivalent_cost_usd": null,
+    "api_equivalent_input_cost_usd": null,
+    "parent_api_equivalent_cost_usd": null,
+    "reference_returned_bytes": 69562,
+    "exact_reference_bytes_lower_bound": 32276,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": false,
+    "usage": null,
+    "child_usage_observability": "unknown; dispatched worker usage/model ID not exposed in parent CLI stream",
+    "strategies": [
+      "fable-staged"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 1,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-claude-retry-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "A",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 265.736,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.04073616,
+    "api_equivalent_input_cost_usd": 0.024593660000000003,
+    "parent_api_equivalent_cost_usd": 0.04073616,
+    "reference_returned_bytes": 9243,
+    "exact_reference_bytes_lower_bound": 6552,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 50,
+      "output_tokens": 32285,
+      "cache_read_input_tokens": 1179046,
+      "cache_creation_input_tokens": 63991,
+      "output_tokens_details": {
+        "thinking_tokens": 20162
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      null
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-claude-retry-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "B",
+    "repeat": 1,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 238.026,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.05423884000000001,
+    "api_equivalent_input_cost_usd": 0.031938339999999996,
+    "parent_api_equivalent_cost_usd": 0.05423884000000001,
+    "reference_returned_bytes": 3932,
+    "exact_reference_bytes_lower_bound": 1467,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 66,
+      "output_tokens": 44601,
+      "cache_read_input_tokens": 1529349,
+      "cache_creation_input_tokens": 89951,
+      "output_tokens_details": {
+        "thinking_tokens": 28269
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "fable-staged"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-claude-retry-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "A",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 128.821,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.029205180000000004,
+    "api_equivalent_input_cost_usd": 0.017736180000000004,
+    "parent_api_equivalent_cost_usd": 0.029205180000000004,
+    "reference_returned_bytes": 18470,
+    "exact_reference_bytes_lower_bound": 13518,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 48,
+      "output_tokens": 22938,
+      "cache_read_input_tokens": 740718,
+      "cache_creation_input_tokens": 57834,
+      "output_tokens_details": {
+        "thinking_tokens": 11950
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "fable-staged"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-fable-claude-retry-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "polyglot-simple-linked-list-staged",
+    "arm": "B",
+    "repeat": 2,
+    "preflight": false,
+    "classification": "definitive",
+    "wall_seconds": 199.68,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.050429640000000005,
+    "api_equivalent_input_cost_usd": 0.03127264,
+    "parent_api_equivalent_cost_usd": 0.050429640000000005,
+    "reference_returned_bytes": 20946,
+    "exact_reference_bytes_lower_bound": 17676,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 62,
+      "output_tokens": 38314,
+      "cache_read_input_tokens": 1661564,
+      "cache_creation_input_tokens": 73254,
+      "output_tokens_details": {
+        "thinking_tokens": 24707
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "fable-staged"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": null,
+      "selection_pass": null,
+      "exit": 0,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-host-preflight-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "profile-lookup",
+    "arm": "B",
+    "repeat": 0,
+    "preflight": true,
+    "classification": "definitive-agent-budget-failure",
+    "wall_seconds": 10.308,
+    "exit": 1,
+    "stop_reason": null,
+    "budget_failure": true,
+    "cost_observability": "partial; final aggregate unavailable",
+    "api_equivalent_cost_usd": 0.00341224,
+    "api_equivalent_input_cost_usd": 0.00288274,
+    "parent_api_equivalent_cost_usd": 0.00341224,
+    "reference_returned_bytes": 3571,
+    "exact_reference_bytes_lower_bound": 3571,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 6,
+      "output_tokens": 1059,
+      "cache_read_input_tokens": 46154,
+      "cache_creation_input_tokens": 12103,
+      "output_tokens_details": {
+        "thinking_tokens": 492
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": false,
+      "selection_pass": false,
+      "exit": null,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-host-preflight-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "profile-lookup",
+    "arm": "B",
+    "repeat": 0,
+    "preflight": true,
+    "classification": "definitive",
+    "wall_seconds": 26.736,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.00230404,
+    "api_equivalent_input_cost_usd": 0.00186454,
+    "parent_api_equivalent_cost_usd": 0.00230404,
+    "reference_returned_bytes": 3571,
+    "exact_reference_bytes_lower_bound": 3571,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 66799,
+      "cached_input_tokens": 53504,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 879,
+      "reasoning_output_tokens": 596
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": true,
+      "selection_pass": true,
+      "exit": null,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-host-preflight2-20261014",
+    "model": {
+      "engine": "claude",
+      "model": "claude-haiku-5-5",
+      "effort": "high",
+      "cli": "2.1.299"
+    },
+    "workload": "profile-lookup",
+    "arm": "B",
+    "repeat": 0,
+    "preflight": true,
+    "classification": "definitive",
+    "wall_seconds": 17.147,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.004893080000000001,
+    "api_equivalent_input_cost_usd": 0.00387558,
+    "parent_api_equivalent_cost_usd": 0.004893080000000001,
+    "reference_returned_bytes": 3571,
+    "exact_reference_bytes_lower_bound": 3571,
+    "effective_effort_reported": [
+      "high"
+    ],
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 10,
+      "output_tokens": 2035,
+      "cache_read_input_tokens": 87078,
+      "cache_creation_input_tokens": 15019,
+      "output_tokens_details": {
+        "thinking_tokens": 910
+      }
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": false,
+      "format_pass": false,
+      "selection_pass": true,
+      "exit": null,
+      "timeout": null
+    }
+  },
+  {
+    "series": "issue290-host-preflight2-20261014",
+    "model": {
+      "engine": "codex",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "cli": "0.162.1"
+    },
+    "workload": "profile-lookup",
+    "arm": "B",
+    "repeat": 0,
+    "preflight": true,
+    "classification": "definitive",
+    "wall_seconds": 18.155,
+    "exit": 0,
+    "stop_reason": null,
+    "budget_failure": false,
+    "cost_observability": "final aggregate retained",
+    "api_equivalent_cost_usd": 0.0028768,
+    "api_equivalent_input_cost_usd": 0.0025933,
+    "parent_api_equivalent_cost_usd": 0.0028768,
+    "reference_returned_bytes": 3571,
+    "exact_reference_bytes_lower_bound": 3571,
+    "effective_effort_reported": "high",
+    "input_usage_reconciles": true,
+    "usage": {
+      "input_tokens": 63949,
+      "cached_input_tokens": 42240,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 567,
+      "reasoning_output_tokens": 286
+    },
+    "child_usage_observability": "no attributable native spawn in inspected parent rollout",
+    "strategies": [
+      "direct-single"
+    ],
+    "tdd_quality_gate_executed": false,
+    "independent_grader": {
+      "pass": true,
+      "format_pass": true,
+      "selection_pass": true,
+      "exit": null,
+      "timeout": null
+    }
+  }
+]
