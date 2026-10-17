@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.34.0](https://github.com/dyphn1/Harness-everything/compare/v0.33.0...v0.34.0) (2026-10-17)
+
+### Features
+
+* **doc-lifecycle:** add repeatable --changed-path for comma-containing filenames ([d807f16](https://github.com/dyphn1/Harness-everything/commit/d807f16553e67090435b21a001bd17169015c539))
+* **doc-lifecycle:** lint governed docs and build a deterministic index ([5cf3f38](https://github.com/dyphn1/Harness-everything/commit/5cf3f387ef9e19001db12469178e8bb05e3bd7b7)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325) [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+* **doc-lifecycle:** validate contract-style immutable prd revisions ([730f076](https://github.com/dyphn1/Harness-everything/commit/730f0767c84681fcc41b4bdca55d603cbbb30121)), closes [rN#REQ](https://github.com/dyphn1/rN/issues/REQ) [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+* **project-docs:** load host-neutral project-docs.json with validated selection ([0be0d7b](https://github.com/dyphn1/Harness-everything/commit/0be0d7b001e185b8fff427f6219d0dc20f3a8b6d)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+
+### Bug Fixes
+
+* **doc-lifecycle:** apply per-source prd authority and freeze approved revisions ([1647253](https://github.com/dyphn1/Harness-everything/commit/1647253b9984cde2d121d2b01ba24281af4afbee))
+* **doc-lifecycle:** bind activation path, keep historical retirement and scope reads ([1c7f9ef](https://github.com/dyphn1/Harness-everything/commit/1c7f9efbad7cd7128a263ce560ce6a60daaf9dc9)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+* **doc-lifecycle:** derive index authority from the validated effective prefix ([b7be1e7](https://github.com/dyphn1/Harness-everything/commit/b7be1e79311428dab01544263208d804c4ab9937))
+* **doc-lifecycle:** enforce d6.9 on added or changed prds ([b2404aa](https://github.com/dyphn1/Harness-everything/commit/b2404aacbd219a9e3d7540d8daff78f8b7c1e0a5)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+* **doc-lifecycle:** freeze legacy frontmatter against a trusted base ([faa3ef3](https://github.com/dyphn1/Harness-everything/commit/faa3ef300d6a917e3b52841518b229708a5b5c58))
+* **doc-lifecycle:** harden cli inputs and offline authority found by code-review dogfood ([4d30f54](https://github.com/dyphn1/Harness-everything/commit/4d30f54a9ca17bf99aed0ad04b17b0e27ba1b40a)), closes [#329](https://github.com/dyphn1/Harness-everything/issues/329) [PRD#REQ](https://github.com/dyphn1/PRD/issues/REQ)
+* **doc-lifecycle:** keep --changed-path outer whitespace through normalization ([f8afa0d](https://github.com/dyphn1/Harness-everything/commit/f8afa0d170c73c95cfb741c818a4baf1b42c6e24))
+* **doc-lifecycle:** ship config validator with harness-everything; keep new prd governance strict ([e54660d](https://github.com/dyphn1/Harness-everything/commit/e54660da05ac704a429d1137ef567b2949ec5df2))
+* **project-docs:** reject config globs with empty path segments ([d9445f5](https://github.com/dyphn1/Harness-everything/commit/d9445f5013471c2bcd11410c16a1b3d529d4f072))
+* **project-docs:** reject whitespace init values and non-canonical globs ([bf4e20f](https://github.com/dyphn1/Harness-everything/commit/bf4e20fd507a596e9d77b6808f60f12f2474413f)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+* **project-docs:** stop inferring selected config and init the project file ([34bbfee](https://github.com/dyphn1/Harness-everything/commit/34bbfeed2ba79b96c84e3f7d87a603b2c5c65f8e)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+
 ## [0.33.0](https://github.com/dyphn1/Harness-everything/compare/v0.32.0...v0.33.0) (2026-10-17)
 
 ### Features
