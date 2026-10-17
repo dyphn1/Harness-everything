@@ -2595,6 +2595,89 @@ checkCase('2ay review3 P1. competing legacy does not mark an unchanged governed 
   assert.strictEqual(finding.severity, 'warning', 'unchanged previously governed bytes remain a compatibility warning');
 });
 
+function newlyGovernedRoleCli({ includeCandidateHost }) {
+  const root = gitRepo(`dogfood-newly-governed-role-${includeCandidateHost ? 'with-host' : 'without-host'}`);
+  fs.rmSync(path.join(root, 'lifecycle-config.json'));
+  const configPath = path.join(root, 'lifecycle.json');
+  const baseConfig = { governed: [{ path: 'specifications/contracts/**', role: 'reference' }], domains: ['IFCE'] };
+  const candidateConfig = { governed: [{ path: 'specifications/contracts/**', role: 'prd' }], domains: ['IFCE'] };
+  fs.writeFileSync(configPath, JSON.stringify(baseConfig), 'utf8');
+  const hostPath = path.join(root, '.claude/harness-everything/manifest.json');
+  fs.mkdirSync(path.dirname(hostPath), { recursive: true });
+  fs.writeFileSync(hostPath, JSON.stringify({ projectDocs: {
+    governed: [{ path: 'specifications/**', role: 'reference' }], domains: ['IFCE']
+  } }), 'utf8');
+  const relativePath = 'specifications/contracts/living.md';
+  writeDoc(root, relativePath, { id: 'PRD-IFCE-001', status: 'active' }, '# Living contract\n');
+  const base = commitAll(root, 'reference-governed living document baseline');
+  fs.writeFileSync(configPath, JSON.stringify(candidateConfig), 'utf8');
+  if (!includeCandidateHost) fs.rmSync(hostPath);
+  const child = spawnSync(process.execPath, [
+    modulePath, 'lint', '--workspace', root, '--config', configPath, '--changed', '', '--base', base
+  ], { cwd: root, encoding: 'utf8', env: gitEnvironment() });
+  assert.ifError(child.error);
+  return { child, relativePath };
+}
+
+checkCase('2ay dogfood. positive PRD source is not masked by a broader host reference source', () => {
+  const { child, relativePath } = newlyGovernedRoleCli({ includeCandidateHost: true });
+  assert.strictEqual(child.status, 1, `newly governed active PRD must fail lint: ${child.stdout} ${child.stderr}`);
+  const result = JSON.parse(child.stdout);
+  const finding = expectCode(result.diagnostics, 'prd-migration-required').find(item => item.path === relativePath);
+  assert.strictEqual(finding.severity, 'error');
+  assert.match(finding.message, /changed or newly governed/);
+});
+
+checkCase('2ay dogfood. newly governed PRD remains an error when its historical host source is removed', () => {
+  const { child, relativePath } = newlyGovernedRoleCli({ includeCandidateHost: false });
+  assert.strictEqual(child.status, 1, `newly governed active PRD must fail lint: ${child.stdout} ${child.stderr}`);
+  const result = JSON.parse(child.stdout);
+  const finding = expectCode(result.diagnostics, 'prd-migration-required').find(item => item.path === relativePath);
+  assert.strictEqual(finding.severity, 'error');
+});
+
+checkCase('2ay dogfood. harness-everything skill archive lints without optional sibling skills and still validates config', () => {
+  const repositoryRoot = path.resolve(__dirname, '..');
+  const archiveSource = path.join(tempRoot, 'harness-only-archive-source');
+  const archiveDestination = path.join(tempRoot, 'harness-only-archive-layout');
+  fs.mkdirSync(archiveSource, { recursive: true });
+  fs.cpSync(path.join(repositoryRoot, 'harness-everything'), path.join(archiveSource, 'harness-everything'), { recursive: true });
+  git(archiveSource, ['init', '--quiet']);
+  git(archiveSource, ['config', 'user.name', 'Selective Install Test']);
+  git(archiveSource, ['config', 'user.email', 'selective-install@example.invalid']);
+  git(archiveSource, ['add', 'harness-everything']);
+  git(archiveSource, ['commit', '--quiet', '-m', 'harness-only skill snapshot']);
+  const archivePath = path.join(tempRoot, 'harness-only.tar');
+  fs.writeFileSync(archivePath, gitBytes(archiveSource, ['archive', '--format=tar', 'HEAD', 'harness-everything']));
+  fs.mkdirSync(archiveDestination, { recursive: true });
+  execFileSync('tar', ['-xf', archivePath, '-C', archiveDestination]);
+
+  const runtime = path.join(archiveDestination, 'harness-everything', 'scripts', 'doc-lifecycle.js');
+  assert.ok(fs.existsSync(runtime), 'the archive contains the harness-everything lifecycle runtime');
+  assert.ok(!fs.existsSync(path.join(archiveDestination, 'multi-agent-workspace')));
+  assert.ok(!fs.existsSync(path.join(archiveDestination, 'to-spec')));
+  const workspace = path.join(tempRoot, 'harness-only-workspace');
+  fs.mkdirSync(workspace, { recursive: true });
+  fs.cpSync(path.join(fixtureRoot, 'packaged', 'valid'), workspace, { recursive: true });
+  const configPath = path.join(workspace, 'lifecycle-config.json');
+  fs.writeFileSync(configPath, JSON.stringify(CONFIG, null, 2), 'utf8');
+
+  const valid = spawnSync(process.execPath, [runtime, 'lint', '--workspace', workspace, '--config', configPath, '--all'], {
+    cwd: tempRoot, encoding: 'utf8', env: gitEnvironment()
+  });
+  assert.ifError(valid.error);
+  assert.strictEqual(valid.status, 0, `valid config in the isolated skill archive lints normally: ${valid.stderr} ${valid.stdout}`);
+  assert.deepStrictEqual(JSON.parse(valid.stdout).diagnostics.filter(item => item.severity === 'error'), []);
+
+  fs.writeFileSync(configPath, JSON.stringify({ governed: 'not-an-array', domains: ['IFCE'] }), 'utf8');
+  const invalid = spawnSync(process.execPath, [runtime, 'lint', '--workspace', workspace, '--config', configPath, '--all'], {
+    cwd: tempRoot, encoding: 'utf8', env: gitEnvironment()
+  });
+  assert.ifError(invalid.error);
+  assert.strictEqual(invalid.status, 2, 'invalid project-docs config keeps the CLI setup error exit code');
+  assert.match(invalid.stderr, /invalid project-docs config.*invalid-governed/);
+});
+
 checkCase('2ay review3 P2a. deleting approved r2 is invalid', () => {
   const root = gitRepo('review3-approved-deleted');
   const r1 = revisionDoc({ revision: 1, status: 'effective' });

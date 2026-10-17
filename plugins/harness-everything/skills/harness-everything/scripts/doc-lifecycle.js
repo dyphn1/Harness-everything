@@ -1934,7 +1934,8 @@ function objectiveChangedPaths(baseFiles, candidateFiles, config, baseConfig, ba
     const basePrd = Array.isArray(baseConfigSources)
       ? governedPrdPath(relativePath, baseConfigSources)
       : baseRole === 'prd' && !baseLegacy;
-    if (currentRole === 'prd' && !currentLegacy && !basePrd) changed.add(relativePath);
+    const currentPrd = governedPrdPath(relativePath, currentSources);
+    if (currentPrd && !basePrd) changed.add(relativePath);
   }
   return changed;
 }
@@ -2332,7 +2333,7 @@ function normalizeChangedPath(workspacePath, value) {
 function validateExplicitConfig(config, configPath) {
   let validateDocsConfig;
   try {
-    ({ validateDocsConfig } = require('../../multi-agent-workspace/scripts/project-docs-resolver'));
+    ({ validateDocsConfig } = require('./project-docs-resolver'));
   } catch (error) {
     throw new Error(`cannot load shared project-docs validator for ${configPath}: ${error.message}`);
   }

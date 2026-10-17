@@ -6,6 +6,7 @@ const { execFileSync, spawnSync } = require('child_process');
 const helper = require('./test-helper');
 const resolverPath = path.join(__dirname, '..', 'multi-agent-workspace', 'scripts', 'project-docs-resolver.js');
 const toSpecResolverPath = path.join(__dirname, '..', 'to-spec', 'scripts', 'project-docs-resolver.js');
+const harnessResolverPath = path.join(__dirname, '..', 'harness-everything', 'scripts', 'project-docs-resolver.js');
 const toSpecCheckPath = path.join(__dirname, '..', 'to-spec', 'scripts', 'check-project-docs.js');
 const resolver = require(resolverPath);
 const toSpecResolver = require(toSpecResolverPath);
@@ -343,6 +344,14 @@ checkCase('2aw. to-spec ships the same standalone resolver implementation', () =
   assert.strictEqual(source, fs.readFileSync(resolverPath, 'utf8'));
   assert.ok(!source.includes("require('../../multi-agent-workspace"), 'standalone resolver must not defer to a sibling skill');
   assert.strictEqual(typeof toSpecResolver.resolveDocsConfig, 'function');
+});
+
+checkCase('2aw dogfood. harness-everything ships the byte-identical standalone resolver', () => {
+  const source = fs.readFileSync(harnessResolverPath, 'utf8');
+  assert.strictEqual(source, fs.readFileSync(resolverPath, 'utf8'));
+  assert.ok(!source.includes("require('../../multi-agent-workspace"), 'standalone resolver must not defer to a sibling skill');
+  const harnessResolver = require(harnessResolverPath);
+  assert.strictEqual(typeof harnessResolver.validateDocsConfig, 'function');
 });
 
 checkCase('2aw fix. caller APIs share active-host selection and keep ambiguous or silent hosts unselected', () => {
