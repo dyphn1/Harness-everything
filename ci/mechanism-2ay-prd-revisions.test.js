@@ -2249,4 +2249,124 @@ checkCase('2ay owner P1. source and packaged lifecycle implementations agree on 
   assert.strictEqual(outputs[0][0].severity, 'error');
 });
 
+
+// PR #327 owner re-review: preserve each trusted config source's authority.
+function competingMigrationRepo(name) {
+  const root = gitRepo(name);
+  const config = { ...CONFIG, governed: [{ path: 'specifications/contracts/**', role: 'prd' }] };
+  fs.writeFileSync(path.join(root, 'lifecycle-config.json'), JSON.stringify(config));
+  const manifest = path.join(root, '.claude/harness-everything/manifest.json');
+  fs.mkdirSync(path.dirname(manifest), { recursive: true });
+  fs.writeFileSync(manifest, JSON.stringify({ projectDocs: {
+    governed: [], legacy: ['specifications/contracts/**']
+  } }));
+  const relativePath = 'specifications/contracts/living.md';
+  const body = '# Existing contract\n\nAcceptance: retain behavior.\n';
+  writeDoc(root, relativePath, { id: 'PRD-GRPH-080', status: 'active' }, body);
+  const base = commitAll(root, 'independent PRD governance and competing legacy source');
+  return { root, config, relativePath, body, base };
+}
+
+checkCase('2ay review3 P1. competing legacy cannot hide changed-body baseline adoption without a record', () => {
+  const { root, config, relativePath, body, base } = competingMigrationRepo('review3-migration-missing');
+  const migrated = revisionDoc({ id: 'PRD-GRPH-080', revision: 1, status: 'effective', relativePath, body: body + '\nChanged behavior.\n' });
+  writeDoc(root, relativePath, migrated.frontmatter, migrated.body);
+  const result = lifecycle.analyzeDocs(lifecycle.collectDocs(root, config), config, { workspace: root, base, changedPaths: [] });
+  expectCode(result.diagnostics, 'migration-record-missing');
+});
+
+checkCase('2ay review3 P1. competing legacy accepts recorded metadata-only baseline adoption', () => {
+  const { root, config, relativePath, body, base } = competingMigrationRepo('review3-migration-valid');
+  const digest = sha256(gitBytes(root, ['show', `${base}:${relativePath}`]));
+  const recordPath = 'migration.json';
+  const migrated = revisionDoc({ id: 'PRD-GRPH-080', revision: 1, status: 'effective', relativePath, body,
+    migrated_from_digest: digest, migration_record: recordPath });
+  writeDoc(root, relativePath, migrated.frontmatter, body);
+  fs.writeFileSync(path.join(root, recordPath), JSON.stringify({
+    record: 'prd-baseline-migration', id: migrated.frontmatter.id, revision: 1, source: relativePath,
+    migrated_from_digest: digest, approved_by: migrated.frontmatter.approval.by
+  }));
+  const result = lifecycle.analyzeDocs(lifecycle.collectDocs(root, config), config, { workspace: root, base, all: true });
+  assert.deepStrictEqual(result.diagnostics.filter(item => item.severity === 'error'), []);
+});
+
+checkCase('2ay review3 P1. competing legacy does not mark an unchanged governed living PRD newly adopted', () => {
+  const { root, config, relativePath, base } = competingMigrationRepo('review3-unchanged-ratchet');
+  const result = lifecycle.analyzeDocs(lifecycle.collectDocs(root, config), config, { workspace: root, base, changedPaths: [] });
+  const finding = expectCode(result.diagnostics, 'prd-migration-required').find(item => item.path === relativePath);
+  assert.strictEqual(finding.severity, 'warning', 'unchanged previously governed bytes remain a compatibility warning');
+});
+
+checkCase('2ay review3 P2a. deleting approved r2 is invalid', () => {
+  const root = gitRepo('review3-approved-deleted');
+  const r1 = revisionDoc({ revision: 1, status: 'effective' });
+  const r2 = revisionDoc({ revision: 2, status: 'approved', previousRevision: 1 }, r1);
+  writeDoc(root, r1.path, r1.frontmatter, r1.body);
+  writeDoc(root, r2.path, r2.frontmatter, r2.body);
+  const base = commitAll(root, 'effective r1 and approved r2');
+  fs.rmSync(path.join(root, r2.path));
+  expectCode(baseLint(root, base).diagnostics, 'invalid-transition', 'approved revision cannot be deleted');
+});
+
+checkCase('2ay review3 P2a. moving approved r2 outside governance is invalid', () => {
+  const root = gitRepo('review3-approved-outside');
+  const r1 = revisionDoc({ revision: 1, status: 'effective' });
+  const r2 = revisionDoc({ revision: 2, status: 'approved', previousRevision: 1 }, r1);
+  writeDoc(root, r1.path, r1.frontmatter, r1.body);
+  writeDoc(root, r2.path, r2.frontmatter, r2.body);
+  const base = commitAll(root, 'effective r1 and approved r2');
+  fs.mkdirSync(path.join(root, 'outside'), { recursive: true });
+  fs.renameSync(path.join(root, r2.path), path.join(root, 'outside/r2.md'));
+  expectCode(baseLint(root, base).diagnostics, 'invalid-transition', 'approved revision cannot move outside governance');
+});
+
+checkCase('2ay review3 P2a. approved r2 cannot be renumbered to r3 with a rebound approval', () => {
+  const root = gitRepo('review3-approved-renumber-control');
+  const r1 = revisionDoc({ revision: 1, status: 'effective' });
+  const r2 = revisionDoc({ revision: 2, status: 'approved', previousRevision: 1 }, r1);
+  writeDoc(root, r1.path, r1.frontmatter, r1.body);
+  writeDoc(root, r2.path, r2.frontmatter, r2.body);
+  const base = commitAll(root, 'effective r1 and approved r2');
+  const r3 = reviseFixture(r2, { revision: 3 });
+  writeDoc(root, r3.path, r3.frontmatter, r3.body);
+  expectCode(baseLint(root, base).diagnostics, 'invalid-transition', 'approved r2 cannot disappear through renumbering');
+});
+
+checkCase('2ay review3 P2a. approved r2 may return to draft and effective deletion retains its diagnostic', () => {
+  const root = gitRepo('review3-approved-draft-control');
+  const r1 = revisionDoc({ revision: 1, status: 'effective' });
+  const r2 = revisionDoc({ revision: 2, status: 'approved', previousRevision: 1 }, r1);
+  writeDoc(root, r1.path, r1.frontmatter, r1.body);
+  writeDoc(root, r2.path, r2.frontmatter, r2.body);
+  const base = commitAll(root, 'approved r2 control');
+  writeDoc(root, r2.path, { ...r2.frontmatter, status: 'draft' }, r2.body);
+  const draft = baseLint(root, base);
+  assert.deepStrictEqual(draft.diagnostics.filter(item => item.severity === 'error'), []);
+  fs.rmSync(path.join(root, r1.path));
+  expectCode(baseLint(root, base).diagnostics, 'immutable-revision-deleted');
+});
+
+
+checkCase('2ay review3 P1. independent PRD authority retains deleted living requirement identities', () => {
+  const { root, config, relativePath } = competingMigrationRepo('review3-base-req-paths');
+  // The earlier host source calls the same path a report; it cannot mask
+  // the independent lifecycle config's PRD authority.
+  const manifest = path.join(root, '.claude/harness-everything/manifest.json');
+  fs.writeFileSync(manifest, JSON.stringify({ projectDocs: {
+    governed: [{ path: 'specifications/contracts/**', role: 'report' }], legacy: []
+  } }));
+  writeDoc(root, relativePath, { id: 'PRD-GRPH-080', status: 'active' },
+    '### REQ-GRPH-080: Existing requirement\n\nAcceptance: retain behavior.\n');
+  const consumer = docObject('docs/reports/consumer.md', { id: 'REPORT-080', status: 'final', supersedes: ['REQ-GRPH-080'] }, '# Consumer\n');
+  writeDoc(root, consumer.path, consumer.frontmatter, consumer.body);
+  const base = commitAll(root, 'overlapping historical report and PRD authority');
+  fs.rmSync(path.join(root, relativePath));
+  const currentConfig = { ...config, governed: [{ path: 'docs/reports/**', role: 'report' }] };
+  const result = lifecycle.analyzeDocs(lifecycle.collectDocs(root, currentConfig), currentConfig, { workspace: root, base, changedPaths: [] });
+  const finding = expectCode(result.diagnostics, 'unresolved-ref').find(item => item.id === 'REQ-GRPH-080');
+  assert.ok(finding, 'consumer has an unresolved requirement reference');
+  assert.strictEqual(finding.severity, 'error', 'deleted governed requirement contributes its changed base path');
+  assert.ok(finding.candidates.includes(relativePath), 'diagnostic retains the trusted requirement path');
+});
+
 helper.finish();

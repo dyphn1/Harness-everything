@@ -1575,7 +1575,7 @@ function readGitBaseInventory(root, baseRef, config, explicitConfigPath = null) 
   }
 }
 
-function baseIdPaths(inventory, config, baseConfig = null) {
+function baseIdPaths(inventory, config, baseConfigSources = []) {
   const result = new Map();
   const add = (id, relative) => {
     if (typeof id !== 'string' || !id || typeof relative !== 'string') return;
@@ -1586,12 +1586,7 @@ function baseIdPaths(inventory, config, baseConfig = null) {
     if (!item || typeof item.id !== 'string' || typeof item.path !== 'string') continue;
     add(item.id, item.path);
     for (const alias of asList(item.frontmatter && item.frontmatter.aliases)) add(alias, item.path);
-    const governed = [
-      ...(Array.isArray(config && config.governed) ? config.governed : []),
-      ...(Array.isArray(baseConfig && baseConfig.governed) ? baseConfig.governed : [])
-    ];
-    const configuredRole = governed.find(entry => entry && typeof entry.path === 'string' && matchesAny(item.path, [entry.path]))?.role;
-    const isPrdArtifact = configuredRole === 'prd'
+    const isPrdArtifact = governedPrdPath(item.path, [config, ...(baseConfigSources || [])])
       || item.frontmatter && item.frontmatter.role === 'prd'
       || item.frontmatter && Object.prototype.hasOwnProperty.call(item.frontmatter, 'revision')
       || item.path.startsWith('docs/prd/') && !item.path.includes('/legacy/');
@@ -1650,15 +1645,16 @@ function immutabilityDiagnostics(baseInventory, candidateInventory) {
   return diagnostics;
 }
 
-function migrationDiagnostics(docs, root, baseInventory, baseFiles = null, baseConfig = null) {
+function migrationDiagnostics(docs, root, baseInventory, baseFiles = null, baseConfigSources = null) {
   const diagnostics = [];
   const baseByPath = new Map((baseFiles || baseInventory || []).filter(item => item && typeof item.path === 'string')
     .map(item => [item.path, { ...item, bytes: Buffer.from(item.bytes || []) }]));
   const livingSources = [...baseByPath.values()].filter(item => {
     const parsed = parseFrontmatter(item.bytes.toString('utf8'));
     return !parsed.error
-      && roleAtPath(item.path, baseConfig, !baseConfig) === 'prd'
-      && !isLegacyPath(item.path, baseConfig)
+      && (baseConfigSources && baseConfigSources.length
+        ? governedPrdPath(item.path, baseConfigSources)
+        : roleAtPath(item.path, null, true) === 'prd')
       && !Object.prototype.hasOwnProperty.call(parsed.data || {}, 'revision')
       && !Object.prototype.hasOwnProperty.call(parsed.data || {}, 'previous_revision')
       && ['active', 'superseded'].includes(parsed.data && parsed.data.status);
@@ -1727,6 +1723,17 @@ function transitionDiagnostics(docs, baseInventory, root, candidateGraph = null)
     .map(item => ({ path: item.path, role: 'prd', legacy: false, frontmatter: item.frontmatter, body: item.body || '', storedBytes: item.bytes }));
   const baseGraph = revisionGraph(baseDocs);
   const liveGraph = candidateGraph || revisionGraph(docs);
+  for (const base of baseDocs.filter(doc => doc.frontmatter.status === 'approved')) {
+    const logicalId = baseGraph.logicalIdByDoc.get(base);
+    const names = baseGraph.namesByLogicalId.get(logicalId) || new Set([base.frontmatter.id]);
+    const candidateLogicalIds = new Set([...names].flatMap(name => [...(liveGraph.logicalIdsByName.get(name) || [])]));
+    const present = [...candidateLogicalIds].some(id => (liveGraph.groups.get(id) || [])
+      .some(doc => doc.frontmatter.revision === base.frontmatter.revision));
+    if (!present) {
+      diagnostics.push(makeDiagnostic('invalid-transition', 'error', base,
+        'approved revisions may not be deleted or moved outside the candidate inventory; return to draft or activate explicitly', base.frontmatter.id));
+    }
+  }
   for (const doc of (docs || []).filter(isRevisionPrd)) {
     const data = doc.frontmatter;
     const logicalId = liveGraph.logicalIdByDoc.get(doc);
@@ -1783,7 +1790,7 @@ function isLegacyPath(relativePath, config) {
   return matchesAny(relativePath, Array.isArray(config && config.legacy) ? config.legacy : []);
 }
 
-function objectiveChangedPaths(baseFiles, candidateFiles, config, baseConfig) {
+function objectiveChangedPaths(baseFiles, candidateFiles, config, baseConfig, baseConfigSources = null) {
   const baseByPath = new Map((baseFiles || []).filter(item => item && typeof item.path === 'string')
     .map(item => [item.path, Buffer.from(item.bytes || [])]));
   const candidateByPath = new Map((candidateFiles || []).filter(item => item && typeof item.path === 'string')
@@ -1812,7 +1819,10 @@ function objectiveChangedPaths(baseFiles, candidateFiles, config, baseConfig) {
       changed.add(relativePath);
       continue;
     }
-    if (currentRole === 'prd' && !currentLegacy && (baseRole !== 'prd' || baseLegacy)) changed.add(relativePath);
+    const basePrd = baseConfigSources && baseConfigSources.length
+      ? governedPrdPath(relativePath, baseConfigSources)
+      : baseRole === 'prd' && !baseLegacy;
+    if (currentRole === 'prd' && !currentLegacy && !basePrd) changed.add(relativePath);
   }
   return changed;
 }
@@ -1859,7 +1869,7 @@ function analyzeDocs(docs, config, options = {}) {
     : entries.map(doc => ({ path: doc.path, bytes: docBytes(doc) }));
   const changedPaths = new Set((Array.isArray(options.changedPaths) ? options.changedPaths : []).map(String));
   if (disposition === 'observed') {
-    for (const relativePath of objectiveChangedPaths(baseFiles, candidateFiles, config, baseState && baseState.config)) changedPaths.add(relativePath);
+    for (const relativePath of objectiveChangedPaths(baseFiles, candidateFiles, config, baseState && baseState.config, baseState && baseState.configSources)) changedPaths.add(relativePath);
   }
   const frozenBaseInventory = immutableBasePrdInventory(
     normalizedInventory,
@@ -1903,7 +1913,7 @@ function analyzeDocs(docs, config, options = {}) {
     }
     const transitionCandidates = [...transitionDocs.values()];
     additionalDiagnostics.push(...transitionDiagnostics(transitionCandidates, frozenBaseInventory, root));
-    additionalDiagnostics.push(...migrationDiagnostics(entries, root, normalizedInventory, baseFiles, baseState && baseState.config));
+    additionalDiagnostics.push(...migrationDiagnostics(entries, root, normalizedInventory, baseFiles, baseState && baseState.configSources));
   }
   const retirementEligibleSources = options._retirementEligibleSources instanceof Set
     ? options._retirementEligibleSources
@@ -1915,7 +1925,7 @@ function analyzeDocs(docs, config, options = {}) {
     _graph: graph,
     _retirementEligibleSources: retirementEligibleSources,
     _retirementValidationDiagnostics: additionalDiagnostics,
-    _baseIdPaths: disposition === 'observed' ? baseIdPaths(normalizedInventory, config, baseState && baseState.config) : undefined
+    _baseIdPaths: disposition === 'observed' ? baseIdPaths(normalizedInventory, config, baseState && baseState.configSources) : undefined
   };
   const diagnostics = lintDocs(entries, config, effectiveOptions);
   diagnostics.push(...additionalDiagnostics);
