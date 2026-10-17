@@ -21,20 +21,10 @@ const ADR_ID = /^([A-Z][A-Z0-9]{1,9})-(\d{3,})$/;
 const REQ_ID = /^REQ-([A-Z][A-Z0-9]{1,9})-(\d{3,})$/;
 const ANY_ID = /^(?:REQ-)?[A-Z][A-Z0-9]{1,9}-\d{3,}$/;
 const PRD_ID = /^PRD-[A-Z][A-Z0-9]{1,9}-\d{3,}$/;
-const RESOLUTION_DIAGNOSTICS = new Set([
-  'malformed-frontmatter', 'missing-id', 'invalid-id', 'unknown-domain',
-  'duplicate-id', 'alias-collision', 'duplicate-req', 'missing-req',
-  'unresolved-ref', 'ambiguous-legacy-ref', 'invalid-ref', 'invalid-alias',
-  'missing-status', 'invalid-status', 'role-mismatch',
-  'supersede-status-mismatch', 'supersede-cycle', 'recorded-conflict', 'prd-migration-required',
-  'invalid-prd-id', 'invalid-revision', 'duplicate-revision', 'missing-parent',
-  'multiple-baselines', 'revision-cycle', 'revision-fork', 'stale-draft-base',
-  'invalid-transition', 'approval-missing', 'approval-content-mismatch',
-  'revision-digest-mismatch', 'immutable-revision-modified',
-  'immutable-revision-deleted', 'legacy-frozen-modified', 'req-dropped', 'incomplete-snapshot',
-  'invalid-req-clause', 'replacement-alias-overlap', 'replacement-cycle'
-]);
-const RETIREMENT_PREFIX_BLOCKERS = new Set([
+// One blocker taxonomy serves two projections: retirement eligibility blocks
+// on these findings regardless of ratchet severity, while index current-state
+// presentation blocks only when the finding is an error.
+const AUTHORITY_BLOCKER_DIAGNOSTICS = new Set([
   'invalid-prd-id', 'invalid-revision', 'invalid-status', 'invalid-alias',
   'duplicate-revision', 'missing-parent', 'multiple-baselines', 'revision-cycle',
   'revision-fork', 'revision-digest-mismatch', 'req-dropped', 'incomplete-snapshot',
@@ -43,6 +33,14 @@ const RETIREMENT_PREFIX_BLOCKERS = new Set([
   'invalid-transition', 'stale-draft-base', 'migration-record-missing', 'migration-record-mismatch',
   'immutable-revision-modified', 'immutable-revision-deleted', 'legacy-frozen-modified', 'duplicate-id', 'alias-collision',
   'unknown-domain', 'invalid-id', 'role-mismatch'
+]);
+const RETIREMENT_PREFIX_BLOCKERS = AUTHORITY_BLOCKER_DIAGNOSTICS;
+const RESOLUTION_DIAGNOSTICS = new Set([
+  ...AUTHORITY_BLOCKER_DIAGNOSTICS,
+  'malformed-frontmatter', 'missing-id', 'missing-req', 'unresolved-ref',
+  'ambiguous-legacy-ref', 'invalid-ref', 'missing-status',
+  'supersede-status-mismatch', 'supersede-cycle', 'recorded-conflict',
+  'prd-migration-required'
 ]);
 
 function stripTrailingComment(value) {
@@ -415,12 +413,13 @@ function supersessionEligibility(source, target, ref, validatedEffectivePrefix, 
   return { retirement, effective };
 }
 
-function validatedEffectivePrefix(docs, graph, config = null, validationDiagnostics = []) {
+function validatedEffectivePrefix(docs, graph, config = null, validationDiagnostics = [], { includeGraphDiagnostics = true } = {}) {
   const entries = Array.isArray(docs) ? docs : [];
-  const diagnostics = [...(graph && Array.isArray(graph.diagnostics) ? graph.diagnostics : []),
+  const diagnostics = [...(includeGraphDiagnostics && graph && Array.isArray(graph.diagnostics) ? graph.diagnostics : []),
     ...(Array.isArray(validationDiagnostics) ? validationDiagnostics : [])];
   const blockedPaths = new Set(diagnostics
-    .filter(item => item && typeof item.path === 'string' && RETIREMENT_PREFIX_BLOCKERS.has(item.code))
+    .filter(item => item && typeof item.path === 'string'
+      && RETIREMENT_PREFIX_BLOCKERS.has(item.code))
     .map(item => item.path));
   const domains = new Set(Array.isArray(config && config.domains) ? config.domains : []);
   const validEffectiveRevision = doc => {
@@ -2021,17 +2020,34 @@ function analyzeDocs(docs, config, options = {}) {
     additionalDiagnostics.push(...transitionDiagnostics(transitionCandidates, frozenBaseInventory, root));
     additionalDiagnostics.push(...migrationDiagnostics(entries, root, normalizedInventory, baseFiles, baseState && baseState.configSources));
   }
-  const retirementEligibleSources = options._retirementEligibleSources instanceof Set
+  const preliminaryRetirementPrefix = options._retirementEligibleSources instanceof Set
     ? options._retirementEligibleSources
     : validatedEffectivePrefix(entries, graph, config, additionalDiagnostics);
-  const effectiveOptions = {
+  const preliminaryOptions = {
     ...options,
     changedPaths: [...changedPaths],
     _trustedBaseObserved: disposition === 'observed',
     _graph: graph,
-    _retirementEligibleSources: retirementEligibleSources,
+    _retirementEligibleSources: preliminaryRetirementPrefix,
     _retirementValidationDiagnostics: additionalDiagnostics,
     _baseIdPaths: disposition === 'observed' ? baseIdPaths(normalizedInventory, config, baseState && baseState.configSources) : undefined
+  };
+  // Namespace and REQ collisions are computed by lintDocs and do not depend on
+  // retirement eligibility. Collect the complete authority findings once with
+  // the preliminary prefix, then rebuild the prefix before emitting supersession
+  // and conflict-resolution diagnostics.
+  const preliminaryDiagnostics = lintDocs(entries, config, preliminaryOptions);
+  const retirementEligibleSources = validatedEffectivePrefix(entries, graph, config, [
+    ...additionalDiagnostics,
+    ...preliminaryDiagnostics.filter(item => AUTHORITY_BLOCKER_DIAGNOSTICS.has(item.code))
+  ]);
+  const effectiveOptions = {
+    ...preliminaryOptions,
+    _retirementEligibleSources: retirementEligibleSources,
+    _retirementValidationDiagnostics: [
+      ...additionalDiagnostics,
+      ...preliminaryDiagnostics.filter(item => AUTHORITY_BLOCKER_DIAGNOSTICS.has(item.code))
+    ]
   };
   const diagnostics = lintDocs(entries, config, effectiveOptions);
   diagnostics.push(...additionalDiagnostics);
@@ -2128,24 +2144,26 @@ function effectiveRevisionHistory(group, parentByDoc) {
 
 function buildIndex(docs, config, options = {}) {
   const entries = Array.isArray(docs) ? docs : [];
-  const graph = options._graph || revisionGraph(entries);
+  const mode = options.all === true
+    ? { all: true }
+    : { changedPaths: Array.isArray(options.changedPaths) ? options.changedPaths : [] };
+  const analysis = Array.isArray(options.diagnostics)
+    ? null
+    : analyzeDocs(entries, config, { ...options, ...mode });
+  const graph = options._graph || analysis && analysis._graph || revisionGraph(entries);
   const validatedPrefix = options._retirementEligibleSources instanceof Set
     ? options._retirementEligibleSources
-    : validatedEffectivePrefix(entries, graph, config, options._retirementValidationDiagnostics || options.diagnostics);
-  let diagnostics;
-  if (Array.isArray(options.diagnostics)) {
-    diagnostics = options.diagnostics;
-  } else {
-    const mode = options.all === true
-      ? { all: true }
-      : { changedPaths: Array.isArray(options.changedPaths) ? options.changedPaths : [] };
-    diagnostics = lintDocs(entries, config, {
-      ...mode,
-      _graph: graph,
-      _retirementEligibleSources: validatedPrefix,
-      _retirementValidationDiagnostics: options._retirementValidationDiagnostics
-    });
-  }
+    : analysis
+      ? analysis._retirementEligibleSources
+      : validatedEffectivePrefix(entries, graph, config, options._retirementValidationDiagnostics || options.diagnostics);
+  let diagnostics = Array.isArray(options.diagnostics) ? options.diagnostics : analysis.diagnostics;
+  const indexAuthorityDiagnostics = [
+    ...(Array.isArray(options._retirementValidationDiagnostics) ? options._retirementValidationDiagnostics : []),
+    ...diagnostics.filter(item => item && item.severity === 'error')
+  ].filter(item => item && item.severity === 'error');
+  const indexAuthorityPrefix = validatedEffectivePrefix(entries, graph, config, indexAuthorityDiagnostics, {
+    includeGraphDiagnostics: false
+  });
   diagnostics = diagnostics.filter(item => RESOLUTION_DIAGNOSTICS.has(item.code));
   const edges = [];
   for (const doc of entries) {
@@ -2177,7 +2195,8 @@ function buildIndex(docs, config, options = {}) {
       const logicalId = graph.logicalIdByDoc.get(doc);
       const current = graph.currentById.get(logicalId);
       const valid = graph.structurallyValid.get(logicalId) !== false;
-      const derivedState = !valid ? 'invalid' : current === doc ? 'current' : current ? (data.status === 'effective' ? 'historical' : 'pending') : 'pre-activation';
+      const currentAuthorityInvalid = current === doc && !indexAuthorityPrefix.has(current);
+      const derivedState = !valid || currentAuthorityInvalid ? 'invalid' : current === doc ? 'current' : current ? (data.status === 'effective' ? 'historical' : 'pending') : 'pre-activation';
       details.push(`stored status: ${data.status || '(missing)'}`, `derived state: ${derivedState}`);
     } else {
       details.push(`status: ${data.status || '(missing)'}`);
@@ -2208,8 +2227,9 @@ function buildIndex(docs, config, options = {}) {
     const revisions = group.slice().sort((a, b) => a.frontmatter.revision - b.frontmatter.revision || compareText(a.path, b.path));
     const current = graph.currentById.get(logicalId);
     const valid = graph.structurallyValid.get(logicalId) !== false;
-    const state = !valid ? 'invalid' : current ? 'valid' : 'pre-activation';
-    const currentText = current
+    const currentAuthorityInvalid = Boolean(current && !indexAuthorityPrefix.has(current));
+    const state = !valid || currentAuthorityInvalid ? 'invalid' : current ? 'valid' : 'pre-activation';
+    const currentText = current && !currentAuthorityInvalid
       ? `\`${documentPin(current)}\` (\`${current.path}\`; digest: \`${graph.artifactDigests.get(current) || artifactDigest(current)}\`)`
       : 'none';
     const history = effectiveRevisionHistory(revisions, graph.parentByDoc).replace(/(PRD-[A-Z][A-Z0-9]{1,9}-\d{3,}@r[1-9]\d*)/g, '`$1`');

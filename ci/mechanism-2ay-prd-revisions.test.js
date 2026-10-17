@@ -323,6 +323,17 @@ function baseLint(root, baseRevision) {
   return output;
 }
 
+function lifecycleCommand(root, command, { baseRevision, changedPath, all = false } = {}) {
+  const args = [modulePath, command, '--workspace', root, '--config', path.join(root, 'lifecycle-config.json')];
+  if (all) args.push('--all');
+  else args.push('--changed', changedPath || '');
+  if (baseRevision) args.push('--base', baseRevision);
+  const result = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', env: gitEnvironment() });
+  assert.ifError(result.error);
+  assert.ok([0, 1].includes(result.status), `${command} CLI must return a behavior result, not argument/setup failure (status ${result.status}; stderr: ${result.stderr}; stdout: ${result.stdout})`);
+  return command === 'lint' ? JSON.parse(result.stdout) : result.stdout;
+}
+
 function inventoryAt(root, baseRevision) {
   const paths = gitBytes(root, ['ls-tree', '-r', '--name-only', '-z', '--full-tree', baseRevision])
     .toString('utf8').split('\0').filter(Boolean);
@@ -1437,6 +1448,21 @@ function prepareMigrationRepo(name) {
   return { root, livingPath, livingBody, legacyPath, beforeLegacy, oldRevision, oldBlob, migratedFromDigest, migrationRecordPath, migrationRecord, migrationCommit };
 }
 
+function addEffectiveR2(root, r1Path = 'docs/prd/living.md', r2Path = 'docs/prd/r002.md') {
+  const r1 = lifecycle.collectDocs(root, CONFIG).find(doc => doc.path === r1Path);
+  assert.ok(r1, `effective r1 exists at ${r1Path}`);
+  const r2 = revisionDoc({
+    id: r1.frontmatter.id,
+    revision: 2,
+    status: 'effective',
+    previousRevision: 1,
+    relativePath: r2Path,
+    body: r1.body
+  }, r1);
+  writeDoc(root, r2Path, r2.frontmatter, r2.body);
+  return { r1, r2 };
+}
+
 checkCase('2ay case 8. baseline adoption binds prior stored bytes to a recorded metadata-only migration', () => {
   const state = prepareMigrationRepo('baseline-migration-valid');
   const result = baseLint(state.root, state.oldRevision);
@@ -1453,6 +1479,257 @@ checkCase('2ay case 8. baseline adoption binds prior stored bytes to a recorded 
   assert.strictEqual(migratedDoc.frontmatter.migrated_from_digest, state.migratedFromDigest);
   const migratedSource = lifecycle.parseFrontmatter(fs.readFileSync(state.livingPath, 'utf8'));
   assert.strictEqual(migratedSource.body, state.livingBody, 'migration changes metadata only');
+});
+
+checkCase('2ay index authority. missing and mismatched baseline migration records are unresolved and invalidate current state', () => {
+  const cases = [
+    {
+      name: 'missing',
+      code: 'migration-record-missing',
+      prepare(state) { fs.unlinkSync(state.migrationRecordPath); }
+    },
+    {
+      name: 'mismatched',
+      code: 'migration-record-mismatch',
+      prepare(state) {
+        const wrong = { ...state.migrationRecord, source: 'docs/prd/a-different-source.md' };
+        fs.writeFileSync(state.migrationRecordPath, JSON.stringify(wrong, null, 2) + '\n', 'utf8');
+      }
+    }
+  ];
+  for (const scenario of cases) {
+    const state = prepareMigrationRepo(`index-authority-${scenario.name}`);
+    scenario.prepare(state);
+    const allLint = lifecycleCommand(state.root, 'lint', { baseRevision: state.oldRevision, all: true });
+    const changedLint = lifecycleCommand(state.root, 'lint', { baseRevision: state.oldRevision, changedPath: 'docs/prd/living.md' });
+    expectCode(allLint.diagnostics, scenario.code, `${scenario.name} migration record is a lint error`);
+    expectCode(changedLint.diagnostics, scenario.code, `${scenario.name} migration record is also an error in changed mode`);
+    assert.deepStrictEqual(changedLint.diagnostics, allLint.diagnostics, `${scenario.name} lint diagnostics are --changed/--all equivalent`);
+
+    const allIndex = lifecycleCommand(state.root, 'index', { baseRevision: state.oldRevision, all: true });
+    const changedIndex = lifecycleCommand(state.root, 'index', { baseRevision: state.oldRevision, changedPath: 'docs/prd/living.md' });
+    assert.ok(allIndex.includes(`- \`${scenario.code}\` (error)`), `${scenario.name} authority error is unresolved in index:\n${allIndex}`);
+    assert.match(allIndex, /PRD-GRPH-001` — state: invalid; current: none/, `${scenario.name} index cannot call the adopted revision current:\n${allIndex}`);
+    assert.match(allIndex, /`docs\/prd\/living\.md` \(role: prd; stored status: effective; derived state: invalid\)/, `${scenario.name} active document state is invalid:\n${allIndex}`);
+    assert.strictEqual(changedIndex, allIndex, `${scenario.name} index output is --changed/--all equivalent`);
+  }
+});
+
+checkCase('2ay index authority. valid metadata-only adoption stays current with and without a trusted base', () => {
+  const state = prepareMigrationRepo('index-authority-valid-adoption');
+  for (const mode of [
+    { label: 'trusted base, all', baseRevision: state.oldRevision, all: true },
+    { label: 'trusted base, changed', baseRevision: state.oldRevision, changedPath: 'docs/prd/living.md' },
+    { label: 'no base, all', all: true },
+    { label: 'no base, changed', changedPath: 'docs/prd/living.md' }
+  ]) {
+    const lint = lifecycleCommand(state.root, 'lint', mode);
+    assert.deepStrictEqual(lint.diagnostics.filter(item => item.severity === 'error'), [], `${mode.label}: valid metadata-only adoption has no errors`);
+    const index = lifecycleCommand(state.root, 'index', mode);
+    assert.match(index, /PRD-GRPH-001` — state: valid; current: `PRD-GRPH-001@r1`/, `${mode.label}: valid adoption stays current`);
+    assert.match(index, /`docs\/prd\/living\.md` \(role: prd; stored status: effective; derived state: current\)/, `${mode.label}: current document stays valid`);
+  }
+});
+
+function assertChildRejectedByTrustedBase(state, expectedCode) {
+  const lint = baseLint(state.root, state.oldRevision);
+  expectCode(lint.diagnostics, expectedCode);
+  const docs = lifecycle.collectDocs(state.root, CONFIG);
+  const options = {
+    workspace: state.root,
+    configPath: path.join(state.root, 'lifecycle-config.json'),
+    base: state.oldRevision,
+    all: true
+  };
+  const analysis = lifecycle.analyzeDocs(docs, CONFIG, options);
+  expectCode(analysis.diagnostics, expectedCode);
+  assert.strictEqual(analysis._retirementEligibleSources.size, 0, `${expectedCode} prevents an error-free effective prefix`);
+  const index = lifecycle.buildIndex(docs, CONFIG, {
+    ...options,
+    diagnostics: analysis.diagnostics,
+    _graph: analysis._graph,
+    _retirementEligibleSources: analysis._retirementEligibleSources
+  });
+  const cli = lifecycleCommand(state.root, 'index', { baseRevision: state.oldRevision, all: true });
+  assert.strictEqual(index, cli, 'pre-analyzed API and CLI render the same authority result');
+  assert.match(index, /PRD-GRPH-001` — state: invalid; current: none/, `${expectedCode} in r1 invalidates effective r2 authority:\n${index}`);
+  assert.ok(index.includes(`- \`${expectedCode}\` (error)`), `${expectedCode} remains visible under Unresolved`);
+}
+
+checkCase('2ay review4 P2. migration errors on r1 invalidate an otherwise-valid effective r2', () => {
+  const missing = prepareMigrationRepo('index-invalid-effective-prefix-missing-r1');
+  fs.unlinkSync(missing.migrationRecordPath);
+  addEffectiveR2(missing.root);
+  assertChildRejectedByTrustedBase(missing, 'migration-record-missing');
+
+  const mismatched = prepareMigrationRepo('index-invalid-effective-prefix-mismatch-r1');
+  const wrongRecord = { ...mismatched.migrationRecord, source: 'docs/prd/wrong.md' };
+  fs.writeFileSync(mismatched.migrationRecordPath, JSON.stringify(wrongRecord, null, 2) + '\n', 'utf8');
+  addEffectiveR2(mismatched.root);
+  assertChildRejectedByTrustedBase(mismatched, 'migration-record-mismatch');
+});
+
+checkCase('2ay review4 P2. immutable effective ancestor keeps otherwise-valid r2 out of current authority', () => {
+  const state = seedRevisionRepo('index-invalid-effective-prefix-immutable-ancestor', 'effective');
+  const baseR1 = lifecycle.collectDocs(state.root, CONFIG).find(doc => doc.path === 'docs/prd/sample/r001.md');
+  const changedBody = '# Edited immutable baseline\n\nAcceptance: this edit is forbidden.\n';
+  const changedFrontmatter = {
+    ...baseR1.frontmatter,
+    approval: { ...baseR1.frontmatter.approval }
+  };
+  changedFrontmatter.approval.content_digest = approvalContentDigest(changedFrontmatter, changedBody);
+  const changedR1 = docObject(baseR1.path, changedFrontmatter, changedBody);
+  writeDoc(state.root, changedR1.path, changedFrontmatter, changedBody);
+  const r2 = revisionDoc({
+    id: changedFrontmatter.id,
+    revision: 2,
+    status: 'effective',
+    previousRevision: 1,
+    relativePath: 'docs/prd/sample/r002.md',
+    body: changedBody
+  }, changedR1);
+  writeDoc(state.root, r2.path, r2.frontmatter, r2.body);
+
+  const docs = lifecycle.collectDocs(state.root, CONFIG);
+  const options = { workspace: state.root, base: state.base, all: true };
+  const analysis = lifecycle.analyzeDocs(docs, CONFIG, options);
+  expectCode(analysis.diagnostics, 'immutable-revision-modified');
+  assert.strictEqual(analysis._retirementEligibleSources.size, 0, 'the immutable error blocks the effective prefix at r1');
+  const index = lifecycle.buildIndex(docs, CONFIG, {
+    ...options,
+    diagnostics: analysis.diagnostics,
+    _graph: analysis._graph,
+    _retirementEligibleSources: analysis._retirementEligibleSources
+  });
+  assert.match(index, /PRD-GRPH-001` — state: invalid; current: none/, `immutable ancestor cannot authorize r2:\n${index}`);
+});
+
+checkCase('2ay review4 P2. direct buildIndex with trusted base matches the CLI authority view', () => {
+  const state = prepareMigrationRepo('index-direct-api-base-parity');
+  fs.unlinkSync(state.migrationRecordPath);
+  const docs = lifecycle.collectDocs(state.root, CONFIG);
+  const options = {
+    workspace: state.root,
+    configPath: path.join(state.root, 'lifecycle-config.json'),
+    base: state.oldRevision,
+    all: true
+  };
+  const direct = lifecycle.buildIndex(docs, CONFIG, options);
+  const cli = lifecycleCommand(state.root, 'index', { baseRevision: state.oldRevision, all: true });
+  assert.strictEqual(direct, cli, 'direct API analyzes supplied trusted-base context just like CLI');
+  assert.match(direct, /PRD-GRPH-001` — state: invalid; current: none/);
+  assert.ok(direct.includes('- `migration-record-missing` (error)'));
+});
+
+checkCase('2ay review4 P2. warning-only authority diagnostics preserve current but block retirement eligibility', () => {
+  const target = revisionDoc({ id: 'PRD-IFCE-102', revision: 1, status: 'effective', relativePath: 'docs/prd/target/r001.md' });
+  const source = revisionDoc({
+    id: 'PRD-GRPH-101', revision: 1, status: 'effective', relativePath: 'docs/prd/source/r001.md',
+    supersedes: ['PRD-IFCE-102@r1']
+  });
+  const warning = {
+    code: 'migration-record-missing', severity: 'warning', path: source.path,
+    message: 'severity matrix warning must not revoke a validated prefix'
+  };
+  const index = lifecycle.buildIndex([source, target], CONFIG, { all: true, diagnostics: [warning] });
+  assert.match(index, /PRD-GRPH-101` — state: valid; current: `PRD-GRPH-101@r1`/);
+  assert.ok(index.includes('pending supersedes: `PRD-IFCE-102@r1`'), `warning-only blocker keeps the edge pending:\n${index}`);
+  assert.ok(!index.includes('superseded by: `PRD-GRPH-101@r1` -> `PRD-IFCE-102@r1`'),
+    `warning-only authority finding must not project retirement:\n${index}`);
+  assert.ok(index.includes('- `migration-record-missing` (warning)'));
+});
+
+function runCollisionAuthorityFixture(name, code, createDocs) {
+  const root = gitRepo(`index-collision-${name}`);
+  const config = {
+    ...CONFIG,
+    governed: [...CONFIG.governed, { path: 'docs/reports/**', role: 'report' }]
+  };
+  const configPath = path.join(root, 'lifecycle-config.json');
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+  const fixture = createDocs();
+  for (const doc of fixture.docs) writeDoc(root, doc.path, doc.frontmatter, doc.body);
+  commitAll(root, `${name} collision retirement authority fixture`);
+  const entries = lifecycle.collectDocs(root, config);
+  const targetPath = fixture.target.path;
+  const sourcePath = fixture.source.path;
+
+  for (const mode of [
+    { name: 'unchanged', options: { changedPaths: [] }, cli: { changedPath: '' }, severity: 'warning', current: 'current' },
+    { name: 'all', options: { all: true }, cli: { all: true }, severity: 'error', current: 'invalid' }
+  ]) {
+    const analysisOptions = { workspace: root, configPath, ...mode.options };
+    const analysis = lifecycle.analyzeDocs(entries, config, analysisOptions);
+    const collision = expectCode(analysis.diagnostics, code, `${name}/${mode.name} collision is reported`)
+      .find(item => item.path === sourcePath);
+    assert.strictEqual(collision.severity, mode.severity, `${name}/${mode.name} collision severity`);
+    const conflict = expectCode(analysis.diagnostics, 'recorded-conflict', `${name}/${mode.name} retirement remains unauthorized`)
+      .find(item => item.path === sourcePath);
+    assert.strictEqual(conflict.severity, mode.severity, `${name}/${mode.name} conflict remains at the ratchet severity`);
+
+    const cliIndex = lifecycleCommand(root, 'index', mode.cli);
+    const directIndex = lifecycle.buildIndex(entries, config, analysisOptions);
+    const suppliedDiagnosticsIndex = lifecycle.buildIndex(entries, config, {
+      ...analysisOptions,
+      diagnostics: analysis.diagnostics
+    });
+    const suppliedAnalysisIndex = lifecycle.buildIndex(entries, config, {
+      ...analysisOptions,
+      diagnostics: analysis.diagnostics,
+      _graph: analysis._graph,
+      _retirementEligibleSources: analysis._retirementEligibleSources
+    });
+    assert.strictEqual(directIndex, cliIndex, `${name}/${mode.name}: direct API equals CLI`);
+    assert.strictEqual(suppliedDiagnosticsIndex, cliIndex, `${name}/${mode.name}: supplied diagnostics API equals CLI`);
+    assert.strictEqual(suppliedAnalysisIndex, cliIndex, `${name}/${mode.name}: supplied analysis API equals CLI`);
+    const sourceRow = cliIndex.split('\n').find(line => line.includes(`\`${sourcePath}\``)) || '';
+    const targetRow = cliIndex.split('\n').find(line => line.includes(`\`${targetPath}\``)) || '';
+    assert.ok(sourceRow.includes(`derived state: ${mode.current}`),
+      `${name}/${mode.name}: current state follows error-level authority only: ${sourceRow}`);
+    assert.ok(sourceRow.includes(`pending supersedes: \`${fixture.target.frontmatter.id}@r1\``),
+      `${name}/${mode.name}: collided source's edge stays pending: ${sourceRow}`);
+    assert.ok(!targetRow.includes('superseded by:'),
+      `${name}/${mode.name}: target is not projected as retired: ${targetRow}`);
+    assert.ok(cliIndex.includes(`- \`${code}\` (${mode.severity})`), `${name}/${mode.name}: collision stays visible in Unresolved`);
+    assert.ok(cliIndex.includes(`- \`recorded-conflict\` (${mode.severity})`), `${name}/${mode.name}: conflict stays unresolved`);
+  }
+}
+
+checkCase('2ay review5 P2. real duplicate-id collision blocks retirement at warning and error severity across APIs', () => {
+  runCollisionAuthorityFixture('duplicate-id', 'duplicate-id', () => {
+    const target = revisionDoc({ id: 'PRD-GRPH-700', revision: 1, status: 'effective', relativePath: 'docs/prd/target/r001.md' });
+    const source = revisionDoc({
+      id: 'PRD-IFCE-700', revision: 1, status: 'effective', relativePath: 'docs/prd/source/r001.md',
+      supersedes: ['PRD-GRPH-700@r1'], conflicts_with: ['PRD-GRPH-700@r1']
+    });
+    const collision = docObject('docs/reports/duplicate.md', { id: source.frontmatter.id, status: 'final' }, 'Duplicate active identity.\n');
+    return { source, target, docs: [source, target, collision] };
+  });
+});
+
+checkCase('2ay review5 P2. real alias-collision blocks retirement at warning and error severity across APIs', () => {
+  runCollisionAuthorityFixture('alias-collision', 'alias-collision', () => {
+    const target = revisionDoc({ id: 'PRD-GRPH-700', revision: 1, status: 'effective', relativePath: 'docs/prd/target/r001.md' });
+    const source = revisionDoc({
+      id: 'PRD-IFCE-700', revision: 1, status: 'effective', relativePath: 'docs/prd/source/r001.md',
+      aliases: ['PRD-IFCE-799'], supersedes: ['PRD-GRPH-700@r1'], conflicts_with: ['PRD-GRPH-700@r1']
+    });
+    const collision = docObject('docs/reports/alias.md', { id: 'PRD-IFCE-799', status: 'final' }, 'Claimed alias as canonical.\n');
+    return { source, target, docs: [source, target, collision] };
+  });
+});
+
+checkCase('2ay review5 P2. real duplicate-req collision blocks retirement at warning and error severity across APIs', () => {
+  runCollisionAuthorityFixture('duplicate-req', 'duplicate-req', () => {
+    const body = '### REQ-IFCE-777: Shared\n\nAcceptance: same requirement identity.\n';
+    const target = revisionDoc({ id: 'PRD-GRPH-700', revision: 1, status: 'effective', relativePath: 'docs/prd/target/r001.md' });
+    const source = revisionDoc({
+      id: 'PRD-IFCE-700', revision: 1, status: 'effective', relativePath: 'docs/prd/source/r001.md', body,
+      supersedes: ['PRD-GRPH-700@r1'], conflicts_with: ['PRD-GRPH-700@r1']
+    });
+    const other = revisionDoc({ id: 'PRD-IFCE-701', revision: 1, status: 'effective', relativePath: 'docs/prd/other/r001.md', body });
+    return { source, target, docs: [source, other, target] };
+  });
 });
 
 checkCase('2ay case 8. missing or mismatched migration records and digests are rejected', () => {
