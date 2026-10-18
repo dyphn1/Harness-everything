@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.36.0](https://github.com/dyphn1/Harness-everything/compare/v0.35.0...v0.36.0) (2026-10-18)
+
+### Features
+
+* **verify:** add one-shot local gate runner and portability lint ([af1ef16](https://github.com/dyphn1/Harness-everything/commit/af1ef164c1f05e8779160f010cc20a1a122ea69e))
+
+### Bug Fixes
+
+* **opencode-plugin:** give idle verification a real budget instead of a 60s cap ([60973f0](https://github.com/dyphn1/Harness-everything/commit/60973f0afb5f5fdb450620aaff5ab5d5138f9976))
+* **opencode-plugin:** keep both streams in signatures, timeout only on budget expiry ([fa65afe](https://github.com/dyphn1/Harness-everything/commit/fa65afe0bf358fa4f35a787227d31901cdee700a))
+* **opencode-plugin:** keep Jest Console payload lines out of failure markers ([2e1f0bb](https://github.com/dyphn1/Harness-everything/commit/2e1f0bb0eeddcac9c4c77991040873d2b5f5ca23))
+* **opencode-plugin:** rank test-level failure markers over suite-level context ([46811a1](https://github.com/dyphn1/Harness-everything/commit/46811a1389bda7fe9aa88f280d9d44a4cc3e98e5))
+* **opencode:** recognize indented Mocha failure markers ([1041493](https://github.com/dyphn1/Harness-everything/commit/1041493eeea2f25030e0218d89e607a3f4e48bab))
+* **opencode:** respect Jest Console indentation when parsing failure markers ([cd38f1e](https://github.com/dyphn1/Harness-everything/commit/cd38f1eba564025641c47776ea540c83629f2428))
+* **verify:** classify verification outcomes and normalize breaker signatures ([e2ea651](https://github.com/dyphn1/Harness-everything/commit/e2ea6511ca3c400b8f94086a8496af20a8a1823b))
+* **verify:** close portability-lint and verify-all review gaps ([05e2d8c](https://github.com/dyphn1/Harness-everything/commit/05e2d8ca0f4328426c60ffc4e66804358cd86941))
+
 ## [0.35.0](https://github.com/dyphn1/Harness-everything/compare/v0.34.0...v0.35.0) (2026-10-18)
 
 ### Features
