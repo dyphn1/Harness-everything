@@ -557,30 +557,41 @@ function scanTestSource(text) {
     const openIndex = index + 1;
     const closeIndex = parenPairs.get(openIndex);
     const endIndex = Number.isInteger(closeIndex) ? closeIndex : tokens.length - 1;
+    const callArgumentDepth = parenDepthBefore[openIndex] + 1;
+    const callBraceDepth = braceDepthBefore[openIndex];
     const ids = new Set();
     for (let cursor = openIndex + 1; cursor <= endIndex; cursor++) {
       const candidate = tokens[cursor];
       if (!['string', 'template'].includes(candidate.type)
-        || parenDepthBefore[cursor] !== parenDepthBefore[openIndex] + 1
-        || braceDepthBefore[cursor] !== braceDepthBefore[openIndex]) continue;
+        || parenDepthBefore[cursor] !== callArgumentDepth
+        || braceDepthBefore[cursor] !== callBraceDepth) continue;
       for (const match of candidate.value.matchAll(REQUIREMENT_IDS)) ids.add(match[1]);
     }
     const signatureTokens = [];
+    let titleSeparator = -1;
     for (let cursor = openIndex + 1; cursor <= endIndex; cursor++) {
-      const candidate = tokens[cursor];
-      if (candidate.value === ',' && parenDepthBefore[cursor] === parenDepthBefore[openIndex] + 1
-        && braceDepthBefore[cursor] === braceDepthBefore[openIndex]) break;
-      signatureTokens.push(tokenKey(candidate));
+      if (tokens[cursor].value === ',' && parenDepthBefore[cursor] === callArgumentDepth
+        && braceDepthBefore[cursor] === callBraceDepth) {
+        titleSeparator = cursor;
+        break;
+      }
+      signatureTokens.push(tokenKey(tokens[cursor]));
     }
+    const bodyStartIndex = titleSeparator < 0 ? endIndex : titleSeparator + 1;
+    const bodyEndIndex = Number.isInteger(closeIndex) ? closeIndex - 1 : endIndex;
+    const bodySignature = tokens.slice(bodyStartIndex, bodyEndIndex + 1).map(tokenKey).join('\u0001');
     scan.calls.push({
       name: token.value,
       startIndex: index,
       openIndex,
       closeIndex,
       endIndex,
+      titleStartIndex: openIndex + 1,
+      titleEndIndex: titleSeparator < 0 ? bodyEndIndex : titleSeparator - 1,
       complete: Number.isInteger(closeIndex),
       ids: [...ids].sort(compareText),
-      signature: `${token.value}:${signatureTokens.join('\u0001')}`
+      signature: `${token.value}:${signatureTokens.join('\u0001')}`,
+      identitySignature: `${[...ids].sort(compareText).join(',')}\u0000${bodySignature}`
     });
   }
   return scan;
@@ -647,6 +658,125 @@ function statementRangeForToken(scan, tokenIndex) {
   return { startIndex, endIndex };
 }
 
+function assertionCallContainsToken(scan, tokenIndex) {
+  if (!scan || !Number.isInteger(tokenIndex)) return false;
+  const tokens = scan.tokens;
+  const assertionMethods = new Set(['equal', 'deepEqual', 'ok', 'throws', 'strictEqual']);
+  const contains = (startIndex, openIndex) => {
+    const closeIndex = scan.parenPairs.get(openIndex);
+    return Number.isInteger(closeIndex) && tokenIndex >= startIndex && tokenIndex <= closeIndex;
+  };
+
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index];
+    if (token.type !== 'identifier') continue;
+    if (token.value === 'assert') {
+      if (tokens[index + 1] && tokens[index + 1].value === '(' && contains(index, index + 1)) return true;
+      const memberIndex = index + 2;
+      const openIndex = index + 3;
+      if (tokens[index + 1] && ['.', '?.'].includes(tokens[index + 1].value)
+        && tokens[memberIndex] && tokens[memberIndex].type === 'identifier'
+        && tokens[openIndex] && tokens[openIndex].value === '(' && contains(index, openIndex)) return true;
+    }
+    if (token.value === 'expect' && tokens[index + 1] && tokens[index + 1].value === '(') {
+      let endIndex = scan.parenPairs.get(index + 1);
+      if (!Number.isInteger(endIndex)) continue;
+      let cursor = endIndex + 1;
+      while (tokens[cursor] && ['.', '?.'].includes(tokens[cursor].value)
+        && tokens[cursor + 1] && tokens[cursor + 1].type === 'identifier') {
+        const memberIndex = cursor + 1;
+        const openIndex = memberIndex + 1;
+        if (tokens[openIndex] && tokens[openIndex].value === '(') {
+          const closeIndex = scan.parenPairs.get(openIndex);
+          if (!Number.isInteger(closeIndex)) break;
+          endIndex = closeIndex;
+          cursor = closeIndex + 1;
+        } else {
+          // Modifiers such as .not, .resolves, and .rejects are property links
+          // in the matcher chain; keep scanning for its eventual matcher call.
+          endIndex = memberIndex;
+          cursor = memberIndex + 1;
+        }
+      }
+      if (tokenIndex >= index && tokenIndex <= endIndex) return true;
+    }
+    if (assertionMethods.has(token.value) && tokens[index - 1]
+      && ['.', '?.'].includes(tokens[index - 1].value)
+      && tokens[index + 1] && tokens[index + 1].value === '(' && contains(index - 1, index + 1)) return true;
+  }
+  return false;
+}
+
+function computedAssertionCallContainsToken(scan, tokenIndex, range) {
+  if (!scan || !Number.isInteger(tokenIndex) || !range) return false;
+  const tokens = scan.tokens;
+  const findBracketClose = openIndex => {
+    let depth = 0;
+    for (let index = openIndex; index < tokens.length; index++) {
+      if (tokens[index].value === '[') depth++;
+      else if (tokens[index].value === ']') {
+        depth--;
+        if (depth === 0) return index;
+      }
+    }
+    return null;
+  };
+
+  for (let startIndex = range.startIndex; startIndex <= range.endIndex; startIndex++) {
+    if (tokens[startIndex].type !== 'identifier'
+      || !['assert', 'expect'].includes(tokens[startIndex].value)) continue;
+    let cursor = startIndex + 1;
+    let endIndex = startIndex;
+    let hasComputedMember = false;
+    let hasCall = false;
+
+    while (cursor <= range.endIndex) {
+      if (tokens[cursor].value === '(') {
+        const closeIndex = scan.parenPairs.get(cursor);
+        if (!Number.isInteger(closeIndex)) break;
+        hasCall = true;
+        endIndex = closeIndex;
+        cursor = closeIndex + 1;
+        continue;
+      }
+      if (['.', '?.'].includes(tokens[cursor].value) && tokens[cursor + 1]
+        && tokens[cursor + 1].value === '[') cursor++;
+      if (tokens[cursor].value === '[') {
+        const closeIndex = findBracketClose(cursor);
+        if (!Number.isInteger(closeIndex)) break;
+        hasComputedMember = true;
+        endIndex = closeIndex;
+        cursor = closeIndex + 1;
+        continue;
+      }
+      if (['.', '?.'].includes(tokens[cursor].value)
+        && tokens[cursor + 1] && tokens[cursor + 1].type === 'identifier') {
+        endIndex = cursor + 1;
+        cursor += 2;
+        continue;
+      }
+      break;
+    }
+
+    if (hasComputedMember && hasCall && tokenIndex >= startIndex && tokenIndex <= endIndex) return true;
+  }
+  return false;
+}
+
+function unsupportedAssertionCallContainsToken(scan, tokenIndex, range) {
+  if (!scan || !Number.isInteger(tokenIndex) || !range) return false;
+  const tokens = scan.tokens;
+  const end = Math.min(range.endIndex, tokens.length - 1);
+  for (let index = range.startIndex; index <= end; index++) {
+    if (tokens[index].type !== 'identifier'
+      || !tokens[index + 1] || !['.', '?.'].includes(tokens[index + 1].value)
+      || !tokens[index + 2] || tokens[index + 2].type !== 'identifier'
+      || !tokens[index + 3] || tokens[index + 3].value !== '(') continue;
+    const closeIndex = scan.parenPairs.get(index + 3);
+    if (Number.isInteger(closeIndex) && tokenIndex >= index && tokenIndex <= closeIndex) return true;
+  }
+  return false;
+}
 function statementHasAssertion(tokens, range) {
   if (!range) return false;
   for (let index = range.startIndex; index <= range.endIndex; index++) {
@@ -654,11 +784,16 @@ function statementHasAssertion(tokens, range) {
     if (token.type !== 'identifier') continue;
     if (token.value === 'assert') return true;
     if (token.value === 'expect' && tokens[index + 1] && tokens[index + 1].value === '(') return true;
-    if (['equal', 'deepEqual', 'ok', 'throws'].includes(token.value)
+    if (['equal', 'deepEqual', 'ok', 'throws', 'strictEqual'].includes(token.value)
       && tokens[index - 1] && ['.', '?.'].includes(tokens[index - 1].value)
       && tokens[index + 1] && tokens[index + 1].value === '(') return true;
   }
   return false;
+}
+
+function testCallTitleContainsToken(scan, tokenIndex) {
+  return Boolean(scan && scan.calls.some(call => call.complete
+    && tokenIndex >= call.titleStartIndex && tokenIndex <= call.titleEndIndex));
 }
 
 function nearestTestCall(scan, tokenIndex) {
@@ -717,12 +852,12 @@ function hasNewRequirementTest(beforeScan, afterScan, changeKind, afterFileTagId
   }
   const priorCalls = new Map();
   for (const call of beforeScan ? beforeScan.calls : []) {
-    priorCalls.set(call.signature, (priorCalls.get(call.signature) || 0) + 1);
+    priorCalls.set(call.identitySignature, (priorCalls.get(call.identitySignature) || 0) + 1);
   }
   for (const call of afterScan.calls) {
     if (!call.ids.length) continue;
-    const count = priorCalls.get(call.signature) || 0;
-    if (count > 0) priorCalls.set(call.signature, count - 1);
+    const count = priorCalls.get(call.identitySignature) || 0;
+    if (count > 0) priorCalls.set(call.identitySignature, count - 1);
     else return true;
   }
   return false;
@@ -785,9 +920,14 @@ function analyzeTestChange(change, baseSnapshot, candidateSnapshot, beforeText, 
         result.testAttributionUnknown = true;
         continue;
       }
+      const assertionCallChanged = assertionCallContainsToken(scan, token.index);
+      const unsupportedAssertionCallChanged = unsupportedAssertionCallContainsToken(scan, token.index, range);
+      const computedAssertionCallChanged = computedAssertionCallContainsToken(scan, token.index, range);
       const assertionStatement = statementHasAssertion(scan.tokens, range);
-      if (assertionStatement) result.assertionChanged = true;
-      else if (['string', 'template', 'regex'].includes(token.type)) assertionUnknown = true;
+      if (assertionCallChanged) result.assertionChanged = true;
+      else if (unsupportedAssertionCallChanged || computedAssertionCallChanged) assertionUnknown = true;
+      else if (!testCallTitleContainsToken(scan, token.index)
+        && ['string', 'template', 'regex'].includes(token.type)) assertionUnknown = true;
 
       const call = testCallForChangedStatement(scan, token.index, range);
       if (call) {
@@ -948,18 +1088,65 @@ function compareRequirementBlocks(beforeReqs, afterReqs) {
   return changed ? 'changed' : unknown ? 'unknown' : 'same';
 }
 
-function changedRequirementFacts(baseFiles, candidateFiles, config) {
+function changedRequirementFacts(baseFiles, candidateFiles, config, baseLifecycle, candidateLifecycle, candidateRevisionAnalysis) {
   const beforeById = new Map();
   for (const item of requirementDeclarations(baseFiles, config)) {
     if (!beforeById.has(item.id)) beforeById.set(item.id, []);
     beforeById.get(item.id).push(item);
   }
-  return requirementDeclarations(candidateFiles, config).filter(item => {
+  const changed = requirementDeclarations(candidateFiles, config).filter(item => {
     const priorItems = beforeById.get(item.id) || [];
     const prior = priorItems.find(candidate => candidate.file === item.file) || priorItems[0];
     return !prior || prior.text !== item.text;
-  }).map(({ id, file }) => ({ id, file }))
-    .sort((left, right) => compareText(left.id, right.id) || compareText(left.file, right.file));
+  });
+  const baseDocsByPath = new Map(baseLifecycle.docs.map(doc => [doc.path, doc]));
+  const candidateDocsByPath = new Map(candidateLifecycle.docs.map(doc => [doc.path, doc]));
+  const baseRevisionIds = new Set(baseLifecycle.docs.map(revisionIdentity).filter(Boolean));
+  const currentDocs = candidateRevisionAnalysis._graph && candidateRevisionAnalysis._graph.currentById instanceof Map
+    ? new Set(candidateRevisionAnalysis._graph.currentById.values()) : new Set();
+  const eligibleDocs = candidateRevisionAnalysis._retirementEligibleSources instanceof Set
+    ? candidateRevisionAnalysis._retirementEligibleSources : new Set();
+  const reqUpdates = [];
+  const reqMutationNotRevision = [];
+
+  for (const { id, file } of changed) {
+    const candidateDoc = candidateDocsByPath.get(file);
+    const revisionId = revisionIdentity(candidateDoc);
+    const validNewEffectiveRevision = Boolean(candidateDoc && revisionId
+      && currentDocs.has(candidateDoc) && eligibleDocs.has(candidateDoc) && !baseRevisionIds.has(revisionId));
+    if (validNewEffectiveRevision) {
+      reqUpdates.push({ id, file });
+      continue;
+    }
+
+    const baseDoc = baseDocsByPath.get(file);
+    if (candidateDoc && baseDoc && revisionId && revisionId === revisionIdentity(baseDoc)) {
+      reqMutationNotRevision.push({ id, file, code: 'req-mutation-not-revision' });
+    }
+  }
+
+  const order = (left, right) => compareText(left.id, right.id) || compareText(left.file, right.file);
+  reqUpdates.sort(order);
+  reqMutationNotRevision.sort(order);
+  return { reqUpdates, reqMutationNotRevision };
+}
+
+function revisionIdentity(doc) {
+  const data = doc && doc.frontmatter;
+  if (!data || typeof data.id !== 'string' || !Number.isInteger(data.revision)) return null;
+  return `${data.id}\u0000${data.revision}`;
+}
+
+function lifecycleAnalysisAgainstBase(baseLifecycle, candidateLifecycle, config) {
+  return lifecycle.analyzeDocs(candidateLifecycle.docs, config, {
+    all: true,
+    baseInventory: baseLifecycle.docs.map(doc => ({
+      path: doc.path,
+      bytes: doc.storedBytes,
+      legacy: doc.legacy
+    })),
+    baseConfigSources: [config]
+  });
 }
 
 function candidateRequirementResolution(id, candidateDocs, baseDeclarations, candidateAnalysis) {
@@ -996,18 +1183,21 @@ function candidateRequirementResolution(id, candidateDocs, baseDeclarations, can
   return { file: null, resolution: 'missing' };
 }
 
-function citedRequirementFacts(changes, baseFiles, candidateDocs, config, candidateAnalysis) {
+function citedRequirementFacts(changes, baseFiles, candidateDocs, config, candidateAnalysis, reqMutationNotRevision = []) {
   const citedIds = new Set();
   for (const change of changes) {
     for (const id of change.testCitedIds || []) citedIds.add(id);
   }
 
+  const mutatedIds = new Set((Array.isArray(reqMutationNotRevision) ? reqMutationNotRevision : [])
+    .map(item => item && item.id).filter(id => typeof id === 'string'));
   const before = requirementDeclarations(baseFiles, config);
   const result = [];
   for (const id of [...citedIds].sort(compareText)) {
-    result.push({ id, ...candidateRequirementResolution(
-      id, candidateDocs, before, candidateAnalysis
-    ) });
+    const resolution = mutatedIds.has(id)
+      ? { file: null, resolution: 'mutated' }
+      : candidateRequirementResolution(id, candidateDocs, before, candidateAnalysis);
+    result.push({ id, ...resolution });
   }
   return result;
 }
@@ -1080,8 +1270,10 @@ function deriveDocFacts({ base, candidate, config, inventory } = {}) {
   const inventoryComplete = Boolean(inventory && inventory.complete === true);
   const baseFiles = snapshotFiles(base);
   const candidateFiles = snapshotFiles(candidate);
+  const baseLifecycle = analyzeSnapshotWithLifecycle(baseFiles, effectiveConfig);
   const candidateLifecycle = analyzeSnapshotWithLifecycle(candidateFiles, effectiveConfig);
   const candidateAnalysis = candidateLifecycle.summary;
+  const candidateRevisionAnalysis = lifecycleAnalysisAgainstBase(baseLifecycle, candidateLifecycle, effectiveConfig);
   const changes = findRenames(baseFiles, candidateFiles);
   const contextualChanges = changes.map(change => {
     const oldPath = change.kind === 'rename' ? change.from : change.path;
@@ -1129,11 +1321,13 @@ function deriveDocFacts({ base, candidate, config, inventory } = {}) {
   const requirementSyncCandidate = requirementSyncTrigger !== null;
   const codeChanged = contextualChanges.some(change => change.codeChanged);
   const derivedAffected = contextualChanges.some(change => change.derivedAffected);
-  const reqUpdates = changedRequirementFacts(baseFiles, candidateFiles, effectiveConfig);
+  const { reqUpdates, reqMutationNotRevision } = changedRequirementFacts(
+    baseFiles, candidateFiles, effectiveConfig, baseLifecycle, candidateLifecycle, candidateRevisionAnalysis
+  );
   const citedReqs = citedRequirementFacts(testChanges, baseFiles, candidateLifecycle.docs,
-    effectiveConfig, candidateLifecycle.analysis);
+    effectiveConfig, candidateLifecycle.analysis, reqMutationNotRevision);
   const derivedPaths = derivedOutputPaths(contextualChanges, effectiveConfig);
-  const baseAnalysis = analyzeSnapshot(baseFiles, effectiveConfig);
+  const baseAnalysis = baseLifecycle.summary;
   const inventoryEnvelope = copyInventoryEnvelope(inventory);
 
   const facts = {
@@ -1155,6 +1349,7 @@ function deriveDocFacts({ base, candidate, config, inventory } = {}) {
     inventoryComplete,
     ...(inventoryEnvelope === undefined ? {} : { inventory: inventoryEnvelope }),
     reqUpdates,
+    reqMutationNotRevision,
     citedReqs,
     changes: testChanges.map(change => ({
       kind: change.kind,
@@ -1253,6 +1448,8 @@ function deriveDocObligations(facts) {
   const requirementFacts = {
     citedReqs: validFacts && Array.isArray(facts.citedReqs) ? facts.citedReqs : [],
     reqUpdates: validFacts && Array.isArray(facts.reqUpdates) ? facts.reqUpdates : [],
+    reqMutationNotRevision: validFacts && Array.isArray(facts.reqMutationNotRevision)
+      ? facts.reqMutationNotRevision : [],
     assertionChanged: validFacts && (typeof facts.assertionChanged === 'boolean' || facts.assertionChanged === 'unknown')
       ? facts.assertionChanged : 'unknown',
     requirementSyncTrigger: validFacts && ['new-test', 'assertion-change', null].includes(facts.requirementSyncTrigger)

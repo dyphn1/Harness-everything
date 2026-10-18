@@ -329,21 +329,44 @@ function evaluateObligation(obligation, context) {
       return covered.size === scopePaths.length;
     };
     const syncWaivers = waiverCandidates.filter(item => waiverQualifies(item)
+      && Array.isArray(item.requirementIds) && item.requirementIds.length > 0
       && citationsCoverScope(item) && waiverSelfBound(item));
     for (const item of waiverCandidates.filter(entry => waiverQualifies(entry) && !syncWaivers.includes(entry))) {
+      const listsRequirements = Array.isArray(item.requirementIds) && item.requirementIds.length > 0;
       diagnostics.push({
         code: 'unsupported-waiver',
         obligationId,
-        message: waiverSelfBound(item)
-          ? `waiver ${item.id}'s cited evidence does not bind every scope path`
-          : `waiver ${item.id} is not bound itself to the current candidate digests and baseline (self-binding fails)`
+        message: !listsRequirements
+          ? `waiver ${item.id} carries no requirementIds and covers no requirement; a no-REQ-change waiver must list the REQ ids it covers`
+          : waiverSelfBound(item)
+            ? `waiver ${item.id}'s cited evidence does not bind every scope path`
+            : `waiver ${item.id} is not bound itself to the current candidate digests and baseline (self-binding fails)`
       });
     }
+
+    // T3 (§11): a no-REQ-change waiver must carry requirementIds (a non-empty list) and covers
+    // only those REQs. A waiver without requirementIds covers nothing. Every cited REQ that is
+    // not revised must be covered by a valid current-bound waiver that lists it; path, digest,
+    // and execution checks stay unchanged (waiverQualifies/citationsCoverScope/waiverSelfBound).
+    const missingIds = (Array.isArray(citedIds) && Array.isArray(updatedIds))
+      ? citedIds.filter(id => !updatedIds.includes(id))
+      : [];
+    const waiverCoversId = (item, id) => Array.isArray(item.requirementIds)
+      && item.requirementIds.length > 0 && item.requirementIds.includes(id);
+    const uncoveredMissing = missingIds.filter(id => !syncWaivers.some(item => waiverCoversId(item, id)));
 
     const passingExec = usedExec.filter(item => item.exitCode === 0);
     const execCoveredAll = scopePaths.length > 0
       && scopePaths.every(path => passingExec.some(item => bound(item, path)));
-    if (usedExec.length && execCoveredAll && (revisionSatisfied || syncWaivers.length)) {
+    // S3 (§11): identity data gates every per-REQ coverage claim. A waiver lane pass requires a
+    // known non-empty cited identity list, known update data, and coverage of every uncovered
+    // missing REQ by a listing valid waiver. Absent or empty cited data, or an absent
+    // reqUpdates field, leaves the obligation unknown: no pass and no absence fail.
+    const waiverPass = syncWaivers.length > 0
+      && Array.isArray(citedIds) && citedIds.length > 0
+      && Array.isArray(updatedIds)
+      && uncoveredMissing.length === 0;
+    if (usedExec.length && execCoveredAll && (revisionSatisfied || waiverPass)) {
       const contributors = [...usedExec, ...syncWaivers];
       return result('observed', 'pass', provenanceJoin(contributors, 'observed requirement-sync evidence'),
         uniqueSorted(contributors.map(item => item.id)));
@@ -363,9 +386,9 @@ function evaluateObligation(obligation, context) {
       && nonEmptyString(envelope.candidateDigest) && envelope.candidateDigest === prdSetDigest(artifactMap)
       && nonEmptyString(envelope.configDigest);
     // Q2 (§11): the absence fail is per cited REQ. A REQ that is neither revised in this
-    // change nor covered by a valid waiver is missing. Waiver satisfaction stays per
-    // obligation: one valid covering waiver satisfies every cited REQ, so any valid waiver
-    // keeps the fail lane closed.
+    // change nor covered by a valid waiver that lists it (T3 per-REQ coverage; a waiver
+    // without requirementIds covers nothing) is missing, so uncovering any missing REQ keeps
+    // the fail lane open.
     // P2 (round 9): an explicit trigger is authoritative. When the obligation carries the field
     // at all, only 'new-test' and 'assertion-change' open the fail lane; null, 'unknown', or any
     // other value never fails, even with assertionChanged true. An ABSENT field (distinguished
@@ -373,9 +396,6 @@ function evaluateObligation(obligation, context) {
     const triggerPresent = Object.prototype.hasOwnProperty.call(obligation, 'requirementSyncTrigger');
     const activeTrigger = obligation.requirementSyncTrigger === 'new-test'
       || obligation.requirementSyncTrigger === 'assertion-change';
-    const missingIds = (Array.isArray(citedIds) && Array.isArray(updatedIds))
-      ? citedIds.filter(id => !updatedIds.includes(id))
-      : [];
     const failTrigger = triggerPresent
       ? activeTrigger
       : (obligation.assertionChanged === true || activeTrigger);
@@ -390,17 +410,17 @@ function evaluateObligation(obligation, context) {
         obligationId,
         message: 'the absence-fail lane is unavailable: the obligation carries no attested inventory envelope (complete, waiverInventoryComplete, baseDigest equal to the selected baseline, candidateDigest equal to the current candidate PRD-set digest, and a present configDigest)'
       });
-    } else if (failCandidate && envelopeAttested && syncWaivers.length === 0) {
+    } else if (failCandidate && envelopeAttested && uncoveredMissing.length > 0) {
       diagnostics.push({
         code: 'req-sync-no-revision-or-waiver',
         obligationId,
-        message: `requirement-sync is unmet: the trigger is ${obligation.requirementSyncTrigger === 'new-test' ? 'a new REQ-citing test' : 'a changed assertion'} and the inventory is complete, and cited requirement${missingIds.length === 1 ? '' : 's'} ${missingIds.map(id => {
+        message: `requirement-sync is unmet: the trigger is ${obligation.requirementSyncTrigger === 'new-test' ? 'a new REQ-citing test' : 'a changed assertion'} and the inventory is complete, and cited requirement${uncoveredMissing.length === 1 ? '' : 's'} ${uncoveredMissing.map(id => {
           const entry = citedEntries.find(item => isPlainObject(item) && item.id === id);
           return `${JSON.stringify(id)} (${entry.file})`;
-        }).join(', ')} are not revised in this change and no valid waiver exists`
+        }).join(', ')} are not revised in this change and not covered by a valid waiver listing them`
       });
       return result('observed', 'fail',
-        'requirement-sync unmet: attested inventory, requirement-sync trigger fired, cited REQ(s) not revised, no valid waiver',
+        'requirement-sync unmet: attested inventory, requirement-sync trigger fired, cited REQ(s) not revised and not covered',
         []);
     }
 

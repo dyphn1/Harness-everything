@@ -283,6 +283,7 @@ checkCase('325-3a cross tagged-test-only + valid current waiver + matching evide
   const output = check(ctx, {
     executionRecords: [boundRecord(ctx, 'test-run', item.id, item.scope.paths)],
     reviewRecords: [waiverRecord(ctx, 'waiver-current', item.id, item.scope.paths, {
+      requirementIds: ['REQ-GRPH-001'],
       reason: 'no-req-change: acceptance criteria unchanged, cited passing test',
       citedRecordIds: ['test-run']
     })]
@@ -525,6 +526,7 @@ checkCase('325-3a cross R7 retained valid revision chain + valid current waiver 
   const output = check(ctx, {
     executionRecords: [boundRecord(ctx, 'retained-run', item.id, item.scope.paths)],
     reviewRecords: [waiverRecord(ctx, 'waiver-retained', item.id, item.scope.paths, {
+      requirementIds: ['REQ-GRPH-011'],
       reason: 'no-req-change: acceptance criteria unchanged, cited passing test',
       citedRecordIds: ['retained-run']
     })]
@@ -592,6 +594,7 @@ checkCase('325-3a cross Q2 partial revision (1 of 2) plus a valid covering waive
   const output = check(ctx, {
     executionRecords: [boundRecord(ctx, 'partial-run', item.id, item.scope.paths)],
     reviewRecords: [waiverRecord(ctx, 'waiver-partial', item.id, item.scope.paths, {
+      requirementIds: ['REQ-GRPH-012'],
       reason: 'no-req-change: REQ-GRPH-012 acceptance criteria unchanged, cited passing test',
       citedRecordIds: ['partial-run']
     })]
@@ -696,6 +699,97 @@ checkCase('325-3a cross R11 tag-shaped line in a template literal, resolved PRD,
   const item = requirementSync(ctx);
   const output = check(ctx, {});
   assert.notStrictEqual(resultOf(output, item.id).outcome, 'fail', 'an unclaimed tag never establishes an absence fail');
+});
+
+// Round 12 (PR #334 review round 9), end to end.
+
+checkCase('325-3a cross T2 same-path in-place edit of the current effective revision + matching execution evidence: not pass (round 12)', () => {
+  const ctx = prepare('in-place-current', attestedFor('in-place-current'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {
+    executionRecords: [boundRecord(ctx, 'inplace-run', item.id, item.scope.paths)]
+  });
+  assert.notStrictEqual(resultOf(output, item.id).outcome, 'pass', 'an in-place edit is not a lifecycle successor revision');
+});
+
+checkCase('325-3a cross T2 edit to a retained historical revision + matching execution evidence: not pass (round 12)', () => {
+  const ctx = prepare('in-place-historical', attestedFor('in-place-historical'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {
+    executionRecords: [boundRecord(ctx, 'historical-run', item.id, item.scope.paths)]
+  });
+  assert.notStrictEqual(resultOf(output, item.id).outcome, 'pass', 'an edit to a retained historical revision is not an update');
+});
+
+checkCase('325-3a cross T3 A-only waiver with A revised (successor) and B unrevised, matching evidence, complete attested envelope: observed fail naming REQ-GRPH-012 only (round 12)', () => {
+  const ctx = prepare('partial-revision', attestedFor('partial-revision'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {
+    executionRecords: [boundRecord(ctx, 'a-run', item.id, item.scope.paths)],
+    reviewRecords: [waiverRecord(ctx, 'waiver-a-only', item.id, item.scope.paths, {
+      requirementIds: ['REQ-GRPH-011'],
+      reason: 'no-req-change: REQ-GRPH-011 acceptance criteria unchanged, cited passing test',
+      citedRecordIds: ['a-run']
+    })]
+  });
+  const result = resultOf(output, item.id);
+  assert.strictEqual(result.outcome, 'fail', 'a waiver that lists only REQ-GRPH-011 cannot cover REQ-GRPH-012');
+  const diag = output.diagnostics.find(d => d.code === 'req-sync-no-revision-or-waiver' && d.obligationId === item.id);
+  assert.ok(diag && JSON.stringify(diag).includes('REQ-GRPH-012'), 'REQ-GRPH-012 is named as unmet');
+  assert.ok(diag && !JSON.stringify(diag).includes('REQ-GRPH-011'), 'the revised REQ-GRPH-011 is not named');
+});
+
+checkCase('325-3a cross T3 control: B-only waiver (REQ-GRPH-012) with REQ-GRPH-011 revised and matching evidence: pass (round 12)', () => {
+  const ctx = prepare('partial-revision', attestedFor('partial-revision'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {
+    executionRecords: [boundRecord(ctx, 'b-run', item.id, item.scope.paths)],
+    reviewRecords: [waiverRecord(ctx, 'waiver-b-only', item.id, item.scope.paths, {
+      requirementIds: ['REQ-GRPH-012'],
+      reason: 'no-req-change: REQ-GRPH-012 acceptance criteria unchanged, cited passing test',
+      citedRecordIds: ['b-run']
+    })]
+  });
+  assert.strictEqual(resultOf(output, item.id).outcome, 'pass', 'the waiver lists the one unrevised REQ');
+});
+
+// Round 13 (PR #334 review round 10), end to end.
+
+checkCase('325-3a cross S2 in-place edit of the current effective revision + fully valid per-REQ waiver + matching execution: none, not pass, not fail (round 13)', () => {
+  const ctx = prepare('in-place-current', attestedFor('in-place-current'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {
+    executionRecords: [boundRecord(ctx, 'mutated-run', item.id, item.scope.paths)],
+    reviewRecords: [waiverRecord(ctx, 'waiver-mutated', item.id, item.scope.paths, {
+      requirementIds: ['REQ-GRPH-011'],
+      reason: 'no-req-change: acceptance criteria unchanged, cited passing test',
+      citedRecordIds: ['mutated-run']
+    })]
+  });
+  assert.strictEqual(resultOf(output, item.id).outcome, 'none', 'a mutated REQ is unresolved, so neither pass nor fail');
+});
+
+checkCase('325-3a cross S2 in-place edit with a complete attested envelope and no records: not an absence fail (round 13)', () => {
+  const ctx = prepare('in-place-current', attestedFor('in-place-current'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {});
+  assert.notStrictEqual(resultOf(output, item.id).outcome, 'fail', 'a mutation is not an observed absence');
+});
+
+checkCase('325-3a cross S3 derived obligation without citedReqs or reqUpdates, valid waiver with requirementIds and matching evidence: not pass (round 13)', () => {
+  const ctx = prepare('tagged-test-prd', attestedFor('tagged-test-prd'));
+  const item = requirementSync(ctx);
+  delete item.citedReqs;
+  delete item.reqUpdates;
+  const output = check(ctx, {
+    executionRecords: [boundRecord(ctx, 'identity-run', item.id, item.scope.paths)],
+    reviewRecords: [waiverRecord(ctx, 'waiver-identity', item.id, item.scope.paths, {
+      requirementIds: ['REQ-GRPH-001'],
+      reason: 'no-req-change: acceptance criteria unchanged, cited passing test',
+      citedRecordIds: ['identity-run']
+    })]
+  });
+  assert.notStrictEqual(resultOf(output, item.id).outcome, 'pass', 'absent identity data never passes an obligation');
 });
 
 helper.finish();

@@ -318,7 +318,7 @@ checkCase('325-3a H3 unsupported waiver: reason cites no matching observed recor
 // record satisfies the obligation (structured no-req-change per D6.6).
 checkCase('325-3a H3 waiver with reason and matching cited observed record passes', () => {
   const output = run({
-    obligations: [obligation('requirement-sync', 'applicable', [PRD])],
+    obligations: [{ ...obligation('requirement-sync', 'applicable', [PRD]), citedReqs: [{ id: 'REQ-GRPH-001', file: PRD, resolution: 'resolved' }], reqUpdates: [] }],
     artifacts: { [PRD]: { digest: PRD_DIGEST } },
     baseline: CURRENT_BASELINE,
     executionRecords: [executionRecord({
@@ -333,6 +333,7 @@ checkCase('325-3a H3 waiver with reason and matching cited observed record passe
       kind: 'waiver',
       verdict: 'approve',
       summary: 'no-req-change accepted with cited evidence',
+      requirementIds: ['REQ-GRPH-001'],
       reason: 'no-req-change: acceptance criteria unchanged, cited passing test',
       citedRecordIds: ['exec-req'],
       paths: [PRD],
@@ -769,7 +770,7 @@ function attestedReqSync(overrides) {
   return reqSyncObligation({ inventory: ATTESTED_INVENTORY, ...(overrides || {}) });
 }
 
-function validWaiver(id, obligationId, citedRecordIds) {
+function validWaiver(id, obligationId, citedRecordIds, requirementIds = ['REQ-GRPH-001']) {
   return {
     id,
     obligationId,
@@ -777,6 +778,7 @@ function validWaiver(id, obligationId, citedRecordIds) {
     verdict: 'approve',
     summary: 'no-req-change',
     reason: 'no-req-change: acceptance criteria unchanged, cited passing test',
+    requirementIds,
     citedRecordIds,
     paths: [TEST_PATH, PRD],
     artifactDigests: { [TEST_PATH]: TEST_DIGEST, [PRD]: PRD_DIGEST },
@@ -938,7 +940,7 @@ checkCase('325-3a Q2 2 of 2 cited REQs revised with matching evidence: pass (rou
 checkCase('325-3a Q2 1 of 2 cited REQs revised plus a valid covering waiver with matching evidence: pass (round 8 control)', () => {
   const output = runReqSync(attestedReqSync({ citedReqs: TWO_REQS, reqUpdates: [{ id: REQ_A, file: PRD }] }), {
     executionRecords: [boundExec('exec-req')],
-    reviewRecords: [validWaiver('waiver-covering', 'doc-change:requirement-sync', ['exec-req'])]
+    reviewRecords: [validWaiver('waiver-covering', 'doc-change:requirement-sync', ['exec-req'], ['REQ-GRPH-002'])]
   });
   assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'pass', 'a valid covering waiver satisfies every cited REQ');
 });
@@ -1069,6 +1071,102 @@ checkCase('325-3a F1 control: doc-lint with a bound failing execution (no unknow
   const result = resultFor(output, 'doc-lint');
   assert.strictEqual(result.observation, 'observed');
   assert.strictEqual(result.outcome, 'fail', 'a non-requirement capability keeps observed fail on a bound failing execution');
+});
+
+// Round 12 (PR #334 review round 9, T3). A no-req-change waiver binds per requirement through requirementIds.
+checkCase('325-3a T3 A-only waiver with A revised and B unrevised: observed fail naming REQ-GRPH-002 only (round 12)', () => {
+  const output = runReqSync(attestedReqSync({ citedReqs: TWO_REQS, reqUpdates: [{ id: REQ_A, file: PRD }] }), {
+    executionRecords: [boundExec('exec-req')],
+    reviewRecords: [validWaiver('waiver-a-only', 'doc-change:requirement-sync', ['exec-req'], [REQ_A])]
+  });
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.strictEqual(result.outcome, 'fail', 'a waiver that lists only REQ-GRPH-001 cannot cover REQ-GRPH-002');
+  const diag = output.diagnostics.find(item => item.code === 'req-sync-no-revision-or-waiver');
+  assert.ok(diag && JSON.stringify(diag).includes(REQ_B), 'REQ-GRPH-002 is named as unmet');
+  assert.ok(diag && !JSON.stringify(diag).includes(REQ_A), 'the revised REQ-GRPH-001 is not named');
+});
+
+checkCase('325-3a T3 B-only waiver with A revised and matching evidence: pass (round 12 control)', () => {
+  const output = runReqSync(attestedReqSync({ citedReqs: TWO_REQS, reqUpdates: [{ id: REQ_A, file: PRD }] }), {
+    executionRecords: [boundExec('exec-req')],
+    reviewRecords: [validWaiver('waiver-b-only', 'doc-change:requirement-sync', ['exec-req'], [REQ_B])]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'pass', 'the waiver lists the one unrevised REQ');
+});
+
+checkCase('325-3a T3 waiver without requirementIds covers nothing: observed fail naming both unmet REQs (round 12)', () => {
+  const legacy = validWaiver('waiver-legacy', 'doc-change:requirement-sync', ['exec-req']);
+  delete legacy.requirementIds;
+  const output = runReqSync(attestedReqSync({ citedReqs: TWO_REQS, reqUpdates: [] }), {
+    executionRecords: [boundExec('exec-req')],
+    reviewRecords: [legacy]
+  });
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.strictEqual(result.outcome, 'fail', 'an unsupported waiver with no requirementIds satisfies nothing');
+  const diag = output.diagnostics.find(item => item.code === 'req-sync-no-revision-or-waiver');
+  assert.ok(diag && JSON.stringify(diag).includes(REQ_A) && JSON.stringify(diag).includes(REQ_B), 'both unmet REQs are named');
+});
+
+checkCase('325-3a T3 control: both cited REQs revised, no waiver, matching evidence: pass (round 12)', () => {
+  const output = runReqSync(attestedReqSync({ citedReqs: TWO_REQS, reqUpdates: [{ id: REQ_A, file: PRD }, { id: REQ_B, file: PRD }] }), {
+    executionRecords: [boundExec('exec-req')]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'pass', 'every cited REQ is revised');
+});
+
+// Round 13 (PR #334 review round 10). Evidence expectations only.
+
+// S2: a mutated REQ is unresolved before any waiver or revision is considered, and is never an absence fail.
+checkCase('325-3a S2 mutated cited REQ with a fully valid per-REQ waiver and matching execution: none, not pass (round 13)', () => {
+  const output = runReqSync(attestedReqSync({ citedReqs: [{ id: REQ_A, file: PRD, resolution: 'mutated' }] }), {
+    executionRecords: [boundExec('exec-req')],
+    reviewRecords: [validWaiver('waiver-mutated', 'doc-change:requirement-sync', ['exec-req'], [REQ_A])]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'none',
+    'an in-place mutation is refused before the waiver is considered');
+});
+
+checkCase('325-3a S2 mutated cited REQ with a complete attested envelope and no records: not an absence fail (round 13)', () => {
+  const output = runReqSync(attestedReqSync({ citedReqs: [{ id: REQ_A, file: PRD, resolution: 'mutated' }] }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail',
+    'a mutation is not an observed absence of a requirement');
+});
+
+// S3: an unsupported waiver or missing identity data never passes, and is never an absence fail with unknown identity.
+checkCase('325-3a S3 H3-shaped waiver without requirementIds and without citedReqs or reqUpdates: none (round 13)', () => {
+  const legacy = validWaiver('waiver-no-ids', 'requirement-sync', ['exec-req']);
+  delete legacy.requirementIds;
+  const output = run({
+    obligations: [obligation('requirement-sync', 'applicable', [PRD])],
+    artifacts: { [PRD]: { digest: PRD_DIGEST } },
+    baseline: CURRENT_BASELINE,
+    executionRecords: [executionRecord({ id: 'exec-req', obligationId: 'requirement-sync', paths: [PRD], artifactDigests: { [PRD]: PRD_DIGEST } })],
+    reviewRecords: [legacy]
+  });
+  assert.strictEqual(resultFor(output, 'requirement-sync').outcome, 'none',
+    'a waiver with no identity list and no identity data cannot satisfy anything');
+});
+
+checkCase('325-3a S3 empty cited list with a valid-looking waiver and matching evidence: none (round 13)', () => {
+  const output = runReqSync(attestedReqSync({ citedReqs: [], reqUpdates: [] }), {
+    executionRecords: [boundExec('exec-req')],
+    reviewRecords: [validWaiver('waiver-empty-cited', 'doc-change:requirement-sync', ['exec-req'], [REQ_A])]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'none',
+    'an empty cited list gives no per-REQ coverage claim');
+});
+
+checkCase('325-3a S3 absent reqUpdates with a valid-looking waiver and matching evidence: none, unknown update data (round 13)', () => {
+  const output = runReqSync(reqSyncObligation({
+    inventory: ATTESTED_INVENTORY,
+    citedReqs: [{ id: REQ_A, file: PRD, resolution: 'resolved' }],
+    reqUpdates: undefined
+  }), {
+    executionRecords: [boundExec('exec-req')],
+    reviewRecords: [validWaiver('waiver-no-updates', 'doc-change:requirement-sync', ['exec-req'], [REQ_A])]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'none',
+    'absent update data makes the obligation unknown: no pass and no absence fail');
 });
 
 helper.finish();

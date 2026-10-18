@@ -609,4 +609,134 @@ checkCase('325-3a R11 control: a real standalone top-level comment tag with a ch
     `the real file-level tag is kept: ${JSON.stringify(result.facts.citedReqs)}`);
 });
 
+// Round 12 (PR #334 review round 9). Derivation expectations only.
+
+// T1: a title-only change is not a new test and not an assertion change.
+checkCase('325-3a T1 title-only rename of a REQ-citing test with an unchanged inline assertion: assertionChanged false, requirement-sync N/A, trigger not new-test (round 12)', () => {
+  const { result, obligations } = deriveCase('title-only-rename');
+  assert.strictEqual(result.facts.assertionChanged, false, 'the assertion call is unchanged; only the title changed');
+  const item = obligations.find(o => o.capability === 'requirement-sync');
+  assert.strictEqual(item.applicability, 'N/A', 'a title-only change does not trigger requirement-sync');
+  assert.strictEqual(item.requirementSyncTrigger, null, 'a renamed test is not a new test');
+});
+
+checkCase('325-3a T1 control: a genuinely added REQ-citing test delegating to a helper: trigger new-test (round 12)', () => {
+  const { obligations } = deriveCase('helper-delegated-test');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').requirementSyncTrigger, 'new-test');
+});
+
+checkCase('325-3a T1 control: a body edit inside the assertion call: assertionChanged true (round 12)', () => {
+  const { result } = deriveCase('tagged-test');
+  assert.strictEqual(result.facts.assertionChanged, true, 'the assertion argument changed');
+});
+
+// T2: reqUpdates come only from a lifecycle successor revision. An in-place edit, or an edit to a retained
+// historical revision, is not an update.
+checkCase('325-3a T2 same-path in-place edit of the current effective revision r002: REQ-GRPH-011 is not in reqUpdates (round 12)', () => {
+  const { result } = deriveCase('in-place-current');
+  assert.ok(!result.facts.reqUpdates.some(entry => entry.id === 'REQ-GRPH-011'),
+    `an in-place edit is a req-mutation-not-revision, not an update: ${JSON.stringify(result.facts.reqUpdates)}`);
+});
+
+checkCase('325-3a T2 edit to a retained historical revision r001: REQ-GRPH-011 is not in reqUpdates (round 12)', () => {
+  const { result } = deriveCase('in-place-historical');
+  assert.ok(!result.facts.reqUpdates.some(entry => entry.id === 'REQ-GRPH-011'),
+    `a historical-revision edit is not a successor revision: ${JSON.stringify(result.facts.reqUpdates)}`);
+});
+
+checkCase('325-3a T2 control: a lifecycle successor r002 of r001 that changes REQ-GRPH-011: REQ-GRPH-011 is in reqUpdates at r002 (round 12)', () => {
+  const { result } = deriveCase('req-revision');
+  assert.ok(result.facts.reqUpdates.some(entry => entry.id === 'REQ-GRPH-011' && entry.file === 'docs/prd/graph/r002.md'),
+    `the successor revision is an update: ${JSON.stringify(result.facts.reqUpdates)}`);
+});
+
+// Round 13 (PR #334 review round 10). Derivation expectations only.
+
+// S1: assertion detection must not narrow. Any assert.<member> call and the expect modifier chain count.
+checkCase('325-3a S1 assert.deepStrictEqual numeric change: assertionChanged true (round 13)', () => {
+  const { result } = deriveCase('deep-strict-equal');
+  assert.strictEqual(result.facts.assertionChanged, true, 'the expected value of an assert.* call changed');
+});
+
+checkCase('325-3a S1 expect(...).not.toEqual numeric change through a modifier chain: assertionChanged true (round 13)', () => {
+  const { result } = deriveCase('expect-not-to-equal');
+  assert.strictEqual(result.facts.assertionChanged, true, 'the expected value of a modifier-chained expect changed');
+});
+
+checkCase('325-3a S1 unsupported assertion syntax (t.is, not a recognized form): assertionChanged unknown, never false (round 13)', () => {
+  const { result, obligations } = deriveCase('unsupported-assertion-syntax');
+  assert.strictEqual(result.facts.assertionChanged, 'unknown', 'an unrecognized assertion form is unknown');
+  assert.notStrictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A', 'unknown never becomes trivial');
+});
+
+// S2: a REQ whose update is an in-place mutation of the current effective revision resolves as mutated, not resolved.
+checkCase('325-3a S2 same-path in-place edit of the current effective revision: cited REQ-GRPH-011 is mutated, file null (round 13)', () => {
+  const { result } = deriveCase('in-place-current');
+  const entries = citedEntries(result.facts, 'REQ-GRPH-011');
+  assert.ok(entries.length > 0, 'the cited id is reported');
+  assert.ok(entries.every(entry => entry.file === null && entry.resolution === 'mutated'),
+    `an in-place mutation is not a resolved revision: ${JSON.stringify(entries)}`);
+});
+
+checkCase('325-3a S2 control: edit to a retained historical revision: cited REQ-GRPH-011 is unresolved, file null (round 13)', () => {
+  const { result } = deriveCase('in-place-historical');
+  const entries = citedEntries(result.facts, 'REQ-GRPH-011');
+  assert.ok(entries.length > 0 && entries.every(entry => entry.file === null),
+    `a historical mutation is not current authority: ${JSON.stringify(entries)}`);
+});
+
+checkCase('325-3a S2 control: successor revision r002 of r001 changing REQ-GRPH-011: cited REQ-GRPH-011 resolves to r002 (round 13)', () => {
+  const { result } = deriveCase('req-revision');
+  const entries = citedEntries(result.facts, 'REQ-GRPH-011');
+  assert.deepStrictEqual(entries.map(entry => entry.file), ['docs/prd/graph/r002.md'], 'the successor is the current authority');
+});
+
+// Round 14 (PR #334 review round 11, C1). A computed assertion member is not recognized, so it is unknown, never false.
+
+checkCase('325-3a C1 computed assertion member assert[\'deepStrictEqual\'] with a numeric change: assertionChanged unknown, never false (round 14)', () => {
+  const { result, obligations } = deriveCase('computed-member-assert');
+  assert.strictEqual(result.facts.assertionChanged, 'unknown', 'a computed member is not recognized as an assertion');
+  assert.notStrictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A',
+    'unknown never becomes N/A');
+});
+
+checkCase('325-3a C1 computed assertion member assert[method] with a numeric change: assertionChanged unknown, never false (round 14)', () => {
+  const { result, obligations } = deriveCase('computed-member-variable');
+  assert.strictEqual(result.facts.assertionChanged, 'unknown', 'a variable member is not recognized as an assertion');
+  assert.notStrictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A',
+    'unknown never becomes N/A');
+});
+
+checkCase('325-3a C1 control: dot-member assert.equal with a numeric change: assertionChanged true (round 14)', () => {
+  const { result } = deriveCase('tagged-test');
+  assert.strictEqual(result.facts.assertionChanged, true, 'a dot member is recognized');
+});
+
+checkCase('325-3a C1 control: unchanged inline assertion with a title-only rename: assertionChanged false (round 14)', () => {
+  const { result } = deriveCase('title-only-rename');
+  assert.strictEqual(result.facts.assertionChanged, false, 'the assertion call is unchanged');
+});
+
+// Round 14 coverage (PR #334 review round 11). Both controls are expected to hold; they cover computed expect members
+// and the statement boundary for a title-only rename in a file that also has an unrelated computed assert.
+
+checkCase('325-3a C1 coverage: computed expect member expect(run())[matcher](...) with a numeric change: assertionChanged unknown, never false (round 14)', () => {
+  const { result, obligations } = deriveCase('expect-computed-matcher');
+  assert.strictEqual(result.facts.assertionChanged, 'unknown', 'a computed expect matcher is not recognized as an assertion');
+  assert.notStrictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A', 'unknown never becomes N/A');
+});
+
+checkCase('325-3a C1 coverage: computed expect member expect(run())[\'toEqual\'](...) with a numeric change: assertionChanged unknown, never false (round 14)', () => {
+  const { result, obligations } = deriveCase('expect-computed-literal');
+  assert.strictEqual(result.facts.assertionChanged, 'unknown', 'a computed expect member is not recognized as an assertion');
+  assert.notStrictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A', 'unknown never becomes N/A');
+});
+
+checkCase('325-3a C1 coverage: title-only rename of a REQ-citing test with the same body, plus an unrelated computed assert in another statement: assertionChanged false, requirement-sync N/A (round 14)', () => {
+  const { result, obligations } = deriveCase('title-only-unrelated-computed');
+  assert.strictEqual(result.facts.assertionChanged, false, 'the test body and the unrelated computed assert are unchanged');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A',
+    'a title-only rename does not trigger requirement-sync');
+});
+
 helper.finish();
