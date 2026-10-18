@@ -11,16 +11,26 @@
  * order, from the working tree or a clean detached checkout of HEAD, and
  * prints a Markdown table that is paste-ready for PR evidence.
  *
+ * Every known gate always appears in the report. A gate that did not run is
+ * UNCHECKED with its reason (fast subset, skipped by flag, tool unavailable)
+ * and never counts as passing evidence.
+ *
  * Usage:
  *   npm run verify:all                    # full gate set, current tree
  *   npm run verify:all -- --fast          # hermetic + mutations + consistency + portability
  *   npm run verify:all -- --clean         # all gates in a fresh detached worktree of HEAD
- *   npm run verify:all -- --node22        # add the Node 22 runtime-floor lane (npx node@22)
+ *   npm run verify:all -- --node22        # add the Node 22 execution smoke-test lane (npx node@22)
  *   npm run verify:all -- --clean --no-install   # --clean without npm ci in the worktree
  *   npm run verify:all -- --no-waza       # skip the optional waza readiness gate
  *
- * Exit code is 1 when any executed gate fails. Skipped gates are printed as
- * UNCHECKED and are never counted as passing evidence.
+ * Exit code is 1 when any executed gate fails.
+ *
+ * Process launching: `git` always runs with shell:false and structured
+ * argument vectors, so worktree paths with spaces survive on every OS. On
+ * Windows `npm`/`npx`/`waza` may be `.cmd` shims, which Node refuses to
+ * spawn without a shell; those are launched through the shell with only
+ * fixed, space-free argument tokens (scripts/ci/mechanism-38-* covers the
+ * split).
  */
 
 const fs = require('fs');
@@ -46,9 +56,24 @@ const FULL_PLAN = [
 ];
 
 const NODE22_PLAN = [
-  { label: 'node22 lane: hermetic self-regression', command: ['npx', '-y', 'node@22', 'self-evolve/scripts/self-regression.js'] },
-  { label: 'node22 lane: installer roundtrip', command: ['npx', '-y', 'node@22', 'ci/installer-roundtrip.test.js'] },
+  { label: 'node22 lane: self-regression execution smoke test', command: ['npx', '-y', 'node@22', 'self-evolve/scripts/self-regression.js'] },
+  { label: 'node22 lane: installer roundtrip execution smoke test', command: ['npx', '-y', 'node@22', 'ci/installer-roundtrip.test.js'] },
 ];
+
+// CI's runtime-floor job installs dependencies under Node 22 before running
+// the suite. Locally the smoke tests execute under Node 22 but use the
+// current host's node_modules, so dependency-install compatibility stays
+// explicitly UNCHECKED instead of being implied.
+const NODE22_UNVERIFIED = {
+  label: 'node22 lane: dependency install (npm ci under Node 22)',
+  reason: 'covered by the CI runtime-floor job; not replicated locally',
+};
+
+const WAZA_ENTRY = {
+  label: 'waza readiness (optional)',
+  command: ['npm', 'run', 'waza:check'],
+  tool: 'waza',
+};
 
 function usage() {
   console.log('Usage: npm run verify:all [-- --fast] [-- --clean] [-- --node22] [-- --no-install] [-- --no-waza]');
@@ -74,14 +99,24 @@ function parseArgs(argv) {
   return options;
 }
 
+// Windows may resolve npm/npx/waza as .cmd shims that Node only spawns with
+// a shell. They receive fixed, space-free tokens only; git never needs this.
+const SHELL_TOOLS = new Set(['npm', 'npx', 'waza']);
+
+function needsShell(cmd, platform = process.platform) {
+  return platform === 'win32' && SHELL_TOOLS.has(cmd);
+}
+
+function spawnTool(cmd, args, options) {
+  return spawnSync(cmd, args, { ...options, shell: needsShell(cmd) });
+}
+
 function run(command, cwd, env) {
   const [cmd, ...args] = command;
   const started = Date.now();
-  const needsShell = process.platform === 'win32';
-  const result = spawnSync(cmd, args, {
+  const result = spawnTool(cmd, args, {
     cwd,
     stdio: 'inherit',
-    shell: needsShell,
     env: env ? { ...process.env, ...env } : process.env,
   });
   const seconds = (Date.now() - started) / 1000;
@@ -94,11 +129,11 @@ function run(command, cwd, env) {
 
 function capture(command, cwd) {
   const [cmd, ...args] = command;
-  return spawnSync(cmd, args, { cwd, encoding: 'utf8', shell: process.platform === 'win32' });
+  return spawnTool(cmd, args, { cwd, encoding: 'utf8' });
 }
 
-function git(args, cwd) {
-  return capture(['git', ...args], cwd);
+function runGit(args, cwd) {
+  return spawnSync('git', args, { cwd, encoding: 'utf8', shell: false });
 }
 
 function formatSeconds(value) {
@@ -113,18 +148,38 @@ function wazaEnv() {
   return null;
 }
 
+function buildPlan(options) {
+  const entries = FULL_PLAN.map(entry => ({
+    ...entry,
+    enabled: options.fast ? entry.fast : true,
+    reason: entry.fast ? null : 'not in the --fast subset',
+  }));
+  entries.push(...NODE22_PLAN.map(entry => ({
+    ...entry,
+    enabled: options.node22,
+    reason: options.node22 ? null : 'not requested; add --node22',
+  })));
+  entries.push({ ...NODE22_UNVERIFIED, enabled: false, alwaysUnchecked: true });
+  entries.push({
+    ...WAZA_ENTRY,
+    enabled: options.waza,
+    reason: options.waza ? null : 'skipped by --no-waza',
+  });
+  return entries;
+}
+
 function prepareCleanRoot(install) {
-  const head = git(['rev-parse', 'HEAD']).stdout.trim();
+  const head = runGit(['rev-parse', 'HEAD'], ROOT).stdout.trim();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-verify-all-'));
-  const add = git(['worktree', 'add', '--detach', dir, head]);
+  const add = runGit(['worktree', 'add', '--detach', dir, head], ROOT);
   if (add.status !== 0) {
     throw new Error(`git worktree add failed: ${add.stderr || add.stdout}`);
   }
   if (install) {
-    console.log(`\nInstalling dependencies in clean worktree (npm ci --ignore-scripts)...`);
+    console.log('\nInstalling dependencies in clean worktree (npm ci --ignore-scripts)...');
     const ci = run(['npm', 'ci', '--ignore-scripts'], dir);
     if (ci.status !== 0) {
-      git(['worktree', 'remove', '--force', dir]);
+      runGit(['worktree', 'remove', '--force', dir], ROOT);
       throw new Error('npm ci failed in the clean worktree');
     }
   }
@@ -132,24 +187,67 @@ function prepareCleanRoot(install) {
 }
 
 function removeCleanRoot(dir) {
-  const removed = git(['worktree', 'remove', '--force', dir]);
+  const removed = runGit(['worktree', 'remove', '--force', dir], ROOT);
   if (removed.status !== 0) {
     console.error(`warning: could not remove clean worktree ${dir}: ${removed.stderr || removed.stdout}`);
   }
 }
 
+function formatMode(options) {
+  return options.fast ? 'fast subset' : 'full gate set';
+}
+
+function formatFlags(options) {
+  const flags = [];
+  if (options.fast) flags.push('--fast');
+  if (options.clean) flags.push('--clean');
+  if (options.node22) flags.push('--node22');
+  if (!options.install) flags.push('--no-install');
+  if (!options.waza) flags.push('--no-waza');
+  return flags.length > 0 ? flags.join(' ') : '(defaults)';
+}
+
+function renderReport(rows, meta) {
+  const lines = [];
+  lines.push('## Local gate run — paste-ready evidence');
+  lines.push(
+    `HEAD \`${meta.head}\` · node ${meta.node} · ${meta.platform}` +
+      `${meta.clean ? ' · clean detached worktree' : ''} · mode: ${meta.mode} · flags: ${meta.flags}`
+  );
+  lines.push('');
+  lines.push('| # | Gate | Result | Time |');
+  lines.push('| --- | --- | --- | --- |');
+  rows.forEach((row, index) => {
+    const result = row.status === 'UNCHECKED' ? `UNCHECKED (${row.reason})` : row.status;
+    const time = row.seconds === null || row.seconds === undefined ? '—' : formatSeconds(row.seconds);
+    lines.push(`| ${index + 1} | ${row.label} | ${result} | ${time} |`);
+  });
+  const failures = rows.filter(row => row.status === 'FAIL').length;
+  const unchecked = rows.filter(row => row.status === 'UNCHECKED').length;
+  const passed = rows.filter(row => row.status === 'PASS').length;
+  lines.push('');
+  lines.push(`Summary: ${passed} PASS, ${failures} FAIL, ${unchecked} UNCHECKED.`);
+  return { text: lines.join('\n'), failures, unchecked, passed };
+}
+
+function probeWazaEntry(entry) {
+  if (entry.tool !== 'waza' || !entry.enabled) return entry;
+  const env = wazaEnv();
+  if (env) return { ...entry, env };
+  return { ...entry, enabled: false, reason: 'waza not found on PATH or ~/bin' };
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
-  const head = git(['rev-parse', 'HEAD']).stdout.trim();
+  const head = runGit(['rev-parse', 'HEAD'], ROOT).stdout.trim();
 
   console.log('=== 🚦 Harness local gate runner (CI mirror) ===');
   console.log(`Repository: ${ROOT}`);
   console.log(`HEAD:       ${head}`);
   console.log(`Runtime:    node ${process.version} on ${process.platform}`);
-  console.log(`Mode:       ${options.fast ? 'fast subset' : 'full gate set'}${options.clean ? ', clean detached worktree' : ', current working tree'}`);
+  console.log(`Mode:       ${formatMode(options)} · flags: ${formatFlags(options)}`);
 
-  const plan = options.fast ? FULL_PLAN.filter(entry => entry.fast) : FULL_PLAN.slice();
-  if (options.node22) plan.push(...NODE22_PLAN);
+  const plan = buildPlan(options).map(probeWazaEntry);
 
   let cwd = ROOT;
   let clean = null;
@@ -160,49 +258,57 @@ function main() {
 
   const rows = [];
   try {
-    for (let index = 0; index < plan.length; index += 1) {
-      const entry = plan[index];
-      console.log(`\n▶ [${index + 1}/${plan.length}] ${entry.label}`);
-      console.log(`   $ ${entry.command.join(' ')}`);
-      const result = run(entry.command, cwd);
-      const passed = result.status === 0;
-      rows.push({ label: entry.label, status: passed ? 'PASS' : 'FAIL', seconds: result.seconds });
-    }
-
-    if (options.waza) {
-      const env = wazaEnv();
-      if (env) {
-        console.log(`\n▶ [${plan.length + 1}/${plan.length + 1}] waza readiness (optional)`);
-        console.log('   $ npm run waza:check');
-        const result = run(['npm', 'run', 'waza:check'], cwd, env);
-        rows.push({
-          label: 'waza readiness (optional)',
-          status: result.status === 0 ? 'PASS' : 'FAIL',
-          seconds: result.seconds,
-        });
-      } else {
-        console.log('\n⚠ waza not found on PATH or ~/bin; waza:check left UNCHECKED (not passing evidence).');
-        rows.push({ label: 'waza readiness (optional)', status: 'UNCHECKED', seconds: null });
+    let executed = 0;
+    const enabledCount = plan.filter(entry => entry.enabled).length;
+    for (const entry of plan) {
+      if (!entry.enabled) {
+        rows.push({ label: entry.label, status: 'UNCHECKED', reason: entry.reason, seconds: null });
+        continue;
       }
+      executed += 1;
+      console.log(`\n▶ [${executed}/${enabledCount}] ${entry.label}`);
+      console.log(`   $ ${entry.command.join(' ')}`);
+      const result = run(entry.command, cwd, entry.env);
+      rows.push({
+        label: entry.label,
+        status: result.status === 0 ? 'PASS' : 'FAIL',
+        seconds: result.seconds,
+      });
     }
   } finally {
     if (clean) removeCleanRoot(clean.dir);
   }
 
-  const failures = rows.filter(row => row.status === 'FAIL').length;
-  const unchecked = rows.filter(row => row.status === 'UNCHECKED').length;
-
-  console.log('\n## Local gate run — paste-ready evidence');
-  console.log(`HEAD \`${head}\` · node ${process.version} · ${process.platform}${options.clean ? ' · clean detached worktree' : ''}`);
-  console.log('');
-  console.log('| # | Gate | Result | Time |');
-  console.log('| --- | --- | --- | --- |');
-  rows.forEach((row, index) => {
-    console.log(`| ${index + 1} | ${row.label} | ${row.status} | ${row.seconds === null ? '—' : formatSeconds(row.seconds)} |`);
+  const report = renderReport(rows, {
+    head,
+    node: process.version,
+    platform: process.platform,
+    clean: Boolean(options.clean),
+    mode: formatMode(options),
+    flags: formatFlags(options),
   });
-  console.log('');
-  console.log(`Summary: ${rows.length - failures - unchecked} PASS, ${failures} FAIL, ${unchecked} UNCHECKED.`);
-  if (failures > 0) process.exit(1);
+
+  console.log(`\n${report.text}`);
+
+  if (report.failures > 0) {
+    process.exitCode = 1;
+    process.exit(1);
+  }
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  FULL_PLAN,
+  NODE22_PLAN,
+  NODE22_UNVERIFIED,
+  buildPlan,
+  needsShell,
+  renderReport,
+  runGit,
+  formatMode,
+  formatFlags,
+  parseArgs,
+};

@@ -15,17 +15,23 @@
  * regex sources and message templates stay out of the net:
  *   WIN_DEVICE_PATH     the literal begins with the \\.\ or \\?\ device
  *                       namespace prefix
- *   WIN_RESERVED_NAME   a path segment is CON PRN AUX NUL COM1-9 LPT1-9,
- *                       with or without an extension
- *   WIN_INVALID_CHAR    a whitespace-free path-like literal contains one of
- *                       : * ? " < > | (clock-like 12:34 fragments, URL
- *                       schemes such as node: or https:, and glob prefixes
- *                       are not counted)
+ *   WIN_RESERVED_NAME   the literal, or a path segment of it, is CON PRN
+ *                       AUX NUL COM1-9 LPT1-9, with or without an extension
+ *   WIN_INVALID_CHAR    a path-like literal contains one of : * ? " < > |
+ *                       (clock-like 12:34 fragments are not counted; only
+ *                       verified URL/Node-specifier schemes with a value
+ *                       after the colon and wildcard-led glob segments are
+ *                       exempt, so bad:name.md and bad*name.md are flagged)
+ *
+ * The exemptions are contextual, and ci/mechanism-37-portability-lint.test.js
+ * holds the positive/negative corpus that locks them down.
  *
  * Known limits, kept deliberately narrow over noisy coverage: it does not
- * flag spaced fixture names, trailing dots/spaces, or invalid characters
- * inside prose-like strings. Those still rely on review and the Windows CI
- * matrix. A finding here is a tripwire, not proof of a Windows failure.
+ * flag spaced fixture names, trailing dots/spaces, bare single tokens
+ * without a path separator or extension (except reserved names), or
+ * invalid characters inside prose-like strings. Those still rely on review
+ * and the Windows CI matrix. A finding here is a tripwire, not proof of a
+ * Windows failure.
  *
  * Remedy: use a portable fixture name, platform-guard the code path, or mark
  * one deliberate case with `portability-lint: allow <reason>` on its line.
@@ -42,13 +48,26 @@ const SKIP_DIRS = new Set(['fixtures', 'node_modules', '__pycache__']);
 const EXTENSIONS = new Set(['.js', '.cjs', '.mjs']);
 const PRAGMA = /portability-lint:\s*allow/;
 const RESERVED_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
-const INVALID_CHARS = /[:*?<>|]/;
+const INVALID_CHARS = /[:*?"<>|]/;
+const WILDCARD_CHARS = /[*?]/g;
 const CLOCK_FRAGMENT = /\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?/g;
-const URL_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 const DEVICE_NAMESPACE = /^(\\\\|\\)[.?](\\|$)/;
+// A scheme is only exempt with a real authority (`https://...`) or as a
+// known Node/tooling/repo-data specifier (`node:assert/strict`,
+// `pkg:npm/...`, `HEAD:refs/heads/main`, `legacy:GRAPH-1@docs/x.md`). A bare
+// word before the colon (`bad:name.md`) is a filename, not a scheme.
+const URL_WITH_AUTHORITY = /^[a-z][a-z0-9+.-]*:\/\//i;
+const SPECIFIER_SCHEME = /^(node|pkg|https?|git\+https?|ssh|file|mailto|data|github|fallback-task|HEAD|legacy|human):/i;
+const DRIVE_PREFIX = /^[A-Za-z]:/;
+// Strings that open like regex sources rather than filenames: a char-class
+// or inline-group opener after a leading slash, a leading inline group, or a
+// leading backslash escape such as \s or \d.
+const REGEX_SOURCE = /^(?:\(\?[:=!]|\/\[|\/\(\?|\\[sSdDwWbB])/;
 // Markup tags, <placeholder> roots, desync tails, and `${...}` templates are
 // data under test, never fixture names.
 const DATAISH_PREFIX = /^[<>{}\[\]$]/;
+// A wildcard-led segment (`*.md`, `**`) marks the token as a glob pattern.
+const GLOB_SEGMENT = /^[*?]/;
 const REGEX_PREFIX_CHARS = '([{,;:=!&|?+-*%<>~^';
 const REGEX_KEYWORDS = /(?:^|[^\w$])(return|typeof|case|in|of|new|delete|void|instanceof)\s*$/;
 
@@ -148,15 +167,19 @@ function regexPosition(source, i) {
 function looksPathLike(value) {
   const s = value.trim();
   if (!s || s.length > 300) return false;
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) return false; // URL
-  if (/^[A-Za-z]:[\\/]/.test(s)) return false; // drive-absolute
   if (/[\\/]/.test(s)) return true;
   return /\.[A-Za-z0-9]{1,8}$/.test(s); // bare filename with extension
+}
+
+function pathSegments(value) {
+  const body = DRIVE_PREFIX.test(value) ? value.slice(2) : value;
+  return body.split(/[\\/]+/).filter(Boolean);
 }
 
 function analyzeLiteral(literal) {
   const findings = [];
   const value = literal.value.trim();
+  if (!value) return findings;
   if (DEVICE_NAMESPACE.test(value)) {
     findings.push({
       rule: 'WIN_DEVICE_PATH',
@@ -164,23 +187,39 @@ function analyzeLiteral(literal) {
     });
     return findings;
   }
-  if (!looksPathLike(value)) return findings;
+  if (DATAISH_PREFIX.test(value)) return findings;
   if (/\s/.test(value)) return findings; // prose, templates, patch bodies
-  for (const segment of value.split(/[\\/]+/).filter(Boolean)) {
-    if (RESERVED_NAME.test(segment)) {
-      findings.push({
-        rule: 'WIN_RESERVED_NAME',
-        detail: `segment "${segment}" is a reserved Windows name`,
-      });
+
+  const segments = pathSegments(value);
+  const glob = segments.some((segment) => GLOB_SEGMENT.test(segment));
+
+  if (RESERVED_NAME.test(value)) {
+    findings.push({
+      rule: 'WIN_RESERVED_NAME',
+      detail: `literal "${value}" is a reserved Windows name`,
+    });
+  } else if (looksPathLike(value)) {
+    for (const segment of segments) {
+      if (RESERVED_NAME.test(segment)) {
+        findings.push({
+          rule: 'WIN_RESERVED_NAME',
+          detail: `segment "${segment}" is a reserved Windows name`,
+        });
+      }
     }
   }
+
   if (
-    !URL_SCHEME.test(value) && // node:assert/strict, github:owner/repo, C:\dir
-    !/^[?*]/.test(value) && // glob and optional-regex prefixes such as ?/to-spec
-    !DATAISH_PREFIX.test(value) && // markup, placeholders, `${...}` templates
-    !value.includes('*') // glob patterns such as docs/prd/**
+    looksPathLike(value) &&
+    !URL_WITH_AUTHORITY.test(value) &&
+    !SPECIFIER_SCHEME.test(value) &&
+    !REGEX_SOURCE.test(value)
   ) {
-    const invalid = value.replace(CLOCK_FRAGMENT, '').match(INVALID_CHARS);
+    // The drive-letter colon is portable; everything after it is not.
+    const withoutDrive = DRIVE_PREFIX.test(value) ? value.slice(2) : value;
+    const withoutClocks = withoutDrive.replace(CLOCK_FRAGMENT, '');
+    const scanned = glob ? withoutClocks.replace(WILDCARD_CHARS, '') : withoutClocks;
+    const invalid = scanned.match(INVALID_CHARS);
     if (invalid) {
       findings.push({
         rule: 'WIN_INVALID_CHAR',
@@ -207,35 +246,43 @@ function collectFiles(dir, out) {
   return out;
 }
 
-console.log('=== 🧭 Harness test-source portability lint ===');
+function main() {
+  console.log('=== 🧭 Harness test-source portability lint ===');
 
-const files = collectFiles(SCAN_ROOT, []);
-let literalCount = 0;
-let findings = 0;
+  const files = collectFiles(SCAN_ROOT, []);
+  let literalCount = 0;
+  let findings = 0;
 
-for (const file of files) {
-  const text = fs.readFileSync(file, 'utf8');
-  const lines = text.split('\n');
-  for (const literal of extractLiterals(text)) {
-    literalCount += 1;
-    const allowed =
-      PRAGMA.test(lines[literal.line - 1] || '') ||
-      PRAGMA.test(lines[literal.line - 2] || '');
-    if (allowed) continue;
-    for (const finding of analyzeLiteral(literal)) {
-      findings += 1;
-      const shown = literal.value.length > 80 ? `${literal.value.slice(0, 77)}...` : literal.value;
-      const rel = path.relative(path.resolve(SCAN_ROOT, '..'), file);
-      console.error(`❌ ${rel}:${literal.line} [${finding.rule}] ${finding.detail}`);
-      console.error(`   literal: ${shown}`);
-      console.error('   fix: portable fixture name, platform guard, or `portability-lint: allow <reason>`');
+  for (const file of files) {
+    const text = fs.readFileSync(file, 'utf8');
+    const lines = text.split('\n');
+    for (const literal of extractLiterals(text)) {
+      literalCount += 1;
+      const allowed =
+        PRAGMA.test(lines[literal.line - 1] || '') ||
+        PRAGMA.test(lines[literal.line - 2] || '');
+      if (allowed) continue;
+      for (const finding of analyzeLiteral(literal)) {
+        findings += 1;
+        const shown = literal.value.length > 80 ? `${literal.value.slice(0, 77)}...` : literal.value;
+        const rel = path.relative(path.resolve(SCAN_ROOT, '..'), file);
+        console.error(`❌ ${rel}:${literal.line} [${finding.rule}] ${finding.detail}`);
+        console.error(`   literal: ${shown}`);
+        console.error('   fix: portable fixture name, platform guard, or `portability-lint: allow <reason>`');
+      }
     }
   }
+
+  console.log(`Scanned ${files.length} file(s), ${literalCount} single-line literal(s).`);
+  if (findings > 0) {
+    console.error(`❌ portability lint found ${findings} finding(s) in the Windows-hostile class.`);
+    process.exit(1);
+  }
+  console.log('✅ no Windows-hostile paths in scanned test sources.');
 }
 
-console.log(`Scanned ${files.length} file(s), ${literalCount} single-line literal(s).`);
-if (findings > 0) {
-  console.error(`❌ portability lint found ${findings} finding(s) in the Windows-hostile class.`);
-  process.exit(1);
+if (require.main === module) {
+  main();
 }
-console.log('✅ no Windows-hostile paths in scanned test sources.');
+
+module.exports = { extractLiterals, analyzeLiteral, looksPathLike, pathSegments };

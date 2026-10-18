@@ -68,7 +68,7 @@ npm run test:platform:compatibility
 npm run test:portability
 ```
 
-`npm run verify:all` runs this set in CI order and prints paste-ready evidence; `-- --fast` runs the pre-push subset, `-- --clean` runs every gate in a fresh detached worktree of HEAD, and `-- --node22` adds the Node.js 22 floor lane.
+`npm run verify:all` runs this set in CI order and prints paste-ready evidence; every known gate stays in the report as PASS/FAIL/UNCHECKED with a reason. `-- --fast` runs the pre-push subset, `-- --clean` runs every gate in a fresh detached worktree of HEAD, and `-- --node22` adds the Node.js 22 execution smoke-test lane (Node 22 dependency-install compatibility stays UNCHECKED locally; CI's runtime-floor job owns it).
 
 If waza is installed (`~/bin/waza`), also run:
 
