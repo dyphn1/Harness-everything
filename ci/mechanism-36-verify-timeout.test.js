@@ -439,6 +439,24 @@ assert.strictEqual(
   const jestWithConsole = `FAIL src/parser.test.js\n  ● Console\n\n    console.log\n      noise\n\n  ● parser › accepts alpha\n`;
   assert.strictEqual(context.firstFailureMarker(jestWithConsole), 'FAIL src/parser.test.js: ● parser › accepts alpha', 'a Console block before the failure does not confuse the marker');
 
+  // P2 follow-up: indented error lines are Mocha evidence, but they must not
+  // reach into a Jest Console payload, whose logged Error lines are not
+  // failure evidence and vary run to run.
+  const consolePayloadBeforeFailure = `PASS src/loggy.test.js\n  ● Console\n\n    console.error\n      Error: connection refused at 127.0.0.1:8080\n\nFAIL src/parser.test.js\n  ● parser › accepts alpha\n`;
+  assert.strictEqual(
+    context.firstFailureMarker(consolePayloadBeforeFailure),
+    'FAIL src/parser.test.js: ● parser › accepts alpha',
+    'an indented Error line inside a Console payload is not a failure marker',
+  );
+  const consolePayloadOnly = `PASS src/loggy.test.js\n  ● Console\n\n    console.error\n      Error: connection refused at 127.0.0.1:8080\n`;
+  assert.strictEqual(context.firstFailureMarker(consolePayloadOnly), null, 'a Console payload alone leaves the run markerless');
+  const noisyFailure = (noise) => `PASS src/loggy.test.js\n  ● Console\n\n    console.error\n      Error: connection refused at ${noise}\n\nFAIL src/parser.test.js\n  ● parser › accepts alpha\n`;
+  assert.strictEqual(
+    context.buildFailureSignature(result(noisyFailure('port 8080'))),
+    context.buildFailureSignature(result(noisyFailure('port 9091'))),
+    'changing Console payload noise does not change the failure signature',
+  );
+
 
   // P2: Mocha indents both numbered failures and assertion lines. Signatures
   // must use the test identity, not the whole output (volatile stack/timing).

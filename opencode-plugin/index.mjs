@@ -277,9 +277,11 @@ function defaultCompliance() {
 
 // Test-level evidence of an actual failing check, in line order: TAP, Node
 // test-runner symbols, Jest test blocks, indented Mocha numbering, and
-// assertion/error lines (which may also be indented). `✖ failing tests:` (the node:test summary header) is skipped in
-// favor of the specific test line that follows it, and Jest's `● Console`
-// section is not failure evidence at all.
+// assertion/error lines (which may also be indented). `✖ failing tests:`
+// (the node:test summary header) is skipped in favor of the specific test
+// line that follows it, and Jest's `● Console` section is not failure
+// evidence: neither the heading nor its indented payload (logged output,
+// volatile run to run) becomes a marker.
 const FAILURE_MARKER_PATTERNS = [/^not ok\b.*$/m, /^\s*[✖✕]\s*(?!\s*failing\b).+$/m, /^\s*●\s+(?!Console\b|Test suite failed to run\b|Validation Error\b).+$/m, /^[ \t]*\d+\)[ \t]+.+$/m, /^[ \t]*[A-Za-z]*Error\b.*$/m];
 
 // Suite/file-level context, never an identity on its own: Jest prints
@@ -299,7 +301,17 @@ function normalizeFailureLine(line) {
 function firstFailureMarker(text) {
   const lines = String(text || "").replace(/\u001b\[[0-9;]*m/g, "").split(/\r?\n/);
   let context = null;
+  let inConsolePayload = false;
   for (const line of lines) {
+    if (/^\s*●\s+/.test(line)) {
+      inConsolePayload = /^\s*●\s+Console\b/.test(line);
+    } else if (inConsolePayload) {
+      // Under `● Console`, indented lines are logged output, not failure
+      // evidence: their Error lines vary run to run. The first column-0
+      // line ends the section.
+      if (line.trim() === "" || /^[ \t]/.test(line)) continue;
+      inConsolePayload = false;
+    }
     if (FAILURE_MARKER_PATTERNS.some((pattern) => pattern.test(line))) {
       const normalized = normalizeFailureLine(line);
       if (normalized) return context ? `${context}: ${normalized}` : normalized;

@@ -242,6 +242,35 @@ console.log('\n[39] opencode verification outcomes: Rule-of-3 downstream behavio
     lastPrompt(),
   );
 
+  // --- Console payload noise: logged Error lines are not failure identity ---
+  // Regression guard for the indented-error pattern: a Jest Console payload
+  // (logged output, volatile run to run) must not become the marker, or the
+  // same failing check stops accumulating toward the Rule of 3.
+  const consoleNoisyFailure = [
+    "console.log('PASS src/loggy.test.js');",
+    "console.log('  ● Console');",
+    "console.log('');",
+    "console.log('    console.error');",
+    "console.log('      Error: connection refused at ' + Date.now());",
+    "console.log('');",
+    "console.log('FAIL src/parser.test.js');",
+    "console.log('  ● parser › accepts stable');",
+    'process.exit(1);',
+  ];
+  const consoleNoiseSession = 'console-noise';
+  for (let i = 0; i < 3; i += 1) {
+    setFixture(consoleNoisyFailure);
+    await edit(consoleNoiseSession);
+    await idle(consoleNoiseSession);
+  }
+  breaker = readBreaker(consoleNoiseSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. volatile Console payload noise never breaks the failing check identity',
+    Object.keys(breaker.failures).length === 1 && entries[0].count === 3 && breaker.reflectionPending === true,
+    JSON.stringify(breaker),
+  );
+
   // --- genuinely identical failures keep the Rule of 3 ------------------
   const identicalSession = 'identical';
   setFixture(markerFailure('stable check'));
