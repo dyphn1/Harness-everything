@@ -256,7 +256,28 @@ function evaluateObligation(obligation, context) {
       'requirement scope unknown; evidence for a known subset neither passes nor attributes absence', []);
   }
 
-  if (usedExec.length && failingExec.length) {
+  // F1 (§11): resolution authority, hoisted ahead of the shared failing-execution lane (PR #334
+  // round 2, finding 4307059310). A cited REQ is resolved only when the entry is an object with a
+  // non-null PRD file and no overriding resolution label ('ambiguous', 'analysis-error', 'missing'
+  // are unresolved), and the id is declared by exactly one entry (duplicates are ambiguous).
+  // Unresolved cited REQs never pass and are never an observed absence or an observed fail.
+  const citedEntries = Array.isArray(obligation.citedReqs) ? obligation.citedReqs : [];
+  const idCounts = new Map();
+  for (const item of citedEntries) {
+    if (isPlainObject(item) && nonEmptyString(item.id)) {
+      idCounts.set(item.id, (idCounts.get(item.id) || 0) + 1);
+    }
+  }
+  const entryResolved = item => isPlainObject(item)
+    && nonEmptyString(item.id) && nonEmptyString(item.file)
+    && (item.resolution === undefined || item.resolution === 'resolved')
+    && idCounts.get(item.id) === 1;
+  const unresolvedReqs = citedEntries.filter(item => !entryResolved(item));
+  // An absent, null, or empty cited identity is unknown rather than resolved, so it never reaches
+  // the observed-fail lane for requirement-sync; other capabilities are unaffected.
+  const identityKnown = citedEntries.length > 0 && unresolvedReqs.length === 0;
+
+  if (usedExec.length && failingExec.length && (capability !== 'requirement-sync' || identityKnown)) {
     return result('observed', 'fail', provenanceJoin(failingExec, 'observed failing evidence'),
       uniqueSorted([...failingExec.map(item => item.id)]));
   }
@@ -281,22 +302,6 @@ function evaluateObligation(obligation, context) {
       });
     }
 
-    // F1 (§11): resolution authority. A cited REQ is resolved only when the entry is an object
-    // with a non-null PRD file and no overriding resolution label ('ambiguous', 'analysis-error',
-    // 'missing' are unresolved), and the id is declared by exactly one entry (duplicates are
-    // ambiguous). Unresolved cited REQs never pass and are never an observed absence.
-    const citedEntries = Array.isArray(obligation.citedReqs) ? obligation.citedReqs : [];
-    const idCounts = new Map();
-    for (const item of citedEntries) {
-      if (isPlainObject(item) && nonEmptyString(item.id)) {
-        idCounts.set(item.id, (idCounts.get(item.id) || 0) + 1);
-      }
-    }
-    const entryResolved = item => isPlainObject(item)
-      && nonEmptyString(item.id) && nonEmptyString(item.file)
-      && (item.resolution === undefined || item.resolution === 'resolved')
-      && idCounts.get(item.id) === 1;
-    const unresolvedReqs = citedEntries.filter(item => !entryResolved(item));
     if (unresolvedReqs.length) {
       for (const item of unresolvedReqs) {
         const id = isPlainObject(item) ? item.id : item;

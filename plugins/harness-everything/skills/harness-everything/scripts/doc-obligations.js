@@ -1391,7 +1391,8 @@ function deriveDocFacts({ base, candidate, config, inventory } = {}) {
         .map(change => ({ from: change.from, to: change.to }))
         .sort((left, right) => compareText(left.from, right.from) || compareText(left.to, right.to))
     },
-    reqCitingTests: uniqueSorted(testChanges.filter(change => change.testWithRequirement || change.testAttributionUnknown)
+    reqCitingTests: uniqueSorted(testChanges.filter(change => change.newReqCitingTest
+      || change.testCitedIds.length > 0 || change.testAttributionUnknown)
       .map(change => candidateFiles[change.newPath] !== undefined ? change.newPath : change.oldPath)),
     assertionChanged,
     requirementSyncTrigger,
