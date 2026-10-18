@@ -193,6 +193,55 @@ console.log('\n[39] opencode verification outcomes: Rule-of-3 downstream behavio
     lastPrompt(),
   );
 
+
+  // --- indented Mocha tests: true identity survives volatile diagnostics ---
+  // P2 regression: the old unindented regex missed "  1) test", then the
+  // markerless digest changed on every stack-line number even for the same
+  // failing check, preventing Rule-of-3 from reaching reflection.
+  const mochaFailure = (name, frameLine) => [
+    `console.log('  1) should parse ${name}');`,
+    "console.error('     AssertionError: expected true to equal false');",
+    `console.log('       at Context.<anonymous> (fixture.test.js:${frameLine}:7)');`,
+    'process.exit(1);',
+  ];
+
+  const mochaDistinctSession = 'mocha-distinct';
+  for (const name of ['alpha', 'beta', 'gamma']) {
+    setFixture(mochaFailure(name, 19));
+    await edit(mochaDistinctSession);
+    await idle(mochaDistinctSession);
+  }
+  breaker = readBreaker(mochaDistinctSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. different indented Mocha checks never count as one repeated failure',
+    Object.keys(breaker.failures).length === 3 &&
+      entries.every((entry) => entry.count === 1) &&
+      breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+
+  const mochaIdenticalSession = 'mocha-identical';
+  for (const frameLine of [19, 27, 35]) {
+    setFixture(mochaFailure('stable', frameLine));
+    await edit(mochaIdenticalSession);
+    await idle(mochaIdenticalSession);
+  }
+  breaker = readBreaker(mochaIdenticalSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. same indented Mocha check with changing stack output still triggers Rule-of-3',
+    Object.keys(breaker.failures).length === 1 &&
+      entries[0].count === 3 &&
+      breaker.reflectionPending === true,
+    JSON.stringify(breaker),
+  );
+  helper.check(
+    '39. Mocha Rule-of-3 reflection includes a token',
+    /reflection token: [A-Za-z0-9]+/.test(lastPrompt()),
+    lastPrompt(),
+  );
+
   // --- genuinely identical failures keep the Rule of 3 ------------------
   const identicalSession = 'identical';
   setFixture(markerFailure('stable check'));
