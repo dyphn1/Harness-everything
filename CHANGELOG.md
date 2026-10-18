@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.35.0](https://github.com/dyphn1/Harness-everything/compare/v0.34.0...v0.35.0) (2026-10-18)
+
+### Features
+
+* **doc-lifecycle:** add phase 3a doc-change obligation derivation and evidence producer ([61590e1](https://github.com/dyphn1/Harness-everything/commit/61590e1e4ee39652964df5120ded085cd5cf6ecc)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325) [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+
+### Bug Fixes
+
+* **doc-lifecycle:** address review findings on phase 3a ([#334](https://github.com/dyphn1/Harness-everything/issues/334)) ([3a0f3ae](https://github.com/dyphn1/Harness-everything/commit/3a0f3aec6461cd0570c8b1de7a93dd37419a5fda)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335) [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+* **doc-lifecycle:** close phase 3a review round 2 gaps ([#334](https://github.com/dyphn1/Harness-everything/issues/334)) ([643c489](https://github.com/dyphn1/Harness-everything/commit/643c4899a0f43d3c27fcc26dae06c0b5b421a657)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+* **doc-lifecycle:** close phase 3a review round 3 gaps ([#334](https://github.com/dyphn1/Harness-everything/issues/334)) ([ccb7c48](https://github.com/dyphn1/Harness-everything/commit/ccb7c487fa67415f8ef183fba7484b237b558c93)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+* **doc-lifecycle:** harden requirement identity and revision evidence ([a4c1d03](https://github.com/dyphn1/Harness-everything/commit/a4c1d03db1b0c6ec0315c0b9e9c1a65d2437adbb))
+* **doc-lifecycle:** preserve requirement resolution and trigger scope ([352ceb3](https://github.com/dyphn1/Harness-everything/commit/352ceb31a28cda92f88a0d7ab64381aa907c2ee3))
+* **doc-lifecycle:** retain changed citations and decision obligations ([c68cf40](https://github.com/dyphn1/Harness-everything/commit/c68cf40a4b188169a98cbb66d511a2c5561cdde4))
+
 ## [Unreleased]
 
 ### Bug Fixes
