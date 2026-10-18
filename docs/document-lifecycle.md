@@ -11,7 +11,8 @@ Documentation is a **consumer** of the #320 workflow/obligation abstractions. No
 | 0 — contract + RED fixtures | This file; fixtures under `ci/fixtures/doc-lifecycle/` |
 | 1a — `project-docs.json` loader | `multi-agent-workspace/scripts/project-docs-resolver.js` |
 | 2 — roles, IDs, aliases, legacy, supersession, index, D6.9 PRD revisions | `harness-everything/scripts/doc-lifecycle.js` |
-| 1b, 3 (`doc-change`, `requirement-sync`) | Not started: blocked by #320 family metadata, D1 obligation schema and D3 evidence states |
+| 3a — `doc-change` / `requirement-sync` pure derivation and evidence producer | `harness-everything/scripts/doc-obligations.js` (facts and obligations), `harness-everything/scripts/doc-evidence.js` (`checkDocObligations`). Pilot-local: not wired into workflow disposition yet. H3 and H4 have deterministic tests; H1 and H2 are deferred to 3c |
+| 1b, 3b–3c (provider suggestions, reconciliation, H1–H2 evaluation) | Not started: blocked by #320 family metadata, D1 obligation schema and D3 evidence states. Known gap: deleted and old rename paths cannot get candidate-bound evidence, so their MUSTs fail closed |
 | 4 — derived-view generators, `describes:` drift | Not started |
 
 ## Configuration (D5)
@@ -194,6 +195,48 @@ Anchors for cross-file diagnostics: `supersede-*`, `unresolved-ref`, `ambiguous-
 ### Diagnostics (D6.9)
 
 `invalid-prd-id`, `invalid-revision`, `duplicate-revision`, `missing-parent`, `multiple-baselines`, `revision-cycle`, `revision-fork`, `stale-draft-base`, `invalid-transition`, `approval-missing`, `approval-content-mismatch`, `revision-digest-mismatch`, `immutable-revision-modified`, `immutable-revision-deleted`, `req-dropped`, `incomplete-snapshot`, `invalid-req-clause`, `replacement-alias-overlap`, `replacement-cycle`. `not-observed` is an evidence disposition, not a diagnostic and not a pass.
+
+## D6.5 — `doc-change` applicability by diff facts (Decided; revised 2026-10-16)
+
+Not a single class enum. The diff yields **facts**; required checks are the **union** of what each fact triggers. If a fact cannot be determined, assume it is present (`unknown` never downgrades to trivial).
+
+| Fact (from diff) | Triggers |
+| --- | --- |
+| Any governed file touched | Lint (role/status/ID/alias); in-repo link check |
+| Text/format only (no fact below) | Nothing more |
+| New governed file | Update-over-create check; outline confirmation (MUST for PRD/ADR, SHOULD otherwise) |
+| Declared derived source affected | Regenerate + regenerate-equals |
+| **Normative field**: frontmatter `status`/`supersedes`, PRD REQ block/acceptance, ADR *Decision* section | Quality review (MUST); D6.4 conflict check |
+| Governed reference/guide content | Prose > 50% reminder (SHOULD) |
+| Code or REQ-citing test touched | `requirement-sync` evaluation (D6.6) |
+
+- Example: a typo in an ADR's *Context* section triggers only lint + links; the same typo in its *Decision* section is normative.
+- Claimed scope vs diff facts mismatch → claim/evidence contradiction (#320 D3), only where the diff supports it; visible, never a lock.
+- Commit still requires existing workflow authorization; no automatic commit.
+
+## D6.6 — Event-driven maintenance (Decided)
+
+**`requirement-sync` detection** (builds on D6.2: tests cite REQ IDs):
+
+| Observation | Disposition |
+| --- | --- |
+| A test citing `REQ-X` is added or its assertions change | **Candidate signal**, not proof → **MUST** update/supersede REQ-X in the PRD in the same change, or record a structured `no-req-change` (reason + cited evidence, e.g. unchanged acceptance, passing test result) |
+| `no-req-change` without adequate evidence | `not-observed` / unverified; never an automatic pass |
+| Code changes, no REQ-citing test touched | `not-observed` (#320 D3 evidence state), not a failure; diff alone never proves behavior unchanged |
+| Agent claims REQ-X affected, no supporting evidence | Claim/evidence contradiction; reminder, no lock |
+
+| Event | Obligation | Strength | Enforced by |
+| --- | --- | --- | --- |
+| REQ touched (above) | `requirement-sync` | MUST | New rule |
+| `describes:` fingerprint drift | Reminder | SHOULD | D5 #4 |
+| Ticket closed | In-repo tickets: `status: done`; regenerate index. `tickets: "tracker"`: no in-repo ticket status is generated or inferred offline | MUST | D5 #1 + D6.3 lint |
+| ADR superseded | Old ADR `status: superseded` | MUST | D6.3 lint |
+| New defect | Goes to tracker or the declared `tickets` path | MUST | Lint reminder when a ticket is added under a `done` phase |
+| Report finished | `final`; `archived` once its work closes | SHOULD | Reminder |
+
+- All events are checked at the existing workflow's `verification` step; no standing maintenance loop.
+- Checks are pure and generators deterministic, so reruns are idempotent.
+- `requirement-sync` is the only genuinely new rule; the rest reuse D5 and D6.3 checks.
 
 ## Packaging
 
