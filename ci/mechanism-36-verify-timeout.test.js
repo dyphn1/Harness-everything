@@ -458,6 +458,31 @@ assert.strictEqual(
   );
 
 
+  // P1: a logged bullet deeper than Jest's "  ● Console" heading is
+  // payload, not a new section or a test-level failure marker.
+  const consoleBulletOutput = (name, noise) =>
+    `PASS src/loggy.test.js\n  ● Console\n\n    console.log\n      ● ${noise}\n      ● Console\n\nFAIL src/parser.test.js\n  ● parser › accepts ${name}\n`;
+  assert.strictEqual(
+    context.firstFailureMarker(consoleBulletOutput('alpha', 'preparing runtime')),
+    'FAIL src/parser.test.js: ● parser › accepts alpha',
+    'deeply indented Console bullets do not mask the actual Jest failure',
+  );
+  assert.strictEqual(
+    context.firstFailureMarker('PASS src/loggy.test.js\n  ● Console\n\n    console.log\n      ● preparing runtime\n'),
+    null,
+    'Console-only output with a nested bullet remains markerless',
+  );
+  assert.notStrictEqual(
+    context.buildFailureSignature(result(consoleBulletOutput('alpha', 'common log'))),
+    context.buildFailureSignature(result(consoleBulletOutput('beta', 'common log'))),
+    'different Jest checks with the same logged Console bullet remain distinct',
+  );
+  assert.strictEqual(
+    context.buildFailureSignature(result(consoleBulletOutput('stable', 'preparing runtime'))),
+    context.buildFailureSignature(result(consoleBulletOutput('stable', 'loaded 12 plugins'))),
+    'the same Jest check retains its signature when logged Console bullet content changes',
+  );
+
   // P2: Mocha indents both numbered failures and assertion lines. Signatures
   // must use the test identity, not the whole output (volatile stack/timing).
   const mochaLike = (name, frame) =>
