@@ -276,11 +276,11 @@ function defaultCompliance() {
 }
 
 // Test-level evidence of an actual failing check, in line order: TAP, Node
-// test-runner symbols, Jest test blocks, mocha numbering, and assertion/error
-// lines. `✖ failing tests:` (the node:test summary header) is skipped in
+// test-runner symbols, Jest test blocks, indented Mocha numbering, and
+// assertion/error lines (which may also be indented). `✖ failing tests:` (the node:test summary header) is skipped in
 // favor of the specific test line that follows it, and Jest's `● Console`
 // section is not failure evidence at all.
-const FAILURE_MARKER_PATTERNS = [/^not ok\b.*$/m, /^\s*[✖✕]\s*(?!\s*failing\b).+$/m, /^\s*●\s+(?!Console\b|Test suite failed to run\b|Validation Error\b).+$/m, /^\d+\)\s+.+$/m, /^[A-Za-z]*Error\b.*$/m];
+const FAILURE_MARKER_PATTERNS = [/^not ok\b.*$/m, /^\s*[✖✕]\s*(?!\s*failing\b).+$/m, /^\s*●\s+(?!Console\b|Test suite failed to run\b|Validation Error\b).+$/m, /^[ \t]*\d+\)[ \t]+.+$/m, /^[ \t]*[A-Za-z]*Error\b.*$/m];
 
 // Suite/file-level context, never an identity on its own: Jest prints
 // `FAIL <file>` (or `● Test suite failed to run`) above the failing test
