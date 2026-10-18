@@ -591,7 +591,6 @@ function scanTestSource(text) {
       complete: Number.isInteger(closeIndex),
       ids: [...ids].sort(compareText),
       signature: `${token.value}:${signatureTokens.join('\u0001')}`,
-      bodySignature,
       identitySignature: `${[...ids].sort(compareText).join(',')}\u0000${bodySignature}`
     });
   }
@@ -848,26 +847,28 @@ function fileLevelRequirementTags(text, scan) {
 
 function requirementTestCallChanges(beforeScan, afterScan, changeKind) {
   const newCallIndexes = new Set();
-  if (!afterScan) return { newCallIndexes, identityUnknown: false };
+  if (!afterScan) return { newCallIndexes, identityUnknown: false, identityChangedReqIds: [] };
   if (changeKind === 'added') {
     for (let index = 0; index < afterScan.calls.length; index++) {
       if (afterScan.calls[index].ids.length > 0) newCallIndexes.add(index);
     }
-    return { newCallIndexes, identityUnknown: false };
+    return { newCallIndexes, identityUnknown: false, identityChangedReqIds: [] };
   }
 
   const beforeCalls = beforeScan ? beforeScan.calls : [];
   const unmatchedBefore = new Set(beforeCalls.map((_, index) => index));
   const unmatchedAfter = new Set(afterScan.calls.map((_, index) => index));
-  for (const key of ['identitySignature', 'signature', 'bodySignature']) {
+  for (const key of ['identitySignature', 'signature']) {
     const available = new Map();
     for (const index of unmatchedBefore) {
-      const value = beforeCalls[index][key];
+      const call = beforeCalls[index];
+      const value = `${call.ids.join(',')}\u0000${call[key]}`;
       if (!available.has(value)) available.set(value, []);
       available.get(value).push(index);
     }
     for (const index of unmatchedAfter) {
-      const value = afterScan.calls[index][key];
+      const call = afterScan.calls[index];
+      const value = `${call.ids.join(',')}\u0000${call[key]}`;
       const matches = available.get(value);
       if (!matches || matches.length === 0) continue;
       unmatchedAfter.delete(index);
@@ -875,18 +876,24 @@ function requirementTestCallChanges(beforeScan, afterScan, changeKind) {
     }
   }
 
-  let identityUnknown = false;
+  const unmatchedBeforeReq = [...unmatchedBefore].filter(index => beforeCalls[index].ids.length > 0);
   const unmatchedAfterReq = [...unmatchedAfter].filter(index => afterScan.calls[index].ids.length > 0);
   const beforeRequirementTestCount = beforeCalls.filter(call => call.ids.length > 0).length;
   const afterRequirementTestCount = afterScan.calls.filter(call => call.ids.length > 0).length;
-  if (unmatchedAfterReq.length && unmatchedBefore.size) {
-    // A same-file replacement or simultaneous unrelated test edit leaves test
-    // identity ambiguous, even when the total number of cited calls increased.
-    identityUnknown = true;
-  } else if (unmatchedAfterReq.length && afterRequirementTestCount > beforeRequirementTestCount) {
+  const identityUnknown = unmatchedBeforeReq.length > 0
+    || (unmatchedAfterReq.length > 0 && unmatchedBefore.size > 0);
+  let identityChangedReqIds = [];
+  if (identityUnknown && afterScan.valid) {
+    if (unmatchedAfterReq.length) {
+      identityChangedReqIds = uniqueSorted(unmatchedAfterReq.flatMap(index => afterScan.calls[index].ids));
+    } else if (beforeScan && beforeScan.valid) {
+      identityChangedReqIds = uniqueSorted(unmatchedBeforeReq.flatMap(index => beforeCalls[index].ids));
+    }
+  }
+  if (!identityUnknown && unmatchedAfterReq.length && afterRequirementTestCount > beforeRequirementTestCount) {
     for (const index of unmatchedAfterReq) newCallIndexes.add(index);
   }
-  return { newCallIndexes, identityUnknown };
+  return { newCallIndexes, identityUnknown, identityChangedReqIds };
 }
 
 function analyzeTestChange(change, baseSnapshot, candidateSnapshot, beforeText, afterText) {
@@ -910,16 +917,27 @@ function analyzeTestChange(change, baseSnapshot, candidateSnapshot, beforeText, 
   const afterScan = typeof afterValue === 'string' ? scanTestSource(afterValue) : null;
   const beforeFileTagIds = fileLevelRequirementTags(beforeValue, beforeScan);
   const afterFileTagIds = fileLevelRequirementTags(afterValue, afterScan);
+  const fileTagIdentityChanged = change.kind !== 'added'
+    && (beforeFileTagIds.length !== afterFileTagIds.length
+      || beforeFileTagIds.some((id, index) => id !== afterFileTagIds[index]));
+  const fileTagCandidateIds = fileTagIdentityChanged
+    ? (afterFileTagIds.length ? afterFileTagIds : beforeFileTagIds)
+    : [];
   const hasCitedTest = [beforeScan, afterScan].some(scan => scan && scan.calls.some(call => call.ids.length > 0));
   const hasRequirementSignal = hasCitedTest || beforeFileTagIds.length > 0 || afterFileTagIds.length > 0;
   result.testWithRequirement = hasRequirementSignal;
   const testCallChanges = requirementTestCallChanges(beforeScan, afterScan, change.kind);
+  const identityCandidateIds = uniqueSorted([
+    ...testCallChanges.identityChangedReqIds,
+    ...fileTagCandidateIds
+  ]);
   result.newReqCitingTest = hasRequirementSignal
     && (testCallChanges.newCallIndexes.size > 0 || (change.kind === 'added' && afterFileTagIds.length === 1));
 
   if (!before.readable || !after.readable || (beforeScan && !beforeScan.valid) || (afterScan && !afterScan.valid)) {
     result.assertionChanged = 'unknown';
     result.testAttributionUnknown = true;
+    result.testCitedIds = identityCandidateIds;
     return result;
   }
 
@@ -930,11 +948,12 @@ function analyzeTestChange(change, baseSnapshot, candidateSnapshot, beforeText, 
   if (delta === null) {
     result.assertionChanged = 'unknown';
     result.testAttributionUnknown = true;
+    result.testCitedIds = identityCandidateIds;
     return result;
   }
 
-  result.testAttributionUnknown = testCallChanges.identityUnknown;
-  const citedIds = new Set();
+  result.testAttributionUnknown = testCallChanges.identityUnknown || fileTagIdentityChanged;
+  const citedIds = new Set(identityCandidateIds);
   let assertionUnknown = false;
   for (const [scan, changed, fileTagIds] of [
     [beforeScan, delta.removed, beforeFileTagIds],
@@ -1037,28 +1056,53 @@ function isGoverned(path, text, config) {
 function extractSection(text, wantedTitle) {
   const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
   const headings = [];
+  const unsupportedSetextIndexes = [];
+  let setextDecisionUnknown = false;
   let fence = null;
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
     if (fence) {
-      const close = line.match(/^[ \t]{0,3}(`{3,}|~{3,})[ \t]*$/);
+      const close = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
       if (close && close[1][0] === fence.character && close[1].length >= fence.length) fence = null;
       continue;
     }
-    const open = line.match(/^[ \t]{0,3}(`{3,}|~{3,})(.*)$/);
-    if (open) {
+    const open = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    const invalidBacktickInfo = open && open[1][0] === '`' && open[2].includes('`');
+    if (open && !invalidBacktickInfo) {
       fence = { character: open[1][0], length: open[1].length };
       continue;
     }
-    const match = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
-    if (match) headings.push({ index, level: match[1].length, title: match[2].trim() });
+    const setextUnderline = line.match(/^ {0,3}(=+|-+)[ \t]*$/);
+    if (setextUnderline && index > 0) {
+      const previousLine = lines[index - 1];
+      const setextTitle = previousLine.match(/^ {0,3}([^#\s].*?)[ \t]*$/);
+      const fenceLine = /^ {0,3}(?:`{3,}|~{3,})/.test(previousLine);
+      const thematicBreak = /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/.test(previousLine);
+      if (setextTitle && !fenceLine && !thematicBreak) {
+        const title = setextTitle[1].trim();
+        if (title.toLowerCase() === wantedTitle.toLowerCase()) {
+          // Without paragraph context, the visible line may be part of a
+          // multi-line Setext heading. Preserve uncertainty instead of guessing.
+          setextDecisionUnknown = true;
+        } else {
+          // Other Setext boundaries need paragraph/container context this bounded
+          // extractor does not model, so an occurrence inside Decision is unknown.
+          unsupportedSetextIndexes.push(index - 1);
+        }
+        continue;
+      }
+    }
+    // CommonMark ATX heading: 0-3 spaces, 1-6 "#", then a space/tab or end of line. A closing sequence needs a preceding space/tab.
+    const match = line.match(/^ {0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*$/);
+    if (match) headings.push({ index, level: match[1].length, title: (match[2] || '').replace(/(?:^|[ \t]+)#+[ \t]*$/, '').trim() });
   }
   const found = headings.filter(item => item.title.toLowerCase() === wantedTitle.toLowerCase());
-  if (found.length > 1) return { state: 'unknown', text: '' };
+  if (setextDecisionUnknown || found.length > 1) return { state: 'unknown', text: '' };
   if (!found.length) return { state: 'absent', text: '' };
   const heading = found[0];
   const next = headings.find(item => item.index > heading.index && item.level <= heading.level);
   const end = next ? next.index : lines.length;
+  if (unsupportedSetextIndexes.some(index => index > heading.index && index < end)) return { state: 'unknown', text: '' };
   return { state: 'present', text: lines.slice(heading.index + 1, end).join('\n').trim() };
 }
 

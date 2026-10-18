@@ -50,28 +50,28 @@ checkCase('PR334 title-only REQ test rename leaves assertion range unchanged and
   assert.strictEqual(requirementSync.applicability, 'N/A', 'the title-only rename is not a sync candidate');
 });
 
-checkCase('PR334 changing only a REQ ID in an existing test title does not imply a new test', () => {
+checkCase('PR334 changing a REQ ID in an existing test title keeps the new citation and marks identity unknown', () => {
   const { facts, requirementSync } = derive(
     "test('REQ-GRPH-001 unchanged title', () => { verify(); });\n",
     "test('REQ-GRPH-002 unchanged title', () => { verify(); });\n"
   );
 
   assert.strictEqual(facts.requirementSyncTrigger, null, 'the test body and inventory are unchanged');
-  assert.deepStrictEqual(facts.citedReqs, [], 'an unchanged assertion contributes no new citation');
-  assert.strictEqual(requirementSync.requirementScopeUnknown, false, 'the stable body identifies the existing test');
-  assert.strictEqual(requirementSync.applicability, 'N/A', 'a title citation change alone does not trigger requirement-sync');
+  assert.deepStrictEqual(facts.citedReqs.map(item => item.id), ['REQ-GRPH-002'], 'the candidate citation is retained');
+  assert.strictEqual(requirementSync.requirementScopeUnknown, true, 'body sameness does not settle changed citation identity');
+  assert.strictEqual(requirementSync.applicability, 'unknown', 'changed citation identity is never treated as N/A');
 });
 
-checkCase('PR334 adding a REQ ID only to an existing test title does not imply a new test', () => {
+checkCase('PR334 adding a REQ ID only to an existing test title keeps the new citation and marks identity unknown', () => {
   const { facts, requirementSync } = derive(
     "test('unchanged title', () => { verify(); });\n",
     "test('REQ-GRPH-001 unchanged title', () => { verify(); });\n"
   );
 
   assert.strictEqual(facts.requirementSyncTrigger, null, 'a title-only citation is not a new test');
-  assert.deepStrictEqual(facts.citedReqs, [], 'an unchanged assertion contributes no new citation');
-  assert.strictEqual(requirementSync.requirementScopeUnknown, false, 'the stable body identifies the existing test');
-  assert.strictEqual(requirementSync.applicability, 'N/A', 'a title citation change alone does not trigger requirement-sync');
+  assert.deepStrictEqual(facts.citedReqs.map(item => item.id), ['REQ-GRPH-001'], 'the candidate citation is retained');
+  assert.strictEqual(requirementSync.requirementScopeUnknown, true, 'body sameness does not settle changed citation identity');
+  assert.strictEqual(requirementSync.applicability, 'unknown', 'changed citation identity is never treated as N/A');
 });
 
 checkCase('PR334 title rename plus a different REQ test assertion edit stays assertion-change and scopes only the edited assertion', () => {
@@ -165,7 +165,7 @@ checkCase('PR334 a same-REQ helper test inserted before an identical existing te
   assert.strictEqual(requirementSync.applicability, 'applicable', 'the added test triggers requirement-sync');
 });
 
-checkCase('PR334 adding only a file-level tag to an existing unchanged unwrapped assertion stays N/A', () => {
+checkCase('PR334 adding a file-level tag to an unchanged unwrapped assertion keeps the candidate identity under unknown scope', () => {
   const { facts, requirementSync } = derive(
     'assert.equal(run(), 1);\n',
     '// REQ-GRPH-001\nassert.equal(run(), 1);\n'
@@ -173,8 +173,9 @@ checkCase('PR334 adding only a file-level tag to an existing unchanged unwrapped
 
   assert.strictEqual(facts.assertionChanged, false, 'the assertion tokens are unchanged');
   assert.strictEqual(facts.requirementSyncTrigger, null, 'adding a citation comment is not a new test');
-  assert.deepStrictEqual(facts.citedReqs, [], 'no assertion change contributes no cited requirement');
-  assert.strictEqual(requirementSync.applicability, 'N/A', 'the comment-only tag change is not a sync candidate');
+  assert.deepStrictEqual(facts.citedReqs.map(item => item.id), ['REQ-GRPH-001'], 'the changed tag identity remains visible');
+  assert.strictEqual(facts.requirementScopeUnknown, true, 'the legacy file-level association changed');
+  assert.strictEqual(requirementSync.applicability, 'unknown', 'a file-level tag delta is never silently N/A');
 });
 
 checkCase('PR334 a newly added file-level-tagged unwrapped assertion keeps the legacy new-test and citation signal', () => {

@@ -210,6 +210,8 @@ Not a single class enum. The diff yields **facts**; required checks are the **un
 | Governed reference/guide content | Prose > 50% reminder (SHOULD) |
 | Code or REQ-citing test touched | `requirement-sync` evaluation (D6.6) |
 
+Decision extraction recognizes ATX boundaries with 0–3 leading spaces and ignores fenced or indented code. A suspected Setext Decision heading, or an unsupported Setext boundary within an ATX Decision section, yields `unknown`; paragraph/container context is not inferred.
+
 - Example: a typo in an ADR's *Context* section triggers only lint + links; the same typo in its *Decision* section is normative.
 - Claimed scope vs diff facts mismatch → claim/evidence contradiction (#320 D3), only where the diff supports it; visible, never a lock.
 - Commit still requires existing workflow authorization; no automatic commit.
@@ -221,7 +223,10 @@ Not a single class enum. The diff yields **facts**; required checks are the **un
 | Observation | Disposition |
 | --- | --- |
 | A test citing `REQ-X` is added or its assertions change | **Candidate signal**, not proof → **MUST** update/supersede REQ-X in the PRD in the same change, or record a structured `no-req-change` (reason + cited evidence, e.g. unchanged acceptance, passing test result) |
-| Comment-only or whitespace-only edit to a REQ-citing test | Not a trigger → `requirement-sync` N/A |
+| An existing test's cited REQ identity set is added, removed, or retargeted, or the changed call cannot be associated with its prior identity | Applicability/scope `unknown`, never N/A; retain candidate REQ identities and the test path. If removal leaves no candidate identity, retain the prior REQ ID as a removed identity. A citation-only change is not by itself a `new-test` or `assertion-change` trigger |
+| A legacy file-level REQ tag is added, removed, or retargeted on a modified test file | Applicability/scope `unknown`, never N/A; retain the changed identity and test path, even when stripped comments leave assertion tokens unchanged |
+| A test title changes or reorders REQ IDs while preserving the same cited identity set, or an ordinary comment changes | No trigger → `requirement-sync` N/A |
+| Ordinary comment-only or whitespace-only edit that preserves the cited REQ identity set | Not a trigger → `requirement-sync` N/A |
 | REQ-citing test change whose assertion change cannot be determined | `unknown`; never a fail |
 | Triggered MUST, **attested envelope** (all of the following), cited REQ resolved, **not** revised, **no** valid `no-req-change` waiver | **Observed fail** (`req-sync-no-revision-or-waiver`). Not a Stop hook, lock, or completion policy |
 | Triggered MUST, `complete` inventory but envelope incomplete, mismatched, or unattested | `none` with `req-sync-envelope-unattested`. Never a fail |
