@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Bug Fixes
+
+* **doc-obligations:** keep title-only REQ test edits out of new-test and assertion scope
+* **doc-obligations:** reject PRD revision identities not chained to the base declaration
+
 ## [0.34.0](https://github.com/dyphn1/Harness-everything/compare/v0.33.0...v0.34.0) (2026-10-17)
 
 ### Features

@@ -591,6 +591,7 @@ function scanTestSource(text) {
       complete: Number.isInteger(closeIndex),
       ids: [...ids].sort(compareText),
       signature: `${token.value}:${signatureTokens.join('\u0001')}`,
+      bodySignature,
       identitySignature: `${[...ids].sort(compareText).join(',')}\u0000${bodySignature}`
     });
   }
@@ -845,22 +846,47 @@ function fileLevelRequirementTags(text, scan) {
   return uniqueSorted(tags);
 }
 
-function hasNewRequirementTest(beforeScan, afterScan, changeKind, afterFileTagIds) {
-  if (!afterScan) return false;
+function requirementTestCallChanges(beforeScan, afterScan, changeKind) {
+  const newCallIndexes = new Set();
+  if (!afterScan) return { newCallIndexes, identityUnknown: false };
   if (changeKind === 'added') {
-    return afterScan.calls.some(call => call.ids.length > 0) || afterFileTagIds.length === 1;
+    for (let index = 0; index < afterScan.calls.length; index++) {
+      if (afterScan.calls[index].ids.length > 0) newCallIndexes.add(index);
+    }
+    return { newCallIndexes, identityUnknown: false };
   }
-  const priorCalls = new Map();
-  for (const call of beforeScan ? beforeScan.calls : []) {
-    priorCalls.set(call.identitySignature, (priorCalls.get(call.identitySignature) || 0) + 1);
+
+  const beforeCalls = beforeScan ? beforeScan.calls : [];
+  const unmatchedBefore = new Set(beforeCalls.map((_, index) => index));
+  const unmatchedAfter = new Set(afterScan.calls.map((_, index) => index));
+  for (const key of ['identitySignature', 'signature', 'bodySignature']) {
+    const available = new Map();
+    for (const index of unmatchedBefore) {
+      const value = beforeCalls[index][key];
+      if (!available.has(value)) available.set(value, []);
+      available.get(value).push(index);
+    }
+    for (const index of unmatchedAfter) {
+      const value = afterScan.calls[index][key];
+      const matches = available.get(value);
+      if (!matches || matches.length === 0) continue;
+      unmatchedAfter.delete(index);
+      unmatchedBefore.delete(matches.shift());
+    }
   }
-  for (const call of afterScan.calls) {
-    if (!call.ids.length) continue;
-    const count = priorCalls.get(call.identitySignature) || 0;
-    if (count > 0) priorCalls.set(call.identitySignature, count - 1);
-    else return true;
+
+  let identityUnknown = false;
+  const unmatchedAfterReq = [...unmatchedAfter].filter(index => afterScan.calls[index].ids.length > 0);
+  const beforeRequirementTestCount = beforeCalls.filter(call => call.ids.length > 0).length;
+  const afterRequirementTestCount = afterScan.calls.filter(call => call.ids.length > 0).length;
+  if (unmatchedAfterReq.length && unmatchedBefore.size) {
+    // A same-file replacement or simultaneous unrelated test edit leaves test
+    // identity ambiguous, even when the total number of cited calls increased.
+    identityUnknown = true;
+  } else if (unmatchedAfterReq.length && afterRequirementTestCount > beforeRequirementTestCount) {
+    for (const index of unmatchedAfterReq) newCallIndexes.add(index);
   }
-  return false;
+  return { newCallIndexes, identityUnknown };
 }
 
 function analyzeTestChange(change, baseSnapshot, candidateSnapshot, beforeText, afterText) {
@@ -887,8 +913,9 @@ function analyzeTestChange(change, baseSnapshot, candidateSnapshot, beforeText, 
   const hasCitedTest = [beforeScan, afterScan].some(scan => scan && scan.calls.some(call => call.ids.length > 0));
   const hasRequirementSignal = hasCitedTest || beforeFileTagIds.length > 0 || afterFileTagIds.length > 0;
   result.testWithRequirement = hasRequirementSignal;
+  const testCallChanges = requirementTestCallChanges(beforeScan, afterScan, change.kind);
   result.newReqCitingTest = hasRequirementSignal
-    && hasNewRequirementTest(beforeScan, afterScan, change.kind, afterFileTagIds);
+    && (testCallChanges.newCallIndexes.size > 0 || (change.kind === 'added' && afterFileTagIds.length === 1));
 
   if (!before.readable || !after.readable || (beforeScan && !beforeScan.valid) || (afterScan && !afterScan.valid)) {
     result.assertionChanged = 'unknown';
@@ -906,6 +933,7 @@ function analyzeTestChange(change, baseSnapshot, candidateSnapshot, beforeText, 
     return result;
   }
 
+  result.testAttributionUnknown = testCallChanges.identityUnknown;
   const citedIds = new Set();
   let assertionUnknown = false;
   for (const [scan, changed, fileTagIds] of [
@@ -924,6 +952,7 @@ function analyzeTestChange(change, baseSnapshot, candidateSnapshot, beforeText, 
       const unsupportedAssertionCallChanged = unsupportedAssertionCallContainsToken(scan, token.index, range);
       const computedAssertionCallChanged = computedAssertionCallContainsToken(scan, token.index, range);
       const assertionStatement = statementHasAssertion(scan.tokens, range);
+      const assertionChangeSignal = assertionCallChanged || unsupportedAssertionCallChanged || computedAssertionCallChanged;
       if (assertionCallChanged) result.assertionChanged = true;
       else if (unsupportedAssertionCallChanged || computedAssertionCallChanged) assertionUnknown = true;
       else if (!testCallTitleContainsToken(scan, token.index)
@@ -931,16 +960,18 @@ function analyzeTestChange(change, baseSnapshot, candidateSnapshot, beforeText, 
 
       const call = testCallForChangedStatement(scan, token.index, range);
       if (call) {
-        if (call.ids.length) {
+        const newTestSignal = scan === afterScan
+          && testCallChanges.newCallIndexes.has(scan.calls.indexOf(call));
+        if (call.ids.length && (assertionChangeSignal || newTestSignal)) {
           for (const id of call.ids) citedIds.add(id);
-        } else {
+        } else if (assertionChangeSignal || newTestSignal) {
           result.testAttributionUnknown = true;
         }
-      } else if (fileTagIds.length === 1 && assertionStatement) {
+      } else if (fileTagIds.length === 1 && assertionStatement && assertionChangeSignal) {
         // Preserve the established single-REQ file-tag convention used by older
         // unwrapped assertions; never borrow a different test call's title.
         citedIds.add(fileTagIds[0]);
-      } else {
+      } else if (assertionChangeSignal) {
         result.testAttributionUnknown = true;
       }
     }
@@ -1102,27 +1133,46 @@ function changedRequirementFacts(baseFiles, candidateFiles, config, baseLifecycl
   const baseDocsByPath = new Map(baseLifecycle.docs.map(doc => [doc.path, doc]));
   const candidateDocsByPath = new Map(candidateLifecycle.docs.map(doc => [doc.path, doc]));
   const baseRevisionIds = new Set(baseLifecycle.docs.map(revisionIdentity).filter(Boolean));
-  const currentDocs = candidateRevisionAnalysis._graph && candidateRevisionAnalysis._graph.currentById instanceof Map
-    ? new Set(candidateRevisionAnalysis._graph.currentById.values()) : new Set();
+  const revisionGraph = candidateRevisionAnalysis && candidateRevisionAnalysis._graph
+    && candidateRevisionAnalysis._graph.parentByDoc instanceof Map ? candidateRevisionAnalysis._graph : null;
+  const parentByDoc = revisionGraph ? revisionGraph.parentByDoc : new Map();
+  const currentDocs = revisionGraph && revisionGraph.currentById instanceof Map
+    ? new Set(revisionGraph.currentById.values()) : new Set();
   const eligibleDocs = candidateRevisionAnalysis._retirementEligibleSources instanceof Set
     ? candidateRevisionAnalysis._retirementEligibleSources : new Set();
   const reqUpdates = [];
   const reqMutationNotRevision = [];
 
+  const chainRootedInBaseRevision = doc => {
+    const visited = new Set();
+    for (let cursor = doc; cursor && !visited.has(cursor); cursor = parentByDoc.get(cursor)) {
+      visited.add(cursor);
+      const identity = revisionIdentity(cursor);
+      if (identity && baseRevisionIds.has(identity)) return true;
+    }
+    return false;
+  };
+
   for (const { id, file } of changed) {
     const candidateDoc = candidateDocsByPath.get(file);
     const revisionId = revisionIdentity(candidateDoc);
     const validNewEffectiveRevision = Boolean(candidateDoc && revisionId
-      && currentDocs.has(candidateDoc) && eligibleDocs.has(candidateDoc) && !baseRevisionIds.has(revisionId));
+      && currentDocs.has(candidateDoc) && eligibleDocs.has(candidateDoc) && !baseRevisionIds.has(revisionId)
+      && (!beforeById.has(id) || chainRootedInBaseRevision(candidateDoc)));
     if (validNewEffectiveRevision) {
       reqUpdates.push({ id, file });
       continue;
     }
 
+    if (!beforeById.has(id)) continue;
+
     const baseDoc = baseDocsByPath.get(file);
-    if (candidateDoc && baseDoc && revisionId && revisionId === revisionIdentity(baseDoc)) {
-      reqMutationNotRevision.push({ id, file, code: 'req-mutation-not-revision' });
-    }
+    reqMutationNotRevision.push({
+      id,
+      file,
+      code: 'req-mutation-not-revision',
+      ...(revisionId && candidateDoc && baseDoc && revisionId === revisionIdentity(baseDoc) ? {} : { reason: 'not-a-base-rooted-successor' })
+    });
   }
 
   const order = (left, right) => compareText(left.id, right.id) || compareText(left.file, right.file);
