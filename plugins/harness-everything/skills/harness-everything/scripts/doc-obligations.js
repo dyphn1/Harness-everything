@@ -180,12 +180,13 @@ const MULTI_CHAR_TOKENS = [
 function tokenizeTestSource(text) {
   const source = String(text || '');
   const tokens = [];
+  const comments = [];
   let index = 0;
   let line = 0;
   let canStartRegex = true;
   let valid = true;
 
-  const push = (type, value, tokenLine = line) => tokens.push({ type, value, line: tokenLine });
+  const push = (type, value, tokenLine = line) => tokens.push({ type, value, line: tokenLine, index: tokens.length });
   const bumpLine = char => {
     if (char === '\n' || (char === '\r' && source[index + 1] !== '\n')) line++;
   };
@@ -297,6 +298,8 @@ function tokenizeTestSource(text) {
 
   function scanCode(stopAtTemplateBrace = false) {
     let braceDepth = 0;
+    let parenDepth = 0;
+    let bracketDepth = 0;
     while (index < source.length) {
       const char = source[index];
       if (/\s/.test(char)) {
@@ -306,17 +309,34 @@ function tokenizeTestSource(text) {
       }
 
       if (char === '/' && source[index + 1] === '/') {
+        const start = index;
+        const commentLine = line;
+        const topLevel = !stopAtTemplateBrace && braceDepth === 0 && parenDepth === 0 && bracketDepth === 0;
         index += 2;
+        const contentStart = index;
         while (index < source.length && source[index] !== '\n' && source[index] !== '\r') index++;
+        comments.push({
+          kind: 'line', marker: '//', content: source.slice(contentStart, index),
+          start, end: index, line: commentLine, topLevel
+        });
         continue;
       }
       if (char === '/' && source[index + 1] === '*') {
+        const start = index;
+        const commentLine = line;
+        const topLevel = !stopAtTemplateBrace && braceDepth === 0 && parenDepth === 0 && bracketDepth === 0;
         index += 2;
+        const contentStart = index;
         let closed = false;
         while (index < source.length) {
           if (source[index] === '*' && source[index + 1] === '/') {
+            const contentEnd = index;
             index += 2;
             closed = true;
+            comments.push({
+              kind: 'block', marker: '/*', content: source.slice(contentStart, contentEnd),
+              start, end: index, line: commentLine, topLevel
+            });
             break;
           }
           bumpLine(source[index]);
@@ -327,7 +347,16 @@ function tokenizeTestSource(text) {
       }
       // Preserve Python-style whole-line comments for the test paths this helper also accepts.
       if (char === '#' && source.slice(0, index).split(/\r?\n/).pop().trim() === '') {
+        const start = index;
+        const commentLine = line;
+        const topLevel = !stopAtTemplateBrace && braceDepth === 0 && parenDepth === 0 && bracketDepth === 0;
+        index++;
+        const contentStart = index;
         while (index < source.length && source[index] !== '\n' && source[index] !== '\r') index++;
+        comments.push({
+          kind: 'line', marker: '#', content: source.slice(contentStart, index),
+          start, end: index, line: commentLine, topLevel
+        });
         continue;
       }
 
@@ -345,6 +374,30 @@ function tokenizeTestSource(text) {
       if (char === '}' && braceDepth > 0) {
         addPunctuator(char, line);
         braceDepth--;
+        index++;
+        continue;
+      }
+      if (char === '(') {
+        addPunctuator(char, line);
+        parenDepth++;
+        index++;
+        continue;
+      }
+      if (char === ')') {
+        if (parenDepth > 0) parenDepth--;
+        addPunctuator(char, line);
+        index++;
+        continue;
+      }
+      if (char === '[') {
+        addPunctuator(char, line);
+        bracketDepth++;
+        index++;
+        continue;
+      }
+      if (char === ']') {
+        if (bracketDepth > 0) bracketDepth--;
+        addPunctuator(char, line);
         index++;
         continue;
       }
@@ -390,7 +443,7 @@ function tokenizeTestSource(text) {
   }
 
   valid = scanCode();
-  return { tokens, valid };
+  return { tokens, comments, valid };
 }
 
 function tokenKey(token) {
@@ -442,20 +495,6 @@ function changedTokens(beforeTokens, afterTokens) {
   return { removed, added };
 }
 
-function assertionPatternOnLine(tokens, lineNumber) {
-  const lineTokens = tokens.filter(token => token.line === lineNumber);
-  for (let index = 0; index < lineTokens.length; index++) {
-    const token = lineTokens[index];
-    if (token.type !== 'identifier') continue;
-    if (token.value === 'assert') return true;
-    if (token.value === 'expect' && lineTokens[index + 1] && lineTokens[index + 1].value === '(') return true;
-    if (['equal', 'deepEqual', 'ok', 'throws'].includes(token.value)
-      && lineTokens[index - 1] && ['.', '?.'].includes(lineTokens[index - 1].value)
-      && lineTokens[index + 1] && lineTokens[index + 1].value === '(') return true;
-  }
-  return false;
-}
-
 function snapshotText(snapshot, path) {
   const files = snapshot && snapshot.files && typeof snapshot.files === 'object' ? snapshot.files : {};
   const key = Object.keys(files).filter(candidate => normalizePath(candidate) === path).pop();
@@ -463,49 +502,346 @@ function snapshotText(snapshot, path) {
   return typeof files[key] === 'string' ? { readable: true, text: files[key] } : { readable: false, text: undefined };
 }
 
-function assertionChangedForTests(changes, baseSnapshot, candidateSnapshot) {
-  let changed = false;
-  let unknown = false;
-  const snapshots = [baseSnapshot, candidateSnapshot];
-  for (const snapshot of snapshots) {
+// Build just enough structure to map changed tokens to statements and their
+// nearest test()/it() call. Parentheses inside comments and literals are opaque
+// tokens in this scan, so they cannot change the depth.
+function scanTestSource(text) {
+  const lexical = tokenizeTestSource(text);
+  const tokens = lexical.tokens;
+  const parenDepthBefore = new Array(tokens.length);
+  const parenDepthAfter = new Array(tokens.length);
+  const braceDepthBefore = new Array(tokens.length);
+  const braceDepthAfter = new Array(tokens.length);
+  const parenPairs = new Map();
+  const openParens = [];
+  let braceDepth = 0;
+  let valid = lexical.valid;
+
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index];
+    parenDepthBefore[index] = openParens.length;
+    braceDepthBefore[index] = braceDepth;
+    if (token.type === 'template-expression' && token.value === '${') braceDepth++;
+    else if (token.type === 'punctuator') {
+      if (token.value === '(') openParens.push(index);
+      else if (token.value === ')') {
+        const openIndex = openParens.pop();
+        if (openIndex === undefined) valid = false;
+        else parenPairs.set(openIndex, index);
+      } else if (token.value === '{') braceDepth++;
+      else if (token.value === '}') {
+        braceDepth--;
+        if (braceDepth < 0) valid = false;
+      }
+    }
+    parenDepthAfter[index] = openParens.length;
+    braceDepthAfter[index] = braceDepth;
+  }
+  if (openParens.length || braceDepth !== 0) valid = false;
+
+  const scan = {
+    tokens,
+    comments: lexical.comments,
+    valid,
+    parenDepthBefore,
+    parenDepthAfter,
+    braceDepthBefore,
+    braceDepthAfter,
+    parenPairs,
+    calls: []
+  };
+  for (let index = 0; index < tokens.length - 1; index++) {
+    const token = tokens[index];
+    if (token.type !== 'identifier' || !['test', 'it'].includes(token.value)
+      || tokens[index + 1].value !== '(') continue;
+    const openIndex = index + 1;
+    const closeIndex = parenPairs.get(openIndex);
+    const endIndex = Number.isInteger(closeIndex) ? closeIndex : tokens.length - 1;
+    const ids = new Set();
+    for (let cursor = openIndex + 1; cursor <= endIndex; cursor++) {
+      const candidate = tokens[cursor];
+      if (!['string', 'template'].includes(candidate.type)
+        || parenDepthBefore[cursor] !== parenDepthBefore[openIndex] + 1
+        || braceDepthBefore[cursor] !== braceDepthBefore[openIndex]) continue;
+      for (const match of candidate.value.matchAll(REQUIREMENT_IDS)) ids.add(match[1]);
+    }
+    const signatureTokens = [];
+    for (let cursor = openIndex + 1; cursor <= endIndex; cursor++) {
+      const candidate = tokens[cursor];
+      if (candidate.value === ',' && parenDepthBefore[cursor] === parenDepthBefore[openIndex] + 1
+        && braceDepthBefore[cursor] === braceDepthBefore[openIndex]) break;
+      signatureTokens.push(tokenKey(candidate));
+    }
+    scan.calls.push({
+      name: token.value,
+      startIndex: index,
+      openIndex,
+      closeIndex,
+      endIndex,
+      complete: Number.isInteger(closeIndex),
+      ids: [...ids].sort(compareText),
+      signature: `${token.value}:${signatureTokens.join('\u0001')}`
+    });
+  }
+  return scan;
+}
+
+function continuesAcrossLine(previous, next) {
+  const continuationTokens = new Set([
+    '.', '?.', ',', '(', '[', '=', '=>', '+', '-', '*', '/', '%', '&&', '||', '??',
+    '===', '!==', '==', '!=', '<', '>', '<=', '>=', '|', '&', '?', ':', '...'
+  ]);
+  return continuationTokens.has(previous.value) || continuationTokens.has(next.value);
+}
+
+function statementRangeForToken(scan, tokenIndex) {
+  if (!scan || !scan.valid || !Number.isInteger(tokenIndex)
+    || tokenIndex < 0 || tokenIndex >= scan.tokens.length) return null;
+  const tokens = scan.tokens;
+  const targetBraceDepth = scan.braceDepthBefore[tokenIndex];
+  let startIndex = 0;
+  let baseParenDepth = 0;
+
+  for (let index = tokenIndex - 1; index >= 0; index--) {
+    const value = tokens[index].value;
+    if (scan.braceDepthAfter[index] !== targetBraceDepth) continue;
+    if (![';', '{', '}'].includes(value)) continue;
+    startIndex = index + 1;
+    baseParenDepth = scan.parenDepthAfter[index];
+    break;
+  }
+
+  for (let index = startIndex; index < tokenIndex; index++) {
+    if (tokens[index].line >= tokens[index + 1].line
+      || scan.braceDepthAfter[index] !== targetBraceDepth
+      || scan.braceDepthBefore[index + 1] !== targetBraceDepth
+      || scan.parenDepthAfter[index] !== baseParenDepth
+      || scan.parenDepthBefore[index + 1] !== baseParenDepth
+      || continuesAcrossLine(tokens[index], tokens[index + 1])) continue;
+    startIndex = index + 1;
+  }
+
+  let endIndex = tokens.length - 1;
+  for (let index = tokenIndex + 1; index < tokens.length; index++) {
+    if (tokens[index].value === ';' && scan.braceDepthAfter[index] === targetBraceDepth
+      && scan.parenDepthAfter[index] === baseParenDepth) {
+      endIndex = index - 1;
+      break;
+    }
+    if (tokens[index].value === '}' && scan.braceDepthBefore[index] === targetBraceDepth
+      && scan.braceDepthAfter[index] < targetBraceDepth) {
+      endIndex = index - 1;
+      break;
+    }
+    if (tokens[index - 1].line < tokens[index].line
+      && scan.braceDepthAfter[index - 1] === targetBraceDepth
+      && scan.braceDepthBefore[index] === targetBraceDepth
+      && scan.parenDepthAfter[index - 1] === baseParenDepth
+      && scan.parenDepthBefore[index] === baseParenDepth
+      && !continuesAcrossLine(tokens[index - 1], tokens[index])) {
+      endIndex = index - 1;
+      break;
+    }
+  }
+  if (startIndex > tokenIndex || endIndex < tokenIndex) return null;
+  return { startIndex, endIndex };
+}
+
+function statementHasAssertion(tokens, range) {
+  if (!range) return false;
+  for (let index = range.startIndex; index <= range.endIndex; index++) {
+    const token = tokens[index];
+    if (token.type !== 'identifier') continue;
+    if (token.value === 'assert') return true;
+    if (token.value === 'expect' && tokens[index + 1] && tokens[index + 1].value === '(') return true;
+    if (['equal', 'deepEqual', 'ok', 'throws'].includes(token.value)
+      && tokens[index - 1] && ['.', '?.'].includes(tokens[index - 1].value)
+      && tokens[index + 1] && tokens[index + 1].value === '(') return true;
+  }
+  return false;
+}
+
+function nearestTestCall(scan, tokenIndex) {
+  return scan.calls.filter(call => call.complete && tokenIndex >= call.startIndex && tokenIndex <= call.closeIndex)
+    .sort((left, right) => (left.closeIndex - left.startIndex) - (right.closeIndex - right.startIndex)
+      || right.startIndex - left.startIndex)[0] || null;
+}
+
+function testCallForChangedStatement(scan, tokenIndex, range) {
+  const enclosingCall = nearestTestCall(scan, tokenIndex);
+  if (enclosingCall) return enclosingCall;
+  if (!range) return null;
+
+  const endToken = scan.tokens[range.endIndex];
+  return scan.calls.filter(call => call.complete && call.startIndex === range.startIndex
+    && (call.closeIndex === range.endIndex
+      || (endToken && endToken.value === ';' && call.closeIndex === range.endIndex - 1)))
+    .sort((left, right) => (left.closeIndex - left.startIndex) - (right.closeIndex - right.startIndex)
+      || right.startIndex - left.startIndex)[0] || null;
+}
+
+function fileLevelRequirementTags(text, scan) {
+  if (typeof text !== 'string' || !scan || !scan.valid || !Array.isArray(scan.comments)) return [];
+  const tags = [];
+
+  for (const comment of scan.comments) {
+    if (!comment.topLevel) continue;
+    const insideTestCall = scan.calls.some(call => {
+      if (!call.complete) return false;
+      const startLine = scan.tokens[call.startIndex] && scan.tokens[call.startIndex].line;
+      const endLine = scan.tokens[call.closeIndex] && scan.tokens[call.closeIndex].line;
+      return Number.isInteger(startLine) && Number.isInteger(endLine)
+        && comment.line >= startLine && comment.line <= endLine;
+    });
+    if (insideTestCall) continue;
+
+    const lineStart = text.lastIndexOf('\n', comment.start - 1) + 1;
+    const lineEnd = text.indexOf('\n', comment.end);
+    const end = lineEnd === -1 ? text.length : lineEnd;
+    if (text.slice(lineStart, comment.start).trim() || text.slice(comment.end, end).trim()) continue;
+
+    const content = comment.kind === 'block'
+      ? comment.content.split(/\r?\n/).map(line => line.replace(/^\s*\* ?/, '').trim()).filter(Boolean).join(' ')
+      : comment.content;
+    const match = content.trim().match(/^(REQ-[A-Z][A-Z0-9]{1,9}-\d{3,})$/);
+    if (match) tags.push(match[1]);
+  }
+
+  return uniqueSorted(tags);
+}
+
+function hasNewRequirementTest(beforeScan, afterScan, changeKind, afterFileTagIds) {
+  if (!afterScan) return false;
+  if (changeKind === 'added') {
+    return afterScan.calls.some(call => call.ids.length > 0) || afterFileTagIds.length === 1;
+  }
+  const priorCalls = new Map();
+  for (const call of beforeScan ? beforeScan.calls : []) {
+    priorCalls.set(call.signature, (priorCalls.get(call.signature) || 0) + 1);
+  }
+  for (const call of afterScan.calls) {
+    if (!call.ids.length) continue;
+    const count = priorCalls.get(call.signature) || 0;
+    if (count > 0) priorCalls.set(call.signature, count - 1);
+    else return true;
+  }
+  return false;
+}
+
+function analyzeTestChange(change, baseSnapshot, candidateSnapshot, beforeText, afterText) {
+  const result = {
+    assertionChanged: false,
+    testWithRequirement: false,
+    testAttributionUnknown: false,
+    testCitedIds: [],
+    newReqCitingTest: false
+  };
+  const oldPath = change.kind === 'rename' ? change.from : change.path;
+  const newPath = change.kind === 'rename' ? change.to : change.path;
+  if (![oldPath, newPath].some(path => typeof path === 'string' && TEST_PATH.test(path))
+    || change.kind === 'rename' || !change.contentChanged) return result;
+
+  const before = snapshotText(baseSnapshot, oldPath);
+  const after = snapshotText(candidateSnapshot, newPath);
+  const beforeValue = before.readable ? before.text : undefined;
+  const afterValue = after.readable ? after.text : undefined;
+  const beforeScan = typeof beforeValue === 'string' ? scanTestSource(beforeValue) : null;
+  const afterScan = typeof afterValue === 'string' ? scanTestSource(afterValue) : null;
+  const beforeFileTagIds = fileLevelRequirementTags(beforeValue, beforeScan);
+  const afterFileTagIds = fileLevelRequirementTags(afterValue, afterScan);
+  const hasCitedTest = [beforeScan, afterScan].some(scan => scan && scan.calls.some(call => call.ids.length > 0));
+  const hasRequirementSignal = hasCitedTest || beforeFileTagIds.length > 0 || afterFileTagIds.length > 0;
+  result.testWithRequirement = hasRequirementSignal;
+  result.newReqCitingTest = hasRequirementSignal
+    && hasNewRequirementTest(beforeScan, afterScan, change.kind, afterFileTagIds);
+
+  if (!before.readable || !after.readable || (beforeScan && !beforeScan.valid) || (afterScan && !afterScan.valid)) {
+    result.assertionChanged = 'unknown';
+    result.testAttributionUnknown = true;
+    return result;
+  }
+
+  let delta;
+  if (change.kind === 'added') delta = { removed: [], added: afterScan ? afterScan.tokens : [] };
+  else if (change.kind === 'deleted') delta = { removed: beforeScan ? beforeScan.tokens : [], added: [] };
+  else delta = changedTokens(beforeScan.tokens, afterScan.tokens);
+  if (delta === null) {
+    result.assertionChanged = 'unknown';
+    result.testAttributionUnknown = true;
+    return result;
+  }
+
+  const citedIds = new Set();
+  let assertionUnknown = false;
+  for (const [scan, changed, fileTagIds] of [
+    [beforeScan, delta.removed, beforeFileTagIds],
+    [afterScan, delta.added, afterFileTagIds]
+  ]) {
+    if (!scan || !changed.length) continue;
+    for (const token of changed) {
+      const range = statementRangeForToken(scan, token.index);
+      if (!range) {
+        assertionUnknown = true;
+        result.testAttributionUnknown = true;
+        continue;
+      }
+      const assertionStatement = statementHasAssertion(scan.tokens, range);
+      if (assertionStatement) result.assertionChanged = true;
+      else if (['string', 'template', 'regex'].includes(token.type)) assertionUnknown = true;
+
+      const call = testCallForChangedStatement(scan, token.index, range);
+      if (call) {
+        if (call.ids.length) {
+          for (const id of call.ids) citedIds.add(id);
+        } else {
+          result.testAttributionUnknown = true;
+        }
+      } else if (fileTagIds.length === 1 && assertionStatement) {
+        // Preserve the established single-REQ file-tag convention used by older
+        // unwrapped assertions; never borrow a different test call's title.
+        citedIds.add(fileTagIds[0]);
+      } else {
+        result.testAttributionUnknown = true;
+      }
+    }
+  }
+
+  result.assertionChanged = result.assertionChanged === true ? true : assertionUnknown ? 'unknown' : false;
+  result.testCitedIds = [...citedIds].sort(compareText);
+  if (result.testCitedIds.length) result.testWithRequirement = true;
+  return result;
+}
+
+function analyzeRequirementTestChanges(changes, baseSnapshot, candidateSnapshot) {
+  let assertionChanged = false;
+  let assertionUnknown = false;
+  let newReqCitingTest = false;
+  let scopeUnknown = false;
+  for (const snapshot of [baseSnapshot, candidateSnapshot]) {
     const files = snapshot && snapshot.files && typeof snapshot.files === 'object' ? snapshot.files : {};
     if (Object.keys(files).some(path => TEST_PATH.test(normalizePath(path)) && typeof files[path] !== 'string')) {
-      unknown = true;
+      assertionUnknown = true;
+      scopeUnknown = true;
     }
   }
-  for (const change of changes) {
+  const analyzed = changes.map(change => {
     const oldPath = change.kind === 'rename' ? change.from : change.path;
     const newPath = change.kind === 'rename' ? change.to : change.path;
-    if (![oldPath, newPath].some(path => typeof path === 'string' && TEST_PATH.test(path))) continue;
-    if (change.kind === 'rename' || !change.contentChanged) continue;
-    const before = snapshotText(baseSnapshot, oldPath);
-    const after = snapshotText(candidateSnapshot, newPath);
-    if (!before.readable || !after.readable) {
-      unknown = true;
-      continue;
-    }
-    if (![before.text, after.text].some(text => typeof text === 'string' && REQUIREMENT_ID.test(text))) continue;
-    const beforeTokens = tokenizeTestSource(before.text);
-    const afterTokens = tokenizeTestSource(after.text);
-    if (!beforeTokens.valid || !afterTokens.valid) {
-      unknown = true;
-      continue;
-    }
-    const delta = changedTokens(beforeTokens.tokens, afterTokens.tokens);
-    if (delta === null) {
-      unknown = true;
-      continue;
-    }
-    if (!delta.removed.length && !delta.added.length) continue;
-    const changedBeforeLines = new Set(delta.removed.map(token => token.line));
-    const changedAfterLines = new Set(delta.added.map(token => token.line));
-    const assertionLineChanged = [...changedBeforeLines].some(lineNumber =>
-      assertionPatternOnLine(beforeTokens.tokens, lineNumber))
-      || [...changedAfterLines].some(lineNumber => assertionPatternOnLine(afterTokens.tokens, lineNumber));
-    if (assertionLineChanged) changed = true;
-    else if ([...delta.removed, ...delta.added].some(token => ['string', 'template', 'regex'].includes(token.type))) unknown = true;
-  }
-  return changed ? true : unknown ? 'unknown' : false;
+    const beforeText = textAt(snapshotFiles(baseSnapshot), oldPath);
+    const afterText = textAt(snapshotFiles(candidateSnapshot), newPath);
+    const test = analyzeTestChange(change, baseSnapshot, candidateSnapshot, beforeText, afterText);
+    if (test.assertionChanged === true) assertionChanged = true;
+    else if (test.assertionChanged === 'unknown') assertionUnknown = true;
+    newReqCitingTest = newReqCitingTest || test.newReqCitingTest;
+    scopeUnknown = scopeUnknown || test.testAttributionUnknown;
+    return { ...change, ...test };
+  });
+  return {
+    changes: analyzed,
+    assertionChanged: assertionChanged ? true : assertionUnknown ? 'unknown' : false,
+    newReqCitingTest,
+    scopeUnknown
+  };
 }
 
 function textAt(files, path) {
@@ -660,15 +996,10 @@ function candidateRequirementResolution(id, candidateDocs, baseDeclarations, can
   return { file: null, resolution: 'missing' };
 }
 
-function citedRequirementFacts(changes, baseFiles, candidateFiles, candidateDocs, config, candidateAnalysis) {
+function citedRequirementFacts(changes, baseFiles, candidateDocs, config, candidateAnalysis) {
   const citedIds = new Set();
   for (const change of changes) {
-    if (!change.testWithRequirement) continue;
-    const oldPath = change.kind === 'rename' ? change.from : change.path;
-    const newPath = change.kind === 'rename' ? change.to : change.path;
-    for (const text of [textAt(baseFiles, oldPath), textAt(candidateFiles, newPath)]) {
-      for (const match of String(text || '').matchAll(REQUIREMENT_IDS)) citedIds.add(match[1]);
-    }
+    for (const id of change.testCitedIds || []) citedIds.add(id);
   }
 
   const before = requirementDeclarations(baseFiles, config);
@@ -789,14 +1120,18 @@ function deriveDocFacts({ base, candidate, config, inventory } = {}) {
   const referenceContentChanged = contextualChanges.some(change => change.contentChanged
     && [change.oldRole, change.newRole].includes('reference')
     && (change.oldGoverned || change.newGoverned));
-  const assertionChanged = assertionChangedForTests(contextualChanges, base, candidate);
-  const newReqCitingTest = contextualChanges.some(change => change.kind === 'added' && change.testWithRequirement);
-  const requirementSyncCandidate = newReqCitingTest || assertionChanged === true;
+  const requirementTestAnalysis = analyzeRequirementTestChanges(contextualChanges, base, candidate);
+  const testChanges = requirementTestAnalysis.changes;
+  const assertionChanged = requirementTestAnalysis.assertionChanged;
+  const newReqCitingTest = requirementTestAnalysis.newReqCitingTest;
+  const requirementSyncTrigger = newReqCitingTest ? 'new-test'
+    : assertionChanged === true ? 'assertion-change' : null;
+  const requirementSyncCandidate = requirementSyncTrigger !== null;
   const codeChanged = contextualChanges.some(change => change.codeChanged);
   const derivedAffected = contextualChanges.some(change => change.derivedAffected);
   const reqUpdates = changedRequirementFacts(baseFiles, candidateFiles, effectiveConfig);
-  const citedReqs = citedRequirementFacts(contextualChanges, baseFiles, candidateFiles,
-    candidateLifecycle.docs, effectiveConfig, candidateLifecycle.analysis);
+  const citedReqs = citedRequirementFacts(testChanges, baseFiles, candidateLifecycle.docs,
+    effectiveConfig, candidateLifecycle.analysis);
   const derivedPaths = derivedOutputPaths(contextualChanges, effectiveConfig);
   const baseAnalysis = analyzeSnapshot(baseFiles, effectiveConfig);
   const inventoryEnvelope = copyInventoryEnvelope(inventory);
@@ -812,14 +1147,16 @@ function deriveDocFacts({ base, candidate, config, inventory } = {}) {
         .map(change => ({ from: change.from, to: change.to }))
         .sort((left, right) => compareText(left.from, right.from) || compareText(left.to, right.to))
     },
-    reqCitingTests: uniqueSorted(contextualChanges.filter(change => change.testWithRequirement)
+    reqCitingTests: uniqueSorted(testChanges.filter(change => change.testWithRequirement || change.testAttributionUnknown)
       .map(change => candidateFiles[change.newPath] !== undefined ? change.newPath : change.oldPath)),
     assertionChanged,
+    requirementSyncTrigger,
+    requirementScopeUnknown: requirementTestAnalysis.scopeUnknown,
     inventoryComplete,
     ...(inventoryEnvelope === undefined ? {} : { inventory: inventoryEnvelope }),
     reqUpdates,
     citedReqs,
-    changes: contextualChanges.map(change => ({
+    changes: testChanges.map(change => ({
       kind: change.kind,
       ...(change.path ? { path: change.path } : {}),
       ...(change.from ? { from: change.from } : {}),
@@ -832,6 +1169,7 @@ function deriveDocFacts({ base, candidate, config, inventory } = {}) {
       normative: change.normative,
       derivedAffected: change.derivedAffected,
       testWithRequirement: change.testWithRequirement,
+      testAttributionUnknown: change.testAttributionUnknown,
       codeChanged: change.codeChanged
     })),
     governedTouched,
@@ -894,7 +1232,8 @@ function deriveDocObligations(facts) {
       unknown.add('conflict-check');
     }
     if (facts.referenceContentChanged) applicable.add('prose-reminder');
-    if (facts.requirementSyncCandidate) applicable.add('requirement-sync');
+    if (facts.requirementScopeUnknown) unknown.add('requirement-sync');
+    else if (facts.requirementSyncCandidate) applicable.add('requirement-sync');
     else if (facts.assertionChanged === 'unknown' || facts.codeChanged) unknown.add('requirement-sync');
   }
 
@@ -916,6 +1255,9 @@ function deriveDocObligations(facts) {
     reqUpdates: validFacts && Array.isArray(facts.reqUpdates) ? facts.reqUpdates : [],
     assertionChanged: validFacts && (typeof facts.assertionChanged === 'boolean' || facts.assertionChanged === 'unknown')
       ? facts.assertionChanged : 'unknown',
+    requirementSyncTrigger: validFacts && ['new-test', 'assertion-change', null].includes(facts.requirementSyncTrigger)
+      ? facts.requirementSyncTrigger : null,
+    requirementScopeUnknown: Boolean(validFacts && facts.requirementScopeUnknown === true),
     inventoryComplete: Boolean(validFacts && facts.inventoryComplete === true),
     ...(inventoryEnvelope === undefined ? {} : { inventory: inventoryEnvelope })
   };
@@ -924,7 +1266,11 @@ function deriveDocObligations(facts) {
     capability: item.capability,
     strength: strengths.get(item.capability) || item.strength,
     applicability: applicable.has(item.capability) ? 'applicable' : unknown.has(item.capability) ? 'unknown' : 'N/A',
-    scope: { paths: uniqueSorted(scopePaths[item.capability] || []) },
+    scope: {
+      paths: uniqueSorted(scopePaths[item.capability] || []),
+      ...(item.capability === 'requirement-sync' && requirementFacts.requirementScopeUnknown
+        ? { requirementIds: 'unknown' } : {})
+    },
     acceptance: item.acceptance,
     ...(item.capability === 'requirement-sync' ? requirementFacts : {})
   }));

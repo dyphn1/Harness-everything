@@ -40,7 +40,11 @@ function readTree(root) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(full);
-      else files[path.relative(root, full).split(path.sep).join('/')] = fs.readFileSync(full, 'utf8');
+      else {
+        // A malformed payload is stored as <name>.fixture (so node --check skips it); it is read back as <name>.
+        const rel = path.relative(root, full).split(path.sep).join('/');
+        files[rel.endsWith('.fixture') ? rel.slice(0, -'.fixture'.length) : rel] = fs.readFileSync(full, 'utf8');
+      }
     }
   };
   walk(root);
@@ -558,6 +562,140 @@ checkCase('325-3a cross R7 historical-only ID + valid waiver + matching evidence
   assert.notStrictEqual(resultOf(output, item.id).outcome, 'pass', 'a historical-only REQ is not current authority');
   assert.ok(output.diagnostics.some(d => d.code === 'req-unresolved' && JSON.stringify(d).includes('REQ-GRPH-013')),
     'the historical-only REQ is diagnosed by id');
+});
+
+// Round 8 (PR #334 review 2), end to end: real derivation, then real check. Envelope from the fixture trees.
+
+checkCase('325-3a cross Q1 multiline numeric assertion change, unchanged PRD, complete attested envelope, no records: observed fail (round 8)', () => {
+  const ctx = prepare('multiline-numeric-prd', attestedFor('multiline-numeric-prd'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {});
+  const result = resultOf(output, item.id);
+  assert.strictEqual(result.outcome, 'fail', 'a multiline assertion change with an unchanged PRD fails the obligation');
+  assert.ok(output.diagnostics.some(d => d.code === 'req-sync-no-revision-or-waiver' && d.obligationId === item.id), 'the failure is diagnosed');
+});
+
+checkCase('325-3a cross Q2 partial revision (1 of 2), complete attested envelope, no records: observed fail naming REQ-GRPH-012 only (round 8)', () => {
+  const ctx = prepare('partial-revision', attestedFor('partial-revision'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {});
+  const result = resultOf(output, item.id);
+  assert.strictEqual(result.outcome, 'fail', 'REQ-GRPH-012 is neither revised nor waived');
+  const diag = output.diagnostics.find(d => d.code === 'req-sync-no-revision-or-waiver' && d.obligationId === item.id);
+  assert.ok(diag && JSON.stringify(diag).includes('REQ-GRPH-012'), 'the unrevised REQ is named');
+  assert.ok(diag && !JSON.stringify(diag).includes('REQ-GRPH-011'), 'the revised REQ is not named as missing');
+});
+
+checkCase('325-3a cross Q2 partial revision (1 of 2) plus a valid covering waiver and matching evidence: pass (round 8 control)', () => {
+  const ctx = prepare('partial-revision', attestedFor('partial-revision'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {
+    executionRecords: [boundRecord(ctx, 'partial-run', item.id, item.scope.paths)],
+    reviewRecords: [waiverRecord(ctx, 'waiver-partial', item.id, item.scope.paths, {
+      reason: 'no-req-change: REQ-GRPH-012 acceptance criteria unchanged, cited passing test',
+      citedRecordIds: ['partial-run']
+    })]
+  });
+  assert.strictEqual(resultOf(output, item.id).outcome, 'pass', 'a valid covering waiver satisfies every cited REQ');
+});
+
+checkCase('325-3a cross Q3 new helper-delegated REQ-citing test, complete attested envelope, no records: observed fail (round 8)', () => {
+  const ctx = prepare('helper-delegated-test', attestedFor('helper-delegated-test'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {});
+  assert.strictEqual(resultOf(output, item.id).outcome, 'fail', 'a new REQ-citing test with no revision or waiver fails');
+});
+
+checkCase('325-3a cross Q3 same helper-delegated test without the envelope: none, not fail (round 8 control)', () => {
+  const ctx = prepare('helper-delegated-test');
+  const item = requirementSync(ctx);
+  const output = check(ctx, {});
+  assert.notStrictEqual(resultOf(output, item.id).outcome, 'fail', 'the fail lane needs an attested envelope');
+});
+
+checkCase('325-3a cross Q4 two tests in one file, only test A changed, complete attested envelope, no records: fail names REQ-GRPH-001 only (round 8)', () => {
+  const ctx = prepare('two-tests-one-file', attestedFor('two-tests-one-file'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {});
+  assert.strictEqual(resultOf(output, item.id).outcome, 'fail', 'the changed test cites REQ-GRPH-001 with no revision or waiver');
+  const diag = output.diagnostics.find(d => d.code === 'req-sync-no-revision-or-waiver' && d.obligationId === item.id);
+  assert.ok(diag && JSON.stringify(diag).includes('REQ-GRPH-001'), 'REQ-GRPH-001 is named');
+  assert.ok(diag && !JSON.stringify(diag).includes('REQ-GRPH-002'), 'the unchanged test REQ-GRPH-002 is not claimed');
+});
+
+// Round 9 (PR #334 review round 6), end to end: real derivation, then real check.
+
+checkCase('325-3a cross P1 mixed attribution, attested envelope, valid waiver and matching evidence for the known edit: not pass (round 9)', () => {
+  const ctx = prepare('mixed-attribution', attestedFor('mixed-attribution'));
+  const item = requirementSync(ctx);
+  assert.strictEqual(item.scope.requirementIds, 'unknown', 'derivation refuses to claim the known subset as complete');
+  const output = check(ctx, {
+    executionRecords: [boundRecord(ctx, 'known-run', item.id, item.scope.paths)],
+    reviewRecords: [waiverRecord(ctx, 'waiver-known', item.id, item.scope.paths, {
+      reason: 'no-req-change: acceptance criteria unchanged, cited passing test',
+      citedRecordIds: ['known-run']
+    })]
+  });
+  assert.notStrictEqual(resultOf(output, item.id).outcome, 'pass', 'valid evidence for the known subset never passes an unknown-scope obligation');
+});
+
+checkCase('325-3a cross P1 mixed attribution, attested envelope, no records: not a fail (round 9)', () => {
+  const ctx = prepare('mixed-attribution', attestedFor('mixed-attribution'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {});
+  assert.notStrictEqual(resultOf(output, item.id).outcome, 'fail', 'an unknown scope never establishes absence');
+});
+
+checkCase('325-3a cross P2 explicit requirementSyncTrigger null on the derived obligation, attested fail-shaped inputs: not fail (round 9)', () => {
+  const ctx = prepare(ATTESTED_FIXTURE, ATTESTED_FILE);
+  const item = requirementSync(ctx);
+  item.requirementSyncTrigger = null;
+  const output = check(ctx, {});
+  assert.notStrictEqual(resultOf(output, item.id).outcome, 'fail', 'an explicit null trigger is not an active trigger');
+});
+
+checkCase('325-3a cross P2 explicit requirementSyncTrigger unknown on the derived obligation, attested fail-shaped inputs: not fail (round 9)', () => {
+  const ctx = prepare(ATTESTED_FIXTURE, ATTESTED_FILE);
+  const item = requirementSync(ctx);
+  item.requirementSyncTrigger = 'unknown';
+  const output = check(ctx, {});
+  assert.notStrictEqual(resultOf(output, item.id).outcome, 'fail', 'an unknown trigger never fails');
+});
+
+checkCase('325-3a cross P2 legacy absent field: the derived obligation without requirementSyncTrigger keeps the fail behavior (round 9)', () => {
+  const ctx = prepare(ATTESTED_FIXTURE, ATTESTED_FILE);
+  const item = requirementSync(ctx);
+  delete item.requirementSyncTrigger;
+  const output = check(ctx, {});
+  assert.strictEqual(resultOf(output, item.id).outcome, 'fail', 'a legacy obligation object without the field may still fail');
+});
+
+// Round 10 (PR #334 review round 7, F1), end to end.
+
+checkCase('325-3a cross F1 mixed attribution with a bound failing execution: none, not observed fail (round 10)', () => {
+  const ctx = prepare('mixed-attribution', attestedFor('mixed-attribution'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {
+    executionRecords: [boundRecord(ctx, 'known-fail', item.id, item.scope.paths, { exitCode: 1 })]
+  });
+  assert.strictEqual(resultOf(output, item.id).outcome, 'none', 'the unknown scope is refused before the failed-command branch');
+});
+
+checkCase('325-3a cross F1 control: known-scope attested fail-shaped obligation with a bound failing execution: observed fail (round 10)', () => {
+  const ctx = prepare(ATTESTED_FIXTURE, ATTESTED_FILE);
+  const item = requirementSync(ctx);
+  const output = check(ctx, {
+    executionRecords: [boundRecord(ctx, 'known-fail', item.id, item.scope.paths, { exitCode: 1 })]
+  });
+  assert.strictEqual(resultOf(output, item.id).outcome, 'fail', 'a known scope keeps the failed-execution branch');
+});
+
+// Round 11 (PR #334 review round 8), end to end. A tag-shaped line inside a template literal is not a REQ claim.
+checkCase('325-3a cross R11 tag-shaped line in a template literal, resolved PRD, complete attested envelope, no records: not a fail (round 11)', () => {
+  const ctx = prepare('template-literal-tag', attestedFor('template-literal-tag'));
+  const item = requirementSync(ctx);
+  const output = check(ctx, {});
+  assert.notStrictEqual(resultOf(output, item.id).outcome, 'fail', 'an unclaimed tag never establishes an absence fail');
 });
 
 helper.finish();

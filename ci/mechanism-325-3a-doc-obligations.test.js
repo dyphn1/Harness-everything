@@ -41,7 +41,11 @@ function readTree(root) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(full);
-      else files[path.relative(root, full).split(path.sep).join('/')] = fs.readFileSync(full, 'utf8');
+      else {
+        // A malformed payload is stored as <name>.fixture (so node --check skips it); it is read back as <name>.
+        const rel = path.relative(root, full).split(path.sep).join('/');
+        files[rel.endsWith('.fixture') ? rel.slice(0, -'.fixture'.length) : rel] = fs.readFileSync(full, 'utf8');
+      }
     }
   };
   walk(root);
@@ -454,6 +458,155 @@ checkCase('325-3a R7 named negative: rewriting effective r001 in place is reject
   const analysis = lifecycle.analyzeDocs(docs, CONFIG, { all: true, baseInventory: lifecycleInventory(path.join(root, 'base')) });
   assert.ok(analysis.diagnostics.some(item => item.code === 'immutable-revision-modified' && item.path === 'docs/prd/graph/r001.md'),
     `the in-place rewrite is an immutable-revision-modified error: ${JSON.stringify(analysis.diagnostics.map(item => item.code))}`);
+});
+
+// Round 8 (PR #334 review 2, Q1, Q3, Q4). Derivation expectations only.
+
+// Q1: a changed line is attributed to its enclosing statement. A multiline assertion call counts.
+checkCase('325-3a Q1 multiline assert.strictEqual numeric change: assertionChanged is true (round 8)', () => {
+  const { result } = deriveCase('multiline-strictequal');
+  assert.strictEqual(result.facts.assertionChanged, true, 'the argument of an assertion call changed');
+});
+
+checkCase('325-3a Q1 multiline expect(...).toEqual(...) change: assertionChanged is true (round 8)', () => {
+  const { result } = deriveCase('multiline-expect');
+  assert.strictEqual(result.facts.assertionChanged, true, 'the argument of an expect call changed');
+});
+
+checkCase('325-3a Q1 comment-only edit inside the same multiline call: assertionChanged false, requirement-sync N/A (round 8 control)', () => {
+  const { result, obligations } = deriveCase('multiline-comment-only');
+  assert.strictEqual(result.facts.assertionChanged, false, 'only a trailing comment changed');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A');
+});
+
+checkCase('325-3a Q1 formatting-only change inside the same multiline call: assertionChanged false, requirement-sync N/A (round 8 control)', () => {
+  const { result, obligations } = deriveCase('multiline-formatting-only');
+  assert.strictEqual(result.facts.assertionChanged, false, 'indentation outside literals is formatting');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A');
+});
+
+checkCase('325-3a Q1 enclosing statement cannot be determined (unbalanced call): assertionChanged unknown, never false (round 8)', () => {
+  const { result, obligations } = deriveCase('unbalanced-statement');
+  assert.strictEqual(result.facts.assertionChanged, 'unknown', 'an undeterminable enclosing statement is unknown');
+  assert.notStrictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A',
+    'unknown never becomes trivial');
+});
+
+// Q3: the requirement-sync obligation carries the trigger that the fail lane needs.
+checkCase('325-3a Q3 new REQ-citing test delegating to a helper: requirement-sync trigger is new-test (round 8)', () => {
+  const { obligations } = deriveCase('helper-delegated-test');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').requirementSyncTrigger, 'new-test');
+});
+
+checkCase('325-3a Q3 changed assertion in a REQ-citing test: requirement-sync trigger is assertion-change (round 8)', () => {
+  const { obligations } = deriveCase('tagged-test');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').requirementSyncTrigger, 'assertion-change');
+});
+
+checkCase('325-3a Q3 comment-only edit: requirement-sync trigger is null (round 8)', () => {
+  const { obligations } = deriveCase('comment-only-test');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').requirementSyncTrigger, null);
+});
+
+// Q4: a changed assertion is attributed to its enclosing test call only.
+checkCase('325-3a Q4 two tests in one file, only test A changed: citedReqs names REQ-GRPH-001 only (round 8)', () => {
+  const { result } = deriveCase('two-tests-one-file');
+  const ids = [...new Set(result.facts.citedReqs.map(entry => entry.id))].sort();
+  assert.deepStrictEqual(ids, ['REQ-GRPH-001'], `REQ-GRPH-002 is not cited by the changed test: ${JSON.stringify(result.facts.citedReqs)}`);
+});
+
+checkCase('325-3a Q4 attribution impossible (enclosing test call never closed): requirement-sync is unknown (round 8)', () => {
+  const { obligations } = deriveCase('attribution-impossible');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'unknown',
+    'an unattributable change is an explicit unknown scope, not a REQ claim');
+});
+
+// Round 9 (PR #334 review round 6). Derivation expectations only.
+
+// P1: a mixed change (one known edit, one unattributable edit) makes the whole obligation unknown, not the known subset.
+checkCase('325-3a P1 mixed attribution (known A edit, unattributable B edit): requirement-sync unknown, scope requirementIds unknown (round 9)', () => {
+  const { obligations } = deriveCase('mixed-attribution');
+  const item = obligations.find(o => o.capability === 'requirement-sync');
+  assert.strictEqual(item.applicability, 'unknown', 'a partly unattributable change is unknown');
+  assert.strictEqual(item.scope.requirementIds, 'unknown', 'the obligation does not claim the known subset as complete');
+});
+
+// P2: an enclosing test call that cites no REQ is unknown scope. It never borrows another test's REQ title.
+checkCase('325-3a P2 legacy fallback: changed untagged test inside a file with a tagged unchanged test: unknown scope, no REQ-GRPH-001 claim (round 9)', () => {
+  const { result, obligations } = deriveCase('legacy-untagged-fallback');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'unknown',
+    'the changed statement has an enclosing test call that cites no REQ');
+  assert.ok(!result.facts.citedReqs.some(entry => entry.id === 'REQ-GRPH-001'),
+    `REQ-GRPH-001 belongs to the unchanged test, not this one: ${JSON.stringify(result.facts.citedReqs)}`);
+});
+
+// Malformed attribution (mutation): an unreadable citation in the changed test must not populate citedReqs with other REQs.
+checkCase('325-3a malformed attribution mutation: changed test with unreadable citation text is unknown scope, citedReqs does not contain REQ-GRPH-002 (round 9)', () => {
+  const { result, obligations } = deriveCase('malformed-citation-attribution');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'unknown',
+    'an unreadable citation is an explicit unknown scope');
+  assert.ok(!result.facts.citedReqs.some(entry => entry.id === 'REQ-GRPH-002'),
+    `the unchanged test's REQ is not claimed: ${JSON.stringify(result.facts.citedReqs)}`);
+});
+
+// Round 10 (PR #334 review round 7). Derivation expectations only.
+
+// F1: the unknown requirement scope is an explicit boolean on the obligation, so evidence can refuse it before any outcome branch.
+checkCase('325-3a F1 derive: unknown requirement scope carries an explicit requirementScopeUnknown true marker (round 10)', () => {
+  const { obligations } = deriveCase('mixed-attribution');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').requirementScopeUnknown, true,
+    'the mixed change marks its requirement scope unknown explicitly');
+});
+
+checkCase('325-3a F1 derive: a known requirement scope carries an explicit requirementScopeUnknown false marker (round 10)', () => {
+  const { obligations } = deriveCase('tagged-test');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').requirementScopeUnknown, false,
+    'a fully attributed change has a known scope, stated explicitly');
+});
+
+// F2: the file-level fallback needs a real file-level tag. A title in another test never supplies a REQ.
+checkCase('325-3a F2 unchanged tagged test + changed top-level assertion with no file-level tag: unknown, no REQ-GRPH-001 claim (round 10)', () => {
+  const { result, obligations } = deriveCase('top-level-no-file-tag');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'unknown',
+    'a top-level assertion with no file-level tag has unknown attribution');
+  assert.ok(!result.facts.citedReqs.some(entry => entry.id === 'REQ-GRPH-001'),
+    `REQ-GRPH-001 comes from a test title, not a file-level tag: ${JSON.stringify(result.facts.citedReqs)}`);
+});
+
+// Round 11 (PR #334 review round 8). A file-level tag is a lexer-confirmed top-level comment, not a raw-line match.
+
+checkCase('325-3a R11 tag-shaped line inside a template literal, changed unwrapped top-level assertion: unknown attribution, no claimed REQ-GRPH-001 (round 11)', () => {
+  const { result, obligations } = deriveCase('template-literal-tag');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'unknown',
+    'a template literal is not a file-level comment tag');
+  assert.ok(!result.facts.citedReqs.some(entry => entry.id === 'REQ-GRPH-001'),
+    `the tag-shaped line is data, not a comment: ${JSON.stringify(result.facts.citedReqs)}`);
+});
+
+checkCase('325-3a R11 control: the same tag text inside a string literal is not a file tag: no claimed REQ-GRPH-001 (round 11)', () => {
+  const { result } = deriveCase('string-literal-tag');
+  assert.ok(!result.facts.citedReqs.some(entry => entry.id === 'REQ-GRPH-001'),
+    `a string literal is not a comment: ${JSON.stringify(result.facts.citedReqs)}`);
+});
+
+checkCase('325-3a R11 string-literal tag with a real assertion change: assertionChanged is not false (round 11, found while writing the control)', () => {
+  const { result } = deriveCase('string-literal-tag');
+  assert.notStrictEqual(result.facts.assertionChanged, false,
+    'the assertion value changed from 1 to 2, so the change is not formatting');
+});
+
+checkCase('325-3a R11 control: tag-shaped comment inside another test call is excluded: no claimed REQ-GRPH-001 (round 11)', () => {
+  const { result, obligations } = deriveCase('tag-inside-test-call');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'unknown',
+    'the only tag is inside another test call, so the top-level change has no file-level tag');
+  assert.ok(!result.facts.citedReqs.some(entry => entry.id === 'REQ-GRPH-001'),
+    `a tag inside another test call is not a file-level tag: ${JSON.stringify(result.facts.citedReqs)}`);
+});
+
+checkCase('325-3a R11 control: a real standalone top-level comment tag with a changed unwrapped assertion: resolves to REQ-GRPH-001 (round 11)', () => {
+  const { result } = deriveCase('tagged-test');
+  assert.ok(result.facts.citedReqs.some(entry => entry.id === 'REQ-GRPH-001'),
+    `the real file-level tag is kept: ${JSON.stringify(result.facts.citedReqs)}`);
 });
 
 helper.finish();

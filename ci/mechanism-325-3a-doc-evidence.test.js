@@ -904,4 +904,171 @@ checkCase('325-3a F2 positive: fully attested current no-revision/no-waiver: obs
   assert.ok(output.diagnostics.some(item => item.code === 'req-sync-no-revision-or-waiver'), 'the failure is diagnosed');
 });
 
+// Round 8 (PR #334 review 2, Q2, Q3, Q4). Evidence expectations only.
+
+// Q2: the absence fail is per cited REQ. A REQ that is neither revised nor covered by a valid waiver is missing.
+const REQ_A = 'REQ-GRPH-001';
+const REQ_B = 'REQ-GRPH-002';
+const TWO_REQS = [{ id: REQ_A, file: PRD, resolution: 'resolved' }, { id: REQ_B, file: PRD, resolution: 'resolved' }];
+
+checkCase('325-3a Q2 0 of 2 cited REQs revised, no waiver, attested: observed fail naming both REQs (round 8 control)', () => {
+  const output = runReqSync(attestedReqSync({ citedReqs: TWO_REQS, reqUpdates: [] }));
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.strictEqual(result.outcome, 'fail', 'no cited REQ is revised or waived');
+  const diag = output.diagnostics.find(item => item.code === 'req-sync-no-revision-or-waiver');
+  assert.ok(diag && JSON.stringify(diag).includes(REQ_A) && JSON.stringify(diag).includes(REQ_B), 'both missing REQs are named');
+});
+
+checkCase('325-3a Q2 1 of 2 cited REQs revised, no waiver, attested: observed fail naming REQ-GRPH-002 (round 8)', () => {
+  const output = runReqSync(attestedReqSync({ citedReqs: TWO_REQS, reqUpdates: [{ id: REQ_A, file: PRD }] }));
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.strictEqual(result.outcome, 'fail', 'REQ-GRPH-002 is neither revised nor waived');
+  const diag = output.diagnostics.find(item => item.code === 'req-sync-no-revision-or-waiver');
+  assert.ok(diag && JSON.stringify(diag).includes(REQ_B), 'the unrevised REQ is named');
+  assert.ok(diag && !JSON.stringify(diag).includes(REQ_A), 'the revised REQ is not named as missing');
+});
+
+checkCase('325-3a Q2 2 of 2 cited REQs revised with matching evidence: pass (round 8 control)', () => {
+  const output = runReqSync(attestedReqSync({ citedReqs: TWO_REQS, reqUpdates: [{ id: REQ_A, file: PRD }, { id: REQ_B, file: PRD }] }), {
+    executionRecords: [boundExec('exec-req')]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'pass', 'every cited REQ is revised');
+});
+
+checkCase('325-3a Q2 1 of 2 cited REQs revised plus a valid covering waiver with matching evidence: pass (round 8 control)', () => {
+  const output = runReqSync(attestedReqSync({ citedReqs: TWO_REQS, reqUpdates: [{ id: REQ_A, file: PRD }] }), {
+    executionRecords: [boundExec('exec-req')],
+    reviewRecords: [validWaiver('waiver-covering', 'doc-change:requirement-sync', ['exec-req'])]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'pass', 'a valid covering waiver satisfies every cited REQ');
+});
+
+// Q3: a new REQ-citing test that delegates to a helper reaches the fail lane through its trigger.
+checkCase('325-3a Q3 new REQ-citing test delegating to a helper, complete envelope, no waiver: observed fail (round 8)', () => {
+  const output = runReqSync(attestedReqSync({ assertionChanged: false, requirementSyncTrigger: 'new-test' }));
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.strictEqual(result.observation, 'observed', 'the unmet obligation is observed');
+  assert.strictEqual(result.outcome, 'fail', 'a new REQ-citing test with no revision or waiver fails');
+  assert.ok(output.diagnostics.some(item => item.code === 'req-sync-no-revision-or-waiver'), 'the failure is diagnosed');
+});
+
+checkCase('325-3a Q3 same new helper-delegated test without the envelope: none, not fail (round 8 control)', () => {
+  const output = runReqSync(reqSyncObligation({ assertionChanged: false, requirementSyncTrigger: 'new-test' }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'the fail lane needs an attested envelope');
+});
+
+// Q4: an unknown scope (attribution impossible) never fails, whatever else is attested.
+checkCase('325-3a Q4 unknown scope (attribution impossible) with otherwise fail-shaped inputs: not fail (round 8)', () => {
+  const output = runReqSync(attestedReqSync({ applicability: 'unknown', citedReqs: [{ id: REQ_A, file: PRD, resolution: 'resolved' }] }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'an unknown scope never establishes absence');
+});
+
+// Round 9 (PR #334 review round 6). Evidence expectations only.
+
+// P1: an unknown requirement scope never passes and never establishes absence, even with valid evidence for the known subset.
+checkCase('325-3a P1 unknown requirement scope (requirementScopeUnknown true), attested, no evidence: not a fail, outcome none (round 9)', () => {
+  const output = runReqSync(attestedReqSync({ requirementScopeUnknown: true, citedReqs: [{ id: REQ_A, file: PRD, resolution: 'resolved' }] }));
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'none', 'an unknown scope yields none, never an absence fail');
+});
+
+checkCase('325-3a P1 unknown requirement scope (scope requirementIds unknown) with valid known-subset waiver and evidence: not pass, outcome none (round 9)', () => {
+  const output = runReqSync(attestedReqSync({
+    scope: { paths: [TEST_PATH, PRD], requirementIds: 'unknown' },
+    citedReqs: [{ id: REQ_A, file: PRD, resolution: 'resolved' }]
+  }), {
+    executionRecords: [boundExec('exec-req')],
+    reviewRecords: [validWaiver('waiver-known', 'doc-change:requirement-sync', ['exec-req'])]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'none',
+    'valid evidence for the known subset does not pass an obligation whose scope is unknown');
+});
+
+checkCase('325-3a P1 unknown requirement scope with a revision of the known REQ and matching evidence: not pass, outcome none (round 9)', () => {
+  const output = runReqSync(attestedReqSync({
+    requirementScopeUnknown: true,
+    citedReqs: [{ id: REQ_A, file: PRD, resolution: 'resolved' }],
+    reqUpdates: [{ id: REQ_A, file: PRD }]
+  }), {
+    executionRecords: [boundExec('exec-req')]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'none',
+    'a direct evidence input with an unknown scope is refused, even when the known REQ is revised');
+});
+
+// P2: an explicit trigger is authoritative. Null and unknown never fail; a legacy absent field keeps the old behavior.
+checkCase('325-3a P2 explicit requirementSyncTrigger null with assertionChanged true, full attested fail-shaped inputs: not fail, outcome none (round 9)', () => {
+  const output = runReqSync(attestedReqSync({ requirementSyncTrigger: null, assertionChanged: true }));
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'none',
+    'an explicit null trigger is not an active trigger');
+});
+
+checkCase('325-3a P2 explicit requirementSyncTrigger unknown with assertionChanged true, full attested fail-shaped inputs: not fail, outcome none (round 9)', () => {
+  const output = runReqSync(attestedReqSync({ requirementSyncTrigger: 'unknown', assertionChanged: true }));
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'none',
+    'an unknown trigger never fails');
+});
+
+checkCase('325-3a P2 control: explicit assertion-change trigger, attested, no waiver: observed fail (round 9)', () => {
+  const output = runReqSync(attestedReqSync({ requirementSyncTrigger: 'assertion-change', assertionChanged: true }));
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'an active trigger still fails under the other conditions');
+});
+
+checkCase('325-3a P2 legacy absent-field positive: obligation without requirementSyncTrigger keeps the existing fail behavior (round 9)', () => {
+  const output = runReqSync(attestedReqSync());
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail',
+    'the absent field is legacy input, and assertionChanged true may still fail');
+});
+
+// Round 10 (PR #334 review round 7, F1). An unknown requirement scope is refused before any outcome branch.
+function boundFailingExec(id) {
+  return { ...boundExec(id), exitCode: 1, provenance: 'failing execution record bound to the current candidate and baseline' };
+}
+
+checkCase('325-3a F1 unknown scope (requirementScopeUnknown true) with a bound failing execution: none, not observed fail (round 10)', () => {
+  const output = runReqSync(attestedReqSync({ requirementScopeUnknown: true, citedReqs: [{ id: REQ_A, file: PRD, resolution: 'resolved' }] }), {
+    executionRecords: [boundFailingExec('exec-fail')]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'none',
+    'an unknown scope is refused before the failed-command branch');
+});
+
+checkCase('325-3a F1 unknown scope (scope requirementIds unknown) with a bound failing execution: none, not observed fail (round 10)', () => {
+  const output = runReqSync(attestedReqSync({
+    scope: { paths: [TEST_PATH, PRD], requirementIds: 'unknown' },
+    citedReqs: [{ id: REQ_A, file: PRD, resolution: 'resolved' }]
+  }), {
+    executionRecords: [boundFailingExec('exec-fail')]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'none',
+    'a scope marked unknown by requirementIds is refused before the failed-command branch');
+});
+
+checkCase('325-3a F1 unknown scope with contradictory current pass and fail records: none (round 10)', () => {
+  const output = runReqSync(attestedReqSync({ requirementScopeUnknown: true, citedReqs: [{ id: REQ_A, file: PRD, resolution: 'resolved' }] }), {
+    executionRecords: [boundExec('exec-pass'), boundFailingExec('exec-fail')]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'none',
+    'contradictory records for an unknown scope yield none');
+});
+
+checkCase('325-3a F1 control: known scope with a bound failing execution: observed fail (round 10)', () => {
+  const output = runReqSync(attestedReqSync({ requirementScopeUnknown: false, citedReqs: [{ id: REQ_A, file: PRD, resolution: 'resolved' }] }), {
+    executionRecords: [boundFailingExec('exec-fail')]
+  });
+  assert.strictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'a known scope keeps the failed-execution branch');
+});
+
+checkCase('325-3a F1 control: doc-lint with a bound failing execution (no unknown markers): observed fail, unchanged (round 10)', () => {
+  const output = run({
+    obligations: [obligation('doc-lint', 'applicable', [ADR])],
+    artifacts: { [ADR]: { digest: ADR_DIGEST } },
+    baseline: CURRENT_BASELINE,
+    executionRecords: [executionRecord({ id: 'exec-lint-fail', obligationId: 'doc-lint', exitCode: 1 })],
+    reviewRecords: []
+  });
+  const result = resultFor(output, 'doc-lint');
+  assert.strictEqual(result.observation, 'observed');
+  assert.strictEqual(result.outcome, 'fail', 'a non-requirement capability keeps observed fail on a bound failing execution');
+});
+
 helper.finish();

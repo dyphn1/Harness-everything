@@ -243,6 +243,19 @@ function evaluateObligation(obligation, context) {
     return scopePaths.some(boundAny) ? 'unresolved' : 'unavailable';
   };
 
+  // F1 (round 10): for requirement-sync, an explicitly unknown requirement scope is completed
+  // by nothing and attributes nothing — the check runs before ANY outcome branch, including
+  // the shared bound-failing-execution lane: outcome is none whether the bound records pass,
+  // fail, or contradict each other. Other capabilities keep observed fail on a bound failing
+  // execution.
+  const requirementScopeUnknown = capability === 'requirement-sync'
+    && (obligation.requirementScopeUnknown === true
+      || (isPlainObject(obligation.scope) && obligation.scope.requirementIds === 'unknown'));
+  if (requirementScopeUnknown) {
+    return result('not-observed', 'none',
+      'requirement scope unknown; evidence for a known subset neither passes nor attributes absence', []);
+  }
+
   if (usedExec.length && failingExec.length) {
     return result('observed', 'fail', provenanceJoin(failingExec, 'observed failing evidence'),
       uniqueSorted([...failingExec.map(item => item.id)]));
@@ -349,11 +362,28 @@ function evaluateObligation(obligation, context) {
       && nonEmptyString(envelope.baseDigest) && envelope.baseDigest === baselineDigest
       && nonEmptyString(envelope.candidateDigest) && envelope.candidateDigest === prdSetDigest(artifactMap)
       && nonEmptyString(envelope.configDigest);
+    // Q2 (§11): the absence fail is per cited REQ. A REQ that is neither revised in this
+    // change nor covered by a valid waiver is missing. Waiver satisfaction stays per
+    // obligation: one valid covering waiver satisfies every cited REQ, so any valid waiver
+    // keeps the fail lane closed.
+    // P2 (round 9): an explicit trigger is authoritative. When the obligation carries the field
+    // at all, only 'new-test' and 'assertion-change' open the fail lane; null, 'unknown', or any
+    // other value never fails, even with assertionChanged true. An ABSENT field (distinguished
+    // with a property check) keeps the legacy behavior: assertionChanged true may fail.
+    const triggerPresent = Object.prototype.hasOwnProperty.call(obligation, 'requirementSyncTrigger');
+    const activeTrigger = obligation.requirementSyncTrigger === 'new-test'
+      || obligation.requirementSyncTrigger === 'assertion-change';
+    const missingIds = (Array.isArray(citedIds) && Array.isArray(updatedIds))
+      ? citedIds.filter(id => !updatedIds.includes(id))
+      : [];
+    const failTrigger = triggerPresent
+      ? activeTrigger
+      : (obligation.assertionChanged === true || activeTrigger);
     const failCandidate = revisionDataKnown && citedIds.length > 0
-      && obligation.assertionChanged === true
+      && failTrigger
       && obligation.inventoryComplete === true
       && citedEntries.every(entryResolved)
-      && citedIds.every(id => !updatedIds.includes(id));
+      && missingIds.length > 0;
     if (failCandidate && !envelopeAttested) {
       diagnostics.push({
         code: 'req-sync-envelope-unattested',
@@ -364,13 +394,13 @@ function evaluateObligation(obligation, context) {
       diagnostics.push({
         code: 'req-sync-no-revision-or-waiver',
         obligationId,
-        message: `requirement-sync is unmet: the assertion changed and the inventory is complete, and cited requirement${citedIds.length === 1 ? '' : 's'} ${citedIds.map(id => {
+        message: `requirement-sync is unmet: the trigger is ${obligation.requirementSyncTrigger === 'new-test' ? 'a new REQ-citing test' : 'a changed assertion'} and the inventory is complete, and cited requirement${missingIds.length === 1 ? '' : 's'} ${missingIds.map(id => {
           const entry = citedEntries.find(item => isPlainObject(item) && item.id === id);
           return `${JSON.stringify(id)} (${entry.file})`;
         }).join(', ')} are not revised in this change and no valid waiver exists`
       });
       return result('observed', 'fail',
-        'requirement-sync unmet: attested inventory, assertion changed, cited REQ(s) not revised, no valid waiver',
+        'requirement-sync unmet: attested inventory, requirement-sync trigger fired, cited REQ(s) not revised, no valid waiver',
         []);
     }
 
