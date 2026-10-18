@@ -1,0 +1,5 @@
+test('REQ-GRPH-001 check', () => {
+  assert.equal(run(), 2);
+});
+test('REQ-GRPH-002 check', () => {
+  assert.equal(other(), 2);

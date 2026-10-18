@@ -1,0 +1,1 @@
+exports.model = 2;
