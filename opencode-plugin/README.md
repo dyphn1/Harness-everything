@@ -52,11 +52,34 @@ and on failure calls `client.session.prompt()` to push a synthetic follow-up
 message into the session - forcing the agent to keep working instead of
 actually stopping.
 
+The verification run has a budget, not a fixed 60s cap: a healthy self-regression
+suite takes around two minutes, so the default is 10 minutes and
+`HARNESS_VERIFY_TIMEOUT_MS` overrides it. Every run is classified as `pass`
+(exit 0), `test_failure` (a real non-zero exit), `timeout` (killed at the
+budget) or `execution_error` (a spawn-level failure such as `ENOBUFS`/`ENOENT`).
+Only `test_failure` confirms a failing check and advances the Rule-of-3
+counter; `timeout` and `execution_error` are reported as uncompleted
+verifications and never impersonate repeated failures. A timeout is reported as
+`timed out after <n>s (set HARNESS_VERIFY_TIMEOUT_MS to raise it); last
+output: ...`, a spawn-level failure as `could not run to completion (execution
+error: ENOBUFS); output: ...`.
+
+Known operational limits of the synchronous runner: `execSync` blocks the
+plugin's event loop for the duration of each script (worst case one budget per
+script), and captured output is buffered up to 16 MiB. A run whose output
+exceeds that buffer is classified as an `execution_error`, never as a failed
+check, so buffer pressure cannot flip the circuit breaker. Moving verification
+to an async `spawn` with streaming, bounded diagnostics is tracked as a
+follow-up in issue #338.
+
 ### 3. Rule-of-3 zoom-out boundary (`tool.execute.before` + the verification observer above)
 
 Enforces Rule of 3 on repeated verification failures (same failing command +
-truncated error, not arbitrary tool failures - `tool.execute.after` has no
-normalized success/failure field to key a signature on for tools in general):
+normalized failure evidence: the first recognizable failing-test marker - TAP
+`not ok`, node:test/jest symbols, assertion lines - or a digest of the full
+captured output when no marker exists; not arbitrary tool failures, since
+`tool.execute.after` has no normalized success/failure field to key a
+signature on for tools in general):
 - 3rd failure on the same signature forces a reflection message instead of a
   retry nudge
 - the follow-up asks for a tokenized `zoom-out-report.md` artifact with the

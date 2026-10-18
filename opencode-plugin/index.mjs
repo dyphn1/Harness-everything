@@ -21,12 +21,17 @@
  *                       once locked) + failure tracking inside session.idle
  *   compliance.js    -> folded into the same state writes, no separate stage
  *
- * The circuit breaker trips on repeated *verification* failures (same failing
- * command + truncated error), not on arbitrary tool failures: tool.execute.after
+ * The circuit breaker trips on repeated *verification* failures of the same
+ * underlying check (same command + normalized failure evidence: the first
+ * recognizable failing-test marker, or a digest of the full captured output
+ * when no marker exists), not on arbitrary tool failures: tool.execute.after
  * gives back `{title, output, metadata}` for every tool with no normalized
  * success/failure field, so there is no reliable cross-tool failure signal to
  * key a signature on. Verification failures are self-produced and already
- * normalized, so that is the honest signal to use.
+ * normalized, so that is the honest signal to use. Uncompleted verifications
+ * (timeout, execution error such as ENOBUFS/ENOENT) are reported as failures
+ * but never counted toward the same-check threshold, because no failing check
+ * was actually confirmed.
  */
 
 import { homedir } from "node:os"
@@ -269,8 +274,46 @@ function defaultCompliance() {
   }
 }
 
-function extractFailureSignature(text) {
-  return text.slice(0, 100).replace(/\s+/g, " ").trim()
+// First recognizable evidence of an actual failing check, in line order.
+// TAP, node:test/jest symbols, jest suite/block headers, mocha numbering, and
+// assertion/error lines. `✖ failing tests:` (the node:test summary header) is
+// skipped in favor of the specific test line that follows it.
+const FAILURE_MARKER_PATTERNS = [/^not ok\b.*$/m, /^\s*[✖✕]\s*(?!\s*failing\b).+$/m, /^FAIL\b.*$/m, /^●\s+.+$/m, /^\d+\)\s+.+$/m, /^[A-Za-z]*Error\b.*$/m];
+
+function normalizeFailureLine(line) {
+  let text = String(line || "").replace(/\s+/g, " ").trim();
+  text = text.replace(/\s*\(\d+(?:\.\d+)?\s*m?s\)\s*$/, ""); // runner timing suffixes
+  text = text.replace(/^not ok \d+\b/, "not ok"); // TAP plan numbering
+  return text.slice(0, 160);
+}
+
+function firstFailureMarker(text) {
+  const lines = String(text || "").replace(/\u001b\[[0-9;]*m/g, "").split(/\r?\n/);
+  for (const line of lines) {
+    if (FAILURE_MARKER_PATTERNS.some((pattern) => pattern.test(line))) {
+      const normalized = normalizeFailureLine(line);
+      if (normalized) return normalized;
+    }
+  }
+  return null;
+}
+
+// A stable, normalized signature: command + outcome + exit condition + the
+// first failing-check marker. Without a marker the signature falls back to a
+// digest of the full captured output, so banner-only prefixes from *different*
+// failures can never collide (identical byte-for-byte output still matches,
+// which is the honest reading: the same observation repeated).
+function buildFailureSignature(result) {
+  const evidence = String((result && result.error) || "");
+  const marker = firstFailureMarker(evidence);
+  const exit =
+    result && Number.isInteger(result.exitCode) ? `exit=${result.exitCode}`
+      : result && result.signal ? `signal=${result.signal}`
+        : "exit=unknown";
+  const base = `${(result && result.command) || "verification"} [${(result && result.outcome) || "unknown"}] ${exit}`;
+  if (marker) return `${base}: ${marker}`;
+  const digest = createHash("sha256").update(evidence.replace(/\s+/g, " ").trim()).digest("hex").slice(0, 16);
+  return `${base}: unrecognized-output ${digest}`;
 }
 
 function getAvailableScripts(cwd) {
@@ -281,6 +324,43 @@ function getAvailableScripts(cwd) {
   } catch {
     return {}
   }
+}
+
+// Verification budget for the npm scripts run on session.idle. The Harness
+// self-regression suite needs ~2 minutes on a laptop, so the original 60s cap
+// killed healthy runs and reported them as failures (same truncated stdout as
+// the failure signature, three times in a row -> forced reflection).
+// Known limits of this synchronous runner, kept honest: execSync blocks the
+// plugin's event loop for the duration of each command (worst case one budget
+// per script), and a command whose output exceeds VERIFY_MAX_BUFFER is
+// classified as an execution error - never as a failed check - so buffer
+// pressure cannot impersonate a test failure.
+const VERIFY_TIMEOUT_ENV = "HARNESS_VERIFY_TIMEOUT_MS"
+const DEFAULT_VERIFY_TIMEOUT_MS = 600000
+const VERIFY_MAX_BUFFER = 16 * 1024 * 1024
+const VERIFY_OUTPUT_LIMIT = 2000
+
+function verifyTimeoutMs() {
+  const raw = Number(process.env[VERIFY_TIMEOUT_ENV])
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_VERIFY_TIMEOUT_MS
+}
+
+// Outcome taxonomy:
+//   pass            the command exited 0
+//   test_failure    a real non-zero exit status: a check actually failed
+//   timeout         killed at the budget, with no verdict from the suite
+//   execution_error spawn-level failure (ENOBUFS, ENOENT, signals): no verdict
+// Only test_failure feeds the same-check Rule-of-3 counter.
+function classifyVerificationError(error, startedAt, timeout) {
+  const code = String((error && error.code) || "")
+  const signal = String((error && error.signal) || "")
+  const exitCode = error && Number.isInteger(error.status) ? error.status : null
+  const timedOut = code === "ETIMEDOUT" || signal === "SIGTERM" || Date.now() - startedAt >= timeout
+  if (timedOut) return { outcome: "timeout", exitCode, signal, timedOut: true }
+  if (exitCode === null || ["ENOBUFS", "ENOENT", "EACCES", "EAGAIN", "ENOMEM"].includes(code)) {
+    return { outcome: "execution_error", exitCode, signal, timedOut: false }
+  }
+  return { outcome: "test_failure", exitCode, signal, timedOut: false }
 }
 
 function runVerification(cwd) {
@@ -295,13 +375,26 @@ function runVerification(cwd) {
     return { allPassed: true, skipped: true, results: [] }
   }
 
+  const timeout = verifyTimeoutMs()
   const results = []
   for (const { cmd } of commands) {
+    const startedAt = Date.now()
     try {
-      execSync(cmd, { cwd, stdio: "pipe", timeout: 60000 })
-      results.push({ command: cmd, success: true })
+      execSync(cmd, { cwd, stdio: "pipe", timeout, maxBuffer: VERIFY_MAX_BUFFER })
+      results.push({ command: cmd, success: true, outcome: "pass", exitCode: 0, signal: null, timedOut: false })
     } catch (e) {
-      results.push({ command: cmd, success: false, error: (e.stdout || e.message || "").toString().slice(0, 200) })
+      const output = (e.stdout || e.stderr || e.message || "").toString()
+      const { outcome, exitCode, signal, timedOut } = classifyVerificationError(e, startedAt, timeout)
+      let error
+      if (outcome === "timeout") {
+        error = `timed out after ${Math.round(timeout / 1000)}s (set ${VERIFY_TIMEOUT_ENV} to raise it); last output: ${output.slice(0, 160).replace(/\s+/g, " ").trim() || "(none)"}`
+      } else if (outcome === "execution_error") {
+        const reason = String((e && e.code) || (signal ? `signal ${signal}` : "no exit status"))
+        error = `could not run to completion (execution error: ${reason}); output: ${output.slice(0, 200).replace(/\s+/g, " ").trim() || "(none)"}`
+      } else {
+        error = output.slice(0, VERIFY_OUTPUT_LIMIT)
+      }
+      results.push({ command: cmd, success: false, outcome, exitCode, signal, timedOut, error })
     }
   }
   return { allPassed: results.every((r) => r.success), skipped: false, results }
@@ -697,29 +790,46 @@ export const HarnessEnforcement = async ({ client, directory }) => {
           return
         }
 
-        const failing = results.find((r) => !r.success)
-        const signature = extractFailureSignature(`${failing.command}: ${failing.error || ""}`)
-        const trip = tripBreaker(breakerFile, signature)
+        const failing = results.filter((r) => !r.success)
+        const confirmed = failing.find((r) => r.outcome === "test_failure")
+        const primary = confirmed || failing[0]
         state.followUpPending = true
         saveJSON(editStateFile, state)
 
         let text
-        if (trip.action === "force_reflection") {
-          const { stateDir } = pathsFor(activeSession)
+        if (!confirmed) {
+          // Timeout or execution error: no check produced a verdict, so this
+          // must not advance the same-check Rule-of-3 counter. Report it as an
+          // uncompleted verification and stay honest about what is unknown.
+          const detail =
+            primary.outcome === "timeout"
+              ? `timed out (budget ${Math.round(verifyTimeoutMs() / 1000)}s; set ${VERIFY_TIMEOUT_ENV} to raise it)`
+              : "could not run to completion (execution error, not a confirmed test failure)"
           text =
-            `Harness: "${failing.command}" has now failed 3 times with the same error. Stop and reflect ` +
-            `before retrying. Write a report to "${reflectionReportPath(stateDir)}" with sections ` +
-            `## Goal, ## Failed Attempts, ## Verified Facts, ## Diagnosis, and ## Decision. ` +
-            `The Decision must begin with RESUME: or ESCALATE:. Include reflection token: ${trip.reflectionToken}. ` +
-            `After the report is recorded, resume with a different approach. Failure: ${failing.error || "(no output captured)"}`
-          recordCompliance(complianceFile, (c) => {
-            c.circuitBreakerTrips++
-            c.reflectionsForced++
-          })
+            `Harness: verification did not complete - "${primary.command}" ${detail}. ` +
+            `No failing check was confirmed, so this does NOT count toward the repeated-failure reflection. ` +
+            `Diagnostics: ${primary.error || "(no output captured)"}. ` +
+            `Fix the cause (or raise the budget) and verify again; a new edit re-runs verification.`
         } else {
-          text =
-            `Harness: verification failed (${trip.remaining} retries before a forced reflection). ` +
-            `"${failing.command}" - ${failing.error || "(no output captured)"}. Fix it and this will re-run automatically.`
+          const signature = buildFailureSignature(confirmed)
+          const trip = tripBreaker(breakerFile, signature)
+          if (trip.action === "force_reflection") {
+            const { stateDir } = pathsFor(activeSession)
+            text =
+              `Harness: "${confirmed.command}" has now failed 3 times with the same error. Stop and reflect ` +
+              `before retrying. Write a report to "${reflectionReportPath(stateDir)}" with sections ` +
+              `## Goal, ## Failed Attempts, ## Verified Facts, ## Diagnosis, and ## Decision. ` +
+              `The Decision must begin with RESUME: or ESCALATE:. Include reflection token: ${trip.reflectionToken}. ` +
+              `After the report is recorded, resume with a different approach. Failure: ${confirmed.error || "(no output captured)"}`
+            recordCompliance(complianceFile, (c) => {
+              c.circuitBreakerTrips++
+              c.reflectionsForced++
+            })
+          } else {
+            text =
+              `Harness: verification failed (${trip.remaining} retries before a forced reflection). ` +
+              `"${confirmed.command}" - ${confirmed.error || "(no output captured)"}. Fix it and this will re-run automatically.`
+          }
         }
 
         try {
