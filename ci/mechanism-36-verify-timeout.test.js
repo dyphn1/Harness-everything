@@ -473,8 +473,8 @@ assert.strictEqual(
   );
   assert.strictEqual(
     context.firstFailureMarker('not ok 7 - TAP check\n'),
-    'not ok 7 - TAP check',
-    'TAP marker recognition is unaffected by Mocha indentation support',
+    'not ok - TAP check',
+    'TAP marker numbering is normalized independently of Mocha indentation support',
   );
 
   const bannerOnly = result(banner);
