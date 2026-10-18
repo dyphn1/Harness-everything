@@ -271,6 +271,61 @@ console.log('\n[39] opencode verification outcomes: Rule-of-3 downstream behavio
     JSON.stringify(breaker),
   );
 
+  // --- nested Jest Console bullets are payload, not test-level markers ---
+  // The previous fix only excluded indented Error lines. A logged "●" used
+  // to terminate the Console section regardless of indentation, causing
+  // either false reflection (shared console text) or missed Rule-of-3
+  // (volatile console text) for actual Jest failures.
+  const consoleBulletFailure = (name, noise) => [
+    "console.log('PASS src/loggy.test.js');",
+    "console.log('  ● Console');",
+    "console.log('');",
+    "console.log('    console.log');",
+    `console.log('      ● ${noise}');`,
+    "console.log('      ● Console');",
+    "console.log('');",
+    "console.log('FAIL src/parser.test.js');",
+    `console.log('  ● parser › accepts ${name}');`,
+    'process.exit(1);',
+  ];
+
+  const consoleBulletDistinctSession = 'console-bullet-distinct';
+  for (const name of ['alpha', 'beta', 'gamma']) {
+    setFixture(consoleBulletFailure(name, 'preparing runtime'));
+    await edit(consoleBulletDistinctSession);
+    await idle(consoleBulletDistinctSession);
+  }
+  breaker = readBreaker(consoleBulletDistinctSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. shared nested Console bullet with different Jest failures never causes false Rule-of-3',
+    Object.keys(breaker.failures).length === 3 &&
+      entries.every((entry) => entry.count === 1) &&
+      breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+
+  const consoleBulletIdenticalSession = 'console-bullet-identical';
+  for (const noise of ['preparing runtime', 'loading plugins', 'initialization complete']) {
+    setFixture(consoleBulletFailure('stable', noise));
+    await edit(consoleBulletIdenticalSession);
+    await idle(consoleBulletIdenticalSession);
+  }
+  breaker = readBreaker(consoleBulletIdenticalSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. differing nested Console bullets do not stop the same Jest failure from reaching Rule-of-3',
+    Object.keys(breaker.failures).length === 1 &&
+      entries[0].count === 3 &&
+      breaker.reflectionPending === true,
+    JSON.stringify(breaker),
+  );
+  helper.check(
+    '39. nested Console bullet Rule-of-3 produces a reflection token',
+    /reflection token: [A-Za-z0-9]+/.test(lastPrompt()),
+    lastPrompt(),
+  );
+
   // --- genuinely identical failures keep the Rule of 3 ------------------
   const identicalSession = 'identical';
   setFixture(markerFailure('stable check'));
