@@ -52,6 +52,14 @@ and on failure calls `client.session.prompt()` to push a synthetic follow-up
 message into the session - forcing the agent to keep working instead of
 actually stopping.
 
+The verification run has a budget, not a fixed 60s cap: a healthy self-regression
+suite takes around two minutes, so the default is 10 minutes and
+`HARNESS_VERIFY_TIMEOUT_MS` overrides it. A command still running when the
+budget expires is reported as `timed out after <n>s (set
+HARNESS_VERIFY_TIMEOUT_MS to raise it); last output: ...`, so a slow-but-healthy
+suite is distinguishable from a real break - and from the failure signature the
+Rule-of-3 breaker keys on.
+
 ### 3. Rule-of-3 zoom-out boundary (`tool.execute.before` + the verification observer above)
 
 Enforces Rule of 3 on repeated verification failures (same failing command +

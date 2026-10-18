@@ -283,6 +283,18 @@ function getAvailableScripts(cwd) {
   }
 }
 
+// Verification budget for the npm scripts run on session.idle. The Harness
+// self-regression suite needs ~2 minutes on a laptop, so the original 60s cap
+// killed healthy runs and reported them as failures (same truncated stdout as
+// the failure signature, three times in a row -> forced reflection).
+const VERIFY_TIMEOUT_ENV = "HARNESS_VERIFY_TIMEOUT_MS"
+const DEFAULT_VERIFY_TIMEOUT_MS = 600000
+
+function verifyTimeoutMs() {
+  const raw = Number(process.env[VERIFY_TIMEOUT_ENV])
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_VERIFY_TIMEOUT_MS
+}
+
 function runVerification(cwd) {
   const scripts = getAvailableScripts(cwd)
   const commands = [
@@ -295,13 +307,24 @@ function runVerification(cwd) {
     return { allPassed: true, skipped: true, results: [] }
   }
 
+  const timeout = verifyTimeoutMs()
   const results = []
   for (const { cmd } of commands) {
+    const startedAt = Date.now()
     try {
-      execSync(cmd, { cwd, stdio: "pipe", timeout: 60000 })
+      execSync(cmd, { cwd, stdio: "pipe", timeout })
       results.push({ command: cmd, success: true })
     } catch (e) {
-      results.push({ command: cmd, success: false, error: (e.stdout || e.message || "").toString().slice(0, 200) })
+      const output = (e.stdout || e.stderr || e.message || "").toString()
+      const timedOut = /ETIMEDOUT/.test(String(e.code || "")) || Date.now() - startedAt >= timeout
+      results.push({
+        command: cmd,
+        success: false,
+        timedOut,
+        error: timedOut
+          ? `timed out after ${Math.round(timeout / 1000)}s (set ${VERIFY_TIMEOUT_ENV} to raise it); last output: ${output.slice(0, 160).replace(/\s+/g, " ").trim() || "(none)"}`
+          : output.slice(0, 200),
+      })
     }
   }
   return { allPassed: results.every((r) => r.success), skipped: false, results }

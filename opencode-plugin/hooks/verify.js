@@ -105,18 +105,35 @@ function getAvailableScripts() {
   }
 }
 
+// Mirrors ../index.mjs's verification budget so the manual CLI cannot drift
+// from the plugin. A 60s cap killed healthy ~2 minute self-regression runs.
+const VERIFY_TIMEOUT_ENV = 'HARNESS_VERIFY_TIMEOUT_MS';
+const DEFAULT_VERIFY_TIMEOUT_MS = 600000;
+
+function verifyTimeoutMs() {
+  const raw = Number(process.env[VERIFY_TIMEOUT_ENV]);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_VERIFY_TIMEOUT_MS;
+}
+
 function runVerification(command) {
+  const timeout = verifyTimeoutMs();
+  const startedAt = Date.now();
   try {
-    execSync(command, { 
+    execSync(command, {
       stdio: 'pipe',
-      timeout: 60000 // 60 second timeout
+      timeout
     });
     return { success: true, command };
   } catch (e) {
-    return { 
-      success: false, 
+    const output = (e.stdout || e.stderr || e.message || '').toString();
+    const timedOut = /ETIMEDOUT/.test(String(e.code || '')) || Date.now() - startedAt >= timeout;
+    return {
+      success: false,
       command,
-      error: e.message.slice(0, 200)
+      timedOut,
+      error: timedOut
+        ? `timed out after ${Math.round(timeout / 1000)}s (set ${VERIFY_TIMEOUT_ENV} to raise it)`
+        : output.slice(0, 200)
     };
   }
 }
@@ -179,7 +196,8 @@ function main() {
     allPassed,
     results: results.map(r => ({
       command: r.command,
-      success: r.success
+      success: r.success,
+      timedOut: r.timedOut === true
     })),
     message: allPassed 
       ? 'All available verification passed. You can now complete.'
