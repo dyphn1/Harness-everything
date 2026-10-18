@@ -439,6 +439,44 @@ assert.strictEqual(
   const jestWithConsole = `FAIL src/parser.test.js\n  ● Console\n\n    console.log\n      noise\n\n  ● parser › accepts alpha\n`;
   assert.strictEqual(context.firstFailureMarker(jestWithConsole), 'FAIL src/parser.test.js: ● parser › accepts alpha', 'a Console block before the failure does not confuse the marker');
 
+
+  // P2: Mocha indents both numbered failures and assertion lines. Signatures
+  // must use the test identity, not the whole output (volatile stack/timing).
+  const mochaLike = (name, frame) =>
+    `  1) should parse ${name}\n     AssertionError: expected true to equal false\n       at Context.<anonymous> (fixture.test.js:${frame}:7)\n`;
+  const mochaAlpha = result(mochaLike('alpha', 17));
+  const mochaBeta = result(mochaLike('beta', 18));
+  assert.strictEqual(
+    context.firstFailureMarker(mochaLike('alpha', 17)),
+    '1) should parse alpha',
+    'indented Mocha test-number lines are recognized and normalized',
+  );
+  assert.notStrictEqual(
+    context.buildFailureSignature(mochaAlpha),
+    context.buildFailureSignature(mochaBeta),
+    'different indented Mocha failures have different signatures',
+  );
+  assert.strictEqual(
+    context.buildFailureSignature(mochaAlpha),
+    context.buildFailureSignature(result(mochaLike('alpha', 93))),
+    'the same Mocha failure keeps one signature despite changing stack line numbers',
+  );
+  assert.strictEqual(
+    context.firstFailureMarker('     AssertionError [ERR_ASSERTION]: same assertion\n'),
+    'AssertionError [ERR_ASSERTION]: same assertion',
+    'indented assertion-only output is recognized as failure evidence',
+  );
+  assert.notStrictEqual(
+    context.buildFailureSignature(result('     AssertionError: alpha boom\n')),
+    context.buildFailureSignature(result('     AssertionError: beta boom\n')),
+    'distinct indented assertion failures remain distinct',
+  );
+  assert.strictEqual(
+    context.firstFailureMarker('not ok 7 - TAP check\n'),
+    'not ok 7 - TAP check',
+    'TAP marker recognition is unaffected by Mocha indentation support',
+  );
+
   const bannerOnly = result(banner);
   assert.strictEqual(context.buildFailureSignature(bannerOnly), context.buildFailureSignature(result(banner)), 'identical markerless output still matches');
   const bannerPlusTail = result(`${banner}different tail`);
