@@ -548,4 +548,360 @@ checkCase('325-3a H3 waiver self-binding: a stale waiver citing current observed
   assert.ok(JSON.stringify(output.diagnostics).includes('waiver-stale'), 'the stale waiver is diagnosed by id');
 });
 
+// Round 4 (§10): observed/fail for an unmet requirement-sync obligation, only when every §10 condition holds.
+// The obligation carries assertionChanged, inventoryComplete and citedReqs/reqUpdates from derivation.
+const TEST_PATH = 'ci/mechanism-lint.test.js';
+const TEST_DIGEST = sha256('assert.equal(run(), 2);');
+
+function reqSyncObligation(overrides) {
+  return Object.freeze({
+    id: 'doc-change:requirement-sync',
+    capability: 'requirement-sync',
+    strength: 'MUST',
+    applicability: 'applicable',
+    scope: { paths: [TEST_PATH, PRD] },
+    acceptance: 'Evaluate whether affected requirements need an update or supported no-change record.',
+    assertionChanged: true,
+    inventoryComplete: true,
+    citedReqs: [{ id: 'REQ-GRPH-001', file: PRD }],
+    reqUpdates: [],
+    ...(overrides || {})
+  });
+}
+
+function runReqSync(obligation, extra) {
+  return run({
+    obligations: [obligation],
+    artifacts: { [TEST_PATH]: { digest: TEST_DIGEST }, [PRD]: { digest: PRD_DIGEST } },
+    baseline: CURRENT_BASELINE,
+    executionRecords: [],
+    reviewRecords: [],
+    ...(extra || {})
+  });
+}
+
+// Round 6 fix (inputs only): the round-4 §10 positives supply the F2 attested envelope, same shape as the
+// round-6 fixture inventory.json. candidateDigest is the PRD-set digest of this case's artifacts (PRD only).
+const ROUND4_ATTESTED_INVENTORY = Object.freeze({
+  complete: true,
+  waiverInventoryComplete: true,
+  baseDigest: CURRENT_BASELINE.digest,
+  candidateDigest: sha256(JSON.stringify([[PRD, PRD_DIGEST]])),
+  configDigest: sha256('shared derive config')
+});
+
+checkCase('325-3a req-sync fail: all §10 conditions hold, no revision, no waiver => observed/fail with req-sync-no-revision-or-waiver naming REQ and file', () => {
+  const output = runReqSync(reqSyncObligation({ inventory: ROUND4_ATTESTED_INVENTORY }));
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.ok(result, 'a result is reported');
+  assert.strictEqual(result.observation, 'observed', 'the unmet obligation is an observed check');
+  assert.strictEqual(result.outcome, 'fail', 'the unmet obligation is an observed failure');
+  const diag = output.diagnostics.find(item => item.code === 'req-sync-no-revision-or-waiver');
+  assert.ok(diag, 'the failure is diagnosed');
+  assert.strictEqual(diag.obligationId, 'doc-change:requirement-sync', 'diagnostic names the obligation');
+  const flat = JSON.stringify(diag);
+  assert.ok(flat.includes('REQ-GRPH-001'), `diagnostic names the REQ id: ${flat}`);
+  assert.ok(flat.includes(PRD), `diagnostic names the file: ${flat}`);
+});
+
+checkCase('325-3a req-sync negative: inventory incomplete is not a fail (§10)', () => {
+  const output = runReqSync(reqSyncObligation({ inventoryComplete: false }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'incomplete inventory never establishes absence');
+});
+
+checkCase('325-3a req-sync negative: comment-only edit (assertionChanged false) is not a fail (§10)', () => {
+  const output = runReqSync(reqSyncObligation({ assertionChanged: false }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'a comment-only change is not an unmet assertion change');
+});
+
+checkCase('325-3a req-sync negative: unknown assertion change is not a fail (§10)', () => {
+  const output = runReqSync(reqSyncObligation({ assertionChanged: 'unknown' }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'an undeterminable assertion change is not a fail');
+});
+
+checkCase('325-3a req-sync negative: cited REQ with file null (not resolved in the inventory) is not a fail (§10)', () => {
+  const output = runReqSync(reqSyncObligation({ citedReqs: [{ id: 'REQ-GRPH-001', file: null }] }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'an unresolved REQ does not establish absence');
+});
+
+checkCase('325-3a req-sync: invalid waiver with empty reason still fails, and also carries unsupported-waiver (§10 condition 5)', () => {
+  const output = runReqSync(reqSyncObligation({ inventory: ROUND4_ATTESTED_INVENTORY }), {
+    reviewRecords: [{
+      id: 'waiver-empty',
+      obligationId: 'doc-change:requirement-sync',
+      kind: 'waiver',
+      verdict: 'approve',
+      summary: 'no-req-change',
+      reason: '',
+      citedRecordIds: [],
+      paths: [TEST_PATH, PRD],
+      artifactDigests: { [TEST_PATH]: TEST_DIGEST, [PRD]: PRD_DIGEST },
+      baseDigest: CURRENT_BASELINE.digest,
+      provenance: 'waiver record bound to the current candidate and baseline'
+    }]
+  });
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.strictEqual(result.outcome, 'fail', 'the unmet obligation still fails; the invalid waiver does not rescue it');
+  assert.ok(output.diagnostics.some(item => item.code === 'req-sync-no-revision-or-waiver'), 'the failure is diagnosed');
+  assert.ok(output.diagnostics.some(item => item.code === 'unsupported-waiver' && item.obligationId === 'doc-change:requirement-sync'),
+    'the invalid waiver attempt is also diagnosed');
+});
+
+checkCase('325-3a req-sync positive: valid revision alternative with matching evidence passes (existing behavior, not fail)', () => {
+  const output = runReqSync(reqSyncObligation({ reqUpdates: [{ id: 'REQ-GRPH-001', file: PRD }] }), {
+    executionRecords: [{
+      id: 'exec-req',
+      obligationId: 'doc-change:requirement-sync',
+      command: 'node ci/mechanism-lint.test.js',
+      exitCode: 0,
+      paths: [TEST_PATH, PRD],
+      artifactDigests: { [TEST_PATH]: TEST_DIGEST, [PRD]: PRD_DIGEST },
+      baseDigest: CURRENT_BASELINE.digest,
+      provenance: 'execution record bound to the current candidate and baseline'
+    }]
+  });
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.strictEqual(result.observation, 'observed');
+  assert.strictEqual(result.outcome, 'pass', 'a satisfied revision alternative passes');
+});
+
+// Round 5 (PR #334 review R4, R5). Evidence expectations only.
+
+// R4: minimum execution-evidence schema. A bound record with exitCode 0 but no command or provenance is
+// incomplete: a diagnostic, and it never passes.
+checkCase('325-3a R4 incomplete execution record (bound, exitCode 0, no command or provenance): not pass, execution-record-incomplete', () => {
+  const output = run({
+    obligations: [obligation('doc-lint', 'applicable', [ADR])],
+    artifacts: { [ADR]: { digest: ADR_DIGEST } },
+    baseline: CURRENT_BASELINE,
+    executionRecords: [executionRecord({ id: 'exec-bare', obligationId: 'doc-lint', command: undefined, provenance: undefined })],
+    reviewRecords: []
+  });
+  const result = resultFor(output, 'doc-lint');
+  assert.ok(result, 'a result is reported');
+  assert.notStrictEqual(result.outcome, 'pass', 'an incomplete record never passes');
+  const diag = output.diagnostics.find(item => item.code === 'execution-record-incomplete');
+  assert.ok(diag, 'the incomplete record is diagnosed');
+  assert.ok(JSON.stringify(diag).includes('exec-bare'), `the diagnostic names the record: ${JSON.stringify(diag)}`);
+});
+
+checkCase('325-3a R4 incomplete execution record (exitCode is a string "0"): not pass, execution-record-incomplete', () => {
+  const output = run({
+    obligations: [obligation('doc-lint', 'applicable', [ADR])],
+    artifacts: { [ADR]: { digest: ADR_DIGEST } },
+    baseline: CURRENT_BASELINE,
+    executionRecords: [executionRecord({ id: 'exec-string-exit', obligationId: 'doc-lint', exitCode: '0' })],
+    reviewRecords: []
+  });
+  const result = resultFor(output, 'doc-lint');
+  assert.notStrictEqual(result.outcome, 'pass', 'a non-integer exit code never passes');
+  assert.ok(output.diagnostics.some(item => item.code === 'execution-record-incomplete'), 'the record is diagnosed');
+});
+
+checkCase('325-3a R4 control: complete execution record (command, provenance, integer exitCode 0): doc-lint passes', () => {
+  const output = run({
+    obligations: [obligation('doc-lint', 'applicable', [ADR])],
+    artifacts: { [ADR]: { digest: ADR_DIGEST } },
+    baseline: CURRENT_BASELINE,
+    executionRecords: [executionRecord({ id: 'exec-complete', obligationId: 'doc-lint' })],
+    reviewRecords: []
+  });
+  const result = resultFor(output, 'doc-lint');
+  assert.strictEqual(result.observation, 'observed');
+  assert.strictEqual(result.outcome, 'pass', 'a complete bound record passes');
+});
+
+// R5: a no-REQ-change waiver is allowed only for a resolved requirement (file non-null). An orphan id
+// (no PRD declaration) is unresolved, with a targeted diagnostic, and never passes.
+checkCase('325-3a R5 orphan REQ + valid current waiver + passing execution: not pass, req-unresolved names the REQ id', () => {
+  const output = runReqSync(reqSyncObligation({ citedReqs: [{ id: 'REQ-GRPH-099', file: null }] }), {
+    executionRecords: [{
+      id: 'exec-req',
+      obligationId: 'doc-change:requirement-sync',
+      command: 'node ci/mechanism-lint.test.js',
+      exitCode: 0,
+      paths: [TEST_PATH, PRD],
+      artifactDigests: { [TEST_PATH]: TEST_DIGEST, [PRD]: PRD_DIGEST },
+      baseDigest: CURRENT_BASELINE.digest,
+      provenance: 'execution record bound to the current candidate and baseline'
+    }],
+    reviewRecords: [{
+      id: 'waiver-orphan',
+      obligationId: 'doc-change:requirement-sync',
+      kind: 'waiver',
+      verdict: 'approve',
+      summary: 'no-req-change',
+      reason: 'no-req-change: acceptance criteria unchanged, cited passing test',
+      citedRecordIds: ['exec-req'],
+      paths: [TEST_PATH, PRD],
+      artifactDigests: { [TEST_PATH]: TEST_DIGEST, [PRD]: PRD_DIGEST },
+      baseDigest: CURRENT_BASELINE.digest,
+      provenance: 'waiver record bound to the current candidate and baseline'
+    }]
+  });
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.ok(result, 'a result is reported');
+  assert.notStrictEqual(result.outcome, 'pass', 'an unresolved REQ never passes through a waiver');
+  const diag = output.diagnostics.find(item => item.code === 'req-unresolved');
+  assert.ok(diag, 'the unresolved REQ is diagnosed');
+  assert.ok(JSON.stringify(diag).includes('REQ-GRPH-099'), `the diagnostic names the REQ id: ${JSON.stringify(diag)}`);
+});
+
+// Round 6 (Sol round-3 review F1, F2). The fail lane needs an attested envelope; the pass lane does not.
+// Envelope: obligation.inventory = { complete, waiverInventoryComplete, baseDigest, candidateDigest, configDigest }.
+// candidateDigest = sha256 over the sorted [path, digest] pairs of artifacts under docs/prd/.
+
+function prdSetDigest(artifacts) {
+  return sha256(JSON.stringify(Object.keys(artifacts).filter(p => p.startsWith('docs/prd/')).sort()
+    .map(p => [p, artifacts[p].digest])));
+}
+
+const RS_ARTIFACTS = { [TEST_PATH]: { digest: TEST_DIGEST }, [PRD]: { digest: PRD_DIGEST } };
+const ATTESTED_INVENTORY = Object.freeze({
+  complete: true,
+  waiverInventoryComplete: true,
+  baseDigest: CURRENT_BASELINE.digest,
+  candidateDigest: prdSetDigest(RS_ARTIFACTS),
+  configDigest: sha256('shared derive config')
+});
+
+function attestedReqSync(overrides) {
+  return reqSyncObligation({ inventory: ATTESTED_INVENTORY, ...(overrides || {}) });
+}
+
+function validWaiver(id, obligationId, citedRecordIds) {
+  return {
+    id,
+    obligationId,
+    kind: 'waiver',
+    verdict: 'approve',
+    summary: 'no-req-change',
+    reason: 'no-req-change: acceptance criteria unchanged, cited passing test',
+    citedRecordIds,
+    paths: [TEST_PATH, PRD],
+    artifactDigests: { [TEST_PATH]: TEST_DIGEST, [PRD]: PRD_DIGEST },
+    baseDigest: CURRENT_BASELINE.digest,
+    provenance: 'waiver record bound to the current candidate and baseline'
+  };
+}
+
+function boundExec(id) {
+  return {
+    id,
+    obligationId: 'doc-change:requirement-sync',
+    command: 'node ci/mechanism-lint.test.js',
+    exitCode: 0,
+    paths: [TEST_PATH, PRD],
+    artifactDigests: { [TEST_PATH]: TEST_DIGEST, [PRD]: PRD_DIGEST },
+    baseDigest: CURRENT_BASELINE.digest,
+    provenance: 'execution record bound to the current candidate and baseline'
+  };
+}
+
+// F1: resolution authority.
+checkCase('325-3a F1 ambiguous cited ID + updated declaration + valid waiver + passing execution: not pass, req-unresolved names the REQ (round 6)', () => {
+  const output = runReqSync(attestedReqSync({
+    citedReqs: [{ id: 'REQ-GRPH-001', file: PRD, resolution: 'ambiguous' }],
+    reqUpdates: [{ id: 'REQ-GRPH-001', file: PRD }]
+  }), {
+    executionRecords: [boundExec('exec-req')],
+    reviewRecords: [validWaiver('waiver-ambiguous', 'doc-change:requirement-sync', ['exec-req'])]
+  });
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.ok(result, 'a result is reported');
+  assert.notStrictEqual(result.outcome, 'pass', 'an ambiguous REQ never passes, even with a single updated declaration');
+  const diag = output.diagnostics.find(item => item.code === 'req-unresolved');
+  assert.ok(diag && JSON.stringify(diag).includes('REQ-GRPH-001'), 'req-unresolved names the REQ id');
+});
+
+checkCase('325-3a F1 malformed current PRD (analysis error) with complete attested inventory and no waiver: not a fail (round 6)', () => {
+  const output = runReqSync(attestedReqSync({
+    citedReqs: [{ id: 'REQ-GRPH-001', file: PRD, resolution: 'analysis-error' }]
+  }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail',
+    'an analysis error is unresolved, never an observed absence');
+});
+
+checkCase('325-3a F1 candidate-deleted declaration (file from base fallback): not a fail (round 6)', () => {
+  const output = runReqSync(attestedReqSync({
+    citedReqs: [{ id: 'REQ-GRPH-001', file: PRD, resolution: 'missing' }]
+  }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail',
+    'a base-only declaration is not current authority');
+});
+
+checkCase('325-3a F1 control: uniquely resolved unchanged PRD + supported current waiver + passing execution: pass', () => {
+  const output = runReqSync(attestedReqSync({
+    citedReqs: [{ id: 'REQ-GRPH-001', file: PRD, resolution: 'resolved' }]
+  }), {
+    executionRecords: [boundExec('exec-req')],
+    reviewRecords: [validWaiver('waiver-resolved', 'doc-change:requirement-sync', ['exec-req'])]
+  });
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.strictEqual(result.observation, 'observed');
+  assert.strictEqual(result.outcome, 'pass', 'a resolved REQ with a supported waiver passes');
+});
+
+// F2: the fail lane needs an attested envelope; every mismatch or missing field is none with req-sync-envelope-unattested.
+checkCase('325-3a F2 empty citedReqs with attested envelope and the other fail conditions: not a fail (every() on [] is vacuous) (round 6)', () => {
+  const output = runReqSync(attestedReqSync({ citedReqs: [] }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'no cited REQ is not an observed absence');
+});
+
+checkCase('325-3a F2 stale obligation base (envelope baseDigest differs from baseline): none, req-sync-envelope-unattested (round 6)', () => {
+  const output = runReqSync(attestedReqSync({
+    inventory: { ...ATTESTED_INVENTORY, baseDigest: sha256('previous base') }
+  }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'a stale base never establishes absence');
+  assert.ok(output.diagnostics.some(item => item.code === 'req-sync-envelope-unattested'), 'the envelope mismatch is diagnosed');
+});
+
+checkCase('325-3a F2 absent baseline: not a fail, req-sync-envelope-unattested (round 6)', () => {
+  const output = run({
+    obligations: [attestedReqSync()],
+    artifacts: RS_ARTIFACTS,
+    baseline: undefined,
+    executionRecords: [],
+    reviewRecords: []
+  });
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'no baseline identity, no negative result');
+  assert.ok(output.diagnostics.some(item => item.code === 'req-sync-envelope-unattested'), 'the missing baseline is diagnosed');
+});
+
+checkCase('325-3a F2 absent artifact identity for the PRD scope path: not a fail, req-sync-envelope-unattested (round 6)', () => {
+  const output = run({
+    obligations: [attestedReqSync()],
+    artifacts: { [TEST_PATH]: { digest: TEST_DIGEST } },
+    baseline: CURRENT_BASELINE,
+    executionRecords: [],
+    reviewRecords: []
+  });
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'no artifact identity, no negative result');
+  assert.ok(output.diagnostics.some(item => item.code === 'req-sync-envelope-unattested'), 'the missing identity is diagnosed');
+});
+
+checkCase('325-3a F2 unobserved waiver inventory (waiverInventoryComplete false) with empty records: not a fail, req-sync-envelope-unattested (round 6)', () => {
+  const output = runReqSync(attestedReqSync({
+    inventory: { ...ATTESTED_INVENTORY, waiverInventoryComplete: false }
+  }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail',
+    'empty records are not an observed absence unless the waiver inventory is attested');
+  assert.ok(output.diagnostics.some(item => item.code === 'req-sync-envelope-unattested'), 'the unobserved inventory is diagnosed');
+});
+
+checkCase('325-3a F2 missing configDigest: not a fail, req-sync-envelope-unattested (round 6)', () => {
+  const { configDigest, ...withoutConfig } = ATTESTED_INVENTORY;
+  const output = runReqSync(attestedReqSync({ inventory: withoutConfig }));
+  assert.notStrictEqual(resultFor(output, 'doc-change:requirement-sync').outcome, 'fail', 'a missing config identity is unattested');
+  assert.ok(output.diagnostics.some(item => item.code === 'req-sync-envelope-unattested'), 'the missing field is diagnosed');
+});
+
+checkCase('325-3a F2 positive: fully attested current no-revision/no-waiver: observed/fail (round 6)', () => {
+  const output = runReqSync(attestedReqSync());
+  const result = resultFor(output, 'doc-change:requirement-sync');
+  assert.strictEqual(result.observation, 'observed', 'the attested absence is an observed check');
+  assert.strictEqual(result.outcome, 'fail', 'the attested absence is an observed failure');
+  assert.ok(output.diagnostics.some(item => item.code === 'req-sync-no-revision-or-waiver'), 'the failure is diagnosed');
+});
+
 helper.finish();

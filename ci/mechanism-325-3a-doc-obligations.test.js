@@ -197,7 +197,7 @@ checkCase('325-3a requirement-sync scope names the cited PRD and the REQ-citing 
   const item = obligations.find(o => o.capability === 'requirement-sync');
   assert.ok(item, 'requirement-sync is in the catalog');
   assert.strictEqual(item.applicability, 'applicable', 'a REQ-citing test change triggers requirement-sync');
-  assert.ok(item.scope.paths.includes('docs/prd/graph.md'), `scope names the PRD holding the cited REQ: ${item.scope.paths}`);
+  assert.ok(item.scope.paths.includes('docs/prd/graph/r002.md'), `scope names the PRD holding the cited REQ: ${item.scope.paths}`);
   assert.ok(item.scope.paths.includes('ci/mechanism-lint.test.js'), `scope names the REQ-citing test: ${item.scope.paths}`);
 });
 
@@ -239,6 +239,221 @@ checkCase('325-3a invalid replacement clause stays visible: uninterpretable clau
 
 checkCase('325-3a control: identical replacement clause and body plus an unrelated Context typo: lint and links only', () => {
   assertCase('clause-context-typo', { applicable: ['doc-lint', 'link-check'] });
+});
+
+// Round 4 (§10, owner choice b): derivation exposes assertionChanged and inventoryComplete.
+// assertionChanged is pure text analysis of REQ-citing test changes; inventoryComplete is caller-asserted only.
+
+function factsWithInventory(name, inventory) {
+  const input = loadCase(name);
+  return deriveDocFacts({ base: input.base, candidate: input.candidate, config: caseConfig(name), ...(inventory ? { inventory } : {}) });
+}
+
+checkCase('325-3a assertion edit in a REQ-citing test: facts.assertionChanged is true (§10)', () => {
+  const { facts } = factsWithInventory('tagged-test');
+  assert.strictEqual(facts.assertionChanged, true, 'an assert line changed in the REQ-citing test');
+});
+
+checkCase('325-3a comment-only edit in a REQ-citing test: facts.assertionChanged is false (§10)', () => {
+  const { facts } = factsWithInventory('comment-only-test');
+  assert.strictEqual(facts.assertionChanged, false, 'only the comment line changed; no assertion line did');
+});
+
+checkCase('325-3a requirement-sync obligation carries assertionChanged and inventoryComplete (complete inventory supplied) (§10)', () => {
+  const { facts } = factsWithInventory('tagged-test', { complete: true });
+  const item = deriveDocObligations(facts).find(o => o.capability === 'requirement-sync');
+  assert.ok(item, 'requirement-sync is in the catalog');
+  assert.strictEqual(item.assertionChanged, true, 'obligation carries assertionChanged');
+  assert.strictEqual(item.inventoryComplete, true, 'obligation carries the caller-asserted inventory completeness');
+});
+
+checkCase('325-3a inventory omitted: facts.inventoryComplete and requirement-sync inventoryComplete are false (§10)', () => {
+  const { facts } = factsWithInventory('tagged-test');
+  assert.strictEqual(facts.inventoryComplete, false, 'omitted inventory defaults to incomplete');
+  const item = deriveDocObligations(facts).find(o => o.capability === 'requirement-sync');
+  assert.strictEqual(item.inventoryComplete, false, 'the obligation inherits incomplete inventory');
+});
+
+// Round 5 (PR #334 review R1-R3). Derivation expectations only.
+
+// R1: section extraction must be fence-aware. A "# Example" line inside a fenced block is not a heading,
+// so an edit to real Decision text after the fence is a normative change.
+checkCase('325-3a R1 backtick fence: a fenced "# Example" line does not truncate ADR Decision; Decision edit is normative', () => {
+  assertCase('decision-fence-backtick', { applicable: ['doc-lint', 'link-check', 'quality-review', 'conflict-check'] });
+});
+
+checkCase('325-3a R1 tilde fence: a fenced "# Example" line does not truncate ADR Decision; Decision edit is normative', () => {
+  assertCase('decision-fence-tilde', { applicable: ['doc-lint', 'link-check', 'quality-review', 'conflict-check'] });
+});
+
+// R2: a content-identical path-only rename of a declared derived source is a dependency change.
+checkCase('325-3a R2 rename-only of a declared derived source: derived-regenerate applicable, scoped to the output docs/index.md', () => {
+  const { obligations } = deriveCase('derived-rename');
+  const item = obligations.find(o => o.capability === 'derived-regenerate');
+  assert.strictEqual(item.applicability, 'applicable', 'a rename of a derived source triggers regeneration');
+  assert.deepStrictEqual(item.scope.paths, ['docs/index.md'], 'scope is the declared output only');
+});
+
+// R3: a REQ-citing test triggers requirement-sync only through a changed assertion or a new REQ-tagged test.
+checkCase('325-3a R3 comment-only edit in a REQ-citing test: requirement-sync is N/A', () => {
+  const { obligations } = deriveCase('comment-only-test');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A',
+    'a comment-only edit is not an assertion change');
+});
+
+checkCase('325-3a R3 whitespace-only edit in a REQ-citing test: requirement-sync is N/A', () => {
+  const { obligations } = deriveCase('whitespace-only-test');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A',
+    'a whitespace-only edit is not an assertion change');
+});
+
+checkCase('325-3a R3 control: assertion changed in a REQ-citing test: requirement-sync applicable', () => {
+  const { obligations } = deriveCase('tagged-test');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'applicable');
+});
+
+checkCase('325-3a R3 control: new REQ-tagged test file: requirement-sync applicable', () => {
+  const { obligations } = deriveCase('new-req-test');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'applicable',
+    'a new REQ-citing test is a trigger');
+});
+
+checkCase('325-3a R3 undetermined: a REQ-citing test that cannot be read as text gives assertionChanged unknown and requirement-sync unknown', () => {
+  const input = loadCase('tagged-test');
+  input.candidate.files['ci/mechanism-lint.test.js'] = null; // not readable as text
+  const { facts } = deriveDocFacts({ base: input.base, candidate: input.candidate, config: CONFIG });
+  assert.strictEqual(facts.assertionChanged, 'unknown', 'an undeterminable assertion change is unknown');
+  const item = deriveDocObligations(facts).find(o => o.capability === 'requirement-sync');
+  assert.strictEqual(item.applicability, 'unknown', 'requirement-sync stays unknown, never N/A or trivial');
+});
+
+// Round 6 (Sol round-3 review). Derivation expectations only.
+// F1: current resolution authority comes only from the candidate PRD set. The exact resolution labels are
+// not pinned here; the invariant is that a cited REQ which is not uniquely resolved in the candidate has no file.
+
+function citedEntries(facts, id) {
+  return facts.citedReqs.filter(entry => entry && entry.id === id);
+}
+
+checkCase('325-3a F1 duplicate cited ID across two current PRDs: cited REQ is not resolved (file null) (round 6)', () => {
+  const { result } = deriveCase('dup-req-id');
+  const entries = citedEntries(result.facts, 'REQ-GRPH-001');
+  assert.ok(entries.length > 0, 'the cited id is reported');
+  assert.ok(entries.every(entry => entry.file === null), `ambiguous id has no file: ${JSON.stringify(entries)}`);
+});
+
+checkCase('325-3a F1 malformed current PRD over a valid base: no base fallback, cited REQ not resolved (file null) (round 6)', () => {
+  const { result } = deriveCase('malformed-prd');
+  const entries = citedEntries(result.facts, 'REQ-GRPH-001');
+  assert.ok(entries.length > 0, 'the cited id is reported');
+  assert.ok(entries.every(entry => entry.file === null), `a parse error is not authority from the base: ${JSON.stringify(entries)}`);
+});
+
+checkCase('325-3a F1 PRD deleted in the candidate, base still declares it: cited REQ not resolved (file null) (round 6)', () => {
+  const { result } = deriveCase('deleted-prd');
+  const entries = citedEntries(result.facts, 'REQ-GRPH-001');
+  assert.ok(entries.length > 0, 'the cited id is reported');
+  assert.ok(entries.every(entry => entry.file === null), `a base-only declaration is not current authority: ${JSON.stringify(entries)}`);
+});
+
+checkCase('325-3a F1 control: uniquely declared unchanged current PRD: cited REQ resolves to that file', () => {
+  const { result } = deriveCase('assertion-no-revision');
+  const entries = citedEntries(result.facts, 'REQ-GRPH-001');
+  assert.deepStrictEqual(entries.map(entry => entry.file), ['docs/prd/graph.md'], 'one current declaration resolves');
+});
+
+// F3: assertion detection is literal-aware. Whitespace inside string, template or regex literals is content.
+// Formatting outside literals and trailing comments are not assertion changes.
+
+for (const name of ['literal-whitespace-assert', 'template-literal-whitespace', 'regex-literal-whitespace']) {
+  checkCase(`325-3a F3 whitespace inside a literal (${name}) is content: assertionChanged is not false, requirement-sync not N/A`, () => {
+    const { result, obligations } = deriveCase(name);
+    assert.notStrictEqual(result.facts.assertionChanged, false, `a literal change is not formatting: ${result.facts.assertionChanged}`);
+    assert.notStrictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A',
+      'a literal change is not N/A');
+  });
+}
+
+checkCase('325-3a F3 trailing-comment-only edit after an unchanged assertion: assertionChanged false, requirement-sync N/A', () => {
+  const { result, obligations } = deriveCase('trailing-comment-test');
+  assert.strictEqual(result.facts.assertionChanged, false, 'only the trailing comment changed');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A');
+});
+
+checkCase('325-3a F3 control: formatting outside literals and comments: assertionChanged false, requirement-sync N/A', () => {
+  const { result, obligations } = deriveCase('formatting-only-test');
+  assert.strictEqual(result.facts.assertionChanged, false, 'spacing outside literals is formatting');
+  assert.strictEqual(obligations.find(o => o.capability === 'requirement-sync').applicability, 'N/A');
+});
+
+checkCase('325-3a F3 control: numeric assertion edit: assertionChanged true', () => {
+  const { result } = deriveCase('tagged-test');
+  assert.strictEqual(result.facts.assertionChanged, true, 'a real assertion value changed');
+});
+
+// Round 7 (Sol round-4 finding 1): resolution uses the lifecycle's current effective namespace, not every
+// candidate declaration. A retained revision chain of ONE logical PRD is not ambiguous. The exact resolution
+// label is not pinned for the failure cases; the invariant is file null when the REQ is not current.
+
+checkCase('325-3a R7 retained valid revision chain of one PRD: cited REQ-GRPH-011 resolves uniquely to the current effective revision r002 (round 7)', () => {
+  const { result } = deriveCase('retained-revision-chain');
+  const entries = citedEntries(result.facts, 'REQ-GRPH-011');
+  assert.deepStrictEqual(entries.map(entry => entry.file), ['docs/prd/graph/r002.md'],
+    `one current file, the effective revision: ${JSON.stringify(entries)}`);
+  assert.ok(entries.every(entry => entry.resolution !== 'ambiguous'), 'a retained revision is not ambiguous');
+});
+
+checkCase('325-3a R7 control: the same ID in two DISTINCT current logical PRDs is ambiguous, file null (round 7)', () => {
+  const { result } = deriveCase('distinct-logical-prds');
+  const entries = citedEntries(result.facts, 'REQ-GRPH-011');
+  assert.ok(entries.length > 0, 'the cited id is reported');
+  assert.ok(entries.every(entry => entry.file === null), `two distinct current logical PRDs are ambiguous: ${JSON.stringify(entries)}`);
+});
+
+checkCase('325-3a R7 historical-only ID: REQ-GRPH-013 exists only in the historical r001 and is removed by the current r002: unresolved, file null (round 7)', () => {
+  const { result } = deriveCase('historical-only-req');
+  const entries = citedEntries(result.facts, 'REQ-GRPH-013');
+  assert.ok(entries.length > 0, 'the cited id is reported');
+  assert.ok(entries.every(entry => entry.file === null),
+    `a historical or replaced revision is not current authority: ${JSON.stringify(entries)}`);
+});
+
+// Round 7 positive-fixture correction (Sol round-5 P2). The req-revision positive is a legal delivery:
+// the base effective r001 is retained byte-identical, the candidate keeps r001 unchanged and adds r002.
+// The old in-place rewrite of effective r001 is kept only as a named negative, rejected by the lifecycle.
+
+let lifecycle = null;
+try {
+  lifecycle = require(path.join(__dirname, '..', 'harness-everything', 'scripts', 'doc-lifecycle.js'));
+} catch (error) {
+  helper.check('325-3a R7 lifecycle module is available', false, error.message);
+}
+
+function lifecycleInventory(root) {
+  return lifecycle.collectDocs(root, CONFIG).map(doc => ({
+    id: doc.frontmatter.id,
+    revision: doc.frontmatter.revision,
+    path: doc.path,
+    status: doc.frontmatter.status,
+    bytes: doc.storedBytes
+  }));
+}
+
+checkCase('325-3a R7 legal positive: the candidate analysis has no error diagnostic and REQ-GRPH-011 resolves to r002 (round 7)', () => {
+  const root = path.join(fixtureDir, 'req-revision');
+  const docs = lifecycle.collectDocs(path.join(root, 'candidate'), CONFIG);
+  const analysis = lifecycle.analyzeDocs(docs, CONFIG, { all: true, baseInventory: lifecycleInventory(path.join(root, 'base')) });
+  assert.deepStrictEqual(analysis.diagnostics.filter(item => item.severity === 'error'), [], 'the legal revision has no error diagnostic');
+  const resolved = lifecycle.resolveRef(docs, 'REQ-GRPH-011');
+  assert.strictEqual(resolved.doc && resolved.doc.path, 'docs/prd/graph/r002.md', 'REQ-GRPH-011 resolves to the current effective revision');
+});
+
+checkCase('325-3a R7 named negative: rewriting effective r001 in place is rejected by the lifecycle with immutable-revision-modified (round 7)', () => {
+  const root = path.join(fixtureDir, 'req-revision-in-place');
+  const docs = lifecycle.collectDocs(path.join(root, 'candidate'), CONFIG);
+  const analysis = lifecycle.analyzeDocs(docs, CONFIG, { all: true, baseInventory: lifecycleInventory(path.join(root, 'base')) });
+  assert.ok(analysis.diagnostics.some(item => item.code === 'immutable-revision-modified' && item.path === 'docs/prd/graph/r001.md'),
+    `the in-place rewrite is an immutable-revision-modified error: ${JSON.stringify(analysis.diagnostics.map(item => item.code))}`);
 });
 
 helper.finish();

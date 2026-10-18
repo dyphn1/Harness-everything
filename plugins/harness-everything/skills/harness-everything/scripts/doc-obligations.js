@@ -18,7 +18,15 @@ const CODE_EXTENSION = /\.(?:c|cc|cpp|h|hpp|m|mm|go|rs|java|kt|swift|js|jsx|mjs|
 const TEST_PATH = /(?:^|\/)(?:test|tests|__tests__|spec)(?:\/|$)|(?:^|\/)[^/]*(?:\.test|\.spec)\.[^/]+$/i;
 const REQUIREMENT_ID = /\bREQ-[A-Z][A-Z0-9]{1,9}-\d{3,}\b/;
 const REQUIREMENT_IDS = /\b(REQ-[A-Z][A-Z0-9]{1,9}-\d{3,})\b/g;
+const MAX_LINE_DIFF_CELLS = 2_000_000;
 const DOCUMENT_NORMATIVE_FIELDS = ['status', 'supersedes'];
+const INVENTORY_ENVELOPE_FIELDS = [
+  'complete',
+  'waiverInventoryComplete',
+  'baseDigest',
+  'candidateDigest',
+  'configDigest'
+];
 
 function compareText(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -44,6 +52,15 @@ function isSnapshotInput(snapshot) {
 
 function isConfigInput(config) {
   return Boolean(config && typeof config === 'object' && !Array.isArray(config));
+}
+
+function copyInventoryEnvelope(inventory) {
+  if (!inventory || typeof inventory !== 'object' || Array.isArray(inventory)) return undefined;
+  const envelope = {};
+  for (const field of INVENTORY_ENVELOPE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(inventory, field)) envelope[field] = inventory[field];
+  }
+  return envelope;
 }
 
 function globToRegExp(glob) {
@@ -92,10 +109,18 @@ function parsedDocument(path, text, config) {
   };
 }
 
-function analyzeSnapshot(files, config) {
+function analyzeSnapshotWithLifecycle(files, config) {
   const docs = Object.keys(files).sort(compareText).map(path => parsedDocument(path, files[path], config));
   const analysis = lifecycle.analyzeDocs(docs, config, { all: true });
-  return { diagnostics: analysis.diagnostics, evidence: analysis.evidence };
+  return {
+    docs,
+    analysis,
+    summary: { diagnostics: analysis.diagnostics, evidence: analysis.evidence }
+  };
+}
+
+function analyzeSnapshot(files, config) {
+  return analyzeSnapshotWithLifecycle(files, config).summary;
 }
 
 function findRenames(base, candidate) {
@@ -142,6 +167,347 @@ function uniqueSorted(values) {
   return [...new Set(values.filter(value => typeof value === 'string'))].sort(compareText);
 }
 
+const REGEX_PREFIX_KEYWORDS = new Set([
+  'await', 'case', 'delete', 'do', 'else', 'in', 'instanceof', 'new', 'of', 'return', 'throw',
+  'typeof', 'void', 'yield'
+]);
+const MULTI_CHAR_TOKENS = [
+  '>>>=', '===', '!==', '**=', '&&=', '||=', '??=', '>>>', '<<=', '>>=', '...', '=>', '==', '!=',
+  '<=', '>=', '++', '--', '**', '&&', '||', '??', '?.', '+=', '-=', '*=', '/=', '%=', '&=', '|=',
+  '^=', '<<', '>>'
+];
+
+function tokenizeTestSource(text) {
+  const source = String(text || '');
+  const tokens = [];
+  let index = 0;
+  let line = 0;
+  let canStartRegex = true;
+  let valid = true;
+
+  const push = (type, value, tokenLine = line) => tokens.push({ type, value, line: tokenLine });
+  const bumpLine = char => {
+    if (char === '\n' || (char === '\r' && source[index + 1] !== '\n')) line++;
+  };
+  const skipEscapedChar = () => {
+    const escaped = source[index + 1];
+    if (escaped === '\r' && source[index + 2] === '\n') {
+      line++;
+      index += 3;
+    } else {
+      bumpLine(escaped);
+      index += 2;
+    }
+  };
+  const isIdentifierStart = char => Boolean(char) && /[A-Za-z_$]/.test(char);
+  const isIdentifierPart = char => Boolean(char) && /[A-Za-z0-9_$]/.test(char);
+
+  function addPunctuator(value, tokenLine) {
+    push('punctuator', value, tokenLine);
+    if (value === ')' || value === ']' || value === '}' || value === '.' || value === '?.' || value === '++' || value === '--') {
+      canStartRegex = false;
+    } else {
+      canStartRegex = true;
+    }
+  }
+
+  function scanString(quote) {
+    const start = index;
+    const startLine = line;
+    index++;
+    while (index < source.length) {
+      const char = source[index];
+      if (char === '\\') {
+        if (index + 1 >= source.length) return false;
+        skipEscapedChar();
+        continue;
+      }
+      if (char === quote) {
+        index++;
+        push('string', source.slice(start, index), startLine);
+        canStartRegex = false;
+        return true;
+      }
+      if (char === '\n' || char === '\r') return false;
+      index++;
+    }
+    return false;
+  }
+
+  function scanRegex() {
+    const start = index;
+    const startLine = line;
+    index++;
+    let inCharacterClass = false;
+    while (index < source.length) {
+      const char = source[index];
+      if (char === '\\') {
+        if (index + 1 >= source.length || source[index + 1] === '\n' || source[index + 1] === '\r') return false;
+        index += 2;
+        continue;
+      }
+      if (char === '[') inCharacterClass = true;
+      else if (char === ']') inCharacterClass = false;
+      else if (char === '/' && !inCharacterClass) {
+        index++;
+        while (isIdentifierPart(source[index])) index++;
+        push('regex', source.slice(start, index), startLine);
+        canStartRegex = false;
+        return true;
+      }
+      if (char === '\n' || char === '\r') return false;
+      index++;
+    }
+    return false;
+  }
+
+  function scanTemplate() {
+    index++;
+    let chunkStart = index;
+    let chunkLine = line;
+    while (index < source.length) {
+      const char = source[index];
+      if (char === '\\') {
+        if (index + 1 >= source.length) return false;
+        skipEscapedChar();
+        continue;
+      }
+      if (char === '`') {
+        push('template', source.slice(chunkStart, index), chunkLine);
+        index++;
+        canStartRegex = false;
+        return true;
+      }
+      if (char === '$' && source[index + 1] === '{') {
+        push('template', source.slice(chunkStart, index), chunkLine);
+        const markerLine = line;
+        index += 2;
+        push('template-expression', '${', markerLine);
+        canStartRegex = true;
+        if (!scanCode(true)) return false;
+        chunkStart = index;
+        chunkLine = line;
+        continue;
+      }
+      bumpLine(char);
+      index++;
+    }
+    return false;
+  }
+
+  function scanCode(stopAtTemplateBrace = false) {
+    let braceDepth = 0;
+    while (index < source.length) {
+      const char = source[index];
+      if (/\s/.test(char)) {
+        bumpLine(char);
+        index++;
+        continue;
+      }
+
+      if (char === '/' && source[index + 1] === '/') {
+        index += 2;
+        while (index < source.length && source[index] !== '\n' && source[index] !== '\r') index++;
+        continue;
+      }
+      if (char === '/' && source[index + 1] === '*') {
+        index += 2;
+        let closed = false;
+        while (index < source.length) {
+          if (source[index] === '*' && source[index + 1] === '/') {
+            index += 2;
+            closed = true;
+            break;
+          }
+          bumpLine(source[index]);
+          index++;
+        }
+        if (!closed) return false;
+        continue;
+      }
+      // Preserve Python-style whole-line comments for the test paths this helper also accepts.
+      if (char === '#' && source.slice(0, index).split(/\r?\n/).pop().trim() === '') {
+        while (index < source.length && source[index] !== '\n' && source[index] !== '\r') index++;
+        continue;
+      }
+
+      if (stopAtTemplateBrace && char === '}' && braceDepth === 0) {
+        addPunctuator('}', line);
+        index++;
+        return true;
+      }
+      if (char === '{') {
+        addPunctuator(char, line);
+        braceDepth++;
+        index++;
+        continue;
+      }
+      if (char === '}' && braceDepth > 0) {
+        addPunctuator(char, line);
+        braceDepth--;
+        index++;
+        continue;
+      }
+      if (char === "'" || char === '"') {
+        if (!scanString(char)) return false;
+        continue;
+      }
+      if (char === '`') {
+        if (!scanTemplate()) return false;
+        continue;
+      }
+      if (char === '/' && canStartRegex) {
+        if (!scanRegex()) return false;
+        continue;
+      }
+      if (isIdentifierStart(char)) {
+        const start = index;
+        const startLine = line;
+        index++;
+        while (isIdentifierPart(source[index])) index++;
+        const value = source.slice(start, index);
+        push('identifier', value, startLine);
+        canStartRegex = REGEX_PREFIX_KEYWORDS.has(value);
+        continue;
+      }
+      if (/[0-9]/.test(char)) {
+        const start = index;
+        const startLine = line;
+        index++;
+        while (/[A-Za-z0-9_$\.]/.test(source[index] || '')) index++;
+        push('number', source.slice(start, index), startLine);
+        canStartRegex = false;
+        continue;
+      }
+
+      const tokenLine = line;
+      const operator = MULTI_CHAR_TOKENS.find(value => source.startsWith(value, index));
+      const value = operator || char;
+      index += value.length;
+      addPunctuator(value, tokenLine);
+    }
+    return !stopAtTemplateBrace;
+  }
+
+  valid = scanCode();
+  return { tokens, valid };
+}
+
+function tokenKey(token) {
+  return `${token.type}\u0000${token.value}`;
+}
+
+function changedTokens(beforeTokens, afterTokens) {
+  let prefix = 0;
+  while (prefix < beforeTokens.length && prefix < afterTokens.length
+    && tokenKey(beforeTokens[prefix]) === tokenKey(afterTokens[prefix])) prefix++;
+  let beforeEnd = beforeTokens.length;
+  let afterEnd = afterTokens.length;
+  while (beforeEnd > prefix && afterEnd > prefix
+    && tokenKey(beforeTokens[beforeEnd - 1]) === tokenKey(afterTokens[afterEnd - 1])) {
+    beforeEnd--;
+    afterEnd--;
+  }
+  const removedCount = beforeEnd - prefix;
+  const addedCount = afterEnd - prefix;
+  const width = addedCount + 1;
+  if ((removedCount + 1) * width > MAX_LINE_DIFF_CELLS) return null;
+
+  const table = new Uint32Array((removedCount + 1) * width);
+  for (let oldIndex = removedCount - 1; oldIndex >= 0; oldIndex--) {
+    for (let newIndex = addedCount - 1; newIndex >= 0; newIndex--) {
+      const cell = oldIndex * width + newIndex;
+      table[cell] = tokenKey(beforeTokens[prefix + oldIndex]) === tokenKey(afterTokens[prefix + newIndex])
+        ? table[(oldIndex + 1) * width + newIndex + 1] + 1
+        : Math.max(table[(oldIndex + 1) * width + newIndex], table[cell + 1]);
+    }
+  }
+
+  const removed = [];
+  const added = [];
+  let oldIndex = 0;
+  let newIndex = 0;
+  while (oldIndex < removedCount && newIndex < addedCount) {
+    if (tokenKey(beforeTokens[prefix + oldIndex]) === tokenKey(afterTokens[prefix + newIndex])) {
+      oldIndex++;
+      newIndex++;
+    } else if (table[(oldIndex + 1) * width + newIndex] >= table[oldIndex * width + newIndex + 1]) {
+      removed.push(beforeTokens[prefix + oldIndex++]);
+    } else {
+      added.push(afterTokens[prefix + newIndex++]);
+    }
+  }
+  while (oldIndex < removedCount) removed.push(beforeTokens[prefix + oldIndex++]);
+  while (newIndex < addedCount) added.push(afterTokens[prefix + newIndex++]);
+  return { removed, added };
+}
+
+function assertionPatternOnLine(tokens, lineNumber) {
+  const lineTokens = tokens.filter(token => token.line === lineNumber);
+  for (let index = 0; index < lineTokens.length; index++) {
+    const token = lineTokens[index];
+    if (token.type !== 'identifier') continue;
+    if (token.value === 'assert') return true;
+    if (token.value === 'expect' && lineTokens[index + 1] && lineTokens[index + 1].value === '(') return true;
+    if (['equal', 'deepEqual', 'ok', 'throws'].includes(token.value)
+      && lineTokens[index - 1] && ['.', '?.'].includes(lineTokens[index - 1].value)
+      && lineTokens[index + 1] && lineTokens[index + 1].value === '(') return true;
+  }
+  return false;
+}
+
+function snapshotText(snapshot, path) {
+  const files = snapshot && snapshot.files && typeof snapshot.files === 'object' ? snapshot.files : {};
+  const key = Object.keys(files).filter(candidate => normalizePath(candidate) === path).pop();
+  if (key === undefined) return { readable: true, text: undefined };
+  return typeof files[key] === 'string' ? { readable: true, text: files[key] } : { readable: false, text: undefined };
+}
+
+function assertionChangedForTests(changes, baseSnapshot, candidateSnapshot) {
+  let changed = false;
+  let unknown = false;
+  const snapshots = [baseSnapshot, candidateSnapshot];
+  for (const snapshot of snapshots) {
+    const files = snapshot && snapshot.files && typeof snapshot.files === 'object' ? snapshot.files : {};
+    if (Object.keys(files).some(path => TEST_PATH.test(normalizePath(path)) && typeof files[path] !== 'string')) {
+      unknown = true;
+    }
+  }
+  for (const change of changes) {
+    const oldPath = change.kind === 'rename' ? change.from : change.path;
+    const newPath = change.kind === 'rename' ? change.to : change.path;
+    if (![oldPath, newPath].some(path => typeof path === 'string' && TEST_PATH.test(path))) continue;
+    if (change.kind === 'rename' || !change.contentChanged) continue;
+    const before = snapshotText(baseSnapshot, oldPath);
+    const after = snapshotText(candidateSnapshot, newPath);
+    if (!before.readable || !after.readable) {
+      unknown = true;
+      continue;
+    }
+    if (![before.text, after.text].some(text => typeof text === 'string' && REQUIREMENT_ID.test(text))) continue;
+    const beforeTokens = tokenizeTestSource(before.text);
+    const afterTokens = tokenizeTestSource(after.text);
+    if (!beforeTokens.valid || !afterTokens.valid) {
+      unknown = true;
+      continue;
+    }
+    const delta = changedTokens(beforeTokens.tokens, afterTokens.tokens);
+    if (delta === null) {
+      unknown = true;
+      continue;
+    }
+    if (!delta.removed.length && !delta.added.length) continue;
+    const changedBeforeLines = new Set(delta.removed.map(token => token.line));
+    const changedAfterLines = new Set(delta.added.map(token => token.line));
+    const assertionLineChanged = [...changedBeforeLines].some(lineNumber =>
+      assertionPatternOnLine(beforeTokens.tokens, lineNumber))
+      || [...changedAfterLines].some(lineNumber => assertionPatternOnLine(afterTokens.tokens, lineNumber));
+    if (assertionLineChanged) changed = true;
+    else if ([...delta.removed, ...delta.added].some(token => ['string', 'template', 'regex'].includes(token.type))) unknown = true;
+  }
+  return changed ? true : unknown ? 'unknown' : false;
+}
+
 function textAt(files, path) {
   return path && Object.prototype.hasOwnProperty.call(files, path) ? files[path] : undefined;
 }
@@ -164,8 +530,20 @@ function isGoverned(path, text, config) {
 function extractSection(text, wantedTitle) {
   const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
   const headings = [];
+  let fence = null;
   for (let index = 0; index < lines.length; index++) {
-    const match = lines[index].match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+    const line = lines[index];
+    if (fence) {
+      const close = line.match(/^[ \t]{0,3}(`{3,}|~{3,})[ \t]*$/);
+      if (close && close[1][0] === fence.character && close[1].length >= fence.length) fence = null;
+      continue;
+    }
+    const open = line.match(/^[ \t]{0,3}(`{3,}|~{3,})(.*)$/);
+    if (open) {
+      fence = { character: open[1][0], length: open[1].length };
+      continue;
+    }
+    const match = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
     if (match) headings.push({ index, level: match[1].length, title: match[2].trim() });
   }
   const found = headings.filter(item => item.title.toLowerCase() === wantedTitle.toLowerCase());
@@ -248,7 +626,41 @@ function changedRequirementFacts(baseFiles, candidateFiles, config) {
     .sort((left, right) => compareText(left.id, right.id) || compareText(left.file, right.file));
 }
 
-function citedRequirementFacts(changes, baseFiles, candidateFiles, config) {
+function candidateRequirementResolution(id, candidateDocs, baseDeclarations, candidateAnalysis) {
+  const diagnostics = candidateAnalysis && Array.isArray(candidateAnalysis.diagnostics)
+    ? candidateAnalysis.diagnostics : [];
+  const graph = candidateAnalysis && candidateAnalysis._graph;
+  const graphCurrentDocs = graph && graph.currentById instanceof Map
+    ? new Set(graph.currentById.values()) : new Set();
+  const errorPaths = new Set(diagnostics.filter(item => item && item.severity === 'error'
+    && typeof item.path === 'string').map(item => normalizePath(item.path)));
+  const hasRelevantError = baseDeclarations.some(item => item && item.id === id
+    && errorPaths.has(normalizePath(item.file)));
+  if (hasRelevantError) return { file: null, resolution: 'analysis-error' };
+
+  const resolved = lifecycle.resolveRef(candidateDocs, id, { graph });
+  if (resolved && resolved.doc && resolved.requirement) {
+    const requirementId = resolved.requirement.id;
+    const duplicateInCurrentDoc = diagnostics.some(item => item && item.severity === 'error'
+      && item.code === 'duplicate-req' && item.id === requirementId
+      && normalizePath(item.path || '') === normalizePath(resolved.doc.path));
+    if (duplicateInCurrentDoc) return { file: null, resolution: 'ambiguous' };
+
+    const effectivePrefix = candidateAnalysis && candidateAnalysis._retirementEligibleSources;
+    if (!graphCurrentDocs.has(resolved.doc) || !(effectivePrefix instanceof Set) || !effectivePrefix.has(resolved.doc)) {
+      return { file: null, resolution: 'analysis-error' };
+    }
+    return { file: resolved.doc.path, resolution: 'resolved' };
+  }
+
+  const candidates = resolved && Array.isArray(resolved.candidates) ? resolved.candidates : [];
+  const currentLogicalIds = new Set(candidates.filter(doc => graphCurrentDocs.has(doc))
+    .map(doc => graph.logicalIdByDoc.get(doc)).filter(logicalId => typeof logicalId === 'string'));
+  if (currentLogicalIds.size > 1) return { file: null, resolution: 'ambiguous' };
+  return { file: null, resolution: 'missing' };
+}
+
+function citedRequirementFacts(changes, baseFiles, candidateFiles, candidateDocs, config, candidateAnalysis) {
   const citedIds = new Set();
   for (const change of changes) {
     if (!change.testWithRequirement) continue;
@@ -260,32 +672,30 @@ function citedRequirementFacts(changes, baseFiles, candidateFiles, config) {
   }
 
   const before = requirementDeclarations(baseFiles, config);
-  const after = requirementDeclarations(candidateFiles, config);
   const result = [];
   for (const id of [...citedIds].sort(compareText)) {
-    const candidateFilesForId = uniqueSorted(after.filter(item => item.id === id).map(item => item.file));
-    const filesForId = candidateFilesForId.length
-      ? candidateFilesForId
-      : uniqueSorted(before.filter(item => item.id === id).map(item => item.file));
-    if (filesForId.length) for (const file of filesForId) result.push({ id, file });
-    else result.push({ id, file: null });
+    result.push({ id, ...candidateRequirementResolution(
+      id, candidateDocs, before, candidateAnalysis
+    ) });
   }
   return result;
 }
 
+function derivedEntryAffected(change, item) {
+  if (!item || typeof item.path !== 'string') return false;
+  const paths = changePaths(change);
+  const outputChanged = change.contentChanged && paths.some(path => globToRegExp(item.path).test(path));
+  const sources = [item.source, ...(Array.isArray(item.sources) ? item.sources : [])]
+    .filter(source => typeof source === 'string');
+  const dependencyChanged = (change.contentChanged || change.kind === 'rename')
+    && paths.some(path => sources.some(source => globToRegExp(source).test(path)));
+  return outputChanged || dependencyChanged;
+}
+
 function derivedOutputPaths(changes, config) {
   const entries = Array.isArray(config && config.derived) ? config.derived : [];
-  const paths = [];
-  for (const item of entries) {
-    if (!item || typeof item.path !== 'string') continue;
-    const changedPaths = changes.filter(change => change.contentChanged).flatMap(changePaths);
-    const outputChanged = changedPaths.some(path => globToRegExp(item.path).test(path));
-    const sources = [item.source, ...(Array.isArray(item.sources) ? item.sources : [])]
-      .filter(source => typeof source === 'string');
-    const sourceChanged = changedPaths.some(path => sources.some(source => globToRegExp(source).test(path)));
-    if (outputChanged || sourceChanged) paths.push(item.path);
-  }
-  return uniqueSorted(paths);
+  return uniqueSorted(entries.filter(item => item && typeof item.path === 'string'
+    && changes.some(change => derivedEntryAffected(change, item))).map(item => item.path));
 }
 
 function normalizedFields(text) {
@@ -333,11 +743,14 @@ function normativeState(change, before, after, oldRole, newRole) {
   return 'none';
 }
 
-function deriveDocFacts({ base, candidate, config } = {}) {
+function deriveDocFacts({ base, candidate, config, inventory } = {}) {
   const inputKnown = isSnapshotInput(base) && isSnapshotInput(candidate) && isConfigInput(config);
   const effectiveConfig = isConfigInput(config) ? config : {};
+  const inventoryComplete = Boolean(inventory && inventory.complete === true);
   const baseFiles = snapshotFiles(base);
   const candidateFiles = snapshotFiles(candidate);
+  const candidateLifecycle = analyzeSnapshotWithLifecycle(candidateFiles, effectiveConfig);
+  const candidateAnalysis = candidateLifecycle.summary;
   const changes = findRenames(baseFiles, candidateFiles);
   const contextualChanges = changes.map(change => {
     const oldPath = change.kind === 'rename' ? change.from : change.path;
@@ -360,11 +773,8 @@ function deriveDocFacts({ base, candidate, config } = {}) {
       newGoverned,
       contentChanged,
       normative: contentChanged ? normativeState(change, beforeText, afterText, oldRole, newRole) : 'none',
-      derivedAffected: contentChanged && (effectiveConfig && Array.isArray(effectiveConfig.derived) ? effectiveConfig.derived : [])
-        .some(item => item && typeof item.path === 'string' && paths.some(path => globToRegExp(item.path).test(path)))
-        || contentChanged && (effectiveConfig && Array.isArray(effectiveConfig.derived) ? effectiveConfig.derived : [])
-          .some(item => item && (typeof item.source === 'string' && paths.some(path => globToRegExp(item.source).test(path))
-            || Array.isArray(item.sources) && item.sources.some(source => typeof source === 'string' && paths.some(path => globToRegExp(source).test(path))))),
+      derivedAffected: (effectiveConfig && Array.isArray(effectiveConfig.derived) ? effectiveConfig.derived : [])
+        .some(item => derivedEntryAffected({ ...change, contentChanged }, item)),
       testWithRequirement: contentChanged && paths.some(path => TEST_PATH.test(path))
         && REQUIREMENT_ID.test(`${beforeText || ''}\n${afterText || ''}`),
       codeChanged: contentChanged && paths.some(path => CODE_EXTENSION.test(path) && !TEST_PATH.test(path)
@@ -379,14 +789,17 @@ function deriveDocFacts({ base, candidate, config } = {}) {
   const referenceContentChanged = contextualChanges.some(change => change.contentChanged
     && [change.oldRole, change.newRole].includes('reference')
     && (change.oldGoverned || change.newGoverned));
-  const requirementSyncCandidate = contextualChanges.some(change => change.testWithRequirement);
+  const assertionChanged = assertionChangedForTests(contextualChanges, base, candidate);
+  const newReqCitingTest = contextualChanges.some(change => change.kind === 'added' && change.testWithRequirement);
+  const requirementSyncCandidate = newReqCitingTest || assertionChanged === true;
   const codeChanged = contextualChanges.some(change => change.codeChanged);
   const derivedAffected = contextualChanges.some(change => change.derivedAffected);
   const reqUpdates = changedRequirementFacts(baseFiles, candidateFiles, effectiveConfig);
-  const citedReqs = citedRequirementFacts(contextualChanges, baseFiles, candidateFiles, effectiveConfig);
+  const citedReqs = citedRequirementFacts(contextualChanges, baseFiles, candidateFiles,
+    candidateLifecycle.docs, effectiveConfig, candidateLifecycle.analysis);
   const derivedPaths = derivedOutputPaths(contextualChanges, effectiveConfig);
   const baseAnalysis = analyzeSnapshot(baseFiles, effectiveConfig);
-  const candidateAnalysis = analyzeSnapshot(candidateFiles, effectiveConfig);
+  const inventoryEnvelope = copyInventoryEnvelope(inventory);
 
   const facts = {
     schemaVersion: 1,
@@ -401,6 +814,9 @@ function deriveDocFacts({ base, candidate, config } = {}) {
     },
     reqCitingTests: uniqueSorted(contextualChanges.filter(change => change.testWithRequirement)
       .map(change => candidateFiles[change.newPath] !== undefined ? change.newPath : change.oldPath)),
+    assertionChanged,
+    inventoryComplete,
+    ...(inventoryEnvelope === undefined ? {} : { inventory: inventoryEnvelope }),
     reqUpdates,
     citedReqs,
     changes: contextualChanges.map(change => ({
@@ -479,7 +895,7 @@ function deriveDocObligations(facts) {
     }
     if (facts.referenceContentChanged) applicable.add('prose-reminder');
     if (facts.requirementSyncCandidate) applicable.add('requirement-sync');
-    else if (facts.codeChanged) unknown.add('requirement-sync');
+    else if (facts.assertionChanged === 'unknown' || facts.codeChanged) unknown.add('requirement-sync');
   }
 
   const scopePaths = {
@@ -494,9 +910,15 @@ function deriveDocObligations(facts) {
     'requirement-sync': validFacts ? uniqueSorted([...(facts.codePaths || []), ...(facts.reqCitingTests || []),
       ...(facts.citedReqs || []).map(item => item && item.file)]) : []
   };
-  const requirementFacts = validFacts && Array.isArray(facts.citedReqs) && Array.isArray(facts.reqUpdates)
-    ? { citedReqs: facts.citedReqs, reqUpdates: facts.reqUpdates }
-    : {};
+  const inventoryEnvelope = validFacts ? copyInventoryEnvelope(facts.inventory) : undefined;
+  const requirementFacts = {
+    citedReqs: validFacts && Array.isArray(facts.citedReqs) ? facts.citedReqs : [],
+    reqUpdates: validFacts && Array.isArray(facts.reqUpdates) ? facts.reqUpdates : [],
+    assertionChanged: validFacts && (typeof facts.assertionChanged === 'boolean' || facts.assertionChanged === 'unknown')
+      ? facts.assertionChanged : 'unknown',
+    inventoryComplete: Boolean(validFacts && facts.inventoryComplete === true),
+    ...(inventoryEnvelope === undefined ? {} : { inventory: inventoryEnvelope })
+  };
   return CATALOG.map(item => ({
     id: `doc-change:${item.capability}`,
     capability: item.capability,

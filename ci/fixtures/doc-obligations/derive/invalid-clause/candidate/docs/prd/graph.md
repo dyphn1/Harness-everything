@@ -1,7 +1,15 @@
 ---
-id: graph
-role: prd
-status: active
+id: "PRD-GRPH-001"
+revision: 1
+status: "effective"
+drafted_by: "Alice Example"
+effective_at: "2026-10-17T00:01:00Z"
+approval:
+  by: "Bob Independent"
+  at: "2026-10-17T00:00:00Z"
+  ref: "https://approvals.example.invalid/PRD-GRPH-001"
+  role: "human"
+  content_digest: "sha256:48ef1601f5559dbabd9c860d3c86a4ccb7492d5d466766405ef550a9019f47fa"
 ---
 # Graph
 

@@ -11,7 +11,7 @@ Documentation is a **consumer** of the #320 workflow/obligation abstractions. No
 | 0 — contract + RED fixtures | This file; fixtures under `ci/fixtures/doc-lifecycle/` |
 | 1a — `project-docs.json` loader | `multi-agent-workspace/scripts/project-docs-resolver.js` |
 | 2 — roles, IDs, aliases, legacy, supersession, index, D6.9 PRD revisions | `harness-everything/scripts/doc-lifecycle.js` |
-| 3a — `doc-change` / `requirement-sync` pure derivation and evidence producer | `harness-everything/scripts/doc-obligations.js` (facts and obligations), `harness-everything/scripts/doc-evidence.js` (`checkDocObligations`). Pilot-local: not wired into workflow disposition yet. H3 and H4 have deterministic tests; H1 and H2 are deferred to 3c |
+| 3a — `doc-change` / `requirement-sync` pure derivation and evidence producer | `harness-everything/scripts/doc-obligations.js` (facts and obligations), `harness-everything/scripts/doc-evidence.js` (`checkDocObligations`). Pilot-local: not wired into workflow disposition yet. H3 and H4 have deterministic tests; H1 and H2 are deferred to 3c. Known limits: the attested-envelope fields are caller-asserted (`configDigest` is checked for presence only, not against the parsed config); `candidateDigest` covers only `docs/prd/`, so custom PRD roots and task-scope binding are not yet verified; deleted and renamed paths fail closed (#335) |
 | 1b, 3b–3c (provider suggestions, reconciliation, H1–H2 evaluation) | Not started: blocked by #320 family metadata, D1 obligation schema and D3 evidence states. Known gap: deleted and old rename paths cannot get candidate-bound evidence, so their MUSTs fail closed |
 | 4 — derived-view generators, `describes:` drift | Not started |
 
@@ -221,7 +221,15 @@ Not a single class enum. The diff yields **facts**; required checks are the **un
 | Observation | Disposition |
 | --- | --- |
 | A test citing `REQ-X` is added or its assertions change | **Candidate signal**, not proof → **MUST** update/supersede REQ-X in the PRD in the same change, or record a structured `no-req-change` (reason + cited evidence, e.g. unchanged acceptance, passing test result) |
-| `no-req-change` without adequate evidence | `not-observed` / unverified; never an automatic pass |
+| Comment-only or whitespace-only edit to a REQ-citing test | Not a trigger → `requirement-sync` N/A |
+| REQ-citing test change whose assertion change cannot be determined | `unknown`; never a fail |
+| Triggered MUST, **attested envelope** (all of the following), cited REQ resolved, **not** revised, **no** valid `no-req-change` waiver | **Observed fail** (`req-sync-no-revision-or-waiver`). Not a Stop hook, lock, or completion policy |
+| Triggered MUST, `complete` inventory but envelope incomplete, mismatched, or unattested | `none` with `req-sync-envelope-unattested`. Never a fail |
+| Attested envelope = `complete` and `waiverInventoryComplete` both `true`; `baseDigest` equal to the baseline digest; `candidateDigest` equal to the digest of the candidate PRD set; `configDigest` present; non-empty cited REQ list | Caller-attested. The derivation copies it and never infers it. Not independent proof that the caller collected the inventory completely |
+| Unsupported or stale `no-req-change` waiver | Unverified (`unsupported-waiver`). It never satisfies the MUST. It does not by itself establish the failure, and an independently attested unmet obligation may still fail |
+| `no-req-change` without adequate evidence | `not-observed` / unverified; never an automatic pass. An invalid waiver is diagnosed and does not satisfy the MUST |
+| Cited REQ missing, ambiguous, or unresolved | `unresolved` with `req-unresolved`; never a pass, never an observed fail. "Ambiguous" means declared in two distinct current logical PRDs. Retained revisions of one PRD resolve to the current effective revision |
+| Incomplete execution record (no command, no provenance, non-integer `exitCode`) | `execution-record-incomplete`; never a pass |
 | Code changes, no REQ-citing test touched | `not-observed` (#320 D3 evidence state), not a failure; diff alone never proves behavior unchanged |
 | Agent claims REQ-X affected, no supporting evidence | Claim/evidence contradiction; reminder, no lock |
 

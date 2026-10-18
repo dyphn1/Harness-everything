@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
+
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -50,6 +52,35 @@ function reqIdsOf(value) {
     if (isPlainObject(item) && typeof item.id === 'string') return item.id;
     return null;
   }).filter(Boolean));
+}
+
+// R4 (§11): an execution record counts as evidence only with a non-empty command, a non-empty
+// provenance, and an integer exitCode. Otherwise it is diagnosed (`execution-record-incomplete`)
+// and never passes.
+function completeExecution(item) {
+  return nonEmptyString(item.command)
+    && nonEmptyString(item.provenance)
+    && typeof item.exitCode === 'number' && Number.isInteger(item.exitCode);
+}
+
+// R4 diagnostics name exactly which required fields the record is missing.
+function incompleteFields(item) {
+  const missing = [];
+  if (!nonEmptyString(item.command)) missing.push('command');
+  if (!nonEmptyString(item.provenance)) missing.push('provenance');
+  if (typeof item.exitCode !== 'number' || !Number.isInteger(item.exitCode)) missing.push('integer exitCode');
+  return missing.join(', ');
+}
+
+// F2 (§11): the candidate PRD-set identity is the digest over the sorted [path, digest] pairs
+// of the artifacts under docs/prd/. The envelope must carry this exact digest to attest that
+// the inventory describes the candidate being checked.
+function prdSetDigest(artifactMap) {
+  const pairs = Object.keys(artifactMap)
+    .filter(path => path.startsWith('docs/prd/'))
+    .sort()
+    .map(path => [path, artifact(artifactMap[path])]);
+  return crypto.createHash('sha256').update(JSON.stringify(pairs)).digest('hex');
 }
 
 function checkDocObligations({ obligations, artifacts, baseline, executionRecords, reviewRecords } = {}) {
@@ -116,6 +147,16 @@ function evaluateObligation(obligation, context) {
     && Array.isArray(item.paths) && item.paths.includes(path);
 
   for (const item of matching) {
+    if (executionList.includes(item) && !completeExecution(item)) {
+      diagnostics.push({
+        code: 'execution-record-incomplete',
+        obligationId,
+        message: `execution record ${item.id} is incomplete (missing: ${incompleteFields(item)}); a minimal record needs a non-empty command, a non-empty provenance, and an integer exitCode, and it therefore counts as no evidence`
+      });
+    }
+  }
+
+  for (const item of matching) {
     if (nonEmptyString(item.baseDigest) && item.baseDigest !== baselineDigest) {
       diagnostics.push({
         code: 'stale-base-digest',
@@ -138,6 +179,7 @@ function evaluateObligation(obligation, context) {
   }
 
   const usedExec = matching.filter(item => executionList.includes(item)
+    && completeExecution(item)
     && scopePaths.some(path => bound(item, path)));
   const failingExec = usedExec.filter(item => item.exitCode !== 0);
   const boundReviews = matching.filter(item => reviewList.includes(item) && item.kind === 'review'
@@ -176,7 +218,7 @@ function evaluateObligation(obligation, context) {
   const citedResolves = item => {
     const target = recordIndex.get(item);
     return Boolean(target) && target.obligationId === obligationId
-      && executionList.includes(target) && target.exitCode === 0
+      && executionList.includes(target) && completeExecution(target) && target.exitCode === 0
       && scopePaths.some(path => bound(target, path));
   };
   const waiverCandidates = reviewList.filter(item => item.kind === 'waiver'
@@ -226,13 +268,48 @@ function evaluateObligation(obligation, context) {
       });
     }
 
+    // F1 (§11): resolution authority. A cited REQ is resolved only when the entry is an object
+    // with a non-null PRD file and no overriding resolution label ('ambiguous', 'analysis-error',
+    // 'missing' are unresolved), and the id is declared by exactly one entry (duplicates are
+    // ambiguous). Unresolved cited REQs never pass and are never an observed absence.
+    const citedEntries = Array.isArray(obligation.citedReqs) ? obligation.citedReqs : [];
+    const idCounts = new Map();
+    for (const item of citedEntries) {
+      if (isPlainObject(item) && nonEmptyString(item.id)) {
+        idCounts.set(item.id, (idCounts.get(item.id) || 0) + 1);
+      }
+    }
+    const entryResolved = item => isPlainObject(item)
+      && nonEmptyString(item.id) && nonEmptyString(item.file)
+      && (item.resolution === undefined || item.resolution === 'resolved')
+      && idCounts.get(item.id) === 1;
+    const unresolvedReqs = citedEntries.filter(item => !entryResolved(item));
+    if (unresolvedReqs.length) {
+      for (const item of unresolvedReqs) {
+        const id = isPlainObject(item) ? item.id : item;
+        const reason = isPlainObject(item) && idCounts.get(item.id) > 1
+          ? 'the id is declared by more than one current PRD'
+          : isPlainObject(item) && typeof item.resolution === 'string' && item.resolution !== 'resolved'
+            ? `resolution is ${JSON.stringify(item.resolution)}`
+            : 'it has no non-null PRD file';
+        diagnostics.push({
+          code: 'req-unresolved',
+          obligationId,
+          message: `cited requirement ${JSON.stringify(id)} is unresolved: ${reason}; no waiver alternative and no absence fail can rest on it`
+        });
+      }
+      return result('unresolved', 'none',
+        'requirement-sync cites an unresolved REQ (ambiguous, analysis error, or missing declaration); a no-REQ-change waiver cannot satisfy it',
+        []);
+    }
+
     const waiverSelfBound = item => scopePaths.length > 0 && scopePaths.every(path => bound(item, path));
     const citationsCoverScope = item => {
       const covered = new Set();
       for (const id of Array.isArray(item.citedRecordIds) ? item.citedRecordIds : []) {
         const target = recordIndex.get(id);
         if (target && target.obligationId === obligationId && target.exitCode === 0
-          && !failingExec.includes(target)) {
+          && completeExecution(target) && !failingExec.includes(target)) {
           for (const path of scopePaths) if (bound(target, path)) covered.add(path);
         }
       }
@@ -258,6 +335,45 @@ function evaluateObligation(obligation, context) {
       return result('observed', 'pass', provenanceJoin(contributors, 'observed requirement-sync evidence'),
         uniqueSorted(contributors.map(item => item.id)));
     }
+
+    // F2 (§11): the absence-fail lane requires an attested envelope on the obligation.
+    // Envelope: obligation.inventory = { complete, waiverInventoryComplete, baseDigest,
+    // candidateDigest, configDigest }; baseDigest must equal the selected baseline digest and
+    // candidateDigest must equal the current candidate PRD-set digest. Any missing or
+    // mismatched field yields none with req-sync-envelope-unattested, never a fail. An empty
+    // cited list is never an observed absence (every() on [] is vacuous).
+    const envelope = isPlainObject(obligation.inventory) ? obligation.inventory : null;
+    const envelopeAttested = Boolean(envelope)
+      && envelope.complete === true
+      && envelope.waiverInventoryComplete === true
+      && nonEmptyString(envelope.baseDigest) && envelope.baseDigest === baselineDigest
+      && nonEmptyString(envelope.candidateDigest) && envelope.candidateDigest === prdSetDigest(artifactMap)
+      && nonEmptyString(envelope.configDigest);
+    const failCandidate = revisionDataKnown && citedIds.length > 0
+      && obligation.assertionChanged === true
+      && obligation.inventoryComplete === true
+      && citedEntries.every(entryResolved)
+      && citedIds.every(id => !updatedIds.includes(id));
+    if (failCandidate && !envelopeAttested) {
+      diagnostics.push({
+        code: 'req-sync-envelope-unattested',
+        obligationId,
+        message: 'the absence-fail lane is unavailable: the obligation carries no attested inventory envelope (complete, waiverInventoryComplete, baseDigest equal to the selected baseline, candidateDigest equal to the current candidate PRD-set digest, and a present configDigest)'
+      });
+    } else if (failCandidate && envelopeAttested && syncWaivers.length === 0) {
+      diagnostics.push({
+        code: 'req-sync-no-revision-or-waiver',
+        obligationId,
+        message: `requirement-sync is unmet: the assertion changed and the inventory is complete, and cited requirement${citedIds.length === 1 ? '' : 's'} ${citedIds.map(id => {
+          const entry = citedEntries.find(item => isPlainObject(item) && item.id === id);
+          return `${JSON.stringify(id)} (${entry.file})`;
+        }).join(', ')} are not revised in this change and no valid waiver exists`
+      });
+      return result('observed', 'fail',
+        'requirement-sync unmet: attested inventory, assertion changed, cited REQ(s) not revised, no valid waiver',
+        []);
+    }
+
     const contributors = [...usedExec, ...validReviews, ...syncWaivers];
     return result(observation(), 'none',
       provenanceJoin(contributors,
@@ -282,6 +398,7 @@ function evaluateObligation(obligation, context) {
   }
 
   const execCovers = (path) => matching.some(item => executionList.includes(item)
+    && completeExecution(item)
     && !failingExec.includes(item) && bound(item, path));
   const execCovered = scopePaths.every(execCovers);
   if (usedExec.length && execCovered) {
