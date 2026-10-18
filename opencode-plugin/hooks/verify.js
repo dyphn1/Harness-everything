@@ -105,14 +105,31 @@ function getAvailableScripts() {
   }
 }
 
-// Mirrors ../index.mjs's verification budget so the manual CLI cannot drift
-// from the plugin. A 60s cap killed healthy ~2 minute self-regression runs.
+// Mirrors ../index.mjs's verification budget and outcome classification so
+// the manual CLI cannot drift from the plugin. A 60s cap killed healthy
+// ~2 minute self-regression runs. Only `test_failure` (a real non-zero exit)
+// is a confirmed failing check; `timeout` and `execution_error` mean the run
+// produced no verdict.
 const VERIFY_TIMEOUT_ENV = 'HARNESS_VERIFY_TIMEOUT_MS';
 const DEFAULT_VERIFY_TIMEOUT_MS = 600000;
+const VERIFY_MAX_BUFFER = 16 * 1024 * 1024;
+const VERIFY_OUTPUT_LIMIT = 2000;
 
 function verifyTimeoutMs() {
   const raw = Number(process.env[VERIFY_TIMEOUT_ENV]);
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_VERIFY_TIMEOUT_MS;
+}
+
+function classifyVerificationError(error, startedAt, timeout) {
+  const code = String((error && error.code) || '');
+  const signal = String((error && error.signal) || '');
+  const exitCode = error && Number.isInteger(error.status) ? error.status : null;
+  const timedOut = code === 'ETIMEDOUT' || signal === 'SIGTERM' || Date.now() - startedAt >= timeout;
+  if (timedOut) return { outcome: 'timeout', exitCode, signal, timedOut: true };
+  if (exitCode === null || ['ENOBUFS', 'ENOENT', 'EACCES', 'EAGAIN', 'ENOMEM'].includes(code)) {
+    return { outcome: 'execution_error', exitCode, signal, timedOut: false };
+  }
+  return { outcome: 'test_failure', exitCode, signal, timedOut: false };
 }
 
 function runVerification(command) {
@@ -121,20 +138,23 @@ function runVerification(command) {
   try {
     execSync(command, {
       stdio: 'pipe',
-      timeout
+      timeout,
+      maxBuffer: VERIFY_MAX_BUFFER
     });
-    return { success: true, command };
+    return { success: true, command, outcome: 'pass', exitCode: 0, signal: null, timedOut: false };
   } catch (e) {
     const output = (e.stdout || e.stderr || e.message || '').toString();
-    const timedOut = /ETIMEDOUT/.test(String(e.code || '')) || Date.now() - startedAt >= timeout;
-    return {
-      success: false,
-      command,
-      timedOut,
-      error: timedOut
-        ? `timed out after ${Math.round(timeout / 1000)}s (set ${VERIFY_TIMEOUT_ENV} to raise it)`
-        : output.slice(0, 200)
-    };
+    const { outcome, exitCode, signal, timedOut } = classifyVerificationError(e, startedAt, timeout);
+    let error;
+    if (outcome === 'timeout') {
+      error = `timed out after ${Math.round(timeout / 1000)}s (set ${VERIFY_TIMEOUT_ENV} to raise it)`;
+    } else if (outcome === 'execution_error') {
+      const reason = String((e && e.code) || (signal ? `signal ${signal}` : 'no exit status'));
+      error = `could not run to completion (execution error: ${reason}); output: ${output.slice(0, 200).replace(/\s+/g, ' ').trim() || '(none)'}`;
+    } else {
+      error = output.slice(0, VERIFY_OUTPUT_LIMIT);
+    }
+    return { success: false, command, outcome, exitCode, signal, timedOut, error };
   }
 }
 
@@ -197,6 +217,7 @@ function main() {
     results: results.map(r => ({
       command: r.command,
       success: r.success,
+      outcome: r.outcome,
       timedOut: r.timedOut === true
     })),
     message: allPassed 
