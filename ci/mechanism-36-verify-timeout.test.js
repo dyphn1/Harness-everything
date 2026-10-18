@@ -43,6 +43,9 @@ function loadVerificationLogic(source) {
     extractConst(source, 'VERIFY_MAX_BUFFER'),
     extractConst(source, 'VERIFY_OUTPUT_LIMIT'),
     extractFunction(source, 'verifyTimeoutMs'),
+    extractFunction(source, 'verificationEvidence'),
+    extractFunction(source, 'boundedDiagnostic'),
+    extractFunction(source, 'verificationDiagnostic'),
     extractFunction(source, 'classifyVerificationError'),
     extractFunction(source, 'runVerification'),
   ].join('\n\n');
@@ -139,6 +142,7 @@ assert.strictEqual(
   context.execSync = () => {
     const error = new Error('spawnSync npm test ETIMEDOUT');
     error.code = 'ETIMEDOUT';
+    error.signal = 'SIGTERM'; // the live execSync timeout kill shape
     error.stdout = 'Harness OS - Self-Regression Test Suite\n';
     throw error;
   };
@@ -161,6 +165,42 @@ assert.strictEqual(
   result = context.runVerification('/nonexistent-workspace');
   assert.strictEqual(result.results[0].timedOut, true, 'a kill at the budget is recognized without an ETIMEDOUT code');
   assert.strictEqual(result.results[0].outcome, 'timeout', 'a kill at the budget is classified as timeout');
+
+  // P2: a signal is external termination; only budget expiry is a timeout.
+  context.process.env.HARNESS_VERIFY_TIMEOUT_MS = '600000';
+  context.execSync = () => {
+    const error = new Error('Command failed: npm test');
+    error.signal = 'SIGTERM'; // killed early by a user, host, or process manager
+    throw error; // status stays null: no verdict from the suite
+  };
+  result = context.runVerification('/nonexistent-workspace');
+  assert.strictEqual(result.results[0].outcome, 'execution_error', 'an early external SIGTERM is an execution error, not a timeout');
+  assert.strictEqual(result.results[0].timedOut, false, 'an early external SIGTERM does not claim a timeout');
+  assert.strictEqual(result.results[0].signal, 'SIGTERM', 'the signal is retained for diagnostics');
+  assert.ok(/signal SIGTERM/.test(result.results[0].error), 'the execution error names the signal');
+
+  context.process.env.HARNESS_VERIFY_TIMEOUT_MS = '50';
+  context.execSync = () => {
+    const started = Date.now();
+    while (Date.now() - started < 80) { /* killed once the budget already elapsed, like execSync's own timeout */ }
+    const error = new Error('spawnSync npm test SIGTERM');
+    error.signal = 'SIGTERM';
+    throw error;
+  };
+  result = context.runVerification('/nonexistent-workspace');
+  assert.strictEqual(result.results[0].outcome, 'timeout', 'a signal kill with no exit status once the budget elapsed is a timeout');
+
+  context.execSync = () => {
+    const started = Date.now();
+    while (Date.now() - started < 80) { /* slow, but it still produced a verdict */ }
+    const error = new Error('Command failed: npm test');
+    error.status = 1;
+    error.stdout = 'confirmed failure after a slow run';
+    throw error;
+  };
+  result = context.runVerification('/nonexistent-workspace');
+  assert.strictEqual(result.results[0].outcome, 'test_failure', 'a real exit status stays a confirmed failure even past the budget');
+  assert.strictEqual(result.results[0].timedOut, false, 'a confirmed verdict is not a timeout');
 
   context.process.env.HARNESS_VERIFY_TIMEOUT_MS = '600000';
   context.execSync = () => {
@@ -193,6 +233,46 @@ assert.strictEqual(
   result = context.runVerification('/nonexistent-workspace');
   assert.strictEqual(result.results[0].outcome, 'execution_error', 'a missing executable is an execution error');
   assert.strictEqual(result.results[0].exitCode, null, 'a spawn-level error has no exit status');
+}
+
+// Behavior: test_failure evidence spans both streams in full (P1).
+{
+  const context = loadVerificationLogic(pluginSource);
+  context.process.env.HARNESS_VERIFY_TIMEOUT_MS = '600000';
+  context.execSync = () => {
+    const error = new Error('Command failed: npm test');
+    error.status = 1;
+    error.stdout = '> fixture@0.0.0 test\n> node fixture.js\n';
+    error.stderr = 'AssertionError [ERR_ASSERTION]: alpha boom\n';
+    throw error;
+  };
+  const bothStreams = context.runVerification('/nonexistent-workspace').results[0];
+  assert.strictEqual(bothStreams.outcome, 'test_failure', 'a both-stream failure is a confirmed test failure');
+  assert.ok(/alpha boom/.test(bothStreams.error), 'the user-visible diagnostic includes the stderr assertion');
+  assert.ok(/node fixture\.js/.test(bothStreams.error), 'the user-visible diagnostic keeps the stdout banner');
+  assert.ok(/alpha boom/.test(bothStreams.evidence), 'the kept evidence includes stderr');
+  assert.ok(/node fixture\.js/.test(bothStreams.evidence), 'the kept evidence includes stdout');
+
+  context.execSync = () => {
+    const error = new Error('Command failed: npm test');
+    error.status = 1;
+    error.stdout = `${'A'.repeat(2000)}TAIL-MARKER`;
+    throw error;
+  };
+  const longOutput = context.runVerification('/nonexistent-workspace').results[0];
+  assert.ok(longOutput.error.length < 2200, 'the user-visible diagnostic stays bounded');
+  assert.ok(/TAIL-MARKER/.test(longOutput.error), 'the trailing failure evidence survives diagnostic truncation');
+  assert.ok(/chars omitted/.test(longOutput.error), 'the elision is explicit in the diagnostic');
+  assert.ok(longOutput.evidence.length > 2000 && /TAIL-MARKER/.test(longOutput.evidence), 'the full evidence is retained untruncated for signature analysis');
+
+  context.execSync = () => {
+    const error = new Error('Command failed: npm test');
+    error.code = 'ENOBUFS';
+    error.stdout = `${'A'.repeat(2000)}TAIL-MARKER`;
+    throw error;
+  };
+  const spawnError = context.runVerification('/nonexistent-workspace').results[0];
+  assert.strictEqual(spawnError.evidence, undefined, 'only confirmed test failures keep full evidence');
 }
 
 // Behavior: the manual CLI mirror classifies the same way.
@@ -234,6 +314,42 @@ assert.strictEqual(
   assert.strictEqual(result.outcome, 'test_failure', 'the CLI classifies the non-zero exit');
   assert.strictEqual(result.error, 'lint error', 'the CLI reports stderr for a fast failure');
 
+  // P2 parity: an early external SIGTERM is not a budget timeout.
+  context.execSync = () => {
+    const error = new Error('Command failed');
+    error.signal = 'SIGTERM';
+    throw error;
+  };
+  result = context.runVerification('npm test');
+  assert.strictEqual(result.outcome, 'execution_error', 'the CLI treats an early external SIGTERM as an execution error');
+  assert.strictEqual(result.timedOut, false, 'the CLI does not claim a timeout for an early SIGTERM');
+  assert.ok(/signal SIGTERM/.test(result.error), 'the CLI keeps the signal in diagnostics');
+
+  context.execSync = () => {
+    const error = new Error('spawnSync npm test ETIMEDOUT');
+    error.code = 'ETIMEDOUT';
+    error.signal = 'SIGTERM';
+    error.stdout = 'Harness OS - Self-Regression Test Suite\n';
+    throw error;
+  };
+  result = context.runVerification('npm test');
+  assert.strictEqual(result.outcome, 'timeout', 'the CLI classifies the live ETIMEDOUT shape as a budget timeout');
+  assert.strictEqual(result.timedOut, true, 'the CLI marks the budget timeout');
+
+  // P1 parity: both streams feed the CLI diagnostic and evidence.
+  context.execSync = () => {
+    const error = new Error('Command failed');
+    error.status = 1;
+    error.stdout = '> fixture@0.0.0 test\n';
+    error.stderr = 'AssertionError [ERR_ASSERTION]: alpha boom\n';
+    throw error;
+  };
+  result = context.runVerification('npm test');
+  assert.strictEqual(result.outcome, 'test_failure', 'the CLI classifies a both-stream failure');
+  assert.ok(/alpha boom/.test(result.error), 'the CLI diagnostic includes stderr');
+  assert.ok(/fixture@0\.0\.0/.test(result.error), 'the CLI diagnostic includes stdout');
+  assert.ok(/alpha boom/.test(result.evidence), 'the CLI keeps stderr evidence');
+
   context.execSync = () => {
     const error = new Error('Command failed');
     error.code = 'ENOBUFS';
@@ -261,6 +377,35 @@ assert.strictEqual(
   const tapA = result('not ok 2 - parser handles unicode');
   const tapB = result('not ok 5 - parser handles unicode');
   assert.strictEqual(context.buildFailureSignature(tapA), context.buildFailureSignature(tapB), 'TAP plan numbering does not change the signature');
+
+  // P1: full stdout+stderr evidence drives the marker/digest, not a prefix.
+  const withEvidence = (stdout, stderr) => {
+    const evidence = stderr ? `${stdout}\nstderr:\n${stderr}` : stdout;
+    return result(evidence, { evidence });
+  };
+  const sharedStdout = '> fixture@0.0.0 test\n> node fixture.js\n';
+  const stderrAlpha = withEvidence(sharedStdout, 'AssertionError [ERR_ASSERTION]: alpha boom');
+  const stderrBeta = withEvidence(sharedStdout, 'AssertionError [ERR_ASSERTION]: beta boom');
+  assert.notStrictEqual(
+    context.buildFailureSignature(stderrAlpha),
+    context.buildFailureSignature(stderrBeta),
+    'shared stdout with different stderr assertions does not collide',
+  );
+
+  const prefix = 'progress '.repeat(400); // longer than the old 2 KiB leading-prefix cut
+  const tailAlpha = withEvidence(`${prefix}HARNESS-UNIQUE-ALPHA`, '');
+  const tailBeta = withEvidence(`${prefix}HARNESS-UNIQUE-BETA`, '');
+  assert.ok(/unrecognized-output/.test(context.buildFailureSignature(tailAlpha)), 'markerless evidence uses the digest fallback');
+  assert.notStrictEqual(
+    context.buildFailureSignature(tailAlpha),
+    context.buildFailureSignature(tailBeta),
+    'a >2 KiB shared markerless prefix with different tails does not collide',
+  );
+  assert.strictEqual(
+    context.buildFailureSignature(tailAlpha),
+    context.buildFailureSignature(withEvidence(`${prefix}HARNESS-UNIQUE-ALPHA`, '')),
+    'identical evidence still matches',
+  );
 
   const bannerOnly = result(banner);
   assert.strictEqual(context.buildFailureSignature(bannerOnly), context.buildFailureSignature(result(banner)), 'identical markerless output still matches');

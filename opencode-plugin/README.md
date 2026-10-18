@@ -55,14 +55,17 @@ actually stopping.
 The verification run has a budget, not a fixed 60s cap: a healthy self-regression
 suite takes around two minutes, so the default is 10 minutes and
 `HARNESS_VERIFY_TIMEOUT_MS` overrides it. Every run is classified as `pass`
-(exit 0), `test_failure` (a real non-zero exit), `timeout` (killed at the
-budget) or `execution_error` (a spawn-level failure such as `ENOBUFS`/`ENOENT`).
+(exit 0), `test_failure` (a real non-zero exit), `timeout` (the budget actually
+expired: `ETIMEDOUT`, or a kill with no exit status once the budget elapsed) or
+`execution_error` (a spawn-level failure such as `ENOBUFS`/`ENOENT`, or an
+external signal such as `SIGTERM`/`SIGINT` before the budget - a signal alone
+is not a budget expiry).
 Only `test_failure` confirms a failing check and advances the Rule-of-3
 counter; `timeout` and `execution_error` are reported as uncompleted
 verifications and never impersonate repeated failures. A timeout is reported as
 `timed out after <n>s (set HARNESS_VERIFY_TIMEOUT_MS to raise it); last
 output: ...`, a spawn-level failure as `could not run to completion (execution
-error: ENOBUFS); output: ...`.
+error: ENOBUFS); output: ...` (an external signal names the signal).
 
 Known operational limits of the synchronous runner: `execSync` blocks the
 plugin's event loop for the duration of each script (worst case one budget per
@@ -76,8 +79,10 @@ follow-up in issue #338.
 
 Enforces Rule of 3 on repeated verification failures (same failing command +
 normalized failure evidence: the first recognizable failing-test marker - TAP
-`not ok`, node:test/jest symbols, assertion lines - or a digest of the full
-captured output when no marker exists; not arbitrary tool failures, since
+`not ok`, node:test/jest symbols, assertion lines - over the full captured
+stdout **and** stderr, or a digest of that full evidence when no marker exists;
+the 2 KiB bound applies only to the user-visible diagnostic excerpt, never to
+signature analysis; not arbitrary tool failures, since
 `tool.execute.after` has no normalized success/failure field to key a
 signature on for tools in general):
 - 3rd failure on the same signature forces a reflection message instead of a

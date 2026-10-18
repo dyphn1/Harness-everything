@@ -103,6 +103,53 @@ console.log('\n[39] opencode verification outcomes: Rule-of-3 downstream behavio
     JSON.stringify(breaker),
   );
 
+  // --- identical stdout, different stderr assertions stay distinct ------
+  // P1 regression: the old classifier kept only stdout, so three assertion
+  // failures printed to stderr behind the same npm banner collapsed into one
+  // signature and forced a reflection for healthy retries.
+  const stderrSession = 'stderr-distinct';
+  const stderrFailure = (name) => [
+    `console.error('AssertionError [ERR_ASSERTION]: ${name} boom');`,
+    'process.exit(1);',
+  ];
+  for (const name of ['alpha', 'beta', 'gamma']) {
+    setFixture(stderrFailure(name));
+    await edit(stderrSession);
+    await idle(stderrSession);
+  }
+  breaker = readBreaker(stderrSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. identical stdout with different stderr assertions stays three separate signatures',
+    Object.keys(breaker.failures).length === 3 && entries.every((entry) => entry.count === 1) && breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+
+  // --- >2 KiB shared prefix, different markerless tails stay distinct ---
+  // P1 regression: the old 2 KiB leading-prefix truncation hashed the same
+  // prefix for all three runs, so different markerless failures collided.
+  const prefixSession = 'prefix-distinct';
+  const markerlessFailure = (token) => [
+    "console.log('progress '.repeat(400));",
+    `console.log('HARNESS-UNIQUE-${token}');`,
+    'process.exit(1);',
+  ];
+  for (const token of ['ALPHA', 'BETA', 'GAMMA']) {
+    setFixture(markerlessFailure(token));
+    await edit(prefixSession);
+    await idle(prefixSession);
+  }
+  breaker = readBreaker(prefixSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. a shared >2 KiB markerless prefix with different tails stays three separate signatures',
+    Object.keys(breaker.failures).length === 3 &&
+      entries.every((entry) => entry.count === 1) &&
+      Object.keys(breaker.failures).every((signature) => /unrecognized-output/.test(signature)) &&
+      breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+
   // --- genuinely identical failures keep the Rule of 3 ------------------
   const identicalSession = 'identical';
   setFixture(markerFailure('stable check'));

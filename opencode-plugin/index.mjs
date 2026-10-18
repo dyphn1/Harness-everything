@@ -23,8 +23,9 @@
  *
  * The circuit breaker trips on repeated *verification* failures of the same
  * underlying check (same command + normalized failure evidence: the first
- * recognizable failing-test marker, or a digest of the full captured output
- * when no marker exists), not on arbitrary tool failures: tool.execute.after
+ * recognizable failing-test marker, or a digest of the full captured
+ * stdout+stderr when no marker exists), not on arbitrary tool failures:
+ * tool.execute.after
  * gives back `{title, output, metadata}` for every tool with no normalized
  * success/failure field, so there is no reliable cross-tool failure signal to
  * key a signature on. Verification failures are self-produced and already
@@ -300,11 +301,13 @@ function firstFailureMarker(text) {
 
 // A stable, normalized signature: command + outcome + exit condition + the
 // first failing-check marker. Without a marker the signature falls back to a
-// digest of the full captured output, so banner-only prefixes from *different*
-// failures can never collide (identical byte-for-byte output still matches,
-// which is the honest reading: the same observation repeated).
+// digest of the full captured evidence (stdout and stderr both), so
+// banner-only prefixes from *different* failures can never collide
+// (identical byte-for-byte evidence still matches, which is the honest
+// reading: the same observation repeated). The user-visible `error` is a
+// bounded diagnostic and is only the fallback when no full evidence was kept.
 function buildFailureSignature(result) {
-  const evidence = String((result && result.error) || "");
+  const evidence = String((result && (result.evidence || result.error)) || "");
   const marker = firstFailureMarker(evidence);
   const exit =
     result && Number.isInteger(result.exitCode) ? `exit=${result.exitCode}`
@@ -345,18 +348,56 @@ function verifyTimeoutMs() {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_VERIFY_TIMEOUT_MS
 }
 
+// Full failure evidence for signature analysis: both captured streams, in
+// full. execSync already bounds each stream at VERIFY_MAX_BUFFER, and the old
+// stdout-only 2 KiB prefix cut happened *before* buildFailureSignature() ran,
+// so distinct failures behind a shared banner collapsed into one signature.
+function verificationEvidence(stdout, stderr) {
+  const out = String(stdout || "")
+  const err = String(stderr || "")
+  if (out && err) return `${out}\nstderr:\n${err}`
+  return out || err
+}
+
+// Bounded, human-readable excerpt that keeps both ends: the npm banner at the
+// head and the failure marker/summary at the tail survive truncation.
+function boundedDiagnostic(text, limit) {
+  const value = String(text || "")
+  if (value.length <= limit) return value
+  const half = Math.floor(limit / 2)
+  return `${value.slice(0, half)}\n... [${value.length - half * 2} chars omitted] ...\n${value.slice(-half)}`
+}
+
+// User-visible diagnostic: both streams get their own budget, so a huge
+// stdout cannot push a short stderr (where jest writes assertions) out of
+// the report. A single non-empty stream stays label-free.
+function verificationDiagnostic(stdout, stderr) {
+  const out = String(stdout || "")
+  const err = String(stderr || "")
+  if (out && err) {
+    const share = Math.floor(VERIFY_OUTPUT_LIMIT / 2)
+    return `stdout:\n${boundedDiagnostic(out, share)}\nstderr:\n${boundedDiagnostic(err, share)}`
+  }
+  return boundedDiagnostic(out || err, VERIFY_OUTPUT_LIMIT)
+}
+
 // Outcome taxonomy:
 //   pass            the command exited 0
 //   test_failure    a real non-zero exit status: a check actually failed
-//   timeout         killed at the budget, with no verdict from the suite
-//   execution_error spawn-level failure (ENOBUFS, ENOENT, signals): no verdict
-// Only test_failure feeds the same-check Rule-of-3 counter.
+//   timeout         the configured budget expired: ETIMEDOUT, or a kill with
+//                   no exit status once the budget elapsed: no verdict
+//   execution_error spawn-level failure, or an external signal (SIGTERM/
+//                   SIGINT/SIGKILL from the user or host) before the budget:
+//                   no verdict
+// A signal alone is not a budget timeout - only expiry is. Only
+// test_failure feeds the same-check Rule-of-3 counter.
 function classifyVerificationError(error, startedAt, timeout) {
   const code = String((error && error.code) || "")
   const signal = String((error && error.signal) || "")
   const exitCode = error && Number.isInteger(error.status) ? error.status : null
-  const timedOut = code === "ETIMEDOUT" || signal === "SIGTERM" || Date.now() - startedAt >= timeout
-  if (timedOut) return { outcome: "timeout", exitCode, signal, timedOut: true }
+  const budgetExpired =
+    code === "ETIMEDOUT" || (exitCode === null && Date.now() - startedAt >= timeout)
+  if (budgetExpired) return { outcome: "timeout", exitCode, signal, timedOut: true }
   if (exitCode === null || ["ENOBUFS", "ENOENT", "EACCES", "EAGAIN", "ENOMEM"].includes(code)) {
     return { outcome: "execution_error", exitCode, signal, timedOut: false }
   }
@@ -383,7 +424,9 @@ function runVerification(cwd) {
       execSync(cmd, { cwd, stdio: "pipe", timeout, maxBuffer: VERIFY_MAX_BUFFER })
       results.push({ command: cmd, success: true, outcome: "pass", exitCode: 0, signal: null, timedOut: false })
     } catch (e) {
-      const output = (e.stdout || e.stderr || e.message || "").toString()
+      const stdout = (e.stdout || "").toString()
+      const stderr = (e.stderr || "").toString()
+      const output = verificationEvidence(stdout, stderr) || String((e && e.message) || "")
       const { outcome, exitCode, signal, timedOut } = classifyVerificationError(e, startedAt, timeout)
       let error
       if (outcome === "timeout") {
@@ -392,9 +435,11 @@ function runVerification(cwd) {
         const reason = String((e && e.code) || (signal ? `signal ${signal}` : "no exit status"))
         error = `could not run to completion (execution error: ${reason}); output: ${output.slice(0, 200).replace(/\s+/g, " ").trim() || "(none)"}`
       } else {
-        error = output.slice(0, VERIFY_OUTPUT_LIMIT)
+        error = verificationDiagnostic(stdout, stderr) || String((e && e.message) || "")
       }
-      results.push({ command: cmd, success: false, outcome, exitCode, signal, timedOut, error })
+      const result = { command: cmd, success: false, outcome, exitCode, signal, timedOut, error }
+      if (outcome === "test_failure" && output) result.evidence = output
+      results.push(result)
     }
   }
   return { allPassed: results.every((r) => r.success), skipped: false, results }
