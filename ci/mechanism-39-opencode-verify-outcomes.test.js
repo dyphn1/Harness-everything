@@ -150,6 +150,49 @@ console.log('\n[39] opencode verification outcomes: Rule-of-3 downstream behavio
     JSON.stringify(breaker),
   );
 
+  // --- Jest suite output: FAIL <file> is context, not identity -----------
+  // P1 regression: the old classifier returned the first matching line, so
+  // `FAIL src/parser.test.js` made three different test failures in the same
+  // file one signature and forced a reflection.
+  const jestSession = 'jest-distinct';
+  const jestFailure = (name) => [
+    "console.log('FAIL src/parser.test.js');",
+    `console.log('  ● parser › accepts ${name}');`,
+    `console.log('    AssertionError: ${name}');`,
+    'process.exit(1);',
+  ];
+  for (const name of ['alpha', 'beta', 'gamma']) {
+    setFixture(jestFailure(name));
+    await edit(jestSession);
+    await idle(jestSession);
+  }
+  breaker = readBreaker(jestSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. different Jest failures from one file stay three separate signatures',
+    Object.keys(breaker.failures).length === 3 && entries.every((entry) => entry.count === 1) && breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+
+  const jestIdenticalSession = 'jest-identical';
+  setFixture(jestFailure('stable'));
+  for (let i = 0; i < 3; i += 1) {
+    await edit(jestIdenticalSession);
+    await idle(jestIdenticalSession);
+  }
+  breaker = readBreaker(jestIdenticalSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. three identical Jest failures still force the Rule-of-3 reflection',
+    Object.keys(breaker.failures).length === 1 && entries[0].count === 3 && breaker.reflectionPending === true,
+    JSON.stringify(breaker),
+  );
+  helper.check(
+    '39. the Jest-identical reflection prompt names the token',
+    /reflection token: [A-Za-z0-9]+/.test(lastPrompt()),
+    lastPrompt(),
+  );
+
   // --- genuinely identical failures keep the Rule of 3 ------------------
   const identicalSession = 'identical';
   setFixture(markerFailure('stable check'));

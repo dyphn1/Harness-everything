@@ -23,9 +23,9 @@
  *
  * The circuit breaker trips on repeated *verification* failures of the same
  * underlying check (same command + normalized failure evidence: the first
- * recognizable failing-test marker, or a digest of the full captured
- * stdout+stderr when no marker exists), not on arbitrary tool failures:
- * tool.execute.after
+ * test-level failing marker with its suite header as context, or a digest of
+ * the full captured stdout+stderr when no test-level marker exists), not on
+ * arbitrary tool failures: tool.execute.after
  * gives back `{title, output, metadata}` for every tool with no normalized
  * success/failure field, so there is no reliable cross-tool failure signal to
  * key a signature on. Verification failures are self-produced and already
@@ -275,11 +275,19 @@ function defaultCompliance() {
   }
 }
 
-// First recognizable evidence of an actual failing check, in line order.
-// TAP, node:test/jest symbols, jest suite/block headers, mocha numbering, and
-// assertion/error lines. `✖ failing tests:` (the node:test summary header) is
-// skipped in favor of the specific test line that follows it.
-const FAILURE_MARKER_PATTERNS = [/^not ok\b.*$/m, /^\s*[✖✕]\s*(?!\s*failing\b).+$/m, /^FAIL\b.*$/m, /^●\s+.+$/m, /^\d+\)\s+.+$/m, /^[A-Za-z]*Error\b.*$/m];
+// Test-level evidence of an actual failing check, in line order: TAP, Node
+// test-runner symbols, Jest test blocks, mocha numbering, and assertion/error
+// lines. `✖ failing tests:` (the node:test summary header) is skipped in
+// favor of the specific test line that follows it, and Jest's `● Console`
+// section is not failure evidence at all.
+const FAILURE_MARKER_PATTERNS = [/^not ok\b.*$/m, /^\s*[✖✕]\s*(?!\s*failing\b).+$/m, /^\s*●\s+(?!Console\b|Test suite failed to run\b|Validation Error\b).+$/m, /^\d+\)\s+.+$/m, /^[A-Za-z]*Error\b.*$/m];
+
+// Suite/file-level context, never an identity on its own: Jest prints
+// `FAIL <file>` (or `● Test suite failed to run`) above the failing test
+// blocks, so different tests in one file would otherwise share a signature.
+// A context line is carried into the signature only when a test-level marker
+// follows it; without one, the full-evidence digest decides.
+const CONTEXT_MARKER_PATTERNS = [/^FAIL\b.*$/m, /^\s*●\s+(?:Test suite failed to run|Validation Error)\b.*$/m];
 
 function normalizeFailureLine(line) {
   let text = String(line || "").replace(/\s+/g, " ").trim();
@@ -290,22 +298,29 @@ function normalizeFailureLine(line) {
 
 function firstFailureMarker(text) {
   const lines = String(text || "").replace(/\u001b\[[0-9;]*m/g, "").split(/\r?\n/);
+  let context = null;
   for (const line of lines) {
     if (FAILURE_MARKER_PATTERNS.some((pattern) => pattern.test(line))) {
       const normalized = normalizeFailureLine(line);
-      if (normalized) return normalized;
+      if (normalized) return context ? `${context}: ${normalized}` : normalized;
+    }
+    if (CONTEXT_MARKER_PATTERNS.some((pattern) => pattern.test(line))) {
+      const normalized = normalizeFailureLine(line);
+      if (normalized) context = normalized;
     }
   }
   return null;
 }
 
 // A stable, normalized signature: command + outcome + exit condition + the
-// first failing-check marker. Without a marker the signature falls back to a
-// digest of the full captured evidence (stdout and stderr both), so
-// banner-only prefixes from *different* failures can never collide
-// (identical byte-for-byte evidence still matches, which is the honest
-// reading: the same observation repeated). The user-visible `error` is a
-// bounded diagnostic and is only the fallback when no full evidence was kept.
+// first test-level failing marker (with a suite/file context line when the
+// runner printed one). Without a test-level marker the signature falls back
+// to a digest of the full captured evidence (stdout and stderr both), so
+// suite-header-only or banner-only prefixes from *different* failures can
+// never collide (identical byte-for-byte evidence still matches, which is
+// the honest reading: the same observation repeated). The user-visible
+// `error` is a bounded diagnostic and is only the fallback when no full
+// evidence was kept.
 function buildFailureSignature(result) {
   const evidence = String((result && (result.evidence || result.error)) || "");
   const marker = firstFailureMarker(evidence);

@@ -58,6 +58,7 @@ function loadSignatureLogic(source) {
   vm.createContext(context);
   const script = [
     extractConst(source, 'FAILURE_MARKER_PATTERNS'),
+    extractConst(source, 'CONTEXT_MARKER_PATTERNS'),
     extractFunction(source, 'normalizeFailureLine'),
     extractFunction(source, 'firstFailureMarker'),
     extractFunction(source, 'buildFailureSignature'),
@@ -406,6 +407,37 @@ assert.strictEqual(
     context.buildFailureSignature(withEvidence(`${prefix}HARNESS-UNIQUE-ALPHA`, '')),
     'identical evidence still matches',
   );
+
+  // P1: the Jest suite header is context; the test block is the identity.
+  const jestLike = (name, file = 'src/parser.test.js') => `FAIL ${file}\n  ● parser › accepts ${name}\n    AssertionError: ${name}\n`;
+  assert.strictEqual(
+    context.firstFailureMarker(jestLike('alpha')),
+    'FAIL src/parser.test.js: ● parser › accepts alpha',
+    'the Jest suite header is carried as context for the specific test block',
+  );
+  const jestAlpha = result(jestLike('alpha'));
+  const jestBeta = result(jestLike('beta'));
+  const jestGamma = result(jestLike('gamma'));
+  assert.notStrictEqual(context.buildFailureSignature(jestAlpha), context.buildFailureSignature(jestBeta), 'different Jest failures from the same file do not collide');
+  assert.notStrictEqual(context.buildFailureSignature(jestBeta), context.buildFailureSignature(jestGamma), 'the second and third Jest failures stay distinct too');
+  assert.strictEqual(context.buildFailureSignature(jestAlpha), context.buildFailureSignature(result(jestLike('alpha'))), 'an identical Jest failure still matches');
+  assert.notStrictEqual(
+    context.buildFailureSignature(jestAlpha),
+    context.buildFailureSignature(result(jestLike('alpha', 'src/other.test.js'))),
+    'the file context distinguishes same-named first failures across suites',
+  );
+
+  const failOnly = result('FAIL src/parser.test.js\n');
+  assert.ok(/unrecognized-output/.test(context.buildFailureSignature(failOnly)), 'a lone suite header is not a failing-check identity');
+  assert.notStrictEqual(
+    context.buildFailureSignature(failOnly),
+    context.buildFailureSignature(result('FAIL src/other.test.js\n')),
+    'lone suite headers from different files stay distinct via the digest',
+  );
+
+  assert.strictEqual(context.firstFailureMarker('  ● Console\n    console.log\n      noise\n'), null, 'the Jest Console section is not a failure marker');
+  const jestWithConsole = `FAIL src/parser.test.js\n  ● Console\n\n    console.log\n      noise\n\n  ● parser › accepts alpha\n`;
+  assert.strictEqual(context.firstFailureMarker(jestWithConsole), 'FAIL src/parser.test.js: ● parser › accepts alpha', 'a Console block before the failure does not confuse the marker');
 
   const bannerOnly = result(banner);
   assert.strictEqual(context.buildFailureSignature(bannerOnly), context.buildFailureSignature(result(banner)), 'identical markerless output still matches');

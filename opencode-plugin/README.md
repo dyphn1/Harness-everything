@@ -78,11 +78,14 @@ follow-up in issue #338.
 ### 3. Rule-of-3 zoom-out boundary (`tool.execute.before` + the verification observer above)
 
 Enforces Rule of 3 on repeated verification failures (same failing command +
-normalized failure evidence: the first recognizable failing-test marker - TAP
-`not ok`, node:test/jest symbols, assertion lines - over the full captured
-stdout **and** stderr, or a digest of that full evidence when no marker exists;
-the 2 KiB bound applies only to the user-visible diagnostic excerpt, never to
-signature analysis; not arbitrary tool failures, since
+normalized failure evidence: the first test-level failing marker - TAP
+`not ok`, node:test/jest symbols, Jest test blocks, assertion lines - over the
+full captured stdout **and** stderr, with a preceding suite header such as
+Jest's `FAIL <file>` carried as context so different tests in one file stay
+distinct; without a test-level marker the signature falls back to a digest of
+that full evidence, never to a suite header alone; the 2 KiB bound applies
+only to the user-visible diagnostic excerpt, never to signature analysis; not
+arbitrary tool failures, since
 `tool.execute.after` has no normalized success/failure field to key a
 signature on for tools in general):
 - 3rd failure on the same signature forces a reflection message instead of a
