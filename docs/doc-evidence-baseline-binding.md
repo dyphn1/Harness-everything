@@ -96,11 +96,14 @@ bound command that fails still produces an observed failure, not a pass.
   digest is absent, empty, or not a usable value is still present; it is never silently
   reinterpreted as a deletion or as a rename source.
 - For an applicable obligation that declares baseline-only paths, the top-level candidate
-  `artifacts` argument must itself be an explicit plain object. An omitted, `undefined`, `null`,
-  array, string, or other malformed top-level value is **unknown inventory** and fails closed
-  with `candidate-artifacts-invalid`; an explicit `{}` remains the legitimate empty deletion
-  inventory. This provenance check is limited to obligations that actually declare baseline
-  paths, so callers without `scope.baselinePaths` keep their previous behavior.
+  `artifacts` argument must itself be a non-null object, not an array, whose prototype is
+  `Object.prototype` or `null`. An omitted, `undefined`, `null`, array, string, `Map`, `Date`,
+  `RegExp`, class instance, custom-prototype object, or other malformed top-level value is
+  **unknown inventory** and fails closed with `candidate-artifacts-invalid`; an explicit `{}` or
+  an empty null-prototype dictionary remains the legitimate empty deletion inventory. This
+  provenance check is limited to obligations that actually declare baseline paths, and it does
+  not change the shared `isPlainObject` normalizer used by callers without
+  `scope.baselinePaths`.
 
 ## Fail-closed cases
 
@@ -111,8 +114,9 @@ The result is not a pass when any of the following is observed:
 - a baseline-only entry that is missing from `scope.paths`, is duplicated, has an unknown reason,
   or has a malformed `renameTo`;
 - an applicable obligation that declares baseline-only paths but receives an absent or malformed
-  top-level candidate `artifacts` map (omitted, `undefined`, `null`, array, string, or another
-  non-plain-object value); an explicit `{}` is valid;
+  top-level candidate `artifacts` map (omitted, `undefined`, `null`, array, string, or an
+  object-like value that is not a plain object or null-prototype dictionary, including `Map`,
+  `Date`, `RegExp`, and class instances); an explicit `{}` or null-prototype dictionary is valid;
 - a baseline-only path with an own-key candidate artifact map entry, even when that entry has no
   usable digest (`{}`, `{ digest: '' }`, or `null`);
 - a record that carries an `artifactDigests` entry (real, empty, or fake) for a baseline-only

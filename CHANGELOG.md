@@ -44,7 +44,7 @@ All notable changes to this project are documented in this file.
 * **doc-obligations:** keep unrelated REQ-citing tests out of requirement-sync scope
 * **doc-evidence:** keep unresolved requirement identities out of observed requirement-sync failures
 * **doc-evidence:** bind deleted and renamed baseline paths to trusted per-path digest evidence while keeping candidate paths exact
-* **doc-evidence:** reject absent or malformed top-level candidate inventories for baseline-only obligations while keeping explicit empty inventories valid
+* **doc-evidence:** reject absent, malformed, or non-plain-object top-level candidate inventories for baseline-only obligations while keeping explicit empty and null-prototype inventories valid
 
 ## [0.34.0](https://github.com/dyphn1/Harness-everything/compare/v0.33.0...v0.34.0) (2026-10-17)
 

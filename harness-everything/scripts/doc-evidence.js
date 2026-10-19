@@ -6,6 +6,17 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+// #335 P3: the candidate inventory provenance check is deliberately stricter than the shared
+// `isPlainObject` helper. Baseline-only evidence requires a real plain object or a
+// null-prototype dictionary; object-like values (Map, Date, RegExp, class instances) must not
+// masquerade as an empty inventory. The shared normalizer and `artifactMap` fallback remain
+// unchanged for non-baseline callers.
+function isCandidateInventory(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 function isRecord(value) {
   return isPlainObject(value)
     && typeof value.id === 'string' && value.id.length > 0
@@ -94,11 +105,13 @@ function prdSetDigest(artifactMap) {
 function checkDocObligations({ obligations, artifacts, baseline, executionRecords, reviewRecords } = {}) {
   const diagnostics = [];
   const results = [];
-  // P3: distinguish a caller-supplied plain-object inventory (including an explicit {}) from
-  // an absent or malformed value that the pre-existing normalizer would coerce to {}. The
-  // provenance flag is only consulted for applicable obligations that declare baseline paths.
-  const artifactsKnown = isPlainObject(artifacts);
-  const artifactMap = artifactsKnown ? artifacts : {};
+  // P3: distinguish a caller-supplied plain-object or null-prototype inventory (including an
+  // explicit {}) from an absent, malformed, or object-like value that the pre-existing
+  // normalizer would coerce to (or treat as) an empty map. The provenance flag is only
+  // consulted for applicable obligations that declare baseline paths; `artifactMap` keeps the
+  // original `isPlainObject` fallback for non-baseline callers.
+  const artifactsKnown = isCandidateInventory(artifacts);
+  const artifactMap = isPlainObject(artifacts) ? artifacts : {};
   const baselineDigest = isPlainObject(baseline) && nonEmptyString(baseline.digest) ? baseline.digest : '';
   const executionList = Array.isArray(executionRecords) ? executionRecords.filter(isRecord) : [];
   const reviewList = Array.isArray(reviewRecords) ? reviewRecords.filter(isRecord) : [];

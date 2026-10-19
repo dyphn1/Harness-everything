@@ -706,13 +706,27 @@ checkCase('335 missing per-path binding is visible as baseline-binding-missing',
 // obligations closed; an explicit {} remains a valid empty deletion inventory.
 // ---------------------------------------------------------------------------
 
+class CustomInventory {}
+
+// Object-like values have no own enumerable keys, so the pre-fix provenance check treated
+// them as an empty inventory. They are not plain objects and must fail baseline-only
+// obligations closed; null-prototype dictionaries remain valid (tested separately).
+const OBJECT_LIKE_INVALID_ARTIFACTS = [
+  ['Map', new Map()],
+  ['Date', new Date(0)],
+  ['RegExp', /inventory/],
+  ['class instance', new CustomInventory()],
+  ['custom prototype', Object.create({ inherited: true })]
+];
+
 const INVALID_ARTIFACTS = [
   ['omitted', OMIT_ARTIFACTS],
   ['undefined', undefined],
   ['null', null],
   ['array', [DELETED_ADR]],
   ['string', 'not-a-map'],
-  ['boolean', false]
+  ['boolean', false],
+  ...OBJECT_LIKE_INVALID_ARTIFACTS
 ];
 
 checkCase('335 P3 deletion: absent or malformed top-level artifacts fails closed', () => {
@@ -747,6 +761,25 @@ checkCase('335 P3 deletion: an approving review cannot pass with absent top-leve
     `candidate inventory is diagnosed: ${diagnosticCodes(output)}`);
 });
 
+checkCase('335 P3 deletion: object-like inventories fail closed for an approving review', () => {
+  const failures = [];
+  for (const [label, value] of OBJECT_LIKE_INVALID_ARTIFACTS) {
+    const ctx = prepare('deleted-adr');
+    const output = checkArtifacts(ctx, value, {
+      reviewRecords: [reviewRecord(ctx, 'review-run', 'doc-change:quality-review', {
+        paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+      })]
+    });
+    const result = resultOf(output, 'doc-change:quality-review');
+    if (result.outcome !== 'none') failures.push(`${label}: outcome=${result.outcome}`);
+    if (!diagnosticCodes(output).includes('candidate-artifacts-invalid')) {
+      failures.push(`${label}: diagnostics=${diagnosticCodes(output)}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `every object-like inventory must fail the review lane closed: ${failures.join('; ')}`);
+});
+
 checkCase('335 P3 rename: absent or malformed top-level artifacts fails closed', () => {
   const failures = [];
   for (const [label, value] of INVALID_ARTIFACTS) {
@@ -777,6 +810,33 @@ checkCase('335 P3 deletion: explicit empty object remains a valid empty deletion
     'an explicit empty object is a legitimate empty deletion inventory');
   assert.ok(!diagnosticCodes(output).includes('candidate-artifacts-invalid'),
     'the legitimate empty inventory is not diagnosed as malformed');
+});
+
+checkCase('335 P3 null-prototype inventory is accepted for deletion and populated rename lanes', () => {
+  const deletion = prepare('deleted-adr');
+  const empty = Object.create(null);
+  const deletionOut = checkArtifacts(deletion, empty, {
+    executionRecords: [execRecord(deletion, 'tomb-run', 'doc-change:doc-lint', {
+      paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+    })]
+  });
+  assert.strictEqual(resultOf(deletionOut, 'doc-change:doc-lint').outcome, 'pass',
+    'an empty null-prototype dictionary is a legitimate empty deletion inventory');
+  assert.ok(!diagnosticCodes(deletionOut).includes('candidate-artifacts-invalid'),
+    'the null-prototype empty inventory is not diagnosed as malformed');
+
+  const rename = prepare('rename');
+  const populated = Object.create(null);
+  populated[RENAME_TO] = rename.artifacts[RENAME_TO];
+  const renameOut = checkArtifacts(rename, populated, {
+    executionRecords: [execRecord(rename, 'move-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    })]
+  });
+  assert.strictEqual(resultOf(renameOut, 'doc-change:doc-lint').outcome, 'pass',
+    'a populated null-prototype inventory still satisfies the rename lane');
+  assert.ok(!diagnosticCodes(renameOut).includes('candidate-artifacts-invalid'),
+    'the populated null-prototype inventory is not diagnosed as malformed');
 });
 
 checkCase('335 P3 populated inventory and normal candidate binding stay valid', () => {
@@ -815,6 +875,45 @@ checkCase('335 P3 non-baseline callers keep absent-map behavior', () => {
     `the normal edited path still fails closed: ${diagnosticCodes(omitted)}`);
   assert.ok(!diagnosticCodes(omitted).includes('candidate-artifacts-invalid'),
     'the new input-boundary diagnostic does not appear for non-baseline obligations');
+});
+
+checkCase('335 P3 non-baseline callers keep the original artifactMap fallback for object-like values', () => {
+  const ctx = prepare('docs-only');
+  const records = {
+    executionRecords: [execRecord(ctx, 'edit-run', 'doc-change:doc-lint', {
+      paths: [GUIDE], candidatePaths: [GUIDE]
+    })]
+  };
+  const empty = checkArtifacts(ctx, {}, records);
+  const failures = [];
+  for (const [label, value] of INVALID_ARTIFACTS) {
+    const output = checkArtifacts(ctx, value, records);
+    try {
+      assert.deepStrictEqual(output, empty, `${label}: output differs from explicit {}`);
+    } catch (error) {
+      failures.push(error.message);
+    }
+    if (diagnosticCodes(output).includes('candidate-artifacts-invalid')) {
+      failures.push(`${label}: candidate-artifacts-invalid leaked into a non-baseline obligation`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `non-baseline fallback must stay unchanged: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 inventory guard is limited to applicable obligations with baseline paths', () => {
+  const ctx = prepare('deleted-adr');
+  const lint = obligationOf(ctx, 'doc-change:doc-lint');
+  const obligations = [
+    ['N/A', { ...lint, applicability: 'N/A' }],
+    ['unknown', { ...lint, applicability: 'unknown' }],
+    ['empty baselinePaths', { ...lint, scope: { ...lint.scope, baselinePaths: [] } }]
+  ];
+  for (const [label, obligation] of obligations) {
+    const output = checkArtifacts(ctx, new Map(), { obligations: [obligation] });
+    assert.ok(!diagnosticCodes(output).includes('candidate-artifacts-invalid'),
+      `${label}: the inventory guard must not apply (${diagnosticCodes(output)})`);
+  }
 });
 
 checkCase('335 P3 canonical and packaged modules agree on absent/malformed candidate inventory', () => {
