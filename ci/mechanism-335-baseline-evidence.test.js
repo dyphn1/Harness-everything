@@ -916,6 +916,104 @@ checkCase('335 P3 inventory guard is limited to applicable obligations with base
   }
 });
 
+// A Proxy can pass every value check yet abort the whole checker when its prototype trap
+// throws. The prototype read must be confined to applicable baseline-only obligations, and a
+// throwing trap must classify the inventory as unknown instead of escaping as an exception.
+function throwingPrototypeInventory() {
+  return new Proxy({}, {
+    getPrototypeOf() { throw new TypeError('throwing prototype trap'); }
+  });
+}
+
+checkCase('335 P3 a throwing prototype trap cannot abort non-baseline or inapplicable obligations', () => {
+  const ctx = prepare('docs-only');
+  const records = {
+    executionRecords: [execRecord(ctx, 'edit-run', 'doc-change:doc-lint', {
+      paths: [GUIDE], candidatePaths: [GUIDE]
+    })]
+  };
+  const empty = checkArtifacts(ctx, {}, records);
+  let output;
+  try {
+    output = checkArtifacts(ctx, throwingPrototypeInventory(), records);
+  } catch (error) {
+    assert.fail(`a non-baseline obligation must not read the candidate prototype: ${error.message}`);
+  }
+  assert.deepStrictEqual(output, empty,
+    'a non-baseline caller sees the same result as an explicit empty map');
+  assert.ok(!diagnosticCodes(output).includes('candidate-artifacts-invalid'),
+    'the new input-boundary diagnostic does not appear for non-baseline obligations');
+
+  const deleted = prepare('deleted-adr');
+  const lint = obligationOf(deleted, 'doc-change:doc-lint');
+  const cases = [
+    ['N/A', { ...lint, applicability: 'N/A' }],
+    ['unknown', { ...lint, applicability: 'unknown' }],
+    ['empty baselinePaths', { ...lint, scope: { ...lint.scope, baselinePaths: [] } }],
+    ['no baselinePaths annotation', { ...lint, scope: { paths: lint.scope.paths } }]
+  ];
+  for (const [label, obligation] of cases) {
+    let out;
+    try {
+      out = checkArtifacts(deleted, throwingPrototypeInventory(), { obligations: [obligation] });
+    } catch (error) {
+      assert.fail(`${label}: an inapplicable obligation must not read the candidate prototype: ${error.message}`);
+    }
+    assert.ok(!diagnosticCodes(out).includes('candidate-artifacts-invalid'),
+      `${label}: the inventory guard must not apply (${diagnosticCodes(out)})`);
+  }
+});
+
+checkCase('335 P3 a throwing prototype trap fails baseline-only evidence closed', () => {
+  const failures = [];
+  for (const scenario of ['deleted-adr', 'rename']) {
+    const ctx = prepare(scenario);
+    const isRename = scenario === 'rename';
+    const paths = isRename ? [RENAME_FROM, RENAME_TO] : [DELETED_ADR];
+    const candidatePaths = isRename ? [RENAME_TO] : [];
+    const baselinePaths = isRename ? [RENAME_FROM] : [DELETED_ADR];
+    const record = isRename
+      ? execRecord(ctx, 'move-run', 'doc-change:doc-lint', { paths, candidatePaths, baselinePaths })
+      : execRecord(ctx, 'tomb-run', 'doc-change:doc-lint', { paths, candidatePaths, baselinePaths });
+    const outputs = [];
+    for (const target of [modules, packageModules]) {
+      let output;
+      try {
+        output = checkArtifacts(ctx, throwingPrototypeInventory(), { executionRecords: [record] }, target);
+      } catch (error) {
+        failures.push(`${scenario}: prototype trap escaped: ${error.message}`);
+        continue;
+      }
+      if (resultOf(output, 'doc-change:doc-lint').outcome !== 'none') {
+        failures.push(`${scenario}: outcome=${resultOf(output, 'doc-change:doc-lint').outcome}`);
+      }
+      if (!diagnosticCodes(output).includes('candidate-artifacts-invalid')) {
+        failures.push(`${scenario}: diagnostics=${diagnosticCodes(output)}`);
+      }
+      outputs.push(output);
+    }
+    if (outputs.length === 2) {
+      assert.deepStrictEqual(outputs[1].results, outputs[0].results,
+        `${scenario}: packaged results match the canonical module`);
+      assert.deepStrictEqual(outputs[1].diagnostics, outputs[0].diagnostics,
+        `${scenario}: packaged diagnostics match the canonical module`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `a throwing prototype trap must fail closed in both modules: ${failures.join('; ')}`);
+
+  const ctx = prepare('deleted-adr');
+  const lint = obligationOf(ctx, 'doc-change:doc-lint');
+  const twin = { ...lint, id: 'doc-change:doc-lint-twin' };
+  let reads = 0;
+  const inventory = new Proxy({}, {
+    getPrototypeOf() { reads += 1; throw new TypeError('throwing prototype trap'); }
+  });
+  checkArtifacts(ctx, inventory, { obligations: [lint, twin] });
+  assert.strictEqual(reads, 1,
+    'the inventory classification is resolved at most once for all obligations');
+});
+
 checkCase('335 P3 canonical and packaged modules agree on absent/malformed candidate inventory', () => {
   for (const [label, value] of INVALID_ARTIFACTS) {
     const sourceCtx = prepare('deleted-adr', modules);

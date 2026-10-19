@@ -11,9 +11,16 @@ function isPlainObject(value) {
 // null-prototype dictionary; object-like values (Map, Date, RegExp, class instances) must not
 // masquerade as an empty inventory. The shared normalizer and `artifactMap` fallback remain
 // unchanged for non-baseline callers.
+// A Proxy (or host object) whose `getPrototypeOf` trap throws cannot be proven to be a plain
+// object, so it is classified as unknown inventory rather than aborting the whole check.
 function isCandidateInventory(value) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype = Object.getPrototypeOf(value);
+  let prototype;
+  try {
+    prototype = Object.getPrototypeOf(value);
+  } catch {
+    return false;
+  }
   return prototype === Object.prototype || prototype === null;
 }
 
@@ -107,11 +114,20 @@ function checkDocObligations({ obligations, artifacts, baseline, executionRecord
   const results = [];
   // P3: distinguish a caller-supplied plain-object or null-prototype inventory (including an
   // explicit {}) from an absent, malformed, or object-like value that the pre-existing
-  // normalizer would coerce to (or treat as) an empty map. The provenance flag is only
-  // consulted for applicable obligations that declare baseline paths; `artifactMap` keeps the
-  // original `isPlainObject` fallback for non-baseline callers.
-  const artifactsKnown = isCandidateInventory(artifacts);
+  // normalizer would coerce to (or treat as) an empty map. The provenance check is deferred to
+  // applicable obligations that actually declare baseline paths, so non-baseline and
+  // inapplicable callers never read the candidate inventory's prototype (a throwing Proxy trap
+  // must not abort an unrelated obligation). It is resolved at most once so every obligation
+  // sees the same classification. `artifactMap` keeps the original `isPlainObject` fallback for
+  // non-baseline callers.
   const artifactMap = isPlainObject(artifacts) ? artifacts : {};
+  let candidateInventoryKnown;
+  const isCandidateInventoryKnown = () => {
+    if (candidateInventoryKnown === undefined) {
+      candidateInventoryKnown = isCandidateInventory(artifacts);
+    }
+    return candidateInventoryKnown;
+  };
   const baselineDigest = isPlainObject(baseline) && nonEmptyString(baseline.digest) ? baseline.digest : '';
   const executionList = Array.isArray(executionRecords) ? executionRecords.filter(isRecord) : [];
   const reviewList = Array.isArray(reviewRecords) ? reviewRecords.filter(isRecord) : [];
@@ -130,14 +146,14 @@ function checkDocObligations({ obligations, artifacts, baseline, executionRecord
 
   for (const obligation of obligationList) {
     results.push(evaluateObligation(obligation, {
-      artifactMap, artifactsKnown, baseline, baselineDigest, executionList, reviewList, diagnostics
+      artifactMap, isCandidateInventoryKnown, baseline, baselineDigest, executionList, reviewList, diagnostics
     }));
   }
   return { diagnostics, results };
 }
 
 function evaluateObligation(obligation, context) {
-  const { artifactMap, artifactsKnown, baseline, baselineDigest, executionList, reviewList, diagnostics } = context;
+  const { artifactMap, isCandidateInventoryKnown, baseline, baselineDigest, executionList, reviewList, diagnostics } = context;
   const capability = typeof obligation.capability === 'string' ? obligation.capability : '';
   const obligationId = nonEmptyString(obligation.id) ? obligation.id : capability;
   const scopePaths = scopePathsOf(obligation);
@@ -238,8 +254,9 @@ function evaluateObligation(obligation, context) {
   // P3: an applicable obligation that actually declares baseline-only paths needs a known
   // candidate inventory. Explicit {} is known and remains the legitimate empty deletion
   // inventory; omitted/undefined/null/array/string/other malformed values are unknown input.
+  // The prototype read happens here, not up front, so unrelated obligations never touch it.
   if (applicability === 'applicable' && Array.isArray(declaredBaselinePaths)
-    && declaredBaselinePaths.length > 0 && !artifactsKnown) {
+    && declaredBaselinePaths.length > 0 && !isCandidateInventoryKnown()) {
     candidateInventoryUnknown = true;
     diagnostics.push({
       code: 'candidate-artifacts-invalid',

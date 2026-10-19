@@ -103,7 +103,10 @@ bound command that fails still produces an observed failure, not a pass.
   an empty null-prototype dictionary remains the legitimate empty deletion inventory. This
   provenance check is limited to obligations that actually declare baseline paths, and it does
   not change the shared `isPlainObject` normalizer used by callers without
-  `scope.baselinePaths`.
+  `scope.baselinePaths`. The prototype is read only for those applicable baseline-only
+  obligations; a value whose prototype inspection throws (for example a `Proxy` with a throwing
+  `getPrototypeOf` trap) is likewise unknown inventory, and unrelated non-baseline or
+  inapplicable obligations never trigger the read.
 
 ## Fail-closed cases
 
@@ -116,7 +119,8 @@ The result is not a pass when any of the following is observed:
 - an applicable obligation that declares baseline-only paths but receives an absent or malformed
   top-level candidate `artifacts` map (omitted, `undefined`, `null`, array, string, or an
   object-like value that is not a plain object or null-prototype dictionary, including `Map`,
-  `Date`, `RegExp`, and class instances); an explicit `{}` or null-prototype dictionary is valid;
+  `Date`, `RegExp`, class instances, and objects whose prototype cannot be inspected); an
+  explicit `{}` or null-prototype dictionary is valid;
 - a baseline-only path with an own-key candidate artifact map entry, even when that entry has no
   usable digest (`{}`, `{ digest: '' }`, or `null`);
 - a record that carries an `artifactDigests` entry (real, empty, or fake) for a baseline-only
