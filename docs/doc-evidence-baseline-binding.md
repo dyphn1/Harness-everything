@@ -85,14 +85,23 @@ A rename source is satisfied only by a **single** record that also lists the cur
 `artifactDigests`, carries no `artifactDigests` entry for the old path, and has no own-key
 candidate artifact map entry for the old path. The candidate destination must itself be an
 own-key entry in the candidate artifact map whose artifact entry declares its own `digest`; an
-inherited nested digest is not explicit evidence. After that own-key metadata check, the record
-binds the destination against the same captured candidate digest used by ordinary candidate
-binding, the audit identity, and the stale diagnostics, so the destination accessor is not
-re-read during binding: a nested `digest` that throws or changes after capture cannot make a
-stale destination pair bind while the audit/stale verdicts still describe the captured value. The
-same record can cover both endpoints. Destination-only evidence, source-only tombstones, split
-endpoint records, and stale destination digests do not satisfy the source. A deletion tombstone
-therefore cannot stand in for a known rename.
+inherited nested digest is not explicit evidence. The own digest validated by that metadata check
+is carried into the captured snapshot, and the record binds the destination against that captured
+candidate digest — the same one used by ordinary candidate binding, the audit identity, and the
+stale diagnostics. The destination is therefore never read again through the candidate map during
+capture or binding: a nested `digest` that throws or changes after validation cannot make a stale
+destination pair bind while the audit/stale verdicts still describe the captured value. The same
+record can cover both endpoints. Destination-only evidence, source-only tombstones, split endpoint
+records, and stale destination digests do not satisfy the source. A deletion tombstone therefore
+cannot stand in for a known rename.
+
+Metadata validation is the single candidate snapshot for a baseline-only path. Once a declared
+baseline path has been confirmed to have **no** own-key candidate entry, that validated absence is
+carried on the entry; binding and the `artifactDigest` audit identity reuse it instead of
+re-inspecting the candidate map, so a `Proxy` that answers own-property or `get` inspection
+consistently during validation cannot later abort the check or change the audit key. A
+baseline-only path therefore contributes `path=missing` to `artifactDigest` from the validated
+proof rather than from a fresh candidate read.
 
 The binding applies to execution and review records alike. Existing review approval, waiver,
 failing-command, requirement-sync authority, and applicability rules are unchanged. A correctly
@@ -123,9 +132,11 @@ bound command that fails still produces an observed failure, not a pass.
   `getPrototypeOf` trap) is likewise unknown inventory, and unrelated non-baseline or
   inapplicable obligations never trigger the read. The same boundary is exception-safe for
   own-property inspection: a throwing property-descriptor trap or a throwing nested `digest`
-  accessor is classified as unknown inventory (`candidate-artifacts-invalid` for applicable
-  baseline-only obligations) instead of escaping the checker. `N/A` and `unknown` obligations
-  never emit that diagnostic.
+  accessor encountered during metadata validation or the pre-binding capture is classified as
+  unknown inventory (`candidate-artifacts-invalid` for applicable baseline-only obligations)
+  instead of escaping the checker. Inspection is not repeated after validation for a validated
+  baseline-only path or a rename destination, so a trap that only starts throwing on a later
+  re-inspection is never reached. `N/A` and `unknown` obligations never emit that diagnostic.
 - A mixed scope can combine baseline-only paths with ordinary candidate paths (for example one
   document deleted and another edited in the same change set). For an applicable obligation
   that declares baseline paths, every ordinary scoped candidate digest is captured once before
@@ -133,11 +144,13 @@ bound command that fails still produces an observed failure, not a pass.
   diagnostics all use that same captured snapshot, so a nested digest accessor whose later read
   throws or returns a different value cannot make the audit key or a stale verdict disagree with
   the digest that bound evidence. This includes the rename destination: after metadata proves the
-  destination is an own-key inventory entry with its own digest, the rename pair binds against the
-  captured destination digest, so a stale pair plus a destination-only record cannot jointly pass.
-  A throwing accessor on one of those paths during capture also fails the candidate inventory
-  closed. Callers without `scope.baselinePaths` keep the legacy candidate-binding behavior
-  unchanged.
+  destination is an own-key inventory entry with its own digest, the captured snapshot is seeded
+  with that validated own digest and the destination candidate map is not read again during
+  capture, so a stale pair plus a destination-only record cannot jointly pass. Declared
+  baseline-only paths were validated absent during metadata and are not read again either. A
+  throwing accessor on one of the remaining ordinary paths during capture also fails the candidate
+  inventory closed. Callers without `scope.baselinePaths` keep the legacy candidate-binding
+  behavior unchanged, including the legacy `candidateBound` read path.
 
 ## Fail-closed cases
 

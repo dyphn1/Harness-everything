@@ -1716,4 +1716,270 @@ checkCase('335 P3 rename destination binds to the captured candidate snapshot', 
     `the rename destination must bind to the captured snapshot: ${failures.join('; ')}`);
 });
 
+// ---------------------------------------------------------------------------
+// P2 candidate-snapshot consistency (review r4318074471): metadata validation is
+// the single candidate snapshot. A validated baseline-only path carries its
+// source-absence proof, and a validated rename destination carries its own
+// validated digest, so binding and the audit identity never re-inspect the
+// candidate map. A plain-prototype Proxy whose own-property inspection is
+// exhausted after metadata must not abort the check, while a trap that throws
+// during metadata still fails the obligation closed.
+// ---------------------------------------------------------------------------
+
+function descriptorPatienceInventory(target, allowedDescriptorCalls) {
+  let descriptorCalls = 0;
+  const proxy = new Proxy(target, {
+    getPrototypeOf() { return Object.prototype; },
+    getOwnPropertyDescriptor(t, prop) {
+      descriptorCalls += 1;
+      if (descriptorCalls > allowedDescriptorCalls) {
+        throw new Error(`descriptor trap call ${descriptorCalls}`);
+      }
+      return Reflect.getOwnPropertyDescriptor(t, prop);
+    }
+  });
+  return { proxy, descriptorCalls: () => descriptorCalls };
+}
+
+function countingDigestEntry(digest, { validReads = 3, later = 'throw', laterValue } = {}) {
+  const entry = {};
+  let reads = 0;
+  Object.defineProperty(entry, 'digest', {
+    enumerable: true,
+    get() {
+      reads += 1;
+      if (reads <= validReads) return digest;
+      if (later === 'throw') throw new Error('stateful digest accessor');
+      return laterValue;
+    }
+  });
+  return { entry, reads: () => reads };
+}
+
+function runDocLint(ctx, target, { artifacts = ctx.artifacts, records = [] }) {
+  return target.checkDocObligations({
+    obligations: [obligationOf(ctx, 'doc-change:doc-lint')],
+    artifacts,
+    baseline: ctx.baseline,
+    executionRecords: records,
+    reviewRecords: []
+  });
+}
+
+checkCase('335 P3 a validated rename pair is not re-inspected when the candidate descriptor trap is exhausted', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const ctx = prepare('rename', target);
+    const guarded = descriptorPatienceInventory(ctx.artifacts, 2);
+    const record = execRecord(ctx, 'pair-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    });
+    let out;
+    try {
+      out = runDocLint(ctx, target, { artifacts: guarded.proxy, records: [record] });
+    } catch (error) { failures.push(`${label}: escaped: ${error.message}`); continue; }
+    if (resultOf(out, 'doc-change:doc-lint').outcome !== 'pass') {
+      failures.push(`${label}: outcome=${resultOf(out, 'doc-change:doc-lint').outcome}`);
+    }
+    if (guarded.descriptorCalls() !== 2) failures.push(`${label}: descriptor calls=${guarded.descriptorCalls()}`);
+  }
+  assert.deepStrictEqual(failures, [],
+    `a validated rename must not re-inspect the candidate: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 a validated deletion tombstone is not re-inspected when the candidate descriptor trap is exhausted', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const ctx = prepare('deleted-adr', target);
+    const guarded = descriptorPatienceInventory(ctx.artifacts, 1);
+    const record = execRecord(ctx, 'tomb-run', 'doc-change:doc-lint', {
+      paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+    });
+    let out;
+    try {
+      out = runDocLint(ctx, target, { artifacts: guarded.proxy, records: [record] });
+    } catch (error) { failures.push(`${label}: escaped: ${error.message}`); continue; }
+    if (resultOf(out, 'doc-change:doc-lint').outcome !== 'pass') {
+      failures.push(`${label}: outcome=${resultOf(out, 'doc-change:doc-lint').outcome}`);
+    }
+    if (guarded.descriptorCalls() !== 1) failures.push(`${label}: descriptor calls=${guarded.descriptorCalls()}`);
+  }
+  assert.deepStrictEqual(failures, [],
+    `a validated tombstone must not re-inspect the candidate: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 a descriptor trap that throws during metadata still fails the baseline pair closed', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    for (const scenario of ['deleted-adr', 'rename']) {
+      const ctx = prepare(scenario, target);
+      const guarded = descriptorPatienceInventory(ctx.artifacts, 0);
+      const isRename = scenario === 'rename';
+      const record = execRecord(ctx, 'run', 'doc-change:doc-lint', {
+        paths: isRename ? [RENAME_FROM, RENAME_TO] : [DELETED_ADR],
+        candidatePaths: isRename ? [RENAME_TO] : [],
+        baselinePaths: isRename ? [RENAME_FROM] : [DELETED_ADR]
+      });
+      let out;
+      try {
+        out = runDocLint(ctx, target, { artifacts: guarded.proxy, records: [record] });
+      } catch (error) { failures.push(`${label}/${scenario}: escaped: ${error.message}`); continue; }
+      const result = resultOf(out, 'doc-change:doc-lint');
+      if (result.outcome !== 'none') failures.push(`${label}/${scenario}: outcome=${result.outcome}`);
+      if (!diagnosticCodes(out).includes('candidate-artifacts-invalid')) {
+        failures.push(`${label}/${scenario}: diagnostics=${diagnosticCodes(out)}`);
+      }
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `a metadata descriptor trap must fail closed: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 the validated source-absence proof is carried into the audit and binding', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const ctx = prepare('rename', target);
+    let sourceGets = 0;
+    const inventory = new Proxy(ctx.artifacts, {
+      getPrototypeOf() { return Object.prototype; },
+      get(t, prop, receiver) {
+        if (prop === RENAME_FROM) {
+          sourceGets += 1;
+          return { digest: sha256('spoofed source entry') };
+        }
+        return Reflect.get(t, prop, receiver);
+      }
+    });
+    const record = execRecord(ctx, 'pair-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    });
+    let out;
+    try {
+      out = runDocLint(ctx, target, { artifacts: inventory, records: [record] });
+    } catch (error) { failures.push(`${label}: escaped: ${error.message}`); continue; }
+    const result = resultOf(out, 'doc-change:doc-lint');
+    if (result.outcome !== 'pass') failures.push(`${label}: outcome=${result.outcome}`);
+    if (!result.artifactDigest.includes(`${RENAME_FROM}=missing`)) {
+      failures.push(`${label}: audit=${result.artifactDigest}`);
+    }
+    if (sourceGets !== 0) failures.push(`${label}: source getter reads=${sourceGets}`);
+  }
+  assert.deepStrictEqual(failures, [],
+    `the source-absence proof must be carried: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 the metadata-validated rename destination digest is carried without a second candidate read', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const ctx = prepare('rename', target);
+    const counted = countingDigestEntry(RENAME_CAPTURED, { validReads: 3, later: 'throw' });
+    const artifacts = { ...ctx.artifacts, [RENAME_TO]: counted.entry };
+    const record = execRecord(ctx, 'pair-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [], baselinePaths: [RENAME_FROM],
+      artifactDigests: { [RENAME_TO]: RENAME_CAPTURED }
+    });
+    let out;
+    try {
+      out = runDocLint(ctx, target, { artifacts, records: [record] });
+    } catch (error) { failures.push(`${label}: escaped: ${error.message}`); continue; }
+    const result = resultOf(out, 'doc-change:doc-lint');
+    if (result.outcome !== 'pass') failures.push(`${label}: outcome=${result.outcome}`);
+    if (!result.artifactDigest.includes(`${RENAME_TO}=${RENAME_CAPTURED}`)) {
+      failures.push(`${label}: audit=${result.artifactDigest}`);
+    }
+    if (counted.reads() !== 3) failures.push(`${label}: destination reads=${counted.reads()}`);
+  }
+  assert.deepStrictEqual(failures, [],
+    `the validated destination digest must be carried: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 a stale pair plus a destination-only record stays none under descriptor patience', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const ctx = prepare('rename', target);
+    const guarded = descriptorPatienceInventory(ctx.artifacts, 2);
+    const stale = execRecord(ctx, 'pair-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [], baselinePaths: [RENAME_FROM],
+      artifactDigests: { [RENAME_TO]: RENAME_LATER }
+    });
+    const destOnly = execRecord(ctx, 'dest-only-run', 'doc-change:doc-lint', {
+      paths: [RENAME_TO], candidatePaths: [], baselinePaths: [],
+      artifactDigests: { [RENAME_TO]: RENAME_CAPTURED }
+    });
+    let out;
+    try {
+      out = runDocLint(ctx, target, { artifacts: guarded.proxy, records: [stale, destOnly] });
+    } catch (error) { failures.push(`${label}: escaped: ${error.message}`); continue; }
+    if (resultOf(out, 'doc-change:doc-lint').outcome === 'pass') {
+      failures.push(`${label}: a stale pair plus a destination-only record jointly passed`);
+    }
+    if (!diagnosticCodes(out).includes('stale-artifact-digest')) {
+      failures.push(`${label}: diagnostics=${diagnosticCodes(out)}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `a stale pair must not jointly pass: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 extra raw baselinePaths properties cannot forge the captured absence or destination digest', () => {
+  const ctx = prepare('rename');
+  const lint = obligationOf(ctx, 'doc-change:doc-lint');
+  const forged = sha256('forged destination digest');
+  const mutated = {
+    ...lint,
+    scope: {
+      ...lint.scope,
+      baselinePaths: [{
+        path: RENAME_FROM, reason: 'rename-from', renameTo: RENAME_TO,
+        candidatePathPresent: true, sourceAbsent: false, renameDestinationDigest: forged
+      }]
+    }
+  };
+  const output = check(ctx, {
+    obligations: ctx.obligations.map(item => (item.id === lint.id ? mutated : item)),
+    executionRecords: [execRecord(ctx, 'pair-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    })]
+  });
+  const result = resultOf(output, 'doc-change:doc-lint');
+  assert.strictEqual(result.outcome, 'pass',
+    'extra raw fields must not override the validated destination digest');
+  assert.ok(result.artifactDigest.includes(`${RENAME_TO}=${ctx.artifacts[RENAME_TO].digest}`),
+    `the audit identity must keep the validated destination digest: ${result.artifactDigest}`);
+});
+
+checkCase('335 P3 descriptor-patience inventories do not abort inapplicable or legacy obligations', () => {
+  const ctx = prepare('deleted-adr');
+  const lint = obligationOf(ctx, 'doc-change:doc-lint');
+  for (const applicability of ['N/A', 'unknown']) {
+    const guarded = descriptorPatienceInventory(ctx.artifacts, 0);
+    let out;
+    try {
+      out = checkArtifacts(ctx, guarded.proxy, { obligations: [{ ...lint, applicability }] });
+    } catch (error) {
+      assert.fail(`${applicability}: descriptor-patience inventory escaped: ${error.message}`);
+    }
+    assert.strictEqual(resultOf(out, lint.id).outcome, 'none', `${applicability} stays none`);
+    assert.ok(!diagnosticCodes(out).includes('candidate-artifacts-invalid'),
+      `${applicability} emits no inventory diagnostic`);
+  }
+  const edited = prepare('docs-only');
+  const guarded = descriptorPatienceInventory(edited.artifacts, 0);
+  const records = {
+    executionRecords: [execRecord(edited, 'edit-run', 'doc-change:doc-lint', { paths: [GUIDE], candidatePaths: [GUIDE] })]
+  };
+  const withProxy = checkArtifacts(edited, guarded.proxy, records);
+  const withPlain = checkArtifacts(edited, { ...edited.artifacts }, records);
+  assert.deepStrictEqual(withProxy, withPlain,
+    'legacy unannotated callers read the candidate map through the legacy lane unchanged');
+  assert.strictEqual(resultOf(withProxy, 'doc-change:doc-lint').outcome, 'pass',
+    'a populated legacy inventory still satisfies a normal candidate path');
+});
+
 helper.finish();

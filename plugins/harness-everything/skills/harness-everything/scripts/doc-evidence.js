@@ -233,6 +233,9 @@ function evaluateObligation(obligation, context) {
           invalid(entryPath, 'a deleted entry must not carry renameTo');
           continue;
         }
+        // #340: the validated rename destination digest is carried on the entry; the
+        // destination candidate map is not read again after metadata validation.
+        let renameDestinationDigest = '';
         if (rawEntry.reason === 'rename-from') {
           if (!nonEmptyString(rawEntry.renameTo) || rawEntry.renameTo === entryPath) {
             invalid(entryPath, 'a rename-from entry needs a distinct non-empty renameTo');
@@ -255,6 +258,7 @@ function evaluateObligation(obligation, context) {
             invalid(entryPath, `its rename destination ${JSON.stringify(rawEntry.renameTo)} has no candidate artifact`);
             continue;
           }
+          renameDestinationDigest = destinationDigest;
         }
         let candidatePathPresent = false;
         try {
@@ -284,7 +288,11 @@ function evaluateObligation(obligation, context) {
         baselineEntries.set(entryPath, {
           path: entryPath,
           reason: rawEntry.reason,
-          ...(rawEntry.reason === 'rename-from' ? { renameTo: rawEntry.renameTo } : {})
+          // #340: the metadata check above confirmed this path has no own-key candidate entry;
+          // carry that validated source-absence proof explicitly (never spread from rawEntry) so
+          // binding and the audit identity reuse it instead of re-inspecting the candidate map.
+          candidatePathPresent: false,
+          ...(rawEntry.reason === 'rename-from' ? { renameTo: rawEntry.renameTo, renameDestinationDigest } : {})
         });
       }
     }
@@ -296,8 +304,19 @@ function evaluateObligation(obligation, context) {
   const candidateDigestCache = new Map();
   if (applicability === 'applicable' && Array.isArray(declaredBaselinePaths)
     && declaredBaselinePaths.length > 0) {
+    // #340: a rename destination was already validated as an own-key candidate entry carrying
+    // its own digest during metadata. Seed the captured snapshot from that validated value and
+    // never read the destination through the raw candidate map again, so a destination accessor
+    // that throws or changes after validation cannot make capture/binding/audit disagree. The
+    // seeded value is the validated own digest, never a caller-asserted rawEntry field.
+    for (const entry of baselineEntries.values()) {
+      if (entry.reason === 'rename-from' && nonEmptyString(entry.renameDestinationDigest)
+        && !candidateDigestCache.has(entry.renameTo)) {
+        candidateDigestCache.set(entry.renameTo, entry.renameDestinationDigest);
+      }
+    }
     for (const path of scopePaths) {
-      if (baselineEntries.has(path)) continue;
+      if (baselineEntries.has(path) || candidateDigestCache.has(path)) continue;
       try {
         candidateDigestCache.set(path, artifact(artifactMap[path]));
       } catch {
@@ -341,6 +360,10 @@ function evaluateObligation(obligation, context) {
   // unannotated callers keep the legacy read.
   const candidateDigestOf = (path) => {
     if (candidateDigestCache.has(path)) return candidateDigestCache.get(path);
+    // #340: a declared baseline-only path was validated absent during metadata. Reuse that
+    // proof instead of re-reading the raw candidate map, which a stateful accessor could answer
+    // differently (or throw from), making the audit identity disagree with validation.
+    if (baselineEntries.has(path)) return '';
     try {
       return artifact(artifactMap[path]);
     } catch {
@@ -393,7 +416,11 @@ function evaluateObligation(obligation, context) {
   const baselineBound = (item, entry) => {
     if (!nonEmptyString(item.baseDigest) || item.baseDigest !== baselineDigest) return false;
     if (!Array.isArray(item.paths) || !item.paths.includes(entry.path)) return false;
-    if (Object.prototype.hasOwnProperty.call(artifactMap, entry.path)) return false;
+    // #340: metadata validation confirmed this baseline-only path has no own-key candidate
+    // entry. Reuse that carried absence proof instead of re-inspecting the candidate map, so a
+    // descriptor trap that only throws on a later inspection cannot abort the check. A path
+    // whose metadata was malformed never reaches here; it fails closed earlier.
+    if (entry.candidatePathPresent !== false) return false;
     if (isPlainObject(item.artifactDigests)
       && Object.prototype.hasOwnProperty.call(item.artifactDigests, entry.path)) return false;
     const trusted = hasOwnEntry(baselineArtifactsMap, entry.path) ? baselineArtifactsMap[entry.path] : undefined;
