@@ -181,6 +181,9 @@ function evaluateObligation(obligation, context) {
   const declaredBaselinePaths = declaresBaselinePaths ? scopeObject.baselinePaths : undefined;
   const baselineArtifactsMap = isPlainObject(baseline) && isPlainObject(baseline.artifacts) ? baseline.artifacts : null;
   const baselineEntries = new Map();
+  // #340: every accepted entry sharing a rename destination must validate the same own digest,
+  // or the shared-destination snapshot is contradictory and the obligation fails closed.
+  const validatedDestinationDigestMap = new Map();
   let baselineMetadataError = false;
   let candidateInventoryUnknown = false;
   // #335 P3: a candidate inventory can pass the prototype check and still throw from an
@@ -254,8 +257,20 @@ function evaluateObligation(obligation, context) {
             candidateInventoryInspectionFailed = true;
             continue;
           }
-          if (!destinationDigest) {
+          // #340: the captured own value must be a usable non-empty string; `artifact()` can read
+          // a stateful accessor three times, so a non-string result is not carried or seeded.
+          if (!nonEmptyString(destinationDigest)) {
             invalid(entryPath, `its rename destination ${JSON.stringify(rawEntry.renameTo)} has no candidate artifact`);
+            continue;
+          }
+          // #340: entries that share one rename destination must agree on the validated own
+          // digest. A conflicting validated value is a contradictory snapshot and fails the
+          // whole obligation closed before any binding; equal values are allowed.
+          const sharedDestinationDigest = validatedDestinationDigestMap.get(rawEntry.renameTo);
+          if (sharedDestinationDigest === undefined) {
+            validatedDestinationDigestMap.set(rawEntry.renameTo, destinationDigest);
+          } else if (sharedDestinationDigest !== destinationDigest) {
+            invalid(entryPath, `its rename destination ${JSON.stringify(rawEntry.renameTo)} was validated to conflicting own digests by another accepted baseline entry; the shared destination snapshot is not consistent`);
             continue;
           }
           renameDestinationDigest = destinationDigest;
@@ -360,10 +375,10 @@ function evaluateObligation(obligation, context) {
   // unannotated callers keep the legacy read.
   const candidateDigestOf = (path) => {
     if (candidateDigestCache.has(path)) return candidateDigestCache.get(path);
-    // #340: a declared baseline-only path was validated absent during metadata. Reuse that
-    // proof instead of re-reading the raw candidate map, which a stateful accessor could answer
-    // differently (or throw from), making the audit identity disagree with validation.
-    if (baselineEntries.has(path)) return '';
+    // #340: only an applicable baseline-annotated obligation validated the source absence as
+    // part of its captured snapshot. `N/A` and `unknown` obligations never bind evidence, so they
+    // keep the legacy candidate read for their audit identity and stay `outcome: 'none'`.
+    if (applicability === 'applicable' && baselineEntries.has(path)) return '';
     try {
       return artifact(artifactMap[path]);
     } catch {

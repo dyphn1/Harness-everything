@@ -1982,4 +1982,199 @@ checkCase('335 P3 descriptor-patience inventories do not abort inapplicable or l
     'a populated legacy inventory still satisfies a normal candidate path');
 });
 
+// ---------------------------------------------------------------------------
+// P2 applicability + shared-destination consistency (reviews r4318354774 and
+// r4318354780 at 4800a75): the validated source-absence audit shortcut is for
+// applicable obligations only, and every accepted entry that shares a rename
+// destination must agree on the validated own digest.
+// ---------------------------------------------------------------------------
+
+const RENAME_SOURCE_SPOOF = sha256('spoofed legacy source entry');
+const RENAME_SECOND_SOURCE = 'docs/reference/second-old.md';
+const SECOND_SOURCE_BASELINE = sha256('second source trusted baseline');
+
+checkCase('335 P3 inapplicable baseline-annotated obligations keep the legacy candidate audit read', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const ctx = prepare('rename', target);
+    const lint = obligationOf(ctx, 'doc-change:doc-lint');
+    let sourceGets = 0;
+    const inventory = new Proxy(ctx.artifacts, {
+      getPrototypeOf() { return Object.prototype; },
+      get(t, prop, receiver) {
+        if (prop === RENAME_FROM) { sourceGets += 1; return { digest: RENAME_SOURCE_SPOOF }; }
+        return Reflect.get(t, prop, receiver);
+      }
+    });
+    for (const applicability of ['N/A', 'unknown']) {
+      const out = checkArtifacts(ctx, inventory, { obligations: [{ ...lint, applicability }] }, target);
+      const result = resultOf(out, lint.id);
+      if (result.outcome !== 'none') failures.push(`${label}/${applicability}: outcome=${result.outcome}`);
+      if (!result.artifactDigest.includes(`${RENAME_FROM}=${RENAME_SOURCE_SPOOF}`)) {
+        failures.push(`${label}/${applicability}: audit=${result.artifactDigest}`);
+      }
+      if (diagnosticCodes(out).includes('candidate-artifacts-invalid')) {
+        failures.push(`${label}/${applicability}: candidate-artifacts-invalid emitted`);
+      }
+    }
+    if (sourceGets === 0) failures.push(`${label}: the legacy read was not performed`);
+
+    const record = execRecord(ctx, 'pair-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    });
+    const applicable = runDocLint(ctx, target, { artifacts: inventory, records: [record] });
+    const applicableResult = resultOf(applicable, 'doc-change:doc-lint');
+    if (applicableResult.outcome !== 'pass') failures.push(`${label}/applicable: outcome=${applicableResult.outcome}`);
+    if (!applicableResult.artifactDigest.includes(`${RENAME_FROM}=missing`)) {
+      failures.push(`${label}/applicable: audit=${applicableResult.artifactDigest}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `inapplicable obligations must keep the legacy audit read: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 non-baseline callers keep the legacy candidate read for the audit identity', () => {
+  const ctx = prepare('docs-only');
+  const spoof = sha256('legacy non-baseline spoof');
+  const inventory = new Proxy(ctx.artifacts, {
+    getPrototypeOf() { return Object.prototype; },
+    get(t, prop, receiver) {
+      if (prop === GUIDE) return { digest: spoof };
+      return Reflect.get(t, prop, receiver);
+    }
+  });
+  const output = check(ctx, {
+    artifacts: inventory,
+    executionRecords: [execRecord(ctx, 'edit-run', 'doc-change:doc-lint', {
+      paths: [GUIDE], candidatePaths: [GUIDE], artifactDigests: { [GUIDE]: spoof }
+    })]
+  });
+  const result = resultOf(output, 'doc-change:doc-lint');
+  assert.strictEqual(result.outcome, 'pass', 'a non-baseline edit still binds through the legacy lane');
+  assert.ok(result.artifactDigest.includes(`${GUIDE}=${spoof}`),
+    `the legacy non-baseline audit read is retained: ${result.artifactDigest}`);
+});
+
+function sharedDestinationContext(target) {
+  const ctx = prepare('rename', target);
+  const lint = obligationOf(ctx, 'doc-change:doc-lint');
+  const obligation = {
+    ...lint,
+    scope: {
+      ...lint.scope,
+      paths: [RENAME_FROM, RENAME_SECOND_SOURCE, RENAME_TO],
+      baselinePaths: [
+        { path: RENAME_FROM, reason: 'rename-from', renameTo: RENAME_TO },
+        { path: RENAME_SECOND_SOURCE, reason: 'rename-from', renameTo: RENAME_TO }
+      ]
+    }
+  };
+  return {
+    ctx,
+    obligations: ctx.obligations.map(item => (item.id === lint.id ? obligation : item)),
+    baseline: {
+      digest: ctx.baseline.digest,
+      artifacts: { ...ctx.baseline.artifacts, [RENAME_SECOND_SOURCE]: SECOND_SOURCE_BASELINE }
+    }
+  };
+}
+
+function sharedPairRecord(ctx, id, destinationDigest) {
+  return execRecord(ctx, id, 'doc-change:doc-lint', {
+    paths: [RENAME_FROM, RENAME_SECOND_SOURCE, RENAME_TO],
+    candidatePaths: [],
+    baselinePaths: [RENAME_FROM, RENAME_SECOND_SOURCE],
+    artifactDigests: { [RENAME_TO]: destinationDigest },
+    baselineArtifacts: {
+      [RENAME_FROM]: ctx.baseline.artifacts[RENAME_FROM],
+      [RENAME_SECOND_SOURCE]: SECOND_SOURCE_BASELINE
+    }
+  });
+}
+
+checkCase('335 P3 two accepted entries sharing a rename destination must agree on the validated digest', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const run = (artifacts, records) => {
+      const { ctx, obligations, baseline } = sharedDestinationContext(target);
+      return target.checkDocObligations({ obligations, artifacts, baseline, executionRecords: records, reviewRecords: [] });
+    };
+
+    // Stable shared destination: matching validated values still pass.
+    {
+      const { ctx } = sharedDestinationContext(target);
+      const out = run(
+        { ...ctx.artifacts, [RENAME_TO]: { digest: RENAME_CAPTURED } },
+        [sharedPairRecord(ctx, 'pair-run', RENAME_CAPTURED)]
+      );
+      const result = resultOf(out, 'doc-change:doc-lint');
+      if (result.outcome !== 'pass') failures.push(`${label}/stable: outcome=${result.outcome}`);
+      if (!result.artifactDigest.includes(`${RENAME_TO}=${RENAME_CAPTURED}`)) {
+        failures.push(`${label}/stable: audit=${result.artifactDigest}`);
+      }
+    }
+
+    // Dynamic shared destination: D1 for the first entry's metadata, D2 for the second.
+    {
+      const { ctx } = sharedDestinationContext(target);
+      const dynamic = countingDigestEntry(RENAME_CAPTURED, { validReads: 3, later: 'value', laterValue: RENAME_LATER });
+      const artifacts = { ...ctx.artifacts, [RENAME_TO]: dynamic.entry };
+      const out = run(artifacts, [
+        sharedPairRecord(ctx, 'pair-run', RENAME_CAPTURED),
+        sharedPairRecord(ctx, 'alternate-run', RENAME_CAPTURED)
+      ]);
+      const result = resultOf(out, 'doc-change:doc-lint');
+      if (result.outcome !== 'none') failures.push(`${label}/dynamic: outcome=${result.outcome}`);
+      if (!diagnosticCodes(out).includes('baseline-path-invalid')) {
+        failures.push(`${label}/dynamic: diagnostics=${diagnosticCodes(out)}`);
+      }
+    }
+
+    // Inherited-only destination digest is still not an own validated value.
+    {
+      const { ctx } = sharedDestinationContext(target);
+      const out = run(
+        { ...ctx.artifacts, [RENAME_TO]: Object.create({ digest: RENAME_CAPTURED }) },
+        [sharedPairRecord(ctx, 'pair-run', RENAME_CAPTURED)]
+      );
+      if (resultOf(out, 'doc-change:doc-lint').outcome === 'pass') {
+        failures.push(`${label}/inherited: an inherited-only shared destination passed`);
+      }
+    }
+
+    // Caller-asserted alias fields are not authority: a raw diff digest does not override
+    // the live validated value.
+    {
+      const { ctx, obligations, baseline } = sharedDestinationContext(target);
+      const aliased = obligations.map(item => item.id === 'doc-change:doc-lint'
+        ? {
+            ...item,
+            scope: {
+              ...item.scope,
+              baselinePaths: item.scope.baselinePaths.map(entry => ({
+                ...entry, renameDestinationDigest: RENAME_LATER
+              }))
+            }
+          }
+        : item);
+      const out = target.checkDocObligations({
+        obligations: aliased,
+        artifacts: { ...ctx.artifacts, [RENAME_TO]: { digest: RENAME_CAPTURED } },
+        baseline,
+        executionRecords: [sharedPairRecord(ctx, 'pair-run', RENAME_CAPTURED)],
+        reviewRecords: []
+      });
+      const result = resultOf(out, 'doc-change:doc-lint');
+      if (result.outcome !== 'pass') failures.push(`${label}/alias: outcome=${result.outcome}`);
+      if (!result.artifactDigest.includes(`${RENAME_TO}=${RENAME_CAPTURED}`)) {
+        failures.push(`${label}/alias: audit=${result.artifactDigest}`);
+      }
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `shared rename destinations must agree on the validated digest: ${failures.join('; ')}`);
+});
+
 helper.finish();

@@ -101,7 +101,17 @@ carried on the entry; binding and the `artifactDigest` audit identity reuse it i
 re-inspecting the candidate map, so a `Proxy` that answers own-property or `get` inspection
 consistently during validation cannot later abort the check or change the audit key. A
 baseline-only path therefore contributes `path=missing` to `artifactDigest` from the validated
-proof rather than from a fresh candidate read.
+proof rather than from a fresh candidate read. This shortcut applies only to **applicable**
+obligations. `N/A` and `unknown` obligations never bind evidence and keep the legacy candidate read
+for their audit identity (so a candidate `get` that supplies a digest is still reflected there);
+they remain `outcome: 'none'` and do not emit `candidate-artifacts-invalid` from this applicability-gated check.
+
+A rename destination's validated own digest is carried too. When more than one accepted
+`rename-from` entry shares one `renameTo`, every entry's validated own digest must agree; a
+conflicting validated digest is a contradictory shared-destination snapshot and fails the whole
+obligation closed (metadata error, `outcome: 'none'`) before any binding. The carried digest must
+be a non-empty string: a stateful `digest` accessor whose value is not a usable string is not
+carried or seeded.
 
 The binding applies to execution and review records alike. Existing review approval, waiver,
 failing-command, requirement-sync authority, and applicability rules are unchanged. A correctly
@@ -176,6 +186,8 @@ The result is not a pass when any of the following is observed:
 - a rename pair whose destination digest differs from the captured destination candidate digest,
   including a stale pair that a separate destination-only record would otherwise leave jointly
   passing;
+- a rename destination whose validated own digest conflicts with another accepted entry that
+  shares the same `renameTo`, or whose captured own value is not a usable non-empty string;
 - a baseline-only path with an own-key candidate artifact map entry, even when that entry has no
   usable digest (`{}`, `{ digest: '' }`, or `null`);
 - a record that carries an `artifactDigests` entry (real, empty, or fake) for a baseline-only
