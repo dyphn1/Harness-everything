@@ -4,16 +4,40 @@ Contract for the documentation family: project docs configuration (D5), document
 
 Documentation is a **consumer** of the #320 workflow/obligation abstractions. Nothing here is a second router, a standing maintenance loop or a cognitive lock: every check is a pure function that reports diagnostics.
 
-## Scope of this slice
+## Scope of this slice (status as of 2026-10-19)
 
-| Phase | Status here |
+This table distinguishes merged mechanism code from end-to-end workflow integration. The last reviewed `main` baseline is `3805af4ff607` (v0.36.0); the [latest main CI](https://github.com/dyphn1/Harness-everything/actions/runs/39175240370) failed on Windows System One resident teardown (`S1-RS15`). Do not treat a published release or prior green PR CI as proof that this baseline is all green.
+
+| Phase / prerequisite | Verified implementation and remaining work |
 | --- | --- |
-| 0 — contract + RED fixtures | This file; fixtures under `ci/fixtures/doc-lifecycle/` |
-| 1a — `project-docs.json` loader | `multi-agent-workspace/scripts/project-docs-resolver.js` |
-| 2 — roles, IDs, aliases, legacy, supersession, index, D6.9 PRD revisions | `harness-everything/scripts/doc-lifecycle.js` |
-| 3a — `doc-change` / `requirement-sync` pure derivation and evidence producer | `harness-everything/scripts/doc-obligations.js` (facts and obligations), `harness-everything/scripts/doc-evidence.js` (`checkDocObligations`). Pilot-local: not wired into workflow disposition yet. H3 and H4 have deterministic tests; H1 and H2 are deferred to 3c. Known limits: the attested-envelope fields are caller-asserted (`configDigest` is checked for presence only, not against the parsed config); `candidateDigest` covers only `docs/prd/`, so custom PRD roots and task-scope binding are not yet verified; deleted and renamed paths fail closed (#335) |
-| 1b, 3b–3c (provider suggestions, reconciliation, H1–H2 evaluation) | Not started: blocked by #320 family metadata, D1 obligation schema and D3 evidence states. Known gap: deleted and old rename paths cannot get candidate-bound evidence, so their MUSTs fail closed |
-| 4 — derived-view generators, `describes:` drift | Not started |
+| 0 — contract + RED fixtures | Agreed decisions and fixtures in this document, #325 and #327; preserve earlier design history |
+| 1a — `project-docs.json` loader | **Merged** in #327; host-only malformed manifest protection remains a separate correction in #331 / draft PR #333 |
+| 2 — roles, IDs, aliases, legacy, supersession, index, D6.9 PRD revisions | **Merged** in #327; do not rebuild this lifecycle logic for Phase 3 |
+| Step-type prerequisite (#326) | **Complete:** PR #328 merged; Harness-owned `doc-change` is explicitly declared, has no implicit TDD binding, and is not auto-inserted by router/System One |
+| 3a — document facts, obligations and evidence producer | **Merged** in #334: `harness-everything/scripts/doc-obligations.js` and `doc-evidence.js`. H3/H4 have *partial deterministic mechanism* coverage, not integrated workflow evidence. Known limitations: caller-attested envelope; `configDigest` presence-only; `candidateDigest` restricted to `docs/prd/`; missing independent task-scope binding; deleted/old rename paths fail closed (#335) |
+| 3b — pilot-local provider suggestions and workflow evidence reconciliation | **Next implementation slice, not started.** Implement only a thin consumer adapter; do not wait for a generic #320 registry/CDG. Fix or explicitly gate #335 deletion/rename evidence before claiming complete integration; preserve existing required-binding compatibility |
+| 3c — H1–H4 and paired-task evaluation | **Not started.** Mechanism tests alone are insufficient for architecture promotion; compare frozen baseline and treatment on real bounded tasks, success/failure first, then conditional cost and latency |
+| 1b — shared documentation craft and family metadata | **Splittable.** Shared references and thin skill consumers can proceed independently. A small optional logical-family metadata seam may be piloted; physical skill directory moves remain blocked on #320 identity/path separation |
+| 4 — derived-view generators and `describes:` drift | **Not started.** Preserve generator authorization, deterministic regenerate-equals and scoped reminder semantics |
+
+### Phase 3b — narrow integration contract (planned, not shipped)
+
+- **Inputs:** explicit active `doc-change` step, D6.5 diff facts, Phase 3a obligations/evidence, available provider *metadata*, and host capabilities.
+- **Advisory provider suggestions:** `suggestDocProviders({activeStep, neededCapabilities, availableProviderMetadata, hostCapabilities})` yields candidate providers and unavailable reasons without altering the MUST/SHOULD obligation set, granting tool access, or eagerly reading unrelated `SKILL.md`. Existing binding resolution handles an explicitly chosen provider. No new automatic step selection.
+- **Evidence reconciliation:** integrate `checkDocObligations` results into the **existing** `workflow-disposition.js` verification/aggregate decision boundary before crediting completion. Require current-scope artifact binding, trustworthy execution/review provenance and applicable result states; a `loaded` Skill or free-text `pass` claim is not sufficient. Missing, stale, contradictory or unavailable observations remain visible and cannot silently satisfy a MUST.
+- **Compatibility:** preserve existing non-document step bindings, authorization/Rule-of-3 semantics, old persisted plans and no new Stop/tool lock. Source and installed plugin copies must behave consistently.
+- **Pre-integration work:** #335 must establish baseline-bound tombstone/rename-pair evidence so legitimate deletions/moves can pass and stale/missing records cannot. #331 / PR #333 is a parallel host-config safety correction; neither requires the broad #320 migration.
+
+### Phase 3c — architecture promotion gate for #320 (planned, not shipped)
+
+| Hypothesis | Objective acceptance evidence |
+| --- | --- |
+| **H1 Provider independence** | Swap/omit suggestions without changing workflow obligations; valid alternate execution evidence can satisfy an applicable MUST; no evidence cannot |
+| **H2 Active-step progressive disclosure** | Captured step output / provider metadata access shows only active-step relevance and no eager unrelated `SKILL.md` content or future-step loading |
+| **H3 Evidence reconciliation** | Adversarial replay of fabricated completion, missing verifier, stale digest/base, contradictory/failed results and unsupported waiver yields **zero false PASS** for MUSTs |
+| **H4 Task-shaped composition** | Docs-only, docs+code, REQ-citing assertions, typo-only changes, code-only uncertainty, missing independent approval and waivers produce the expected obligation union and explicit unknown/unavailable outcomes |
+
+Two *separate* gates apply. The **functional gate** requires contract tests, negative cases, source/package parity, host/platform compatibility and an all-green applicable CI baseline. The **architectural gate** additionally requires H1–H4 and independently reviewed paired real-task outcomes. Freeze task fixtures, acceptance rubrics, model/effort, host permissions, comparison order and thresholds **after baseline measurement but before treatment outcomes**. Compare task correctness and failures first; report successful-task token/time/tool cost and failed-run overhead separately, with uncertainty. A small inconclusive sample is not approval. Broader #320 CDG/registry compilation and physical skill moves need **explicit owner sign-off on each specific validated interface**; retain the legacy path until then.
 
 ## Configuration (D5)
 
