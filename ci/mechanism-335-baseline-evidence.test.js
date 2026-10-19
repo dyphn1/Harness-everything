@@ -1447,4 +1447,273 @@ checkCase('335 P3 mixed delete+edit scope fails closed on a candidate digest acc
     `mixed scopes must fail closed in both modules: ${failures.join('; ')}`);
 });
 
+// ---------------------------------------------------------------------------
+// P3 cache consistency: for an applicable baseline-annotated obligation every
+// ordinary scoped candidate digest is captured once, before binding. The audit
+// identity and the stale-digest diagnostics must consult that same captured
+// snapshot, not re-read a nested accessor whose later read throws or changes.
+// ---------------------------------------------------------------------------
+
+// A digest accessor that is valid for the first `validReads` property reads and
+// then throws or returns `laterValue`. `artifact()` reads `entry.digest` up to
+// three times per call, so the pre-binding capture consumes three valid reads.
+function statefulDigestEntry(digest, { validReads = 3, later = 'throw', laterValue } = {}) {
+  const entry = {};
+  let reads = 0;
+  Object.defineProperty(entry, 'digest', {
+    enumerable: true,
+    get() {
+      reads += 1;
+      if (reads <= validReads) return digest;
+      if (later === 'throw') throw new Error('stateful digest accessor');
+      return laterValue;
+    }
+  });
+  return entry;
+}
+
+// The deleted-adr fixture with one extra ordinary candidate path (GUIDE) in the
+// doc-lint scope, so the same applicable obligation declares baseline-only and
+// ordinary candidate paths.
+function mixedCacheContext(target) {
+  const ctx = prepare('deleted-adr', target);
+  const lint = obligationOf(ctx, 'doc-change:doc-lint');
+  const mixed = {
+    ...lint,
+    scope: {
+      ...lint.scope,
+      paths: [DELETED_ADR, GUIDE],
+      baselinePaths: [{ path: DELETED_ADR, reason: 'deleted' }]
+    }
+  };
+  return { ctx, obligations: ctx.obligations.map(item => (item.id === lint.id ? mixed : item)) };
+}
+
+function mixedCacheRecord(ctx, id, guideDigest) {
+  return execRecord(ctx, id, 'doc-change:doc-lint', {
+    paths: [DELETED_ADR, GUIDE],
+    candidatePaths: [],
+    baselinePaths: [DELETED_ADR],
+    artifactDigests: { [GUIDE]: guideDigest }
+  });
+}
+
+checkCase('335 P3 captured candidate snapshot drives the audit identity and stale diagnostics', () => {
+  const failures = [];
+  const capturedDigest = sha256('captured mixed candidate snapshot');
+  const staleDigest = sha256('stale previous mixed candidate');
+  const changedDigest = sha256('later mixed candidate read');
+
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const { ctx, obligations } = mixedCacheContext(target);
+    const valid = mixedCacheRecord(ctx, 'snapshot-run', capturedDigest);
+
+    // Throwing after capture: the record bound to the captured digest must pass,
+    // its audit identity must name that digest, and a stale record must still be
+    // diagnosed as stale instead of silently losing its mismatch.
+    let passing;
+    try {
+      passing = check(ctx, {
+        obligations,
+        artifacts: { ...ctx.artifacts, [GUIDE]: statefulDigestEntry(capturedDigest, { later: 'throw' }) },
+        executionRecords: [valid]
+      }, target);
+    } catch (error) {
+      failures.push(`${label}/throwing: valid check threw: ${error.message}`);
+    }
+    if (passing) {
+      const result = resultOf(passing, 'doc-change:doc-lint');
+      if (result.outcome !== 'pass') failures.push(`${label}/throwing: valid outcome=${result.outcome}`);
+      if (!result.artifactDigest.includes(`${GUIDE}=${capturedDigest}`)) {
+        failures.push(`${label}/throwing: audit identity is not the bound digest: ${result.artifactDigest}`);
+      }
+      if (diagnosticCodes(passing).includes('stale-artifact-digest')) {
+        failures.push(`${label}/throwing: the captured-bound record was reported stale`);
+      }
+    }
+
+    let stale;
+    try {
+      stale = check(ctx, {
+        obligations,
+        artifacts: { ...ctx.artifacts, [GUIDE]: statefulDigestEntry(capturedDigest, { later: 'throw' }) },
+        executionRecords: [mixedCacheRecord(ctx, 'stale-run', staleDigest)]
+      }, target);
+    } catch (error) {
+      failures.push(`${label}/throwing: stale check threw: ${error.message}`);
+    }
+    if (stale) {
+      if (resultOf(stale, 'doc-change:doc-lint').outcome === 'pass') {
+        failures.push(`${label}/throwing: a stale record passed`);
+      }
+      if (!diagnosticCodes(stale).includes('stale-artifact-digest')) {
+        failures.push(`${label}/throwing: a stale record was not diagnosed: ${diagnosticCodes(stale)}`);
+      }
+    }
+
+    // Changing after capture: the captured-bound record must pass and must not be
+    // misreported stale, and the audit identity must keep the captured digest.
+    let changed;
+    try {
+      changed = check(ctx, {
+        obligations,
+        artifacts: {
+          ...ctx.artifacts,
+          [GUIDE]: statefulDigestEntry(capturedDigest, { later: 'value', laterValue: changedDigest })
+        },
+        executionRecords: [valid]
+      }, target);
+    } catch (error) {
+      failures.push(`${label}/changing: check threw: ${error.message}`);
+    }
+    if (changed) {
+      const result = resultOf(changed, 'doc-change:doc-lint');
+      if (result.outcome !== 'pass') failures.push(`${label}/changing: outcome=${result.outcome}`);
+      if (!result.artifactDigest.includes(`${GUIDE}=${capturedDigest}`)) {
+        failures.push(`${label}/changing: audit identity drifted to a later read: ${result.artifactDigest}`);
+      }
+      if (diagnosticCodes(changed).includes('stale-artifact-digest')) {
+        failures.push(`${label}/changing: the captured-bound record was misreported stale`);
+      }
+    }
+  }
+
+  assert.deepStrictEqual(failures, [],
+    `the captured candidate snapshot must stay consistent: ${failures.join('; ')}`);
+});
+
+// ---------------------------------------------------------------------------
+// P3 rename cache consistency: the rename destination must bind against the
+// same captured candidate digest that the ordinary candidate lane, the audit
+// identity, and the stale diagnostics use. Metadata validation still requires
+// the destination to be an own-key inventory entry with its own digest, so the
+// strict own-key boundary is unchanged; after capture the digest is used
+// exclusively, never re-read live.
+// ---------------------------------------------------------------------------
+
+const RENAME_CAPTURED = sha256('rename captured destination');
+const RENAME_LATER = sha256('rename later destination');
+
+function renameCacheContext(target) {
+  const ctx = prepare('rename', target);
+  return { ctx, obligations: [obligationOf(ctx, 'doc-change:doc-lint')] };
+}
+
+function renameCacheArtifacts(ctx, entry) {
+  return { ...ctx.artifacts, [RENAME_TO]: entry };
+}
+
+function renamePairRecord(ctx, id, destinationDigest) {
+  return execRecord(ctx, id, 'doc-change:doc-lint', {
+    paths: [RENAME_FROM, RENAME_TO],
+    candidatePaths: [],
+    baselinePaths: [RENAME_FROM],
+    artifactDigests: { [RENAME_TO]: destinationDigest }
+  });
+}
+
+function renameDestinationOnlyRecord(ctx, id, destinationDigest) {
+  return execRecord(ctx, id, 'doc-change:doc-lint', {
+    paths: [RENAME_TO],
+    candidatePaths: [],
+    baselinePaths: [],
+    artifactDigests: { [RENAME_TO]: destinationDigest }
+  });
+}
+
+checkCase('335 P3 rename destination binds to the captured candidate snapshot', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const { ctx, obligations } = renameCacheContext(target);
+    const runWith = (artifacts, records) => target.checkDocObligations({
+      obligations, artifacts, baseline: ctx.baseline, executionRecords: records, reviewRecords: []
+    });
+    // Metadata + capture read the destination accessor six times; every later
+    // read must not be needed because binding uses the captured snapshot.
+    const entry = (later, laterValue) => statefulDigestEntry(RENAME_CAPTURED, { validReads: 6, later, laterValue });
+
+    // 1) later-throw: the valid pair binds on the captured digest and reports it.
+    let out;
+    try {
+      out = runWith(renameCacheArtifacts(ctx, entry('throw')),
+        [renamePairRecord(ctx, 'pair-run', RENAME_CAPTURED)]);
+    } catch (error) { failures.push(`${label}/throw: escaped: ${error.message}`); }
+    if (out) {
+      const result = resultOf(out, 'doc-change:doc-lint');
+      if (result.outcome !== 'pass') failures.push(`${label}/throw: outcome=${result.outcome}`);
+      if (!result.artifactDigest.includes(`${RENAME_TO}=${RENAME_CAPTURED}`)) {
+        failures.push(`${label}/throw: audit identity=${result.artifactDigest}`);
+      }
+    }
+
+    // 2) later-change: a valid pair bound to the captured digest still passes.
+    out = undefined;
+    try {
+      out = runWith(renameCacheArtifacts(ctx, entry('value', RENAME_LATER)),
+        [renamePairRecord(ctx, 'pair-run', RENAME_CAPTURED)]);
+    } catch (error) { failures.push(`${label}/change: escaped: ${error.message}`); }
+    if (out) {
+      const result = resultOf(out, 'doc-change:doc-lint');
+      if (result.outcome !== 'pass') failures.push(`${label}/change: outcome=${result.outcome}`);
+      if (!result.artifactDigest.includes(`${RENAME_TO}=${RENAME_CAPTURED}`)) {
+        failures.push(`${label}/change: audit identity=${result.artifactDigest}`);
+      }
+      if (diagnosticCodes(out).includes('stale-artifact-digest')) {
+        failures.push(`${label}/change: the captured-bound pair was misreported stale`);
+      }
+    }
+
+    // 3) stale pair + destination-only record must not jointly pass, and the
+    //    stale pair must be diagnosed.
+    out = undefined;
+    try {
+      out = runWith(renameCacheArtifacts(ctx, entry('value', RENAME_LATER)),
+        [renamePairRecord(ctx, 'pair-run', RENAME_LATER),
+         renameDestinationOnlyRecord(ctx, 'dest-only-run', RENAME_CAPTURED)]);
+    } catch (error) { failures.push(`${label}/joint: escaped: ${error.message}`); }
+    if (out) {
+      if (resultOf(out, 'doc-change:doc-lint').outcome === 'pass') {
+        failures.push(`${label}/joint: a stale pair plus a destination-only record jointly passed`);
+      }
+      if (!diagnosticCodes(out).includes('stale-artifact-digest')) {
+        failures.push(`${label}/joint: the stale pair was not diagnosed: ${diagnosticCodes(out)}`);
+      }
+    }
+
+    // 4) a stale pair alone cannot pass.
+    out = undefined;
+    try {
+      out = runWith(renameCacheArtifacts(ctx, entry('value', RENAME_LATER)),
+        [renamePairRecord(ctx, 'pair-run', RENAME_LATER)]);
+    } catch (error) { failures.push(`${label}/stale: escaped: ${error.message}`); }
+    if (out && resultOf(out, 'doc-change:doc-lint').outcome === 'pass') {
+      failures.push(`${label}/stale: a stale pair passed`);
+    }
+
+    // 5) the strict own-key destination boundary is unchanged: static own and
+    //    null-prototype own digests pass, an inherited-only digest fails closed.
+    const ownStatic = runWith(renameCacheArtifacts(ctx, { digest: RENAME_CAPTURED }),
+      [renamePairRecord(ctx, 'pair-run', RENAME_CAPTURED)]);
+    if (resultOf(ownStatic, 'doc-change:doc-lint').outcome !== 'pass') {
+      failures.push(`${label}/static: a static own digest did not pass`);
+    }
+    const nullProto = Object.assign(Object.create(null), { digest: RENAME_CAPTURED });
+    const ownNull = runWith(renameCacheArtifacts(ctx, nullProto),
+      [renamePairRecord(ctx, 'pair-run', RENAME_CAPTURED)]);
+    if (resultOf(ownNull, 'doc-change:doc-lint').outcome !== 'pass') {
+      failures.push(`${label}/nullproto: a null-prototype own digest did not pass`);
+    }
+    const inherited = runWith(renameCacheArtifacts(ctx, Object.create({ digest: RENAME_CAPTURED })),
+      [renamePairRecord(ctx, 'pair-run', RENAME_CAPTURED)]);
+    if (resultOf(inherited, 'doc-change:doc-lint').outcome === 'pass') {
+      failures.push(`${label}/inherited: an inherited-only digest bound the rename`);
+    }
+  }
+
+  assert.deepStrictEqual(failures, [],
+    `the rename destination must bind to the captured snapshot: ${failures.join('; ')}`);
+});
+
 helper.finish();

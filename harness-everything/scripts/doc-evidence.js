@@ -334,7 +334,13 @@ function evaluateObligation(obligation, context) {
 
   // An uninspectable candidate entry must not abort an N/A or unknown obligation while the
   // audit key is built; the baseline-bound lanes fail closed through the inventory diagnostic.
+  // When a baseline-annotated obligation captured the ordinary candidate digests before binding
+  // (candidateDigestCache), the audit identity and stale diagnostics use that same snapshot, so a
+  // nested digest accessor that only later throws or changes can never make the audit key or the
+  // stale verdict disagree with the digest that actually bound evidence. Untouched paths and
+  // unannotated callers keep the legacy read.
   const candidateDigestOf = (path) => {
+    if (candidateDigestCache.has(path)) return candidateDigestCache.get(path);
     try {
       return artifact(artifactMap[path]);
     } catch {
@@ -400,16 +406,15 @@ function evaluateObligation(obligation, context) {
       if (!isPlainObject(item.artifactDigests)
         || !hasOwnEntry(item.artifactDigests, entry.renameTo)
         || !nonEmptyString(item.artifactDigests[entry.renameTo])) return false;
-      let destinationDigest = '';
-      try {
-        if (hasOwnEntry(artifactMap, entry.renameTo)) {
-          destinationDigest = ownArtifactDigest(artifactMap[entry.renameTo]);
-        }
-      } catch {
-        return false;
-      }
-      if (!destinationDigest) return false;
-      if (item.artifactDigests[entry.renameTo] !== destinationDigest) return false;
+      // #340 P3: the destination binds to the same captured candidate digest that the ordinary
+      // candidate lane, the audit identity, and the stale diagnostics use, so a stateful nested
+      // accessor cannot make binding disagree with them. Metadata validation already required the
+      // destination to be an own-key candidate inventory entry carrying its own digest
+      // (ownArtifactDigest), so a non-empty captured digest is required here and the accessor is
+      // never re-read; a missing destination skips capture and lands on this guard.
+      const capturedDestination = candidateDigestCache.get(entry.renameTo);
+      if (!nonEmptyString(capturedDestination)) return false;
+      if (item.artifactDigests[entry.renameTo] !== capturedDestination) return false;
     }
     return true;
   };

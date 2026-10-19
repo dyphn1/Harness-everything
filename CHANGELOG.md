@@ -46,6 +46,7 @@ All notable changes to this project are documented in this file.
 * **doc-evidence:** bind deleted and renamed baseline paths to trusted per-path digest evidence while keeping candidate paths exact
 * **doc-evidence:** reject absent, malformed, or non-plain-object top-level candidate inventories for baseline-only obligations while keeping explicit empty and null-prototype inventories valid
 * **doc-evidence:** defer the candidate-inventory prototype check to applicable baseline-only obligations and treat a throwing prototype trap as unknown inventory, so unrelated obligations are never aborted
+* **doc-evidence:** bind baseline-annotated mixed scopes and rename destinations to the captured candidate snapshot for evidence binding, the audit identity, and stale diagnostics, so a later-throwing or later-changing digest accessor cannot disagree with the digest that bound evidence
 
 ## [0.34.0](https://github.com/dyphn1/Harness-everything/compare/v0.33.0...v0.34.0) (2026-10-17)
 
