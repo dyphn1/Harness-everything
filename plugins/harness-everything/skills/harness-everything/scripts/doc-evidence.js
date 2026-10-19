@@ -94,7 +94,11 @@ function prdSetDigest(artifactMap) {
 function checkDocObligations({ obligations, artifacts, baseline, executionRecords, reviewRecords } = {}) {
   const diagnostics = [];
   const results = [];
-  const artifactMap = isPlainObject(artifacts) ? artifacts : {};
+  // P3: distinguish a caller-supplied plain-object inventory (including an explicit {}) from
+  // an absent or malformed value that the pre-existing normalizer would coerce to {}. The
+  // provenance flag is only consulted for applicable obligations that declare baseline paths.
+  const artifactsKnown = isPlainObject(artifacts);
+  const artifactMap = artifactsKnown ? artifacts : {};
   const baselineDigest = isPlainObject(baseline) && nonEmptyString(baseline.digest) ? baseline.digest : '';
   const executionList = Array.isArray(executionRecords) ? executionRecords.filter(isRecord) : [];
   const reviewList = Array.isArray(reviewRecords) ? reviewRecords.filter(isRecord) : [];
@@ -113,14 +117,14 @@ function checkDocObligations({ obligations, artifacts, baseline, executionRecord
 
   for (const obligation of obligationList) {
     results.push(evaluateObligation(obligation, {
-      artifactMap, baseline, baselineDigest, executionList, reviewList, diagnostics
+      artifactMap, artifactsKnown, baseline, baselineDigest, executionList, reviewList, diagnostics
     }));
   }
   return { diagnostics, results };
 }
 
 function evaluateObligation(obligation, context) {
-  const { artifactMap, baseline, baselineDigest, executionList, reviewList, diagnostics } = context;
+  const { artifactMap, artifactsKnown, baseline, baselineDigest, executionList, reviewList, diagnostics } = context;
   const capability = typeof obligation.capability === 'string' ? obligation.capability : '';
   const obligationId = nonEmptyString(obligation.id) ? obligation.id : capability;
   const scopePaths = scopePathsOf(obligation);
@@ -135,6 +139,7 @@ function evaluateObligation(obligation, context) {
   const baselineArtifactsMap = isPlainObject(baseline) && isPlainObject(baseline.artifacts) ? baseline.artifacts : null;
   const baselineEntries = new Map();
   let baselineMetadataError = false;
+  let candidateInventoryUnknown = false;
 
   const baselineMetadataDiagnostic = (code, path, message) => {
     baselineMetadataError = true;
@@ -215,6 +220,19 @@ function evaluateObligation(obligation, context) {
         });
       }
     }
+  }
+
+  // P3: an applicable obligation that actually declares baseline-only paths needs a known
+  // candidate inventory. Explicit {} is known and remains the legitimate empty deletion
+  // inventory; omitted/undefined/null/array/string/other malformed values are unknown input.
+  if (applicability === 'applicable' && Array.isArray(declaredBaselinePaths)
+    && declaredBaselinePaths.length > 0 && !artifactsKnown) {
+    candidateInventoryUnknown = true;
+    diagnostics.push({
+      code: 'candidate-artifacts-invalid',
+      obligationId,
+      message: 'this obligation declares baseline-only paths, but the top-level artifacts argument is not a plain object; the candidate inventory is unknown, so baseline-bound evidence fails closed'
+    });
   }
 
   const baselineAudit = {};
@@ -352,9 +370,11 @@ function evaluateObligation(obligation, context) {
     }
   }
 
-  if (baselineMetadataError) {
+  if (baselineMetadataError || candidateInventoryUnknown) {
     return result('unresolved', 'none',
-      'baseline path metadata is missing, invalid, or contradictory; baseline-bound evidence fails closed',
+      candidateInventoryUnknown && !baselineMetadataError
+        ? 'the top-level candidate artifacts inventory is absent or malformed; baseline-bound evidence fails closed'
+        : 'baseline path metadata is missing, invalid, or contradictory; baseline-bound evidence fails closed',
       []);
   }
 

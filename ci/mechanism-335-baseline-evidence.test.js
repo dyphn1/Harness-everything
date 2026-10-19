@@ -102,6 +102,15 @@ function check(ctx, { executionRecords = [], reviewRecords = [], baseline = ctx.
   return target.checkDocObligations({ obligations, artifacts, baseline, executionRecords, reviewRecords });
 }
 
+// P3 input-boundary helper: distinguish an omitted `artifacts` key from an explicit value,
+// including an explicit `undefined` or `{}`.
+const OMIT_ARTIFACTS = Symbol('omit artifacts');
+function checkArtifacts(ctx, artifactsArg, { executionRecords = [], reviewRecords = [], baseline = ctx.baseline, obligations = ctx.obligations } = {}, target = modules) {
+  const args = { obligations, baseline, executionRecords, reviewRecords };
+  if (artifactsArg !== OMIT_ARTIFACTS) args.artifacts = artifactsArg;
+  return target.checkDocObligations(args);
+}
+
 function digestMap(ctx, paths) {
   return Object.fromEntries(paths.map(file => [file, ctx.artifacts[file].digest]));
 }
@@ -689,6 +698,144 @@ checkCase('335 missing per-path binding is visible as baseline-binding-missing',
   assert.notStrictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass');
   assert.ok(diagnosticCodes(output).includes('baseline-binding-missing'),
     `a record that names a baseline path without a binding is diagnosed: ${diagnosticCodes(output)}`);
+});
+
+// ---------------------------------------------------------------------------
+// P3 input boundary: an absent or malformed top-level candidate artifact map is
+// not a deletion inventory. It is unknown input and fails baseline-only
+// obligations closed; an explicit {} remains a valid empty deletion inventory.
+// ---------------------------------------------------------------------------
+
+const INVALID_ARTIFACTS = [
+  ['omitted', OMIT_ARTIFACTS],
+  ['undefined', undefined],
+  ['null', null],
+  ['array', [DELETED_ADR]],
+  ['string', 'not-a-map'],
+  ['boolean', false]
+];
+
+checkCase('335 P3 deletion: absent or malformed top-level artifacts fails closed', () => {
+  const failures = [];
+  for (const [label, value] of INVALID_ARTIFACTS) {
+    const ctx = prepare('deleted-adr');
+    const output = checkArtifacts(ctx, value, {
+      executionRecords: [execRecord(ctx, 'tomb-run', 'doc-change:doc-lint', {
+        paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+      })]
+    });
+    const result = resultOf(output, 'doc-change:doc-lint');
+    if (result.outcome !== 'none') failures.push(`${label}: outcome=${result.outcome}`);
+    if (!diagnosticCodes(output).includes('candidate-artifacts-invalid')) {
+      failures.push(`${label}: diagnostics=${diagnosticCodes(output)}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `all absent/malformed candidate inventory variants must fail closed: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 deletion: an approving review cannot pass with absent top-level artifacts', () => {
+  const ctx = prepare('deleted-adr');
+  const output = checkArtifacts(ctx, OMIT_ARTIFACTS, {
+    reviewRecords: [reviewRecord(ctx, 'review-run', 'doc-change:quality-review', {
+      paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+    })]
+  });
+  assert.strictEqual(resultOf(output, 'doc-change:quality-review').outcome, 'none',
+    'an approving review cannot satisfy quality-review without a known candidate inventory');
+  assert.ok(diagnosticCodes(output).includes('candidate-artifacts-invalid'),
+    `candidate inventory is diagnosed: ${diagnosticCodes(output)}`);
+});
+
+checkCase('335 P3 rename: absent or malformed top-level artifacts fails closed', () => {
+  const failures = [];
+  for (const [label, value] of INVALID_ARTIFACTS) {
+    const ctx = prepare('rename');
+    const output = checkArtifacts(ctx, value, {
+      executionRecords: [execRecord(ctx, 'move-run', 'doc-change:doc-lint', {
+        paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+      })]
+    });
+    const result = resultOf(output, 'doc-change:doc-lint');
+    if (result.outcome !== 'none') failures.push(`${label}: outcome=${result.outcome}`);
+    if (!diagnosticCodes(output).includes('candidate-artifacts-invalid')) {
+      failures.push(`${label}: diagnostics=${diagnosticCodes(output)}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `rename must fail closed for every absent/malformed inventory: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 deletion: explicit empty object remains a valid empty deletion inventory', () => {
+  const ctx = prepare('deleted-adr');
+  const output = checkArtifacts(ctx, {}, {
+    executionRecords: [execRecord(ctx, 'tomb-run', 'doc-change:doc-lint', {
+      paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+    })]
+  });
+  assert.strictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+    'an explicit empty object is a legitimate empty deletion inventory');
+  assert.ok(!diagnosticCodes(output).includes('candidate-artifacts-invalid'),
+    'the legitimate empty inventory is not diagnosed as malformed');
+});
+
+checkCase('335 P3 populated inventory and normal candidate binding stay valid', () => {
+  const deletion = prepare('deleted-adr');
+  const deletionOut = checkArtifacts(deletion, deletion.artifacts, {
+    executionRecords: [execRecord(deletion, 'tomb-run', 'doc-change:doc-lint', {
+      paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+    })]
+  });
+  assert.strictEqual(resultOf(deletionOut, 'doc-change:doc-lint').outcome, 'pass',
+    'a populated candidate inventory still satisfies the deletion lane');
+  const edited = prepare('docs-only');
+  const editedOut = checkArtifacts(edited, edited.artifacts, {
+    executionRecords: [execRecord(edited, 'edit-run', 'doc-change:doc-lint', {
+      paths: [GUIDE], candidatePaths: [GUIDE]
+    })]
+  });
+  assert.strictEqual(resultOf(editedOut, 'doc-change:doc-lint').outcome, 'pass',
+    'normal candidate-bound edits still pass with a populated inventory');
+  assert.ok(!diagnosticCodes(deletionOut).includes('candidate-artifacts-invalid'));
+  assert.ok(!diagnosticCodes(editedOut).includes('candidate-artifacts-invalid'));
+});
+
+checkCase('335 P3 non-baseline callers keep absent-map behavior', () => {
+  const ctx = prepare('docs-only');
+  const records = {
+    executionRecords: [execRecord(ctx, 'edit-run', 'doc-change:doc-lint', {
+      paths: [GUIDE], candidatePaths: [GUIDE]
+    })]
+  };
+  const omitted = checkArtifacts(ctx, OMIT_ARTIFACTS, records);
+  const empty = checkArtifacts(ctx, {}, records);
+  assert.deepStrictEqual(omitted, empty,
+    'non-baseline obligations treat an absent map and an explicit empty map identically');
+  assert.ok(diagnosticCodes(omitted).includes('missing-path-coverage'),
+    `the normal edited path still fails closed: ${diagnosticCodes(omitted)}`);
+  assert.ok(!diagnosticCodes(omitted).includes('candidate-artifacts-invalid'),
+    'the new input-boundary diagnostic does not appear for non-baseline obligations');
+});
+
+checkCase('335 P3 canonical and packaged modules agree on absent/malformed candidate inventory', () => {
+  for (const [label, value] of INVALID_ARTIFACTS) {
+    const sourceCtx = prepare('deleted-adr', modules);
+    const packageCtx = prepare('deleted-adr', packageModules);
+    const sourceOut = checkArtifacts(sourceCtx, value, {
+      executionRecords: [execRecord(sourceCtx, 'tomb-run', 'doc-change:doc-lint', {
+        paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+      })]
+    }, modules);
+    const packageOut = checkArtifacts(packageCtx, value, {
+      executionRecords: [execRecord(packageCtx, 'tomb-run', 'doc-change:doc-lint', {
+        paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+      })]
+    }, packageModules);
+    assert.deepStrictEqual(packageOut.results, sourceOut.results,
+      `${label}: packaged results match the canonical module`);
+    assert.deepStrictEqual(packageOut.diagnostics, sourceOut.diagnostics,
+      `${label}: packaged diagnostics match the canonical module`);
+  }
 });
 
 helper.finish();
