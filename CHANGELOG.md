@@ -43,6 +43,7 @@ All notable changes to this project are documented in this file.
 * **doc-obligations:** reject PRD revision identities not chained to the base declaration
 * **doc-obligations:** keep unrelated REQ-citing tests out of requirement-sync scope
 * **doc-evidence:** keep unresolved requirement identities out of observed requirement-sync failures
+* **doc-evidence:** bind deleted and renamed baseline paths to trusted per-path digest evidence while keeping candidate paths exact
 
 ## [0.34.0](https://github.com/dyphn1/Harness-everything/compare/v0.33.0...v0.34.0) (2026-10-17)
 

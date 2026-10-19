@@ -16,6 +16,14 @@ function nonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+// #335: per-path baseline digests are SHA256 values. Trust still follows the whole-baseline
+// identity, so an invalid per-path value fails the baseline path closed.
+const SHA256_DIGEST = /^[a-f0-9]{64}$/i;
+
+function isSha256(value) {
+  return typeof value === 'string' && SHA256_DIGEST.test(value);
+}
+
 function compareText(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
@@ -105,18 +113,119 @@ function checkDocObligations({ obligations, artifacts, baseline, executionRecord
 
   for (const obligation of obligationList) {
     results.push(evaluateObligation(obligation, {
-      artifactMap, baselineDigest, executionList, reviewList, diagnostics
+      artifactMap, baseline, baselineDigest, executionList, reviewList, diagnostics
     }));
   }
   return { diagnostics, results };
 }
 
 function evaluateObligation(obligation, context) {
-  const { artifactMap, baselineDigest, executionList, reviewList, diagnostics } = context;
+  const { artifactMap, baseline, baselineDigest, executionList, reviewList, diagnostics } = context;
   const capability = typeof obligation.capability === 'string' ? obligation.capability : '';
   const obligationId = nonEmptyString(obligation.id) ? obligation.id : capability;
   const scopePaths = scopePathsOf(obligation);
   const applicability = obligation.applicability;
+
+  // #335: baseline-only paths are declared by the obligation. Every declared entry is validated
+  // before any outcome is decided; a malformed or contradictory annotation fails the whole
+  // obligation closed instead of being silently ignored.
+  const scopeObject = isPlainObject(obligation.scope) ? obligation.scope : null;
+  const declaresBaselinePaths = Boolean(scopeObject && Object.prototype.hasOwnProperty.call(scopeObject, 'baselinePaths'));
+  const declaredBaselinePaths = declaresBaselinePaths ? scopeObject.baselinePaths : undefined;
+  const baselineArtifactsMap = isPlainObject(baseline) && isPlainObject(baseline.artifacts) ? baseline.artifacts : null;
+  const baselineEntries = new Map();
+  let baselineMetadataError = false;
+
+  const baselineMetadataDiagnostic = (code, path, message) => {
+    baselineMetadataError = true;
+    diagnostics.push({ code, obligationId, ...(path ? { path } : {}), message });
+  };
+
+  if (declaredBaselinePaths !== undefined) {
+    if (!Array.isArray(declaredBaselinePaths)) {
+      baselineMetadataDiagnostic('baseline-path-invalid', undefined,
+        'scope.baselinePaths is present but not an array; baseline-bound evidence cannot be evaluated');
+    } else if (declaredBaselinePaths.length) {
+      if (!nonEmptyString(baselineDigest)) {
+        baselineMetadataDiagnostic('baseline-identity-missing', undefined,
+          'baselinePaths are declared but the baseline carries no whole-baseline digest; baseline-bound evidence cannot be trusted');
+      }
+      if (!baselineArtifactsMap) {
+        baselineMetadataDiagnostic('baseline-artifacts-missing', undefined,
+          'baselinePaths are declared but the baseline carries no artifacts map; per-path baseline digests are unavailable');
+      }
+      const seen = new Set();
+      for (const rawEntry of declaredBaselinePaths) {
+        const invalid = (path, reason) => baselineMetadataDiagnostic('baseline-path-invalid', path,
+          `baselinePaths entry ${path ? JSON.stringify(path) : '(malformed)'} is invalid: ${reason}; the path fails closed`);
+        if (!isPlainObject(rawEntry) || !nonEmptyString(rawEntry.path)) {
+          invalid(undefined, 'it is not an object with a non-empty path');
+          continue;
+        }
+        const entryPath = rawEntry.path;
+        if (seen.has(entryPath)) {
+          invalid(entryPath, 'the same path is declared more than once');
+          continue;
+        }
+        seen.add(entryPath);
+        if (!scopePaths.includes(entryPath)) {
+          invalid(entryPath, 'it is not a member of scope.paths');
+          continue;
+        }
+        if (rawEntry.reason !== 'deleted' && rawEntry.reason !== 'rename-from') {
+          invalid(entryPath, `reason ${JSON.stringify(rawEntry.reason)} is not deleted or rename-from`);
+          continue;
+        }
+        if (rawEntry.reason === 'deleted' && Object.prototype.hasOwnProperty.call(rawEntry, 'renameTo') && rawEntry.renameTo !== undefined) {
+          invalid(entryPath, 'a deleted entry must not carry renameTo');
+          continue;
+        }
+        if (rawEntry.reason === 'rename-from') {
+          if (!nonEmptyString(rawEntry.renameTo) || rawEntry.renameTo === entryPath) {
+            invalid(entryPath, 'a rename-from entry needs a distinct non-empty renameTo');
+            continue;
+          }
+          if (!(artifact(artifactMap[rawEntry.renameTo]).length > 0)) {
+            invalid(entryPath, `its rename destination ${JSON.stringify(rawEntry.renameTo)} has no candidate artifact`);
+            continue;
+          }
+        }
+        if (Object.prototype.hasOwnProperty.call(artifactMap, entryPath)) {
+          baselineMetadataDiagnostic('baseline-path-candidate-present', entryPath,
+            `baseline path ${entryPath} is declared baseline-only but the candidate artifact map has an entry for it (own key, regardless of digest validity); the contradictory path state fails closed`);
+          continue;
+        }
+        if (baselineArtifactsMap) {
+          const trusted = baselineArtifactsMap[entryPath];
+          if (trusted === undefined) {
+            baselineMetadataDiagnostic('baseline-artifact-missing', entryPath,
+              `the baseline carries no per-path digest for declared baseline path ${entryPath}; the path fails closed`);
+            continue;
+          }
+          if (!isSha256(trusted)) {
+            baselineMetadataDiagnostic('baseline-artifact-invalid', entryPath,
+              `the baseline digest for ${entryPath} is not a SHA256 value; the path fails closed`);
+            continue;
+          }
+        }
+        baselineEntries.set(entryPath, {
+          path: entryPath,
+          reason: rawEntry.reason,
+          ...(rawEntry.reason === 'rename-from' ? { renameTo: rawEntry.renameTo } : {})
+        });
+      }
+    }
+  }
+
+  const baselineAudit = {};
+  if (Array.isArray(declaredBaselinePaths)) {
+    for (const rawEntry of declaredBaselinePaths) {
+      if (isPlainObject(rawEntry) && nonEmptyString(rawEntry.path)
+        && baselineArtifactsMap && isSha256(baselineArtifactsMap[rawEntry.path])) {
+        baselineAudit[rawEntry.path] = baselineArtifactsMap[rawEntry.path];
+      }
+    }
+  }
 
   const artifactDigestKey = scopePaths.length
     ? scopePaths.map(path => `${path}=${artifact(artifactMap[path]) || 'missing'}`).join('|')
@@ -128,6 +237,7 @@ function evaluateObligation(obligation, context) {
     outcome,
     artifactDigest: artifactDigestKey,
     baseDigest: baseDigestKey,
+    ...(declaresBaselinePaths ? { baselineArtifacts: { ...baselineAudit } } : {}),
     provenance,
     recordRefs: [...recordRefs]
   });
@@ -141,10 +251,35 @@ function evaluateObligation(obligation, context) {
   }
 
   const matching = [...executionList, ...reviewList].filter(item => item.obligationId === obligationId);
-  const bound = (item, path) => nonEmptyString(item.baseDigest) && item.baseDigest === baselineDigest
+  const candidateBound = (item, path) => nonEmptyString(item.baseDigest) && item.baseDigest === baselineDigest
     && isPlainObject(item.artifactDigests) && artifact(artifactMap[path]).length > 0
     && item.artifactDigests[path] === artifactMap[path].digest
     && Array.isArray(item.paths) && item.paths.includes(path);
+
+  // A baseline-only path is satisfied only by a record bound to the trusted baseline digest.
+  // A rename-from path additionally needs the same single record to carry the current
+  // destination candidate digest, so destination-only, source-only and split records fail.
+  const baselineBound = (item, entry) => {
+    if (!nonEmptyString(item.baseDigest) || item.baseDigest !== baselineDigest) return false;
+    if (!Array.isArray(item.paths) || !item.paths.includes(entry.path)) return false;
+    if (Object.prototype.hasOwnProperty.call(artifactMap, entry.path)) return false;
+    if (isPlainObject(item.artifactDigests)
+      && Object.prototype.hasOwnProperty.call(item.artifactDigests, entry.path)) return false;
+    const trusted = baselineArtifactsMap ? baselineArtifactsMap[entry.path] : undefined;
+    if (!isSha256(trusted)) return false;
+    if (!isPlainObject(item.baselineArtifacts) || item.baselineArtifacts[entry.path] !== trusted) return false;
+    if (entry.reason === 'rename-from') {
+      if (!item.paths.includes(entry.renameTo)) return false;
+      if (!isPlainObject(item.artifactDigests) || !nonEmptyString(item.artifactDigests[entry.renameTo])) return false;
+      if (item.artifactDigests[entry.renameTo] !== artifact(artifactMap[entry.renameTo])) return false;
+    }
+    return true;
+  };
+
+  const boundToScopePath = (item, path) => {
+    const entry = baselineEntries.get(path);
+    return entry ? baselineBound(item, entry) : candidateBound(item, path);
+  };
 
   for (const item of matching) {
     if (executionList.includes(item) && !completeExecution(item)) {
@@ -178,12 +313,57 @@ function evaluateObligation(obligation, context) {
     }
   }
 
+  // #335: a record that names a baseline-only path but carries no per-path baseline digest is
+  // visible as an attempt, and a record whose per-path digest disagrees with the trusted value
+  // is stale. Both fail closed through missing-path-coverage and stale-baseline-artifact-digest.
+  for (const item of matching) {
+    const baselineNamed = Array.isArray(item.paths) ? item.paths.filter(path => baselineEntries.has(path)) : [];
+    if (isPlainObject(item.baselineArtifacts)) {
+      for (const [path, value] of Object.entries(item.baselineArtifacts)) {
+        if (!baselineEntries.has(path)) continue;
+        const trusted = baselineArtifactsMap ? baselineArtifactsMap[path] : undefined;
+        if (!isSha256(trusted)) continue;
+        if (nonEmptyString(value) && value !== trusted) {
+          diagnostics.push({
+            code: 'stale-baseline-artifact-digest',
+            obligationId,
+            message: `record ${item.id} carries a baseline digest for path ${path} that differs from the trusted baseline value`
+          });
+        }
+      }
+    }
+    for (const path of baselineNamed) {
+      const bound = isPlainObject(item.baselineArtifacts) && nonEmptyString(item.baselineArtifacts[path]);
+      if (!bound) {
+        diagnostics.push({
+          code: 'baseline-binding-missing',
+          obligationId,
+          message: `record ${item.id} names baseline path ${path} but carries no trusted baseline digest for it`
+        });
+      }
+      if (isPlainObject(item.artifactDigests)
+        && Object.prototype.hasOwnProperty.call(item.artifactDigests, path)) {
+        diagnostics.push({
+          code: 'baseline-path-candidate-digest',
+          obligationId,
+          message: `record ${item.id} carries a candidate artifactDigests entry for baseline-only path ${path}; the contradictory record cannot bind that path`
+        });
+      }
+    }
+  }
+
+  if (baselineMetadataError) {
+    return result('unresolved', 'none',
+      'baseline path metadata is missing, invalid, or contradictory; baseline-bound evidence fails closed',
+      []);
+  }
+
   const usedExec = matching.filter(item => executionList.includes(item)
     && completeExecution(item)
-    && scopePaths.some(path => bound(item, path)));
+    && scopePaths.some(path => boundToScopePath(item, path)));
   const failingExec = usedExec.filter(item => item.exitCode !== 0);
   const boundReviews = matching.filter(item => reviewList.includes(item) && item.kind === 'review'
-    && scopePaths.some(path => bound(item, path)));
+    && scopePaths.some(path => boundToScopePath(item, path)));
   const validReviews = boundReviews.filter(item => item.verdict === 'approve' && nonEmptyString(item.summary));
   const invalidReviews = boundReviews.filter(item => !validReviews.includes(item));
   const oddKindRecords = matching.filter(item => reviewList.includes(item)
@@ -204,13 +384,16 @@ function evaluateObligation(obligation, context) {
     });
   }
 
-  const boundAny = (path) => matching.some(item => bound(item, path));
+  const boundAny = (path) => matching.some(item => boundToScopePath(item, path));
   const unmetPaths = scopePaths.filter(path => !boundAny(path));
   for (const path of unmetPaths) {
+    const entry = baselineEntries.get(path);
     diagnostics.push({
       code: 'missing-path-coverage',
       obligationId,
-      message: `no observed record is bound to path ${path} with the current candidate and baseline digests`
+      message: entry
+        ? `no observed record is bound to baseline path ${path} (${entry.reason}${entry.renameTo ? ` -> ${entry.renameTo}` : ''}) with the trusted baseline digest`
+        : `no observed record is bound to path ${path} with the current candidate and baseline digests`
     });
   }
 
@@ -219,7 +402,7 @@ function evaluateObligation(obligation, context) {
     const target = recordIndex.get(item);
     return Boolean(target) && target.obligationId === obligationId
       && executionList.includes(target) && completeExecution(target) && target.exitCode === 0
-      && scopePaths.some(path => bound(target, path));
+      && scopePaths.some(path => boundToScopePath(target, path));
   };
   const waiverCandidates = reviewList.filter(item => item.kind === 'waiver'
     && item.obligationId === obligationId);
@@ -321,14 +504,14 @@ function evaluateObligation(obligation, context) {
         []);
     }
 
-    const waiverSelfBound = item => scopePaths.length > 0 && scopePaths.every(path => bound(item, path));
+    const waiverSelfBound = item => scopePaths.length > 0 && scopePaths.every(path => boundToScopePath(item, path));
     const citationsCoverScope = item => {
       const covered = new Set();
       for (const id of Array.isArray(item.citedRecordIds) ? item.citedRecordIds : []) {
         const target = recordIndex.get(id);
         if (target && target.obligationId === obligationId && target.exitCode === 0
           && completeExecution(target) && !failingExec.includes(target)) {
-          for (const path of scopePaths) if (bound(target, path)) covered.add(path);
+          for (const path of scopePaths) if (boundToScopePath(target, path)) covered.add(path);
         }
       }
       return covered.size === scopePaths.length;
@@ -362,7 +545,7 @@ function evaluateObligation(obligation, context) {
 
     const passingExec = usedExec.filter(item => item.exitCode === 0);
     const execCoveredAll = scopePaths.length > 0
-      && scopePaths.every(path => passingExec.some(item => bound(item, path)));
+      && scopePaths.every(path => passingExec.some(item => boundToScopePath(item, path)));
     // S3 (§11): identity data gates every per-REQ coverage claim. A waiver lane pass requires a
     // known non-empty cited identity list, known update data, and coverage of every uncovered
     // missing REQ by a listing valid waiver. Absent or empty cited data, or an absent
@@ -439,7 +622,7 @@ function evaluateObligation(obligation, context) {
   const reviewsRequired = capability === 'quality-review';
   if (reviewsRequired) {
     const reviewCovers = (path) => matching.some(item => reviewList.includes(item) && item.kind === 'review'
-      && item.verdict === 'approve' && nonEmptyString(item.summary) && bound(item, path));
+      && item.verdict === 'approve' && nonEmptyString(item.summary) && boundToScopePath(item, path));
     if (!invalidReviews.length && !oddKindRecords.length
       && validReviews.length && scopePaths.every(reviewCovers)) {
       const contributors = [...validReviews, ...usedExec.filter(item => !failingExec.includes(item))];
@@ -454,7 +637,7 @@ function evaluateObligation(obligation, context) {
 
   const execCovers = (path) => matching.some(item => executionList.includes(item)
     && completeExecution(item)
-    && !failingExec.includes(item) && bound(item, path));
+    && !failingExec.includes(item) && boundToScopePath(item, path));
   const execCovered = scopePaths.every(execCovers);
   if (usedExec.length && execCovered) {
     const contributors = [...usedExec.filter(item => !failingExec.includes(item)), ...validWaivers];
