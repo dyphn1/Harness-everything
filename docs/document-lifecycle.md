@@ -6,7 +6,7 @@ Documentation is a **consumer** of the #320 workflow/obligation abstractions. No
 
 ## Scope of this slice (status as of 2026-10-19)
 
-This table distinguishes merged mechanism code from end-to-end workflow integration. The last reviewed `main` baseline is `3805af4ff607` (v0.36.0); the [latest main CI](https://github.com/dyphn1/Harness-everything/actions/runs/39175240370) failed on Windows System One resident teardown (`S1-RS15`). Do not treat a published release or prior green PR CI as proof that this baseline is all green.
+This table distinguishes merged mechanism code from end-to-end workflow integration. The last reviewed `main` commit is `3805af4ff6078bb7ef07336fa7c15abb16d4325f` (v0.36.0). That release commit carries `[skip ci]`, so no full-gate `CI` run exists for that SHA and this document does not claim its baseline is green. The historical Windows System One resident teardown (`S1-RS15`) was observed in attempt 1 of [run 39175240370](https://github.com/dyphn1/Harness-everything/actions/runs/39175240370) on `main@75e04359ae5bf11a41739f8eb04d25a76ee8f3a7`; that run completed successfully on attempt 2 and says nothing about `3805af4`. Treat the resident teardown as a known platform limitation only when a current run on the exact SHA reproduces it, and require an all-green full-gate run for that SHA before calling any baseline green.
 
 | Phase / prerequisite | Verified implementation and remaining work |
 | --- | --- |
@@ -24,7 +24,9 @@ This table distinguishes merged mechanism code from end-to-end workflow integrat
 
 - **Inputs:** explicit active `doc-change` step, D6.5 diff facts, Phase 3a obligations/evidence, available provider *metadata*, and host capabilities.
 - **Advisory provider suggestions:** `suggestDocProviders({activeStep, neededCapabilities, availableProviderMetadata, hostCapabilities})` yields candidate providers and unavailable reasons without altering the MUST/SHOULD obligation set, granting tool access, or eagerly reading unrelated `SKILL.md`. Existing binding resolution handles an explicitly chosen provider. No new automatic step selection.
-- **Evidence reconciliation:** integrate `checkDocObligations` results into the **existing** `workflow-disposition.js` verification/aggregate decision boundary before crediting completion. Require current-scope artifact binding, trustworthy execution/review provenance and applicable result states; a `loaded` Skill or free-text `pass` claim is not sufficient. Missing, stale, contradictory or unavailable observations remain visible and cannot silently satisfy a MUST.
+- **Evidence reconciliation boundary:** the pilot wires Phase 3a results into the non-Fable typed-step path only. `hooks/scripts/workflow-disposition.js` delegates `step` to `updateStep()` and `binding` to `updateBinding()` in `hooks/scripts/lib/workflow-obligations.js`. Today `updateStep()` persists `step.status = 'pass'` when every required binding is `loaded` and `--evidence` is non-empty; `syncTypedAggregateObligations()` then derives aggregate `execute`/`verify` PASS from the persisted step statuses. Phase 3b must call `checkDocObligations()` for the active `doc-change` step's scope **before** that persistence point and refuse `pass` unless every applicable MUST has a current, satisfied result. Because aggregate PASS is derived only from persisted step passes, gating `updateStep()` closes the aggregate path too; `unresolvedObligations()` must surface the unsatisfied doc results (`pending`/`unknown`/`unavailable`/`failed`) so workflow completion cannot ignore them. Non-document steps, persisted plans, existing bindings and authorization stay unchanged.
+- **Pilot topology and unsupported paths:** the pilot is limited to non-Fable typed-step workflows (`stepBindingsEnabled === true`, set when typed steps exist and the strategy is not `fable-*`). Fable stage-contract paths (`fable-staged`, `fable-parallel`, `fable-multi-agent-workspace`) and workflows without the typed-step contract are explicitly **not integrated / unavailable** for doc-MUST reconciliation: a `stage-binding` disposition is never doc verification, and no fallback may mark a doc MUST satisfied. Unsupported paths report that state rather than silently passing.
+- **Negative acceptance case:** for a `doc-change` step whose required bindings are all `loaded` and whose derived doc MUST is failing or unknown, `workflow-disposition.js step --disposition pass --evidence 'done'` must fail closed: it reports the unsatisfied obligation ids, leaves the step `pending`, and does not change aggregate `execute`/`verify` status. A loaded skill plus free-text evidence is not verification.
 - **Compatibility:** preserve existing non-document step bindings, authorization/Rule-of-3 semantics, old persisted plans and no new Stop/tool lock. Source and installed plugin copies must behave consistently.
 - **Pre-integration work:** #335 must establish baseline-bound tombstone/rename-pair evidence so legitimate deletions/moves can pass and stale/missing records cannot. #331 / PR #333 is a parallel host-config safety correction; neither requires the broad #320 migration.
 
@@ -34,8 +36,27 @@ This table distinguishes merged mechanism code from end-to-end workflow integrat
 | --- | --- |
 | **H1 Provider independence** | Swap/omit suggestions without changing workflow obligations; valid alternate execution evidence can satisfy an applicable MUST; no evidence cannot |
 | **H2 Active-step progressive disclosure** | Captured step output / provider metadata access shows only active-step relevance and no eager unrelated `SKILL.md` content or future-step loading |
-| **H3 Evidence reconciliation** | Adversarial replay of fabricated completion, missing verifier, stale digest/base, contradictory/failed results and unsupported waiver yields **zero false PASS** for MUSTs |
+| **H3 Evidence reconciliation** | Adversarial replay of fabricated completion, missing verifier, stale digest/base, scope substitution, forged identity, unsupported PRD roots, contradictory/failed results and unsupported waiver yields **zero false PASS** for MUSTs, with the fixture matrix below as the observable trust boundary |
 | **H4 Task-shaped composition** | Docs-only, docs+code, REQ-citing assertions, typo-only changes, code-only uncertainty, missing independent approval and waivers produce the expected obligation union and explicit unknown/unavailable outcomes |
+
+### Phase 3c H3 trust boundary (planned, not shipped)
+
+- **Trusted producer, not the checker:** a pilot-local adapter derives the VCS baseline and candidate identity, active task scope, project-docs config identity and execution/review provenance from host state. `checkDocObligations()` proves only that records agree with those caller-supplied values; matching a caller-provided digest is not independent validation of the input.
+- **Identity and scope requirements:** `baseline.digest` and `baseline.artifacts[path]` come from the same recorded baseline tree; candidate artifact digests come from the candidate tree actually under review; `configDigest` is bound to the parsed config bytes rather than checked for presence; the obligation's PRD root and active task scope must match the adapter's scope, and an unsupported custom PRD root is `unavailable`.
+- **Provenance and reviewer identity:** execution and verification records need the command, non-empty provenance and integer exit code; review approval needs an independent reviewer identity distinct from the executor/author. A free-text claim, self-review, missing verifier or replayed record never satisfies a MUST.
+- **Dispositions:** absent, untrusted, stale, replayed, contradictory, malformed or unsupported inputs resolve to `unknown`/`unavailable`/failed, never PASS.
+
+| H3 fixture | Expected disposition |
+| --- | --- |
+| Fabricated completion claim / no record | `unknown`; MUST unsatisfied |
+| Forged baseline or candidate digest | rejected as stale/unknown; MUST unsatisfied |
+| Scope substitution across tasks or PRD roots | `unknown`; MUST unsatisfied |
+| Unsupported custom PRD root | `unavailable`; MUST unsatisfied |
+| Replayed earlier-candidate record | stale; MUST unsatisfied |
+| Missing, non-independent or mismatched reviewer identity | MUST unsatisfied |
+| Unsupported waiver (no reason, no cited observed record, or self-bound scope) | `unsupported-waiver`; MUST unsatisfied |
+| Contradictory or failed command results | failed; not PASS |
+| Positive control: current, independently produced matching evidence | pass |
 
 Two *separate* gates apply. The **functional gate** requires contract tests, negative cases, source/package parity, host/platform compatibility and an all-green applicable CI baseline. The **architectural gate** additionally requires H1–H4 and independently reviewed paired real-task outcomes. Freeze task fixtures, acceptance rubrics, model/effort, host permissions, comparison order and thresholds **after baseline measurement but before treatment outcomes**. Compare task correctness and failures first; report successful-task token/time/tool cost and failed-run overhead separately, with uncertainty. A small inconclusive sample is not approval. Broader #320 CDG/registry compilation and physical skill moves need **explicit owner sign-off on each specific validated interface**; retain the legacy path until then.
 
