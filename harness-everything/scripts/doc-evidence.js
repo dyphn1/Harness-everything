@@ -42,6 +42,14 @@ function isSha256(value) {
   return typeof value === 'string' && SHA256_DIGEST.test(value);
 }
 
+// #335 P2: per-path baseline and rename evidence must be carried explicitly. Inherited
+// properties (including prototype-injected digests) are not declared evidence, so every
+// trust-boundary map lookup uses own-key membership rather than bracket lookup alone.
+function hasOwnEntry(map, key) {
+  return Boolean(map) && typeof map === 'object' && typeof key === 'string'
+    && Object.prototype.hasOwnProperty.call(map, key);
+}
+
 function compareText(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
@@ -175,7 +183,7 @@ function evaluateObligation(obligation, context) {
     diagnostics.push({ code, obligationId, ...(path ? { path } : {}), message });
   };
 
-  if (declaredBaselinePaths !== undefined) {
+  if (declaresBaselinePaths) {
     if (!Array.isArray(declaredBaselinePaths)) {
       baselineMetadataDiagnostic('baseline-path-invalid', undefined,
         'scope.baselinePaths is present but not an array; baseline-bound evidence cannot be evaluated');
@@ -219,7 +227,12 @@ function evaluateObligation(obligation, context) {
             invalid(entryPath, 'a rename-from entry needs a distinct non-empty renameTo');
             continue;
           }
-          if (!(artifact(artifactMap[rawEntry.renameTo]).length > 0)) {
+          if (!scopePaths.includes(rawEntry.renameTo)) {
+            invalid(entryPath, `its rename destination ${JSON.stringify(rawEntry.renameTo)} is not a member of scope.paths`);
+            continue;
+          }
+          if (!hasOwnEntry(artifactMap, rawEntry.renameTo)
+            || !(artifact(artifactMap[rawEntry.renameTo]).length > 0)) {
             invalid(entryPath, `its rename destination ${JSON.stringify(rawEntry.renameTo)} has no candidate artifact`);
             continue;
           }
@@ -230,7 +243,7 @@ function evaluateObligation(obligation, context) {
           continue;
         }
         if (baselineArtifactsMap) {
-          const trusted = baselineArtifactsMap[entryPath];
+          const trusted = hasOwnEntry(baselineArtifactsMap, entryPath) ? baselineArtifactsMap[entryPath] : undefined;
           if (trusted === undefined) {
             baselineMetadataDiagnostic('baseline-artifact-missing', entryPath,
               `the baseline carries no per-path digest for declared baseline path ${entryPath}; the path fails closed`);
@@ -269,7 +282,8 @@ function evaluateObligation(obligation, context) {
   if (Array.isArray(declaredBaselinePaths)) {
     for (const rawEntry of declaredBaselinePaths) {
       if (isPlainObject(rawEntry) && nonEmptyString(rawEntry.path)
-        && baselineArtifactsMap && isSha256(baselineArtifactsMap[rawEntry.path])) {
+        && hasOwnEntry(baselineArtifactsMap, rawEntry.path)
+        && isSha256(baselineArtifactsMap[rawEntry.path])) {
         baselineAudit[rawEntry.path] = baselineArtifactsMap[rawEntry.path];
       }
     }
@@ -313,12 +327,17 @@ function evaluateObligation(obligation, context) {
     if (Object.prototype.hasOwnProperty.call(artifactMap, entry.path)) return false;
     if (isPlainObject(item.artifactDigests)
       && Object.prototype.hasOwnProperty.call(item.artifactDigests, entry.path)) return false;
-    const trusted = baselineArtifactsMap ? baselineArtifactsMap[entry.path] : undefined;
+    const trusted = hasOwnEntry(baselineArtifactsMap, entry.path) ? baselineArtifactsMap[entry.path] : undefined;
     if (!isSha256(trusted)) return false;
-    if (!isPlainObject(item.baselineArtifacts) || item.baselineArtifacts[entry.path] !== trusted) return false;
+    if (!isPlainObject(item.baselineArtifacts)
+      || !hasOwnEntry(item.baselineArtifacts, entry.path)
+      || item.baselineArtifacts[entry.path] !== trusted) return false;
     if (entry.reason === 'rename-from') {
       if (!item.paths.includes(entry.renameTo)) return false;
-      if (!isPlainObject(item.artifactDigests) || !nonEmptyString(item.artifactDigests[entry.renameTo])) return false;
+      if (!isPlainObject(item.artifactDigests)
+        || !hasOwnEntry(item.artifactDigests, entry.renameTo)
+        || !nonEmptyString(item.artifactDigests[entry.renameTo])) return false;
+      if (!hasOwnEntry(artifactMap, entry.renameTo)) return false;
       if (item.artifactDigests[entry.renameTo] !== artifact(artifactMap[entry.renameTo])) return false;
     }
     return true;
@@ -369,7 +388,7 @@ function evaluateObligation(obligation, context) {
     if (isPlainObject(item.baselineArtifacts)) {
       for (const [path, value] of Object.entries(item.baselineArtifacts)) {
         if (!baselineEntries.has(path)) continue;
-        const trusted = baselineArtifactsMap ? baselineArtifactsMap[path] : undefined;
+        const trusted = hasOwnEntry(baselineArtifactsMap, path) ? baselineArtifactsMap[path] : undefined;
         if (!isSha256(trusted)) continue;
         if (nonEmptyString(value) && value !== trusted) {
           diagnostics.push({
@@ -381,7 +400,9 @@ function evaluateObligation(obligation, context) {
       }
     }
     for (const path of baselineNamed) {
-      const bound = isPlainObject(item.baselineArtifacts) && nonEmptyString(item.baselineArtifacts[path]);
+      const bound = isPlainObject(item.baselineArtifacts)
+        && hasOwnEntry(item.baselineArtifacts, path)
+        && nonEmptyString(item.baselineArtifacts[path]);
       if (!bound) {
         diagnostics.push({
           code: 'baseline-binding-missing',

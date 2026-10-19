@@ -1035,4 +1035,171 @@ checkCase('335 P3 canonical and packaged modules agree on absent/malformed candi
   }
 });
 
+// ---------------------------------------------------------------------------
+// P2 trust boundary: per-path evidence must be carried explicitly. Inherited
+// properties in baseline.artifacts, record.baselineArtifacts, the rename
+// destination digest, or the candidate destination inventory entry are not
+// own-key evidence and cannot satisfy a baseline-bound obligation.
+// ---------------------------------------------------------------------------
+
+checkCase('335 P2 inherited baseline.artifacts entry is not trusted', () => {
+  const ctx = prepare('deleted-adr');
+  const inheritedBaseline = Object.create({ [DELETED_ADR]: ctx.baseline.artifacts[DELETED_ADR] });
+  const output = check(ctx, {
+    baseline: { digest: ctx.baseline.digest, artifacts: inheritedBaseline },
+    executionRecords: [execRecord(ctx, 'tomb-run', 'doc-change:doc-lint', {
+      paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+    })]
+  });
+  assert.notStrictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+    'an inherited-only baseline digest cannot satisfy a deletion');
+  assert.ok(diagnosticCodes(output).includes('baseline-artifact-missing'),
+    `the absent own baseline digest is diagnosed: ${diagnosticCodes(output)}`);
+});
+
+checkCase('335 P2 inherited record baselineArtifacts entry does not bind', () => {
+  const ctx = prepare('deleted-adr');
+  const inheritedRecordBinding = Object.create({ [DELETED_ADR]: ctx.baseline.artifacts[DELETED_ADR] });
+  const output = check(ctx, {
+    executionRecords: [execRecord(ctx, 'tomb-run', 'doc-change:doc-lint', {
+      paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR],
+      baselineArtifacts: inheritedRecordBinding
+    })]
+  });
+  assert.notStrictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+    'an inherited-only record baseline digest cannot bind the path');
+  assert.ok(diagnosticCodes(output).includes('baseline-binding-missing'),
+    `the non-own record binding is diagnosed: ${diagnosticCodes(output)}`);
+});
+
+checkCase('335 P2 inherited rename destination digest does not bind the pair', () => {
+  const ctx = prepare('rename');
+  const inheritedDestination = Object.create({ [RENAME_TO]: ctx.artifacts[RENAME_TO].digest });
+  const output = check(ctx, {
+    executionRecords: [execRecord(ctx, 'move-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM],
+      artifactDigests: inheritedDestination
+    })]
+  });
+  assert.notStrictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+    'an inherited-only destination digest cannot bind the rename pair');
+});
+
+checkCase('335 P2 inherited candidate destination entry is not an own inventory entry', () => {
+  const ctx = prepare('rename');
+  const inheritedCandidate = Object.create({ [RENAME_TO]: ctx.artifacts[RENAME_TO] });
+  const output = checkArtifacts(ctx, inheritedCandidate, {
+    executionRecords: [execRecord(ctx, 'move-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    })]
+  });
+  assert.notStrictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+    'an inherited-only candidate destination cannot satisfy the rename');
+  assert.ok(diagnosticCodes(output).includes('baseline-path-invalid'),
+    `the non-own candidate destination is diagnosed as a malformed annotation: ${diagnosticCodes(output)}`);
+});
+
+checkCase('335 P2 null-prototype baseline and record maps remain valid', () => {
+  const ctx = prepare('deleted-adr');
+  const baselineArtifacts = Object.assign(Object.create(null), baselineMapFor(ctx, [DELETED_ADR]));
+  const recordBinding = Object.assign(Object.create(null), baselineMapFor(ctx, [DELETED_ADR]));
+  const output = check(ctx, {
+    baseline: { digest: ctx.baseline.digest, artifacts: baselineArtifacts },
+    executionRecords: [execRecord(ctx, 'tomb-run', 'doc-change:doc-lint', {
+      paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR],
+      baselineArtifacts: recordBinding
+    })]
+  });
+  assert.strictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+    'own entries in null-prototype dictionaries remain valid baseline evidence');
+  assert.ok(!diagnosticCodes(output).includes('baseline-artifact-missing'));
+});
+
+checkCase('335 P2 canonical and packaged modules agree on inherited-only evidence', () => {
+  for (const target of [modules, packageModules]) {
+    const ctx = prepare('deleted-adr', target);
+    const inheritedBaseline = Object.create({ [DELETED_ADR]: ctx.baseline.artifacts[DELETED_ADR] });
+    const inheritedRecord = Object.create({ [DELETED_ADR]: ctx.baseline.artifacts[DELETED_ADR] });
+    const baselineOutput = target.checkDocObligations({
+      obligations: ctx.obligations,
+      artifacts: ctx.artifacts,
+      baseline: { digest: ctx.baseline.digest, artifacts: inheritedBaseline },
+      executionRecords: [execRecord(ctx, 'tomb-run', 'doc-change:doc-lint', {
+        paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+      })]
+    });
+    const recordOutput = target.checkDocObligations({
+      obligations: ctx.obligations,
+      artifacts: ctx.artifacts,
+      baseline: ctx.baseline,
+      executionRecords: [execRecord(ctx, 'tomb-run', 'doc-change:doc-lint', {
+        paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR],
+        baselineArtifacts: inheritedRecord
+      })]
+    });
+    for (const [label, output] of [['baseline', baselineOutput], ['record', recordOutput]]) {
+      assert.notStrictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+        `${label}: inherited-only evidence cannot pass in ${target === modules ? 'canonical' : 'packaged'} modules`);
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// P3 declarations: metadata presence is own-key presence, and a rename's
+// destination must be a member of the same obligation scope.
+// ---------------------------------------------------------------------------
+
+checkCase('335 P3 explicitly present undefined baselinePaths fails closed', () => {
+  const ctx = prepare('docs-only');
+  const lint = obligationOf(ctx, 'doc-change:doc-lint');
+  const explicitUndefined = { ...lint, scope: { ...lint.scope, baselinePaths: undefined } };
+  const output = check(ctx, {
+    obligations: ctx.obligations.map(item => (item.id === lint.id ? explicitUndefined : item)),
+    executionRecords: [execRecord(ctx, 'edit-run', 'doc-change:doc-lint', {
+      paths: [GUIDE], candidatePaths: [GUIDE]
+    })]
+  });
+  assert.notStrictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+    'an explicitly present undefined baselinePaths annotation cannot pass');
+  assert.ok(diagnosticCodes(output).includes('baseline-path-invalid'),
+    `the present malformed annotation is diagnosed: ${diagnosticCodes(output)}`);
+});
+
+checkCase('335 P3 rename destination must belong to scope.paths', () => {
+  const ctx = prepare('rename');
+  const lint = obligationOf(ctx, 'doc-change:doc-lint');
+  const outsideDestination = 'docs/reference/not-in-scope.md';
+  // The out-of-scope destination has a real candidate artifact and a valid pair record, so an
+  // implementation that only checks the destination digest would still pass it. Only the
+  // scope-membership invariant makes this annotation fail closed.
+  const artifacts = {
+    ...ctx.artifacts,
+    [outsideDestination]: { digest: sha256('outside destination candidate') }
+  };
+  const mutated = {
+    ...lint,
+    scope: {
+      ...lint.scope,
+      baselinePaths: [{ path: RENAME_FROM, reason: 'rename-from', renameTo: outsideDestination }]
+    }
+  };
+  const output = check(ctx, {
+    obligations: ctx.obligations.map(item => (item.id === lint.id ? mutated : item)),
+    artifacts,
+    executionRecords: [execRecord(ctx, 'move-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO, outsideDestination],
+      candidatePaths: [],
+      baselinePaths: [RENAME_FROM],
+      artifactDigests: {
+        [RENAME_TO]: artifacts[RENAME_TO].digest,
+        [outsideDestination]: artifacts[outsideDestination].digest
+      }
+    })]
+  });
+  assert.notStrictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+    'a rename destination outside scope.paths cannot pass');
+  assert.ok(diagnosticCodes(output).includes('baseline-path-invalid'),
+    `the out-of-scope destination is diagnosed: ${diagnosticCodes(output)}`);
+});
+
 helper.finish();

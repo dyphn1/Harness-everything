@@ -36,7 +36,8 @@ scope = {
 - `reason: 'deleted'` describes a path present in the trusted baseline and absent from the
   candidate.
 - `reason: 'rename-from'` describes the old endpoint of an identified content-identical move.
-  The destination is named by `renameTo`.
+  The destination is named by `renameTo` and must itself be a member of the same
+  `scope.paths`. A `renameTo` outside the scope is malformed and fails the obligation closed.
 - A path without a `baselinePaths` entry remains a normal candidate path and keeps the existing
   exact candidate-digest requirement.
 - `scope.paths` is never filtered to hide a baseline-only path. If the annotation is absent, the
@@ -61,9 +62,15 @@ A deleted path is satisfied only when one observed record:
 
 1. carries the exact whole-baseline `baseDigest`;
 2. lists the path in `paths`;
-3. carries the exact trusted `baseline.artifacts[path]` value in `baselineArtifacts`;
+3. carries the exact trusted `baseline.artifacts[path]` value as an **own-key** entry in
+   `baselineArtifacts`;
 4. carries **no** `artifactDigests` entry for that path, and the candidate artifact map has **no
    own-key entry** for that path.
+
+Per-path evidence must be carried explicitly. Inherited properties in `baseline.artifacts` or a
+record's `baselineArtifacts` are not own-key evidence and never satisfy a path; the trusted
+baseline entry itself must also be an own-key entry. Null-prototype dictionaries remain valid
+when they carry own entries.
 
 Presence is own-key membership, not digest truthiness: a candidate map entry such as `{}`,
 `{ digest: '' }`, or `null` still means the path is present, so it is contradictory path state,
@@ -73,11 +80,13 @@ contradictory and does not bind that path; it is reported as `baseline-path-cand
 A valid alternate record may still satisfy the obligation.
 
 A rename source is satisfied only by a **single** record that also lists the current
-`renameTo` path, carries its current candidate digest in `artifactDigests`, carries no
-`artifactDigests` entry for the old path, and has no own-key candidate artifact map entry for the
-old path. The same record can cover both endpoints. Destination-only evidence, source-only
-tombstones, split endpoint records, and stale destination digests do not satisfy the source. A
-deletion tombstone therefore cannot stand in for a known rename.
+`renameTo` path, carries its current candidate digest as an **own-key** entry in
+`artifactDigests`, carries no `artifactDigests` entry for the old path, and has no own-key
+candidate artifact map entry for the old path. The candidate destination must itself be an
+own-key entry in the candidate artifact map. The same record can cover both endpoints.
+Destination-only evidence, source-only tombstones, split endpoint records, and stale destination
+digests do not satisfy the source. A deletion tombstone therefore cannot stand in for a known
+rename.
 
 The binding applies to execution and review records alike. Existing review approval, waiver,
 failing-command, requirement-sync authority, and applicability rules are unchanged. A correctly
@@ -115,7 +124,10 @@ The result is not a pass when any of the following is observed:
 - absent whole-baseline identity, absent `baseline.artifacts`, or an invalid/missing per-path
   baseline value for a declared baseline-only path;
 - a baseline-only entry that is missing from `scope.paths`, is duplicated, has an unknown reason,
-  or has a malformed `renameTo`;
+  or has a malformed `renameTo` (empty, equal to the source, outside `scope.paths`, or without an
+  own-key candidate destination artifact);
+- a present `scope.baselinePaths` annotation that is not an array, including an explicitly
+  present `undefined`; absence of the property remains backward-compatible;
 - an applicable obligation that declares baseline-only paths but receives an absent or malformed
   top-level candidate `artifacts` map (omitted, `undefined`, `null`, array, string, or an
   object-like value that is not a plain object or null-prototype dictionary, including `Map`,
