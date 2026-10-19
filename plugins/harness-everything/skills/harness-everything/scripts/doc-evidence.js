@@ -70,6 +70,12 @@ function artifact(entry) {
   return entry && typeof entry.digest === 'string' && entry.digest.length > 0 ? entry.digest : '';
 }
 
+// #335 P2: a baseline-bound rename destination must declare its own digest. An inherited
+// `digest` (for example Object.create({ digest })) is not explicit candidate evidence.
+function ownArtifactDigest(entry) {
+  return isPlainObject(entry) && hasOwnEntry(entry, 'digest') ? artifact(entry) : '';
+}
+
 function provenanceText(record) {
   return nonEmptyString(record.provenance) ? record.provenance : `record ${record.id}`;
 }
@@ -177,6 +183,11 @@ function evaluateObligation(obligation, context) {
   const baselineEntries = new Map();
   let baselineMetadataError = false;
   let candidateInventoryUnknown = false;
+  // #335 P3: a candidate inventory can pass the prototype check and still throw from an
+  // own-property descriptor trap or a nested digest accessor. Any such failure is treated as
+  // unknown inventory rather than escaping the checker; the diagnostic is emitted only for
+  // applicable obligations that declare baseline-only paths.
+  let candidateInventoryInspectionFailed = false;
 
   const baselineMetadataDiagnostic = (code, path, message) => {
     baselineMetadataError = true;
@@ -218,7 +229,7 @@ function evaluateObligation(obligation, context) {
           invalid(entryPath, `reason ${JSON.stringify(rawEntry.reason)} is not deleted or rename-from`);
           continue;
         }
-        if (rawEntry.reason === 'deleted' && Object.prototype.hasOwnProperty.call(rawEntry, 'renameTo') && rawEntry.renameTo !== undefined) {
+        if (rawEntry.reason === 'deleted' && Object.prototype.hasOwnProperty.call(rawEntry, 'renameTo')) {
           invalid(entryPath, 'a deleted entry must not carry renameTo');
           continue;
         }
@@ -231,13 +242,28 @@ function evaluateObligation(obligation, context) {
             invalid(entryPath, `its rename destination ${JSON.stringify(rawEntry.renameTo)} is not a member of scope.paths`);
             continue;
           }
-          if (!hasOwnEntry(artifactMap, rawEntry.renameTo)
-            || !(artifact(artifactMap[rawEntry.renameTo]).length > 0)) {
+          let destinationDigest = '';
+          try {
+            if (hasOwnEntry(artifactMap, rawEntry.renameTo)) {
+              destinationDigest = ownArtifactDigest(artifactMap[rawEntry.renameTo]);
+            }
+          } catch {
+            candidateInventoryInspectionFailed = true;
+            continue;
+          }
+          if (!destinationDigest) {
             invalid(entryPath, `its rename destination ${JSON.stringify(rawEntry.renameTo)} has no candidate artifact`);
             continue;
           }
         }
-        if (Object.prototype.hasOwnProperty.call(artifactMap, entryPath)) {
+        let candidatePathPresent = false;
+        try {
+          candidatePathPresent = hasOwnEntry(artifactMap, entryPath);
+        } catch {
+          candidateInventoryInspectionFailed = true;
+          continue;
+        }
+        if (candidatePathPresent) {
           baselineMetadataDiagnostic('baseline-path-candidate-present', entryPath,
             `baseline path ${entryPath} is declared baseline-only but the candidate artifact map has an entry for it (own key, regardless of digest validity); the contradictory path state fails closed`);
           continue;
@@ -269,12 +295,13 @@ function evaluateObligation(obligation, context) {
   // inventory; omitted/undefined/null/array/string/other malformed values are unknown input.
   // The prototype read happens here, not up front, so unrelated obligations never touch it.
   if (applicability === 'applicable' && Array.isArray(declaredBaselinePaths)
-    && declaredBaselinePaths.length > 0 && !isCandidateInventoryKnown()) {
+    && declaredBaselinePaths.length > 0
+    && (candidateInventoryInspectionFailed || !isCandidateInventoryKnown())) {
     candidateInventoryUnknown = true;
     diagnostics.push({
       code: 'candidate-artifacts-invalid',
       obligationId,
-      message: 'this obligation declares baseline-only paths, but the top-level artifacts argument is not a plain object; the candidate inventory is unknown, so baseline-bound evidence fails closed'
+      message: 'this obligation declares baseline-only paths, but the top-level artifacts argument is not a plain object or cannot be inspected safely; the candidate inventory is unknown, so baseline-bound evidence fails closed'
     });
   }
 
@@ -289,8 +316,17 @@ function evaluateObligation(obligation, context) {
     }
   }
 
+  // An uninspectable candidate entry must not abort an N/A or unknown obligation while the
+  // audit key is built; the baseline-bound lanes fail closed through the inventory diagnostic.
+  const candidateDigestOf = (path) => {
+    try {
+      return artifact(artifactMap[path]);
+    } catch {
+      return '';
+    }
+  };
   const artifactDigestKey = scopePaths.length
-    ? scopePaths.map(path => `${path}=${artifact(artifactMap[path]) || 'missing'}`).join('|')
+    ? scopePaths.map(path => `${path}=${candidateDigestOf(path) || 'missing'}`).join('|')
     : (baselineDigest || 'no-scope-paths');
   const baseDigestKey = baselineDigest || 'no-baseline';
   const result = (observation, outcome, provenance, recordRefs) => ({
@@ -337,8 +373,16 @@ function evaluateObligation(obligation, context) {
       if (!isPlainObject(item.artifactDigests)
         || !hasOwnEntry(item.artifactDigests, entry.renameTo)
         || !nonEmptyString(item.artifactDigests[entry.renameTo])) return false;
-      if (!hasOwnEntry(artifactMap, entry.renameTo)) return false;
-      if (item.artifactDigests[entry.renameTo] !== artifact(artifactMap[entry.renameTo])) return false;
+      let destinationDigest = '';
+      try {
+        if (hasOwnEntry(artifactMap, entry.renameTo)) {
+          destinationDigest = ownArtifactDigest(artifactMap[entry.renameTo]);
+        }
+      } catch {
+        return false;
+      }
+      if (!destinationDigest) return false;
+      if (item.artifactDigests[entry.renameTo] !== destinationDigest) return false;
     }
     return true;
   };
@@ -368,8 +412,8 @@ function evaluateObligation(obligation, context) {
       continue;
     }
     if (Array.isArray(item.paths) && isPlainObject(item.artifactDigests)) {
-      const mismatch = item.paths.find(path => artifact(artifactMap[path]).length > 0
-        && nonEmptyString(item.artifactDigests[path]) && item.artifactDigests[path] !== artifactMap[path].digest);
+      const mismatch = item.paths.find(path => candidateDigestOf(path).length > 0
+        && nonEmptyString(item.artifactDigests[path]) && item.artifactDigests[path] !== candidateDigestOf(path));
       if (mismatch) {
         diagnostics.push({
           code: 'stale-artifact-digest',

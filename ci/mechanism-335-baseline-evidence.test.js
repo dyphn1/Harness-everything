@@ -1202,4 +1202,191 @@ checkCase('335 P3 rename destination must belong to scope.paths', () => {
     `the out-of-scope destination is diagnosed: ${diagnosticCodes(output)}`);
 });
 
+// ---------------------------------------------------------------------------
+// P2 destination evidence: the rename destination artifact must carry its own
+// digest. An inherited nested digest is not explicit candidate evidence, while
+// own-digest and null-prototype entries remain valid.
+// ---------------------------------------------------------------------------
+
+checkCase('335 P2 inherited destination artifact digest cannot bind the rename', () => {
+  const ctx = prepare('rename');
+  const artifacts = {
+    ...ctx.artifacts,
+    [RENAME_TO]: Object.create({ digest: ctx.artifacts[RENAME_TO].digest })
+  };
+  const output = check(ctx, {
+    artifacts,
+    executionRecords: [execRecord(ctx, 'move-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    })]
+  });
+  assert.notStrictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+    'an inherited destination digest cannot satisfy the rename source');
+  assert.ok(diagnosticCodes(output).includes('baseline-path-invalid'),
+    `the destination without an own digest is diagnosed: ${diagnosticCodes(output)}`);
+});
+
+checkCase('335 P2 own and null-prototype destination digests remain valid', () => {
+  const entryFactories = [
+    ['own digest', digest => ({ digest })],
+    ['null-prototype entry', digest => Object.assign(Object.create(null), { digest })]
+  ];
+  for (const [label, makeEntry] of entryFactories) {
+    const ctx = prepare('rename');
+    const artifacts = {
+      ...ctx.artifacts,
+      [RENAME_TO]: makeEntry(ctx.artifacts[RENAME_TO].digest)
+    };
+    const output = check(ctx, {
+      artifacts,
+      executionRecords: [execRecord(ctx, 'move-run', 'doc-change:doc-lint', {
+        paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+      })]
+    });
+    assert.strictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+      `${label}: an explicit destination digest remains valid`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// P3 declaration presence: a deleted entry must not carry renameTo at all,
+// including an explicitly present undefined value.
+// ---------------------------------------------------------------------------
+
+checkCase('335 P3 deleted entry with own renameTo undefined fails closed', () => {
+  const ctx = prepare('deleted-adr');
+  const lint = obligationOf(ctx, 'doc-change:doc-lint');
+  const mutated = {
+    ...lint,
+    scope: {
+      ...lint.scope,
+      baselinePaths: [{ path: DELETED_ADR, reason: 'deleted', renameTo: undefined }]
+    }
+  };
+  const output = check(ctx, {
+    obligations: ctx.obligations.map(item => (item.id === lint.id ? mutated : item)),
+    executionRecords: [execRecord(ctx, 'tomb-run', 'doc-change:doc-lint', {
+      paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+    })]
+  });
+  assert.notStrictEqual(resultOf(output, 'doc-change:doc-lint').outcome, 'pass',
+    'a present renameTo on a deletion cannot pass, even when undefined');
+  assert.ok(diagnosticCodes(output).includes('baseline-path-invalid'),
+    `the present renameTo is diagnosed: ${diagnosticCodes(output)}`);
+});
+
+// ---------------------------------------------------------------------------
+// P3 malformed-input safety: descriptor and digest accessor traps in the
+// candidate inventory must not abort the checker. Applicable baseline-only
+// obligations fail closed with candidate-artifacts-invalid; N/A and unknown
+// obligations keep their non-applicable result.
+// ---------------------------------------------------------------------------
+
+function throwingDescriptorInventory() {
+  return new Proxy({}, {
+    getPrototypeOf() { return Object.prototype; },
+    getOwnPropertyDescriptor() { throw new Error('descriptor trap'); }
+  });
+}
+
+function throwingDigestArtifact() {
+  const entry = {};
+  Object.defineProperty(entry, 'digest', {
+    enumerable: true,
+    get() { throw new Error('digest trap'); }
+  });
+  return entry;
+}
+
+checkCase('335 P3 a throwing property descriptor trap fails baseline obligations closed', () => {
+  const failures = [];
+  for (const scenario of ['deleted-adr', 'rename']) {
+    const isRename = scenario === 'rename';
+    for (const target of [modules, packageModules]) {
+      const ctx = prepare(scenario, target);
+      const paths = isRename ? [RENAME_FROM, RENAME_TO] : [DELETED_ADR];
+      const candidatePaths = isRename ? [RENAME_TO] : [];
+      const baselinePaths = isRename ? [RENAME_FROM] : [DELETED_ADR];
+      const record = execRecord(ctx, isRename ? 'move-run' : 'tomb-run', 'doc-change:doc-lint', {
+        paths, candidatePaths, baselinePaths
+      });
+      let output;
+      try {
+        output = checkArtifacts(ctx, throwingDescriptorInventory(), { executionRecords: [record] }, target);
+      } catch (error) {
+        failures.push(`${scenario}: descriptor trap escaped: ${error.message}`);
+        continue;
+      }
+      const result = resultOf(output, 'doc-change:doc-lint');
+      if (result.outcome !== 'none') failures.push(`${scenario}: outcome=${result.outcome}`);
+      if (!diagnosticCodes(output).includes('candidate-artifacts-invalid')) {
+        failures.push(`${scenario}: diagnostics=${diagnosticCodes(output)}`);
+      }
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `descriptor traps must fail closed in both modules: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 a throwing destination digest accessor fails the rename closed', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const ctx = prepare('rename', target);
+    const artifacts = {
+      ...ctx.artifacts,
+      [RENAME_TO]: throwingDigestArtifact()
+    };
+    const record = execRecord(ctx, 'move-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    });
+    let output;
+    try {
+      output = check(ctx, { artifacts, executionRecords: [record] }, target);
+    } catch (error) {
+      failures.push(`digest accessor trap escaped: ${error.message}`);
+      continue;
+    }
+    const result = resultOf(output, 'doc-change:doc-lint');
+    if (result.outcome !== 'none') failures.push(`outcome=${result.outcome}`);
+    if (!diagnosticCodes(output).includes('candidate-artifacts-invalid')) {
+      failures.push(`diagnostics=${diagnosticCodes(output)}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `a throwing destination digest accessor must fail closed in both modules: ${failures.join('; ')}`);
+});
+
+checkCase('335 P3 descriptor and digest traps cannot abort N/A or unknown obligations', () => {
+  const ctx = prepare('deleted-adr');
+  const rename = prepare('rename');
+  const lint = obligationOf(ctx, 'doc-change:doc-lint');
+  const renameLint = obligationOf(rename, 'doc-change:doc-lint');
+  const scenarios = [
+    ['deleted descriptor trap', ctx, lint, throwingDescriptorInventory()],
+    ['deleted digest trap', ctx, lint, { [DELETED_ADR]: throwingDigestArtifact() }],
+    ['rename descriptor trap', rename, renameLint, throwingDescriptorInventory()],
+    ['rename digest trap', rename, renameLint, {
+      ...rename.artifacts,
+      [RENAME_TO]: throwingDigestArtifact()
+    }]
+  ];
+  for (const [label, scenarioCtx, obligation, artifacts] of scenarios) {
+    for (const applicability of ['N/A', 'unknown']) {
+      let output;
+      try {
+        output = checkArtifacts(scenarioCtx, artifacts, {
+          obligations: [{ ...obligation, applicability }]
+        });
+      } catch (error) {
+        assert.fail(`${label}/${applicability}: malformed inventory escaped: ${error.message}`);
+      }
+      const result = resultOf(output, obligation.id);
+      assert.strictEqual(result.outcome, 'none',
+        `${label}/${applicability}: non-applicable obligations stay none`);
+      assert.ok(!diagnosticCodes(output).includes('candidate-artifacts-invalid'),
+        `${label}/${applicability}: the inventory diagnostic is limited to applicable obligations`);
+    }
+  }
+});
+
 helper.finish();

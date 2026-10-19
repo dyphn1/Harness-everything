@@ -34,7 +34,8 @@ scope = {
 ```
 
 - `reason: 'deleted'` describes a path present in the trusted baseline and absent from the
-  candidate.
+  candidate. A deleted entry must not carry `renameTo` at all; any own `renameTo` property,
+  including an explicitly present `undefined`, is malformed and fails the obligation closed.
 - `reason: 'rename-from'` describes the old endpoint of an identified content-identical move.
   The destination is named by `renameTo` and must itself be a member of the same
   `scope.paths`. A `renameTo` outside the scope is malformed and fails the obligation closed.
@@ -83,7 +84,8 @@ A rename source is satisfied only by a **single** record that also lists the cur
 `renameTo` path, carries its current candidate digest as an **own-key** entry in
 `artifactDigests`, carries no `artifactDigests` entry for the old path, and has no own-key
 candidate artifact map entry for the old path. The candidate destination must itself be an
-own-key entry in the candidate artifact map. The same record can cover both endpoints.
+own-key entry in the candidate artifact map whose artifact entry declares its own `digest`; an
+inherited nested digest is not explicit evidence. The same record can cover both endpoints.
 Destination-only evidence, source-only tombstones, split endpoint records, and stale destination
 digests do not satisfy the source. A deletion tombstone therefore cannot stand in for a known
 rename.
@@ -115,7 +117,11 @@ bound command that fails still produces an observed failure, not a pass.
   `scope.baselinePaths`. The prototype is read only for those applicable baseline-only
   obligations; a value whose prototype inspection throws (for example a `Proxy` with a throwing
   `getPrototypeOf` trap) is likewise unknown inventory, and unrelated non-baseline or
-  inapplicable obligations never trigger the read.
+  inapplicable obligations never trigger the read. The same boundary is exception-safe for
+  own-property inspection: a throwing property-descriptor trap or a throwing nested `digest`
+  accessor is classified as unknown inventory (`candidate-artifacts-invalid` for applicable
+  baseline-only obligations) instead of escaping the checker. `N/A` and `unknown` obligations
+  never emit that diagnostic.
 
 ## Fail-closed cases
 
@@ -125,14 +131,17 @@ The result is not a pass when any of the following is observed:
   baseline value for a declared baseline-only path;
 - a baseline-only entry that is missing from `scope.paths`, is duplicated, has an unknown reason,
   or has a malformed `renameTo` (empty, equal to the source, outside `scope.paths`, or without an
-  own-key candidate destination artifact);
+  own-key candidate destination artifact that declares its own `digest`);
+- a deleted entry that carries a `renameTo` property at all, including an explicitly present
+  `undefined`;
 - a present `scope.baselinePaths` annotation that is not an array, including an explicitly
   present `undefined`; absence of the property remains backward-compatible;
 - an applicable obligation that declares baseline-only paths but receives an absent or malformed
   top-level candidate `artifacts` map (omitted, `undefined`, `null`, array, string, or an
   object-like value that is not a plain object or null-prototype dictionary, including `Map`,
-  `Date`, `RegExp`, class instances, and objects whose prototype cannot be inspected); an
-  explicit `{}` or null-prototype dictionary is valid;
+  `Date`, `RegExp`, class instances, objects whose prototype cannot be inspected, and inventories
+  whose own-property descriptors or nested digest accessors throw); an explicit `{}` or
+  null-prototype dictionary is valid;
 - a baseline-only path with an own-key candidate artifact map entry, even when that entry has no
   usable digest (`{}`, `{ digest: '' }`, or `null`);
 - a record that carries an `artifactDigests` entry (real, empty, or fake) for a baseline-only
