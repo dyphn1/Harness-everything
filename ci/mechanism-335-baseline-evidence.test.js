@@ -1389,4 +1389,62 @@ checkCase('335 P3 descriptor and digest traps cannot abort N/A or unknown obliga
   }
 });
 
+// ---------------------------------------------------------------------------
+// P3 mixed scope: baseline-only and ordinary candidate paths in the same
+// applicable obligation. A throwing accessor on the ordinary path must fail
+// the inventory closed before the legacy candidate lane binds evidence.
+// ---------------------------------------------------------------------------
+
+checkCase('335 P3 mixed delete+edit scope fails closed on a candidate digest accessor', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const ctx = prepare('deleted-adr', target);
+    const lint = obligationOf(ctx, 'doc-change:doc-lint');
+    const mixed = {
+      ...lint,
+      scope: {
+        ...lint.scope,
+        paths: [DELETED_ADR, GUIDE],
+        baselinePaths: [{ path: DELETED_ADR, reason: 'deleted' }]
+      }
+    };
+    const obligations = ctx.obligations.map(item => (item.id === lint.id ? mixed : item));
+    const editedDigest = sha256('mixed edited candidate');
+    const record = execRecord(ctx, 'mixed-run', 'doc-change:doc-lint', {
+      paths: [DELETED_ADR, GUIDE],
+      candidatePaths: [],
+      baselinePaths: [DELETED_ADR],
+      artifactDigests: { [GUIDE]: editedDigest }
+    });
+
+    const positiveArtifacts = { ...ctx.artifacts, [GUIDE]: { digest: editedDigest } };
+    let positive;
+    try {
+      positive = check(ctx, { obligations, artifacts: positiveArtifacts, executionRecords: [record] }, target);
+    } catch (error) {
+      failures.push(`${label}: positive control threw: ${error.message}`);
+    }
+    if (positive && resultOf(positive, 'doc-change:doc-lint').outcome !== 'pass') {
+      failures.push(`${label}: positive control outcome=${resultOf(positive, 'doc-change:doc-lint').outcome}`);
+    }
+
+    const poisonedArtifacts = { ...ctx.artifacts, [GUIDE]: throwingDigestArtifact() };
+    let output;
+    try {
+      output = check(ctx, { obligations, artifacts: poisonedArtifacts, executionRecords: [record] }, target);
+    } catch (error) {
+      failures.push(`${label}: candidate accessor escaped: ${error.message}`);
+      continue;
+    }
+    const result = resultOf(output, 'doc-change:doc-lint');
+    if (result.outcome !== 'none') failures.push(`${label}: outcome=${result.outcome}`);
+    if (!diagnosticCodes(output).includes('candidate-artifacts-invalid')) {
+      failures.push(`${label}: diagnostics=${diagnosticCodes(output)}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `mixed scopes must fail closed in both modules: ${failures.join('; ')}`);
+});
+
 helper.finish();

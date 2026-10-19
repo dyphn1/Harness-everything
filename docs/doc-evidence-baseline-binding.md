@@ -122,6 +122,12 @@ bound command that fails still produces an observed failure, not a pass.
   accessor is classified as unknown inventory (`candidate-artifacts-invalid` for applicable
   baseline-only obligations) instead of escaping the checker. `N/A` and `unknown` obligations
   never emit that diagnostic.
+- A mixed scope can combine baseline-only paths with ordinary candidate paths (for example one
+  document deleted and another edited in the same change set). For an applicable obligation
+  that declares baseline paths, every ordinary scoped candidate digest is captured before
+  evidence binding; a throwing accessor on one of those paths also fails the candidate
+  inventory closed. Callers without `scope.baselinePaths` keep the legacy candidate-binding
+  behavior unchanged.
 
 ## Fail-closed cases
 
@@ -142,6 +148,8 @@ The result is not a pass when any of the following is observed:
   `Date`, `RegExp`, class instances, objects whose prototype cannot be inspected, and inventories
   whose own-property descriptors or nested digest accessors throw); an explicit `{}` or
   null-prototype dictionary is valid;
+- a mixed baseline+ordinary scope whose ordinary candidate digest accessor throws while the
+  candidate inventory is captured before binding;
 - a baseline-only path with an own-key candidate artifact map entry, even when that entry has no
   usable digest (`{}`, `{ digest: '' }`, or `null`);
 - a record that carries an `artifactDigests` entry (real, empty, or fake) for a baseline-only

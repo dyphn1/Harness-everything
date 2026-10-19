@@ -290,6 +290,22 @@ function evaluateObligation(obligation, context) {
     }
   }
 
+  // #335 P3: a mixed scope combines baseline-only paths with ordinary candidate paths. Capture
+  // every ordinary scoped candidate digest before evidence binding, so a throwing accessor in
+  // the legacy candidate lane fails the inventory closed instead of aborting the obligation.
+  const candidateDigestCache = new Map();
+  if (applicability === 'applicable' && Array.isArray(declaredBaselinePaths)
+    && declaredBaselinePaths.length > 0) {
+    for (const path of scopePaths) {
+      if (baselineEntries.has(path)) continue;
+      try {
+        candidateDigestCache.set(path, artifact(artifactMap[path]));
+      } catch {
+        candidateInventoryInspectionFailed = true;
+      }
+    }
+  }
+
   // P3: an applicable obligation that actually declares baseline-only paths needs a known
   // candidate inventory. Explicit {} is known and remains the legitimate empty deletion
   // inventory; omitted/undefined/null/array/string/other malformed values are unknown input.
@@ -349,10 +365,21 @@ function evaluateObligation(obligation, context) {
   }
 
   const matching = [...executionList, ...reviewList].filter(item => item.obligationId === obligationId);
-  const candidateBound = (item, path) => nonEmptyString(item.baseDigest) && item.baseDigest === baselineDigest
-    && isPlainObject(item.artifactDigests) && artifact(artifactMap[path]).length > 0
-    && item.artifactDigests[path] === artifactMap[path].digest
-    && Array.isArray(item.paths) && item.paths.includes(path);
+  const candidateBound = (item, path) => {
+    if (!nonEmptyString(item.baseDigest) || item.baseDigest !== baselineDigest) return false;
+    if (!isPlainObject(item.artifactDigests)) return false;
+    if (candidateDigestCache.has(path)) {
+      // Baseline-annotated obligations use the digest captured before binding, so a mixed
+      // delete+edit scope never re-reads a throwing accessor from the legacy lane.
+      const digest = candidateDigestCache.get(path);
+      return digest.length > 0
+        && item.artifactDigests[path] === digest
+        && Array.isArray(item.paths) && item.paths.includes(path);
+    }
+    return artifact(artifactMap[path]).length > 0
+      && item.artifactDigests[path] === artifactMap[path].digest
+      && Array.isArray(item.paths) && item.paths.includes(path);
+  };
 
   // A baseline-only path is satisfied only by a record bound to the trusted baseline digest.
   // A rename-from path additionally needs the same single record to carry the current
