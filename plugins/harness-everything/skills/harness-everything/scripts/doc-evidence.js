@@ -72,16 +72,13 @@ function artifact(entry) {
 
 // #335 P2: a baseline-bound rename destination must declare its own digest. An inherited
 // `digest` (for example Object.create({ digest })) is not explicit candidate evidence.
-function ownArtifactDigest(entry) {
-  return isPlainObject(entry) && hasOwnEntry(entry, 'digest') ? artifact(entry) : '';
-}
-
 // P2(r4321077631): reads the own digest exactly once. `artifact()` inspects `entry.digest` up
 // to three times (typeof, length, value), so a stateful accessor could validate one value and
 // have the captured destination snapshot carry another. Only the applicable rename-destination
 // snapshot uses this helper; non-baseline and inapplicable lanes keep the legacy `artifact()`
 // reads for their audit identity. A throwing digest getter propagates to the caller's guarded
-// block and fails the inspection closed there.
+// block and fails the inspection closed there. This is the single authoritative own-digest
+// helper; nothing else in this module reads a destination's own digest.
 function ownDigestOnce(entry) {
   if (!isPlainObject(entry)) return '';
   if (!hasOwnEntry(entry, 'digest')) return '';
@@ -210,6 +207,12 @@ function evaluateObligation(obligation, context) {
   // #340: every accepted entry sharing a rename destination must validate the same own digest,
   // or the shared-destination snapshot is contradictory and the obligation fails closed.
   const validatedDestinationDigestMap = new Map();
+  // #342 P3: a rename destination whose own-digest read throws or returns an unusable value is
+  // still a visited snapshot. Its captured ('') value is recorded here so the ordinary capture
+  // and the audit identity never re-read that destination entry: the single metadata read stays
+  // the only digest read, and a stateful getter cannot ship a later non-empty value into the
+  // audit key even though its entry was rejected.
+  const failedDestinationDigests = new Map();
   // #340 P2(r4320818749): the validated per-path baseline digest is captured once during
   // metadata validation. The audit mirror, the stale-baseline diagnostics, and baselineBound()
   // reuse that captured value instead of re-reading the caller map, so a stateful own getter
@@ -326,12 +329,19 @@ function evaluateObligation(obligation, context) {
               }
             } catch {
               candidateInventoryInspectionFailed = true;
+              // #342 P3: the destination is a visited snapshot even when its digest read threw;
+              // record it so the capture and audit lanes never re-read it.
+              failedDestinationDigests.set(entryRenameTo, '');
               continue;
             }
             // #340: the captured own value must be a usable non-empty string; an unusable result
             // is not carried or seeded.
             if (!nonEmptyString(destinationDigest)) {
               invalid(entryPath, `its rename destination ${JSON.stringify(entryRenameTo)} has no candidate artifact`);
+              // #342 P3: the destination is a visited snapshot even when its own digest is
+              // unusable; record it so the capture and audit lanes never re-read it and cannot
+              // describe a stateful getter's later non-empty value.
+              failedDestinationDigests.set(entryRenameTo, '');
               continue;
             }
             // #340: entries that share one rename destination must agree on the validated own
@@ -407,7 +417,9 @@ function evaluateObligation(obligation, context) {
     // its own digest during metadata. Seed the captured snapshot from that validated value and
     // never read the destination through the raw candidate map again, so a destination accessor
     // that throws or changes after validation cannot make capture/binding/audit disagree. The
-    // seeded value is the validated own digest, never a caller-asserted rawEntry field.
+    // seeded value is the validated own digest, never a caller-asserted rawEntry field. A
+    // rejected destination is still visited: its failed capture (see failedDestinationDigests)
+    // suppresses the ordinary read below, so no destination entry is ever read twice.
     for (const entry of baselineEntries.values()) {
       if (entry.reason === 'rename-from' && nonEmptyString(entry.renameDestinationDigest)
         && !candidateDigestCache.has(entry.renameTo)) {
@@ -415,7 +427,8 @@ function evaluateObligation(obligation, context) {
       }
     }
     for (const path of scopePaths) {
-      if (baselineEntries.has(path) || candidateDigestCache.has(path)) continue;
+      if (baselineEntries.has(path) || candidateDigestCache.has(path)
+        || failedDestinationDigests.has(path)) continue;
       try {
         candidateDigestCache.set(path, artifact(artifactMap[path]));
       } catch {
@@ -463,6 +476,9 @@ function evaluateObligation(obligation, context) {
     // part of its captured snapshot. `N/A` and `unknown` obligations never bind evidence, so they
     // keep the legacy candidate read for their audit identity and stay `outcome: 'none'`.
     if (applicability === 'applicable' && baselineEntries.has(path)) return '';
+    // #342 P3: a rejected rename destination keeps its visited '' capture; the caller map is
+    // never read for it again, and its audit identity stays 'missing'.
+    if (failedDestinationDigests.has(path)) return '';
     try {
       return artifact(artifactMap[path]);
     } catch {
@@ -539,7 +555,7 @@ function evaluateObligation(obligation, context) {
       // candidate lane, the audit identity, and the stale diagnostics use, so a stateful nested
       // accessor cannot make binding disagree with them. Metadata validation already required the
       // destination to be an own-key candidate inventory entry carrying its own digest
-      // (ownArtifactDigest), so a non-empty captured digest is required here and the accessor is
+      // (ownDigestOnce), so a non-empty captured digest is required here and the accessor is
       // never re-read; a missing destination skips capture and lands on this guard.
       const capturedDestination = candidateDigestCache.get(entry.renameTo);
       if (!nonEmptyString(capturedDestination)) return false;

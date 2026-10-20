@@ -1900,6 +1900,68 @@ checkCase('335 P3 the metadata-validated rename destination digest is carried wi
     `the validated destination digest must be carried: ${failures.join('; ')}`);
 });
 
+// #342 review P3: a destination snapshot rejected during metadata (throwing or unusable own
+// digest) is still a visited snapshot. The capture and audit lanes must never re-read it: the
+// single metadata read stays the only digest read, and a stateful getter cannot ship a later
+// value into the audit identity even though its entry failed.
+checkCase('#342 P3 a rejected destination snapshot is read exactly once even when its digest getter throws', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const ctx = prepare('rename', target);
+    const counted = countingDigestEntry(RENAME_CAPTURED, { validReads: 0, later: 'throw' });
+    const artifacts = { ...ctx.artifacts, [RENAME_TO]: counted.entry };
+    const record = execRecord(ctx, 'move-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    });
+    let out;
+    try {
+      out = runDocLint(ctx, target, { artifacts, records: [record] });
+    } catch (error) { failures.push(`${label}: escaped: ${error.message}`); continue; }
+    const result = resultOf(out, 'doc-change:doc-lint');
+    if (result.outcome !== 'none') failures.push(`${label}: outcome=${result.outcome}`);
+    if (!diagnosticCodes(out).includes('candidate-artifacts-invalid')) {
+      failures.push(`${label}: diagnostics=${diagnosticCodes(out)}`);
+    }
+    if (counted.reads() !== 1) failures.push(`${label}: destination reads=${counted.reads()}`);
+    if (!result.artifactDigest.includes(`${RENAME_TO}=missing`)) {
+      failures.push(`${label}: audit=${result.artifactDigest}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `a rejected throwing destination must be read once and never again: ${failures.join('; ')}`);
+});
+
+checkCase('#342 P3 an unusable first destination read never ships a later non-empty value into the audit', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const ctx = prepare('rename', target);
+    // First read: unusable ''. Any later read (which must not happen) returns non-empty
+    // RENAME_LATER, so the audit would describe it if the rejected snapshot were re-read.
+    const counted = countingDigestEntry('', { validReads: 1, later: 'value', laterValue: RENAME_LATER });
+    const artifacts = { ...ctx.artifacts, [RENAME_TO]: counted.entry };
+    const record = execRecord(ctx, 'move-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    });
+    let out;
+    try {
+      out = runDocLint(ctx, target, { artifacts, records: [record] });
+    } catch (error) { failures.push(`${label}: escaped: ${error.message}`); continue; }
+    const result = resultOf(out, 'doc-change:doc-lint');
+    if (result.outcome !== 'none') failures.push(`${label}: outcome=${result.outcome}`);
+    if (counted.reads() !== 1) failures.push(`${label}: destination reads=${counted.reads()}`);
+    if (result.artifactDigest.includes(RENAME_LATER)) {
+      failures.push(`${label}: audit describes a later value: ${result.artifactDigest}`);
+    }
+    if (!result.artifactDigest.includes(`${RENAME_TO}=missing`)) {
+      failures.push(`${label}: audit=${result.artifactDigest}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `an unusable destination read must stay single-read and 'missing': ${failures.join('; ')}`);
+});
+
 checkCase('335 P3 a stale pair plus a destination-only record stays none under descriptor patience', () => {
   const failures = [];
   for (const target of [modules, packageModules]) {

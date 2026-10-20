@@ -116,6 +116,11 @@ candidate digest — the same one used by ordinary candidate binding, the audit 
 stale diagnostics. The destination is therefore never read again through the candidate map during
 capture or binding: a nested `digest` that throws or changes after validation cannot make a stale
 destination pair bind while the audit/stale verdicts still describe the captured value. The same
+read-once guarantee extends to rejected destination snapshots: when the destination's own digest
+read throws or returns an unusable value, that failed snapshot ('') is recorded and all later
+reads for that destination path are suppressed as well — the entry's single metadata read remains
+its only digest read, and the failed path contributes `path=missing` to `artifactDigest` instead
+of a later, different value. The same
 record can cover both endpoints. Destination-only evidence, source-only tombstones, split endpoint
 records, and stale destination digests do not satisfy the source. A deletion tombstone therefore
 cannot stand in for a known rename. This destination validation and the snapshot it produces are
@@ -140,9 +145,11 @@ A rename destination's validated own digest is carried too. When more than one a
 conflicting validated digest is a contradictory shared-destination snapshot and fails the whole
 obligation closed (metadata error, `outcome: 'none'`) before any binding. The carried digest must
 be a non-empty string: a stateful `digest` accessor whose value is not a usable string is not
-carried or seeded. Only **applicable** obligations validate and carry this destination snapshot;
-`N/A` and `unknown` obligations keep the legacy candidate read for their audit identity and do not
-consume the destination getter during metadata validation.
+carried or seeded — instead the destination path is recorded as a visited failure, and neither the
+capture loop nor the audit identity reads the destination again. Only **applicable** obligations
+validate and carry this destination snapshot; `N/A` and `unknown` obligations keep the legacy
+candidate read for their audit identity and do not consume the destination getter during metadata
+validation.
 
 The binding applies to execution and review records alike. Existing review approval, waiver,
 failing-command, requirement-sync authority, and applicability rules are unchanged. A correctly
