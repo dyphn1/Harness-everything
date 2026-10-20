@@ -2394,4 +2394,177 @@ checkCase('335 P2 baselinePaths entry accessors that throw fail the entry closed
     `baselinePaths entry accessor failures must fail closed: ${failures.join('; ')}`);
 });
 
+// ---------------------------------------------------------------------------
+// P2 validated baseline digest snapshot (review r4320818749 at 4cdb97c): the
+// per-path baseline digest validated during metadata is captured once; the
+// audit mirror, the stale-baseline diagnostics, and binding reuse that
+// captured value instead of re-reading the caller-owned baseline map. A
+// stateful own getter cannot bind a record against a value it started
+// returning only after validation, and a throwing getter is a metadata error.
+// ---------------------------------------------------------------------------
+
+const BASELINE_EXAMPLE = 'docs/adr/example.md';
+const BASELINE_EXAMPLE_VALUE = sha256('example baseline content');
+const BASELINE_EXAMPLE_LATER = sha256('example later baseline content');
+
+function statefulBaselineArtifacts(pathPart) {
+  let probeReads = 0;
+  return {
+    map: new Proxy({ [pathPart]: undefined }, {
+      getPrototypeOf() { return null; },
+      get(t, prop, receiver) {
+        if (prop === pathPart) {
+          probeReads += 1;
+          return probeReads === 1 ? BASELINE_EXAMPLE_VALUE : BASELINE_EXAMPLE_LATER;
+        }
+        return Reflect.get(t, prop, receiver);
+      }
+    }),
+    probeReads: () => probeReads
+  };
+}
+
+function singleBaselineObligation() {
+  return [{
+    id: 'doc-change:doc-lint',
+    capability: 'doc-lint',
+    level: 'MUST',
+    applicability: 'applicable',
+    scope: { paths: [BASELINE_EXAMPLE], baselinePaths: [{ path: BASELINE_EXAMPLE, reason: 'deleted' }] }
+  }];
+}
+
+function singleBaselineRecord(baselineDigestValue, baselinePathValue) {
+  return [{
+    id: 'tomb-run',
+    obligationId: 'doc-change:doc-lint',
+    command: `node ci/mechanism-335-baseline-evidence.test.js # tomb-run`,
+    exitCode: 0,
+    provenance: 'validated baseline snapshot regression',
+    baseDigest: baselineDigestValue,
+    paths: [BASELINE_EXAMPLE],
+    artifactDigests: {},
+    baselineArtifacts: { [BASELINE_EXAMPLE]: baselinePathValue }
+  }];
+}
+
+checkCase('335 P2 a drifted live baseline digest cannot bind a record against the validated value', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const baselineDigest = sha256('example whole baseline');
+    const base = { digest: baselineDigest };
+
+    // The validated value is the first getter read; a later value must never bind.
+    {
+      const stateful = statefulBaselineArtifacts(BASELINE_EXAMPLE);
+      const baseline = { ...base, artifacts: stateful.map };
+      let out;
+      try {
+        out = target.checkDocObligations({
+          obligations: singleBaselineObligation(),
+          artifacts: {},
+          baseline,
+          executionRecords: singleBaselineRecord(baselineDigest, BASELINE_EXAMPLE_LATER),
+          reviewRecords: []
+        });
+      } catch (error) {
+        failures.push(`${label}/drifted-later: escaped: ${error.message}`);
+        continue;
+      }
+      const result = out.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (result.outcome === 'pass') failures.push(`${label}/drifted-later: the later value bound a record (false PASS)`);
+      if (!out.diagnostics.some(item => item.code === 'stale-baseline-artifact-digest')) {
+        failures.push(`${label}/drifted-later: diagnostics=${out.diagnostics.map(item => item.code)}`);
+      }
+    }
+
+    // Positive control: the record carrying the validated value still passes.
+    {
+      const stateful = statefulBaselineArtifacts(BASELINE_EXAMPLE);
+      const baseline = { ...base, artifacts: stateful.map };
+      let out;
+      try {
+        out = target.checkDocObligations({
+          obligations: singleBaselineObligation(),
+          artifacts: {},
+          baseline,
+          executionRecords: singleBaselineRecord(baselineDigest, BASELINE_EXAMPLE_VALUE),
+          reviewRecords: []
+        });
+      } catch (error) {
+        failures.push(`${label}/drifted-validated: escaped: ${error.message}`);
+        continue;
+      }
+      const result = out.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (result.outcome !== 'pass') failures.push(`${label}/drifted-validated: outcome=${result.outcome}`);
+      if (stateful.probeReads() !== 1) failures.push(`${label}/drifted-validated: live baseline reads=${stateful.probeReads()}`);
+      if (result.baselineArtifacts[BASELINE_EXAMPLE] !== BASELINE_EXAMPLE_VALUE) {
+        failures.push(`${label}/drifted-validated: audit=${JSON.stringify(result.baselineArtifacts)}`);
+      }
+    }
+
+    // Stable controls on a plain baseline map: valid tombstone passes, wrong value does not.
+    {
+      const baseline = { ...base, artifacts: { [BASELINE_EXAMPLE]: BASELINE_EXAMPLE_VALUE } };
+      const stable = target.checkDocObligations({
+        obligations: singleBaselineObligation(),
+        artifacts: {},
+        baseline,
+        executionRecords: singleBaselineRecord(baselineDigest, BASELINE_EXAMPLE_VALUE),
+        reviewRecords: []
+      });
+      const stableLater = target.checkDocObligations({
+        obligations: singleBaselineObligation(),
+        artifacts: {},
+        baseline,
+        executionRecords: singleBaselineRecord(baselineDigest, BASELINE_EXAMPLE_LATER),
+        reviewRecords: []
+      });
+      if (stable.results.find(item => item.obligationId === 'doc-change:doc-lint').outcome !== 'pass') {
+        failures.push(`${label}/stable: a stable validated tombstone did not pass`);
+      }
+      const stableLaterResult = stableLater.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (stableLaterResult.outcome !== 'none') failures.push(`${label}/stable: outcome=${stableLaterResult.outcome}`);
+      if (!stableLater.diagnostics.some(item => item.code === 'stale-baseline-artifact-digest')) {
+        failures.push(`${label}/stable: diagnostics=${stableLater.diagnostics.map(item => item.code)}`);
+      }
+    }
+
+    // A throwing baseline digest getter is a metadata error, not an escape.
+    {
+      const baseline = {
+        digest: baselineDigest,
+        artifacts: new Proxy({ [BASELINE_EXAMPLE]: undefined }, {
+          getPrototypeOf() { return null; },
+          get(t, prop, receiver) {
+            if (prop === BASELINE_EXAMPLE) throw new Error('baseline digest getter');
+            return Reflect.get(t, prop, receiver);
+          }
+        })
+      };
+      let out;
+      try {
+        out = target.checkDocObligations({
+          obligations: singleBaselineObligation(),
+          artifacts: {},
+          baseline,
+          executionRecords: singleBaselineRecord(baselineDigest, BASELINE_EXAMPLE_VALUE),
+          reviewRecords: []
+        });
+      } catch (error) {
+        failures.push(`${label}/throwing: escaped: ${error.message}`);
+        continue;
+      }
+      const result = out.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (result.outcome === 'pass') failures.push(`${label}/throwing: a throwing getter produced a pass`);
+      if (!out.diagnostics.some(item => item.code === 'baseline-artifact-invalid')) {
+        failures.push(`${label}/throwing: diagnostics=${out.diagnostics.map(item => item.code)}`);
+      }
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `the validated baseline digest must be captured once: ${failures.join('; ')}`);
+});
+
 helper.finish();

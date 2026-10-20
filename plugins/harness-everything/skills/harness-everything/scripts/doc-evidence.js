@@ -184,6 +184,12 @@ function evaluateObligation(obligation, context) {
   // #340: every accepted entry sharing a rename destination must validate the same own digest,
   // or the shared-destination snapshot is contradictory and the obligation fails closed.
   const validatedDestinationDigestMap = new Map();
+  // #340 P2(r4320818749): the validated per-path baseline digest is captured once during
+  // metadata validation. The audit mirror, the stale-baseline diagnostics, and baselineBound()
+  // reuse that captured value instead of re-reading the caller map, so a stateful own getter
+  // cannot pass evidence against a value it started returning only after validation, and a
+  // later-throwing read cannot escape the checker.
+  const validatedBaselineDigests = new Map();
   let baselineMetadataError = false;
   let candidateInventoryUnknown = false;
   // #335 P3: a candidate inventory can pass the prototype check and still throw from an
@@ -324,7 +330,15 @@ function evaluateObligation(obligation, context) {
           continue;
         }
         if (baselineArtifactsMap) {
-          const trusted = hasOwnEntry(baselineArtifactsMap, entryPath) ? baselineArtifactsMap[entryPath] : undefined;
+          let trusted;
+          try {
+            trusted = hasOwnEntry(baselineArtifactsMap, entryPath) ? baselineArtifactsMap[entryPath] : undefined;
+          } catch {
+            // #340 P2: a throwing baseline inspection is a metadata error, never an escape.
+            baselineMetadataDiagnostic('baseline-artifact-invalid', entryPath,
+              `the baseline digest for ${entryPath} could not be inspected safely (a getter or descriptor trap threw); the path fails closed`);
+            continue;
+          }
           if (trusted === undefined) {
             baselineMetadataDiagnostic('baseline-artifact-missing', entryPath,
               `the baseline carries no per-path digest for declared baseline path ${entryPath}; the path fails closed`);
@@ -335,6 +349,7 @@ function evaluateObligation(obligation, context) {
               `the baseline digest for ${entryPath} is not a SHA256 value; the path fails closed`);
             continue;
           }
+          validatedBaselineDigests.set(entryPath, trusted);
         }
         baselineEntries.set(entryPath, {
           path: entryPath,
@@ -343,6 +358,9 @@ function evaluateObligation(obligation, context) {
           // carry that validated source-absence proof explicitly (never spread from rawEntry) so
           // binding and the audit identity reuse it instead of re-inspecting the candidate map.
           candidatePathPresent: false,
+          // #340 P2: carry the exact validated SHA256 so binding never re-reads the
+          // caller-owned baseline map.
+          trustedBaselineDigest: validatedBaselineDigests.get(entryPath),
           ...(entryReason === 'rename-from' ? { renameTo: snapshot.renameTo, renameDestinationDigest } : {})
         });
       }
@@ -401,7 +419,9 @@ function evaluateObligation(obligation, context) {
       let trusted;
       try {
         auditedPath = rawEntry.path;
-        trusted = hasOwnEntry(baselineArtifactsMap, auditedPath) ? baselineArtifactsMap[auditedPath] : undefined;
+        trusted = validatedBaselineDigests.has(auditedPath)
+          ? validatedBaselineDigests.get(auditedPath)
+          : (hasOwnEntry(baselineArtifactsMap, auditedPath) ? baselineArtifactsMap[auditedPath] : undefined);
       } catch {
         continue;
       }
@@ -483,7 +503,10 @@ function evaluateObligation(obligation, context) {
     if (entry.candidatePathPresent !== false) return false;
     if (isPlainObject(item.artifactDigests)
       && Object.prototype.hasOwnProperty.call(item.artifactDigests, entry.path)) return false;
-    const trusted = hasOwnEntry(baselineArtifactsMap, entry.path) ? baselineArtifactsMap[entry.path] : undefined;
+    // #340 P2: binding compares the validated baseline digest captured during metadata, never
+    // a fresh read of the caller-owned baseline map; a stateful getter that started returning
+    // a different value after validation cannot make a stale record bind.
+    const trusted = entry.trustedBaselineDigest;
     if (!isSha256(trusted)) return false;
     if (!isPlainObject(item.baselineArtifacts)
       || !hasOwnEntry(item.baselineArtifacts, entry.path)
@@ -551,7 +574,11 @@ function evaluateObligation(obligation, context) {
     if (isPlainObject(item.baselineArtifacts)) {
       for (const [path, value] of Object.entries(item.baselineArtifacts)) {
         if (!baselineEntries.has(path)) continue;
-        const trusted = hasOwnEntry(baselineArtifactsMap, path) ? baselineArtifactsMap[path] : undefined;
+        // #340 P2: the stale comparison uses the baseline digest captured during metadata,
+        // never a fresh read of the caller-owned map.
+        const trusted = validatedBaselineDigests.has(path)
+          ? validatedBaselineDigests.get(path)
+          : undefined;
         if (!isSha256(trusted)) continue;
         if (nonEmptyString(value) && value !== trusted) {
           diagnostics.push({

@@ -50,6 +50,7 @@ All notable changes to this project are documented in this file.
 * **doc-evidence:** carry the metadata-validated rename destination digest and baseline-path source-absence proof through capture and binding, so a candidate inventory that answers consistently during validation is never re-inspected and cannot abort the check or drift the audit key
 * **doc-evidence:** restrict the validated source-absence audit shortcut to applicable obligations and require every accepted entry sharing a rename destination to agree on the validated own digest, so inapplicable audit identity keeps the legacy read and contradictory shared-destination snapshots fail closed
 * **doc-evidence:** gate the rename destination snapshot on applicability and guard baselinePaths entry inspection, so inapplicable audit identity reports the first legacy digest value and a throwing entry getter or descriptor trap fails the entry closed instead of escaping the checker
+* **doc-evidence:** capture the validated per-path baseline digest during metadata and drive the audit mirror, stale-baseline diagnostics, and binding from that snapshot, so a stateful baseline getter cannot bind a record against a value it started returning only after validation and a throwing inspection is a metadata error instead of an escape
 
 ## [0.34.0](https://github.com/dyphn1/Harness-everything/compare/v0.33.0...v0.34.0) (2026-10-17)
 

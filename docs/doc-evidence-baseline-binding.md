@@ -73,6 +73,16 @@ A deleted path is satisfied only when one observed record:
 4. carries **no** `artifactDigests` entry for that path, and the candidate artifact map has **no
    own-key entry** for that path.
 
+The trusted per-path value is validated once during metadata validation and then **captured**.
+The audit mirror, the stale-baseline diagnostics, and baseline binding compare against that
+captured value and never re-read the caller-owned `baseline.artifacts` map during evidence
+evaluation: a stateful own getter cannot satisfy a record with a value it started returning only
+after validation, cannot mute the stale-baseline diagnostic, and cannot drift the audit mirror.
+Its first read must therefore be the value every consumer sees; a getter that starts returning a
+different or unusable value later is factored out entirely. A baseline per-path inspection that
+throws during validation is a `baseline-artifact-invalid` metadata error and fails the path
+closed instead of escaping the checker.
+
 Per-path evidence must be carried explicitly. Inherited properties in `baseline.artifacts` or a
 record's `baselineArtifacts` are not own-key evidence and never satisfy a path; the trusted
 baseline entry itself must also be an own-key entry. Null-prototype dictionaries remain valid
@@ -131,7 +141,9 @@ bound command that fails still produces an observed failure, not a pass.
 ## Trust limits
 
 - `baseline.artifacts` is trusted caller/VCS input. The checker proves that evidence agrees with
-  the declared baseline values; it does not read Git or recompute those bytes.
+  the declared baseline values; it does not read Git or recompute those bytes. A validated
+  per-path value is read and captured once, so the agreement proof is against a single validated
+  snapshot rather than the value a stateful getter returns at later moments.
 - The whole-baseline `digest` remains the identity anchor. A per-path digest without the exact
   whole-baseline identity is insufficient.
 - Candidate evidence remains authoritative for every present, new, or edited path. A baseline
@@ -212,7 +224,10 @@ The result is not a pass when any of the following is observed:
 - a rename destination with no candidate artifact (applicable obligations only; `N/A` and
   `unknown` obligations keep the legacy candidate read for their audit identity);
 - a record with the wrong baseline identity, the wrong per-path baseline digest, an absent or
-  empty `baselineArtifacts` entry, or stale/missing endpoint evidence;
+  empty `baselineArtifacts` entry, or stale/missing endpoint evidence — where "wrong" is judged
+  against the validated baseline value captured during metadata, not a live re-read;
+- a baseline per-path digest whose inspection throws (a getter or descriptor trap), which is a
+  `baseline-artifact-invalid` metadata error rather than an escape;
 - an unsupported review kind, an unapproved review, or an incomplete execution record.
 
 These cases are visible in diagnostics and remain `outcome: 'none'` unless the failure is a
