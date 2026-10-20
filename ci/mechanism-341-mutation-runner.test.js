@@ -4,7 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { CHECKS, LEGACY_ASSERTIONS, addLoaderPreload, runChecks, stripLoaderPreload } = require('./mutation-check');
+const { CHECKS, LEGACY_ASSERTIONS, addLoaderPreload, isPrivateContract, runChecks, stripLoaderPreload } = require('./mutation-check');
 const { MUTATIONS, prepareMutation } = require('./mutation-loader');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-341-mutation-runner-'));
@@ -180,7 +180,7 @@ if (mode === 'control-failure') {
     assert.ok(tuple.label && tuple.target && tuple.mutantId && tuple.test && tuple.assertionId, 'production tuple declares target, mutant, test, and assertion');
     assert.ok(MUTATIONS[tuple.mutantId], `production tuple has a registered transform: ${tuple.mutantId}`);
     assert.ok(tuple.assertionId.startsWith(`${tuple.caseId}.`), 'legacy assertion ID is scoped to its stable legacy case ID');
-    if (!/^RB\d{2,}$/.test(tuple.caseId)) {
+    if (!/^RB\d{2,}$/.test(tuple.caseId) && !isPrivateContract(tuple)) {
       assert.ok(LEGACY_ASSERTIONS[tuple.assertionId], `legacy tuple has an anchored intended assertion: ${tuple.assertionId}`);
     }
     const key = `${tuple.target}\0${tuple.mutantId}\0${tuple.test}\0${tuple.assertionId}`;

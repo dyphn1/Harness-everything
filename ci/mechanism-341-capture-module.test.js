@@ -29,10 +29,12 @@ const PACKAGED_CAPTURE = path.join(PACKAGED_SCRIPTS, 'doc-evidence-capture.js');
 const CORPUS = path.join(__dirname, 'fixtures', 'doc-obligations', 'read-boundary');
 const REQUIRED = process.env.HARNESS_341_CAPTURE_REQUIRED === '1';
 
-// Pins from b0-baseline.md. The oracle corpus must not change in 0B.
+// Pins from b0-baseline-rebased.txt. They were re-pinned after the reviewed 0A head 0f475ab (owner review of #344)
+// changed the corpus: RB102-105 second-invocation trace/counter sections, RB103 recipe, and the new RB106 case.
+// The 0B refactor itself must not change these bytes again; the 0A-era pins in b0-baseline.md are superseded.
 const ORACLE_PINS = [
-  ['cases.json', path.join(CORPUS, 'cases.json'), 'c9e6792b76197cd30e29c2cfe66544cbc46ae46eae9ef84d038843239bc76386'],
-  ['expected.json', path.join(CORPUS, 'expected.json'), '44e2c5c29fd6719f1aa67e86a197257727993c104c445b134d082e8891850f10']
+  ['cases.json', path.join(CORPUS, 'cases.json'), '623cae95b9f9e9c243d89ec2f845ded10e9dd3d32fd9e36deb6f081b03983acb'],
+  ['expected.json', path.join(CORPUS, 'expected.json'), 'd1c16f18b49223387a89edaa8491cf10a003ce31b1cbefd44a0cdd30f0cfdc87']
 ];
 // Every retained transparency and in-call/post-return control that B1 must keep.
 const RETAINED_CASES = ['RB36', 'RB38', 'RB39', 'RB40', 'RB41', 'RB102', 'RB103', 'RB104', 'RB105'];
@@ -162,7 +164,7 @@ for (const [label, file, expected] of ORACLE_PINS) {
   });
 }
 
-checkCase('oracle pin: canonical and packaged evaluators are still byte-identical (unchanged until B1)', () => {
+checkCase('oracle pin: canonical and packaged evaluators are byte-identical (B4 state)', () => {
   assert.strictEqual(sha256(CANONICAL_EVAL), sha256(PACKAGED_EVAL));
 });
 
@@ -227,14 +229,131 @@ checkCase('module contract: the capture module exports only createInvocationCapt
   assert.strictEqual(typeof exported.createInvocationCapture, 'function');
 });
 
-checkCase('detachment flow: returned owned views stay unchanged after caller mutation and a fresh invocation sees new data', () => {
-  requirePresent([CANONICAL_CAPTURE], 'capture module');
-  // The flow is bound to the landed signatures in B1. Until then this check cannot pass or fail; it skips.
-  throw new Skip('detachment flow awaits B1 binding to the landed capture signatures');
-});
+// Detachment proof (plan §3, B04). Each contract is an assertion with its own event id, so the mutation runner
+// credits a kill only to the contract the mutant breaks. Every contract runs over both distributions' modules.
+const EVENT_FILE = process.env.HARNESS_ASSERTION_EVENT_FILE;
+const SELECTED_ASSERTION = process.env.HARNESS_ASSERTION_ID;
+const DETACHMENT_CASE = 'CAPTURE-B04';
+const detachmentFailures = [];
 
-console.log(`\n[341 capture-module scaffold] ${passed} passed, ${skipped} skipped, ${failed} failed`);
+function emit(event) {
+  if (!EVENT_FILE) return;
+  fs.appendFileSync(EVENT_FILE, `${JSON.stringify({ schemaVersion: 1, ...event })}\n`, 'utf8');
+}
+
+function assertion(contract, run) {
+  const assertionId = `${DETACHMENT_CASE}.${contract}`;
+  if (SELECTED_ASSERTION && SELECTED_ASSERTION !== assertionId) return;
+  try {
+    run();
+  } catch (error) {
+    // Only an assertion-library comparison is an assertion failure; anything else is infrastructure and propagates.
+    if (!(error instanceof assert.AssertionError)) throw error;
+    detachmentFailures.push(assertionId);
+    emit({ event: 'assertion-failure', caseId: DETACHMENT_CASE, assertionId, errorCode: 'ERR_ASSERTION', message: String(error.message).split('\n')[0] });
+    console.error(`FAIL ${assertionId}: ${String(error.message).split('\n')[0]}`);
+    return;
+  }
+  emit({ event: 'assertion-pass', caseId: DETACHMENT_CASE, assertionId });
+  console.log(`PASS ${assertionId}`);
+}
+
+// A caller input for one obligation: one deleted entry with a trusted baseline digest and a candidate artifact.
+function detachmentInput() {
+  return {
+    entryOld: { path: 'docs/adr/OLD.md', reason: 'deleted' },
+    baselineArtifacts: { 'docs/adr/OLD.md': 'e'.repeat(64) },
+    artifacts: { 'docs/adr/NEW.md': { digest: '3'.repeat(64) } }
+  };
+}
+
+// Every object reachable from the caller input. A returned view that holds one of these leaks caller state.
+function inputObjects(input) {
+  const seen = new Set();
+  const walk = value => {
+    if (value === null || typeof value !== 'object' || seen.has(value)) return;
+    seen.add(value);
+    for (const child of Object.values(value)) walk(child);
+  };
+  walk(input);
+  return seen;
+}
+
+// Runs the capture schedule for one obligation and returns the views the evaluator would receive.
+function captureViews(createInvocationCapture, input) {
+  const baseline = { digest: 'b'.repeat(64), artifacts: input.baselineArtifacts };
+  const capture = createInvocationCapture({ artifacts: input.artifacts, baseline });
+  capture.initializeArtifactFallback();
+  capture.captureBaselineIdentity();
+  const obligation = capture.beginObligation('applicable');
+  obligation.prepareBaselineContainer();
+  const entry = obligation.captureEntry(input.entryOld);
+  const absence = obligation.captureSourceAbsence(entry.token, input.entryOld.path);
+  const baselineRead = obligation.captureBaselinePath(input.entryOld.path);
+  obligation.acceptBaselineEntry({
+    entryToken: entry.token,
+    path: input.entryOld.path,
+    reason: input.entryOld.reason,
+    trustedBaselineDigest: baselineRead.value
+  });
+  return {
+    obligation,
+    entry,
+    absence,
+    baselineRead,
+    entries: obligation.baselineEntries(),
+    pairs: obligation.baselineAuditPairs()
+  };
+}
+
+function eachModule(run) {
+  for (const [name, file] of [['canonical', CANONICAL_CAPTURE], ['packaged', PACKAGED_CAPTURE]]) {
+    run(name, require(file));
+  }
+}
+
+function viewsOf(views) {
+  return [views.entry, views.absence, views.baselineRead, ...views.entries, ...views.pairs];
+}
+
+assertion('detachment.no-input-references', () => eachModule((name, mod) => {
+  const input = detachmentInput();
+  const views = captureViews(mod.createInvocationCapture, input);
+  const inputs = inputObjects(input);
+  const recorder = { idOf: value => (inputs.has(value) ? 'caller-input' : undefined) };
+  const violations = viewsOf(views).flatMap(view => ownedViewViolations(view, recorder));
+  assert.deepStrictEqual(violations, [], `${name}: a returned view is not owned or references caller input`);
+}));
+
+assertion('detachment.views-fresh-copies', () => eachModule((name, mod) => {
+  const { obligation } = captureViews(mod.createInvocationCapture, detachmentInput());
+  const first = obligation.baselineEntries();
+  const second = obligation.baselineEntries();
+  assert.strictEqual(first.length, 1, `${name}: the accepted entry is returned`);
+  assert.notStrictEqual(first, second, `${name}: each call returns a new array`);
+  assert.notStrictEqual(first[0], second[0], `${name}: each call returns fresh copies, not one shared internal view`);
+}));
+
+assertion('detachment.views-unchanged-after-mutation', () => eachModule((name, mod) => {
+  const input = detachmentInput();
+  const views = captureViews(mod.createInvocationCapture, input);
+  const before = JSON.stringify(viewsOf(views));
+  input.baselineArtifacts['docs/adr/OLD.md'] = 'f'.repeat(64);
+  input.entryOld.path = 'docs/adr/OTHER.md';
+  input.artifacts['docs/adr/NEW.md'].digest = '4'.repeat(64);
+  assert.strictEqual(JSON.stringify(viewsOf(views)), before, `${name}: a returned view changed after the caller mutated its input`);
+}));
+
+assertion('detachment.fresh-invocation-sees-new-data', () => eachModule((name, mod) => {
+  const input = detachmentInput();
+  captureViews(mod.createInvocationCapture, input);
+  input.baselineArtifacts['docs/adr/OLD.md'] = 'f'.repeat(64);
+  const fresh = captureViews(mod.createInvocationCapture, input);
+  assert.strictEqual(fresh.baselineRead.value, 'f'.repeat(64), `${name}: a fresh invocation reads the mutated baseline value`);
+}));
+
+console.log(`\n[341 capture-module] ${passed} passed, ${skipped} skipped, ${failed + detachmentFailures.length} failed`);
 if (skipped > 0 && !REQUIRED) {
   console.log('Skipped checks are not evidence. They run once B1 lands the module and its packaged copy.');
 }
-process.exitCode = failed ? 1 : 0;
+process.exitCode = failed || detachmentFailures.length ? 1 : 0;

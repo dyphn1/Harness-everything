@@ -6,7 +6,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { fileURLToPath, pathToFileURL } = require('url');
-const { prepareMutation } = require('./mutation-loader');
+const { distributionTargets, prepareMutation } = require('./mutation-loader');
 
 const ROOT = path.resolve(__dirname, '..');
 const LOADER = path.join(__dirname, 'mutation-loader.js');
@@ -84,14 +84,10 @@ const LEGACY_CHECKS = [
   },
 ];
 
-const DOC_EVIDENCE_TARGETS = {
-  canonical: 'harness-everything/scripts/doc-evidence.js',
-  packaged: 'plugins/harness-everything/skills/harness-everything/scripts/doc-evidence.js',
-};
 const DOC_EVIDENCE_TEST = 'ci/mechanism-341-read-boundary.test.js';
 const DOC_EVIDENCE_COVERAGE = require('./fixtures/doc-obligations/read-boundary/cases.json').mutantCoverage;
 const DOC_EVIDENCE_CHECKS = Object.entries(DOC_EVIDENCE_COVERAGE).flatMap(([mutantId, mapping]) =>
-  Object.entries(DOC_EVIDENCE_TARGETS).map(([distribution, target]) => ({
+  Object.entries(distributionTargets(mutantId)).map(([distribution, target]) => ({
     label: `${mutantId} ${distribution} read-boundary mutant`,
     target,
     mutantId,
@@ -116,13 +112,32 @@ const DOC_EVIDENCE_VARIANTS = [
   { mutantId: 'M19-eager', caseId: 'RB32', assertionId: 'RB32.C5.prd-enumeration-scoped' },
   { mutantId: 'M20-partial-revision', caseId: 'RB70', assertionId: 'RB70.result.diagnostic-codes' },
   { mutantId: 'M20-unknown-scope', caseId: 'RB34', assertionId: 'RB34.result.observation-outcome' },
-].flatMap(variant => Object.entries(DOC_EVIDENCE_TARGETS).map(([distribution, target]) => ({
+].flatMap(variant => Object.entries(distributionTargets(variant.mutantId)).map(([distribution, target]) => ({
   label: `${variant.mutantId} ${distribution} variant`,
   target,
   test: DOC_EVIDENCE_TEST,
   ...variant,
 })));
-const CHECKS = [...LEGACY_CHECKS, ...DOC_EVIDENCE_CHECKS, ...DOC_EVIDENCE_VARIANTS];
+// New scope mutants (plan §3). Their coverage lives here, not in cases.json, which stays pinned to the reviewed corpus.
+const NEW_SCOPE_COVERAGE = {
+  'B01-r5-cross-obligation': { caseId: 'RB20', assertionId: 'RB20.R5.per-obligation-sha-reads' },
+  'B02-r3-per-destination-collapse': { caseId: 'RB16', assertionId: 'RB16.R3.shared-destination-reads' },
+  'B02-observation': { caseId: 'RB17', assertionId: 'RB17.result.observation-outcome' },
+  'B03-r3-cross-obligation': { caseId: 'RB107', assertionId: 'RB107.result.observation-outcome' },
+  'B04-leak': { caseId: 'CAPTURE-B04', assertionId: 'CAPTURE-B04.detachment.no-input-references', test: 'ci/mechanism-341-capture-module.test.js' },
+  'B04-mutable-view': { caseId: 'CAPTURE-B04', assertionId: 'CAPTURE-B04.detachment.views-fresh-copies', test: 'ci/mechanism-341-capture-module.test.js' },
+};
+const NEW_SCOPE_CHECKS = Object.entries(NEW_SCOPE_COVERAGE).flatMap(([mutantId, mapping]) =>
+  Object.entries(distributionTargets(mutantId)).map(([distribution, target]) => ({
+    label: `${mutantId} ${distribution} scope mutant`,
+    target,
+    mutantId,
+    test: mapping.test || DOC_EVIDENCE_TEST,
+    caseId: mapping.caseId,
+    assertionId: mapping.assertionId,
+  }))
+);
+const CHECKS = [...LEGACY_CHECKS, ...DOC_EVIDENCE_CHECKS, ...DOC_EVIDENCE_VARIANTS, ...NEW_SCOPE_CHECKS];
 
 const LEGACY_ASSERTIONS = {
   [`${LEGACY_CASES.pathBoundary}.symlink-component-rejected`]: {
@@ -178,6 +193,14 @@ function resolveTupleCaseId(check) {
   return check.caseId || `LEGACY.${path.basename(check.test).replace(/\.test\.js$|\.js$/i, '')}`;
 }
 
+// A private module contract names its case as CAPTURE-B<nn> and its assertion as CAPTURE-B<nn>.detachment.<contract>.
+// It is valid only in the capture-module test, and is checked by the same event protocol as RB assertions.
+function isPrivateContract(check) {
+  return check.test === 'ci/mechanism-341-capture-module.test.js'
+    && /^CAPTURE-B\d{2}$/.test(check.caseId)
+    && /^CAPTURE-B\d{2}\.detachment\.[a-z-]+$/.test(check.assertionId);
+}
+
 function validateCheck(check, root, legacyAssertions) {
   if (!check || typeof check !== 'object') throw new Error('Mutation check entry must be an object');
   for (const key of ['label', 'target', 'mutantId', 'test', 'assertionId']) {
@@ -196,7 +219,8 @@ function validateCheck(check, root, legacyAssertions) {
   if (!fs.existsSync(test) || !fs.statSync(test).isFile()) throw new Error(`Mutation test does not exist: ${test}`);
   const legacy = legacyAssertions[check.assertionId];
   if (!check.caseId || !/^RB\d{2,}$/.test(check.caseId)) {
-    if (!legacy) throw new Error(`Legacy assertion signature is not mapped: ${check.assertionId}`);
+    // Private module contracts (plan §3, B04) are event-protocol assertions in the capture-module test, not legacy checks.
+    if (!legacy && !isPrivateContract(check)) throw new Error(`Legacy assertion signature is not mapped: ${check.assertionId}`);
   }
   return { ...check, caseId, absoluteTarget: target, absoluteTest: test, legacy };
 }
@@ -692,6 +716,7 @@ if (require.main === module) main();
 
 module.exports = {
   CHECKS,
+  isPrivateContract,
   LEGACY_ASSERTIONS,
   LEGACY_CASES,
   runCheck,
