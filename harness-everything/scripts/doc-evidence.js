@@ -142,19 +142,6 @@ function evaluateObligation(obligation, context) {
   const declaredBaselinePaths = declaresBaselinePaths ? scopeObject.baselinePaths : undefined;
   const obligationCapture = capture.beginObligation(applicability);
   const baselineArtifactsAvailable = obligationCapture.prepareBaselineContainer();
-  // #340: every accepted entry sharing a rename destination must validate the same own digest,
-  // or the shared-destination snapshot is contradictory and the obligation fails closed.
-  const validatedDestinationDigestMap = new Map();
-  // #342 P3: a rename destination whose own-digest read throws or returns an unusable value is
-  // still a visited snapshot. Its captured ('') value is recorded here so the ordinary capture
-  // and the audit identity never re-read that destination entry: the single metadata read stays
-  // the only digest read for that declaring entry, and a stateful getter cannot ship a later
-  // non-empty value into the audit key even though its entry was rejected. A poisoned
-  // destination is honored inside the metadata loop (a later declaring entry fails closed
-  // without reading it) and keeps precedence over a previously seeded successful snapshot;
-  // multiple accepted entries still read the destination once each by design, because their
-  // agreement check detects shared-destination contradictions.
-  const failedDestinationDigests = new Map();
   let baselineMetadataError = false;
   let candidateInventoryUnknown = false;
   // #335 P3: a candidate inventory can pass the prototype check and still throw from an
@@ -243,47 +230,36 @@ function evaluateObligation(obligation, context) {
             // honored inside the metadata loop; the failed visited snapshot is never read again
             // and this entry fails closed with it, so a stateful getter's later successful
             // value cannot repair a shared destination or enter the audit.
-            if (failedDestinationDigests.has(entryRenameTo)) {
+            if (obligationCapture.isDestinationPoisoned(entryRenameTo)) {
               invalid(entryPath, `its rename destination ${obligationCapture.formatInvalidRenameTo(entryCapture.token)} failed an earlier snapshot validation for this obligation; the failed destination is not read again and this entry fails closed with it`);
               continue;
             }
-            let destinationDigest = '';
-            try {
-              if (capture.hasOwnCandidateEntry(entryRenameTo)) {
-                // P2(r4321077631): read the destination's own digest exactly once; the captured
-                // value is the one validated below and the one that flows to the metadata cache,
-                // binding, the stale diagnostics, and the audit identity. A stateful destination
-                // getter cannot be validated as B while a record carrying only its later C passes.
-                destinationDigest = capture.ownCandidateDigest(entryRenameTo);
-              }
-            } catch {
+            const destinationCapture = obligationCapture.captureDestination(entryCapture.token, entryRenameTo);
+            if (destinationCapture.kind === 'inspection-failed') {
               candidateInventoryInspectionFailed = true;
               // #342 P3: the destination is a visited snapshot even when its digest read threw;
               // record it so the capture and audit lanes never re-read it.
-              failedDestinationDigests.set(entryRenameTo, '');
+              obligationCapture.poisonDestination(entryRenameTo);
               continue;
             }
             // #340: the captured own value must be a usable non-empty string; an unusable result
             // is not carried or seeded.
-            if (!nonEmptyString(destinationDigest)) {
+            if (destinationCapture.kind === 'unusable') {
               invalid(entryPath, `its rename destination ${obligationCapture.formatInvalidRenameTo(entryCapture.token)} has no candidate artifact`);
               // #342 P3: the destination is a visited snapshot even when its own digest is
               // unusable; record it so the capture and audit lanes never re-read it and cannot
               // describe a stateful getter's later non-empty value.
-              failedDestinationDigests.set(entryRenameTo, '');
+              obligationCapture.poisonDestination(entryRenameTo);
               continue;
             }
             // #340: entries that share one rename destination must agree on the validated own
             // digest. A conflicting validated value is a contradictory snapshot and fails the
             // whole obligation closed before any binding; equal values are allowed.
-            const sharedDestinationDigest = validatedDestinationDigestMap.get(entryRenameTo);
-            if (sharedDestinationDigest === undefined) {
-              validatedDestinationDigestMap.set(entryRenameTo, destinationDigest);
-            } else if (sharedDestinationDigest !== destinationDigest) {
+            if (destinationCapture.kind === 'conflict') {
               invalid(entryPath, `its rename destination ${obligationCapture.formatInvalidRenameTo(entryCapture.token)} was validated to conflicting own digests by another accepted baseline entry; the shared destination snapshot is not consistent`);
               continue;
             }
-            renameDestinationDigest = destinationDigest;
+            renameDestinationDigest = destinationCapture.digest;
           }
         }
         let candidatePathPresent = false;
@@ -340,30 +316,17 @@ function evaluateObligation(obligation, context) {
   // #335 P3: a mixed scope combines baseline-only paths with ordinary candidate paths. Capture
   // every ordinary scoped candidate digest before evidence binding, so a throwing accessor in
   // the legacy candidate lane fails the inventory closed instead of aborting the obligation.
-  const candidateDigestCache = new Map();
   if (applicability === 'applicable' && Array.isArray(declaredBaselinePaths)
     && declaredBaselinePaths.length > 0) {
     // #340: a rename destination was already validated as an own-key candidate entry carrying
-    // its own digest during metadata. Seed the captured snapshot from that validated value and
-    // never read the destination through the raw candidate map again, so a destination accessor
-    // that throws or changes after validation cannot make capture/binding/audit disagree. The
-    // seeded value is the validated own digest, never a caller-asserted rawEntry field. A
-    // rejected destination is still visited: its failed capture (see failedDestinationDigests)
-    // suppresses the ordinary read below, so no destination entry is ever read twice.
-    for (const entry of baselineEntries.values()) {
-      if (entry.reason === 'rename-from' && nonEmptyString(entry.renameDestinationDigest)
-        && !candidateDigestCache.has(entry.renameTo)) {
-        candidateDigestCache.set(entry.renameTo, entry.renameDestinationDigest);
-      }
-    }
-    for (const path of scopePaths) {
-      if (baselineEntries.has(path) || candidateDigestCache.has(path)
-        || failedDestinationDigests.has(path)) continue;
-      try {
-        candidateDigestCache.set(path, capture.candidateArtifact(path));
-      } catch {
-        candidateInventoryInspectionFailed = true;
-      }
+    // its own digest during metadata. The capture closure seeds the R6 snapshot from that
+    // validated value and never reads the destination through the raw candidate map again, so a
+    // destination accessor that throws or changes after validation cannot make capture/binding/
+    // audit disagree. The seeded value is the validated own digest, never a caller-asserted
+    // rawEntry field. A rejected destination's poisoned state suppresses the ordinary read, so no
+    // destination entry is ever read twice.
+    if (obligationCapture.captureOrdinaryCandidates(scopePaths)) {
+      candidateInventoryInspectionFailed = true;
     }
   }
 
@@ -395,30 +358,13 @@ function evaluateObligation(obligation, context) {
 
   // An uninspectable candidate entry must not abort an N/A or unknown obligation while the
   // audit key is built; the baseline-bound lanes fail closed through the inventory diagnostic.
-  // When a baseline-annotated obligation captured the ordinary candidate digests before binding
-  // (candidateDigestCache), the audit identity and stale diagnostics use that same snapshot, so a
-  // nested digest accessor that only later throws or changes can never make the audit key or the
-  // stale verdict disagree with the digest that actually bound evidence. Untouched paths and
-  // unannotated callers keep the legacy read.
-  const candidateDigestOf = (path) => {
-    // #342 P3: poisoned state takes precedence over the capture cache. A rejected rename
-    // destination keeps its visited '' capture even when an earlier accepted entry seeded a
-    // successful value, so the audit never describes a value the getter shipped after a failed
-    // snapshot made the obligation fail closed; the caller map is never read for it again.
-    if (failedDestinationDigests.has(path)) return '';
-    if (candidateDigestCache.has(path)) return candidateDigestCache.get(path);
-    // #340: only an applicable baseline-annotated obligation validated the source absence as
-    // part of its captured snapshot. `N/A` and `unknown` obligations never bind evidence, so they
-    // keep the legacy candidate read for their audit identity and stay `outcome: 'none'`.
-    if (applicability === 'applicable' && baselineEntries.has(path)) return '';
-    try {
-      return capture.candidateArtifact(path);
-    } catch {
-      return '';
-    }
-  };
+  // When a baseline-annotated obligation captured ordinary candidate digests before binding, the
+  // capture closure reuses those values for audit identity and stale diagnostics, so a nested
+  // digest accessor that only later throws or changes cannot make the audit key or stale verdict
+  // disagree with the digest that actually bound evidence. Untouched paths and unannotated
+  // callers keep the legacy read.
   const artifactDigestKey = scopePaths.length
-    ? scopePaths.map(path => `${path}=${candidateDigestOf(path) || 'missing'}`).join('|')
+    ? scopePaths.map(path => `${path}=${obligationCapture.candidateAuditValue(path)}`).join('|')
     : (baselineDigest || 'no-scope-paths');
   const baseDigestKey = baselineDigest || 'no-baseline';
   const result = (observation, outcome, provenance, recordRefs) => ({
@@ -441,21 +387,7 @@ function evaluateObligation(obligation, context) {
   }
 
   const matching = [...executionList, ...reviewList].filter(item => item.obligationId === obligationId);
-  const candidateBound = (item, path) => {
-    if (!nonEmptyString(item.baseDigest) || item.baseDigest !== baselineDigest) return false;
-    if (!isPlainObject(item.artifactDigests)) return false;
-    if (candidateDigestCache.has(path)) {
-      // Baseline-annotated obligations use the digest captured before binding, so a mixed
-      // delete+edit scope never re-reads a throwing accessor from the legacy lane.
-      const digest = candidateDigestCache.get(path);
-      return digest.length > 0
-        && item.artifactDigests[path] === digest
-        && Array.isArray(item.paths) && item.paths.includes(path);
-    }
-    return capture.candidateArtifact(path).length > 0
-      && item.artifactDigests[path] === capture.candidateDigestProperty(path)
-      && Array.isArray(item.paths) && item.paths.includes(path);
-  };
+  const candidateBound = (item, path) => obligationCapture.compatibilityCandidateBound(item, path, baselineDigest);
 
   // A baseline-only path is satisfied only by a record bound to the trusted baseline digest.
   // A rename-from path additionally needs the same single record to carry the current
@@ -489,9 +421,9 @@ function evaluateObligation(obligation, context) {
       // destination to be an own-key candidate inventory entry carrying its own digest
       // (ownDigestOnce), so a non-empty captured digest is required here and the accessor is
       // never re-read; a missing destination skips capture and lands on this guard.
-      const capturedDestination = candidateDigestCache.get(entry.renameTo);
-      if (!nonEmptyString(capturedDestination)) return false;
-      if (item.artifactDigests[entry.renameTo] !== capturedDestination) return false;
+      const capturedDestination = obligationCapture.capturedCandidate(entry.renameTo);
+      if (capturedDestination.kind !== 'captured' || !nonEmptyString(capturedDestination.digest)) return false;
+      if (item.artifactDigests[entry.renameTo] !== capturedDestination.digest) return false;
     }
     return true;
   };
@@ -521,8 +453,7 @@ function evaluateObligation(obligation, context) {
       continue;
     }
     if (Array.isArray(item.paths) && isPlainObject(item.artifactDigests)) {
-      const mismatch = item.paths.find(path => candidateDigestOf(path).length > 0
-        && nonEmptyString(item.artifactDigests[path]) && item.artifactDigests[path] !== candidateDigestOf(path));
+      const mismatch = item.paths.find(path => obligationCapture.compatibilityStaleArtifactMismatch(item, path));
       if (mismatch) {
         diagnostics.push({
           code: 'stale-artifact-digest',

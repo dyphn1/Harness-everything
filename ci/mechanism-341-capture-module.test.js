@@ -184,9 +184,10 @@ checkCase('byte parity: canonical and packaged capture modules have identical by
 });
 
 // Loads one evaluator from a temporary copy beside its capture module, and reports which capture file loaded.
-// The copy is removed afterwards, and the module cache entries it created are dropped.
+// The copy is removed afterwards, and the module cache entries it created are dropped. Node keys the cache by
+// realpath, so the directory is resolved first: on macOS os.tmpdir() (/var/...) is a symlink to /private/var/....
 function loadEvaluatorCopy(evaluatorFile, captureFile) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'b1p-load-'));
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'b1p-load-')));
   const evaluatorCopy = path.join(dir, 'doc-evidence.js');
   const captureCopy = path.join(dir, 'doc-evidence-capture.js');
   try {
@@ -208,7 +209,7 @@ checkCase('load parity: the packaged evaluator loads its adjacent packaged captu
   const { mod, loaded, captureCopy } = loadEvaluatorCopy(PACKAGED_EVAL, PACKAGED_CAPTURE);
   assert.strictEqual(typeof mod.checkDocObligations, 'function', 'public export is unchanged');
   assert.ok(loaded.includes(captureCopy), `the adjacent capture module loaded (${loaded.length} copy-local modules)`);
-  assert.ok(!loaded.includes(CANONICAL_CAPTURE), 'no canonical capture module was loaded');
+  assert.ok(!loaded.includes(fs.realpathSync(CANONICAL_CAPTURE)), 'no canonical capture module was loaded');
 });
 
 checkCase('load parity: the canonical evaluator loads its adjacent canonical capture module', () => {

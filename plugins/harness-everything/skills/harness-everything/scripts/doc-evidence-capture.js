@@ -107,12 +107,25 @@ function createInvocationCapture({ artifacts, baseline }) {
     },
 
     beginObligation(applicability) {
-      void applicability;
       let baselineArtifactsMap = null;
       const entryFacts = new Map();
       const baselinePathReads = new Map();
       const acceptedBaselineEntries = new Map();
       const validatedBaselineDigests = new Map();
+      const validatedDestinationDigestMap = new Map();
+      const failedDestinationDigests = new Map();
+      const candidateDigestCache = new Map();
+
+      const candidateDigestForAuditOrStale = (path) => {
+        if (failedDestinationDigests.has(path)) return '';
+        if (candidateDigestCache.has(path)) return candidateDigestCache.get(path);
+        if (applicability === 'applicable' && acceptedBaselineEntries.has(path)) return '';
+        try {
+          return artifact(artifactMap[path]);
+        } catch {
+          return '';
+        }
+      };
 
       const obligationCapture = {
         prepareBaselineContainer() {
@@ -176,6 +189,33 @@ function createInvocationCapture({ artifacts, baseline }) {
           return result;
         },
 
+        isDestinationPoisoned(path) {
+          return failedDestinationDigests.has(path);
+        },
+
+        poisonDestination(path) {
+          failedDestinationDigests.set(path, '');
+        },
+
+        captureDestination(entryToken, path) {
+          void entryToken;
+          let digest = '';
+          try {
+            if (hasOwnEntry(artifactMap, path)) digest = ownDigestOnce(artifactMap[path]);
+          } catch {
+            return Object.freeze({ kind: 'inspection-failed' });
+          }
+          if (!nonEmptyString(digest)) return Object.freeze({ kind: 'unusable' });
+
+          const sharedDigest = validatedDestinationDigestMap.get(path);
+          if (sharedDigest === undefined) {
+            validatedDestinationDigestMap.set(path, digest);
+          } else if (sharedDigest !== digest) {
+            return Object.freeze({ kind: 'conflict', digest });
+          }
+          return Object.freeze({ kind: 'accepted', digest });
+        },
+
         captureBaselinePath(path) {
           if (baselinePathReads.has(path)) return Object.freeze({ ...baselinePathReads.get(path) });
           let result;
@@ -218,6 +258,58 @@ function createInvocationCapture({ artifacts, baseline }) {
           }
         },
 
+        captureOrdinaryCandidates(detachedScopePaths) {
+          for (const entry of acceptedBaselineEntries.values()) {
+            if (entry.reason === 'rename-from' && nonEmptyString(entry.renameDestinationDigest)
+              && !candidateDigestCache.has(entry.renameTo)) {
+              candidateDigestCache.set(entry.renameTo, entry.renameDestinationDigest);
+            }
+          }
+          let inspectionFailed = false;
+          for (const path of detachedScopePaths) {
+            if (acceptedBaselineEntries.has(path) || candidateDigestCache.has(path)
+              || failedDestinationDigests.has(path)) continue;
+            try {
+              candidateDigestCache.set(path, artifact(artifactMap[path]));
+            } catch {
+              inspectionFailed = true;
+            }
+          }
+          return inspectionFailed;
+        },
+
+        capturedCandidate(path) {
+          if (!candidateDigestCache.has(path)) return Object.freeze({ kind: 'uncaptured' });
+          const digest = candidateDigestCache.get(path);
+          return typeof digest === 'string'
+            ? Object.freeze({ kind: 'captured', digest })
+            : Object.freeze({ kind: 'unusable' });
+        },
+
+        candidateAuditValue(path) {
+          return `${candidateDigestForAuditOrStale(path) || 'missing'}`;
+        },
+
+        compatibilityCandidateBound(record, path, baselineDigestValue) {
+          if (!nonEmptyString(record.baseDigest) || record.baseDigest !== baselineDigestValue) return false;
+          if (!isPlainObject(record.artifactDigests)) return false;
+          if (candidateDigestCache.has(path)) {
+            const digest = candidateDigestCache.get(path);
+            return digest.length > 0
+              && record.artifactDigests[path] === digest
+              && Array.isArray(record.paths) && record.paths.includes(path);
+          }
+          return artifact(artifactMap[path]).length > 0
+            && record.artifactDigests[path] === artifactMap[path].digest
+            && Array.isArray(record.paths) && record.paths.includes(path);
+        },
+
+        compatibilityStaleArtifactMismatch(record, path) {
+          return candidateDigestForAuditOrStale(path).length > 0
+            && nonEmptyString(record.artifactDigests[path])
+            && record.artifactDigests[path] !== candidateDigestForAuditOrStale(path);
+        },
+
         baselineEntries() {
           return [...acceptedBaselineEntries.values()].map(entry => Object.freeze({ ...entry }));
         },
@@ -228,24 +320,6 @@ function createInvocationCapture({ artifacts, baseline }) {
       };
 
       return Object.freeze(obligationCapture);
-    },
-
-    // Narrow legacy operations for the not-yet-migrated candidate lanes. They expose no raw map
-    // or entry and preserve each original access at its caller's existing short-circuit site.
-    hasOwnCandidateEntry(path) {
-      return hasOwnEntry(artifactMap, path);
-    },
-
-    ownCandidateDigest(path) {
-      return ownDigestOnce(artifactMap[path]);
-    },
-
-    candidateArtifact(path) {
-      return artifact(artifactMap[path]);
-    },
-
-    candidateDigestProperty(path) {
-      return artifactMap[path].digest;
     },
 
     compatibilityPrdSetDigest() {
