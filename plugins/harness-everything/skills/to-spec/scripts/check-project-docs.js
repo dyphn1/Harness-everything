@@ -150,6 +150,75 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isPathInside(rootPath, candidatePath) {
+  const relativePath = path.relative(rootPath, candidatePath);
+  return relativePath === '' || (
+    relativePath !== '..' &&
+    !relativePath.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relativePath)
+  );
+}
+
+function inspectInitPath(workspaceRoot, targetPath) {
+  let realWorkspaceRoot;
+  try {
+    realWorkspaceRoot = fs.realpathSync(workspaceRoot);
+  } catch (error) {
+    return { error: `workspace root cannot be resolved (${error.message})` };
+  }
+
+  try {
+    fs.lstatSync(targetPath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') return { error: `path cannot be inspected (${error.message})` };
+
+    let parentPath = path.dirname(targetPath);
+    while (true) {
+      try {
+        fs.lstatSync(parentPath);
+      } catch (parentError) {
+        if (parentError.code !== 'ENOENT') return { error: `parent cannot be inspected (${parentError.message})` };
+        const nextParent = path.dirname(parentPath);
+        if (nextParent === parentPath) return { error: 'no existing parent could be found' };
+        parentPath = nextParent;
+        continue;
+      }
+
+      let realParentPath;
+      try {
+        realParentPath = fs.realpathSync(parentPath);
+      } catch (parentError) {
+        return { error: `parent cannot be resolved (${parentError.message})` };
+      }
+      let parentStats;
+      try {
+        parentStats = fs.statSync(realParentPath);
+      } catch (parentError) {
+        return { error: `parent cannot be inspected (${parentError.message})` };
+      }
+      if (!parentStats.isDirectory()) return { error: 'cannot be read safely because its nearest existing parent is not a directory' };
+      if (!isPathInside(realWorkspaceRoot, realParentPath)) return { error: 'nearest existing parent resolves outside the workspace' };
+      return { exists: false };
+    }
+  }
+
+  let realTargetPath;
+  try {
+    realTargetPath = fs.realpathSync(targetPath);
+  } catch (error) {
+    return { error: `path cannot be resolved (${error.message})` };
+  }
+  let targetStats;
+  try {
+    targetStats = fs.statSync(realTargetPath);
+  } catch (error) {
+    return { error: `path cannot be inspected (${error.message})` };
+  }
+  if (!targetStats.isFile()) return { error: 'cannot be read because it is not a regular file' };
+  if (!isPathInside(realWorkspaceRoot, realTargetPath)) return { error: 'resolves outside the workspace' };
+  return { exists: true };
+}
+
 // init never overwrites a configured value: absent/empty required fields are
 // filled, matching flags are accepted as no-ops, and a differing flag is a
 // field-specific conflict that aborts before any write.
@@ -179,8 +248,10 @@ function printConflicts(conflicts) {
   }
 }
 
-function readHostManifestForInit(manifestPath) {
-  if (!fs.existsSync(manifestPath)) return { data: readManifest(manifestPath) };
+function readHostManifestForInit(workspaceRoot, manifestPath) {
+  const inspected = inspectInitPath(workspaceRoot, manifestPath);
+  if (inspected.error) return { error: `unsafe path: ${inspected.error}` };
+  if (!inspected.exists) return { exists: false, data: readManifest(manifestPath) };
 
   let raw;
   try {
@@ -214,16 +285,25 @@ function readHostManifestForInit(manifestPath) {
     }
   }
 
-  return { data };
+  return { exists: true, data };
 }
 
 function rejectHostManifestInit(workspaceRoot, manifestPath, reason) {
   const relativePath = path.relative(workspaceRoot, manifestPath).replace(/\\/g, '/');
   console.error(`[Project Docs Check] ${relativePath} cannot be safely updated: ${reason}; no host manifests were changed.`);
-  const guidance = reason.startsWith('cannot be read')
+  const guidance = reason.startsWith('cannot be read') || reason.includes('not a regular file')
     ? `Make ${relativePath} a readable manifest file (not a directory), then rerun init.`
+    : reason.startsWith('unsafe path')
+      ? `Make ${relativePath} a regular file that resolves inside this workspace, then rerun init.`
     : `Repair the JSON structure or projectDocs schema in ${relativePath}, then rerun init.`;
   console.error(`=> ${guidance}`);
+  process.exit(1);
+}
+
+function rejectProjectFileInit(workspaceRoot, projectFile, reason) {
+  const relativePath = path.relative(workspaceRoot, projectFile).replace(/\\/g, '/');
+  console.error(`[Project Docs Check] ${relativePath} cannot be safely updated: unsafe path (${reason}); no files were changed.`);
+  console.error(`=> Make ${relativePath} a regular file that resolves inside this workspace, then rerun init.`);
   process.exit(1);
 }
 
@@ -253,7 +333,9 @@ function runInit(workspaceRoot, args) {
   // the authoritative repair target: fill only its absent/empty fields,
   // preserve every other key, validate the candidate, and write only it.
   const projectFile = path.join(workspaceRoot, '.agents', 'harness-everything', 'project-docs.json');
-  if (fs.existsSync(projectFile)) {
+  const projectFilePath = inspectInitPath(workspaceRoot, projectFile);
+  if (projectFilePath.error) rejectProjectFileInit(workspaceRoot, projectFile, projectFilePath.error);
+  if (projectFilePath.exists) {
     const rel = path.relative(workspaceRoot, projectFile).replace(/\\/g, '/');
     let existing;
     try {
@@ -300,9 +382,9 @@ function runInit(workspaceRoot, args) {
   const writableHomes = [];
   for (const home of homes) {
     const manifestPath = getManifestPath(home);
-    if (!fs.existsSync(path.dirname(manifestPath))) continue;
-    const result = readHostManifestForInit(manifestPath);
+    const result = readHostManifestForInit(workspaceRoot, manifestPath);
     if (result.error) rejectHostManifestInit(workspaceRoot, manifestPath, result.error);
+    if (!result.exists && !fs.existsSync(path.dirname(manifestPath))) continue;
     const data = result.data;
     const existingProjectDocs = isPlainObject(data.projectDocs) ? data.projectDocs : null;
     writableHomes.push({ manifestPath, data, existingProjectDocs });

@@ -245,6 +245,13 @@ function validateDocsConfig(config) {
     return { valid: false, diagnostics, warnings };
   }
 
+  for (const field of ['docLocation', 'tracker', 'issueDefinition']) {
+    if (config[field] !== undefined && typeof config[field] !== 'string') {
+      const diagnosticField = field.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+      invalid(`invalid-${diagnosticField}-type`, `${field} must be a string when provided`);
+    }
+  }
+
   for (const key of Object.keys(config).sort()) {
     if (!PROJECT_DOC_CONFIG_KEYS.has(key)) {
       warnings.push({

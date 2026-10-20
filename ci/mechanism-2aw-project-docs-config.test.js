@@ -932,4 +932,268 @@ checkCase('2aw fix. to-spec CLI refuses conflicting hosts and invalid project ov
   assert.ok(!rejected.stdout.includes('host-docs'));
 });
 
+for (const [leg, scriptPath] of toSpecCliLegs) {
+  for (const [field, value] of [['docLocation', 42], ['tracker', {}], ['issueDefinition', []]]) {
+    checkCase(`2aw issue331 p2. ${leg} host non-string ${field} fails init without writing the manifest`, () => {
+      const root = workspace(`issue331-p2-${leg}-type-${field}`);
+      const hostConfig = { docLocation: 'docs/', tracker: 'GitHub Issues', issueDefinition: 'Title and acceptance' };
+      hostConfig[field] = value;
+      const hostFile = writeHostConfig(root, 'claude', hostConfig);
+      const before = fs.readFileSync(hostFile);
+      const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+      const output = `${result.stdout}\n${result.stderr}`;
+      assert.strictEqual(result.status, 1, `${leg} non-string host ${field} must fail init: ${output}`);
+      assert.match(output, /\.claude\/harness-everything\/manifest\.json/);
+      assert.match(output, new RegExp(field));
+      assert.deepStrictEqual(fs.readFileSync(hostFile), before, `non-string host ${field} manifest stays byte-identical`);
+    });
+  }
+
+  checkCase(`2aw issue331 p2. ${leg} multi-host init rejects a non-string peer and leaves both manifests byte-identical`, () => {
+    const root = workspace(`issue331-p2-${leg}-multi-host`);
+    const validFile = writeHostConfig(root, 'claude', { governed: [{ path: 'docs/prd/**', role: 'prd' }], domains: ['GRPH'] });
+    const invalidFile = writeHostConfig(root, 'codex', { docLocation: 42 });
+    const validBefore = fs.readFileSync(validFile);
+    const invalidBefore = fs.readFileSync(invalidFile);
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.strictEqual(result.status, 1, `${leg} non-string codex docLocation must abort the full plan: ${output}`);
+    assert.match(output, /\.codex\/harness-everything\/manifest\.json/);
+    assert.deepStrictEqual(fs.readFileSync(validFile), validBefore, 'valid claude host is not written before the non-string peer is rejected');
+    assert.deepStrictEqual(fs.readFileSync(invalidFile), invalidBefore, 'non-string codex host stays byte-identical');
+  });
+
+  checkCase(`2aw issue331 p2. ${leg} init still fills absent and empty-string host fields`, () => {
+    const root = workspace(`issue331-p2-${leg}-empty-control`);
+    const hostFile = writeHostConfig(root, 'claude', { docLocation: '', tracker: '   ', governed: [{ path: 'docs/prd/**', role: 'prd' }] });
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    assert.strictEqual(result.status, 0, `${leg}: ${result.stdout}\n${result.stderr}`);
+    const after = JSON.parse(fs.readFileSync(hostFile, 'utf8'));
+    assert.strictEqual(after.projectDocs.docLocation, 'docs/', 'empty-string docLocation filled');
+    assert.strictEqual(after.projectDocs.tracker, 'GitHub Issues', 'whitespace-only tracker filled');
+    assert.strictEqual(after.projectDocs.issueDefinition, 'Title and acceptance', 'absent issueDefinition filled');
+    assert.deepStrictEqual(after.projectDocs.governed, [{ path: 'docs/prd/**', role: 'prd' }], 'governed preserved');
+  });
+
+  checkCase(`2aw issue331 p2. ${leg} dangling manifest symlink to a target outside the workspace fails init without creating it`, () => {
+    const root = workspace(`issue331-p2-${leg}-dangling-link`);
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2aw-p2-outside-'));
+    try {
+      const target = path.join(outside, 'escaped-manifest.json');
+      const hostDir = path.join(root, '.claude', 'harness-everything');
+      fs.mkdirSync(hostDir, { recursive: true });
+      const linkFile = path.join(hostDir, 'manifest.json');
+      try {
+        fs.symlinkSync(target, linkFile);
+      } catch (error) {
+        if (error.code === 'EPERM') {
+          console.log(`  SKIP ${leg} dangling-symlink case: symlink creation is not permitted on this host (${error.code})`);
+          return;
+        }
+        throw error;
+      }
+      const validFile = writeHostConfig(root, 'codex', { governed: [{ path: 'docs/prd/**', role: 'prd' }], domains: ['GRPH'] });
+      const validBefore = fs.readFileSync(validFile);
+      const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+      const output = `${result.stdout}\n${result.stderr}`;
+      assert.strictEqual(result.status, 1, `${leg} dangling manifest symlink must fail init: ${output}`);
+      assert.match(output, /\.claude\/harness-everything\/manifest\.json/);
+      assert.ok(!fs.existsSync(target), 'symlink target outside the workspace must not be created');
+      assert.ok(fs.lstatSync(linkFile).isSymbolicLink(), 'manifest path must remain a symlink');
+      assert.strictEqual(fs.readlinkSync(linkFile), target, 'symlink must still point at its original target');
+      assert.ok(!fs.existsSync(linkFile), 'symlink must remain dangling');
+      assert.deepStrictEqual(fs.readFileSync(validFile), validBefore, 'second valid host manifest stays byte-identical');
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+}
+
+function trySymlink(target, linkPath, label, type) {
+  try {
+    fs.symlinkSync(target, linkPath, type);
+    return true;
+  } catch (error) {
+    if (error.code !== 'EPERM') throw error;
+    console.log(`  SKIP ${label}: symlink creation is not permitted on this host (${error.code})`);
+    return false;
+  }
+}
+
+for (const [leg, scriptPath] of toSpecCliLegs) {
+  checkCase(`2aw issue331 p2b. ${leg} host null docLocation fails init without writing the manifest`, () => {
+    const root = workspace(`issue331-p2b-${leg}-null-doc-location`);
+    const hostFile = writeHostConfig(root, 'claude', { docLocation: null, tracker: 'GitHub Issues', issueDefinition: 'Title and acceptance' });
+    const before = fs.readFileSync(hostFile);
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.strictEqual(result.status, 1, `${leg} null host docLocation must fail init: ${output}`);
+    assert.match(output, /\.claude\/harness-everything\/manifest\.json/);
+    assert.deepStrictEqual(fs.readFileSync(hostFile), before, 'null host docLocation manifest stays byte-identical');
+  });
+
+  for (const [field, value] of [['tracker', 0], ['issueDefinition', false]]) {
+    checkCase(`2aw issue331 p2b. ${leg} host ${field} ${JSON.stringify(value)} fails init without writing the manifest`, () => {
+      const root = workspace(`issue331-p2b-${leg}-${field}-scalar`);
+      const hostConfig = { docLocation: 'docs/', tracker: 'GitHub Issues', issueDefinition: 'Title and acceptance' };
+      hostConfig[field] = value;
+      const hostFile = writeHostConfig(root, 'claude', hostConfig);
+      const before = fs.readFileSync(hostFile);
+      const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+      const output = `${result.stdout}\n${result.stderr}`;
+      assert.strictEqual(result.status, 1, `${leg} non-string host ${field} must fail init: ${output}`);
+      assert.match(output, /\.claude\/harness-everything\/manifest\.json/);
+      assert.match(output, new RegExp(field));
+      assert.deepStrictEqual(fs.readFileSync(hostFile), before, `${field} scalar host manifest stays byte-identical`);
+    });
+  }
+
+  checkCase(`2aw issue331 p2b. ${leg} host manifest symlink to a regular manifest outside the workspace fails init without changing the target`, () => {
+    const root = workspace(`issue331-p2b-${leg}-outside-file-link`);
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2aw-p2b-outside-'));
+    try {
+      const target = path.join(outside, 'manifest.json');
+      fs.writeFileSync(target, JSON.stringify({ projectDocs: { docLocation: 'docs/', tracker: 'GitHub Issues' } }, null, 2), 'utf8');
+      const linkFile = path.join(root, '.claude', 'harness-everything', 'manifest.json');
+      fs.mkdirSync(path.dirname(linkFile), { recursive: true });
+      if (!trySymlink(target, linkFile, `${leg} outside file-link case`, 'file')) return;
+      const before = fs.readFileSync(target);
+      const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+      const output = `${result.stdout}\n${result.stderr}`;
+      assert.strictEqual(result.status, 1, `${leg} host symlink to an outside manifest must fail init: ${output}`);
+      assert.match(output, /\.claude\/harness-everything\/manifest\.json/);
+      assert.deepStrictEqual(fs.readFileSync(target), before, 'outside manifest bytes stay unchanged');
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  checkCase(`2aw issue331 p2c. ${leg} absent host manifest under a parent symlink to outside fails init without creating it`, () => {
+    const root = workspace(`issue331-p2c-${leg}-absent-leaf-outside-parent`);
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2aw-p2c-outside-'));
+    try {
+      const hostDir = path.join(root, '.claude');
+      fs.mkdirSync(hostDir, { recursive: true });
+      const linkDir = path.join(hostDir, 'harness-everything');
+      if (!trySymlink(outside, linkDir, `${leg} absent-leaf outside-parent case`, 'dir')) return;
+      const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+      const output = `${result.stdout}\n${result.stderr}`;
+      assert.strictEqual(result.status, 1, `${leg} absent manifest under an escaping parent must fail init: ${output}`);
+      assert.match(output, /nearest existing parent resolves outside the workspace/);
+      assert.match(output, /regular file that resolves inside this workspace/);
+      assert.deepStrictEqual(fs.readdirSync(outside), [], 'no manifest is created outside the workspace');
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  checkCase(`2aw issue331 p2c. ${leg} FIFO host manifest fails init before any read or write`, () => {
+    if (process.platform === 'win32') {
+      console.log(`SKIP ${leg} FIFO case: mkfifo is unavailable on win32`);
+      return;
+    }
+    const root = workspace(`issue331-p2c-${leg}-fifo`);
+    const fifo = path.join(root, '.claude', 'harness-everything', 'manifest.json');
+    fs.mkdirSync(path.dirname(fifo), { recursive: true });
+    execFileSync('mkfifo', [fifo]);
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.strictEqual(result.status, 1, `${leg} FIFO manifest must fail init: ${output}`);
+    assert.match(output, /not a regular file/);
+    assert.ok(fs.lstatSync(fifo).isFIFO(), 'FIFO is left in place');
+  });
+
+  checkCase(`2aw issue331 p2b. ${leg} host manifest symlink to a regular manifest inside the workspace fills the target and keeps the link`, () => {
+    const root = workspace(`issue331-p2b-${leg}-inside-file-link`);
+    const target = path.join(root, 'shared', 'manifest.json');
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, JSON.stringify({ projectDocs: { governed: [{ path: 'docs/prd/**', role: 'prd' }], domains: ['GRPH'] } }, null, 2), 'utf8');
+    const linkFile = path.join(root, '.claude', 'harness-everything', 'manifest.json');
+    fs.mkdirSync(path.dirname(linkFile), { recursive: true });
+    if (!trySymlink(target, linkFile, `${leg} inside file-link case`, 'file')) return;
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    assert.strictEqual(result.status, 0, `${leg}: ${result.stdout}\n${result.stderr}`);
+    assert.ok(fs.lstatSync(linkFile).isSymbolicLink(), 'host manifest path must remain a symlink');
+    const after = JSON.parse(fs.readFileSync(target, 'utf8'));
+    assert.strictEqual(after.projectDocs.docLocation, 'docs/', 'in-workspace target gets docLocation');
+    assert.strictEqual(after.projectDocs.tracker, 'GitHub Issues', 'in-workspace target gets tracker');
+    assert.strictEqual(after.projectDocs.issueDefinition, 'Title and acceptance', 'in-workspace target gets issueDefinition');
+    assert.deepStrictEqual(after.projectDocs.governed, [{ path: 'docs/prd/**', role: 'prd' }], 'governed preserved');
+  });
+
+  checkCase(`2aw issue331 p2b. ${leg} host manifest path that is a directory fails init and leaves a valid peer unwritten`, () => {
+    const root = workspace(`issue331-p2b-${leg}-manifest-directory`);
+    const dirManifest = path.join(root, '.claude', 'harness-everything', 'manifest.json');
+    fs.mkdirSync(dirManifest, { recursive: true });
+    const peerFile = writeHostConfig(root, 'codex', { governed: [{ path: 'docs/prd/**', role: 'prd' }], domains: ['GRPH'] });
+    const peerBefore = fs.readFileSync(peerFile);
+    const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.strictEqual(result.status, 1, `${leg} directory host manifest must fail init: ${output}`);
+    assert.match(output, /\.claude\/harness-everything\/manifest\.json/);
+    assert.deepStrictEqual(fs.readFileSync(peerFile), peerBefore, 'valid peer host manifest stays byte-identical');
+  });
+
+  checkCase(`2aw issue331 p2b. ${leg} host directory symlink to an outside directory fails init and leaves the outside manifest unchanged`, () => {
+    const root = workspace(`issue331-p2b-${leg}-outside-dir-link`);
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2aw-p2b-outside-'));
+    try {
+      const outsideDir = path.join(outside, 'harness-everything');
+      fs.mkdirSync(outsideDir, { recursive: true });
+      const target = path.join(outsideDir, 'manifest.json');
+      fs.writeFileSync(target, JSON.stringify({ projectDocs: { docLocation: 'docs/', tracker: 'GitHub Issues' } }, null, 2), 'utf8');
+      fs.mkdirSync(path.join(root, '.claude'), { recursive: true });
+      if (!trySymlink(outsideDir, path.join(root, '.claude', 'harness-everything'), `${leg} outside dir-link case`, 'dir')) return;
+      const before = fs.readFileSync(target);
+      const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+      const output = `${result.stdout}\n${result.stderr}`;
+      assert.strictEqual(result.status, 1, `${leg} host directory symlink to outside must fail init: ${output}`);
+      assert.match(output, /\.claude\/harness-everything\/manifest\.json/);
+      assert.deepStrictEqual(fs.readFileSync(target), before, 'outside manifest bytes stay unchanged');
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  checkCase(`2aw issue331 p2b. ${leg} dangling authoritative project-file symlink to outside fails init without creating the target`, () => {
+    const root = workspace(`issue331-p2b-${leg}-project-dangling`);
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-2aw-p2b-outside-'));
+    try {
+      const target = path.join(outside, 'created-project-docs.json');
+      const projectLink = configPath(root);
+      fs.mkdirSync(path.dirname(projectLink), { recursive: true });
+      if (!trySymlink(target, projectLink, `${leg} dangling project-link case`, 'file')) return;
+      const result = runToSpecInit(root, ['--doc-location', 'docs/', '--tracker', 'GitHub Issues', '--issue-definition', 'Title and acceptance'], scriptPath);
+      const output = `${result.stdout}\n${result.stderr}`;
+      assert.strictEqual(result.status, 1, `${leg} dangling project-file symlink must fail init: ${output}`);
+      assert.ok(!fs.existsSync(target), 'project-file symlink target outside the workspace must not be created');
+      assert.strictEqual(fs.readlinkSync(projectLink), target, 'project-file symlink must still point at its original target');
+      for (const home of Object.values(HOSTS)) {
+        assert.ok(!fs.existsSync(path.join(root, home, 'harness-everything', 'manifest.json')), 'no host manifest may be written when the project file is unsafe');
+      }
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+}
+
+for (const [label, resolverFile] of [
+  ['to-spec', toSpecResolverPath],
+  ['multi-agent-workspace', resolverPath],
+  ['harness-everything', harnessResolverPath],
+  ['packaged to-spec', packagedToSpecResolverPath],
+  ['packaged multi-agent-workspace', packagedMultiAgentResolverPath],
+  ['packaged harness-everything', packagedHarnessResolverPath]
+]) {
+  checkCase(`2aw issue331 p2b. ${label} resolver rejects non-string docLocation and accepts whitespace-only docLocation`, () => {
+    const { validateDocsConfig } = require(resolverFile);
+    assert.strictEqual(typeof validateDocsConfig, 'function', 'validateDocsConfig export is required');
+    const rejected = validateDocsConfig({ docLocation: 42, domains: ['GRPH'] });
+    assert.strictEqual(rejected.valid, false, `${label}: numeric docLocation must be invalid: ${JSON.stringify(rejected.diagnostics)}`);
+    assert.ok(JSON.stringify(rejected.diagnostics).includes('docLocation'), `diagnostic must name docLocation: ${JSON.stringify(rejected.diagnostics)}`);
+    const accepted = validateDocsConfig({ docLocation: '  ', domains: ['GRPH'] });
+    assert.strictEqual(accepted.valid, true, `${label}: whitespace-only docLocation must stay fillable: ${JSON.stringify(accepted.diagnostics)}`);
+  });
+}
+
 helper.finish();
