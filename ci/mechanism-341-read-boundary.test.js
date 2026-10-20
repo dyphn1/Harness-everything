@@ -80,6 +80,68 @@ const checkers = Object.fromEntries(Object.entries(DISTRIBUTIONS).map(([name, fi
   require(file).checkDocObligations
 ]));
 
+// Self-test (owner review P2-1): one checker run in two invocations must record two separate windows. The
+// second invocation's trace and semantic counters describe only the second invocation.
+const WINDOW_RECIPE = {
+  nodes: { entry: { kind: 'object', props: { digest: 'a'.repeat(64) } } },
+  input: { artifacts: { $ref: 'entry' }, obligations: { kind: 'array', items: [] } },
+  detached: true
+};
+function windowChecker(input) {
+  void input.artifacts.digest;
+  return { results: [], diagnostics: [] };
+}
+function selfTest(name, run) {
+  try {
+    run();
+    console.log(`self-test PASS ${name}`);
+  } catch (error) {
+    failures.push(`self-test:${name}`);
+    console.error(`self-test FAIL ${name}: ${String(error.message).split('\n')[0]}`);
+  }
+}
+selfTest('two invocations yield separate traces', () => {
+  const built = buildCase(WINDOW_RECIPE, { traced: true });
+  const run = runChecker(windowChecker, built);
+  assert.strictEqual(run.events.length, 1, 'the first invocation records its one read');
+  assert.strictEqual(run.postReturn.secondEvents.length, 1, 'the second invocation records only its own read');
+  assert.strictEqual(run.postReturn.secondEvents[0].seq, 0, 'the second window starts at sequence zero');
+});
+selfTest('second-invocation semantic counters describe only the second invocation', () => {
+  const recipe = {
+    nodes: { entry: { kind: 'object', props: { digest: { $accessor: { sequence: ['a'.repeat(64)], enumerable: true } } } } },
+    input: WINDOW_RECIPE.input,
+    detached: true
+  };
+  const run = runChecker(windowChecker, buildCase(recipe, { traced: true }));
+  assert.strictEqual(run.counters.accessors['entry.digest'].reads, 1, 'the first invocation reads the accessor once');
+  assert.strictEqual(run.postReturn.secondCounters.accessors['entry.digest'].reads, 1,
+    'the second window reads the accessor once, not cumulatively');
+  assert.strictEqual(run.postReturn.secondCounters.accessors['entry.digest'].receivers.length, 1,
+    'the second window lists only its own receiver');
+});
+
+// Owner review P3: a post-return delete must remove the own key, while the own-undefined transition keeps it.
+const AFTER_RETURN_RECIPE = {
+  nodes: { candidateArtifacts: { kind: 'object', props: { 'docs/adr/a.md': 'b'.repeat(64) } } },
+  input: { artifacts: { $ref: 'candidateArtifacts' }, obligations: { kind: 'array', items: [] } },
+  detached: true
+};
+selfTest('a post-return delete removes the own key and records it as a prescribed write', () => {
+  const recipe = { ...AFTER_RETURN_RECIPE, afterReturn: [{ node: 'candidateArtifacts', key: 'docs/adr/a.md', to: { $delete: true } }] };
+  const built = buildCase(recipe, { traced: false });
+  built.applyAfterReturn();
+  assert.strictEqual(Object.hasOwn(built.input.artifacts, 'docs/adr/a.md'), false, 'absent, not own-undefined');
+  assert.deepStrictEqual(built.prescribed(), [{ node: 'candidateArtifacts', key: 'docs/adr/a.md' }]);
+});
+selfTest('the own-undefined transition keeps the own key with value undefined', () => {
+  const recipe = { ...AFTER_RETURN_RECIPE, afterReturn: [{ node: 'candidateArtifacts', key: 'docs/adr/a.md', to: { $undefined: true } }] };
+  const built = buildCase(recipe, { traced: false });
+  built.applyAfterReturn();
+  assert.strictEqual(Object.hasOwn(built.input.artifacts, 'docs/adr/a.md'), true, 'the key stays own');
+  assert.strictEqual(built.input.artifacts['docs/adr/a.md'], undefined, 'its value is undefined');
+});
+
 function countEvents(events, where) {
   return events.filter(event => (where.id === undefined || event.id === where.id)
     && (where.op === undefined || event.op === where.op)
@@ -124,7 +186,9 @@ function claimsFor(item) {
     'distribution.parity'
   ];
   if (item.recipe.detached) {
-    claims.push('detached.result-unchanged-after-mutation', 'detached.fresh-invocation-matches-expected', 'integrity.post-return-unchanged');
+    claims.push('detached.result-unchanged-after-mutation', 'detached.fresh-invocation-matches-expected', 'integrity.post-return-unchanged',
+      'detached.fresh-invocation-exception-matches-expected', 'detached.fresh-invocation-counters-match-expected',
+      'detached.fresh-invocation-alias-leaks-match-expected');
     if (item.expect && item.expect.secondDiffers) claims.push('detached.fresh-invocation-differs');
   }
   if (item.expect) claims.push('result.observation-outcome', 'result.diagnostic-codes');
@@ -263,6 +327,21 @@ for (const item of corpus.cases) {
         `${distribution}: fresh invocation output differs from the reviewed output`);
       assert.deepStrictEqual(run.traced.postReturn.secondEvents, pinned.postReturn.secondEvents,
         `${distribution}: fresh invocation trace differs from the reviewed trace`);
+    }));
+
+    assertion(caseId, 'detached.fresh-invocation-exception-matches-expected', () => each((distribution, run) => {
+      assert.deepStrictEqual(run.traced.postReturn.secondException, pinned.postReturn.secondException,
+        `${distribution}: fresh invocation exception differs from the reviewed exception`);
+    }));
+
+    assertion(caseId, 'detached.fresh-invocation-counters-match-expected', () => each((distribution, run) => {
+      assert.deepStrictEqual(run.traced.postReturn.secondCounters, pinned.postReturn.secondCounters,
+        `${distribution}: fresh invocation counters differ from the reviewed counters`);
+    }));
+
+    assertion(caseId, 'detached.fresh-invocation-alias-leaks-match-expected', () => each((distribution, run) => {
+      assert.strictEqual(run.traced.postReturn.secondAliasLeaks, pinned.postReturn.secondAliasLeaks,
+        `${distribution}: fresh invocation alias leakage differs from the reviewed count`);
     }));
 
     if (item.expect && item.expect.secondDiffers) {

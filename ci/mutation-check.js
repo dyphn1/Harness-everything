@@ -468,12 +468,40 @@ function evaluateControl(result, check) {
   return { passed: true };
 }
 
+// Finds uncaught Node exceptions: an Error header line with stack frames after it. A multi-line message pushes
+// the frames down, so the frames are searched in the lines that follow the header.
+function uncaughtErrors(output) {
+  const lines = outputLines(output);
+  const found = [];
+  lines.forEach((line, index) => {
+    const header = /^([A-Za-z]*Error)(?: \[([A-Z0-9_]+)\])?: (.*)$/.exec(line);
+    if (!header) return;
+    const nearby = lines.slice(index + 1, index + 61);
+    if (nearby.some(next => /^\s+at \S/.test(next))) found.push({ name: header[1], code: header[2], message: header[3] });
+  });
+  return found;
+}
+
+// The one uncaught exception a selected check may end with. A legacy Node assert failure throws its own
+// AssertionError, so that exact error is the intended failure. Every other kind fails through the event file or a
+// status 1 exit with no stack, so any uncaught exception from it is unrelated to the selected assertion.
+function expectedUncaughtError(check) {
+  if (check.legacy && check.legacy.kind === 'assert') {
+    return error => error.name === 'AssertionError' && error.code === 'ERR_ASSERTION' &&
+      (check.legacy.message === undefined || error.message === check.legacy.message);
+  }
+  return null;
+}
+
 function evaluateMutated(result, check) {
   const processNormal = !result.error && !result.signal && (result.status === 0 || result.status === 1);
   if (!processNormal) return { verdict: 'INFRA_MUTATED', intendedAssertion: 'MISSING', reason: `mutated process status=${result.status} signal=${result.signal || 'none'}${result.error ? ` error=${result.error.message}` : ''}` };
-  const hasUncaughtErrorStack = /(?:^|\n)[A-Za-z]*Error(?: \[[A-Z0-9_]+\])?: [^\n]*\n\s+at /m.test(result.output);
-  if (/^RB\d{2,}$/.test(check.caseId) && hasUncaughtErrorStack) {
-    return { verdict: 'INFRA_MUTATED', intendedAssertion: 'MISSING', reason: 'corpus test terminated with an uncaught Node exception' };
+  // Crash screening applies to every kind (owner review P2-2), so an unrelated uncaught exception cannot be credited.
+  const uncaught = uncaughtErrors(result.output);
+  const allowed = expectedUncaughtError(check);
+  if (uncaught.length > 0 && !(allowed && uncaught.length === 1 && allowed(uncaught[0]))) {
+    const [first] = uncaught;
+    return { verdict: 'INFRA_MUTATED', intendedAssertion: 'MISSING', reason: `uncaught Node exception unrelated to the selected assertion: ${first.name}${first.code ? ` [${first.code}]` : ''}` };
   }
 
   if (check.legacy && check.legacy.kind === 'output') {

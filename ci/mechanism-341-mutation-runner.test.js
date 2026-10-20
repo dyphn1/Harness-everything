@@ -159,6 +159,21 @@ if (mode === 'control-failure') {
     '',
   ].join('\n'));
 
+  write('synthetic-legacy-helper-crash-test.js', [
+    "'use strict';",
+    "const helper = require('./ci/test-helper');",
+    "helper.check('legacy helper assertion', require(process.env.HARNESS_SYNTHETIC_TARGET) === true);",
+    "if (process.env.HARNESS_MUTATION) throw new Error('synthetic unrelated crash after the selected helper failure');",
+    '',
+  ].join('\n'));
+  write('synthetic-legacy-output-crash-test.js', [
+    "'use strict';",
+    "const value = require(process.env.HARNESS_SYNTHETIC_TARGET);",
+    "if (value === true) console.log('PASS legacy output assertion');",
+    "else { console.error('FAIL legacy output assertion'); if (process.env.HARNESS_MUTATION) throw new Error('synthetic unrelated crash after the selected output failure'); }",
+    '',
+  ].join('\n'));
+
   const original = fs.readFileSync(targetPath, 'utf8');
   const tupleKeys = new Set();
   for (const tuple of CHECKS) {
@@ -330,6 +345,31 @@ if (mode === 'control-failure') {
     },
   });
   assert.strictEqual(legacyOutput.verdict, 'KILLED', 'anchored legacy output signatures qualify only their selected failure');
+
+  // Negative controls (owner review P2-2): an unrelated uncaught exception after the selected failure is never a kill.
+  const legacyHelperCrashCase = 'LEGACY.synthetic-legacy-helper-crash-test';
+  const legacyHelperCrash = checkLegacyTuple({
+    test: 'synthetic-legacy-helper-crash-test.js',
+    caseId: legacyHelperCrashCase,
+    assertionId: `${legacyHelperCrashCase}.selected-check`,
+    signature: { kind: 'helper', label: 'legacy helper assertion' },
+  });
+  assert.strictEqual(legacyHelperCrash.verdict, 'INFRA_MUTATED',
+    `legacy selected-then-crash: an unrelated uncaught exception after a selected helper failure cannot count as a kill: ${JSON.stringify(legacyHelperCrash)}`);
+
+  const legacyOutputCrashCase = 'LEGACY.synthetic-legacy-output-crash-test';
+  const legacyOutputCrash = checkLegacyTuple({
+    test: 'synthetic-legacy-output-crash-test.js',
+    caseId: legacyOutputCrashCase,
+    assertionId: `${legacyOutputCrashCase}.selected-output`,
+    signature: {
+      kind: 'output',
+      pass: /^PASS legacy output assertion$/,
+      fail: /^FAIL legacy output assertion$/,
+    },
+  });
+  assert.strictEqual(legacyOutputCrash.verdict, 'INFRA_MUTATED',
+    `legacy output-then-crash: a matching FAIL line followed by an unrelated uncaught exception cannot count as a kill: ${JSON.stringify(legacyOutputCrash)}`);
 
   assert.strictEqual(fs.readFileSync(targetPath, 'utf8'), original, 'mutation qualification never overwrites a synthetic target');
   console.log('Phase 0A mutation runner qualification passed: control, tuple, transform, parse, load, intended assertion, and negative controls.');

@@ -48,6 +48,8 @@ function createRecorder() {
       return active;
     },
     begin() {
+      // Each window starts empty, so a later invocation's trace never includes an earlier invocation's events.
+      events.length = 0;
       active = true;
     },
     end() {
