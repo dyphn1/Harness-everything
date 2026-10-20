@@ -3,10 +3,8 @@
 // #341 Phase 0B (B1p scaffold): new-file byte and load parity for the private capture module, detachment
 // detectors for its returned owned views, and pins that keep the 0A oracle unchanged.
 //
-// SKIP-until-present: while B1 is in progress the module and its packaged copy may not exist. A check that
-// depends on them prints an explicit SKIP line and does not pass. Set HARNESS_341_CAPTURE_REQUIRED=1 to turn
-// that absence into a FAIL; the coordinator sets it when B1 is accepted. Detector self-tests and oracle pins
-// always run, because they do not depend on the module.
+// B1 has landed, so a missing capture module or packaged copy is always a FAIL, never a SKIP (#341 E0 requires
+// the module checks unconditionally).
 //
 // Nothing here is evidence that the module is correct. B1 binds the detachment flow to the landed signatures
 // and runs it; this file only fixes the checks and the failure modes.
@@ -27,7 +25,7 @@ const PACKAGED_EVAL = path.join(PACKAGED_SCRIPTS, 'doc-evidence.js');
 const CANONICAL_CAPTURE = path.join(CANONICAL_SCRIPTS, 'doc-evidence-capture.js');
 const PACKAGED_CAPTURE = path.join(PACKAGED_SCRIPTS, 'doc-evidence-capture.js');
 const CORPUS = path.join(__dirname, 'fixtures', 'doc-obligations', 'read-boundary');
-const REQUIRED = process.env.HARNESS_341_CAPTURE_REQUIRED === '1';
+const REQUIRED = true;
 
 // Pins from b0-baseline-rebased.txt. They were re-pinned after the reviewed 0A head 0f475ab (owner review of #344)
 // changed the corpus: RB102-105 second-invocation trace/counter sections, RB103 recipe, and the new RB106 case.
@@ -58,7 +56,7 @@ function checkCase(name, run) {
     if (error instanceof Skip) {
       if (REQUIRED) {
         failed += 1;
-        console.error(`FAIL ${name}: ${error.message} (HARNESS_341_CAPTURE_REQUIRED=1)`);
+        console.error(`FAIL ${name}: ${error.message} (capture module is required)`);
         return;
       }
       skipped += 1;

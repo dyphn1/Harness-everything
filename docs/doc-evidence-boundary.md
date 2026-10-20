@@ -130,6 +130,6 @@ and checked separately in both distributions: it emits that exact target/rule pa
 AST coverage. The enclosing `evaluateObligation` function fingerprint also detects the body edit
 under `CAPTURE_CALL_SITES`; the precise destructure target independently supplies the intended
 context-surface rejection. The 11 existing AST controls were re-run in both distributions and all
-22 were rejected under their intended rule. N02c remains isolation-only in the Haiku-owned control
-fixture; the local AST check is not yet a persistent suite assertion. These results address C3's
-two executed findings without changing the control or enforcement-test files.
+22 were rejected under their intended rule. N02c is also on the AST route in the control fixture, and
+the enforcement suite asserts its context-destructure target on both distributions. These results
+address C3's two executed findings.
