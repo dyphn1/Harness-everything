@@ -122,7 +122,7 @@ function applyControl(control, original) {
 }
 
 function insertInfiniteLoop(source, functionName) {
-  const signature = new RegExp(`function\\s+${functionName}\\s*\\([^)]*\\)\\s*\\{`, 'g');
+  const signature = new RegExp(`function\\s+${functionName}\\s*\\([^)]*\\)\\s*\\{`, 'g'); // portability-lint: allow RegExp source, not a path
   const matches = [...source.matchAll(signature)];
   assert.equal(matches.length, 1, `${functionName}: expected exactly one function entrypoint`);
   const weakened = source.replace(signature, match => `${match}\n  while (true) {}`);
