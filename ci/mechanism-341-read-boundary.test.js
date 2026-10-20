@@ -21,6 +21,12 @@ const { buildCase, runChecker } = require('./lib/doc-evidence-fixtures');
 const FIXTURE_DIR = path.join(__dirname, 'fixtures', 'doc-obligations', 'read-boundary');
 const corpus = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'cases.json'), 'utf8'));
 const expected = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'expected.json'), 'utf8'));
+// Additive scope cases (plan §3). They live in their own append-only fixture, so the pinned cases.json and
+// expected.json bytes never change. They were captured from the unmodified 0A evaluator (0f475ab).
+const scopeCorpus = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'scope-cases.json'), 'utf8'));
+const scopeExpected = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'scope-expected.json'), 'utf8'));
+corpus.cases.push(...scopeCorpus.cases);
+expected.cases = { ...expected.cases, ...scopeExpected.cases };
 
 // Explicit distributions. Each is loaded from its own path and must be a distinct file.
 const DISTRIBUTIONS = Object.freeze({
