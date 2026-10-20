@@ -1,27 +1,11 @@
 'use strict';
 
-const crypto = require('crypto');
+const {
+  createInvocationCapture
+} = require('./doc-evidence-capture');
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-// #335 P3: the candidate inventory provenance check is deliberately stricter than the shared
-// `isPlainObject` helper. Baseline-only evidence requires a real plain object or a
-// null-prototype dictionary; object-like values (Map, Date, RegExp, class instances) must not
-// masquerade as an empty inventory. The shared normalizer and `artifactMap` fallback remain
-// unchanged for non-baseline callers.
-// A Proxy (or host object) whose `getPrototypeOf` trap throws cannot be proven to be a plain
-// object, so it is classified as unknown inventory rather than aborting the whole check.
-function isCandidateInventory(value) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  let prototype;
-  try {
-    prototype = Object.getPrototypeOf(value);
-  } catch {
-    return false;
-  }
-  return prototype === Object.prototype || prototype === null;
 }
 
 function isRecord(value) {
@@ -66,30 +50,9 @@ function scopePathsOf(obligation) {
   return [];
 }
 
-function artifact(entry) {
-  return entry && typeof entry.digest === 'string' && entry.digest.length > 0 ? entry.digest : '';
-}
-
-// #335 P2: a baseline-bound rename destination must declare its own digest. An inherited
-// `digest` (for example Object.create({ digest })) is not explicit candidate evidence.
-// P2(r4321077631): reads the own digest exactly once. `artifact()` inspects `entry.digest` up
-// to three times (typeof, length, value), so a stateful accessor could validate one value and
-// have the captured destination snapshot carry another. Only the applicable rename-destination
-// snapshot uses this helper; non-baseline and inapplicable lanes keep the legacy `artifact()`
-// reads for their audit identity. A throwing digest getter propagates to the caller's guarded
-// block and fails the inspection closed there. This is the single authoritative own-digest
-// helper; nothing else in this module reads a destination's own digest.
-function ownDigestOnce(entry) {
-  if (!isPlainObject(entry)) return '';
-  if (!hasOwnEntry(entry, 'digest')) return '';
-  const digest = entry.digest;
-  return typeof digest === 'string' && digest.length > 0 ? digest : '';
-}
-
 function provenanceText(record) {
   return nonEmptyString(record.provenance) ? record.provenance : `record ${record.id}`;
 }
-
 
 function provenanceJoin(records, fallback) {
   return records.length ? uniqueSorted(records.map(provenanceText)).join('; ') : fallback;
@@ -122,50 +85,25 @@ function incompleteFields(item) {
   return missing.join(', ');
 }
 
-// F2 (§11): the candidate PRD-set identity is the digest over the sorted [path, digest] pairs
-// of the artifacts under docs/prd/. The envelope must carry this exact digest to attest that
-// the inventory describes the candidate being checked.
-function prdSetDigest(artifactMap) {
-  const pairs = Object.keys(artifactMap)
-    .filter(path => path.startsWith('docs/prd/'))
-    .sort()
-    .map(path => [path, artifact(artifactMap[path])]);
-  return crypto.createHash('sha256').update(JSON.stringify(pairs)).digest('hex');
-}
-
 function checkDocObligations({ obligations, artifacts, baseline, executionRecords, reviewRecords } = {}) {
   const diagnostics = [];
   const results = [];
+  const capture = createInvocationCapture({ artifacts, baseline });
   // P3: distinguish a caller-supplied plain-object or null-prototype inventory (including an
   // explicit {}) from an absent, malformed, or object-like value that the pre-existing
   // normalizer would coerce to (or treat as) an empty map. The provenance check is deferred to
   // applicable obligations that actually declare baseline paths, so non-baseline and
   // inapplicable callers never read the candidate inventory's prototype (a throwing Proxy trap
   // must not abort an unrelated obligation). It is resolved at most once so every obligation
-  // sees the same classification. `artifactMap` keeps the original `isPlainObject` fallback for
-  // non-baseline callers.
-  const artifactMap = isPlainObject(artifacts) ? artifacts : {};
-  let candidateInventoryKnown;
-  const isCandidateInventoryKnown = () => {
-    if (candidateInventoryKnown === undefined) {
-      candidateInventoryKnown = isCandidateInventory(artifacts);
-    }
-    return candidateInventoryKnown;
-  };
+  // sees the same classification. The capture module keeps the original `isPlainObject`
+  // fallback for non-baseline callers and exposes only narrow legacy read operations.
+  capture.initializeArtifactFallback();
   // P2(r4321077638): the whole-baseline identity is read exactly once and that same scalar is
   // validated, so a stateful getter cannot pass validation as A and have every later comparison
   // use B. A baseline identity whose inspection throws is unusable input: the captured digest
   // stays '', so baseline-bound evaluations fail closed through `baseline-identity-missing`
   // instead of escaping the checker, and non-baseline callers keep the legacy '' shape.
-  let baselineDigest = '';
-  if (isPlainObject(baseline)) {
-    try {
-      const declaredBaselineDigest = baseline.digest;
-      if (nonEmptyString(declaredBaselineDigest)) baselineDigest = declaredBaselineDigest;
-    } catch {
-      baselineDigest = '';
-    }
-  }
+  const baselineDigest = capture.captureBaselineIdentity();
   const executionList = Array.isArray(executionRecords) ? executionRecords.filter(isRecord) : [];
   const reviewList = Array.isArray(reviewRecords) ? reviewRecords.filter(isRecord) : [];
 
@@ -183,14 +121,14 @@ function checkDocObligations({ obligations, artifacts, baseline, executionRecord
 
   for (const obligation of obligationList) {
     results.push(evaluateObligation(obligation, {
-      artifactMap, isCandidateInventoryKnown, baseline, baselineDigest, executionList, reviewList, diagnostics
+      capture, baselineDigest, executionList, reviewList, diagnostics
     }));
   }
   return { diagnostics, results };
 }
 
 function evaluateObligation(obligation, context) {
-  const { artifactMap, isCandidateInventoryKnown, baseline, baselineDigest, executionList, reviewList, diagnostics } = context;
+  const { capture, baselineDigest, executionList, reviewList, diagnostics } = context;
   const capability = typeof obligation.capability === 'string' ? obligation.capability : '';
   const obligationId = nonEmptyString(obligation.id) ? obligation.id : capability;
   const scopePaths = scopePathsOf(obligation);
@@ -202,8 +140,8 @@ function evaluateObligation(obligation, context) {
   const scopeObject = isPlainObject(obligation.scope) ? obligation.scope : null;
   const declaresBaselinePaths = Boolean(scopeObject && Object.prototype.hasOwnProperty.call(scopeObject, 'baselinePaths'));
   const declaredBaselinePaths = declaresBaselinePaths ? scopeObject.baselinePaths : undefined;
-  const baselineArtifactsMap = isPlainObject(baseline) && isPlainObject(baseline.artifacts) ? baseline.artifacts : null;
-  const baselineEntries = new Map();
+  const obligationCapture = capture.beginObligation(applicability);
+  const baselineArtifactsAvailable = obligationCapture.prepareBaselineContainer();
   // #340: every accepted entry sharing a rename destination must validate the same own digest,
   // or the shared-destination snapshot is contradictory and the obligation fails closed.
   const validatedDestinationDigestMap = new Map();
@@ -217,12 +155,6 @@ function evaluateObligation(obligation, context) {
   // multiple accepted entries still read the destination once each by design, because their
   // agreement check detects shared-destination contradictions.
   const failedDestinationDigests = new Map();
-  // #340 P2(r4320818749): the validated per-path baseline digest is captured once during
-  // metadata validation. The audit mirror, the stale-baseline diagnostics, and baselineBound()
-  // reuse that captured value instead of re-reading the caller map, so a stateful own getter
-  // cannot pass evidence against a value it started returning only after validation, and a
-  // later-throwing read cannot escape the checker.
-  const validatedBaselineDigests = new Map();
   let baselineMetadataError = false;
   let candidateInventoryUnknown = false;
   // #335 P3: a candidate inventory can pass the prototype check and still throw from an
@@ -245,7 +177,7 @@ function evaluateObligation(obligation, context) {
         baselineMetadataDiagnostic('baseline-identity-missing', undefined,
           'baselinePaths are declared but the baseline carries no whole-baseline digest; baseline-bound evidence cannot be trusted');
       }
-      if (!baselineArtifactsMap) {
+      if (!baselineArtifactsAvailable) {
         baselineMetadataDiagnostic('baseline-artifacts-missing', undefined,
           'baselinePaths are declared but the baseline carries no artifacts map; per-path baseline digests are unavailable');
       }
@@ -253,35 +185,20 @@ function evaluateObligation(obligation, context) {
       for (const rawEntry of declaredBaselinePaths) {
         const invalid = (path, reason) => baselineMetadataDiagnostic('baseline-path-invalid', path,
           `baselinePaths entry ${path ? JSON.stringify(path) : '(malformed)'} is invalid: ${reason}; the path fails closed`);
-        if (!isPlainObject(rawEntry)) {
+        const entryCapture = obligationCapture.captureEntry(rawEntry);
+        if (entryCapture.kind === 'not-object') {
           invalid(undefined, 'it is not an object with a non-empty path');
           continue;
         }
-        // #340: entry fields are snapshotted through one guarded inspection. A Proxy entry
-        // whose `path`, `reason`, or `renameTo` getter or descriptor trap throws must not
-        // escape the checker; the inspection failure itself fails the entry closed as a
-        // metadata error, and each field is carried exactly once so a stateful accessor
-        // cannot make validation and capture disagree.
-        let snapshot = null;
-        try {
-          snapshot = {
-            path: rawEntry.path,
-            reason: rawEntry.reason,
-            hasOwnRenameTo: Object.prototype.hasOwnProperty.call(rawEntry, 'renameTo'),
-            renameTo: rawEntry.renameTo
-          };
-        } catch {
-          snapshot = null;
-        }
-        if (!snapshot) {
+        if (entryCapture.kind === 'inspection-failed') {
           invalid(undefined, 'its entry fields could not be inspected safely (a getter or descriptor trap threw); the entry fails closed');
           continue;
         }
-        if (!nonEmptyString(snapshot.path)) {
+        if (!nonEmptyString(entryCapture.path)) {
           invalid(undefined, 'it is not an object with a non-empty path');
           continue;
         }
-        const entryPath = snapshot.path;
+        const entryPath = entryCapture.path;
         if (seen.has(entryPath)) {
           invalid(entryPath, 'the same path is declared more than once');
           continue;
@@ -291,12 +208,12 @@ function evaluateObligation(obligation, context) {
           invalid(entryPath, 'it is not a member of scope.paths');
           continue;
         }
-        const entryReason = snapshot.reason;
+        const entryReason = entryCapture.reason;
         if (entryReason !== 'deleted' && entryReason !== 'rename-from') {
-          invalid(entryPath, `reason ${JSON.stringify(entryReason)} is not deleted or rename-from`);
+          invalid(entryPath, `reason ${obligationCapture.formatInvalidReason(entryCapture.token)} is not deleted or rename-from`);
           continue;
         }
-        if (entryReason === 'deleted' && snapshot.hasOwnRenameTo) {
+        if (entryReason === 'deleted' && entryCapture.hasOwnRenameTo) {
           invalid(entryPath, 'a deleted entry must not carry renameTo');
           continue;
         }
@@ -306,13 +223,13 @@ function evaluateObligation(obligation, context) {
         if (entryReason === 'rename-from') {
           // #340: the destination annotation is snapshotted once; a stateful getter cannot
           // make the two validation reads disagree.
-          const entryRenameTo = snapshot.renameTo;
+          const entryRenameTo = entryCapture.renameTo;
           if (!nonEmptyString(entryRenameTo) || entryRenameTo === entryPath) {
             invalid(entryPath, 'a rename-from entry needs a distinct non-empty renameTo');
             continue;
           }
           if (!scopePaths.includes(entryRenameTo)) {
-            invalid(entryPath, `its rename destination ${JSON.stringify(entryRenameTo)} is not a member of scope.paths`);
+            invalid(entryPath, `its rename destination ${obligationCapture.formatInvalidRenameTo(entryCapture.token)} is not a member of scope.paths`);
             continue;
           }
           // #340: destination candidate inspection stays applicability-gated. N/A and unknown
@@ -327,17 +244,17 @@ function evaluateObligation(obligation, context) {
             // and this entry fails closed with it, so a stateful getter's later successful
             // value cannot repair a shared destination or enter the audit.
             if (failedDestinationDigests.has(entryRenameTo)) {
-              invalid(entryPath, `its rename destination ${JSON.stringify(entryRenameTo)} failed an earlier snapshot validation for this obligation; the failed destination is not read again and this entry fails closed with it`);
+              invalid(entryPath, `its rename destination ${obligationCapture.formatInvalidRenameTo(entryCapture.token)} failed an earlier snapshot validation for this obligation; the failed destination is not read again and this entry fails closed with it`);
               continue;
             }
             let destinationDigest = '';
             try {
-              if (hasOwnEntry(artifactMap, entryRenameTo)) {
+              if (capture.hasOwnCandidateEntry(entryRenameTo)) {
                 // P2(r4321077631): read the destination's own digest exactly once; the captured
                 // value is the one validated below and the one that flows to the metadata cache,
                 // binding, the stale diagnostics, and the audit identity. A stateful destination
                 // getter cannot be validated as B while a record carrying only its later C passes.
-                destinationDigest = ownDigestOnce(artifactMap[entryRenameTo]);
+                destinationDigest = capture.ownCandidateDigest(entryRenameTo);
               }
             } catch {
               candidateInventoryInspectionFailed = true;
@@ -349,7 +266,7 @@ function evaluateObligation(obligation, context) {
             // #340: the captured own value must be a usable non-empty string; an unusable result
             // is not carried or seeded.
             if (!nonEmptyString(destinationDigest)) {
-              invalid(entryPath, `its rename destination ${JSON.stringify(entryRenameTo)} has no candidate artifact`);
+              invalid(entryPath, `its rename destination ${obligationCapture.formatInvalidRenameTo(entryCapture.token)} has no candidate artifact`);
               // #342 P3: the destination is a visited snapshot even when its own digest is
               // unusable; record it so the capture and audit lanes never re-read it and cannot
               // describe a stateful getter's later non-empty value.
@@ -363,7 +280,7 @@ function evaluateObligation(obligation, context) {
             if (sharedDestinationDigest === undefined) {
               validatedDestinationDigestMap.set(entryRenameTo, destinationDigest);
             } else if (sharedDestinationDigest !== destinationDigest) {
-              invalid(entryPath, `its rename destination ${JSON.stringify(entryRenameTo)} was validated to conflicting own digests by another accepted baseline entry; the shared destination snapshot is not consistent`);
+              invalid(entryPath, `its rename destination ${obligationCapture.formatInvalidRenameTo(entryCapture.token)} was validated to conflicting own digests by another accepted baseline entry; the shared destination snapshot is not consistent`);
               continue;
             }
             renameDestinationDigest = destinationDigest;
@@ -371,7 +288,7 @@ function evaluateObligation(obligation, context) {
         }
         let candidatePathPresent = false;
         try {
-          candidatePathPresent = hasOwnEntry(artifactMap, entryPath);
+          candidatePathPresent = obligationCapture.captureSourceAbsence(entryCapture.token, entryPath).kind === 'present';
         } catch {
           candidateInventoryInspectionFailed = true;
           continue;
@@ -381,43 +298,44 @@ function evaluateObligation(obligation, context) {
             `baseline path ${entryPath} is declared baseline-only but the candidate artifact map has an entry for it (own key, regardless of digest validity); the contradictory path state fails closed`);
           continue;
         }
-        if (baselineArtifactsMap) {
-          let trusted;
-          try {
-            trusted = hasOwnEntry(baselineArtifactsMap, entryPath) ? baselineArtifactsMap[entryPath] : undefined;
-          } catch {
+        let trustedBaselineDigest;
+        if (baselineArtifactsAvailable) {
+          const baselinePathRead = obligationCapture.captureBaselinePath(entryPath);
+          if (baselinePathRead.kind === 'unknown') {
             // #340 P2: a throwing baseline inspection is a metadata error, never an escape.
             baselineMetadataDiagnostic('baseline-artifact-invalid', entryPath,
               `the baseline digest for ${entryPath} could not be inspected safely (a getter or descriptor trap threw); the path fails closed`);
             continue;
           }
-          if (trusted === undefined) {
+          if (baselinePathRead.kind === 'absent' || baselinePathRead.value === undefined) {
             baselineMetadataDiagnostic('baseline-artifact-missing', entryPath,
               `the baseline carries no per-path digest for declared baseline path ${entryPath}; the path fails closed`);
             continue;
           }
-          if (!isSha256(trusted)) {
+          if (baselinePathRead.invalidValue || !isSha256(baselinePathRead.value)) {
             baselineMetadataDiagnostic('baseline-artifact-invalid', entryPath,
               `the baseline digest for ${entryPath} is not a SHA256 value; the path fails closed`);
             continue;
           }
-          validatedBaselineDigests.set(entryPath, trusted);
+          trustedBaselineDigest = baselinePathRead.value;
         }
-        baselineEntries.set(entryPath, {
+        obligationCapture.acceptBaselineEntry({
+          entryToken: entryCapture.token,
           path: entryPath,
           reason: entryReason,
-          // #340: the metadata check above confirmed this path has no own-key candidate entry;
-          // carry that validated source-absence proof explicitly (never spread from rawEntry) so
-          // binding and the audit identity reuse it instead of re-inspecting the candidate map.
-          candidatePathPresent: false,
           // #340 P2: carry the exact validated SHA256 so binding never re-reads the
           // caller-owned baseline map.
-          trustedBaselineDigest: validatedBaselineDigests.get(entryPath),
-          ...(entryReason === 'rename-from' ? { renameTo: snapshot.renameTo, renameDestinationDigest } : {})
+          trustedBaselineDigest,
+          ...(entryReason === 'rename-from' ? { renameTo: entryCapture.renameTo, renameDestinationDigest } : {})
         });
       }
     }
   }
+
+  // These are fresh detached views from the obligation capture. The evaluator keeps its existing
+  // lookup shape while no raw entry or baseline map escapes the capture module.
+  const baselineEntries = new Map(obligationCapture.baselineEntries().map(entry => [entry.path, entry]));
+  const validatedBaselineDigests = new Map(obligationCapture.baselineAuditPairs());
 
   // #335 P3: a mixed scope combines baseline-only paths with ordinary candidate paths. Capture
   // every ordinary scoped candidate digest before evidence binding, so a throwing accessor in
@@ -442,7 +360,7 @@ function evaluateObligation(obligation, context) {
       if (baselineEntries.has(path) || candidateDigestCache.has(path)
         || failedDestinationDigests.has(path)) continue;
       try {
-        candidateDigestCache.set(path, artifact(artifactMap[path]));
+        candidateDigestCache.set(path, capture.candidateArtifact(path));
       } catch {
         candidateInventoryInspectionFailed = true;
       }
@@ -455,7 +373,7 @@ function evaluateObligation(obligation, context) {
   // The prototype read happens here, not up front, so unrelated obligations never touch it.
   if (applicability === 'applicable' && Array.isArray(declaredBaselinePaths)
     && declaredBaselinePaths.length > 0
-    && (candidateInventoryInspectionFailed || !isCandidateInventoryKnown())) {
+    && (candidateInventoryInspectionFailed || !capture.candidateInventoryKnown())) {
     candidateInventoryUnknown = true;
     diagnostics.push({
       code: 'candidate-artifacts-invalid',
@@ -494,7 +412,7 @@ function evaluateObligation(obligation, context) {
     // keep the legacy candidate read for their audit identity and stay `outcome: 'none'`.
     if (applicability === 'applicable' && baselineEntries.has(path)) return '';
     try {
-      return artifact(artifactMap[path]);
+      return capture.candidateArtifact(path);
     } catch {
       return '';
     }
@@ -534,8 +452,8 @@ function evaluateObligation(obligation, context) {
         && item.artifactDigests[path] === digest
         && Array.isArray(item.paths) && item.paths.includes(path);
     }
-    return artifact(artifactMap[path]).length > 0
-      && item.artifactDigests[path] === artifactMap[path].digest
+    return capture.candidateArtifact(path).length > 0
+      && item.artifactDigests[path] === capture.candidateDigestProperty(path)
       && Array.isArray(item.paths) && item.paths.includes(path);
   };
 
@@ -881,7 +799,7 @@ function evaluateObligation(obligation, context) {
       && envelope.complete === true
       && envelope.waiverInventoryComplete === true
       && nonEmptyString(envelope.baseDigest) && envelope.baseDigest === baselineDigest
-      && nonEmptyString(envelope.candidateDigest) && envelope.candidateDigest === prdSetDigest(artifactMap)
+      && nonEmptyString(envelope.candidateDigest) && envelope.candidateDigest === capture.compatibilityPrdSetDigest()
       && nonEmptyString(envelope.configDigest);
     // Q2 (§11): the absence fail is per cited REQ. A REQ that is neither revised in this
     // change nor covered by a valid waiver that lists it (T3 per-REQ coverage; a waiver
