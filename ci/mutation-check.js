@@ -163,8 +163,9 @@ const LEGACY_ASSERTIONS = {
   },
   [`${LEGACY_CASES.skillRouting}.tdd-positive-relevance`]: {
     kind: 'output',
-    pass: /^PASS tdd\/[^:]+: skill-specific relevance proven without pre-step path leaks$/,
-    fail: /^FAIL evals\/tdd\/tasks\/[^:]+: skill is not a candidate step binding(?: \(got:.*\))?$/,
+    // Paths print with the host separator, so accept both / and \ (Windows).
+    pass: /^PASS tdd[\\/][^:]+: skill-specific relevance proven without pre-step path leaks$/,
+    fail: /^FAIL evals[\\/]tdd[\\/]tasks[\\/][^:]+: skill is not a candidate step binding(?: \(got:.*\))?$/,
   },
 };
 
