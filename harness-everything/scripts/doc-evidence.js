@@ -210,8 +210,12 @@ function evaluateObligation(obligation, context) {
   // #342 P3: a rename destination whose own-digest read throws or returns an unusable value is
   // still a visited snapshot. Its captured ('') value is recorded here so the ordinary capture
   // and the audit identity never re-read that destination entry: the single metadata read stays
-  // the only digest read, and a stateful getter cannot ship a later non-empty value into the
-  // audit key even though its entry was rejected.
+  // the only digest read for that declaring entry, and a stateful getter cannot ship a later
+  // non-empty value into the audit key even though its entry was rejected. A poisoned
+  // destination is honored inside the metadata loop (a later declaring entry fails closed
+  // without reading it) and keeps precedence over a previously seeded successful snapshot;
+  // multiple accepted entries still read the destination once each by design, because their
+  // agreement check detects shared-destination contradictions.
   const failedDestinationDigests = new Map();
   // #340 P2(r4320818749): the validated per-path baseline digest is captured once during
   // metadata validation. The audit mirror, the stale-baseline diagnostics, and baselineBound()
@@ -318,6 +322,14 @@ function evaluateObligation(obligation, context) {
           // keeps the un-gated legacy candidate read; only applicable obligations capture and
           // validate the destination snapshot.
           if (applicability === 'applicable') {
+            // #342 review P3: a destination poisoned by an earlier entry's failed snapshot is
+            // honored inside the metadata loop; the failed visited snapshot is never read again
+            // and this entry fails closed with it, so a stateful getter's later successful
+            // value cannot repair a shared destination or enter the audit.
+            if (failedDestinationDigests.has(entryRenameTo)) {
+              invalid(entryPath, `its rename destination ${JSON.stringify(entryRenameTo)} failed an earlier snapshot validation for this obligation; the failed destination is not read again and this entry fails closed with it`);
+              continue;
+            }
             let destinationDigest = '';
             try {
               if (hasOwnEntry(artifactMap, entryRenameTo)) {
@@ -471,14 +483,16 @@ function evaluateObligation(obligation, context) {
   // stale verdict disagree with the digest that actually bound evidence. Untouched paths and
   // unannotated callers keep the legacy read.
   const candidateDigestOf = (path) => {
+    // #342 P3: poisoned state takes precedence over the capture cache. A rejected rename
+    // destination keeps its visited '' capture even when an earlier accepted entry seeded a
+    // successful value, so the audit never describes a value the getter shipped after a failed
+    // snapshot made the obligation fail closed; the caller map is never read for it again.
+    if (failedDestinationDigests.has(path)) return '';
     if (candidateDigestCache.has(path)) return candidateDigestCache.get(path);
     // #340: only an applicable baseline-annotated obligation validated the source absence as
     // part of its captured snapshot. `N/A` and `unknown` obligations never bind evidence, so they
     // keep the legacy candidate read for their audit identity and stay `outcome: 'none'`.
     if (applicability === 'applicable' && baselineEntries.has(path)) return '';
-    // #342 P3: a rejected rename destination keeps its visited '' capture; the caller map is
-    // never read for it again, and its audit identity stays 'missing'.
-    if (failedDestinationDigests.has(path)) return '';
     try {
       return artifact(artifactMap[path]);
     } catch {

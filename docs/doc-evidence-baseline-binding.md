@@ -140,6 +140,14 @@ obligations. `N/A` and `unknown` obligations never bind evidence and keep the le
 for their audit identity (so a candidate `get` that supplies a digest is still reflected there);
 they remain `outcome: 'none'` and do not emit `candidate-artifacts-invalid` from this applicability-gated check.
 
+When several `rename-from` entries declare one shared destination, the read-once promise is scoped
+**per declaring entry**: each entry's metadata validation reads the shared destination once (their
+agreement of validated values is what detects a contradictory shared-destination snapshot). A
+poisoned destination — one whose snapshot was rejected — is honored inside the metadata loop: a
+later declaring entry fails closed without reading the destination again, and the failed snapshot
+wins in the audit, overriding any previously validated successful snapshot that an earlier entry
+carried, rather than silently describing a value the getter shipped after the failure.
+
 A rename destination's validated own digest is carried too. When more than one accepted
 `rename-from` entry shares one `renameTo`, every entry's validated own digest must agree; a
 conflicting validated digest is a contradictory shared-destination snapshot and fails the whole

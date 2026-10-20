@@ -2243,6 +2243,69 @@ checkCase('335 P3 two accepted entries sharing a rename destination must agree o
     `shared rename destinations must agree on the validated digest: ${failures.join('; ')}`);
 });
 
+// #342 review P3: a shared rename destination whose snapshot is rejected must stay honored.
+// invalid→valid: the first declaring entry fails its own snapshot; a later declaring entry must
+// fail closed without reading the destination again (one read total, audit 'missing').
+// valid→throw: the first entry carries a validated success; the second declaration's read
+// throws, and the poisoned visited state wins in the audit over the previously seeded success
+// (one read per declaring entry, two total).
+checkCase('#342 P3 a rejected shared destination is never read again and keeps audit precedence', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+
+    // invalid→valid: first own read unusable, later reads (which must not happen) valid.
+    {
+      const { ctx, obligations, baseline } = sharedDestinationContext(target);
+      const counted = countingDigestEntry('', { validReads: 1, later: 'value', laterValue: RENAME_CAPTURED });
+      // Read counts are scoped to the obligation under test; unrelated obligations keep the
+      // designed legacy candidate read, exactly as runDocLint's single-obligation runs do.
+      const out = target.checkDocObligations({
+        obligations: obligations.filter(item => item.id === 'doc-change:doc-lint'),
+        artifacts: { ...ctx.artifacts, [RENAME_TO]: counted.entry }, baseline,
+        executionRecords: [sharedPairRecord(ctx, 'pair-run', RENAME_CAPTURED)], reviewRecords: []
+      });
+      const result = resultOf(out, 'doc-change:doc-lint');
+      if (result.outcome !== 'none') failures.push(`${label}/invalid-to-valid: outcome=${result.outcome}`);
+      if (!diagnosticCodes(out).includes('baseline-path-invalid')) {
+        failures.push(`${label}/invalid-to-valid: diagnostics=${diagnosticCodes(out)}`);
+      }
+      if (counted.reads() !== 1) failures.push(`${label}/invalid-to-valid: destination reads=${counted.reads()}`);
+      if (result.artifactDigest.includes(RENAME_CAPTURED)) {
+        failures.push(`${label}/invalid-to-valid: audit describes a later value: ${result.artifactDigest}`);
+      }
+      if (!result.artifactDigest.includes(`${RENAME_TO}=missing`)) {
+        failures.push(`${label}/invalid-to-valid: audit=${result.artifactDigest}`);
+      }
+    }
+
+    // valid→throw: successful first snapshot, then a throwing own read on the second entry.
+    {
+      const { ctx, obligations, baseline } = sharedDestinationContext(target);
+      const counted = countingDigestEntry(RENAME_CAPTURED, { validReads: 1, later: 'throw' });
+      const out = target.checkDocObligations({
+        obligations: obligations.filter(item => item.id === 'doc-change:doc-lint'),
+        artifacts: { ...ctx.artifacts, [RENAME_TO]: counted.entry }, baseline,
+        executionRecords: [sharedPairRecord(ctx, 'pair-run', RENAME_CAPTURED)], reviewRecords: []
+      });
+      const result = resultOf(out, 'doc-change:doc-lint');
+      if (result.outcome !== 'none') failures.push(`${label}/valid-to-throw: outcome=${result.outcome}`);
+      if (!diagnosticCodes(out).includes('candidate-artifacts-invalid')) {
+        failures.push(`${label}/valid-to-throw: diagnostics=${diagnosticCodes(out)}`);
+      }
+      if (counted.reads() !== 2) failures.push(`${label}/valid-to-throw: destination reads=${counted.reads()}`);
+      if (result.artifactDigest.includes(RENAME_CAPTURED)) {
+        failures.push(`${label}/valid-to-throw: audit describes a rejected-state value: ${result.artifactDigest}`);
+      }
+      if (!result.artifactDigest.includes(`${RENAME_TO}=missing`)) {
+        failures.push(`${label}/valid-to-throw: audit=${result.artifactDigest}`);
+      }
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `a rejected shared destination must stay single-read and audited as 'missing': ${failures.join('; ')}`);
+});
+
 // ---------------------------------------------------------------------------
 // P2 applicability-gated destination snapshot (review r4318520818 at 56f3094):
 // N/A and unknown obligations never bind evidence, so their destination digest
