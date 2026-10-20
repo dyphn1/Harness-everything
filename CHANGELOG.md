@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.36.1](https://github.com/dyphn1/Harness-everything/compare/v0.36.0...v0.36.1) (2026-10-20)
+
+### Bug Fixes
+
+* **doc-lifecycle:** bind baseline-annotated candidate evidence to captured snapshot ([9852f0c](https://github.com/dyphn1/Harness-everything/commit/9852f0ca5f6460b53d292f88e65663a621a6e5b8)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** bind deleted and renamed evidence to baseline ([8900c6e](https://github.com/dyphn1/Harness-everything/commit/8900c6eb452a8d0812b97498bf1c65ddc4bf40e3)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335) [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** capture mixed-scope candidate digests before binding ([bf34bde](https://github.com/dyphn1/Harness-everything/commit/bf34bdee56684f05b6e3a75aca467204b18eb606))
+* **doc-lifecycle:** capture the validated per-path baseline digest once ([8c67129](https://github.com/dyphn1/Harness-everything/commit/8c67129c91079d0c148390feb8a55acebece89b7)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** carry validated baseline absence and rename destination snapshot ([4800a75](https://github.com/dyphn1/Harness-everything/commit/4800a75df8bdcb6a8e9f6b771c0a594386047d7e)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** close applicable-only absence and shared-destination gaps ([56f3094](https://github.com/dyphn1/Harness-everything/commit/56f3094203c766f1dfc08e5ae32a2ad48dc8bffb)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** defer candidate inventory prototype check to baseline obligations ([ef70db3](https://github.com/dyphn1/Harness-everything/commit/ef70db3e3a70e0b054400f844bb2d30ccda531a5))
+* **doc-lifecycle:** gate destination snapshot on applicability and guard entry inspection ([4cdb97c](https://github.com/dyphn1/Harness-everything/commit/4cdb97c2a8b83bbb3b84a6febbcb434063e6a3c8)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** harden rename destination and malformed inventory evidence ([2882f02](https://github.com/dyphn1/Harness-everything/commit/2882f0279443a5f23064ca5f96de935bc1589dae))
+* **doc-lifecycle:** key the baseline audit mirror on the validated path snapshot ([7217b3a](https://github.com/dyphn1/Harness-everything/commit/7217b3af60cb9b1420d8629877eaf40458b4793b)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** reject non-plain candidate inventories for baseline evidence ([e3cd088](https://github.com/dyphn1/Harness-everything/commit/e3cd0880a90130c612e1b63ceb79ac0f7a5517ba)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** reject unknown candidate inventories for baseline evidence ([2d8a501](https://github.com/dyphn1/Harness-everything/commit/2d8a501b0d3a8935e346bc88ea45535f040451c7)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** require own-key baseline evidence and scoped rename targets ([a464414](https://github.com/dyphn1/Harness-everything/commit/a464414a6f7cd15276c37130fca6f9499364ff97))
+
 ## [0.36.0](https://github.com/dyphn1/Harness-everything/compare/v0.35.0...v0.36.0) (2026-10-18)
 
 ### Features
