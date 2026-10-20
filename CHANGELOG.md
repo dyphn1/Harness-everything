@@ -69,6 +69,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Documentation
+
+* **doc-workflow:** document #325 Phase 3b preparation contracts and fingerprint-qualified expected-RED fixtures; runtime remains gated on #341 E0
+
 ### Bug Fixes
 
 * **doc-obligations:** keep changed REQ citations in unknown sync scope and recognize indented Decision headings
