@@ -196,7 +196,7 @@ function noDiagnosticsChecker() {
 // Disables one AST drift emission only. The C1 sink (noDiagnosticsChecker) is untouched.
 function astDriftDisabledChecker(emissionCode) {
   const source = fs.readFileSync(CHECKER_PATH, 'utf8');
-  const line = new RegExp(`^\\s*add\\('${emissionCode}'.*$`, 'gm');
+  const line = new RegExp(`^\\s*add\\('${emissionCode}'.*$`, 'gm'); // portability-lint: allow regex source, not a file name
   const matches = source.match(line) || [];
   assert.equal(matches.length, 1, `${emissionCode} disable self-test must find exactly one emission`);
   return loadCheckerFromSource(source.replace(line, '      void 0;'));
