@@ -1816,7 +1816,7 @@
     {
       "caseId": "RB103",
       "family": "RB35",
-      "title": "after return the candidate entry is removed from the caller map: first result unchanged, fresh invocation sees the removal",
+      "title": "after return the candidate entry is deleted from the caller map: first result unchanged, fresh invocation sees the absence",
       "recipe": {
         "nodes": {
           "entryP": {
@@ -1938,7 +1938,7 @@
             "node": "candidateArtifacts",
             "key": "docs/adr/GRPH-001.md",
             "to": {
-              "$undefined": true
+              "$delete": true
             }
           }
         ],
@@ -2224,6 +2224,150 @@
             "node": "baselineArtifacts",
             "key": "docs/adr/OLD.md",
             "to": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          }
+        ],
+        "detached": true
+      },
+      "expect": {
+        "results": [
+          [
+            "observed",
+            "pass"
+          ]
+        ],
+        "codes": [],
+        "secondDiffers": true
+      },
+      "budgets": [],
+      "mutants": []
+    },
+    {
+      "caseId": "RB106",
+      "family": "RB35",
+      "title": "after return the candidate entry is set to undefined but stays an own key: first result unchanged, fresh invocation sees the own undefined",
+      "recipe": {
+        "nodes": {
+          "entryP": {
+            "kind": "object",
+            "props": {
+              "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+            }
+          },
+          "candidateArtifacts": {
+            "kind": "object",
+            "props": {
+              "docs/adr/GRPH-001.md": {
+                "$ref": "entryP"
+              }
+            }
+          },
+          "baselineArtifacts": {
+            "kind": "object",
+            "props": {
+              "docs/adr/OLD.md": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          },
+          "baseline": {
+            "kind": "object",
+            "props": {
+              "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "artifacts": {
+                "$ref": "baselineArtifacts"
+              }
+            }
+          }
+        },
+        "input": {
+          "obligations": {
+            "kind": "array",
+            "items": [
+              {
+                "kind": "object",
+                "props": {
+                  "id": "doc.adr",
+                  "capability": "adr",
+                  "applicability": "applicable",
+                  "scope": {
+                    "kind": "object",
+                    "props": {
+                      "paths": {
+                        "kind": "array",
+                        "items": [
+                          "docs/adr/OLD.md",
+                          "docs/adr/GRPH-001.md"
+                        ]
+                      },
+                      "baselinePaths": {
+                        "kind": "array",
+                        "items": [
+                          {
+                            "kind": "object",
+                            "props": {
+                              "path": "docs/adr/OLD.md",
+                              "reason": "deleted"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "artifacts": {
+            "$ref": "candidateArtifacts"
+          },
+          "baseline": {
+            "$ref": "baseline"
+          },
+          "executionRecords": {
+            "kind": "array",
+            "items": [
+              {
+                "kind": "object",
+                "props": {
+                  "id": "e1",
+                  "obligationId": "doc.adr",
+                  "command": "npm test",
+                  "provenance": "ci run 1",
+                  "exitCode": 0,
+                  "paths": {
+                    "kind": "array",
+                    "items": [
+                      "docs/adr/OLD.md",
+                      "docs/adr/GRPH-001.md"
+                    ]
+                  },
+                  "baseDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "baselineArtifacts": {
+                    "kind": "object",
+                    "props": {
+                      "docs/adr/OLD.md": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                    }
+                  },
+                  "artifactDigests": {
+                    "kind": "object",
+                    "props": {
+                      "docs/adr/GRPH-001.md": "1111111111111111111111111111111111111111111111111111111111111111"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "reviewRecords": {
+            "kind": "array",
+            "items": []
+          }
+        },
+        "afterReturn": [
+          {
+            "node": "candidateArtifacts",
+            "key": "docs/adr/GRPH-001.md",
+            "to": {
+              "$undefined": true
+            }
           }
         ],
         "detached": true

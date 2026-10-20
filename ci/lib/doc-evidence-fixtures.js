@@ -20,7 +20,8 @@
 //     with a raw write that records no trace event, then returns $then)
 //   keys beginning "$sym:" are symbol keys, described by the remainder.
 //   recipe.input: subset of the five checker roots; an absent key stays absent.
-//   recipe.afterReturn: [{"node","key","to"}] raw data writes applied after the first checker run.
+//   recipe.afterReturn: [{"node","key","to"}] raw writes applied after the first checker run.
+//     "to": {"$delete": true} removes the own key (absent, not own-undefined); other values write it.
 //   recipe.detached: true runs a second checker invocation over the mutated caller graph and
 //     records whether the first result survived the mutation.
 
@@ -39,6 +40,10 @@ function fail(message) {
 
 function isRef(value) {
   return isObject(value) && typeof value.$ref === 'string' && Object.keys(value).length === 1;
+}
+
+function isDeleteSpec(value) {
+  return isObject(value) && value.$delete === true && Object.keys(value).length === 1;
 }
 
 function isUndefinedSpec(value) {
@@ -151,6 +156,7 @@ function normalizeRecipe(recipe) {
 
   const afterReturn = (Array.isArray(recipe.afterReturn) ? recipe.afterReturn : []).map((item, index) => {
     if (!isObject(item) || typeof item.node !== 'string' || typeof item.key !== 'string') fail(`afterReturn[${index}] needs node and key`);
+    if (isDeleteSpec(item.to)) return { node: item.node, key: item.key, delete: true };
     return { node: item.node, key: item.key, to: flatValue(item.to, `afterReturn[${index}].to`) };
   });
   return { nodes, input, afterReturn, detached: recipe.detached === true };
@@ -184,6 +190,16 @@ function buildCase(recipe, { traced }) {
     Object.defineProperty(raw, key, { value, writable: true, enumerable: true, configurable: true });
     prescribed.push({ node: nodeName, key });
     counters.mutations.push({ node: nodeName, key });
+  };
+
+  // A post-return delete removes the own key, so later reads see absence rather than an own undefined value.
+  const applyDelete = (nodeName, key) => {
+    const raw = raws.get(nodeName);
+    if (raw === undefined) fail(`mutation target ${nodeName} is not a caller object`);
+    if (!Reflect.deleteProperty(raw, key)) fail(`caller property ${nodeName}.${key} is not configurable`);
+    if (Object.prototype.hasOwnProperty.call(raw, key)) fail(`delete left ${nodeName}.${key} as an own property`);
+    prescribed.push({ node: nodeName, key });
+    counters.mutations.push({ node: nodeName, key, op: 'delete' });
   };
 
   for (const [name, node] of flat.nodes) {
@@ -310,7 +326,10 @@ function buildCase(recipe, { traced }) {
     detached: flat.detached,
     prescribed: () => prescribed.slice(),
     applyAfterReturn: () => {
-      for (const item of flat.afterReturn) applyMutation(item.node, item.key, resolve(item.to));
+      for (const item of flat.afterReturn) {
+        if (item.delete) applyDelete(item.node, item.key);
+        else applyMutation(item.node, item.key, resolve(item.to));
+      }
     }
   };
 }
@@ -397,6 +416,7 @@ function runChecker(checker, built) {
 
   built.applyAfterReturn();
   const reencoded = first.output === null ? null : encodeOutput(first.output, built.recorder, { count: 0 });
+  const beforeSecond = built.counters();
   const second = invoke(checker, built);
   result.postReturn = {
     outputUnchangedAfterMutation: JSON.stringify(reencoded) === JSON.stringify(first.encodedOutput),
@@ -405,9 +425,28 @@ function runChecker(checker, built) {
     secondEvents: second.events,
     secondIntegrityChangedTwins: second.integrityChangedTwins,
     secondAliasLeaks: second.leaks,
-    secondCounters: built.counters()
+    secondCounters: counterWindow(beforeSecond, built.counters())
   };
   return result;
+}
+
+// Counters for one invocation window: the difference between two cumulative snapshots. Accessor reads and
+// receivers, trap calls and caller writes are per window. Accessor sequence positions are not reset, so the
+// second window continues the recipe's outcome sequence exactly as before.
+function counterWindow(before, after) {
+  const accessors = {};
+  for (const [path, entry] of Object.entries(after.accessors)) {
+    const prior = before.accessors[path] || { reads: 0, receivers: [] };
+    accessors[path] = { reads: entry.reads - prior.reads, receivers: entry.receivers.slice(prior.receivers.length) };
+  }
+  const traps = {};
+  for (const [name, entry] of Object.entries(after.traps)) {
+    traps[name] = { calls: entry.calls - (before.traps[name] ? before.traps[name].calls : 0) };
+  }
+  const window = { accessors, traps };
+  const mutations = (after.mutations || []).slice((before.mutations || []).length);
+  if (mutations.length > 0) window.mutations = mutations;
+  return window;
 }
 
 module.exports = {
