@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { fileURLToPath, pathToFileURL } = require('url');
 const { prepareMutation } = require('./mutation-loader');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -240,7 +241,7 @@ function stripLoaderPreload(nodeOptions, loaderPath) {
   for (let index = 0; index < tokens.length; index++) {
     const token = tokens[index];
     if (token === '--import' && tokens[index + 1]) {
-      if (isSamePath(tokens[index + 1], loaderPath)) {
+      if (isSameImport(tokens[index + 1], loaderPath)) {
         index++;
         continue;
       }
@@ -249,7 +250,7 @@ function stripLoaderPreload(nodeOptions, loaderPath) {
     }
     if (token.startsWith('--import=')) {
       const imported = token.slice('--import='.length);
-      if (isSamePath(imported, loaderPath)) continue;
+      if (isSameImport(imported, loaderPath)) continue;
     }
     if ((token === '--require' || token === '-r') && tokens[index + 1]) {
       if (isSamePath(tokens[index + 1], loaderPath)) {
@@ -269,9 +270,22 @@ function stripLoaderPreload(nodeOptions, loaderPath) {
   return kept.map(quoteNodeOption).join(' ');
 }
 
+// --import specifiers may be file: URLs; compare them as paths.
+function isSameImport(specifier, loaderPath) {
+  if (specifier.startsWith('file:')) {
+    try {
+      return isSamePath(fileURLToPath(specifier), loaderPath);
+    } catch (_) {
+      return false;
+    }
+  }
+  return isSamePath(specifier, loaderPath);
+}
+
 function addLoaderPreload(nodeOptions, loaderPath) {
   const cleaned = stripLoaderPreload(nodeOptions, loaderPath);
-  const preload = `--import=${loaderPath}`;
+  // --import resolves ESM specifiers, so a Windows drive path must be a file: URL.
+  const preload = `--import=${pathToFileURL(loaderPath).href}`;
   return [cleaned, quoteNodeOption(preload)].filter(Boolean).join(' ');
 }
 

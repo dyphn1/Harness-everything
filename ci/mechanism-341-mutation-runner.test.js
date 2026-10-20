@@ -184,6 +184,9 @@ if (mode === 'control-failure') {
     '--trace-warnings --max-old-space-size=2048',
     'a legacy mutation-loader require is also removed from NODE_OPTIONS'
   );
+  const addedPreload = addLoaderPreload('--trace-warnings', loaderPath);
+  assert.match(addedPreload, /--import="?file:/, 'the loader import is a file: URL so Windows drive paths load under ESM');
+  assert.strictEqual(stripLoaderPreload(addedPreload, loaderPath), '--trace-warnings', 'a file: URL loader import is removed from NODE_OPTIONS');
   const invalidPackageCwd = path.join(root, 'invalid-package-cwd');
   fs.mkdirSync(invalidPackageCwd, { recursive: true });
   fs.writeFileSync(path.join(invalidPackageCwd, 'package.json'), '{ invalid');
