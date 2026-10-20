@@ -1313,6 +1313,10 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "done"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
           }
         },
         {
@@ -1793,6 +1797,10 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "verification retried with evidence"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
           }
         },
         {
@@ -2132,7 +2140,11 @@
         {
           "id": "start",
           "op": "start",
-          "payload": {}
+          "payload": {},
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
         },
         {
           "id": "step",
@@ -2141,6 +2153,10 @@
             "stepId": "req-docs",
             "disposition": "pass",
             "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
           }
         },
         {
@@ -2150,6 +2166,10 @@
             "obligationId": "execute",
             "disposition": "pass",
             "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
           }
         },
         {
@@ -2308,7 +2328,11 @@
         {
           "id": "start",
           "op": "start",
-          "payload": {}
+          "payload": {},
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
         },
         {
           "id": "step",
@@ -2317,6 +2341,10 @@
             "stepId": "req-docs",
             "disposition": "pass",
             "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
           }
         },
         {
@@ -2326,6 +2354,10 @@
             "obligationId": "execute",
             "disposition": "pass",
             "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
           }
         },
         {
@@ -2484,7 +2516,11 @@
         {
           "id": "start",
           "op": "start",
-          "payload": {}
+          "payload": {},
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
         },
         {
           "id": "step",
@@ -2493,6 +2529,10 @@
             "stepId": "req-docs",
             "disposition": "pass",
             "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
           }
         },
         {
@@ -2502,6 +2542,10 @@
             "obligationId": "execute",
             "disposition": "pass",
             "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
           }
         },
         {
@@ -2648,6 +2692,10 @@
             "requirements": "$requirements",
             "strategy": "iterative-single",
             "evidence": "untyped probe"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
           }
         },
         {

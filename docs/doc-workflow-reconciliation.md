@@ -182,14 +182,21 @@ wrong assertion, crash, missing fixture, import error, or other infrastructure f
 qualification. Infrastructure/registry errors exit 2. Expected RED is never a mutation kill or
 document verification credit.
 
+Each action may declare `expectExit` per mode (`off` and `on`; an exit code or array of exit codes,
+default `0`) for an intentional rejection. Before registry matching or parity, a replay action with a
+spawn error, a signal, no exit status, an exit outside its policy, or missing required output (the
+routing checkpoint on `route`, a JSON envelope with a string `state` on controller operations) makes
+the case `INFRASTRUCTURE`. That exits 2 and never qualifies as a gap, even when the other legs or
+later assertions still match.
+
 The discovered [preparation suite](../ci/mechanism-325-3b-preparation.test.js) validates the
 inventory, green OFF controls, exact pending-gap qualification and parity. Its report root contains
 `schemaVersion`, `mode`, `baselineSha`, `runtimeFingerprintMatches`, `pilotCredit`, and `cases`.
 Each case reports `caseId`, `status`, `qualifiedGaps`, `parity`, and `assertions`; each assertion
 identifies its `leg` (`source` or `packaged`), `mode` (`off` or `on`), full assertion `id`,
 classification `status`, and `actual`, with `desired`/`registered` values when applicable. Case
-statuses are `EXPECTED_RED`, `CONTROL_PASS`, or `FAIL`; assertion statuses distinguish passing
-controls, unexpected passes, qualified gaps, unqualified gaps, and registry mismatches.
+statuses are `EXPECTED_RED`, `CONTROL_PASS`, `INFRASTRUCTURE`, or `FAIL`; assertion statuses distinguish
+passing controls, unexpected passes, qualified gaps, unqualified gaps, and registry mismatches.
 `pilotCredit` is always false. `reportOrigin` belongs to the replay's `pilotReportOrigin`
 (`runtime` only for an actual runtime report, otherwise `harness` for a synthesized marker);
 it is not a field on the preparation report's assertion rows. A harness-synthesized unavailable

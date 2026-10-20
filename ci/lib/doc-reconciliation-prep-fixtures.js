@@ -4,7 +4,7 @@
 //
 // Each replay creates a fresh workspace and state home, runs ordered actions through one explicitly
 // selected distribution, and returns a replay root with the L1 shape:
-//   { actions: { [actionId]: { exitCode, signal, stdout, stderr, json, state, pilot } }, state, pilot, pilotReportOrigin }.
+//   { actions: { [actionId]: { exitCode, signal, error, stdout, stderr, json, state, pilot } }, state, pilot, pilotReportOrigin }.
 // Nothing here is production code. The pilot switch is passed to children only as a request; no reader for
 // it exists in this preparation slice, so ON replays run the legacy code path. Fixture operations
 // (provideEvidence, mutateIdentity, timestampHints) write simulated records only inside the replay's own
@@ -128,6 +128,7 @@ function fixtureResult(handle, pilot, payloadSummary) {
   return {
     exitCode: 0,
     signal: null,
+    error: null,
     stdout: JSON.stringify({ fixture: true, ...payloadSummary }),
     stderr: '',
     json: { fixture: true, ...payloadSummary },
@@ -209,6 +210,7 @@ function runAction(handle, action, pilot) {
   return {
     exitCode: result.status,
     signal: result.signal,
+    error: result.error ? result.error.message : null,
     stdout: result.stdout || '',
     stderr: result.stderr || '',
     json: parseJsonOrNull(result.stdout || ''),
@@ -245,6 +247,63 @@ function replayCase(caseDef, distribution, options = {}) {
   } finally {
     disposeSession(handle);
   }
+}
+
+// Per-action expected-exit policy. `expectExit` is optional and per mode: { off, on }, each an integer or a
+// non-empty array of integers. A mode it omits permits exit 0 only. The policy names what the process may do
+// without being an infrastructure failure. It does not name the desired outcome: an ON assertion that wants exit 2
+// while the process exits 0 stays a qualified gap, not a policy violation.
+const DEFAULT_EXIT = Object.freeze([0]);
+const EXIT_POLICY_MODES = new Set(['off', 'on']);
+
+function exitPolicy(action, mode) {
+  if (action.expectExit === undefined) return DEFAULT_EXIT;
+  const policy = action.expectExit;
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) throw new Error(`${action.id} expectExit must be {off, on}`);
+  for (const key of Object.keys(policy)) {
+    if (!EXIT_POLICY_MODES.has(key)) throw new Error(`${action.id} expectExit has unknown mode ${key}`);
+  }
+  if (policy[mode] === undefined) return DEFAULT_EXIT;
+  const codes = Array.isArray(policy[mode]) ? policy[mode] : [policy[mode]];
+  if (codes.length === 0 || !codes.every(code => Number.isInteger(code) && code >= 0 && code <= 255)) {
+    throw new Error(`${action.id} expectExit.${mode} must be an exit code or a non-empty array of exit codes`);
+  }
+  return codes;
+}
+
+// Required output of an accepted (exit 0) action. Routing must print its checkpoint, and controller ops must print
+// the JSON envelope with a string state. Stop and fixture ops have no required output here.
+const ROUTE_CHECKPOINT = /^\[Tier Routing Pre-check\][\s\S]*RECOMMENDED TIER:/;
+
+function missingRequiredOutput(action, result) {
+  if (action.op === 'route') return !ROUTE_CHECKPOINT.test(result.stdout);
+  if (CONTROLLER_OPS.has(action.op)) {
+    return !(result.json !== null && typeof result.json === 'object' && !Array.isArray(result.json) && typeof result.json.state === 'string');
+  }
+  return false;
+}
+
+// Infrastructure faults of one replay: a spawn error, a signal, no exit status, an exit outside the action's policy,
+// or missing required output on an accepted exit. Any fault makes the case an infrastructure failure, decided before
+// registry matching or parity, so a faulted replay can never qualify as an expected RED gap.
+function infrastructureFaults(caseDef, root, mode) {
+  const faults = [];
+  for (const action of caseDef.actions) {
+    const result = root.actions[action.id];
+    if (result.error) faults.push(`${action.id}: spawn error ${result.error}`);
+    if (result.signal) faults.push(`${action.id}: terminated by signal ${result.signal}`);
+    if (result.exitCode === null) {
+      faults.push(`${action.id}: no exit status`);
+      continue;
+    }
+    const policy = exitPolicy(action, mode);
+    if (!policy.includes(result.exitCode)) {
+      faults.push(`${action.id}: exit ${result.exitCode} outside policy [${policy.join(', ')}]`);
+      continue;
+    }
+    if (result.exitCode === 0 && missingRequiredOutput(action, result)) faults.push(`${action.id}: malformed required output`);
+  }
+  return faults;
 }
 
 const VOLATILE_KEYS = new Set([
@@ -372,6 +431,8 @@ module.exports = {
   PILOT_SWITCH,
   ALL_OPS,
   replayCase,
+  exitPolicy,
+  infrastructureFaults,
   scrubReplay,
   scrubText,
   normalize,

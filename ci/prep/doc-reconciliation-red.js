@@ -9,12 +9,14 @@
 //                                                        writes a candidate registry for review; never the registry
 //
 // Optional: --case <id> (repeatable), --cases <file>, --registry <file>, --json (print the report), --log <file>.
-// Exit 2 means infrastructure or registry error (replay crash, malformed registry, unreadable file).
+// Exit 2 means infrastructure or registry error (replay crash, malformed registry, unreadable file, a spawn error,
+// a signal, an exit outside the action's expectExit policy, or missing required output).
 //
 // This file is not discovered by filename. The preparation suite invokes --expect-red and parses the report.
 // A qualified gap is an ON assertion that fails today and matches a registry entry exactly (case, assertion,
-// distribution, actual and desired). Qualification is bound to the runtime fingerprint of the shared runtime
-// files, not to the commit: a registry entry is valid only while those files are byte-identical to the capture.
+// distribution, actual and desired). Infrastructure faults are decided first and never qualify as gaps.
+// Qualification is bound to the runtime fingerprint of the shared runtime files, not to the commit: a registry
+// entry is valid only while those files are byte-identical to the capture.
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -27,6 +29,7 @@ const PREP_DIR = path.join(ROOT, 'ci', 'fixtures', 'doc-obligations', 'reconcili
 const DEFAULT_CASES = path.join(PREP_DIR, 'cases.json');
 const DEFAULT_REGISTRY = path.join(PREP_DIR, 'pending-red.json');
 const LEGS = ['source', 'packaged'];
+const MODES = ['off', 'on'];
 const BLOCKER = '#341 E0';
 const ENTRY_KEYS = ['caseId', 'assertionId', 'distribution', 'baselineSha', 'actual', 'desired', 'blocker', 'reasonCode'];
 // Shared runtime files whose bytes define what the registry describes. Every P01-P08 replay loads the first
@@ -141,6 +144,16 @@ function comparable(root) {
 
 // Classifies one case. `replays` holds the scrubbed roots: off/on for each leg.
 function classifyCase(item, replays, registryEntries) {
+  // Infrastructure first: a faulted replay can never qualify as a gap, and parity is not meaningful for it.
+  const infrastructure = [];
+  for (const mode of MODES) {
+    for (const leg of LEGS) {
+      for (const fault of fx.infrastructureFaults(item, replays[mode][leg], mode)) infrastructure.push(`${leg}.${mode}.${fault}`);
+    }
+  }
+  if (infrastructure.length) {
+    return { caseId: item.id, status: 'INFRASTRUCTURE', qualifiedGaps: 0, parity: 'not-evaluated', reason: infrastructure[0], infrastructure, assertions: [] };
+  }
   const assertions = [];
   let failed = false;
   let qualifiedGaps = 0;
@@ -186,13 +199,28 @@ function classifyCase(item, replays, registryEntries) {
 }
 
 // Both legs, both modes, for one case. Fresh replays every time; nothing is reused between cases or legs.
-function replayAll(item) {
+// `mutate(root, { mode, leg })` is a negative-control hook for the preparation suite; the CLI never passes one.
+function replayAll(item, mutate = null) {
   const replays = { off: {}, on: {} };
   for (const leg of LEGS) {
     replays.off[leg] = fx.scrubReplay(fx.replayCase(item, leg));
     replays.on[leg] = fx.scrubReplay(fx.replayCase(item, leg, { pilot: '1' }));
   }
+  if (mutate) {
+    for (const mode of MODES) {
+      for (const leg of LEGS) mutate(replays[mode][leg], { mode, leg });
+    }
+  }
   return replays;
+}
+
+// The one exit-code rule. Infrastructure (replay faults, policy and output violations) is 2, ahead of RED results.
+function exitCodeFor(report, mode) {
+  if (report.cases.some(item => item.status === 'INFRASTRUCTURE')) return 2;
+  const failed = report.cases.some(item => item.status === 'FAIL');
+  const gaps = report.cases.some(item => item.assertions.some(entry => entry.status.startsWith('gap')));
+  if (mode === 'strict') return failed || gaps ? 1 : 0;
+  return failed ? 1 : 0;
 }
 
 function loadRegistry(file) {
@@ -205,7 +233,7 @@ function loadRegistry(file) {
   return registry;
 }
 
-function run(args) {
+function run(args, options = {}) {
   const corpus = fx.readCaseCorpus(args.casesFile);
   const registry = loadRegistry(args.registryFile);
   validateRegistry(registry, corpus);
@@ -221,8 +249,8 @@ function run(args) {
     cases: []
   };
   for (const item of cases) {
-    const result = classifyCase(item, replayAll(item), registry.entries.filter(entry => entry.caseId === item.id));
-    if (registry.runtimeFingerprint !== runtime) {
+    const result = classifyCase(item, replayAll(item, options.mutate), registry.entries.filter(entry => entry.caseId === item.id));
+    if (registry.runtimeFingerprint !== runtime && result.status !== 'INFRASTRUCTURE') {
       result.status = 'FAIL';
       result.reason = 'runtime fingerprint differs from the registry capture';
     }
@@ -243,6 +271,10 @@ function recapture(args) {
   const cases = corpus.cases.filter(item => args.cases.length === 0 || args.cases.includes(item.id));
   for (const item of cases) {
     const result = classifyCase(item, replayAll(item), []);
+    if (result.status === 'INFRASTRUCTURE') {
+      problems.push(`${item.id} infrastructure: ${result.reason}`);
+      continue;
+    }
     for (const assertion of result.assertions) {
       if (assertion.status === 'control-fail') problems.push(`${item.id} control fails: ${assertion.id}`);
       if (assertion.status === 'gap-unqualified') {
@@ -324,12 +356,12 @@ function main() {
       `  2. review ${CANDIDATE_FILE} against ci/fixtures/doc-obligations/reconciliation-prep/pending-red.json (entries, reasonCode, actual, desired)\n` +
       '  3. replace pending-red.json with the reviewed candidate and delete the candidate file');
   }
-  const failed = report.cases.some(item => item.status === 'FAIL');
-  const gaps = report.cases.some(item => item.assertions.some(entry => entry.status.startsWith('gap')));
-  if (args.mode === 'strict') process.exitCode = failed || gaps ? 1 : 0;
-  else process.exitCode = failed ? 1 : 0;
+  process.exitCode = exitCodeFor(report, args.mode);
 }
 
 if (require.main === module) main();
 
-module.exports = { fingerprint, validateRegistry, classifyCase, run, recapture, parseArgs, recaptureCommand, RegistryError, FINGERPRINT_FILES, CANDIDATE_FILE };
+module.exports = {
+  fingerprint, validateRegistry, classifyCase, replayAll, run, recapture, exitCodeFor, parseArgs, recaptureCommand,
+  RegistryError, FINGERPRINT_FILES, CANDIDATE_FILE
+};

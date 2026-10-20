@@ -13,6 +13,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const fx = require('./lib/doc-reconciliation-prep-fixtures');
+const runner = require('./prep/doc-reconciliation-red.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const PREP_DIR = path.join(__dirname, 'fixtures', 'doc-obligations', 'reconciliation-prep');
@@ -129,6 +130,75 @@ checkCase('an unexpected PASS on a control fails expected-RED mode', () => {
   });
   const run = runRunner(['--expect-red', '--case', 'P06', '--registry', file]);
   assert.strictEqual(run.status, 1, `a passing assertion with a registry entry fails: ${run.stdout}`);
+});
+
+// Infrastructure rule: an abnormal action result is never a qualified gap. The controls change only the ON route
+// result of P01, identically in both legs, so parity stays green and only the infrastructure rule can stop
+// qualification. Everything else in the replays is the unmodified replay's.
+const p01 = corpus.cases.find(item => item.id === 'P01');
+const p01Entries = registry.entries.filter(entry => entry.caseId === 'P01');
+const injectIntoRoute = patch => runner.replayAll(p01, (root, where) => {
+  if (where.mode === 'on') Object.assign(root.actions.route, patch);
+});
+
+checkCase('negative control: an abnormal route in P01 is infrastructure, and --expect-red exits nonzero though later assertions still match', () => {
+  const clean = runner.replayAll(p01);
+  const injected = injectIntoRoute({ exitCode: 1 });
+  const later = p01.expectations.on.filter(assertion => assertion.id.startsWith('verify-obligation') || assertion.id.startsWith('stop-'));
+  for (const leg of ['source', 'packaged']) {
+    const before = fx.evaluateAll(clean.on[leg], later);
+    const after = fx.evaluateAll(injected.on[leg], later);
+    assert.deepStrictEqual(after.map(item => [item.id, item.pass, item.actual]), before.map(item => [item.id, item.pass, item.actual]),
+      `${leg}: the later assertions evaluate exactly as in the unmodified replay`);
+    for (const item of after) {
+      const entry = p01Entries.find(candidate => candidate.assertionId === `P01.on.${item.id}` && candidate.distribution === leg);
+      assert.ok(entry && JSON.stringify(fx.normalize(entry.actual)) === JSON.stringify(fx.normalize(item.actual)),
+        `${leg}: ${item.id} still matches its registry actual, so only the infrastructure rule can stop qualification`);
+    }
+  }
+  const result = runner.classifyCase(p01, injected, p01Entries);
+  assert.strictEqual(result.status, 'INFRASTRUCTURE', `status ${result.status}`);
+  assert.deepStrictEqual(result.infrastructure, ['source.on.route: exit 1 outside policy [0]', 'packaged.on.route: exit 1 outside policy [0]']);
+  assert.deepStrictEqual(result.assertions, [], 'no assertion is qualified or classified for an infrastructure case');
+  assert.strictEqual(runner.exitCodeFor({ cases: [result] }, 'expect-red'), 2, 'expected-RED mode exits nonzero');
+});
+
+checkCase('negative control: a route killed by a signal or without an exit status is infrastructure', () => {
+  const result = runner.classifyCase(p01, injectIntoRoute({ exitCode: null, signal: 'SIGTERM' }), p01Entries);
+  assert.strictEqual(result.status, 'INFRASTRUCTURE');
+  assert.ok(result.infrastructure.includes('source.on.route: terminated by signal SIGTERM'), result.infrastructure.join('; '));
+  assert.ok(result.infrastructure.includes('source.on.route: no exit status'), result.infrastructure.join('; '));
+});
+
+checkCase('negative control: a spawn error on the route is infrastructure', () => {
+  const result = runner.classifyCase(p01, injectIntoRoute({ exitCode: null, error: 'spawnSync node ENOENT' }), p01Entries);
+  assert.strictEqual(result.status, 'INFRASTRUCTURE');
+  assert.ok(result.infrastructure.includes('source.on.route: spawn error spawnSync node ENOENT'), result.infrastructure.join('; '));
+});
+
+checkCase('negative control: an accepted route exit without the routing checkpoint is malformed required output', () => {
+  const result = runner.classifyCase(p01, injectIntoRoute({ stdout: 'routing unavailable' }), p01Entries);
+  assert.strictEqual(result.status, 'INFRASTRUCTURE');
+  assert.ok(result.infrastructure.includes('source.on.route: malformed required output'), result.infrastructure.join('; '));
+});
+
+checkCase('--expect-red exits nonzero from the CLI when a real route exit falls outside its policy', () => {
+  const corpusCopy = JSON.parse(JSON.stringify(corpus));
+  corpusCopy.cases.find(item => item.id === 'P01').actions.find(action => action.id === 'route').expectExit = { off: 1, on: 1 };
+  const file = path.join(workDir, 'route-policy-cases.json');
+  fs.writeFileSync(file, JSON.stringify(corpusCopy), 'utf8');
+  const run = runRunner(['--expect-red', '--case', 'P01', '--cases', file]);
+  assert.strictEqual(run.status, 2, `an infrastructure fault exits 2: ${run.stdout} ${run.stderr}`);
+  assert.ok(run.stdout.includes('INFRASTRUCTURE'), run.stdout);
+});
+
+checkCase('a malformed expectExit policy is an infrastructure error, not a RED pass', () => {
+  const corpusCopy = JSON.parse(JSON.stringify(corpus));
+  corpusCopy.cases.find(item => item.id === 'P06').actions.find(action => action.id === 'route').expectExit = { off: 'two' };
+  const file = path.join(workDir, 'malformed-policy-cases.json');
+  fs.writeFileSync(file, JSON.stringify(corpusCopy), 'utf8');
+  const run = runRunner(['--expect-red', '--case', 'P06', '--cases', file]);
+  assert.strictEqual(run.status, 2, `a malformed policy exits 2: ${run.stdout} ${run.stderr}`);
 });
 
 checkCase('a runtime fingerprint change invalidates qualification and prints the exact deliberate re-capture command', () => {
