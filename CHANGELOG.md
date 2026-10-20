@@ -69,6 +69,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Documentation
+
+* **doc-evidence:** define role-scoped read consistency, compatibility traces, and Phase 0 conformance limits
+
 ### Bug Fixes
 
 * **doc-obligations:** keep changed REQ citations in unknown sync scope and recognize indented Decision headings
