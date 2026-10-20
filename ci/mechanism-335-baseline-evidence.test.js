@@ -1877,7 +1877,9 @@ checkCase('335 P3 the metadata-validated rename destination digest is carried wi
   for (const target of [modules, packageModules]) {
     const label = target === modules ? 'canonical' : 'packaged';
     const ctx = prepare('rename', target);
-    const counted = countingDigestEntry(RENAME_CAPTURED, { validReads: 3, later: 'throw' });
+    // P3(r4321077631): the destination snapshot reads its own digest exactly once, so a getter
+    // that throws after that single valid read is never reached and the captured B still binds.
+    const counted = countingDigestEntry(RENAME_CAPTURED, { validReads: 1, later: 'throw' });
     const artifacts = { ...ctx.artifacts, [RENAME_TO]: counted.entry };
     const record = execRecord(ctx, 'pair-run', 'doc-change:doc-lint', {
       paths: [RENAME_FROM, RENAME_TO], candidatePaths: [], baselinePaths: [RENAME_FROM],
@@ -1892,10 +1894,72 @@ checkCase('335 P3 the metadata-validated rename destination digest is carried wi
     if (!result.artifactDigest.includes(`${RENAME_TO}=${RENAME_CAPTURED}`)) {
       failures.push(`${label}: audit=${result.artifactDigest}`);
     }
-    if (counted.reads() !== 3) failures.push(`${label}: destination reads=${counted.reads()}`);
+    if (counted.reads() !== 1) failures.push(`${label}: destination reads=${counted.reads()}`);
   }
   assert.deepStrictEqual(failures, [],
     `the validated destination digest must be carried: ${failures.join('; ')}`);
+});
+
+// #342 review P3: a destination snapshot rejected during metadata (throwing or unusable own
+// digest) is still a visited snapshot. The capture and audit lanes must never re-read it: the
+// single metadata read stays the only digest read, and a stateful getter cannot ship a later
+// value into the audit identity even though its entry failed.
+checkCase('#342 P3 a rejected destination snapshot is read exactly once even when its digest getter throws', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const ctx = prepare('rename', target);
+    const counted = countingDigestEntry(RENAME_CAPTURED, { validReads: 0, later: 'throw' });
+    const artifacts = { ...ctx.artifacts, [RENAME_TO]: counted.entry };
+    const record = execRecord(ctx, 'move-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    });
+    let out;
+    try {
+      out = runDocLint(ctx, target, { artifacts, records: [record] });
+    } catch (error) { failures.push(`${label}: escaped: ${error.message}`); continue; }
+    const result = resultOf(out, 'doc-change:doc-lint');
+    if (result.outcome !== 'none') failures.push(`${label}: outcome=${result.outcome}`);
+    if (!diagnosticCodes(out).includes('candidate-artifacts-invalid')) {
+      failures.push(`${label}: diagnostics=${diagnosticCodes(out)}`);
+    }
+    if (counted.reads() !== 1) failures.push(`${label}: destination reads=${counted.reads()}`);
+    if (!result.artifactDigest.includes(`${RENAME_TO}=missing`)) {
+      failures.push(`${label}: audit=${result.artifactDigest}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `a rejected throwing destination must be read once and never again: ${failures.join('; ')}`);
+});
+
+checkCase('#342 P3 an unusable first destination read never ships a later non-empty value into the audit', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const ctx = prepare('rename', target);
+    // First read: unusable ''. Any later read (which must not happen) returns non-empty
+    // RENAME_LATER, so the audit would describe it if the rejected snapshot were re-read.
+    const counted = countingDigestEntry('', { validReads: 1, later: 'value', laterValue: RENAME_LATER });
+    const artifacts = { ...ctx.artifacts, [RENAME_TO]: counted.entry };
+    const record = execRecord(ctx, 'move-run', 'doc-change:doc-lint', {
+      paths: [RENAME_FROM, RENAME_TO], candidatePaths: [RENAME_TO], baselinePaths: [RENAME_FROM]
+    });
+    let out;
+    try {
+      out = runDocLint(ctx, target, { artifacts, records: [record] });
+    } catch (error) { failures.push(`${label}: escaped: ${error.message}`); continue; }
+    const result = resultOf(out, 'doc-change:doc-lint');
+    if (result.outcome !== 'none') failures.push(`${label}: outcome=${result.outcome}`);
+    if (counted.reads() !== 1) failures.push(`${label}: destination reads=${counted.reads()}`);
+    if (result.artifactDigest.includes(RENAME_LATER)) {
+      failures.push(`${label}: audit describes a later value: ${result.artifactDigest}`);
+    }
+    if (!result.artifactDigest.includes(`${RENAME_TO}=missing`)) {
+      failures.push(`${label}: audit=${result.artifactDigest}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `an unusable destination read must stay single-read and 'missing': ${failures.join('; ')}`);
 });
 
 checkCase('335 P3 a stale pair plus a destination-only record stays none under descriptor patience', () => {
@@ -2116,10 +2180,12 @@ checkCase('335 P3 two accepted entries sharing a rename destination must agree o
       }
     }
 
-    // Dynamic shared destination: D1 for the first entry's metadata, D2 for the second.
+    // Dynamic shared destination: D1 for the first entry's single-read snapshot, D2 for the
+    // second (the per-entry read advances the getter). P3(r4321077631) made each entry's read
+    // exactly one, so the fixture flips after one valid read.
     {
       const { ctx } = sharedDestinationContext(target);
-      const dynamic = countingDigestEntry(RENAME_CAPTURED, { validReads: 3, later: 'value', laterValue: RENAME_LATER });
+      const dynamic = countingDigestEntry(RENAME_CAPTURED, { validReads: 1, later: 'value', laterValue: RENAME_LATER });
       const artifacts = { ...ctx.artifacts, [RENAME_TO]: dynamic.entry };
       const out = run(artifacts, [
         sharedPairRecord(ctx, 'pair-run', RENAME_CAPTURED),
@@ -2177,6 +2243,69 @@ checkCase('335 P3 two accepted entries sharing a rename destination must agree o
     `shared rename destinations must agree on the validated digest: ${failures.join('; ')}`);
 });
 
+// #342 review P3: a shared rename destination whose snapshot is rejected must stay honored.
+// invalid→valid: the first declaring entry fails its own snapshot; a later declaring entry must
+// fail closed without reading the destination again (one read total, audit 'missing').
+// valid→throw: the first entry carries a validated success; the second declaration's read
+// throws, and the poisoned visited state wins in the audit over the previously seeded success
+// (one read per declaring entry, two total).
+checkCase('#342 P3 a rejected shared destination is never read again and keeps audit precedence', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+
+    // invalid→valid: first own read unusable, later reads (which must not happen) valid.
+    {
+      const { ctx, obligations, baseline } = sharedDestinationContext(target);
+      const counted = countingDigestEntry('', { validReads: 1, later: 'value', laterValue: RENAME_CAPTURED });
+      // Read counts are scoped to the obligation under test; unrelated obligations keep the
+      // designed legacy candidate read, exactly as runDocLint's single-obligation runs do.
+      const out = target.checkDocObligations({
+        obligations: obligations.filter(item => item.id === 'doc-change:doc-lint'),
+        artifacts: { ...ctx.artifacts, [RENAME_TO]: counted.entry }, baseline,
+        executionRecords: [sharedPairRecord(ctx, 'pair-run', RENAME_CAPTURED)], reviewRecords: []
+      });
+      const result = resultOf(out, 'doc-change:doc-lint');
+      if (result.outcome !== 'none') failures.push(`${label}/invalid-to-valid: outcome=${result.outcome}`);
+      if (!diagnosticCodes(out).includes('baseline-path-invalid')) {
+        failures.push(`${label}/invalid-to-valid: diagnostics=${diagnosticCodes(out)}`);
+      }
+      if (counted.reads() !== 1) failures.push(`${label}/invalid-to-valid: destination reads=${counted.reads()}`);
+      if (result.artifactDigest.includes(RENAME_CAPTURED)) {
+        failures.push(`${label}/invalid-to-valid: audit describes a later value: ${result.artifactDigest}`);
+      }
+      if (!result.artifactDigest.includes(`${RENAME_TO}=missing`)) {
+        failures.push(`${label}/invalid-to-valid: audit=${result.artifactDigest}`);
+      }
+    }
+
+    // valid→throw: successful first snapshot, then a throwing own read on the second entry.
+    {
+      const { ctx, obligations, baseline } = sharedDestinationContext(target);
+      const counted = countingDigestEntry(RENAME_CAPTURED, { validReads: 1, later: 'throw' });
+      const out = target.checkDocObligations({
+        obligations: obligations.filter(item => item.id === 'doc-change:doc-lint'),
+        artifacts: { ...ctx.artifacts, [RENAME_TO]: counted.entry }, baseline,
+        executionRecords: [sharedPairRecord(ctx, 'pair-run', RENAME_CAPTURED)], reviewRecords: []
+      });
+      const result = resultOf(out, 'doc-change:doc-lint');
+      if (result.outcome !== 'none') failures.push(`${label}/valid-to-throw: outcome=${result.outcome}`);
+      if (!diagnosticCodes(out).includes('candidate-artifacts-invalid')) {
+        failures.push(`${label}/valid-to-throw: diagnostics=${diagnosticCodes(out)}`);
+      }
+      if (counted.reads() !== 2) failures.push(`${label}/valid-to-throw: destination reads=${counted.reads()}`);
+      if (result.artifactDigest.includes(RENAME_CAPTURED)) {
+        failures.push(`${label}/valid-to-throw: audit describes a rejected-state value: ${result.artifactDigest}`);
+      }
+      if (!result.artifactDigest.includes(`${RENAME_TO}=missing`)) {
+        failures.push(`${label}/valid-to-throw: audit=${result.artifactDigest}`);
+      }
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `a rejected shared destination must stay single-read and audited as 'missing': ${failures.join('; ')}`);
+});
+
 // ---------------------------------------------------------------------------
 // P2 applicability-gated destination snapshot (review r4318520818 at 56f3094):
 // N/A and unknown obligations never bind evidence, so their destination digest
@@ -2220,10 +2349,11 @@ checkCase('335 P2 an inapplicable rename never consumes the destination snapshot
     }
 
     // Positive control: the applicable obligation still captures the destination snapshot
-    // once during metadata and binds against it.
+    // once during metadata and binds against it. P3(r4321077631) made that capture a
+    // single guarded read, so the getter is never consumed beyond its first valid read.
     {
       const ctx = prepare('rename', target);
-      const counted = countingDigestEntry(RENAME_CAPTURED, { validReads: 3, later: 'value', laterValue: RENAME_LATER });
+      const counted = countingDigestEntry(RENAME_CAPTURED, { validReads: 1, later: 'throw' });
       const artifacts = { ...ctx.artifacts, [RENAME_TO]: counted.entry };
       const record = {
         ...execRecord(ctx, 'pair-run', 'doc-change:doc-lint', {
@@ -2235,7 +2365,7 @@ checkCase('335 P2 an inapplicable rename never consumes the destination snapshot
       const out = checkArtifacts(ctx, artifacts, { obligations: [obligation], executionRecords: [record] }, target);
       const result = resultOf(out, 'doc-change:doc-lint');
       if (result.outcome !== 'pass') failures.push(`${label}/applicable: outcome=${result.outcome}`);
-      if (counted.reads() !== 3) failures.push(`${label}/applicable: destination getter reads=${counted.reads()}`);
+      if (counted.reads() !== 1) failures.push(`${label}/applicable: destination getter reads=${counted.reads()}`);
     }
   }
   assert.deepStrictEqual(failures, [],
@@ -2685,6 +2815,224 @@ checkCase('335 P2 the audit mirror reports the metadata-validated path snapshot,
   }
   assert.deepStrictEqual(failures, [],
     `the audit mirror must use the validated path snapshot: ${failures.join('; ')}`);
+});
+
+//----------------------------------------------------------------------------
+// P2(r4321077631/r4321077638) at 7217b3a: whole-baseline identity and rename
+// destination digests must each be read exactly once — the same scalar is
+// validated and captured, so a stateful getter cannot pass validation as one
+// value while evidence binds its later value.
+//----------------------------------------------------------------------------
+
+const RENAME_OLD = 'docs/adr/old.md';
+const RENAME_NEW = 'docs/adr/new.md';
+const RENAME_BASELINE_DIGEST = sha256('rename whole baseline');
+const RENAME_OLD_BASELINE = sha256('old document baseline content');
+const RENAME_DEST_B = sha256('destination content B');
+const RENAME_DEST_C = sha256('destination content C');
+
+checkCase('335 P2 the whole-baseline digest is validated and captured from one read', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const PATH = BASELINE_EXAMPLE;
+
+    function runWith(baseline, recordBaseDigest) {
+      return target.checkDocObligations({
+        obligations: [{
+          id: 'doc-change:doc-lint',
+          capability: 'doc-lint',
+          level: 'MUST',
+          applicability: 'applicable',
+          scope: { paths: [PATH], baselinePaths: [{ path: PATH, reason: 'deleted' }] }
+        }],
+        artifacts: {},
+        baseline,
+        executionRecords: [{
+          id: 'tomb-run',
+          obligationId: 'doc-change:doc-lint',
+          command: 'node ci/mechanism-335-baseline-evidence.test.js # tomb-run',
+          exitCode: 0,
+          provenance: 'baseline identity snapshot regression',
+          baseDigest: recordBaseDigest,
+          paths: [PATH],
+          artifactDigests: {},
+          baselineArtifacts: { [PATH]: BASELINE_EXAMPLE_VALUE }
+        }],
+        reviewRecords: []
+      });
+    }
+
+    // Stateful identity getter: validation must use the first read; a record attesting to the
+    // later value cannot pass.
+    {
+      let identityReads = 0;
+      const baseline = {
+        get digest() {
+          identityReads += 1;
+          return identityReads === 1 ? 'baseline-A' : 'baseline-B';
+        },
+        artifacts: { [PATH]: BASELINE_EXAMPLE_VALUE }
+      };
+      let out;
+      try {
+        out = runWith(baseline, 'baseline-B');
+      } catch (error) {
+        failures.push(`${label}/stateful: escaped: ${error.message}`);
+        continue;
+      }
+      const result = out.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (identityReads !== 1) failures.push(`${label}/stateful: identity getter reads=${identityReads}`);
+      if (result.outcome === 'pass') failures.push(`${label}/stateful: a record bound to the later value passed`);
+      if (!out.diagnostics.some(item => item.code === 'stale-base-digest')
+        && !out.diagnostics.some(item => item.code === 'baseline-identity-missing')) {
+        failures.push(`${label}/stateful: diagnostics=${out.diagnostics.map(item => item.code)}`);
+      }
+    }
+
+    // Stable controls: the validated identity binds; a different identity does not.
+    {
+      const passing = runWith(
+        { digest: 'baseline-A', artifacts: { [PATH]: BASELINE_EXAMPLE_VALUE } }, 'baseline-A');
+      if (passing.results.find(item => item.obligationId === 'doc-change:doc-lint').outcome !== 'pass') {
+        failures.push(`${label}/stable: the validated identity did not pass`);
+      }
+      const stale = runWith(
+        { digest: 'baseline-B', artifacts: { [PATH]: BASELINE_EXAMPLE_VALUE } }, 'baseline-A');
+      const staleResult = stale.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (staleResult.outcome !== 'none') failures.push(`${label}/stable: outcome=${staleResult.outcome}`);
+      if (!stale.diagnostics.some(item => item.code === 'stale-base-digest')) {
+        failures.push(`${label}/stable: diagnostics=${stale.diagnostics.map(item => item.code)}`);
+      }
+    }
+
+    // A throwing identity getter fails closed as a metadata error instead of escaping.
+    {
+      const baseline = {
+        get digest() {
+          throw new Error('baseline identity getter');
+        },
+        artifacts: { [PATH]: BASELINE_EXAMPLE_VALUE }
+      };
+      let out;
+      try {
+        out = runWith(baseline, 'baseline-A');
+      } catch (error) {
+        failures.push(`${label}/throwing: escaped: ${error.message}`);
+        continue;
+      }
+      const result = out.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (result.outcome === 'pass') failures.push(`${label}/throwing: a throwing identity produced a pass`);
+      if (!out.diagnostics.some(item => item.code === 'baseline-identity-missing')) {
+        failures.push(`${label}/throwing: diagnostics=${out.diagnostics.map(item => item.code)}`);
+      }
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `the whole-baseline identity must be captured once: ${failures.join('; ')}`);
+});
+
+checkCase('335 P2 the rename destination digest is validated and captured from one read', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const obligation = {
+      id: 'doc-change:doc-lint',
+      capability: 'doc-lint',
+      level: 'MUST',
+      applicability: 'applicable',
+      scope: {
+        paths: [RENAME_OLD, RENAME_NEW],
+        baselinePaths: [{ path: RENAME_OLD, reason: 'rename-from', renameTo: RENAME_NEW }]
+      }
+    };
+    const baseline = {
+      digest: RENAME_BASELINE_DIGEST,
+      artifacts: { [RENAME_OLD]: RENAME_OLD_BASELINE }
+    };
+
+    function runWith(destinationEntry, recordDestinationDigest) {
+      return target.checkDocObligations({
+        obligations: [obligation],
+        artifacts: { [RENAME_NEW]: destinationEntry },
+        baseline,
+        executionRecords: [{
+          id: 'rename-run',
+          obligationId: 'doc-change:doc-lint',
+          command: 'node ci/mechanism-335-baseline-evidence.test.js # rename-run',
+          exitCode: 0,
+          provenance: 'rename destination snapshot regression',
+          baseDigest: RENAME_BASELINE_DIGEST,
+          paths: [RENAME_OLD, RENAME_NEW],
+          artifactDigests: { [RENAME_NEW]: recordDestinationDigest },
+          baselineArtifacts: { [RENAME_OLD]: RENAME_OLD_BASELINE }
+        }],
+        reviewRecords: []
+      });
+    }
+
+    // Stateful destination digest getter: validation must use the first read B; a record
+    // carrying only the later C cannot pass.
+    {
+      let destinationReads = 0;
+      const statefulDestination = {
+        get digest() {
+          destinationReads += 1;
+          return destinationReads === 1 ? RENAME_DEST_B : RENAME_DEST_C;
+        }
+      };
+      let out;
+      try {
+        out = runWith(statefulDestination, RENAME_DEST_C);
+      } catch (error) {
+        failures.push(`${label}/stateful: escaped: ${error.message}`);
+        continue;
+      }
+      const result = out.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (destinationReads !== 1) failures.push(`${label}/stateful: destination digest reads=${destinationReads}`);
+      if (result.outcome === 'pass') failures.push(`${label}/stateful: a record bound to the later value passed`);
+      if (!out.diagnostics.some(item => item.code === 'stale-artifact-digest')) {
+        failures.push(`${label}/stateful: diagnostics=${out.diagnostics.map(item => item.code)}`);
+      }
+    }
+
+    // Stable controls: the validated destination binds its own value; a different value is stale.
+    {
+      const passing = runWith({ digest: RENAME_DEST_B }, RENAME_DEST_B);
+      if (passing.results.find(item => item.obligationId === 'doc-change:doc-lint').outcome !== 'pass') {
+        failures.push(`${label}/stable: the validated destination did not pass; diagnostics=${passing.diagnostics.map(item => item.code)}`);
+      }
+      const stale = runWith({ digest: RENAME_DEST_B }, RENAME_DEST_C);
+      const staleResult = stale.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (staleResult.outcome !== 'none') failures.push(`${label}/stable: outcome=${staleResult.outcome}`);
+      if (!stale.diagnostics.some(item => item.code === 'stale-artifact-digest')) {
+        failures.push(`${label}/stable: diagnostics=${stale.diagnostics.map(item => item.code)}`);
+      }
+    }
+
+    // A throwing destination digest getter fails closed instead of escaping.
+    {
+      const throwingDestination = {
+        get digest() {
+          throw new Error('destination digest getter');
+        }
+      };
+      let out;
+      try {
+        out = runWith(throwingDestination, RENAME_DEST_B);
+      } catch (error) {
+        failures.push(`${label}/throwing: escaped: ${error.message}`);
+        continue;
+      }
+      const result = out.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (result.outcome === 'pass') failures.push(`${label}/throwing: a throwing destination produced a pass`);
+      if (!out.diagnostics.some(item => item.code === 'candidate-artifacts-invalid')) {
+        failures.push(`${label}/throwing: diagnostics=${out.diagnostics.map(item => item.code)}`);
+      }
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `the rename destination digest must be captured once: ${failures.join('; ')}`);
 });
 
 helper.finish();

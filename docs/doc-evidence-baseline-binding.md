@@ -82,10 +82,16 @@ after validation, cannot mute the stale-baseline diagnostic, and cannot drift th
 Its first read must therefore be the value every consumer sees; a getter that starts returning a
 different or unusable value later is factored out entirely. A baseline per-path inspection that
 throws during validation is a `baseline-artifact-invalid` metadata error and fails the path
-closed. The audit mirror is likewise keyed by the **validated** path snapshot rather than a
-re-read of `baselinePaths[].path`, so a stateful `path` accessor is read exactly once and a
-passing result always describes the baseline identity that validated and bound the evidence.
-closed instead of escaping the checker.
+closed instead of escaping the checker. The audit mirror is likewise keyed by the **validated**
+path snapshot rather than a re-read of `baselinePaths[].path`, so a stateful `path` accessor is
+read exactly once and a passing result always describes the baseline identity that validated and
+bound the evidence.
+
+The whole-baseline identity `baseline.digest` follows the same discipline: it is read exactly
+once and that same scalar is validated, so a stateful value cannot be inspected as A while every
+evidence comparison uses B. The rename destination's own digest is also read exactly once during
+its validated snapshot, and the captured value drives the metadata cache, binding, the stale
+diagnostics, and the audit identity.
 
 Per-path evidence must be carried explicitly. Inherited properties in `baseline.artifacts` or a
 record's `baselineArtifacts` are not own-key evidence and never satisfy a path; the trusted
@@ -110,6 +116,11 @@ candidate digest — the same one used by ordinary candidate binding, the audit 
 stale diagnostics. The destination is therefore never read again through the candidate map during
 capture or binding: a nested `digest` that throws or changes after validation cannot make a stale
 destination pair bind while the audit/stale verdicts still describe the captured value. The same
+read-once guarantee extends to rejected destination snapshots: when the destination's own digest
+read throws or returns an unusable value, that failed snapshot ('') is recorded and all later
+reads for that destination path are suppressed as well — the entry's single metadata read remains
+its only digest read, and the failed path contributes `path=missing` to `artifactDigest` instead
+of a later, different value. The same
 record can cover both endpoints. Destination-only evidence, source-only tombstones, split endpoint
 records, and stale destination digests do not satisfy the source. A deletion tombstone therefore
 cannot stand in for a known rename. This destination validation and the snapshot it produces are
@@ -129,14 +140,24 @@ obligations. `N/A` and `unknown` obligations never bind evidence and keep the le
 for their audit identity (so a candidate `get` that supplies a digest is still reflected there);
 they remain `outcome: 'none'` and do not emit `candidate-artifacts-invalid` from this applicability-gated check.
 
+When several `rename-from` entries declare one shared destination, the read-once promise is scoped
+**per declaring entry**: each entry's metadata validation reads the shared destination once (their
+agreement of validated values is what detects a contradictory shared-destination snapshot). A
+poisoned destination — one whose snapshot was rejected — is honored inside the metadata loop: a
+later declaring entry fails closed without reading the destination again, and the failed snapshot
+wins in the audit, overriding any previously validated successful snapshot that an earlier entry
+carried, rather than silently describing a value the getter shipped after the failure.
+
 A rename destination's validated own digest is carried too. When more than one accepted
 `rename-from` entry shares one `renameTo`, every entry's validated own digest must agree; a
 conflicting validated digest is a contradictory shared-destination snapshot and fails the whole
 obligation closed (metadata error, `outcome: 'none'`) before any binding. The carried digest must
 be a non-empty string: a stateful `digest` accessor whose value is not a usable string is not
-carried or seeded. Only **applicable** obligations validate and carry this destination snapshot;
-`N/A` and `unknown` obligations keep the legacy candidate read for their audit identity and do not
-consume the destination getter during metadata validation.
+carried or seeded — instead the destination path is recorded as a visited failure, and neither the
+capture loop nor the audit identity reads the destination again. Only **applicable** obligations
+validate and carry this destination snapshot; `N/A` and `unknown` obligations keep the legacy
+candidate read for their audit identity and do not consume the destination getter during metadata
+validation.
 
 The binding applies to execution and review records alike. Existing review approval, waiver,
 failing-command, requirement-sync authority, and applicability rules are unchanged. A correctly
