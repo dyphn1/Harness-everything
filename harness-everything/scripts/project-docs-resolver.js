@@ -78,6 +78,25 @@ function isPlainObject(value) {
   return prototype === Object.prototype || prototype === null;
 }
 
+function normalizeHostProjectDocs(projectDocs) {
+  if (!isPlainObject(projectDocs)) return { projectDocs, warnings: [] };
+
+  const normalized = { ...projectDocs };
+  const warnings = [];
+  if (typeof normalized.domains === 'string') {
+    if (typeof normalized.domainLocation !== 'string' || !normalized.domainLocation.trim()) {
+      normalized.domainLocation = normalized.domains;
+    }
+    delete normalized.domains;
+    warnings.push({
+      code: 'deprecated-domains-string',
+      severity: 'warning',
+      message: 'host projectDocs.domains as a string is deprecated; use domainLocation for the zone path and domains as the ID-prefix array'
+    });
+  }
+  return { projectDocs: normalized, warnings };
+}
+
 function projectDocsConfigPath(workspaceRoot) {
   return path.join(workspaceRoot, PROJECT_DOCS_CONFIG);
 }
@@ -148,22 +167,12 @@ function inspectHostProjectDocs(workspaceRoot) {
       continue;
     }
 
-    const projectDocs = { ...manifest.projectDocs };
-    if (typeof projectDocs.domains === 'string') {
-      if (typeof projectDocs.domainLocation !== 'string' || !projectDocs.domainLocation.trim()) {
-        projectDocs.domainLocation = projectDocs.domains;
-      }
-      delete projectDocs.domains;
-      entry.warnings.push({
-        code: 'deprecated-domains-string',
-        severity: 'warning',
-        path: configSource(workspaceRoot, file),
-        message: 'host projectDocs.domains as a string is deprecated; use domainLocation for the zone path and domains as the ID-prefix array'
-      });
-    }
+    const normalizedHost = normalizeHostProjectDocs(manifest.projectDocs);
+    const projectDocs = normalizedHost.projectDocs;
 
     const validation = validateDocsConfig(projectDocs);
     const source = configSource(workspaceRoot, file);
+    entry.warnings.push(...normalizedHost.warnings.map(item => ({ ...item, path: source })));
     entry.warnings.push(...validation.warnings.map(item => ({ ...item, path: source })));
     if (!validation.valid) {
       const details = validation.diagnostics.map(item => item.message).join('; ');
@@ -234,6 +243,13 @@ function validateDocsConfig(config) {
   if (!isPlainObject(config)) {
     invalid('invalid-config-root', 'project-docs.json must contain a JSON object');
     return { valid: false, diagnostics, warnings };
+  }
+
+  for (const field of ['docLocation', 'tracker', 'issueDefinition']) {
+    if (config[field] !== undefined && typeof config[field] !== 'string') {
+      const diagnosticField = field.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+      invalid(`invalid-${diagnosticField}-type`, `${field} must be a string when provided`);
+    }
   }
 
   for (const key of Object.keys(config).sort()) {
@@ -754,6 +770,7 @@ module.exports = {
   readProjectDocs,
   resolveDocsConfig,
   validateDocsConfig,
+  normalizeHostProjectDocs,
   parseContextMap,
   resolveProjectDocs,
   detectProjectDocsConventions,
