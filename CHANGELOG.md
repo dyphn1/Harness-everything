@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.36.2](https://github.com/dyphn1/Harness-everything/compare/v0.36.1...v0.36.2) (2026-10-20)
+
+### Bug Fixes
+
+* **doc-lifecycle:** honor poisoned shared destinations inside metadata ([2c69247](https://github.com/dyphn1/Harness-everything/commit/2c69247c3a2e108df945fc91c68fb060ac04e058)), closes [#340](https://github.com/dyphn1/Harness-everything/issues/340)
+* **doc-lifecycle:** keep rejected destination snapshots single-read ([f49b253](https://github.com/dyphn1/Harness-everything/commit/f49b25318f4022d241d91051e1daa51ef61cdff2)), closes [#340](https://github.com/dyphn1/Harness-everything/issues/340)
+* **doc-lifecycle:** single-read the whole-baseline and destination digests ([063a00b](https://github.com/dyphn1/Harness-everything/commit/063a00b4f97c147299a63d7b9b82fc2cbae87bc0)), closes [#340](https://github.com/dyphn1/Harness-everything/issues/340)
+
 ## [0.36.1](https://github.com/dyphn1/Harness-everything/compare/v0.36.0...v0.36.1) (2026-10-20)
 
 ### Bug Fixes
