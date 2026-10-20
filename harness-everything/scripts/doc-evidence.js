@@ -76,6 +76,19 @@ function ownArtifactDigest(entry) {
   return isPlainObject(entry) && hasOwnEntry(entry, 'digest') ? artifact(entry) : '';
 }
 
+// P2(r4321077631): reads the own digest exactly once. `artifact()` inspects `entry.digest` up
+// to three times (typeof, length, value), so a stateful accessor could validate one value and
+// have the captured destination snapshot carry another. Only the applicable rename-destination
+// snapshot uses this helper; non-baseline and inapplicable lanes keep the legacy `artifact()`
+// reads for their audit identity. A throwing digest getter propagates to the caller's guarded
+// block and fails the inspection closed there.
+function ownDigestOnce(entry) {
+  if (!isPlainObject(entry)) return '';
+  if (!hasOwnEntry(entry, 'digest')) return '';
+  const digest = entry.digest;
+  return typeof digest === 'string' && digest.length > 0 ? digest : '';
+}
+
 function provenanceText(record) {
   return nonEmptyString(record.provenance) ? record.provenance : `record ${record.id}`;
 }
@@ -142,7 +155,20 @@ function checkDocObligations({ obligations, artifacts, baseline, executionRecord
     }
     return candidateInventoryKnown;
   };
-  const baselineDigest = isPlainObject(baseline) && nonEmptyString(baseline.digest) ? baseline.digest : '';
+  // P2(r4321077638): the whole-baseline identity is read exactly once and that same scalar is
+  // validated, so a stateful getter cannot pass validation as A and have every later comparison
+  // use B. A baseline identity whose inspection throws is unusable input: the captured digest
+  // stays '', so baseline-bound evaluations fail closed through `baseline-identity-missing`
+  // instead of escaping the checker, and non-baseline callers keep the legacy '' shape.
+  let baselineDigest = '';
+  if (isPlainObject(baseline)) {
+    try {
+      const declaredBaselineDigest = baseline.digest;
+      if (nonEmptyString(declaredBaselineDigest)) baselineDigest = declaredBaselineDigest;
+    } catch {
+      baselineDigest = '';
+    }
+  }
   const executionList = Array.isArray(executionRecords) ? executionRecords.filter(isRecord) : [];
   const reviewList = Array.isArray(reviewRecords) ? reviewRecords.filter(isRecord) : [];
 
@@ -292,14 +318,18 @@ function evaluateObligation(obligation, context) {
             let destinationDigest = '';
             try {
               if (hasOwnEntry(artifactMap, entryRenameTo)) {
-                destinationDigest = ownArtifactDigest(artifactMap[entryRenameTo]);
+                // P2(r4321077631): read the destination's own digest exactly once; the captured
+                // value is the one validated below and the one that flows to the metadata cache,
+                // binding, the stale diagnostics, and the audit identity. A stateful destination
+                // getter cannot be validated as B while a record carrying only its later C passes.
+                destinationDigest = ownDigestOnce(artifactMap[entryRenameTo]);
               }
             } catch {
               candidateInventoryInspectionFailed = true;
               continue;
             }
-            // #340: the captured own value must be a usable non-empty string; `artifact()` can read
-            // a stateful accessor three times, so a non-string result is not carried or seeded.
+            // #340: the captured own value must be a usable non-empty string; an unusable result
+            // is not carried or seeded.
             if (!nonEmptyString(destinationDigest)) {
               invalid(entryPath, `its rename destination ${JSON.stringify(entryRenameTo)} has no candidate artifact`);
               continue;

@@ -52,6 +52,7 @@ All notable changes to this project are documented in this file.
 * **doc-evidence:** gate the rename destination snapshot on applicability and guard baselinePaths entry inspection, so inapplicable audit identity reports the first legacy digest value and a throwing entry getter or descriptor trap fails the entry closed instead of escaping the checker
 * **doc-evidence:** capture the validated per-path baseline digest during metadata and drive the audit mirror, stale-baseline diagnostics, and binding from that snapshot, so a stateful baseline getter cannot bind a record against a value it started returning only after validation and a throwing inspection is a metadata error instead of an escape
 * **doc-evidence:** key the baseline audit mirror by the metadata-validated path snapshot instead of re-reading `baselinePaths[].path`, so a stateful path accessor read during validation can never make a passing result describe a different baseline identity
+* **doc-evidence:** read the whole-baseline `baseline.digest` and the rename destination's own digest exactly once and validate that captured scalar, so a stateful getter cannot pass validation as one value while evidence binds its later value; identity and destination inspection failures fail closed as structured metadata errors instead of escaping the checker
 
 ## [0.34.0](https://github.com/dyphn1/Harness-everything/compare/v0.33.0...v0.34.0) (2026-10-17)
 

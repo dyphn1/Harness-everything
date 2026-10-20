@@ -82,10 +82,16 @@ after validation, cannot mute the stale-baseline diagnostic, and cannot drift th
 Its first read must therefore be the value every consumer sees; a getter that starts returning a
 different or unusable value later is factored out entirely. A baseline per-path inspection that
 throws during validation is a `baseline-artifact-invalid` metadata error and fails the path
-closed. The audit mirror is likewise keyed by the **validated** path snapshot rather than a
-re-read of `baselinePaths[].path`, so a stateful `path` accessor is read exactly once and a
-passing result always describes the baseline identity that validated and bound the evidence.
-closed instead of escaping the checker.
+closed instead of escaping the checker. The audit mirror is likewise keyed by the **validated**
+path snapshot rather than a re-read of `baselinePaths[].path`, so a stateful `path` accessor is
+read exactly once and a passing result always describes the baseline identity that validated and
+bound the evidence.
+
+The whole-baseline identity `baseline.digest` follows the same discipline: it is read exactly
+once and that same scalar is validated, so a stateful value cannot be inspected as A while every
+evidence comparison uses B. The rename destination's own digest is also read exactly once during
+its validated snapshot, and the captured value drives the metadata cache, binding, the stale
+diagnostics, and the audit identity.
 
 Per-path evidence must be carried explicitly. Inherited properties in `baseline.artifacts` or a
 record's `baselineArtifacts` are not own-key evidence and never satisfy a path; the trusted
