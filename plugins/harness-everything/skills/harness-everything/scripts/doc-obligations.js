@@ -163,6 +163,20 @@ function changePaths(change) {
   return change.kind === 'rename' ? [change.from, change.to] : [change.path];
 }
 
+// #335: a path with no candidate artifact. The old endpoint of an identified rename and a
+// deleted path are both baseline-only. Derivation annotates them; it never removes them from
+// scope.paths, so an unannotated caller keeps the pre-existing fail-closed behavior.
+function baselinePathFacts(changes) {
+  const entries = [];
+  for (const change of changes) {
+    if (change.kind === 'deleted') entries.push({ path: change.path, reason: 'deleted' });
+    else if (change.kind === 'rename') {
+      entries.push({ path: change.from, reason: 'rename-from', renameTo: change.to });
+    }
+  }
+  return entries.sort((left, right) => compareText(left.path, right.path));
+}
+
 function uniqueSorted(values) {
   return [...new Set(values.filter(value => typeof value === 'string'))].sort(compareText);
 }
@@ -1465,6 +1479,7 @@ function deriveDocFacts({ base, candidate, config, inventory } = {}) {
     governedTouched,
     governedPaths: uniqueSorted(contextualChanges.filter(change => change.oldGoverned || change.newGoverned)
       .flatMap(changePaths)),
+    baselinePaths: baselinePathFacts(contextualChanges),
     newGovernedPaths: newGovernedFiles.map(change => change.newPath).sort(compareText),
     derivedAffected,
     derivedPaths,
@@ -1540,6 +1555,13 @@ function deriveDocObligations(facts) {
       ...(facts.citedReqs || []).map(item => item && item.file)]) : []
   };
   const inventoryEnvelope = validFacts ? copyInventoryEnvelope(facts.inventory) : undefined;
+  const baselineByPath = new Map((validFacts && Array.isArray(facts.baselinePaths) ? facts.baselinePaths : [])
+    .filter(entry => entry && typeof entry.path === 'string')
+    .map(entry => [entry.path, {
+      path: entry.path,
+      reason: entry.reason,
+      ...(typeof entry.renameTo === 'string' ? { renameTo: entry.renameTo } : {})
+    }]));
   const requirementFacts = {
     citedReqs: validFacts && Array.isArray(facts.citedReqs) ? facts.citedReqs : [],
     reqUpdates: validFacts && Array.isArray(facts.reqUpdates) ? facts.reqUpdates : [],
@@ -1558,11 +1580,16 @@ function deriveDocObligations(facts) {
     capability: item.capability,
     strength: strengths.get(item.capability) || item.strength,
     applicability: applicable.has(item.capability) ? 'applicable' : unknown.has(item.capability) ? 'unknown' : 'N/A',
-    scope: {
-      paths: uniqueSorted(scopePaths[item.capability] || []),
-      ...(item.capability === 'requirement-sync' && requirementFacts.requirementScopeUnknown
-        ? { requirementIds: 'unknown' } : {})
-    },
+    scope: (() => {
+      const paths = uniqueSorted(scopePaths[item.capability] || []);
+      const baselinePaths = paths.filter(path => baselineByPath.has(path)).map(path => baselineByPath.get(path));
+      return {
+        paths,
+        ...(baselinePaths.length ? { baselinePaths } : {}),
+        ...(item.capability === 'requirement-sync' && requirementFacts.requirementScopeUnknown
+          ? { requirementIds: 'unknown' } : {})
+      };
+    })(),
     acceptance: item.acceptance,
     ...(item.capability === 'requirement-sync' ? requirementFacts : {})
   }));

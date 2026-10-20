@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.36.2](https://github.com/dyphn1/Harness-everything/compare/v0.36.1...v0.36.2) (2026-10-20)
+
+### Bug Fixes
+
+* **doc-lifecycle:** honor poisoned shared destinations inside metadata ([2c69247](https://github.com/dyphn1/Harness-everything/commit/2c69247c3a2e108df945fc91c68fb060ac04e058)), closes [#340](https://github.com/dyphn1/Harness-everything/issues/340)
+* **doc-lifecycle:** keep rejected destination snapshots single-read ([f49b253](https://github.com/dyphn1/Harness-everything/commit/f49b25318f4022d241d91051e1daa51ef61cdff2)), closes [#340](https://github.com/dyphn1/Harness-everything/issues/340)
+* **doc-lifecycle:** single-read the whole-baseline and destination digests ([063a00b](https://github.com/dyphn1/Harness-everything/commit/063a00b4f97c147299a63d7b9b82fc2cbae87bc0)), closes [#340](https://github.com/dyphn1/Harness-everything/issues/340)
+
+## [0.36.1](https://github.com/dyphn1/Harness-everything/compare/v0.36.0...v0.36.1) (2026-10-20)
+
+### Bug Fixes
+
+* **doc-lifecycle:** bind baseline-annotated candidate evidence to captured snapshot ([9852f0c](https://github.com/dyphn1/Harness-everything/commit/9852f0ca5f6460b53d292f88e65663a621a6e5b8)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** bind deleted and renamed evidence to baseline ([8900c6e](https://github.com/dyphn1/Harness-everything/commit/8900c6eb452a8d0812b97498bf1c65ddc4bf40e3)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335) [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** capture mixed-scope candidate digests before binding ([bf34bde](https://github.com/dyphn1/Harness-everything/commit/bf34bdee56684f05b6e3a75aca467204b18eb606))
+* **doc-lifecycle:** capture the validated per-path baseline digest once ([8c67129](https://github.com/dyphn1/Harness-everything/commit/8c67129c91079d0c148390feb8a55acebece89b7)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** carry validated baseline absence and rename destination snapshot ([4800a75](https://github.com/dyphn1/Harness-everything/commit/4800a75df8bdcb6a8e9f6b771c0a594386047d7e)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** close applicable-only absence and shared-destination gaps ([56f3094](https://github.com/dyphn1/Harness-everything/commit/56f3094203c766f1dfc08e5ae32a2ad48dc8bffb)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** defer candidate inventory prototype check to baseline obligations ([ef70db3](https://github.com/dyphn1/Harness-everything/commit/ef70db3e3a70e0b054400f844bb2d30ccda531a5))
+* **doc-lifecycle:** gate destination snapshot on applicability and guard entry inspection ([4cdb97c](https://github.com/dyphn1/Harness-everything/commit/4cdb97c2a8b83bbb3b84a6febbcb434063e6a3c8)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** harden rename destination and malformed inventory evidence ([2882f02](https://github.com/dyphn1/Harness-everything/commit/2882f0279443a5f23064ca5f96de935bc1589dae))
+* **doc-lifecycle:** key the baseline audit mirror on the validated path snapshot ([7217b3a](https://github.com/dyphn1/Harness-everything/commit/7217b3af60cb9b1420d8629877eaf40458b4793b)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** reject non-plain candidate inventories for baseline evidence ([e3cd088](https://github.com/dyphn1/Harness-everything/commit/e3cd0880a90130c612e1b63ceb79ac0f7a5517ba)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** reject unknown candidate inventories for baseline evidence ([2d8a501](https://github.com/dyphn1/Harness-everything/commit/2d8a501b0d3a8935e346bc88ea45535f040451c7)), closes [#335](https://github.com/dyphn1/Harness-everything/issues/335)
+* **doc-lifecycle:** require own-key baseline evidence and scoped rename targets ([a464414](https://github.com/dyphn1/Harness-everything/commit/a464414a6f7cd15276c37130fca6f9499364ff97))
+
 ## [0.36.0](https://github.com/dyphn1/Harness-everything/compare/v0.35.0...v0.36.0) (2026-10-18)
 
 ### Features
@@ -43,6 +69,17 @@ All notable changes to this project are documented in this file.
 * **doc-obligations:** reject PRD revision identities not chained to the base declaration
 * **doc-obligations:** keep unrelated REQ-citing tests out of requirement-sync scope
 * **doc-evidence:** keep unresolved requirement identities out of observed requirement-sync failures
+* **doc-evidence:** bind deleted and renamed baseline paths to trusted per-path digest evidence while keeping candidate paths exact
+* **doc-evidence:** reject absent, malformed, or non-plain-object top-level candidate inventories for baseline-only obligations while keeping explicit empty and null-prototype inventories valid
+* **doc-evidence:** defer the candidate-inventory prototype check to applicable baseline-only obligations and treat a throwing prototype trap as unknown inventory, so unrelated obligations are never aborted
+* **doc-evidence:** bind baseline-annotated mixed scopes and rename destinations to the captured candidate snapshot for evidence binding, the audit identity, and stale diagnostics, so a later-throwing or later-changing digest accessor cannot disagree with the digest that bound evidence
+* **doc-evidence:** carry the metadata-validated rename destination digest and baseline-path source-absence proof through capture and binding, so a candidate inventory that answers consistently during validation is never re-inspected and cannot abort the check or drift the audit key
+* **doc-evidence:** keep rejected rename destination snapshots single-read, so a throwing or unusable destination digest getter is never re-read and its later values never reach the capture or audit identity, including shared destinations where a poisoned destination is honored inside metadata validation and wins in the audit
+* **doc-evidence:** restrict the validated source-absence audit shortcut to applicable obligations and require every accepted entry sharing a rename destination to agree on the validated own digest, so inapplicable audit identity keeps the legacy read and contradictory shared-destination snapshots fail closed
+* **doc-evidence:** gate the rename destination snapshot on applicability and guard baselinePaths entry inspection, so inapplicable audit identity reports the first legacy digest value and a throwing entry getter or descriptor trap fails the entry closed instead of escaping the checker
+* **doc-evidence:** capture the validated per-path baseline digest during metadata and drive the audit mirror, stale-baseline diagnostics, and binding from that snapshot, so a stateful baseline getter cannot bind a record against a value it started returning only after validation and a throwing inspection is a metadata error instead of an escape
+* **doc-evidence:** key the baseline audit mirror by the metadata-validated path snapshot instead of re-reading `baselinePaths[].path`, so a stateful path accessor read during validation can never make a passing result describe a different baseline identity
+* **doc-evidence:** read the whole-baseline `baseline.digest` and the rename destination's own digest exactly once and validate that captured scalar, so a stateful getter cannot pass validation as one value while evidence binds its later value; identity and destination inspection failures fail closed as structured metadata errors instead of escaping the checker
 
 ## [0.34.0](https://github.com/dyphn1/Harness-everything/compare/v0.33.0...v0.34.0) (2026-10-17)
 
