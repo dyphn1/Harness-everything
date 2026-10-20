@@ -410,25 +410,14 @@ function evaluateObligation(obligation, context) {
   }
 
   const baselineAudit = {};
-  if (Array.isArray(declaredBaselinePaths)) {
-    for (const rawEntry of declaredBaselinePaths) {
-      if (!isPlainObject(rawEntry)) continue;
-      // #340 P2: the audit mirror must not let a late-throwing entry accessor escape the
-      // checker; the metadata validation above already fails such entries closed.
-      let auditedPath;
-      let trusted;
-      try {
-        auditedPath = rawEntry.path;
-        trusted = validatedBaselineDigests.has(auditedPath)
-          ? validatedBaselineDigests.get(auditedPath)
-          : (hasOwnEntry(baselineArtifactsMap, auditedPath) ? baselineArtifactsMap[auditedPath] : undefined);
-      } catch {
-        continue;
-      }
-      if (nonEmptyString(auditedPath) && isSha256(trusted)) {
-        baselineAudit[auditedPath] = trusted;
-      }
-    }
+  // #340 P2(r4320941809): the audit mirror is built from the metadata-validated snapshot
+  // (`validatedBaselineDigests`, populated during the per-entry guard), never from a re-read
+  // of the raw entry path or a fallback inspection of the live baseline map. A stateful
+  // `path` accessor therefore cannot make a passing result describe a different baseline
+  // identity than the one that validated and bound the evidence, and each declared path
+  // contributes its snapshot exactly once in validation order.
+  for (const [baselineAuditPath, baselineAuditDigest] of validatedBaselineDigests) {
+    baselineAudit[baselineAuditPath] = baselineAuditDigest;
   }
 
   // An uninspectable candidate entry must not abort an N/A or unknown obligation while the

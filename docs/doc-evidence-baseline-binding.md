@@ -43,7 +43,8 @@ scope = {
   snapshotted through one guarded inspection, and each field result is carried exactly once. An
   entry whose field getter or descriptor trap throws is a metadata error (`baseline-path-invalid`)
   and fails the entry closed instead of escaping the checker; a field accessor that throws only on
-  a later read cannot abort the audit mirror, which skips such entries.
+  a later read cannot abort the audit mirror; the mirror is built from the metadata-validated
+   snapshot (validated path and captured digest) and is never a second read of the raw entry
 - A path without a `baselinePaths` entry remains a normal candidate path and keeps the existing
   exact candidate-digest requirement.
 - `scope.paths` is never filtered to hide a baseline-only path. If the annotation is absent, the
@@ -81,6 +82,9 @@ after validation, cannot mute the stale-baseline diagnostic, and cannot drift th
 Its first read must therefore be the value every consumer sees; a getter that starts returning a
 different or unusable value later is factored out entirely. A baseline per-path inspection that
 throws during validation is a `baseline-artifact-invalid` metadata error and fails the path
+closed. The audit mirror is likewise keyed by the **validated** path snapshot rather than a
+re-read of `baselinePaths[].path`, so a stateful `path` accessor is read exactly once and a
+passing result always describes the baseline identity that validated and bound the evidence.
 closed instead of escaping the checker.
 
 Per-path evidence must be carried explicitly. Inherited properties in `baseline.artifacts` or a
@@ -169,8 +173,9 @@ bound command that fails still produces an observed failure, not a pass.
   unknown inventory (`candidate-artifacts-invalid` for applicable baseline-only obligations)
   instead of escaping the checker. Inspecting a `baselinePaths` entry itself is guarded the same
   way: an entry whose `path`, `reason`, or `renameTo` field getter or descriptor trap throws is a
-  `baseline-path-invalid` metadata error, not an escape, and a field accessor that starts throwing
-  after the guarded snapshot cannot abort the audit mirror. Inspection is not repeated after
+  `baseline-path-invalid` metadata error, not an escape; the audit mirror is built from the
+  validated snapshot and contains no second read of the raw entry, so an accessor that only
+  misbehaves after the guarded snapshot is never reached. Inspection is not repeated after
   validation for a validated baseline-only path or a rename destination, so a trap that only
   starts throwing on a later re-inspection is never reached. `N/A` and `unknown` obligations never
   emit that diagnostic.
@@ -228,6 +233,9 @@ The result is not a pass when any of the following is observed:
   against the validated baseline value captured during metadata, not a live re-read;
 - a baseline per-path digest whose inspection throws (a getter or descriptor trap), which is a
   `baseline-artifact-invalid` metadata error rather than an escape;
+- a stateful `baselinePaths[].path` accessor whose later read names a different path: the audit
+  mirror is keyed by the validated path snapshot, so a pass can never describe a different
+  baseline identity than the one that validated the evidence;
 - an unsupported review kind, an unapproved review, or an incomplete execution record.
 
 These cases are visible in diagnostics and remain `outcome: 'none'` unless the failure is a
@@ -237,5 +245,5 @@ correctly bound command, which remains `outcome: 'fail'` as before.
 
 Results keep the existing `artifactDigest`, `baseDigest`, `provenance`, and `recordRefs` fields.
 Obligations that declare baseline paths additionally expose `baselineArtifacts`, mapping each
-baseline-only path to the trusted baseline value used for the check. The field is additive; callers
-that do not use baseline binding see unchanged output.
+validated baseline-only path to the trusted baseline value used for the check. The field is
+additive; callers that do not use baseline binding see unchanged output.

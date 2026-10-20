@@ -2434,7 +2434,7 @@ function singleBaselineObligation() {
   }];
 }
 
-function singleBaselineRecord(baselineDigestValue, baselinePathValue) {
+function singleBaselineRecord(baselineDigestValue, baselinePathValue, pathPart = BASELINE_EXAMPLE) {
   return [{
     id: 'tomb-run',
     obligationId: 'doc-change:doc-lint',
@@ -2442,9 +2442,9 @@ function singleBaselineRecord(baselineDigestValue, baselinePathValue) {
     exitCode: 0,
     provenance: 'validated baseline snapshot regression',
     baseDigest: baselineDigestValue,
-    paths: [BASELINE_EXAMPLE],
+    paths: [pathPart],
     artifactDigests: {},
-    baselineArtifacts: { [BASELINE_EXAMPLE]: baselinePathValue }
+    baselineArtifacts: { [pathPart]: baselinePathValue }
   }];
 }
 
@@ -2565,6 +2565,126 @@ checkCase('335 P2 a drifted live baseline digest cannot bind a record against th
   }
   assert.deepStrictEqual(failures, [],
     `the validated baseline digest must be captured once: ${failures.join('; ')}`);
+});
+
+checkCase('335 P2 the audit mirror reports the metadata-validated path snapshot, not a re-read', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const PATH_A = 'docs/adr/A.md';
+    const PATH_B = 'docs/adr/B.md';
+    const baselineDigest = sha256('audit-mirror whole baseline');
+    const baseline = {
+      digest: baselineDigest,
+      artifacts: { [PATH_A]: BASELINE_EXAMPLE_VALUE, [PATH_B]: BASELINE_EXAMPLE_LATER }
+    };
+
+    // Stateful path getter: metadata validates A (first read); the audit mirror must keep
+    // describing A and must not re-read the getter.
+    {
+      let pathReads = 0;
+      const entry = {
+        get path() {
+          pathReads += 1;
+          return pathReads === 1 ? PATH_A : PATH_B;
+        },
+        reason: 'deleted'
+      };
+      const obligation = {
+        id: 'doc-change:doc-lint',
+        capability: 'doc-lint',
+        level: 'MUST',
+        applicability: 'applicable',
+        scope: { paths: [PATH_A], baselinePaths: [entry] }
+      };
+      let out;
+      try {
+        out = target.checkDocObligations({
+          obligations: [obligation],
+          artifacts: {},
+          baseline,
+          executionRecords: singleBaselineRecord(baselineDigest, BASELINE_EXAMPLE_VALUE, PATH_A),
+          reviewRecords: []
+        });
+      } catch (error) {
+        failures.push(`${label}/stateful: escaped: ${error.message}`);
+        continue;
+      }
+      const result = out.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (result.outcome !== 'pass') failures.push(`${label}/stateful: outcome=${result.outcome}`);
+      if (result.baselineArtifacts[PATH_B] !== undefined) {
+        failures.push(`${label}/stateful: audit ${JSON.stringify(result.baselineArtifacts)} describes the unvalidated path`);
+      }
+      if (result.baselineArtifacts[PATH_A] !== BASELINE_EXAMPLE_VALUE) {
+        failures.push(`${label}/stateful: audit ${JSON.stringify(result.baselineArtifacts)} lost the validated digest`);
+      }
+      if (pathReads !== 1) failures.push(`${label}/stateful: path getter reads=${pathReads}`);
+    }
+
+    // Static-path positive control: a plain entry reports its validated snapshot.
+    {
+      const obligation = {
+        id: 'doc-change:doc-lint',
+        capability: 'doc-lint',
+        level: 'MUST',
+        applicability: 'applicable',
+        scope: { paths: [PATH_A], baselinePaths: [{ path: PATH_A, reason: 'deleted' }] }
+      };
+      const out = target.checkDocObligations({
+        obligations: [obligation],
+        artifacts: {},
+        baseline,
+        executionRecords: singleBaselineRecord(baselineDigest, BASELINE_EXAMPLE_VALUE, PATH_A),
+        reviewRecords: []
+      });
+      const result = out.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (result.outcome !== 'pass') failures.push(`${label}/static: outcome=${result.outcome}`);
+      if (result.baselineArtifacts[PATH_A] !== BASELINE_EXAMPLE_VALUE) {
+        failures.push(`${label}/static: audit=${JSON.stringify(result.baselineArtifacts)}`);
+      }
+    }
+
+    // Inapplicable obligations report the validated snapshot too and never re-read the entry.
+    {
+      let pathReads = 0;
+      const entry = {
+        get path() {
+          pathReads += 1;
+          return pathReads === 1 ? PATH_A : PATH_B;
+        },
+        reason: 'deleted'
+      };
+      const obligation = {
+        id: 'doc-change:doc-lint',
+        capability: 'doc-lint',
+        level: 'MUST',
+        applicability: 'N/A',
+        scope: { paths: [PATH_A], baselinePaths: [entry] }
+      };
+      let out;
+      try {
+        out = target.checkDocObligations({
+          obligations: [obligation],
+          artifacts: {},
+          baseline,
+          executionRecords: [],
+          reviewRecords: []
+        });
+      } catch (error) {
+        failures.push(`${label}/N/A: escaped: ${error.message}`);
+        continue;
+      }
+      const result = out.results.find(item => item.obligationId === 'doc-change:doc-lint');
+      if (result.outcome !== 'none') failures.push(`${label}/N/A: outcome=${result.outcome}`);
+      if (result.baselineArtifacts[PATH_B] !== undefined
+        || result.baselineArtifacts[PATH_A] !== BASELINE_EXAMPLE_VALUE) {
+        failures.push(`${label}/N/A: audit=${JSON.stringify(result.baselineArtifacts)}`);
+      }
+      if (pathReads !== 1) failures.push(`${label}/N/A: path getter reads=${pathReads}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `the audit mirror must use the validated path snapshot: ${failures.join('; ')}`);
 });
 
 helper.finish();
