@@ -49,6 +49,7 @@ All notable changes to this project are documented in this file.
 * **doc-evidence:** bind baseline-annotated mixed scopes and rename destinations to the captured candidate snapshot for evidence binding, the audit identity, and stale diagnostics, so a later-throwing or later-changing digest accessor cannot disagree with the digest that bound evidence
 * **doc-evidence:** carry the metadata-validated rename destination digest and baseline-path source-absence proof through capture and binding, so a candidate inventory that answers consistently during validation is never re-inspected and cannot abort the check or drift the audit key
 * **doc-evidence:** restrict the validated source-absence audit shortcut to applicable obligations and require every accepted entry sharing a rename destination to agree on the validated own digest, so inapplicable audit identity keeps the legacy read and contradictory shared-destination snapshots fail closed
+* **doc-evidence:** gate the rename destination snapshot on applicability and guard baselinePaths entry inspection, so inapplicable audit identity reports the first legacy digest value and a throwing entry getter or descriptor trap fails the entry closed instead of escaping the checker
 
 ## [0.34.0](https://github.com/dyphn1/Harness-everything/compare/v0.33.0...v0.34.0) (2026-10-17)
 

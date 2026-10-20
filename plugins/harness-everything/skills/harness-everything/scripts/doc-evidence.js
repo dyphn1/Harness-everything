@@ -214,11 +214,35 @@ function evaluateObligation(obligation, context) {
       for (const rawEntry of declaredBaselinePaths) {
         const invalid = (path, reason) => baselineMetadataDiagnostic('baseline-path-invalid', path,
           `baselinePaths entry ${path ? JSON.stringify(path) : '(malformed)'} is invalid: ${reason}; the path fails closed`);
-        if (!isPlainObject(rawEntry) || !nonEmptyString(rawEntry.path)) {
+        if (!isPlainObject(rawEntry)) {
           invalid(undefined, 'it is not an object with a non-empty path');
           continue;
         }
-        const entryPath = rawEntry.path;
+        // #340: entry fields are snapshotted through one guarded inspection. A Proxy entry
+        // whose `path`, `reason`, or `renameTo` getter or descriptor trap throws must not
+        // escape the checker; the inspection failure itself fails the entry closed as a
+        // metadata error, and each field is carried exactly once so a stateful accessor
+        // cannot make validation and capture disagree.
+        let snapshot = null;
+        try {
+          snapshot = {
+            path: rawEntry.path,
+            reason: rawEntry.reason,
+            hasOwnRenameTo: Object.prototype.hasOwnProperty.call(rawEntry, 'renameTo'),
+            renameTo: rawEntry.renameTo
+          };
+        } catch {
+          snapshot = null;
+        }
+        if (!snapshot) {
+          invalid(undefined, 'its entry fields could not be inspected safely (a getter or descriptor trap threw); the entry fails closed');
+          continue;
+        }
+        if (!nonEmptyString(snapshot.path)) {
+          invalid(undefined, 'it is not an object with a non-empty path');
+          continue;
+        }
+        const entryPath = snapshot.path;
         if (seen.has(entryPath)) {
           invalid(entryPath, 'the same path is declared more than once');
           continue;
@@ -228,52 +252,64 @@ function evaluateObligation(obligation, context) {
           invalid(entryPath, 'it is not a member of scope.paths');
           continue;
         }
-        if (rawEntry.reason !== 'deleted' && rawEntry.reason !== 'rename-from') {
-          invalid(entryPath, `reason ${JSON.stringify(rawEntry.reason)} is not deleted or rename-from`);
+        const entryReason = snapshot.reason;
+        if (entryReason !== 'deleted' && entryReason !== 'rename-from') {
+          invalid(entryPath, `reason ${JSON.stringify(entryReason)} is not deleted or rename-from`);
           continue;
         }
-        if (rawEntry.reason === 'deleted' && Object.prototype.hasOwnProperty.call(rawEntry, 'renameTo')) {
+        if (entryReason === 'deleted' && snapshot.hasOwnRenameTo) {
           invalid(entryPath, 'a deleted entry must not carry renameTo');
           continue;
         }
         // #340: the validated rename destination digest is carried on the entry; the
         // destination candidate map is not read again after metadata validation.
         let renameDestinationDigest = '';
-        if (rawEntry.reason === 'rename-from') {
-          if (!nonEmptyString(rawEntry.renameTo) || rawEntry.renameTo === entryPath) {
+        if (entryReason === 'rename-from') {
+          // #340: the destination annotation is snapshotted once; a stateful getter cannot
+          // make the two validation reads disagree.
+          const entryRenameTo = snapshot.renameTo;
+          if (!nonEmptyString(entryRenameTo) || entryRenameTo === entryPath) {
             invalid(entryPath, 'a rename-from entry needs a distinct non-empty renameTo');
             continue;
           }
-          if (!scopePaths.includes(rawEntry.renameTo)) {
-            invalid(entryPath, `its rename destination ${JSON.stringify(rawEntry.renameTo)} is not a member of scope.paths`);
+          if (!scopePaths.includes(entryRenameTo)) {
+            invalid(entryPath, `its rename destination ${JSON.stringify(entryRenameTo)} is not a member of scope.paths`);
             continue;
           }
-          let destinationDigest = '';
-          try {
-            if (hasOwnEntry(artifactMap, rawEntry.renameTo)) {
-              destinationDigest = ownArtifactDigest(artifactMap[rawEntry.renameTo]);
+          // #340: destination candidate inspection stays applicability-gated. N/A and unknown
+          // obligations never bind evidence, so consuming their destination digest getter
+          // during metadata validation would shift the legacy audit identity (a stateful
+          // getter reports a later value on the second artifact read). Their audit identity
+          // keeps the un-gated legacy candidate read; only applicable obligations capture and
+          // validate the destination snapshot.
+          if (applicability === 'applicable') {
+            let destinationDigest = '';
+            try {
+              if (hasOwnEntry(artifactMap, entryRenameTo)) {
+                destinationDigest = ownArtifactDigest(artifactMap[entryRenameTo]);
+              }
+            } catch {
+              candidateInventoryInspectionFailed = true;
+              continue;
             }
-          } catch {
-            candidateInventoryInspectionFailed = true;
-            continue;
+            // #340: the captured own value must be a usable non-empty string; `artifact()` can read
+            // a stateful accessor three times, so a non-string result is not carried or seeded.
+            if (!nonEmptyString(destinationDigest)) {
+              invalid(entryPath, `its rename destination ${JSON.stringify(entryRenameTo)} has no candidate artifact`);
+              continue;
+            }
+            // #340: entries that share one rename destination must agree on the validated own
+            // digest. A conflicting validated value is a contradictory snapshot and fails the
+            // whole obligation closed before any binding; equal values are allowed.
+            const sharedDestinationDigest = validatedDestinationDigestMap.get(entryRenameTo);
+            if (sharedDestinationDigest === undefined) {
+              validatedDestinationDigestMap.set(entryRenameTo, destinationDigest);
+            } else if (sharedDestinationDigest !== destinationDigest) {
+              invalid(entryPath, `its rename destination ${JSON.stringify(entryRenameTo)} was validated to conflicting own digests by another accepted baseline entry; the shared destination snapshot is not consistent`);
+              continue;
+            }
+            renameDestinationDigest = destinationDigest;
           }
-          // #340: the captured own value must be a usable non-empty string; `artifact()` can read
-          // a stateful accessor three times, so a non-string result is not carried or seeded.
-          if (!nonEmptyString(destinationDigest)) {
-            invalid(entryPath, `its rename destination ${JSON.stringify(rawEntry.renameTo)} has no candidate artifact`);
-            continue;
-          }
-          // #340: entries that share one rename destination must agree on the validated own
-          // digest. A conflicting validated value is a contradictory snapshot and fails the
-          // whole obligation closed before any binding; equal values are allowed.
-          const sharedDestinationDigest = validatedDestinationDigestMap.get(rawEntry.renameTo);
-          if (sharedDestinationDigest === undefined) {
-            validatedDestinationDigestMap.set(rawEntry.renameTo, destinationDigest);
-          } else if (sharedDestinationDigest !== destinationDigest) {
-            invalid(entryPath, `its rename destination ${JSON.stringify(rawEntry.renameTo)} was validated to conflicting own digests by another accepted baseline entry; the shared destination snapshot is not consistent`);
-            continue;
-          }
-          renameDestinationDigest = destinationDigest;
         }
         let candidatePathPresent = false;
         try {
@@ -302,12 +338,12 @@ function evaluateObligation(obligation, context) {
         }
         baselineEntries.set(entryPath, {
           path: entryPath,
-          reason: rawEntry.reason,
+          reason: entryReason,
           // #340: the metadata check above confirmed this path has no own-key candidate entry;
           // carry that validated source-absence proof explicitly (never spread from rawEntry) so
           // binding and the audit identity reuse it instead of re-inspecting the candidate map.
           candidatePathPresent: false,
-          ...(rawEntry.reason === 'rename-from' ? { renameTo: rawEntry.renameTo, renameDestinationDigest } : {})
+          ...(entryReason === 'rename-from' ? { renameTo: snapshot.renameTo, renameDestinationDigest } : {})
         });
       }
     }
@@ -358,10 +394,19 @@ function evaluateObligation(obligation, context) {
   const baselineAudit = {};
   if (Array.isArray(declaredBaselinePaths)) {
     for (const rawEntry of declaredBaselinePaths) {
-      if (isPlainObject(rawEntry) && nonEmptyString(rawEntry.path)
-        && hasOwnEntry(baselineArtifactsMap, rawEntry.path)
-        && isSha256(baselineArtifactsMap[rawEntry.path])) {
-        baselineAudit[rawEntry.path] = baselineArtifactsMap[rawEntry.path];
+      if (!isPlainObject(rawEntry)) continue;
+      // #340 P2: the audit mirror must not let a late-throwing entry accessor escape the
+      // checker; the metadata validation above already fails such entries closed.
+      let auditedPath;
+      let trusted;
+      try {
+        auditedPath = rawEntry.path;
+        trusted = hasOwnEntry(baselineArtifactsMap, auditedPath) ? baselineArtifactsMap[auditedPath] : undefined;
+      } catch {
+        continue;
+      }
+      if (nonEmptyString(auditedPath) && isSha256(trusted)) {
+        baselineAudit[auditedPath] = trusted;
       }
     }
   }

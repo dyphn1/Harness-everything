@@ -2177,4 +2177,221 @@ checkCase('335 P3 two accepted entries sharing a rename destination must agree o
     `shared rename destinations must agree on the validated digest: ${failures.join('; ')}`);
 });
 
+// ---------------------------------------------------------------------------
+// P2 applicability-gated destination snapshot (review r4318520818 at 56f3094):
+// N/A and unknown obligations never bind evidence, so their destination digest
+// getter must not be consumed during metadata validation; the audit identity
+// keeps the un-gated legacy candidate read (the parent value).
+// ---------------------------------------------------------------------------
+
+checkCase('335 P2 an inapplicable rename never consumes the destination snapshot during metadata', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    for (const applicability of ['N/A', 'unknown', undefined]) {
+      const ctx = prepare('rename', target);
+      const lint = obligationOf(ctx, 'doc-change:doc-lint');
+      const counted = countingDigestEntry(RENAME_CAPTURED, { validReads: 3, later: 'value', laterValue: RENAME_LATER });
+      const artifacts = { ...ctx.artifacts, [RENAME_TO]: counted.entry };
+      let obligation;
+      if (applicability === undefined) {
+        obligation = { ...lint };
+        delete obligation.applicability;
+      } else {
+        obligation = { ...lint, applicability };
+      }
+      let out;
+      try {
+        out = checkArtifacts(ctx, artifacts, { obligations: [obligation] }, target);
+      } catch (error) {
+        failures.push(`${label}/${applicability}: escaped: ${error.message}`);
+        continue;
+      }
+      const result = resultOf(out, lint.id);
+      if (result.outcome !== 'none') failures.push(`${label}/${applicability}: outcome=${result.outcome}`);
+      if (!result.artifactDigest.includes(`${RENAME_TO}=${RENAME_CAPTURED}`)) {
+        failures.push(`${label}/${applicability}: audit=${result.artifactDigest}`);
+      }
+      if (counted.reads() !== 3) failures.push(`${label}/${applicability}: destination getter reads=${counted.reads()}`);
+      const codes = diagnosticCodes(out);
+      if (codes.includes('baseline-path-invalid') || codes.includes('candidate-artifacts-invalid')) {
+        failures.push(`${label}/${applicability}: diagnostics=${codes.join(', ')}`);
+      }
+    }
+
+    // Positive control: the applicable obligation still captures the destination snapshot
+    // once during metadata and binds against it.
+    {
+      const ctx = prepare('rename', target);
+      const counted = countingDigestEntry(RENAME_CAPTURED, { validReads: 3, later: 'value', laterValue: RENAME_LATER });
+      const artifacts = { ...ctx.artifacts, [RENAME_TO]: counted.entry };
+      const record = {
+        ...execRecord(ctx, 'pair-run', 'doc-change:doc-lint', {
+          paths: [RENAME_FROM, RENAME_TO], candidatePaths: [], baselinePaths: [RENAME_FROM],
+          artifactDigests: { [RENAME_TO]: RENAME_CAPTURED }
+        })
+      };
+      const obligation = obligationOf(ctx, 'doc-change:doc-lint');
+      const out = checkArtifacts(ctx, artifacts, { obligations: [obligation], executionRecords: [record] }, target);
+      const result = resultOf(out, 'doc-change:doc-lint');
+      if (result.outcome !== 'pass') failures.push(`${label}/applicable: outcome=${result.outcome}`);
+      if (counted.reads() !== 3) failures.push(`${label}/applicable: destination getter reads=${counted.reads()}`);
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `inapplicable obligations must not consume the destination snapshot: ${failures.join('; ')}`);
+});
+
+// ---------------------------------------------------------------------------
+// P2 guarded baselinePaths entry inspection (review r4318520836 at 56f3094):
+// a Proxy entry whose path, reason, or renameTo field getter/descriptor trap
+// throws fails the entry closed as a metadata error instead of escaping the
+// checker, and a late-throwing entry accessor cannot abort the audit mirror.
+// ---------------------------------------------------------------------------
+
+checkCase('335 P2 baselinePaths entry accessors that throw fail the entry closed without escaping', () => {
+  const failures = [];
+  for (const target of [modules, packageModules]) {
+    const label = target === modules ? 'canonical' : 'packaged';
+    const lintObligation = (ctx, entry) => {
+      const lint = obligationOf(ctx, 'doc-change:doc-lint');
+      return { ...lint, scope: { ...lint.scope, baselinePaths: [entry] } };
+    };
+
+    // A throwing path getter must not escape.
+    {
+      const ctx = prepare('deleted-adr', target);
+      const entry = new Proxy({ path: DELETED_ADR, reason: 'deleted' }, {
+        get(t, prop) {
+          if (prop === 'path') throw new Error('entry path getter');
+          return Reflect.get(t, prop);
+        }
+      });
+      let out;
+      try {
+        out = checkArtifacts(ctx, ctx.artifacts, { obligations: [lintObligation(ctx, entry)] }, target);
+      } catch (error) {
+        failures.push(`${label}/path-getter: escaped: ${error.message}`);
+        continue;
+      }
+      if (resultOf(out, 'doc-change:doc-lint').outcome !== 'none') {
+        failures.push(`${label}/path-getter: outcome=${resultOf(out, 'doc-change:doc-lint').outcome}`);
+      }
+      if (!diagnosticCodes(out).includes('baseline-path-invalid')) {
+        failures.push(`${label}/path-getter: diagnostics=${diagnosticCodes(out)}`);
+      }
+    }
+
+    // A throwing reason getter must not escape.
+    {
+      const ctx = prepare('deleted-adr', target);
+      const entry = new Proxy({ path: DELETED_ADR, reason: 'deleted' }, {
+        get(t, prop) {
+          if (prop === 'reason') throw new Error('entry reason getter');
+          return Reflect.get(t, prop);
+        }
+      });
+      let out;
+      try {
+        out = checkArtifacts(ctx, ctx.artifacts, { obligations: [lintObligation(ctx, entry)] }, target);
+      } catch (error) {
+        failures.push(`${label}/reason-getter: escaped: ${error.message}`);
+        continue;
+      }
+      if (resultOf(out, 'doc-change:doc-lint').outcome !== 'none') {
+        failures.push(`${label}/reason-getter: outcome=${resultOf(out, 'doc-change:doc-lint').outcome}`);
+      }
+      if (!diagnosticCodes(out).includes('baseline-path-invalid')) {
+        failures.push(`${label}/reason-getter: diagnostics=${diagnosticCodes(out)}`);
+      }
+    }
+
+    // A descriptor trap on the renameTo own-presence check must not escape.
+    {
+      const ctx = prepare('deleted-adr', target);
+      const entry = new Proxy({ path: DELETED_ADR, reason: 'deleted' }, {
+        getOwnPropertyDescriptor(t, prop) {
+          if (prop === 'renameTo') throw new Error('entry descriptor trap');
+          return Reflect.getOwnPropertyDescriptor(t, prop);
+        }
+      });
+      let out;
+      try {
+        out = checkArtifacts(ctx, ctx.artifacts, { obligations: [lintObligation(ctx, entry)] }, target);
+      } catch (error) {
+        failures.push(`${label}/descriptor: escaped: ${error.message}`);
+        continue;
+      }
+      if (resultOf(out, 'doc-change:doc-lint').outcome !== 'none') {
+        failures.push(`${label}/descriptor: outcome=${resultOf(out, 'doc-change:doc-lint').outcome}`);
+      }
+      if (!diagnosticCodes(out).includes('baseline-path-invalid')) {
+        failures.push(`${label}/descriptor: diagnostics=${diagnosticCodes(out)}`);
+      }
+    }
+
+    // A path getter that throws only on a later read cannot abort the audit mirror; a
+    // valid tombstone still passes (the entry metadata itself was validated once).
+    {
+      const ctx = prepare('deleted-adr', target);
+      let pathReads = 0;
+      const entry = new Proxy({ path: DELETED_ADR, reason: 'deleted' }, {
+        get(t, prop) {
+          if (prop === 'path') {
+            pathReads += 1;
+            if (pathReads > 1) throw new Error('late path getter');
+            return Reflect.get(t, prop);
+          }
+          return Reflect.get(t, prop);
+        }
+      });
+      const record = execRecord(ctx, 'tomb-run', 'doc-change:doc-lint', {
+        paths: [DELETED_ADR], candidatePaths: [], baselinePaths: [DELETED_ADR]
+      });
+      let out;
+      try {
+        out = checkArtifacts(ctx, ctx.artifacts, {
+          obligations: [lintObligation(ctx, entry)], executionRecords: [record]
+        }, target);
+      } catch (error) {
+        failures.push(`${label}/late-path: escaped: ${error.message}`);
+        continue;
+      }
+      if (resultOf(out, 'doc-change:doc-lint').outcome !== 'pass') {
+        failures.push(`${label}/late-path: outcome=${resultOf(out, 'doc-change:doc-lint').outcome}`);
+      }
+    }
+
+    // Inapplicable obligations keep the fail-closed metadata diagnostic and the legacy
+    // legacy outcome without escaping.
+    {
+      const ctx = prepare('deleted-adr', target);
+      const entry = new Proxy({ path: DELETED_ADR, reason: 'deleted' }, {
+        get(t, prop) {
+          if (prop === 'path' || prop === 'reason') throw new Error('entry field getter');
+          return Reflect.get(t, prop);
+        }
+      });
+      for (const applicability of ['N/A', 'unknown']) {
+        let out;
+        try {
+          out = checkArtifacts(ctx, ctx.artifacts, {
+            obligations: [{ ...lintObligation(ctx, entry), applicability }]
+          }, target);
+        } catch (error) {
+          failures.push(`${label}/${applicability}: escaped: ${error.message}`);
+          continue;
+        }
+        const result = resultOf(out, 'doc-change:doc-lint');
+        if (result.outcome !== 'none') failures.push(`${label}/${applicability}: outcome=${result.outcome}`);
+        if (!diagnosticCodes(out).includes('baseline-path-invalid')) {
+          failures.push(`${label}/${applicability}: diagnostics=${diagnosticCodes(out)}`);
+        }
+      }
+    }
+  }
+  assert.deepStrictEqual(failures, [],
+    `baselinePaths entry accessor failures must fail closed: ${failures.join('; ')}`);
+});
+
 helper.finish();

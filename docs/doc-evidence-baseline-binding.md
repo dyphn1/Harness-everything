@@ -39,6 +39,11 @@ scope = {
 - `reason: 'rename-from'` describes the old endpoint of an identified content-identical move.
   The destination is named by `renameTo` and must itself be a member of the same
   `scope.paths`. A `renameTo` outside the scope is malformed and fails the obligation closed.
+- Every `baselinePaths` entry's fields (`path`, `reason`, and the own-key `renameTo` presence) are
+  snapshotted through one guarded inspection, and each field result is carried exactly once. An
+  entry whose field getter or descriptor trap throws is a metadata error (`baseline-path-invalid`)
+  and fails the entry closed instead of escaping the checker; a field accessor that throws only on
+  a later read cannot abort the audit mirror, which skips such entries.
 - A path without a `baselinePaths` entry remains a normal candidate path and keeps the existing
   exact candidate-digest requirement.
 - `scope.paths` is never filtered to hide a baseline-only path. If the annotation is absent, the
@@ -93,7 +98,11 @@ capture or binding: a nested `digest` that throws or changes after validation ca
 destination pair bind while the audit/stale verdicts still describe the captured value. The same
 record can cover both endpoints. Destination-only evidence, source-only tombstones, split endpoint
 records, and stale destination digests do not satisfy the source. A deletion tombstone therefore
-cannot stand in for a known rename.
+cannot stand in for a known rename. This destination validation and the snapshot it produces are
+**applicability-gated**: `N/A` and `unknown` (and obligations without an applicability) never bind
+evidence, so they do not consume the destination digest getter during metadata validation; their
+audit identity keeps the un-gated legacy candidate read, and a stateful accessor therefore reports
+the same first legacy value to them that it would report without baseline binding.
 
 Metadata validation is the single candidate snapshot for a baseline-only path. Once a declared
 baseline path has been confirmed to have **no** own-key candidate entry, that validated absence is
@@ -111,7 +120,9 @@ A rename destination's validated own digest is carried too. When more than one a
 conflicting validated digest is a contradictory shared-destination snapshot and fails the whole
 obligation closed (metadata error, `outcome: 'none'`) before any binding. The carried digest must
 be a non-empty string: a stateful `digest` accessor whose value is not a usable string is not
-carried or seeded.
+carried or seeded. Only **applicable** obligations validate and carry this destination snapshot;
+`N/A` and `unknown` obligations keep the legacy candidate read for their audit identity and do not
+consume the destination getter during metadata validation.
 
 The binding applies to execution and review records alike. Existing review approval, waiver,
 failing-command, requirement-sync authority, and applicability rules are unchanged. A correctly
@@ -144,9 +155,13 @@ bound command that fails still produces an observed failure, not a pass.
   own-property inspection: a throwing property-descriptor trap or a throwing nested `digest`
   accessor encountered during metadata validation or the pre-binding capture is classified as
   unknown inventory (`candidate-artifacts-invalid` for applicable baseline-only obligations)
-  instead of escaping the checker. Inspection is not repeated after validation for a validated
-  baseline-only path or a rename destination, so a trap that only starts throwing on a later
-  re-inspection is never reached. `N/A` and `unknown` obligations never emit that diagnostic.
+  instead of escaping the checker. Inspecting a `baselinePaths` entry itself is guarded the same
+  way: an entry whose `path`, `reason`, or `renameTo` field getter or descriptor trap throws is a
+  `baseline-path-invalid` metadata error, not an escape, and a field accessor that starts throwing
+  after the guarded snapshot cannot abort the audit mirror. Inspection is not repeated after
+  validation for a validated baseline-only path or a rename destination, so a trap that only
+  starts throwing on a later re-inspection is never reached. `N/A` and `unknown` obligations never
+  emit that diagnostic.
 - A mixed scope can combine baseline-only paths with ordinary candidate paths (for example one
   document deleted and another edited in the same change set). For an applicable obligation
   that declares baseline paths, every ordinary scoped candidate digest is captured once before
@@ -169,8 +184,10 @@ The result is not a pass when any of the following is observed:
 - absent whole-baseline identity, absent `baseline.artifacts`, or an invalid/missing per-path
   baseline value for a declared baseline-only path;
 - a baseline-only entry that is missing from `scope.paths`, is duplicated, has an unknown reason,
-  or has a malformed `renameTo` (empty, equal to the source, outside `scope.paths`, or without an
-  own-key candidate destination artifact that declares its own `digest`);
+  has a malformed `renameTo` (empty, equal to the source, outside `scope.paths`, or — for an
+  applicable obligation — without an own-key candidate destination artifact that declares its own
+  `digest`), or whose field inspection fails (a `path`, `reason`, or `renameTo` getter or
+  descriptor trap that throws during the guarded entry snapshot);
 - a deleted entry that carries a `renameTo` property at all, including an explicitly present
   `undefined`;
 - a present `scope.baselinePaths` annotation that is not an array, including an explicitly
@@ -192,7 +209,8 @@ The result is not a pass when any of the following is observed:
   usable digest (`{}`, `{ digest: '' }`, or `null`);
 - a record that carries an `artifactDigests` entry (real, empty, or fake) for a baseline-only
   path;
-- a rename destination with no candidate artifact;
+- a rename destination with no candidate artifact (applicable obligations only; `N/A` and
+  `unknown` obligations keep the legacy candidate read for their audit identity);
 - a record with the wrong baseline identity, the wrong per-path baseline digest, an absent or
   empty `baselineArtifacts` entry, or stale/missing endpoint evidence;
 - an unsupported review kind, an unapproved review, or an incomplete execution record.
