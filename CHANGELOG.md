@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.36.3](https://github.com/dyphn1/Harness-everything/compare/v0.36.2...v0.36.3) (2026-10-20)
+
+### Bug Fixes
+
+* **project-docs:** reject non-string required fields and unsafe init paths ([#331](https://github.com/dyphn1/Harness-everything/issues/331)) ([685df07](https://github.com/dyphn1/Harness-everything/commit/685df076a84a7c336a4ce3c9e06f97ebae2bd8b8))
+* **project-docs:** stop host-only init from overwriting malformed manifests ([#331](https://github.com/dyphn1/Harness-everything/issues/331)) ([93df52c](https://github.com/dyphn1/Harness-everything/commit/93df52c94f2f55df828a0176fb7bf533c412fc6c))
+
 ## [0.36.2](https://github.com/dyphn1/Harness-everything/compare/v0.36.1...v0.36.2) (2026-10-20)
 
 ### Bug Fixes

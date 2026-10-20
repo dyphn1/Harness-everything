@@ -4,7 +4,7 @@ description: "Scaffold a verified multi-agent workspace and select bounded speci
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.34.0
+  version: 0.36.3
 ---
 
 # Multi-Agent Workspace
