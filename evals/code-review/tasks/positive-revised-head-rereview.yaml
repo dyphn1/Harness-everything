@@ -1,0 +1,16 @@
+id: positive-code-review-002
+name: Re-review of a revised HEAD triggers code-review
+description: "Independently review a PR, diff or finished implementation for correctness, contract and negative-path defects, with source-anchored findings labelled executed, source-traced or inconclusive; read-only by default. USE FOR: \"review this PR before merge\", \"re-review the fix at the new HEAD\". DO NOT USE FOR: \"security threat modeling\", \"implementing or fixing the code\"."
+tags:
+  - positive-trigger
+inputs:
+  prompt: "The author pushed a new commit to address last round's findings. Re-review the new HEAD: check each prior finding on its own as resolved, still open or superseded, and look for regressions the fix introduced."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "prior finding"
+        - "HEAD"

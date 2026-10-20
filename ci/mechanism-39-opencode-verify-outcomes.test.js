@@ -1,0 +1,374 @@
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { pathToFileURL } = require('url');
+const helper = require('./test-helper');
+
+console.log('\n[39] opencode verification outcomes: Rule-of-3 downstream behavior with the real plugin...');
+
+(async () => {
+  const workspace = helper.tempDir('.mechanism-test-verify-outcomes-workspace');
+  fs.mkdirSync(workspace, { recursive: true });
+  const stateHome = process.env.HARNESS_STATE_HOME;
+
+  // Mirrors the plugin's getWorkspaceKey(directory) (same derivation as the
+  // 2n test) so this harness can read the state files the real hooks write.
+  const realWorkspace = fs.realpathSync(path.resolve(workspace));
+  const slug = path.basename(realWorkspace).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
+  const hashInput = process.platform === 'win32' ? realWorkspace.toLowerCase() : realWorkspace;
+  const hash = crypto.createHash('sha1').update(hashInput).digest('hex').slice(0, 12);
+  const sessionsRoot = path.join(stateHome, 'workspaces', `${slug}-${hash}`, 'state', 'sessions');
+
+  const fixtureFile = path.join(workspace, 'fixture.js');
+  fs.writeFileSync(
+    path.join(workspace, 'package.json'),
+    JSON.stringify({ name: 'fixture', version: '0.0.0', scripts: { test: 'node fixture.js' } }, null, 2),
+  );
+  const setFixture = (lines) => fs.writeFileSync(fixtureFile, `${lines.join('\n')}\n`);
+  const markerFailure = (name) => [
+    "console.log('> harness-everything@0.34.0 test');",
+    "console.log('> node self-evolve/scripts/self-regression.js');",
+    `console.log('\u2716 ${name} (1.2ms)');`,
+    `console.log('AssertionError [ERR_ASSERTION]: ${name} boom');`,
+    'process.exit(1);',
+  ];
+
+  const promptCalls = [];
+  const client = { session: { prompt: async (opts) => { promptCalls.push(opts); return {}; } } };
+  const { HarnessEnforcement } = await import(pathToFileURL(path.join(helper.root, 'opencode-plugin', 'index.mjs')).href);
+  const hooks = await HarnessEnforcement({ client, directory: workspace });
+
+  const stateFile = (sessionID, name) => path.join(sessionsRoot, sessionID, name);
+  const readBreaker = (sessionID) => JSON.parse(fs.readFileSync(stateFile(sessionID, 'circuit-breaker.json'), 'utf8'));
+  const readEditState = (sessionID) => JSON.parse(fs.readFileSync(stateFile(sessionID, 'edit-state.json'), 'utf8'));
+  let callCounter = 0;
+  const edit = async (sessionID) => hooks['tool.execute.after'](
+    { tool: 'edit', sessionID, callID: `edit-${(callCounter += 1)}` },
+    { title: '', output: '', metadata: {}, args: { filePath: path.join(workspace, 'code.js') } },
+  );
+  const idle = async (sessionID) => hooks.event({ event: { type: 'session.idle', properties: { sessionID } } });
+  const lastPrompt = () => promptCalls[promptCalls.length - 1].body.parts[0].text;
+
+  // --- three timeouts must not band together into a reflection ----------
+  const timeoutSession = 'timeouts';
+  setFixture(['setTimeout(() => {}, 3000);']);
+  process.env.HARNESS_VERIFY_TIMEOUT_MS = '150';
+  for (let i = 0; i < 3; i += 1) {
+    await edit(timeoutSession);
+    await idle(timeoutSession);
+  }
+  delete process.env.HARNESS_VERIFY_TIMEOUT_MS;
+  const timeoutPrompts = promptCalls.slice(0, 3).map((call) => call.body.parts[0].text);
+  helper.check(
+    '39. three timeouts never write a same-check failure entry',
+    !fs.existsSync(stateFile(timeoutSession, 'circuit-breaker.json')),
+    'a circuit-breaker file was written for pure timeouts',
+  );
+  helper.check(
+    '39. timeout follow-ups say the run did not complete and is not counted',
+    timeoutPrompts.length === 3 &&
+      timeoutPrompts.every((text) => /did not complete/.test(text) && /does NOT count toward the repeated-failure reflection/.test(text)) &&
+      !timeoutPrompts.some((text) => /reflection token|## Goal/.test(text)),
+    timeoutPrompts[0],
+  );
+
+  setFixture(markerFailure('real test A'));
+  await edit(timeoutSession);
+  await idle(timeoutSession);
+  let breaker = readBreaker(timeoutSession);
+  let entries = Object.values(breaker.failures);
+  helper.check(
+    '39. a real failing check after three timeouts counts once, with no reflection',
+    entries.length === 1 && entries[0].count === 1 && breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+  helper.check(
+    '39. the post-timeout failure prompt offers retries instead of reflection',
+    /2 retries before a forced reflection/.test(lastPrompt()),
+    lastPrompt(),
+  );
+
+  // --- distinct failures sharing a banner stay distinct -----------------
+  const distinctSession = 'distinct';
+  for (const name of ['alpha', 'beta', 'gamma']) {
+    setFixture(markerFailure(name));
+    await edit(distinctSession);
+    await idle(distinctSession);
+  }
+  breaker = readBreaker(distinctSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. distinct failures behind a common banner stay three separate signatures',
+    Object.keys(breaker.failures).length === 3 && entries.every((entry) => entry.count === 1) && breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+
+  // --- identical stdout, different stderr assertions stay distinct ------
+  // P1 regression: the old classifier kept only stdout, so three assertion
+  // failures printed to stderr behind the same npm banner collapsed into one
+  // signature and forced a reflection for healthy retries.
+  const stderrSession = 'stderr-distinct';
+  const stderrFailure = (name) => [
+    `console.error('AssertionError [ERR_ASSERTION]: ${name} boom');`,
+    'process.exit(1);',
+  ];
+  for (const name of ['alpha', 'beta', 'gamma']) {
+    setFixture(stderrFailure(name));
+    await edit(stderrSession);
+    await idle(stderrSession);
+  }
+  breaker = readBreaker(stderrSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. identical stdout with different stderr assertions stays three separate signatures',
+    Object.keys(breaker.failures).length === 3 && entries.every((entry) => entry.count === 1) && breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+
+  // --- >2 KiB shared prefix, different markerless tails stay distinct ---
+  // P1 regression: the old 2 KiB leading-prefix truncation hashed the same
+  // prefix for all three runs, so different markerless failures collided.
+  const prefixSession = 'prefix-distinct';
+  const markerlessFailure = (token) => [
+    "console.log('progress '.repeat(400));",
+    `console.log('HARNESS-UNIQUE-${token}');`,
+    'process.exit(1);',
+  ];
+  for (const token of ['ALPHA', 'BETA', 'GAMMA']) {
+    setFixture(markerlessFailure(token));
+    await edit(prefixSession);
+    await idle(prefixSession);
+  }
+  breaker = readBreaker(prefixSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. a shared >2 KiB markerless prefix with different tails stays three separate signatures',
+    Object.keys(breaker.failures).length === 3 &&
+      entries.every((entry) => entry.count === 1) &&
+      Object.keys(breaker.failures).every((signature) => /unrecognized-output/.test(signature)) &&
+      breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+
+  // --- Jest suite output: FAIL <file> is context, not identity -----------
+  // P1 regression: the old classifier returned the first matching line, so
+  // `FAIL src/parser.test.js` made three different test failures in the same
+  // file one signature and forced a reflection.
+  const jestSession = 'jest-distinct';
+  const jestFailure = (name) => [
+    "console.log('FAIL src/parser.test.js');",
+    `console.log('  ● parser › accepts ${name}');`,
+    `console.log('    AssertionError: ${name}');`,
+    'process.exit(1);',
+  ];
+  for (const name of ['alpha', 'beta', 'gamma']) {
+    setFixture(jestFailure(name));
+    await edit(jestSession);
+    await idle(jestSession);
+  }
+  breaker = readBreaker(jestSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. different Jest failures from one file stay three separate signatures',
+    Object.keys(breaker.failures).length === 3 && entries.every((entry) => entry.count === 1) && breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+
+  const jestIdenticalSession = 'jest-identical';
+  setFixture(jestFailure('stable'));
+  for (let i = 0; i < 3; i += 1) {
+    await edit(jestIdenticalSession);
+    await idle(jestIdenticalSession);
+  }
+  breaker = readBreaker(jestIdenticalSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. three identical Jest failures still force the Rule-of-3 reflection',
+    Object.keys(breaker.failures).length === 1 && entries[0].count === 3 && breaker.reflectionPending === true,
+    JSON.stringify(breaker),
+  );
+  helper.check(
+    '39. the Jest-identical reflection prompt names the token',
+    /reflection token: [A-Za-z0-9]+/.test(lastPrompt()),
+    lastPrompt(),
+  );
+
+
+  // --- indented Mocha tests: true identity survives volatile diagnostics ---
+  // P2 regression: the old unindented regex missed "  1) test", then the
+  // markerless digest changed on every stack-line number even for the same
+  // failing check, preventing Rule-of-3 from reaching reflection.
+  const mochaFailure = (name, frameLine) => [
+    `console.log('  1) should parse ${name}');`,
+    "console.error('     AssertionError: expected true to equal false');",
+    `console.log('       at Context.<anonymous> (fixture.test.js:${frameLine}:7)');`,
+    'process.exit(1);',
+  ];
+
+  const mochaDistinctSession = 'mocha-distinct';
+  for (const name of ['alpha', 'beta', 'gamma']) {
+    setFixture(mochaFailure(name, 19));
+    await edit(mochaDistinctSession);
+    await idle(mochaDistinctSession);
+  }
+  breaker = readBreaker(mochaDistinctSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. different indented Mocha checks never count as one repeated failure',
+    Object.keys(breaker.failures).length === 3 &&
+      entries.every((entry) => entry.count === 1) &&
+      breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+
+  const mochaIdenticalSession = 'mocha-identical';
+  for (const frameLine of [19, 27, 35]) {
+    setFixture(mochaFailure('stable', frameLine));
+    await edit(mochaIdenticalSession);
+    await idle(mochaIdenticalSession);
+  }
+  breaker = readBreaker(mochaIdenticalSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. same indented Mocha check with changing stack output still triggers Rule-of-3',
+    Object.keys(breaker.failures).length === 1 &&
+      entries[0].count === 3 &&
+      breaker.reflectionPending === true,
+    JSON.stringify(breaker),
+  );
+  helper.check(
+    '39. Mocha Rule-of-3 reflection includes a token',
+    /reflection token: [A-Za-z0-9]+/.test(lastPrompt()),
+    lastPrompt(),
+  );
+
+  // --- Console payload noise: logged Error lines are not failure identity ---
+  // Regression guard for the indented-error pattern: a Jest Console payload
+  // (logged output, volatile run to run) must not become the marker, or the
+  // same failing check stops accumulating toward the Rule of 3.
+  const consoleNoisyFailure = [
+    "console.log('PASS src/loggy.test.js');",
+    "console.log('  ● Console');",
+    "console.log('');",
+    "console.log('    console.error');",
+    "console.log('      Error: connection refused at ' + Date.now());",
+    "console.log('');",
+    "console.log('FAIL src/parser.test.js');",
+    "console.log('  ● parser › accepts stable');",
+    'process.exit(1);',
+  ];
+  const consoleNoiseSession = 'console-noise';
+  for (let i = 0; i < 3; i += 1) {
+    setFixture(consoleNoisyFailure);
+    await edit(consoleNoiseSession);
+    await idle(consoleNoiseSession);
+  }
+  breaker = readBreaker(consoleNoiseSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. volatile Console payload noise never breaks the failing check identity',
+    Object.keys(breaker.failures).length === 1 && entries[0].count === 3 && breaker.reflectionPending === true,
+    JSON.stringify(breaker),
+  );
+
+  // --- nested Jest Console bullets are payload, not test-level markers ---
+  // The previous fix only excluded indented Error lines. A logged "●" used
+  // to terminate the Console section regardless of indentation, causing
+  // either false reflection (shared console text) or missed Rule-of-3
+  // (volatile console text) for actual Jest failures.
+  const consoleBulletFailure = (name, noise) => [
+    "console.log('PASS src/loggy.test.js');",
+    "console.log('  ● Console');",
+    "console.log('');",
+    "console.log('    console.log');",
+    `console.log('      ● ${noise}');`,
+    "console.log('      ● Console');",
+    "console.log('');",
+    "console.log('FAIL src/parser.test.js');",
+    `console.log('  ● parser › accepts ${name}');`,
+    'process.exit(1);',
+  ];
+
+  const consoleBulletDistinctSession = 'console-bullet-distinct';
+  for (const name of ['alpha', 'beta', 'gamma']) {
+    setFixture(consoleBulletFailure(name, 'preparing runtime'));
+    await edit(consoleBulletDistinctSession);
+    await idle(consoleBulletDistinctSession);
+  }
+  breaker = readBreaker(consoleBulletDistinctSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. shared nested Console bullet with different Jest failures never causes false Rule-of-3',
+    Object.keys(breaker.failures).length === 3 &&
+      entries.every((entry) => entry.count === 1) &&
+      breaker.reflectionPending === false,
+    JSON.stringify(breaker),
+  );
+
+  const consoleBulletIdenticalSession = 'console-bullet-identical';
+  for (const noise of ['preparing runtime', 'loading plugins', 'initialization complete']) {
+    setFixture(consoleBulletFailure('stable', noise));
+    await edit(consoleBulletIdenticalSession);
+    await idle(consoleBulletIdenticalSession);
+  }
+  breaker = readBreaker(consoleBulletIdenticalSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. differing nested Console bullets do not stop the same Jest failure from reaching Rule-of-3',
+    Object.keys(breaker.failures).length === 1 &&
+      entries[0].count === 3 &&
+      breaker.reflectionPending === true,
+    JSON.stringify(breaker),
+  );
+  helper.check(
+    '39. nested Console bullet Rule-of-3 produces a reflection token',
+    /reflection token: [A-Za-z0-9]+/.test(lastPrompt()),
+    lastPrompt(),
+  );
+
+  // --- genuinely identical failures keep the Rule of 3 ------------------
+  const identicalSession = 'identical';
+  setFixture(markerFailure('stable check'));
+  for (let i = 0; i < 3; i += 1) {
+    await edit(identicalSession);
+    await idle(identicalSession);
+  }
+  breaker = readBreaker(identicalSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. three genuinely identical failures still force the Rule-of-3 reflection',
+    Object.keys(breaker.failures).length === 1 && entries[0].count === 3 && breaker.reflectionPending === true,
+    JSON.stringify(breaker),
+  );
+  helper.check(
+    '39. the forced reflection names the token and required report sections',
+    /reflection token: [A-Za-z0-9]+/.test(lastPrompt()) && /## Goal/.test(lastPrompt()) && /## Decision/.test(lastPrompt()),
+    lastPrompt(),
+  );
+
+  // --- success after failure clears pending state -----------------------
+  const recoverSession = 'recover';
+  setFixture(markerFailure('recover check'));
+  await edit(recoverSession);
+  await idle(recoverSession);
+  const promptsBeforeSuccess = promptCalls.length;
+  setFixture(['process.exit(0);']);
+  await edit(recoverSession);
+  await idle(recoverSession);
+  const recoveredState = readEditState(recoverSession);
+  breaker = readBreaker(recoverSession);
+  entries = Object.values(breaker.failures);
+  helper.check(
+    '39. a passing run after a failure clears pending verification without erasing failure history',
+    recoveredState.verificationPending === false &&
+      recoveredState.editsSinceVerification === 0 &&
+      promptCalls.length === promptsBeforeSuccess &&
+      entries[0].count === 1,
+    JSON.stringify({ recoveredState, breaker }),
+  );
+
+  helper.finish();
+})().catch((err) => {
+  console.error('39. verification outcomes test crashed:', err);
+  process.exit(1);
+});

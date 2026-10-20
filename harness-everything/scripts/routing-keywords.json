@@ -611,6 +611,13 @@
       "bindings": [
         "zoom-out"
       ]
+    },
+    {
+      "id": "review",
+      "bindings": [
+        "code-review"
+      ],
+      "regex": "\\b(?:code[- ]review|pr review)\\b|\\b(?:re-)?review\\s+(?:(?:(?:this|the|my)\\s+)?(?:pr\\b|pull request\\b|diff\\b|(?:finished\\s+)?implementation\\b(?!\\s+plan\\b))|the\\s+(?:fix\\b|new\\s+head\\b))|程式碼審查|代码审查"
     }
   ]
 }

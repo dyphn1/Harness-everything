@@ -24,8 +24,11 @@ function finish() {
   clearTimeout(timer);
   if (!ROUTER) process.exit(0);
   const result = spawnSync(process.execPath, [ROUTER], { input, encoding: 'utf8', env: process.env, timeout: 25000 });
-  if (result.stderr) process.stderr.write(result.stderr);
-  const context = String(result.stdout || '').trim();
+  const stderr = String(result.stderr || '');
+  if (stderr) process.stderr.write(stderr);
+  const registryDiagnostics = stderr.split(/\r?\n/)
+    .filter(line => line.includes('cannot load step-type registry') && /(repair|restore|plugin:sync)/i.test(line));
+  const context = [String(result.stdout || '').trim(), ...registryDiagnostics].filter(Boolean).join('\n').trim();
   if (context) {
     process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: context } }));
   }

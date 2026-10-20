@@ -43,6 +43,22 @@ const releaseRenames = new Map([
   ['create-agent-launcher', 'multi-agent-workspace']
 ]);
 
+function logicalSkillName(skill) {
+  return releaseRenames.get(skill) || skill;
+}
+
+function compareSkillCatalogs(tagSkills, currentSkills) {
+  const releaseLogical = new Set(tagSkills.map(logicalSkillName));
+  const currentLogical = new Set(currentSkills.map(logicalSkillName));
+  const missing = [...releaseLogical].filter(skill => !currentLogical.has(skill)).sort();
+  const additions = [...new Set(currentSkills.filter(skill => !releaseLogical.has(logicalSkillName(skill))))].sort();
+  return { missing, additions, exitCode: missing.length ? 1 : 0 };
+}
+
+function formatAdditions(additions) {
+  return additions.length ? `Additions since release tag: ${additions.join(', ')}` : '';
+}
+
 function git(args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
 }
@@ -90,15 +106,13 @@ function main() {
     process.exit(2);
   }
   const current = new Set(discoverSkills(root));
-  const currentLogical = new Set([...current].map(skill => releaseRenames.get(skill) || skill));
-  const releaseLogical = new Set(tagRoot.map(skill => releaseRenames.get(skill) || skill));
-  const missing = [...releaseLogical].filter(skill => !currentLogical.has(skill));
-  const extra = [...currentLogical].filter(skill => !releaseLogical.has(skill));
+  const comparison = compareSkillCatalogs(tagRoot, [...current]);
   console.log(`Release ${tag}: ${tagRoot.length} skill(s); current tree: ${current.size} skill(s).`);
-  if (missing.length || extra.length) {
-    if (missing.length) console.error(`Missing from current tree: ${missing.join(', ')}`);
-    if (extra.length) console.error(`Not present in release tag: ${extra.join(', ')}`);
-    process.exit(1);
+  const additionsLine = formatAdditions(comparison.additions);
+  if (additionsLine) console.log(additionsLine);
+  if (comparison.exitCode !== 0) {
+    console.error(`Missing from current tree: ${comparison.missing.join(', ')}`);
+    process.exit(comparison.exitCode);
   }
 
   let references = 0;
@@ -140,7 +154,10 @@ function main() {
     console.error(`CURRENT RELEASE CHECK FAILED: ${currentReferences.failures.length} dangling reference(s).`);
     process.exit(1);
   }
-  console.log(`RELEASE SKILL CATALOG PASSED for ${tag}; current source has the same logical skill catalog (${tagRoot.length} release entries, ${current.size} current directories after merges).`);
+  const additionLabel = comparison.additions.length === 1 ? 'addition' : 'additions';
+  console.log(`RELEASE SKILL BASELINE PASSED for ${tag}: all ${tagRoot.length} release-tag skills remain present; current source has ${current.size} skill(s), including ${comparison.additions.length} ${additionLabel} not yet in the tag.`);
 }
 
 if (require.main === module) main();
+
+module.exports = { compareSkillCatalogs, formatAdditions };

@@ -104,7 +104,7 @@ const packagedSkillNames = fs.readdirSync(path.join(PLUGIN, 'skills'), { withFil
   .filter(entry => entry.isDirectory())
   .map(entry => entry.name)
   .sort();
-assert.strictEqual(skillNames.length, 26, 'canonical suite should contain 26 skills');
+assert.strictEqual(skillNames.length, 27, 'canonical suite should contain 27 skills');
 assert.deepStrictEqual(packagedSkillNames, skillNames, 'OpenAI package must contain exactly the canonical skill set');
 for (const entry of SOURCE_MANIFEST.skills) {
   const source = path.resolve(ROOT, entry);

@@ -180,6 +180,8 @@ jobs:
         run: npm run test:plugin:submission
       - name: Platform compatibility matrix matches official-source and installer contracts
         run: npm run test:platform:compatibility
+      - name: Test sources stay portable across the OS matrix
+        run: npm run test:portability
 
   installer-e2e:
     strategy:

@@ -1,0 +1,16 @@
+id: positive-code-review-001
+name: Pre-merge PR review request triggers code-review
+description: "Independently review a PR, diff or finished implementation for correctness, contract and negative-path defects, with source-anchored findings labelled executed, source-traced or inconclusive; read-only by default. USE FOR: \"review this PR before merge\", \"re-review the fix at the new HEAD\". DO NOT USE FOR: \"security threat modeling\", \"implementing or fixing the code\"."
+tags:
+  - positive-trigger
+inputs:
+  prompt: "Review PR #412 before we merge it. Check the diff for correctness and negative-path defects against the contract in the PRD, and label each finding as executed, source-traced or inconclusive."
+expected:
+  should_trigger: true
+graders:
+  - type: text
+    name: contains-keywords
+    config:
+      contains:
+        - "source-traced"
+        - "inconclusive"

@@ -1,0 +1,7 @@
+{
+  "governed": [{ "path": "docs/reference/**", "role": "reference" }],
+  "domains": ["GRPH"],
+  "legacy": [],
+  "derived": [{ "path": "docs/index.md", "sources": ["src/model/**"], "generator": "npm run docs:index" }],
+  "tickets": "tracker"
+}

@@ -40,6 +40,7 @@ const PACKAGED_BINDING_PATHS = {
   'git-commit': 'git-commit/SKILL.md',
   'security-review': 'security-review/SKILL.md',
   'review-guidance': 'harness-everything/references/triage-and-tiers.md',
+  'code-review': 'code-review/SKILL.md',
 };
 const SKILL_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 

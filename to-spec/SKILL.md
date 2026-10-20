@@ -4,7 +4,7 @@ description: "Turn the conversation into a written spec — feature PRD, CLI/API
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.30.4
+  version: 0.34.0
 ---
 
 # To Spec

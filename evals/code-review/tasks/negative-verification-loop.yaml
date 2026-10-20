@@ -1,0 +1,16 @@
+id: negative-code-review-003
+name: Running the gates must route to verification-loop, not code-review
+description: Running the build, types, lint and test gates is an objective check that belongs to verification-loop; code-review must stay dormant.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Run the build, type check, lint and the full test suite on this branch and tell me which gates pass."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "source-anchored"
+        - "source-traced"
