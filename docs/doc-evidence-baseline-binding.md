@@ -80,6 +80,15 @@ Those phases and relevant CI on the final merged SHA are required for Gate E0. P
 not E0 and does not authorize runtime Evidence Reconciliation. Snapshot consistency is not external
 VCS/provenance attestation; that remains in #325 Phase 3b/3c.
 
+The C1 isolation trial rejected 9 of 11 weakened-boundary controls per distribution, while N05 and
+N06 survived with complete coverage and no diagnostics. The C2 AST/source supplement now rejects
+all 11 frozen controls in both distributions, including N05/N06 under `COMP-C2-BOUND`; its pinned
+whole-module and named-target fingerprints fail closed on unreviewed structural changes. This is
+deterministic mechanism evidence, not E0 qualification. C3 mutation/compatibility qualification and
+the final merged-SHA gates remain required. See
+[`doc-evidence-boundary.md`](doc-evidence-boundary.md) for the C1/C2 policy, trial results, and
+evidence boundary.
+
 ## Data shape
 
 The trusted baseline keeps its existing whole-tree identity and may add per-path SHA256 values:

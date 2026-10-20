@@ -137,7 +137,57 @@ const NEW_SCOPE_CHECKS = Object.entries(NEW_SCOPE_COVERAGE).flatMap(([mutantId, 
     assertionId: mapping.assertionId,
   }))
 );
-const CHECKS = [...LEGACY_CHECKS, ...DOC_EVIDENCE_CHECKS, ...DOC_EVIDENCE_VARIANTS, ...NEW_SCOPE_CHECKS];
+// C3 checker-targeted tuples: the boundary checker is the mutated file, and each distribution's control runs its own
+// selected assertion. The checker is one file, so both distributions share the mutant (plan §3: no packaged claim).
+const BOUNDARY_ENFORCEMENT_TEST = 'ci/mechanism-341-boundary-enforcement.test.js';
+const BOUNDARY_CHECKER_TARGET = 'ci/lib/doc-evidence-boundary-check.js';
+const CHECKER_COVERAGE = {
+  'C01-alias-rule-off': {
+    canonical: 'C1-N01d-canonical.boundary.intended-code-CONTEXT_ALIAS_OR_COMPUTED_USE',
+    packaged: 'C1-N01d-packaged.boundary.intended-code-CONTEXT_ALIAS_OR_COMPUTED_USE',
+  },
+  'C02-destructure-rule-off': {
+    canonical: 'C1-N02c-canonical.boundary.intended-rule-EVALUATOR-CONTEXT-EXACT',
+    packaged: 'C1-N02c-packaged.boundary.intended-rule-EVALUATOR-CONTEXT-EXACT',
+  },
+  'C03-return-rule-off': {
+    canonical: 'C1-N03-canonical.boundary.intended-rule-RETURNED-VIEW-OWNERSHIP',
+    packaged: 'C1-N03-packaged.boundary.intended-rule-RETURNED-VIEW-OWNERSHIP',
+  },
+  'C04-exception-rule-off': {
+    canonical: 'C2-N05-canonical.boundary.ast-intended-rule-COMP-C2-BOUND',
+    packaged: 'C2-N05-packaged.boundary.ast-intended-rule-COMP-C2-BOUND',
+  },
+};
+const CHECKER_CHECKS = Object.entries(CHECKER_COVERAGE).flatMap(([mutantId, assertions]) =>
+  Object.entries(assertions).map(([distribution, assertionId]) => ({
+    label: `${mutantId} ${distribution} checker-target control`,
+    target: BOUNDARY_CHECKER_TARGET,
+    mutantId,
+    test: BOUNDARY_ENFORCEMENT_TEST,
+    caseId: assertionId.slice(0, assertionId.indexOf('.boundary.')),
+    assertionId,
+  }))
+);
+// Existing corpus kills for the C0 downgrade gaps (G2a-G2d). Each is registered as an explicit (c) tuple.
+const DOWNGRADE_COVERAGE = {
+  'G2a-unusable-destination-accepted': { caseId: 'RB07', assertionId: 'RB07.result.observation-outcome' },
+  'G2b-ordinary-capture-throw-swallowed': { caseId: 'RB23', assertionId: 'RB23.result.observation-outcome' },
+  'G2c-baseline-path-throw-as-absent': { caseId: 'RB12', assertionId: 'RB12.result.diagnostic-codes' },
+  'G2d-entry-metadata-throw-as-valid': { caseId: 'RB11', assertionId: 'RB11.conformance.output-matches-expected' },
+  'G1-unvalidated-baseline-identity': { caseId: 'RB108', assertionId: 'RB108.conformance.output-matches-expected' },
+};
+const DOWNGRADE_CHECKS = Object.entries(DOWNGRADE_COVERAGE).flatMap(([mutantId, mapping]) =>
+  Object.entries(distributionTargets(mutantId)).map(([distribution, target]) => ({
+    label: `${mutantId} ${distribution} downgrade mutant`,
+    target,
+    mutantId,
+    test: DOC_EVIDENCE_TEST,
+    caseId: mapping.caseId,
+    assertionId: mapping.assertionId,
+  }))
+);
+const CHECKS = [...LEGACY_CHECKS, ...DOC_EVIDENCE_CHECKS, ...DOC_EVIDENCE_VARIANTS, ...NEW_SCOPE_CHECKS, ...CHECKER_CHECKS, ...DOWNGRADE_CHECKS];
 
 const LEGACY_ASSERTIONS = {
   [`${LEGACY_CASES.pathBoundary}.symlink-component-rejected`]: {
@@ -195,7 +245,12 @@ function resolveTupleCaseId(check) {
 
 // A private module contract names its case as CAPTURE-B<nn> and its assertion as CAPTURE-B<nn>.detachment.<contract>.
 // It is valid only in the capture-module test, and is checked by the same event protocol as RB assertions.
+// The enforcement suite's C1 (isolation) and C2 (ast) assertions are private contracts too: they emit the same event
+// protocol, and their case IDs are scoped by prefix. A checker-target tuple reaches them through this predicate only.
 function isPrivateContract(check) {
+  if (check.test === 'ci/mechanism-341-boundary-enforcement.test.js') {
+    return /^C[12]-[A-Za-z0-9-]+$/.test(check.caseId) && check.assertionId.startsWith(`${check.caseId}.`);
+  }
   return check.test === 'ci/mechanism-341-capture-module.test.js'
     && /^CAPTURE-B\d{2}$/.test(check.caseId)
     && /^CAPTURE-B\d{2}\.detachment\.[a-z-]+$/.test(check.assertionId);

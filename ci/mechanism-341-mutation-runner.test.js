@@ -371,6 +371,29 @@ if (mode === 'control-failure') {
   assert.strictEqual(legacyOutputCrash.verdict, 'INFRA_MUTATED',
     `legacy output-then-crash: a matching FAIL line followed by an unrelated uncaught exception cannot count as a kill: ${JSON.stringify(legacyOutputCrash)}`);
 
+  // C3 boundary qualification (plan §3): a no-op checker transform must survive (never KILLED), and a real checker-off
+  // transform must be killed through its selected enforcement assertion. Both run through the real runner against the
+  // real checker and suite; no verdict is written by hand.
+  const boundaryRoot = path.resolve(__dirname, '..');
+  const boundaryTuple = ({ mutantId, caseId, assertionId }) => runChecks({
+    root: boundaryRoot,
+    timeoutMs: 120000,
+    testEnv: {},
+    checks: [{
+      label: `${mutantId} boundary qualification`,
+      target: 'ci/lib/doc-evidence-boundary-check.js',
+      mutantId,
+      test: 'ci/mechanism-341-boundary-enforcement.test.js',
+      caseId,
+      assertionId,
+    }],
+    legacyAssertions: {},
+  })[0];
+  const noopBoundary = boundaryTuple({ mutantId: 'C00-noop-boundary', caseId: 'C1-N01d-canonical', assertionId: 'C1-N01d-canonical.boundary.intended-code-CONTEXT_ALIAS_OR_COMPUTED_USE' });
+  assert.strictEqual(noopBoundary.verdict, 'SURVIVED', `a no-op checker transform must survive, never be credited as a kill: ${JSON.stringify(noopBoundary)}`);
+  const realBoundary = boundaryTuple({ mutantId: 'C01-alias-rule-off', caseId: 'C1-N01d-canonical', assertionId: 'C1-N01d-canonical.boundary.intended-code-CONTEXT_ALIAS_OR_COMPUTED_USE' });
+  assert.strictEqual(realBoundary.verdict, 'KILLED', `the alias-rule-off checker mutant must be killed by its selected assertion: ${JSON.stringify(realBoundary)}`);
+
   assert.strictEqual(fs.readFileSync(targetPath, 'utf8'), original, 'mutation qualification never overwrites a synthetic target');
   console.log('Phase 0A mutation runner qualification passed: control, tuple, transform, parse, load, intended assertion, and negative controls.');
 } finally {

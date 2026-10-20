@@ -26,6 +26,13 @@ function docEvidenceMutation(replacements) {
 const DOC_EVIDENCE_CAPTURE_CANONICAL = 'harness-everything/scripts/doc-evidence-capture.js';
 const DOC_EVIDENCE_CAPTURE_PACKAGED = 'plugins/harness-everything/skills/harness-everything/scripts/doc-evidence-capture.js';
 
+// C3 checker-targeted mutants: the boundary checker is the mutated file (test/CI mechanism, not packaged runtime).
+const BOUNDARY_CHECKER = 'ci/lib/doc-evidence-boundary-check.js';
+
+function checkerMutation(replacements) {
+  return { target: BOUNDARY_CHECKER, replacements };
+}
+
 function docCaptureMutation(replacements) {
   return {
     target: DOC_EVIDENCE_CAPTURE_CANONICAL,
@@ -318,6 +325,50 @@ const MUTATIONS = {
   'B04-leak': docCaptureMutation([replacement(
     '            hasOwnRenameTo: snapshot.hasOwnRenameTo,',
     '            hasOwnRenameTo: snapshot.hasOwnRenameTo,\n            rawEntry, // mutation: leak the caller-owned entry into the returned view'
+  )]),
+  // C3 checker-disable tuples (plan §3): each removes one emitter in the loaded checker. Each must be killed by its
+  // selected enforcement assertion. C00 is a qualification-only no-op: it must survive and never enters the gate.
+  'C00-noop-boundary': checkerMutation([replacement(
+    '  if (contextPropertyUses !== 0 || contextTokens !== 2) {',
+    '  // C00: no-op comment, behaviour unchanged\n  if (contextPropertyUses !== 0 || contextTokens !== 2) {'
+  )]),
+  'C01-alias-rule-off': checkerMutation([replacement(
+    '  if (contextPropertyUses !== 0 || contextTokens !== 2) {',
+    '  if (false) { // C01: alias rule off'
+  )]),
+  'C02-destructure-rule-off': checkerMutation([replacement(
+    '    if (!keys || !sameStringArray(keys, contextPolicy.consumerKeys)) {',
+    '    if (false) { // C02: consumer destructure rule off'
+  )]),
+  'C03-return-rule-off': checkerMutation([replacement(
+    "        add('RETURNED_VIEW_ESCAPE', file, sample.name, 'RETURNED_VIEW_OWNERSHIP');",
+    '        void 0; // C03: returned-view escape rule off'
+  )]),
+  'C04-exception-rule-off': checkerMutation([replacement(
+    "        add('AST_TARGET_DRIFT', selected[target.module], target.name, ruleId, target.exceptionId);",
+    "        if (!target.exceptionId) add('AST_TARGET_DRIFT', selected[target.module], target.name, ruleId, target.exceptionId); // C04: exception rule off"
+  )]),
+  // Downgrades that the existing corpus already kills but no tuple registers (C0 gaps G2a-G2d). G1 needs a new case.
+  'G2a-unusable-destination-accepted': docCaptureMutation([replacement(
+    "          if (!nonEmptyString(digest)) return Object.freeze({ kind: 'unusable' });",
+    "          if (!nonEmptyString(digest)) return Object.freeze({ kind: 'accepted', digest }); // G2a"
+  )]),
+  'G2b-ordinary-capture-throw-swallowed': docCaptureMutation([replacement(
+    '              inspectionFailed = true;',
+    '              void 0; // G2b: inspection failure swallowed'
+  )]),
+  'G2c-baseline-path-throw-as-absent': docCaptureMutation([replacement(
+    "            result = Object.freeze({ kind: 'unknown', reason: 'inspection' });",
+    "            result = Object.freeze({ kind: 'absent' }); // G2c"
+  )]),
+  // G1 (C0 gap): a whitespace-only baseline identity is accepted as valid. Killed by the RB108 case in its own fixture.
+  'G1-unvalidated-baseline-identity': docCaptureMutation([replacement(
+    '            if (nonEmptyString(declaredBaselineDigest)) baselineDigest = declaredBaselineDigest;',
+    '            baselineDigest = declaredBaselineDigest; // G1: identity not validated'
+  )]),
+  'G2d-entry-metadata-throw-as-valid': docCaptureMutation([replacement(
+    '          } catch {\n            snapshot = null;\n          }',
+    '          } catch {\n            snapshot = { path: undefined, reason: undefined, hasOwnRenameTo: false, renameTo: undefined }; // G2d\n          }'
   )]),
 };
 
