@@ -14,6 +14,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { spawnSync } = require('node:child_process');
 const { createRequire } = require('node:module');
 const { checkBoundary } = require('./lib/doc-evidence-boundary-check');
 
@@ -53,7 +54,10 @@ const claimedCases = new Set();
 const failures = [];
 
 const FAIL_CLOSED_CODES = ['SOURCE_PAIR_MISSING', 'AST_POLICY_INVALID', 'AST_PARSER_UNAVAILABLE', 'AST_PARSE_FAILED',
-  'AST_NODE_UNSUPPORTED', 'AST_TARGET_INCOMPLETE', 'CHECKER_FAIL_CLOSED', 'MODULE_LOAD_FAILED', 'MODULE_IMPORT_DENIED'];
+  'AST_NODE_UNSUPPORTED', 'AST_TARGET_INCOMPLETE', 'CHECKER_FAIL_CLOSED', 'CHECKER_EXECUTION_FAILED',
+  'CHECKER_EXECUTION_TIMEOUT', 'MODULE_LOAD_FAILED', 'MODULE_IMPORT_DENIED'];
+
+const LOOP_CONTROL_CHILD_TIMEOUT_MS = 5000;
 
 function emit(event) {
   if (!EVENT_FILE) return;
@@ -117,6 +121,41 @@ function applyControl(control, original) {
   return sources;
 }
 
+function insertInfiniteLoop(source, functionName) {
+  const signature = new RegExp(`function\\s+${functionName}\\s*\\([^)]*\\)\\s*\\{`, 'g');
+  const matches = [...source.matchAll(signature)];
+  assert.equal(matches.length, 1, `${functionName}: expected exactly one function entrypoint`);
+  const weakened = source.replace(signature, match => `${match}\n  while (true) {}`);
+  new vm.Script(weakened, { filename: `timeout-control/${functionName}.js` });
+  return weakened;
+}
+
+function boundedLoopControlResult(input, label) {
+  const script = [
+    "const fs = require('node:fs');",
+    `const { checkBoundary } = require(${JSON.stringify(CHECKER_PATH)});`,
+    "const input = JSON.parse(fs.readFileSync(0, 'utf8'));",
+    'process.stdout.write(JSON.stringify(checkBoundary(input)));'
+  ].join('\n');
+  const startedAt = Date.now();
+  const child = spawnSync(process.execPath, ['-e', script], {
+    input: JSON.stringify(input),
+    encoding: 'utf8',
+    timeout: LOOP_CONTROL_CHILD_TIMEOUT_MS,
+    maxBuffer: 1024 * 1024
+  });
+  const elapsedMs = Date.now() - startedAt;
+  assert.equal(child.error && child.error.code, undefined,
+    `${label}: the bounded test child must finish before ${LOOP_CONTROL_CHILD_TIMEOUT_MS}ms`);
+  assert.equal(child.signal, null, `${label}: the bounded test child was not terminated`);
+  assert.equal(child.status, 0, `${label}: child exit ${child.status}; stderr=${child.stderr}`);
+  const result = JSON.parse(child.stdout);
+  assert.equal(result.coverage.complete, false, `${label}: timeout leaves C1 coverage incomplete`);
+  assert.deepEqual(result.diagnostics.map(item => item.code), ['CHECKER_EXECUTION_TIMEOUT'],
+    `${label}: timeout returns only the deterministic fail-closed diagnostic`);
+  return { result, elapsedMs };
+}
+
 function controlStatus(result, intendedRuleId) {
   if (result.diagnostics.some(diagnostic => diagnostic.ruleId === intendedRuleId)) return 'REJECTED';
   if (result.coverage.complete && result.diagnostics.length === 0) return 'SURVIVED';
@@ -163,7 +202,7 @@ function assertAstRejection(control, result) {
 
 function loadCheckerFromSource(source) {
   const isolatedModule = { exports: {} };
-  const allowed = new Set(['acorn', 'acorn-walk', 'acorn/package.json', 'acorn-walk/package.json']);
+  const allowed = new Set(['node:child_process', 'node:fs', 'acorn', 'acorn-walk', 'acorn/package.json', 'acorn-walk/package.json']);
   const sandbox = {
     module: isolatedModule,
     exports: isolatedModule.exports,
@@ -370,6 +409,25 @@ for (const [distribution, files] of Object.entries(controls.distributions)) {
       assertAstRejection(control, programResult);
     });
   }
+}
+
+// C1 timeout controls keep their own subprocess deadline so a regression in the checker cannot hang this suite.
+const [loopDistribution, loopFiles] = Object.entries(controls.distributions)[0];
+const loopOriginal = sourcePair(loopDistribution, loopFiles);
+for (const control of [
+  { caseId: 'C1-timeout-evaluator-loop', kind: 'evaluator', functionName: 'checkDocObligations' },
+  { caseId: 'C1-timeout-capture-loop', kind: 'capture', functionName: 'createInvocationCapture' }
+]) {
+  const sources = { ...loopOriginal, [control.kind]: insertInfiniteLoop(loopOriginal[control.kind], control.functionName) };
+  assertion(control.caseId, 'execution-timeout.fails-closed', () => {
+    const { elapsedMs } = boundedLoopControlResult({
+      distribution: loopDistribution,
+      sources,
+      policy,
+      method: 'isolation'
+    }, control.caseId);
+    console.log(`EVIDENCE ${control.caseId} result=CHECKER_EXECUTION_TIMEOUT elapsedMs=${elapsedMs}`);
+  });
 }
 
 // Fingerprints are reviewed inputs. This run must never rewrite the policy or its pinned fingerprints.

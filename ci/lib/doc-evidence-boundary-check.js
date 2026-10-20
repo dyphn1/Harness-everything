@@ -6,6 +6,11 @@
 // Dormant statements inside an already-authorized compatibility method are outside this
 // method's proof and must be caught by the C2 structural supplement.
 const vm = require('node:vm');
+const fs = require('node:fs');
+const { spawnSync } = require('node:child_process');
+
+const C1_EXECUTION_TIMEOUT_MS = 2000;
+const C1_EXECUTION_MAX_BUFFER_BYTES = 4 * 1024 * 1024;
 
 const COVERAGE_IDS = Object.freeze([
   'source-pair',
@@ -20,23 +25,51 @@ const COVERAGE_IDS = Object.freeze([
 ]);
 
 function checkBoundary(input) {
-  try {
-    return runBoundaryCheck(input);
-  } catch {
-    const method = input && input.method ? input.method : 'isolation';
-    const missing = [...COVERAGE_IDS];
-    if (method === 'ast') missing.push('ast-structure');
-    return {
-      method,
-      coverage: { complete: false, checked: [], missing },
-      diagnostics: [{
-        code: 'CHECKER_FAIL_CLOSED',
-        file: '<input>',
-        location: 'checkBoundary',
-        ruleId: 'CHECKER_FAIL_CLOSED'
-      }]
-    };
+  if (input && input.method === 'ast') {
+    try {
+      return runBoundaryCheck(input);
+    } catch {
+      return failClosedResult(input, 'CHECKER_FAIL_CLOSED');
+    }
   }
+
+  try {
+    // C1 calls VM-created functions and inspects their returned objects from host code; bound the
+    // entire isolation run so calls and proxy-backed ownership traversal are all killable.
+    const child = spawnSync(process.execPath, [__filename, '--c1-isolation-child'], {
+      input: JSON.stringify(input === undefined ? null : input),
+      encoding: 'utf8',
+      timeout: C1_EXECUTION_TIMEOUT_MS,
+      maxBuffer: C1_EXECUTION_MAX_BUFFER_BYTES
+    });
+    if (child.error && child.error.code === 'ETIMEDOUT') {
+      return failClosedResult(input, 'CHECKER_EXECUTION_TIMEOUT');
+    }
+    if (child.error || child.status !== 0 || child.signal) {
+      return failClosedResult(input, 'CHECKER_EXECUTION_FAILED');
+    }
+    return JSON.parse(child.stdout);
+  } catch {
+    return failClosedResult(input, 'CHECKER_FAIL_CLOSED');
+  }
+}
+
+function failClosedResult(input, code) {
+  const method = input && input.method ? input.method : 'isolation';
+  const selected = input && input.policy && input.policy.distributions
+    && input.policy.distributions[input.distribution];
+  const missing = [...COVERAGE_IDS];
+  if (method === 'ast') missing.push('ast-structure');
+  return {
+    method,
+    coverage: { complete: false, checked: [], missing },
+    diagnostics: [{
+      code,
+      file: selected && typeof selected.evaluator === 'string' ? selected.evaluator : '<input>',
+      location: 'checkBoundary',
+      ruleId: code
+    }]
+  };
 }
 
 function runBoundaryCheck({ distribution, sources, policy, method = 'isolation' } = {}) {
@@ -1059,4 +1092,16 @@ function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-module.exports = { checkBoundary };
+if (require.main === module && process.argv[2] === '--c1-isolation-child') {
+  let input;
+  let result;
+  try {
+    input = JSON.parse(fs.readFileSync(0, 'utf8'));
+    result = runBoundaryCheck(input);
+  } catch {
+    result = failClosedResult(input, 'CHECKER_FAIL_CLOSED');
+  }
+  process.stdout.write(JSON.stringify(result));
+} else {
+  module.exports = { checkBoundary };
+}
