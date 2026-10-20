@@ -189,6 +189,33 @@ checkCase('cleanup: replays remove their temporary workspace and state directori
   assert.strictEqual(after, before, 'no replay directory is left behind');
 });
 
+// F-a: separator-agnostic scrubbing. Windows-shaped strings from each leg must normalize to the same markers.
+checkCase('F-a: Windows-shaped source and packaged paths normalize identically', () => {
+  const roots = { repo: 'D:\\a\\repo', tmp: ['C:\\Users\\runneradmin\\AppData\\Local\\Temp'] };
+  const sourceSkill = fx.scrubText('D:\\a\\repo\\tdd\\SKILL.md', roots);
+  const packagedSkill = fx.scrubText('D:\\a\\repo\\plugins\\harness-everything\\skills\\tdd\\SKILL.md', roots);
+  assert.strictEqual(sourceSkill, '<skill:tdd>', 'the source skill path is marked by skill id');
+  assert.strictEqual(packagedSkill, sourceSkill, 'the packaged skill path is marked the same way');
+  const sourceTmp = fx.scrubText('C:\\Users\\runneradmin\\AppData\\Local\\Temp\\doc-recon-P01-source-ws-0a1b2c3d-x9\\state\\workflow-run.json', roots);
+  const packagedTmp = fx.scrubText('C:\\Users\\runneradmin\\AppData\\Local\\Temp\\doc-recon-P01-packaged-ws-5e6f7a8b-y2\\state\\workflow-run.json', roots);
+  assert.strictEqual(packagedTmp, sourceTmp, 'temporary paths from each leg are marked the same way');
+  assert.ok(!sourceTmp.includes('\\') && !sourceTmp.includes('doc-recon'), 'no raw separator or temp name survives');
+  const sameAfterFold = fx.scrubText('C:/Users/runneradmin/AppData/Local/Temp/doc-recon-P01-source-ws-0a1b2c3d-x9/state/workflow-run.json', roots);
+  assert.strictEqual(sameAfterFold, sourceTmp, 'POSIX and Windows spellings of one path normalize identically');
+});
+
+// F-b: a per-action switch override must not reach an OFF replay.
+checkCase('F-b: an OFF replay of P05 carries no per-action switch; the ON replay keeps its overrides', () => {
+  const item = corpus.cases.find(candidate => candidate.id === 'P05');
+  const off = fx.replayCase(item, 'source');
+  for (const [id, action] of Object.entries(off.actions)) {
+    assert.strictEqual(action.pilot, undefined, `OFF replay action ${id} has no switch value`);
+  }
+  const on = fx.replayCase(item, 'source', { pilot: '1' });
+  assert.strictEqual(on.actions['stop-on-1'].pilot, '1', 'an ON replay keeps the ON action value');
+  assert.strictEqual(on.actions['stop-off'].pilot, '0', 'an ON replay keeps the explicit OFF action value');
+});
+
 fs.rmSync(workDir, { recursive: true, force: true });
 console.log(failed ? `\n${failed} preparation check(s) failed` : '\nAll preparation checks passed (desired-contract gaps are qualified, not asserted as behaviour)');
 process.exitCode = failed ? 1 : 0;

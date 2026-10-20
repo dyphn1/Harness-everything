@@ -217,8 +217,10 @@ function runAction(handle, action, pilot) {
   };
 }
 
-// The effective switch for one action: an explicit per-action value wins, otherwise the replay's value.
+// The effective switch for one action. An OFF replay (no replay-level request) stays OFF for every action, so a
+// per-action override can only exist inside an ON replay. Inside an ON replay an explicit per-action value wins.
 function effectivePilot(action, replayPilot) {
+  if (replayPilot === undefined) return undefined;
   return Object.prototype.hasOwnProperty.call(action, 'pilot') ? action.pilot : replayPilot;
 }
 
@@ -272,15 +274,44 @@ function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Replaces absolute temporary paths, the replay's distribution root and skill locations in raw text.
-function scrubText(text) {
-  return String(text)
+// Separators are folded before any marker is applied, so Windows-shaped and POSIX-shaped paths meet the same
+// patterns. Folding happens on the text, not on the marker set, so no marker depends on the host separator.
+function posixForm(value) {
+  return String(value).replace(/\\/g, '/');
+}
+
+let defaultRoots = null;
+// Roots of this checkout and of the temporary directory, both as the host reports them and as realpath resolves
+// them (macOS /var is a symlink to /private/var; Windows short and long names can differ).
+function scrubRoots() {
+  if (defaultRoots === null) {
+    const tmp = [os.tmpdir()];
+    try {
+      tmp.push(fs.realpathSync(os.tmpdir()));
+    } catch (_) {
+      // The unresolved directory above still scrubs its own prefix.
+    }
+    defaultRoots = { repo: REPO_ROOT, tmp };
+  }
+  return defaultRoots;
+}
+
+// Case-insensitive, because Windows volumes and tmp names are case-preserving but case-insensitive.
+function literalPath(value) {
+  return new RegExp(escapeRegExp(posixForm(value)), 'gi');
+}
+
+// Replaces this replay's temporary paths, the checkout root and skill locations in raw text.
+function scrubText(text, roots = scrubRoots()) {
+  let out = posixForm(text)
+    .replace(/[^\s'"]*doc-recon-[^\s'"]*/g, '<tmp>')
     .replace(/\/(private\/)?var\/folders\/[^\s'"]+/g, '<tmp>')
-    .replace(/\/tmp\/[^\s'"]+/g, '<tmp>')
-    .replace(UUID, '<uuid>')
-    .replace(new RegExp(escapeRegExp(REPO_ROOT + '/plugins/harness-everything/'), 'g'), '<dist>/')
-    .replace(new RegExp(escapeRegExp(REPO_ROOT + '/'), 'g'), '<dist>/')
-    .replace(/<dist>\/(?:skills\/)?([a-z0-9-]+)\/SKILL\.md/g, '<skill:$1>');
+    .replace(/\/tmp\/[^\s'"]+/g, '<tmp>');
+  for (const dir of roots.tmp) out = out.replace(literalPath(dir), '<tmp>');
+  out = out.replace(UUID, '<uuid>')
+    .replace(literalPath(`${roots.repo}/plugins/harness-everything/`), '<dist>/')
+    .replace(literalPath(`${roots.repo}/`), '<dist>/');
+  return out.replace(/<dist>\/(?:skills\/)?([a-z0-9-]+)\/SKILL\.md/g, '<skill:$1>');
 }
 
 function scrubReplay(root) {
@@ -342,6 +373,7 @@ module.exports = {
   ALL_OPS,
   replayCase,
   scrubReplay,
+  scrubText,
   normalize,
   evaluateAll,
   evaluateAssertion,
