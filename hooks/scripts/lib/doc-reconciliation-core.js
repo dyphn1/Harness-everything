@@ -83,6 +83,8 @@ function deriveFiles(records, config, options = {}) {
   const files = {};
   for (const item of records || []) {
     if (!record(item) || item.presence !== 'present') continue;
+    // The unchanged derive API uses ordinary object maps, whose __proto__ setter drops this path.
+    if (item.path === '__proto__') throw codedError('inventory-unsupported');
     const stored = bytes(item.storedBytes);
     if (options.strict && (item.digest !== sha(stored) || item.type !== 'file' || !['100644', '100755'].includes(item.mode))) {
       throw codedError('invalid-input');

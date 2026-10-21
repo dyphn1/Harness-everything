@@ -524,6 +524,34 @@ for (const prefix of ['', '\uFEFF']) {
   });
 }
 
+// Root __proto__ is not representable by the unchanged derive API's ordinary object maps.
+for (const side of ['baseline', 'candidate']) {
+  runner.run(`R6-P2:${side}-proto-document-fails-closed`, [REQ_PRODUCER], mods => {
+    const files = normativeFiles();
+    const document = '---\nrole: prd\nstatus: draft\n---\n# Prototype document\n';
+    if (side === 'baseline') files.base = { ...files.base, ['__proto__']: document };
+    const repo = H.makeRepo(files.base);
+    try {
+      H.writeFiles(repo.root, files.candidate);
+      if (side === 'candidate') H.writeFiles(repo.root, { ['__proto__']: document });
+      const { result } = produce(mods, repo);
+      H.sameStable(result.state, 'unavailable', 'prototype-sensitive inventory state');
+      H.sameStable(result.snapshot, null, 'unsupported inventory earns no snapshot');
+      H.expectCodes(H.codesOf(result), ['inventory-unsupported'], 'prototype-sensitive document');
+    } finally { H.removeRepo(repo.root); }
+  });
+}
+
+runner.run('R6-P2:ordinary-path-frontmatter-retains-document-obligations', [REQ_PRODUCER], mods => {
+  const files = normativeFiles();
+  withRepo(files, repo => {
+    H.writeFiles(repo.root, { 'role.dat': '---\nrole: prd\nstatus: draft\n---\n# Prototype document\n' });
+    const snapshot = readyOrThrow(produce(mods, repo).result, 'ordinary-path control');
+    if (!snapshot.obligations.some(item => item.strength === 'MUST' && item.applicability === 'applicable'
+      && item.scope?.paths?.includes('role.dat'))) throw new Error('ordinary-path document lost its MUST obligations');
+  });
+});
+
 const counts = runner.summary();
 if (counts.INFRA > 0) {
   console.error('S2a producer suite: infrastructure faults present; these are not assertion results.');

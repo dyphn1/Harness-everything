@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Reject root-level `__proto__` files in S2a snapshot capture and validation instead of silently dropping their document obligations (#353).
+
 - Bind the S2a captured origin identity to the snapshot identity (workspace, session, workflow, revision, task), the captured plan and the selected active host, so a jointly substituted origin context and provider context cannot earn credit in either reconciliation mode; bind the captured config bytes to the captured inventory (#353).
 
 - Keep a whole-project S2a inventory usable when it contains binary records: every stored byte stays in the candidate digest, records the derive contract cannot observe are omitted from semantic derivation, and governed/derived/code/test records that cannot be decoded fail closed as inventory-unsupported (#353).
