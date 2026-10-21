@@ -36,12 +36,9 @@ function checkBoundary(input) {
   try {
     // C1 calls VM-created functions and inspects their returned objects from host code; bound the
     // entire isolation run so calls and proxy-backed ownership traversal are all killable.
-    const child = spawnSync(process.execPath, [__filename, '--c1-isolation-child'], {
-      input: JSON.stringify(input === undefined ? null : input),
-      encoding: 'utf8',
-      timeout: C1_EXECUTION_TIMEOUT_MS,
-      maxBuffer: C1_EXECUTION_MAX_BUFFER_BYTES
-    });
+    // This production call selects only the fixed isolation entry; the timeout test entry is
+    // reachable only by direct CLI invocation and is never derived from caller input.
+    const child = spawnC1Child(['--c1-isolation-child'], JSON.stringify(input === undefined ? null : input));
     if (child.error && child.error.code === 'ETIMEDOUT') {
       return failClosedResult(input, 'CHECKER_EXECUTION_TIMEOUT');
     }
@@ -52,6 +49,17 @@ function checkBoundary(input) {
   } catch {
     return failClosedResult(input, 'CHECKER_FAIL_CLOSED');
   }
+}
+
+function spawnC1Child(args, input) {
+  return spawnSync(process.execPath, [__filename, ...args], {
+    input,
+    encoding: 'utf8',
+    timeout: C1_EXECUTION_TIMEOUT_MS,
+    // Windows maps SIGKILL to process termination; classify timeout by ETIMEDOUT below.
+    killSignal: 'SIGKILL',
+    maxBuffer: C1_EXECUTION_MAX_BUFFER_BYTES
+  });
 }
 
 function failClosedResult(input, code) {
@@ -478,6 +486,55 @@ function compilePair(sources, selected, policy, add) {
     codeGeneration: { strings: false, wasm: false }
   });
   const allowedBuiltins = new Set(policy.modules.captureBuiltins || []);
+  // Keep the only needed host capability behind VM-realm methods. The captured host function
+  // receives and returns primitives only; capture source cannot reach its Function constructor.
+  const makeCryptoFacade = vm.runInContext(
+    '(digestText) => Object.freeze({ createHash(algorithm) {' +
+    ' if (algorithm !== "sha256") throw new Error("unsupported hash algorithm");' +
+    ' let text = "";' +
+    ' const hash = {' +
+    ' update(value) {' +
+    ' if (typeof value !== "string") throw new TypeError("hash input must be a string");' +
+    ' text += value;' +
+    ' return hash;' +
+    ' },' +
+    ' digest(encoding) {' +
+    ' if (encoding !== "hex") throw new TypeError("hash encoding must be hex");' +
+    ' return digestText(text);' +
+    ' }' +
+    ' };' +
+    ' return Object.freeze(hash);' +
+    '} })',
+    context,
+    { timeout: 1000 }
+  );
+  const hostDigest = Object.freeze(text =>
+    require('node:crypto').createHash('sha256').update(text).digest('hex'));
+  const cryptoFacade = makeCryptoFacade(hostDigest);
+  const makeImportMap = vm.runInContext(
+    '(specifier, value) => {' +
+    ' const imports = Object.create(null);' +
+    ' if (typeof specifier === "string") imports[specifier] = value;' +
+    ' return Object.freeze(imports);' +
+    ' }',
+    context,
+    { timeout: 1000 }
+  );
+  const makeRequireFacade = vm.runInContext(
+    '(allowed, reportDenied) => function requireInRealm(specifier) {' +
+    ' if (typeof specifier === "string" && Object.prototype.hasOwnProperty.call(allowed, specifier)) {' +
+    ' return allowed[specifier];' +
+    ' }' +
+    ' const label = typeof specifier === "string" ? specifier : "<non-string>";' +
+    ' reportDenied(label);' +
+    ' throw new Error("unsupported import: " + label);' +
+    ' }',
+    context,
+    { timeout: 1000 }
+  );
+  const deniedImportReporter = file => Object.freeze(specifier => {
+    add('MODULE_IMPORT_DENIED', file, `require(${specifier})`, 'MODULE_IMPORTS_CLOSED');
+  });
   let captureModule;
   const loaded = { evaluator: null, capture: null };
   const compile = (kind, source, localRequire) => {
@@ -508,18 +565,12 @@ function compilePair(sources, selected, policy, add) {
     return moduleRecord.exports;
   };
 
-  const captureRequire = specifier => {
-    if (allowedBuiltins.has(specifier) && specifier === 'crypto') return require('node:crypto');
-    add('MODULE_IMPORT_DENIED', selected.capture, `require(${String(specifier)})`, 'MODULE_IMPORTS_CLOSED');
-    throw new Error(`unsupported capture import: ${String(specifier)}`);
-  };
+  const captureImports = makeImportMap(allowedBuiltins.has('crypto') ? 'crypto' : null, cryptoFacade);
+  const captureRequire = makeRequireFacade(captureImports, deniedImportReporter(selected.capture));
   captureModule = compile('capture', sources.capture, captureRequire);
   loaded.capture = captureModule;
-  const evaluatorRequire = specifier => {
-    if (specifier === './doc-evidence-capture') return captureModule;
-    add('MODULE_IMPORT_DENIED', selected.evaluator, `require(${String(specifier)})`, 'MODULE_IMPORTS_CLOSED');
-    throw new Error(`unsupported evaluator import: ${String(specifier)}`);
-  };
+  const evaluatorImports = makeImportMap('./doc-evidence-capture', captureModule);
+  const evaluatorRequire = makeRequireFacade(evaluatorImports, deniedImportReporter(selected.evaluator));
   loaded.evaluator = compile('evaluator', sources.evaluator, evaluatorRequire);
   loaded.context = context;
   return loaded;
@@ -648,6 +699,16 @@ function exerciseSyntheticViews(runtime, policy, file, add) {
     fixture.rawEntry = { path: 'docs/base.md', reason: 'added', renameTo: 'docs/destination.md', nested: fixture.nested };
     return fixture;
   })()`, context, { timeout: 1000 });
+    const defineSyntheticFault = vm.runInContext(
+      `(target, key) => Object.defineProperty(target, key, { get() { throw new Error('synthetic read fault'); } })`,
+      context,
+      { timeout: 1000 }
+    );
+    const defineSyntheticUndefined = vm.runInContext(
+      `(target, key) => Object.defineProperty(target, key, { value: undefined, enumerable: true })`,
+      context,
+      { timeout: 1000 }
+    );
     const inputs = collectObjectGraph([fixture]);
     const invocationArgs = vm.runInContext('({ artifacts: null, baseline: null })', context);
     invocationArgs.artifacts = fixture.artifacts;
@@ -672,11 +733,14 @@ function exerciseSyntheticViews(runtime, policy, file, add) {
     }
     addSample('captureEntry.repeated', capturedAgain, 'captureEntry');
     addSample('captureEntry.notObject', obligation.captureEntry(null), 'captureEntry');
-    const rawWithoutRename = { path: 'docs/plain.md', reason: 'added' };
+    const rawWithoutRename = vm.runInContext("({ path: 'docs/plain.md', reason: 'added' })", context);
     inputs.add(rawWithoutRename);
     addSample('captureEntry.noRenameTo', obligation.captureEntry(rawWithoutRename), 'captureEntry');
-    const failedEntry = {};
-    Object.defineProperty(failedEntry, 'path', { get() { throw new Error('synthetic read fault'); } });
+    const failedEntry = vm.runInContext(`(() => {
+      const entry = {};
+      Object.defineProperty(entry, 'path', { get() { throw new Error('synthetic read fault'); } });
+      return entry;
+    })()`, context);
     inputs.add(failedEntry);
     addSample('captureEntry.inspectionFailed', obligation.captureEntry(failedEntry), 'captureEntry');
     addSample('formatInvalidReason', obligation.formatInvalidReason(captured.token), 'string');
@@ -687,16 +751,16 @@ function exerciseSyntheticViews(runtime, policy, file, add) {
     addSample('captureDestination.unusable', obligation.captureDestination(captured.token, 'docs/missing.md'), 'captureDestination');
     fixture.artifacts['docs/destination.md'].digest = '9999999999999999999999999999999999999999999999999999999999999999';
     addSample('captureDestination.conflict', obligation.captureDestination(captured.token, 'docs/destination.md'), 'captureDestination');
-    Object.defineProperty(fixture.artifacts, 'docs/fault.md', { get() { throw new Error('synthetic read fault'); } });
+    defineSyntheticFault(fixture.artifacts, 'docs/fault.md');
     addSample('captureDestination.inspectionFailed', obligation.captureDestination(captured.token, 'docs/fault.md'), 'captureDestination');
 
     addSample('captureBaselinePath.present', obligation.captureBaselinePath('docs/base.md'), 'captureBaselinePath');
     addSample('captureBaselinePath.absent', obligation.captureBaselinePath('docs/missing.md'), 'captureBaselinePath');
-    Object.defineProperty(fixture.baseline.artifacts, 'docs/undefined.md', { value: undefined, enumerable: true });
+    defineSyntheticUndefined(fixture.baseline.artifacts, 'docs/undefined.md');
     fixture.baseline.artifacts['docs/invalid.md'] = 42;
     addSample('captureBaselinePath.presentUndefined', obligation.captureBaselinePath('docs/undefined.md'), 'captureBaselinePath');
     addSample('captureBaselinePath.presentInvalid', obligation.captureBaselinePath('docs/invalid.md'), 'captureBaselinePath');
-    Object.defineProperty(fixture.baseline.artifacts, 'docs/fault.md', { get() { throw new Error('synthetic read fault'); } });
+    defineSyntheticFault(fixture.baseline.artifacts, 'docs/fault.md');
     addSample('captureBaselinePath.unknown', obligation.captureBaselinePath('docs/fault.md'), 'captureBaselinePath');
 
     addSample('baselineEntries.empty', obligation.baselineEntries(), 'baselineEntries');
@@ -709,32 +773,36 @@ function exerciseSyntheticViews(runtime, policy, file, add) {
     addSample('capturedCandidate.uncaptured', obligation.capturedCandidate('docs/not-captured.md'), 'capturedCandidate');
     addSample('candidateAuditValue', obligation.candidateAuditValue('docs/ordinary.md'), 'string');
 
-    obligation.acceptBaselineEntry({
-      entryToken: captured.token,
-      path: 'docs/base.md',
-      reason: 'added',
-      trustedBaselineDigest: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
-    });
-    const renameRawEntry = { path: 'docs/renamed.md', reason: 'rename-from', renameTo: 'docs/destination.md' };
+    const acceptedBaselineEntry = vm.runInContext(
+      '({ entryToken: null, path: null, reason: null, trustedBaselineDigest: null })', context);
+    acceptedBaselineEntry.entryToken = captured.token;
+    acceptedBaselineEntry.path = 'docs/base.md';
+    acceptedBaselineEntry.reason = 'added';
+    acceptedBaselineEntry.trustedBaselineDigest = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+    obligation.acceptBaselineEntry(acceptedBaselineEntry);
+    const renameRawEntry = vm.runInContext(
+      "({ path: 'docs/renamed.md', reason: 'rename-from', renameTo: 'docs/destination.md' })", context);
     inputs.add(renameRawEntry);
     const renameCapture = obligation.captureEntry(renameRawEntry);
     obligation.captureSourceAbsence(renameCapture.token, 'docs/renamed.md');
-    obligation.acceptBaselineEntry({
-      entryToken: renameCapture.token,
-      path: 'docs/renamed.md',
-      reason: 'rename-from',
-      renameTo: 'docs/destination.md',
-      renameDestinationDigest: acceptedDestination.digest,
-      trustedBaselineDigest: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
-    });
+    const acceptedRenameEntry = vm.runInContext(
+      `({ entryToken: null, path: null, reason: null, renameTo: null,
+        renameDestinationDigest: null, trustedBaselineDigest: null })`, context);
+    acceptedRenameEntry.entryToken = renameCapture.token;
+    acceptedRenameEntry.path = 'docs/renamed.md';
+    acceptedRenameEntry.reason = 'rename-from';
+    acceptedRenameEntry.renameTo = 'docs/destination.md';
+    acceptedRenameEntry.renameDestinationDigest = acceptedDestination.digest;
+    acceptedRenameEntry.trustedBaselineDigest = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+    obligation.acceptBaselineEntry(acceptedRenameEntry);
     const baselineEntries = obligation.baselineEntries();
     addSample('baselineEntries', baselineEntries, 'baselineEntries');
     const entryCopyA = obligation.baselineEntries();
     const entryCopyB = obligation.baselineEntries();
-    entryCopyA.push({ path: 'docs/injected.md' });
+    entryCopyA.push(vm.runInContext("({ path: 'docs/injected.md' })", context));
     const entryCopyC = obligation.baselineEntries();
     if (entryCopyA === entryCopyB || entryCopyB.length !== entryCopyC.length
-      || entryCopyB.some((entry, index) => entry === entryCopyC[index])) {
+      || someArrayValue(entryCopyB, (entry, index) => entry === entryCopyC[index])) {
       ownershipComplete = false;
       add('RETURNED_ARRAY_REUSE', file, 'baselineEntries', 'RETURNED_VIEW_OWNERSHIP');
     }
@@ -742,21 +810,24 @@ function exerciseSyntheticViews(runtime, policy, file, add) {
     addSample('baselineAuditPairs', baselinePairs, 'baselineAuditPairs');
     const pairCopyA = obligation.baselineAuditPairs();
     const pairCopyB = obligation.baselineAuditPairs();
-    pairCopyA.push(['docs/injected.md', '0'.repeat(64)]);
+    pairCopyA.push(vm.runInContext("['docs/injected.md', '0000000000000000000000000000000000000000000000000000000000000000']", context));
     const pairCopyC = obligation.baselineAuditPairs();
     if (pairCopyA === pairCopyB || pairCopyB.length !== pairCopyC.length
-      || pairCopyB.some((pair, index) => pair === pairCopyC[index])) {
+      || someArrayValue(pairCopyB, (pair, index) => pair === pairCopyC[index])) {
       ownershipComplete = false;
       add('RETURNED_ARRAY_REUSE', file, 'baselineAuditPairs', 'RETURNED_VIEW_OWNERSHIP');
     }
-    addSample('compatibilityCandidateBound', obligation.compatibilityCandidateBound({
-      baseDigest: baselineDigest,
-      artifactDigests: { 'docs/ordinary.md': 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' },
-      paths: ['docs/ordinary.md']
-    }, 'docs/ordinary.md', baselineDigest), 'boolean');
-    addSample('compatibilityStaleArtifactMismatch', obligation.compatibilityStaleArtifactMismatch({
-      artifactDigests: { 'docs/ordinary.md': '0000000000000000000000000000000000000000000000000000000000000000' }
-    }, 'docs/ordinary.md'), 'boolean');
+    const compatibilityCandidate = vm.runInContext(
+      '({ baseDigest: null, artifactDigests: {}, paths: [] })', context);
+    compatibilityCandidate.baseDigest = baselineDigest;
+    compatibilityCandidate.artifactDigests['docs/ordinary.md'] = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
+    compatibilityCandidate.paths.push('docs/ordinary.md');
+    addSample('compatibilityCandidateBound', obligation.compatibilityCandidateBound(
+      compatibilityCandidate, 'docs/ordinary.md', baselineDigest), 'boolean');
+    const staleArtifact = vm.runInContext('({ artifactDigests: {} })', context);
+    staleArtifact.artifactDigests['docs/ordinary.md'] = '0000000000000000000000000000000000000000000000000000000000000000';
+    addSample('compatibilityStaleArtifactMismatch', obligation.compatibilityStaleArtifactMismatch(
+      staleArtifact, 'docs/ordinary.md'), 'boolean');
     addSample('compatibilityPrdSetDigest', invocation.compatibilityPrdSetDigest(), 'sha256');
 
     for (const sample of samples) {
@@ -795,11 +866,31 @@ function validateSchema(value, schemaName, schemas, context) {
     return variants.some(variant => exactFields(value, variant.fields, context));
   }
   if (schema.kind === 'array') {
-    return Array.isArray(value) && value.every(item => validateInline(item, schema.item, schemas, context));
+    return everyArrayValue(value, item => validateInline(item, schema.item, schemas, context));
   }
   if (schema.kind === 'pair-array') {
-    return Array.isArray(value) && value.every(pair => Array.isArray(pair) && pair.length === 2
+    return everyArrayValue(value, pair => Array.isArray(pair) && pair.length === 2
       && primitiveMatches(pair[0], 'string') && primitiveMatches(pair[1], 'string'));
+  }
+  return false;
+}
+
+// These loops stay in the host realm. Calling value.every/some would pass checker callbacks into
+// a VM-owned method that untrusted source could override to inspect their host Function constructor.
+function everyArrayValue(values, predicate) {
+  if (!Array.isArray(values)) return false;
+  const length = values.length;
+  for (let index = 0; index < length; index++) {
+    if (Object.prototype.hasOwnProperty.call(values, index) && !predicate(values[index], index)) return false;
+  }
+  return true;
+}
+
+function someArrayValue(values, predicate) {
+  if (!Array.isArray(values)) return false;
+  const length = values.length;
+  for (let index = 0; index < length; index++) {
+    if (Object.prototype.hasOwnProperty.call(values, index) && predicate(values[index], index)) return true;
   }
   return false;
 }
@@ -841,7 +932,7 @@ function fieldMatches(value, spec, context) {
     return Boolean(value) && typeof value === 'object' && Object.getPrototypeOf(value) === null
       && Reflect.ownKeys(value).length === 0 && Object.isFrozen(value);
   }
-  if (spec === 'string-array') return Array.isArray(value) && value.every(item => typeof item === 'string');
+  if (spec === 'string-array') return everyArrayValue(value, item => typeof item === 'string');
   return false;
 }
 
@@ -902,9 +993,12 @@ function collectObjectGraph(roots) {
 
 function exerciseSyntheticEvaluator(runtime, add, file) {
   try {
-    const result = runtime.evaluator.checkDocObligations({
-      obligations: [], artifacts: {}, baseline: {}, executionRecords: [], reviewRecords: []
-    });
+    const input = vm.runInContext(
+      '({ obligations: [], artifacts: {}, baseline: {}, executionRecords: [], reviewRecords: [] })',
+      runtime.context,
+      { timeout: 1000 }
+    );
+    const result = runtime.evaluator.checkDocObligations(input);
     if (!result || !Array.isArray(result.diagnostics) || !Array.isArray(result.results)) throw new Error('bad result shape');
     return true;
   } catch (error) {
@@ -1102,6 +1196,27 @@ if (require.main === module && process.argv[2] === '--c1-isolation-child') {
     result = failClosedResult(input, 'CHECKER_FAIL_CLOSED');
   }
   process.stdout.write(JSON.stringify(result));
+} else if (require.main === module && process.argv[2] === '--c1-timeout-kill-test') {
+  // Test-only selection: checkBoundary never forwards caller data to this CLI argument.
+  const child = spawnC1Child(['--c1-sigterm-resistant-test-child']);
+  const ignoredSigterm = typeof child.stdout === 'string' && child.stdout.includes('C1_SIGTERM_IGNORED');
+  // POSIX reports the delivered signal. Windows maps SIGKILL to immediate process termination.
+  const killedBySigkill = process.platform === 'win32' || child.signal === 'SIGKILL';
+  const result = child.error && child.error.code === 'ETIMEDOUT' && killedBySigkill && !ignoredSigterm
+    ? failClosedResult(null, 'CHECKER_EXECUTION_TIMEOUT')
+    : failClosedResult(null, 'CHECKER_EXECUTION_FAILED');
+  process.stdout.write(JSON.stringify(result));
+} else if (require.main === module && process.argv[2] === '--c1-sigterm-resistant-test-child') {
+  // Finite CPU work keeps this child alive beyond C1's timeout while allowing Node to deliver
+  // and ignore SIGTERM between busy turns. It exits naturally if the kill-signal control regresses.
+  process.on('SIGTERM', () => process.stdout.write('C1_SIGTERM_IGNORED\n'));
+  const stopAt = Date.now() + C1_EXECUTION_TIMEOUT_MS + 1500;
+  const busyTurn = () => {
+    const turnEndsAt = Date.now() + 20;
+    while (Date.now() < turnEndsAt) { /* intentional bounded busy loop */ }
+    if (Date.now() < stopAt) setImmediate(busyTurn);
+  };
+  busyTurn();
 } else {
   module.exports = { checkBoundary };
 }

@@ -156,6 +156,108 @@ function boundedLoopControlResult(input, label) {
   return { result, elapsedMs };
 }
 
+function appendAfterCaptureExports(source, injectedLines) {
+  const anchor = 'module.exports = { createInvocationCapture };';
+  assert.equal(source.split(anchor).length - 1, 1,
+    'capture source must have one exact module export anchor');
+  return source.replace(anchor, [anchor, ...injectedLines].join('\n'));
+}
+
+function insertHostArgumentProbe(source, functionName) {
+  const signature = new RegExp(`function\\s+${functionName}\\s*\\([^)]*\\)\\s*\\{`, 'g'); // portability-lint: allow RegExp source, not a path
+  assert.equal([...source.matchAll(signature)].length, 1,
+    `${functionName}: expected exactly one host-argument probe entrypoint`);
+  const probe = [
+    '  for (const candidate of [arguments[0], arguments[0] && arguments[0].obligations, arguments[0] && arguments[0].artifacts]) {',
+    '    if (!candidate || (typeof candidate !== "object" && typeof candidate !== "function")) continue;',
+    '    try {',
+    "      candidate.constructor.constructor('return process')();",
+    "      throw new Error('__C1_HOST_ARGUMENT_ESCAPED__');",
+    '    } catch (error) {',
+    "      if (error && error.message === '__C1_HOST_ARGUMENT_ESCAPED__') throw error;",
+    '    }',
+    '  }'
+  ].join('\n');
+  return source.replace(signature, match => `${match}\n${probe}`);
+}
+
+function insertHostArrayCallbackProbe(source) {
+  const anchor = `baselineEntries() {
+          return [...acceptedBaselineEntries.values()].map(entry => Object.freeze({ ...entry }));
+        },`;
+  assert.equal(source.split(anchor).length - 1, 1,
+    'capture source must have one exact baselineEntries callback probe anchor');
+  return source.replace(anchor, `baselineEntries() {
+          const entries = [...acceptedBaselineEntries.values()].map(entry => Object.freeze({ ...entry }));
+          const nativeEvery = Array.prototype.every;
+          Array.prototype.every = function (callback) {
+            try {
+              callback.constructor.constructor('return process')();
+              throw new Error('__C1_HOST_CALLBACK_ESCAPED__');
+            } catch (error) {
+              if (error && error.message === '__C1_HOST_CALLBACK_ESCAPED__') throw error;
+            }
+            return nativeEvery.call(this, callback);
+          };
+          return entries;
+        },`);
+}
+
+function insertHostBridgeProbe(source) {
+  return appendAfterCaptureExports(source, [
+    'try {',
+    "  const escapedProcess = crypto.createHash.constructor('return process')();",
+    "  module.exports.__cryptoEscapedHostProcess = typeof escapedProcess.pid === 'number';",
+    '} catch {}',
+    'try {',
+    "  const escapedProcess = require.constructor('return process')();",
+    "  module.exports.__requireEscapedHostProcess = typeof escapedProcess.pid === 'number';",
+    '} catch {}'
+  ]);
+}
+
+function insertSigtermResistantEscape(source) {
+  return appendAfterCaptureExports(source, [
+    "const hostProcess = crypto.createHash.constructor('return process')();",
+    "hostProcess.on('SIGTERM', () => {});",
+    "const hostSetInterval = crypto.createHash.constructor('return setInterval')();",
+    'hostSetInterval(() => {}, 1000);'
+  ]);
+}
+
+function boundedDirectControlResult(input, label) {
+  const startedAt = Date.now();
+  const child = spawnSync(process.execPath, [CHECKER_PATH, '--c1-isolation-child'], {
+    input: JSON.stringify(input),
+    encoding: 'utf8',
+    timeout: LOOP_CONTROL_CHILD_TIMEOUT_MS,
+    killSignal: 'SIGKILL',
+    maxBuffer: 1024 * 1024
+  });
+  const elapsedMs = Date.now() - startedAt;
+  assert.equal(child.error && child.error.code, undefined,
+    `${label}: the SIGKILL-guarded checker child must finish before ${LOOP_CONTROL_CHILD_TIMEOUT_MS}ms`);
+  assert.equal(child.signal, null, `${label}: checker child was not terminated`);
+  assert.equal(child.status, 0, `${label}: child exit ${child.status}; stderr=${child.stderr}`);
+  return { result: JSON.parse(child.stdout), elapsedMs };
+}
+
+function boundedSigkillControlResult(label) {
+  const startedAt = Date.now();
+  const child = spawnSync(process.execPath, [CHECKER_PATH, '--c1-timeout-kill-test'], {
+    encoding: 'utf8',
+    timeout: LOOP_CONTROL_CHILD_TIMEOUT_MS,
+    killSignal: 'SIGKILL',
+    maxBuffer: 1024 * 1024
+  });
+  const elapsedMs = Date.now() - startedAt;
+  assert.equal(child.error && child.error.code, undefined,
+    `${label}: external SIGKILL deadline ${LOOP_CONTROL_CHILD_TIMEOUT_MS}ms must contain the control`);
+  assert.equal(child.signal, null, `${label}: timeout wrapper finished before the external deadline`);
+  assert.equal(child.status, 0, `${label}: wrapper exit ${child.status}; stderr=${child.stderr}`);
+  return { result: JSON.parse(child.stdout), elapsedMs };
+}
+
 function controlStatus(result, intendedRuleId) {
   if (result.diagnostics.some(diagnostic => diagnostic.ruleId === intendedRuleId)) return 'REJECTED';
   if (result.coverage.complete && result.diagnostics.length === 0) return 'SURVIVED';
@@ -429,6 +531,50 @@ for (const control of [
     console.log(`EVIDENCE ${control.caseId} result=CHECKER_EXECUTION_TIMEOUT elapsedMs=${elapsedMs}`);
   });
 }
+
+assertion('C1-timeout-sigkill-load-bearing', 'sigkill-terminates-sigterm-resistant-child', () => {
+  const { result, elapsedMs } = boundedSigkillControlResult('C1-timeout-sigkill-load-bearing');
+  assert.equal(result.coverage.complete, false, 'the actual C1 deadline leaves coverage incomplete');
+  const diagnosticCodes = result.diagnostics.map(item => item.code);
+  assert.deepEqual(diagnosticCodes, ['CHECKER_EXECUTION_TIMEOUT'],
+    `SIGKILL timeout is classified as CHECKER_EXECUTION_TIMEOUT; actual=${diagnosticCodes.join(',')}`);
+  console.log(`EVIDENCE C1-timeout-sigkill-load-bearing result=CHECKER_EXECUTION_TIMEOUT elapsedMs=${elapsedMs} outerDeadlineMs=${LOOP_CONTROL_CHILD_TIMEOUT_MS}`);
+});
+
+assertion('C1-host-bridge-probe', 'host-function-constructors-are-unreachable', () => {
+  const sources = {
+    evaluator: insertHostArgumentProbe(loopOriginal.evaluator, 'checkDocObligations'),
+    capture: insertHostArgumentProbe(
+      insertHostBridgeProbe(insertHostArrayCallbackProbe(loopOriginal.capture)), 'createInvocationCapture')
+  };
+  const { result, elapsedMs } = boundedDirectControlResult({
+    distribution: loopDistribution,
+    sources,
+    policy,
+    method: 'isolation'
+  }, 'C1-host-bridge-probe');
+  console.log(`EVIDENCE C1-host-bridge-probe complete=${result.coverage.complete} diagnostics=${result.diagnostics.map(item => item.code).join(',')} elapsedMs=${elapsedMs}`);
+  assert.equal(result.coverage.complete, true, 'blocked bridge probes leave C1 coverage complete');
+  assert.deepEqual(result.diagnostics.map(item => item.code), ['MODULE_IMPORT_SURFACE'],
+    'only the intentional require-surface mutation is diagnosed');
+  assert.ok(!result.diagnostics.some(item => item.code === 'MODULE_EXPORT_SURFACE'),
+    'neither exposed crypto nor require yields a host process export');
+  console.log(`EVIDENCE C1-host-bridge-probe result=BLOCKED elapsedMs=${elapsedMs}`);
+});
+
+assertion('C1-timeout-sigterm-resistant', 'escape-is-rejected-within-external-deadline', () => {
+  const sources = { ...loopOriginal, capture: insertSigtermResistantEscape(loopOriginal.capture) };
+  const { result, elapsedMs } = boundedDirectControlResult({
+    distribution: loopDistribution,
+    sources,
+    policy,
+    method: 'isolation'
+  }, 'C1-timeout-sigterm-resistant');
+  assert.equal(result.coverage.complete, false, 'the escaped SIGTERM-resistant child is rejected');
+  assert.ok(result.diagnostics.some(item => FAIL_CLOSED_CODES.includes(item.code)),
+    `the SIGTERM-resistant control must fail closed; diagnostics=${JSON.stringify(result.diagnostics)}`);
+  console.log(`EVIDENCE C1-timeout-sigterm-resistant result=${result.diagnostics[0].code} elapsedMs=${elapsedMs}`);
+});
 
 // Fingerprints are reviewed inputs. This run must never rewrite the policy or its pinned fingerprints.
 assertion('C2-guard', 'boundary.policy-hash-stable', () => {
