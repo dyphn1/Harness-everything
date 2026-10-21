@@ -7,7 +7,7 @@
 // method's proof and must be caught by the C2 structural supplement.
 const vm = require('node:vm');
 const fs = require('node:fs');
-const { spawnSync } = require('node:child_process');
+const { spawnWithSnapshotInput } = require('./snapshot-stdin');
 
 // C1 runs in CI across hosted runners; keep enough headroom for slower macOS startup and VM checks.
 const C1_EXECUTION_TIMEOUT_MS = 10_000;
@@ -59,7 +59,7 @@ function checkIsolationBoundary(input, timeoutMs) {
 }
 
 function spawnC1Child(args, input, timeoutMs = C1_EXECUTION_TIMEOUT_MS) {
-  return spawnSync(process.execPath, [__filename, ...args], {
+  return spawnWithSnapshotInput(process.execPath, [__filename, ...args], {
     input,
     encoding: 'utf8',
     timeout: timeoutMs,

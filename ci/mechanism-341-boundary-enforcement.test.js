@@ -12,9 +12,11 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 const { spawnSync } = require('node:child_process');
+const { spawnWithSnapshotInput } = require('./lib/snapshot-stdin');
 const { createRequire } = require('node:module');
 const { checkBoundary } = require('./lib/doc-evidence-boundary-check');
 
@@ -132,7 +134,7 @@ function insertInfiniteLoop(source, functionName) {
 
 function boundedLoopControlResult(input, label) {
   const startedAt = Date.now();
-  const child = spawnSync(process.execPath, [CHECKER_PATH, '--c1-test-fast-isolation'], {
+  const child = spawnWithSnapshotInput(process.execPath, [CHECKER_PATH, '--c1-test-fast-isolation'], {
     input: JSON.stringify(input),
     encoding: 'utf8',
     timeout: LOOP_CONTROL_CHILD_TIMEOUT_MS,
@@ -222,7 +224,7 @@ function insertSigtermResistantEscape(source) {
 
 function boundedDirectControlResult(input, label) {
   const startedAt = Date.now();
-  const child = spawnSync(process.execPath, [CHECKER_PATH, '--c1-isolation-child'], {
+  const child = spawnWithSnapshotInput(process.execPath, [CHECKER_PATH, '--c1-isolation-child'], {
     input: JSON.stringify(input),
     encoding: 'utf8',
     timeout: LOOP_CONTROL_CHILD_TIMEOUT_MS,
@@ -299,7 +301,7 @@ function assertAstRejection(control, result) {
 
 function loadCheckerFromSource(source) {
   const isolatedModule = { exports: {} };
-  const allowed = new Set(['node:child_process', 'node:fs', 'acorn', 'acorn-walk', 'acorn/package.json', 'acorn-walk/package.json']);
+  const allowed = new Set(['./snapshot-stdin', 'node:child_process', 'node:fs', 'acorn', 'acorn-walk', 'acorn/package.json', 'acorn-walk/package.json']);
   const sandbox = {
     module: isolatedModule,
     exports: isolatedModule.exports,
@@ -335,9 +337,10 @@ function noDiagnosticsChecker() {
 
   // Run the transformed module as an actual CLI child. This uses the production --c1-isolation-child entrypoint,
   // with real process/filename bindings and the same child boundary as checkBoundary().
-  const tempDir = fs.mkdtempSync(path.join(FIXTURE_DIR, '.c1-disabled-checker-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-c1-disabled-checker-'));
   const baselinePath = path.join(tempDir, 'doc-evidence-boundary-check-baseline.js');
   const disabledPath = path.join(tempDir, 'doc-evidence-boundary-check-disabled.js');
+  fs.copyFileSync(path.join(__dirname, 'lib', 'snapshot-stdin.js'), path.join(tempDir, 'snapshot-stdin.js'));
   fs.writeFileSync(baselinePath, source, 'utf8');
   fs.writeFileSync(disabledPath, disabledSource, 'utf8');
   return {
@@ -354,7 +357,7 @@ function noDiagnosticsChecker() {
 }
 
 function runCheckerChild(checkerPath, input, label) {
-  const child = spawnSync(process.execPath, [checkerPath, '--c1-isolation-child'], {
+  const child = spawnWithSnapshotInput(process.execPath, [checkerPath, '--c1-isolation-child'], {
     input: JSON.stringify(input),
     encoding: 'utf8',
     timeout: LOOP_CONTROL_CHILD_TIMEOUT_MS,
@@ -407,15 +410,16 @@ for (const [distribution, files] of Object.entries(controls.distributions)) {
   const original = sourcePair(distribution, files);
 
   // ---- C1 isolation ----
-  const positive = checkBoundary({ distribution, sources: original, policy, method: 'isolation' });
   const positiveCase = `C1-positive-${distribution}`;
   assertion(positiveCase, 'boundary.complete-isolation-policy', () => {
+    const positive = checkBoundary({ distribution, sources: original, policy, method: 'isolation' });
     assert.equal(positive.coverage.complete, true, `${distribution}: unchanged pair has complete coverage`);
     assert.deepEqual(positive.diagnostics, [], `${distribution}: unchanged pair has no diagnostics`);
   });
 
   for (const control of controls.controls) {
     const caseId = `C1-${control.id}-${distribution}`;
+    if (SELECTED_CASE && SELECTED_CASE !== caseId) continue;
     const sources = applyControl(control, original);
     const result = checkBoundary({ distribution, sources, policy, method: 'isolation' });
     const ruleName = control.intendedRuleId.replace(/[^A-Za-z0-9-]/g, '-');
@@ -433,18 +437,19 @@ for (const [distribution, files] of Object.entries(controls.distributions)) {
   // Prove N01/N02/N03 rejection assertions are rule-sensitive: a test-only mutation of the actual C1 checker source
   // runs as a real child through --c1-isolation-child. The sentinel distinguishes a reached no-diagnostics sink from
   // any generic fail-closed/infrastructure result.
-  const disabledChecker = noDiagnosticsChecker();
-  try {
-    for (const id of ['N01', 'N02', 'N03']) {
+  for (const id of ['N01', 'N02', 'N03']) {
+    const caseId = `C1-checker-disabled-${id}-${distribution}`;
+    // Selection must gate setup and subprocesses as well as the final assertion.
+    assertion(caseId, 'assertion.child-sink-sensitivity', () => {
       const control = controls.controls.find(item => item.id === id);
       if (!control) throw new Error(`checker-disable self-test missing ${id}`);
       const sources = applyControl(control, original);
       const input = { distribution, sources, policy, method: 'isolation' };
-      const baseline = disabledChecker.baseline(input);
-      assertExpectedControl(control, baseline);
-      const disabledResult = disabledChecker.run(input);
-      const caseId = `C1-checker-disabled-${id}-${distribution}`;
-      assertion(caseId, 'assertion.child-sink-sensitivity', () => {
+      const disabledChecker = noDiagnosticsChecker();
+      try {
+        const baseline = disabledChecker.baseline(input);
+        assertExpectedControl(control, baseline);
+        const disabledResult = disabledChecker.run(input);
         assert.ok(!disabledResult.diagnostics.some(item => FAIL_CLOSED_CODES.includes(item.code)),
           `${id}: fail-closed or infrastructure results cannot count as a sensitivity kill; diagnostics=${JSON.stringify(disabledResult.diagnostics)}`);
         assert.ok(disabledResult.coverage.testAddSinkCalls > 0,
@@ -456,11 +461,14 @@ for (const [distribution, files] of Object.entries(controls.distributions)) {
             && error.message.includes(`intended ${control.intendedRuleId}; expected REJECTED`),
         `${id}: intended-rule assertion must fail because its diagnostic is missing`);
         console.log(`EVIDENCE ${caseId} baseline=REJECTED intended=${control.intendedRuleId} disabled=missing sentinel=${disabledResult.coverage.testAddSinkCalls} infrastructure=none`);
-      });
-    }
-  } finally {
-    disabledChecker.cleanup();
+      } finally {
+        disabledChecker.cleanup();
+      }
+    });
   }
+
+  // A selected C1 control must not execute unrelated AST probes.
+  if (SELECTED_CASE && !SELECTED_CASE.startsWith('C2-')) continue;
 
   // ---- C2 ast (persistent, per luna's Requests 1-3) ----
   const astPositive = checkBoundary({ distribution, sources: original, policy, method: 'ast' });

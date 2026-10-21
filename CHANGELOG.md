@@ -77,6 +77,8 @@ All notable changes to this project are documented in this file.
 
 ### Bug Fixes
 
+* **doc-evidence:** isolate selected boundary controls from unrelated sensitivity subprocesses, use disposable checker/input snapshots to avoid pipe handoff stalls, and retain control failure assertions and exception details
+
 * **doc-obligations:** keep changed REQ citations in unknown sync scope and recognize indented Decision headings
 * **doc-obligations:** keep title-only REQ test edits out of new-test and assertion scope
 * **doc-obligations:** reject PRD revision identities not chained to the base declaration

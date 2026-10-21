@@ -533,7 +533,22 @@ function checkerDiagnosticCodes(result, check) {
 
 function controlFailureReason(result, check, reason) {
   const codes = checkerDiagnosticCodes(result, check);
-  return codes.length ? `${reason}; checker diagnostic code(s)=${codes.join(',')}` : reason;
+  const details = codes.length ? [`checker diagnostic code(s)=${codes.join(',')}`] : [];
+  const events = readJsonLines(result.eventFile);
+  if (Array.isArray(events)) {
+    for (const event of events.filter(item => isAssertionEvent(item) && item.event === 'assertion-failure').slice(0, 5)) {
+      details.push(`control assertion ${event.assertionId}: ${String(event.message || event.errorCode).slice(0, 500)}`);
+    }
+  }
+  // An exception outside assertion() has no failure event. Preserve its header and
+  // first callsite rather than mistaking an earlier selected PASS for its cause.
+  const lines = outputLines(result.output);
+  const errors = lines.filter(line => /^FAIL(?:\s|$)|^[A-Za-z]*Error(?:\s|\[|:)/.test(line)).slice(0, 3);
+  if (errors.length) {
+    const frame = lines.find(line => /^\s+at /.test(line));
+    details.push(`control output (selected ${check.assertionId}): ${[...errors, frame].filter(Boolean).join(' | ').slice(0, 1500)}`);
+  }
+  return [reason, ...details].join('; ');
 }
 
 function regexMatches(lines, matcher) {
