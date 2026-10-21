@@ -267,9 +267,12 @@ function effectivePilot(action, replayPilot) {
   return Object.prototype.hasOwnProperty.call(action, 'pilot') ? action.pilot : replayPilot;
 }
 
-// Replays one case through one distribution. Actions run in order; a crash is recorded, not hidden.
+// Replays one case through one distribution. Actions run in order and the replay stops at its first infrastructure
+// fault: the faulted action is recorded, no later action runs, and the temporary directories are still removed.
+// A crash is recorded, not hidden.
 function replayCase(caseDef, distribution, options = {}) {
   const limits = limitsFor(caseDef);
+  const mode = options.pilot === undefined ? 'off' : 'on';
   const handle = { ...createSession(distribution, caseDef.id, options.pilot), distribution, limits };
   try {
     const actions = {};
@@ -279,6 +282,7 @@ function replayCase(caseDef, distribution, options = {}) {
         ? { ...action.payload, requirements: caseDef.requirements }
         : action.payload;
       actions[action.id] = runAction(handle, { ...action, payload }, effectivePilot(action, options.pilot));
+      if (actionFaults(action, actions[action.id], mode).length) break;
     }
     return {
       actions,
@@ -325,30 +329,30 @@ function missingRequiredOutput(action, result) {
   return false;
 }
 
-// Infrastructure faults of one replay: a child deadline or output bound hit, a spawn error, a signal (the forced kill
-// included), no exit status, an exit outside the action's policy, or missing required output on an accepted exit. Any
-// fault makes the case an infrastructure failure, decided before registry matching or parity, so a faulted replay can
-// never qualify as an expected RED gap.
-function infrastructureFaults(caseDef, root, mode) {
+// The one fault predicate. Fault messages for one action's result: a child deadline or output bound hit, a spawn
+// error, a signal (the forced kill included), no exit status, an exit outside the action's policy, or missing required
+// output on an accepted exit. replayCase stops on it, and infrastructureFaults classifies with it.
+function actionFaults(action, result, mode) {
   const faults = [];
-  for (const action of caseDef.actions) {
-    const result = root.actions[action.id];
-    if (result.errorCode === 'ETIMEDOUT') faults.push(`${action.id}: timed out at the child deadline (ETIMEDOUT)`);
-    else if (result.errorCode === 'ENOBUFS') faults.push(`${action.id}: child output exceeded maxBuffer (ENOBUFS)`);
-    else if (result.error) faults.push(`${action.id}: spawn error ${result.error}`);
-    if (result.signal) faults.push(`${action.id}: terminated by signal ${result.signal}`);
-    if (result.exitCode === null) {
-      faults.push(`${action.id}: no exit status`);
-      continue;
-    }
-    const policy = exitPolicy(action, mode);
-    if (!policy.includes(result.exitCode)) {
-      faults.push(`${action.id}: exit ${result.exitCode} outside policy [${policy.join(', ')}]`);
-      continue;
-    }
-    if (result.exitCode === 0 && missingRequiredOutput(action, result)) faults.push(`${action.id}: malformed required output`);
-  }
+  if (result.errorCode === 'ETIMEDOUT') faults.push('timed out at the child deadline (ETIMEDOUT)');
+  else if (result.errorCode === 'ENOBUFS') faults.push('child output exceeded maxBuffer (ENOBUFS)');
+  else if (result.error) faults.push(`spawn error ${result.error}`);
+  if (result.signal) faults.push(`terminated by signal ${result.signal}`);
+  if (result.exitCode === null) return [...faults, 'no exit status'];
+  const policy = exitPolicy(action, mode);
+  if (!policy.includes(result.exitCode)) return [...faults, `exit ${result.exitCode} outside policy [${policy.join(', ')}]`];
+  if (result.exitCode === 0 && missingRequiredOutput(action, result)) faults.push('malformed required output');
   return faults;
+}
+
+// Infrastructure faults of one replay, as { actionId, message }. Only actions that ran are judged, so a replay that
+// stopped at its first fault is classified by the same predicate that stopped it. Any fault makes the case an
+// infrastructure failure, decided before registry matching or parity, so a faulted replay never qualifies as an
+// expected RED gap.
+function infrastructureFaults(caseDef, root, mode) {
+  return caseDef.actions
+    .filter(action => Object.prototype.hasOwnProperty.call(root.actions, action.id))
+    .flatMap(action => actionFaults(action, root.actions[action.id], mode).map(message => ({ actionId: action.id, message })));
 }
 
 const VOLATILE_KEYS = new Set([
@@ -485,6 +489,7 @@ module.exports = {
   ALL_OPS,
   replayCase,
   exitPolicy,
+  actionFaults,
   infrastructureFaults,
   scrubReplay,
   scrubText,

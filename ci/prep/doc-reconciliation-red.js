@@ -144,15 +144,33 @@ function comparable(root) {
 
 // Classifies one case. `replays` holds the scrubbed roots: off/on for each leg.
 function classifyCase(item, replays, registryEntries) {
-  // Infrastructure first: a faulted replay can never qualify as a gap, and parity is not meaningful for it.
-  const infrastructure = [];
+  // Infrastructure first: a faulted replay can never qualify as a gap, and parity is not meaningful for it. A replay
+  // that fail-fast did not run is absent from `replays`, so only the replays that ran are judged.
+  const found = [];
+  let actionsRun = 0;
   for (const mode of MODES) {
     for (const leg of LEGS) {
-      for (const fault of fx.infrastructureFaults(item, replays[mode][leg], mode)) infrastructure.push(`${leg}.${mode}.${fault}`);
+      const root = replays[mode][leg];
+      if (!root) continue;
+      actionsRun += Object.keys(root.actions).length;
+      for (const { actionId, message } of fx.infrastructureFaults(item, root, mode)) {
+        found.push({ leg, mode, actionId, message, text: `${leg}.${mode}.${actionId}: ${message}` });
+      }
     }
   }
-  if (infrastructure.length) {
-    return { caseId: item.id, status: 'INFRASTRUCTURE', qualifiedGaps: 0, parity: 'not-evaluated', reason: infrastructure[0], infrastructure, assertions: [] };
+  if (found.length) {
+    const first = found[0];
+    return {
+      caseId: item.id,
+      status: 'INFRASTRUCTURE',
+      qualifiedGaps: 0,
+      parity: 'not-evaluated',
+      reason: first.text,
+      offending: { leg: first.leg, mode: first.mode, actionId: first.actionId, fault: first.message },
+      infrastructure: found.map(entry => entry.text),
+      actionsRun,
+      assertions: []
+    };
   }
   const assertions = [];
   let failed = false;
@@ -198,20 +216,33 @@ function classifyCase(item, replays, registryEntries) {
   return { caseId: item.id, status, qualifiedGaps, parity, assertions };
 }
 
-// Both legs, both modes, for one case. Fresh replays every time; nothing is reused between cases or legs.
-// `mutate(root, { mode, leg })` is a negative-control hook for the preparation suite; the CLI never passes one.
-function replayAll(item, mutate = null) {
+// Both legs, both modes, for one case. Fresh replays every time; nothing is reused between cases or legs. The first
+// replay with an infrastructure fault ends the case: the replays after it are not run and are absent from the result.
+function replayAll(item) {
   const replays = { off: {}, on: {} };
-  for (const leg of LEGS) {
-    replays.off[leg] = fx.scrubReplay(fx.replayCase(item, leg));
-    replays.on[leg] = fx.scrubReplay(fx.replayCase(item, leg, { pilot: '1' }));
-  }
-  if (mutate) {
-    for (const mode of MODES) {
-      for (const leg of LEGS) mutate(replays[mode][leg], { mode, leg });
+  for (const mode of MODES) {
+    for (const leg of LEGS) {
+      replays[mode][leg] = fx.scrubReplay(fx.replayCase(item, leg, mode === 'on' ? { pilot: '1' } : undefined));
+      if (fx.infrastructureFaults(item, replays[mode][leg], mode).length) return replays;
     }
   }
   return replays;
+}
+
+function countReplays(replays) {
+  return MODES.reduce((total, mode) => total + Object.keys(replays[mode]).length, 0);
+}
+
+// A case the corpus-level fail-fast did not reach. It is named, so the report never looks complete.
+function notRun(item, infrastructureCaseId) {
+  return {
+    caseId: item.id,
+    status: 'NOT_RUN',
+    qualifiedGaps: 0,
+    parity: 'not-evaluated',
+    reason: `not run: ${infrastructureCaseId} is INFRASTRUCTURE`,
+    assertions: []
+  };
 }
 
 // The one exit-code rule. Infrastructure (replay faults, policy and output violations) is 2, ahead of RED results.
@@ -233,7 +264,7 @@ function loadRegistry(file) {
   return registry;
 }
 
-function run(args, options = {}) {
+function run(args) {
   const corpus = fx.readCaseCorpus(args.casesFile);
   const registry = loadRegistry(args.registryFile);
   validateRegistry(registry, corpus);
@@ -246,15 +277,23 @@ function run(args, options = {}) {
     baselineSha: registry.baselineSha,
     runtimeFingerprintMatches: registry.runtimeFingerprint === runtime,
     pilotCredit: false,
+    replaysRun: 0,
     cases: []
   };
-  for (const item of cases) {
-    const result = classifyCase(item, replayAll(item, options.mutate), registry.entries.filter(entry => entry.caseId === item.id));
+  for (const [index, item] of cases.entries()) {
+    const replays = replayAll(item);
+    report.replaysRun += countReplays(replays);
+    const result = classifyCase(item, replays, registry.entries.filter(entry => entry.caseId === item.id));
     if (registry.runtimeFingerprint !== runtime && result.status !== 'INFRASTRUCTURE') {
       result.status = 'FAIL';
       result.reason = 'runtime fingerprint differs from the registry capture';
     }
     report.cases.push(result);
+    if (result.status === 'INFRASTRUCTURE') {
+      // Fail fast across the corpus: once a case is infrastructure, the remaining cases are not replayed.
+      for (const skipped of cases.slice(index + 1)) report.cases.push(notRun(skipped, item.id));
+      break;
+    }
   }
   if (!report.runtimeFingerprintMatches) report.recaptureCommand = recaptureCommand(currentCommit());
   return report;
@@ -272,8 +311,9 @@ function recapture(args) {
   for (const item of cases) {
     const result = classifyCase(item, replayAll(item), []);
     if (result.status === 'INFRASTRUCTURE') {
+      // Refuse, and stop: no candidate is written once a replay is infrastructure, so later cases are not replayed.
       problems.push(`${item.id} infrastructure: ${result.reason}`);
-      continue;
+      break;
     }
     for (const assertion of result.assertions) {
       if (assertion.status === 'control-fail') problems.push(`${item.id} control fails: ${assertion.id}`);

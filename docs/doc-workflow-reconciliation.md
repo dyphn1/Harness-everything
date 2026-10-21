@@ -194,13 +194,20 @@ times out (`ETIMEDOUT`), exceeds the output bound (`ENOBUFS`) or is force-termin
 `INFRASTRUCTURE` fault. A test copy of the corpus may only shorten the deadline and substitute a
 fixture script; the committed corpus carries neither.
 
+The runner fails fast at three levels, so one shared fault costs one deadline, not one per replay. A
+replay stops at its first infrastructure fault and runs no later action. The case's remaining
+replays (both legs, both modes) are not run. The first `INFRASTRUCTURE` case ends the run. Each case
+not reached is reported `NOT_RUN` with its reason, so the report never looks complete. An
+`INFRASTRUCTURE` case names its `offending` leg, mode, action and fault, and `replaysRun` counts the
+replays actually started. `--recapture-candidate` refuses at the first infrastructure case.
+
 The discovered [preparation suite](../ci/mechanism-325-3b-preparation.test.js) validates the
 inventory, green OFF controls, exact pending-gap qualification and parity. Its report root contains
 `schemaVersion`, `mode`, `baselineSha`, `runtimeFingerprintMatches`, `pilotCredit`, and `cases`.
 Each case reports `caseId`, `status`, `qualifiedGaps`, `parity`, and `assertions`; each assertion
 identifies its `leg` (`source` or `packaged`), `mode` (`off` or `on`), full assertion `id`,
 classification `status`, and `actual`, with `desired`/`registered` values when applicable. Case
-statuses are `EXPECTED_RED`, `CONTROL_PASS`, `INFRASTRUCTURE`, or `FAIL`; assertion statuses distinguish
+statuses are `EXPECTED_RED`, `CONTROL_PASS`, `INFRASTRUCTURE`, `NOT_RUN`, or `FAIL`; assertion statuses distinguish
 passing controls, unexpected passes, qualified gaps, unqualified gaps, and registry mismatches.
 `pilotCredit` is always false. `reportOrigin` belongs to the replay's `pilotReportOrigin`
 (`runtime` only for an actual runtime report, otherwise `harness` for a synthesized marker);

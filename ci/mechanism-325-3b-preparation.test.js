@@ -132,21 +132,22 @@ checkCase('an unexpected PASS on a control fails expected-RED mode', () => {
   assert.strictEqual(run.status, 1, `a passing assertion with a registry entry fails: ${run.stdout}`);
 });
 
-// Infrastructure rule: an abnormal action result is never a qualified gap. The controls change only the ON route
-// result of P01, identically in both legs, so parity stays green and only the infrastructure rule can stop
-// qualification. Everything else in the replays is the unmodified replay's.
+// Infrastructure rule: an abnormal action result is never a qualified gap. The controls start from one healthy replay
+// set of P01 and change only the ON route result, so every other fault and assertion is the unmodified replay's.
 const p01 = corpus.cases.find(item => item.id === 'P01');
 const p01Entries = registry.entries.filter(entry => entry.caseId === 'P01');
-const injectIntoRoute = patch => runner.replayAll(p01, (root, where) => {
-  if (where.mode === 'on') Object.assign(root.actions.route, patch);
-});
+const healthyP01 = runner.replayAll(p01);
+const injectIntoRoute = (patch, legs = ['source', 'packaged']) => {
+  const injected = JSON.parse(JSON.stringify(healthyP01));
+  for (const leg of legs) Object.assign(injected.on[leg].actions.route, patch);
+  return injected;
+};
 
 checkCase('negative control: an abnormal route in P01 is infrastructure, and --expect-red exits nonzero though later assertions still match', () => {
-  const clean = runner.replayAll(p01);
   const injected = injectIntoRoute({ exitCode: 1 });
   const later = p01.expectations.on.filter(assertion => assertion.id.startsWith('verify-obligation') || assertion.id.startsWith('stop-'));
   for (const leg of ['source', 'packaged']) {
-    const before = fx.evaluateAll(clean.on[leg], later);
+    const before = fx.evaluateAll(healthyP01.on[leg], later);
     const after = fx.evaluateAll(injected.on[leg], later);
     assert.deepStrictEqual(after.map(item => [item.id, item.pass, item.actual]), before.map(item => [item.id, item.pass, item.actual]),
       `${leg}: the later assertions evaluate exactly as in the unmodified replay`);
@@ -159,6 +160,7 @@ checkCase('negative control: an abnormal route in P01 is infrastructure, and --e
   const result = runner.classifyCase(p01, injected, p01Entries);
   assert.strictEqual(result.status, 'INFRASTRUCTURE', `status ${result.status}`);
   assert.deepStrictEqual(result.infrastructure, ['source.on.route: exit 1 outside policy [0]', 'packaged.on.route: exit 1 outside policy [0]']);
+  assert.deepStrictEqual(result.offending, { leg: 'source', mode: 'on', actionId: 'route', fault: 'exit 1 outside policy [0]' });
   assert.deepStrictEqual(result.assertions, [], 'no assertion is qualified or classified for an infrastructure case');
   assert.strictEqual(runner.exitCodeFor({ cases: [result] }, 'expect-red'), 2, 'expected-RED mode exits nonzero');
 });
@@ -196,7 +198,8 @@ checkCase('--expect-red exits nonzero from the CLI when a real route exit falls 
 // outer SIGKILL deadline turns a regression (the runner never returns) into a failed check instead of a hung suite.
 const OUTER_DEADLINE_MS = 90000;
 const PROMPT_EXIT_MS = 30000;
-const replayDirsFor = caseId => fs.readdirSync(os.tmpdir()).filter(name => name.startsWith(`doc-recon-${caseId}-`)).length;
+// Replay directories still on disk: for one case, or for every case when caseId is empty.
+const replayDirsFor = caseId => fs.readdirSync(os.tmpdir()).filter(name => name.startsWith(caseId ? `doc-recon-${caseId}-` : 'doc-recon-')).length;
 function runWithChildLimits(caseId, childLimits) {
   const corpusCopy = JSON.parse(JSON.stringify(corpus));
   corpusCopy.cases.find(item => item.id === caseId).childLimits = childLimits;
@@ -220,11 +223,55 @@ checkCase('a hung route entrypoint cannot stall --expect-red: the CLI exits 2 pr
 });
 
 checkCase('a route that floods stdout is stopped by the output bound and exits 2 through the CLI', () => {
+  const before = replayDirsFor('P01');
   const { run, elapsed } = runWithChildLimits('P01', { timeoutMs: 5000, substitutes: { route: 'flood-entrypoint.js' } });
   assert.strictEqual(run.signal, null, `the runner hung until the outer ${OUTER_DEADLINE_MS} ms deadline (signal ${run.signal})`);
   assert.strictEqual(run.status, 2, `exit ${run.status}: ${run.stdout} ${run.stderr}`);
   assert.ok(elapsed < PROMPT_EXIT_MS, `exit took ${elapsed} ms, bound ${PROMPT_EXIT_MS} ms`);
   assert.ok(run.stdout.includes('child output exceeded maxBuffer (ENOBUFS)'), run.stdout);
+  assert.strictEqual(replayDirsFor('P01'), before, 'replay directories are removed after the output bound');
+});
+
+checkCase('a faulted replay runs no action after its first infrastructure fault and still removes its directories', () => {
+  const before = replayDirsFor('P01');
+  const item = { ...p01, childLimits: { timeoutMs: 500, substitutes: { route: 'hang-entrypoint.js' } } };
+  const root = fx.replayCase(item, 'source');
+  assert.deepStrictEqual(Object.keys(root.actions), ['route'], 'only the faulted route is recorded');
+  const faults = fx.infrastructureFaults(item, root, 'off');
+  assert.ok(faults.length > 0 && faults.every(entry => entry.actionId === 'route'), `faults name only the route: ${JSON.stringify(faults)}`);
+  assert.strictEqual(replayDirsFor('P01'), before, 'replay directories are removed after the fault');
+});
+
+// Corpus-level fail-fast through the real CLI. Every case hangs on the same shared route, so an unbounded runner would
+// spend one deadline per replay (64 route timeouts). The fail-fast spends one, names the rest NOT_RUN, and exits 2.
+const SHARED_HANG_DEADLINE_MS = 500;
+const SHARED_HANG_BOUND_MS = 5000;
+checkCase('corpus-level: a route hung in every case costs one deadline, exits 2, and names the other cases NOT_RUN', () => {
+  const everyCaseHangs = JSON.parse(JSON.stringify(corpus));
+  for (const item of everyCaseHangs.cases) {
+    item.childLimits = { timeoutMs: SHARED_HANG_DEADLINE_MS, substitutes: { route: 'hang-entrypoint.js' } };
+  }
+  const file = path.join(workDir, 'every-case-hangs.json');
+  fs.writeFileSync(file, JSON.stringify(everyCaseHangs), 'utf8');
+  const before = replayDirsFor('');
+  const started = Date.now();
+  const run = spawnSync(process.execPath, [RUNNER, '--expect-red', '--json', '--cases', file], {
+    cwd: ROOT, encoding: 'utf8', timeout: OUTER_DEADLINE_MS, killSignal: 'SIGKILL'
+  });
+  const elapsed = Date.now() - started;
+  assert.strictEqual(run.signal, null, `the runner hung until the outer ${OUTER_DEADLINE_MS} ms deadline (signal ${run.signal})`);
+  assert.strictEqual(run.status, 2, `exit ${run.status}: ${run.stdout} ${run.stderr}`);
+  assert.ok(elapsed < SHARED_HANG_BOUND_MS, `exit took ${elapsed} ms; one ${SHARED_HANG_DEADLINE_MS} ms deadline plus overhead must stay under ${SHARED_HANG_BOUND_MS} ms`);
+  const report = JSON.parse(run.stdout);
+  assert.strictEqual(report.replaysRun, 1, 'exactly one replay ran');
+  const [first, ...rest] = report.cases;
+  assert.strictEqual(first.caseId, 'P01');
+  assert.strictEqual(first.status, 'INFRASTRUCTURE');
+  assert.deepStrictEqual(first.offending, { leg: 'source', mode: 'off', actionId: 'route', fault: 'timed out at the child deadline (ETIMEDOUT)' });
+  assert.strictEqual(first.actionsRun, 1, 'only the hung route ran');
+  assert.deepStrictEqual(rest.map(item => item.caseId), corpus.cases.slice(1).map(item => item.id), 'every other case is named');
+  assert.ok(rest.every(item => item.status === 'NOT_RUN'), 'the other cases are NOT_RUN, never silently omitted');
+  assert.strictEqual(replayDirsFor(''), before, 'replay directories are removed');
 });
 
 checkCase('the committed corpus carries no child-limit override, so production replays use the default deadline', () => {
