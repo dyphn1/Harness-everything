@@ -39,14 +39,53 @@ function captureBaseline(context) {
   }
 }
 
+// PR #351 review P1 (config authority): derivation runs on the current config, so a candidate
+// config edit could de-scope a baseline-governed path. Every resolver-selectable config source —
+// `.agents/harness-everything/project-docs.json` and each host `<home>/harness-everything/manifest.json`
+// for the resolver's PLATFORM_HOMES — is byte-compared at the recorded baseline commit and in the
+// working tree. An edit, an addition or a removal all fail closed before derivation; absence of a
+// source on either side is allowed and only a difference is fatal.
+const PROJECT_DOCS_CONFIG_RELPATH = '.agents/harness-everything/project-docs.json';
+
+function configSourcePaths(resolver) {
+  return [
+    PROJECT_DOCS_CONFIG_RELPATH,
+    ...(resolver.PLATFORM_HOMES || []).map(home => `${home}/harness-everything/manifest.json`),
+  ];
+}
+
+function bytesAtBaseline(root, commit, relative) {
+  const listed = git(root, ['ls-tree', '-r', '--name-only', '-z', commit, '--', relative]);
+  if (!listed.split('\0').includes(relative)) return null; // absent at the baseline is allowed
+  return git(root, ['show', `${commit}:${relative}`]); // other Git failures stay baseline-unavailable
+}
+
+function bytesInTree(root, relative) {
+  try {
+    return fs.readFileSync(path.join(root, relative), 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return null; // absent in the working tree is allowed
+    throw error;
+  }
+}
+
+function assertConfigScopeUnchanged(root, baseline, resolver) {
+  for (const relative of configSourcePaths(resolver)) {
+    if (bytesAtBaseline(root, baseline.commit, relative) !== bytesInTree(root, relative)) {
+      throw new Error('config-scope-changed');
+    }
+  }
+}
+
 function collect(context) {
   const baseline = context.workflow.docReconciliationBaseline;
   if (!baseline) throw new Error('baseline-unavailable');
   const root = git(context.root, ['rev-parse', '--show-toplevel']).trim();
   if (root !== baseline.root || !/^[0-9a-f]{40,64}$/.test(baseline.commit)) throw new Error('baseline-unavailable');
-  const { resolveDocsConfig } = runtimeModule('project-docs-resolver');
-  const resolved = resolveDocsConfig(root);
+  const resolver = runtimeModule('project-docs-resolver');
+  const resolved = resolver.resolveDocsConfig(root);
   if (!['project', 'host'].includes(resolved.status)) throw new Error('config-unavailable');
+  assertConfigScopeUnchanged(root, baseline, resolver);
   const { readGitBaseInventory, scanWorkspaceFiles } = runtimeModule('doc-lifecycle');
   // Broaden artifact discovery only, never the config passed to obligation derivation. Code/REQ-test
   // facts require baseline bytes outside governed document globs as well.
@@ -96,7 +135,7 @@ function assess(context, set) {
       if (!withhold) report.diagnostics.push('trusted-non-document-scope');
     } catch (error) {
       withhold = true;
-      const reason = ['baseline-unavailable', 'config-unavailable', 'scope-unavailable'].includes(error.message)
+      const reason = ['baseline-unavailable', 'config-unavailable', 'scope-unavailable', 'config-scope-changed'].includes(error.message)
         ? error.message : 'collector-unavailable';
       report.diagnostics.push(reason);
       report.unsatisfied.push({ obligationId: 'doc-change:scope', state: 'unavailable', reasonCode: reason });

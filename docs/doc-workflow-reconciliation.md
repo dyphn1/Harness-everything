@@ -246,6 +246,7 @@ it cannot establish an empty expected set or opt out. Only a trusted non-documen
 retains legacy behavior (P06). Unknown applicability remains unresolved, N/A needs its derivation
 reason, and SHOULD is not a gate.
 
+- **Config authority (PR #351 review P1).** Derivation uses the current config, so a candidate config edit could de-scope a baseline-governed path. Before deriving, S1 compares the exact bytes of every config source the resolver can select (`.agents/harness-everything/project-docs.json` and each host `harness-everything/manifest.json`) at the recorded baseline commit and in the candidate, including additions and removals. Any difference fails closed with reason `config-scope-changed`; it never establishes trusted non-document scope. S2 replaces this with a full `configDigest` binding.
 - A code-only diff (changed code with no changed REQ-citing test) yields `requirement-sync` applicability `unknown` (a MUST), so it is withheld under ON. This is the unknown-applicability cost the Docuvia pilot measures in E1; see [#350](https://github.com/dyphn1/Harness-everything/issues/350) for the false-rejection measurement.
 
 The following anchors are **source-traced at S1 base `5f9726c`**, not runtime or live-host proof:
@@ -296,6 +297,12 @@ baseline is unavailable and credit is withheld. Fixture maps alone are not runti
 | Verification-step PASS | Exit `2`; verification status remains pending; no positive document credit |
 | Direct aggregate `obligation --obligation-id execute\|verify --disposition pass` | Exit `2`; requested aggregate stays pending; direct text cannot bypass the gate |
 | Stop / completion, including persisted or legacy PASS | Withhold current completion credit; report `step:<verify>:pending` for the verification step even if no step is active; aggregate verify is effectively pending and workflow cannot remain credited as satisfied |
+
+**Persistence failure (PR #351 review P2).** The withholding decision is applied in memory first: aggregate
+verify becomes pending, a `satisfied` workflow becomes `running`, and `step:<verify>:pending` is reported.
+Persisting that state is best-effort afterwards. A write failure adds the diagnostic `withhold-persist-failed`
+and a reminder; it never leaves the credit decision unapplied, never lets a persisted `satisfied`/PASS count as
+credit, and never makes Stop exit non-zero. Every later ON assessment recollects regardless of what is on disk.
 
 Withholding persisted credit MUST NOT reset authored `doc-change`, review, bindings or evidence
 history merely to manufacture an active step. Compute current unresolved verification independently
