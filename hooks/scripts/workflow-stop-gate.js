@@ -58,9 +58,16 @@ function decide(payload) {
         // text: record the withhold-persist-failed diagnostic on the shared context diagnostics
         // (also when the earlier obligations write already failed) and still emit the reminder
         // below. Stop stays non-blocking: exit 0, no retry loop, no lock.
+        // Scope of the recovery (PR #351 re-review): the local recovery and the
+        // withhold-persist-failed diagnostic apply only when this Stop run made an actual ON,
+        // supported, withheld pilot decision (`withholdPilotVerification` sets the transient
+        // per-run marker on the context). On switch-OFF, Fable and persisted-untyped paths the
+        // marker is never set, so the error is rethrown and reaches Stop's outer handler exactly
+        // as the pre-S1 legacy reference: same stderr, same exit 0, no pilot diagnostic.
         try {
           saveWorkflow(context);
-        } catch {
+        } catch (error) {
+          if (context.docReconciliationWithheldRun !== true) throw error;
           if (!Array.isArray(context.workflow.docReconciliationDiagnostics)) {
             context.workflow.docReconciliationDiagnostics = [];
           }

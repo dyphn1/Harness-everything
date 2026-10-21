@@ -516,6 +516,11 @@ function withholdPilotVerification(context, set) {
   // that state persisted best-effort. A failed obligations-file write records the
   // withhold-persist-failed diagnostic and a reminder; it never escapes, never leaves the decision
   // unapplied, and never changes the callers' refusal contract (exit 2 / step:<verify>:pending).
+  // PR #351 re-review P2a (scope of the recovery): this run made an actual ON, supported,
+  // withheld pilot decision. The marker is transient and per-run — it lives on the in-memory
+  // context object itself (saveWorkflow persists only context.workflow) and is never written
+  // to disk; Stop's pending-path persistence recovery is scoped by it.
+  context.docReconciliationWithheldRun = true;
   const verify = set.obligations.find(item => item.id === 'verify');
   if (verify) verify.status = 'pending';
   if (context.workflow.state === 'satisfied') context.workflow.state = 'running';

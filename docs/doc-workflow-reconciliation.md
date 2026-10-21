@@ -431,6 +431,11 @@ S1 therefore guarantees the following **read/credit contract** rather than durab
 
 A successful in-memory downgrade is **not** counted as durable invalidation.
 
+**Scope of the recovery (PR #351 re-review).** Stop's local persistence recovery and the `withhold-persist-failed`
+diagnostic apply **only** when this Stop run made an actual ON, supported, withheld pilot decision. With the switch
+OFF, and for Fable or persisted untyped workflows, a failing `saveWorkflow()` keeps the pre-S1 path unchanged: the
+error reaches Stop's outer handler, exactly as legacy behaviour, and no pilot diagnostic is emitted.
+
 Withholding persisted credit MUST NOT reset authored `doc-change`, review, bindings or evidence
 history merely to manufacture an active step. Compute current unresolved verification independently
 of saved PASS; do not trust old aggregate status. Test OFF-completed→ON and an all-PASS typed plan

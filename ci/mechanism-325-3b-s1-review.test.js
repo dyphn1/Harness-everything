@@ -295,6 +295,15 @@ console.log(`\nP2 persistence review summary: ${persistenceCounts.passed} PASS, 
 // text appears, the stored files stay byte-identical (the write really failed), and the stored satisfied/PASS
 // is never confused for credit by an ON disposition attempt. Only a completely unwritable store is under test:
 // the in-memory downgrade is explicitly not counted as durable invalidation.
+//
+// R1g (PR #351 re-review, "Scope of the recovery") addenda in this section:
+//   - P2a legacy oracle: with the switch OFF (satisfied workflow, legacy pending token) and for a
+//     Fable-strategy workflow ON (unsupported ⇒ legacy path), a failing saveWorkflow() must keep the
+//     pre-S1 Stop behaviour: the same exit code and stderr as the pre-PR Stop file run over the same
+//     scenario, and no withhold-persist-failed diagnostic.
+//   - P2b oracle gap: the exit-2 disposition probe is renamed legacy-closed-guard-exit-2 so it is no
+//     longer counted as pilot evidence; a pilot-specific ON-Stop-rerun oracle plus an OFF negative
+//     control carry the pilot claim instead.
 
 const { spawnSync: r1fSpawnSync } = require('child_process');
 const R1F_PRELOAD = path.join(ROOT, 'ci', 'fixtures', 'doc-obligations', 'reconciliation-s1', 'fail-session-writes.js');
@@ -304,12 +313,14 @@ const R1F_WORKFLOW_FILE = 'workflow-run.json';
 const R1F_LEGS = [
   {
     id: 'source',
+    root: ROOT,
     kernel: path.join(ROOT, 'harness-everything', 'scripts', 'kernel-router.js'),
     controller: path.join(ROOT, 'hooks', 'scripts', 'workflow-disposition.js'),
     stopGate: path.join(ROOT, 'hooks', 'scripts', 'workflow-stop-gate.js'),
   },
   {
     id: 'packaged',
+    root: path.join(ROOT, 'plugins', 'harness-everything'),
     kernel: path.join(ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'kernel-router.js'),
     controller: path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-disposition.js'),
     stopGate: path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-stop-gate.js'),
@@ -480,9 +491,36 @@ function r1fRunScenario(leg, mode) {
     const disposition = r1fSpawn(leg, leg.controller, [
       'step', '--session-id', sessionId, '--step-id', VERIFY_STEP_ID, '--disposition', 'pass', '--evidence', 'attempt over stored state',
     ], dir, stateHome, { pilot: 1 });
-    record(disposition.status === 2 ? 'PASS' : 'FAIL', `${tag}.stored-not-credited`,
+    // P2b oracle-gap fix: this probe proves only the legacy closed-workflow guard (the CLI's OPEN_STATES
+    // rule and updateStep's active-step rules over a closed/finished plan); it is NOT pilot evidence and
+    // is not counted as such. The pilot-specific oracle below carries that claim instead.
+    record(disposition.status === 2 ? 'PASS' : 'FAIL', `${tag}.legacy-closed-guard-exit-2`,
       disposition.status === 2 ? `refused: ${r1fScrub((disposition.stderr || '').trim(), tokens).slice(0, 120)}` : `exit ${disposition.status} where 2 desired`);
-    if (mode === 'fail') return;
+    if (mode === 'fail') {
+      // P2b pilot-specific oracle: after the failed ON Stop, restore write access and run the real Stop
+      // entry point ON again. The ON re-read must re-derive the withheld decision from scratch: reminder
+      // with step:<verify>:pending, the stored workflow becomes running, and the runtime pilot report
+      // carries pilotCredit false with a non-empty unsatisfied list (never trust stored PASS as credit).
+      const rerun = r1fSpawn(leg, leg.stopGate, [], dir, stateHome, {
+        pilot: 1,
+        input: { session_id: sessionId, cwd: dir, hook_event_name: 'Stop' },
+      });
+      const rerunStderr = rerun.stderr || '';
+      record(rerun.status === 0 && rerunStderr.includes('Unresolved workflow evidence') && rerunStderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? 'PASS' : 'FAIL',
+        `${leg.id}.p2b-on-rerun.reminder-pending`,
+        rerun.status === 0 && rerunStderr.includes('Unresolved workflow evidence') && rerunStderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? '' : `exit ${rerun.status}, stderr ${r1fScrub(rerunStderr.trim(), tokens).slice(0, 140)} where reminder step:req-verify:pending desired`);
+      const rerunStored = r1fStoredWorkflow(sessionDir);
+      record(rerunStored?.state === 'running' ? 'PASS' : 'FAIL', `${leg.id}.p2b-on-rerun.stored-running`,
+        rerunStored?.state === 'running' ? '' : `stored workflow.state ${JSON.stringify(rerunStored?.state)} where "running" desired`);
+      const rerunReport = readJsonOrNull(path.join(sessionDir, PILOT_REPORT_FILE));
+      record(rerunReport && rerunReport.reportOrigin === 'runtime' && rerunReport.pilotCredit === false ? 'PASS' : 'FAIL',
+        `${leg.id}.p2b-on-rerun.pilot-credit-false`,
+        rerunReport && rerunReport.reportOrigin === 'runtime' && rerunReport.pilotCredit === false ? '' : `pilot report ${JSON.stringify(rerunReport ? { origin: rerunReport.reportOrigin, credit: rerunReport.pilotCredit } : null)} where {origin runtime, credit false} desired`);
+      record(rerunReport && Array.isArray(rerunReport.unsatisfied) && rerunReport.unsatisfied.length > 0 ? 'PASS' : 'FAIL',
+        `${leg.id}.p2b-on-rerun.unsatisfied-nonempty`,
+        rerunReport && Array.isArray(rerunReport.unsatisfied) && rerunReport.unsatisfied.length > 0 ? '' : `unsatisfied ${JSON.stringify(rerunReport?.unsatisfied)} where a non-empty list desired`);
+      return;
+    }
     // Writable control: the durable downgrade is persisted and claimed (already passing at this head).
     const reread = r1fStoredWorkflow(sessionDir);
     record(reread?.state === 'running' ? 'PASS' : 'FAIL', `${tag}.stored-running`,
@@ -535,6 +573,175 @@ function r1fRunOnVerifyRefusal(leg) {
   }
 }
 
+// ---- R1g: legacy-oracle and negative-control runners (PR #351 re-review) ----
+
+const R1G_LEGACY_REFERENCES = {
+  // git revision:tree-path strings, read-only `git show` sources — not local file paths.
+  source: [ // portability-lint: allow git revision reference, not a local path
+    '5f9726c:hooks/scripts/workflow-stop-gate.js', // portability-lint: allow git revision reference, not a local path
+  ],
+  packaged: [ // portability-lint: allow git revision reference, not a local path
+    '5f9726c:plugins/harness-everything/hooks/scripts/workflow-stop-gate.js', // portability-lint: allow git revision reference, not a local path
+    '5f9726c:hooks/scripts/workflow-stop-gate.js', // portability-lint: allow git revision reference, not a local path
+  ],
+};
+
+// Byte copy of the pre-PR Stop entry point from git history (read-only git access).
+function r1gLegacyStopSource(leg) {
+  for (const reference of R1G_LEGACY_REFERENCES[leg.id]) {
+    const result = r1fSpawnSync('git', ['show', reference], { cwd: ROOT, encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 });
+    if (result.status === 0 && String(result.stdout || '').includes('workflow')) return String(result.stdout);
+  }
+  return null;
+}
+
+// Faithful legacy reference: the pre-PR Stop file written into a scratch copy sitting beside the leg's
+// own supporting tree, so the legacy file's './lib/*' requires resolve to the same modules the current
+// Stop uses. The stop-gate file is the only changed layer; for the OFF and Fable paths the current lib's
+// pilot additions are inert (switch OFF / unsupported strategy), so this composite reproduces pre-S1
+// behaviour. The scratch tree is temporary, outside the repo, and removed again.
+function r1gBuildLegacyScratch(leg, source) {
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1g-legacy-'));
+  fs.cpSync(path.join(leg.root, 'hooks', 'scripts'), path.join(scratch, 'hooks', 'scripts'), { recursive: true });
+  fs.cpSync(path.join(leg.root, 'scripts'), path.join(scratch, 'scripts'), { recursive: true });
+  fs.writeFileSync(path.join(scratch, 'hooks', 'scripts', 'workflow-stop-gate.js'), source);
+  return { scratch, stopGate: path.join(scratch, 'hooks', 'scripts', 'workflow-stop-gate.js') };
+}
+
+function r1gNormalise(text, tokens) {
+  return r1fScrub(text, tokens).replace(/\.json\.\d+\.\d+\.tmp/g, '.json.tmp');
+}
+
+// Seeds the P2a fable variant: route → plan(fable-staged), no start (stage-contracted starts are
+// refused); Stop then takes the pending path through 'correlated-run-missing' with the pilot
+// unsupported for the Fable strategy.
+function r1gSeedFablePending(leg, dir, stateHome, sessionId) {
+  let result = r1fSpawn(leg, leg.kernel, [], dir, stateHome, {
+    input: { session_id: sessionId, cwd: dir, prompt: 'Fix this checkout bug and add a regression test.' },
+  });
+  if (result.status !== 0) return 'route: ' + (result.stderr || '').split('\n')[0];
+  result = r1fSpawn(leg, leg.controller, [
+    'plan', '--session-id', sessionId,
+    '--requirements-json', REQUIREMENTS, '--strategy', 'fable-staged',
+    '--evidence', 'fable legacy-path probe',
+  ], dir, stateHome);
+  if (result.status !== 0) return 'plan: ' + (result.stderr || '').split('\n')[0];
+  return null;
+}
+
+// P2a: legacy-oracle comparison through real child Stop processes. variant 'off-pending' seeds a stored
+// satisfied workflow whose handoff records a later edit (a legacy pending token, pilot inert), switch
+// OFF; variant 'fable-on' seeds a pending fable-staged plan, switch ON. Both legs run the current Stop
+// and the pre-PR legacy Stop reference over the same unwritable (preloaded) session directory; the
+// current Stop must keep the legacy exit code and legacy stderr and must not emit withhold-persist-failed.
+function r1gRunLegacyOracle(leg, variant) {
+  const tag = `${leg.id}.${variant === 'off-pending' ? 'p2a-off-pending' : 'p2a-fable-on'}`;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1g-' + (variant === 'off-pending' ? 'off-' : 'fable-')));
+  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1g-' + (variant === 'off-pending' ? 'off-state-' : 'fable-state-')));
+  const sessionId = 's1-review-r1g-' + (variant === 'off-pending' ? 'off' : 'fable') + '-' + leg.id;
+  let scratch = null;
+  try {
+    const source = r1gLegacyStopSource(leg);
+    if (!source) {
+      record('INFRA', `${tag}.legacy-reference`, 'git show could not produce the pre-PR Stop file source');
+      return;
+    }
+    const legacyScratch = r1gBuildLegacyScratch(leg, source);
+    scratch = legacyScratch.scratch;
+    const tokens = [dir, stateHome, scratch];
+    let fault;
+    if (variant === 'off-pending') {
+      const seeded = r1fSeedSatisfied(leg, dir, stateHome, sessionId);
+      fault = seeded.fault;
+      if (!fault) {
+        const sessionProbe = r1fFindSessionDir(stateHome, sessionId);
+        if (sessionProbe) fs.writeFileSync(path.join(sessionProbe, 'handoff-state.json'), JSON.stringify({ lastEditAt: Date.now() + 10000 }));
+        else fault = 'the OFF-seeded session directory was not found';
+      }
+    } else {
+      fault = r1gSeedFablePending(leg, dir, stateHome, sessionId);
+    }
+    if (fault) {
+      record('INFRA', `${tag}.scenario`, 'seed failed: ' + r1fScrub(String(fault), tokens));
+      return;
+    }
+    const sessionDir = r1fFindSessionDir(stateHome, sessionId);
+    if (!sessionDir) {
+      record('INFRA', `${tag}.scenario`, 'the seeded session directory was not found (expected exactly one)');
+      return;
+    }
+    if (!fs.existsSync(path.join(sessionDir, R1F_WORKFLOW_FILE))) {
+      record('INFRA', `${tag}.scenario`, 'workflow-run.json missing from the seeded session directory');
+      return;
+    }
+    const stopOptions = {
+      preload: true,
+      sessionDirectory: sessionDir,
+      pilot: variant === 'fable-on' ? 1 : undefined,
+      input: { session_id: sessionId, cwd: dir, hook_event_name: 'Stop' },
+    };
+    const legacyRun = r1fSpawn(leg, legacyScratch.stopGate, [], dir, stateHome, stopOptions);
+    const currentRun = r1fSpawn(leg, leg.stopGate, [], dir, stateHome, stopOptions);
+    if (!legacyRun || typeof legacyRun.status !== 'number' || legacyRun.status !== 0) {
+      record('INFRA', `${tag}.legacy-reference`,
+        'the legacy Stop reference did not run cleanly: ' + JSON.stringify(legacyRun ? legacyRun.status : null) + ' ' + r1fScrub(String(legacyRun?.stderr || '').split('\n')[0], tokens));
+      return;
+    }
+    record(currentRun && currentRun.status === legacyRun.status ? 'PASS' : 'FAIL', `${tag}.exit-equal-legacy`,
+      currentRun && typeof currentRun.status === 'number' ? '' : `current exit ${JSON.stringify(currentRun?.status)} where legacy exit ${legacyRun.status} desired`);
+    const legacyStderr = r1gNormalise(legacyRun.stderr, tokens);
+    const currentStderr = r1gNormalise(currentRun?.stderr, tokens);
+    record(legacyStderr === currentStderr ? 'PASS' : 'FAIL', `${tag}.stderr-equal-legacy`,
+      legacyStderr === currentStderr ? '' : `stderr differs from the pre-PR legacy reference; legacy ${JSON.stringify(legacyStderr.slice(0, 140))} vs current ${JSON.stringify(currentStderr.slice(0, 140))}`);
+    record(currentStderr.includes('withhold-persist-failed') ? 'FAIL' : 'PASS', `${tag}.no-withhold-persist-failed`,
+      currentStderr.includes('withhold-persist-failed') ? 'withhold-persist-failed emitted on the non-pilot path (OFF or unsupported Fable)' : '');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(stateHome, { recursive: true, force: true });
+    if (scratch) fs.rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+// P2b negative control: the ON oracle's exact sequence with the switch OFF throughout. OFF keeps legacy
+// state: both Stop runs exit 0, the stored workflow stays satisfied, no withhold-persist-failed diagnostic
+// is emitted in either run, and no pilot report ever appears — so the ON rerun result provably comes from
+// the pilot, not from the recovery itself.
+function r1gRunOffNegative(leg) {
+  const tag = `${leg.id}.p2b-off-negative`;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1g-neg-'));
+  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1g-neg-state-'));
+  const sessionId = 's1-review-r1g-neg-' + leg.id;
+  const tokens = [dir, stateHome];
+  try {
+    const seeded = r1fSeedSatisfied(leg, dir, stateHome, sessionId);
+    if (seeded.fault) return record('INFRA', `${tag}.scenario`, 'seed failed: ' + r1fScrub(seeded.fault, tokens));
+    const sessionDir = r1fFindSessionDir(stateHome, sessionId);
+    if (!sessionDir) return record('INFRA', `${tag}.scenario`, 'the OFF-seeded session directory was not found');
+    const first = r1fSpawn(leg, leg.stopGate, [], dir, stateHome, {
+      preload: true,
+      sessionDirectory: sessionDir,
+      input: { session_id: sessionId, cwd: dir, hook_event_name: 'Stop' },
+    });
+    const second = r1fSpawn(leg, leg.stopGate, [], dir, stateHome, {
+      input: { session_id: sessionId, cwd: dir, hook_event_name: 'Stop' },
+    });
+    if (first.status !== 0 || second.status !== 0) {
+      return record('INFRA', `${tag}.scenario`, `Stop exits ${JSON.stringify(first.status)}, ${JSON.stringify(second.status)} where 0/0 desired`);
+    }
+    const stored = r1fStoredWorkflow(sessionDir);
+    record(stored?.state === 'satisfied' ? 'PASS' : 'FAIL', `${tag}.still-satisfied`,
+      stored?.state === 'satisfied' ? '' : `stored workflow.state ${JSON.stringify(stored?.state)} where "satisfied" desired`);
+    const combined = (first.stderr || '') + (second.stderr || '');
+    record(combined.includes('withhold-persist-failed') ? 'FAIL' : 'PASS', `${tag}.no-withhold-persist-failed`,
+      combined.includes('withhold-persist-failed') ? 'withhold-persist-failed emitted although no pilot decision is active' : '');
+    record(fs.existsSync(path.join(sessionDir, PILOT_REPORT_FILE)) ? 'FAIL' : 'PASS', `${tag}.no-pilot-report`,
+      fs.existsSync(path.join(sessionDir, PILOT_REPORT_FILE)) ? 'doc-reconciliation-pilot.json exists although no pilot decision is active' : '');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(stateHome, { recursive: true, force: true });
+  }
+}
+
 function runR1fSection() {
   for (const leg of R1F_LEGS) {
     for (const mode of ['fail', 'control']) {
@@ -549,6 +756,18 @@ function runR1fSection() {
     } catch (error) {
       record('INFRA', `${leg.id}.on-verify-refusal.crash`, error.message.split('\n')[0]);
     }
+    for (const variant of ['off-pending', 'fable-on']) {
+      try {
+        r1gRunLegacyOracle(leg, variant);
+      } catch (error) {
+        record('INFRA', `${leg.id}.${variant === 'off-pending' ? 'p2a-off-pending' : 'p2a-fable-on'}.crash`, error.message.split('\n')[0]);
+      }
+    }
+    try {
+      r1gRunOffNegative(leg);
+    } catch (error) {
+      record('INFRA', `${leg.id}.p2b-off-negative.crash`, error.message.split('\n')[0]);
+    }
   }
 }
 
@@ -559,7 +778,7 @@ const r1fCounts = {
   failed: failed - persistenceCounts.failed,
   infra: infra - persistenceCounts.infra,
 };
-console.log(`\nR1f unwritable-session-store summary: ${r1fCounts.passed} PASS, ${r1fCounts.failed} FAIL, ${r1fCounts.infra} INFRA across ${R1F_LEGS.length} legs (pilotCredit: false)`);
+console.log(`\nR1f/R1g unwritable-session-store summary: ${r1fCounts.passed} PASS, ${r1fCounts.failed} FAIL, ${r1fCounts.infra} INFRA across ${R1F_LEGS.length} legs (pilotCredit: false)`);
 console.log(`\nReview file summary (both sections): ${passed} PASS, ${failed} FAIL, ${infra} INFRA (pilotCredit: false)`);
 if (infra > 0) {
   console.error('S1 review suite: infrastructure faults present; these are not assertion results.');
