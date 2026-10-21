@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.39.0](https://github.com/dyphn1/Harness-everything/compare/v0.38.0...v0.39.0) (2026-10-21)
+
+### Features
+
+* **doc-lifecycle:** add s2a document evidence producer and reconciliation core ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([7d54802](https://github.com/dyphn1/Harness-everything/commit/7d5480292891f4cbac126bfa4ed6dc43be9173f2))
+
+### Bug Fixes
+
+* **doc-lifecycle:** bind captured origin pin to the s2a baseline ([#353](https://github.com/dyphn1/Harness-everything/issues/353)) ([59421f4](https://github.com/dyphn1/Harness-everything/commit/59421f41a8ce2b00250c96634a4a43ae0ba782bf))
+* **doc-lifecycle:** bind s2a start pin, scope progress keys, stop should/n/a gating ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([5e48a91](https://github.com/dyphn1/Harness-everything/commit/5e48a9119b511d60c23cccdbd06ca3f865d82d83))
+* **doc-lifecycle:** make the s2a producer inventory portable to windows ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([f1a9fb5](https://github.com/dyphn1/Harness-everything/commit/f1a9fb50e055e9ce21782d1ede96b926f08ff486))
+* **doc-lifecycle:** reconcile s2a origin identity and binary records ([#353](https://github.com/dyphn1/Harness-everything/issues/353)) ([475fcfc](https://github.com/dyphn1/Harness-everything/commit/475fcfc26cf4c16a6ed5af40bc55c09281fe98c0))
+* **doc-lifecycle:** reject prototype-sensitive s2a inventory ([#353](https://github.com/dyphn1/Harness-everything/issues/353)) ([b2b93ea](https://github.com/dyphn1/Harness-everything/commit/b2b93ea3d52ab9316d679b323343b5abe0525ccd))
+* **doc-lifecycle:** resolve s2a workspace identity with native realpath on windows ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([c663fd8](https://github.com/dyphn1/Harness-everything/commit/c663fd8479869d6a3c7930bd47a067d4323cb6c9)), closes [#353](https://github.com/dyphn1/Harness-everything/issues/353)
+* **doc-lifecycle:** revalidate the s2a start pin at event acceptance ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([2cf466d](https://github.com/dyphn1/Harness-everything/commit/2cf466d04e52dd92f8df2b7263348287f9eef2da))
+
 ## [0.38.0](https://github.com/dyphn1/Harness-everything/compare/v0.37.0...v0.38.0) (2026-10-21)
 
 ### Features
