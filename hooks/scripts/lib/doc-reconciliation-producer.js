@@ -114,10 +114,25 @@ function captureCandidate(root, baseline) {
   return records;
 }
 const progressKeys = new Set(['status', 'state', 'evidence', 'loaded', 'loadedAt', 'updatedAt', 'createdAt', 'completedAt', 'timestamp', 'report', 'reports']);
-function planSemantics(value) {
-  if (Array.isArray(value)) return value.map(planSemantics);
-  if (!U.record(value)) return value;
-  return Object.fromEntries(Object.keys(value).filter(key => !progressKeys.has(key)).map(key => [key, planSemantics(value[key])]));
+// Progress fields are excluded only at their defined record locations (top-level task/workflow, each
+// requirement, each requirement binding). Nested objects keep every key: a nested `status`/`state` there
+// is semantic and must change taskScopeDigest (PR #353 review P2).
+function withoutProgress(value, keys = progressKeys) {
+  if (!U.record(value)) return U.clone(value);
+  return Object.fromEntries(Object.keys(value).filter(key => !keys.has(key)).map(key => [key, U.clone(value[key])]));
+}
+// A binding's `report`/`reports` object configures the binding; only its load/status records are progress.
+const bindingProgressKeys = new Set([...progressKeys].filter(key => key !== 'report' && key !== 'reports'));
+function taskSemantics(task) {
+  const semantic = withoutProgress(task);
+  if (Array.isArray(task?.requirements)) {
+    semantic.requirements = task.requirements.map(requirement => {
+      const item = withoutProgress(requirement);
+      if (U.record(requirement) && Array.isArray(requirement.bindings)) item.bindings = requirement.bindings.map(binding => withoutProgress(binding, bindingProgressKeys));
+      return item;
+    });
+  }
+  return semantic;
 }
 function contextFor(input, provider) {
   if (!provider || typeof provider.resolveContext !== 'function') fail('origin-unavailable');
@@ -129,7 +144,10 @@ function contextFor(input, provider) {
   for (const key of ['sessionId', 'workflowId', 'workflowRevision']) if (c[key] !== input.workflow[key]) fail('identity-mismatch');
   if (c.taskId !== input.task.taskId || U.stable(c.activeHost) !== U.stable(input.activeHost)) fail('identity-mismatch');
   if (c.workspaceRoot && !samePath(c.workspaceRoot, input.workspaceRoot)) fail('identity-mismatch');
-  if (c.baseline && (c.baseline.commit !== input.baseline.commit || c.baseline.root !== input.baseline.root)) fail('baseline-unavailable');
+  // The provider must bind the concrete workflow-start pin; a bare reference cannot authorize a
+  // re-anchored baseline (PR #353 review P1).
+  if (!U.record(c.baseline) || !U.text(c.baseline.commit) || !U.text(c.baseline.root)
+    || !U.record(input.baseline) || c.baseline.commit !== input.baseline.commit || !samePath(c.baseline.root, input.baseline.root)) fail('baseline-unavailable');
   return U.clone({ ...c, workspaceRoot: canonicalPath(input.workspaceRoot), originRef: response.originRef });
 }
 function filesOf(records) {
@@ -148,7 +166,7 @@ function produceDocSnapshot(input, dependencies = {}) {
     const baseline = captureBaseline(root, detached.baseline);
     const config = resolveDocsConfigCaptured(root, { activeHost: detached.activeHost });
     if (!['project', 'host'].includes(config.resolution.status) || config.capture.sources.some(s => s.presence === 'unreadable')) fail('config-unavailable');
-    const coverage = { kind: 'whole-project', excluded: ['.git'], scope: planSemantics(detached.scope) };
+    const coverage = { kind: 'whole-project', excluded: ['.git'], scope: U.clone(detached.scope) };
     const candidate = { records: captureCandidate(root, baseline), coverage };
     // Same owned config bytes must be the bytes covered by the working-tree capture.
     for (const source of config.capture.sources) {
@@ -158,9 +176,9 @@ function produceDocSnapshot(input, dependencies = {}) {
     config.digest = U.configDigest(config);
     baseline.digest = U.snapshotDigest('baseline', baseline, coverage, baseline.records);
     candidate.digest = U.snapshotDigest('candidate', baseline, coverage, candidate.records);
-    const taskSemantics = { task: planSemantics(detached.task), scope: planSemantics(detached.scope), workflow: planSemantics(detached.workflow), coverage, configDigest: config.digest, prdRoot: 'docs/prd/' };
+    const planIdentity = { task: taskSemantics(detached.task), scope: U.clone(detached.scope), workflow: withoutProgress(detached.workflow), coverage, configDigest: config.digest, prdRoot: 'docs/prd/' };
     const identity = { workspaceId: originContext.workspaceId, sessionId: originContext.sessionId, workflowId: originContext.workflowId,
-      workflowRevision: originContext.workflowRevision, taskId: originContext.taskId, taskScopeDigest: U.structuredDigest('doc-task-scope-v1', taskSemantics),
+      workflowRevision: originContext.workflowRevision, taskId: originContext.taskId, taskScopeDigest: U.structuredDigest('doc-task-scope-v1', planIdentity),
       baselineDigest: baseline.digest, candidateDigest: candidate.digest, configDigest: config.digest, prdRoot: 'docs/prd/' };
     const derived = deriveDocFacts({ base: { files: filesOf(baseline.records) }, candidate: { files: filesOf(candidate.records) }, config: config.resolution.config });
     if (!derived.facts?.inputKnown) fail('inventory-incomplete');
@@ -174,7 +192,7 @@ function produceDocSnapshot(input, dependencies = {}) {
     catch { fail('snapshot-changed'); }
     if (U.snapshotDigest('candidate', baseline, coverage, again) !== candidate.digest || U.configDigest(configAgain) !== config.digest
       || U.stable(originContext) !== U.stable(finalContext)) fail('snapshot-changed');
-    return { state: 'ready', snapshot: { identity, baseline, candidate, config, originContext, taskSemantics, facts, obligations, derivationReasons }, diagnostics: [] };
+    return { state: 'ready', snapshot: { identity, baseline, candidate, config, originContext, taskSemantics: planIdentity, facts, obligations, derivationReasons }, diagnostics: [] };
   } catch (error) {
     const codes = ['invalid-input', 'baseline-unavailable', 'inventory-incomplete', 'inventory-unsupported', 'snapshot-changed', 'config-unavailable', 'unsupported-prd-root', 'identity-mismatch', 'origin-unavailable', 'origin-untrusted'];
     const code = codes.includes(error.message) ? error.message : 'inventory-unsupported';

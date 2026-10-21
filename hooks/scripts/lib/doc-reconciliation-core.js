@@ -113,7 +113,9 @@ function reconcileDocResults(input = {}) {
   if (snapshot.identity.configDigest !== accepted.identity?.configDigest) fail('config-capture-mismatch');
   for (const item of [...(accepted.diagnostics || []), ...(accepted.rejected || [])]) {
     diagnostics.push(item);
-    if (mode === 'verification' || !item.obligationId || selected.some(o => o.id === item.obligationId)) {
+    // Only rejected evidence for a checked expected MUST, or a global origin/identity fault, gates credit;
+    // a rejected SHOULD or N/A event stays a visible diagnostic (PR #353 review P2).
+    if (!item.obligationId || selected.some(o => o.id === item.obligationId)) {
       unsatisfied.push({ obligationId: item.obligationId || 'origin', state: item.code === 'origin-unavailable' ? 'unavailable' : 'pending', reasonCode: item.code });
     }
   }
@@ -145,7 +147,8 @@ function reconcileDocResults(input = {}) {
     }
   }
   // Validation failures must never be hidden by a cached report or a passing result subset.
-  const blocking = diagnostics.filter(item => !item.obligationId || mode === 'verification' || selected.some(o => o.id === item.obligationId));
+  // Global faults and diagnostics for a checked expected MUST block; SHOULD/N/A diagnostics stay visible only.
+  const blocking = diagnostics.filter(item => !item.obligationId || selected.some(o => o.id === item.obligationId));
   // Checker diagnostics stay visible; eligibility is decided from the expected MUST set above.
   // In particular, later verifier diagnostics cannot stall an independent review.
   if (Array.isArray(checkerOutput.diagnostics)) diagnostics.push(...checkerOutput.diagnostics);

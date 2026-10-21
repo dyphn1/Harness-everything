@@ -28,7 +28,7 @@ const HEX64 = /^[0-9a-f]{64}$/;
 const runner = H.createRunner('S2a producer');
 
 function produce(mods, repo, overrides = {}, origin = null) {
-  const o = origin || new H.FakeOrigin({ context: H.fakeContext(overrides.context) });
+  const o = origin || new H.FakeOrigin({ context: H.fakeContext(overrides.context, repo) });
   return { result: mods[PRODUCER].produceDocSnapshot(H.producerInput(repo, overrides), { originProvider: o }), origin: o };
 }
 
@@ -153,7 +153,7 @@ runner.run('A05:deletion-and-rename-endpoints-are-both-bound', [REQ_PRODUCER], m
 
 runner.run('A05:deleted-tombstones-omitted-from-checker-artifacts', [REQ_PRODUCER, REQ_EVENTS], mods => withRepo(renameFiles(), repo => {
   const snapshot = readyOrThrow(produce(mods, repo).result, 'rename capture');
-  const origin = new H.FakeOrigin({ context: H.fakeContext() });
+  const origin = new H.FakeOrigin({ context: H.fakeContext({}, repo) });
   const accepted = mods[EVENTS].acceptDocEvents({ snapshot, eventRefs: [] }, { originProvider: origin });
   const artifacts = accepted.checkerInputs && accepted.checkerInputs.artifacts;
   if (!artifacts || typeof artifacts !== 'object') throw new Error('checkerInputs.artifacts is missing');
@@ -210,20 +210,23 @@ runner.run('A09:pinned-baseline-remains-after-fixture-commit', [REQ_PRODUCER, RE
   }
 });
 
+// A09 oracle fix (PR #353 review P1): the previous form accepted the HEAD-anchored capture and only asserted a
+// different digest — but a different digest cannot establish that the captured baseline is the authorized
+// workflow-start commit, so this oracle encoded the bug it was meant to guard. The authorized pin is the
+// provider's start pin (the workflow-start baselineReference, unchanged since workflow start): a capture whose
+// input baseline is re-anchored to the moved HEAD must be baseline-unavailable, never a snapshot.
 runner.run('A09:head-anchored-capture-has-a-different-baseline-identity', [REQ_PRODUCER], mods => {
   const files = normativeFiles();
   const repo = H.makeRepo(files.base);
   try {
     H.writeFiles(repo.root, files.candidate);
-    const pinned = readyOrThrow(produce(mods, repo).result, 'pinned capture');
     H.git(repo.root, ['add', '-A']);
     H.git(repo.root, ['-c', 'user.name=s2a-fixture', '-c', 'user.email=s2a-fixture@invalid', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'documentation change']);
     const head = H.git(repo.root, ['rev-parse', 'HEAD']).trim();
-    const moved = readyOrThrow(mods[PRODUCER].produceDocSnapshot({ ...H.producerInput(repo), baseline: { root: repo.root, commit: head } },
-      { originProvider: new H.FakeOrigin({ context: H.fakeContext() }) }), 'HEAD-anchored capture');
-    if (moved.identity.baselineDigest === pinned.identity.baselineDigest) {
-      throw new Error('a HEAD-anchored baseline must not share the pinned baselineDigest; the pinned identity is what detects re-anchoring');
-    }
+    const moved = mods[PRODUCER].produceDocSnapshot({ ...H.producerInput(repo), baseline: { root: repo.root, commit: head } },
+      { originProvider: new H.FakeOrigin({ context: H.fakeContext({}, repo) }) });
+    if (moved.snapshot) throw new Error('a HEAD-anchored input baseline must not capture: the authorized pin is the provider start pin, not the moving HEAD');
+    H.expectCodes(H.codesOf(moved), ['baseline-unavailable'], 'HEAD-anchored input against the workflow-start pin');
   } finally {
     H.removeRepo(repo.root);
   }
@@ -233,6 +236,86 @@ runner.run('A09:rename-endpoints-stable-across-repeated-captures', [REQ_PRODUCER
   const first = readyOrThrow(produce(mods, repo).result, 'first rename capture');
   const second = readyOrThrow(produce(mods, repo).result, 'second rename capture');
   H.sameStable(second.identity, first.identity, 'identity across repeated rename captures');
+}));
+
+// ---- R2d P1: provider baseline pinning (PR #353 review) ------------------------------------------------------------
+
+runner.run('R2d-P1:reference-only-provider-context-is-baseline-unavailable', [REQ_PRODUCER], mods => withRepo(normativeFiles(), repo => {
+  // doc-workflow-reconciliation.md: the provider context MUST carry the concrete pinned `baseline: { commit, root }`;
+  // a bare baselineReference is not enough, so a reference-only context cannot authorize any capture.
+  const origin = new H.FakeOrigin({ context: H.fakeContext() });
+  const { result } = produce(mods, repo, {}, origin);
+  if (result.snapshot) throw new Error('a provider context without a concrete pinned baseline must not yield a snapshot');
+  H.expectCodes(H.codesOf(result), ['baseline-unavailable'], 'reference-only provider context');
+}));
+
+runner.run('R2d-P1:input-baseline-re-anchored-to-moved-head-is-never-ready', [REQ_PRODUCER], mods => {
+  const files = normativeFiles();
+  const repo = H.makeRepo(files.base);
+  try {
+    H.writeFiles(repo.root, files.candidate);
+    H.git(repo.root, ['add', '-A']);
+    H.git(repo.root, ['-c', 'user.name=s2a-fixture', '-c', 'user.email=s2a-fixture@invalid', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'documentation change']);
+    const head = H.git(repo.root, ['rev-parse', 'HEAD']).trim();
+    // The provider's start pin stays where the workflow started (the start baselineReference above); the input
+    // baseline is re-anchored to the moved HEAD. The authorized workflow-start pin never follows HEAD.
+    const origin = new H.FakeOrigin({ context: H.fakeContext({}, repo) }); // pinned at the original start commit
+    const { result } = produce(mods, repo, { top: { baseline: { root: repo.root, commit: head } } }, origin);
+    if (result.snapshot) throw new Error('an input baseline re-anchored to a moved HEAD must never yield a ready snapshot');
+    H.expectCodes(H.codesOf(result), ['baseline-unavailable'], 're-anchored input baseline');
+  } finally {
+    H.removeRepo(repo.root);
+  }
+});
+
+runner.run('R2d-P1:input-baseline-equal-to-the-provider-pin-stays-ready-after-head-moved', [REQ_PRODUCER], mods => {
+  // Control: the provider context concretely pins the workflow-start baseline and the input baseline equals that
+  // pin even though HEAD moved; this capture stays ready.
+  const files = normativeFiles();
+  const repo = H.makeRepo(files.base);
+  try {
+    H.writeFiles(repo.root, files.candidate);
+    H.git(repo.root, ['add', '-A']);
+    H.git(repo.root, ['-c', 'user.name=s2a-fixture', '-c', 'user.email=s2a-fixture@invalid', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'documentation change']);
+    const origin = new H.FakeOrigin({ context: H.fakeContext({ baseline: { root: repo.root, commit: repo.commit } }) });
+    const { result } = produce(mods, repo, {}, origin);
+    readyOrThrow(result, 'equal-pin capture after HEAD moved');
+  } finally {
+    H.removeRepo(repo.root);
+  }
+});
+
+// ---- R2d P2a: nested semantic task/scope changes must change the task-scope digest (PR #353 review P2) --------------
+
+runner.run('R2d-P2a:nested-scope-policy-status-is-a-semantic-change', [REQ_PRODUCER], mods => withRepo(normativeFiles(), repo => {
+  // Progress-key stripping is location-bound: it applies to the per-step/per-binding progress records, never to
+  // every nested object with the same key name. A nested scope policy flag is semantic and always re-hashes.
+  const strict = readyOrThrow(produce(mods, repo, { top: { scope: { prdRoot: 'docs/prd/', policy: { status: 'strict' } } } }).result, 'strict scope capture');
+  const relaxed = readyOrThrow(produce(mods, repo, { top: { scope: { prdRoot: 'docs/prd/', policy: { status: 'relaxed' } } } }).result, 'relaxed scope capture');
+  if (strict.identity.taskScopeDigest === relaxed.identity.taskScopeDigest) {
+    throw new Error('a nested scope policy change (policy.status) must change taskScopeDigest');
+  }
+}));
+
+runner.run('R2d-P2a:nested-requirement-and-binding-semantics-change-the-digest', [REQ_PRODUCER], mods => withRepo(normativeFiles(), repo => {
+  // Nested objects inside requirement/binding definitions carry semantics; only the per-step/per-binding progress
+  // record locations above them (requirement.status/evidence, binding status records) stay progress-exempt
+  // (the A14 status-only control keeps passing).
+  const base = H.clone(VECTORS.fixedTask.requirements);
+  const gateA = H.clone(base); gateA[0].gate = { state: 'blocked-on-review' };
+  const gateB = H.clone(base); gateB[0].gate = { state: 'clear' };
+  const first = readyOrThrow(produce(mods, repo, { task: { requirements: gateA } }).result, 'requirement gate capture');
+  const second = readyOrThrow(produce(mods, repo, { task: { requirements: gateB } }).result, 'other requirement gate capture');
+  if (first.identity.taskScopeDigest === second.identity.taskScopeDigest) {
+    throw new Error('a nested requirement semantic (gate.state) must change taskScopeDigest');
+  }
+  const bindingA = H.clone(base); bindingA[1].bindings = [{ id: 'verification-loop', report: { kind: 'summary' } }];
+  const bindingB = H.clone(base); bindingB[1].bindings = [{ id: 'verification-loop', report: { kind: 'detailed' } }];
+  const third = readyOrThrow(produce(mods, repo, { task: { requirements: bindingA } }).result, 'binding report capture');
+  const fourth = readyOrThrow(produce(mods, repo, { task: { requirements: bindingB } }).result, 'other binding report capture');
+  if (third.identity.taskScopeDigest === fourth.identity.taskScopeDigest) {
+    throw new Error('a nested binding semantic (report.kind) must change taskScopeDigest');
+  }
 }));
 
 // ---- A10: Git failure and normal capture ------------------------------------------------------------------------
@@ -366,7 +449,7 @@ runner.run('purity:producer-capture-writes-nothing-spawns-only-git', [REQ_PRODUC
   const abs = path.join(leg.lib, PRODUCER);
   const log = H.recordingIo(rec => {
     const fresh = H.freshModule(abs);
-    fresh.produceDocSnapshot(H.producerInput(repo), { originProvider: new H.FakeOrigin({ context: H.fakeContext() }) });
+    fresh.produceDocSnapshot(H.producerInput(repo), { originProvider: new H.FakeOrigin({ context: H.fakeContext({}, repo) }) });
     return rec;
   });
   H.sameStable(log.writes, [], 'file writes during capture');

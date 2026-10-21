@@ -49,7 +49,7 @@ function flow(mods, repo, key, options = {}) {
   const E = mods[EVENTS];
   const C = mods[CORE];
   const vec = VECTORS.vectors[key];
-  const origin = new H.FakeOrigin({ context: H.fakeContext(options.context), mode: options.mode || 'accept' });
+  const origin = new H.FakeOrigin({ context: H.fakeContext(options.context, repo), mode: options.mode || 'accept' });
   const produced = P.produceDocSnapshot(H.producerInput(repo, options.producer), { originProvider: origin });
   if (produced.state !== 'ready' || !produced.snapshot) {
     return { produced, origin, codes: H.codesOf(produced) };
@@ -114,7 +114,7 @@ runner.run('A03:parse-A-then-replace-with-B-same-value-rejected', [...ALL_NEW], 
   requireEligible(first, 'config A');
   const configFile = path.join(repo.root, H.CONFIG_REL);
   fs.writeFileSync(configFile, JSON.stringify(H.DERIVE_CONFIG, null, 4) + '\n', 'utf8');
-  const origin = new H.FakeOrigin({ context: H.fakeContext() });
+  const origin = new H.FakeOrigin({ context: H.fakeContext({}, repo) });
   const produced = mods[PRODUCER].produceDocSnapshot(H.producerInput(repo), { originProvider: origin });
   if (!produced.snapshot) throw new Error(`second capture not ready: ${H.codesOf(produced).join(',')}`);
   if (produced.snapshot.identity.configDigest === first.snapshot.identity.configDigest) {
@@ -128,7 +128,7 @@ runner.run('A03:parse-A-then-replace-with-B-same-value-rejected', [...ALL_NEW], 
 runner.run('A03:active-host-selection-change-rejected', ALL_NEW, mods => withVector('normative', repo => {
   const first = flow(mods, repo, 'normative');
   requireEligible(first, 'host A');
-  const origin = new H.FakeOrigin({ context: H.fakeContext({ activeHost: { hostId: 'other-host' } }) });
+  const origin = new H.FakeOrigin({ context: H.fakeContext({ activeHost: { hostId: 'other-host' } }, repo) });
   const produced = mods[PRODUCER].produceDocSnapshot(H.producerInput(repo, { top: { activeHost: { hostId: 'other-host' } } }), { originProvider: origin });
   if (!produced.snapshot) throw new Error(`host B capture not ready: ${H.codesOf(produced).join(',')}`);
   const decision = mods[CORE].checkAcceptedDocEvidence({ snapshot: produced.snapshot, accepted: first.accepted, mode: 'verification' });
@@ -283,7 +283,7 @@ runner.run('A13:na-without-trusted-derivation-reason-is-unresolved', ALL_NEW, mo
     throw new Error('the snapshot lacks derivationReasons for the N/A MUST doc-change:derived-regenerate');
   }
   tampered.derivationReasons['doc-change:derived-regenerate'].reason = '';
-  const origin = new H.FakeOrigin({ context: H.fakeContext() });
+  const origin = new H.FakeOrigin({ context: H.fakeContext({}, repo) });
   for (const [ref, event] of Object.entries(first.events)) origin.issueEvent(ref, event);
   const accepted = mods[EVENTS].acceptDocEvents({ snapshot: tampered, eventRefs: Object.keys(first.events) }, { originProvider: origin });
   const r = mods[CORE].checkAcceptedDocEvidence({ snapshot: tampered, accepted, mode: 'verification' });
@@ -298,6 +298,69 @@ runner.run('A13:should-outcome-never-gates-a-complete-normative-vector', ALL_NEW
   H.sameStable(gating, [], 'SHOULD-related codes that gate');
 }));
 
+// ---- R2d P2b: rejected SHOULD / N/A evidence must gate nothing (PR #353 review P2) --------------------------------
+
+runner.run('R2d-P2b:rejected-should-never-gates-a-complete-must-set', ALL_NEW, mods => withVector('normative', repo => {
+  const base = flow(mods, repo, 'normative');
+  requireEligible(base, 'complete normative base vector');
+  const snapshot = base.snapshot;
+  const should = snapshot.obligations.find(o => o.capability === 'prose-reminder');
+  if (!should || should.strength !== 'SHOULD') throw new Error('the normative snapshot lacks the prose-reminder SHOULD obligation');
+  const events = base.events;
+  // A deliberately invalid event for the SHOULD capability: rejected, but with its obligationId kept visible.
+  const smoke = { ...H.clone(events['ref-doc-lint']), eventId: 'evt-prose-reminder-smoke',
+    capability: 'prose-reminder', paths: [...(should.scope?.paths || [])], exitCode: 1 };
+  base.origin.issueEvent('ref-prose-reminder-smoke', smoke);
+  const accepted2 = mods[EVENTS].acceptDocEvents({ snapshot, eventRefs: [...Object.keys(events), 'ref-prose-reminder-smoke'] },
+    { originProvider: base.origin });
+  if (!accepted2.rejected.find(item => item.code === 'event-invalid' && item.obligationId === should.id)) {
+    throw new Error(`the rejected SHOULD event must keep its obligationId visible: ${JSON.stringify(accepted2.rejected)}`);
+  }
+  const decision = mods[CORE].checkAcceptedDocEvidence({ snapshot, accepted: accepted2, mode: 'verification' });
+  if (decision.decision !== 'eligible' || decision.eligible !== true) {
+    throw new Error(`a rejected SHOULD (prose-reminder) must not gate a complete MUST set: decision ${decision.decision} with codes ${JSON.stringify(H.codesOf(accepted2, decision))}`);
+  }
+  if (decision.unsatisfied.some(item => item.obligationId === should.id)) {
+    throw new Error('the rejected SHOULD produced an unsatisfied entry');
+  }
+}));
+
+runner.run('R2d-P2b:rejected-na-obligation-event-never-gates-a-complete-must-set', ALL_NEW, mods => withVector('normative', repo => {
+  const base = flow(mods, repo, 'normative');
+  requireEligible(base, 'complete normative base vector');
+  const snapshot = base.snapshot;
+  const na = snapshot.obligations.find(o => o.id === 'doc-change:derived-regenerate');
+  if (!na || na.strength !== 'MUST' || na.applicability !== 'N/A') throw new Error('the normative snapshot lacks the derived-regenerate N/A MUST');
+  const events = base.events;
+  const smoke = { ...H.clone(events['ref-doc-lint']), eventId: 'evt-derived-regenerate-smoke',
+    capability: na.capability, paths: [...(na.scope?.paths || [])], exitCode: 1 };
+  base.origin.issueEvent('ref-derived-regenerate-smoke', smoke);
+  const accepted2 = mods[EVENTS].acceptDocEvents({ snapshot, eventRefs: [...Object.keys(events), 'ref-derived-regenerate-smoke'] },
+    { originProvider: base.origin });
+  if (!accepted2.rejected.find(item => item.code === 'event-invalid' && item.obligationId === na.id)) {
+    throw new Error(`the rejected N/A event must keep its obligationId visible: ${JSON.stringify(accepted2.rejected)}`);
+  }
+  const decision = mods[CORE].checkAcceptedDocEvidence({ snapshot, accepted: accepted2, mode: 'verification' });
+  if (decision.decision !== 'eligible' || decision.eligible !== true) {
+    throw new Error(`a rejected N/A obligation event must not gate a complete MUST set: decision ${decision.decision} with codes ${JSON.stringify(H.codesOf(accepted2, decision))}`);
+  }
+  if (decision.unsatisfied.some(item => item.obligationId === na.id)) {
+    throw new Error('the rejected N/A event produced an unsatisfied entry');
+  }
+}));
+
+runner.run('R2d-P2b:rejected-applicable-must-still-blocks-eligibility', ALL_NEW, mods => withVector('normative', repo => {
+  // Control: a rejected event for an expected applicable MUST keeps gating (now and after the P2 fix).
+  const base = flow(mods, repo, 'normative');
+  requireEligible(base, 'complete normative base vector');
+  const events = base.events;
+  const key = Object.keys(events['ref-doc-lint'].artifactDigests)[0];
+  events['ref-doc-lint'].artifactDigests[key] = H.ZERO_DIGEST;
+  const r = flow(mods, repo, 'normative', { events });
+  if (r.decision && r.decision.eligible) throw new Error('a rejected applicable MUST event must still block eligibility');
+  H.expectCodes(r.codes, ['artifact-mismatch'], 'rejected applicable MUST event');
+}));
+
 // ---- A14: stable captures, capture boundary and status-only progress --------------------------------------------
 
 runner.run('A14:unchanged-repository-captures-identically', ALL_NEW, mods => withVector('normative', repo => {
@@ -308,8 +371,8 @@ runner.run('A14:unchanged-repository-captures-identically', ALL_NEW, mods => wit
 }));
 
 runner.run('A14:context-advancing-during-capture-rejected-as-snapshot-changed', ALL_NEW, mods => withVector('normative', repo => {
-  const origin = new H.FakeOrigin({ context: H.fakeContext() });
-  origin.contextAt = call => (call > 1 ? H.fakeContext({ taskId: 'task-s2a-002' }) : H.fakeContext());
+  const origin = new H.FakeOrigin({ context: H.fakeContext({}, repo) });
+  origin.contextAt = call => (call > 1 ? H.fakeContext({ taskId: 'task-s2a-002' }, repo) : H.fakeContext({}, repo));
   const produced = mods[PRODUCER].produceDocSnapshot(H.producerInput(repo), { originProvider: origin });
   if (produced.snapshot) throw new Error('a context that advances during capture must not yield a usable snapshot');
   H.expectCodes(H.codesOf(produced), ['snapshot-changed'], 'before/after context disagreement');

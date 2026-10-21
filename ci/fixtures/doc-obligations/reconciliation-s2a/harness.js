@@ -319,8 +319,12 @@ class FakeOrigin {
   }
 }
 
-function fakeContext(extra = {}) {
+// With a repo, the fake provider binds the concrete workflow-start pin (the repo's original commit), as the
+// S2a contract requires; omit the repo only to model a reference-only (unpinned) provider context.
+function fakeContext(extra = {}, repo = null) {
+  const pin = repo && extra.baseline === undefined ? { baseline: { root: repo.root, commit: repo.commit } } : {};
   return {
+    ...pin,
     workspaceId: 'fake-workspace',
     sessionId: FIXED_WORKFLOW.sessionId,
     workflowId: FIXED_WORKFLOW.workflowId,

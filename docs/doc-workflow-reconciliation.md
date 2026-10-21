@@ -577,6 +577,15 @@ workspace/worktree, pinned baseline and task/workflow context through the inject
 provider; command-line IDs, environment hints and copied context JSON alone are not origin.
 Capture after start's workflow revision increment. Reject a replaced baseline record that does
 not match the provider's correlated workflow-start reference; never substitute current HEAD.
+The provider context MUST carry the concrete pinned `baseline: { commit, root }` (a bare `baselineReference`
+is not enough); a missing pin or any mismatch with the input baseline is `baseline-unavailable`, so a
+baseline re-anchored to a moved HEAD can never return `ready` (PR #353 review P1).
+Progress-field exclusions in `taskScopeDigest` apply only at their defined schema locations (per-step and
+per-binding status/evidence records), never to every nested key with the same name; nested scope,
+requirement or binding semantics always change the digest (PR #353 review P2).
+In verification mode only rejected evidence for an expected applicable/unknown MUST, or a global
+origin/identity fault, blocks eligibility; a rejected SHOULD or N/A event stays a visible diagnostic and
+never gates (PR #353 review P2).
 
 `checkerInputs` has exactly the existing checker inputs: `obligations`, `artifacts`, `baseline`,
 `executionRecords`, `reviewRecords`. `artifacts[path].digest` and
