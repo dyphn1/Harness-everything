@@ -226,10 +226,25 @@ function writeFiles(root, files) {
   }
 }
 
-function makeRepo(baseFiles) {
+// Writes stored bytes that the text writer cannot express (content that is not valid UTF-8).
+function writeBinary(root, files) {
+  for (const [rel, content] of Object.entries(files)) {
+    if (path.isAbsolute(rel) || rel.split(/[\\/]/).includes('..')) throw new InfraError(`fixture path must be relative: ${rel}`);
+    const target = path.join(root, rel);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, Buffer.from(content));
+  }
+}
+
+// Binary fixture content: bytes that are not valid UTF-8 (a PNG-like header with an invalid sequence).
+const BINARY_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0xfe, 0x80, 0x81]);
+const BINARY_BYTES_CHANGED = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0xfe, 0x81, 0x82]);
+
+function makeRepo(baseFiles, binaryFiles = {}) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'doc-s2a-')));
   git(root, ['init', '-q']);
   writeFiles(root, { [CONFIG_REL]: JSON.stringify(DERIVE_CONFIG, null, 2) + '\n', ...baseFiles });
+  writeBinary(root, binaryFiles);
   git(root, ['add', '-A']);
   git(root, ['-c', 'user.name=s2a-fixture', '-c', 'user.email=s2a-fixture@invalid', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'baseline']);
   const commit = git(root, ['rev-parse', 'HEAD']).trim();
@@ -454,6 +469,9 @@ module.exports = {
   recordingIo,
   git,
   writeFiles,
+  writeBinary,
+  BINARY_BYTES,
+  BINARY_BYTES_CHANGED,
   makeRepo,
   removeRepo,
   readTree,

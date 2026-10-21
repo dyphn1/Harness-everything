@@ -1,0 +1,51 @@
+== 353-r6-a (/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-a) ==
+{"name":"frontmatter-role-nonclassified","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-citing-test","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-block-nonclassified","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"deleted-req-block","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"irrelevant-asset-control","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+---
+== 353-r6-b (/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-b) ==
+{"name":"frontmatter-role-nonclassified","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-citing-test","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-block-nonclassified","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"deleted-req-block","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"irrelevant-asset-control","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+
+
+== 353-r6-a (/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-a) ==
+{"name":"frontmatter-role-nonclassified","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-citing-test","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-block-nonclassified","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"deleted-req-block","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"req-citation-scope","state":"ready","musts":["doc-change:requirement-sync"],"requirementSync":{"applicability":"unknown","scope":["src/lint.js"],"citedReqs":[]}}
+{"name":"irrelevant-asset-control","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+---
+== 353-r6-b (/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-b) ==
+{"name":"frontmatter-role-nonclassified","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-citing-test","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-block-nonclassified","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"deleted-req-block","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"req-citation-scope","state":"ready","musts":["doc-change:requirement-sync"],"requirementSync":{"applicability":"unknown","scope":["src/lint.js"],"citedReqs":[]}}
+{"name":"irrelevant-asset-control","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+
+
+== 353-r6-a (/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-a) ==
+{"name":"frontmatter-role-nonclassified","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-citing-test","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-block-nonclassified","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"deleted-req-block","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"req-citation-scope","state":"ready","musts":["doc-change:requirement-sync"],"requirementSync":{"applicability":"unknown","scope":["src/lint.js"],"citedReqs":[]}}
+{"name":"irrelevant-asset-control","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"undecodable-test-path-no-req","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"undecodable-code-path-no-req","state":"unavailable","codes":["inventory-unsupported"]}
+---
+== 353-r6-b (/Users/daniel.chang/Desktop/Skills/Harness-everything/.worktrees/353-r6-b) ==
+{"name":"frontmatter-role-nonclassified","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-citing-test","state":"unavailable","codes":["inventory-unsupported"]}
+{"name":"req-block-nonclassified","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"deleted-req-block","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"req-citation-scope","state":"ready","musts":["doc-change:requirement-sync"],"requirementSync":{"applicability":"unknown","scope":["src/lint.js"],"citedReqs":[]}}
+{"name":"irrelevant-asset-control","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"undecodable-test-path-no-req","state":"ready","musts":[],"requirementSync":{"applicability":"N/A","scope":[],"citedReqs":[]}}
+{"name":"undecodable-code-path-no-req","state":"unavailable","codes":["inventory-unsupported"]}

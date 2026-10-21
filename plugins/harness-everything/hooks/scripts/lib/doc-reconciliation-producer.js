@@ -151,8 +151,10 @@ function contextFor(input, provider) {
   const root = canonicalPath(input.workspaceRoot);
   return U.clone({ ...c, baseline: { ...c.baseline, root }, workspaceRoot: root, originRef: response.originRef });
 }
-function filesOf(records) {
-  return Object.fromEntries(records.filter(r => r.presence === 'present').map(r => [r.path, new TextDecoder('utf-8', { fatal: true }).decode(r.storedBytes)]));
+function filesOf(records, config) {
+  // The inventory is whole-project: binary records keep their stored bytes in the identity framing and are
+  // omitted from semantic derivation unless the derive contract can observe them (PR #353 review P2).
+  return U.deriveFiles(records, config);
 }
 function produceDocSnapshot(input, dependencies = {}) {
   const originProvider = dependencies?.originProvider;
@@ -181,7 +183,8 @@ function produceDocSnapshot(input, dependencies = {}) {
     const identity = { workspaceId: originContext.workspaceId, sessionId: originContext.sessionId, workflowId: originContext.workflowId,
       workflowRevision: originContext.workflowRevision, taskId: originContext.taskId, taskScopeDigest: U.structuredDigest('doc-task-scope-v1', planIdentity),
       baselineDigest: baseline.digest, candidateDigest: candidate.digest, configDigest: config.digest, prdRoot: 'docs/prd/' };
-    const derived = deriveDocFacts({ base: { files: filesOf(baseline.records) }, candidate: { files: filesOf(candidate.records) }, config: config.resolution.config });
+    const derived = deriveDocFacts({ base: { files: filesOf(baseline.records, config.resolution.config) },
+      candidate: { files: filesOf(candidate.records, config.resolution.config) }, config: config.resolution.config });
     if (!derived.facts?.inputKnown) fail('inventory-incomplete');
     const facts = derived.facts;
     const obligations = deriveDocObligations(facts);

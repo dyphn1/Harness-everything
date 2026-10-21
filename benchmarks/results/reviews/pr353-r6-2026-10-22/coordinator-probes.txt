@@ -1,0 +1,84 @@
+'use strict';
+const assert = require('assert/strict');
+const fs = require('fs');
+const path = require('path');
+const root = path.resolve(process.argv[2]);
+const H = require(path.join(root, 'ci/fixtures/doc-obligations/reconciliation-s2a/harness.js'));
+let passed = 0, failed = 0;
+function test(name, fn) { try { fn(); passed++; console.log('PASS ' + name); } catch (e) { failed++; console.error('FAIL ' + name + ': ' + e.message); } }
+const binary = Buffer.from([0x89,0x50,0x4e,0x47,0,0xff,0x80]);
+for (const leg of H.LEGS) {
+ const P = require(path.join(leg.lib, 'doc-reconciliation-producer.js'));
+ const E = require(path.join(leg.lib, 'doc-reconciliation-events.js'));
+ const C = require(path.join(leg.lib, 'doc-reconciliation-core.js'));
+ function setup(fn, extraBase = {}, key = 'normative') {
+  const files = H.vectorFiles(key), repo = H.makeRepo({...files.base,...extraBase});
+  try {
+   H.writeFiles(repo.root, files.candidate);
+   const origin = new H.FakeOrigin({context:H.fakeContext({},repo)});
+   const input = H.producerInput(repo);
+   const flow = () => {
+    const produced = P.produceDocSnapshot(input,{originProvider:origin});
+    if (produced.state !== 'ready') return {produced};
+    const snapshot=produced.snapshot, events=H.buildEvents(snapshot,repo,H.VECTORS.vectors[key]);
+    for(const [ref,event] of Object.entries(events)) origin.issueEvent(ref,event);
+    const accepted=E.acceptDocEvents({snapshot,eventRefs:Object.keys(events)},{originProvider:origin});
+    return {produced,snapshot,events,accepted,decision:C.checkAcceptedDocEvidence({snapshot,accepted})};
+   };
+   fn({repo,origin,input,flow});
+  } finally { H.removeRepo(repo.root); }
+ }
+ const label = s => leg.name + ':' + s;
+ for (const field of ['workspaceId','sessionId','workflowId','workflowRevision','taskId','activeHost']) {
+  test(label('joint-'+field),()=>setup(({origin,flow})=>{
+   const b=flow(); assert.equal(b.decision?.eligible,true,'positive control');
+   const snapshot=H.clone(b.snapshot);
+   const value=field==='workflowRevision'?snapshot.originContext[field]+1:field==='activeHost'?{hostId:'other-host'}:snapshot.originContext[field]+'-other';
+   snapshot.originContext[field]=value; origin.context[field]=value;
+   const accepted=E.acceptDocEvents({snapshot,eventRefs:Object.keys(b.events)},{originProvider:origin});
+   assert.notEqual(accepted.state,'ready','event acceptance must reject corrupted identity');
+   for(const mode of ['verification','review']) {
+    const fresh=C.checkAcceptedDocEvidence({snapshot,accepted,mode});
+    assert.equal(fresh.eligible,false,'fresh '+mode);
+    const cached=H.clone(b.accepted); cached.originContext=H.clone(snapshot.originContext);
+    const replay=C.checkAcceptedDocEvidence({snapshot,accepted:cached,mode});
+    assert.equal(replay.eligible,false,'cached '+mode);
+   }
+  }));
+ }
+ test(label('png-stays-hashed-and-reconciles'),()=>setup(({repo,flow})=>{
+  const first=flow();assert.equal(first.produced.state,'ready',JSON.stringify(first.produced.diagnostics));assert.equal(first.decision.eligible,true);
+  assert.deepEqual(Buffer.from(first.snapshot.candidate.records.find(x=>x.path==='assets/logo.png').storedBytes),binary);
+  fs.writeFileSync(path.join(repo.root,'assets/logo.png'),Buffer.concat([binary,Buffer.from([1])]));
+  const changed=flow();assert.equal(changed.produced.state,'ready');assert.equal(changed.decision.eligible,true);
+  assert.notEqual(changed.snapshot.identity.candidateDigest,first.snapshot.identity.candidateDigest);
+  assert.equal(changed.snapshot.identity.baselineDigest,first.snapshot.identity.baselineDigest);
+  assert.deepEqual(changed.snapshot.obligations,first.snapshot.obligations);
+ },{'assets/logo.png':binary}));
+ test(label('binary-only-is-legacy'),()=>setup(({repo,flow})=>{
+  fs.writeFileSync(path.join(repo.root,'assets/logo.png'),Buffer.concat([binary,Buffer.from([1])]));
+  const b=flow();assert.equal(b.produced.state,'ready');assert.equal(b.decision.decision,'legacy');assert.equal(b.decision.eligible,false);
+ },{'assets/logo.png':binary},'nondocument'));
+ for (const relevant of ['src/invalid.js','tests/invalid.dat','docs/prd/invalid.md','docs/roadmap/index.md']) {
+  test(label('undecodable-relevant-'+relevant),()=>setup(({repo,flow})=>{
+   fs.writeFileSync(path.join(repo.root,relevant),binary);
+   const b=flow();
+   if(b.produced.state==='ready') {
+    assert.equal(b.decision.eligible,false,'undecodable semantic input cannot silently earn complete credit');
+    if(relevant.startsWith('src/')) assert.equal(b.snapshot.facts.codeChanged,true,'changed binary source must retain code trigger');
+   }
+  },{[relevant]:'// REQ-GRPH-001\noriginal text\n'}));
+ }
+ test(label('undecodable-derived-source'),()=>setup(({repo,flow})=>{
+  const config=JSON.parse(fs.readFileSync(path.join(repo.root,H.CONFIG_REL),'utf8'));
+  config.derived[0].source='assets/logo.png';
+  fs.writeFileSync(path.join(repo.root,H.CONFIG_REL),JSON.stringify(config)+'\n');
+  fs.writeFileSync(path.join(repo.root,'assets/logo.png'),Buffer.concat([binary,Buffer.from([1])]));
+  const b=flow();
+  if(b.produced.state==='ready') {
+   assert.equal(b.snapshot.facts.derivedAffected,true,'changed derived binary input retains regeneration trigger');
+   assert(b.snapshot.obligations.some(o=>o.capability==='derived-regenerate' && o.applicability!=='N/A'),'derived binary source MUST survives');
+  }
+ },{'assets/logo.png':binary}));
+}
+console.log(JSON.stringify({passed,failed}));process.exitCode=failed?1:0;

@@ -590,6 +590,16 @@ root is not detected by this detached check. Root metadata is not included in th
 external worktree authentication remains outside this S2a guarantee. The core performs no filesystem
 reads to establish the invariant. Provider-only pin changes remain diagnostic and block credit at
 reconciliation; they do not short-circuit event adaptation.
+The captured origin context is the snapshot's only origin-correlated identity. Snapshot validation
+compares its `workspaceId`, `sessionId`, `workflowId`, `workflowRevision` and `taskId` with the claimed
+`identity`, compares the captured plan (`workflowId`, `workflowRevision`, `sessionId`, `taskId`,
+`prdRoot`, `configDigest`) with that identity, and compares the captured `activeHost` with the host the
+captured config was selected for. A joint substitution of the captured origin context and the provider
+context therefore cannot pass validation: the provider half and the event half of the trust contract stay
+connected through the identity. Both reconciliation modes withhold credit for such a snapshot, and a
+cached acceptance produced for the substituted tuple does not bypass the same check (PR #353 review P1).
+The captured config bytes must also be the bytes the captured inventory holds for the same path; a config
+digest that binds bytes the whole-project capture contradicts is `config-capture-mismatch`.
 Progress-field exclusions in `taskScopeDigest` apply only at their defined schema locations (per-step and
 per-binding status/evidence records), never to every nested key with the same name; nested scope,
 requirement or binding semantics always change the digest (PR #353 review P2).
@@ -657,6 +667,14 @@ PRD-set digest remains SHA256 of its existing JSON sorted `[path, artifactDigest
 `candidateDigest`.
 
 Reuse lifecycle stored-byte handling; collect bytes before UTF-8 conversion for fact derivation.
+A whole-project inventory contains binary records. Every stored byte stays in the identity framing, so a
+changed binary asset changes `candidateDigest`, but semantic derivation needs decoded text. A record whose
+bytes are not valid UTF-8 is omitted from derivation only when the derive contract cannot observe it:
+outside the configured governed/legacy/derived globs, outside the derive contract's code and REQ-test path
+rules, and without a frontmatter block (including one after a leading UTF-8 BOM). Otherwise it fails closed as `inventory-unsupported`, so a
+governed, derived, code or test record is never silently dropped and applicability is never weakened.
+Producer and core re-derivation apply the same rule, so irrelevant binary assets remain usable
+while the identity still covers their bytes (PR #353 review P2).
 Inventory includes trusted task scope, governed/legacy documents, derived sources/outputs,
 config-selection sources and any code/REQ-test paths affecting applicability. Default to a full
 project capture apart from Git administrative storage. A narrower effective inventory requires

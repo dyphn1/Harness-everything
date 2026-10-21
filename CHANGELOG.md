@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Bind the S2a captured origin identity to the snapshot identity (workspace, session, workflow, revision, task), the captured plan and the selected active host, so a jointly substituted origin context and provider context cannot earn credit in either reconciliation mode; bind the captured config bytes to the captured inventory (#353).
+
+- Keep a whole-project S2a inventory usable when it contains binary records: every stored byte stays in the candidate digest, records the derive contract cannot observe are omitted from semantic derivation, and governed/derived/code/test records that cannot be decoded fail closed as inventory-unsupported (#353).
+
 - Reject S2a document evidence when the captured origin commit disagrees with the hashed baseline, including joint provider/context commit replacement; also reject inconsistent roots within the snapshot (#353).
 
 - Ship the unwired S2a document evidence producer and reconciliation core (snapshot capture, captured config, accepted-origin adapter, expected-set reconciliation); S1 stays no-credit until S2b host integration.

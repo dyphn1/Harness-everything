@@ -436,6 +436,150 @@ runner.run('R2f-P1:equivalent-provider-root-is-canonicalized-control', ALL_NEW, 
   H.sameStable(r.snapshot.originContext.baseline.root, r.snapshot.originContext.workspaceRoot, 'canonical captured roots');
 }));
 
+// ---- PR #353 review P1: the captured origin identity must be the snapshot identity ---------------------------
+//
+// The captured origin context is the only origin-correlated identity in a snapshot. Events compare the
+// provider context with that capture and the event identity with snapshot.identity, so a jointly substituted
+// capture/provider identity disconnected the two halves: verification and review could earn credit for a
+// snapshot whose identity named a different task, session, workflow or workspace than the origin it claims.
+
+const IDENTITY_TUPLE_FIELDS = ['workspaceId', 'sessionId', 'workflowId', 'workflowRevision', 'taskId'];
+
+// Substitutes one origin-correlated field in the captured origin context and in the provider context together,
+// keeping the snapshot identity and the issued events at the original values.
+function substituteOrigin(mods, repo, mutate) {
+  const base = flow(mods, repo, 'normative');
+  requireEligible(base, 'complete normative control');
+  const snapshot = H.clone(base.snapshot);
+  mutate(snapshot.originContext, base.origin.context);
+  const accepted = mods[EVENTS].acceptDocEvents({ snapshot, eventRefs: Object.keys(base.events) }, { originProvider: base.origin });
+  for (const mode of ['verification', 'review']) {
+    const decision = mods[CORE].checkAcceptedDocEvidence({ snapshot, accepted, mode });
+    if (decision.eligible) throw new Error(`${mode}: a substituted origin identity must not earn credit`);
+    H.expectCodes(H.codesOf(decision), ['identity-mismatch'], `${mode} substituted origin identity`);
+    // A cached acceptance from the substituted tuple must not bypass the same invariant.
+    const cached = H.clone(base.accepted);
+    cached.originContext = H.clone(snapshot.originContext);
+    const replay = mods[CORE].checkAcceptedDocEvidence({ snapshot, accepted: cached, mode });
+    if (replay.eligible) throw new Error(`${mode}: cached accepted evidence bypassed the origin identity invariant`);
+    H.expectCodes(H.codesOf(replay), ['identity-mismatch'], `${mode} cached substituted origin identity`);
+  }
+}
+
+for (const field of IDENTITY_TUPLE_FIELDS) {
+  runner.run(`R3-P1:joint-origin-and-identity-${field}-substitution-rejected`, ALL_NEW, mods => withVector('normative', repo => {
+    substituteOrigin(mods, repo, (context, providerContext) => {
+      const value = field === 'workflowRevision' ? context[field] + 1 : `${context[field]}-substituted`;
+      context[field] = value;
+      providerContext[field] = value;
+    });
+  }));
+}
+
+runner.run('R3-P1:joint-origin-and-active-host-substitution-rejected', ALL_NEW, mods => withVector('normative', repo => {
+  // The active host selected the captured config; a substituted host must not match the captured selection.
+  substituteOrigin(mods, repo, (context, providerContext) => {
+    context.activeHost = { hostId: 'other-host' };
+    providerContext.activeHost = { hostId: 'other-host' };
+  });
+}));
+
+runner.run('R3-P1:joint-plan-and-identity-substitution-rejected', ALL_NEW, mods => withVector('normative', repo => {
+  // The captured plan and the identity are substituted together and the plan digest is recomputed, so only the
+  // captured origin context can still name the original tuple. A stale acceptance rewritten to match the
+  // substituted tuple must not earn credit.
+  const base = flow(mods, repo, 'normative');
+  requireEligible(base, 'complete normative control');
+  const snapshot = H.clone(base.snapshot);
+  snapshot.identity.workflowId = 'wf-substituted';
+  snapshot.taskSemantics.workflow.workflowId = 'wf-substituted';
+  snapshot.identity.taskScopeDigest = mods[CORE]._internals.structuredDigest('doc-task-scope-v1', snapshot.taskSemantics);
+  const cached = H.clone(base.accepted);
+  cached.identity = H.clone(snapshot.identity);
+  cached.originContext = H.clone(snapshot.originContext);
+  for (const key of Object.keys(cached.acceptedIndex || {})) cached.acceptedIndex[key].identity = H.clone(snapshot.identity);
+  for (const mode of ['verification', 'review']) {
+    const decision = mods[CORE].checkAcceptedDocEvidence({ snapshot, accepted: cached, mode });
+    if (decision.eligible) throw new Error(`${mode}: a substituted plan and identity must not earn credit`);
+    H.expectCodes(H.codesOf(decision), ['identity-mismatch'], `${mode} substituted plan and identity`);
+  }
+}));
+
+runner.run('R3-P1:unchanged-origin-identity-stays-eligible-control', ALL_NEW, mods => withVector('normative', repo => {
+  const r = flow(mods, repo, 'normative');
+  requireEligible(r, 'unchanged origin identity');
+}));
+
+runner.run('R3-P1:config-capture-bytes-must-match-the-captured-inventory', ALL_NEW, mods => withVector('normative', repo => {
+  // The config digest binds the captured bytes and the parsed value; the whole-project capture must hold the
+  // same bytes for that path, or the two halves of the capture describe different files.
+  const base = flow(mods, repo, 'normative');
+  requireEligible(base, 'complete normative control');
+  const snapshot = H.clone(base.snapshot);
+  const source = snapshot.config.capture.sources.find(item => item.presence === 'present');
+  if (!source) throw new Error('the captured config has no present source');
+  source.bytes = Buffer.from('{"governed":[]}\n');
+  source.digest = H.sha256(source.bytes);
+  snapshot.config.digest = mods[CORE]._internals.configDigest(snapshot.config);
+  snapshot.identity.configDigest = snapshot.config.digest;
+  // The plan carries the config digest, so it is restated with it: only the link between the captured config
+  // bytes and the captured inventory can still detect the substitution.
+  snapshot.taskSemantics.configDigest = snapshot.config.digest;
+  snapshot.identity.taskScopeDigest = mods[CORE]._internals.structuredDigest('doc-task-scope-v1', snapshot.taskSemantics);
+  // The cached acceptance is restated with the substituted config digest, so only the link between the
+  // captured config bytes and the captured inventory can still detect the substitution.
+  const cached = H.clone(base.accepted);
+  cached.identity = H.clone(snapshot.identity);
+  cached.originContext = H.clone(snapshot.originContext);
+  for (const key of Object.keys(cached.acceptedIndex || {})) cached.acceptedIndex[key].identity = H.clone(snapshot.identity);
+  const decision = mods[CORE].checkAcceptedDocEvidence({ snapshot, accepted: cached, mode: 'verification' });
+  if (decision.eligible) throw new Error('config bytes the captured inventory contradicts must not earn credit');
+  H.expectCodes(H.codesOf(decision), ['config-capture-mismatch'], 'config capture bytes against the inventory');
+}));
+
+// ---- PR #353 review P2: a whole-project inventory that contains binary records ------------------------------
+//
+// The inventory is whole-project, so a normal tracked binary asset must not make the capture unusable. Its
+// stored bytes stay in the identity framing; only semantic derivation needs decoded text.
+
+function withBinaryRepo(binaryFiles, fn) {
+  const files = H.vectorFiles('normative');
+  const repo = H.makeRepo(files.base, binaryFiles);
+  try {
+    H.writeFiles(repo.root, files.candidate);
+    fn(repo);
+  } finally {
+    H.removeRepo(repo.root);
+  }
+}
+
+runner.run('R3-P2:irrelevant-binary-record-captures-and-reconciles', ALL_NEW, mods => withBinaryRepo({ 'assets/logo.png': H.BINARY_BYTES }, repo => {
+  const r = flow(mods, repo, 'normative');
+  requireEligible(r, 'capture with an irrelevant binary record');
+  const record = (r.snapshot.candidate.records || []).find(item => item.path === 'assets/logo.png');
+  if (!record || record.presence !== 'present') throw new Error('the binary record must stay in the candidate inventory');
+  H.sameStable(record.digest, H.sha256(H.BINARY_BYTES), 'binary record digest of its stored bytes');
+  H.sameStable(sorted(r.decision.expectedMustIds), sorted(VECTORS.vectors.normative.expectedMustIds), 'expectedMustIds with an irrelevant binary record');
+}));
+
+runner.run('R3-P2:core-fails-closed-on-a-relevant-undecodable-record', ALL_NEW, mods => withVector('normative', repo => {
+  // A governed document whose bytes cannot be decoded changes applicability, so the core must refuse to
+  // verify the snapshot instead of deriving facts without it.
+  const base = flow(mods, repo, 'normative');
+  requireEligible(base, 'complete normative control');
+  const snapshot = H.clone(base.snapshot);
+  const record = { path: 'docs/prd/binary.md', presence: 'present', type: 'file', mode: '100644',
+    storedBytes: { type: 'Buffer', data: [...H.BINARY_BYTES] }, digest: H.sha256(H.BINARY_BYTES) };
+  snapshot.candidate.records = snapshot.candidate.records.concat([record]);
+  const digest = mods[CORE]._internals.snapshotDigest('candidate', snapshot.baseline, snapshot.candidate.coverage, snapshot.candidate.records);
+  snapshot.candidate.digest = digest;
+  snapshot.identity.candidateDigest = digest;
+  const errors = mods[CORE]._internals.validateSnapshot(snapshot);
+  if (!errors.some(item => item.code === 'inventory-unsupported')) {
+    throw new Error(`the core must fail closed on a relevant undecodable record: ${JSON.stringify(errors)}`);
+  }
+}));
+
 // ---- A14: stable captures, capture boundary and status-only progress --------------------------------------------
 
 runner.run('A14:unchanged-repository-captures-identically', ALL_NEW, mods => withVector('normative', repo => {

@@ -457,6 +457,73 @@ runner.run('purity:producer-capture-writes-nothing-spawns-only-git', [REQ_PRODUC
   H.sameStable(log.net, [], 'network connects during capture');
 }));
 
+// ---- PR #353 review P2: a whole-project inventory that contains binary records ------------------------------
+//
+// The inventory is whole-project, so a normal tracked binary asset must not make the capture unusable. Its
+// stored bytes stay in the identity framing; only semantic derivation needs decoded text.
+
+runner.run('R3-P2:unchanged-binary-asset-captures-without-changing-applicability', [REQ_PRODUCER], mods => {
+  const files = normativeFiles();
+  const repo = H.makeRepo(files.base, { 'assets/logo.png': H.BINARY_BYTES });
+  try {
+    H.writeFiles(repo.root, files.candidate);
+    const snapshot = readyOrThrow(produce(mods, repo).result, 'capture with an unchanged binary asset');
+    const record = recordAt(snapshot, 'candidate', 'assets/logo.png');
+    if (!record || record.presence !== 'present') throw new Error('the binary asset must stay in the candidate inventory');
+    H.sameStable(record.digest, H.sha256(H.BINARY_BYTES), 'binary record digest of its stored bytes');
+    H.sameStable(snapshot.obligations.filter(item => item.strength === 'MUST' && item.applicability !== 'N/A').map(item => item.id).sort(),
+      [...VECTORS.vectors.normative.expectedMustIds].sort(), 'MUST set with an unchanged binary asset');
+  } finally { H.removeRepo(repo.root); }
+});
+
+runner.run('R3-P2:changed-binary-asset-changes-the-candidate-digest-without-changing-applicability', [REQ_PRODUCER], mods => {
+  const files = normativeFiles();
+  const repo = H.makeRepo(files.base, { 'assets/logo.png': H.BINARY_BYTES });
+  try {
+    H.writeFiles(repo.root, files.candidate);
+    const first = readyOrThrow(produce(mods, repo).result, 'capture with an unchanged binary asset');
+    H.writeBinary(repo.root, { 'assets/logo.png': H.BINARY_BYTES_CHANGED });
+    const second = readyOrThrow(produce(mods, repo).result, 'capture with a changed binary asset');
+    if (first.identity.candidateDigest === second.identity.candidateDigest) {
+      throw new Error('a changed binary asset must change the candidateDigest');
+    }
+    H.sameStable(second.obligations.filter(item => item.strength === 'MUST' && item.applicability !== 'N/A').map(item => item.id).sort(),
+      [...VECTORS.vectors.normative.expectedMustIds].sort(), 'MUST set with a changed binary asset');
+  } finally { H.removeRepo(repo.root); }
+});
+
+for (const [label, rel] of [['governed-document', 'docs/prd/binary.md'], ['derived-output', 'docs/roadmap/index.md'],
+  ['code-input', 'src/app.js'], ['test-input', 'tests/app.test.js']]) {
+  runner.run(`R3-P2:undecodable-${label}-record-fails-closed`, [REQ_PRODUCER], mods => {
+    const files = normativeFiles();
+    const repo = H.makeRepo(files.base);
+    try {
+      H.writeFiles(repo.root, files.candidate);
+      H.writeBinary(repo.root, { [rel]: H.BINARY_BYTES });
+      const { result } = produce(mods, repo);
+      if (result.snapshot) throw new Error(`an undecodable ${label} must not yield a snapshot`);
+      H.expectCodes(H.codesOf(result), ['inventory-unsupported'], `undecodable ${label}`);
+    } finally { H.removeRepo(repo.root); }
+  });
+}
+
+// TextDecoder removes a leading UTF-8 BOM; relevance detection must see the same frontmatter.
+for (const prefix of ['', '\uFEFF']) {
+  runner.run(`R3-P2:undecodable-frontmatter-${prefix ? 'bom' : 'plain'}-fails-closed`, [REQ_PRODUCER], mods => {
+    const files = normativeFiles();
+    const repo = H.makeRepo(files.base);
+    try {
+      H.writeFiles(repo.root, files.candidate);
+      H.writeBinary(repo.root, { 'assets/role.dat': Buffer.concat([
+        Buffer.from(`${prefix}---\nrole: prd\n---\n`), H.BINARY_BYTES
+      ]) });
+      const { result } = produce(mods, repo);
+      if (result.snapshot) throw new Error('undecodable frontmatter must not disappear from semantic inputs');
+      H.expectCodes(H.codesOf(result), ['inventory-unsupported'], 'undecodable frontmatter');
+    } finally { H.removeRepo(repo.root); }
+  });
+}
+
 const counts = runner.summary();
 if (counts.INFRA > 0) {
   console.error('S2a producer suite: infrastructure faults present; these are not assertion results.');
