@@ -510,6 +510,33 @@ function planningUnresolved(context, plan = context.workflow?.pendingPlan || con
   return [...new Set(unresolved)];
 }
 
+function withholdPilotVerification(context, set) {
+  // PR #351 review P2 (persistence failure): the credit decision is applied in memory first —
+  // aggregate verify becomes pending and a satisfied workflow becomes running — and only then is
+  // that state persisted best-effort. A failed obligations-file write records the
+  // withhold-persist-failed diagnostic and a reminder; it never escapes, never leaves the decision
+  // unapplied, and never changes the callers' refusal contract (exit 2 / step:<verify>:pending).
+  // PR #351 re-review P2a (scope of the recovery): this run made an actual ON, supported,
+  // withheld pilot decision. The marker is transient and per-run — it lives on the in-memory
+  // context object itself (saveWorkflow persists only context.workflow) and is never written
+  // to disk; Stop's pending-path persistence recovery is scoped by it.
+  context.docReconciliationWithheldRun = true;
+  const verify = set.obligations.find(item => item.id === 'verify');
+  if (verify) verify.status = 'pending';
+  if (context.workflow.state === 'satisfied') context.workflow.state = 'running';
+  try {
+    atomicWriteJson(obligationPath(context.sessionDir), set);
+  } catch {
+    if (!Array.isArray(context.workflow.docReconciliationDiagnostics)) {
+      context.workflow.docReconciliationDiagnostics = [];
+    }
+    if (!context.workflow.docReconciliationDiagnostics.includes('withhold-persist-failed')) {
+      context.workflow.docReconciliationDiagnostics.push('withhold-persist-failed');
+    }
+    console.error('[Workflow Reminder] Document verification withheld in memory; persisting the obligations state failed (withhold-persist-failed). No document verification credit.');
+  }
+}
+
 function updateObligation(context, obligationId, disposition, options = {}) {
   if (!SAFE_ID.test(obligationId || '')) throw new Error('--obligation-id must be a stable obligation id');
   if (!['pass', 'escaped', 'blocked'].includes(disposition)) throw new Error('--disposition must be pass, escaped, or blocked');
@@ -529,6 +556,12 @@ function updateObligation(context, obligationId, disposition, options = {}) {
     if (!scope) throw new Error('--scope is required when escaping an obligation');
   }
   if (disposition === 'blocked' && !reasonCode) throw new Error('--reason-code is required when blocking an obligation');
+  if (disposition === 'pass' && ['execute', 'verify'].includes(obligationId)
+      && require('./doc-reconciliation-pilot').assess(context, loaded.set).withhold) {
+    obligation.status = 'pending';
+    withholdPilotVerification(context, loaded.set);
+    throw new Error('document verification pending: S1 grants no document credit');
+  }
   obligation.status = disposition;
   obligation.evidence = evidence;
   obligation.reasonCode = reasonCode;
@@ -635,6 +668,11 @@ function updateStep(context, stepId, disposition, options = {}) {
       throw new Error('resolve active-step bindings before passing the step: ' + ids.join(', '));
     }
   }
+  if (disposition === 'pass' && step.stepType === 'verification'
+      && require('./doc-reconciliation-pilot').assess(context, loaded.set).withhold) {
+    withholdPilotVerification(context, loaded.set);
+    throw new Error('document verification pending: S1 grants no document credit');
+  }
   step.status = disposition;
   step.evidence = evidence;
   step.reasonCode = reasonCode;
@@ -651,6 +689,12 @@ function unresolvedObligations(context) {
   const unresolved = planningUnresolved(context, plan);
   const loaded = loadObligationSet(context, plan);
   if (!loaded.set) return unresolved;
+  if (!unresolved.length && require('./doc-reconciliation-pilot').assess(context, loaded.set).withhold) {
+    withholdPilotVerification(context, loaded.set);
+    for (const step of loaded.set.requirements.filter(item => item.stepType === 'verification')) {
+      unresolved.push('step:' + step.id + ':pending');
+    }
+  }
   if (!['running', 'satisfied', 'blocked', 'failed'].includes(context.workflow.state)) {
     unresolved.push('execution:not-started');
   }

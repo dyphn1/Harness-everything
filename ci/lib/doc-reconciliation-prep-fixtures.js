@@ -5,10 +5,12 @@
 // Each replay creates a fresh workspace and state home, runs ordered actions through one explicitly
 // selected distribution, and returns a replay root with the L1 shape:
 //   { actions: { [actionId]: { exitCode, signal, error, errorCode, stdout, stderr, json, state, pilot } }, state, pilot, pilotReportOrigin }.
-// Nothing here is production code. The pilot switch is passed to children only as a request; no reader for
-// it exists in this preparation slice, so ON replays run the legacy code path. Fixture operations
+// Nothing here is production code. The pilot switch is passed to children through their environment; the S1
+// runtime reads it and, when ON, runs the fail-closed no-credit gate. Fixture operations
 // (provideEvidence, mutateIdentity, timestampHints) write simulated records only inside the replay's own
-// temporary directories. They are contract fixtures, not production commands, and nothing reads them yet.
+// temporary directories. They are contract fixtures, not production commands; no S1 runtime reads them.
+// seedState writes one allowlisted session file (workflow-stages.json) into the replay's own state home, so a case can
+// reach a correlated Fable stage contract. It is test-only; no production code reads or writes through it.
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -18,9 +20,16 @@ const { spawnSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const PILOT_SWITCH = 'HARNESS_DOC_RECONCILIATION_PILOT';
-const FIXTURE_OPS = new Set(['provideEvidence', 'mutateIdentity', 'timestampHints']);
-const CONTROLLER_OPS = new Set(['plan', 'start', 'binding', 'step', 'obligation']);
-const ALL_OPS = new Set(['route', 'stop', ...CONTROLLER_OPS, ...FIXTURE_OPS]);
+// Session-directory file the S1 runtime writes its pilot report to. Read-only here; only a report carrying
+// reportOrigin: runtime is accepted.
+const PILOT_REPORT_FILE = 'doc-reconciliation-pilot.json';
+const BASELINE_AUTHOR = Object.freeze({ name: 'doc-recon-replay', email: 'doc-recon-replay@invalid' });
+const BASELINE_DATE = '2026-01-01T00:00:00Z';
+const FIXTURE_OPS = new Set(['provideEvidence', 'mutateIdentity', 'timestampHints', 'seedState', 'gitCommit']);
+const CONTROLLER_OPS = new Set(['plan', 'start', 'binding', 'stageBinding', 'step', 'obligation']);
+const ALL_OPS = new Set(['route', 'stop', 'stopGeneric', ...CONTROLLER_OPS, ...FIXTURE_OPS]);
+// The only session files a case may seed, and only inside its own temporary state home.
+const SEEDABLE_FILES = new Set(['workflow-stages.json']);
 
 // Explicit distributions. Every entry point is named by absolute path; no module is reused across legs.
 const DISTRIBUTIONS = Object.freeze({
@@ -28,13 +37,15 @@ const DISTRIBUTIONS = Object.freeze({
     root: REPO_ROOT,
     controller: path.join(REPO_ROOT, 'hooks', 'scripts', 'workflow-disposition.js'),
     stopGate: path.join(REPO_ROOT, 'hooks', 'scripts', 'workflow-stop-gate.js'),
-    kernel: path.join(REPO_ROOT, 'harness-everything', 'scripts', 'kernel-router.js')
+    kernel: path.join(REPO_ROOT, 'harness-everything', 'scripts', 'kernel-router.js'),
+    genericStopGate: path.join(REPO_ROOT, 'hooks', 'scripts', 'stop-gate.js')
   },
   packaged: {
     root: path.join(REPO_ROOT, 'plugins', 'harness-everything'),
     controller: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-disposition.js'),
     stopGate: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-stop-gate.js'),
-    kernel: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'kernel-router.js')
+    kernel: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'kernel-router.js'),
+    genericStopGate: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'stop-gate.js')
   }
 });
 
@@ -196,6 +207,29 @@ function runFixture(handle, action, pilot) {
     fs.writeFileSync(target, String(p.content), 'utf8');
     return fixtureResult(handle, pilot, { op: 'mutateIdentity', kind: p.kind, path: p.path });
   }
+  if (action.op === 'gitCommit') {
+    // Commits the replay workspace's current tree into HEAD mid-workflow. The baseline recorded at plan is not moved by
+    // this fixture: the case exists to show that scope is still assessed against that recorded baseline. A clean tree
+    // makes `git commit` fail, so a misused op is an infrastructure fault, not a silent no-op.
+    if (typeof p.message !== 'string' || !p.message.trim()) throw new Error('gitCommit needs a message');
+    git(handle.workspace, ['add', '-A']);
+    git(handle.workspace, [
+      '-c', `user.name=${BASELINE_AUTHOR.name}`, '-c', `user.email=${BASELINE_AUTHOR.email}`, '-c', 'commit.gpgsign=false',
+      'commit', '-q', '--no-verify', '-m', p.message
+    ]);
+    return fixtureResult(handle, pilot, { op: 'gitCommit' });
+  }
+  if (action.op === 'seedState') {
+    // Writes one allowlisted session file into the replay's own state home. The session must already exist, so the
+    // seeded file lands where the runtime reads it; nothing outside the replay's state home is reachable.
+    if (!SEEDABLE_FILES.has(p.file)) throw new Error(`seedState may only write ${[...SEEDABLE_FILES].join(', ')}`);
+    const dir = sessionDirOf(handle);
+    if (!dir) throw new Error('seedState needs an existing session');
+    const target = path.join(dir, p.file);
+    if (!target.startsWith(handle.stateHome + path.sep)) throw new Error('seedState target escaped the replay state home');
+    fs.writeFileSync(target, JSON.stringify(p.json, null, 2), 'utf8');
+    return fixtureResult(handle, pilot, { op: 'seedState', file: p.file });
+  }
   if (action.op === 'timestampHints') {
     const dir = sessionDirOf(handle);
     if (!dir) throw new Error('timestampHints needs an existing session');
@@ -222,6 +256,9 @@ function runAction(handle, action, pilot) {
     result = runScript(handle, scriptFor(handle, 'route', dist.kernel), [], { session_id: sid, cwd: handle.workspace, prompt: p.prompt }, pilot);
   } else if (action.op === 'stop') {
     result = runScript(handle, scriptFor(handle, 'stop', dist.stopGate), [], { session_id: sid, cwd: handle.workspace, hook_event_name: 'Stop' }, pilot);
+  } else if (action.op === 'stopGeneric') {
+    // The second Stop surface (verification reminder). It must exit 0 in every case, like the workflow surface.
+    result = runScript(handle, scriptFor(handle, 'stopGeneric', dist.genericStopGate), [], { session_id: sid, cwd: handle.workspace, hook_event_name: 'Stop' }, pilot);
   } else if (action.op === 'plan') {
     result = runScript(handle, scriptFor(handle, 'plan', dist.controller), [
       'plan', '--session-id', sid, '--requirements-json', JSON.stringify(p.requirements),
@@ -232,6 +269,12 @@ function runAction(handle, action, pilot) {
   } else if (action.op === 'binding') {
     result = runScript(handle, scriptFor(handle, 'binding', dist.controller), [
       'binding', '--session-id', sid, '--step-id', p.stepId, '--binding-id', p.bindingId,
+      '--disposition', p.disposition, '--evidence', p.evidence
+    ], undefined, pilot);
+  } else if (action.op === 'stageBinding') {
+    // Correlated Fable stage binding (the stage-binding command). Generic binding refuses Fable workflows.
+    result = runScript(handle, scriptFor(handle, 'stageBinding', dist.controller), [
+      'stage-binding', '--session-id', sid, '--stage-id', p.stageId, '--binding-id', p.bindingId,
       '--disposition', p.disposition, '--evidence', p.evidence
     ], undefined, pilot);
   } else if (action.op === 'step') {
@@ -267,6 +310,69 @@ function effectivePilot(action, replayPilot) {
   return Object.prototype.hasOwnProperty.call(action, 'pilot') ? action.pilot : replayPilot;
 }
 
+// Runs git in a replay workspace. Inherited GIT_* variables are removed, so a hook or CI environment cannot point git
+// at another repository. Commit dates are fixed so identical inputs give the same baseline commit on both legs.
+function git(cwd, args) {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('GIT_')) delete env[key];
+  }
+  env.GIT_AUTHOR_DATE = BASELINE_DATE;
+  env.GIT_COMMITTER_DATE = BASELINE_DATE;
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8', env, timeout: CHILD_LIMITS.timeoutMs, maxBuffer: CHILD_LIMITS.maxBuffer });
+  if (result.error || result.status !== 0) {
+    const detail = result.error ? result.error.message : String(result.stderr || '').split('\n')[0];
+    throw new Error(`git failed in the replay workspace: ${detail}`);
+  }
+  return result.stdout;
+}
+
+function writeWorkspaceFiles(workspace, files) {
+  for (const [rel, content] of Object.entries(files)) {
+    if (typeof rel !== 'string' || path.isAbsolute(rel) || rel.split(/[\\/]/).includes('..')) {
+      throw new Error(`input path must be workspace-relative: ${rel}`);
+    }
+    const target = path.join(workspace, rel);
+    if (content === null) {
+      fs.rmSync(target, { force: true });
+      continue;
+    }
+    if (typeof content !== 'string') throw new Error(`input file ${rel} must be a string or null`);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content, 'utf8');
+  }
+}
+
+// Materialises a case's declared file inputs before any action runs. Non-empty baseFiles become a committed Git
+// baseline, so `plan` records a real HEAD. candidateFiles then become the working tree, and a null value deletes a
+// baseline file. Without baseFiles the workspace stays non-Git, so its baseline is unavailable. Fixture maps alone are
+// not runtime authority; the runtime collects scope itself.
+function materialiseInput(handle, input) {
+  const base = (input && input.baseFiles) || {};
+  const candidate = (input && input.candidateFiles) || {};
+  if (Object.keys(base).length) {
+    git(handle.workspace, ['init', '-q']);
+    writeWorkspaceFiles(handle.workspace, base);
+    git(handle.workspace, ['add', '-A']);
+    git(handle.workspace, [
+      '-c', `user.name=${BASELINE_AUTHOR.name}`, '-c', `user.email=${BASELINE_AUTHOR.email}`, '-c', 'commit.gpgsign=false',
+      'commit', '-q', '--no-verify', '-m', 'baseline'
+    ]);
+  }
+  writeWorkspaceFiles(handle.workspace, candidate);
+}
+
+// Read-only extraction of a runtime pilot report from the session directory. Only a report that carries
+// reportOrigin: runtime is accepted. Otherwise the replay reports no pilot with origin harness; nothing is synthesized.
+function runtimePilotOf(handle) {
+  const dir = sessionDirOf(handle);
+  const report = dir ? readJsonOrNull(path.join(dir, PILOT_REPORT_FILE)) : null;
+  if (report && typeof report === 'object' && !Array.isArray(report) && report.reportOrigin === 'runtime') {
+    return { pilot: report, pilotReportOrigin: 'runtime' };
+  }
+  return { pilot: null, pilotReportOrigin: 'harness' };
+}
+
 // Replays one case through one distribution. Actions run in order and the replay stops at its first infrastructure
 // fault: the faulted action is recorded, no later action runs, and the temporary directories are still removed.
 // A crash is recorded, not hidden.
@@ -275,6 +381,7 @@ function replayCase(caseDef, distribution, options = {}) {
   const mode = options.pilot === undefined ? 'off' : 'on';
   const handle = { ...createSession(distribution, caseDef.id, options.pilot), distribution, limits };
   try {
+    materialiseInput(handle, caseDef.input);
     const actions = {};
     for (const action of caseDef.actions) {
       if (Object.prototype.hasOwnProperty.call(actions, action.id)) throw new Error(`duplicate action id ${action.id}`);
@@ -287,8 +394,7 @@ function replayCase(caseDef, distribution, options = {}) {
     return {
       actions,
       state: snapshot(handle),
-      pilot: null,
-      pilotReportOrigin: 'harness'
+      ...runtimePilotOf(handle)
     };
   } finally {
     disposeSession(handle);

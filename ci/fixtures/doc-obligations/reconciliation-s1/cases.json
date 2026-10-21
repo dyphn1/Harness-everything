@@ -1,0 +1,6842 @@
+{
+  "schemaVersion": 1,
+  "phase": "325-3b-S1",
+  "description": "Strict S1 RED corpus. Each ON assertion carries s1Kind: retired (the 26 S1 retire IDs), control (must pass now and after GREEN), or additional (named S1 contract cases). Intentional ON exit 2 is declared with expectExit; the policy also admits the current exit 0 so a current gap is an assertion FAIL, not an infrastructure fault. S2-keep IDs (P02e stop-reports, P03 retry, P05) are not asserted here.",
+  "cases": [
+    {
+      "id": "P01",
+      "family": "P01",
+      "description": "Declared doc-change then verification; the verification step is passed with free text only.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "verify-exit-accepted",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-obligation-passed",
+            "path": [
+              "actions",
+              "verify-pass",
+              "state",
+              "obligations",
+              "obligations",
+              3,
+              "status"
+            ],
+            "operator": "equals",
+            "expected": "pass",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-satisfied",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "verify-exit-refused",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "retired"
+          },
+          {
+            "id": "verify-obligation-pending",
+            "path": [
+              "actions",
+              "verify-pass",
+              "state",
+              "obligations",
+              "obligations",
+              3,
+              "status"
+            ],
+            "operator": "equals",
+            "expected": "pending",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-unsatisfied",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-reports-verification",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P04",
+      "family": "P04",
+      "description": "Direct aggregate execute and verify PASS writes with free text on a doc-governed typed plan.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "direct-execute",
+          "op": "obligation",
+          "payload": {
+            "obligationId": "execute",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "direct-verify",
+          "op": "obligation",
+          "payload": {
+            "obligationId": "verify",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "direct-execute-accepted",
+            "path": [
+              "actions",
+              "direct-execute",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "direct-verify-accepted",
+            "path": [
+              "actions",
+              "direct-verify",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-obligation-passed-by-text",
+            "path": [
+              "actions",
+              "direct-verify",
+              "state",
+              "obligations",
+              "obligations",
+              3,
+              "status"
+            ],
+            "operator": "equals",
+            "expected": "pass",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-blocked-by-authored-step",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-docs:pending",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "direct-execute-refused",
+            "path": [
+              "actions",
+              "direct-execute",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "retired"
+          },
+          {
+            "id": "direct-verify-refused",
+            "path": [
+              "actions",
+              "direct-verify",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "retired"
+          },
+          {
+            "id": "verify-obligation-pending",
+            "path": [
+              "actions",
+              "direct-verify",
+              "state",
+              "obligations",
+              "obligations",
+              3,
+              "status"
+            ],
+            "operator": "equals",
+            "expected": "pending",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-blocked-by-authored-step",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-docs:pending",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P06",
+      "family": "P06",
+      "description": "Typed non-doc plan with a git-materialised non-code, non-governed diff (assets/notes.txt): no applicable or unknown MUST, so legacy satisfied under ON.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-code",
+          "stepType": "behavior-change",
+          "summary": "Fix the checkout failure",
+          "acceptance": "the failing scenario succeeds"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the checkout change",
+          "acceptance": "objective check evidence is recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "assets/notes.txt": "Release notes draft.\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "assets/notes.txt": "Release notes draft, revised.\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and add a regression test."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded test-fix-verify loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "direct-execute",
+          "op": "obligation",
+          "payload": {
+            "obligationId": "execute",
+            "disposition": "pass",
+            "evidence": "typed execution steps are underway"
+          }
+        },
+        {
+          "id": "tdd-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-code",
+            "bindingId": "tdd",
+            "disposition": "loaded",
+            "evidence": "tdd skill located"
+          }
+        },
+        {
+          "id": "code-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-code",
+            "disposition": "pass",
+            "evidence": "regression test added"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective check recorded"
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "route-exit",
+            "path": [
+              "actions",
+              "route",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "plan-exit",
+            "path": [
+              "actions",
+              "plan",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-satisfied",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-no-unresolved",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "equals",
+            "expected": [],
+            "s1Kind": "control"
+          },
+          {
+            "id": "direct-execute-accepted",
+            "path": [
+              "actions",
+              "direct-execute",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "route-exit",
+            "path": [
+              "actions",
+              "route",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "plan-exit",
+            "path": [
+              "actions",
+              "plan",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-satisfied",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-no-unresolved",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "equals",
+            "expected": [],
+            "s1Kind": "control"
+          },
+          {
+            "id": "direct-execute-accepted",
+            "path": [
+              "actions",
+              "direct-execute",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P02a",
+      "family": "P02",
+      "description": "missing expected result: verification passed with text saying no checker result exists",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "no doc checker result recorded"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P02b",
+      "family": "P02",
+      "description": "bound command failure: verification passed with text naming a nonzero exit",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "command exited 1: doc-lint"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P02c",
+      "family": "P02",
+      "description": "unknown observation: verification passed with text saying the observation is unknown",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "observation unknown from doc-link check"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P02g",
+      "family": "P02",
+      "description": "partial applicable-MUST coverage: verification passed with text covering two of three MUSTs",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "covered 2 of 3 applicable MUSTs"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P02f",
+      "family": "P02",
+      "description": "forged identity: a simulated host record names a reviewer that did not produce it; verification then passes on that claim",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "forge",
+          "op": "provideEvidence",
+          "payload": {
+            "id": "forged-cold-verifier",
+            "record": {
+              "reviewerId": "fable-verifier",
+              "taskId": "forged",
+              "candidateDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+              "producer": "unverified"
+            }
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "verified by cold verifier fable-verifier (record forged-cold-verifier)"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P02d",
+      "family": "P02",
+      "description": "unavailable verifier: a required verification binding is unavailable, so verification must not pass",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "unavailable",
+            "evidence": "verification loop skill not available on this host"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P02e",
+      "family": "P02",
+      "description": "self-review: an authored review step is passed with text saying the author reviewed the change",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-review",
+          "stepType": "review",
+          "summary": "Review the ADR change",
+          "acceptance": "reviewed scope and findings are recorded"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "review-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-review",
+            "disposition": "pass",
+            "evidence": "self-review by the author of the change"
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "review-pass-exit",
+            "path": [
+              "actions",
+              "review-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "review-pass-exit",
+            "path": [
+              "actions",
+              "review-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P03",
+      "family": "P03",
+      "description": "ordered doc-change, review, verification: the first verification attempt has no evidence; trusted evidence arrives and the retry is made",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-review",
+          "stepType": "review",
+          "summary": "Review the ADR change",
+          "acceptance": "reviewed scope and findings are recorded"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "review-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-review",
+            "disposition": "pass",
+            "evidence": "review scope recorded"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "verification attempted before evidence arrived"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "evidence-arrives",
+          "op": "provideEvidence",
+          "payload": {
+            "id": "doc-check-1",
+            "record": {
+              "kind": "doc-checker",
+              "status": "pass",
+              "scope": "docs/adr/GRPH-001.md"
+            }
+          }
+        },
+        {
+          "id": "verify-retry",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "verification retried with evidence"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "review-pass-exit",
+            "path": [
+              "actions",
+              "review-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-retry-exit",
+            "path": [
+              "actions",
+              "verify-retry",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "review-pass-exit",
+            "path": [
+              "actions",
+              "review-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "retired"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      },
+      "staging": {
+        "slice": "S1",
+        "s2CompletionExpected": "satisfied",
+        "reason": "Retry PASS remains the S2 gap; S1 completion is pending until that positive path exists."
+      }
+    },
+    {
+      "id": "P07-fable-staged",
+      "family": "P07",
+      "description": "Fable strategy fable-staged: no stage contract, generic commands refused; the pilot reports no structured unavailable status",
+      "topology": "fable-stage-contract",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "fable-staged",
+            "evidence": "fable pilot-unavailable probe"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {},
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "step",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "obligation",
+          "op": "obligation",
+          "payload": {
+            "obligationId": "execute",
+            "disposition": "pass",
+            "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "step-exit",
+            "path": [
+              "actions",
+              "step",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "obligation-exit",
+            "path": [
+              "actions",
+              "obligation",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "step-exit",
+            "path": [
+              "actions",
+              "step",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "obligation-exit",
+            "path": [
+              "actions",
+              "obligation",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-status-unavailable",
+            "path": [
+              "pilot",
+              "pilotStatus"
+            ],
+            "operator": "equals",
+            "expected": "unavailable",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "pilot-origin-runtime",
+            "path": [
+              "pilotReportOrigin"
+            ],
+            "operator": "equals",
+            "expected": "runtime",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P07-fable-parallel",
+      "family": "P07",
+      "description": "Fable strategy fable-parallel: no stage contract, generic commands refused; the pilot reports no structured unavailable status",
+      "topology": "fable-stage-contract",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "fable-parallel",
+            "evidence": "fable pilot-unavailable probe"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {},
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "step",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "obligation",
+          "op": "obligation",
+          "payload": {
+            "obligationId": "execute",
+            "disposition": "pass",
+            "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "step-exit",
+            "path": [
+              "actions",
+              "step",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "obligation-exit",
+            "path": [
+              "actions",
+              "obligation",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "step-exit",
+            "path": [
+              "actions",
+              "step",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "obligation-exit",
+            "path": [
+              "actions",
+              "obligation",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-status-unavailable",
+            "path": [
+              "pilot",
+              "pilotStatus"
+            ],
+            "operator": "equals",
+            "expected": "unavailable",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "pilot-origin-runtime",
+            "path": [
+              "pilotReportOrigin"
+            ],
+            "operator": "equals",
+            "expected": "runtime",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P07-fable-multi-agent-workspace",
+      "family": "P07",
+      "description": "Fable strategy fable-multi-agent-workspace: no stage contract, generic commands refused; the pilot reports no structured unavailable status",
+      "topology": "fable-stage-contract",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "fable-multi-agent-workspace",
+            "evidence": "fable pilot-unavailable probe"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {},
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "step",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "obligation",
+          "op": "obligation",
+          "payload": {
+            "obligationId": "execute",
+            "disposition": "pass",
+            "evidence": "text"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "step-exit",
+            "path": [
+              "actions",
+              "step",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "obligation-exit",
+            "path": [
+              "actions",
+              "obligation",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "step-exit",
+            "path": [
+              "actions",
+              "step",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "obligation-exit",
+            "path": [
+              "actions",
+              "obligation",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-status-unavailable",
+            "path": [
+              "pilot",
+              "pilotStatus"
+            ],
+            "operator": "equals",
+            "expected": "unavailable",
+            "s1Kind": "retired"
+          },
+          {
+            "id": "pilot-origin-runtime",
+            "path": [
+              "pilotReportOrigin"
+            ],
+            "operator": "equals",
+            "expected": "runtime",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "P07u",
+      "family": "P07",
+      "description": "untyped compatibility control: a new single-agent plan with untyped requirements is refused before any credit",
+      "topology": "iterative-single-untyped",
+      "requirements": [
+        {
+          "id": "req-untyped",
+          "summary": "Correct the checkout failure",
+          "acceptance": "the failing scenario succeeds"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and add a regression test."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "untyped probe"
+          },
+          "expectExit": {
+            "off": 2,
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "plan-exit",
+            "path": [
+              "actions",
+              "plan",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "plan-exit",
+            "path": [
+              "actions",
+              "plan",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-GOV-NO-DOC",
+      "family": "S1",
+      "description": "Governed docs/adr change with no authored doc-change step: verification refused under ON, completion withheld.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-code",
+          "stepType": "behavior-change",
+          "summary": "Fix the checkout failure",
+          "acceptance": "the failing scenario succeeds"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the checkout change",
+          "acceptance": "objective check evidence is recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v1';\n}\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry twice.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v2';\n}\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and add a regression test."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded test-fix-verify loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "tdd-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-code",
+            "bindingId": "tdd",
+            "disposition": "loaded",
+            "evidence": "tdd skill located"
+          }
+        },
+        {
+          "id": "code-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-code",
+            "disposition": "pass",
+            "evidence": "regression test added"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective check recorded"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "code-pass-exit",
+            "path": [
+              "actions",
+              "code-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-exit-refused",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "verify-exit-accepted",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-satisfied",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-GOV-DIRECT-AGG",
+      "family": "S1",
+      "description": "Governed diff with every authored step passed; direct aggregate execute and verify PASS must stay refused under ON.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v1';\n}\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry twice.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v2';\n}\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "direct-execute",
+          "op": "obligation",
+          "payload": {
+            "obligationId": "execute",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "direct-verify",
+          "op": "obligation",
+          "payload": {
+            "obligationId": "verify",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "doc-pass-exit",
+            "path": [
+              "actions",
+              "doc-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "direct-execute-refused",
+            "path": [
+              "actions",
+              "direct-execute",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "direct-verify-refused",
+            "path": [
+              "actions",
+              "direct-verify",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "direct-execute-accepted",
+            "path": [
+              "actions",
+              "direct-execute",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "direct-verify-accepted",
+            "path": [
+              "actions",
+              "direct-verify",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-OFF-SEEDED-PASS",
+      "family": "S1",
+      "description": "Legacy PASS recorded with the switch OFF on a governed diff; the first ON completion withholds credit without resetting authored work.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v1';\n}\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry twice.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v2';\n}\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          },
+          "pilot": "0"
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {},
+          "pilot": "0"
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          },
+          "pilot": "0"
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          },
+          "pilot": "0"
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 0,
+            "off": 0
+          },
+          "pilot": "0"
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "verify-off-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "authored-step-retained",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "obligations",
+              "requirements",
+              0,
+              "status"
+            ],
+            "operator": "equals",
+            "expected": "pass",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "verify-exit-accepted",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-satisfied",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-ON-OFF-ON",
+      "family": "S1",
+      "description": "ON stop while verification is pending, OFF legacy pass, then ON completion: the later ON assessment recollects scope and withholds credit.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v1';\n}\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry twice.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v2';\n}\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "stop-on-1",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 0
+          },
+          "pilot": "0"
+        },
+        {
+          "id": "stop-on-2",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "stop-on-1-state",
+            "path": [
+              "actions",
+              "stop-on-1",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-off-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-on-2-state",
+            "path": [
+              "actions",
+              "stop-on-2",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-on-2-reports",
+            "path": [
+              "actions",
+              "stop-on-2",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-on-2-exit-0",
+            "path": [
+              "actions",
+              "stop-on-2",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "stop-on-1-state",
+            "path": [
+              "actions",
+              "stop-on-1",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-off-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-on-2-state",
+            "path": [
+              "actions",
+              "stop-on-2",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-SWITCH-ZERO",
+      "family": "S1",
+      "description": "Switch value \"0\" is OFF: a governed diff keeps legacy behaviour on every action.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v1';\n}\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry twice.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v2';\n}\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          },
+          "pilot": "0"
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          },
+          "pilot": "0"
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {},
+          "pilot": "0"
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          },
+          "pilot": "0"
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          },
+          "pilot": "0"
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 0
+          },
+          "pilot": "0"
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {},
+          "pilot": "0"
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-SWITCH-TRUE",
+      "family": "S1",
+      "description": "Switch value \"true\" is OFF: a governed diff keeps legacy behaviour on every action.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v1';\n}\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry twice.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v2';\n}\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          },
+          "pilot": "true"
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          },
+          "pilot": "true"
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {},
+          "pilot": "true"
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          },
+          "pilot": "true"
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          },
+          "pilot": "true"
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 0
+          },
+          "pilot": "true"
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {},
+          "pilot": "true"
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-SWITCH-PADDED-ONE",
+      "family": "S1",
+      "description": "Switch value \" 1 \" is OFF: a governed diff keeps legacy behaviour on every action.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v1';\n}\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry twice.\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v2';\n}\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          },
+          "pilot": " 1 "
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          },
+          "pilot": " 1 "
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {},
+          "pilot": " 1 "
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          },
+          "pilot": " 1 "
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          },
+          "pilot": " 1 "
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 0
+          },
+          "pilot": " 1 "
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {},
+          "pilot": " 1 "
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-NONGIT-COLLECTOR-FAILURE",
+      "family": "S1",
+      "description": "Non-git workspace: the baseline is unavailable, scope is treated as governed, and verification is refused while both Stop surfaces still exit 0.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-PERSISTED-UNTYPED",
+      "family": "S1",
+      "description": "Persisted untyped record (real untyped fable-staged plan, no stage contract): ON reports the pilot unavailable, never a lock; Stop exits 0.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-code",
+          "summary": "Fix the checkout failure",
+          "acceptance": "regression test added"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "fable-staged",
+            "evidence": "legacy untyped fable plan persists the untyped record"
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "plan-exit",
+            "path": [
+              "actions",
+              "plan",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "persisted-record-untyped",
+            "path": [
+              "actions",
+              "plan",
+              "state",
+              "obligations",
+              "requirements",
+              0,
+              "stepType"
+            ],
+            "operator": "absent",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-status-unavailable",
+            "path": [
+              "pilot",
+              "pilotStatus"
+            ],
+            "operator": "equals",
+            "expected": "unavailable",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-origin-runtime",
+            "path": [
+              "pilotReportOrigin"
+            ],
+            "operator": "equals",
+            "expected": "runtime",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "plan-exit",
+            "path": [
+              "actions",
+              "plan",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "persisted-record-untyped",
+            "path": [
+              "actions",
+              "plan",
+              "state",
+              "obligations",
+              "requirements",
+              0,
+              "stepType"
+            ],
+            "operator": "absent",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-FABLE-CORRELATED-BINDING",
+      "family": "S1",
+      "description": "A correlated loaded Fable stage binding is not document verification credit: ON reports the pilot unavailable with runtime origin, and no pilot credit; Stop exits 0.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {},
+        "candidateFiles": {},
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "fable-staged",
+            "evidence": "fable pilot-unavailable probe"
+          }
+        },
+        {
+          "id": "seed-stages",
+          "op": "seedState",
+          "payload": {
+            "file": "workflow-stages.json",
+            "json": [
+              {
+                "stageId": "implement",
+                "goal": "implement a bounded change",
+                "agent": "fable-worker-sonnet",
+                "task": "use declared guidance and verify",
+                "dependsOn": [],
+                "writeSet": [
+                  "src/change.js"
+                ],
+                "inputs": [],
+                "expectedOutputs": [
+                  "src/change.js"
+                ],
+                "requiredBindings": [
+                  {
+                    "id": "tdd",
+                    "path": "tdd/SKILL.md"
+                  }
+                ],
+                "optionalBindings": [],
+                "checkCommand": "node fixture-check.js",
+                "passCondition": "exit 0"
+              },
+              {
+                "stageId": "verify",
+                "goal": "verify the implementation",
+                "agent": "fable-verifier",
+                "task": "independently check the implementation",
+                "dependsOn": [
+                  "implement"
+                ],
+                "writeSet": [],
+                "inputs": [
+                  "src/change.js"
+                ],
+                "expectedOutputs": [
+                  "verification evidence"
+                ],
+                "requiredBindings": [
+                  {
+                    "id": "verification-loop",
+                    "path": "verification-loop/SKILL.md"
+                  }
+                ],
+                "optionalBindings": [],
+                "checkCommand": "node verifier-check.js",
+                "passCondition": "exit 0"
+              }
+            ]
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "bind-tdd",
+          "op": "stageBinding",
+          "payload": {
+            "stageId": "implement",
+            "bindingId": "tdd",
+            "disposition": "loaded",
+            "evidence": "Read tdd/SKILL.md before implementation."
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "bind-exit",
+            "path": [
+              "actions",
+              "bind-tdd",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "bind-status-loaded",
+            "path": [
+              "actions",
+              "bind-tdd",
+              "json",
+              "binding",
+              "status"
+            ],
+            "operator": "equals",
+            "expected": "loaded",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-status-unavailable",
+            "path": [
+              "pilot",
+              "pilotStatus"
+            ],
+            "operator": "equals",
+            "expected": "unavailable",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-origin-runtime",
+            "path": [
+              "pilotReportOrigin"
+            ],
+            "operator": "equals",
+            "expected": "runtime",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-no-doc-credit",
+            "path": [
+              "pilot",
+              "pilotCredit"
+            ],
+            "operator": "equals",
+            "expected": false,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "bind-exit",
+            "path": [
+              "actions",
+              "bind-tdd",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-CODE-ONLY-UNKNOWN",
+      "family": "S1",
+      "description": "Typed non-doc plan with a JS code diff and no REQ-citing test: requirement-sync is unknown (a MUST), so ON refuses verification, withholds completion, and reports the unknown in the runtime pilot report.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-code",
+          "stepType": "behavior-change",
+          "summary": "Fix the checkout failure",
+          "acceptance": "the failing scenario succeeds"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the checkout change",
+          "acceptance": "objective check evidence is recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v1';\n}\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "src/checkout.js": "export function checkout() {\n  return 'v2';\n}\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and add a regression test."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded test-fix-verify loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "tdd-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-code",
+            "bindingId": "tdd",
+            "disposition": "loaded",
+            "evidence": "tdd skill located"
+          }
+        },
+        {
+          "id": "code-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-code",
+            "disposition": "pass",
+            "evidence": "regression test added"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective check recorded"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "code-pass-exit",
+            "path": [
+              "actions",
+              "code-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-origin-runtime",
+            "path": [
+              "pilotReportOrigin"
+            ],
+            "operator": "equals",
+            "expected": "runtime",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-unsatisfied-requirement-sync",
+            "path": [
+              "pilot",
+              "unsatisfied"
+            ],
+            "operator": "includes",
+            "expected": {
+              "obligationId": "doc-change:requirement-sync",
+              "state": "unknown",
+              "reasonCode": "unknown-applicability"
+            },
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-credit-false",
+            "path": [
+              "pilot",
+              "pilotCredit"
+            ],
+            "operator": "equals",
+            "expected": false,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-COMMIT-MID-WORKFLOW",
+      "family": "S1",
+      "description": "Governed doc diff (with a rename endpoint) is committed mid-workflow: the baseline recorded at plan still governs, so verification is refused and both Stop surfaces exit 0.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the ADR text",
+          "acceptance": "normative ADR text is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the ADR change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n",
+          "docs/adr/a.md": "# GRPH-002 Retry budget\n\nStatus: accepted\n\nRetry budget MUST be three.\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry twice.\n",
+          "docs/adr/a.md": null,
+          "docs/adr/b.md": "# GRPH-002 Retry budget\n\nStatus: accepted\n\nRetry budget MUST be three.\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and update its documentation."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "ADR text updated"
+          }
+        },
+        {
+          "id": "commit-mid",
+          "op": "gitCommit",
+          "payload": {
+            "message": "authored docs change, committed mid-workflow"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "done"
+          },
+          "expectExit": {
+            "on": 2
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "doc-pass-exit",
+            "path": [
+              "actions",
+              "doc-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-origin-runtime",
+            "path": [
+              "pilotReportOrigin"
+            ],
+            "operator": "equals",
+            "expected": "runtime",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-expected-doc-lint",
+            "path": [
+              "pilot",
+              "expectedMustIds"
+            ],
+            "operator": "includes",
+            "expected": "doc-change:doc-lint",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-expected-link-check",
+            "path": [
+              "pilot",
+              "expectedMustIds"
+            ],
+            "operator": "includes",
+            "expected": "doc-change:link-check",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-credit-false",
+            "path": [
+              "pilot",
+              "pilotCredit"
+            ],
+            "operator": "equals",
+            "expected": false,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-CONFIG-DESCOPE-EDIT",
+      "family": "S1",
+      "description": "Baseline-governed ADR is edited while governed is emptied to []: the candidate config edit de-scopes a baseline-governed path, so config must fail closed with config-scope-changed, verification is refused and completion withheld (PR #351 review P1).",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-code",
+          "stepType": "behavior-change",
+          "summary": "Fix the checkout failure",
+          "acceptance": "the failing scenario succeeds"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the checkout change",
+          "acceptance": "objective check evidence is recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry twice.\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and add a regression test."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded test-fix-verify loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "tdd-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-code",
+            "bindingId": "tdd",
+            "disposition": "loaded",
+            "evidence": "tdd skill located"
+          }
+        },
+        {
+          "id": "code-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-code",
+            "disposition": "pass",
+            "evidence": "regression test added"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective check recorded"
+          },
+          "expectExit": {
+            "on": [
+              0,
+              2
+            ]
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "code-pass-exit",
+            "path": [
+              "actions",
+              "code-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-exit-refused",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-origin-runtime",
+            "path": [
+              "pilotReportOrigin"
+            ],
+            "operator": "equals",
+            "expected": "runtime",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-unsatisfied-config-scope-changed",
+            "path": [
+              "pilot",
+              "unsatisfied"
+            ],
+            "operator": "includes",
+            "expected": {
+              "obligationId": "doc-change:scope",
+              "state": "unavailable",
+              "reasonCode": "config-scope-changed"
+            },
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-credit-false",
+            "path": [
+              "pilot",
+              "pilotCredit"
+            ],
+            "operator": "equals",
+            "expected": false,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "verify-exit-accepted",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-satisfied",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-CONFIG-DESCOPE-RENAME",
+      "family": "S1",
+      "description": "Baseline-governed ADR is renamed out of docs/adr/ while governed is emptied to []: the candidate config edit de-scopes the renamed governed document, so config must fail closed with config-scope-changed, verification is refused and completion withheld (PR #351 review P1).",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-code",
+          "stepType": "behavior-change",
+          "summary": "Fix the checkout failure",
+          "acceptance": "the failing scenario succeeds"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the checkout change",
+          "acceptance": "objective check evidence is recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry once.\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "docs/adr/GRPH-001.md": null,
+          "notes/GRPH-001.md": "# GRPH-001 Checkout retry\n\nStatus: accepted\n\nCheckout MUST retry twice.\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and add a regression test."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded test-fix-verify loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "tdd-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-code",
+            "bindingId": "tdd",
+            "disposition": "loaded",
+            "evidence": "tdd skill located"
+          }
+        },
+        {
+          "id": "code-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-code",
+            "disposition": "pass",
+            "evidence": "regression test added"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective check recorded"
+          },
+          "expectExit": {
+            "on": [
+              0,
+              2
+            ]
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "on": [
+          {
+            "id": "code-pass-exit",
+            "path": [
+              "actions",
+              "code-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-exit-refused",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 2,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-state",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "running",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-reports",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "includes",
+            "expected": "step:req-verify:pending",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-origin-runtime",
+            "path": [
+              "pilotReportOrigin"
+            ],
+            "operator": "equals",
+            "expected": "runtime",
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-unsatisfied-config-scope-changed",
+            "path": [
+              "pilot",
+              "unsatisfied"
+            ],
+            "operator": "includes",
+            "expected": {
+              "obligationId": "doc-change:scope",
+              "state": "unavailable",
+              "reasonCode": "config-scope-changed"
+            },
+            "s1Kind": "additional"
+          },
+          {
+            "id": "pilot-credit-false",
+            "path": [
+              "pilot",
+              "pilotCredit"
+            ],
+            "operator": "equals",
+            "expected": false,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "off": [
+          {
+            "id": "verify-exit-accepted",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-satisfied",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S1-CONFIG-UNCHANGED-NONDOC",
+      "family": "S1",
+      "description": "Control: config bytes identical at baseline and candidate with a non-code, non-governed diff only, so the default-off gate stays legacy satisfied under ON (proves the config rule is not always-withhold; PR #351 review P1).",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-code",
+          "stepType": "behavior-change",
+          "summary": "Fix the checkout failure",
+          "acceptance": "the failing scenario succeeds"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the checkout change",
+          "acceptance": "objective check evidence is recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "assets/notes.txt": "Release notes draft.\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "assets/notes.txt": "Release notes draft, revised.\n",
+          "assets/changelog.txt": "Change log entry.\n"
+        },
+        "config": null,
+        "task": null,
+        "hostEvents": []
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Fix this checkout bug and add a regression test."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded test-fix-verify loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "direct-execute",
+          "op": "obligation",
+          "payload": {
+            "obligationId": "execute",
+            "disposition": "pass",
+            "evidence": "typed execution steps are underway"
+          }
+        },
+        {
+          "id": "tdd-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-code",
+            "bindingId": "tdd",
+            "disposition": "loaded",
+            "evidence": "tdd skill located"
+          }
+        },
+        {
+          "id": "code-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-code",
+            "disposition": "pass",
+            "evidence": "regression test added"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective check recorded"
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric",
+          "payload": {}
+        }
+      ],
+      "expectations": {
+        "off": [
+          {
+            "id": "route-exit",
+            "path": [
+              "actions",
+              "route",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "plan-exit",
+            "path": [
+              "actions",
+              "plan",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-satisfied",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-no-unresolved",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "equals",
+            "expected": [],
+            "s1Kind": "control"
+          },
+          {
+            "id": "direct-execute-accepted",
+            "path": [
+              "actions",
+              "direct-execute",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "pilot-not-credited",
+            "path": [
+              "pilot"
+            ],
+            "operator": "equals",
+            "expected": null,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ],
+        "on": [
+          {
+            "id": "route-exit",
+            "path": [
+              "actions",
+              "route",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "plan-exit",
+            "path": [
+              "actions",
+              "plan",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "start-exit",
+            "path": [
+              "actions",
+              "start",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "verify-pass-exit",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-satisfied",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "state"
+            ],
+            "operator": "equals",
+            "expected": "satisfied",
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-no-unresolved",
+            "path": [
+              "actions",
+              "stop",
+              "state",
+              "workflow",
+              "unresolved"
+            ],
+            "operator": "equals",
+            "expected": [],
+            "s1Kind": "control"
+          },
+          {
+            "id": "direct-execute-accepted",
+            "path": [
+              "actions",
+              "direct-execute",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "control"
+          },
+          {
+            "id": "stop-exit-0",
+            "path": [
+              "actions",
+              "stop",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          },
+          {
+            "id": "stop-generic-exit-0",
+            "path": [
+              "actions",
+              "stop-generic",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0,
+            "s1Kind": "additional"
+          }
+        ]
+      }
+    }
+  ]
+}

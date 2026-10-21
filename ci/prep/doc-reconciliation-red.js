@@ -38,7 +38,8 @@ const ENTRY_KEYS = ['caseId', 'assertionId', 'distribution', 'baselineSha', 'act
 const FINGERPRINT_FILES = [
   'hooks/scripts/lib/workflow-obligations.js',
   'hooks/scripts/workflow-disposition.js',
-  'hooks/scripts/workflow-stop-gate.js'
+  'hooks/scripts/workflow-stop-gate.js',
+  'hooks/scripts/lib/doc-reconciliation-pilot.js'
 ];
 const CANDIDATE_FILE = 'ci/fixtures/doc-obligations/reconciliation-prep/pending-red.candidate.json';
 const UNREVIEWED_REASON = 'needs-reason';
