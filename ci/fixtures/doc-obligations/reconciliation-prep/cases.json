@@ -77,6 +77,9 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "done"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -239,6 +242,9 @@
             "obligationId": "execute",
             "disposition": "pass",
             "evidence": "done"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -248,6 +254,9 @@
             "obligationId": "verify",
             "disposition": "pass",
             "evidence": "done"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -383,8 +392,14 @@
         }
       ],
       "input": {
-        "baseFiles": {},
-        "candidateFiles": {},
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "assets/notes.txt": "Release notes draft.\n"
+        },
+        "candidateFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    { \"path\": \"docs/adr/**\", \"role\": \"adr\" }\n  ],\n  \"domains\": [\"GRPH\"]\n}\n",
+          "assets/notes.txt": "Release notes draft, revised.\n"
+        },
         "config": null,
         "task": null,
         "hostEvents": []
@@ -701,6 +716,9 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "no doc checker result recorded"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -854,6 +872,9 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "command exited 1: doc-lint"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -1007,6 +1028,9 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "observation unknown from doc-link check"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -1160,6 +1184,9 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "covered 2 of 3 applicable MUSTs"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -1616,6 +1643,9 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "verified by cold verifier fable-verifier (record forged-cold-verifier)"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -1776,6 +1806,9 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "verification attempted before evidence arrived"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -1895,9 +1928,14 @@
               "state"
             ],
             "operator": "equals",
-            "expected": "satisfied"
+            "expected": "running"
           }
         ]
+      },
+      "staging": {
+        "slice": "S1",
+        "s2CompletionExpected": "satisfied",
+        "reason": "Retry PASS remains the S2 gap; S1 completion is pending until that positive path exists."
       }
     },
     {
@@ -1974,6 +2012,9 @@
             "stepId": "req-verify",
             "disposition": "pass",
             "evidence": "objective doc checks recorded"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -2044,7 +2085,17 @@
         ],
         "on": [
           {
-            "id": "stop-on-1-state",
+            "id": "stop-on-2-withheld",
+            "path": [
+              "actions",
+              "verify-pass",
+              "exitCode"
+            ],
+            "operator": "equals",
+            "expected": 0
+          },
+          {
+            "id": "stop-on-3-withheld",
             "path": [
               "actions",
               "stop-on-1",
@@ -2056,7 +2107,7 @@
             "expected": "satisfied"
           },
           {
-            "id": "stop-on-2-withheld",
+            "id": "stop-on-2-no-stale-credit",
             "path": [
               "actions",
               "stop-on-2",
@@ -2068,7 +2119,7 @@
             "expected": "satisfied"
           },
           {
-            "id": "stop-on-3-withheld",
+            "id": "stop-on-3-no-stale-credit",
             "path": [
               "actions",
               "stop-on-3",
@@ -2080,7 +2131,7 @@
             "expected": "satisfied"
           },
           {
-            "id": "stop-off-state",
+            "id": "stop-off-pending-after-on-withholding",
             "path": [
               "actions",
               "stop-off",
@@ -2089,9 +2140,17 @@
               "state"
             ],
             "operator": "equals",
-            "expected": "satisfied"
+            "expected": "running"
           }
         ]
+      },
+      "staging": {
+        "slice": "S1",
+        "contract": "Case conjunction: positive verification and initial satisfied completion, then candidate/config invalidation and ON-OFF-ON withholding. Existing retained IDs represent missing positive prerequisites; separate strict assertions preserve original invalidation desired outcomes.",
+        "retainedIdPaths": {
+          "stop-on-2-withheld": "actions.verify-pass.exitCode == 0",
+          "stop-on-3-withheld": "actions.stop-on-1.state.workflow.state == satisfied"
+        }
       }
     },
     {
@@ -2274,7 +2333,7 @@
             "id": "pilot-status-unavailable",
             "path": [
               "pilot",
-              "status"
+              "pilotStatus"
             ],
             "operator": "equals",
             "expected": "unavailable"
@@ -2462,7 +2521,7 @@
             "id": "pilot-status-unavailable",
             "path": [
               "pilot",
-              "status"
+              "pilotStatus"
             ],
             "operator": "equals",
             "expected": "unavailable"
@@ -2650,7 +2709,7 @@
             "id": "pilot-status-unavailable",
             "path": [
               "pilot",
-              "status"
+              "pilotStatus"
             ],
             "operator": "equals",
             "expected": "unavailable"

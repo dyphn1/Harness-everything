@@ -510,6 +510,13 @@ function planningUnresolved(context, plan = context.workflow?.pendingPlan || con
   return [...new Set(unresolved)];
 }
 
+function withholdPilotVerification(context, set) {
+  const verify = set.obligations.find(item => item.id === 'verify');
+  if (verify) verify.status = 'pending';
+  atomicWriteJson(obligationPath(context.sessionDir), set);
+  if (context.workflow.state === 'satisfied') context.workflow.state = 'running';
+}
+
 function updateObligation(context, obligationId, disposition, options = {}) {
   if (!SAFE_ID.test(obligationId || '')) throw new Error('--obligation-id must be a stable obligation id');
   if (!['pass', 'escaped', 'blocked'].includes(disposition)) throw new Error('--disposition must be pass, escaped, or blocked');
@@ -529,6 +536,12 @@ function updateObligation(context, obligationId, disposition, options = {}) {
     if (!scope) throw new Error('--scope is required when escaping an obligation');
   }
   if (disposition === 'blocked' && !reasonCode) throw new Error('--reason-code is required when blocking an obligation');
+  if (disposition === 'pass' && ['execute', 'verify'].includes(obligationId)
+      && require('./doc-reconciliation-pilot').assess(context, loaded.set).withhold) {
+    obligation.status = 'pending';
+    withholdPilotVerification(context, loaded.set);
+    throw new Error('document verification pending: S1 grants no document credit');
+  }
   obligation.status = disposition;
   obligation.evidence = evidence;
   obligation.reasonCode = reasonCode;
@@ -635,6 +648,11 @@ function updateStep(context, stepId, disposition, options = {}) {
       throw new Error('resolve active-step bindings before passing the step: ' + ids.join(', '));
     }
   }
+  if (disposition === 'pass' && step.stepType === 'verification'
+      && require('./doc-reconciliation-pilot').assess(context, loaded.set).withhold) {
+    withholdPilotVerification(context, loaded.set);
+    throw new Error('document verification pending: S1 grants no document credit');
+  }
   step.status = disposition;
   step.evidence = evidence;
   step.reasonCode = reasonCode;
@@ -651,6 +669,12 @@ function unresolvedObligations(context) {
   const unresolved = planningUnresolved(context, plan);
   const loaded = loadObligationSet(context, plan);
   if (!loaded.set) return unresolved;
+  if (!unresolved.length && require('./doc-reconciliation-pilot').assess(context, loaded.set).withhold) {
+    withholdPilotVerification(context, loaded.set);
+    for (const step of loaded.set.requirements.filter(item => item.stepType === 'verification')) {
+      unresolved.push('step:' + step.id + ':pending');
+    }
+  }
   if (!['running', 'satisfied', 'blocked', 'failed'].includes(context.workflow.state)) {
     unresolved.push('execution:not-started');
   }

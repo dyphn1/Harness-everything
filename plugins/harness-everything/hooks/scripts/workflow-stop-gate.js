@@ -36,6 +36,7 @@ function decide(payload) {
 
     required(() => planningUnresolved(context));
     if (String(workflow.strategy || '').startsWith('fable-')) {
+      if (!unresolved.length) require('./lib/doc-reconciliation-pilot').assess(context, null);
       const match = matchingRun(context);
       unresolved.push(...(match ? unresolvedStages(match, workflow, handoff?.lastEditAt || 0) : ['correlated-run-missing']));
     } else {

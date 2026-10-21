@@ -1,10 +1,12 @@
-# Document workflow reconciliation — Phase 3b preparation
+# Document workflow reconciliation — Phase 3b S1 runtime
 
-**Status: design and fixture contracts only. Runtime reconciliation is not shipped or activated.**
-This document refines the planned [document lifecycle contract](document-lifecycle.md#phase-3b--narrow-integration-contract-planned-not-shipped).
-The [owner's E0/E1 decision](https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6283237637)
-permits design and RED preparation before #341 E0. Even a default-OFF runtime implementation
-MUST NOT merge or activate before E0 is reviewed and accepted.
+**Status: S1 runtime ships default OFF; opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`.
+S1 grants no positive document verification credit. S2/S3 are pending; E1 has not started.**
+This document refines the [document lifecycle contract](document-lifecycle.md#phase-3b--narrow-integration-contract-s1-shipped-default-off-positive-reconciliation-not-shipped).
+The [accepted E0](https://github.com/dyphn1/Harness-everything/issues/341#issuecomment-6308604128)
+permits this limited, reversible consumer under the
+[owner's E0/E1 decision](https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6283237637).
+Current evidence establishes deterministic mechanism/package behavior, not live-host loading or E1 GO.
 
 ## Entry gates and ownership
 
@@ -109,20 +111,20 @@ capabilities, host requirements and existing binding/tool locators; it does not 
 or load SKILL.md content. Candidates are optional. Swapping or omitting a provider cannot alter
 expected obligations, authorize a tool, or convert missing evidence to PASS. Existing binding
 resolution handles a chosen provider; independent valid evidence can satisfy a MUST without it.
-An unsupported host reports unavailable capability/reason. H1/H2 runtime proof remains pending.
+An unsupported host reports unavailable capability/reason. S3 provider integration and its H1/H2 runtime proof remain pending.
 
 ## One switch and rollback
 
-Planned switch: `HARNESS_DOC_RECONCILIATION_PILOT=1`. Missing, `0`, or any other value is OFF.
-No production switch reader or runtime import is part of preparation. Test children explicitly
-set or remove the variable; requesting ON during prep still runs existing legacy production code.
+S1 reads `HARNESS_DOC_RECONCILIATION_PILOT=1`; missing, `0`, or any other value is OFF.
+OFF returns before pilot collection or state/report writes. Test children explicitly set or remove
+the variable; ON invokes the S1 runtime's scope assessment and no-credit gate.
 
-After E0, OFF preserves legacy disposition and grants zero pilot verification credit. Legacy
+OFF preserves legacy disposition and grants zero pilot verification credit. Legacy
 `pass` or `satisfied` is not relabeled as document verification. Rollback removes the opt-in,
 records that pilot credit is disabled, and preserves session/evidence history. ON→OFF→ON MUST
 recollect/reconcile rather than trust any persisted pilot or legacy PASS. Withholding pilot
-credit never rejects Stop or changes host authorization. Runtime activation still requires E0;
-the switch cannot serve as a substitute for that acceptance gate.
+credit never rejects Stop or changes host authorization. Accepted E0 permits the limited S1 opt-in;
+the switch does not authorize expansion or replace E1 GO.
 
 ## Preparation harness handoff
 
@@ -148,12 +150,12 @@ replay cases:
 | P07 | `P07-fable-staged`, `P07-fable-parallel`, `P07-fable-multi-agent-workspace`, `P07u` | Three Fable strategies and the untyped compatibility control |
 
 P08 is the suite-level source/package parity check across every replay and the shared runtime bytes;
-it is not a separate `cases.json` record. The 16 cases currently produce 13 `EXPECTED_RED` cases
-and three `CONTROL_PASS` cases (`P02d`, `P06`, and `P07u`); all replay legs must agree. These
+it is not a separate `cases.json` record. The 16 prep cases currently produce 13 `CONTROL_PASS`
+cases and three `EXPECTED_RED` cases (`P02e`, `P03`, and `P05`); all replay legs must agree. These
 statuses qualify the preparation harness only and do not grant document credit.
 
 The [pending-red.json registry](../ci/fixtures/doc-obligations/reconciliation-prep/pending-red.json)
-records 62 exact source/packaged gaps. Its root records `schemaVersion`, `phase`, `baselineSha`,
+records 10 exact source/packaged S2 gaps (five assertion IDs × two distributions), after 52 S1 entries were retired. Its root records `schemaVersion`, `phase`, `baselineSha`,
 `runtimeFingerprint`, and `entries`. The runner validates schema version, a 40-hex capture
 `baselineSha`, a 64-hex `runtimeFingerprint`, and the entry array. Each entry has exactly
 `caseId`, `assertionId`, `distribution`, `baselineSha`, `actual`, `desired`, `blocker`, and
@@ -209,16 +211,180 @@ identifies its `leg` (`source` or `packaged`), `mode` (`off` or `on`), full asse
 classification `status`, and `actual`, with `desired`/`registered` values when applicable. Case
 statuses are `EXPECTED_RED`, `CONTROL_PASS`, `INFRASTRUCTURE`, `NOT_RUN`, or `FAIL`; assertion statuses distinguish
 passing controls, unexpected passes, qualified gaps, unqualified gaps, and registry mismatches.
-`pilotCredit` is always false. `reportOrigin` belongs to the replay's `pilotReportOrigin`
-(`runtime` only for an actual runtime report, otherwise `harness` for a synthesized marker);
-it is not a field on the preparation report's assertion rows. A harness-synthesized unavailable
+`pilotCredit` is always false. The replay records origin in `pilotReportOrigin`
+(`runtime` only for an actual runtime report, otherwise `harness` for a synthesized marker).
+Preparation assertion rows do not carry `reportOrigin`; the S1 runtime report carries its own origin. A harness-synthesized unavailable
 marker is never presented as a production report.
+## S1 — switch, trusted scope and fail-closed no-credit gate
+
+**S1 runtime ships default OFF (`HARNESS_DOC_RECONCILIATION_PILOT=1` opts in). It grants no positive document verification credit; S2/S3 are pending and E1 has not started.**
+The [accepted E0](https://github.com/dyphn1/Harness-everything/issues/341#issuecomment-6308604128)
+permits this limited implementation; the [posted execution plan](https://github.com/dyphn1/Harness-everything/issues/325)
+orders Docs → RED → GREEN → independent review → green CI for each slice. S1 is a temporary
+negative-credit slice. S2 supplies trusted producer records, independent review provenance,
+positive reconciliation and freshness; only then can E1 observation begin. S3 adds optional
+provider suggestions. None of these slices authorizes wider #320 integration.
+
+### Switch and scope decision
+
+Only the exact string `1` enables `HARNESS_DOC_RECONCILIATION_PILOT`. Unset, `0`, `true`,
+whitespace and every other value are OFF. OFF MUST return before any pilot collection or
+report mutation and preserve ordinary output, status and evidence history. Legacy PASS earns
+zero pilot credit. Each ON assessment recollects current scope, including ON→OFF→ON; persisted
+pilot reports or legacy PASS cannot substitute for collection. No discovery runs a generator,
+verifier or network fetch.
+
+On supported non-Fable typed workflows (`stepBindingsEnabled === true`), doc-governed means
+current trusted task/config/baseline/candidate facts establish an applicable document MUST,
+or cannot exclude one. Governed/legacy paths and document roles are evaluated at both old and
+new endpoints, so deletion or rename cannot erase scope. D6.5 facts also include declared derived
+sources, normative content and REQ-citing tests. Use the union of derived obligations; a path
+suffix or an authored step name alone is not a scope assessment. A declared `doc-change` MAY
+request assessment but is neither sufficient nor required for governed applicability. Omitted,
+unknown, incomplete or unavailable scope MUST be treated as governed for withholding credit;
+it cannot establish an empty expected set or opt out. Only a trusted non-document assessment
+retains legacy behavior (P06). Unknown applicability remains unresolved, N/A needs its derivation
+reason, and SHOULD is not a gate.
+
+- A code-only diff (changed code with no changed REQ-citing test) yields `requirement-sync` applicability `unknown` (a MUST), so it is withheld under ON. This is the unknown-applicability cost the Docuvia pilot measures in E1; see [#350](https://github.com/dyphn1/Harness-everything/issues/350) for the false-rejection measurement.
+
+The following anchors are **source-traced at S1 base `5f9726c`**, not runtime or live-host proof:
+
+| Input / boundary | Existing seam and limit | S1 requirement |
+| --- | --- | --- |
+| Config selection | `harness-everything/scripts/project-docs-resolver.js:352` (`resolveDocsConfig`) selects/validates project or host config; active-host, absent and ambiguous branches at `:395–447`. `resolveProjectDocs` at `:607` resolves project paths, not a complete evidence identity | Reuse resolver authority and diagnostics; invalid/ambiguous config, or absent config with governed-scope uncertainty, cannot establish trusted non-doc scope. Parsed config and the bytes selected must agree |
+| Baseline / candidate collection | `harness-everything/scripts/doc-lifecycle.js:1534` (`readGitBaseInventory`) reads Git base blobs/config scope; candidate stored-byte walk at `:1398–1425`; lifecycle baseline consumption at `:1971`. These are lifecycle internals, not an exported workflow scope collector (`:2399`) | Reuse existing stored-byte semantics, but establish current task scope and complete baseline/candidate inventories, including untracked, deletion and rename endpoints; no caller-supplied fixture map is runtime authority |
+| Facts / obligations | `harness-everything/scripts/doc-obligations.js:1375` (`deriveDocFacts`) accepts snapshots/config, not host/VCS collection; `:1065` classifies governed paths; `:1390–1420` evaluates both endpoints; `:1508–1543` (`deriveDocObligations`) handles applicable/unknown capabilities | Reuse these pure APIs unchanged after trusted collection. Input shape validity is not provenance or inventory completeness |
+| Verification-step PASS | `hooks/scripts/workflow-disposition.js:279–296` delegates to `updateStep`; `hooks/scripts/lib/workflow-obligations.js:617–645` validates active step/bindings then writes status | Collect current config and diff scope after ordinary validation, before writing verification PASS |
+| Direct aggregate PASS | `hooks/scripts/workflow-disposition.js:240–258` delegates to `updateObligation`; `hooks/scripts/lib/workflow-obligations.js:513–539` accepts evidence text and writes the aggregate | Assess scope before direct `execute` or `verify` PASS, even after every authored step has passed |
+| Completion | `hooks/scripts/lib/workflow-obligations.js:648–682` reports only current active-step evidence; `hooks/scripts/workflow-stop-gate.js:36–64` checks unresolved items then may persist satisfied | Recollect config and diff scope before every completion decision, including already-satisfied and all-PASS plans |
+
+### S1 pilot-local scope collector
+
+The minimal collector ships in S1 at the seams above, enabled only by the opt-in switch.
+Its deterministic mechanism/package coverage does not establish live-host loading or positive credit.
+
+| Input / decision | S1 contract |
+| --- | --- |
+| Baseline capture | With the switch ON at workflow `plan`, record the repository top-level and the `git rev-parse HEAD` commit in workflow state; ON `start` captures them if the plan lacked a baseline. OFF returns early and records nothing |
+| Baseline unavailable | Not a Git repository, a Git failure or a missing baseline record means baseline `unavailable`; scope cannot be excluded and is treated as governed, withholding credit. An OFF-planned workflow first assessed ON at a credit boundary therefore withholds, including OFF-seeded legacy PASS→ON |
+| Candidate | Collect the current working tree, including non-ignored untracked files, deletions and renames against the recorded baseline commit. Reuse the existing `doc-lifecycle.js` readers / `readGitBaseInventory` and stored-byte semantics; do not re-implement byte normalization. Incomplete inventory means unknown scope, treated as governed |
+| Config | Use existing `resolveDocsConfig` at the candidate. Invalid or ambiguous selection, or absent config with governed-scope uncertainty, cannot establish trusted non-document scope. S1 does not yet bind `configDigest` or the task identity tuple; freshness/provenance binding belongs to S2 |
+| Decision | Feed collected snapshots/config into unchanged `deriveDocFacts` → `deriveDocObligations`. Doc-governed means any applicable or unknown document MUST. Trusted non-document scope requires complete collection and no applicable or unknown document MUST |
+
+Do not use HEAD at assessment as the baseline: a commit during the workflow could erase the
+governed diff and bypass withholding by appearing non-document.
+
+After baseline capture at plan/start, scope collection runs only at verification PASS writes,
+direct aggregate PASS writes and completion. It never runs generators, verifiers or network
+operations. Each boundary recollects candidate/config against the recorded baseline; ON→OFF→ON
+cannot replace that baseline with the latest HEAD or trust a persisted PASS.
+
+**Harness materialization:** prep replays create a temporary workspace, materialize non-empty
+`input.baseFiles` as a committed Git baseline before `plan`, then materialize
+`input.candidateFiles` as the working tree. This lets P06 establish trusted non-document scope
+and governed cases exercise actual diffs. Fixtures without `baseFiles` remain non-Git, so their
+baseline is unavailable and credit is withheld. Fixture maps alone are not runtime authority.
+
+- **Accepted S1 residual (gitignored paths):** ignored, untracked candidate content is outside the non-ignored inventory. S1 grants no positive credit either way; the S2 producer must close this gap or explicitly re-accept it.
+
+### Refusal and completion contract
+
+| Attempt with ON + supported governed/unknown scope | Required S1 result |
+| --- | --- |
+| Authored `doc-change` or review PASS | Remains reachable under existing binding/authorization rules; later missing verification does not reject earlier authored work |
+| Verification-step PASS | Exit `2`; verification status remains pending; no positive document credit |
+| Direct aggregate `obligation --obligation-id execute\|verify --disposition pass` | Exit `2`; requested aggregate stays pending; direct text cannot bypass the gate |
+| Stop / completion, including persisted or legacy PASS | Withhold current completion credit; report `step:<verify>:pending` for the verification step even if no step is active; aggregate verify is effectively pending and workflow cannot remain credited as satisfied |
+
+Withholding persisted credit MUST NOT reset authored `doc-change`, review, bindings or evidence
+history merely to manufacture an active step. Compute current unresolved verification independently
+of saved PASS; do not trust old aggregate status. Test OFF-completed→ON and an all-PASS typed plan
+that acquires governed scope. Both `hooks/scripts/workflow-stop-gate.js:12–65` and
+`hooks/scripts/stop-gate.js:14–47` MUST still exit `0`, including collector errors. Reminders never
+reject Stop, authorize a tool or introduce a tool lock. Only disposition PASS attempts return `2`.
+Existing binding/authorization diagnostics precede pilot refusal (P02d).
+
+### Runtime pilot report and unsupported paths
+
+The S1 runtime report uses the shape specified in
+[trust-contract.json](../ci/fixtures/doc-obligations/reconciliation-prep/trust-contract.json):
+`schemaVersion`, `pilotStatus`, `pilotCredit`, `identity`, `expectedMustIds`, `results`,
+`unsatisfied`, `diagnostics`. Each unsatisfied item contains `obligationId`, `state`, `reasonCode`.
+S1 always reports `pilotCredit: false`; it cannot emit `verified`. Missing producer identity is
+`null`; unknown expected scope stays diagnostic/unresolved, never an inferred empty-set PASS.
+`results` retain checker observation/outcome enums unchanged. Supported withheld scope reports
+`unavailable` when collection/producer support is absent, otherwise `unresolved`; known MUSTs
+remain listed without pretending that producer evidence exists. S1 reason codes are
+`unknown-applicability` for an unknown MUST, `producer-unavailable` for an applicable MUST
+without the S2 producer, `baseline-unavailable`, `config-unavailable`, `scope-unavailable`
+for missing baseline/config or incomplete inventory, and `collector-unavailable` for other
+collector failures. Unsupported paths diagnose `unsupported-workflow`; a complete assessment
+with no applicable/unknown MUST diagnoses `trusted-non-document-scope`.
+
+An actual runtime report MUST carry `reportOrigin: runtime`; replay extraction sets
+`pilotReportOrigin: runtime` only for that captured report. The helper's
+`ci/lib/doc-reconciliation-prep-fixtures.js:runtimePilotOf()` reads the emitted report;
+missing reports retain `pilot: null` and origin `harness`, never a synthesized runtime marker.
+OFF does not produce or mutate a pilot report.
+
+With ON, loaded `fable-staged`, `fable-parallel`, `fable-multi-agent-workspace` and persisted
+untyped workflows report `unavailable`, with no credit and a reason. Fable stage bindings,
+including a correlated loaded stage binding, cannot become document verification; preserve
+existing stage lifecycle rather than entering generic typed-step reconciliation. A **new invalid
+untyped plan** is different: P07u still rejects plan creation with exit `2` and `pilot === null`.
+The separate persisted-untyped fixture covers loaded records. Unsupported paths add no Stop lock.
+
+### Registry staging and independent RED handoff
+
+S1 has **52 entries retired / 10 kept**, each assertion ID counted separately for
+`source` and `packaged`. Strict runtime assertions cover the retired entries; the reviewed prep
+registry retains these five S2 assertion IDs × two distributions:
+
+| S1 retire: 26 IDs × 2 | Assertion suffixes under `<case>.on.` |
+| --- | --- |
+| P01 | `verify-exit-refused`, `verify-obligation-pending`, `stop-unsatisfied`, `stop-reports-verification` |
+| P04 | `direct-execute-refused`, `direct-verify-refused`, `verify-obligation-pending` |
+| Each of P02a, P02b, P02c, P02f, P02g | `verify-pass-exit`, `stop-state`, `stop-reports` |
+| P03 | `verify-pass-exit` |
+| Each of the three P07 Fable cases | `pilot-status-unavailable` |
+| **S2 keep: 5 IDs × 2** | **Assertion suffixes under `<case>.on.`** |
+| P02e | `review-pass-exit`, `stop-reports` |
+| P03 | `verify-retry-exit` |
+| P05 | `stop-on-2-withheld`, `stop-on-3-withheld` |
+
+- Move retired gaps into strict runtime assertions. Declare intentional ON exit `2` in each
+  action's `expectExit`; do not weaken crash, output, deadline or other infrastructure policies
+  (`ci/lib/doc-reconciliation-prep-fixtures.js:298–352`). Preserve explicit Stop exit `0` checks.
+- P02e independent review provenance belongs to S2. Do not reject review by matching self-review
+  prose or because later verifier evidence is absent. P03 first review remains reachable; its
+  first verification is refused, and retry remains RED in S1. S2 changes retry ON `expectExit`
+  from `2` to `0` when real evidence can earn credit.
+- P05's initial ON positive verification and `stop-on-1` cannot pass in S1. Preserve a distinct S2
+  positive-credit case and its approved desired outcomes; add a separate OFF-seeded legacy PASS→ON
+  withholding case for S1. Merely changing exit policy introduces an unregistered initial-state gap.
+- Deliberately review/recapture the changed baseline and registry actual/desired qualification;
+  include the newly imported pilot module in the ordered runtime fingerprint. Then exactly the
+  targeted entries retire and the remaining `--expect-red` run must qualify on that reviewed S1
+  baseline. Deleting registry rows alone proves nothing.
+- Additional strict S1 cases: governed diff without authored `doc-change`, direct aggregate PASS
+  after authored completion, correlated Fable stage binding, persisted untyped workflow, legacy
+  PASS and ON→OFF→ON recollection. These additions are not part of the 52 existing entries.
+- Preserve P06 with trusted non-doc scope, P07u, P02d ordering, OFF controls and source/package
+  parity. Require the relevant deterministic gates plus `npm run verify:all -- --fast`, independent
+  review with no open P1/P2, and full green CI including Windows on the PR head.
+
+S1 proves only its tested no-credit mechanism. It does not prove positive reconciliation,
+independent producer provenance, live-host loading, H1–H4 effectiveness or E1 GO. Registry empty
+is a later strict-prep gate, not proof of any of those evidence layers.
+
 ## Implementation and acceptance after E0
 
-After accepted E0, implement the minimum trusted producer and optional provider adapter, add
-the switch reader and narrow W/D/completion integration, package generated copies, and remove
-pending exemptions as strict tests become GREEN. Require every expected applicable MUST and
-freshness check, source/package compatibility, negative cases and relevant green CI including
-Windows. A green preparation harness establishes only its declared mechanism/data checks.
-It does not claim runtime reconciliation, E0/E1 acceptance, independent host provenance or
-architectural benefit. E1 observations and H1–H4/paired evaluation remain separate gates.
+S1 ships the default-OFF switch, narrow disposition/completion no-credit integration and runtime
+status reporting. S2's trusted producer, positive reconciliation and freshness remain pending;
+S3's optional provider adapter remains pending. Require every expected applicable MUST and
+freshness check before positive credit, plus source/package compatibility, negative cases and
+relevant green CI including Windows. The S1 suites establish their tested mechanism/package
+contracts; they do not establish independent host provenance, live-host loading or architectural
+benefit. E1 has not started and begins only after a creditable S2; E1 GO and H1–H4/paired evidence
+remain separate gates.

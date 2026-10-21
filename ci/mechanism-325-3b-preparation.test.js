@@ -29,6 +29,7 @@ const SHARED_FILES = [
   ['hooks/scripts/lib/workflow-obligations.js', 'plugins/harness-everything/hooks/scripts/lib/workflow-obligations.js'],
   ['hooks/scripts/workflow-disposition.js', 'plugins/harness-everything/hooks/scripts/workflow-disposition.js'],
   ['hooks/scripts/workflow-stop-gate.js', 'plugins/harness-everything/hooks/scripts/workflow-stop-gate.js'],
+  ['hooks/scripts/lib/doc-reconciliation-pilot.js', 'plugins/harness-everything/hooks/scripts/lib/doc-reconciliation-pilot.js'],
 ];
 
 let failed = 0;
@@ -91,7 +92,7 @@ checkCase('expected-RED report: legs agree, controls are green, no pilot credit,
     assert.strictEqual(item.parity, 'match', `${item.caseId} source and packaged legs agree`);
   }
   const controls = report.cases.filter(item => item.status === 'CONTROL_PASS').map(item => item.caseId).sort();
-  assert.deepStrictEqual(controls, ['P02d', 'P06', 'P07u']);
+  assert.deepStrictEqual(controls, ['P01', 'P02a', 'P02b', 'P02c', 'P02d', 'P02f', 'P02g', 'P04', 'P06', 'P07-fable-multi-agent-workspace', 'P07-fable-parallel', 'P07-fable-staged', 'P07u']);
 });
 
 checkCase('gap registry: every entry is qualified and the expected-RED mode accounts for all of them', () => {
@@ -102,8 +103,8 @@ checkCase('gap registry: every entry is qualified and the expected-RED mode acco
 });
 
 checkCase('strict mode fails on the recorded gaps and preserves the RED log', () => {
-  const log = path.join(workDir, 'p01-red.json');
-  const run = runRunner(['--strict', '--case', 'P01', '--log', log]);
+  const log = path.join(workDir, 'p02e-red.json');
+  const run = runRunner(['--strict', '--case', 'P02e', '--log', log]);
   assert.strictEqual(run.status, 1, `strict mode exits 1 on gaps: ${run.stdout}`);
   const saved = JSON.parse(fs.readFileSync(log, 'utf8'));
   assert.ok(saved.cases[0].assertions.some(entry => entry.status === 'gap-qualified'), 'the log keeps the qualified gaps');
@@ -116,8 +117,8 @@ checkCase('malformed registry is an infrastructure error, not a RED pass', () =>
 });
 
 checkCase('a registry that omits a gap fails expected-RED mode', () => {
-  const file = writeRegistry('omit-gap.json', copy => { copy.entries = copy.entries.filter(entry => entry.assertionId !== 'P01.on.stop-unsatisfied' || entry.distribution !== 'source'); });
-  const run = runRunner(['--expect-red', '--case', 'P01', '--registry', file]);
+  const file = writeRegistry('omit-gap.json', copy => { copy.entries = copy.entries.filter(entry => entry.assertionId !== 'P02e.on.review-pass-exit' || entry.distribution !== 'source'); });
+  const run = runRunner(['--expect-red', '--case', 'P02e', '--registry', file]);
   assert.strictEqual(run.status, 1, `an unqualified gap fails: ${run.stdout}`);
 });
 
@@ -152,9 +153,8 @@ checkCase('negative control: an abnormal route in P01 is infrastructure, and --e
     assert.deepStrictEqual(after.map(item => [item.id, item.pass, item.actual]), before.map(item => [item.id, item.pass, item.actual]),
       `${leg}: the later assertions evaluate exactly as in the unmodified replay`);
     for (const item of after) {
-      const entry = p01Entries.find(candidate => candidate.assertionId === `P01.on.${item.id}` && candidate.distribution === leg);
-      assert.ok(entry && JSON.stringify(fx.normalize(entry.actual)) === JSON.stringify(fx.normalize(item.actual)),
-        `${leg}: ${item.id} still matches its registry actual, so only the infrastructure rule can stop qualification`);
+      assert.strictEqual(item.pass, true,
+        `${leg}: ${item.id} remains strict S1 GREEN, so only the infrastructure rule can stop the replay`);
     }
   }
   const result = runner.classifyCase(p01, injected, p01Entries);

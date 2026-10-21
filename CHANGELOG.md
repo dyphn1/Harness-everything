@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+- Ship default-OFF Phase 3b S1 scope assessment and no-credit runtime gate (opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`); S2/S3 pending, E1 not started.
+
 ## [0.36.4](https://github.com/dyphn1/Harness-everything/compare/v0.36.3...v0.36.4) (2026-10-21)
 
 ## [0.36.3](https://github.com/dyphn1/Harness-everything/compare/v0.36.2...v0.36.3) (2026-10-20)

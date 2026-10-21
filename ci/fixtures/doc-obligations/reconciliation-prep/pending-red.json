@@ -1,394 +1,14 @@
 {
   "schemaVersion": 1,
   "phase": "325-3b-H2",
-  "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-  "runtimeFingerprint": "ef6eea485e0abf49b2c3c2170476eb83b0c8f858f4f333ad83027c0e80dad53e",
+  "baselineSha": "5f9726c7d01364cb75a61eff54c8f5b89027e9d6",
+  "runtimeFingerprint": "41db041f2e3e466c8c7245711d1c9695211a7c6130177716af558c94598b90e1",
   "entries": [
     {
-      "caseId": "P01",
-      "assertionId": "P01.on.verify-exit-refused",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-credited-from-text"
-    },
-    {
-      "caseId": "P01",
-      "assertionId": "P01.on.verify-obligation-pending",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "pass",
-      "desired": "pending",
-      "blocker": "#341 E0",
-      "reasonCode": "aggregate-verify-passed-from-step-text"
-    },
-    {
-      "caseId": "P01",
-      "assertionId": "P01.on.stop-unsatisfied",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-text-verification"
-    },
-    {
-      "caseId": "P01",
-      "assertionId": "P01.on.stop-reports-verification",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
-      "caseId": "P01",
-      "assertionId": "P01.on.verify-exit-refused",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-credited-from-text"
-    },
-    {
-      "caseId": "P01",
-      "assertionId": "P01.on.verify-obligation-pending",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "pass",
-      "desired": "pending",
-      "blocker": "#341 E0",
-      "reasonCode": "aggregate-verify-passed-from-step-text"
-    },
-    {
-      "caseId": "P01",
-      "assertionId": "P01.on.stop-unsatisfied",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-text-verification"
-    },
-    {
-      "caseId": "P01",
-      "assertionId": "P01.on.stop-reports-verification",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
-      "caseId": "P04",
-      "assertionId": "P04.on.direct-execute-refused",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "direct-aggregate-execute-pass-accepted"
-    },
-    {
-      "caseId": "P04",
-      "assertionId": "P04.on.direct-verify-refused",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "direct-aggregate-verify-pass-accepted"
-    },
-    {
-      "caseId": "P04",
-      "assertionId": "P04.on.verify-obligation-pending",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "pass",
-      "desired": "pending",
-      "blocker": "#341 E0",
-      "reasonCode": "aggregate-verify-passed-from-step-text"
-    },
-    {
-      "caseId": "P04",
-      "assertionId": "P04.on.direct-execute-refused",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "direct-aggregate-execute-pass-accepted"
-    },
-    {
-      "caseId": "P04",
-      "assertionId": "P04.on.direct-verify-refused",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "direct-aggregate-verify-pass-accepted"
-    },
-    {
-      "caseId": "P04",
-      "assertionId": "P04.on.verify-obligation-pending",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "pass",
-      "desired": "pending",
-      "blocker": "#341 E0",
-      "reasonCode": "aggregate-verify-passed-from-step-text"
-    },
-    {
-      "caseId": "P02a",
-      "assertionId": "P02a.on.verify-pass-exit",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-accepted-from-text"
-    },
-    {
-      "caseId": "P02a",
-      "assertionId": "P02a.on.stop-state",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-unsupported-verification"
-    },
-    {
-      "caseId": "P02a",
-      "assertionId": "P02a.on.stop-reports",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
-      "caseId": "P02a",
-      "assertionId": "P02a.on.verify-pass-exit",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-accepted-from-text"
-    },
-    {
-      "caseId": "P02a",
-      "assertionId": "P02a.on.stop-state",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-unsupported-verification"
-    },
-    {
-      "caseId": "P02a",
-      "assertionId": "P02a.on.stop-reports",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
-      "caseId": "P02b",
-      "assertionId": "P02b.on.verify-pass-exit",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-accepted-from-text"
-    },
-    {
-      "caseId": "P02b",
-      "assertionId": "P02b.on.stop-state",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-unsupported-verification"
-    },
-    {
-      "caseId": "P02b",
-      "assertionId": "P02b.on.stop-reports",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
-      "caseId": "P02b",
-      "assertionId": "P02b.on.verify-pass-exit",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-accepted-from-text"
-    },
-    {
-      "caseId": "P02b",
-      "assertionId": "P02b.on.stop-state",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-unsupported-verification"
-    },
-    {
-      "caseId": "P02b",
-      "assertionId": "P02b.on.stop-reports",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
-      "caseId": "P02c",
-      "assertionId": "P02c.on.verify-pass-exit",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-accepted-from-text"
-    },
-    {
-      "caseId": "P02c",
-      "assertionId": "P02c.on.stop-state",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-unsupported-verification"
-    },
-    {
-      "caseId": "P02c",
-      "assertionId": "P02c.on.stop-reports",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
-      "caseId": "P02c",
-      "assertionId": "P02c.on.verify-pass-exit",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-accepted-from-text"
-    },
-    {
-      "caseId": "P02c",
-      "assertionId": "P02c.on.stop-state",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-unsupported-verification"
-    },
-    {
-      "caseId": "P02c",
-      "assertionId": "P02c.on.stop-reports",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
-      "caseId": "P02g",
-      "assertionId": "P02g.on.verify-pass-exit",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-accepted-from-text"
-    },
-    {
-      "caseId": "P02g",
-      "assertionId": "P02g.on.stop-state",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-unsupported-verification"
-    },
-    {
-      "caseId": "P02g",
-      "assertionId": "P02g.on.stop-reports",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
-      "caseId": "P02g",
-      "assertionId": "P02g.on.verify-pass-exit",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-accepted-from-text"
-    },
-    {
-      "caseId": "P02g",
-      "assertionId": "P02g.on.stop-state",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-unsupported-verification"
-    },
-    {
-      "caseId": "P02g",
-      "assertionId": "P02g.on.stop-reports",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
       "caseId": "P02e",
       "assertionId": "P02e.on.review-pass-exit",
       "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
+      "baselineSha": "5f9726c7d01364cb75a61eff54c8f5b89027e9d6",
       "actual": 0,
       "desired": 2,
       "blocker": "#341 E0",
@@ -398,10 +18,10 @@
       "caseId": "P02e",
       "assertionId": "P02e.on.stop-reports",
       "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
+      "baselineSha": "5f9726c7d01364cb75a61eff54c8f5b89027e9d6",
       "actual": [
-        "verify:pending",
         "step:req-verify:pending",
+        "verify:pending",
         "binding:req-verify:verification-loop:pending"
       ],
       "desired": "step:req-review:pending",
@@ -412,7 +32,7 @@
       "caseId": "P02e",
       "assertionId": "P02e.on.review-pass-exit",
       "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
+      "baselineSha": "5f9726c7d01364cb75a61eff54c8f5b89027e9d6",
       "actual": 0,
       "desired": 2,
       "blocker": "#341 E0",
@@ -422,10 +42,10 @@
       "caseId": "P02e",
       "assertionId": "P02e.on.stop-reports",
       "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
+      "baselineSha": "5f9726c7d01364cb75a61eff54c8f5b89027e9d6",
       "actual": [
-        "verify:pending",
         "step:req-verify:pending",
+        "verify:pending",
         "binding:req-verify:verification-loop:pending"
       ],
       "desired": "step:req-review:pending",
@@ -433,80 +53,10 @@
       "reasonCode": "unsatisfied-review-not-reported"
     },
     {
-      "caseId": "P02f",
-      "assertionId": "P02f.on.verify-pass-exit",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-accepted-from-text"
-    },
-    {
-      "caseId": "P02f",
-      "assertionId": "P02f.on.stop-state",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-unsupported-verification"
-    },
-    {
-      "caseId": "P02f",
-      "assertionId": "P02f.on.stop-reports",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
-      "caseId": "P02f",
-      "assertionId": "P02f.on.verify-pass-exit",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-pass-accepted-from-text"
-    },
-    {
-      "caseId": "P02f",
-      "assertionId": "P02f.on.stop-state",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "running",
-      "blocker": "#341 E0",
-      "reasonCode": "completion-satisfied-after-unsupported-verification"
-    },
-    {
-      "caseId": "P02f",
-      "assertionId": "P02f.on.stop-reports",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": [],
-      "desired": "step:req-verify:pending",
-      "blocker": "#341 E0",
-      "reasonCode": "unsatisfied-verification-not-reported"
-    },
-    {
-      "caseId": "P03",
-      "assertionId": "P03.on.verify-pass-exit",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-accepted-without-evidence"
-    },
-    {
       "caseId": "P03",
       "assertionId": "P03.on.verify-retry-exit",
       "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
+      "baselineSha": "5f9726c7d01364cb75a61eff54c8f5b89027e9d6",
       "actual": 2,
       "desired": 0,
       "blocker": "#341 E0",
@@ -514,19 +64,9 @@
     },
     {
       "caseId": "P03",
-      "assertionId": "P03.on.verify-pass-exit",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": 0,
-      "desired": 2,
-      "blocker": "#341 E0",
-      "reasonCode": "verification-accepted-without-evidence"
-    },
-    {
-      "caseId": "P03",
       "assertionId": "P03.on.verify-retry-exit",
       "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
+      "baselineSha": "5f9726c7d01364cb75a61eff54c8f5b89027e9d6",
       "actual": 2,
       "desired": 0,
       "blocker": "#341 E0",
@@ -536,113 +76,41 @@
       "caseId": "P05",
       "assertionId": "P05.on.stop-on-2-withheld",
       "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "satisfied",
+      "baselineSha": "5f9726c7d01364cb75a61eff54c8f5b89027e9d6",
+      "actual": 2,
+      "desired": 0,
       "blocker": "#341 E0",
-      "reasonCode": "completion-not-withheld-after-identity-change"
+      "reasonCode": "s2-positive-credit-prerequisite-missing"
     },
     {
       "caseId": "P05",
       "assertionId": "P05.on.stop-on-3-withheld",
       "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
+      "baselineSha": "5f9726c7d01364cb75a61eff54c8f5b89027e9d6",
+      "actual": "running",
       "desired": "satisfied",
       "blocker": "#341 E0",
-      "reasonCode": "completion-not-withheld-after-identity-change"
+      "reasonCode": "s2-positive-credit-prerequisite-missing"
     },
     {
       "caseId": "P05",
       "assertionId": "P05.on.stop-on-2-withheld",
       "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
-      "desired": "satisfied",
+      "baselineSha": "5f9726c7d01364cb75a61eff54c8f5b89027e9d6",
+      "actual": 2,
+      "desired": 0,
       "blocker": "#341 E0",
-      "reasonCode": "completion-not-withheld-after-identity-change"
+      "reasonCode": "s2-positive-credit-prerequisite-missing"
     },
     {
       "caseId": "P05",
       "assertionId": "P05.on.stop-on-3-withheld",
       "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": "satisfied",
+      "baselineSha": "5f9726c7d01364cb75a61eff54c8f5b89027e9d6",
+      "actual": "running",
       "desired": "satisfied",
       "blocker": "#341 E0",
-      "reasonCode": "completion-not-withheld-after-identity-change"
-    },
-    {
-      "caseId": "P07-fable-staged",
-      "assertionId": "P07-fable-staged.on.pilot-status-unavailable",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": {
-        "kind": "absent"
-      },
-      "desired": "unavailable",
-      "blocker": "#341 E0",
-      "reasonCode": "no-structured-pilot-status"
-    },
-    {
-      "caseId": "P07-fable-staged",
-      "assertionId": "P07-fable-staged.on.pilot-status-unavailable",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": {
-        "kind": "absent"
-      },
-      "desired": "unavailable",
-      "blocker": "#341 E0",
-      "reasonCode": "no-structured-pilot-status"
-    },
-    {
-      "caseId": "P07-fable-parallel",
-      "assertionId": "P07-fable-parallel.on.pilot-status-unavailable",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": {
-        "kind": "absent"
-      },
-      "desired": "unavailable",
-      "blocker": "#341 E0",
-      "reasonCode": "no-structured-pilot-status"
-    },
-    {
-      "caseId": "P07-fable-parallel",
-      "assertionId": "P07-fable-parallel.on.pilot-status-unavailable",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": {
-        "kind": "absent"
-      },
-      "desired": "unavailable",
-      "blocker": "#341 E0",
-      "reasonCode": "no-structured-pilot-status"
-    },
-    {
-      "caseId": "P07-fable-multi-agent-workspace",
-      "assertionId": "P07-fable-multi-agent-workspace.on.pilot-status-unavailable",
-      "distribution": "source",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": {
-        "kind": "absent"
-      },
-      "desired": "unavailable",
-      "blocker": "#341 E0",
-      "reasonCode": "no-structured-pilot-status"
-    },
-    {
-      "caseId": "P07-fable-multi-agent-workspace",
-      "assertionId": "P07-fable-multi-agent-workspace.on.pilot-status-unavailable",
-      "distribution": "packaged",
-      "baselineSha": "dba470813cb383945d405686cc6a65bd969b57ec",
-      "actual": {
-        "kind": "absent"
-      },
-      "desired": "unavailable",
-      "blocker": "#341 E0",
-      "reasonCode": "no-structured-pilot-status"
+      "reasonCode": "s2-positive-credit-prerequisite-missing"
     }
   ]
 }

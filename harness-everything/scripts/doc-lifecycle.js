@@ -2396,6 +2396,6 @@ function main(argv = process.argv.slice(2)) {
   return analysis.diagnostics.some(item => item.severity === 'error') ? 1 : 0;
 }
 
-module.exports = { parseFrontmatter, parseRequirementBlocks, collectDocs, analyzeDocs, resolveRef, lintDocs, buildIndex, diffRevisions };
+module.exports = { readGitBaseInventory, scanWorkspaceFiles, parseFrontmatter, parseRequirementBlocks, collectDocs, analyzeDocs, resolveRef, lintDocs, buildIndex, diffRevisions };
 
 if (require.main === module) process.exitCode = main();

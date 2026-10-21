@@ -173,6 +173,7 @@ function main() {
     if (!['pending', 'active'].includes(workflow.state)) throw new Error('requirements/workflow composition belongs before execution starts');
     const selectedPlan = recomposePlan(workflow, args.strategy);
     const result = recordPlanning(context, args.requirementsJson, selectedPlan, args.strategy, args.evidence);
+    require('./lib/doc-reconciliation-pilot').captureBaseline(context);
     saveWorkflow(context);
     process.stdout.write(JSON.stringify({
       state: workflow.state,
@@ -192,6 +193,7 @@ function main() {
     const unresolvedPlanning = planningUnresolved(context, plan);
     if (unresolvedPlanning.length) throw new Error('resolve requirement decomposition/workflow selection first: ' + unresolvedPlanning.join(', '));
 
+    require('./lib/doc-reconciliation-pilot').captureBaseline(context);
     if (!String(plan.strategy || '').startsWith('fable-')) {
       activatePlan(workflow, plan);
       workflow.revision++;
