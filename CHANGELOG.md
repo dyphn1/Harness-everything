@@ -4,9 +4,14 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-- Define the S2a snapshot, captured-config, accepted-origin adapter and expected-set reconciliation core contract; S1 remains no-credit pending S2b host integration.
+- Ship the unwired S2a document evidence producer and reconciliation core (snapshot capture, captured config, accepted-origin adapter, expected-set reconciliation); S1 stays no-credit until S2b host integration.
+- Ship default-OFF Phase 3b S1 scope assessment and no-credit runtime gate (opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`); S2 pending (S3 shipped in 0.37.0), E1 not started.
 
-- Ship default-OFF Phase 3b S1 scope assessment and no-credit runtime gate (opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`); S2/S3 pending, E1 not started.
+## [0.37.0](https://github.com/dyphn1/Harness-everything/compare/v0.36.4...v0.37.0) (2026-10-21)
+
+### Features
+
+* **doc-lifecycle:** add pure advisory doc provider suggestions ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([cffe1d2](https://github.com/dyphn1/Harness-everything/commit/cffe1d277375adc318f3d0d52267e94d3f3253f0))
 
 ## [0.36.4](https://github.com/dyphn1/Harness-everything/compare/v0.36.3...v0.36.4) (2026-10-21)
 

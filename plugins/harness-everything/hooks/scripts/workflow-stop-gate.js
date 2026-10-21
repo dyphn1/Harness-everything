@@ -53,7 +53,29 @@ function decide(payload) {
       // A failed required validation leaves the workflow file as recorded; it is never marked satisfied.
       if (!requiredFault) {
         workflow.unresolved = pending;
-        saveWorkflow(context);
+        // PR #351 follow-up (unwritable session store): persisting the pending downgrade is
+        // best-effort. A failing saveWorkflow() must not swallow the decision or leak exception
+        // text: record the withhold-persist-failed diagnostic on the shared context diagnostics
+        // (also when the earlier obligations write already failed) and still emit the reminder
+        // below. Stop stays non-blocking: exit 0, no retry loop, no lock.
+        // Scope of the recovery (PR #351 re-review): the local recovery and the
+        // withhold-persist-failed diagnostic apply only when this Stop run made an actual ON,
+        // supported, withheld pilot decision (`withholdPilotVerification` sets the transient
+        // per-run marker on the context). On switch-OFF, Fable and persisted-untyped paths the
+        // marker is never set, so the error is rethrown and reaches Stop's outer handler exactly
+        // as the pre-S1 legacy reference: same stderr, same exit 0, no pilot diagnostic.
+        try {
+          saveWorkflow(context);
+        } catch (error) {
+          if (context.docReconciliationWithheldRun !== true) throw error;
+          if (!Array.isArray(context.workflow.docReconciliationDiagnostics)) {
+            context.workflow.docReconciliationDiagnostics = [];
+          }
+          if (!context.workflow.docReconciliationDiagnostics.includes('withhold-persist-failed')) {
+            context.workflow.docReconciliationDiagnostics.push('withhold-persist-failed');
+          }
+          warn('Pending-workflow persistence failed (withhold-persist-failed); the unresolved evidence below is still binding.');
+        }
       }
       warn('Unresolved workflow evidence: ' + pending.join(', ') + '. Resolve/verify before claiming completion.');
       return;
