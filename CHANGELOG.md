@@ -75,6 +75,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Ship the S3 pure advisory provider suggestion function (`suggestDocProviders`) with strict validation and active-step filtering; it is not wired into workflow integration yet.
+
 ### Documentation
 
 * **doc-evidence:** define role-scoped read consistency, compatibility traces, and Phase 0 conformance limits

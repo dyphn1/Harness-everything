@@ -1,0 +1,535 @@
+{
+  "schemaVersion": 1,
+  "phase": "325-3b-S3",
+  "description": "S3 advisory provider suggestion cases. Expected outputs are hand-derived from docs/doc-workflow-reconciliation.md (S3 section) and are the RED oracle. The three contract examples live in reconciliation-prep/provider-contract.json and are read directly by the suite. Kinds: valid (exact output with suggestions and unavailable only), malformed (structured invalid-input result). Reason strings: 'active-step capability and host requirements match'; 'host lacks <sorted missing, joined with ', '>'; 'no available provider metadata for the active-step capability'; invalid-input.",
+  "cases": [
+    {
+      "id": "H2-future-step-not-suggested",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["outline-confirmation"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-future-outline", "capabilities": ["outline-confirmation"], "stepTypes": ["doc-change"], "requiresHostCapabilities": [], "locator": { "kind": "binding", "id": "to-spec" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "suggestions": [],
+        "unavailable": [{ "capability": "outline-confirmation", "reason": "no available provider metadata for the active-step capability" }]
+      }
+    },
+    {
+      "id": "H2-unneeded-capability-not-suggested",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-multi", "capabilities": ["doc-lint", "quality-review"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-multi" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "suggestions": [
+          { "capability": "doc-lint", "providerId": "fixture-multi", "availability": "available", "reason": "active-step capability and host requirements match" }
+        ],
+        "unavailable": []
+      }
+    },
+    {
+      "id": "multi-capability-record-one-suggestion-per-match",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint", "quality-review"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-multi", "capabilities": ["doc-lint", "quality-review"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-multi" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "suggestions": [
+          { "capability": "doc-lint", "providerId": "fixture-multi", "availability": "available", "reason": "active-step capability and host requirements match" },
+          { "capability": "quality-review", "providerId": "fixture-multi", "availability": "available", "reason": "active-step capability and host requirements match" }
+        ],
+        "unavailable": []
+      }
+    },
+    {
+      "id": "host-unmet-multiple-requirements-sorted-reason",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-two-host", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": ["independent-review-events", "execution-events"], "locator": { "kind": "tool", "id": "fixture-two-host" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "suggestions": [
+          { "capability": "doc-lint", "providerId": "fixture-two-host", "availability": "unavailable", "reason": "host lacks execution-events, independent-review-events" }
+        ],
+        "unavailable": [
+          { "capability": "doc-lint", "reason": "host lacks execution-events, independent-review-events" }
+        ]
+      }
+    },
+    {
+      "id": "host-all-requirements-present-available",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-two-host", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": ["execution-events", "independent-review-events"], "locator": { "kind": "tool", "id": "fixture-two-host" } }
+        ],
+        "hostCapabilities": ["execution-events", "independent-review-events"]
+      },
+      "expected": {
+        "suggestions": [
+          { "capability": "doc-lint", "providerId": "fixture-two-host", "availability": "available", "reason": "active-step capability and host requirements match" }
+        ],
+        "unavailable": []
+      }
+    },
+    {
+      "id": "two-candidates-one-blocked-one-available",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-open", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-open" } },
+          { "providerId": "fixture-blocked", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": ["execution-events"], "locator": { "kind": "tool", "id": "fixture-blocked" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "suggestions": [
+          { "capability": "doc-lint", "providerId": "fixture-blocked", "availability": "unavailable", "reason": "host lacks execution-events" },
+          { "capability": "doc-lint", "providerId": "fixture-open", "availability": "available", "reason": "active-step capability and host requirements match" }
+        ],
+        "unavailable": []
+      }
+    },
+    {
+      "id": "two-blocked-candidates-reasons-joined-distinct-sorted",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-a", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": ["execution-events"], "locator": { "kind": "tool", "id": "fixture-a" } },
+          { "providerId": "fixture-b", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": ["independent-review-events"], "locator": { "kind": "tool", "id": "fixture-b" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "suggestions": [
+          { "capability": "doc-lint", "providerId": "fixture-a", "availability": "unavailable", "reason": "host lacks execution-events" },
+          { "capability": "doc-lint", "providerId": "fixture-b", "availability": "unavailable", "reason": "host lacks independent-review-events" }
+        ],
+        "unavailable": [
+          { "capability": "doc-lint", "reason": "host lacks execution-events; host lacks independent-review-events" }
+        ]
+      }
+    },
+    {
+      "id": "no-metadata-each-needed-capability-sorted",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["quality-review", "doc-lint"],
+        "availableProviderMetadata": [],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "suggestions": [],
+        "unavailable": [
+          { "capability": "doc-lint", "reason": "no available provider metadata for the active-step capability" },
+          { "capability": "quality-review", "reason": "no available provider metadata for the active-step capability" }
+        ]
+      }
+    },
+    {
+      "id": "H1-omit-all-providers-keeps-every-needed-capability",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint", "quality-review"],
+        "availableProviderMetadata": [],
+        "hostCapabilities": ["execution-events"]
+      },
+      "expected": {
+        "suggestions": [],
+        "unavailable": [
+          { "capability": "doc-lint", "reason": "no available provider metadata for the active-step capability" },
+          { "capability": "quality-review", "reason": "no available provider metadata for the active-step capability" }
+        ]
+      }
+    },
+    {
+      "id": "empty-needed-is-valid-no-output",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": [],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-lint-a", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-lint-a" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": { "suggestions": [], "unavailable": [] }
+    },
+    {
+      "id": "all-empty-is-valid-no-output",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": [],
+        "availableProviderMetadata": [],
+        "hostCapabilities": []
+      },
+      "expected": { "suggestions": [], "unavailable": [] }
+    },
+    {
+      "id": "capability-match-is-case-sensitive",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-case", "capabilities": ["Doc-Lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-case" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "suggestions": [],
+        "unavailable": [{ "capability": "doc-lint", "reason": "no available provider metadata for the active-step capability" }]
+      }
+    },
+    {
+      "id": "step-type-match-is-case-sensitive",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "Verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-case", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-case" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "suggestions": [],
+        "unavailable": [{ "capability": "doc-lint", "reason": "no available provider metadata for the active-step capability" }]
+      }
+    },
+    {
+      "id": "extra-fields-confer-no-capability-or-authority",
+      "kind": "valid",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["quality-review"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-extra", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-extra" }, "extraCapabilities": ["quality-review"], "authority": "granted" }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "suggestions": [],
+        "unavailable": [{ "capability": "quality-review", "reason": "no available provider metadata for the active-step capability" }]
+      }
+    },
+    {
+      "id": "malformed-input-null",
+      "kind": "malformed",
+      "input": null,
+      "expected": { "unavailable": [], "diagnosticPathPrefixes": ["input"] }
+    },
+    {
+      "id": "malformed-activeStep-missing-retains-needed",
+      "kind": "malformed",
+      "input": {
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["activeStep"]
+      }
+    },
+    {
+      "id": "malformed-activeStep-id-whitespace",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "   ", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["activeStep"]
+      }
+    },
+    {
+      "id": "malformed-neededCapabilities-not-array-empties-unavailable",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": "doc-lint",
+        "availableProviderMetadata": [],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [],
+        "diagnosticPathPrefixes": ["neededCapabilities"]
+      }
+    },
+    {
+      "id": "malformed-neededCapabilities-duplicate-empties-unavailable",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint", "doc-lint"],
+        "availableProviderMetadata": [],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [],
+        "diagnosticPathPrefixes": ["neededCapabilities"]
+      }
+    },
+    {
+      "id": "malformed-hostCapabilities-missing-retains-needed",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["hostCapabilities"]
+      }
+    },
+    {
+      "id": "malformed-hostCapabilities-null-retains-needed",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [],
+        "hostCapabilities": null
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["hostCapabilities"]
+      }
+    },
+    {
+      "id": "malformed-hostCapabilities-string-retains-needed",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [],
+        "hostCapabilities": "execution-events"
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["hostCapabilities"]
+      }
+    },
+    {
+      "id": "malformed-hostCapabilities-duplicate-retains-needed",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [],
+        "hostCapabilities": ["execution-events", "execution-events"]
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["hostCapabilities"]
+      }
+    },
+    {
+      "id": "malformed-metadata-entry-null",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [null],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["availableProviderMetadata"]
+      }
+    },
+    {
+      "id": "malformed-locator-kind-command",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-cmd", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "command", "id": "npm run lint" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["availableProviderMetadata"]
+      }
+    },
+    {
+      "id": "malformed-providerId-number-no-coercion",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": 42, "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-num" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["availableProviderMetadata"]
+      }
+    },
+    {
+      "id": "malformed-providerId-whitespace",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "   ", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-ws" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["availableProviderMetadata"]
+      }
+    },
+    {
+      "id": "malformed-metadata-capabilities-duplicate",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-dup", "capabilities": ["doc-lint", "doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-dup" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["availableProviderMetadata"]
+      }
+    },
+    {
+      "id": "malformed-requiresHostCapabilities-null",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-null", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": null, "locator": { "kind": "tool", "id": "fixture-null" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["availableProviderMetadata"]
+      }
+    },
+    {
+      "id": "malformed-stepTypes-not-array",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-str", "capabilities": ["doc-lint"], "stepTypes": "verification", "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-str" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["availableProviderMetadata"]
+      }
+    },
+    {
+      "id": "malformed-capability-empty-string",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-empty", "capabilities": [""], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-empty" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["availableProviderMetadata"]
+      }
+    },
+    {
+      "id": "malformed-partly-valid-emits-no-suggestions",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "fixture-good", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-good" } },
+          { "providerId": "", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-bad" } }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["availableProviderMetadata"]
+      }
+    },
+    {
+      "id": "malformed-unrelated-values-not-exposed-in-diagnostics",
+      "kind": "malformed",
+      "input": {
+        "activeStep": { "id": "verify-docs", "stepType": "verification" },
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": [
+          { "providerId": "", "capabilities": ["doc-lint"], "stepTypes": ["verification"], "requiresHostCapabilities": [], "locator": { "kind": "tool", "id": "fixture-sentinel" }, "secretNote": "SENTINEL-XYZ-42" }
+        ],
+        "hostCapabilities": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["availableProviderMetadata"],
+        "forbiddenText": ["SENTINEL-XYZ-42"]
+      }
+    },
+    {
+      "id": "malformed-multiple-errors-diagnostics-ordered-by-path",
+      "kind": "malformed",
+      "input": {
+        "neededCapabilities": ["doc-lint"],
+        "availableProviderMetadata": []
+      },
+      "expected": {
+        "unavailable": [{ "capability": "doc-lint", "reason": "invalid-input" }],
+        "diagnosticPathPrefixes": ["activeStep", "hostCapabilities"],
+        "minDiagnostics": 2
+      }
+    }
+  ]
+}
