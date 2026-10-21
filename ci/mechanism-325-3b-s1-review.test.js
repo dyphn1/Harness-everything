@@ -287,7 +287,8 @@ console.log(`\nP2 persistence review summary: ${persistenceCounts.passed} PASS, 
 // ---- R1f section: "Unwritable session store (PR #351 follow-up)" — integration through the real Stop entry point ----
 //
 // Both obligations and SaveWorkflow persistence are made to fail for one Stop invocation, by preloading
-// fail-session-writes.js through NODE_OPTIONS onto the real stop-gate child. The preload makes every
+// fail-session-writes.js onto the real stop-gate child through a real argv element (`node --require <path>`).
+// The preload makes every
 // write/rename/open-for-write/unlink inside that run's session directory throw EACCES (patching fs synchron,
 // fs.promises and the callback wrappers) without chmod, and nothing else. Contract (docs table):
 // Stop exits 0, the Unresolved-workflow-evidence reminder with step:<verify>:pending and a
@@ -343,25 +344,32 @@ function r1fBuildWorkspace(dir) {
 }
 
 // Isolated child environment mirroring the replay helper: no inherited HARNESS switches, explicit state
-// home and workspace root; the pilot switch and the NODE_OPTIONS preload are added only where named.
+// home and workspace root; the pilot switch is added only where named. NODE_OPTIONS is cleared so an
+// inherited value from the parent cannot add or strip the preload.
 function r1fChildEnv(dir, stateHome, options) {
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (key.startsWith('HARNESS_')) delete env[key];
   delete env.CLAUDE_PLUGIN_ROOT;
   delete env.PLUGIN_ROOT;
+  delete env.NODE_OPTIONS;
   env.HARNESS_STATE_HOME = stateHome;
   env.HARNESS_WORKSPACE_ROOT = dir;
   if (options.pilot !== undefined) env[SWITCH] = String(options.pilot);
-  const nodeOptions = [];
-  if (typeof env.NODE_OPTIONS === 'string' && env.NODE_OPTIONS.trim()) nodeOptions.push(env.NODE_OPTIONS.trim());
-  if (options.preload) nodeOptions.push(`--require ${R1F_PRELOAD}`);
-  if (nodeOptions.length) env.NODE_OPTIONS = nodeOptions.join(' ');
   if (options.sessionDirectory) env[R1F_SESSION_ENV] = options.sessionDirectory;
   return env;
 }
 
+// The preload is passed as a real argv element (`node --require <path> <script>`), never through
+// NODE_OPTIONS: option values there are tokenised at spaces, so a checkout or temp directory with a
+// space in its name would demand a truncated module path. argv elements need no quoting.
+function r1fSpawnPreloadArgs(options) {
+  if (!options.preload) return [];
+  const preloadPath = typeof options.preload === 'string' ? options.preload : R1F_PRELOAD;
+  return ['--require', preloadPath];
+}
+
 function r1fSpawn(leg, script, args, dir, stateHome, options = {}) {
-  return r1fSpawnSync(process.execPath, [script, ...args], {
+  return r1fSpawnSync(process.execPath, [...r1fSpawnPreloadArgs(options), script, ...args], {
     cwd: dir,
     encoding: 'utf8',
     input: options.input === undefined ? undefined : JSON.stringify(options.input),
@@ -426,6 +434,7 @@ function r1fRunScenario(leg, mode) {
   const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1f-state-'));
   const sessionId = 's1-review-r1f-' + leg.id;
   const tokens = [dir, stateHome];
+  let spacedPreloadDirForCleanup = null;
   try {
     if (!fs.existsSync(R1F_PRELOAD)) {
       record('INFRA', `${tag}.preload`, 'fail-session-writes.js preload not found at ' + R1F_PRELOAD);
@@ -481,6 +490,36 @@ function r1fRunScenario(leg, mode) {
         `${tag}.stored-bytes-identical`,
         afterBytes.run === before.run && afterBytes.obligations === before.obligations
           ? '' : 'the unwritable session store changed: the failed write is not proven');
+      // P3 preload-path portability: copy the preload into a temp directory whose name contains a space
+      // and run one fail-mode Stop child through the same spawn helper. The preload must still load —
+      // writes fail (reminder text and the withheld decision are on stderr) and the stored files stay
+      // byte-identical — instead of an infrastructure `Cannot find module` failure. The preload path is
+      // passed as a real argv element (see r1fSpawnPreloadArgs), which needs no quoting.
+      const spacedPreloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness preload space-'));
+      spacedPreloadDirForCleanup = spacedPreloadDir;
+      const spacedPreload = path.join(spacedPreloadDir, 'fail-session-writes.js');
+      fs.copyFileSync(R1F_PRELOAD, spacedPreload);
+      const spaceStop = r1fSpawn(leg, leg.stopGate, [], dir, stateHome, {
+        pilot: 1,
+        preload: spacedPreload,
+        sessionDirectory: sessionDir,
+        input: { session_id: sessionId, cwd: dir, hook_event_name: 'Stop' },
+      });
+      const spaceStderr = spaceStop.stderr || '';
+      record(spaceStop.status === 0 ? 'PASS' : 'FAIL', `${tag}.preload-space.stop-exit-0`,
+        spaceStop.status === 0 ? '' : `exit ${spaceStop.status} where 0 desired; stderr ${r1fScrub(spaceStderr.trim(), [spacedPreloadDir]).slice(0, 140)}`);
+      const spaceLoaded = spaceStderr.includes('Unresolved workflow evidence')
+        && spaceStderr.includes('step:' + VERIFY_STEP_ID + ':pending')
+        && spaceStderr.includes('withhold-persist-failed');
+      record(spaceLoaded ? 'PASS' : 'FAIL', `${tag}.preload-space.reminder-and-diagnostic`,
+        spaceLoaded ? '' : `preloaded child did not run the withheld path: ${r1fScrub(spaceStderr.trim(), [spacedPreloadDir]).slice(0, 160)}`);
+      const spaceBytes = {
+        run: fs.readFileSync(path.join(sessionDir, R1F_WORKFLOW_FILE), 'utf8'),
+        obligations: fs.readFileSync(path.join(sessionDir, OBLIGATION_FILE), 'utf8'),
+      };
+      record(spaceBytes.run === before.run && spaceBytes.obligations === before.obligations ? 'PASS' : 'FAIL',
+        `${tag}.preload-space.stored-bytes-identical`,
+        spaceBytes.run === before.run && spaceBytes.obligations === before.obligations ? '' : 'the spaced-preload child did not fail its session writes: the preload did not load');
     } else {
       record(stderr.includes('Unresolved workflow evidence') && stderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? 'PASS' : 'FAIL',
         `${tag}.reminder-present`,
@@ -528,6 +567,7 @@ function r1fRunScenario(leg, mode) {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
     fs.rmSync(stateHome, { recursive: true, force: true });
+    if (spacedPreloadDirForCleanup) fs.rmSync(spacedPreloadDirForCleanup, { recursive: true, force: true });
   }
 }
 
