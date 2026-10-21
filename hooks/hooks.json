@@ -321,6 +321,30 @@
         "description": "Record a local, content-private System One turn observation (docs/system-one-observations.md); fail-open and silent",
         "id": "harness:obs:observation-posttoolusefailure"
       }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/state-persist.js\""
+          }
+        ],
+        "description": "Pilot-only doc-reconciliation capture (HARNESS_DOC_RECONCILIATION_PILOT exactly 1): record host-issued subagent identity and parent session correlation at launch; fail-open, silent, and write-free when OFF",
+        "id": "harness:subagent:start-capture"
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/state-persist.js\""
+          }
+        ],
+        "description": "Pilot-only doc-reconciliation capture (HARNESS_DOC_RECONCILIATION_PILOT exactly 1): record the reviewer principal and bound final review artifact digest at subagent completion; fail-open, silent, and write-free when OFF",
+        "id": "harness:subagent:stop-capture"
+      }
     ]
   }
 }

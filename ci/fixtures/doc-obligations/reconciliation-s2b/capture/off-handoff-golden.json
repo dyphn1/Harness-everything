@@ -1,0 +1,16 @@
+{
+  "expectedFiles": [
+    "handoff-state.json"
+  ],
+  "keys": [
+    "lastEditAt",
+    "lastVerifyAt",
+    "lastVerifyExitCode",
+    "status",
+    "timestamp"
+  ],
+  "values": {
+    "status": "idle",
+    "lastVerifyExitCode": null
+  }
+}

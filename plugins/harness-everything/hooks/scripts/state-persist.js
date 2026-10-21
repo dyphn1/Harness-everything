@@ -4,6 +4,14 @@ const path = require('path');
 const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 const { cwdOf, classifyShell, isVerificationShell, directMutationInWorkspace } = require('./lib/workflow-isolation');
 const { observeTool } = require('./lib/telemetry');
+
+// S2b doc-reconciliation pilot capture (docs/doc-workflow-reconciliation.md
+// § S2b "Activation and pilot-only scope", "Claude capture and origin-provider
+// contract"): pilot-only, fail-open to the host, and gated on the exact
+// switch value `1` before any collector logic runs. OFF must return to the
+// existing legacy path before pilot collection; capture never executes a
+// command, verifier or generator and never blocks a tool or Stop.
+const PILOT_CAPTURE_EVENT_NAMES = ['PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop'];
 let inputData = '';
 const timeout = setTimeout(() => processState(null), 200);
 process.stdin.on('data', chunk => { inputData += chunk; });
@@ -12,6 +20,15 @@ function processState(payload) {
   try {
     const sessionId = payload && (payload.session_id || payload.sessionId);
     const root = getWorkspaceRoot(payload);
+    const captureEventName = payload ? (payload.hook_event_name || payload.hookEventName) || '' : '';
+    // SubagentStart/SubagentStop were never routed to this script before S2b.
+    // They are capture-only events: the legacy handoff state path stays
+    // untouched for them, so wiring them while OFF adds no writes at all.
+    if (captureEventName === 'SubagentStart' || captureEventName === 'SubagentStop') {
+      persistPilotCapture(payload, captureEventName, sessionId, root);
+      process.exit(0);
+      return;
+    }
     const stateFile = path.join(getSessionDir(root, sessionId), 'handoff-state.json');
     let state = { status: 'idle', timestamp: new Date().toISOString() };
     if (fs.existsSync(stateFile)) { try { state = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch (_) {} }
@@ -25,7 +42,7 @@ function processState(payload) {
     const rawExitCode = toolResponse.exitCode ?? toolResponse.exit_code ?? payload.exitCode;
     const exitCode = typeof rawExitCode === 'number' ? rawExitCode : undefined;
     const stderrSignal = typeof stderr === 'string' && stderr.trim().length > 0;
-    const hookEvent = payload.hook_event_name || payload.hookEventName || '';
+    const hookEvent = captureEventName;
     const isSuccessEvent = hookEvent === 'PostToolUse';
     const isFailed = hookEvent === 'PostToolUseFailure' || (exitCode !== undefined && exitCode !== 0) || (!isSuccessEvent && exitCode === undefined && stderrSignal);
     const toolName = payload.tool_name || payload.tool || 'command';
@@ -48,6 +65,31 @@ function processState(payload) {
     }
     fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
     observeTool(payload);
+    persistPilotCapture(payload, captureEventName, sessionId, root);
   } catch (_) {}
   process.exit(0);
+}
+
+// Pilot-only capture journaling. Every guard is placed before any collector
+// work; any failure is swallowed (fail-open), and the hook output/exit is
+// never changed by capture.
+function persistPilotCapture(payload, eventName, sessionId, root) {
+  try {
+    if (!payload || process.env.HARNESS_DOC_RECONCILIATION_PILOT !== '1') return;
+    if (PILOT_CAPTURE_EVENT_NAMES.indexOf(eventName) === -1) return;
+    const { buildCaptureRecord } = require('./lib/doc-reconciliation-provider');
+    const entry = buildCaptureRecord(payload, eventName, root);
+    if (!entry) return;
+    const journalFile = path.join(getSessionDir(root, sessionId), 'doc-reconciliation-capture.json');
+    let journal;
+    if (fs.existsSync(journalFile)) {
+      try { journal = JSON.parse(fs.readFileSync(journalFile, 'utf8')); } catch { return; }
+      if (!journal || !Array.isArray(journal.records)) return; // unreadable/malformed journal: never shadow or destroy it
+    } else {
+      journal = { version: 1, records: [] };
+    }
+    journal.version = 1;
+    journal.records.push(entry);
+    fs.writeFileSync(journalFile, JSON.stringify(journal, null, 2), 'utf8');
+  } catch (_) { /* fail-open: capture failures never reach the host */ }
 }
