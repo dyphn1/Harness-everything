@@ -418,6 +418,19 @@ Persisting that state is best-effort afterwards. A write failure adds the diagno
 and a reminder; it never leaves the credit decision unapplied, never lets a persisted `satisfied`/PASS count as
 credit, and never makes Stop exit non-zero. Every later ON assessment recollects regardless of what is on disk.
 
+**Unwritable session store (PR #351 follow-up).** S1 cannot durably downgrade a store it cannot write: if both the
+obligations write and Stop's `saveWorkflow()` fail, the files on disk may still say `satisfied` / `verify: pass`.
+S1 therefore guarantees the following **read/credit contract** rather than durable invalidation:
+
+| Guarantee | S1 behaviour when every session write fails |
+| --- | --- |
+| Persisted state is never credit under ON | Every ON verification, direct aggregate and Stop assessment recollects scope and re-derives the decision; a stored `satisfied`, `verify: pass` or old pilot report is never read as document credit. `pilotCredit` is always `false` in S1. |
+| The decision is still emitted | Stop still prints the `Unresolved workflow evidence: … step:<verify>:pending` reminder and a `withhold-persist-failed` diagnostic, after the failed `saveWorkflow()` rather than instead of it. |
+| Stop stays non-blocking | Stop exits `0`; no lock, no retry loop. |
+| Not claimed | A durable on-disk downgrade, or that a non-pilot reader (OFF, or another tool) will see `running`. With the switch OFF, stored legacy state is legacy state. |
+
+A successful in-memory downgrade is **not** counted as durable invalidation.
+
 Withholding persisted credit MUST NOT reset authored `doc-change`, review, bindings or evidence
 history merely to manufacture an active step. Compute current unresolved verification independently
 of saved PASS; do not trust old aggregate status. Test OFF-completed→ON and an all-PASS typed plan

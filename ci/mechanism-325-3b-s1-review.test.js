@@ -280,13 +280,293 @@ try {
   for (const [key, value] of Object.entries(harnessEnvSaved)) process.env[key] = value;
 }
 
-console.log(`\nP2 persistence review summary: ${passed} PASS, ${failed} FAIL, ${infra} INFRA across ${LEGS.length} legs (pilotCredit: false)`);
+const persistenceCounts = { passed, failed, infra };
+
+console.log(`\nP2 persistence review summary: ${persistenceCounts.passed} PASS, ${persistenceCounts.failed} FAIL, ${persistenceCounts.infra} INFRA across ${LEGS.length} legs (pilotCredit: false)`);
+
+// ---- R1f section: "Unwritable session store (PR #351 follow-up)" — integration through the real Stop entry point ----
+//
+// Both obligations and SaveWorkflow persistence are made to fail for one Stop invocation, by preloading
+// fail-session-writes.js through NODE_OPTIONS onto the real stop-gate child. The preload makes every
+// write/rename/open-for-write/unlink inside that run's session directory throw EACCES (patching fs synchron,
+// fs.promises and the callback wrappers) without chmod, and nothing else. Contract (docs table):
+// Stop exits 0, the Unresolved-workflow-evidence reminder with step:<verify>:pending and a
+// withhold-persist-failed diagnostic are still emitted after the failed saveWorkflow, no uncaught exception
+// text appears, the stored files stay byte-identical (the write really failed), and the stored satisfied/PASS
+// is never confused for credit by an ON disposition attempt. Only a completely unwritable store is under test:
+// the in-memory downgrade is explicitly not counted as durable invalidation.
+
+const { spawnSync: r1fSpawnSync } = require('child_process');
+const R1F_PRELOAD = path.join(ROOT, 'ci', 'fixtures', 'doc-obligations', 'reconciliation-s1', 'fail-session-writes.js');
+const R1F_SESSION_ENV = 'HARNESS_S1_REVIEW_SESSION_DIR';
+const R1F_WORKFLOW_FILE = 'workflow-run.json';
+
+const R1F_LEGS = [
+  {
+    id: 'source',
+    kernel: path.join(ROOT, 'harness-everything', 'scripts', 'kernel-router.js'),
+    controller: path.join(ROOT, 'hooks', 'scripts', 'workflow-disposition.js'),
+    stopGate: path.join(ROOT, 'hooks', 'scripts', 'workflow-stop-gate.js'),
+  },
+  {
+    id: 'packaged',
+    kernel: path.join(ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'kernel-router.js'),
+    controller: path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-disposition.js'),
+    stopGate: path.join(ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-stop-gate.js'),
+  },
+];
+
+function r1fScrub(text, tokens) {
+  let out = String(text ?? '');
+  for (const token of tokens) out = out.split(token).join('<tmp>');
+  return out;
+}
+
+function r1fBuildWorkspace(dir) {
+  writeFile(dir, '.agents/harness-everything/project-docs.json', GOVERNED_CONFIG);
+  writeFile(dir, 'docs/adr/GRPH-001.md', ADR_BASE);
+  git(dir, ['init', '-q']);
+  git(dir, ['add', '-A']);
+  git(dir, ['-c', 'user.name=harness-review', '-c', 'user.email=harness-review@example.com', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'baseline']);
+  writeFile(dir, 'docs/adr/GRPH-001.md', ADR_CANDIDATE);
+}
+
+// Isolated child environment mirroring the replay helper: no inherited HARNESS switches, explicit state
+// home and workspace root; the pilot switch and the NODE_OPTIONS preload are added only where named.
+function r1fChildEnv(dir, stateHome, options) {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) if (key.startsWith('HARNESS_')) delete env[key];
+  delete env.CLAUDE_PLUGIN_ROOT;
+  delete env.PLUGIN_ROOT;
+  env.HARNESS_STATE_HOME = stateHome;
+  env.HARNESS_WORKSPACE_ROOT = dir;
+  if (options.pilot !== undefined) env[SWITCH] = String(options.pilot);
+  const nodeOptions = [];
+  if (typeof env.NODE_OPTIONS === 'string' && env.NODE_OPTIONS.trim()) nodeOptions.push(env.NODE_OPTIONS.trim());
+  if (options.preload) nodeOptions.push(`--require ${R1F_PRELOAD}`);
+  if (nodeOptions.length) env.NODE_OPTIONS = nodeOptions.join(' ');
+  if (options.sessionDirectory) env[R1F_SESSION_ENV] = options.sessionDirectory;
+  return env;
+}
+
+function r1fSpawn(leg, script, args, dir, stateHome, options = {}) {
+  return r1fSpawnSync(process.execPath, [script, ...args], {
+    cwd: dir,
+    encoding: 'utf8',
+    input: options.input === undefined ? undefined : JSON.stringify(options.input),
+    env: r1fChildEnv(dir, stateHome, options),
+    timeout: 60000,
+    maxBuffer: 8 * 1024 * 1024,
+  });
+}
+
+// Seeds a stored satisfied workflow with stored verify pass through the leg's real CLI entry points, with
+// the pilot switch OFF: route → plan → start → both bindings → both step passes → an OFF Stop.
+function r1fSeedSatisfied(leg, dir, stateHome, sessionId) {
+  let result = r1fSpawn(leg, leg.kernel, [], dir, stateHome, {
+    input: { session_id: sessionId, cwd: dir, prompt: 'Fix this checkout bug and add a regression test.' },
+  });
+  if (result.status !== 0) return { fault: 'route: ' + (result.stderr || '').split('\n')[0] };
+  const args = (command, stepId, extra) => [
+    command, '--session-id', sessionId,
+    ...(stepId ? ['--step-id', stepId] : []), ...extra,
+  ];
+  result = r1fSpawn(leg, leg.controller, args('plan', null, [
+    '--requirements-json', REQUIREMENTS, '--strategy', 'iterative-single',
+    '--evidence', 'two dependent requirements fit a bounded documentation loop',
+  ]), dir, stateHome);
+  if (result.status !== 0) return { fault: 'plan: ' + (result.stderr || '').split('\n')[0] };
+  result = r1fSpawn(leg, leg.controller, args('start', null, []), dir, stateHome);
+  if (result.status !== 0) return { fault: 'start: ' + (result.stderr || '').split('\n')[0] };
+  for (const [stepId, bindingId] of [['req-docs', 'tdd'], [VERIFY_STEP_ID, 'verification-loop']]) {
+    result = r1fSpawn(leg, leg.controller, args('binding', stepId, ['--binding-id', bindingId, '--disposition', 'loaded', '--evidence', 'located']), dir, stateHome);
+    if (result.status !== 0) return { fault: `binding ${stepId}: ` + (result.stderr || '').split('\n')[0] };
+    result = r1fSpawn(leg, leg.controller, args('step', stepId, ['--disposition', 'pass', '--evidence', 'seeded-off-pass']), dir, stateHome);
+    if (result.status !== 0) return { fault: `step ${stepId}: ` + (result.stderr || '').split('\n')[0] };
+  }
+  result = r1fSpawn(leg, leg.stopGate, [], dir, stateHome, { input: { session_id: sessionId, cwd: dir, hook_event_name: 'Stop' } });
+  if (result.status !== 0) return { fault: 'seed-stop: ' + (result.stderr || '').split('\n')[0] };
+  return { fault: null };
+}
+
+// The session directory inside the isolated state home: exactly one workspace key must contain it.
+function r1fFindSessionDir(stateHome, sessionId) {
+  const workspacesRoot = path.join(stateHome, 'workspaces');
+  const found = [];
+  let entries = [];
+  try { entries = fs.readdirSync(workspacesRoot, { withFileTypes: true }); } catch (_) {
+    return null;
+  }
+  for (const entry of entries.filter(item => item.isDirectory())) {
+    const candidate = path.join(workspacesRoot, entry.name, 'state', 'sessions', sessionId);
+    if (fs.existsSync(path.join(candidate, R1F_WORKFLOW_FILE))) found.push(candidate);
+  }
+  return found.length === 1 ? found[0] : null;
+}
+
+function r1fStoredWorkflow(sessionDir) {
+  return readJsonOrNull(path.join(sessionDir, R1F_WORKFLOW_FILE));
+}
+
+// One integration scenario: seed OFF, run the real Stop entry point (child) with the switch ON.
+function r1fRunScenario(leg, mode) {
+  const tag = `${leg.id}.${mode === 'fail' ? 'unwritable' : 'writable-control'}`;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1f-'));
+  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1f-state-'));
+  const sessionId = 's1-review-r1f-' + leg.id;
+  const tokens = [dir, stateHome];
+  try {
+    if (!fs.existsSync(R1F_PRELOAD)) {
+      record('INFRA', `${tag}.preload`, 'fail-session-writes.js preload not found at ' + R1F_PRELOAD);
+      return;
+    }
+    r1fBuildWorkspace(dir);
+    const seeded = r1fSeedSatisfied(leg, dir, stateHome, sessionId);
+    if (seeded.fault) {
+      record('INFRA', `${tag}.scenario`, 'seed failed: ' + r1fScrub(seeded.fault, tokens));
+      return;
+    }
+    const sessionDir = r1fFindSessionDir(stateHome, sessionId);
+    if (!sessionDir) {
+      record('INFRA', `${tag}.scenario`, 'the OFF-seeded session directory was not found (expected exactly one)');
+      return;
+    }
+    const stored = r1fStoredWorkflow(sessionDir);
+    const storedObligations = readJsonOrNull(path.join(sessionDir, OBLIGATION_FILE));
+    if (!stored || stored.state !== 'satisfied'
+      || storedObligations?.obligations?.find(item => item.id === 'verify')?.status !== 'pass') {
+      record('INFRA', `${tag}.scenario`,
+        `seed did not leave stored satisfied/verify-pass (workflow ${JSON.stringify(stored?.state)}, verify ${JSON.stringify(storedObligations?.obligations?.find(item => item.id === 'verify')?.status)})`);
+      return;
+    }
+    const before = {
+      run: fs.readFileSync(path.join(sessionDir, R1F_WORKFLOW_FILE), 'utf8'),
+      obligations: fs.readFileSync(path.join(sessionDir, OBLIGATION_FILE), 'utf8'),
+    };
+    const stopResult = r1fSpawn(leg, leg.stopGate, [], dir, stateHome, {
+      pilot: 1,
+      preload: mode === 'fail',
+      sessionDirectory: mode === 'fail' ? sessionDir : undefined,
+      input: { session_id: sessionId, cwd: dir, hook_event_name: 'Stop' },
+    });
+    const stderr = stopResult.stderr || '';
+    record(stopResult.status === 0 ? 'PASS' : 'FAIL', `${tag}.stop-exit-0`,
+      stopResult.status === 0 ? '' : `exit ${stopResult.status} where 0 desired`);
+    if (mode === 'fail') {
+      record(stderr.includes('Unresolved workflow evidence') ? 'PASS' : 'FAIL', `${tag}.reminder-unresolved-evidence`,
+        stderr.includes('Unresolved workflow evidence') ? '' : 'the Unresolved workflow evidence reminder is missing after the failed saveWorkflow');
+      record(stderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? 'PASS' : 'FAIL', `${tag}.reminder-step-pending`,
+        stderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? '' : 'step:req-verify:pending absent from the Stop reminder');
+      record(stderr.includes('withhold-persist-failed') ? 'PASS' : 'FAIL', `${tag}.persist-failed-diagnostic`,
+        stderr.includes('withhold-persist-failed') ? '' : 'withhold-persist-failed diagnostic absent from Stop stderr');
+      const exceptionText = stderr.includes('EACCES') || stderr.includes('simulated session store');
+      record(exceptionText ? 'FAIL' : 'PASS', `${tag}.no-exception-text`,
+        exceptionText ? 'exception text reached stderr: ' + r1fScrub(stderr.trim().split('\n').find(line => line.includes('EACCES') || line.includes('simulated session store')) || '', tokens) : '');
+      const afterBytes = {
+        run: fs.readFileSync(path.join(sessionDir, R1F_WORKFLOW_FILE), 'utf8'),
+        obligations: fs.readFileSync(path.join(sessionDir, OBLIGATION_FILE), 'utf8'),
+      };
+      record(afterBytes.run === before.run && afterBytes.obligations === before.obligations ? 'PASS' : 'FAIL',
+        `${tag}.stored-bytes-identical`,
+        afterBytes.run === before.run && afterBytes.obligations === before.obligations
+          ? '' : 'the unwritable session store changed: the failed write is not proven');
+    } else {
+      record(stderr.includes('Unresolved workflow evidence') && stderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? 'PASS' : 'FAIL',
+        `${tag}.reminder-present`,
+        stderr.includes('Unresolved workflow evidence') && stderr.includes('step:' + VERIFY_STEP_ID + ':pending') ? '' : 'reminder or pending token missing on the writable control');
+    }
+    // ON disposition attempt with the switch on, no preload. Over the fail mode, the stored files still
+    // say satisfied/verify:pass (the writes failed); over the control, Stop persisted the downgrade.
+    const disposition = r1fSpawn(leg, leg.controller, [
+      'step', '--session-id', sessionId, '--step-id', VERIFY_STEP_ID, '--disposition', 'pass', '--evidence', 'attempt over stored state',
+    ], dir, stateHome, { pilot: 1 });
+    record(disposition.status === 2 ? 'PASS' : 'FAIL', `${tag}.stored-not-credited`,
+      disposition.status === 2 ? `refused: ${r1fScrub((disposition.stderr || '').trim(), tokens).slice(0, 120)}` : `exit ${disposition.status} where 2 desired`);
+    if (mode === 'fail') return;
+    // Writable control: the durable downgrade is persisted and claimed (already passing at this head).
+    const reread = r1fStoredWorkflow(sessionDir);
+    record(reread?.state === 'running' ? 'PASS' : 'FAIL', `${tag}.stored-running`,
+      reread?.state === 'running' ? '' : `stored workflow.state ${JSON.stringify(reread?.state)} where "running" desired`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(stateHome, { recursive: true, force: true });
+  }
+}
+
+// Item 4, observable-report form: ON verification-step PASS through the real disposition CLI over a seeded
+// running workflow (its stored verify step still pending), so the pilot assess runs and writes the runtime
+// pilot report; assert exit 2 with pilotCredit false. On this head both item-4 probes already pass.
+function r1fRunOnVerifyRefusal(leg) {
+  const tag = `${leg.id}.on-verify-refusal`;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1f-refusal-'));
+  const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-325b1-r1f-refusal-state-'));
+  const sessionId = 's1-review-r1f-verify-' + leg.id;
+  const tokens = [dir, stateHome];
+  try {
+    r1fBuildWorkspace(dir);
+    let result = r1fSpawn(leg, leg.kernel, [], dir, stateHome, {
+      input: { session_id: sessionId, cwd: dir, prompt: 'Fix this checkout bug and add a regression test.' },
+    });
+    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'route: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
+    result = r1fSpawn(leg, leg.controller, [
+      'plan', '--session-id', sessionId,
+      '--requirements-json', REQUIREMENTS, '--strategy', 'iterative-single',
+      '--evidence', 'two dependent requirements fit a bounded documentation loop',
+    ], dir, stateHome);
+    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'plan: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
+    result = r1fSpawn(leg, leg.controller, ['start', '--session-id', sessionId], dir, stateHome);
+    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'start: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
+    result = r1fSpawn(leg, leg.controller, ['binding', '--session-id', sessionId, '--step-id', 'req-docs', '--binding-id', 'tdd', '--disposition', 'loaded', '--evidence', 'located'], dir, stateHome);
+    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'binding: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
+    result = r1fSpawn(leg, leg.controller, ['step', '--session-id', sessionId, '--step-id', 'req-docs', '--disposition', 'pass', '--evidence', 'added'], dir, stateHome);
+    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'step: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
+    result = r1fSpawn(leg, leg.controller, ['binding', '--session-id', sessionId, '--step-id', VERIFY_STEP_ID, '--binding-id', 'verification-loop', '--disposition', 'loaded', '--evidence', 'located'], dir, stateHome);
+    if (result.status !== 0) return record('INFRA', `${tag}.scenario`, 'binding2: ' + r1fScrub((result.stderr || '').split('\n')[0], tokens));
+    result = r1fSpawn(leg, leg.controller, ['step', '--session-id', sessionId, '--step-id', VERIFY_STEP_ID, '--disposition', 'pass', '--evidence', 'objective check attempted'], dir, stateHome, { pilot: 1 });
+    record(result.status === 2 ? 'PASS' : 'FAIL', `${tag}.exit-2`,
+      result.status === 2 ? `refused: ${r1fScrub((result.stderr || '').trim(), tokens).slice(0, 120)}` : `exit ${result.status} where 2 desired`);
+    const sessionDir = r1fFindSessionDir(stateHome, sessionId);
+    const report = sessionDir ? readJsonOrNull(path.join(sessionDir, PILOT_REPORT_FILE)) : null;
+    record(report && report.pilotCredit === false && report.reportOrigin === 'runtime' ? 'PASS' : 'FAIL', `${tag}.pilot-credit-false`,
+      report && report.pilotCredit === false && report.reportOrigin === 'runtime' ? '' : `pilot report ${JSON.stringify(report ? { origin: report.reportOrigin, credit: report.pilotCredit } : null)} where {origin runtime, credit false} desired`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(stateHome, { recursive: true, force: true });
+  }
+}
+
+function runR1fSection() {
+  for (const leg of R1F_LEGS) {
+    for (const mode of ['fail', 'control']) {
+      try {
+        r1fRunScenario(leg, mode);
+      } catch (error) {
+        record('INFRA', `${leg.id}.${mode}.crash`, error.message.split('\n')[0]);
+      }
+    }
+    try {
+      r1fRunOnVerifyRefusal(leg);
+    } catch (error) {
+      record('INFRA', `${leg.id}.on-verify-refusal.crash`, error.message.split('\n')[0]);
+    }
+  }
+}
+
+runR1fSection();
+
+const r1fCounts = {
+  passed: passed - persistenceCounts.passed,
+  failed: failed - persistenceCounts.failed,
+  infra: infra - persistenceCounts.infra,
+};
+console.log(`\nR1f unwritable-session-store summary: ${r1fCounts.passed} PASS, ${r1fCounts.failed} FAIL, ${r1fCounts.infra} INFRA across ${R1F_LEGS.length} legs (pilotCredit: false)`);
+console.log(`\nReview file summary (both sections): ${passed} PASS, ${failed} FAIL, ${infra} INFRA (pilotCredit: false)`);
 if (infra > 0) {
-  console.error('P2 suite: infrastructure faults present; these are not assertion results.');
+  console.error('S1 review suite: infrastructure faults present; these are not assertion results.');
   process.exitCode = 2;
 } else if (failed > 0) {
-  console.error('P2 suite: assertion FAIL present (expected on the RED base; GREEN must clear every FAIL).');
+  console.error('S1 review suite: assertion FAIL present (expected on the RED base; GREEN must clear every FAIL).');
   process.exitCode = 1;
 } else {
-  console.log('P2 suite: all assertions PASS.');
+  console.log('S1 review suite: all assertions PASS.');
 }
