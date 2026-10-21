@@ -9,7 +9,10 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
 
-const C1_EXECUTION_TIMEOUT_MS = 2000;
+// C1 runs in CI across hosted runners; keep enough headroom for slower macOS startup and VM checks.
+const C1_EXECUTION_TIMEOUT_MS = 10_000;
+// Infinite-loop controls opt into a shorter deadline through the argv-gated test entry below.
+const C1_TEST_EXECUTION_TIMEOUT_MS = 1_000;
 const C1_EXECUTION_MAX_BUFFER_BYTES = 4 * 1024 * 1024;
 
 const COVERAGE_IDS = Object.freeze([
@@ -33,12 +36,16 @@ function checkBoundary(input) {
     }
   }
 
+  return checkIsolationBoundary(input, C1_EXECUTION_TIMEOUT_MS);
+}
+
+function checkIsolationBoundary(input, timeoutMs) {
   try {
     // C1 calls VM-created functions and inspects their returned objects from host code; bound the
     // entire isolation run so calls and proxy-backed ownership traversal are all killable.
     // This production call selects only the fixed isolation entry; the timeout test entry is
     // reachable only by direct CLI invocation and is never derived from caller input.
-    const child = spawnC1Child(['--c1-isolation-child'], JSON.stringify(input === undefined ? null : input));
+    const child = spawnC1Child(['--c1-isolation-child'], JSON.stringify(input === undefined ? null : input), timeoutMs);
     if (child.error && child.error.code === 'ETIMEDOUT') {
       return failClosedResult(input, 'CHECKER_EXECUTION_TIMEOUT');
     }
@@ -51,11 +58,11 @@ function checkBoundary(input) {
   }
 }
 
-function spawnC1Child(args, input) {
+function spawnC1Child(args, input, timeoutMs = C1_EXECUTION_TIMEOUT_MS) {
   return spawnSync(process.execPath, [__filename, ...args], {
     input,
     encoding: 'utf8',
-    timeout: C1_EXECUTION_TIMEOUT_MS,
+    timeout: timeoutMs,
     // Windows maps SIGKILL to process termination; classify timeout by ETIMEDOUT below.
     killSignal: 'SIGKILL',
     maxBuffer: C1_EXECUTION_MAX_BUFFER_BYTES
@@ -1186,7 +1193,18 @@ function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-if (require.main === module && process.argv[2] === '--c1-isolation-child') {
+if (require.main === module && process.argv[2] === '--c1-test-fast-isolation') {
+  // Direct test-only selection: exercise checkBoundary's child path with a short deadline for loop controls.
+  let input;
+  let result;
+  try {
+    input = JSON.parse(fs.readFileSync(0, 'utf8'));
+    result = checkIsolationBoundary(input, C1_TEST_EXECUTION_TIMEOUT_MS);
+  } catch {
+    result = failClosedResult(input, 'CHECKER_FAIL_CLOSED');
+  }
+  process.stdout.write(JSON.stringify(result));
+} else if (require.main === module && process.argv[2] === '--c1-isolation-child') {
   let input;
   let result;
   try {
@@ -1198,7 +1216,7 @@ if (require.main === module && process.argv[2] === '--c1-isolation-child') {
   process.stdout.write(JSON.stringify(result));
 } else if (require.main === module && process.argv[2] === '--c1-timeout-kill-test') {
   // Test-only selection: checkBoundary never forwards caller data to this CLI argument.
-  const child = spawnC1Child(['--c1-sigterm-resistant-test-child']);
+  const child = spawnC1Child(['--c1-sigterm-resistant-test-child'], undefined, C1_TEST_EXECUTION_TIMEOUT_MS);
   const ignoredSigterm = typeof child.stdout === 'string' && child.stdout.includes('C1_SIGTERM_IGNORED');
   // POSIX reports the delivered signal. Windows maps SIGKILL to immediate process termination.
   const killedBySigkill = process.platform === 'win32' || child.signal === 'SIGKILL';
@@ -1210,7 +1228,7 @@ if (require.main === module && process.argv[2] === '--c1-isolation-child') {
   // Finite CPU work keeps this child alive beyond C1's timeout while allowing Node to deliver
   // and ignore SIGTERM between busy turns. It exits naturally if the kill-signal control regresses.
   process.on('SIGTERM', () => process.stdout.write('C1_SIGTERM_IGNORED\n'));
-  const stopAt = Date.now() + C1_EXECUTION_TIMEOUT_MS + 1500;
+  const stopAt = Date.now() + C1_TEST_EXECUTION_TIMEOUT_MS + 1500;
   const busyTurn = () => {
     const turnEndsAt = Date.now() + 20;
     while (Date.now() < turnEndsAt) { /* intentional bounded busy loop */ }

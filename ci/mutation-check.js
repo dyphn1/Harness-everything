@@ -520,6 +520,22 @@ function outputLines(output) {
   return output.split(/\r?\n/).map(line => line.trimEnd());
 }
 
+function checkerDiagnosticCodes(result, check) {
+  if (check.test !== 'ci/mechanism-341-boundary-enforcement.test.js' || !check.caseId.startsWith('C1-')) return [];
+  const evidencePrefix = `EVIDENCE ${check.caseId} `;
+  const evidence = outputLines(result.output).find(line => line.startsWith(evidencePrefix));
+  const match = evidence && /\bdiagnostics=([^\s]+)/.exec(evidence);
+  if (!match || match[1] === 'none') return [];
+  return [...new Set(match[1].split(',')
+    .map(diagnostic => diagnostic.split('/')[0])
+    .filter(code => /^[A-Z][A-Z0-9_]*$/.test(code)))];
+}
+
+function controlFailureReason(result, check, reason) {
+  const codes = checkerDiagnosticCodes(result, check);
+  return codes.length ? `${reason}; checker diagnostic code(s)=${codes.join(',')}` : reason;
+}
+
 function regexMatches(lines, matcher) {
   return lines.filter(line => {
     matcher.lastIndex = 0;
@@ -528,21 +544,26 @@ function regexMatches(lines, matcher) {
 }
 
 function evaluateControl(result, check) {
-  if (result.error || result.signal || result.status !== 0) return { passed: false, reason: `control process status=${result.status} signal=${result.signal || 'none'}${result.error ? ` error=${result.error.message}` : ''}` };
+  if (result.error || result.signal || result.status !== 0) {
+    return { passed: false, reason: controlFailureReason(result, check,
+      `control process status=${result.status} signal=${result.signal || 'none'}${result.error ? ` error=${result.error.message}` : ''}`) };
+  }
   if (check.legacy && check.legacy.kind === 'output') {
     const lines = outputLines(result.output);
     const pass = regexMatches(lines, check.legacy.pass);
     const failures = lines.filter(line => /^FAIL(?:\s|$)/.test(line));
     return pass.length > 0 && failures.length === 0
       ? { passed: true }
-      : { passed: false, reason: `expected legacy pass signature; pass hits=${pass.length}, failure lines=${failures.length}` };
+      : { passed: false, reason: controlFailureReason(result, check,
+        `expected legacy pass signature; pass hits=${pass.length}, failure lines=${failures.length}`) };
   }
   const events = readJsonLines(result.eventFile);
-  if (!Array.isArray(events)) return { passed: false, reason: events.error };
+  if (!Array.isArray(events)) return { passed: false, reason: controlFailureReason(result, check, events.error) };
   const selected = matchingAssertionEvents(events, check);
-  if (selected.error) return { passed: false, reason: selected.error };
+  if (selected.error) return { passed: false, reason: controlFailureReason(result, check, selected.error) };
   if (selected.matching.length !== 1 || selected.matching[0].event !== 'assertion-pass' || selected.failures.length) {
-    return { passed: false, reason: `expected one passing ${check.caseId}/${check.assertionId} event` };
+    return { passed: false, reason: controlFailureReason(result, check,
+      `expected one passing ${check.caseId}/${check.assertionId} event`) };
   }
   return { passed: true };
 }

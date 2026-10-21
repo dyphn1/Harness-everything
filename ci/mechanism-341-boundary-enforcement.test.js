@@ -131,17 +131,12 @@ function insertInfiniteLoop(source, functionName) {
 }
 
 function boundedLoopControlResult(input, label) {
-  const script = [
-    "const fs = require('node:fs');",
-    `const { checkBoundary } = require(${JSON.stringify(CHECKER_PATH)});`,
-    "const input = JSON.parse(fs.readFileSync(0, 'utf8'));",
-    'process.stdout.write(JSON.stringify(checkBoundary(input)));'
-  ].join('\n');
   const startedAt = Date.now();
-  const child = spawnSync(process.execPath, ['-e', script], {
+  const child = spawnSync(process.execPath, [CHECKER_PATH, '--c1-test-fast-isolation'], {
     input: JSON.stringify(input),
     encoding: 'utf8',
     timeout: LOOP_CONTROL_CHILD_TIMEOUT_MS,
+    killSignal: 'SIGKILL',
     maxBuffer: 1024 * 1024
   });
   const elapsedMs = Date.now() - startedAt;
@@ -152,7 +147,7 @@ function boundedLoopControlResult(input, label) {
   const result = JSON.parse(child.stdout);
   assert.equal(result.coverage.complete, false, `${label}: timeout leaves C1 coverage incomplete`);
   assert.deepEqual(result.diagnostics.map(item => item.code), ['CHECKER_EXECUTION_TIMEOUT'],
-    `${label}: timeout returns only the deterministic fail-closed diagnostic`);
+    `${label}: the argv-gated short-deadline path returns only the deterministic fail-closed diagnostic`);
   return { result, elapsedMs };
 }
 
@@ -328,13 +323,57 @@ function loadCheckerFromSource(source) {
 function noDiagnosticsChecker() {
   const source = fs.readFileSync(CHECKER_PATH, 'utf8');
   const activeAdd = `  const add = (code, file, location, ruleId, exceptionId) => {\n    diagnostics.push({\n      code,\n      file: typeof file === 'string' ? file : '<policy>',\n      location: typeof location === 'string' ? location : 'input',\n      ruleId,\n      ...(exceptionId ? { exceptionId } : {})\n    });\n  };`;
-  const disabledAdd = `  const add = (code, file, location, ruleId, exceptionId) => {\n    void [code, file, location, ruleId, exceptionId];\n  };`;
+  const disabledAdd = `  let __c1TestAddSinkCalls = 0;\n  const add = (code, file, location, ruleId, exceptionId) => {\n    void [code, file, location, ruleId, exceptionId];\n    __c1TestAddSinkCalls++;\n  };`;
   const count = source.split(activeAdd).length - 1;
   assert.equal(count, 1, 'checker-disable self-test must find exactly one diagnostic sink');
-  return loadCheckerFromSource(source.replace(activeAdd, disabledAdd));
+  let disabledSource = source.replace(activeAdd, disabledAdd);
+  const finalReturn = `  return {\n    method,\n    coverage: { complete: missing.length === 0, checked, missing: unique(missing) },\n    diagnostics\n  };\n}\n\nfunction runAstBoundaryCheck`;
+  const instrumentedReturn = `  return {\n    method,\n    coverage: { complete: missing.length === 0, checked, missing: unique(missing), testAddSinkCalls: __c1TestAddSinkCalls },\n    diagnostics\n  };\n}\n\nfunction runAstBoundaryCheck`;
+  assert.equal(disabledSource.split(finalReturn).length - 1, 1,
+    'checker-disable self-test must find exactly one C1 result return for its sink sentinel');
+  disabledSource = disabledSource.replace(finalReturn, instrumentedReturn);
+
+  // Run the transformed module as an actual CLI child. This uses the production --c1-isolation-child entrypoint,
+  // with real process/filename bindings and the same child boundary as checkBoundary().
+  const tempDir = fs.mkdtempSync(path.join(FIXTURE_DIR, '.c1-disabled-checker-'));
+  const baselinePath = path.join(tempDir, 'doc-evidence-boundary-check-baseline.js');
+  const disabledPath = path.join(tempDir, 'doc-evidence-boundary-check-disabled.js');
+  fs.writeFileSync(baselinePath, source, 'utf8');
+  fs.writeFileSync(disabledPath, disabledSource, 'utf8');
+  return {
+    baseline(input) {
+      return runCheckerChild(baselinePath, input, 'unchanged baseline');
+    },
+    run(input) {
+      return runCheckerChild(disabledPath, input, 'disabled checker');
+    },
+    cleanup() {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  };
 }
 
-// Disables one AST drift emission only. The C1 sink (noDiagnosticsChecker) is untouched.
+function runCheckerChild(checkerPath, input, label) {
+  const child = spawnSync(process.execPath, [checkerPath, '--c1-isolation-child'], {
+    input: JSON.stringify(input),
+    encoding: 'utf8',
+    timeout: LOOP_CONTROL_CHILD_TIMEOUT_MS,
+    killSignal: 'SIGKILL',
+    maxBuffer: 4 * 1024 * 1024
+  });
+  assert.equal(child.error && child.error.code, undefined,
+    `${label}: real C1 child must finish before ${LOOP_CONTROL_CHILD_TIMEOUT_MS}ms`);
+  assert.equal(child.signal, null, `${label}: real C1 child must not be terminated`);
+  assert.equal(child.status, 0, `${label}: real C1 child exit ${child.status}; stderr=${child.stderr}`);
+  let result;
+  assert.doesNotThrow(() => { result = JSON.parse(child.stdout); }, `${label}: child must return JSON`);
+  assert.ok(result && typeof result === 'object' && Array.isArray(result.diagnostics),
+    `${label}: child must return a boundary result`);
+  return result;
+}
+
+// Disables one AST drift emission only. AST checkBoundary dispatches directly to runAstBoundaryCheck before it reads
+// process or __filename, so this VM-only source loader remains valid for the AST route.
 function astDriftDisabledChecker(emissionCode) {
   const source = fs.readFileSync(CHECKER_PATH, 'utf8');
   const line = new RegExp(`^\\s*add\\('${emissionCode}'.*$`, 'gm'); // portability-lint: allow regex source, not a file name
@@ -391,19 +430,36 @@ for (const [distribution, files] of Object.entries(controls.distributions)) {
     console.log(`EVIDENCE ${caseId} expected=${control.expectedC1Status} actual=${controlStatus(result, control.intendedRuleId)} coverage=${result.coverage.complete ? 'complete' : `missing:${result.coverage.missing.join(',')}`} diagnostics=${diagnostics}`);
   }
 
-  // Prove N01/N02/N03 rejection assertions are rule-sensitive: a test-only mutation of the actually loaded checker
-  // source that disables diagnostics must fail those same C1 assertions.
+  // Prove N01/N02/N03 rejection assertions are rule-sensitive: a test-only mutation of the actual C1 checker source
+  // runs as a real child through --c1-isolation-child. The sentinel distinguishes a reached no-diagnostics sink from
+  // any generic fail-closed/infrastructure result.
   const disabledChecker = noDiagnosticsChecker();
-  for (const id of ['N01', 'N02', 'N03']) {
-    const control = controls.controls.find(item => item.id === id);
-    if (!control) throw new Error(`checker-disable self-test missing ${id}`);
-    const sources = applyControl(control, original);
-    const disabledResult = disabledChecker({ distribution, sources, policy, method: 'isolation' });
-    const caseId = `C1-checker-disabled-${id}-${distribution}`;
-    assertion(caseId, 'assertion.rejects-disabled-checker', () => {
-      assert.throws(() => assertExpectedControl(control, disabledResult), assert.AssertionError,
-        `${id}: the intended-rule rejection assertion must fail when checker diagnostics are disabled`);
-    });
+  try {
+    for (const id of ['N01', 'N02', 'N03']) {
+      const control = controls.controls.find(item => item.id === id);
+      if (!control) throw new Error(`checker-disable self-test missing ${id}`);
+      const sources = applyControl(control, original);
+      const input = { distribution, sources, policy, method: 'isolation' };
+      const baseline = disabledChecker.baseline(input);
+      assertExpectedControl(control, baseline);
+      const disabledResult = disabledChecker.run(input);
+      const caseId = `C1-checker-disabled-${id}-${distribution}`;
+      assertion(caseId, 'assertion.child-sink-sensitivity', () => {
+        assert.ok(!disabledResult.diagnostics.some(item => FAIL_CLOSED_CODES.includes(item.code)),
+          `${id}: fail-closed or infrastructure results cannot count as a sensitivity kill; diagnostics=${JSON.stringify(disabledResult.diagnostics)}`);
+        assert.ok(disabledResult.coverage.testAddSinkCalls > 0,
+          `${id}: disabled add() sink must be reached in the real child; sentinel=${disabledResult.coverage.testAddSinkCalls}`);
+        assert.ok(!disabledResult.diagnostics.some(item => item.ruleId === control.intendedRuleId),
+          `${id}: disabled checker must omit intended rule ${control.intendedRuleId}`);
+        assert.throws(() => assertExpectedControl(control, disabledResult), error =>
+          error instanceof assert.AssertionError
+            && error.message.includes(`intended ${control.intendedRuleId}; expected REJECTED`),
+        `${id}: intended-rule assertion must fail because its diagnostic is missing`);
+        console.log(`EVIDENCE ${caseId} baseline=REJECTED intended=${control.intendedRuleId} disabled=missing sentinel=${disabledResult.coverage.testAddSinkCalls} infrastructure=none`);
+      });
+    }
+  } finally {
+    disabledChecker.cleanup();
   }
 
   // ---- C2 ast (persistent, per luna's Requests 1-3) ----
@@ -513,7 +569,7 @@ for (const [distribution, files] of Object.entries(controls.distributions)) {
   }
 }
 
-// C1 timeout controls keep their own subprocess deadline so a regression in the checker cannot hang this suite.
+// C1 infinite-loop controls use the argv-gated 1,000 ms deadline; production C1 has a 10,000 ms hosted-runner budget.
 const [loopDistribution, loopFiles] = Object.entries(controls.distributions)[0];
 const loopOriginal = sourcePair(loopDistribution, loopFiles);
 for (const control of [
