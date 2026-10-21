@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Define the S2a snapshot, captured-config, accepted-origin adapter and expected-set reconciliation core contract; S1 remains no-credit pending S2b host integration.
+
 - Ship default-OFF Phase 3b S1 scope assessment and no-credit runtime gate (opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`); S2/S3 pending, E1 not started.
 
 ## [0.36.4](https://github.com/dyphn1/Harness-everything/compare/v0.36.3...v0.36.4) (2026-10-21)
