@@ -73,6 +73,7 @@ All notable changes to this project are documented in this file.
 
 * **doc-evidence:** define role-scoped read consistency, compatibility traces, and Phase 0 conformance limits
 * **doc-evidence:** document the Phase 0C read-boundary enforcement method (isolation checks plus an AST structural supplement), its scope and its named compatibility exceptions
+* **doc-workflow:** document #325 Phase 3b preparation contracts and fingerprint-qualified expected-RED fixtures; runtime remains gated on #341 E0
 
 ### Bug Fixes
 
