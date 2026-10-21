@@ -189,6 +189,11 @@ routing checkpoint on `route`, a JSON envelope with a string `state` on controll
 the case `INFRASTRUCTURE`. That exits 2 and never qualifies as a gap, even when the other legs or
 later assertions still match.
 
+Every replay child has a 10 s deadline, a 4 MiB output bound and a SIGKILL on expiry. A child that
+times out (`ETIMEDOUT`), exceeds the output bound (`ENOBUFS`) or is force-terminated is an
+`INFRASTRUCTURE` fault. A test copy of the corpus may only shorten the deadline and substitute a
+fixture script; the committed corpus carries neither.
+
 The discovered [preparation suite](../ci/mechanism-325-3b-preparation.test.js) validates the
 inventory, green OFF controls, exact pending-gap qualification and parity. Its report root contains
 `schemaVersion`, `mode`, `baselineSha`, `runtimeFingerprintMatches`, `pilotCredit`, and `cases`.

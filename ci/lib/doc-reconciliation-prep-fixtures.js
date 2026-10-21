@@ -4,7 +4,7 @@
 //
 // Each replay creates a fresh workspace and state home, runs ordered actions through one explicitly
 // selected distribution, and returns a replay root with the L1 shape:
-//   { actions: { [actionId]: { exitCode, signal, error, stdout, stderr, json, state, pilot } }, state, pilot, pilotReportOrigin }.
+//   { actions: { [actionId]: { exitCode, signal, error, errorCode, stdout, stderr, json, state, pilot } }, state, pilot, pilotReportOrigin }.
 // Nothing here is production code. The pilot switch is passed to children only as a request; no reader for
 // it exists in this preparation slice, so ON replays run the legacy code path. Fixture operations
 // (provideEvidence, mutateIdentity, timestampHints) write simulated records only inside the replay's own
@@ -37,6 +37,36 @@ const DISTRIBUTIONS = Object.freeze({
     kernel: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'kernel-router.js')
   }
 });
+
+// Child-process limits for every replay subprocess: a deadline, an output bound and an uncatchable kill. The deadline
+// is about 150x the slowest real action measured on the corpus (65 ms over 440 spawns), so it keeps headroom on slow
+// CI hosts. A test copy of the corpus may shorten it per case and substitute one fixture script for one operation
+// (see limitsFor). The committed corpus carries neither, and the production CLI never reads an environment switch.
+const CHILD_LIMITS = Object.freeze({ timeoutMs: 10000, maxBuffer: 4 * 1024 * 1024, killSignal: 'SIGKILL' });
+const FIXTURE_DIR = path.join(__dirname, '..', 'fixtures', 'doc-obligations', 'reconciliation-prep');
+const SUBSTITUTABLE_OPS = new Set(['route', 'stop', ...CONTROLLER_OPS]);
+const LIMIT_KEYS = new Set(['timeoutMs', 'substitutes']);
+
+function limitsFor(caseDef) {
+  const override = caseDef.childLimits;
+  if (override === undefined) return { ...CHILD_LIMITS, substitutes: {} };
+  if (!override || typeof override !== 'object' || Array.isArray(override)) throw new Error(`${caseDef.id} childLimits must be an object`);
+  for (const key of Object.keys(override)) {
+    if (!LIMIT_KEYS.has(key)) throw new Error(`${caseDef.id} childLimits has unknown key ${key}`);
+  }
+  const timeoutMs = override.timeoutMs === undefined ? CHILD_LIMITS.timeoutMs : override.timeoutMs;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > CHILD_LIMITS.timeoutMs) {
+    throw new Error(`${caseDef.id} childLimits.timeoutMs may only shorten the ${CHILD_LIMITS.timeoutMs} ms deadline`);
+  }
+  const substitutes = override.substitutes === undefined ? {} : override.substitutes;
+  for (const [op, file] of Object.entries(substitutes)) {
+    if (!SUBSTITUTABLE_OPS.has(op)) throw new Error(`${caseDef.id} childLimits.substitutes names unsupported op ${op}`);
+    if (typeof file !== 'string' || !/^[a-z0-9-]+\.js$/.test(file) || !fs.existsSync(path.join(FIXTURE_DIR, file))) {
+      throw new Error(`${caseDef.id} childLimits.substitutes.${op} must name a script in the prep fixture directory`);
+    }
+  }
+  return { ...CHILD_LIMITS, timeoutMs, substitutes: { ...substitutes } };
+}
 
 // Environment for every child. Caller-provided HARNESS_* state is removed, and only the pilot switch
 // explicitly requested is set. Any other inherited switch cannot change the replay.
@@ -78,8 +108,17 @@ function runScript(handle, script, args, stdin, pilot) {
     cwd: handle.workspace,
     encoding: 'utf8',
     input: stdin === undefined ? undefined : JSON.stringify(stdin),
-    env: childEnv(handle.workspace, handle.stateHome, pilot)
+    env: childEnv(handle.workspace, handle.stateHome, pilot),
+    timeout: handle.limits.timeoutMs,
+    maxBuffer: handle.limits.maxBuffer,
+    killSignal: handle.limits.killSignal
   });
+}
+
+// A test copy of the corpus may substitute one fixture script for an operation; otherwise the distribution's entry runs.
+function scriptFor(handle, op, fallback) {
+  const name = handle.limits.substitutes[op];
+  return name === undefined ? fallback : path.join(FIXTURE_DIR, name);
 }
 
 // The session directory is the only workflow-run.json under the fresh state home (one session per replay).
@@ -129,6 +168,7 @@ function fixtureResult(handle, pilot, payloadSummary) {
     exitCode: 0,
     signal: null,
     error: null,
+    errorCode: null,
     stdout: JSON.stringify({ fixture: true, ...payloadSummary }),
     stderr: '',
     json: { fixture: true, ...payloadSummary },
@@ -179,23 +219,23 @@ function runAction(handle, action, pilot) {
   if (FIXTURE_OPS.has(action.op)) return runFixture(handle, action, pilot);
   let result;
   if (action.op === 'route') {
-    result = runScript(handle, dist.kernel, [], { session_id: sid, cwd: handle.workspace, prompt: p.prompt }, pilot);
+    result = runScript(handle, scriptFor(handle, 'route', dist.kernel), [], { session_id: sid, cwd: handle.workspace, prompt: p.prompt }, pilot);
   } else if (action.op === 'stop') {
-    result = runScript(handle, dist.stopGate, [], { session_id: sid, cwd: handle.workspace, hook_event_name: 'Stop' }, pilot);
+    result = runScript(handle, scriptFor(handle, 'stop', dist.stopGate), [], { session_id: sid, cwd: handle.workspace, hook_event_name: 'Stop' }, pilot);
   } else if (action.op === 'plan') {
-    result = runScript(handle, dist.controller, [
+    result = runScript(handle, scriptFor(handle, 'plan', dist.controller), [
       'plan', '--session-id', sid, '--requirements-json', JSON.stringify(p.requirements),
       '--strategy', p.strategy, '--evidence', p.evidence
     ], undefined, pilot);
   } else if (action.op === 'start') {
-    result = runScript(handle, dist.controller, ['start', '--session-id', sid], undefined, pilot);
+    result = runScript(handle, scriptFor(handle, 'start', dist.controller), ['start', '--session-id', sid], undefined, pilot);
   } else if (action.op === 'binding') {
-    result = runScript(handle, dist.controller, [
+    result = runScript(handle, scriptFor(handle, 'binding', dist.controller), [
       'binding', '--session-id', sid, '--step-id', p.stepId, '--binding-id', p.bindingId,
       '--disposition', p.disposition, '--evidence', p.evidence
     ], undefined, pilot);
   } else if (action.op === 'step') {
-    result = runScript(handle, dist.controller, [
+    result = runScript(handle, scriptFor(handle, 'step', dist.controller), [
       'step', '--session-id', sid, '--step-id', p.stepId, '--disposition', p.disposition, '--evidence', p.evidence
     ], undefined, pilot);
   } else if (action.op === 'obligation') {
@@ -205,12 +245,13 @@ function runAction(handle, action, pilot) {
     ];
     if (p.reasonCode) args.push('--reason-code', p.reasonCode);
     if (p.scope) args.push('--scope', p.scope);
-    result = runScript(handle, dist.controller, args, undefined, pilot);
+    result = runScript(handle, scriptFor(handle, 'obligation', dist.controller), args, undefined, pilot);
   }
   return {
     exitCode: result.status,
     signal: result.signal,
     error: result.error ? result.error.message : null,
+    errorCode: result.error ? result.error.code || null : null,
     stdout: result.stdout || '',
     stderr: result.stderr || '',
     json: parseJsonOrNull(result.stdout || ''),
@@ -228,7 +269,8 @@ function effectivePilot(action, replayPilot) {
 
 // Replays one case through one distribution. Actions run in order; a crash is recorded, not hidden.
 function replayCase(caseDef, distribution, options = {}) {
-  const handle = { ...createSession(distribution, caseDef.id, options.pilot), distribution };
+  const limits = limitsFor(caseDef);
+  const handle = { ...createSession(distribution, caseDef.id, options.pilot), distribution, limits };
   try {
     const actions = {};
     for (const action of caseDef.actions) {
@@ -283,14 +325,17 @@ function missingRequiredOutput(action, result) {
   return false;
 }
 
-// Infrastructure faults of one replay: a spawn error, a signal, no exit status, an exit outside the action's policy,
-// or missing required output on an accepted exit. Any fault makes the case an infrastructure failure, decided before
-// registry matching or parity, so a faulted replay can never qualify as an expected RED gap.
+// Infrastructure faults of one replay: a child deadline or output bound hit, a spawn error, a signal (the forced kill
+// included), no exit status, an exit outside the action's policy, or missing required output on an accepted exit. Any
+// fault makes the case an infrastructure failure, decided before registry matching or parity, so a faulted replay can
+// never qualify as an expected RED gap.
 function infrastructureFaults(caseDef, root, mode) {
   const faults = [];
   for (const action of caseDef.actions) {
     const result = root.actions[action.id];
-    if (result.error) faults.push(`${action.id}: spawn error ${result.error}`);
+    if (result.errorCode === 'ETIMEDOUT') faults.push(`${action.id}: timed out at the child deadline (ETIMEDOUT)`);
+    else if (result.errorCode === 'ENOBUFS') faults.push(`${action.id}: child output exceeded maxBuffer (ENOBUFS)`);
+    else if (result.error) faults.push(`${action.id}: spawn error ${result.error}`);
     if (result.signal) faults.push(`${action.id}: terminated by signal ${result.signal}`);
     if (result.exitCode === null) {
       faults.push(`${action.id}: no exit status`);
@@ -339,6 +384,13 @@ function posixForm(value) {
   return String(value).replace(/\\/g, '/');
 }
 
+// Replaces each maximal run of characters outside [\s'"] that contains `needle`. This matches what
+// /[^\s'"]*needle[^\s'"]*/g replaces, but in linear time: that regex backtracks quadratically on one long token,
+// and a flooded child stdout is exactly such a token (a 4 MB run took minutes; the scan takes milliseconds).
+function replaceTokensContaining(text, needle, replacement) {
+  return text.split(/([\s'"]+)/).map((part, index) => (index % 2 === 1 || !part.includes(needle) ? part : replacement)).join('');
+}
+
 let defaultRoots = null;
 // Roots of this checkout and of the temporary directory, both as the host reports them and as realpath resolves
 // them (macOS /var is a symlink to /private/var; Windows short and long names can differ).
@@ -362,8 +414,7 @@ function literalPath(value) {
 
 // Replaces this replay's temporary paths, the checkout root and skill locations in raw text.
 function scrubText(text, roots = scrubRoots()) {
-  let out = posixForm(text)
-    .replace(/[^\s'"]*doc-recon-[^\s'"]*/g, '<tmp>')
+  let out = replaceTokensContaining(posixForm(text), 'doc-recon-', '<tmp>')
     .replace(/\/(private\/)?var\/folders\/[^\s'"]+/g, '<tmp>')
     .replace(/\/tmp\/[^\s'"]+/g, '<tmp>');
   for (const dir of roots.tmp) out = out.replace(literalPath(dir), '<tmp>');
@@ -428,6 +479,8 @@ function readCaseCorpus(file) {
 
 module.exports = {
   DISTRIBUTIONS,
+  CHILD_LIMITS,
+  FIXTURE_DIR,
   PILOT_SWITCH,
   ALL_OPS,
   replayCase,

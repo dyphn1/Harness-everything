@@ -192,6 +192,50 @@ checkCase('--expect-red exits nonzero from the CLI when a real route exit falls 
   assert.ok(run.stdout.includes('INFRASTRUCTURE'), run.stdout);
 });
 
+// Real process boundary: a substituted child (hung or flooding) under a short deadline runs through the CLI. The
+// outer SIGKILL deadline turns a regression (the runner never returns) into a failed check instead of a hung suite.
+const OUTER_DEADLINE_MS = 90000;
+const PROMPT_EXIT_MS = 30000;
+const replayDirsFor = caseId => fs.readdirSync(os.tmpdir()).filter(name => name.startsWith(`doc-recon-${caseId}-`)).length;
+function runWithChildLimits(caseId, childLimits) {
+  const corpusCopy = JSON.parse(JSON.stringify(corpus));
+  corpusCopy.cases.find(item => item.id === caseId).childLimits = childLimits;
+  const file = path.join(workDir, `${caseId}-child-limits.json`);
+  fs.writeFileSync(file, JSON.stringify(corpusCopy), 'utf8');
+  const started = Date.now();
+  const run = spawnSync(process.execPath, [RUNNER, '--expect-red', '--case', caseId, '--cases', file], {
+    cwd: ROOT, encoding: 'utf8', timeout: OUTER_DEADLINE_MS, killSignal: 'SIGKILL'
+  });
+  return { run, elapsed: Date.now() - started };
+}
+
+checkCase('a hung route entrypoint cannot stall --expect-red: the CLI exits 2 promptly and removes the replay directories', () => {
+  const before = replayDirsFor('P01');
+  const { run, elapsed } = runWithChildLimits('P01', { timeoutMs: 500, substitutes: { route: 'hang-entrypoint.js' } });
+  assert.strictEqual(run.signal, null, `the runner hung until the outer ${OUTER_DEADLINE_MS} ms deadline (signal ${run.signal})`);
+  assert.strictEqual(run.status, 2, `exit ${run.status}: ${run.stdout} ${run.stderr}`);
+  assert.ok(elapsed < PROMPT_EXIT_MS, `exit took ${elapsed} ms, bound ${PROMPT_EXIT_MS} ms`);
+  assert.ok(run.stdout.includes('INFRASTRUCTURE') && run.stdout.includes('timed out at the child deadline (ETIMEDOUT)'), run.stdout);
+  assert.strictEqual(replayDirsFor('P01'), before, 'replay directories are removed after the timeout');
+});
+
+checkCase('a route that floods stdout is stopped by the output bound and exits 2 through the CLI', () => {
+  const { run, elapsed } = runWithChildLimits('P01', { timeoutMs: 5000, substitutes: { route: 'flood-entrypoint.js' } });
+  assert.strictEqual(run.signal, null, `the runner hung until the outer ${OUTER_DEADLINE_MS} ms deadline (signal ${run.signal})`);
+  assert.strictEqual(run.status, 2, `exit ${run.status}: ${run.stdout} ${run.stderr}`);
+  assert.ok(elapsed < PROMPT_EXIT_MS, `exit took ${elapsed} ms, bound ${PROMPT_EXIT_MS} ms`);
+  assert.ok(run.stdout.includes('child output exceeded maxBuffer (ENOBUFS)'), run.stdout);
+});
+
+checkCase('the committed corpus carries no child-limit override, so production replays use the default deadline', () => {
+  assert.ok(corpus.cases.every(item => item.childLimits === undefined), 'a childLimits key is test-only');
+});
+
+checkCase('a child deadline override can only shorten the default deadline', () => {
+  const item = { ...corpus.cases.find(candidate => candidate.id === 'P06'), childLimits: { timeoutMs: 60000 } };
+  assert.throws(() => fx.replayCase(item, 'source'), /may only shorten/);
+});
+
 checkCase('a malformed expectExit policy is an infrastructure error, not a RED pass', () => {
   const corpusCopy = JSON.parse(JSON.stringify(corpus));
   corpusCopy.cases.find(item => item.id === 'P06').actions.find(action => action.id === 'route').expectExit = { off: 'two' };
