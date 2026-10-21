@@ -11,6 +11,14 @@ const { deriveDocFacts, deriveDocObligations } = U.runtimeModule('doc-obligation
 const MAX_FILES = 10000;
 const MAX_BYTES = 64 * 1024 * 1024;
 function fail(code) { throw new Error(code); }
+// The JS realpath keeps Windows 8.3 spellings (RUNNER~1) while Git reports the long name, so
+// directory identity uses native resolution and is case-insensitive on Windows (as workflow-isolation).
+function canonicalPath(value) { return fs.realpathSync.native(path.resolve(value)); }
+function samePath(a, b) {
+  const left = canonicalPath(a);
+  const right = canonicalPath(b);
+  return process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
+}
 function git(root, args, options = {}) {
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (key.startsWith('GIT_')) delete env[key];
@@ -35,9 +43,9 @@ function validatePaths(records) {
 }
 function captureBaseline(root, pin) {
   if (!U.record(pin) || !/^[a-f0-9]{40,64}$/.test(pin.commit || '') || !U.text(pin.root)
-    || fs.realpathSync(pin.root) !== root) fail('baseline-unavailable');
+    || !samePath(pin.root, root)) fail('baseline-unavailable');
   const actualRoot = git(root, ['rev-parse', '--show-toplevel']).toString('utf8').trim();
-  if (fs.realpathSync(actualRoot) !== root) fail('baseline-unavailable');
+  if (!samePath(actualRoot, root)) fail('baseline-unavailable');
   const commit = git(root, ['rev-parse', '--verify', '--end-of-options', `${pin.commit}^{commit}`]).toString('utf8').trim();
   const treeRef = git(root, ['rev-parse', '--verify', '--end-of-options', `${commit}^{tree}`]).toString('utf8').trim();
   const entries = git(root, ['ls-tree', '-r', '-z', '--full-tree', treeRef]).toString('utf8').split('\0').filter(Boolean);
@@ -117,9 +125,9 @@ function contextFor(input, provider) {
     || !U.text(c.principals?.author) || !Array.isArray(c.principals?.executors) || !c.principals.executors.every(U.text)) fail('origin-untrusted');
   for (const key of ['sessionId', 'workflowId', 'workflowRevision']) if (c[key] !== input.workflow[key]) fail('identity-mismatch');
   if (c.taskId !== input.task.taskId || U.stable(c.activeHost) !== U.stable(input.activeHost)) fail('identity-mismatch');
-  if (c.workspaceRoot && fs.realpathSync(c.workspaceRoot) !== fs.realpathSync(input.workspaceRoot)) fail('identity-mismatch');
+  if (c.workspaceRoot && !samePath(c.workspaceRoot, input.workspaceRoot)) fail('identity-mismatch');
   if (c.baseline && (c.baseline.commit !== input.baseline.commit || c.baseline.root !== input.baseline.root)) fail('baseline-unavailable');
-  return U.clone({ ...c, workspaceRoot: fs.realpathSync(input.workspaceRoot), originRef: response.originRef });
+  return U.clone({ ...c, workspaceRoot: canonicalPath(input.workspaceRoot), originRef: response.originRef });
 }
 function filesOf(records) {
   return Object.fromEntries(records.filter(r => r.presence === 'present').map(r => [r.path, new TextDecoder('utf-8', { fatal: true }).decode(r.storedBytes)]));
@@ -131,7 +139,7 @@ function produceDocSnapshot(input, dependencies = {}) {
       || !U.text(input.task.taskId) || !Array.isArray(input.task.requirements) || !U.record(input.scope)
       || !Number.isInteger(input.workflow.workflowRevision) || input.workflow.workflowRevision < 0) fail('invalid-input');
     if ((input.prdRoot === undefined ? 'docs/prd/' : input.prdRoot) !== 'docs/prd/' || (input.scope.prdRoot && input.scope.prdRoot !== 'docs/prd/')) fail('unsupported-prd-root');
-    const root = fs.realpathSync(input.workspaceRoot);
+    const root = canonicalPath(input.workspaceRoot);
     const detached = U.clone(input);
     const originContext = contextFor(detached, originProvider);
     const baseline = captureBaseline(root, detached.baseline);
