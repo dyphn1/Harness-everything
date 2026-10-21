@@ -1,6 +1,17 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const { _internals: U } = require('./doc-reconciliation-core');
+
+// Directory identity as in the producer: native realpath (Windows 8.3 names), case-insensitive on Windows.
+function samePath(a, b) {
+  try {
+    const left = fs.realpathSync.native(path.resolve(a));
+    const right = fs.realpathSync.native(path.resolve(b));
+    return process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
+  } catch { return false; }
+}
 
 function artifactsFor(records) {
   return Object.fromEntries(records.filter(item => item.presence === 'present').map(item => [item.path, { digest: item.digest }]));
@@ -41,6 +52,14 @@ function acceptDocEvents(input = {}, dependencies = {}) {
     const context = contextResponse.context;
     for (const key of ['workspaceId', 'sessionId', 'workflowId', 'workflowRevision', 'taskId', 'principals', 'activeHost', 'baselineReference']) {
       if (U.stable(context?.[key]) !== U.stable(snapshot.originContext[key])) diagnostics.push(U.diagnostic('identity-mismatch'));
+    }
+    // The concrete workflow-start pin and worktree bound at capture must still be what the provider issues;
+    // a different pin under the same baselineReference is not the captured baseline (PR #353 review P1).
+    const pin = snapshot.originContext.baseline;
+    if (!U.record(context?.baseline) || !U.record(pin) || context.baseline.commit !== pin.commit
+      || !U.text(context.baseline.root) || !samePath(context.baseline.root, pin.root)) diagnostics.push(U.diagnostic('baseline-unavailable'));
+    if (context?.workspaceRoot !== undefined && !(U.text(context.workspaceRoot) && samePath(context.workspaceRoot, snapshot.originContext.workspaceRoot))) {
+      diagnostics.push(U.diagnostic('identity-mismatch'));
     }
     const seenIds = new Set();
     const seenCapabilities = new Set();

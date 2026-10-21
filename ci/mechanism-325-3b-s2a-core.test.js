@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const childProcess = require('child_process');
 const net = require('net');
 const H = require('./fixtures/doc-obligations/reconciliation-s2a/harness.js');
@@ -359,6 +360,38 @@ runner.run('R2d-P2b:rejected-applicable-must-still-blocks-eligibility', ALL_NEW,
   const r = flow(mods, repo, 'normative', { events });
   if (r.decision && r.decision.eligible) throw new Error('a rejected applicable MUST event must still block eligibility');
   H.expectCodes(r.codes, ['artifact-mismatch'], 'rejected applicable MUST event');
+}));
+
+// ---- PR #353 third pass: the event-acceptance boundary revalidates the concrete start pin ------------------------
+
+function acceptAfterContextChange(mods, repo, change) {
+  const base = flow(mods, repo, 'normative');
+  requireEligible(base, 'complete normative base vector');
+  change(base.origin.context);
+  const accepted = mods[EVENTS].acceptDocEvents({ snapshot: base.snapshot, eventRefs: Object.keys(base.events) }, { originProvider: base.origin });
+  const decision = mods[CORE].checkAcceptedDocEvidence({ snapshot: base.snapshot, accepted, mode: 'verification' });
+  return { accepted, decision };
+}
+
+runner.run('R2e-P1:changed-provider-pin-commit-rejected-at-event-acceptance', ALL_NEW, mods => withVector('normative', repo => {
+  // Same baselineReference, originRef, session, task and workflow; only the concrete pin commit changes.
+  const { accepted, decision } = acceptAfterContextChange(mods, repo, context => { context.baseline = { ...context.baseline, commit: 'b'.repeat(40) }; });
+  if (decision.eligible) throw new Error('a provider pin changed after capture must not leave prior events eligible');
+  H.expectCodes(H.codesOf(accepted, decision), ['identity-mismatch', 'baseline-unavailable'], 'changed provider pin commit');
+}));
+
+runner.run('R2e-P1:changed-provider-pin-root-rejected-at-event-acceptance', ALL_NEW, mods => withVector('normative', repo => {
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), 'doc-s2a-other-root-'));
+  try {
+    const { accepted, decision } = acceptAfterContextChange(mods, repo, context => { context.baseline = { ...context.baseline, root: other }; });
+    if (decision.eligible) throw new Error('a provider pin root changed after capture must not leave prior events eligible');
+    H.expectCodes(H.codesOf(accepted, decision), ['identity-mismatch', 'baseline-unavailable'], 'changed provider pin root');
+  } finally { fs.rmSync(other, { recursive: true, force: true }); }
+}));
+
+runner.run('R2e-P1:unchanged-provider-context-stays-eligible-control', ALL_NEW, mods => withVector('normative', repo => {
+  const { decision } = acceptAfterContextChange(mods, repo, () => {});
+  if (!decision.eligible) throw new Error(`an unchanged provider context must stay eligible: ${JSON.stringify(decision.unsatisfied)}`);
 }));
 
 // ---- A14: stable captures, capture boundary and status-only progress --------------------------------------------
