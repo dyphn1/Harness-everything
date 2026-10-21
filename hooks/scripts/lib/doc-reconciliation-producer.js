@@ -10,6 +10,7 @@ const { deriveDocFacts, deriveDocObligations } = U.runtimeModule('doc-obligation
 
 const MAX_FILES = 10000;
 const MAX_BYTES = 64 * 1024 * 1024;
+const POSIX_MODES = process.platform !== 'win32';
 function fail(code) { throw new Error(code); }
 // The JS realpath keeps Windows 8.3 spellings (RUNNER~1) while Git reports the long name, so
 // directory identity uses native resolution and is case-insensitive on Windows (as workflow-isolation).
@@ -76,13 +77,15 @@ function captureCandidate(root, baseline) {
       const absolute = path.join(dir, entry.name);
       const stat = fs.lstatSync(absolute);
       if (stat.isDirectory()) {
-        if (!(stat.mode & 0o444) || !(stat.mode & 0o111)) fail('inventory-incomplete');
+        // Windows stats carry no POSIX permission bits (directories report 0o666); an unreadable
+        // path there makes readdir/readFile throw instead.
+        if (POSIX_MODES && (!(stat.mode & 0o444) || !(stat.mode & 0o111))) fail('inventory-incomplete');
         walk(absolute, relative);
         continue;
       }
       if (!stat.isFile()) fail('inventory-unsupported');
       // Unreadable files must remain unavailable even when the process has elevated read access.
-      if (!(stat.mode & 0o444)) fail('inventory-incomplete');
+      if (POSIX_MODES && !(stat.mode & 0o444)) fail('inventory-incomplete');
       const bytes = fs.readFileSync(absolute);
       total += bytes.length;
       if (raw.length >= MAX_FILES || total > MAX_BYTES) fail('inventory-unsupported');

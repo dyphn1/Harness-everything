@@ -181,6 +181,7 @@ runner.run('framing:path-boundary-concatenation-does-not-collide', [REQ_PRODUCER
 });
 
 runner.run('framing:mode-drift-changes-candidate-digest', [REQ_PRODUCER], mods => {
+  if (process.platform === 'win32') throw new H.UncheckedError('win32: no POSIX execute bit (core.fileMode=false), mode drift is not observable');
   const plain = withRepo(normativeFiles(), repo => readyOrThrow(produce(mods, repo).result, 'plain').identity.candidateDigest);
   const drifted = withRepo(normativeFiles(), repo => {
     fs.chmodSync(path.join(repo.root, 'docs/prd/graph.md'), 0o755);

@@ -33,6 +33,8 @@ const FIXED_WORKFLOW = VECTORS.fixedWorkflow;
 const ZERO_DIGEST = '0'.repeat(64);
 
 class InfraError extends Error {}
+// A platform cannot observe the behaviour under test (e.g. no POSIX execute bit on Windows). Never a PASS.
+class UncheckedError extends Error {}
 
 function stable(value) {
   if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
@@ -128,7 +130,7 @@ function recordingIo(fn) {
 
 function createRunner(label) {
   const rows = [];
-  const counts = { PASS: 0, FAIL: 0, INFRA: 0 };
+  const counts = { PASS: 0, FAIL: 0, INFRA: 0, UNCHECKED: 0 };
   function emit(status, id, leg, detail) {
     counts[status] += 1;
     rows.push({ status, id, leg, detail: detail || '' });
@@ -154,6 +156,7 @@ function createRunner(label) {
         emit('PASS', id, leg.name);
       } catch (error) {
         if (error instanceof InfraError) emit('INFRA', id, leg.name, error.message.split('\n')[0]);
+        else if (error instanceof UncheckedError) emit('UNCHECKED', id, leg.name, error.message.split('\n')[0]);
         else emit('FAIL', id, leg.name, error.message.split('\n')[0]);
       }
     }
@@ -188,7 +191,7 @@ function createRunner(label) {
       const key = row.detail.replace(/ \(.*$/, '').split(' — ')[0].slice(0, 120);
       reasons.set(key, (reasons.get(key) || 0) + 1);
     }
-    console.log(`\n${label} summary: ${counts.PASS} PASS, ${counts.FAIL} FAIL, ${counts.INFRA} INFRA across ${rows.length} assertion-legs`);
+    console.log(`\n${label} summary: ${counts.PASS} PASS, ${counts.FAIL} FAIL, ${counts.INFRA} INFRA${counts.UNCHECKED ? `, ${counts.UNCHECKED} UNCHECKED` : ''} across ${rows.length} assertion-legs`);
     if (reasons.size) {
       console.log('FAIL reason classes:');
       for (const [reason, count] of [...reasons.entries()].sort((a, b) => b[1] - a[1])) console.log(`  ${count} × ${reason}`);
@@ -427,6 +430,7 @@ function expectCodes(actualCodes, expected, label) {
 }
 
 module.exports = {
+  UncheckedError,
   ROOT,
   FIXTURE_DIR,
   VECTORS,

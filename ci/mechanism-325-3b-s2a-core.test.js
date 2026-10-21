@@ -424,6 +424,7 @@ function applyRecapture(mutator, repo, state) {
       fs.rmSync(path.join(repo.root, 'assets/extra.txt'), { force: true });
       return;
     case 'recapture:modeDrift':
+      if (process.platform === 'win32') throw new H.UncheckedError('win32: no POSIX execute bit (core.fileMode=false), mode drift is not observable');
       fs.chmodSync(path.join(repo.root, 'docs/prd/graph.md'), 0o755);
       return;
     default:
