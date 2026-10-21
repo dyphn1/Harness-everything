@@ -16,6 +16,15 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Reject root-level `__proto__` files in S2a snapshot capture and validation instead of silently dropping their document obligations (#353).
+
+- Bind the S2a captured origin identity to the snapshot identity (workspace, session, workflow, revision, task), the captured plan and the selected active host, so a jointly substituted origin context and provider context cannot earn credit in either reconciliation mode; bind the captured config bytes to the captured inventory (#353).
+
+- Keep a whole-project S2a inventory usable when it contains binary records: every stored byte stays in the candidate digest, records the derive contract cannot observe are omitted from semantic derivation, and governed/derived/code/test records that cannot be decoded fail closed as inventory-unsupported (#353).
+
+- Reject S2a document evidence when the captured origin commit disagrees with the hashed baseline, including joint provider/context commit replacement; also reject inconsistent roots within the snapshot (#353).
+
+- Ship the unwired S2a document evidence producer and reconciliation core (snapshot capture, captured config, accepted-origin adapter, expected-set reconciliation); S1 stays no-credit until S2b host integration.
 - Ship default-OFF Phase 3b S1 scope assessment and no-credit runtime gate (opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`); S2 pending (S3 shipped in 0.37.0), E1 not started.
 
 ## [0.37.0](https://github.com/dyphn1/Harness-everything/compare/v0.36.4...v0.37.0) (2026-10-21)

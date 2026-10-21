@@ -1,0 +1,25 @@
+'use strict';
+const fs=require('fs'),path=require('path'),assert=require('assert/strict');
+const root=path.resolve(process.argv[2]);
+const H=require(path.join(root,'ci/fixtures/doc-obligations/reconciliation-s2a/harness.js'));
+const binary=Buffer.from([0x89,0,0xff]);let passed=0,failed=0;
+for(const leg of H.LEGS) for(const vector of ['frontmatter','req-test']) {
+ const P=require(path.join(leg.lib,'doc-reconciliation-producer.js'));
+ const files=H.vectorFiles('normative');const name=vector==='frontmatter'?'assets/role.dat':'tests/fixture.dat';
+ const repo=H.makeRepo({...files.base,[name]:binary});
+ try {
+  H.writeFiles(repo.root,files.candidate);
+  const content=vector==='frontmatter'?'---\nrole: prd\nid: PRD-GRPH-999\nrevision: 1\nstatus: draft\n---\n### REQ-GRPH-999\n\nThe binary candidate carries a requirement.\n\nAcceptance: evaluate this requirement.\n':'// REQ-GRPH-001\nit("requires the rule", () => { expect(true).toBe(true); });\n';
+  fs.writeFileSync(path.join(repo.root,name),Buffer.concat([Buffer.from(content),binary]));
+  const provider=new H.FakeOrigin({context:H.fakeContext({},repo)});
+  const produced=P.produceDocSnapshot(H.producerInput(repo),{originProvider:provider});
+  if(produced.state==='ready') {
+   const obligations=produced.snapshot.obligations;
+   const relevant=vector==='frontmatter'?obligations.some(o=>o.strength==='MUST'&&o.applicability!=='N/A'&&o.scope.paths.includes(name)):obligations.some(o=>o.capability==='requirement-sync'&&o.applicability!=='N/A');
+   assert(relevant,'candidate semantic content was omitted after probing only baseline bytes');
+  }
+  passed++;console.log('PASS',leg.name,vector,produced.state);
+ } catch(e) { failed++; console.error('FAIL',leg.name,vector,e.message); }
+ finally{H.removeRepo(repo.root);}
+}
+console.log(JSON.stringify({passed,failed}));process.exitCode=failed?1:0;

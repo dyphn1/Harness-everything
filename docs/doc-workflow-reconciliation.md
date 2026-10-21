@@ -517,6 +517,363 @@ S1 proves only its tested no-credit mechanism. It does not prove positive reconc
 independent producer provenance, live-host loading, H1–H4 effectiveness or E1 GO. Registry empty
 is a later strict-prep gate, not proof of any of those evidence layers.
 
+## S2a — producer and reconciliation core
+
+**Docs-stage contract for the deterministic core; not workflow integration or deployed origin
+proof.** S2a is stacked on S1 at `8903435`, under the
+[approved S2 scope](https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6308606462).
+S1 remains default OFF and no-credit; S2a does not change disposition/review/Stop wiring, write a
+credit-bearing session report or retire the ten prep gaps. Tests inject explicitly fake origin
+providers. A successful fake-origin vector proves the acceptance/decision algorithm only, never
+authentic host provenance, reviewer independence in deployment, live-host loading or E1 readiness.
+
+### Private core interfaces
+
+Use pilot-local modules under `hooks/scripts/lib/`, generated into the installed package by
+`plugin:sync`. These are module contracts for independent RED tests, not a new public CLI,
+workflow strategy or generic provider registry. No discovery call executes a verifier, generator
+or network operation. Invalid/unavailable inputs return structured diagnostics and no eligibility,
+never a fabricated empty expected set.
+
+```text
+# doc-reconciliation-producer.js
+produceDocSnapshot({ workspaceRoot, baseline, workflow, task, scope, activeHost,
+                     prdRoot = "docs/prd/" }, { originProvider })
+  -> { state: "ready" | "unavailable", snapshot: Snapshot | null, diagnostics: [...] }
+
+# doc-reconciliation-events.js
+acceptDocEvents({ snapshot, eventRefs }, { originProvider })
+  -> { state: "ready" | "unavailable" | "unresolved", checkerInputs,
+       acceptedIndex, rejected: [...], diagnostics: [...] }
+
+# doc-reconciliation-core.js
+checkAcceptedDocEvidence({ snapshot, accepted, mode = "verification" })
+  -> { decision: "eligible" | "legacy" | "unresolved" | "unavailable",
+       eligible: boolean, expectedMustIds: [...], checkedMustIds: [...],
+       results: [...], unsatisfied: [...], diagnostics: [...] }
+
+reconcileDocResults({ snapshot, accepted, checkerOutput, mode = "verification" })
+  -> same decision shape
+```
+
+`checkAcceptedDocEvidence` calls unchanged `checkDocObligations()` with the producer-derived
+obligations and adapted accepted records, then delegates to `reconcileDocResults`. The latter
+is the pure decision seam for missing/duplicate/conflicting-result RED vectors. Caller result
+IDs do not define the expected set. Results are retained unchanged; side indexes establish
+identity/scope/origin, rather than adding trusted fields to checker results. `eligible: true`
+means only that this core evaluation met its declared mode's requirements. It never persists
+PASS, sets runtime `pilotCredit`, or authorizes a workflow transition in S2a.
+
+`Snapshot` has these required fields: `identity`; `baseline` with `commit`, `treeRef`, `records`,
+`digest`; `candidate` with `records`, `coverage`, `digest`; `config` with `resolution`, `capture`,
+`digest`; `originContext`; `taskSemantics`; `facts`; `obligations`; and `derivationReasons`.
+`records` retain canonical path, presence, type, mode, stored bytes and their per-path digest.
+`derivationReasons[id]` contains `applicability`, a nonempty `reason` and `factRefs` identifying
+captured facts; it is derived alongside, not added to, the unchanged obligation schema. Baseline,
+candidate and config digest fields equal their corresponding identity tuple fields. This detached
+capture contains the full inventory and immutable baseline references, not path names for later rereads. Byte buffers and scalar metadata must come from the same capture; later
+reads of caller objects or paths cannot silently change that capture. The producer correlates
+workspace/worktree, pinned baseline and task/workflow context through the injected origin
+provider; command-line IDs, environment hints and copied context JSON alone are not origin.
+Capture after start's workflow revision increment. Reject a replaced baseline record that does
+not match the provider's correlated workflow-start reference; never substitute current HEAD.
+The provider context MUST carry the concrete pinned `baseline: { commit, root }` (a bare `baselineReference`
+is not enough); a missing pin or any mismatch with the input baseline is `baseline-unavailable`, so a
+baseline re-anchored to a moved HEAD can never return `ready` (PR #353 review P1).
+Capture canonicalizes the pinned root and workspace root to the same native filesystem identity.
+The detached snapshot MUST retain a pin whose commit equals the hashed baseline commit and whose
+canonical root equals the captured workspace root. Snapshot validation reports these violations as `baseline-unavailable`; an invalid snapshot stops
+event adaptation, and both reconciliation modes withhold credit. The commit check rejects joint
+provider/captured-pin replacement against an unchanged hashed baseline. Root comparison proves only
+snapshot-internal consistency: jointly replacing the pin root, captured workspace root and provider
+root is not detected by this detached check. Root metadata is not included in the hashed identity;
+external worktree authentication remains outside this S2a guarantee. The core performs no filesystem
+reads to establish the invariant. Provider-only pin changes remain diagnostic and block credit at
+reconciliation; they do not short-circuit event adaptation.
+The captured origin context is the snapshot's only origin-correlated identity. Snapshot validation
+compares its `workspaceId`, `sessionId`, `workflowId`, `workflowRevision` and `taskId` with the claimed
+`identity`, compares the captured plan (`workflowId`, `workflowRevision`, `sessionId`, `taskId`,
+`prdRoot`, `configDigest`) with that identity, and compares the captured `activeHost` with the host the
+captured config was selected for. A joint substitution of the captured origin context and the provider
+context therefore cannot pass validation: the provider half and the event half of the trust contract stay
+connected through the identity. Both reconciliation modes withhold credit for such a snapshot, and a
+cached acceptance produced for the substituted tuple does not bypass the same check (PR #353 review P1).
+The captured config bytes must also be the bytes the captured inventory holds for the same path; a config
+digest that binds bytes the whole-project capture contradicts is `config-capture-mismatch`.
+Progress-field exclusions in `taskScopeDigest` apply only at their defined schema locations (per-step and
+per-binding status/evidence records), never to every nested key with the same name; nested scope,
+requirement or binding semantics always change the digest (PR #353 review P2).
+In verification mode only rejected evidence for an expected applicable/unknown MUST, or a global
+origin/identity fault, blocks eligibility; a rejected SHOULD or N/A event stays a visible diagnostic and
+never gates (PR #353 review P2).
+
+`checkerInputs` has exactly the existing checker inputs: `obligations`, `artifacts`, `baseline`,
+`executionRecords`, `reviewRecords`. `artifacts[path].digest` and
+`baseline.{digest,artifacts[path].digest}` come from the captured bytes. The checker PRD-set
+envelope is distinct from the whole-candidate identity. `acceptedIndex` maps each checker
+record reference back to accepted event identity, capability, scope, artifacts and origin;
+`rejected` retains targeted invalid/contradictory records so a failing applicable record cannot
+be filtered away to leave a passing subset. Missing acceptance produces empty record lists,
+not accepted records with invented principals or zero exits.
+
+Decision diagnostics use `{ code, message, ...context }`; unsatisfied items use the existing
+`{ obligationId, state, reasonCode }` states pending/unknown/unavailable/failed. Unavailable
+collection/origin support yields `unavailable`; a known unmet or unknown MUST yields
+`unresolved`. Only complete trusted derivation with no applicable/unknown document MUST yields
+`legacy`, `eligible: false`,
+never verified credit. SHOULD results remain visible and never gate.
+
+### Snapshot identity and completeness
+
+Every comparison uses all ten fields from the existing trust contract:
+
+| Field | S2a binding |
+| --- | --- |
+| `workspaceId`, `sessionId` | Origin-provider-correlated actual repository/worktree and host session; validate against the collected root, not a supplied label alone |
+| `workflowId`, `workflowRevision` | Correlated persisted workflow and nonnegative integer revision, collected after start |
+| `taskId` | Actual active task identity from correlated context; any workflow-local mapping must be explicit and validated against the host task lifecycle |
+| `taskScopeDigest` | Stable plan semantics plus effective task/config/diff coverage and PRD root; include requirement IDs/order, summaries, acceptance, dependencies, binding declarations/locators and scope changes; exclude progress statuses, loaded flags, timestamps and derived reports |
+| `baselineDigest` | Whole pinned tree/capture identity and per-path SHA256 from the same stored blob bytes, retaining path/type/mode information |
+| `candidateDigest` | Whole effective candidate capture, including new/untracked/ignored-relevant content, deletions, rename endpoints and type/mode changes; not merely the PRD-set digest |
+| `configDigest` | Exact captured bytes actually parsed/validated plus resolver selection context, described below |
+| `prdRoot` | Exactly `docs/prd/`; another requested root is unavailable, not silently redirected or generalized |
+
+Define byte framing once: `F(bytes) = ASCII(decimal byteLength) + ":" + bytes`. Strings use
+UTF-8; digests use lowercase SHA256 hex. Snapshot hashing is domain-separated and framed:
+`SHA256(F("doc-snapshot-v1") || F(kind) || F(baselineCommit) || F(baselineTreeRef) ||
+F(coverageDigest) || F(recordCount) || records)`, where kind is baseline or candidate and the
+pinned commit/tree remain unchanged for both and recordCount is the decimal ASCII count.
+Each sorted record contributes
+`F(path) || F(presence) || F(type) || F(mode) || F(storedBytes)`; sort canonical repository-relative
+UTF-8 paths by byte order. Candidate records cover the union of baseline and current effective
+inventory, with explicit deleted tombstones (empty type/mode/content); new paths have present
+records. Presence is exactly `present` or `deleted`; supported regular-file type is `file` with
+Git-normalized mode `100644` or `100755`; unsupported types/modes fail unavailable. Rename
+source/destination must both be covered. Deleted tombstones participate only in identity framing:
+**omit deleted paths entirely from candidate checker artifacts**, retaining their baseline artifact
+and the paired rename destination where applicable. An empty candidate artifact is not absence.
+Per-path content digests hash those same owned byte buffers, not a second file read. This framing distinguishes concatenation
+collisions, path boundaries, deletion vs empty files and mode/type changes.
+
+`coverageDigest` and `taskScopeDigest` use framed canonical structured semantics: recursively
+sort object keys, retain semantically ordered arrays, sort declared sets, and hash the resulting
+UTF-8 representation: `coverageDigest = SHA256(F("doc-coverage-v1") || F(canonicalCoverage))`
+and `taskScopeDigest = SHA256(F("doc-task-scope-v1") || F(canonicalTaskSemantics))`.
+Excluding mutable progress means passing
+review does not stale its own evidence; a changed requirement/acceptance/binding/scope still does.
+No invented task ID or timestamp can replace correlated identity. The checker-compatible
+PRD-set digest remains SHA256 of its existing JSON sorted `[path, artifactDigest]` pairs under
+`docs/prd/` (`doc-evidence-capture.js:62–67`), computed separately and never substituted for
+`candidateDigest`.
+
+Reuse lifecycle stored-byte handling; collect bytes before UTF-8 conversion for fact derivation.
+A whole-project inventory contains binary records. Every stored byte stays in the identity framing, so a
+changed binary asset changes `candidateDigest`, but semantic derivation needs decoded text. A record whose
+bytes are not valid UTF-8 is omitted from derivation only when the derive contract cannot observe it:
+outside the configured governed/legacy/derived globs, outside the derive contract's code and REQ-test path
+rules, and without a frontmatter block (including one after a leading UTF-8 BOM). Otherwise it fails closed as `inventory-unsupported`, so a
+governed, derived, code or test record is never silently dropped and applicability is never weakened.
+Producer and core re-derivation apply the same rule, so irrelevant binary assets remain usable
+while the identity still covers their bytes (PR #353 review P2).
+Inventory includes trusted task scope, governed/legacy documents, derived sources/outputs,
+config-selection sources and any code/REQ-test paths affecting applicability. Default to a full
+project capture apart from Git administrative storage. A narrower effective inventory requires
+an explicit justified scope/completeness proof and identity binding; an authored doc step alone
+cannot narrow it. Never call a governed-Markdown-only inventory a whole project snapshot.
+Unsupported encodings/filters, symlinks/submodules, path/case collisions, read failures or
+oversized traversal that prevent faithful identity yield unavailable. Bound resources by refusing
+unsupported capture, not silently omitting paths. Detect mutation/mixed reads during capture;
+a capture whose before/after context or inventories disagree is unusable, not current evidence.
+
+**F4 is a producer requirement, not an inherited S1 exemption.** Include ignored paths intersecting
+governed/derived/task scope, including parent-directory ignore rules, ignored rename destinations,
+config and relevant code/REQ facts. A file removed from the index is not therefore absent. Include
+its bytes in candidate identity or return inventory unsupported/unavailable. Even ignored paths
+outside document globs must be covered if they affect whole-candidate completeness/applicability.
+An ignored irrelevant-path control must show either inclusion with no new MUST or a justified
+excluded scope; uncertainty cannot establish non-document status. No silent residual re-acceptance.
+
+### Captured-config resolver seam
+
+Add only `resolveDocsConfigCaptured(workspaceRoot, options = {})` alongside the existing resolver:
+
+```text
+resolveDocsConfigCaptured(root, { activeHost, ...existingOptions })
+  -> { resolution, capture: { activeHost, sources: [...], selectionInputs: [...] } }
+```
+
+`resolution` is byte-for-byte-equivalent in serialized values, shape, ordering, diagnostics and
+precedence to existing `resolveDocsConfig(root, options)`. Existing callers keep their old result
+shape and behavior. Both entry points share the same internal captured-read selection logic;
+do not resolve first and later reread/hash filenames. Preserve project-overrides-host, known
+active-host selection, equal-host handling, invalid/absent/ambiguous behavior and host normalization.
+An unknown host cannot arbitrarily choose differing manifests. Keep canonical resolver copies
+under `to-spec/scripts/` and `multi-agent-workspace/scripts/` synchronized in implementation.
+
+Each capture source retains its canonical path, presence/read disposition, exact owned bytes
+actually parsed, byte SHA256 and selected normalized value when applicable. Host manifests bind
+the complete parsed manifest bytes as well as selected `projectDocs` and its normalization.
+`selectionInputs` records selection-affecting path presence/absence, selection status/source paths
+and active-host context. Define `canonicalSelection` as canonical JSON of that selection metadata,
+including selected normalized config. Compute `configDigest = SHA256(F("doc-config-v1") ||
+F(canonicalSelection) || F(sourceCount) || sourceRecords)`, where sourceCount is decimal ASCII
+and each path-sorted source record is `F(path) || F(presence) || F(exactBytes)`; absence has empty
+bytes and a distinct presence marker. Never presence-check a digest or hash only normalized config. Equivalent parsed configs with changed bytes or host selection
+must differ. If trustworthy capture cannot be established, do not return a usable producer identity.
+Source replacement between parse and hash cannot bind B's bytes to A's validated value; mutation
+beyond the captured snapshot is caught by a later capture, not silently promoted as freshness.
+
+### Injected origin and accepted-event boundary
+
+The origin provider is an injected dependency, not an object loaded from a journal or a record's
+`trusted` field. S2a tests explicitly name their fake. Define this narrow interface:
+
+```text
+originProvider.resolveContext({ workspaceRoot, workflowId, sessionId })
+  -> { status: "accepted", context, originRef } | { status: "unavailable" | "rejected", diagnostics }
+originProvider.resolveEvent({ reference, identity })
+  -> { status: "accepted", event, originRef, correlation } |
+     { status: "unavailable" | "rejected", diagnostics }
+```
+
+An accepted context binds actual workspace/session/task, author and relevant executor principals,
+active-host context and the workflow-start baseline reference. An accepted event binds the common
+trust-contract fields `eventId`, `kind`, `producerId`, `originRef`, full `identity`, `principalId`,
+`paths`, `provenance`. Execution/verification also retain exact authorized command/argv, cwd,
+integer exit, signal, tool/event correlation ID, actual capability/scope, start/end identity captures
+and immutable result reference. Missing/null/noninteger exit is never converted to zero; nonzero
+exit/signal or a command with unrelated semantics cannot satisfy a document check.
+
+Review requires approve verdict, nonempty summary, reviewed artifact digests, current identity/scope
+and independently correlated reviewer provenance. The reviewer differs from the current author
+and all relevant executors; `independentOf` strings, distinct filenames/session labels or different
+actor strings alone are insufficient. These principals and role relationships also come from the
+provider. Provider acceptance must be invoked for current references, not inferred from an old
+pilot report, copied local journal, filesystem permissions, hash agreement or self-asserted JSON.
+Missing/expired origins remain unavailable; conflicting/replayed/stale records never earn credit.
+
+Adapt only accepted records into the unchanged checker schema. Keep a separate binding from
+checker record IDs/`recordRefs` to the accepted origin index; every contributing reference must
+resolve and cover its expected scope/current tuple/artifacts, including baseline-only and paired
+rename endpoints. Retain relevant rejection/conflict diagnostics; do not discard observed failures
+and submit only passing records. An unrelated extra event cannot replace a missing MUST; an
+extra/misattributed result cannot invent one. Fake providers may simulate acceptance/rejection for
+these deterministic tests; there is no environment/CLI fixture trust switch, and production code
+must not read `prep-host-events` as an authority.
+
+### Expected-set and review-mode decisions
+
+The binding reconciliation rule (A2 §1.5) is:
+
+> Reconcile by expected ID/scope/identity, not `results.every(...)`: every applicable MUST needs exactly one unambiguous matching observed/pass decision backed by accepted records covering its scope. Missing, duplicate/conflicting, extra/misattributed, stale or untrusted evidence cannot provide credit; unknown remains unresolved; N/A requires trusted derivation; SHOULD never gates. Extra evidence is not a substitute for a missing MUST. No document MUSTs means legacy non-document handling, not fabricated `verified` credit.
+
+Retain all producer-derived obligations, including unknown, N/A derivation reasons and SHOULD
+reminders. The full expected credit set comes from applicable/unknown MUSTs, with or without an
+authored doc step. Every applicable MUST needs exactly one matching result with
+`observation: observed`, `outcome: pass`, current scope/artifact binding and accepted supporting
+references. Never use a passing returned subset or empty list as completion. Unknown MUSTs are
+unresolved even with a passing-looking result; N/A without trusted derivation is unresolved,
+not an excuse to shrink the set. Duplicate/conflicting decisions or extra/misattributed result
+IDs cannot provide credit. Known SHOULD outcomes remain diagnostic-only and do not gate.
+
+`mode: verification` checks the full expected set. `mode: review` evaluates only the current
+quality-review MUST for the governed normative review, preserves the full set in expectedMustIds,
+and reports its selected subset in checkedMustIds. It requires independent current review, not
+later execution/verification evidence; missing or failed later verifier records do not gate review
+eligibility, though their diagnostics remain visible. If no review MUST is required, use legacy review behavior
+without granting full verification credit. No authored step is advanced by either core call.
+This provides a testable review → missing verifier → later valid retry progression without wiring
+updateStep in S2a, matching P02e/P03's intended S2b transition.
+
+Reason codes below are deterministic core diagnostics, not extensions to checker observation or
+outcome enums; report all applicable failures rather than hiding one behind a successful result:
+
+| Code | Trigger / no-credit interpretation |
+| --- | --- |
+| `invalid-input` | Malformed core/provider/record shape; no inferred empty successful set |
+| `baseline-unavailable` | Missing/tampered/unreadable pinned baseline or Git failure; retain S1 F5 meaning |
+| `inventory-incomplete`, `inventory-unsupported` | Missing new/deleted/rename/ignored scope, read failure or unsupported traversal/type/filter semantics |
+| `snapshot-changed` | Mixed capture or changed current snapshot/identity across a core evaluation boundary |
+| `config-unavailable`, `config-capture-mismatch` | Invalid/ambiguous/absent config or capture bytes/selection not bound to parsed value |
+| `unsupported-prd-root` | Requested root differs from supported docs/prd/ |
+| `identity-mismatch` | Any tuple field/task/plan/scope substitution or wrong baseline/candidate identity |
+| `origin-unavailable`, `origin-untrusted` | Missing/expired/unsupported authentic origin, or rejected copied/forged/self-asserted evidence |
+| `event-stale`, `event-duplicate`, `event-conflict` | Replay, duplicate/conflicting relevant event or stale review |
+| `event-invalid`, `capability-mismatch`, `scope-mismatch`, `artifact-mismatch` | Incomplete command/exit/signal/verdict/summary, unrelated command capability, path coverage or stored-byte/destination digest mismatch |
+| `review-not-independent` | Reviewer provenance missing or principal equals author/relevant executor |
+| `checker-unavailable` | Checker evaluation cannot complete; do not fabricate results |
+| `result-missing`, `result-duplicate`, `result-misattributed`, `result-not-pass`, `result-untrusted` | Expected-set result absent, repeated/conflicting, assigned to another obligation, not observed/pass or not backed by accepted refs |
+| `unknown-applicability`, `na-reason-missing` | Unknown MUST remains unresolved, or N/A lacks trusted derivation |
+| `no-document-musts` | Diagnostic for legacy decision only; never a verified result |
+
+### Exact S2a RED handoff
+
+All positive origins here are **explicit test fakes**; run real read-only collector/resolver fixtures
+alongside pure adapter/reconciliation tests. No ten-entry prep retirement or CLI completion is
+claimed by these core assertions.
+
+| ID | Positive control and strict negative pair reachable in S2a |
+| --- | --- |
+| A01 | Complete normative lint/link/review/conflict vector: exact producer-derived IDs, actual unchanged checker call/results, current identity, accepted refs, eligible core decision; nonnormative positive proves review is not globally forced |
+| A02 | Same evidence/task succeeds; task A→B, narrowed scope, changed requirements/acceptance/bindings or workflow revision rejects. Same bytes alone never prove same task |
+| A03 | Bound config capture succeeds; parse A then replace with B, same parsed value/different source bytes, or changed active-host selection rejects/stales. Preserve project-overrides-host and equal-host positives |
+| A04 | docs/prd/ positive; otherwise-identical custom-root request is unavailable with no fallback |
+| A05 | Whole baseline/candidate and paired deletion/rename bytes agree; another tree's path bytes, omitted new/deleted paths, wrong destination, mode/type drift or PRD-set digest substituted for whole candidate rejects |
+| A06 | Independent current review eligible before any verifier event; verification stays unresolved; later accepted execution for same tuple makes core retry eligible. Self-review/unknown independent provenance rejects without prose matching |
+| A07 | With/without authored doc-change derives the same MUSTs; omit one/all/subset checker results and lose eligibility even when every returned result passes |
+| A08 | Previously non-document snapshot is legacy; new governed scope produces current MUSTs and rejects old tuple/results, retaining supplied authored history. S2b alone must prove persisted Stop revocation/exit 0 |
+| A09 | Pinned-baseline capture remains pinned after fixture commit; rename old/new endpoints and repeated captures remain bound. Re-anchoring to current HEAD loses the intended governed obligations and must be detected |
+| A10 | Git timeout/corruption/command failure retains baseline-unavailable and zero eligibility; normal Git capture succeeds |
+| A11 | New ignored normative PRD/ADR, nonignored→ignored rename, index removal with file remaining, ignored config/derived source, tracked files matched by ignore patterns, unreadable ignored subtree: include faithfully or unavailable. Include justified ignored-irrelevant control |
+| A12 | Fake context/event provider accepts valid correlation and independent principal; identical copied journal/tuple/actor labels without current provider acceptance reject. Missing, expired and forged origins do not become trusted via flags |
+| A13 | Applicable/unknown/N/A/SHOULD matrix: unknown unresolved, N/A needs reason, SHOULD never gates; no applicable/unknown document MUST => legacy, never verified |
+| A14 | Current captures match; mutate bytes/config/task during capture or modeled before/after-check boundary and reject mixed/stale identity. Status/timestamp-only progress does not stale its own review |
+
+Flip exactly one property from a previously eligible vector for each of: every tuple field; source
+bytes/selection; author/reviewer identity; exit type/null/nonzero/signal; actual capability mapping;
+path coverage; baseline/destination digest; approve verdict/summary; duplicate/conflicting event or
+result; stale review; expired/missing origin; forged copied journal/report; omitted MUST. Each test
+must name the failed field/reason and demonstrate loss of the prior valid path. An arbitrary
+passing command cannot satisfy lint/link/REQ synchronization. If shared checker decision/read
+behavior is wrong, return it to #341 fixture-first; do not patch that API in this consumer.
+
+Non-vacuity mutations must kill: disable origin validation, skip reviewer independence, iterate
+only returned results, trust a previous core report/PASS, re-anchor baseline to HEAD, hash only
+PRDs, drop config-byte binding, and exclude ignored governed paths. A mutation may not count as
+killed merely because the untouched S1 runtime still refuses everything. The completion-recollection
+mutation and actual after-satisfied freshness/persist race belong to S2b, where completion is wired.
+Core modeled stale-snapshot mutations remain S2a requirements.
+
+### S2b dependency and close-out boundary
+
+S2b MUST name at least one actual supported host capture/export path, retain command/task/session
+correlation and independent author/executor/reviewer evidence, and reject copied/altered local
+records against that path. Existing timestamps, counters, append-only-looking JSON, permissions
+and hashes do not by themselves establish origin. If any required origin/input is unavailable for
+a host, that host retains S1 withholding and reports positive capability unavailable. Reviewer
+independence is not weakened to make a host pass.
+
+S2b, not S2a, wires review/verification/direct aggregate/completion and recollects every tuple and
+accepted binding before credit, including persisted satisfied state. It must bracket authorized
+evidence operations and recheck after checker evaluation before persistence, rejecting concurrent
+mutation rather than introducing a lock. S2a supplies coherent captures and deterministic decisions;
+it cannot prove that the real host collects them at the required boundaries.
+
+S2b RED additionally proves P02e review refusal/pending/Stop 0, P03 actual review→verify→retry→
+satisfied completion (restore its S1-staged final running assertion), initial P05 positive verify/
+completion followed by its separate stale-credit/ON→OFF→ON negatives, actual task/host substitution,
+old typed PASS acquiring governed scope, and genuinely active correlated Fable/unsupported-untyped
+reporting independent of generic completion. Preserve OFF/P06/P07u/P02d, required bindings,
+source/package parity, exact intentional-refusal exits and both Stop surfaces exiting 0. No Fable
+credit or automatic generator/verifier is introduced. Retire the ten registry entries only in S2b
+when corresponding strict assertions genuinely pass; recapture new runtime-module fingerprints
+and review actual/desired/reasons deliberately. Registry empty is a mechanism gate, not authentic
+host loading or E1 GO. E1 begins only after a creditable S2.
+
+Outside this contract: attestation service/PKI, a new command runner/authorization boundary, forced
+review provider, PRD-root/schema generalization, automatic verifier/generator, code→doc graph
+(#350) and new locks. S2a does not change the public derive/check APIs or weaken reviewer independence.
+
 ## Implementation and acceptance after E0
 
 S1 ships the default-OFF switch, narrow disposition/completion no-credit integration and runtime

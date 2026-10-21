@@ -122,15 +122,17 @@ function readHostProjectDocsConfigs(workspaceRoot) {
   return manifests;
 }
 
-function inspectHostProjectDocs(workspaceRoot) {
+function inspectHostProjectDocs(workspaceRoot, readSource = null) {
   const entries = [];
   for (const home of PLATFORM_HOMES) {
     const file = path.join(workspaceRoot, home, 'harness-everything', 'manifest.json');
-    if (!fs.existsSync(file)) continue;
+    const captured = readSource ? readSource(file) : null;
+    if (captured ? captured.presence === 'absent' : !fs.existsSync(file)) continue;
     const entry = { file, home, projectDocs: null, warnings: [], diagnostics: [], hasProjectDocs: false };
     let manifest;
     try {
-      manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (captured && captured.presence !== 'present') throw new Error('unreadable source');
+      manifest = JSON.parse(captured ? captured.bytes.toString('utf8') : fs.readFileSync(file, 'utf8'));
     } catch {
       entry.diagnostics.push({
         code: 'invalid-host-config',
@@ -349,16 +351,18 @@ function configSource(workspaceRoot, file) {
   return relativePath(workspaceRoot, file);
 }
 
-function resolveDocsConfig(workspaceRoot, options = {}) {
+function resolveDocsConfigSelection(workspaceRoot, options, readSource) {
   const resolvedRoot = workspaceRoot || getWorkspaceRoot();
   if (!resolvedRoot) throw new Error('cannot resolve project docs outside a git workspace; pass a workspace root explicitly');
   const root = path.resolve(resolvedRoot);
   const projectFile = projectDocsConfigPath(root);
-  if (fs.existsSync(projectFile)) {
+  const capturedProject = readSource(projectFile);
+  if (capturedProject.presence !== 'absent') {
     const source = configSource(root, projectFile);
     let config;
     try {
-      config = JSON.parse(fs.readFileSync(projectFile, 'utf8'));
+      if (capturedProject.presence !== 'present') throw new Error('unreadable source');
+      config = JSON.parse(capturedProject.bytes.toString('utf8'));
     } catch {
       return {
         status: 'invalid',
@@ -376,7 +380,7 @@ function resolveDocsConfig(workspaceRoot, options = {}) {
       return { status: 'invalid', sources: [source], config: null, warnings, diagnostics };
     }
 
-    const hosts = inspectHostProjectDocs(root);
+    const hosts = inspectHostProjectDocs(root, readSource);
     const hostDiagnostics = hosts.flatMap(entry => entry.diagnostics);
     const hostWarnings = hosts.flatMap(entry => entry.warnings);
     const validHosts = hosts.filter(entry => entry.projectDocs);
@@ -393,7 +397,7 @@ function resolveDocsConfig(workspaceRoot, options = {}) {
     return { status: 'project', sources: [source], config, warnings: [...warnings, ...hostWarnings], diagnostics: [...diagnostics, ...hostDiagnostics] };
   }
 
-  const hosts = inspectHostProjectDocs(root);
+  const hosts = inspectHostProjectDocs(root, readSource);
   const hostDiagnostics = hosts.flatMap(entry => entry.diagnostics);
   const hostWarnings = hosts.flatMap(entry => entry.warnings);
   const activeHome = normalizedHostHome(options.activeHost);
@@ -455,6 +459,35 @@ function resolveDocsConfig(workspaceRoot, options = {}) {
       candidates: sources
     }, ...hostDiagnostics]
   };
+}
+
+function resolveDocsConfigCaptured(workspaceRoot, options = {}) {
+  const resolvedRoot = workspaceRoot || getWorkspaceRoot();
+  if (!resolvedRoot) throw new Error('cannot resolve project docs outside a git workspace; pass a workspace root explicitly');
+  const root = path.resolve(resolvedRoot);
+  const records = new Map();
+  const readSource = file => {
+    const key = configSource(root, file);
+    if (!records.has(key)) {
+      let bytes = Buffer.alloc(0);
+      let presence = 'present';
+      try { bytes = Buffer.from(fs.readFileSync(file)); }
+      catch (error) { presence = error.code === 'ENOENT' ? 'absent' : 'unreadable'; }
+      records.set(key, { path: key, presence, bytes, digest: crypto.createHash('sha256').update(bytes).digest('hex') });
+    }
+    return records.get(key);
+  };
+  const resolution = resolveDocsConfigSelection(root, options, readSource);
+  let activeHost = null;
+  try { activeHost = JSON.parse(JSON.stringify(options.activeHost)); } catch { /* no serializable host context */ }
+  const sources = [...records.values()].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+  const selectionInputs = sources.map(({ path: sourcePath, presence }) => ({ path: sourcePath, presence }));
+  selectionInputs.push({ status: resolution.status, sources: [...resolution.sources], activeHost, config: resolution.config });
+  return { resolution, capture: { activeHost, sources, selectionInputs } };
+}
+
+function resolveDocsConfig(workspaceRoot, options = {}) {
+  return resolveDocsConfigCaptured(workspaceRoot, options).resolution;
 }
 
 function cleanConfiguredPath(value) {
@@ -769,6 +802,7 @@ module.exports = {
   getRepoManifestHomes,
   readProjectDocs,
   resolveDocsConfig,
+  resolveDocsConfigCaptured,
   validateDocsConfig,
   normalizeHostProjectDocs,
   parseContextMap,

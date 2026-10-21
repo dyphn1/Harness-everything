@@ -1,0 +1,5 @@
+PASS source frontmatter unavailable
+PASS source req-test unavailable
+PASS packaged frontmatter unavailable
+PASS packaged req-test unavailable
+{"passed":4,"failed":0}
