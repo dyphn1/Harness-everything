@@ -511,10 +511,25 @@ function planningUnresolved(context, plan = context.workflow?.pendingPlan || con
 }
 
 function withholdPilotVerification(context, set) {
+  // PR #351 review P2 (persistence failure): the credit decision is applied in memory first —
+  // aggregate verify becomes pending and a satisfied workflow becomes running — and only then is
+  // that state persisted best-effort. A failed obligations-file write records the
+  // withhold-persist-failed diagnostic and a reminder; it never escapes, never leaves the decision
+  // unapplied, and never changes the callers' refusal contract (exit 2 / step:<verify>:pending).
   const verify = set.obligations.find(item => item.id === 'verify');
   if (verify) verify.status = 'pending';
-  atomicWriteJson(obligationPath(context.sessionDir), set);
   if (context.workflow.state === 'satisfied') context.workflow.state = 'running';
+  try {
+    atomicWriteJson(obligationPath(context.sessionDir), set);
+  } catch {
+    if (!Array.isArray(context.workflow.docReconciliationDiagnostics)) {
+      context.workflow.docReconciliationDiagnostics = [];
+    }
+    if (!context.workflow.docReconciliationDiagnostics.includes('withhold-persist-failed')) {
+      context.workflow.docReconciliationDiagnostics.push('withhold-persist-failed');
+    }
+    console.error('[Workflow Reminder] Document verification withheld in memory; persisting the obligations state failed (withhold-persist-failed). No document verification credit.');
+  }
 }
 
 function updateObligation(context, obligationId, disposition, options = {}) {
