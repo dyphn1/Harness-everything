@@ -2,6 +2,8 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.36.4](https://github.com/dyphn1/Harness-everything/compare/v0.36.3...v0.36.4) (2026-10-21)
+
 ## [0.36.3](https://github.com/dyphn1/Harness-everything/compare/v0.36.2...v0.36.3) (2026-10-20)
 
 ### Bug Fixes
