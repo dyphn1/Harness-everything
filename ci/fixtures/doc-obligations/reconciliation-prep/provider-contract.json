@@ -12,7 +12,7 @@
       "P07-fable-multi-agent-workspace", "P07u"
     ],
     "providerExamplesAreReplayCases": false,
-    "note": "Provider metadata examples describe the advisory interface only; the H2 replay cases do not invoke a production provider implementation. P08 is suite-level source/package parity, not a cases.json record."
+    "note": "Provider metadata examples describe the advisory interface only; the H2 replay cases do not invoke a production provider implementation. runtimeImplemented refers to workflow integration: S3 ships the pure suggestDocProviders() function (harness-everything/scripts/doc-providers.js), which is not wired into any workflow. P08 is suite-level source/package parity, not a cases.json record."
   },
   "interface": "suggestDocProviders",
   "input": {
