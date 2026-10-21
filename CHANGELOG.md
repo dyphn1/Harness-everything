@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file.
 
 - Ship default-OFF Phase 3b S1 scope assessment and no-credit runtime gate (opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`); S2/S3 pending, E1 not started.
 
+## [0.37.0](https://github.com/dyphn1/Harness-everything/compare/v0.36.4...v0.37.0) (2026-10-21)
+
+### Features
+
+* **doc-lifecycle:** add pure advisory doc provider suggestions ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([cffe1d2](https://github.com/dyphn1/Harness-everything/commit/cffe1d277375adc318f3d0d52267e94d3f3253f0))
+
 ## [0.36.4](https://github.com/dyphn1/Harness-everything/compare/v0.36.3...v0.36.4) (2026-10-21)
 
 ## [0.36.3](https://github.com/dyphn1/Harness-everything/compare/v0.36.2...v0.36.3) (2026-10-20)
