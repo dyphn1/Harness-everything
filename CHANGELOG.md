@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.38.0](https://github.com/dyphn1/Harness-everything/compare/v0.37.0...v0.38.0) (2026-10-21)
+
+### Features
+
+* **doc-lifecycle:** add default-off s1 document reconciliation gate ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([8903435](https://github.com/dyphn1/Harness-everything/commit/8903435efa04e0e142a70d26caa9c0c4b78a7834)), closes [#341](https://github.com/dyphn1/Harness-everything/issues/341)
+
+### Bug Fixes
+
+* **doc-lifecycle:** keep the stop decision when the session store is unwritable ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([8c8d6fa](https://github.com/dyphn1/Harness-everything/commit/8c8d6faa7a3fc9b239dbe520981b69f99d0b6c90))
+* **doc-lifecycle:** scope stop persistence recovery to an actual withheld pilot run ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([0f766ef](https://github.com/dyphn1/Harness-everything/commit/0f766efe67a76606144ae97ad703e0789ab4bce8))
+* **doc-lifecycle:** withhold on config scope change and failed withholding writes ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([dc04db8](https://github.com/dyphn1/Harness-everything/commit/dc04db8d573339604f32a28ec1a8a65fcffe10a1))
+
 ## [Unreleased]
 
 - Ship default-OFF Phase 3b S1 scope assessment and no-credit runtime gate (opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`); S2 pending (S3 shipped in 0.37.0), E1 not started.
