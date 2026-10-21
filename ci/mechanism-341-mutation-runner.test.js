@@ -4,7 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { CHECKS, LEGACY_ASSERTIONS, addLoaderPreload, runChecks, stripLoaderPreload } = require('./mutation-check');
+const { CHECKS, LEGACY_ASSERTIONS, addLoaderPreload, isPrivateContract, runChecks, stripLoaderPreload } = require('./mutation-check');
 const { MUTATIONS, prepareMutation } = require('./mutation-loader');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-341-mutation-runner-'));
@@ -180,7 +180,7 @@ if (mode === 'control-failure') {
     assert.ok(tuple.label && tuple.target && tuple.mutantId && tuple.test && tuple.assertionId, 'production tuple declares target, mutant, test, and assertion');
     assert.ok(MUTATIONS[tuple.mutantId], `production tuple has a registered transform: ${tuple.mutantId}`);
     assert.ok(tuple.assertionId.startsWith(`${tuple.caseId}.`), 'legacy assertion ID is scoped to its stable legacy case ID');
-    if (!/^RB\d{2,}$/.test(tuple.caseId)) {
+    if (!/^RB\d{2,}$/.test(tuple.caseId) && !isPrivateContract(tuple)) {
       assert.ok(LEGACY_ASSERTIONS[tuple.assertionId], `legacy tuple has an anchored intended assertion: ${tuple.assertionId}`);
     }
     const key = `${tuple.target}\0${tuple.mutantId}\0${tuple.test}\0${tuple.assertionId}`;
@@ -370,6 +370,29 @@ if (mode === 'control-failure') {
   });
   assert.strictEqual(legacyOutputCrash.verdict, 'INFRA_MUTATED',
     `legacy output-then-crash: a matching FAIL line followed by an unrelated uncaught exception cannot count as a kill: ${JSON.stringify(legacyOutputCrash)}`);
+
+  // C3 boundary qualification (plan §3): a no-op checker transform must survive (never KILLED), and a real checker-off
+  // transform must be killed through its selected enforcement assertion. Both run through the real runner against the
+  // real checker and suite; no verdict is written by hand.
+  const boundaryRoot = path.resolve(__dirname, '..');
+  const boundaryTuple = ({ mutantId, caseId, assertionId }) => runChecks({
+    root: boundaryRoot,
+    timeoutMs: 120000,
+    testEnv: {},
+    checks: [{
+      label: `${mutantId} boundary qualification`,
+      target: 'ci/lib/doc-evidence-boundary-check.js',
+      mutantId,
+      test: 'ci/mechanism-341-boundary-enforcement.test.js',
+      caseId,
+      assertionId,
+    }],
+    legacyAssertions: {},
+  })[0];
+  const noopBoundary = boundaryTuple({ mutantId: 'C00-noop-boundary', caseId: 'C1-N01d-canonical', assertionId: 'C1-N01d-canonical.boundary.intended-code-CONTEXT_ALIAS_OR_COMPUTED_USE' });
+  assert.strictEqual(noopBoundary.verdict, 'SURVIVED', `a no-op checker transform must survive, never be credited as a kill: ${JSON.stringify(noopBoundary)}`);
+  const realBoundary = boundaryTuple({ mutantId: 'C01-alias-rule-off', caseId: 'C1-N01d-canonical', assertionId: 'C1-N01d-canonical.boundary.intended-code-CONTEXT_ALIAS_OR_COMPUTED_USE' });
+  assert.strictEqual(realBoundary.verdict, 'KILLED', `the alias-rule-off checker mutant must be killed by its selected assertion: ${JSON.stringify(realBoundary)}`);
 
   assert.strictEqual(fs.readFileSync(targetPath, 'utf8'), original, 'mutation qualification never overwrites a synthetic target');
   console.log('Phase 0A mutation runner qualification passed: control, tuple, transform, parse, load, intended assertion, and negative controls.');

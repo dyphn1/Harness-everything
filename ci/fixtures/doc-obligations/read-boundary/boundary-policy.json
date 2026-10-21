@@ -1,0 +1,325 @@
+{
+  "schemaVersion": 1,
+  "status": "frozen-for-c1",
+  "method": "isolation",
+  "astSupplement": {
+    "schemaVersion": 1,
+    "status": "frozen-for-c2",
+    "parser": {
+      "acorn": "8.19.0",
+      "acornWalk": "8.3.5"
+    },
+    "canonicalization": "estree-alpha-target-v2",
+    "moduleFingerprints": {
+      "evaluator": "21e5922f94a0ffd6a2fa4c6c14becfd6680854df342d31c7e0dfd74d776feb6d",
+      "capture": "95d0ca61505914e6c7cfc4603556f028208bd44203167397896ce0bf4ec58ef7"
+    },
+    "targets": [
+      {
+        "module": "evaluator",
+        "name": "checkDocObligations",
+        "ruleIds": ["EVALUATOR_CONTEXT_EXACT", "CAPTURE_CALL_SITES"],
+        "fingerprint": "5d09eb744309bb7569dcbbf9659143c64ab5fbc07683a624c36168524f57761f"
+      },
+      {
+        "module": "evaluator",
+        "name": "evaluateObligation",
+        "ruleIds": ["CAPTURE_CALL_SITES"],
+        "fingerprint": "fdeabb3d9ddebec17cef5c0eb2fe6ff846af5c0b29eb2a701e3aea566276f82e"
+      },
+      {
+        "module": "evaluator",
+        "name": "@evaluateObligation-context-destructure",
+        "ruleIds": ["EVALUATOR_CONTEXT_EXACT"],
+        "fingerprint": "40e78c36b41d610a6052fe86f14ae0262c30aa0fd6639abc3e7f839919e6f6b2"
+      },
+      {
+        "module": "capture",
+        "name": "captureEntry",
+        "ruleIds": ["RETURNED_VIEW_OWNERSHIP"],
+        "fingerprint": "e082834d3af79cbcfd68e6a0fae0e5eb5c68315ceda3e38db01a8fd5cf683c91"
+      },
+      {
+        "module": "capture",
+        "name": "createInvocationCapture",
+        "ruleIds": ["OBLIGATION_CAPABILITIES_EXACT", "RETURNED_VIEW_OWNERSHIP"],
+        "fingerprint": "4acc0495d1ee9ba3bc1dac28de72ef331c17ebc46edfc3ed6f01eb823362e356"
+      },
+      {
+        "module": "capture",
+        "name": "compatibilityCandidateBound",
+        "ruleIds": ["COMP-C2-BOUND"],
+        "exceptionId": "COMP-C2-BOUND",
+        "fingerprint": "166751b7f944b43c360f576a2de701361a9c754ec619ff5aeed302e6e5ef299d"
+      },
+      {
+        "module": "capture",
+        "name": "isPlainObject",
+        "ruleIds": ["AST_SOURCE_STRUCTURE"],
+        "fingerprint": "0239123887993c6a17bdbf2cb5153937533a73d4fb346cddbfc7670268bfc409"
+      },
+      {
+        "module": "capture",
+        "name": "@exports",
+        "ruleIds": ["MODULE_EXPORTS_EXACT"],
+        "fingerprint": "71c6aaf1d5fa8167042353466f87fcbe8d5b1eda713977ae1a53a06cce70ff4a"
+      }
+    ]
+  },
+  "distributions": {
+    "canonical": {
+      "evaluator": "harness-everything/scripts/doc-evidence.js",
+      "capture": "harness-everything/scripts/doc-evidence-capture.js"
+    },
+    "packaged": {
+      "evaluator": "plugins/harness-everything/skills/harness-everything/scripts/doc-evidence.js",
+      "capture": "plugins/harness-everything/skills/harness-everything/scripts/doc-evidence-capture.js"
+    }
+  },
+  "modules": {
+    "evaluatorExports": ["checkDocObligations"],
+    "captureExports": ["createInvocationCapture"],
+    "evaluatorRequires": ["./doc-evidence-capture"],
+    "captureRequires": ["crypto"],
+    "captureBuiltins": ["crypto"]
+  },
+  "evaluatorContext": {
+    "handoffKeys": ["capture", "baselineDigest", "executionList", "reviewList", "diagnostics"],
+    "consumerKeys": ["capture", "baselineDigest", "executionList", "reviewList", "diagnostics"]
+  },
+  "capabilities": {
+    "invocation": [
+      "initializeArtifactFallback",
+      "captureBaselineIdentity",
+      "candidateInventoryKnown",
+      "beginObligation",
+      "compatibilityPrdSetDigest"
+    ],
+    "obligation": [
+      "prepareBaselineContainer",
+      "captureEntry",
+      "formatInvalidReason",
+      "formatInvalidRenameTo",
+      "captureSourceAbsence",
+      "isDestinationPoisoned",
+      "poisonDestination",
+      "captureDestination",
+      "captureBaselinePath",
+      "acceptBaselineEntry",
+      "captureOrdinaryCandidates",
+      "capturedCandidate",
+      "candidateAuditValue",
+      "compatibilityCandidateBound",
+      "compatibilityStaleArtifactMismatch",
+      "baselineEntries",
+      "baselineAuditPairs"
+    ]
+  },
+  "returnSchemas": {
+    "string": {"kind": "primitive", "type": "string"},
+    "boolean": {"kind": "primitive", "type": "boolean"},
+    "sha256": {"kind": "primitive", "type": "sha256"},
+    "captureEntry": {
+      "kind": "tagged",
+      "tag": "kind",
+      "variants": [
+        {"value": "captured", "fields": {"kind": "literal:captured", "token": "opaque-token", "path": "string-or-undefined", "reason": "string-or-undefined", "hasOwnRenameTo": "boolean", "renameTo": "string-or-undefined"}},
+        {"value": "not-object", "fields": {"kind": "literal:not-object", "token": "opaque-token"}},
+        {"value": "inspection-failed", "fields": {"kind": "literal:inspection-failed", "token": "opaque-token"}}
+      ]
+    },
+    "captureSourceAbsence": {
+      "kind": "tagged", "tag": "kind", "variants": [
+        {"value": "present", "fields": {"kind": "literal:present"}},
+        {"value": "absent", "fields": {"kind": "literal:absent"}}
+      ]
+    },
+    "captureDestination": {
+      "kind": "tagged", "tag": "kind", "variants": [
+        {"value": "accepted", "fields": {"kind": "literal:accepted", "digest": "string"}},
+        {"value": "unusable", "fields": {"kind": "literal:unusable"}},
+        {"value": "conflict", "fields": {"kind": "literal:conflict", "digest": "string"}},
+        {"value": "inspection-failed", "fields": {"kind": "literal:inspection-failed"}}
+      ]
+    },
+    "captureBaselinePath": {
+      "kind": "tagged", "tag": "kind", "variants": [
+        {"value": "absent", "fields": {"kind": "literal:absent"}},
+        {"value": "present", "fields": {"kind": "literal:present", "value": "string"}},
+        {"value": "present", "fields": {"kind": "literal:present", "value": "undefined"}},
+        {"value": "present", "fields": {"kind": "literal:present", "invalidValue": "literal:true"}},
+        {"value": "unknown", "fields": {"kind": "literal:unknown", "reason": "literal:inspection"}}
+      ]
+    },
+    "capturedCandidate": {
+      "kind": "tagged", "tag": "kind", "variants": [
+        {"value": "uncaptured", "fields": {"kind": "literal:uncaptured"}},
+        {"value": "captured", "fields": {"kind": "literal:captured", "digest": "string"}}
+      ]
+    },
+    "baselineEntries": {
+      "kind": "array", "item": {
+        "path": "string", "reason": "string", "candidatePathPresent": "boolean",
+        "trustedBaselineDigest": "string-or-undefined", "renameTo": "string?",
+        "renameDestinationDigest": "string-or-undefined?"
+      }
+    },
+    "baselineAuditPairs": {"kind": "pair-array"}
+  },
+  "excludedReturnBranches": [
+    {
+      "api": "capturedCandidate",
+      "tag": "unusable",
+      "reason": "The private candidateDigestCache receives only artifact() strings or rename digests guarded by nonEmptyString through the declared API. C1 tests reachable return schemas; a source change that opens this branch remains for C2 structural analysis."
+    }
+  ],
+  "ownership": {
+    "callerInputIdentityEscapes": "forbidden-recursively",
+    "accessorAndCallableViewFields": "forbidden",
+    "symbolKeys": "forbidden",
+    "opaqueToken": {"prototype": "null", "ownKeys": 0, "frozen": true},
+    "returnedRecords": "fresh-plain-data",
+    "returnedArrays": "fresh-detached-arrays",
+    "repeatAndMutationProbe": ["baselineEntries", "baselineAuditPairs"]
+  },
+  "knownC1Limitations": [
+    "Direct call-site inventory does not resolve capability aliases or argument/closure transfers; any such weakened-boundary control is a survivor requiring C2 analysis.",
+    "Compatibility anchors identify reviewed sites but do not constrain statements or dormant branches between those anchors; N05/N06 must be rejected structurally by C2."
+  ],
+  "callSites": [
+    {"receiver": "capture", "method": "initializeArtifactFallback", "expectedCount": 1},
+    {"receiver": "capture", "method": "captureBaselineIdentity", "expectedCount": 1},
+    {"receiver": "capture", "method": "candidateInventoryKnown", "expectedCount": 1},
+    {"receiver": "capture", "method": "beginObligation", "expectedCount": 1},
+    {"receiver": "capture", "method": "compatibilityPrdSetDigest", "expectedCount": 1, "exceptionId": "COMP-C5"},
+    {"receiver": "obligationCapture", "method": "prepareBaselineContainer", "expectedCount": 1, "exceptionId": "COMP-CONTAINER"},
+    {"receiver": "obligationCapture", "method": "captureEntry", "expectedCount": 1, "exceptionId": "COMP-METADATA"},
+    {"receiver": "obligationCapture", "method": "formatInvalidReason", "expectedCount": 1, "exceptionId": "COMP-METADATA"},
+    {"receiver": "obligationCapture", "method": "formatInvalidRenameTo", "expectedCount": 4, "exceptionId": "COMP-METADATA"},
+    {"receiver": "obligationCapture", "method": "captureSourceAbsence", "expectedCount": 1, "exceptionId": "COMP-METADATA"},
+    {"receiver": "obligationCapture", "method": "isDestinationPoisoned", "expectedCount": 1, "exceptionId": "COMP-METADATA"},
+    {"receiver": "obligationCapture", "method": "poisonDestination", "expectedCount": 2, "exceptionId": "COMP-METADATA"},
+    {"receiver": "obligationCapture", "method": "captureDestination", "expectedCount": 1, "exceptionId": "COMP-METADATA"},
+    {"receiver": "obligationCapture", "method": "captureBaselinePath", "expectedCount": 1, "exceptionId": "COMP-METADATA"},
+    {"receiver": "obligationCapture", "method": "acceptBaselineEntry", "expectedCount": 1, "exceptionId": "COMP-METADATA"},
+    {"receiver": "obligationCapture", "method": "captureOrdinaryCandidates", "expectedCount": 1, "exceptionId": "COMP-C1"},
+    {"receiver": "obligationCapture", "method": "capturedCandidate", "expectedCount": 1, "exceptionId": "COMP-C2-BOUND"},
+    {"receiver": "obligationCapture", "method": "candidateAuditValue", "expectedCount": 1, "exceptionId": "COMP-C1"},
+    {"receiver": "obligationCapture", "method": "compatibilityCandidateBound", "expectedCount": 1, "exceptionId": "COMP-C2-BOUND"},
+    {"receiver": "obligationCapture", "method": "compatibilityStaleArtifactMismatch", "expectedCount": 1, "exceptionId": "COMP-C4"},
+    {"receiver": "obligationCapture", "method": "baselineEntries", "expectedCount": 1, "exceptionId": "COMP-METADATA"},
+    {"receiver": "obligationCapture", "method": "baselineAuditPairs", "expectedCount": 1, "exceptionId": "COMP-METADATA"}
+  ],
+  "coverage": [
+    "source-pair",
+    "module-exports",
+    "evaluator-context-surface",
+    "invocation-capabilities",
+    "obligation-capabilities",
+    "capture-return-schemas",
+    "returned-view-ownership",
+    "capture-call-sites",
+    "compatibility-ledger"
+  ],
+  "compatibilityLedger": [
+    {
+      "id": "COMP-C1",
+      "sites": [
+        {"module": "capture", "anchor": "const candidateDigestForAuditOrStale = (path) => {", "expectedCount": 1},
+        {"module": "capture", "anchor": "return artifact(artifactMap[path]);", "expectedCount": 1},
+        {"module": "capture", "anchor": "compatibilityCandidateBound(record, path, baselineDigestValue) {", "expectedCount": 1},
+        {"module": "capture", "anchor": "return artifact(artifactMap[path]).length > 0", "expectedCount": 1}
+      ],
+      "allowed": ["guarded per-path audit fallback after poison/cache/accepted-baseline branches", "the exact uncaptured candidate-bound legacy expression"],
+      "forbidden": ["general evaluator artifact-map access", "eager or once-per-path normalization", "another caller of the fallback"]
+    },
+    {
+      "id": "COMP-C2-EVAL",
+      "sites": [
+        {"module": "evaluator", "anchor": "function isRecord(value) {", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "function completeExecution(item) {", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "function incompleteFields(item) {", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "function evaluateObligation(obligation, context) {", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "const baselineBound = (item, entry) => {", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "const requirementScopeUnknown = capability === 'requirement-sync'", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "const citationsCoverScope = item => {", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "const envelopeAttested = Boolean(envelope)", "expectedCount": 1}
+      ],
+      "allowed": ["existing live record identity and field reads at the enumerated source regions", "existing per-REQ citation and waiver checks"],
+      "forbidden": ["blanket evaluator exemption", "record snapshot or identity deduplication", "new read of an allowed field", "merged endpoint records"]
+    },
+    {
+      "id": "COMP-C2-BOUND",
+      "sites": [
+        {"module": "capture", "anchor": "compatibilityCandidateBound(record, path, baselineDigestValue) {", "expectedCount": 1},
+        {"module": "capture", "anchor": "record.artifactDigests[path] === artifactMap[path].digest", "expectedCount": 1}
+      ],
+      "allowed": ["one record borrow in the existing interleaved candidate/map/record expression", "boolean return only"],
+      "forbidden": ["returning or storing the raw record", "iterating unrelated records", "extra reads inside the method"]
+    },
+    {
+      "id": "COMP-C3",
+      "sites": [
+        {"module": "evaluator", "anchor": "const executionList = Array.isArray(executionRecords) ? executionRecords.filter(isRecord) : [];", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "const knownIds = new Set(obligationList.map(item => nonEmptyString(item.id) ? item.id : item.capability)", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "for (const waiver of reviewList.filter(item => item.kind === 'waiver' && !knownIds.has(item.obligationId))) {", "expectedCount": 1}
+      ],
+      "allowed": ["record ingestion, known-id construction, and unmatched waiver scan before evaluation"],
+      "forbidden": ["moving ingestion after applicability", "skipping empty-obligation ingestion", "reducing existing reads"]
+    },
+    {
+      "id": "COMP-C4",
+      "sites": [
+        {"module": "evaluator", "anchor": "const mismatch = item.paths.find(path => obligationCapture.compatibilityStaleArtifactMismatch(item, path));", "expectedCount": 1},
+        {"module": "capture", "anchor": "compatibilityStaleArtifactMismatch(record, path) {", "expectedCount": 1},
+        {"module": "capture", "anchor": "candidateDigestForAuditOrStale(path).length > 0", "expectedCount": 1}
+      ],
+      "allowed": ["ordered path.find mismatch pass with its conditional second selector call"],
+      "forbidden": ["filtering out-of-scope paths", "new path lookup", "removing or reordering the conditional selector call"]
+    },
+    {
+      "id": "COMP-C5",
+      "sites": [
+        {"module": "capture", "anchor": "function prdSetDigest(artifactMap) {", "expectedCount": 1},
+        {"module": "capture", "anchor": "Object.keys(artifactMap)", "expectedCount": 1},
+        {"module": "capture", "anchor": "compatibilityPrdSetDigest() {", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "envelope.candidateDigest === capture.compatibilityPrdSetDigest()", "expectedCount": 1}
+      ],
+      "allowed": ["sorted all-docs/prd digest enumeration at the existing envelope short-circuit"],
+      "forbidden": ["eager PRD scan", "excluding out-of-scope PRDs", "new caller or earlier timing"]
+    },
+    {
+      "id": "COMP-CONTAINER",
+      "sites": [
+        {"module": "capture", "anchor": "prepareBaselineContainer() {", "expectedCount": 1},
+        {"module": "capture", "anchor": "baselineArtifactsMap = isPlainObject(baseline) && isPlainObject(baseline.artifacts)", "expectedCount": 1}
+      ],
+      "allowed": ["per-evaluation guarded baseline.artifacts read with current valid-container two-get schedule"],
+      "forbidden": ["moving the read to invocation initialization", "changing valid/invalid branch getter schedule"]
+    },
+    {
+      "id": "COMP-METADATA",
+      "sites": [
+        {"module": "evaluator", "anchor": "function checkDocObligations({ obligations, artifacts, baseline, executionRecords, reviewRecords } = {}) {", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "const applicability = obligation.applicability;", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "const declaredBaselinePaths = declaresBaselinePaths ? scopeObject.baselinePaths : undefined;", "expectedCount": 1},
+        {"module": "capture", "anchor": "path: rawEntry.path,", "expectedCount": 1},
+        {"module": "capture", "anchor": "const value = baselineArtifactsMap[path];", "expectedCount": 1}
+      ],
+      "allowed": ["current root/scope/declaration gates and captured metadata reads", "saved malformed-value stringify at its existing formatter"],
+      "forbidden": ["rawEntry reads after capture", "extra ownership probes", "changed coercion timing", "universal deep clone"]
+    },
+    {
+      "id": "COMP-REQ",
+      "sites": [
+        {"module": "evaluator", "anchor": "const requirementScopeUnknown = capability === 'requirement-sync'", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "const citedEntries = Array.isArray(obligation.citedReqs) ? obligation.citedReqs : [];", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "const citedIds = reqIdsOf(obligation.citedReqs);", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "const envelope = isPlainObject(obligation.inventory) ? obligation.inventory : null;", "expectedCount": 1},
+        {"module": "evaluator", "anchor": "const triggerPresent = Object.prototype.hasOwnProperty.call(obligation, 'requirementSyncTrigger');", "expectedCount": 1}
+      ],
+      "allowed": ["existing requirement scope, citedReqs, reqUpdates, envelope, trigger and record identity reads"],
+      "forbidden": ["Fact/registry refactor", "new eager metadata reads", "changing authority, unknown-scope, coverage, or diagnostic timing"]
+    }
+  ]
+}

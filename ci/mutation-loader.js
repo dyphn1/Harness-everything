@@ -23,6 +23,24 @@ function docEvidenceMutation(replacements) {
   };
 }
 
+const DOC_EVIDENCE_CAPTURE_CANONICAL = 'harness-everything/scripts/doc-evidence-capture.js';
+const DOC_EVIDENCE_CAPTURE_PACKAGED = 'plugins/harness-everything/skills/harness-everything/scripts/doc-evidence-capture.js';
+
+// C3 checker-targeted mutants: the boundary checker is the mutated file (test/CI mechanism, not packaged runtime).
+const BOUNDARY_CHECKER = 'ci/lib/doc-evidence-boundary-check.js';
+
+function checkerMutation(replacements) {
+  return { target: BOUNDARY_CHECKER, replacements };
+}
+
+function docCaptureMutation(replacements) {
+  return {
+    target: DOC_EVIDENCE_CAPTURE_CANONICAL,
+    alternateTargets: [DOC_EVIDENCE_CAPTURE_PACKAGED],
+    replacements,
+  };
+}
+
 const MUTATIONS = {
   'path-boundary': {
     target: 'scripts/lib/path-boundary.js',
@@ -107,100 +125,110 @@ const MUTATIONS = {
       "    if (matched && typeof group.id === 'string' && group.id !== 'tdd-test') { // mutation: remove the tdd-test matcher"
     )],
   },
-  M01: docEvidenceMutation([replacement(
+  // Doc-evidence mutants bind to the file that owns the operation after the 0B refactor (plan §3): captures R1-R6,
+  // the own-key helper, the PRD digest and the candidate-inventory predicate now live in doc-evidence-capture.js;
+  // compatibility policy stays in doc-evidence.js. Each mutant keeps its intended assertion; only its target moved.
+  M01: docCaptureMutation([replacement(
     'if (nonEmptyString(declaredBaselineDigest)) baselineDigest = declaredBaselineDigest;',
     'if (nonEmptyString(declaredBaselineDigest)) baselineDigest = baseline.digest; // mutation: re-read R1'
   )]),
-  'M01-stateful': docEvidenceMutation([replacement(
+  'M01-stateful': docCaptureMutation([replacement(
     'if (nonEmptyString(declaredBaselineDigest)) baselineDigest = declaredBaselineDigest;',
     'if (nonEmptyString(declaredBaselineDigest)) baselineDigest = baseline.digest; // mutation: re-read R1'
   )]),
-  M02: docEvidenceMutation([replacement(
-    'if (candidateInventoryKnown === undefined) {',
-    'if (true) { // mutation: repeat the R2 prototype inspection'
+  M02: docCaptureMutation([replacement(
+    '    if (!candidateInventoryInitialized) {',
+    '    if (true) { // mutation: repeat the R2 prototype inspection'
   )]),
-  M03: docEvidenceMutation([replacement(
+  M03: docCaptureMutation([replacement(
     'const digest = entry.digest;',
     'const digest = artifact(entry); // mutation: re-read the R3 destination digest'
   )]),
-  M04: docEvidenceMutation([replacement(
-    `  for (const [baselineAuditPath, baselineAuditDigest] of validatedBaselineDigests) {
-    baselineAudit[baselineAuditPath] = baselineAuditDigest;
-  }`,
-    `  for (let baselineAuditIndex = 0; baselineAuditIndex < validatedBaselineDigests.size; baselineAuditIndex++) {
-    const rawEntry = declaredBaselinePaths[baselineAuditIndex];
-    baselineAudit[rawEntry.path] = baselineArtifactsMap[rawEntry.path];
-  } // mutation: re-read the raw R4 audit path`
+  M04: docCaptureMutation([
+    replacement(
+      '            rawReason: snapshot.reason,',
+      '            rawReason: snapshot.reason,\n            rawEntry, // mutation: retain the raw entry for audit materialization'
+    ),
+    replacement(
+      '          return [...validatedBaselineDigests].map(([path, digest]) => Object.freeze([path, digest]));',
+      '          return [...validatedBaselineDigests].map(([path, digest]) => { const live = [...entryFacts.values()].find(fact => fact.rawEntry && fact.rawEntry.path === path); return Object.freeze([live ? live.rawEntry.path : path, digest]); }); // mutation: re-read the raw R4 entry path at audit materialization'
+    ),
+  ]),
+  M05: docCaptureMutation([replacement(
+    "          const trustedBaselineDigest = typeof detachedEntry.trustedBaselineDigest === 'string'\n            ? detachedEntry.trustedBaselineDigest : undefined;",
+    "          const trustedBaselineDigest = hasOwnEntry(baselineArtifactsMap, detachedEntry.path) && typeof baselineArtifactsMap[detachedEntry.path] === 'string'\n            ? baselineArtifactsMap[detachedEntry.path] : undefined; // mutation: live R5 per-path read at binding"
   )]),
-  M05: docEvidenceMutation([replacement(
-    'const trusted = entry.trustedBaselineDigest;',
-    'const trusted = baselineArtifactsMap[entry.path]; // mutation: use the live R5 map'
+  M06: docCaptureMutation([replacement(
+    '          } else if (sharedDigest !== digest) {',
+    '          } else if (false) { // mutation: accept disagreeing R3 snapshots'
   )]),
-  M06: docEvidenceMutation([replacement(
-    '} else if (sharedDestinationDigest !== destinationDigest) {',
-    '} else if (false) { // mutation: accept disagreeing R3 snapshots'
+  'M06-observation': docCaptureMutation([replacement(
+    '          } else if (sharedDigest !== digest) {',
+    '          } else if (false) { // mutation: accept disagreeing R3 snapshots'
   )]),
-  'M06-observation': docEvidenceMutation([replacement(
-    '} else if (sharedDestinationDigest !== destinationDigest) {',
-    '} else if (false) { // mutation: accept disagreeing R3 snapshots'
+  'M07a': docCaptureMutation([replacement(
+    '          return failedDestinationDigests.has(path);',
+    '          return false; // mutation: permit a later declaring entry to read a poisoned destination'
   )]),
-  'M07a': docEvidenceMutation([replacement(
-    'if (failedDestinationDigests.has(entryRenameTo)) {',
-    'if (false) { // mutation: reread an earlier failed destination'
-  )]),
-  'M07b': docEvidenceMutation([replacement(
-    '    if (failedDestinationDigests.has(path)) return \'\';',
+  'M07b': docCaptureMutation([replacement(
+    "    if (failedDestinationDigests.has(path)) return '';",
     '    // mutation: allow a cached value to outrank a poisoned destination'
   )]),
-  'M07b-audit-output': docEvidenceMutation([replacement(
-    '    if (failedDestinationDigests.has(path)) return \'\';',
+  'M07b-audit-output': docCaptureMutation([replacement(
+    "    if (failedDestinationDigests.has(path)) return '';",
     '    // mutation: allow a cached value to outrank a poisoned destination'
   )]),
-  M08: docEvidenceMutation([replacement(
+  M08: docCaptureMutation([replacement(
     '    && Object.prototype.hasOwnProperty.call(map, key);',
     '    && key in map; // mutation: accept inherited evidence'
   )]),
-  M09: docEvidenceMutation([replacement(
-    '    if (entry.candidatePathPresent !== false) return false;',
-    '    if (hasOwnEntry(artifactMap, entry.path)) return false; // mutation: re-inspect the captured source absence'
+  M09: docCaptureMutation([replacement(
+    '          return [...acceptedBaselineEntries.values()].map(entry => Object.freeze({ ...entry }));',
+    '          return [...acceptedBaselineEntries.values()].map(entry => Object.freeze({ ...entry, candidatePathPresent: hasOwnEntry(artifactMap, entry.path) })); // mutation: re-inspect the raw candidate own membership at consumer use'
   )]),
-  'M09-descriptor-count': docEvidenceMutation([replacement(
-    '    if (entry.candidatePathPresent !== false) return false;',
-    '    if (hasOwnEntry(artifactMap, entry.path)) return false; // mutation: re-inspect the captured source absence'
+  'M09-descriptor-count': docCaptureMutation([replacement(
+    '          return [...acceptedBaselineEntries.values()].map(entry => Object.freeze({ ...entry }));',
+    '          return [...acceptedBaselineEntries.values()].map(entry => Object.freeze({ ...entry, candidatePathPresent: hasOwnEntry(artifactMap, entry.path) })); // mutation: re-inspect the raw candidate own membership at consumer use'
   )]),
   M10: docEvidenceMutation([replacement(
     "Boolean(scopeObject && Object.prototype.hasOwnProperty.call(scopeObject, 'baselinePaths'))",
     'Boolean(scopeObject && scopeObject.baselinePaths) // mutation: treat present-undefined as absent'
   )]),
   'M10-rename-to': docEvidenceMutation([replacement(
-    "if (entryReason === 'deleted' && snapshot.hasOwnRenameTo) {",
-    "if (entryReason === 'deleted' && snapshot.renameTo) { // mutation: use renameTo truthiness"
+    "if (entryReason === 'deleted' && entryCapture.hasOwnRenameTo) {",
+    "if (entryReason === 'deleted' && entryCapture.renameTo) { // mutation: use renameTo truthiness"
   )]),
-  M11: docEvidenceMutation([replacement(
-    '        } catch {\n          snapshot = null;\n        }',
-    '        } catch (error) {\n          throw error; // mutation: let entry metadata inspection escape\n        }'
+  M11: docCaptureMutation([replacement(
+    '          } catch {\n            snapshot = null;\n          }',
+    '          } catch (error) {\n            throw error; // mutation: let entry metadata inspection escape\n          }'
   )]),
-  'M11-entry-exception': docEvidenceMutation([replacement(
-    '        } catch {\n          snapshot = null;\n        }',
-    '        } catch (error) {\n          throw error; // mutation: let entry metadata inspection escape\n        }'
+  'M11-entry-exception': docCaptureMutation([replacement(
+    '          } catch {\n            snapshot = null;\n          }',
+    '          } catch (error) {\n            throw error; // mutation: let entry metadata inspection escape\n          }'
   )]),
-  'M11-baseline-map': docEvidenceMutation([replacement(
-    "          } catch {\n            // #340 P2: a throwing baseline inspection is a metadata error, never an escape.\n            baselineMetadataDiagnostic('baseline-artifact-invalid', entryPath,",
-    "          } catch (error) {\n            throw error; // mutation: let baseline-map inspection escape\n            // #340 P2: a throwing baseline inspection is a metadata error, never an escape.\n            baselineMetadataDiagnostic('baseline-artifact-invalid', entryPath,"
+  'M11-baseline-map': docCaptureMutation([replacement(
+    "          } catch {\n            result = Object.freeze({ kind: 'unknown', reason: 'inspection' });",
+    "          } catch (error) {\n            throw error; // mutation: let baseline-map inspection escape\n            result = Object.freeze({ kind: 'unknown', reason: 'inspection' });"
   )]),
-  'M11-candidate-descriptor': docEvidenceMutation([replacement(
-    '            } catch {\n              candidateInventoryInspectionFailed = true;\n              // #342 P3: the destination is a visited snapshot even when its digest read threw;\n              // record it so the capture and audit lanes never re-read it.\n              failedDestinationDigests.set(entryRenameTo, \'\');\n              continue;\n            }',
-    '            } catch (error) {\n              throw error; // mutation: let destination descriptor inspection escape\n            }'
+  'M11-candidate-descriptor': docCaptureMutation([
+    replacement(
+      "          let digest = '';\n          try {",
+      "          let digest = '';\n          const declared = hasOwnEntry(artifactMap, path); // mutation: let descriptor inspection escape\n          try {"
+    ),
+    replacement(
+      '            if (hasOwnEntry(artifactMap, path)) digest = ownDigestOnce(artifactMap[path]);',
+      '            if (declared) digest = ownDigestOnce(artifactMap[path]);'
+    ),
+  ]),
+  'M11-destination': docCaptureMutation([replacement(
+    "          } catch {\n            return Object.freeze({ kind: 'inspection-failed' });\n          }\n          if (!nonEmptyString(digest))",
+    "          } catch (error) {\n            throw error; // mutation: let destination inspection escape\n          }\n          if (!nonEmptyString(digest))"
   )]),
-  'M11-destination': docEvidenceMutation([replacement(
-    '            } catch {\n              candidateInventoryInspectionFailed = true;\n              // #342 P3: the destination is a visited snapshot even when its digest read threw;\n              // record it so the capture and audit lanes never re-read it.\n              failedDestinationDigests.set(entryRenameTo, \'\');\n              continue;\n            }',
-    '            } catch (error) {\n              throw error; // mutation: let destination inspection escape\n            }'
+  'M11-ordinary-capture': docCaptureMutation([replacement(
+    '            } catch {\n              inspectionFailed = true;',
+    '            } catch (error) {\n              throw error; // mutation: let ordinary candidate capture escape\n              inspectionFailed = true;'
   )]),
-  'M11-ordinary-capture': docEvidenceMutation([replacement(
-    '      } catch {\n        candidateInventoryInspectionFailed = true;\n      }\n    }\n  }',
-    '      } catch (error) {\n        throw error; // mutation: let ordinary candidate capture escape\n      }\n    }\n  }'
-  )]),
-  M12: docEvidenceMutation([replacement(
+  M12: docCaptureMutation([replacement(
     '    if (candidateDigestCache.has(path)) return candidateDigestCache.get(path);',
     '    if (candidateDigestCache.has(path)) return artifact(artifactMap[path]); // mutation: re-read R6'
   )]),
@@ -208,11 +236,11 @@ const MUTATIONS = {
     '      if (!item.paths.includes(entry.renameTo)) return false;',
     '      return true; // mutation: let a source-only rename record bind'
   )]),
-  M14: docEvidenceMutation([replacement(
+  M14: docCaptureMutation([replacement(
     '  return prototype === Object.prototype || prototype === null;',
     '  return true; // mutation: accept every object-like inventory'
   )]),
-  'M14-diagnostic': docEvidenceMutation([replacement(
+  'M14-diagnostic': docCaptureMutation([replacement(
     '  return prototype === Object.prototype || prototype === null;',
     '  return true; // mutation: accept every object-like inventory'
   )]),
@@ -220,11 +248,11 @@ const MUTATIONS = {
     "          if (applicability === 'applicable') {",
     '          if (true) { // mutation: inspect destination metadata for every applicability state'
   )]),
-  M16: docEvidenceMutation([replacement(
+  M16: docCaptureMutation([replacement(
     "  return entry && typeof entry.digest === 'string' && entry.digest.length > 0 ? entry.digest : '';",
     "  const digest = entry && entry.digest;\n  return typeof digest === 'string' && digest.length > 0 ? digest : ''; // mutation: cache legacy digest reads"
   )]),
-  'M16-trace': docEvidenceMutation([replacement(
+  'M16-trace': docCaptureMutation([replacement(
     "  return entry && typeof entry.digest === 'string' && entry.digest.length > 0 ? entry.digest : '';",
     "  const digest = entry && entry.digest;\n  return typeof digest === 'string' && digest.length > 0 ? digest : ''; // mutation: cache legacy digest reads"
   )]),
@@ -233,16 +261,16 @@ const MUTATIONS = {
     "function isRecord(value) {\n  if (!isPlainObject(value)) return false;\n  const id = value.id;\n  const obligationId = value.obligationId;\n  return typeof id === 'string' && id.length > 0\n    && typeof obligationId === 'string' && obligationId.length > 0; // mutation: cache record identity reads\n}"
   )]),
   M18: docEvidenceMutation([replacement(
-    'const mismatch = item.paths.find(path => candidateDigestOf(path).length > 0',
-    'const mismatch = item.paths.filter(path => scopePaths.includes(path)).find(path => candidateDigestOf(path).length > 0 // mutation: ignore out-of-scope stale paths'
+    '      const mismatch = item.paths.find(path => obligationCapture.compatibilityStaleArtifactMismatch(item, path));',
+    '      const mismatch = item.paths.filter(path => scopePaths.includes(path)).find(path => obligationCapture.compatibilityStaleArtifactMismatch(item, path)); // mutation: ignore out-of-scope stale paths'
   )]),
-  M19: docEvidenceMutation([replacement(
+  M19: docCaptureMutation([replacement(
     ".filter(path => path.startsWith('docs/prd/'))",
     ".filter(path => path.startsWith('docs/prd/') && path !== 'docs/prd/extra.md') // mutation: omit an out-of-scope PRD"
   )]),
   'M19-eager': docEvidenceMutation([replacement(
     '    const revisionSatisfied = revisionDataKnown && citedIds.length > 0\n      && citedIds.every(id => updatedIds.includes(id));',
-    '    prdSetDigest(artifactMap); // mutation: enumerate PRDs before the revision fast path\n    const revisionSatisfied = revisionDataKnown && citedIds.length > 0\n      && citedIds.every(id => updatedIds.includes(id));'
+    '    capture.compatibilityPrdSetDigest(); // mutation: enumerate PRDs before the revision fast path\n    const revisionSatisfied = revisionDataKnown && citedIds.length > 0\n      && citedIds.every(id => updatedIds.includes(id));'
   )]),
   M20: docEvidenceMutation([replacement(
     'citedIds.every(id => updatedIds.includes(id))',
@@ -255,6 +283,92 @@ const MUTATIONS = {
   'M20-unknown-scope': docEvidenceMutation([replacement(
     '  if (requirementScopeUnknown) {',
     '  if (false) { // mutation: ignore unknown requirement scope'
+  )]),
+  // New scope mutants (plan §3, required module-specific table). Their coverage is registered in
+  // ci/mutation-check.js, not cases.json, so the pinned corpus bytes stay unchanged.
+  'B01-r5-cross-obligation': docCaptureMutation([
+    replacement(
+      'function createInvocationCapture({ artifacts, baseline }) {\n  let artifactMap;',
+      'function createInvocationCapture({ artifacts, baseline }) {\n  const sharedBaselinePathReads = new Map(); // mutation: share per-path baseline reads across obligations\n  let artifactMap;'
+    ),
+    replacement(
+      '      const baselinePathReads = new Map();',
+      '      const baselinePathReads = sharedBaselinePathReads;'
+    ),
+  ]),
+  'B02-r3-per-destination-collapse': docCaptureMutation([replacement(
+    '        captureDestination(entryToken, path) {\n          void entryToken;',
+    "        captureDestination(entryToken, path) {\n          void entryToken;\n          const reused = [...validatedDestinationDigestMap.values()][0]; // mutation: reuse the first destination digest\n          if (reused !== undefined) return Object.freeze({ kind: 'accepted', digest: reused });"
+  )]),
+  'B02-observation': docCaptureMutation([replacement(
+    '        captureDestination(entryToken, path) {\n          void entryToken;',
+    "        captureDestination(entryToken, path) {\n          void entryToken;\n          const reused = [...validatedDestinationDigestMap.values()][0]; // mutation: reuse the first destination digest\n          if (reused !== undefined) return Object.freeze({ kind: 'accepted', digest: reused });"
+  )]),
+  'B03-r3-cross-obligation': docCaptureMutation([
+    replacement(
+      'function createInvocationCapture({ artifacts, baseline }) {\n  let artifactMap;',
+      'function createInvocationCapture({ artifacts, baseline }) {\n  const sharedDestinationDigests = new Map(); // mutation: share destination agreement across evaluation tokens\n  const sharedFailedDestinations = new Map(); // mutation: share destination poison across evaluation tokens\n  let artifactMap;'
+    ),
+    replacement(
+      '      const validatedDestinationDigestMap = new Map();',
+      '      const validatedDestinationDigestMap = sharedDestinationDigests;'
+    ),
+    replacement(
+      '      const failedDestinationDigests = new Map();',
+      '      const failedDestinationDigests = sharedFailedDestinations;'
+    ),
+  ]),
+  'B04-mutable-view': docCaptureMutation([replacement(
+    '          return [...acceptedBaselineEntries.values()].map(entry => Object.freeze({ ...entry }));',
+    '          return [...acceptedBaselineEntries.values()]; // mutation: return shared mutable views'
+  )]),
+  'B04-leak': docCaptureMutation([replacement(
+    '            hasOwnRenameTo: snapshot.hasOwnRenameTo,',
+    '            hasOwnRenameTo: snapshot.hasOwnRenameTo,\n            rawEntry, // mutation: leak the caller-owned entry into the returned view'
+  )]),
+  // C3 checker-disable tuples (plan §3): each removes one emitter in the loaded checker. Each must be killed by its
+  // selected enforcement assertion. C00 is a qualification-only no-op: it must survive and never enters the gate.
+  'C00-noop-boundary': checkerMutation([replacement(
+    '  if (contextPropertyUses !== 0 || contextTokens !== 2) {',
+    '  // C00: no-op comment, behaviour unchanged\n  if (contextPropertyUses !== 0 || contextTokens !== 2) {'
+  )]),
+  'C01-alias-rule-off': checkerMutation([replacement(
+    '  if (contextPropertyUses !== 0 || contextTokens !== 2) {',
+    '  if (false) { // C01: alias rule off'
+  )]),
+  'C02-destructure-rule-off': checkerMutation([replacement(
+    '    if (!keys || !sameStringArray(keys, contextPolicy.consumerKeys)) {',
+    '    if (false) { // C02: consumer destructure rule off'
+  )]),
+  'C03-return-rule-off': checkerMutation([replacement(
+    "        add('RETURNED_VIEW_ESCAPE', file, sample.name, 'RETURNED_VIEW_OWNERSHIP');",
+    '        void 0; // C03: returned-view escape rule off'
+  )]),
+  'C04-exception-rule-off': checkerMutation([replacement(
+    "        add('AST_TARGET_DRIFT', selected[target.module], target.name, ruleId, target.exceptionId);",
+    "        if (!target.exceptionId) add('AST_TARGET_DRIFT', selected[target.module], target.name, ruleId, target.exceptionId); // C04: exception rule off"
+  )]),
+  // Downgrades that the existing corpus already kills but no tuple registers (C0 gaps G2a-G2d). G1 needs a new case.
+  'G2a-unusable-destination-accepted': docCaptureMutation([replacement(
+    "          if (!nonEmptyString(digest)) return Object.freeze({ kind: 'unusable' });",
+    "          if (!nonEmptyString(digest)) return Object.freeze({ kind: 'accepted', digest }); // G2a"
+  )]),
+  'G2b-ordinary-capture-throw-swallowed': docCaptureMutation([replacement(
+    '              inspectionFailed = true;',
+    '              void 0; // G2b: inspection failure swallowed'
+  )]),
+  'G2c-baseline-path-throw-as-absent': docCaptureMutation([replacement(
+    "            result = Object.freeze({ kind: 'unknown', reason: 'inspection' });",
+    "            result = Object.freeze({ kind: 'absent' }); // G2c"
+  )]),
+  // G1 (C0 gap): a whitespace-only baseline identity is accepted as valid. Killed by the RB108 case in its own fixture.
+  'G1-unvalidated-baseline-identity': docCaptureMutation([replacement(
+    '            if (nonEmptyString(declaredBaselineDigest)) baselineDigest = declaredBaselineDigest;',
+    '            baselineDigest = declaredBaselineDigest; // G1: identity not validated'
+  )]),
+  'G2d-entry-metadata-throw-as-valid': docCaptureMutation([replacement(
+    '          } catch {\n            snapshot = null;\n          }',
+    '          } catch {\n            snapshot = { path: undefined, reason: undefined, hasOwnRenameTo: false, renameTo: undefined }; // G2d\n          }'
   )]),
 };
 
@@ -423,9 +537,19 @@ function installMutationLoader(env = process.env) {
 
 if (process.env.HARNESS_MUTATION_LOADER_PRELOAD === '1') installMutationLoader();
 
+// Each distribution gets its own registered tuple target (canonical file and its packaged twin).
+function distributionTargets(mutantId) {
+  const spec = mutationSpec(mutantId, false);
+  if (!Array.isArray(spec.alternateTargets) || spec.alternateTargets.length !== 1) {
+    throw new Error(`Mutant ${mutantId} does not declare exactly one packaged target`);
+  }
+  return { canonical: spec.target, packaged: spec.alternateTargets[0] };
+}
+
 module.exports = {
   MUTATIONS,
   TEST_MUTATIONS,
+  distributionTargets,
   mutationSpec,
   prepareMutation,
   installMutationLoader,

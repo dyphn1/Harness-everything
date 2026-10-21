@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "evaluatorCommit": "0f475ab",
+  "cases": [
+    {
+      "caseId": "RB108",
+      "family": "RB02",
+      "title": "whitespace-only baseline digest is not a valid identity: baseline-identity-missing, no baseline-bound pass (G1)",
+      "recipe": {
+        "nodes": {
+          "baselineArtifacts": {
+            "kind": "object",
+            "props": {
+              "docs/adr/OLD.md": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          },
+          "baseline": {
+            "kind": "object",
+            "props": {
+              "digest": "   ",
+              "artifacts": {
+                "$ref": "baselineArtifacts"
+              }
+            }
+          },
+          "entryR1": {
+            "kind": "object",
+            "props": {
+              "path": "docs/adr/OLD.md",
+              "reason": "deleted"
+            }
+          }
+        },
+        "input": {
+          "obligations": {
+            "kind": "array",
+            "items": [
+              {
+                "kind": "object",
+                "props": {
+                  "id": "doc.adr",
+                  "capability": "adr",
+                  "applicability": "applicable",
+                  "scope": {
+                    "kind": "object",
+                    "props": {
+                      "paths": {
+                        "kind": "array",
+                        "items": [
+                          "docs/adr/OLD.md"
+                        ]
+                      },
+                      "baselinePaths": {
+                        "kind": "array",
+                        "items": [
+                          {
+                            "$ref": "entryR1"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "artifacts": {
+            "kind": "object",
+            "props": {}
+          },
+          "baseline": {
+            "$ref": "baseline"
+          },
+          "executionRecords": {
+            "kind": "array",
+            "items": [
+              {
+                "kind": "object",
+                "props": {
+                  "id": "e1",
+                  "obligationId": "doc.adr",
+                  "command": "npm test",
+                  "provenance": "ci run 1",
+                  "exitCode": 0,
+                  "paths": {
+                    "kind": "array",
+                    "items": [
+                      "docs/adr/OLD.md"
+                    ]
+                  },
+                  "baseDigest": "   ",
+                  "baselineArtifacts": {
+                    "kind": "object",
+                    "props": {
+                      "docs/adr/OLD.md": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "expect": {
+        "results": [
+          [
+            "unresolved",
+            "none"
+          ]
+        ],
+        "codes": [
+          "baseline-identity-missing"
+        ]
+      },
+      "budgets": [],
+      "mutants": []
+    }
+  ]
+}

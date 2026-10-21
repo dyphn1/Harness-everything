@@ -6,7 +6,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { fileURLToPath, pathToFileURL } = require('url');
-const { prepareMutation } = require('./mutation-loader');
+const { distributionTargets, prepareMutation } = require('./mutation-loader');
 
 const ROOT = path.resolve(__dirname, '..');
 const LOADER = path.join(__dirname, 'mutation-loader.js');
@@ -84,14 +84,10 @@ const LEGACY_CHECKS = [
   },
 ];
 
-const DOC_EVIDENCE_TARGETS = {
-  canonical: 'harness-everything/scripts/doc-evidence.js',
-  packaged: 'plugins/harness-everything/skills/harness-everything/scripts/doc-evidence.js',
-};
 const DOC_EVIDENCE_TEST = 'ci/mechanism-341-read-boundary.test.js';
 const DOC_EVIDENCE_COVERAGE = require('./fixtures/doc-obligations/read-boundary/cases.json').mutantCoverage;
 const DOC_EVIDENCE_CHECKS = Object.entries(DOC_EVIDENCE_COVERAGE).flatMap(([mutantId, mapping]) =>
-  Object.entries(DOC_EVIDENCE_TARGETS).map(([distribution, target]) => ({
+  Object.entries(distributionTargets(mutantId)).map(([distribution, target]) => ({
     label: `${mutantId} ${distribution} read-boundary mutant`,
     target,
     mutantId,
@@ -116,13 +112,82 @@ const DOC_EVIDENCE_VARIANTS = [
   { mutantId: 'M19-eager', caseId: 'RB32', assertionId: 'RB32.C5.prd-enumeration-scoped' },
   { mutantId: 'M20-partial-revision', caseId: 'RB70', assertionId: 'RB70.result.diagnostic-codes' },
   { mutantId: 'M20-unknown-scope', caseId: 'RB34', assertionId: 'RB34.result.observation-outcome' },
-].flatMap(variant => Object.entries(DOC_EVIDENCE_TARGETS).map(([distribution, target]) => ({
+].flatMap(variant => Object.entries(distributionTargets(variant.mutantId)).map(([distribution, target]) => ({
   label: `${variant.mutantId} ${distribution} variant`,
   target,
   test: DOC_EVIDENCE_TEST,
   ...variant,
 })));
-const CHECKS = [...LEGACY_CHECKS, ...DOC_EVIDENCE_CHECKS, ...DOC_EVIDENCE_VARIANTS];
+// New scope mutants (plan §3). Their coverage lives here, not in cases.json, which stays pinned to the reviewed corpus.
+const NEW_SCOPE_COVERAGE = {
+  'B01-r5-cross-obligation': { caseId: 'RB20', assertionId: 'RB20.R5.per-obligation-sha-reads' },
+  'B02-r3-per-destination-collapse': { caseId: 'RB16', assertionId: 'RB16.R3.shared-destination-reads' },
+  'B02-observation': { caseId: 'RB17', assertionId: 'RB17.result.observation-outcome' },
+  'B03-r3-cross-obligation': { caseId: 'RB107', assertionId: 'RB107.result.observation-outcome' },
+  'B04-leak': { caseId: 'CAPTURE-B04', assertionId: 'CAPTURE-B04.detachment.no-input-references', test: 'ci/mechanism-341-capture-module.test.js' },
+  'B04-mutable-view': { caseId: 'CAPTURE-B04', assertionId: 'CAPTURE-B04.detachment.views-fresh-copies', test: 'ci/mechanism-341-capture-module.test.js' },
+};
+const NEW_SCOPE_CHECKS = Object.entries(NEW_SCOPE_COVERAGE).flatMap(([mutantId, mapping]) =>
+  Object.entries(distributionTargets(mutantId)).map(([distribution, target]) => ({
+    label: `${mutantId} ${distribution} scope mutant`,
+    target,
+    mutantId,
+    test: mapping.test || DOC_EVIDENCE_TEST,
+    caseId: mapping.caseId,
+    assertionId: mapping.assertionId,
+  }))
+);
+// C3 checker-targeted tuples: the boundary checker is the mutated file, and each distribution's control runs its own
+// selected assertion. The checker is one file, so both distributions share the mutant (plan §3: no packaged claim).
+const BOUNDARY_ENFORCEMENT_TEST = 'ci/mechanism-341-boundary-enforcement.test.js';
+const BOUNDARY_CHECKER_TARGET = 'ci/lib/doc-evidence-boundary-check.js';
+const CHECKER_COVERAGE = {
+  'C01-alias-rule-off': {
+    canonical: 'C1-N01d-canonical.boundary.intended-code-CONTEXT_ALIAS_OR_COMPUTED_USE',
+    packaged: 'C1-N01d-packaged.boundary.intended-code-CONTEXT_ALIAS_OR_COMPUTED_USE',
+  },
+  'C02-destructure-rule-off': {
+    canonical: 'C1-N02c-canonical.boundary.intended-rule-EVALUATOR-CONTEXT-EXACT',
+    packaged: 'C1-N02c-packaged.boundary.intended-rule-EVALUATOR-CONTEXT-EXACT',
+  },
+  'C03-return-rule-off': {
+    canonical: 'C1-N03-canonical.boundary.intended-rule-RETURNED-VIEW-OWNERSHIP',
+    packaged: 'C1-N03-packaged.boundary.intended-rule-RETURNED-VIEW-OWNERSHIP',
+  },
+  'C04-exception-rule-off': {
+    canonical: 'C2-N05-canonical.boundary.ast-intended-rule-COMP-C2-BOUND',
+    packaged: 'C2-N05-packaged.boundary.ast-intended-rule-COMP-C2-BOUND',
+  },
+};
+const CHECKER_CHECKS = Object.entries(CHECKER_COVERAGE).flatMap(([mutantId, assertions]) =>
+  Object.entries(assertions).map(([distribution, assertionId]) => ({
+    label: `${mutantId} ${distribution} checker-target control`,
+    target: BOUNDARY_CHECKER_TARGET,
+    mutantId,
+    test: BOUNDARY_ENFORCEMENT_TEST,
+    caseId: assertionId.slice(0, assertionId.indexOf('.boundary.')),
+    assertionId,
+  }))
+);
+// Existing corpus kills for the C0 downgrade gaps (G2a-G2d). Each is registered as an explicit (c) tuple.
+const DOWNGRADE_COVERAGE = {
+  'G2a-unusable-destination-accepted': { caseId: 'RB07', assertionId: 'RB07.result.observation-outcome' },
+  'G2b-ordinary-capture-throw-swallowed': { caseId: 'RB23', assertionId: 'RB23.result.observation-outcome' },
+  'G2c-baseline-path-throw-as-absent': { caseId: 'RB12', assertionId: 'RB12.result.diagnostic-codes' },
+  'G2d-entry-metadata-throw-as-valid': { caseId: 'RB11', assertionId: 'RB11.conformance.output-matches-expected' },
+  'G1-unvalidated-baseline-identity': { caseId: 'RB108', assertionId: 'RB108.conformance.output-matches-expected' },
+};
+const DOWNGRADE_CHECKS = Object.entries(DOWNGRADE_COVERAGE).flatMap(([mutantId, mapping]) =>
+  Object.entries(distributionTargets(mutantId)).map(([distribution, target]) => ({
+    label: `${mutantId} ${distribution} downgrade mutant`,
+    target,
+    mutantId,
+    test: DOC_EVIDENCE_TEST,
+    caseId: mapping.caseId,
+    assertionId: mapping.assertionId,
+  }))
+);
+const CHECKS = [...LEGACY_CHECKS, ...DOC_EVIDENCE_CHECKS, ...DOC_EVIDENCE_VARIANTS, ...NEW_SCOPE_CHECKS, ...CHECKER_CHECKS, ...DOWNGRADE_CHECKS];
 
 const LEGACY_ASSERTIONS = {
   [`${LEGACY_CASES.pathBoundary}.symlink-component-rejected`]: {
@@ -178,6 +243,19 @@ function resolveTupleCaseId(check) {
   return check.caseId || `LEGACY.${path.basename(check.test).replace(/\.test\.js$|\.js$/i, '')}`;
 }
 
+// A private module contract names its case as CAPTURE-B<nn> and its assertion as CAPTURE-B<nn>.detachment.<contract>.
+// It is valid only in the capture-module test, and is checked by the same event protocol as RB assertions.
+// The enforcement suite's C1 (isolation) and C2 (ast) assertions are private contracts too: they emit the same event
+// protocol, and their case IDs are scoped by prefix. A checker-target tuple reaches them through this predicate only.
+function isPrivateContract(check) {
+  if (check.test === 'ci/mechanism-341-boundary-enforcement.test.js') {
+    return /^C[12]-[A-Za-z0-9-]+$/.test(check.caseId) && check.assertionId.startsWith(`${check.caseId}.`);
+  }
+  return check.test === 'ci/mechanism-341-capture-module.test.js'
+    && /^CAPTURE-B\d{2}$/.test(check.caseId)
+    && /^CAPTURE-B\d{2}\.detachment\.[a-z-]+$/.test(check.assertionId);
+}
+
 function validateCheck(check, root, legacyAssertions) {
   if (!check || typeof check !== 'object') throw new Error('Mutation check entry must be an object');
   for (const key of ['label', 'target', 'mutantId', 'test', 'assertionId']) {
@@ -196,7 +274,8 @@ function validateCheck(check, root, legacyAssertions) {
   if (!fs.existsSync(test) || !fs.statSync(test).isFile()) throw new Error(`Mutation test does not exist: ${test}`);
   const legacy = legacyAssertions[check.assertionId];
   if (!check.caseId || !/^RB\d{2,}$/.test(check.caseId)) {
-    if (!legacy) throw new Error(`Legacy assertion signature is not mapped: ${check.assertionId}`);
+    // Private module contracts (plan §3, B04) are event-protocol assertions in the capture-module test, not legacy checks.
+    if (!legacy && !isPrivateContract(check)) throw new Error(`Legacy assertion signature is not mapped: ${check.assertionId}`);
   }
   return { ...check, caseId, absoluteTarget: target, absoluteTest: test, legacy };
 }
@@ -441,6 +520,22 @@ function outputLines(output) {
   return output.split(/\r?\n/).map(line => line.trimEnd());
 }
 
+function checkerDiagnosticCodes(result, check) {
+  if (check.test !== 'ci/mechanism-341-boundary-enforcement.test.js' || !check.caseId.startsWith('C1-')) return [];
+  const evidencePrefix = `EVIDENCE ${check.caseId} `;
+  const evidence = outputLines(result.output).find(line => line.startsWith(evidencePrefix));
+  const match = evidence && /\bdiagnostics=([^\s]+)/.exec(evidence);
+  if (!match || match[1] === 'none') return [];
+  return [...new Set(match[1].split(',')
+    .map(diagnostic => diagnostic.split('/')[0])
+    .filter(code => /^[A-Z][A-Z0-9_]*$/.test(code)))];
+}
+
+function controlFailureReason(result, check, reason) {
+  const codes = checkerDiagnosticCodes(result, check);
+  return codes.length ? `${reason}; checker diagnostic code(s)=${codes.join(',')}` : reason;
+}
+
 function regexMatches(lines, matcher) {
   return lines.filter(line => {
     matcher.lastIndex = 0;
@@ -449,21 +544,26 @@ function regexMatches(lines, matcher) {
 }
 
 function evaluateControl(result, check) {
-  if (result.error || result.signal || result.status !== 0) return { passed: false, reason: `control process status=${result.status} signal=${result.signal || 'none'}${result.error ? ` error=${result.error.message}` : ''}` };
+  if (result.error || result.signal || result.status !== 0) {
+    return { passed: false, reason: controlFailureReason(result, check,
+      `control process status=${result.status} signal=${result.signal || 'none'}${result.error ? ` error=${result.error.message}` : ''}`) };
+  }
   if (check.legacy && check.legacy.kind === 'output') {
     const lines = outputLines(result.output);
     const pass = regexMatches(lines, check.legacy.pass);
     const failures = lines.filter(line => /^FAIL(?:\s|$)/.test(line));
     return pass.length > 0 && failures.length === 0
       ? { passed: true }
-      : { passed: false, reason: `expected legacy pass signature; pass hits=${pass.length}, failure lines=${failures.length}` };
+      : { passed: false, reason: controlFailureReason(result, check,
+        `expected legacy pass signature; pass hits=${pass.length}, failure lines=${failures.length}`) };
   }
   const events = readJsonLines(result.eventFile);
-  if (!Array.isArray(events)) return { passed: false, reason: events.error };
+  if (!Array.isArray(events)) return { passed: false, reason: controlFailureReason(result, check, events.error) };
   const selected = matchingAssertionEvents(events, check);
-  if (selected.error) return { passed: false, reason: selected.error };
+  if (selected.error) return { passed: false, reason: controlFailureReason(result, check, selected.error) };
   if (selected.matching.length !== 1 || selected.matching[0].event !== 'assertion-pass' || selected.failures.length) {
-    return { passed: false, reason: `expected one passing ${check.caseId}/${check.assertionId} event` };
+    return { passed: false, reason: controlFailureReason(result, check,
+      `expected one passing ${check.caseId}/${check.assertionId} event`) };
   }
   return { passed: true };
 }
@@ -692,6 +792,7 @@ if (require.main === module) main();
 
 module.exports = {
   CHECKS,
+  isPrivateContract,
   LEGACY_ASSERTIONS,
   LEGACY_CASES,
   runCheck,
