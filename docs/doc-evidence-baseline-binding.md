@@ -5,6 +5,81 @@ the phase 3a `doc-change` / `requirement-sync` producer in
 [`document-lifecycle.md`](document-lifecycle.md). It does not reconcile evidence with workflow
 disposition (#325 phase 3b/3c), add a lock, or add a router/provider path.
 
+## Phase 0 read-boundary contract (#341)
+
+Phase 0 preserves the public `checkDocObligations()` result and the current reads. A read role
+captures facts at most once **per its existing role-specific identity and scope**; consumers of
+that same role (validation, binding, stale diagnostics, and audit where applicable) reuse the
+capture. Consumers are not roles, so separating consumers does not permit another caller-object
+read. Detached immutable internal views are a Phase 0B implementation requirement; they must not
+be obtained by freezing or retaining mutable caller-owned objects. An internally consistent
+snapshot proves agreement with the supplied values, not their external truth or provenance.
+
+The private `ReadResult<T>` contract for the later capture layer distinguishes:
+
+```ts
+type ReadResult<T> =
+  | { kind: 'present'; value: T }
+  | { kind: 'absent' }
+  | { kind: 'inherited' }
+  | { kind: 'unknown'; reason: string };
+```
+
+`present` includes an own property whose value is `undefined`; field validation decides whether
+that value is valid, and it must not be collapsed into `absent`. `absent` means no own key exists.
+`inherited` records that a value is reachable only through the prototype chain and cannot satisfy
+an own-key evidence requirement. `unknown` covers throwing or otherwise uninspectable input. An
+unknown read is not a completed obligation and cannot produce a pass; mandatory baseline evidence
+that is invalid or unknown fails closed with a structured diagnostic. This representation does
+not change existing field policy or the public output schema.
+
+The read roles and compatibility traces are fixed to their existing identities:
+
+| ID | Identity and read rule | Consumers / compatibility behavior |
+| --- | --- | --- |
+| R1 — whole-baseline digest | Invocation. Read once before the obligation loop only if `baseline` passes the plain-object check; otherwise zero reads. | Reused across obligations. This does not claim that the caller's baseline is externally attested. |
+| R2 — candidate-inventory classification | Invocation, lazy. At most one prototype inspection, only when an applicable baseline-declaring obligation needs it. | The same classification is shared across obligations as today. Inapplicable and non-baseline lanes do not trigger it. |
+| R3 — rename-destination validation | Obligation × declaring entry. One own-digest read for each declaring entry that reaches it; accepted entries must agree. | A rejected destination is poisoned: never reread, later declarations fail closed, and the failed snapshot takes precedence in audit over an earlier success. Distinct declaring entries remain separate observations. |
+| R4 — baseline-entry metadata and source own-key absence | Obligation × entry. Capture `path`, `reason`, own `renameTo` presence/value, and source absence once for reuse. | The tested candidate descriptor budget combines R3 and R4: two inspections for a rename (destination presence and source absence), one for a deletion. |
+| R5 — per-path baseline digest | Obligation × path. Capture once during metadata validation. | Audit mirror, stale diagnostics, and baseline binding reuse that validated value. |
+| R6 — ordinary candidate capture | Obligation × path, applicable baseline-annotated lane. | Preserve today's `artifact()` access trace (up to three digest-property reads), seed from a successful R3 value, and reuse the capture for binding, audit, and stale diagnostics. |
+| C1 — legacy audit lane | Obligation × path for N/A, unknown, or non-baseline cases. | Preserve today's `artifact()` reads; this is a compatibility trace, not a once-only guarantee. N/A and unknown do not consume R3. |
+| C2 — evidence-record consumption | Obligation × record identity × field. | Preserve today's decision and provenance field read counts, including `paths`, `baseDigest`, `artifactDigests`, and `baselineArtifacts`; a single record must still bind both rename endpoints. |
+| C3 — invocation-level ingestion | Invocation × record / obligation, before evaluation, including when there are no obligations. | Preserve `isRecord()` reads of `id` / `obligationId` (up to two each in the current guard/short-circuit order, twice each for an admitted stable record), `knownIds` reads of obligation `id` / `capability`, and the waiver scan reads of review-record `kind` / `obligationId`. |
+| C4 — stale-diagnostic record paths | Obligation × record path. | Preserve iteration over `record.paths`; a path without a scoped capture falls back to the legacy `artifact()` read, including for applicable baseline-bound obligations. |
+| C5 — requirement-sync PRD-set enumeration | Conditional obligation check. | Preserve own-key enumeration and `artifact()` reads for each `docs/prd/` path, including out-of-scope PRDs, only when envelope verification reaches that check. |
+
+**Closure rule.** Any caller-object access not listed in R1–R6 remains a compatibility trace by
+default: preserve its existing timing, count, and decision effect until a separately approved
+change says otherwise. This does not permit a new access. A caller-object access absent from the
+current implementation has a budget of zero in Phase 0. Phase 0A records ordered `get`, `ownKeys`,
+`getOwnPropertyDescriptor`, and `getPrototypeOf` events across every factory-known caller object
+and pins the complete trace per observed case and distribution, including symbol properties,
+result category/identity, and thrown markers. Tracing must be transparent: the traced and unwrapped
+controls must agree on outputs, exceptions, identity relationships, semantic read counts, and
+caller-input integrity. The tracer must respect Proxy invariants for frozen objects and nested
+non-configurable properties. A trace proves completeness for its observed case; it does not
+establish branch coverage or replace Phase 0C's structural/API boundary and negative controls. Any
+observed unclassified access is added to the contract before Phase 0B. The applicability gate
+protects R2, R3, and scoped candidate capture; it does not gate every baseline, metadata, or
+pre-evaluation ingestion read (R1 and C3 retain their stated timing). C2, C4, C5, and C3's
+pre-evaluation ingestion are explicit compatibility lanes; their bounded reads must remain
+isolated or be documented as narrow exceptions to the Phase 0C boundary.
+
+### Phase limits
+
+Phase 0A defines this contract and builds the RED replay corpus, exact read traces, and qualified
+mutation controls. Each corpus case compares the full public result (`observation`, `outcome`,
+diagnostics, `artifactDigest`, `baseDigest`, `baselineArtifacts`, provenance, and `recordRefs`),
+role-specific counts/traces, and input integrity against canonical and packaged implementations.
+Phase 0A does not change evaluator behavior. Phase 0B introduces the smallest private
+capture layer as a pure refactor, preserving outputs, decision semantics, audit identity, read
+order/counts, input integrity, and canonical/package parity. Phase 0C enforces the normalized
+applicable baseline-bound boundary and qualifies mutation gates, including negative controls.
+Those phases and relevant CI on the final merged SHA are required for Gate E0. Phase 0A alone is
+not E0 and does not authorize runtime Evidence Reconciliation. Snapshot consistency is not external
+VCS/provenance attestation; that remains in #325 Phase 3b/3c.
+
 ## Data shape
 
 The trusted baseline keeps its existing whole-tree identity and may add per-path SHA256 values:
@@ -39,9 +114,9 @@ scope = {
 - `reason: 'rename-from'` describes the old endpoint of an identified content-identical move.
   The destination is named by `renameTo` and must itself be a member of the same
   `scope.paths`. A `renameTo` outside the scope is malformed and fails the obligation closed.
-- Every `baselinePaths` entry's fields (`path`, `reason`, and the own-key `renameTo` presence) are
-  snapshotted through one guarded inspection, and each field result is carried exactly once. An
-  entry whose field getter or descriptor trap throws is a metadata error (`baseline-path-invalid`)
+- Under R4, each `baselinePaths` entry's fields (`path`, `reason`, and the own-key `renameTo`
+  presence) are snapshotted through one guarded inspection per obligation/entry, then reused by
+  consumers. An entry whose field getter or descriptor trap throws is a metadata error (`baseline-path-invalid`)
   and fails the entry closed instead of escaping the checker; a field accessor that throws only on
   a later read cannot abort the audit mirror; the mirror is built from the metadata-validated
    snapshot (validated path and captured digest) and is never a second read of the raw entry
@@ -74,7 +149,8 @@ A deleted path is satisfied only when one observed record:
 4. carries **no** `artifactDigests` entry for that path, and the candidate artifact map has **no
    own-key entry** for that path.
 
-The trusted per-path value is validated once during metadata validation and then **captured**.
+The trusted per-path value is validated and captured once for its R5 obligation/path identity
+during metadata validation.
 The audit mirror, the stale-baseline diagnostics, and baseline binding compare against that
 captured value and never re-read the caller-owned `baseline.artifacts` map during evidence
 evaluation: a stateful own getter cannot satisfy a record with a value it started returning only
@@ -84,14 +160,14 @@ different or unusable value later is factored out entirely. A baseline per-path 
 throws during validation is a `baseline-artifact-invalid` metadata error and fails the path
 closed instead of escaping the checker. The audit mirror is likewise keyed by the **validated**
 path snapshot rather than a re-read of `baselinePaths[].path`, so a stateful `path` accessor is
-read exactly once and a passing result always describes the baseline identity that validated and
-bound the evidence.
+read once within its R4 obligation/entry snapshot and a passing result always describes the
+baseline identity that validated and bound the evidence.
 
-The whole-baseline identity `baseline.digest` follows the same discipline: it is read exactly
-once and that same scalar is validated, so a stateful value cannot be inspected as A while every
-evidence comparison uses B. The rename destination's own digest is also read exactly once during
-its validated snapshot, and the captured value drives the metadata cache, binding, the stale
-diagnostics, and the audit identity.
+The whole-baseline identity `baseline.digest` follows R1: the invocation-level read, when eligible,
+is the scalar validated and reused by every obligation. A rename destination's own digest follows
+R3: each declaring entry that reaches validation has its own read, with shared-destination
+agreement and poisoned-snapshot precedence. Consumers of each accepted snapshot reuse its captured
+value for metadata, binding, stale diagnostics, and audit identity.
 
 Per-path evidence must be carried explicitly. Inherited properties in `baseline.artifacts` or a
 record's `baselineArtifacts` are not own-key evidence and never satisfy a path; the trusted
@@ -116,11 +192,11 @@ candidate digest — the same one used by ordinary candidate binding, the audit 
 stale diagnostics. The destination is therefore never read again through the candidate map during
 capture or binding: a nested `digest` that throws or changes after validation cannot make a stale
 destination pair bind while the audit/stale verdicts still describe the captured value. The same
-read-once guarantee extends to rejected destination snapshots: when the destination's own digest
-read throws or returns an unusable value, that failed snapshot ('') is recorded and all later
-reads for that destination path are suppressed as well — the entry's single metadata read remains
-its only digest read, and the failed path contributes `path=missing` to `artifactDigest` instead
-of a later, different value. The same
+R3 also governs rejected destination snapshots: when a declaring entry's own-digest read throws or
+returns an unusable value, that failed snapshot ('') is recorded and later declarations in the
+same obligation's metadata loop do not reread the poisoned destination — the rejected entry's
+metadata read remains its only digest read, and the failed path contributes `path=missing` to
+`artifactDigest` instead of a later, different value. The same
 record can cover both endpoints. Destination-only evidence, source-only tombstones, split endpoint
 records, and stale destination digests do not satisfy the source. A deletion tombstone therefore
 cannot stand in for a known rename. This destination validation and the snapshot it produces are
@@ -129,9 +205,10 @@ evidence, so they do not consume the destination digest getter during metadata v
 audit identity keeps the un-gated legacy candidate read, and a stateful accessor therefore reports
 the same first legacy value to them that it would report without baseline binding.
 
-Metadata validation is the single candidate snapshot for a baseline-only path. Once a declared
-baseline path has been confirmed to have **no** own-key candidate entry, that validated absence is
-carried on the entry; binding and the `artifactDigest` audit identity reuse it instead of
+For an applicable baseline-only path, R4 metadata validation captures candidate own-key absence
+once for that obligation/entry. Once a declared baseline path has been confirmed to have **no**
+own-key candidate entry, that validated absence is carried on the entry; binding and the
+`artifactDigest` audit identity reuse it instead of
 re-inspecting the candidate map, so a `Proxy` that answers own-property or `get` inspection
 consistently during validation cannot later abort the check or change the audit key. A
 baseline-only path therefore contributes `path=missing` to `artifactDigest` from the validated
