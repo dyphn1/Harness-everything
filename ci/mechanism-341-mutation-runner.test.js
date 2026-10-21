@@ -73,11 +73,14 @@ const selectedAssertion = process.env.HARNESS_ASSERTION_ID || 'RB00.synthetic.ta
 const eventFile = process.env.HARNESS_ASSERTION_EVENT_FILE;
 function emit(event, caseId = selectedCase, assertionId = selectedAssertion) {
   const record = { schemaVersion: 1, event, caseId, assertionId };
-  if (event === 'assertion-failure') record.errorCode = 'ERR_ASSERTION';
+  if (event === 'assertion-failure') { record.errorCode = 'ERR_ASSERTION'; record.message = 'synthetic control assertion failed'; }
   fs.appendFileSync(eventFile, JSON.stringify(record) + '\n');
 }
 const mode = process.env.HARNESS_SYNTHETIC_MODE;
-if (mode === 'control-failure') {
+if (mode === 'control-unscoped-crash') {
+  emit('assertion-pass');
+  throw new Error('synthetic unscoped control crash');
+} else if (mode === 'control-failure') {
   emit('assertion-failure');
   process.exitCode = 1;
 } else if ((mode === 'generic-failure' || mode === 'parity-only-failure') && process.env.HARNESS_MUTATION) {
@@ -267,6 +270,15 @@ if (mode === 'control-failure') {
   const controlFailure = checkTuple({ mutantId: 'test-kill', mode: 'control-failure' });
   assert.strictEqual(controlFailure.verdict, 'CONTROL_FAILED', 'a red unmutated control is infrastructure failure');
   assert.strictEqual(controlFailure.applied, false, 'runner stops before mutant preflight after a red control');
+  assert.ok(controlFailure.reason.includes('RB00.synthetic.target-is-true')
+    && controlFailure.reason.includes('synthetic control assertion failed'),
+  `CONTROL_FAILED preserves the failing control assertion and message: ${controlFailure.reason}`);
+
+  const unscopedControl = checkTuple({ mutantId: 'test-kill', mode: 'control-unscoped-crash' });
+  assert.strictEqual(unscopedControl.verdict, 'CONTROL_FAILED', 'a crash after the selected PASS is still a red control');
+  assert.ok(unscopedControl.reason.includes('Error: synthetic unscoped control crash')
+    && unscopedControl.reason.includes('synthetic-test.js:'),
+  `an unscoped control crash retains its message and source callsite: ${unscopedControl.reason}`);
 
   const crash = checkTuple({ mutantId: 'test-crash' });
   assert.notStrictEqual(crash.verdict, 'KILLED', 'an import/runtime crash cannot be credited as a kill');
