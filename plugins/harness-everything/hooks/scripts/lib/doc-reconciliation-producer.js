@@ -148,7 +148,8 @@ function contextFor(input, provider) {
   // re-anchored baseline (PR #353 review P1).
   if (!U.record(c.baseline) || !U.text(c.baseline.commit) || !U.text(c.baseline.root)
     || !U.record(input.baseline) || c.baseline.commit !== input.baseline.commit || !samePath(c.baseline.root, input.baseline.root)) fail('baseline-unavailable');
-  return U.clone({ ...c, workspaceRoot: canonicalPath(input.workspaceRoot), originRef: response.originRef });
+  const root = canonicalPath(input.workspaceRoot);
+  return U.clone({ ...c, baseline: { ...c.baseline, root }, workspaceRoot: root, originRef: response.originRef });
 }
 function filesOf(records) {
   return Object.fromEntries(records.filter(r => r.presence === 'present').map(r => [r.path, new TextDecoder('utf-8', { fatal: true }).decode(r.storedBytes)]));

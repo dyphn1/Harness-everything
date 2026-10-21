@@ -580,6 +580,16 @@ not match the provider's correlated workflow-start reference; never substitute c
 The provider context MUST carry the concrete pinned `baseline: { commit, root }` (a bare `baselineReference`
 is not enough); a missing pin or any mismatch with the input baseline is `baseline-unavailable`, so a
 baseline re-anchored to a moved HEAD can never return `ready` (PR #353 review P1).
+Capture canonicalizes the pinned root and workspace root to the same native filesystem identity.
+The detached snapshot MUST retain a pin whose commit equals the hashed baseline commit and whose
+canonical root equals the captured workspace root. Snapshot validation reports these violations as `baseline-unavailable`; an invalid snapshot stops
+event adaptation, and both reconciliation modes withhold credit. The commit check rejects joint
+provider/captured-pin replacement against an unchanged hashed baseline. Root comparison proves only
+snapshot-internal consistency: jointly replacing the pin root, captured workspace root and provider
+root is not detected by this detached check. Root metadata is not included in the hashed identity;
+external worktree authentication remains outside this S2a guarantee. The core performs no filesystem
+reads to establish the invariant. Provider-only pin changes remain diagnostic and block credit at
+reconciliation; they do not short-circuit event adaptation.
 Progress-field exclusions in `taskScopeDigest` apply only at their defined schema locations (per-step and
 per-binding status/evidence records), never to every nested key with the same name; nested scope,
 requirement or binding semantics always change the digest (PR #353 review P2).

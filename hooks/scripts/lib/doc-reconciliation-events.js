@@ -32,6 +32,7 @@ function acceptDocEvents(input = {}, dependencies = {}) {
       return empty;
     }
     diagnostics.push(...U.validateSnapshot(snapshot));
+    if (diagnostics.length) return { ...empty, state: 'unresolved' };
     const artifacts = artifactsFor(snapshot.candidate.records);
     const baselineArtifacts = artifactsFor(snapshot.baseline.records);
     const checkerInputs = { obligations: U.clone(snapshot.obligations), artifacts,

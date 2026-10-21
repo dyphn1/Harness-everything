@@ -394,6 +394,48 @@ runner.run('R2e-P1:unchanged-provider-context-stays-eligible-control', ALL_NEW, 
   if (!decision.eligible) throw new Error(`an unchanged provider context must stay eligible: ${JSON.stringify(decision.unsatisfied)}`);
 }));
 
+// ---- R2f P1: the captured origin pin must agree with the hashed baseline -----------------------------------------
+
+for (const field of ['commit', 'root', 'missing-pin']) {
+  runner.run(`R2f-P1:joint-origin-and-snapshot-pin-${field}-tampering-rejected`, ALL_NEW, mods => withVector('normative', repo => {
+    const base = flow(mods, repo, 'normative');
+    requireEligible(base, 'complete normative control');
+    const snapshot = H.clone(base.snapshot);
+    const other = H.makeRepo({ 'other.txt': 'other root\n' });
+    try {
+      if (field === 'missing-pin') {
+        delete snapshot.originContext.baseline;
+        delete base.origin.context.baseline;
+      } else {
+        const value = field === 'commit' ? other.commit : fs.realpathSync.native(other.root);
+        snapshot.originContext.baseline[field] = value;
+        base.origin.context.baseline[field] = value;
+      }
+      H.sameStable(snapshot.baseline, H.clone(base.snapshot.baseline), 'hashed baseline unchanged');
+      H.sameStable(snapshot.identity, base.snapshot.identity, 'event identity unchanged');
+      const accepted = mods[EVENTS].acceptDocEvents({ snapshot, eventRefs: Object.keys(base.events) }, { originProvider: base.origin });
+      H.expectCodes(H.codesOf(accepted), ['baseline-unavailable'], 'inconsistent snapshot pin');
+      H.sameStable(Object.keys(accepted.acceptedIndex), [], 'no accepted events from an inconsistent snapshot');
+      for (const mode of ['verification', 'review']) {
+        const decision = mods[CORE].checkAcceptedDocEvidence({ snapshot, accepted, mode });
+        if (decision.eligible) throw new Error(`${mode}: inconsistent snapshot pin earned credit`);
+        H.expectCodes(H.codesOf(decision), ['baseline-unavailable'], `${mode} invariant`);
+        const cached = H.clone(base.accepted);
+        cached.originContext = H.clone(snapshot.originContext);
+        const replay = mods[CORE].checkAcceptedDocEvidence({ snapshot, accepted: cached, mode });
+        if (replay.eligible) throw new Error(`${mode}: cached accepted evidence bypassed the snapshot invariant`);
+        H.expectCodes(H.codesOf(replay), ['baseline-unavailable'], `${mode} cached invariant`);
+      }
+    } finally { H.removeRepo(other.root); }
+  }));
+}
+
+runner.run('R2f-P1:equivalent-provider-root-is-canonicalized-control', ALL_NEW, mods => withVector('normative', repo => {
+  const r = flow(mods, repo, 'normative', { context: { baseline: { commit: repo.commit, root: repo.root + '/.' } } });
+  requireEligible(r, 'equivalent provider root');
+  H.sameStable(r.snapshot.originContext.baseline.root, r.snapshot.originContext.workspaceRoot, 'canonical captured roots');
+}));
+
 // ---- A14: stable captures, capture boundary and status-only progress --------------------------------------------
 
 runner.run('A14:unchanged-repository-captures-identically', ALL_NEW, mods => withVector('normative', repo => {

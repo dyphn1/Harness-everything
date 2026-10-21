@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Reject S2a document evidence when the captured origin commit disagrees with the hashed baseline, including joint provider/context commit replacement; also reject inconsistent roots within the snapshot (#353).
+
 - Ship the unwired S2a document evidence producer and reconciliation core (snapshot capture, captured config, accepted-origin adapter, expected-set reconciliation); S1 stays no-credit until S2b host integration.
 - Ship default-OFF Phase 3b S1 scope assessment and no-credit runtime gate (opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`); S2 pending (S3 shipped in 0.37.0), E1 not started.
 

@@ -52,6 +52,12 @@ function validateSnapshot(snapshot) {
   const errors = [];
   try {
     if (!validIdentity(snapshot.identity) || !record(snapshot.facts) || !Array.isArray(snapshot.obligations)) throw new Error('invalid-input');
+    // Roots are canonicalized at capture; keep reconciliation detached and free of filesystem reads.
+    const context = snapshot.originContext;
+    if (!record(context) || !record(context.baseline) || !text(context.workspaceRoot)
+      || context.baseline.commit !== snapshot.baseline.commit || context.baseline.root !== context.workspaceRoot) {
+      errors.push(diagnostic('baseline-unavailable'));
+    }
     if (snapshotDigest('baseline', snapshot.baseline, snapshot.candidate.coverage, snapshot.baseline.records) !== snapshot.identity.baselineDigest
       || snapshotDigest('candidate', snapshot.baseline, snapshot.candidate.coverage, snapshot.candidate.records) !== snapshot.identity.candidateDigest
       || snapshot.baseline.digest !== snapshot.identity.baselineDigest || snapshot.candidate.digest !== snapshot.identity.candidateDigest) errors.push(diagnostic('identity-mismatch'));
