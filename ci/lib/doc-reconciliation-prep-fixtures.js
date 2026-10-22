@@ -25,7 +25,7 @@ const PILOT_SWITCH = 'HARNESS_DOC_RECONCILIATION_PILOT';
 const PILOT_REPORT_FILE = 'doc-reconciliation-pilot.json';
 const BASELINE_AUTHOR = Object.freeze({ name: 'doc-recon-replay', email: 'doc-recon-replay@invalid' });
 const BASELINE_DATE = '2026-01-01T00:00:00Z';
-const FIXTURE_OPS = new Set(['provideEvidence', 'mutateIdentity', 'timestampHints', 'seedState', 'gitCommit', 'editJournal', 'editDocCheck']);
+const FIXTURE_OPS = new Set(['provideEvidence', 'mutateIdentity', 'timestampHints', 'seedState', 'gitCommit', 'editJournal', 'editDocCheck', 'observeStateTree']);
 const CONTROLLER_OPS = new Set(['plan', 'start', 'binding', 'stageBinding', 'step', 'obligation']);
 // Host-transport ops (F4): hostRun executes a registered command the way the host would; hookDeliver sends one raw
 // host payload through the real hook entry (state-persist.js). Neither writes a journal or accepted record itself.
@@ -235,6 +235,11 @@ function runFixture(handle, action, pilot) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, String(p.content), 'utf8');
     return fixtureResult(handle, pilot, { op: 'mutateIdentity', kind: p.kind, path: p.path });
+  }
+  if (action.op === 'observeStateTree') {
+    // Read-only: lists the relative paths the replay wrote under its state home and workspace (F4-T12 matrix; no contents).
+    const list = root => { const out = []; const walk = dir => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) walk(full); else out.push(path.relative(root, full).split(path.sep).join('/')); } }; if (fs.existsSync(root)) walk(root); return out.sort(); };
+    return fixtureResult(handle, pilot, { op: 'observeStateTree', stateFiles: list(handle.stateHome), workspaceFiles: list(handle.workspace) });
   }
   if (action.op === 'editDocCheck') {
     // Appends to the leg's installed doc-check file after a capture (F4-T6: the assessment-time digest check). Only a staged
