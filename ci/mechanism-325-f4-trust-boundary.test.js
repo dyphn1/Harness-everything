@@ -335,6 +335,64 @@ function partR8R9(leg) {
   }
 }
 
+// ---- M2 (F4-T6): the doc-check file changes between capture and assessment --------------------------------------------
+// Capture records the installed doc-check digest; assessment recomputes it. A change after capture must withhold credit
+// with `implementation-digest-mismatch`. The control is the same flow with no change, and it must still be credited.
+
+const M2_EDIT = { id: 'edit-check', op: 'editDocCheck', payload: { append: '\n// edited after capture (F4-T6 M2)\n' } };
+
+// The provider's verdict on the captured record, from the staged leg's own provider module (the pilot drops rejections from
+// its report, so the rejection code is read here). The staged tree must still exist.
+function providerVerdict(staged, record) {
+  const provider = require(path.join(staged.libDir, 'doc-reconciliation-provider.js'));
+  const identity = record.observedIdentity;
+  const origin = provider.createClaudeOriginProvider({
+    hostId: 'claude-code',
+    sessionId: record.session_id,
+    workspaceRoot: record.cwd,
+    workflowId: identity.workflowId,
+    workflowRevision: identity.workflowRevision,
+    taskId: 'task-f4t6-m2',
+    principals: { author: record.session_id, executors: [] },
+    baseline: identity.baselinePin,
+    captures: [record],
+  });
+  return origin.resolveEvent({ reference: `${record.ref}#doc-lint`, identity: null });
+}
+
+function partM2(leg) {
+  console.log(`\n== M2 (${leg}): the installed doc-check changed after capture earns nothing ==`);
+  const cases = [['F4T6-M2-control', false], ['F4T6-M2-edited', true]];
+  for (const [label, edited] of cases) {
+    const staged = stage(leg);
+    try {
+      useShippedExport(staged);
+      const item = clone(POS_CASE);
+      item.id = label;
+      item.actions = item.actions
+        .flatMap(action => (action.id === 'post-lint' && edited ? [action, M2_EDIT] : [action]))
+        .map(action => (action.id === 'verify-pass' ? { ...action, expectExit: { on: [0, 2] } } : action));
+      const root = replay(item, staged.dist, { pilot: '1' });
+      const record = ((root.actions['post-lint'].state.capture || { records: [] }).records || []).find(r => r.event === 'PostToolUse' && r.ref);
+      const verdict = record ? providerVerdict(staged, record) : { status: 'missing-record', diagnostics: [] };
+      const codes = (verdict.diagnostics || []).map(item => item && item.code);
+      if (edited) {
+        runChecks(`${label}@${leg}`, root, [
+          { id: 'no-credit', status: 'CONTROL', reason: 'F4-R M2: a doc-check changed after capture must earn no document credit', test: () => ({ pass: pilotOf(root).pilotCredit === false && !creditedOf(root).includes('doc-lint'), actual: creditedOf(root) }) },
+          { id: 'refused-implementation-digest-mismatch', status: 'CONTROL', reason: 'F4-R M2: assessment refuses the capture with implementation-digest-mismatch', test: () => ({ pass: verdict.status !== 'accepted' && codes.includes('implementation-digest-mismatch'), actual: { status: verdict.status, codes } }) },
+        ]);
+      } else {
+        runChecks(`${label}@${leg}`, root, [
+          { id: 'credited-lint-and-links', status: 'CONTROL', reason: 'the unchanged doc-check keeps its credit (the paired control for M2)', test: () => ({ pass: JSON.stringify(creditedOf(root)) === JSON.stringify(['doc-lint', 'link-check']), actual: creditedOf(root) }) },
+          { id: 'accepted-unchanged-check', status: 'CONTROL', reason: 'the provider accepts the same record when nothing changed', test: () => ({ pass: verdict.status === 'accepted', actual: { status: verdict.status, codes } }) },
+        ]);
+      }
+    } finally {
+      staged.cleanup();
+    }
+  }
+}
+
 function main() {
   if (!shippedExportPresent()) {
     console.log('INFRA: the committed qualification export is missing from a leg; the trust-boundary cases need it');
@@ -345,6 +403,7 @@ function main() {
     partR3R5(leg);
     partR6R7(leg);
     partR8R9(leg);
+    partM2(leg);
   }
   console.log('\n== F4-T4 trust-boundary evidence ==');
   console.log(`controls and passing checks: ${passCount}`);
