@@ -71,10 +71,13 @@ function processState(payload) {
       if (commandClass !== 'read-only' && commandClass !== 'worktree-setup') state.lastEditAt = Date.now();
       // Verification evidence needs a confirmed success: a PostToolUse event or an explicit zero exit.
       // Pilot ON only: a registered, argv-validated doc-check that resolves to this install's own runtime is the document
-      // verification evidence. Any other path earns no verification evidence. OFF stays legacy.
-      const registeredCheck = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1'
-        && require('./lib/doc-reconciliation-provider').registeredInstalledCheck(command, cwdOf(payload, root));
-      if (!isFailed && (isSuccessEvent || exitCode === 0) && (registeredCheck || isVerificationShell(command, { cwd: cwdOf(payload, root), root }))) { state.lastVerifyAt = Date.now(); state.lastVerifyExitCode = exitCode ?? null; }
+      // verification evidence, and only at the shipped pin (R3-02). Any other path earns no verification evidence. OFF stays legacy.
+      const docCheck = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1' ? require('./lib/doc-reconciliation-provider') : null;
+      const installedCheck = docCheck && docCheck.registeredInstalledCheck(command, cwdOf(payload, root));
+      const verifies = installedCheck
+        ? docCheck.fileDigest(installedCheck.installed) === docCheck.SHIPPED_DOC_CHECK_DIGEST
+        : isVerificationShell(command, { cwd: cwdOf(payload, root), root });
+      if (!isFailed && (isSuccessEvent || exitCode === 0) && verifies) { state.lastVerifyAt = Date.now(); state.lastVerifyExitCode = exitCode ?? null; }
     }
     fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
     observeTool(payload);

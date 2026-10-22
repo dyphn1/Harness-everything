@@ -202,17 +202,38 @@ function readCaptures(context) {
   return require('./doc-reconciliation-provider').readCaptureView(context.sessionDir).records;
 }
 
+// Only a Bash command that names doc-check is a doc-check candidate. An ordinary Edit or Agent result is not (R3-01).
+const docCheckCandidate = item => item.event === 'PostToolUse' && /doc-check/.test(String(item.command || ''));
+
 function captureReferences(context) {
   return readCaptures(context)
-    .filter(item => item && (item.event === 'PostToolUse' || item.event === 'SubagentStop') && typeof item.ref === 'string')
+    .filter(item => item && typeof item.ref === 'string' && (item.event === 'SubagentStop' || docCheckCandidate(item)))
     .flatMap(item => (item.event === 'SubagentStop' ? ['quality-review'] : ['doc-lint', 'link-check'])
       .map(capability => `${item.ref}#${capability}`));
+}
+
+// R3-02: verification recorded before an installed-runtime change is withdrawn once the live doc-check leaves the pin.
+// Capture time sees the pristine runtime, so only assessment can catch a later change. Scoped to sessions that ran a doc-check.
+function withdrawChangedRuntimeVerification(context) {
+  try {
+    const provider = require('./doc-reconciliation-provider');
+    const installed = provider.installedDocCheck();
+    if (!installed || provider.fileDigest(installed) === provider.SHIPPED_DOC_CHECK_DIGEST) return;
+    if (!readCaptures(context).some(item => item && item.event === 'PostToolUse' && provider.parseRegisteredCheck(item.command))) return;
+    const file = path.join(context.sessionDir, 'handoff-state.json');
+    const handoff = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (handoff.lastVerifyAt === undefined) return;
+    delete handoff.lastVerifyAt;
+    delete handoff.lastVerifyExitCode;
+    atomicWriteJson(file, handoff);
+  } catch { /* fail-open: no handoff state yet, or nothing to withdraw */ }
 }
 
 // Assessment is deliberately negative-credit only in S1. Unsupported topologies never enter
 // generic step reconciliation, and failures (including report persistence) never escape to Stop.
 function assess(context, set, dependencies = {}) {
   if (!enabled()) return { withhold: false };
+  withdrawChangedRuntimeVerification(context);
   const report = {
     schemaVersion: 1, reportOrigin: 'runtime', pilotStatus: 'unavailable', pilotCredit: false,
     identity: null, expectedMustIds: [], results: [], unsatisfied: [], diagnostics: [],
