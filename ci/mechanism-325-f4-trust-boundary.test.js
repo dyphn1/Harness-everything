@@ -163,9 +163,11 @@ function partR1R2(leg) {
       : path.join(tampered.root, 'plugin', 'skills', 'harness-everything', 'scripts', 'doc-check.js');
     fs.appendFileSync(script, '\n// tampered by the F4-T4 digest case\n', 'utf8');
     const root = replay(tamperedCase, tampered.dist, { pilot: '1' });
+    const verdict = postLintVerdict(tampered, root);
     runChecks(`R2.tampered-script@${leg}`, root, [
-      // Open (G0, F4-A3): SHIPPED_DOC_CHECK_DIGEST is absent, so a script changed before the run is observed, digested and credited.
-      { id: 'no-credit', status: 'RED', reason: 'G0 (F4-A3): the shipped doc-check is not pinned (SHIPPED_DOC_CHECK_DIGEST absent), so a script changed before the run earns credit', test: () => ({ pass: pilotOf(root).pilotCredit === false, actual: pilotOf(root).pilotCredit }) },
+      // Closed by F4-W8 (G0): the shipped doc-check is pinned, so a script changed before the run earns nothing.
+      { id: 'no-credit', status: 'CONTROL', reason: 'G0 (F4-A3): the shipped doc-check is not pinned (SHIPPED_DOC_CHECK_DIGEST absent), so a script changed before the run earns credit', test: () => ({ pass: pilotOf(root).pilotCredit === false, actual: pilotOf(root).pilotCredit }) },
+      { id: 'refused-implementation-pin-mismatch', status: 'CONTROL', reason: 'G0 (F4-A3): the provider refuses the tampered doc-check with implementation-pin-mismatch', test: () => ({ pass: verdict.status !== 'accepted' && codesOf(verdict).includes('implementation-pin-mismatch'), actual: { status: verdict.status, codes: codesOf(verdict) } }) },
     ]);
   } finally {
     tampered.cleanup();
@@ -358,6 +360,14 @@ function providerVerdict(staged, record) {
   return origin.resolveEvent({ reference: `${record.ref}#doc-lint`, identity: null });
 }
 
+const codesOf = verdict => (verdict.diagnostics || []).map(item => item && item.code);
+
+// The provider's verdict on the post-lint capture of a replay (the staged tree must still exist).
+function postLintVerdict(staged, root) {
+  const record = ((root.actions['post-lint'].state.capture || { records: [] }).records || []).find(r => r.event === 'PostToolUse' && r.ref);
+  return record ? providerVerdict(staged, record) : { status: 'missing-record', diagnostics: [] };
+}
+
 function partM2(leg) {
   console.log(`\n== M2 (${leg}): the installed doc-check changed after capture earns nothing ==`);
   const cases = [['F4T6-M2-control', false], ['F4T6-M2-edited', true]];
@@ -393,8 +403,8 @@ function partM2(leg) {
 
 // ---- G0 (F4-T7): the shipped doc-check is pinned by canonical digest (F4-A3) ------------------------------------------
 // The provider must export SHIPPED_DOC_CHECK_DIGEST: the canonical SHA-256 (UTF-8, CRLF normalised to LF) of the shipped
-// harness-everything/scripts/doc-check.js. Until that pin exists, the pin REDs fail for that reason alone, and a script
-// changed before its run is still credited. F4-W8 implements the pin; this part asserts it and must not be relaxed.
+// harness-everything/scripts/doc-check.js. F4-W8 implements the pin (closed): a script changed before its run is refused
+// with implementation-pin-mismatch, and an unchanged or CRLF copy stays accepted. These checks assert it and must not be relaxed.
 
 const SOURCE_DOC_CHECK = path.join(ROOT, 'harness-everything', 'scripts', 'doc-check.js');
 const PACKAGED_DOC_CHECK = path.join(ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'doc-check.js');
@@ -406,12 +416,14 @@ const rePinHint = leg => `set SHIPPED_DOC_CHECK_DIGEST = '${EXPECTED_PIN}' in ${
 const shippedDocCheck = leg => (leg === 'source' ? SOURCE_DOC_CHECK : PACKAGED_DOC_CHECK);
 
 // Replays the positive case against a staged copy of the leg, after an optional change to its installed doc-check.
+// Returns the replay root and the provider's verdict on its post-lint capture.
 function g0Replay(leg, mutate) {
   const staged = stage(leg);
   try {
     useShippedExport(staged);
     if (mutate) mutate(staged.dist.docCheck);
-    return replay(clone(POS_CASE), staged.dist, { pilot: '1' });
+    const root = replay(clone(POS_CASE), staged.dist, { pilot: '1' });
+    return { root, verdict: postLintVerdict(staged, root) };
   } finally {
     staged.cleanup();
   }
@@ -423,7 +435,7 @@ function partG0() {
     const pin = pinOf(leg);
     const pinned = pin === undefined ? null : pin;
     runChecks(`G0.pin@${leg}`, undefined, [
-      { id: 'pin-matches-shipped-script', status: 'RED', reason: 'G0 (F4-A3): SHIPPED_DOC_CHECK_DIGEST is absent from the provider, so the shipped doc-check is not pinned', test: () => ({ pass: pin === EXPECTED_PIN, actual: { pin: pinned, expected: EXPECTED_PIN, rePin: rePinHint(leg) } }) },
+      { id: 'pin-matches-shipped-script', status: 'CONTROL', reason: 'G0 (F4-A3): SHIPPED_DOC_CHECK_DIGEST is absent from the provider, so the shipped doc-check is not pinned', test: () => ({ pass: pin === EXPECTED_PIN, actual: { pin: pinned, expected: EXPECTED_PIN, rePin: rePinHint(leg) } }) },
     ]);
     const staged = stage(leg);
     try {
@@ -436,19 +448,23 @@ function partG0() {
     }
   }
   runChecks('G0.legs@source', undefined, [
-    { id: 'pins-agree-across-legs', status: 'RED', reason: 'G0 (F4-A3): the source and packaged providers must carry the same pin (both absent now)', test: () => ({ pass: typeof pinOf('source') === 'string' && pinOf('source') === pinOf('packaged'), actual: { source: pinOf('source') === undefined ? null : pinOf('source'), packaged: pinOf('packaged') === undefined ? null : pinOf('packaged') } }) },
+    { id: 'pins-agree-across-legs', status: 'CONTROL', reason: 'G0 (F4-A3): the source and packaged providers must carry the same pin (both absent now)', test: () => ({ pass: typeof pinOf('source') === 'string' && pinOf('source') === pinOf('packaged'), actual: { source: pinOf('source') === undefined ? null : pinOf('source'), packaged: pinOf('packaged') === undefined ? null : pinOf('packaged') } }) },
   ]);
 
   for (const leg of LEGS) {
-    const shippedRoot = g0Replay(leg, null);
-    const crlfRoot = g0Replay(leg, file => fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/\n/g, '\r\n'), 'utf8'));
-    const oneByteRoot = g0Replay(leg, file => fs.appendFileSync(file, '\n', 'utf8'));
+    const shipped = g0Replay(leg, null);
+    const crlf = g0Replay(leg, file => fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/\n/g, '\r\n'), 'utf8'));
+    const oneByte = g0Replay(leg, file => fs.appendFileSync(file, '\n', 'utf8'));
+    const credited = result => JSON.stringify(creditedOf(result.root)) === JSON.stringify(['doc-lint', 'link-check']);
     runChecks(`G0.positive@${leg}`, undefined, [
-      { id: 'shipped-script-credited', status: 'CONTROL', reason: '', test: () => ({ pass: JSON.stringify(creditedOf(shippedRoot)) === JSON.stringify(['doc-lint', 'link-check']), actual: creditedOf(shippedRoot) }) },
-      { id: 'crlf-copy-credited', status: 'CONTROL', reason: 'a CRLF copy of the shipped script has the same canonical digest, so it stays accepted once pinned', test: () => ({ pass: JSON.stringify(creditedOf(crlfRoot)) === JSON.stringify(['doc-lint', 'link-check']), actual: creditedOf(crlfRoot) }) },
+      { id: 'shipped-script-credited', status: 'CONTROL', reason: '', test: () => ({ pass: credited(shipped), actual: creditedOf(shipped.root) }) },
+      { id: 'shipped-record-accepted', status: 'CONTROL', reason: 'the provider accepts the unmodified shipped script (non-vacuity for the refusals below)', test: () => ({ pass: shipped.verdict.status === 'accepted', actual: { status: shipped.verdict.status, codes: codesOf(shipped.verdict) } }) },
+      { id: 'crlf-copy-credited', status: 'CONTROL', reason: 'a CRLF copy of the shipped script has the same canonical digest, so it stays accepted once pinned', test: () => ({ pass: credited(crlf), actual: creditedOf(crlf.root) }) },
+      { id: 'crlf-record-accepted', status: 'CONTROL', reason: 'the provider accepts a CRLF copy of the shipped script (same canonical digest)', test: () => ({ pass: crlf.verdict.status === 'accepted', actual: { status: crlf.verdict.status, codes: codesOf(crlf.verdict) } }) },
     ]);
     runChecks(`G0.one-byte@${leg}`, undefined, [
-      { id: 'one-byte-change-refused', status: 'RED', reason: 'G0 (F4-A3): a one-byte change to the shipped doc-check before its run is still credited (no pin)', test: () => ({ pass: pilotOf(oneByteRoot).pilotCredit === false && !creditedOf(oneByteRoot).includes('doc-lint'), actual: creditedOf(oneByteRoot) }) },
+      { id: 'one-byte-change-refused', status: 'CONTROL', reason: 'G0 (F4-A3): a one-byte change to the shipped doc-check before its run is still credited (no pin)', test: () => ({ pass: pilotOf(oneByte.root).pilotCredit === false && !creditedOf(oneByte.root).includes('doc-lint'), actual: creditedOf(oneByte.root) }) },
+      { id: 'refused-implementation-pin-mismatch', status: 'CONTROL', reason: 'G0 (F4-A3): the provider refuses a one-byte-changed doc-check with implementation-pin-mismatch', test: () => ({ pass: oneByte.verdict.status !== 'accepted' && codesOf(oneByte.verdict).includes('implementation-pin-mismatch'), actual: { status: oneByte.verdict.status, codes: codesOf(oneByte.verdict) } }) },
     ]);
   }
 }
