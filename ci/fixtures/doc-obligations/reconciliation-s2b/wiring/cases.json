@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "phase": "325-3b-I2-wiring",
-  "description": "R2c-2 S2b wiring corpus (new path registered for registry retirement). Same L1 replay contract as the reconciliation-prep corpus; cases are replayed by ci/mechanism-325-3b-s2b-wiring.test.js through fx.replayCase with unmodified lib code. baseFiles/candidateFiles are real git fixtures (baseline committed, candidate in the working tree). The input.config, input.task and input.hostEvents fields are the declared test-origin fixtures of the S2b wiring contract (doc: tests inject simulated capture records and the explicitly fake qualification through declared test-origin fixtures; production never reads a fixture trust switch). The current fixture runtime does not materialise config/task/hostEvents yet - that materialisation is part of the missing GREEN wiring implementation, and wiring assertions that need it are the expected RED of this suite, never synthesised.",
+  "description": "R2c-2 S2b wiring corpus (new path registered for registry retirement). Same L1 replay contract as the reconciliation-prep corpus; cases are replayed by ci/mechanism-325-3b-s2b-wiring.test.js through fx.replayCase with unmodified lib code. baseFiles/candidateFiles are real git fixtures (baseline committed, candidate in the working tree). The input.config and input.task fields are declared test-origin fixtures. Host events are no longer declared: each one is delivered through a real hook entry as a hookDeliver action (F4-T1b). The current fixture runtime does not materialise config/task/hostEvents yet - that materialisation is part of the missing GREEN wiring implementation, and wiring assertions that need it are the expected RED of this suite, never synthesised.",
   "cases": [
     {
       "id": "W-off-legacy",
@@ -44,14 +44,7 @@
           "role": "declared-test-origin",
           "taskId": "task-w-off-legacy",
           "identityContract": "ci/fixtures/doc-obligations/reconciliation-prep/trust-contract.json"
-        },
-        "hostEvents": [
-          {
-            "role": "declared-test-origin",
-            "kind": "review",
-            "capability": "doc-change:quality-review"
-          }
-        ]
+        }
       },
       "actions": [
         {
@@ -165,29 +158,7 @@
           "role": "declared-test-origin",
           "taskId": "task-w-credit-01",
           "identityContract": "ci/fixtures/doc-obligations/reconciliation-prep/trust-contract.json"
-        },
-        "hostEvents": [
-          {
-            "role": "declared-test-origin",
-            "kind": "review",
-            "capability": "doc-change:quality-review"
-          },
-          {
-            "role": "declared-test-origin",
-            "kind": "execution",
-            "capability": "doc-change:doc-lint"
-          },
-          {
-            "role": "declared-test-origin",
-            "kind": "execution",
-            "capability": "doc-change:link-check"
-          },
-          {
-            "role": "declared-test-origin",
-            "kind": "execution",
-            "capability": "doc-change:conflict-check"
-          }
-        ]
+        }
       },
       "actions": [
         {
@@ -218,6 +189,16 @@
             "stepId": "req-docs",
             "disposition": "pass",
             "evidence": "PRD REQ text updated"
+          }
+        },
+        {
+          "id": "reviewer-stop",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "SubagentStop",
+            "agentId": "agent-f4-reviewer",
+            "agentType": "repo-docs-reviewer",
+            "lastAssistantMessage": "Review verdict: approve. The PRD change keeps its acceptance criteria consistent."
           }
         },
         {
@@ -342,30 +323,7 @@
           "role": "declared-test-origin",
           "taskId": "task-w-review-01",
           "identityContract": "ci/fixtures/doc-obligations/reconciliation-prep/trust-contract.json"
-        },
-        "hostEvents": [
-          {
-            "role": "declared-test-origin",
-            "kind": "review",
-            "capability": "doc-change:quality-review",
-            "note": "independent-of-author subagent approval"
-          },
-          {
-            "role": "declared-test-origin",
-            "kind": "execution",
-            "capability": "doc-change:doc-lint"
-          },
-          {
-            "role": "declared-test-origin",
-            "kind": "execution",
-            "capability": "doc-change:link-check"
-          },
-          {
-            "role": "declared-test-origin",
-            "kind": "execution",
-            "capability": "doc-change:conflict-check"
-          }
-        ]
+        }
       },
       "actions": [
         {
@@ -417,6 +375,16 @@
           "id": "stop-mid",
           "op": "stop",
           "payload": {}
+        },
+        {
+          "id": "reviewer-stop",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "SubagentStop",
+            "agentId": "agent-f4-reviewer",
+            "agentType": "repo-docs-reviewer",
+            "lastAssistantMessage": "Review verdict: approve. The PRD change keeps its acceptance criteria consistent."
+          }
         },
         {
           "id": "review-retry",
@@ -520,8 +488,7 @@
           "role": "declared-test-origin",
           "taskId": "task-w-nondoc-01",
           "identityContract": "ci/fixtures/doc-obligations/reconciliation-prep/trust-contract.json"
-        },
-        "hostEvents": []
+        }
       },
       "actions": [
         {
@@ -638,8 +605,7 @@
           "role": "declared-test-origin",
           "taskId": "task-w-scope-01",
           "identityContract": "ci/fixtures/doc-obligations/reconciliation-prep/trust-contract.json"
-        },
-        "hostEvents": []
+        }
       },
       "actions": [
         {
@@ -764,14 +730,7 @@
           "role": "declared-test-origin",
           "taskId": "task-w-rename-01",
           "identityContract": "ci/fixtures/doc-obligations/reconciliation-prep/trust-contract.json"
-        },
-        "hostEvents": [
-          {
-            "role": "declared-test-origin",
-            "kind": "review",
-            "capability": "doc-change:quality-review"
-          }
-        ]
+        }
       },
       "actions": [
         {
@@ -802,6 +761,16 @@
             "stepId": "req-docs",
             "disposition": "pass",
             "evidence": "PRD REQ content moved to the renamed path"
+          }
+        },
+        {
+          "id": "reviewer-stop",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "SubagentStop",
+            "agentId": "agent-f4-reviewer",
+            "agentType": "repo-docs-reviewer",
+            "lastAssistantMessage": "Review verdict: approve. The PRD change keeps its acceptance criteria consistent."
           }
         },
         {
@@ -893,8 +862,7 @@
           "role": "declared-test-origin",
           "taskId": "task-w-gitdiag-01",
           "identityContract": "ci/fixtures/doc-obligations/reconciliation-prep/trust-contract.json"
-        },
-        "hostEvents": []
+        }
       },
       "actions": [
         {

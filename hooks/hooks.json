@@ -37,6 +37,17 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash|PowerShell|Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/state-persist.js\""
+          }
+        ],
+        "description": "Pilot-only doc-reconciliation launch capture (HARNESS_DOC_RECONCILIATION_PILOT exactly 1): capture-only, fail-open, write-free when OFF, never blocks a tool",
+        "id": "harness:pre:pilot-capture"
+      },
+      {
         "matcher": "Bash|PowerShell|Edit|Write|apply_patch",
         "hooks": [
           {
@@ -178,6 +189,17 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/state-persist.js\""
+          }
+        ],
+        "description": "Pilot-only doc-reconciliation Task/Agent result capture (HARNESS_DOC_RECONCILIATION_PILOT exactly 1): capture-only, fail-open, write-free when OFF",
+        "id": "harness:post-task:pilot-capture"
+      },
       {
         "matcher": "Bash|PowerShell|mcp__.*",
         "hooks": [

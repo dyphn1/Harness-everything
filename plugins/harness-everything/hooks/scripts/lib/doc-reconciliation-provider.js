@@ -39,6 +39,7 @@ const HOST_ID = 'claude-code';
 const RETAINED_LIVE_REL_PARTS = path.join('benchmarks', 'results', 'live-host', 'claude-325-3b-s2b');
 const RETAINED_REQUIRED_ENTRIES = ['README.md', 'capture.sanitized.jsonl'];
 const HEX64 = /^[0-9a-f]{64}$/;
+const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent'];
 
 function textOf(value) { return typeof value === 'string' && value.trim().length > 0; }
 function recordOf(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -70,6 +71,43 @@ function failDiagnostics(prefix, reason) {
 }
 
 // ---- Retained live-capture gate -------------------------------------------------
+
+// Canonical qualification export (A3 section 4): written by the live-capture packet, copied by plugin sync.
+const EXPORT_FILE = 'doc-reconciliation-qualification.json';
+
+// Structured verdict: a labelled line `Review verdict: approve|reject`, with the summary on that line or after it.
+// Free text such as `REJECT: ...` carries no verdict, so it can never approve.
+function parseReviewVerdict(message) {
+  if (typeof message !== 'string') return null;
+  const match = /^\s*Review verdict:\s*(approve|reject)\b[.:]?\s*(.*)$/im.exec(message);
+  if (!match) return null;
+  const summary = [match[2], message.slice(match.index + match[0].length)].join('\n').trim();
+  return { verdict: match[1].toLowerCase(), summary };
+}
+
+// The retained payloads must parse and carry the correlated fields the owner requires (populated tool_use_id with an
+// explicit interrupted value, and a populated agent_id). File size is never evidence.
+function validateRetainedPayloads(captureFile) {
+  const lines = fs.readFileSync(captureFile, 'utf8').split(/\r?\n/).filter(line => line.trim());
+  let records;
+  try { records = lines.map(line => JSON.parse(line)); } catch { return 'capture.sanitized.jsonl contains a line that is not JSON'; }
+  if (!records.every(recordOf)) return 'capture.sanitized.jsonl contains a record that is not an object';
+  if (!records.some(item => item.event === 'PostToolUse' && textOf(item.tool_use_id) && typeof item.interrupted === 'boolean')) {
+    return 'no PostToolUse record carries a populated tool_use_id and an explicit interrupted value';
+  }
+  if (!records.some(item => textOf(item.agent_id))) return 'no record carries a populated agent_id';
+  return null;
+}
+
+// The export must bind the exact retained capture bytes and record the two populated fields.
+function validateExport(exportFile, captureFile) {
+  let exported;
+  try { exported = JSON.parse(fs.readFileSync(exportFile, 'utf8')); } catch { return 'qualification export is missing or not valid JSON'; }
+  const digest = crypto.createHash('sha256').update(fs.readFileSync(captureFile)).digest('hex');
+  if (!recordOf(exported) || exported.captureSha256 !== digest) return 'qualification export does not bind the retained capture digest';
+  if (exported.toolUseIdPopulated !== true || exported.agentIdPopulated !== true) return 'qualification export does not record populated tool_use_id and agent_id';
+  return null;
+}
 
 function resolveRetainedLiveDir() {
   let dir = __dirname;
@@ -120,6 +158,19 @@ function evaluateQualification(input) {
       }),
     };
   }
+  const captureFile = path.join(dir, 'capture.sanitized.jsonl');
+  let reason = null;
+  try {
+    reason = validateRetainedPayloads(captureFile) || validateExport(path.join(__dirname, EXPORT_FILE), captureFile);
+  } catch (error) {
+    reason = `retained evidence could not be read (${error.code || 'error'})`;
+  }
+  if (reason) {
+    return {
+      open: false,
+      fail: diagnostic('live-gate-unmet', { reason: `live gate unmet: ${reason}` }),
+    };
+  }
   return { open: true, source: 'retained-live-capture' };
 }
 
@@ -147,6 +198,8 @@ function contentSignature(cap) {
     interrupted: typeof cap.interrupted === 'boolean' ? cap.interrupted : null,
     is_interrupt: typeof cap.is_interrupt === 'boolean' ? cap.is_interrupt : null,
     failureDisposition: cap.failureDisposition === undefined ? null : cap.failureDisposition,
+    reviewVerdict: cap.reviewVerdict === undefined ? null : cap.reviewVerdict,
+    reviewSummary: cap.reviewSummary === undefined ? null : cap.reviewSummary,
   });
 }
 
@@ -187,6 +240,9 @@ const createClaudeOriginProvider = input => {
         principals: { author, executors: executors.slice() },
         activeHost: HOST_ID,
         baselineReference: `retained-live-capture:claude-325-3b-s2b:${digestText(originRef)}`,
+        // The concrete workflow-start pin, when the caller supplies it. It is never inferred from the current state.
+        ...(recordOf(safeInput.baseline) && textOf(safeInput.baseline.commit) && textOf(safeInput.baseline.root)
+          ? { baseline: { commit: safeInput.baseline.commit, root: safeInput.baseline.root } } : {}),
         workspaceRoot,
       },
     };
@@ -228,6 +284,9 @@ const createClaudeOriginProvider = input => {
     }
     if (cap.event === 'SubagentStart') {
       return rejected('capture-not-completed', 'SubagentStart records only a launch; a background launch is not a completed review or execution');
+    }
+    if (cap.event === 'PreToolUse') {
+      return rejected('capture-not-completed', 'PreToolUse records only a launch; without a completed outcome it cannot be credited');
     }
     if (cap.event === 'PostToolUse') {
       if (!(cap.tool_use_id && typeof cap.tool_use_id === 'string')) {
@@ -289,6 +348,16 @@ const createClaudeOriginProvider = input => {
       if (!HEX64.test(String(cap.reviewDigest === undefined ? '' : cap.reviewDigest))) {
         return rejected('review-digest-missing', 'SubagentStop without a bound final review artifact digest cannot close a review');
       }
+      // Approval only from an explicit structured verdict in the bound final artifact. SubagentStop alone never approves.
+      if (cap.reviewVerdict === 'reject') {
+        return rejected('review-not-approved', 'the final review artifact states reject; a reject never approves');
+      }
+      if (cap.reviewVerdict !== 'approve') {
+        return rejected('review-verdict-missing', 'the final review artifact has no explicit structured verdict; SubagentStop alone is never approval');
+      }
+      if (!textOf(cap.reviewSummary)) {
+        return rejected('review-summary-missing', 'an approve verdict needs a non-empty summary');
+      }
       const eventId = 'claude-review-' + digestText(signature + ':review');
       const independentOf = [];
       for (const candidate of [author, ...executors]) {
@@ -302,7 +371,7 @@ const createClaudeOriginProvider = input => {
         capability: 'quality-review',
         kind: 'review',
         verdict: 'approve',
-        summary: `host subagent review completed by ${reviewer}; the final review artifact is bound by digest ${cap.reviewDigest}`,
+        summary: cap.reviewSummary,
         independentOf,
         identity: recordOf(request.identity) ? JSON.parse(JSON.stringify(request.identity)) : null,
         paths: [],
@@ -336,7 +405,9 @@ let captureSequence = 0;
 function buildCaptureRecord(payload, eventName, workspaceRoot) {
   if (!recordOf(payload)) return null;
   const event = typeof eventName === 'string' ? eventName : (payload.hook_event_name || payload.hookEventName || '');
-  if (['PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop'].indexOf(event) === -1) return null;
+  if (['PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop'].indexOf(event) === -1) return null;
+  // PreToolUse is captured only for the launches whose outcome the pilot can later correlate.
+  if (event === 'PreToolUse' && PRE_CAPTURE_TOOLS.indexOf(payload.tool_name) === -1) return null;
   const toolInput = recordOf(payload.tool_input) ? payload.tool_input : {};
   const toolResponse = payload.tool_response;
   // Demonstrated alias mapping (doc: "Host result aliases such as agentId
@@ -347,6 +418,8 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
   const captureId = `${event}:${new Date().toISOString()}:${process.pid}:${captureSequence += 1}`;
   const record = {
     captureId,
+    // Stable origin ref: the reference the assessment looks up (the journal also keeps captureId and responseRef).
+    ref: captureId,
     event,
     command: typeof toolInput.command === 'string' ? toolInput.command : '',
     cwd: typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : (typeof workspaceRoot === 'string' && workspaceRoot ? workspaceRoot : ''),
@@ -363,12 +436,16 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
   }
   if (payload.duration_ms !== undefined) record.duration_ms = payload.duration_ms;
   if (event === 'PostToolUse') {
-    record.interrupted = Boolean(toolResponse && toolResponse.interrupted);
+    // An absent interrupted field stays absent: it is unknown, not false (A3 section 1).
+    if (recordOf(toolResponse) && typeof toolResponse.interrupted === 'boolean') record.interrupted = toolResponse.interrupted;
   } else if (event === 'PostToolUseFailure') {
     record.is_interrupt = Boolean(payload.is_interrupt);
     record.failureDisposition = /Exit code (\d+)/.exec(String(payload.error === undefined ? '' : payload.error)) ? 'nonzero-exit' : 'host-failure-error';
   } else if (event === 'SubagentStop') {
     record.reviewDigest = digestText(String(payload.last_assistant_message === undefined ? '' : payload.last_assistant_message));
+    const verdict = parseReviewVerdict(payload.last_assistant_message);
+    record.reviewVerdict = verdict ? verdict.verdict : null;
+    record.reviewSummary = verdict ? verdict.summary : null;
     if (payload.agent_transcript_path !== undefined) record.agentTranscriptPath = payload.agent_transcript_path;
   }
   return record;

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "phase": "F4-T1",
-  "description": "F4 credited-reconciliation replay corpus (F4-T1). Replayed by ci/mechanism-325-f4-projections.test.js through fx.replayCase. Host events are delivered only through the hostRun and hookDeliver ops, which drive the real doc-check entry and the real state-persist hook. Nothing here carries an accepted record or a journal record.",
+  "phase": "F4-T1b",
+  "description": "F4 credited-reconciliation replay corpus (F4-T1, F4-T1b). Replayed by ci/mechanism-325-f4-projections.test.js through fx.replayCase. Host events are delivered only through the hostRun and hookDeliver ops, which drive the real doc-check entry and the real state-persist hook. Nothing here carries an accepted record or a journal record.",
   "cases": [
     {
       "id": "F4-POS-body-edit",
@@ -1393,6 +1393,743 @@
           },
           "expectExit": {
             "on": [
+              2
+            ]
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop"
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric"
+        }
+      ]
+    },
+    {
+      "id": "F4-NEG-partial-path",
+      "description": "N1: two governed references changed, but the observed check was given only one. The omitted path earns no lint or link credit, and a whole-command exit 0 is not coverage.",
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/a.md\",\n      \"role\": \"reference\"\n    },\n    {\n      \"path\": \"docs/c.md\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ]\n}\n",
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries once. See [b](b.md).\n",
+          "docs/b.md": "b\n",
+          "docs/c.md": "---\nrole: reference\nstatus: active\n---\n\nBase C.\n"
+        },
+        "candidateFiles": {
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries twice. See [b](b.md).\n",
+          "docs/c.md": "---\nrole: reference\nstatus: active\n---\n\nEdited C.\n"
+        }
+      },
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Correct the checkout retry sentence",
+          "acceptance": "the governed reference body is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the reference change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Update the governed reference docs/a.md text, review it, and verify it."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "sentence corrected in docs/a.md"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "lint-run",
+          "op": "hostRun",
+          "payload": {
+            "command": "doc-check",
+            "args": [
+              "check",
+              "--workspace",
+              ".",
+              "--config",
+              ".agents/harness-everything/project-docs.json",
+              "--changed-path",
+              "docs/a.md"
+            ]
+          }
+        },
+        {
+          "id": "post-partial",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "PostToolUse",
+            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "toolUseId": "toolu_f4_partial_01",
+            "fromRun": "lint-run"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective doc check recorded"
+          },
+          "expectExit": {
+            "on": [
+              0,
+              2
+            ]
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop"
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric"
+        }
+      ]
+    },
+    {
+      "id": "F4-NEG-unsupported-link",
+      "description": "N2: the expected reference uses reference-style link syntax the check cannot resolve, so link-check reports it unsupported and earns no credit.",
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/a.md\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ]\n}\n",
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries once. See [b](b.md).\n",
+          "docs/b.md": "b\n"
+        },
+        "candidateFiles": {
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries twice. See [r][ref].\n\n[ref]: b.md\n"
+        }
+      },
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Correct the checkout retry sentence",
+          "acceptance": "the governed reference body is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the reference change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Update the governed reference docs/a.md text, review it, and verify it."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "sentence corrected in docs/a.md"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "lint-run",
+          "op": "hostRun",
+          "payload": {
+            "command": "doc-check",
+            "args": [
+              "check",
+              "--workspace",
+              ".",
+              "--config",
+              ".agents/harness-everything/project-docs.json",
+              "--changed-path",
+              "docs/a.md"
+            ]
+          }
+        },
+        {
+          "id": "post-lint",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "PostToolUse",
+            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "toolUseId": "toolu_f4_check_01",
+            "fromRun": "lint-run"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective doc check recorded"
+          },
+          "expectExit": {
+            "on": [
+              0,
+              2
+            ]
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop"
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric"
+        }
+      ]
+    },
+    {
+      "id": "F4-NEG-not-governed",
+      "description": "N3a: the observed check ran under a config that does not govern the expected path, so the path is reported not governed and earns no credit.",
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/a.md\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ]\n}\n",
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries once. See [b](b.md).\n",
+          "docs/b.md": "b\n",
+          ".agents/harness-everything/alt-project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/c.md\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ]\n}\n"
+        },
+        "candidateFiles": {
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries twice. See [b](b.md).\n"
+        }
+      },
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Correct the checkout retry sentence",
+          "acceptance": "the governed reference body is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the reference change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Update the governed reference docs/a.md text, review it, and verify it."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "sentence corrected in docs/a.md"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "lint-run",
+          "op": "hostRun",
+          "payload": {
+            "command": "doc-check",
+            "args": [
+              "check",
+              "--workspace",
+              ".",
+              "--config",
+              ".agents/harness-everything/alt-project-docs.json",
+              "--changed-path",
+              "docs/a.md"
+            ]
+          },
+          "expectExit": {
+            "off": [
+              0,
+              1
+            ],
+            "on": [
+              0,
+              1
+            ]
+          }
+        },
+        {
+          "id": "post-ungoverned",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "PostToolUse",
+            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/alt-project-docs.json --changed-path docs/a.md",
+            "toolUseId": "toolu_f4_ungov_01",
+            "fromRun": "lint-run"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective doc check recorded"
+          },
+          "expectExit": {
+            "on": [
+              0,
+              2
+            ]
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop"
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric"
+        }
+      ]
+    },
+    {
+      "id": "F4-NEG-not-on-disk",
+      "description": "N3b: the expected path is absent from the candidate tree, so the check reports it not on disk and earns no credit.",
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/a.md\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ]\n}\n",
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries once. See [b](b.md).\n",
+          "docs/b.md": "b\n"
+        },
+        "candidateFiles": {
+          "docs/a.md": null
+        }
+      },
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Correct the checkout retry sentence",
+          "acceptance": "the governed reference body is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the reference change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Update the governed reference docs/a.md text, review it, and verify it."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "sentence corrected in docs/a.md"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "lint-run",
+          "op": "hostRun",
+          "payload": {
+            "command": "doc-check",
+            "args": [
+              "check",
+              "--workspace",
+              ".",
+              "--config",
+              ".agents/harness-everything/project-docs.json",
+              "--changed-path",
+              "docs/a.md"
+            ]
+          },
+          "expectExit": {
+            "off": [
+              0,
+              1
+            ],
+            "on": [
+              0,
+              1
+            ]
+          }
+        },
+        {
+          "id": "post-missing",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "PostToolUse",
+            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "toolUseId": "toolu_f4_missing_01",
+            "fromRun": "lint-run"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective doc check recorded"
+          },
+          "expectExit": {
+            "on": [
+              0,
+              2
+            ]
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop"
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric"
+        }
+      ]
+    },
+    {
+      "id": "F4-REM-prose-share-present",
+      "description": "N4: a valid body-only edit whose observed check carries the F2 prose-share reminder. The reminder must add or withhold no credit.",
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/a.md\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ]\n}\n",
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries once. See [b](b.md).\n",
+          "docs/b.md": "b\n"
+        },
+        "candidateFiles": {
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries twice. See [b](b.md).\n"
+        }
+      },
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Correct the checkout retry sentence",
+          "acceptance": "the governed reference body is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the reference change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Update the governed reference docs/a.md text, review it, and verify it."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "sentence corrected in docs/a.md"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "lint-run",
+          "op": "hostRun",
+          "payload": {
+            "command": "doc-check",
+            "args": [
+              "check",
+              "--workspace",
+              ".",
+              "--config",
+              ".agents/harness-everything/project-docs.json",
+              "--changed-path",
+              "docs/a.md"
+            ]
+          }
+        },
+        {
+          "id": "post-lint",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "PostToolUse",
+            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "toolUseId": "toolu_f4_check_01",
+            "fromRun": "lint-run"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective doc check recorded"
+          },
+          "expectExit": {
+            "on": [
+              0,
+              2
+            ]
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop"
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric"
+        }
+      ]
+    },
+    {
+      "id": "F4-REM-prose-share-absent",
+      "description": "N5: the same valid body-only edit with a structured body, so the observed check carries no reminder. Credit must match N4.",
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/a.md\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ]\n}\n",
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries once. See [b](b.md).\n",
+          "docs/b.md": "b\n"
+        },
+        "candidateFiles": {
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\n# Retry\n\n| Step | Rule |\n|---|---|\n| one | retry |\n| two | retry |\n\n```\ncode line\n```\n\n- item\n- item\n\nThe checkout retries twice. See [b](b.md).\n"
+        }
+      },
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Correct the checkout retry sentence",
+          "acceptance": "the governed reference body is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the reference change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Update the governed reference docs/a.md text, review it, and verify it."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "sentence corrected in docs/a.md"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "lint-run",
+          "op": "hostRun",
+          "payload": {
+            "command": "doc-check",
+            "args": [
+              "check",
+              "--workspace",
+              ".",
+              "--config",
+              ".agents/harness-everything/project-docs.json",
+              "--changed-path",
+              "docs/a.md"
+            ]
+          }
+        },
+        {
+          "id": "post-lint",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "PostToolUse",
+            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "toolUseId": "toolu_f4_check_01",
+            "fromRun": "lint-run"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective doc check recorded"
+          },
+          "expectExit": {
+            "on": [
+              0,
               2
             ]
           }

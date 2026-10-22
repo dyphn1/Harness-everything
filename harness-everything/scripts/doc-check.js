@@ -9,6 +9,9 @@ const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 const { collectDocs } = require('./doc-lifecycle');
 
+// Logical command IDs (A3 section 3): stdout that repeats an ID is not trusted as credit by itself.
+const CHECK_ID = 'harness.doc-check.check.v1';
+const COMPARE_ID = 'harness.doc-check.compare-derived.v1';
 const USAGE = 'usage: doc-check.js check --workspace <dir> --config <json-file, relative to --workspace> --changed-path <path> [--changed-path <path> ...] [--base <git-rev>]';
 const VALUE_FLAGS = ['--workspace', '--config', '--changed-path', '--base'];
 const INLINE_LINK = /!?\[[^\]]*\]\((<[^>]*>|[^)\s]+)(?:\s+(?:"[^"]*"|'[^']*'))?\)/g;
@@ -151,7 +154,7 @@ function compareDerived(argv) {
   const { validateDocsConfig } = require('./project-docs-resolver');
   const parsed = parseCompareArgs(argv);
   const flags = parsed.options || {};
-  const base = { command: 'compare-derived', view: flags['--view'] ?? null, generationStatus: flags['--generation-status'] ?? null };
+  const base = { schema: COMPARE_ID, command: COMPARE_ID, view: flags['--view'] ?? null, generationStatus: flags['--generation-status'] ?? null };
   if (parsed.error) return emitCompare({ ...base, result: 'usage-error', reason: parsed.error });
   if (!flags['--workspace'] || !flags['--config'] || !flags['--view'] || !flags['--candidate']) return emitCompare({ ...base, result: 'usage-error', reason: '--workspace, --config, --view and --candidate are required' });
   const status = flags['--generation-status'];
@@ -253,11 +256,11 @@ function check(options) {
   const lint = runLint(workspace, options);
   const lintExit = lint.status === 0 || lint.status === 1 ? lint.status : 2;
   if (lintExit === 2) {
-    return emit({ lint: { exit: 2, error: String(lint.stderr || lint.error || '').trim(), diagnostics: [] }, links: { checked: 0, broken: [], skipped: 'lint-usage-error' }, coverage: { unsupported: [] } }, 2);
+    return emit({ schema: CHECK_ID, command: CHECK_ID, lint: { exit: 2, error: String(lint.stderr || lint.error || '').trim(), diagnostics: [] }, links: { checked: 0, broken: [], skipped: 'lint-usage-error' }, coverage: { unsupported: [] } }, 2);
   }
   let analysis;
   try { analysis = JSON.parse(lint.stdout); } catch {
-    return emit({ lint: { exit: 2, error: 'lint output was not JSON', diagnostics: [] }, links: { checked: 0, broken: [], skipped: 'lint-usage-error' }, coverage: { unsupported: [] } }, 2);
+    return emit({ schema: CHECK_ID, command: CHECK_ID, lint: { exit: 2, error: 'lint output was not JSON', diagnostics: [] }, links: { checked: 0, broken: [], skipped: 'lint-usage-error' }, coverage: { unsupported: [] } }, 2);
   }
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   const docs = collectDocs(workspace, config);
@@ -320,11 +323,29 @@ function check(options) {
     if (2 * prose > eligible) reminders.push({ code: 'prose-share', path: doc.path, strength: 'SHOULD', proseLines: prose, eligibleLines: eligible, share: prose / eligible, threshold: 0.5 });
   }
 
+  // Per-capability reports (A3 section 3). Partial coverage is never reported as a full pass.
+  const governedChanged = [...changed].filter(item => governed.has(item));
+  const noDomains = !Array.isArray(config.domains) || !config.domains.length;
+  const linkSkipped = unsupported.filter(item => item.syntax || (item.path && item.reason && !item.applicability));
   const result = {
+    schema: CHECK_ID,
+    command: CHECK_ID,
     lint: { exit: lintExit, evidence: analysis.evidence, diagnostics: analysis.diagnostics },
     links: { checked, broken },
     coverage: { unsupported },
-    reminders
+    reminders,
+    capabilities: {
+      'doc-lint': {
+        state: lintExit === 1 ? 'fail' : noDomains ? 'partial' : 'pass',
+        checkedPaths: governedChanged,
+        skipped: unsupported.filter(item => !item.path).map(item => item.reason),
+      },
+      'link-check': {
+        state: broken.length ? 'fail' : linkSkipped.length ? 'partial' : 'pass',
+        checkedPaths: governedChanged,
+        skipped: linkSkipped,
+      },
+    }
   };
   return emit(result, lintExit === 1 || broken.length ? 1 : 0);
 }

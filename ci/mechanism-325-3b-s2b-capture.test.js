@@ -269,6 +269,19 @@ runner.run('R2C1-REVIEWER-REPLAY-COPIED-REJECTED', PROVIDER_REQ, (_mods, leg) =>
   }
 });
 
+// A labelled `Review verdict: reject` never approves, and neither does free text that only says REJECT. Both are
+// fixtures on the independent reviewer surface, so only the verdict line decides the outcome.
+for (const [id, fixture] of [
+  ['R2C1-REVIEWER-REJECT-NEVER-APPROVES', 'payload-subagent-stop-reject.json'],
+  ['R2C1-REVIEWER-FREETEXT-REJECT-NEVER-APPROVES', 'payload-subagent-stop-freetext-reject.json'],
+]) {
+  runner.run(id, PROVIDER_REQ, (_mods, leg) => {
+    const captures = [H.simulateCapture(fixture, { ref: REVIEW_REF, agentId: 'agent-r2c1-rev' }), H.simulateCapture('payload-task-result.json', { ref: REVIEW_TEAM_REF, agentId: 'agent-r2c1-rev' })];
+    const out = runProvider(leg, { captures, qualification: H.fakeQualification('sim') }, REVIEW_REF);
+    assertNoExitZeroCredit(out, `${fixture} must never approve`);
+  });
+}
+
 // ---- Item 5: unsupported hosts are unavailable and never borrow Claude mapping
 
 runner.run('R2C1-UNSUPPORTED-OPENCODE', PROVIDER_REQ, (_mods, leg) => {

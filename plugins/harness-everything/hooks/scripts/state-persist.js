@@ -11,7 +11,9 @@ const { observeTool } = require('./lib/telemetry');
 // switch value `1` before any collector logic runs. OFF must return to the
 // existing legacy path before pilot collection; capture never executes a
 // command, verifier or generator and never blocks a tool or Stop.
-const PILOT_CAPTURE_EVENT_NAMES = ['PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop'];
+const PILOT_CAPTURE_EVENT_NAMES = ['PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop'];
+// Task/Agent results were never routed here before S2b, so they stay capture-only: the legacy handoff path does not run for them.
+const CAPTURE_ONLY_TOOLS = ['Task', 'Agent'];
 let inputData = '';
 const timeout = setTimeout(() => processState(null), 200);
 process.stdin.on('data', chunk => { inputData += chunk; });
@@ -25,6 +27,13 @@ function processState(payload) {
     // They are capture-only events: the legacy handoff state path stays
     // untouched for them, so wiring them while OFF adds no writes at all.
     if (captureEventName === 'SubagentStart' || captureEventName === 'SubagentStop') {
+      persistPilotCapture(payload, captureEventName, sessionId, root);
+      process.exit(0);
+      return;
+    }
+    // Pre-tool launch capture and Task/Agent result capture: capture-only, no legacy handoff state is written.
+    const captureToolName = payload ? (payload.tool_name || payload.tool || '') : '';
+    if (captureEventName === 'PreToolUse' || (captureEventName === 'PostToolUse' && CAPTURE_ONLY_TOOLS.indexOf(captureToolName) !== -1)) {
       persistPilotCapture(payload, captureEventName, sessionId, root);
       process.exit(0);
       return;
@@ -90,6 +99,9 @@ function persistPilotCapture(payload, eventName, sessionId, root) {
     }
     journal.version = 1;
     journal.records.push(entry);
-    fs.writeFileSync(journalFile, JSON.stringify(journal, null, 2), 'utf8');
+    // Write a temporary file and rename it over the journal, so a crash never leaves a half-written journal.
+    const tempFile = `${journalFile}.${process.pid}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(journal, null, 2), 'utf8');
+    fs.renameSync(tempFile, journalFile);
   } catch (_) { /* fail-open: capture failures never reach the host */ }
 }

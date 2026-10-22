@@ -112,6 +112,25 @@ const PLAN_NEGATIVE = {
     { id: 'neg.bare-pass-refused', path: ['actions', 'verify-bare', 'exitCode'], operator: 'equals', expected: 2, status: 'CONTROL', note: 'a bare PASS string is refused' },
     ...NEGATIVE('F4-NEG-self-reported-pass'),
   ],
+  // Path-scoped coverage (coordinator gap 1). Each path an observed check does not cover, or reports as unusable,
+  // earns no link or lint credit. The observed check's own JSON must show the defect (non-vacuity).
+  'F4-NEG-partial-path': NEGATIVE('F4-NEG-partial-path', { path: ['actions', 'lint-run', 'json', 'links', 'checked'], operator: 'equals', expected: 1 }),
+  'F4-NEG-unsupported-link': NEGATIVE('F4-NEG-unsupported-link', { path: ['actions', 'lint-run', 'json', 'coverage', 'unsupported'], operator: 'notEquals', expected: [] }),
+  'F4-NEG-not-governed': NEGATIVE('F4-NEG-not-governed', { path: ['actions', 'lint-run', 'json', 'coverage', 'unsupported', 0, 'reason'], operator: 'equals', expected: 'not governed' }),
+  'F4-NEG-not-on-disk': NEGATIVE('F4-NEG-not-on-disk', { path: ['actions', 'lint-run', 'json', 'coverage', 'unsupported', 0, 'reason'], operator: 'equals', expected: 'not on disk' }),
+};
+
+// Reminder non-credit (coordinator gap 2). The same valid edit with and without the F2 prose-share reminder: credit must
+// match, and the reminder must appear in no credit field. Both carry the positive's RED for credit.
+const PLAN_REMINDER = {
+  'F4-REM-prose-share-present': [
+    { id: 'rem-present.reminder-observed', path: ['actions', 'lint-run', 'json', 'reminders', 0, 'code'], operator: 'equals', expected: 'prose-share', status: 'CONTROL', note: 'the reminder is really present in the observed check' },
+    { id: 'rem-present.pilot-credit', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: true, status: 'RED', reason: RED_IMPLEMENTATION },
+  ],
+  'F4-REM-prose-share-absent': [
+    { id: 'rem-absent.no-reminder', path: ['actions', 'lint-run', 'json', 'reminders'], operator: 'equals', expected: [], status: 'CONTROL', note: 'the reminder is really absent in the observed check' },
+    { id: 'rem-absent.pilot-credit', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: true, status: 'RED', reason: RED_IMPLEMENTATION },
+  ],
 };
 
 let passCount = 0;
@@ -157,6 +176,16 @@ function checkReplay(caseId, distribution, mode, options, plan) {
       record('RED', id, `${entry.reason}; actual ${JSON.stringify(result.actual).slice(0, 120)}`);
     }
   });
+  return root;
+}
+
+// Reminder non-credit across the two replays: identical credit, and no pilot report field names the reminder.
+function reminderNonCredit(withReminder, withoutReminder, distribution) {
+  const creditOf = root => JSON.stringify([root.pilot && root.pilot.pilotCredit, root.pilot && root.pilot.creditedCapabilities]);
+  const same = creditOf(withReminder) === creditOf(withoutReminder);
+  record(same ? 'PASS' : 'FAIL', `rem.identical-credit@${distribution}`, same ? '' : `credit differs: ${creditOf(withReminder)} vs ${creditOf(withoutReminder)}`);
+  const named = JSON.stringify(withReminder.pilot || null).includes('prose-share');
+  record(named ? 'FAIL' : 'PASS', `rem.not-in-credit-field@${distribution}`, named ? 'the reminder name appears in the pilot report' : '');
 }
 
 // ---- Part A: replays through the real hook and CLI entries, both legs ---------------------------------------
@@ -170,6 +199,9 @@ function partA() {
     for (const caseId of Object.keys(PLAN_NEGATIVE)) {
       checkReplay(caseId, distribution, 'on', { pilot: '1', preload: true }, PLAN_NEGATIVE[caseId]);
     }
+    const withReminder = checkReplay('F4-REM-prose-share-present', distribution, 'on', { pilot: '1', preload: true }, PLAN_REMINDER['F4-REM-prose-share-present']);
+    const withoutReminder = checkReplay('F4-REM-prose-share-absent', distribution, 'on', { pilot: '1', preload: true }, PLAN_REMINDER['F4-REM-prose-share-absent']);
+    if (withReminder && withoutReminder) reminderNonCredit(withReminder, withoutReminder, distribution);
   }
 }
 

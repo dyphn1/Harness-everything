@@ -33,9 +33,10 @@
 // Declared test-origin seam (binding for GREEN): the wiring boundary threads the R2c-1 provider into
 // the decision seam by a declared options field (options.originProvider) plus the explicitly fake
 // qualification object `{ source: 'fake-test-fixture', faked: true, ... }`; a caller-fabricated
-// accepted object must never be an alternative input surface (N1). The corpus cases carry their
-// test-origin captures under input.config/input.task/input.hostEvents (declared test-origin fixtures;
-// production never reads prep-host-events and exposes no fixture trust switch).
+// accepted object must never be an alternative input surface (N1). Host events reach the runtime only as
+// hookDeliver/hostRun actions in the corpus, which drive the real hook entries (F4-T1b replaced the
+// declarative input.hostEvents). Production never reads prep-host-events and has no fixture trust switch.
+// RETIRED assertions (F4-T1b) name the F4 case and entry that carry their live RED (see Part D).
 //
 // Statuses follow the mechanism-suite convention: CONTROL assertions must pass today and stay true at
 // GREEN; RED assertions fail today for the stated missing-implementation reason and must pass at
@@ -103,8 +104,10 @@ const PLAN = {
     on: [
       { id: 'w-credit.doc-pass-exit', path: ['actions', 'doc-pass', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL', note: 'authored doc-change advance keeps its existing allowance' },
       { id: 'w-credit.review-pass-exit', path: ['actions', 'review-pass', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL', note: 'a declared independent review recipe is review-accepted' },
-      { id: 'w-credit.verify-first-exit', path: ['actions', 'verify-first', 'exitCode'], operator: 'equals', expected: 0, status: 'RED', reason: RED_MISSING_WIRING, supersedes: ['P05.on.stop-on-2-withheld'] },
-      { id: 'w-credit.stop-on1-state', path: ['actions', 'stop-on-1', 'state', 'workflow', 'state'], operator: 'equals', expected: 'satisfied', status: 'RED', reason: RED_MISSING_WIRING, supersedes: ['P05.on.stop-on-3-withheld'] },
+      // RETIRED (F4-T1b triage): the PRD-scope verification needs conflict-check, which F4 never credits, so it cannot go
+      // GREEN in this scope. The body-only edit carries the same credit RED through real entries.
+      { id: 'w-credit.verify-first-exit', path: ['actions', 'verify-first', 'exitCode'], operator: 'equals', expected: 0, status: 'RETIRED', supersededBy: { case: 'F4-POS-body-edit', entry: 'pos.verify-pass' }, supersedes: ['P05.on.stop-on-2-withheld'] },
+      { id: 'w-credit.stop-on1-state', path: ['actions', 'stop-on-1', 'state', 'workflow', 'state'], operator: 'equals', expected: 'satisfied', status: 'RETIRED', supersededBy: { case: 'F4-POS-body-edit', entry: 'pos.stop-satisfied' }, supersedes: ['P05.on.stop-on-3-withheld'] },
       { id: 'w-credit.stop-on1-exit', path: ['actions', 'stop-on-1', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL', note: 'both Stop surfaces exit 0 while withheld, too' },
       { id: 'w-credit.stop-on2-no-stale', path: ['actions', 'stop-on-2', 'state', 'workflow', 'state'], operator: 'notEquals', expected: 'satisfied', status: 'CONTROL', note: 'candidate mutation withholds stale credit' },
       { id: 'w-credit.stop-on2-exit', path: ['actions', 'stop-on-2', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
@@ -119,11 +122,12 @@ const PLAN = {
       { id: 'w-review.review-self-exit', path: ['actions', 'review-self', 'exitCode'], operator: 'equals', expected: 2, status: 'RED', reason: 'missing-implementation: review-mode refusals do not exist; a self-authored review PASS is still accepted (S1 recorded gap: self-review-pass-accepted)', supersedes: ['P02e.on.review-pass-exit'] },
       { id: 'w-review.stop-mid-state', path: ['actions', 'stop-mid', 'state', 'workflow', 'state'], operator: 'equals', expected: 'running', status: 'CONTROL' },
       { id: 'w-review.stop-mid-reviews-pending', path: ['actions', 'stop-mid', 'state', 'workflow', 'unresolved'], operator: 'includes', expected: 'step:req-review:pending', status: 'RED', reason: 'missing-implementation: the refused review step is not left pending; Stop reports the verifier tokens instead', supersedes: ['P02e.on.stop-reports'] },
-      { id: 'w-review.review-retry-exit', path: ['actions', 'review-retry', 'exitCode'], operator: 'equals', expected: 0, status: 'RED', reason: RED_MISSING_WIRING, note: 'a refused review keeps its step active, so the declared independent review retry is accepted before any verifier record' },
+      { id: 'w-review.review-retry-exit', path: ['actions', 'review-retry', 'exitCode'], operator: 'equals', expected: 0, status: 'RED', reason: 'missing-implementation: the self-authored review PASS is accepted and advances the workflow, so the independent retry is refused as not the active step; once review-self is refused (its own RED) the step stays active and the delivered independent review is accepted', note: 'a refused review keeps its step active, so the declared independent review retry is accepted before any verifier record' },
       { id: 'w-review.verify-bind-exit', path: ['actions', 'verify-bind', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
       { id: 'w-review.verify-pass-exit', path: ['actions', 'verify-pass', 'exitCode'], operator: 'equals', expected: 2, status: 'CONTROL', note: 'the first verification attempt stays refused (review-only evidence lacks execution records)' },
-      { id: 'w-review.verify-retry-exit', path: ['actions', 'verify-retry', 'exitCode'], operator: 'equals', expected: 0, status: 'RED', reason: 'missing-implementation: the later valid retry cannot complete verification (S1 recorded gap: later-valid-evidence-cannot-complete-verification)', supersedes: ['P03.on.verify-retry-exit'] },
-      { id: 'w-review.stop-state', path: ['actions', 'stop', 'state', 'workflow', 'state'], operator: 'equals', expected: 'satisfied', status: 'RED', reason: RED_MISSING_WIRING, note: 'completion follows the valid retry (same gap family as P05) without a superseded registry entry' },
+      // RETIRED (F4-T1b triage): verification and completion on the PRD scope need conflict-check, never credited under F4.
+      { id: 'w-review.verify-retry-exit', path: ['actions', 'verify-retry', 'exitCode'], operator: 'equals', expected: 0, status: 'RETIRED', supersededBy: { case: 'F4-POS-body-edit', entry: 'pos.verify-pass' }, supersedes: ['P03.on.verify-retry-exit'] },
+      { id: 'w-review.stop-state', path: ['actions', 'stop', 'state', 'workflow', 'state'], operator: 'equals', expected: 'satisfied', status: 'RETIRED', supersededBy: { case: 'F4-POS-body-edit', entry: 'pos.stop-satisfied' }, note: 'completion follows the valid retry (same gap family as P05) without a superseded registry entry' },
       { id: 'w-review.stop-exit', path: ['actions', 'stop', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
       { id: 'w-review.stop-generic-exit', path: ['actions', 'stop-generic', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
     ],
@@ -184,6 +188,15 @@ const PLAN = {
   } },
 };
 
+// Retired wiring assertions (F4-T1b triage): each names the F4 case and entry that carries its live RED.
+const retiredEntries = [];
+// In-process assertions retired by F4-T1b, with the F4 case and entry that carry their live RED.
+const IN_PROCESS_SUPERSEDED = {
+  'ip-wiring.credit-granted': { case: 'F4-POS-body-edit', entry: 'pos.pilot-credit' },
+  'ip-wiring.step-accepted': { case: 'F4-POS-body-edit', entry: 'pos.verify-pass' },
+};
+const F4_CASES_FILE = path.join(__dirname, 'fixtures', 'doc-obligations', 'reconciliation-s2b', 'f4', 'cases.json');
+const F4_SUITE_FILE = path.join(__dirname, 'mechanism-325-f4-projections.test.js');
 let passCount = 0;
 let failedCount = 0;
 let infraCount = 0;
@@ -220,12 +233,15 @@ function replayWiringCorpus() {
         const results = fx.evaluateAll(root, (plan.byMode[mode] || []).map(entry => ({ id: entry.id, path: entry.path, operator: entry.operator, expected: entry.expected })));
         results.forEach((result, index) => {
           const entry = plan.byMode[mode][index];
-          if (entry.status === 'CONTROL') {
+          if (entry.status === 'RETIRED') {
+            // Not evaluated here: its behaviour is a live RED in the F4 corpus (see the retirement integrity check).
+            retiredEntries.push({ id: `${entry.id}@${distribution}`, supersededBy: entry.supersededBy });
+          } else if (entry.status === 'CONTROL') {
             record(result.pass ? 'PASS' : 'FAIL', `${entry.id}@${distribution}`, result.pass ? '' : `expected ${JSON.stringify(entry.expected)} at ${entry.path.join('.')}, got ${JSON.stringify(result.actual)}`);
           } else if (result.pass) {
             record('FAIL', `${entry.id}@${distribution}`, `RED assertion unexpectedly passed now (expected to fail for the stated missing-implementation reason)`);
           } else {
-            record('RED', `${entry.id}@${distribution}`, `${entry.supersedes ? `supersedes ${entry.supersedes.join(', ')}` : 'wiring progression contract'}: actual ${JSON.stringify(result.actual).slice(0, 120)}`);
+            record('RED', `${entry.id}@${distribution}`, `${entry.reason || (entry.supersedes ? `supersedes ${entry.supersedes.join(', ')}` : 'wiring progression contract')}: actual ${JSON.stringify(result.actual).slice(0, 120)}`);
           }
         });
         partACustomChecks(item, root, distribution);
@@ -392,6 +408,8 @@ function buildProvider(leg, modules, captureOverrides = {}) {
   return providerModule.createClaudeOriginProvider({
     hostId: 'claude-code',
     sessionId: `s2b-wiring-${leg.id}`,
+    // The workflow-start pin is supplied by the caller at construction, as S2a contextFor requires.
+    ...(captureOverrides.baseline ? { baseline: captureOverrides.baseline } : {}),
     workspaceRoot: captureOverrides.workspaceRoot || '/tmp/nothing',
     taskId: `task-s2b-wiring-${leg.id}`,
     workflowId: `wf-s2b-wiring-${leg.id}`,
@@ -424,7 +442,8 @@ function inProcessPart() {
       const seeded = seedInProcessScenario(leg, dir, modules);
       // -- Real Claude provider (faked qualification) drives the producer chain now already (S2a+provider
       //    modules are real); the wiring itself is the missing piece.
-      const qualified = buildProvider(leg, modules, { workspaceRoot: dir });
+      const pin = { root: dir, commit: git(dir, ['rev-parse', 'HEAD']).trim() };
+      const qualified = buildProvider(leg, modules, { workspaceRoot: dir, baseline: pin });
       let produceState = null;
       let produceDiag = '';
       try {
@@ -445,7 +464,7 @@ function inProcessPart() {
       // pin that S2a contextFor requires (A3 section 1, source-traced), so produceDocSnapshot refuses with
       // baseline-unavailable. A ready snapshot here would be an unexpected pass.
       const producedReady = produceState === 'ready';
-      record(producedReady ? 'FAIL' : 'RED', `ip-wiring.produce-ready@${leg.id}`, producedReady ? 'RED assertion unexpectedly passed now' : `missing-implementation: the provider context does not bind the concrete workflow-start baseline (state ${produceState || 'none'}${produceDiag ? `, ${produceDiag}` : ''}); S2a contextFor refuses with baseline-unavailable`);
+      record(producedReady ? 'FAIL' : 'RED', `ip-wiring.produce-ready@${leg.id}`, producedReady ? 'RED assertion unexpectedly passed now' : `missing-implementation: the provider does not bind the caller-supplied workflow-start pin (state ${produceState || 'none'}${produceDiag ? `, ${produceDiag}` : ''}); S2a contextFor refuses with baseline-unavailable`);
       // -- Wiring RED: the decision boundary must consume the declared DI provider chain.
       const proxy = countingProxy(qualified);
       let result = null;
@@ -457,7 +476,9 @@ function inProcessPart() {
       result = result || {};
       record(proxy.contextCalls >= 1 ? 'PASS' : 'RED', `ip-wiring.provider-chain-invoked@${leg.id}`, proxy.contextCalls >= 1 ? '' : 'the credit boundary never invoked the declared origin provider (assess ignores the wiring seam)');
       const expectedCredit = !result.withhold;
-      record(expectedCredit ? 'PASS' : 'RED', `ip-wiring.credit-granted@${leg.id}`, expectedCredit ? '' : 'the wired credit decision stays withheld under the qualified DI provider');
+      // RETIRED (F4-T1b): this in-process chain delivers no host events, and its ADR edit is outside the first positive scope.
+      if (expectedCredit) record('FAIL', `ip-wiring.credit-granted@${leg.id}`, 'RED assertion unexpectedly passed now');
+      else retiredEntries.push({ id: `ip-wiring.credit-granted@${leg.id}`, supersededBy: IN_PROCESS_SUPERSEDED['ip-wiring.credit-granted'] });
       // -- N1 carry-over: a caller-fabricated accepted object must never become credit at the boundary.
       const proxyN1 = countingProxy(qualified);
       let resultN1 = null;
@@ -487,7 +508,9 @@ function inProcessPart() {
       } catch (error) {
         caught = error;
       }
-      record(caught ? 'RED' : 'PASS', `ip-wiring.step-accepted@${leg.id}`, caught ? `updateStep refused: ${caught.message}` : '');
+      // RETIRED (F4-T1b): with no delivered evidence this step can only be refused, so it is covered by the F4 live RED.
+      if (caught) retiredEntries.push({ id: `ip-wiring.step-accepted@${leg.id}`, supersededBy: IN_PROCESS_SUPERSEDED['ip-wiring.step-accepted'] });
+      else record('FAIL', `ip-wiring.step-accepted@${leg.id}`, 'RED assertion unexpectedly passed now');
       inProcessChainProbes(leg, modules);
     } catch (error) {
       record('INFRA', `ip-scenario@${leg.id}`, error.message);
@@ -572,12 +595,34 @@ function inProcessChainProbes(leg, modules) {
 
 // ---- Report -------------------------------------------------------------------------------------
 
+// Every retired assertion must name an F4 case that exists and an entry the F4 suite really defines (CONTROL), so a
+// retirement can never point at nothing.
+function retirementIntegrity() {
+  console.log('\n== Part D: retired wiring assertions map to live F4 REDs ==');
+  const f4Ids = new Set(fx.readCaseCorpus(F4_CASES_FILE).cases.map(item => item.id));
+  const f4Source = fs.readFileSync(F4_SUITE_FILE, 'utf8');
+  const retired = [];
+  for (const entry of Object.values(PLAN)) {
+    for (const list of Object.values(entry.byMode || {})) {
+      for (const assertion of list) if (assertion.status === 'RETIRED') retired.push({ id: assertion.id, supersededBy: assertion.supersededBy });
+    }
+  }
+  for (const [id, supersededBy] of Object.entries(IN_PROCESS_SUPERSEDED)) retired.push({ id, supersededBy });
+  for (const item of retired) {
+    const { case: caseId, entry } = item.supersededBy;
+    const ok = f4Ids.has(caseId) && f4Source.includes(`id: '${entry}'`);
+    record(ok ? 'PASS' : 'FAIL', `retired.${item.id}->${caseId}:${entry}`, ok ? '' : 'superseding F4 case or entry is missing');
+  }
+  console.log(`retired assertions (superseded, each mapped to a live F4 RED): ${retired.length}`);
+}
+
 function main() {
   const started = Date.now();
   replayCommittedControls();
   replayWiringCorpus();
   legacyGolden();
   inProcessPart();
+  retirementIntegrity();
   const duration = ((Date.now() - started) / 1000).toFixed(1);
   console.log('\n== S2b wiring RED evidence ==');
   console.log(`controls passed: ${passCount}`);

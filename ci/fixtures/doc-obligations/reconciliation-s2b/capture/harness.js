@@ -294,6 +294,17 @@ const FIXED = {
   workspaceRoot: '/tmp/r2c1-provider-ws',
 };
 
+// The labelled verdict line of a final review artifact. Mirrors the capture vocabulary only, so the fixture
+// carries the same explicit verdict a real reviewer must state. Free text such as `REJECT: ...` carries none.
+const REVIEW_VERDICT_LINE = /^\s*Review verdict:\s*(approve|reject)\b[.:]?\s*(.*)$/im;
+function reviewVerdictOf(message) {
+  const text = String(message || '');
+  const match = REVIEW_VERDICT_LINE.exec(text);
+  if (!match) return { reviewVerdict: null, reviewSummary: null };
+  const summary = [match[2], text.slice(match.index + match[0].length)].join('\n').trim();
+  return { reviewVerdict: match[1].toLowerCase(), reviewSummary: summary };
+}
+
 // Simulated capture journal entry built directly from a payload fixture, using
 // the declared capture schema; the digest binds payload.tool_response bytes.
 // opts: { ref, agentId, sessionId, interrupted, toolUseId, trusted }
@@ -319,12 +330,18 @@ function simulateCapture(name, opts = {}) {
   }
   if (source.duration_ms !== undefined) record.duration_ms = source.duration_ms;
   if (source.hook_event_name === 'PostToolUse') {
-    record.interrupted = opts.interrupted !== undefined ? Boolean(opts.interrupted) : Boolean(source.tool_response && source.tool_response.interrupted);
+    // An absent interrupted field stays absent: unknown, not false (A3 section 1, same rule as the capture builder).
+    const hostInterrupted = source.tool_response && typeof source.tool_response.interrupted === 'boolean' ? source.tool_response.interrupted : undefined;
+    const interrupted = opts.interrupted !== undefined ? Boolean(opts.interrupted) : hostInterrupted;
+    if (interrupted !== undefined) record.interrupted = interrupted;
   } else if (source.hook_event_name === 'PostToolUseFailure') {
     record.is_interrupt = Boolean(source.is_interrupt);
     record.failureDisposition = /Exit code (\d+)/.exec(String(source.error || '')) ? 'nonzero-exit' : 'host-failure-error';
   } else if (source.hook_event_name === 'SubagentStop') {
     record.reviewDigest = sha256(source.last_assistant_message || '');
+    // The explicit structured verdict is part of the capture record (S2b vocabulary): a labelled
+    // `Review verdict: approve|reject` line in the final review artifact. Free text carries none.
+    Object.assign(record, reviewVerdictOf(source.last_assistant_message));
   }
   if (opts.trusted !== undefined) record.trusted = opts.trusted;
   return record;
