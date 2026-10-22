@@ -402,7 +402,7 @@ const C1_LEGS = [
       for (const sharedName of ['writing-craft.md', 'maintenance.md']) {
         const file = path.join(leg.shared, sharedName);
         if (!fs.existsSync(file)) { missing.push(`${sharedName} target missing`); continue; }
-        if (/\bline\s+\d+\b/i.test(fs.readFileSync(file, 'utf8'))) {
+        if (/\b(?:lines?\s+\d+|L\d+|[A-Za-z0-9.]+:\d+)\b/i.test(fs.readFileSync(file, 'utf8'))) {
           missing.push(`${sharedName} contains a line-number citation`);
         }
       }
