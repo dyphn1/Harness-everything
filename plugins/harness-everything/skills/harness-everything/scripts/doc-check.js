@@ -11,9 +11,60 @@ const { collectDocs } = require('./doc-lifecycle');
 
 const USAGE = 'usage: doc-check.js check --workspace <dir> --config <json-file, relative to --workspace> --changed-path <path> [--changed-path <path> ...] [--base <git-rev>]';
 const VALUE_FLAGS = ['--workspace', '--config', '--changed-path', '--base'];
-const INLINE_LINK = /!?\[[^\]]*\]\((<[^>]*>|[^)\s]+)(?:\s+(?:"[^"]*"|'[^']*'))?\)/g;
 const EXTERNAL = /^(?:https?:|mailto:)/i;
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+
+function escaped(text, index) {
+  let slashes = 0;
+  for (let i = index - 1; i >= 0 && text[i] === '\\'; i--) slashes++;
+  return slashes % 2 === 1;
+}
+
+function parseInlineLink(text, start) {
+  let depth = 0;
+  let close = -1;
+  for (let i = start; i < text.length; i++) {
+    if (escaped(text, i)) continue;
+    if (text[i] === '[') depth++;
+    else if (text[i] === ']' && --depth === 0) { close = i; break; }
+  }
+  if (close < 0 || text[close + 1] !== '(') return null;
+
+  let i = close + 2;
+  while (/\s/.test(text[i] || '') && i < text.length) i++;
+  let target = '';
+  if (text[i] === '<') {
+    const begin = ++i;
+    while (i < text.length && (text[i] !== '>' || escaped(text, i))) i++;
+    if (i === text.length) return { invalid: true, end: i };
+    target = text.slice(begin, i++);
+  } else {
+    const begin = i;
+    let parens = 0;
+    while (i < text.length) {
+      if (escaped(text, i)) { i++; continue; }
+      if (text[i] === '(') parens++;
+      else if (text[i] === ')') {
+        if (parens === 0) break;
+        parens--;
+      } else if (/\s/.test(text[i])) break;
+      i++;
+    }
+    if (parens !== 0) return { invalid: true, end: i };
+    target = text.slice(begin, i);
+  }
+
+  while (/\s/.test(text[i] || '') && i < text.length) i++;
+  if (text[i] === '"' || text[i] === "'") {
+    const quote = text[i++];
+    while (i < text.length && (text[i] !== quote || escaped(text, i))) i++;
+    if (i === text.length) return { invalid: true, end: i };
+    i++;
+    while (/\s/.test(text[i] || '') && i < text.length) i++;
+  }
+  if (text[i] !== ')') return { invalid: true, end: i };
+  return { target: target.replace(/\\([\\`*{}\[\]()#+.!_>~-])/g, '$1'), end: i + 1 };
+}
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
@@ -57,7 +108,14 @@ function scanLinks(lines) {
     }
     if (marker) { fence = marker[1]; return; }
     const text = raw.replace(/(`+)(.+?)\1/g, '');
-    for (const match of text.matchAll(INLINE_LINK)) targets.push({ line, target: match[1].replace(/^<(.*)>$/, '$1') });
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] !== '[' || escaped(text, i)) continue;
+      const parsed = parseInlineLink(text, i);
+      if (!parsed) continue;
+      if (parsed.invalid) unsupported.push({ line, syntax: 'inline-link-unparsed' });
+      else targets.push({ line, target: parsed.target });
+      i = Math.max(i, parsed.end - 1);
+    }
     if (/\[[^\]]*\]\[[^\]]*\]/.test(text)) unsupported.push({ line, syntax: 'reference-link' });
     if (/^\s{0,3}\[[^\]]+\]:/.test(text)) unsupported.push({ line, syntax: 'reference-definition' });
   });
@@ -140,7 +198,9 @@ function check(options) {
 
 function main(argv = process.argv.slice(2)) {
   let options;
-  try { options = parseArgs(argv); } catch (error) { process.stderr.write(`${error.message}\n`); return 2; }
+  try { options = parseArgs(argv); } catch (error) {
+    return emit({ lint: { exit: 2, error: error.message }, links: { checked: 0, broken: [], skipped: 'lint-usage-error' }, coverage: { unsupported: [] } }, 2);
+  }
   return check(options);
 }
 
