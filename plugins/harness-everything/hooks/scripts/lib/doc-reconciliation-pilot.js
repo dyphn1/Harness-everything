@@ -114,6 +114,9 @@ function collect(context) {
 // S2b credit chain (F4): produce the snapshot, accept the origin-provider events, and check them against the expected
 // MUSTs. Credit only when the core marks the evidence eligible. Production has no qualification, so it stays withheld.
 function creditChain(context, set, dependencies = {}) {
+  if (require('./doc-reconciliation-provider').readCaptureView(context.sessionDir).tampered) {
+    return { eligible: false, diagnostics: [{ code: 'journal-tampered', message: 'the capture journal no longer matches its immutable event records' }] };
+  }
   const { produceDocSnapshot } = require('./doc-reconciliation-producer');
   const { acceptDocEvents } = require('./doc-reconciliation-events');
   const { checkAcceptedDocEvidence } = require('./doc-reconciliation-core');
@@ -154,14 +157,35 @@ function creditChain(context, set, dependencies = {}) {
   };
 }
 
-// The session journal is the only host-event source. A missing or unreadable journal means no events, never credit.
+// Review-mode refusal (F4 I2a): with the pilot ON in a supported (non-Fable) workflow, a review step PASS needs an
+// independent quality-review record. The provider's own independence rules decide it: a host agent_id that differs from
+// the author session, an explicit approve verdict, a non-empty summary and the bound final-artifact digest.
+function reviewRequired(set) {
+  return enabled() && set?.stepBindingsEnabled === true && !String(set?.strategy || '').startsWith('fable-');
+}
+
+// The review step is independent of credit qualification: the step records host-observed independence, while document
+// credit itself still needs the validated qualification (assess).
+function independentReviewAccepted(context) {
+  const { reviewRecordIndependent } = require('./doc-reconciliation-provider');
+  const view = require('./doc-reconciliation-provider').readCaptureView(context.sessionDir);
+  if (view.tampered) return false;
+  const captures = view.records;
+  const principals = { author: context.sessionId, executors: [] };
+  const pin = context.workflow.docReconciliationBaseline;
+  return captures.some(item => recordOf(item) && item.session_id === context.sessionId
+    && recordOf(item.observedIdentity) && item.observedIdentity.workflowId === context.workflow.workflowId
+    && item.observedIdentity.workflowRevision === context.workflow.revision
+    && (!pin || (recordOf(item.observedIdentity.baselinePin) && item.observedIdentity.baselinePin.commit === pin.commit))
+    && reviewRecordIndependent(item, captures, principals));
+}
+
+function recordOf(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+
+// The session capture records are the only host-event source. A missing journal means no events; a journal that no longer
+// equals its immutable event files is tampered and yields no events, so the chain withholds.
 function readCaptures(context) {
-  try {
-    const journal = JSON.parse(fs.readFileSync(path.join(context.sessionDir, 'doc-reconciliation-capture.json'), 'utf8'));
-    return Array.isArray(journal.records) ? journal.records : [];
-  } catch {
-    return [];
-  }
+  return require('./doc-reconciliation-provider').readCaptureView(context.sessionDir).records;
 }
 
 function captureReferences(context) {
@@ -219,4 +243,4 @@ function assess(context, set, dependencies = {}) {
   return { withhold, report };
 }
 
-module.exports = { enabled, captureBaseline, assess };
+module.exports = { enabled, captureBaseline, assess, reviewRequired, independentReviewAccepted };

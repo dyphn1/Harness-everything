@@ -88,22 +88,15 @@ function persistPilotCapture(payload, eventName, sessionId, root) {
   try {
     if (!payload || process.env.HARNESS_DOC_RECONCILIATION_PILOT !== '1') return;
     if (PILOT_CAPTURE_EVENT_NAMES.indexOf(eventName) === -1) return;
-    const { buildCaptureRecord } = require('./lib/doc-reconciliation-provider');
-    const entry = buildCaptureRecord(payload, eventName, root);
+    const provider = require('./lib/doc-reconciliation-provider');
+    const entry = provider.buildCaptureRecord(payload, eventName, root);
     if (!entry) return;
-    const journalFile = path.join(getSessionDir(root, sessionId), 'doc-reconciliation-capture.json');
-    let journal;
-    if (fs.existsSync(journalFile)) {
-      try { journal = JSON.parse(fs.readFileSync(journalFile, 'utf8')); } catch { return; }
-      if (!journal || !Array.isArray(journal.records)) return; // unreadable/malformed journal: never shadow or destroy it
-    } else {
-      journal = { version: 1, records: [] };
-    }
-    journal.version = 1;
-    journal.records.push(entry);
-    // Write a temporary file and rename it over the journal, so a crash never leaves a half-written journal.
-    const tempFile = `${journalFile}.${process.pid}.tmp`;
-    fs.writeFileSync(tempFile, JSON.stringify(journal, null, 2), 'utf8');
-    fs.renameSync(tempFile, journalFile);
+    const sessionDir = getSessionDir(root, sessionId);
+    // Observation-time identity: the workflow and pin in force when the host event was captured.
+    const observed = provider.observedIdentityFor(sessionDir);
+    if (observed) entry.observedIdentity = observed;
+    // Each capture is one write-once event file; the compatibility journal is rebuilt from them.
+    provider.writeImmutableEvent(sessionDir, entry);
+    provider.rebuildJournalView(sessionDir);
   } catch (_) { /* fail-open: capture failures never reach the host */ }
 }

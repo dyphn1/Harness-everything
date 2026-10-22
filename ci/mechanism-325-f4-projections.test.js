@@ -29,6 +29,7 @@ const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const fx = require(path.join(__dirname, 'lib', 'doc-reconciliation-prep-fixtures'));
+const { stage } = require(path.join(__dirname, 'lib', 'doc-reconciliation-staged-tree'));
 const PRELOAD = path.join(__dirname, 'lib', 'doc-reconciliation-qualification-preload.js');
 const F4_CASES = path.join(__dirname, 'fixtures', 'doc-obligations', 'reconciliation-s2b', 'f4', 'cases.json');
 const CAPTURE_DIR = path.join(__dirname, 'fixtures', 'doc-obligations', 'reconciliation-s2b', 'capture');
@@ -57,6 +58,8 @@ const RED_VERIFY = 'missing-implementation: S1 refuses every document verificati
 const journal = (action, index, key) => ['actions', action, 'state', 'capture', 'records', index, key];
 
 // Plan entries: CONTROL asserts behaviour that must hold now and at GREEN, RED asserts the stated missing piece.
+// F4-T2: entries that were RED until I1 and I2b are CONTROL now (status CONTROL, retired: F4-T2). Their RED reason stays in
+// `reason` as the retirement record. No assertion was weakened: each keeps its path, operator and expected value.
 const PLAN = {
   'F4-POS-body-edit@on': [
     { id: 'pos.run-exit', path: ['actions', 'lint-run', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
@@ -64,16 +67,17 @@ const PLAN = {
     { id: 'pos.journal-command', path: journal('post-lint', 0, 'command'), operator: 'equals', expected: LINT_COMMAND, status: 'CONTROL' },
     { id: 'pos.stop-exit', path: ['actions', 'stop', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
     { id: 'pos.stop-generic-exit', path: ['actions', 'stop-generic', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
-    { id: 'pos.verify-pass', path: ['actions', 'verify-pass', 'exitCode'], operator: 'equals', expected: 0, status: 'RED', reason: RED_VERIFY, note: 'a body-only edit with current lint and link evidence passes verification' },
-    { id: 'pos.pilot-credit', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: true, status: 'RED', reason: RED_IMPLEMENTATION },
-    { id: 'pos.lint-credited', path: ['pilot', 'creditedCapabilities'], operator: 'includes', expected: 'doc-lint', status: 'RED', reason: RED_CAPABILITY },
-    { id: 'pos.link-credited', path: ['pilot', 'creditedCapabilities'], operator: 'includes', expected: 'link-check', status: 'RED', reason: RED_CAPABILITY },
-    { id: 'pos.stop-satisfied', path: ['actions', 'stop', 'state', 'workflow', 'state'], operator: 'equals', expected: 'satisfied', status: 'RED', reason: RED_IMPLEMENTATION },
+    { id: 'pos.verify-pass', path: ['actions', 'verify-pass', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL', retired: 'F4-T2', reason: RED_VERIFY, note: 'a body-only edit with current lint and link evidence passes verification' },
+    { id: 'pos.pilot-credit', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: true, status: 'CONTROL', retired: 'F4-T2', reason: RED_IMPLEMENTATION },
+    { id: 'pos.lint-credited', path: ['pilot', 'creditedCapabilities'], operator: 'includes', expected: 'doc-lint', status: 'CONTROL', retired: 'F4-T2', reason: RED_CAPABILITY },
+    { id: 'pos.link-credited', path: ['pilot', 'creditedCapabilities'], operator: 'includes', expected: 'link-check', status: 'CONTROL', retired: 'F4-T2', reason: RED_CAPABILITY },
+    { id: 'pos.stop-satisfied', path: ['actions', 'stop', 'state', 'workflow', 'state'], operator: 'equals', expected: 'satisfied', status: 'CONTROL', retired: 'F4-T2', reason: RED_IMPLEMENTATION },
   ],
-  // Production: no preloader, so the gate stays unmet. Transport still journals, and nothing may be credited.
+  // Production control (F4-T3 decision 2): no export in the staged tree -> no credit. The staged copy has no qualification
+  // export and no preloader, so the transport still journals and nothing may be credited.
   'F4-POS-body-edit@production': [
     { id: 'prod.journal-event', path: journal('post-lint', 0, 'event'), operator: 'equals', expected: 'PostToolUse', status: 'CONTROL' },
-    { id: 'prod.pilot-credit-false', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: false, status: 'CONTROL', note: 'no preloader in production mode: no credit' },
+    { id: 'prod.pilot-credit-false', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: false, status: 'CONTROL', note: 'no export in staged tree -> no credit' },
     { id: 'prod.stop-not-satisfied', path: ['actions', 'stop', 'state', 'workflow', 'state'], operator: 'notEquals', expected: 'satisfied', status: 'CONTROL' },
     { id: 'prod.stop-exit', path: ['actions', 'stop', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
   ],
@@ -125,11 +129,11 @@ const PLAN_NEGATIVE = {
 const PLAN_REMINDER = {
   'F4-REM-prose-share-present': [
     { id: 'rem-present.reminder-observed', path: ['actions', 'lint-run', 'json', 'reminders', 0, 'code'], operator: 'equals', expected: 'prose-share', status: 'CONTROL', note: 'the reminder is really present in the observed check' },
-    { id: 'rem-present.pilot-credit', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: true, status: 'RED', reason: RED_IMPLEMENTATION },
+    { id: 'rem-present.pilot-credit', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: true, status: 'CONTROL', retired: 'F4-T2', reason: RED_IMPLEMENTATION },
   ],
   'F4-REM-prose-share-absent': [
     { id: 'rem-absent.no-reminder', path: ['actions', 'lint-run', 'json', 'reminders'], operator: 'equals', expected: [], status: 'CONTROL', note: 'the reminder is really absent in the observed check' },
-    { id: 'rem-absent.pilot-credit', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: true, status: 'RED', reason: RED_IMPLEMENTATION },
+    { id: 'rem-absent.pilot-credit', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: true, status: 'CONTROL', retired: 'F4-T2', reason: RED_IMPLEMENTATION },
   ],
 };
 
@@ -148,25 +152,25 @@ function record(status, id, detail) {
 }
 
 // Runs one replay and checks its plan. Child faults are INFRA, and a RED that passes is a FAIL.
-function checkReplay(caseId, distribution, mode, options, plan) {
+function checkReplay(caseId, distribution, mode, options, plan, legName = distribution) {
   const label = `${caseId}@${mode}`;
   const item = CASE(caseId);
   let root;
   try {
     root = fx.replayCase(item, distribution, options);
   } catch (error) {
-    record('INFRA', `${label}@${distribution}`, `replay crash: ${error.message}`);
+    record('INFRA', `${label}@${legName}`, `replay crash: ${error.message}`);
     return;
   }
   const faults = fx.infrastructureFaults(item, root, options.pilot === undefined ? 'off' : 'on');
   if (faults.length) {
-    record('INFRA', `${label}@${distribution}`, faults.map(fault => `${fault.actionId}: ${fault.message}`).join('; '));
+    record('INFRA', `${label}@${legName}`, faults.map(fault => `${fault.actionId}: ${fault.message}`).join('; '));
     return;
   }
   const results = fx.evaluateAll(root, plan.map(entry => ({ id: entry.id, path: entry.path, operator: entry.operator, expected: entry.expected })));
   plan.forEach((entry, index) => {
     const result = results[index];
-    const id = `${label}.${entry.id}@${distribution}`;
+    const id = `${label}.${entry.id}@${legName}`;
     if (entry.status === 'CONTROL') {
       const detail = result.pass ? '' : `expected ${JSON.stringify(result.expected)} at ${entry.path.join('.')}, got ${JSON.stringify(result.actual).slice(0, 160)}`;
       record(result.pass ? 'PASS' : 'FAIL', id, detail);
@@ -194,7 +198,14 @@ function partA() {
   console.log('\n== Part A: F4 replay through the real entries (ON with preloader, production, OFF) ==');
   for (const distribution of LEGS.map(leg => leg.id)) {
     checkReplay('F4-POS-body-edit', distribution, 'on', { pilot: '1', preload: true }, PLAN['F4-POS-body-edit@on']);
-    checkReplay('F4-POS-body-edit', distribution, 'production', { pilot: '1' }, PLAN['F4-POS-body-edit@production']);
+    // Production is hermetic (F4-T2): a staged copy of the leg with no qualification export, so this control asserts what
+    // the repository's live tree cannot guarantee once an export exists.
+    const staged = stage(distribution);
+    try {
+      checkReplay('F4-POS-body-edit', staged.dist, 'production', { pilot: '1' }, PLAN['F4-POS-body-edit@production'], distribution);
+    } finally {
+      staged.cleanup();
+    }
     checkReplay('F4-POS-body-edit', distribution, 'off', {}, PLAN['F4-POS-body-edit@off']);
     for (const caseId of Object.keys(PLAN_NEGATIVE)) {
       checkReplay(caseId, distribution, 'on', { pilot: '1', preload: true }, PLAN_NEGATIVE[caseId]);
@@ -230,7 +241,7 @@ function partB() {
       const provider = providerFor(leg, { hostId: 'claude-code', sessionId: payload.session_id, workspaceRoot: ROOT, taskId: 'f4-task', workflowId: 'f4-wf', workflowRevision: 1, principals: { author: 'f4-author-session', executors: [] }, captures: [record], qualification: FAKE_DI });
       const response = provider.resolveEvent({ reference: 'f4-rev', identity: null });
       const approved = response.status === 'accepted' && response.event && response.event.verdict === 'approve';
-      redWhen(approved, `F4-PROV-reject-not-approved@${leg.id}`, `${RED_REJECT}; a REJECT final message was accepted with verdict approve`);
+      strictWhen(approved, `F4-PROV-reject-not-approved@${leg.id}`, 'a REJECT final message must never be accepted with verdict approve');
     }
 
     // Absent `interrupted` is unknown, not false, so the success mapping must not credit it (A3 section 1).
@@ -240,7 +251,7 @@ function partB() {
       record.ref = 'f4-exec';
       const provider = providerFor(leg, { hostId: 'claude-code', sessionId: payload.session_id, workspaceRoot: ROOT, taskId: 'f4-task', workflowId: 'f4-wf', workflowRevision: 1, principals: { author: 'f4-author-session', executors: [] }, captures: [record], qualification: FAKE_DI });
       const response = provider.resolveEvent({ reference: 'f4-exec', identity: null });
-      redWhen(response.status === 'accepted', `F4-PROV-interrupted-absent-not-credited@${leg.id}`, `${RED_INTERRUPTED}; the absent field was credited as success`);
+      strictWhen(response.status === 'accepted', `F4-PROV-interrupted-absent-not-credited@${leg.id}`, 'an absent interrupted field must never be credited as success');
     }
 
     // A non-empty garbage file in the retained live directory is not qualification (A3 section 4, size-only acceptance).
@@ -256,7 +267,7 @@ function partB() {
         fs.writeFileSync(path.join(live, 'capture.sanitized.jsonl'), 'garbage\n');
         const isolated = require(path.join(copy, 'doc-reconciliation-provider.js')).createClaudeOriginProvider({ hostId: 'claude-code', sessionId: 'f4-sess', workspaceRoot: tmp });
         const context = isolated.resolveContext({});
-        redWhen(context.status === 'accepted', `F4-LIVE-garbage-withholds@${leg.id}`, `${RED_LIVE_GATE}; non-empty garbage opened the gate`);
+        strictWhen(context.status === 'accepted', `F4-LIVE-garbage-withholds@${leg.id}`, 'non-empty garbage in the retained live directory must never open the gate');
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
       }
@@ -269,11 +280,14 @@ function partB() {
 
 // A provider-level RED. `violated` is the current failure, which is the expected RED. A requirement that already holds
 // makes the RED unreal, so it is a FAIL.
-function redWhen(violated, id, reason) {
-  if (violated) record('RED', id, reason);
-  else record('FAIL', id, 'RED assertion unexpectedly passed now (the requirement already holds)');
+// Provider requirement (retired from RED in F4-T2): `forbidden` is the outcome the requirement rules out. It must be
+// absent, so the check passes when the outcome does not occur and fails when it does.
+function strictWhen(forbidden, id, requirement) {
+  if (forbidden) record('FAIL', id, `${requirement}; the forbidden outcome occurred`);
+  else record('PASS', id, '');
 }
 
+// Retired reasons (F4-T2): the requirements below are asserted strictly now. Kept as the retirement record.
 const RED_REJECT = 'missing-implementation: a quality-review verdict is hard-coded to approve and no structured verdict is parsed; SubagentStop alone must never approve (A3 section 3)';
 const RED_INTERRUPTED = 'missing-implementation: buildCaptureRecord coerces an absent interrupted field to false, so unknown outcome becomes success; absence must stay unknown (A3 section 1)';
 const RED_LIVE_GATE = 'missing-implementation: the retained live gate accepts any non-empty file, size-only acceptance; qualification must validate payloads (A3 section 4)';

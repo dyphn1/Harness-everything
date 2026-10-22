@@ -1497,7 +1497,11 @@
             "stepId": "req-review",
             "disposition": "pass",
             "evidence": "self-review by the author of the change"
-          }
+          },
+          "expectExit": {
+            "on": 2
+          },
+          "note": "F4-T3 decision 1 (#325 S2 slice plan, 2026-10-21): the ON self-authored review PASS is refused with exit 2 by the F4 I2a review-mode refusal; the step stays pending. OFF is unchanged."
         },
         {
           "id": "stop",
@@ -1787,7 +1791,11 @@
             "stepId": "req-review",
             "disposition": "pass",
             "evidence": "review scope recorded"
-          }
+          },
+          "expectExit": {
+            "on": 2
+          },
+          "note": "F4-T3 decision 1 (#325 S2 slice plan, 2026-10-21): the ON self-authored review PASS is refused with exit 2 by the F4 I2a review-mode refusal; the step stays pending. OFF is unchanged."
         },
         {
           "id": "verify-bind",
@@ -1797,7 +1805,11 @@
             "bindingId": "verification-loop",
             "disposition": "loaded",
             "evidence": "verification loop skill located"
-          }
+          },
+          "expectExit": {
+            "on": 2
+          },
+          "note": "F4-T3: refused with exit 2 on ON because the review step stays active after the refused review PASS (bindings may only be resolved for the active step). OFF unchanged."
         },
         {
           "id": "verify-pass",
@@ -1896,7 +1908,8 @@
               "exitCode"
             ],
             "operator": "equals",
-            "expected": 0
+            "expected": 2,
+            "note": "F4-T3 decision 1 (#325 S2 slice plan, 2026-10-21): the ON self-authored review PASS is refused with exit 2 by the F4 I2a review-mode refusal; the step stays pending. OFF is unchanged."
           },
           {
             "id": "verify-pass-exit",

@@ -104,13 +104,26 @@ function childEnv(workspace, stateHome, pilot) {
   return env;
 }
 
+// A distribution is a named one above, or an explicit set of entry paths (F4-T2: a test runs the real entries from its own
+// staged tree, with its own export). Either way every entry point is an absolute path.
+const DISTRIBUTION_KEYS = ['controller', 'stopGate', 'kernel', 'genericStopGate', 'stateHook', 'docCheck'];
+function resolveDistribution(distribution) {
+  if (typeof distribution === 'string') {
+    if (!DISTRIBUTIONS[distribution]) throw new Error(`unknown distribution ${distribution}`);
+    return DISTRIBUTIONS[distribution];
+  }
+  if (distribution && typeof distribution === 'object' && DISTRIBUTION_KEYS.every(key => typeof distribution[key] === 'string')) return distribution;
+  throw new Error('unknown distribution');
+}
+
 function createSession(distribution, caseId, pilot) {
-  if (!DISTRIBUTIONS[distribution]) throw new Error(`unknown distribution ${distribution}`);
+  const dist = resolveDistribution(distribution);
   const token = crypto.randomBytes(4).toString('hex');
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), `doc-recon-${caseId}-${distribution}-ws-${token}-`));
   const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), `doc-recon-${caseId}-${distribution}-state-${token}-`));
   return {
-    distribution,
+    dist,
+    distribution: typeof distribution === 'string' ? distribution : 'custom',
     caseId,
     pilot,
     workspace,
@@ -127,7 +140,8 @@ function disposeSession(handle) {
 // The preloader is a test-driver argument only: a replay with `preload: true` adds it to every child it launches.
 function runScript(handle, script, args, stdin, pilot) {
   const preload = handle.preload ? ['--require', QUALIFICATION_PRELOAD] : [];
-  return spawnSync(process.execPath, [...preload, script, ...args], {
+  // Test-only extra arguments (for example a file-access spy). They come before the preloader, so the spy sees everything.
+  return spawnSync(process.execPath, [...(handle.nodeArgs || []), ...preload, script, ...args], {
     cwd: handle.workspace,
     encoding: 'utf8',
     input: stdin === undefined ? undefined : JSON.stringify(stdin),
@@ -291,7 +305,7 @@ const CAPTURE_HOOK_EVENTS = new Set(['PostToolUse', 'PostToolUseFailure', 'Subag
 // the session and workspace fields the host would send. Payload content is declared by the case and then the entry
 // itself records it; the replay never writes a journal record or accepted event directly.
 function runHostOp(handle, action, pilot) {
-  const dist = DISTRIBUTIONS[handle.distribution];
+  const dist = handle.dist;
   const p = action.payload || {};
   if (action.op === 'hostRun') {
     if (p.command !== 'doc-check' || !Array.isArray(p.args) || !p.args.every(arg => typeof arg === 'string')) {
@@ -335,7 +349,7 @@ function runHostOp(handle, action, pilot) {
 
 // Actions are the only way replay state changes. Each controller/stop op maps to the existing public entry point.
 function runAction(handle, action, pilot) {
-  const dist = DISTRIBUTIONS[handle.distribution];
+  const dist = handle.dist;
   const sid = handle.sessionId;
   const p = action.payload || {};
   if (!ALL_OPS.has(action.op)) throw new Error(`unsupported replay op ${action.op}`);
@@ -471,7 +485,7 @@ function runtimePilotOf(handle) {
 function replayCase(caseDef, distribution, options = {}) {
   const limits = limitsFor(caseDef);
   const mode = options.pilot === undefined ? 'off' : 'on';
-  const handle = { ...createSession(distribution, caseDef.id, options.pilot), distribution, limits, preload: options.preload === true };
+  const handle = { ...createSession(distribution, caseDef.id, options.pilot), limits, preload: options.preload === true, nodeArgs: Array.isArray(options.nodeArgs) ? options.nodeArgs : [] };
   try {
     materialiseInput(handle, caseDef.input);
     const actions = {};

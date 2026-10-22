@@ -36,8 +36,8 @@ const fs = require('fs');
 const path = require('path');
 
 const HOST_ID = 'claude-code';
-const RETAINED_LIVE_REL_PARTS = path.join('benchmarks', 'results', 'live-host', 'claude-325-3b-s2b');
-const RETAINED_REQUIRED_ENTRIES = ['README.md', 'capture.sanitized.jsonl'];
+const CAPTURE_RECORD_VERSION = 'claude-capture-record/1';
+const QUALIFICATION_EXPORT_SCHEMA = 'harness.doc-reconciliation.qualification.v1';
 const HEX64 = /^[0-9a-f]{64}$/;
 const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent'];
 const STDOUT_CAP_BYTES = 1024 * 1024;
@@ -113,39 +113,59 @@ function parseReviewVerdict(message) {
   return { verdict: match[1].toLowerCase(), summary };
 }
 
-// The retained payloads must parse and carry the correlated fields the owner requires (populated tool_use_id with an
-// explicit interrupted value, and a populated agent_id). File size is never evidence.
-function validateRetainedPayloads(captureFile) {
-  const lines = fs.readFileSync(captureFile, 'utf8').split(/\r?\n/).filter(line => line.trim());
-  let records;
-  try { records = lines.map(line => JSON.parse(line)); } catch { return 'capture.sanitized.jsonl contains a line that is not JSON'; }
-  if (!records.every(recordOf)) return 'capture.sanitized.jsonl contains a record that is not an object';
-  if (!records.some(item => item.event === 'PostToolUse' && textOf(item.tool_use_id) && typeof item.interrupted === 'boolean')) {
-    return 'no PostToolUse record carries a populated tool_use_id and an explicit interrupted value';
+// What the sanitized capture proves: the payload kinds with their fields, and the correlation rules it demonstrates.
+// The export must claim exactly these; a claim the capture does not support fails qualification.
+const QUALIFICATION_FIELDS = ['tool_use_id', 'interrupted', 'agent_id', 'agent_type', 'session_id'];
+
+function observedPayloadKinds(records) {
+  const kinds = {};
+  for (const record of records) {
+    if (!recordOf(record) || !textOf(record.event)) continue;
+    const fields = kinds[record.event] || (kinds[record.event] = new Set());
+    for (const field of QUALIFICATION_FIELDS) if (record[field] !== undefined) fields.add(field);
   }
-  if (!records.some(item => textOf(item.agent_id))) return 'no record carries a populated agent_id';
-  return null;
+  return Object.fromEntries(Object.keys(kinds).sort(compareKeys).map(kind => [kind, [...kinds[kind]].sort(compareKeys)]));
 }
 
-// The export must bind the exact retained capture bytes and record the two populated fields.
-function validateExport(exportFile, captureFile) {
-  let exported;
-  try { exported = JSON.parse(fs.readFileSync(exportFile, 'utf8')); } catch { return 'qualification export is missing or not valid JSON'; }
-  const digest = crypto.createHash('sha256').update(fs.readFileSync(captureFile)).digest('hex');
-  if (!recordOf(exported) || exported.captureSha256 !== digest) return 'qualification export does not bind the retained capture digest';
-  if (exported.toolUseIdPopulated !== true || exported.agentIdPopulated !== true) return 'qualification export does not record populated tool_use_id and agent_id';
-  return null;
+function observedCorrelation(records) {
+  const pre = new Set(records.filter(item => recordOf(item) && item.event === 'PreToolUse' && textOf(item.tool_use_id)).map(item => item.tool_use_id));
+  const post = records.filter(item => recordOf(item) && item.event === 'PostToolUse' && textOf(item.tool_use_id));
+  const starts = records.filter(item => recordOf(item) && item.event === 'SubagentStart');
+  const stops = records.filter(item => recordOf(item) && item.event === 'SubagentStop');
+  return {
+    preToPostByToolUseId: post.some(item => pre.has(item.tool_use_id)),
+    interruptedExplicit: post.some(item => typeof item.interrupted === 'boolean'),
+    subagentStartStopSameAgent: stops.some(stop => starts.some(start => textOf(stop.agent_id) && start.agent_id === stop.agent_id)),
+    agentResultAliasCorrelated: records.some(item => recordOf(item) && item.event === 'PostToolUse' && textOf(item.agent_id)
+      && stops.some(stop => stop.agent_id === item.agent_id)),
+  };
 }
 
-function resolveRetainedLiveDir() {
-  let dir = __dirname;
-  for (;;) {
-    const candidate = path.join(dir, RETAINED_LIVE_REL_PARTS);
-    try { if (fs.statSync(candidate).isDirectory()) return candidate; } catch { /* keep walking */ }
-    const parent = path.dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
+// Validates the qualification export against the sanitized capture it names: schema, host, capture-record version, the
+// capture's digest, and every claimed kind, field and correlation. Returns null when valid, else the reason.
+function validateQualificationExport() {
+  const exported = JSON.parse(fs.readFileSync(path.join(__dirname, EXPORT_FILE), 'utf8'));
+  if (!recordOf(exported) || exported.schema !== QUALIFICATION_EXPORT_SCHEMA) return 'qualification export schema is not recognized';
+  if (exported.host !== HOST_ID || !textOf(exported.hostVersion)) return 'qualification export host or host version is missing';
+  if (exported.captureRecordVersion !== CAPTURE_RECORD_VERSION) return 'qualification export capture record version is not supported';
+  const source = recordOf(exported.sanitizedCapture) ? exported.sanitizedCapture : {};
+  // The sanitized capture is a sibling of the export, so source and packaged copies resolve it the same way.
+  if (!textOf(source.file) || /[\\/]/.test(source.file) || source.file.includes('..')) {
+    return 'qualification export names no valid capture file';
   }
+  const bytes = fs.readFileSync(path.join(__dirname, source.file));
+  if (crypto.createHash('sha256').update(bytes).digest('hex') !== source.sha256) {
+    return 'sanitized capture digest does not match the qualification export';
+  }
+  const records = bytes.toString('utf8').split(/\r?\n/).filter(line => line.trim()).map(line => JSON.parse(line));
+  if (!records.every(recordOf)) return 'sanitized capture contains a record that is not an object';
+  if (captureJson(exported.payloadKinds) !== captureJson(observedPayloadKinds(records))) {
+    return 'qualification export payload kinds do not match the sanitized capture';
+  }
+  const correlation = observedCorrelation(records);
+  if (captureJson(exported.correlation) !== captureJson(correlation)) return 'qualification export correlation does not match the sanitized capture';
+  if (!Object.values(correlation).every(Boolean)) return 'required correlation rules are not observed in the sanitized capture';
+  return null;
 }
 
 function evaluateQualification(input) {
@@ -164,34 +184,13 @@ function evaluateQualification(input) {
       }),
     };
   }
-  // Production path: qualification is omitted, so it must resolve from retained
-  // retained live-capture evidence. Never read from environment or capture flags.
-  const dir = resolveRetainedLiveDir();
-  if (!dir) {
-    return {
-      open: false,
-      fail: diagnostic('live-gate-unmet', {
-        reason: 'live gate unmet: no retained Claude Code live-capture evidence resolved at benchmarks/results/live-host/claude-325-3b-s2b; qualification is not satisfied',
-      }),
-    };
-  }
-  const missing = RETAINED_REQUIRED_ENTRIES.filter(name => {
-    try { return fs.statSync(path.join(dir, name)).size === 0; } catch { return true; }
-  });
-  if (missing.length) {
-    return {
-      open: false,
-      fail: diagnostic('live-gate-unmet', {
-        reason: `live gate unmet: retained qualification evidence incomplete, missing or empty: ${missing.join(', ')}`,
-      }),
-    };
-  }
-  const captureFile = path.join(dir, 'capture.sanitized.jsonl');
+  // Production path: no qualification is supplied, so the validated qualification export is the only source. It is checked
+  // against the sanitized capture it names. Nothing is read from the environment, capture flags or ancestor directories.
   let reason = null;
   try {
-    reason = validateRetainedPayloads(captureFile) || validateExport(path.join(__dirname, EXPORT_FILE), captureFile);
+    reason = validateQualificationExport();
   } catch (error) {
-    reason = `retained evidence could not be read (${error.code || 'error'})`;
+    reason = `qualification evidence could not be read (${error.code || 'error'})`;
   }
   if (reason) {
     return {
@@ -199,7 +198,7 @@ function evaluateQualification(input) {
       fail: diagnostic('live-gate-unmet', { reason: `live gate unmet: ${reason}` }),
     };
   }
-  return { open: true, source: 'retained-live-capture' };
+  return { open: true, source: 'validated-export' };
 }
 
 // ---- Shared provider state ------------------------------------------------------
@@ -300,6 +299,19 @@ const createClaudeOriginProvider = input => {
     // this workflow's assessment.
     if (cap.session_id === undefined || cap.session_id !== safeInput.sessionId) {
       return rejected('record-origin-mismatch', `captured record session_id must equal the provider session to belong to this invocation (owner row: copied records from another session are rejected)`);
+    }
+    // Observation-time identity (I2c): a record captured under another workflow, revision or baseline pin is stale.
+    if (cap.observedIdentity !== undefined && cap.observedIdentity !== null) {
+      const observed = cap.observedIdentity;
+      const pin = recordOf(safeInput.baseline) ? safeInput.baseline : null;
+      const sameWorkflow = observed.workflowId === safeInput.workflowId && observed.workflowRevision === safeInput.workflowRevision;
+      const samePin = !pin || (recordOf(observed.baselinePin) && observed.baselinePin.commit === pin.commit && observed.baselinePin.root === pin.root);
+      if (!sameWorkflow || !samePin) {
+        return rejected('identity-mismatch', 'the observed workflow revision or baseline pin differs from the current one; stale evidence loses credit');
+      }
+    }
+    if (capability && !(recordOf(cap.observedIdentity))) {
+      return rejected('identity-missing', 'a doc capability needs the workflow identity observed at capture time');
     }
     // Replay: identical host-event content re-presented under a new reference
     // cannot become a new accepted event. The first recorded occurrence wins.
@@ -559,4 +571,77 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
   return record;
 }
 
-module.exports = { createClaudeOriginProvider, buildCaptureRecord, parseRegisteredCheck, _internals: { captureJson, captureDigest, digestText, canonicalCapture, resolveRetainedLiveDir } };
+// ---- Immutable per-event capture records (I2c) ----------------------------------------------------------------------
+// Each capture is one write-once file (created exclusively, never rewritten). The compatibility journal
+// `doc-reconciliation-capture.json` is rebuilt from those files. Readers compare the two: any difference is tampering.
+const EVENT_DIR = 'doc-reconciliation-capture';
+const JOURNAL_FILE = 'doc-reconciliation-capture.json';
+const EVENT_NAME = /^\d{8}\.json$/;
+
+function immutableEventFiles(sessionDir) {
+  const dir = path.join(sessionDir, EVENT_DIR);
+  if (!fs.existsSync(dir)) return null;
+  return fs.readdirSync(dir).filter(name => EVENT_NAME.test(name)).sort()
+    .map(name => JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')));
+}
+
+function writeImmutableEvent(sessionDir, entry) {
+  const dir = path.join(sessionDir, EVENT_DIR);
+  fs.mkdirSync(dir, { recursive: true });
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const sequence = fs.readdirSync(dir).filter(name => EVENT_NAME.test(name)).length + 1 + attempt;
+    try {
+      fs.writeFileSync(path.join(dir, String(sequence).padStart(8, '0') + '.json'), JSON.stringify(entry, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' });
+      return;
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+    }
+  }
+  throw new Error('capture-sequence-exhausted');
+}
+
+function rebuildJournalView(sessionDir) {
+  const records = immutableEventFiles(sessionDir) || [];
+  const journalFile = path.join(sessionDir, JOURNAL_FILE);
+  const tempFile = `${journalFile}.${process.pid}.tmp`;
+  fs.writeFileSync(tempFile, JSON.stringify({ version: 1, records }, null, 2), 'utf8');
+  fs.renameSync(tempFile, journalFile);
+}
+
+// The records a reader may use: the journal view, provided it still equals the immutable event files. Otherwise tampered.
+function readCaptureView(sessionDir) {
+  let view = [];
+  try {
+    const journal = JSON.parse(fs.readFileSync(path.join(sessionDir, JOURNAL_FILE), 'utf8'));
+    view = Array.isArray(journal.records) ? journal.records : [];
+  } catch { view = []; }
+  const events = immutableEventFiles(sessionDir);
+  if (events && captureJson(events) !== captureJson(view)) return { records: [], tampered: true };
+  return { records: view, tampered: false };
+}
+
+// Observation-time identity: the workflow and pin the host event was captured under. Absent before a workflow starts.
+function observedIdentityFor(sessionDir) {
+  try {
+    const workflow = JSON.parse(fs.readFileSync(path.join(sessionDir, 'workflow-run.json'), 'utf8'));
+    return { workflowId: workflow.workflowId, workflowRevision: workflow.revision, baselinePin: workflow.docReconciliationBaseline || null };
+  } catch {
+    return null;
+  }
+}
+
+// Independence rules for a completed host review (owner decision row 2), usable without the credit qualification gate:
+// the reviewer is a host agent_id that differs from the author session and every executor, the surfaces agree, the final
+// artifact digest is bound, and the verdict is an explicit approve with a non-empty summary. REJECT never approves.
+function reviewRecordIndependent(cap, captures, principals) {
+  if (!recordOf(cap) || cap.event !== 'SubagentStop' || !textOf(cap.agent_id)) return false;
+  const executors = recordOf(principals) && Array.isArray(principals.executors) ? principals.executors : [];
+  if (cap.agent_id === principals.author || executors.includes(cap.agent_id)) return false;
+  const taskResults = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item) && item.event === 'PostToolUse' && textOf(item.agent_id));
+  if (taskResults.length && !taskResults.some(item => item.agent_id === cap.agent_id)) return false;
+  if (!HEX64.test(String(cap.reviewDigest === undefined ? '' : cap.reviewDigest))) return false;
+  return cap.reviewVerdict === 'approve' && textOf(cap.reviewSummary);
+}
+
+module.exports = { createClaudeOriginProvider, buildCaptureRecord, parseRegisteredCheck, reviewRecordIndependent,
+  writeImmutableEvent, rebuildJournalView, readCaptureView, observedIdentityFor, _internals: { captureJson, captureDigest, digestText, canonicalCapture } };

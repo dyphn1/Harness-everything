@@ -92,7 +92,8 @@ checkCase('expected-RED report: legs agree, controls are green, no pilot credit,
     assert.strictEqual(item.parity, 'match', `${item.caseId} source and packaged legs agree`);
   }
   const controls = report.cases.filter(item => item.status === 'CONTROL_PASS').map(item => item.caseId).sort();
-  assert.deepStrictEqual(controls, ['P01', 'P02a', 'P02b', 'P02c', 'P02d', 'P02f', 'P02g', 'P04', 'P06', 'P07-fable-multi-agent-workspace', 'P07-fable-parallel', 'P07-fable-staged', 'P07u']);
+  // P02e is a control since F4-T3: its review gap closed (the ON self-authored review PASS is refused) and its registry entries were retired.
+  assert.deepStrictEqual(controls, ['P01', 'P02a', 'P02b', 'P02c', 'P02d', 'P02e', 'P02f', 'P02g', 'P04', 'P06', 'P07-fable-multi-agent-workspace', 'P07-fable-parallel', 'P07-fable-staged', 'P07u']);
 });
 
 checkCase('gap registry: every entry is qualified and the expected-RED mode accounts for all of them', () => {
@@ -103,8 +104,9 @@ checkCase('gap registry: every entry is qualified and the expected-RED mode acco
 });
 
 checkCase('strict mode fails on the recorded gaps and preserves the RED log', () => {
-  const log = path.join(workDir, 'p02e-red.json');
-  const run = runRunner(['--strict', '--case', 'P02e', '--log', log]);
+  // Retargeted to P03 in F4-T3: P02e's gaps are closed, and P03 still has open verify-retry gaps on both legs.
+  const log = path.join(workDir, 'p03-red.json');
+  const run = runRunner(['--strict', '--case', 'P03', '--log', log]);
   assert.strictEqual(run.status, 1, `strict mode exits 1 on gaps: ${run.stdout}`);
   const saved = JSON.parse(fs.readFileSync(log, 'utf8'));
   assert.ok(saved.cases[0].assertions.some(entry => entry.status === 'gap-qualified'), 'the log keeps the qualified gaps');
@@ -117,8 +119,8 @@ checkCase('malformed registry is an infrastructure error, not a RED pass', () =>
 });
 
 checkCase('a registry that omits a gap fails expected-RED mode', () => {
-  const file = writeRegistry('omit-gap.json', copy => { copy.entries = copy.entries.filter(entry => entry.assertionId !== 'P02e.on.review-pass-exit' || entry.distribution !== 'source'); });
-  const run = runRunner(['--expect-red', '--case', 'P02e', '--registry', file]);
+  const file = writeRegistry('omit-gap.json', copy => { copy.entries = copy.entries.filter(entry => entry.assertionId !== 'P03.on.verify-retry-exit' || entry.distribution !== 'source'); });
+  const run = runRunner(['--expect-red', '--case', 'P03', '--registry', file]);
   assert.strictEqual(run.status, 1, `an unqualified gap fails: ${run.stdout}`);
 });
 

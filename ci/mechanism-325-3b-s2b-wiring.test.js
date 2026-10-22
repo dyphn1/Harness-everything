@@ -119,10 +119,10 @@ const PLAN = {
   'W-review-progression': { kind: 'wiring', byMode: {
     on: [
       { id: 'w-review.doc-pass-exit', path: ['actions', 'doc-pass', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
-      { id: 'w-review.review-self-exit', path: ['actions', 'review-self', 'exitCode'], operator: 'equals', expected: 2, status: 'RED', reason: 'missing-implementation: review-mode refusals do not exist; a self-authored review PASS is still accepted (S1 recorded gap: self-review-pass-accepted)', supersedes: ['P02e.on.review-pass-exit'] },
+      { id: 'w-review.review-self-exit', path: ['actions', 'review-self', 'exitCode'], operator: 'equals', expected: 2, status: 'CONTROL', retired: 'F4-T3', reason: 'missing-implementation: review-mode refusals do not exist; a self-authored review PASS is still accepted (S1 recorded gap: self-review-pass-accepted)', supersedes: ['P02e.on.review-pass-exit'] },
       { id: 'w-review.stop-mid-state', path: ['actions', 'stop-mid', 'state', 'workflow', 'state'], operator: 'equals', expected: 'running', status: 'CONTROL' },
-      { id: 'w-review.stop-mid-reviews-pending', path: ['actions', 'stop-mid', 'state', 'workflow', 'unresolved'], operator: 'includes', expected: 'step:req-review:pending', status: 'RED', reason: 'missing-implementation: the refused review step is not left pending; Stop reports the verifier tokens instead', supersedes: ['P02e.on.stop-reports'] },
-      { id: 'w-review.review-retry-exit', path: ['actions', 'review-retry', 'exitCode'], operator: 'equals', expected: 0, status: 'RED', reason: 'missing-implementation: the self-authored review PASS is accepted and advances the workflow, so the independent retry is refused as not the active step; once review-self is refused (its own RED) the step stays active and the delivered independent review is accepted', note: 'a refused review keeps its step active, so the declared independent review retry is accepted before any verifier record' },
+      { id: 'w-review.stop-mid-reviews-pending', path: ['actions', 'stop-mid', 'state', 'workflow', 'unresolved'], operator: 'includes', expected: 'step:req-review:pending', status: 'CONTROL', retired: 'F4-T3', reason: 'missing-implementation: the refused review step is not left pending; Stop reports the verifier tokens instead', supersedes: ['P02e.on.stop-reports'] },
+      { id: 'w-review.review-retry-exit', path: ['actions', 'review-retry', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL', retired: 'F4-T3', reason: 'missing-implementation: the self-authored review PASS is accepted and advances the workflow, so the independent retry is refused as not the active step; once review-self is refused (its own RED) the step stays active and the delivered independent review is accepted', note: 'a refused review keeps its step active, so the declared independent review retry is accepted before any verifier record' },
       { id: 'w-review.verify-bind-exit', path: ['actions', 'verify-bind', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
       { id: 'w-review.verify-pass-exit', path: ['actions', 'verify-pass', 'exitCode'], operator: 'equals', expected: 2, status: 'CONTROL', note: 'the first verification attempt stays refused (review-only evidence lacks execution records)' },
       // RETIRED (F4-T1b triage): verification and completion on the PRD scope need conflict-check, never credited under F4.
@@ -460,11 +460,9 @@ function inProcessPart() {
       } catch (error) {
         record('INFRA', `ip-wiring.produce@${leg.id}`, error.message);
       }
-      // RED: the production provider's resolved context carries only baselineReference, not the concrete workflow-start
-      // pin that S2a contextFor requires (A3 section 1, source-traced), so produceDocSnapshot refuses with
-      // baseline-unavailable. A ready snapshot here would be an unexpected pass.
+      // Strict GREEN (F4-T2): the provider binds the caller-supplied workflow-start pin, so the S2a chain is ready.
       const producedReady = produceState === 'ready';
-      record(producedReady ? 'FAIL' : 'RED', `ip-wiring.produce-ready@${leg.id}`, producedReady ? 'RED assertion unexpectedly passed now' : `missing-implementation: the provider does not bind the caller-supplied workflow-start pin (state ${produceState || 'none'}${produceDiag ? `, ${produceDiag}` : ''}); S2a contextFor refuses with baseline-unavailable`);
+      record(producedReady ? 'PASS' : 'FAIL', `ip-wiring.produce-ready@${leg.id}`, producedReady ? '' : `produceDocSnapshot state ${produceState || 'none'}${produceDiag ? `, ${produceDiag}` : ''}; the provider must bind the caller-supplied pin`);
       // -- Wiring RED: the decision boundary must consume the declared DI provider chain.
       const proxy = countingProxy(qualified);
       let result = null;
