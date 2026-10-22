@@ -20,6 +20,7 @@
 //   missing-implementation reasons only); 0 only when every assertion passes.
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const H = require('./fixtures/doc-obligations/reconciliation-s2b/capture/harness');
 
@@ -121,6 +122,24 @@ function runProvider(leg, input, reference) {
   const response = provider.resolveEvent({ reference, identity: H.providerIdentity() });
   const out = { response, provider, context: provider.resolveContext({ workspaceRoot: H.FIXED.workspaceRoot, workflowId: H.FIXED.workflowId, sessionId: H.FIXED.sessionId }) };
   return out;
+}
+
+// No-qualification cases run from an isolated copy of the provider, with no live-capture directory above it. The gate
+// outcome then never depends on whether retained live evidence exists in this checkout, so the live capture can land
+// without turning these gate-unmet cases into INFRA.
+function isolatedRunProvider(leg, input, reference) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'r2c1-isolated-'));
+  try {
+    const lib = path.join(dir, 'hooks', 'scripts', 'lib');
+    fs.mkdirSync(lib, { recursive: true });
+    fs.copyFileSync(path.join(leg.lib, 'doc-reconciliation-provider.js'), path.join(lib, 'doc-reconciliation-provider.js'));
+    const provider = require(path.join(lib, 'doc-reconciliation-provider.js')).createClaudeOriginProvider(H.providerInput(input));
+    const response = provider.resolveEvent({ reference, identity: H.providerIdentity() });
+    const context = provider.resolveContext({ workspaceRoot: H.FIXED.workspaceRoot, workflowId: H.FIXED.workflowId, sessionId: H.FIXED.sessionId });
+    return { response, provider, context };
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 function assertNoExitZeroCredit(out, label) {
@@ -276,11 +295,8 @@ runner.run('R2C1-UNSUPPORTED-CODEX', PROVIDER_REQ, (_mods, leg) => {
 // ---- Item 6: retained live-capture gate disabling positive credit -------------
 
 runner.run('R2C1-LIVE-GATE-UNMET', PROVIDER_REQ, (_mods, leg) => {
-  if (fs.existsSync(path.join(H.ROOT, H.RETAINED_LIVE_DIR_REL))) {
-    throw new H.InfraError(`retained live-capture dir unexpectedly exists at ${H.RETAINED_LIVE_DIR_REL}; this RED gate case requires its absence`);
-  }
   const captures = [H.simulateCapture('payload-post-tool-use-success.json', { ref: 'exec-pass' })];
-  const out = runProvider(leg, { captures }, 'exec-pass'); // no qualification argument: production retained-evidence path
+  const out = isolatedRunProvider(leg, { captures }, 'exec-pass'); // no qualification, isolated: production retained-evidence path
   if (out.response && out.response.status === 'accepted') throw new Error('positive credit granted while the retained live gate is unmet');
   if (!/live[- ]?gate|qualification/i.test(captureDiagnosticsText(out))) {
     throw new Error(`gate-unmet response must say why: ${captureDiagnosticsText(out).slice(0, 200)}`);
@@ -304,7 +320,7 @@ runner.run('R2C1-LIVE-GATE-NO-ENV-OR-FLAG-BYPASS', PROVIDER_REQ, (_mods, leg) =>
   const previous = process.env[PILOT_SWITCH];
   process.env[PILOT_SWITCH] = '1';
   try {
-    const out = runProvider(leg, { captures: [capture] }, 'exec-pass'); // no DI qualification
+    const out = isolatedRunProvider(leg, { captures: [capture] }, 'exec-pass'); // no DI qualification, isolated
     if (out.response && out.response.status === 'accepted') {
       throw new Error('live gate was bypassed by env toggle/record flag (must stay unmet without retained evidence)');
     }

@@ -407,7 +407,9 @@ function inProcessPart() {
   console.log('\n== Part C: in-process chain and wiring seam (per leg) ==');
   const pilotSwitch = process.env[SWITCH];
   for (const leg of LEGS) {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `harness-s2bwiring-${leg.id}-`));
+    // git reports the realpath of the toplevel (macOS: /private/var, not /var), and the producer compares against the
+    // baseline root it is given, so the fixture root is canonicalised the same way the runtime records it (retro 3.4).
+    const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `harness-s2bwiring-${leg.id}-`)));
     const cache = clearLegCache(leg.lib);
     try {
       process.env[SWITCH] = '1';
@@ -439,7 +441,11 @@ function inProcessPart() {
       } catch (error) {
         record('INFRA', `ip-wiring.produce@${leg.id}`, error.message);
       }
-      record(produceState === 'ready' ? 'PASS' : 'FAIL', `ip-wiring.produce-ready@${leg.id}`, produceState ? `produceDocSnapshot state ${produceState}${produceDiag ? ` (${produceDiag})` : ''} (the real provider chain must produce a ready snapshot for a qualified, governed workspace)` : '');
+      // RED: the production provider's resolved context carries only baselineReference, not the concrete workflow-start
+      // pin that S2a contextFor requires (A3 section 1, source-traced), so produceDocSnapshot refuses with
+      // baseline-unavailable. A ready snapshot here would be an unexpected pass.
+      const producedReady = produceState === 'ready';
+      record(producedReady ? 'FAIL' : 'RED', `ip-wiring.produce-ready@${leg.id}`, producedReady ? 'RED assertion unexpectedly passed now' : `missing-implementation: the provider context does not bind the concrete workflow-start baseline (state ${produceState || 'none'}${produceDiag ? `, ${produceDiag}` : ''}); S2a contextFor refuses with baseline-unavailable`);
       // -- Wiring RED: the decision boundary must consume the declared DI provider chain.
       const proxy = countingProxy(qualified);
       let result = null;
@@ -499,10 +505,12 @@ function inProcessPart() {
 function inProcessChainProbes(leg, modules) {
   const H = require(path.join(__dirname, 'fixtures', 'doc-obligations', 'reconciliation-s2a', 'harness.js'));
   const repo = H.makeRepo(H.vectorFiles('normative').base);
+  repo.root = fs.realpathSync(repo.root); // same canonical root the runtime records (see inProcessPart)
   try {
     H.writeFiles(repo.root, H.vectorFiles('normative').candidate);
     const vec = H.VECTORS.vectors.normative;
-    const origin = new H.FakeOrigin({ context: H.fakeContext() });
+    // The fake origin binds the workflow-start pin, as the S2a producer suite does (contextFor requires it).
+    const origin = new H.FakeOrigin({ context: H.fakeContext({}, repo) });
     const produced = modules.producer.produceDocSnapshot(H.producerInput(repo), { originProvider: origin });
     if (!produced.snapshot) { record('INFRA', `ip-chain.produce@${leg.id}`, H.codesOf(produced).join(',')); return; }
     const snapshot = produced.snapshot;
@@ -534,16 +542,16 @@ function inProcessChainProbes(leg, modules) {
     record(acceptedRetry.state === 'ready' && Object.keys(acceptedRetry.acceptedIndex).length === refs.length ? 'PASS' : 'FAIL', `ip-chain.fresh-retry-recovers@${leg.id}`);
     // N2: a final-context provider outage stays snapshot-changed.
     let calls = 0;
-    const flaky = new H.FakeOrigin({ context: H.fakeContext() });
+    const flaky = new H.FakeOrigin({ context: H.fakeContext({}, repo) });
     flaky.resolveContext = function () {
       calls += 1;
       if (calls >= 2) throw new Error('transient final-context outage');
-      return { status: 'accepted', context: H.clone(H.fakeContext()), originRef: 'fake-origin:context' };
+      return { status: 'accepted', context: H.clone(H.fakeContext({}, repo)), originRef: 'fake-origin:context' };
     };
     const producedFlaky = modules.producer.produceDocSnapshot(H.producerInput(repo), { originProvider: flaky });
     record(producedFlaky.state === 'unavailable' && H.codesOf(producedFlaky).includes('snapshot-changed') ? 'PASS' : 'FAIL', `ip-chain.final-outage-labeled@${leg.id}`, H.codesOf(producedFlaky).join(','));
     // N3: a candidate-side git attribute failure stays fail-closed with no credit.
-    const guardedRepo = { root: path.join(os.tmpdir(), `harness-s2battr-${leg.id}`), commit: null };
+    const guardedRepo = { root: path.join(fs.realpathSync(os.tmpdir()), `harness-s2battr-${leg.id}`), commit: null };
     fs.rmSync(guardedRepo.root, { recursive: true, force: true });
     H.writeFiles(guardedRepo.root, Object.assign({ '.gitattributes': '*.bin filter=metal\n' }, H.vectorFiles('normative').base));
     try {
