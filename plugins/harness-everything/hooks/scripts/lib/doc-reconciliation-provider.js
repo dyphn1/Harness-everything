@@ -44,7 +44,7 @@ const STDOUT_CAP_BYTES = 1024 * 1024;
 const DOC_CHECK_FLAGS = ['--workspace', '--config', '--changed-path', '--base'];
 const DOC_CHECK_SCHEMA = 'harness.doc-check.check.v1';
 // Canonical SHA-256 of harness-everything/scripts/doc-check.js (CRLF normalised to LF). Re-pin deliberately when that script changes.
-const SHIPPED_DOC_CHECK_DIGEST = '1bbf23e8f830690ffae8e8535c70ed3db0dc35d2ae4d3d76aea1bfc2b1a6a426';
+const SHIPPED_DOC_CHECK_DIGEST = 'da5e51a763eda6680afb63ee781b566253df9d358eec1e65436786c9ecebbbdb';
 // This install's own doc-check runtime, relative to hooks/scripts/lib: the source checkout or the packaged plugin.
 const DOC_CHECK_INSTALL_LAYOUTS = [
   ['..', '..', '..', 'harness-everything', 'scripts', 'doc-check.js'],
