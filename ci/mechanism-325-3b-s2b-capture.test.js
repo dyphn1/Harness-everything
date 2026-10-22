@@ -19,6 +19,7 @@
 // - Exit codes: 1 if any assertion failed (expected at RED for
 //   missing-implementation reasons only); 0 only when every assertion passes.
 
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -50,6 +51,173 @@ function legacyGoldenChecks(id, drive) {
   const captures = H.findCaptureRecords(drive.files);
   if (captures.length) throw new Error(`OFF wrote a pilot capture record despite the switch being off: ${JSON.stringify(captures[0]).slice(0, 200)}`);
 }
+
+// F8 routes are capture-only when OFF. Drive the real source/package hook with
+// an isolated state home and a preload spy that records eager internal imports.
+const CAPTURE_ONLY_ROUTES = [
+  { id: 'pre-bash', event: 'PreToolUse', tool: 'Bash', input: { command: 'echo f8-probe' } },
+  { id: 'pre-powershell', event: 'PreToolUse', tool: 'PowerShell', input: { command: 'Write-Output f8-probe' } },
+  { id: 'pre-task', event: 'PreToolUse', tool: 'Task', input: { description: 'F8 capture probe' } },
+  { id: 'pre-agent', event: 'PreToolUse', tool: 'Agent', input: { description: 'F8 capture probe' } },
+  { id: 'post-task', event: 'PostToolUse', tool: 'Task', input: { description: 'F8 capture probe' } },
+  { id: 'post-agent', event: 'PostToolUse', tool: 'Agent', input: { description: 'F8 capture probe' } },
+  { id: 'subagent-start', event: 'SubagentStart' },
+  { id: 'subagent-stop', event: 'SubagentStop' },
+];
+const OFF_SWITCH_VALUES = [
+  { id: 'unset' },
+  { id: 'zero', value: '0' },
+  { id: 'other', value: 'true' },
+];
+const OFF_INTERNAL_REQUIRES = ['./lib/harness-state', './lib/workflow-isolation', './lib/telemetry'];
+
+function snapshotTree(root) {
+  const files = {};
+  function visit(dir) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) visit(abs);
+      else if (entry.isFile()) files[path.relative(root, abs).split(path.sep).join('/')] = fs.readFileSync(abs, 'utf8');
+    }
+  }
+  visit(root);
+  return files;
+}
+
+function captureEventRecords(files) {
+  return Object.entries(files)
+    .filter(([name]) => /(?:^|\/)doc-reconciliation-capture\/\d{8}\.json$/.test(name))
+    .map(([, content]) => JSON.parse(content));
+}
+
+function driveCaptureOnlyRoute(leg, route, switchSetting) {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'f10-f8-capture-'));
+  const stateHome = path.join(temp, 'state-home');
+  const wsRoot = path.join(temp, 'workspace');
+  const spyPath = path.join(temp, 'load-spy.js');
+  const spyLog = path.join(temp, 'loaded-modules.txt');
+  fs.mkdirSync(stateHome, { recursive: true });
+  fs.mkdirSync(wsRoot, { recursive: true });
+
+  const sessionId = 'f8-' + route.id;
+  const payload = {
+    hook_event_name: route.event,
+    session_id: sessionId,
+    cwd: wsRoot,
+  };
+  if (route.tool) {
+    payload.tool_name = route.tool;
+    payload.tool_use_id = 'toolu-' + route.id;
+    payload.tool_input = route.input;
+    if (route.event === 'PostToolUse') {
+      payload.tool_response = { agentId: 'agent-f8', interrupted: false, result: 'completed' };
+    }
+  }
+  if (route.event === 'SubagentStart' || route.event === 'SubagentStop') {
+    payload.agent_id = 'agent-f8';
+    payload.agent_type = 'doc-reviewer';
+  }
+  if (route.event === 'SubagentStop') {
+    payload.last_assistant_message = 'Review verdict: approve. F8 capture probe.';
+  }
+
+  const spySource = [
+    "const fs = require('node:fs');",
+    "const Module = require('node:module');",
+    'const logPath = ' + JSON.stringify(spyLog) + ';',
+    'const watched = new Set(' + JSON.stringify(OFF_INTERNAL_REQUIRES) + ');',
+    'const originalLoad = Module._load;',
+    'Module._load = function(request, parent, isMain) {',
+    '  if (watched.has(request)) fs.appendFileSync(logPath, request + String.fromCharCode(10));',
+    '  return originalLoad.call(this, request, parent, isMain);',
+    '};',
+  ].join('\n');
+  fs.writeFileSync(spyPath, spySource, 'utf8');
+
+  const env = {
+    ...process.env,
+    CLAUDE: '1',
+    HOME: temp,
+    USERPROFILE: temp,
+    HARNESS_STATE_HOME: stateHome,
+    HARNESS_WORKSPACE_ROOT: wsRoot,
+  };
+  delete env.NODE_OPTIONS;
+  if (switchSetting.value === undefined) delete env[PILOT_SWITCH];
+  else env[PILOT_SWITCH] = switchSetting.value;
+
+  try {
+    const result = spawnSync(process.execPath, ['--require', spyPath, path.join(leg.hooksScripts, 'state-persist.js')], {
+      input: JSON.stringify(payload),
+      encoding: 'utf8',
+      cwd: wsRoot,
+      env,
+      timeout: 30000,
+    });
+    if (result.error) throw new H.InfraError('capture-only hook subprocess failed: ' + result.error.message);
+    return {
+      code: result.status,
+      stdout: result.stdout || '',
+      stderr: result.stderr || '',
+      files: snapshotTree(stateHome),
+      loadedModules: fs.existsSync(spyLog) ? fs.readFileSync(spyLog, 'utf8').trim().split(/\r?\n/).filter(Boolean) : [],
+      payload,
+    };
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+runner.run('R2C1-OFF-CAPTURE-ONLY-FAST-PATH', [], (_mods, leg) => {
+  const routeSwitchCases = CAPTURE_ONLY_ROUTES.length * OFF_SWITCH_VALUES.length;
+  let preloadCases = 0;
+  let stateChangeCases = 0;
+  let outputCases = 0;
+  let captureCases = 0;
+  let badExitCases = 0;
+  const loadedModules = new Set();
+  for (const route of CAPTURE_ONLY_ROUTES) {
+    for (const switchSetting of OFF_SWITCH_VALUES) {
+      const result = driveCaptureOnlyRoute(leg, route, switchSetting);
+      if (result.loadedModules.length) {
+        preloadCases += 1;
+        result.loadedModules.forEach(name => loadedModules.add(name));
+      }
+      if (result.code !== 0) badExitCases += 1;
+      if (result.stdout || result.stderr) outputCases += 1;
+      if (Object.keys(result.files).length) stateChangeCases += 1;
+      if (captureEventRecords(result.files).length) captureCases += 1;
+    }
+  }
+  const failures = [];
+  if (preloadCases) failures.push('preload-spy RED: internal modules loaded in ' + preloadCases + '/' + routeSwitchCases + ' OFF route/switch cases (' + [...loadedModules].join(', ') + ')');
+  if (badExitCases) failures.push('nonzero exit in ' + badExitCases + '/' + routeSwitchCases + ' OFF cases');
+  if (outputCases) failures.push('output emitted in ' + outputCases + '/' + routeSwitchCases + ' OFF cases');
+  if (stateChangeCases) failures.push('state changed in ' + stateChangeCases + '/' + routeSwitchCases + ' OFF cases');
+  if (captureCases) failures.push('capture written in ' + captureCases + '/' + routeSwitchCases + ' OFF cases');
+  if (failures.length) throw new Error(failures.join('; '));
+});
+
+runner.run('R2C1-ON-CAPTURE-ONLY-ROUTES', [], (_mods, leg) => {
+  const failures = [];
+  for (const route of CAPTURE_ONLY_ROUTES) {
+    const result = driveCaptureOnlyRoute(leg, route, { value: '1' });
+    if (result.code !== 0) { failures.push(route.id + ': exit ' + result.code); continue; }
+    if (result.stdout || result.stderr) failures.push(route.id + ': output emitted');
+    const record = captureEventRecords(result.files).find(item => item.event === route.event
+      && item.session_id === result.payload.session_id
+      && (!route.tool || item.tool_name === route.tool)
+      && (!result.payload.tool_use_id || item.tool_use_id === result.payload.tool_use_id));
+    if (!record) failures.push(route.id + ': ON capture missing');
+    else {
+      if (record.cwd !== result.payload.cwd) failures.push(route.id + ': cwd mismatch');
+      if (!/^[0-9a-f]{64}$/.test(String(record.responseDigest))) failures.push(route.id + ': response digest missing');
+      if (!record.captureId || !record.responseRef) failures.push(route.id + ': capture identity missing');
+    }
+  }
+  if (failures.length) throw new Error(failures.join('; '));
+});
 
 // ---- Item 1: OFF must write no capture and keep legacy state identical --------
 
@@ -369,6 +537,23 @@ runner.run('R2C1-LIVE-GATE-NO-ENV-OR-FLAG-BYPASS', PROVIDER_REQ, (_mods, leg) =>
 runner.run('R2C1-MANIFEST-SUBAGENT-HOOKS', [], (_mods, leg) => {
   const manifest = JSON.parse(fs.readFileSync(leg.hooksManifest, 'utf8'));
   const hooks = (manifest && manifest.hooks) || {};
+  if (leg.name === 'source') {
+    // The source manifest is Claude's capture surface; the packaged Codex plugin
+    // keeps its own host-specific SubagentStart/Stop adapters below.
+    const hasStatePersist = group => ((group && group.hooks) || []).some(handler =>
+      handler.type === 'command' && /state-persist\.js/.test(handler.command || ''));
+    for (const route of [
+      { event: 'PreToolUse', matcher: 'Bash|PowerShell|Task|Agent' },
+      { event: 'PostToolUse', matcher: 'Task|Agent' },
+      { event: 'SubagentStart' },
+      { event: 'SubagentStop' },
+    ]) {
+      const groups = hooks[route.event];
+      if (!Array.isArray(groups) || !groups.some(group => group.matcher === route.matcher && hasStatePersist(group))) {
+        throw new Error(route.event + ' state-persist route is missing or narrowed');
+      }
+    }
+  }
   for (const event of ['SubagentStart', 'SubagentStop']) {
     const groups = hooks[event];
     if (!Array.isArray(groups) || !groups.length) throw new Error(`hooks/hooks.json does not declare ${event}`);
