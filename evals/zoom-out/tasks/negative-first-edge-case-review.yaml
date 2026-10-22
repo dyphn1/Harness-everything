@@ -1,0 +1,16 @@
+id: negative-first-edge-case-review-001
+name: A first review finding an edge case is ordinary review
+description: One edge case in the first review does not establish repeated repair rounds.
+tags:
+  - negative-trigger
+inputs:
+  prompt: "Review this PR for the first time. The reviewer found one edge case in an unchanged state reader. Assess the finding against the acceptance clause and trace the affected consumers. No earlier review or corrective round has taken place."
+expected:
+  should_trigger: false
+graders:
+  - type: text
+    name: not-contains-keywords
+    config:
+      contains:
+        - "circuit breaker tripped"
+        - "reflection report"
