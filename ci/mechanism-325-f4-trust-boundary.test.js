@@ -469,6 +469,104 @@ function partG0() {
   }
 }
 
+// ---- R3 (F4-T9): a normal doc-edit session, and a one-byte installed change (F4-R3, luna's e2e) ---------------------------
+// R3-01 (P1): an ordinary Edit and the Agent result are captured as doc refs. Those refs produce unregistered-command
+// diagnostics, so credit is withheld and the verify step refuses a session that the real doc-check and reviewer support.
+// R3-02 (P3): a one-byte change to the installed doc-check, before its run or after capture, still advances lastVerifyAt,
+// which suppresses the generic verification reminder. Each RED has a paired control.
+
+const EDIT_FILE = { id: 'edit-doc', op: 'hookDeliver', payload: { event: 'PostToolUse', toolName: 'Edit', command: '', toolUseId: 'toolu_r3_edit', response: { stdout: '', stderr: '', interrupted: false } } };
+const EDIT_CHECK = { id: 'edit-check', op: 'editDocCheck', payload: { append: '\n' } };
+
+// A normal doc-edit session: the Edit, the real doc-check, and an independent reviewer with its Agent surface.
+function r3ReviewCase(label, withEdit) {
+  const item = clone(POS_CASE);
+  item.id = label;
+  item.requirements = clone(REQUIREMENTS);
+  const reviewed = `${VERDICT_APPROVE}\nReviewed artifact: docs/a.md sha256:${sha256(POS_CASE.input.candidateFiles['docs/a.md'])}`;
+  item.actions = [
+    { id: 'route', op: 'route', payload: { prompt: 'Update docs/a.md, review it independently, and verify it.' } },
+    { id: 'plan', op: 'plan', payload: { requirements: '$requirements', strategy: 'iterative-single', evidence: 'bounded documentation loop' } },
+    { id: 'start', op: 'start', payload: {} },
+    { id: 'doc-pass', op: 'step', payload: { stepId: 'req-docs', disposition: 'pass', evidence: 'sentence corrected' } },
+    ...(withEdit ? [EDIT_FILE] : []),
+    LINT_RUN,
+    { id: 'post-lint', op: 'hookDeliver', payload: { event: 'PostToolUse', command: LINT_COMMAND, toolUseId: 'toolu_r3_lint', fromRun: 'lint-run' } },
+    { id: 'agent-pre', op: 'hookDeliver', payload: { event: 'PreToolUse', toolName: 'Agent', command: 'agent-launch', toolUseId: 'toolu_r3_agent_pre' } },
+    { id: 'sub-start', op: 'hookDeliver', payload: { event: 'SubagentStart', agentId: 'agent-r3-rev', agentType: 'doc-reviewer' } },
+    agentSurface('agent-result', 'agent-r3-rev'),
+    subStop('agent-r3-rev', reviewed),
+    reviewPass(),
+    { id: 'verify-bind', op: 'binding', payload: { stepId: 'req-verify', bindingId: 'verification-loop', disposition: 'loaded', evidence: 'verification loop skill located' }, expectExit: { on: [0, 2] } },
+    { id: 'verify-pass', op: 'step', payload: { stepId: 'req-verify', disposition: 'pass', evidence: 'objective doc check recorded' }, expectExit: { on: [0, 2] } },
+    { id: 'stop', op: 'stop' },
+    { id: 'stop-generic', op: 'stopGeneric' },
+  ];
+  return item;
+}
+
+// The positive doc-edit session with an ordinary Edit before the run, and an optional one-byte change to the installed script.
+function r3TamperCase(label, where) {
+  const item = clone(POS_CASE);
+  item.id = label;
+  const acts = [];
+  for (const action of item.actions) {
+    if (action.id === 'verify-bind') acts.push(EDIT_FILE);
+    if (action.id === 'lint-run' && where === 'before-run') acts.push(EDIT_CHECK);
+    acts.push(action);
+    if (action.id === 'post-lint' && where === 'after-capture') acts.push(EDIT_CHECK);
+  }
+  item.actions = acts;
+  return item;
+}
+
+const handoffOf = (root, id) => (root.actions[id] && root.actions[id].state && root.actions[id].state.handoff) || {};
+const reminderOf = root => (root.actions['stop-generic'] && root.actions['stop-generic'].stderr) || '';
+const unregisteredCount = root => diagnosticsOf(root).filter(item => item && item.code === 'unregistered-command').length;
+
+function partR3(leg) {
+  console.log(`\n== R3 (${leg}): a normal doc-edit session, and a one-byte installed change ==`);
+  const runCase = item => {
+    const staged = stage(leg);
+    try {
+      useShippedExport(staged);
+      return replay(item, staged.dist, { pilot: '1' });
+    } finally {
+      staged.cleanup();
+    }
+  };
+
+  const session = runCase(r3ReviewCase(`F4T9-R3-01-edit@${leg}`, true));
+  const agentOnly = runCase(r3ReviewCase(`F4T9-R3-01-agent@${leg}`, false));
+  runChecks(`R3-01.normal-edit-session@${leg}`, session, [
+    { id: 'verify-step-passes', status: 'RED', reason: 'R3-01 (P1): the ordinary Edit and the Agent result become doc refs, which withholds credit, so the verify step exits 2', test: () => ({ pass: session.actions['verify-pass'].exitCode === 0, actual: session.actions['verify-pass'].exitCode }) },
+    { id: 'credited-exactly-lint-and-links', status: 'RED', reason: 'R3-01 (P1): a normal edit session withholds doc-lint and link-check credit (unregistered-command diagnostics from the Edit and Agent records)', test: () => ({ pass: JSON.stringify(creditedOf(session)) === JSON.stringify(['doc-lint', 'link-check']), actual: creditedOf(session) }) },
+    { id: 'no-unregistered-command-from-edit-or-agent', status: 'RED', reason: 'R3-01 (P1): the Edit and Agent PostToolUse records produce unregistered-command diagnostics (four observed: two from the Edit, two from the Agent result)', test: () => ({ pass: unregisteredCount(session) === 0, actual: unregisteredCount(session) }) },
+    { id: 'reviewer-surface-approved', status: 'CONTROL', reason: '', test: () => ({ pass: session.actions['review-pass'].exitCode === 0, actual: session.actions['review-pass'].exitCode }) },
+    { id: 'registered-run-accepted', status: 'CONTROL', reason: '', test: () => ({ pass: ['doc-lint', 'link-check'].every(c => acceptedCapabilityOf(session).includes(c)), actual: acceptedCapabilityOf(session) }) },
+  ]);
+  runChecks(`R3-01.agent-result-only@${leg}`, agentOnly, [
+    { id: 'no-unregistered-command-from-agent', status: 'RED', reason: 'R3-01 (P1): the Agent result PostToolUse alone produces unregistered-command diagnostics (two observed)', test: () => ({ pass: unregisteredCount(agentOnly) === 0, actual: unregisteredCount(agentOnly) }) },
+    { id: 'reviewer-surface-approved', status: 'CONTROL', reason: '', test: () => ({ pass: agentOnly.actions['review-pass'].exitCode === 0, actual: agentOnly.actions['review-pass'].exitCode }) },
+    { id: 'registered-run-accepted', status: 'CONTROL', reason: '', test: () => ({ pass: ['doc-lint', 'link-check'].every(c => acceptedCapabilityOf(agentOnly).includes(c)), actual: acceptedCapabilityOf(agentOnly) }) },
+  ]);
+
+  const control = runCase(r3TamperCase(`F4T9-R3-02-control@${leg}`, 'control'));
+  runChecks(`R3-02.unmodified-control@${leg}`, control, [
+    { id: 'real-run-sets-last-verify', status: 'CONTROL', reason: '', test: () => ({ pass: typeof handoffOf(control, 'verify-pass').lastVerifyAt === 'number', actual: handoffOf(control, 'verify-pass').lastVerifyAt ?? null }) },
+    { id: 'no-reminder-after-real-verification', status: 'CONTROL', reason: '', test: () => ({ pass: !/\[Verification Reminder\]/.test(reminderOf(control)), actual: reminderOf(control).trim().slice(0, 80) }) },
+  ]);
+  for (const where of ['before-run', 'after-capture']) {
+    const root = runCase(r3TamperCase(`F4T9-R3-02-${where}@${leg}`, where));
+    const before = handoffOf(root, 'edit-doc').lastVerifyAt ?? null;
+    const after = handoffOf(root, 'verify-pass').lastVerifyAt ?? null;
+    runChecks(`R3-02.${where}@${leg}`, root, [
+      { id: 'last-verify-unchanged', status: 'RED', reason: 'R3-02 (P3): a one-byte-changed installed doc-check still sets lastVerifyAt (set today, at capture)', test: () => ({ pass: before === after, actual: { before, after } }) },
+      { id: 'verification-reminder-emitted', status: 'RED', reason: 'R3-02 (P3): the advanced lastVerifyAt suppresses the generic verification reminder', test: () => ({ pass: /\[Verification Reminder\]/.test(reminderOf(root)), actual: reminderOf(root).trim().slice(0, 80) }) },
+    ]);
+  }
+}
+
 function main() {
   if (!shippedExportPresent()) {
     console.log('INFRA: the committed qualification export is missing from a leg; the trust-boundary cases need it');
@@ -480,6 +578,7 @@ function main() {
     partR6R7(leg);
     partR8R9(leg);
     partM2(leg);
+    partR3(leg);
   }
   partG0();
   console.log('\n== F4-T4 trust-boundary evidence ==');

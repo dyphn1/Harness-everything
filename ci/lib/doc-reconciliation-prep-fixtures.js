@@ -308,7 +308,7 @@ function resultOf(handle, result, pilot) {
 }
 
 const DOC_CHECK_TOKEN = '{{DOC_CHECK}}';
-const CAPTURE_HOOK_EVENTS = new Set(['PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop']);
+const CAPTURE_HOOK_EVENTS = new Set(['PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop']);
 
 // Host-transport ops (F4). hostRun executes the distribution's registered doc-check entry by argv, with no shell, the
 // way the host runs a registered command. hookDeliver sends one raw host payload to the real state-persist hook, with
@@ -329,7 +329,7 @@ function runHostOp(handle, action, pilot) {
     cwd: handle.workspace,
     hook_event_name: p.event
   };
-  if (p.event === 'PostToolUse' || p.event === 'PostToolUseFailure') {
+  if (p.event === 'PreToolUse' || p.event === 'PostToolUse' || p.event === 'PostToolUseFailure') {
     if (typeof p.command !== 'string' || typeof p.toolUseId !== 'string') throw new Error('hookDeliver tool events need command and toolUseId');
     body.tool_name = p.toolName === undefined ? 'Bash' : p.toolName;
     // {{DOC_CHECK}} is the installed doc-check path of the leg under test, so a positive fixture invokes the path the
