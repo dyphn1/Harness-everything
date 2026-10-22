@@ -317,6 +317,8 @@ Decision extraction recognizes ATX boundaries with 0–3 leading spaces and igno
 - The `sources` seam in `doc-obligations.js` is an implementation detail, not a public schema. F3 adds no source mapping; a view with no mapping is covered by the conservative rule.
 - `check` never runs a generator. A view it lists as affected needs an authorized generation step and a `compare-derived` record; see `harness-everything/references/doc-check.md` § Derived views.
 
+F4 is the creditable bounded consumer; its first positive scope is lint and links on a body-only reference edit (see `docs/doc-workflow-reconciliation.md`, F4 section).
+
 ## Packaging
 
 Source checkout, Codex plugin and Claude plugin copy whole skill trees. Callers locate `doc-lifecycle.js` and the resolver relative to their own skill directory, never the source-tree root. A to-spec-only install must use the same resolver implementation (copied byte-identically and checked), and a broken shared module is an error, never a silent fallback to older host scanning.

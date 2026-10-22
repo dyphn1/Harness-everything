@@ -889,3 +889,110 @@ relevant green CI including Windows. The S1 suites establish their tested mechan
 contracts; they do not establish independent host provenance, live-host loading or architectural
 benefit. E1 has not started and begins only after a creditable S2; E1 GO and H1–H4/paired evidence
 remain separate gates.
+
+## F4: credited reconciliation (Claude-only, pilot ON)
+
+Status: **contract only, mechanism and package evidence only.** Nothing here is implemented, and no live capture exists. Design source: the A3 advisor report (`.worktrees/packets/feat-path/A3-advisor-report.md`, a local coordination file, not a shipped doc).
+
+### Whole path
+
+```mermaid
+flowchart LR
+  P["Plan/start: pin baseline + task/workflow semantics"] --> B["PreToolUse / review start: capture identity + command + principal"]
+  B --> X["Claude runs registered doc check or verifier"]
+  X --> H["PostToolUse/Failure or SubagentStop: capture raw result + IDs"]
+  H --> J["Session-owned origin records outside candidate tree"]
+  J --> A["Current assess: live qualification + origin provider"]
+  A --> S["produceDocSnapshot"]
+  S --> E["acceptDocEvents: current refs, identity, scope, principal"]
+  E --> C["checkAcceptedDocEvidence: expected MUST set"]
+  C --> R["Recheck identity/origins; persist eligible mode only"]
+  R --> T["Completion/Stop: recollect; stale evidence loses credit"]
+```
+
+### Modes
+
+| Mode | Condition | Result |
+|---|---|---|
+| OFF | `HARNESS_DOC_RECONCILIATION_PILOT` unset (default) | Legacy behaviour. No pilot capture, assessment or report writes |
+| ON without qualifying evidence | Pilot on, but a host field, capture or live qualification is missing, or an identity or origin recheck fails | Withheld: no credit. Both Stop entry points exit 0 |
+| ON with current accepted evidence and live qualification | Every identity current; capture validated | Credit only for the capabilities in the result contract below |
+
+### Test transport
+
+- Raw fixture hook payloads go through the real hook subprocess entry points, which write their own session records. The disposition and Stop subprocesses then run against that same isolated task and session.
+- Qualification comes only from a CI-only preloader passed as `node --require <ci-preloader> <entry>`. It supplies explicit fake qualification through the origin-provider factory. It may change qualification only. It never changes the snapshot, the `resolveEvent` outcome, principals, capability, accepted records or core eligibility.
+- No production environment or argv switch exists. The preloader stays under `ci/` and is not packaged.
+- This proves **deterministic simulated-host behaviour**. It does not prove live-host behaviour.
+
+Replay negatives that must reject:
+
+- Cross-session, cross-task, workflow-revision, baseline or candidate replay
+- The same record under a new name
+- A duplicate tool ID
+- Conflicting success and failure for one tool
+- An edited raw payload or result
+- A false `independentOf` claim in prose
+- A stale review
+- Forged accepted or checker structures
+
+### Owner's bounded claim
+
+Quoted from the #325 owner decisions of 2026-10-21 (09:10 comment), verbatim.
+
+Trust contract row, exit mapping (decision 1):
+
+> For a given `tool_use_id`, the S2b origin provider treats "`PostToolUse` received, `interrupted` is false, and no `PostToolUseFailure` arrived" as exit `0`. This is a named mapping of the host's own success/failure classification, not a null→0 conversion.
+
+Bound: "A `PostToolUseFailure` is never credited. Its `Exit code N` text is used for diagnostics only."
+
+Reviewer principal and claim boundary (decision 2, bound column):
+
+> The claim is bounded. The agent can run arbitrary code, so it can forge local journals. The guarantee is that host payload fields are re-validated at assessment time, and copied-record replay tests are required negatives. **Cryptographic unforgeability is not claimed.** Human approval is not available as a reviewer principal.
+
+Supported host for positive credit: **Claude Code only.** OpenCode and Codex stay unavailable.
+
+### Result contract
+
+Logical command IDs: `harness.doc-check.check.v1` and `harness.doc-check.compare-derived.v1`. An ID is bound to the observed executable and argv, the resolved installed runtime path and an implementation digest. Stdout that repeats the ID is not trusted.
+
+Only direct, single, registered Node invocations are credited. Compound shell commands, aliases and wrappers stay uncredited unless their expansion is validated independently.
+
+| Capability | Credit needs |
+|---|---|
+| `doc-lint` | One projection from an observed successful `check`: lint exit 0, valid schema, the exact expected governed and baseline paths, and complete relevant coverage |
+| `link-check` | A separate projection of the same invocation, scoped to the expected paths: no broken, skipped, unreadable or unsupported link syntax |
+| `derived-regenerate` | An observed successful generation **and** an observed successful pure comparison, bound to the same source and config identity and to the same generated bytes. `--generation-status ok` is caller-reported and cannot establish generation alone |
+| `quality-review` | A completed review from a correlated host `agent_id` distinct from the author and every executor; an explicit approve verdict, a non-empty summary and exact reviewed path digests. SubagentStop alone is never approval |
+| `conflict-check`, `requirement-sync` | Stay unresolved. F4 gives them no credit |
+| SHOULD reminders | Never earn credit, and their absence never withholds it |
+
+### Live capture gate
+
+Positive production credit stays **disabled** until a live capture validates. Procedure (A3 §4):
+
+1. Pin the capture implementation. Stage the Claude plugin outside the checkout with `scripts/stage-claude-plugin.js`. Use a small scratch Git project with one governed reference and a committed baseline. Keep Harness state and output outside that project.
+2. Install a capture-only logging wrapper through a session `--settings` file. For PreToolUse, PostToolUse, PostToolUseFailure, SubagentStart and SubagentStop, write the raw stdin payload to owned JSONL before running the staged hook. Record the settings and wrapper hashes.
+3. Set `HARNESS_DOC_RECONCILIATION_PILOT=1` and a scratch `HARNESS_STATE_HOME`. Use a fresh session UUID, a foreground read-only `doc-reviewer` agent and normal scoped permissions. Do not add a bypass flag. If the required tools are denied or authentication fails, record the gate as unmet.
+4. Run the command below. The prompt asks Claude to read the reference, run the registered `doc-check` command, invoke `doc-reviewer`, wait for its completion and stop.
+5. Validate a populated `tool_use_id`, an explicit interruption value, and the reviewer's `agent_id` and `agent_type`, with parent-session, start, stop and Agent-result correlation. A missing field keeps the gate unmet.
+
+```text
+HARNESS_DOC_RECONCILIATION_PILOT=1 HARNESS_STATE_HOME="<scratch-state>" \
+claude -p "<fixed capture prompt, containing the exact check command>" \
+  --plugin-dir "<staged-claude-plugin>" \
+  --settings "<scratch-capture-settings.json>" \
+  --agents '{"doc-reviewer":{"description":"Read-only documentation reviewer","prompt":"Read only. Return explicit verdict, summary and reviewed artifact digests; never edit or execute the implementation."}}' \
+  --session-id "<fresh-UUID>" --setting-sources project,local \
+  --output-format stream-json --verbose
+```
+
+**Retained artifacts** go to `benchmarks/results/live-host/claude-325-3b-s2b/`: `capture.sanitized.jsonl`, `README.md`, the relevant stream-json transcript, settings, manifest and wrapper digests, the host version, the runtime and tree fingerprint, and the command and exit summary. Raw payloads stay private, outside the repository. Transcript text alone is not hook evidence.
+
+**Qualification export** is a sanitized file at the canonical path `hooks/scripts/lib/doc-reconciliation-qualification.json`, copied by plugin sync. The runtime validates payload kinds, IDs, correlation and digests against the retained evidence. It does not search ancestor directories and does not accept a file by size.
+
+### Scope and limits
+
+- The first positive scope is a body-only edit to an existing governed reference, with no derived declaration, code, test, PRD or ADR normative change. Its applicable MUSTs are lint and links.
+- Simulated replay and one live field capture are not E1 GO, and they do not permit a wider rollout.
+- Not claimed: cryptographic attestation, a sandbox, a forced review provider, default-ON, live-host behaviour beyond the capture, or support for OpenCode or Codex.
