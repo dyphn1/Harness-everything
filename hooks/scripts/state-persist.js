@@ -70,7 +70,9 @@ function processState(payload) {
       const commandClass = classifyShell(command);
       if (commandClass !== 'read-only' && commandClass !== 'worktree-setup') state.lastEditAt = Date.now();
       // Verification evidence needs a confirmed success: a PostToolUse event or an explicit zero exit.
-      if (!isFailed && (isSuccessEvent || exitCode === 0) && isVerificationShell(command, { cwd: cwdOf(payload, root), root })) { state.lastVerifyAt = Date.now(); state.lastVerifyExitCode = exitCode ?? null; }
+      // Pilot ON only: a registered, argv-validated doc-check invocation is the document verification evidence. OFF stays legacy.
+      const registeredCheck = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1' && require('./lib/doc-reconciliation-provider').parseRegisteredCheck(command);
+      if (!isFailed && (isSuccessEvent || exitCode === 0) && (registeredCheck || isVerificationShell(command, { cwd: cwdOf(payload, root), root }))) { state.lastVerifyAt = Date.now(); state.lastVerifyExitCode = exitCode ?? null; }
     }
     fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
     observeTool(payload);

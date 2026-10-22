@@ -40,6 +40,34 @@ const RETAINED_LIVE_REL_PARTS = path.join('benchmarks', 'results', 'live-host', 
 const RETAINED_REQUIRED_ENTRIES = ['README.md', 'capture.sanitized.jsonl'];
 const HEX64 = /^[0-9a-f]{64}$/;
 const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent'];
+const STDOUT_CAP_BYTES = 1024 * 1024;
+const DOC_CHECK_SCRIPT = /(^|\/)harness-everything\/scripts\/doc-check\.js$/;
+const DOC_CHECK_FLAGS = ['--workspace', '--config', '--changed-path', '--base'];
+const DOC_CHECK_SCHEMA = 'harness.doc-check.check.v1';
+
+// A registered, argv-validated `doc-check check` invocation, or null. No shell operators, expansions or quoting.
+function parseRegisteredCheck(command) {
+  if (typeof command !== 'string' || /[&|;<>`$()\\"']/.test(command)) return null;
+  const tokens = command.trim().split(/\s+/);
+  if (tokens.length < 4 || tokens[0] !== 'node' || !DOC_CHECK_SCRIPT.test(tokens[1]) || tokens[2] !== 'check') return null;
+  const flags = tokens.slice(3);
+  if (flags.length % 2 !== 0) return null;
+  for (let index = 0; index < flags.length; index += 2) {
+    if (!DOC_CHECK_FLAGS.includes(flags[index]) || flags[index + 1].startsWith('--')) return null;
+  }
+  return tokens;
+}
+
+// Observation-time digests of the checked paths, read from the workspace when the check ran. Absent paths are omitted.
+function observedDigestsFor(root, paths) {
+  const digests = {};
+  for (const relative of paths) {
+    if (typeof relative !== 'string' || path.isAbsolute(relative) || relative.split(/[\\/]/).includes('..')) continue;
+    try { digests[relative] = crypto.createHash('sha256').update(fs.readFileSync(path.join(root, relative))).digest('hex'); }
+    catch { /* absent: the event will lack this digest and be rejected by the checker */ }
+  }
+  return digests;
+}
 
 function textOf(value) { return typeof value === 'string' && value.trim().length > 0; }
 function recordOf(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -256,7 +284,9 @@ const createClaudeOriginProvider = input => {
     if (!qualification.open) return { status: 'unavailable', diagnostics: [qualification.fail] };
     const { reference } = request;
     const captures = Array.isArray(safeInput.captures) ? safeInput.captures : [];
-    const index = captures.findIndex(item => recordOf(item) && item.ref === reference);
+    // A reference is `<captureRef>` (lifecycle events) or `<captureRef>#<capability>` (doc-check projections).
+    const [captureRef, capability] = String(reference).split('#');
+    const index = captures.findIndex(item => recordOf(item) && item.ref === captureRef);
     if (index === -1) return unavailable('origin-unavailable', `no captured host event is retained for reference ${reference}`);
     const cap = captures[index];
     const originRefResponse = resolveContext(request);
@@ -279,6 +309,66 @@ const createClaudeOriginProvider = input => {
       return rejected('replayed-record', `identical host-event content already recorded (first occurrence index ${firstOccurrence}); a copied record cannot become a new accepted event by changing its reference`);
     }
     const producerId = 'claude-code-origin-provider';
+    if (capability) {
+      // Doc capability: only a registered, passed, fully covered doc-check invocation with retained stdout can cover it.
+      if (cap.event !== 'PostToolUse') return rejected('capability-mismatch', 'only a PostToolUse check invocation can cover a doc capability');
+      const registered = parseRegisteredCheck(cap.command);
+      if (!registered) return rejected('unregistered-command', 'the command is not a registered doc-check invocation; an arbitrary successful shell command never covers a doc capability');
+      if (!(cap.tool_use_id && typeof cap.tool_use_id === 'string')) return rejected('tool-use-id-missing', 'absent or empty tool_use_id: the invocation cannot be correlated, no credit');
+      if (typeof cap.interrupted !== 'boolean') return rejected('outcome-ambiguous', 'ambiguous interruption/success correlation cannot be treated as success');
+      if (cap.interrupted === true) return rejected('interrupted-not-credited', 'interrupted success is not mapped to exit 0 (owner decision row 1)');
+      if (captures.some((item, i) => recordOf(item) && i !== index && item.event === 'PostToolUseFailure'
+        && item.tool_use_id === cap.tool_use_id && item.session_id === cap.session_id)) {
+        return rejected('failure-invalidates-mapping', 'a PostToolUseFailure arrived for the same tool_use_id; the success mapping is voided');
+      }
+      if (typeof cap.stdout !== 'string') return rejected('stdout-withheld', 'retained stdout is absent or over the cap; the event is withheld and never credited');
+      if (crypto.createHash('sha256').update(cap.stdout).digest('hex') !== cap.stdoutDigest) return rejected('stdout-digest-mismatch', 'retained stdout does not match its digest');
+      // The raw host result must still be the one observed: its canonical digest and stdout must match the record.
+      if (!recordOf(cap.toolResponse) || captureDigest(cap.toolResponse) !== cap.responseDigest || cap.toolResponse.stdout !== cap.stdout) {
+        return rejected('payload-edited', 'the retained raw tool response does not match the recorded responseDigest; an edited payload is never credited');
+      }
+      let report;
+      try { report = JSON.parse(cap.stdout); } catch { return rejected('stdout-not-json', 'retained stdout is not a JSON check report'); }
+      if (!recordOf(report) || report.schema !== DOC_CHECK_SCHEMA || !recordOf(report.lint) || report.lint.exit !== 0) {
+        return rejected('check-not-passed', 'the registered check did not pass lint; no capability is credited');
+      }
+      const projection = recordOf(report.capabilities) ? report.capabilities[capability] : undefined;
+      if (!recordOf(projection) || projection.state !== 'pass') {
+        return rejected('partial-coverage', `${capability} is ${projection ? projection.state : 'absent'}; partial coverage earns no credit`);
+      }
+      const paths = Array.isArray(projection.checkedPaths) ? projection.checkedPaths.slice() : [];
+      if (!paths.length) return rejected('scope-empty', `${capability} checked no governed paths`);
+      const observed = recordOf(cap.observedDigests) ? cap.observedDigests : {};
+      const artifactDigests = {};
+      for (const relative of paths) {
+        if (typeof observed[relative] !== 'string') return rejected('artifact-unobserved', `no observation-time digest for ${relative}`);
+        artifactDigests[relative] = observed[relative];
+      }
+      const command = registered.join(' ');
+      const event = {
+        eventId: 'claude-check-' + digestText(cap.captureId + ':' + capability),
+        producerId,
+        originRef,
+        principalId: cap.session_id,
+        provenance: 'claude-code-capture:' + cap.captureId,
+        capability,
+        kind: 'execution',
+        command,
+        argv: registered,
+        cwd: typeof cap.cwd === 'string' ? cap.cwd : '',
+        exitCode: 0,
+        signal: null,
+        toolCorrelationId: cap.tool_use_id,
+        resultRef: cap.responseRef,
+        identity: recordOf(request.identity) ? JSON.parse(JSON.stringify(request.identity)) : null,
+        startIdentity: recordOf(request.identity) ? JSON.parse(JSON.stringify(request.identity)) : null,
+        endIdentity: recordOf(request.identity) ? JSON.parse(JSON.stringify(request.identity)) : null,
+        paths,
+        artifactDigests,
+        captured: { responseRef: cap.responseRef, responseDigest: cap.responseDigest },
+      };
+      return { status: 'accepted', originRef, event, correlation: { toolCorrelationId: cap.tool_use_id, resultRef: cap.responseRef } };
+    }
     if (cap.event === 'PostToolUseFailure') {
       return rejected('failure-not-credited', 'PostToolUseFailure is never credited; its Exit code N text is diagnostics-only (owner decision row 1)');
     }
@@ -438,6 +528,24 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
   if (event === 'PostToolUse') {
     // An absent interrupted field stays absent: it is unknown, not false (A3 section 1).
     if (recordOf(toolResponse) && typeof toolResponse.interrupted === 'boolean') record.interrupted = toolResponse.interrupted;
+    // A registered doc-check invocation keeps its full stdout (capped), a digest of it, and the checked paths' digests
+    // at observation time. Assessment re-parses the stdout; nothing is trusted from an agent-written field.
+    if (parseRegisteredCheck(record.command)) {
+      const stdout = recordOf(toolResponse) && typeof toolResponse.stdout === 'string' ? toolResponse.stdout : '';
+      record.stdoutDigest = crypto.createHash('sha256').update(stdout).digest('hex');
+      if (Buffer.byteLength(stdout) <= STDOUT_CAP_BYTES) {
+        record.stdout = stdout;
+        // The full tool response is retained so assessment can recompute responseDigest from the same bytes.
+        record.toolResponse = toolResponse;
+      } else { record.stdout = null; record.stdoutTruncated = true; }
+      let checkedPaths = [];
+      try {
+        const report = JSON.parse(stdout);
+        checkedPaths = ['doc-lint', 'link-check'].flatMap(capability => (recordOf(report.capabilities) && recordOf(report.capabilities[capability])
+          && Array.isArray(report.capabilities[capability].checkedPaths) ? report.capabilities[capability].checkedPaths : []));
+      } catch { /* not JSON: no paths observed, the event will be withheld */ }
+      record.observedDigests = typeof workspaceRoot === 'string' && workspaceRoot ? observedDigestsFor(workspaceRoot, [...new Set(checkedPaths)]) : {};
+    }
   } else if (event === 'PostToolUseFailure') {
     record.is_interrupt = Boolean(payload.is_interrupt);
     record.failureDisposition = /Exit code (\d+)/.exec(String(payload.error === undefined ? '' : payload.error)) ? 'nonzero-exit' : 'host-failure-error';
@@ -451,4 +559,4 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
   return record;
 }
 
-module.exports = { createClaudeOriginProvider, buildCaptureRecord, _internals: { captureJson, captureDigest, digestText, canonicalCapture, resolveRetainedLiveDir } };
+module.exports = { createClaudeOriginProvider, buildCaptureRecord, parseRegisteredCheck, _internals: { captureJson, captureDigest, digestText, canonicalCapture, resolveRetainedLiveDir } };

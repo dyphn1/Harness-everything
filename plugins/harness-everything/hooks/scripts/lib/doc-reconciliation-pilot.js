@@ -111,9 +111,68 @@ function collect(context) {
   return deriveDocObligations(facts).filter(item => item.strength === 'MUST' && item.applicability !== 'N/A');
 }
 
+// S2b credit chain (F4): produce the snapshot, accept the origin-provider events, and check them against the expected
+// MUSTs. Credit only when the core marks the evidence eligible. Production has no qualification, so it stays withheld.
+function creditChain(context, set, dependencies = {}) {
+  const { produceDocSnapshot } = require('./doc-reconciliation-producer');
+  const { acceptDocEvents } = require('./doc-reconciliation-events');
+  const { checkAcceptedDocEvidence } = require('./doc-reconciliation-core');
+  const baseline = context.workflow.docReconciliationBaseline;
+  const requirements = Array.isArray(set?.requirements) ? set.requirements : [];
+  const taskId = `task-${requirements.map(item => item.id).join('+') || 'none'}`;
+  const sessionId = context.sessionId;
+  const originProvider = dependencies.originProvider || require('./doc-reconciliation-provider').createClaudeOriginProvider({
+    hostId: 'claude-code',
+    sessionId,
+    workspaceRoot: context.root,
+    workflowId: context.workflow.workflowId,
+    workflowRevision: context.workflow.revision,
+    taskId,
+    principals: { author: sessionId, executors: [sessionId] },
+    baseline,
+    captures: readCaptures(context),
+  });
+  const produced = produceDocSnapshot({
+    workspaceRoot: context.root,
+    baseline,
+    workflow: { workflowId: context.workflow.workflowId, sessionId, workflowRevision: context.workflow.revision },
+    task: { taskId, requirements },
+    scope: { prdRoot: 'docs/prd/' },
+    activeHost: 'claude-code',
+    prdRoot: 'docs/prd/',
+  }, { originProvider });
+  if (produced.state !== 'ready' || !produced.snapshot) return { eligible: false, diagnostics: produced.diagnostics };
+  const eventRefs = captureReferences(context);
+  const accepted = acceptDocEvents({ snapshot: produced.snapshot, eventRefs }, { originProvider });
+  const checked = checkAcceptedDocEvidence({ snapshot: produced.snapshot, accepted, mode: 'verification' });
+  return {
+    eligible: checked.eligible === true,
+    capabilities: checked.eligible === true ? [...new Set(produced.snapshot.obligations.filter(o => o.strength === 'MUST').map(o => o.capability))] : [],
+    acceptedRefs: Object.keys(accepted.acceptedIndex || {}),
+    diagnostics: [...(accepted.diagnostics || []), ...(checked.diagnostics || [])],
+    rejected: accepted.rejected || [],
+  };
+}
+
+// The session journal is the only host-event source. A missing or unreadable journal means no events, never credit.
+function readCaptures(context) {
+  try {
+    const journal = JSON.parse(fs.readFileSync(path.join(context.sessionDir, 'doc-reconciliation-capture.json'), 'utf8'));
+    return Array.isArray(journal.records) ? journal.records : [];
+  } catch {
+    return [];
+  }
+}
+
+function captureReferences(context) {
+  return readCaptures(context)
+    .filter(item => item && item.event === 'PostToolUse' && typeof item.ref === 'string')
+    .flatMap(item => ['doc-lint', 'link-check'].map(capability => `${item.ref}#${capability}`));
+}
+
 // Assessment is deliberately negative-credit only in S1. Unsupported topologies never enter
 // generic step reconciliation, and failures (including report persistence) never escape to Stop.
-function assess(context, set) {
+function assess(context, set, dependencies = {}) {
   if (!enabled()) return { withhold: false };
   const report = {
     schemaVersion: 1, reportOrigin: 'runtime', pilotStatus: 'unavailable', pilotCredit: false,
@@ -133,6 +192,17 @@ function assess(context, set) {
         reasonCode: item.applicability === 'unknown' ? 'unknown-applicability' : 'producer-unavailable',
       }));
       if (!withhold) report.diagnostics.push('trusted-non-document-scope');
+      if (withhold) {
+        let chain;
+        try { chain = creditChain(context, set, dependencies); }
+        catch (error) { chain = { eligible: false, diagnostics: [{ code: 'collector-unavailable', message: String(error.message) }] }; }
+        withhold = chain.eligible !== true;
+        report.pilotCredit = chain.eligible === true;
+        report.pilotStatus = chain.eligible === true ? 'credited' : 'unresolved';
+        report.creditedCapabilities = chain.eligible === true ? chain.capabilities : [];
+        report.acceptedRefs = chain.acceptedRefs || [];
+        report.diagnostics.push(...(chain.diagnostics || []).map(item => item.code || String(item)));
+      }
     } catch (error) {
       withhold = true;
       const reason = ['baseline-unavailable', 'config-unavailable', 'scope-unavailable', 'config-scope-changed'].includes(error.message)
