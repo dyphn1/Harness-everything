@@ -1,3 +1,8 @@
+---
+role: reference
+status: active
+---
+
 # Document workflow reconciliation — Phase 3b S1 runtime
 
 **Status: S1 runtime ships default OFF; opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`.

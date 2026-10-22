@@ -1,0 +1,6 @@
+{
+  "governed": [
+    { "path": "docs/architecture.md", "role": "reference" },
+    { "path": "docs/doc-workflow-reconciliation.md", "role": "reference" }
+  ]
+}

@@ -158,3 +158,5 @@ ordinary terminal sees it only when set at user/OS level. Keep the mode `off`
 until a Harness-trained checkpoint passes the rollout gates.
 Public Skills-only artifacts do not acquire lifecycle hooks from this feature.
 See [System One routing](system-one-routing.md) for limits, rollback and evidence.
+
+The editorial doc check (`harness-everything/scripts/doc-check.js`, F1) is reached by instruction only: the `SKILL.md` deep-dive line leads to `references/triage-and-tiers.md`, whose governed-doc section names `references/doc-check.md`, which holds the command. No `doc-change` step binding exists. Evidence is package and mechanism only. It adds no host enforcement, no Stop lock and no trusted document credit, and a non-empty `coverage.unsupported` marks the check as partial.
