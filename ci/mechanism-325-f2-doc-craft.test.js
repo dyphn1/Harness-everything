@@ -497,7 +497,7 @@ function mp3Assert(dir) {
 // MP4: drop the legacy guard; case R16 (legacy governed reference) must then fail.
 function mp4Apply() {
   const dir = scriptCopy('f2 doc craft mp4 ');
-  applyMutation(dir, ' || doc.legacy', '', 'R16 legacy guard');
+  applyMutation(dir, " !== 'reference' || doc.legacy", " !== 'reference'", 'R16 legacy guard');
   return dir;
 }
 

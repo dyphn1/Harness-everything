@@ -57,6 +57,63 @@ Read these before drafting or editing a governed document:
 
 These links resolve from this `references/` directory. A copy of the skill without `references/documentation/` must report the shared reference as unavailable.
 
+## Derived views
+
+**Applicability** (`conservative-all-governed`, not exact dependency inference):
+
+| Change | Affected views |
+|---|---|
+| Any governed or legacy source path | Every declared `derived` view |
+| A declared derived output | Every declared view (the check does not narrow to the changed output) |
+| The config (candidate declarations) | Every candidate declaration; removed or changed declarations are reported, never taken as proof of completion |
+
+- Include deleted and old rename paths.
+- If the baseline is unavailable, applicability stays unknown and pending.
+- `check` lists each affected view in `coverage.unsupported` as unverified (`applicability: conservative-all-governed`). It never runs a generator. Partial coverage is still exit 0 when lint and links pass.
+- With `--base <rev>`, `check` reads the base config through `git show` and names each declaration that is gone or changed: `applicability: declaration-removed` or `declaration-changed`, still unverified. A base revision that cannot be read is reported, not skipped.
+- Without `--base`, a changed config adds a warning: removed or renamed declarations cannot be detected.
+- A declared glob is reported as `applicability: glob-unsupported`, not as a concrete unverified view.
+- A declared view that also matches a `governed` or `legacy` pattern is reported as `applicability: self-governed`. A derived view must not be governed or indexed by its own generator.
+
+**Authorized generation** (host-run, per view):
+
+1. Show the complete command, the working directory, and the expected writes.
+2. Get authorization from current host policy. A non-empty `generator` string in config is not authorization.
+3. Run it through the host tool. Do not wrap it to hide expansion from permission review.
+4. Capture stdout bytes to a scratch file outside the source globs. stdout must hold only the artifact; logs go to stderr. Prefer `process.execPath` with an argument array over shell splitting.
+
+**`compare-derived`** (pure; executes nothing):
+
+```text
+node "<this-skill-dir>/scripts/doc-check.js" compare-derived \
+  --workspace "<project-root>" --config .agents/harness-everything/project-docs.json \
+  --view docs/governed-index.md --candidate "<scratch-file>" --generation-status ok
+```
+
+| Case | Exit | Result |
+|---|---|---|
+| Fresh stdout, target bytes equal | 0 | `equal` |
+| Target differs, or declared target missing | 1 | `stale` or `missing-view`; keep the target intact |
+| Generator exit non-zero (caller-reported) | 1 | `generator-failed`; no equality claim, even on partial stdout |
+| Host timeout or termination | 2 | `generation-timeout`; partial stdout is not compared |
+| Executable missing or permission unavailable | 2 | `generator-unavailable`; no fallback command |
+| Candidate missing or unreadable; config invalid; absent or invalid status; undeclared or ambiguous view; candidate aliases the target | 2 | `comparison-unavailable`; never PASS |
+| Generator reported `unsupported` (write-in-place or glob output), or a glob or traversal or absolute `--view` | 2 | `unsupported`; the JSON result names the case |
+| Missing required flag, `--flag=value` form, repeated flag, or odd argument count | 2 | `usage-error`; the JSON result names the problem |
+
+- `--generation-status` is required: `ok`, `failed`, `timeout`, `unavailable` or `unsupported`. It is caller-reported ordinary evidence, not host attestation. For any non-`ok` value, the candidate is not read.
+- `--view` must match exactly one literal declared `derived.path`. Wildcards are reported as unsupported. Traversal, absolute targets and symlink escape are rejected. A near-miss (leading `./`, a trailing `/`, a case-only difference, or backslashes) is rejected with exit 2, and the reason names the closest declared path.
+- The candidate must be a regular file. A FIFO, a device or a directory gives exit 2 `comparison-unavailable`, and the call never blocks.
+- The declared generator runs from the project root (cwd = the workspace). A relative path such as `node harness-everything/scripts/...` is project-relative. In an installed plugin, name the installed skill path instead.
+- Byte equality only. No trimming, line-ending conversion, encoding repair, or hash-only comparison. CRLF output is stale until regenerated with the project's output convention.
+- Stdout-only generators are supported. Write-in-place and glob outputs are unsupported.
+- Freshness: regenerate after any source or config edit, and compare before further source edits.
+- Record one comparison per affected view in the task report: the command, cwd, exit, the stdout artifact, stderr, and the `compare-derived` result.
+
+**Windows:** use host-appropriate `npm.cmd` or PowerShell execution for authorized npm commands. Harness adds no cross-platform shell runner.
+
+**Boundary:** generators run with the user's privileges. Neither sandboxing nor trusted provenance is provided. If the host cannot bound or terminate a run, report it unavailable instead of inventing a completed run.
+
 ## What it does not prove
 
 - No normative review, quality review or conflict review. Normative changes still need their own review.

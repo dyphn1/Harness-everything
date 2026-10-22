@@ -1,0 +1,21 @@
+--- <start>/docs/architecture.md	2026-10-22 11:07:09
++++ <arm-f2>/docs/architecture.md	2026-10-22 11:59:28
+@@ -1,6 +1,6 @@
+ ---
+ role: reference
+-status: active
++status: deprecated
+ ---
+ 
+ # Harness Architecture
+--- <start>/docs/governed-index.md	2026-10-22 11:41:59
++++ <arm-f2>/docs/governed-index.md	2026-10-22 11:43:34
+@@ -2,7 +2,7 @@
+ 
+ ## Active documents
+ 
+-- `(no id)` — `docs/architecture.md` (role: reference; status: active)
++- `(no id)` — `docs/architecture.md` (role: reference; status: deprecated)
+ - `(no id)` — `docs/doc-workflow-reconciliation.md` (role: reference; status: active)
+ 
+ ## PRD revision chains

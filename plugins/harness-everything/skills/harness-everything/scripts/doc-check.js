@@ -6,7 +6,7 @@
 // Prints one JSON result. Exit 0 = both pass, 1 = defect, 2 = usage/config error.
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const { collectDocs } = require('./doc-lifecycle');
 
 const USAGE = 'usage: doc-check.js check --workspace <dir> --config <json-file, relative to --workspace> --changed-path <path> [--changed-path <path> ...] [--base <git-rev>]';
@@ -99,6 +99,154 @@ function proseShare(body) {
   return { prose, eligible };
 }
 
+const COMPARE_FLAGS = ['--workspace', '--config', '--view', '--candidate', '--generation-status'];
+const GENERATION_STATUSES = ['ok', 'failed', 'timeout', 'unavailable', 'unsupported'];
+const COMPARE_EXIT = { equal: 0, stale: 1, 'missing-view': 1, 'generator-failed': 1, 'generation-timeout': 2, 'generator-unavailable': 2, 'comparison-unavailable': 2, unsupported: 2, 'usage-error': 2 };
+
+function emitCompare(result) {
+  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  return COMPARE_EXIT[result.result];
+}
+
+function parseCompareArgs(argv) {
+  const options = {};
+  for (let index = 0; index < argv.length; index += 2) {
+    const flag = argv[index];
+    const value = argv[index + 1];
+    if (!COMPARE_FLAGS.includes(flag) || value === undefined || value.startsWith('--')) return { error: `unknown or incomplete argument: ${flag}` };
+    if (options[flag] !== undefined) return { error: `repeated argument: ${flag}` };
+    options[flag] = value;
+  }
+  return { options };
+}
+
+// Escape regex metacharacters, then translate `**`, `*` and `?`. Used only to detect a declared glob.
+function globToRegExp(pattern) {
+  const body = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0000/g, '.*');
+  return new RegExp(`^${body}$`);
+}
+
+// Same file when both paths stat to one device and inode, so symlinks and hard links are caught.
+function sameFile(a, b) {
+  const x = fs.statSync(a);
+  const y = fs.statSync(b);
+  return x.ino > 0 && x.ino === y.ino && x.dev === y.dev;
+}
+
+// Open without blocking (O_NONBLOCK keeps a FIFO from waiting for a writer), then require a regular file before reading.
+function readRegularFile(file) {
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NONBLOCK || 0));
+  try {
+    if (!fs.fstatSync(fd).isFile()) throw new Error('not a regular file');
+    return fs.readFileSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+// compare-derived: a pure byte comparison of a caller-captured generator output with a declared view.
+// It never spawns the declared generator and never writes; every lane prints one JSON object.
+function compareDerived(argv) {
+  // Loaded lazily so `check` keeps its load-time dependencies (doc-lifecycle.js only).
+  const { validateDocsConfig } = require('./project-docs-resolver');
+  const parsed = parseCompareArgs(argv);
+  const flags = parsed.options || {};
+  const base = { command: 'compare-derived', view: flags['--view'] ?? null, generationStatus: flags['--generation-status'] ?? null };
+  if (parsed.error) return emitCompare({ ...base, result: 'usage-error', reason: parsed.error });
+  if (!flags['--workspace'] || !flags['--config'] || !flags['--view'] || !flags['--candidate']) return emitCompare({ ...base, result: 'usage-error', reason: '--workspace, --config, --view and --candidate are required' });
+  const status = flags['--generation-status'];
+  if (!GENERATION_STATUSES.includes(status)) return emitCompare({ ...base, result: 'comparison-unavailable', reason: '--generation-status is required: ok, failed, timeout, unavailable or unsupported' });
+  const view = flags['--view'];
+  const workspace = path.resolve(flags['--workspace']);
+  const configPath = path.resolve(workspace, flags['--config']);
+  let config;
+  try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch { return emitCompare({ ...base, result: 'comparison-unavailable', reason: 'config is missing or not valid JSON' }); }
+  const validation = validateDocsConfig(config);
+  if (!validation.valid) return emitCompare({ ...base, result: 'comparison-unavailable', reason: `config is invalid: ${validation.diagnostics.map(item => item.code).join(', ')}` });
+  if (path.isAbsolute(view) || view.split(/[\\/]/).includes('..')) return emitCompare({ ...base, result: 'unsupported', reason: 'view must be a repo-relative path without traversal' });
+  if (/[*?[\]{}]/.test(view)) return emitCompare({ ...base, result: 'unsupported', reason: 'glob view selections are unsupported' });
+  const declared = Array.isArray(config.derived) ? config.derived : [];
+  const matches = declared.filter(entry => entry.path === view);
+  if (matches.length > 1) return emitCompare({ ...base, result: 'comparison-unavailable', reason: 'view is declared more than once (ambiguous selection)' });
+  if (matches.length === 0) {
+    const viaGlob = declared.some(entry => /[*?[\]{}]/.test(entry.path) && globToRegExp(entry.path).test(view));
+    const closest = declared.find(entry => normalizeView(entry.path) === normalizeView(view));
+    return emitCompare(viaGlob
+      ? { ...base, result: 'unsupported', reason: 'view matches a declared glob; only literal derived paths are supported' }
+      : { ...base, result: 'comparison-unavailable', reason: closest ? `view is not a declared derived path; the closest declared path is "${closest.path}"` : 'view is not a declared derived path' });
+  }
+  const target = path.join(workspace, view);
+  if (fs.existsSync(target) && !fs.realpathSync(target).startsWith(fs.realpathSync(workspace) + path.sep)) return emitCompare({ ...base, result: 'unsupported', reason: 'view resolves outside the workspace' });
+  if (status === 'failed') return emitCompare({ ...base, result: 'generator-failed', reason: 'generation reported failure; candidate not compared' });
+  if (status === 'timeout') return emitCompare({ ...base, result: 'generation-timeout', reason: 'generation timed out; candidate not compared' });
+  if (status === 'unavailable') return emitCompare({ ...base, result: 'generator-unavailable', reason: 'generator unavailable; candidate not compared' });
+  if (status === 'unsupported') return emitCompare({ ...base, result: 'unsupported', reason: 'generator reported unsupported (write-in-place or glob output); candidate not compared' });
+  const candidate = path.resolve(workspace, flags['--candidate']);
+  let candidateBytes;
+  try { candidateBytes = readRegularFile(candidate); } catch { return emitCompare({ ...base, result: 'comparison-unavailable', reason: 'candidate is missing, not a regular file, or unreadable' }); }
+  if (!fs.existsSync(target)) return emitCompare({ ...base, result: 'missing-view', reason: 'declared target file is absent' });
+  if (sameFile(candidate, target)) return emitCompare({ ...base, result: 'comparison-unavailable', reason: 'candidate aliases the target' });
+  const equal = Buffer.compare(candidateBytes, fs.readFileSync(target)) === 0;
+  return emitCompare({ ...base, result: equal ? 'equal' : 'stale', reason: equal ? 'candidate bytes equal the declared target' : 'candidate bytes differ from the declared target; target left unchanged' });
+}
+
+const GLOB_CHARS = /[*?[\]{}]/;
+const VIEW_REASON = 'derived view not verified: run its authorized generator, then compare-derived';
+
+// Near-miss comparison only (separators, leading ./, trailing /, case); never used to accept a view.
+function normalizeView(value) {
+  return value.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '').toLowerCase();
+}
+
+// Declarations at the base revision, read with argv arrays (no shell). Null when unavailable.
+function readBaseDeclarations(workspace, base, configRelative) {
+  if (base.startsWith('-')) return null;
+  try {
+    const text = execFileSync('git', ['show', `${base}:${configRelative}`], { cwd: workspace, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed.derived) ? parsed.derived : [];
+  } catch {
+    return null;
+  }
+}
+
+// F3 coverage. Declared views are unverified when a source, a derived output or the config changed. Declaration changes
+// against --base are named; globs and self-governed views are named as unsupported. No generator is ever run.
+function derivedCoverage(config, { workspace, configRelative, configChanged, affectsViews, base }) {
+  const declared = Array.isArray(config.derived) ? config.derived : [];
+  const governedPatterns = [...(config.governed || []), ...(config.legacy || [])]
+    .map(item => (typeof item === 'string' ? item : item && item.path))
+    .filter(item => typeof item === 'string');
+  const entries = [];
+  for (const view of new Set(declared.map(entry => entry.path))) {
+    if (GLOB_CHARS.test(view)) {
+      entries.push({ path: view, applicability: 'glob-unsupported', reason: 'glob declarations are unsupported; declare the concrete output path' });
+      continue;
+    }
+    if (affectsViews) entries.push({ path: view, state: 'unverified', applicability: 'conservative-all-governed', reason: VIEW_REASON });
+    if (governedPatterns.some(pattern => globToRegExp(pattern).test(view))) entries.push({ path: view, applicability: 'self-governed', reason: 'a derived view must not be governed or indexed by its own generator' });
+  }
+  if (base === undefined) {
+    if (configChanged) entries.push({ reason: 'config changed without --base; removed or renamed derived declarations cannot be detected' });
+    return entries;
+  }
+  const baseDeclared = readBaseDeclarations(workspace, base, configRelative);
+  if (baseDeclared === null) {
+    entries.push({ reason: `base config unavailable at ${base}; declarations cannot be compared` });
+    return entries;
+  }
+  for (const old of baseDeclared) {
+    if (GLOB_CHARS.test(old.path)) {
+      entries.push({ path: old.path, applicability: 'glob-unsupported', reason: `glob declaration at ${base}; glob declarations are unsupported` });
+      continue;
+    }
+    const current = declared.find(entry => entry.path === old.path);
+    if (!current) entries.push({ path: old.path, state: 'unverified', applicability: 'declaration-removed', reason: `declared at ${base}, absent from the current config; not verified` });
+    else if (current.generator !== old.generator) entries.push({ path: old.path, state: 'unverified', applicability: 'declaration-changed', reason: `generator changed since ${base}; not verified` });
+  }
+  return entries;
+}
+
 function check(options) {
   const workspace = path.resolve(options.workspace);
   const configPath = path.resolve(workspace, options.config);
@@ -153,6 +301,18 @@ function check(options) {
 
   // SHOULD reminders only: they never change the exit code and are never diagnostics.
   const changed = new Set(options.changedPaths.map(value => path.relative(workspace, path.resolve(workspace, value)).split(path.sep).join('/')));
+  // F3 applicability (conservative): a governed or legacy source, an unknown or deleted path, a derived output or the config
+  // itself marks every declared view unverified. check still never runs a generator.
+  const configRelative = path.relative(workspace, configPath).split(path.sep).join('/');
+  const declaredViews = [...new Set((Array.isArray(config.derived) ? config.derived : []).map(entry => entry.path))];
+  const affectsViews = [...changed].some(item => {
+    if (item === configRelative || !fs.existsSync(path.join(workspace, item))) return true;
+    if (declaredViews.includes(item)) return true;
+    const doc = docs.find(entry => entry.path === item);
+    return Boolean(doc && (doc.role || doc.legacy));
+  });
+  unsupported.push(...derivedCoverage(config, { workspace, configRelative, configChanged: changed.has(configRelative), affectsViews, base: options.base }));
+
   const reminders = [];
   for (const doc of docs) {
     if (!changed.has(doc.path) || doc.role !== 'reference' || doc.legacy || doc.error) continue;
@@ -170,6 +330,7 @@ function check(options) {
 }
 
 function main(argv = process.argv.slice(2)) {
+  if (argv[0] === 'compare-derived') return compareDerived(argv.slice(1));
   let options;
   try { options = parseArgs(argv); } catch (error) { process.stderr.write(`${error.message}\n`); return 2; }
   return check(options);
