@@ -388,7 +388,8 @@ const createClaudeOriginProvider = input => {
       return rejected('replayed-record', `identical host-event content already recorded (first occurrence index ${firstOccurrence}); a copied record cannot become a new accepted event by changing its reference`);
     }
     const producerId = 'claude-code-origin-provider';
-    if (capability) {
+    // Only true doc capabilities reach the doc-check branch; quality-review is the SubagentStop review branch below.
+    if (capability && capability !== 'quality-review') {
       // Doc capability: only a registered, passed, fully covered doc-check invocation with retained stdout can cover it.
       if (cap.event !== 'PostToolUse') return rejected('capability-mismatch', 'only a PostToolUse check invocation can cover a doc capability');
       if (!parseRegisteredCheck(cap.command)) return rejected('unregistered-command', 'the command is not a registered doc-check invocation; an arbitrary successful shell command never covers a doc capability');
@@ -450,6 +451,10 @@ const createClaudeOriginProvider = input => {
         captured: { responseRef: cap.responseRef, responseDigest: cap.responseDigest },
       };
       return { status: 'accepted', originRef, event, correlation: { toolCorrelationId: cap.tool_use_id, resultRef: cap.responseRef } };
+    }
+    // A quality-review reference must name a SubagentStop review; it never falls through to the lifecycle branches below.
+    if (capability === 'quality-review' && cap.event !== 'SubagentStop') {
+      return rejected('capability-mismatch', 'quality-review is credited only from a SubagentStop review');
     }
     if (cap.event === 'PostToolUseFailure') {
       return rejected('failure-not-credited', 'PostToolUseFailure is never credited; its Exit code N text is diagnostics-only (owner decision row 1)');
@@ -546,6 +551,7 @@ const createClaudeOriginProvider = input => {
         producerId,
         originRef,
         principalId: reviewer,
+        provenance: 'claude-code-capture:' + cap.captureId,
         capability: 'quality-review',
         kind: 'review',
         verdict: 'approve',

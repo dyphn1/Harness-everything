@@ -204,8 +204,9 @@ function readCaptures(context) {
 
 function captureReferences(context) {
   return readCaptures(context)
-    .filter(item => item && item.event === 'PostToolUse' && typeof item.ref === 'string')
-    .flatMap(item => ['doc-lint', 'link-check'].map(capability => `${item.ref}#${capability}`));
+    .filter(item => item && (item.event === 'PostToolUse' || item.event === 'SubagentStop') && typeof item.ref === 'string')
+    .flatMap(item => (item.event === 'SubagentStop' ? ['quality-review'] : ['doc-lint', 'link-check'])
+      .map(capability => `${item.ref}#${capability}`));
 }
 
 // Assessment is deliberately negative-credit only in S1. Unsupported topologies never enter
