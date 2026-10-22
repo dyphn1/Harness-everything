@@ -608,6 +608,42 @@ assertPerLeg('case-31:unparsed-inline-link-reported-unsupported', leg => {
   }
 });
 
+// Case 32: an image nested in a link label is a link target. A missing image is broken; a present one passes.
+assertPerLeg('case-32:image-in-link-label-checked', leg => {
+  const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
+  writeDoc(ws, 'docs/a.md', refDoc('See [text ![img](i.png)](doc.md).'));
+  writeDoc(ws, 'docs/doc.md', 'doc\n');
+  const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 1, 'exit with a missing image');
+  const out = jsonOut(result);
+  same((out.links.broken || []).map(item => item.target), ['i.png'], 'broken targets');
+  same(out.links.checked, 2, 'links.checked');
+});
+
+// Control for case 32: the same label with the image present passes.
+assertPerLeg('case-32-control:image-in-link-label-present-passes', leg => {
+  const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
+  writeDoc(ws, 'docs/a.md', refDoc('See [text ![img](i.png)](doc.md).'));
+  writeDoc(ws, 'docs/doc.md', 'doc\n');
+  writeDoc(ws, 'docs/i.png', 'png\n');
+  const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 0, 'exit');
+  const out = jsonOut(result);
+  same(out.links.broken, [], 'links.broken');
+  same(out.links.checked, 2, 'links.checked');
+});
+
+// Case 33: a link nested in a link label. CommonMark makes only the inner link a link; doc-check checks both targets, so
+// neither is skipped silently. Both missing gives both broken, compared as sorted sets.
+assertPerLeg('case-33:link-nested-in-link-label-both-checked', leg => {
+  const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
+  writeDoc(ws, 'docs/a.md', refDoc('See [outer [inner](b.md)](doc.md).'));
+  const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 1, 'exit');
+  const out = jsonOut(result);
+  same((out.links.broken || []).map(item => item.target).sort(), ['b.md', 'doc.md'], 'broken targets');
+});
+
 // ---- Summary -------------------------------------------------------------------------------------------------------
 
 console.log(`\nF1 doc-check summary: ${passed} PASS, ${failed} FAIL, ${skipped} SKIP${failed ? `\nFAILED assertions (${failures.length}):\n  ${failures.join('\n  ')}` : ''}${failed === 0 && skipped > 0 ? ' (skips are environment-gated cases only)' : ''}`);

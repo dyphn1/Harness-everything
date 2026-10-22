@@ -20,14 +20,19 @@ function escaped(text, index) {
   return slashes % 2 === 1;
 }
 
-function parseInlineLink(text, start) {
+// Index of the bracket that closes the label opened at `start`, or -1.
+function labelClose(text, start) {
   let depth = 0;
-  let close = -1;
   for (let i = start; i < text.length; i++) {
     if (escaped(text, i)) continue;
     if (text[i] === '[') depth++;
-    else if (text[i] === ']' && --depth === 0) { close = i; break; }
+    else if (text[i] === ']' && --depth === 0) return i;
   }
+  return -1;
+}
+
+function parseInlineLink(text, start) {
+  const close = labelClose(text, start);
   if (close < 0 || text[close + 1] !== '(') return null;
 
   let i = close + 2;
@@ -93,6 +98,21 @@ function runLint(workspace, options) {
   return spawnSync(process.execPath, args, { encoding: 'utf8' });
 }
 
+// Scans text[from, to) for inline links and images (an image is a link with a leading `!`). The label interior is scanned
+// before the destination is skipped, so a nested image or link is checked too. A nested link inside a link label is
+// a deliberate over-check: CommonMark keeps only the inner link, so both targets are checked and neither is silent.
+function scanSpan(text, from, to, line, targets, unsupported) {
+  for (let i = from; i < to; i++) {
+    if (text[i] !== '[' || escaped(text, i)) continue;
+    const parsed = parseInlineLink(text, i);
+    if (!parsed) continue;
+    if (parsed.invalid) unsupported.push({ line, syntax: 'inline-link-unparsed' });
+    else targets.push({ line, target: parsed.target });
+    scanSpan(text, i + 1, labelClose(text, i), line, targets, unsupported);
+    i = Math.max(i, parsed.end - 1);
+  }
+}
+
 // Returns link targets outside fenced and inline code, plus link syntax this
 // check does not evaluate. Unsupported syntax is reported, never skipped silently.
 function scanLinks(lines) {
@@ -108,14 +128,7 @@ function scanLinks(lines) {
     }
     if (marker) { fence = marker[1]; return; }
     const text = raw.replace(/(`+)(.+?)\1/g, '');
-    for (let i = 0; i < text.length; i++) {
-      if (text[i] !== '[' || escaped(text, i)) continue;
-      const parsed = parseInlineLink(text, i);
-      if (!parsed) continue;
-      if (parsed.invalid) unsupported.push({ line, syntax: 'inline-link-unparsed' });
-      else targets.push({ line, target: parsed.target });
-      i = Math.max(i, parsed.end - 1);
-    }
+    scanSpan(text, 0, text.length, line, targets, unsupported);
     if (/\[[^\]]*\]\[[^\]]*\]/.test(text)) unsupported.push({ line, syntax: 'reference-link' });
     if (/^\s{0,3}\[[^\]]+\]:/.test(text)) unsupported.push({ line, syntax: 'reference-definition' });
   });
