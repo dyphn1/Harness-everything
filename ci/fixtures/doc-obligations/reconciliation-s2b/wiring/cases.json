@@ -192,13 +192,27 @@
           }
         },
         {
+          "id": "reviewer-agent-result",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "PostToolUse",
+            "toolName": "Agent",
+            "command": "Agent: repo-docs-reviewer",
+            "toolUseId": "toolu_f4_reviewer_agent_W-credit-freshness",
+            "response": {
+              "agentId": "agent-f4-reviewer",
+              "status": "completed"
+            }
+          }
+        },
+        {
           "id": "reviewer-stop",
           "op": "hookDeliver",
           "payload": {
             "event": "SubagentStop",
             "agentId": "agent-f4-reviewer",
             "agentType": "repo-docs-reviewer",
-            "lastAssistantMessage": "Review verdict: approve. The PRD change keeps its acceptance criteria consistent."
+            "lastAssistantMessage": "Review verdict: approve. The PRD change keeps its acceptance criteria consistent.\nReviewed artifact: docs/prd/graph.md sha256:4d2b4ef924ba492f4de058d00eb7a27c91f0bad64f5fcb2eab28fb36e048ec6b"
           }
         },
         {
@@ -377,13 +391,27 @@
           "payload": {}
         },
         {
+          "id": "reviewer-agent-result",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "PostToolUse",
+            "toolName": "Agent",
+            "command": "Agent: repo-docs-reviewer",
+            "toolUseId": "toolu_f4_reviewer_agent_W-review-progression",
+            "response": {
+              "agentId": "agent-f4-reviewer",
+              "status": "completed"
+            }
+          }
+        },
+        {
           "id": "reviewer-stop",
           "op": "hookDeliver",
           "payload": {
             "event": "SubagentStop",
             "agentId": "agent-f4-reviewer",
             "agentType": "repo-docs-reviewer",
-            "lastAssistantMessage": "Review verdict: approve. The PRD change keeps its acceptance criteria consistent."
+            "lastAssistantMessage": "Review verdict: approve. The PRD change keeps its acceptance criteria consistent.\nReviewed artifact: docs/prd/graph.md sha256:4d2b4ef924ba492f4de058d00eb7a27c91f0bad64f5fcb2eab28fb36e048ec6b"
           }
         },
         {
@@ -449,6 +477,131 @@
         {
           "id": "stop-generic",
           "op": "stopGeneric",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "id": "W-review-no-surface",
+      "family": "WREVIEW",
+      "description": "F4-T5 conflict 3: an independent reviewer SubagentStop with no correlated Agent/Task result surface is not approved (F5). The review step stays pending; no review credit.",
+      "topology": "iterative-single-typed",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Update the PRD REQ text",
+          "acceptance": "normative PRD text is reviewed"
+        },
+        {
+          "id": "req-review",
+          "stepType": "review",
+          "summary": "Review the PRD change",
+          "acceptance": "reviewed scope and findings are recorded"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the PRD change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/prd/**\",\n      \"role\": \"prd\"\n    },\n    {\n      \"path\": \"docs/adr/**\",\n      \"role\": \"adr\"\n    },\n    {\n      \"path\": \"docs/reference/**\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ],\n  \"legacy\": [\n    \"docs/adr/legacy/**\"\n  ],\n  \"derived\": [\n    {\n      \"path\": \"docs/roadmap/index.md\",\n      \"generator\": \"npm run docs:index\"\n    }\n  ],\n  \"tickets\": \"tracker\"\n}\n",
+          "docs/prd/graph.md": "---\nid: \"PRD-GRPH-001\"\nrevision: 1\nstatus: \"effective\"\ndrafted_by: \"Alice Example\"\neffective_at: \"2026-10-17T00:01:00Z\"\napproval:\n  by: \"Bob Independent\"\n  at: \"2026-10-17T00:00:00Z\"\n  ref: \"https://approvals.example.invalid/PRD-GRPH-001\"\n  role: \"human\"\n  content_digest: \"sha256:a103bf860ed9d2cf7100d93eb8f0e3c3bce322d47e0f9fd83914b5bcc264ef70\"\n---\n# Graph\n\n### REQ-GRPH-001\n\nThe router records one topology per task.\n\nAcceptance: exactly one topology is recorded.\n"
+        },
+        "candidateFiles": {
+          "docs/prd/graph.md": "---\nid: \"PRD-GRPH-001\"\nrevision: 1\nstatus: \"effective\"\ndrafted_by: \"Alice Example\"\neffective_at: \"2026-10-17T00:01:00Z\"\napproval:\n  by: \"Bob Independent\"\n  at: \"2026-10-17T00:00:00Z\"\n  ref: \"https://approvals.example.invalid/PRD-GRPH-001\"\n  role: \"human\"\n  content_digest: \"sha256:c5bc6c8aa29b39198eec91b7af210a946896d9b7975b9c72540ddd4a4bfb37ea\"\n---\n# Graph\n\n### REQ-GRPH-001\n\nThe router records one or more topologies per task.\n\nAcceptance: one or more topologies are recorded.\n"
+        },
+        "config": {
+          "role": "declared-test-origin",
+          "deriveConfig": "ci/fixtures/doc-obligations/derive/config.json"
+        },
+        "task": {
+          "role": "declared-test-origin",
+          "taskId": "task-w-review-01",
+          "identityContract": "ci/fixtures/doc-obligations/reconciliation-prep/trust-contract.json"
+        }
+      },
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Update the PRD REQ text, review it, and verify it."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "three dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "PRD REQ text updated"
+          }
+        },
+        {
+          "id": "review-self",
+          "op": "step",
+          "payload": {
+            "stepId": "req-review",
+            "disposition": "pass",
+            "evidence": "the author reviewed the change"
+          },
+          "expectExit": {
+            "on": [
+              0,
+              2
+            ]
+          }
+        },
+        {
+          "id": "stop-mid",
+          "op": "stop",
+          "payload": {}
+        },
+        {
+          "id": "reviewer-stop",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "SubagentStop",
+            "agentId": "agent-f4-reviewer",
+            "agentType": "repo-docs-reviewer",
+            "lastAssistantMessage": "Review verdict: approve. The PRD change keeps its acceptance criteria consistent.\nReviewed artifact: docs/prd/graph.md sha256:4d2b4ef924ba492f4de058d00eb7a27c91f0bad64f5fcb2eab28fb36e048ec6b"
+          }
+        },
+        {
+          "id": "review-retry",
+          "op": "step",
+          "payload": {
+            "stepId": "req-review",
+            "disposition": "pass",
+            "evidence": "independent host review approved the PRD change"
+          },
+          "expectExit": {
+            "on": [
+              2
+            ]
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop",
           "payload": {}
         }
       ]
@@ -764,13 +917,27 @@
           }
         },
         {
+          "id": "reviewer-agent-result",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "PostToolUse",
+            "toolName": "Agent",
+            "command": "Agent: repo-docs-reviewer",
+            "toolUseId": "toolu_f4_reviewer_agent_W-strict-f3-pin",
+            "response": {
+              "agentId": "agent-f4-reviewer",
+              "status": "completed"
+            }
+          }
+        },
+        {
           "id": "reviewer-stop",
           "op": "hookDeliver",
           "payload": {
             "event": "SubagentStop",
             "agentId": "agent-f4-reviewer",
             "agentType": "repo-docs-reviewer",
-            "lastAssistantMessage": "Review verdict: approve. The PRD change keeps its acceptance criteria consistent."
+            "lastAssistantMessage": "Review verdict: approve. The PRD change keeps its acceptance criteria consistent.\nReviewed artifact: docs/prd/graph-renamed.md sha256:4d2b4ef924ba492f4de058d00eb7a27c91f0bad64f5fcb2eab28fb36e048ec6b"
           }
         },
         {

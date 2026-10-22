@@ -67,6 +67,7 @@ const WIRING_MODES = {
   'W-off-legacy': ['off'],
   'W-credit-freshness': ['on'],
   'W-review-progression': ['on'],
+  'W-review-no-surface': ['on'],
   'W-ctrl-nondoc-on': ['on'],
   'W-strict-oldpass-governed': ['on'],
   'W-strict-f3-pin': ['on'],
@@ -116,6 +117,14 @@ const PLAN = {
       { id: 'w-credit.stop-on3-exit', path: ['actions', 'stop-on-3', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
     ],
   } },
+  'W-review-no-surface': { kind: 'wiring', byMode: {
+    on: [
+      { id: 'w-nosurface.review-retry-refused', path: ['actions', 'review-retry', 'exitCode'], operator: 'equals', expected: 2, status: 'CONTROL', note: 'F5: a reviewer SubagentStop with no Agent/Task result surface is not an approval' },
+      { id: 'w-nosurface.stop-review-pending', path: ['actions', 'stop', 'state', 'workflow', 'unresolved'], operator: 'includes', expected: 'step:req-review:pending', status: 'CONTROL' },
+      { id: 'w-nosurface.stop-exit', path: ['actions', 'stop', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
+      { id: 'w-nosurface.stop-not-satisfied', path: ['actions', 'stop', 'state', 'workflow', 'state'], operator: 'notEquals', expected: 'satisfied', status: 'CONTROL' },
+    ],
+  } },
   'W-review-progression': { kind: 'wiring', byMode: {
     on: [
       { id: 'w-review.doc-pass-exit', path: ['actions', 'doc-pass', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
@@ -145,7 +154,7 @@ const PLAN = {
       { id: 'w-nondoc.stop-generic-satisfied', path: ['actions', 'stop-generic', 'state', 'workflow', 'state'], operator: 'equals', expected: 'satisfied', status: 'CONTROL' },
       { id: 'w-nondoc.stop-generic-exit', path: ['actions', 'stop-generic', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
       { id: 'w-nondoc.pilot-credit-false', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: false, status: 'CONTROL', note: 'no fabricated verified document credit' },
-      { id: 'w-nondoc.pilot-non-document-scope', path: ['pilot', 'diagnostics'], operator: 'includes', expected: 'trusted-non-document-scope', status: 'CONTROL' },
+      { id: 'w-nondoc.pilot-non-document-scope', path: ['pilot', 'diagnostics'], operator: 'includes', expected: { code: 'trusted-non-document-scope', obligationId: null }, status: 'CONTROL' },
     ],
   } },
   'W-strict-oldpass-governed': { kind: 'wiring', byMode: {
@@ -180,7 +189,7 @@ const PLAN = {
     on: [
       { id: 'w-f5.on.plan-exit', path: ['actions', 'plan', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
       { id: 'w-f5.on.verify-pass-refused', path: ['actions', 'verify-pass', 'exitCode'], operator: 'equals', expected: 2, status: 'CONTROL', note: 'the assessment is refused, never crashed, when git itself is broken' },
-      { id: 'w-f5.on.git-diagnosed', path: ['pilot', 'diagnostics'], operator: 'includes', expected: 'baseline-unavailable', status: 'CONTROL', note: 'F5: git failure produces the baseline-unavailable diagnostic surface' },
+      { id: 'w-f5.on.git-diagnosed', path: ['pilot', 'diagnostics'], operator: 'includes', expected: { code: 'baseline-unavailable', obligationId: null }, status: 'CONTROL', note: 'F5: git failure produces the baseline-unavailable diagnostic surface' },
       { id: 'w-f5.on.pilot-credit-false', path: ['pilot', 'pilotCredit'], operator: 'equals', expected: false, status: 'CONTROL' },
       { id: 'w-f5.on.stop-exit-0', path: ['actions', 'stop', 'exitCode'], operator: 'equals', expected: 0, status: 'CONTROL' },
       { id: 'w-f5.on.stop-not-satisfied', path: ['actions', 'stop', 'state', 'workflow', 'state'], operator: 'notEquals', expected: 'satisfied', status: 'CONTROL' },

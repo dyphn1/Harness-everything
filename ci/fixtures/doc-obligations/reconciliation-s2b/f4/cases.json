@@ -92,7 +92,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "fromRun": "lint-run"
           }
@@ -437,7 +437,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "fromRun": "lint-run"
           }
@@ -556,7 +556,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "fromRun": "lint-run"
           }
@@ -566,7 +566,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUseFailure",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "error": "Command failed with Exit code 1",
             "isInterrupt": false
@@ -686,7 +686,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "fromRun": "lint-run"
           }
@@ -696,7 +696,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "fromRun": "lint-run"
           }
@@ -815,7 +815,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "fromRun": "lint-run",
             "interrupted": true
@@ -935,7 +935,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "fromRun": "lint-run",
             "sessionId": "f4-other-session"
@@ -1148,7 +1148,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "fromRun": "lint-run"
           }
@@ -1276,7 +1276,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "fromRun": "lint-run"
           }
@@ -1498,7 +1498,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_partial_01",
             "fromRun": "lint-run"
           }
@@ -1617,7 +1617,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "fromRun": "lint-run"
           }
@@ -1747,7 +1747,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/alt-project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/alt-project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_ungov_01",
             "fromRun": "lint-run"
           }
@@ -1876,7 +1876,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_missing_01",
             "fromRun": "lint-run"
           }
@@ -1995,7 +1995,7 @@
           "op": "hookDeliver",
           "payload": {
             "event": "PostToolUse",
-            "command": "node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
             "toolUseId": "toolu_f4_check_01",
             "fromRun": "lint-run"
           }
@@ -2036,6 +2036,125 @@
         },
         "candidateFiles": {
           "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\n# Retry\n\n| Step | Rule |\n|---|---|\n| one | retry |\n| two | retry |\n\n```\ncode line\n```\n\n- item\n- item\n\nThe checkout retries twice. See [b](b.md).\n"
+        }
+      },
+      "requirements": [
+        {
+          "id": "req-docs",
+          "stepType": "doc-change",
+          "summary": "Correct the checkout retry sentence",
+          "acceptance": "the governed reference body is reviewed"
+        },
+        {
+          "id": "req-verify",
+          "stepType": "verification",
+          "summary": "Verify the reference change",
+          "acceptance": "objective doc checks are recorded"
+        }
+      ],
+      "actions": [
+        {
+          "id": "route",
+          "op": "route",
+          "payload": {
+            "prompt": "Update the governed reference docs/a.md text, review it, and verify it."
+          }
+        },
+        {
+          "id": "plan",
+          "op": "plan",
+          "payload": {
+            "requirements": "$requirements",
+            "strategy": "iterative-single",
+            "evidence": "two dependent requirements fit a bounded documentation loop"
+          }
+        },
+        {
+          "id": "start",
+          "op": "start",
+          "payload": {}
+        },
+        {
+          "id": "doc-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-docs",
+            "disposition": "pass",
+            "evidence": "sentence corrected in docs/a.md"
+          }
+        },
+        {
+          "id": "verify-bind",
+          "op": "binding",
+          "payload": {
+            "stepId": "req-verify",
+            "bindingId": "verification-loop",
+            "disposition": "loaded",
+            "evidence": "verification loop skill located"
+          }
+        },
+        {
+          "id": "lint-run",
+          "op": "hostRun",
+          "payload": {
+            "command": "doc-check",
+            "args": [
+              "check",
+              "--workspace",
+              ".",
+              "--config",
+              ".agents/harness-everything/project-docs.json",
+              "--changed-path",
+              "docs/a.md"
+            ]
+          }
+        },
+        {
+          "id": "post-lint",
+          "op": "hookDeliver",
+          "payload": {
+            "event": "PostToolUse",
+            "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+            "toolUseId": "toolu_f4_check_01",
+            "fromRun": "lint-run"
+          }
+        },
+        {
+          "id": "verify-pass",
+          "op": "step",
+          "payload": {
+            "stepId": "req-verify",
+            "disposition": "pass",
+            "evidence": "objective doc check recorded"
+          },
+          "expectExit": {
+            "on": [
+              0,
+              2
+            ]
+          }
+        },
+        {
+          "id": "stop",
+          "op": "stop"
+        },
+        {
+          "id": "stop-generic",
+          "op": "stopGeneric"
+        }
+      ]
+    },
+    {
+      "id": "F4-NEG-relative-path",
+      "description": "F4-T5 conflict 2: the same valid body-only edit, but the registered check is invoked by its relative path (harness-everything/scripts/doc-check.js). The relative path resolves to no installed script from the captured workspace, so F1 refuses it: no lint or link credit, and the journal keeps the command as delivered.",
+      "input": {
+        "baseFiles": {
+          ".agents/harness-everything/project-docs.json": "{\n  \"governed\": [\n    {\n      \"path\": \"docs/a.md\",\n      \"role\": \"reference\"\n    }\n  ],\n  \"domains\": [\n    \"GRPH\"\n  ]\n}\n",
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries once. See [b](b.md).\n",
+          "docs/b.md": "b\n"
+        },
+        "candidateFiles": {
+          "docs/a.md": "---\nrole: reference\nstatus: active\n---\n\nThe checkout retries twice. See [b](b.md).\n"
         }
       },
       "requirements": [

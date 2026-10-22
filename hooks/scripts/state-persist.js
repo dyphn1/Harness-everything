@@ -70,8 +70,10 @@ function processState(payload) {
       const commandClass = classifyShell(command);
       if (commandClass !== 'read-only' && commandClass !== 'worktree-setup') state.lastEditAt = Date.now();
       // Verification evidence needs a confirmed success: a PostToolUse event or an explicit zero exit.
-      // Pilot ON only: a registered, argv-validated doc-check invocation is the document verification evidence. OFF stays legacy.
-      const registeredCheck = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1' && require('./lib/doc-reconciliation-provider').parseRegisteredCheck(command);
+      // Pilot ON only: a registered, argv-validated doc-check that resolves to this install's own runtime is the document
+      // verification evidence. Any other path earns no verification evidence. OFF stays legacy.
+      const registeredCheck = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1'
+        && require('./lib/doc-reconciliation-provider').registeredInstalledCheck(command, cwdOf(payload, root));
       if (!isFailed && (isSuccessEvent || exitCode === 0) && (registeredCheck || isVerificationShell(command, { cwd: cwdOf(payload, root), root }))) { state.lastVerifyAt = Date.now(); state.lastVerifyExitCode = exitCode ?? null; }
     }
     fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
@@ -95,7 +97,7 @@ function persistPilotCapture(payload, eventName, sessionId, root) {
     // Observation-time identity: the workflow and pin in force when the host event was captured.
     const observed = provider.observedIdentityFor(sessionDir);
     if (observed) entry.observedIdentity = observed;
-    // Each capture is one write-once event file; the compatibility journal is rebuilt from them.
+    // Each capture is one exclusively created event file; the compatibility journal is rebuilt from them (not tamper-proof).
     provider.writeImmutableEvent(sessionDir, entry);
     provider.rebuildJournalView(sessionDir);
   } catch (_) { /* fail-open: capture failures never reach the host */ }

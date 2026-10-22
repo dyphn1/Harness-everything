@@ -258,7 +258,9 @@ runner.run('R2C1-REVIEWER-REPLAY-COPIED-REJECTED', PROVIDER_REQ, (_mods, leg) =>
   const first = H.simulateCapture('payload-subagent-stop.json', { ref: REVIEW_REF });
   const replay = H.simulateCapture('payload-subagent-stop.json', { ref: 'review-replay' });
   replay.reviewDigest = first.reviewDigest;
-  const provider = makeProvider(leg, { captures: [first, replay], qualification: H.fakeQualification('sim') });
+  // F4-T5 conflict 3: the review needs its correlated Agent/Task result surface, delivered with the original.
+  const task = H.simulateCapture('payload-task-result.json', { ref: REVIEW_TEAM_REF, agentId: 'agent-r2c1-rev' });
+  const provider = makeProvider(leg, { captures: [first, task, replay], qualification: H.fakeQualification('sim') });
   const firstResponse = provider.resolveEvent({ reference: REVIEW_REF, identity: H.providerIdentity() });
   if (!firstResponse || firstResponse.status !== 'accepted') {
     throw new Error(`copy test needs the original to be accepted first; got ${(firstResponse && firstResponse.status) || 'none'} ${JSON.stringify((firstResponse && firstResponse.diagnostics) || []).slice(0, 200)}`);
@@ -267,6 +269,13 @@ runner.run('R2C1-REVIEWER-REPLAY-COPIED-REJECTED', PROVIDER_REQ, (_mods, leg) =>
   if (replayResponse && replayResponse.status === 'accepted') {
     throw new Error('copied/replayed record was accepted under a new reference');
   }
+});
+
+// F4-T5 conflict 1: a reviewer whose own registered doc-check run became accepted evidence is an executor, so its review is refused.
+runner.run('R2C1-REVIEWER-RAN-EVIDENCE-REFUSED', PROVIDER_REQ, (_mods, leg) => {
+  const run = H.simulateCapture('payload-post-tool-use-success.json', { ref: 'exec-pass', agentId: 'agent-r2c1-rev' });
+  const out = runProvider(leg, { captures: [run, ...reviewCaptures('agent-r2c1-rev', 'agent-r2c1-rev')], qualification: H.fakeQualification('sim') }, REVIEW_REF);
+  if (out.response && out.response.status === 'accepted') throw new Error('reviewer that ran the registered check as evidence was accepted as independent');
 });
 
 // A labelled `Review verdict: reject` never approves, and neither does free text that only says REJECT. Both are

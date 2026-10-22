@@ -124,16 +124,18 @@ function creditChain(context, set, dependencies = {}) {
   const requirements = Array.isArray(set?.requirements) ? set.requirements : [];
   const taskId = `task-${requirements.map(item => item.id).join('+') || 'none'}`;
   const sessionId = context.sessionId;
-  const originProvider = dependencies.originProvider || require('./doc-reconciliation-provider').createClaudeOriginProvider({
+  const { createClaudeOriginProvider, journalExecutors } = require('./doc-reconciliation-provider');
+  const captures = readCaptures(context);
+  const originProvider = dependencies.originProvider || createClaudeOriginProvider({
     hostId: 'claude-code',
     sessionId,
     workspaceRoot: context.root,
     workflowId: context.workflow.workflowId,
     workflowRevision: context.workflow.revision,
     taskId,
-    principals: { author: sessionId, executors: [sessionId] },
+    principals: { author: sessionId, executors: journalExecutors(captures, sessionId) },
     baseline,
-    captures: readCaptures(context),
+    captures,
   });
   const produced = produceDocSnapshot({
     workspaceRoot: context.root,
@@ -144,17 +146,29 @@ function creditChain(context, set, dependencies = {}) {
     activeHost: 'claude-code',
     prdRoot: 'docs/prd/',
   }, { originProvider });
-  if (produced.state !== 'ready' || !produced.snapshot) return { eligible: false, diagnostics: produced.diagnostics };
+  if (produced.state !== 'ready' || !produced.snapshot) return { eligible: false, diagnostics: produced.diagnostics, unsatisfied: [] };
   const eventRefs = captureReferences(context);
   const accepted = acceptDocEvents({ snapshot: produced.snapshot, eventRefs }, { originProvider });
   const checked = checkAcceptedDocEvidence({ snapshot: produced.snapshot, accepted, mode: 'verification' });
+  // Credit covers only the expected MUSTs that were both accepted and satisfied (passing, observed). N/A never counts.
+  const passing = new Set((checked.results || []).filter(r => r.observation === 'observed' && r.outcome === 'pass').map(r => r.obligationId));
+  const expected = new Set(checked.checkedMustIds || []);
+  const satisfied = produced.snapshot.obligations.filter(o => o.strength === 'MUST' && o.applicability !== 'N/A' && expected.has(o.id) && passing.has(o.id));
   return {
     eligible: checked.eligible === true,
-    capabilities: checked.eligible === true ? [...new Set(produced.snapshot.obligations.filter(o => o.strength === 'MUST').map(o => o.capability))] : [],
+    capabilities: checked.eligible === true ? [...new Set(satisfied.map(o => o.capability))] : [],
+    satisfiedObligationIds: satisfied.map(o => o.id),
+    unsatisfied: checked.unsatisfied || [],
     acceptedRefs: Object.keys(accepted.acceptedIndex || {}),
     diagnostics: [...(accepted.diagnostics || []), ...(checked.diagnostics || [])],
     rejected: accepted.rejected || [],
   };
+}
+
+// Report diagnostics are objects with the obligation they concern (F12); a global fault has obligationId null.
+function diagnosticOf(item) {
+  if (item && typeof item === 'object') return { ...item, code: item.code || 'unknown', obligationId: item.obligationId ?? null };
+  return { code: String(item), obligationId: null };
 }
 
 // Review-mode refusal (F4 I2a): with the pilot ON in a supported (non-Fable) workflow, a review step PASS needs an
@@ -167,11 +181,11 @@ function reviewRequired(set) {
 // The review step is independent of credit qualification: the step records host-observed independence, while document
 // credit itself still needs the validated qualification (assess).
 function independentReviewAccepted(context) {
-  const { reviewRecordIndependent } = require('./doc-reconciliation-provider');
+  const { reviewRecordIndependent, journalExecutors } = require('./doc-reconciliation-provider');
   const view = require('./doc-reconciliation-provider').readCaptureView(context.sessionDir);
   if (view.tampered) return false;
   const captures = view.records;
-  const principals = { author: context.sessionId, executors: [] };
+  const principals = { author: context.sessionId, executors: journalExecutors(captures, context.sessionId) };
   const pin = context.workflow.docReconciliationBaseline;
   return captures.some(item => recordOf(item) && item.session_id === context.sessionId
     && recordOf(item.observedIdentity) && item.observedIdentity.workflowId === context.workflow.workflowId
@@ -220,12 +234,22 @@ function assess(context, set, dependencies = {}) {
         let chain;
         try { chain = creditChain(context, set, dependencies); }
         catch (error) { chain = { eligible: false, diagnostics: [{ code: 'collector-unavailable', message: String(error.message) }] }; }
-        withhold = chain.eligible !== true;
-        report.pilotCredit = chain.eligible === true;
-        report.pilotStatus = chain.eligible === true ? 'credited' : 'unresolved';
+        // The unsatisfied list is rewritten from the chain: a MUST that the chain did not satisfy stays listed (F3).
+        const satisfied = new Set(chain.satisfiedObligationIds || []);
+        report.unsatisfied = [
+          ...musts.filter(item => !satisfied.has(item.id)).map(item => ({
+            obligationId: item.id, state: item.applicability === 'unknown' ? 'unknown' : 'pending',
+            reasonCode: item.applicability === 'unknown' ? 'unknown-applicability' : 'producer-unavailable',
+          })),
+          ...(chain.unsatisfied || []),
+        ];
         report.creditedCapabilities = chain.eligible === true ? chain.capabilities : [];
         report.acceptedRefs = chain.acceptedRefs || [];
-        report.diagnostics.push(...(chain.diagnostics || []).map(item => item.code || String(item)));
+        report.diagnostics.push(...(chain.diagnostics || []));
+        // Credit needs an empty unsatisfied list across both sources and at least one satisfied capability.
+        withhold = !(chain.eligible === true && report.unsatisfied.length === 0 && report.creditedCapabilities.length > 0);
+        report.pilotCredit = !withhold;
+        report.pilotStatus = report.pilotCredit ? 'credited' : 'unresolved';
       }
     } catch (error) {
       withhold = true;
@@ -235,6 +259,7 @@ function assess(context, set, dependencies = {}) {
       report.unsatisfied.push({ obligationId: 'doc-change:scope', state: 'unavailable', reasonCode: reason });
     }
   }
+  report.diagnostics = report.diagnostics.map(diagnosticOf);
   try { atomicWriteJson(path.join(context.sessionDir, 'doc-reconciliation-pilot.json'), report); }
   catch {
     if (supported) withhold = true;

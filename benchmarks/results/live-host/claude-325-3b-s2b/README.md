@@ -1,6 +1,6 @@
 # Live-host capture: claude-325-3b-s2b (F4-L2)
 
-**Qualifying run: Run 2b.** A headless Claude Code session completed the registered doc-check command and the reviewer returned a labelled verdict. The Pre and Post PreToolUse/PostToolUse of the doc-check call are correlated on one `tool_use_id`, and the reviewer's `agent_id` is populated and correlated with the parent session. Positive credit stays disabled: this directory is evidence for the qualification gate, and the export is not written (see the report).
+**Qualifying run: Run 2b.** A headless Claude Code session completed the registered doc-check command and the reviewer returned a labelled verdict. The Pre and Post PreToolUse/PostToolUse of the doc-check call are correlated on one `tool_use_id`, and the reviewer's `agent_id` is populated and correlated with the parent session. This run is field-availability evidence, not live-host credit. The qualification export (`hooks/scripts/lib/doc-reconciliation-qualification.json`) is written and ships with a sibling copy of `capture.sanitized.jsonl`. No live-host credit run exists yet.
 
 Run 1 (gate unmet) and Run 2a (a denied attempt) are kept below for the record.
 
@@ -88,7 +88,7 @@ Same allowlist text with the path **unquoted** in the prompt. The model's comman
 
 ## Files
 
-- `capture.sanitized.jsonl`: 26 lines across runs 1, 2a and 2b. Every line has a top-level `event`, `tool_use_id`, `agent_id` and `interrupted` where the host supplied them (absent stays absent). Two sources per run: `wrapper-stdin` (the raw hook payload, sanitized) and `journal-record` (the plugin's capture record). One consistent placeholder map across runs (`<session-N>`, `<tool-use-N>`, `<prompt-N>`, `<agent-N>`, `<capture-N>`). Tool response bodies are reduced to keys, `interrupted`, `status`, `agentId` and a digest. No local paths, no session ids, no tokens (checked by grep). The production validator (`resolveContext`) reads these lines: payload checks pass for Run 2b, and it stops only at the missing qualification export.
+- `capture.sanitized.jsonl`: 26 lines across runs 1, 2a and 2b. Every line has a top-level `event`, `tool_use_id`, `agent_id` and `interrupted` where the host supplied them (absent stays absent). Two sources per run: `wrapper-stdin` (the raw hook payload, sanitized) and `journal-record` (the plugin's capture record). One consistent placeholder map across runs (`<session-N>`, `<tool-use-N>`, `<prompt-N>`, `<agent-N>`, `<capture-N>`). Tool response bodies are reduced to keys, `interrupted`, `status`, `agentId` and a digest. No local paths, no session ids, no tokens (checked by grep). The production validator (`resolveContext`) reads these lines: payload checks pass for Run 2b, and, with the shipped export validated against this capture, the gate opens. This is field availability; it is not a live credit run.
 - Raw payloads, transcripts, journals and the staged plugin stay **private** in `scratchpad/live-l/`.
 
 ## What this does not establish

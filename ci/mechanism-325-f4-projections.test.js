@@ -47,7 +47,9 @@ const LEGS = [
 // The fake qualification is the explicit DI object the S2b provider already accepts. Nothing else opens the gate.
 const FAKE_DI = { source: 'fake-test-fixture', faked: true, ref: 'f4-t1-di', toolUseIdPopulated: true, agentIdPopulated: true };
 const CASE = id => fx.readCaseCorpus(F4_CASES).cases.find(item => item.id === id);
-const LINT_COMMAND = 'node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md';
+// {{DOC_CHECK}} resolves per leg to that leg's installed doc-check path (F4-T5 conflict 2): a positive run invokes it by absolute path.
+const DOC_CHECK_TOKEN = '{{DOC_CHECK}}';
+const LINT_COMMAND = 'node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md';
 const FAKE_COMMAND = 'node scripts/fake-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md';
 
 const RED_IMPLEMENTATION = 'missing-implementation: the origin provider is not wired into the workflow credit boundary; pilot.assess reads no host events, so S1 withholds every document credit';
@@ -107,6 +109,8 @@ const PLAN_NEGATIVE = {
   'F4-NEG-later-failure': NEGATIVE('F4-NEG-later-failure', { path: journal('post-fail', 1, 'event'), operator: 'equals', expected: 'PostToolUseFailure' }),
   'F4-NEG-duplicate-tool-id': NEGATIVE('F4-NEG-duplicate-tool-id', { path: journal('post-dup', 1, 'tool_use_id'), operator: 'equals', expected: 'toolu_f4_check_01' }),
   'F4-NEG-interrupted': NEGATIVE('F4-NEG-interrupted', { path: journal('post-interrupted', 0, 'interrupted'), operator: 'equals', expected: true }),
+  // F4-T5 conflict 2: a relative invocation is a negative. F1 refuses the unresolved path, and the delivered command is journaled.
+  'F4-NEG-relative-path': NEGATIVE('F4-NEG-relative-path', { path: journal('post-lint', 0, 'command'), operator: 'equals', expected: 'node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md' }),
   // The other-session record is journaled under its own session directory, so it never enters this workflow's journal.
   'F4-NEG-other-session': NEGATIVE('F4-NEG-other-session', { path: ['actions', 'post-other', 'state', 'capture'], operator: 'absent' }),
   'F4-NEG-zero-events': NEGATIVE('F4-NEG-zero-events', { path: ['actions', 'verify-pass', 'state', 'capture'], operator: 'absent' }),
@@ -155,6 +159,8 @@ function record(status, id, detail) {
 function checkReplay(caseId, distribution, mode, options, plan, legName = distribution) {
   const label = `${caseId}@${mode}`;
   const item = CASE(caseId);
+  const docCheck = typeof distribution === 'string' ? fx.DISTRIBUTIONS[distribution].docCheck : distribution.docCheck;
+  const resolved = value => (typeof value === 'string' ? value.split(DOC_CHECK_TOKEN).join(docCheck) : value);
   let root;
   try {
     root = fx.replayCase(item, distribution, options);
@@ -167,7 +173,7 @@ function checkReplay(caseId, distribution, mode, options, plan, legName = distri
     record('INFRA', `${label}@${legName}`, faults.map(fault => `${fault.actionId}: ${fault.message}`).join('; '));
     return;
   }
-  const results = fx.evaluateAll(root, plan.map(entry => ({ id: entry.id, path: entry.path, operator: entry.operator, expected: entry.expected })));
+  const results = fx.evaluateAll(root, plan.map(entry => ({ id: entry.id, path: entry.path, operator: entry.operator, expected: resolved(entry.expected) })));
   plan.forEach((entry, index) => {
     const result = results[index];
     const id = `${label}.${entry.id}@${legName}`;
@@ -307,7 +313,7 @@ function partBPreloadBoundary(leg) {
       "const event = origin.resolveEvent({ reference: 'f4-exec', identity: null });",
       "process.stdout.write(JSON.stringify({ context: context.status, event: event.status }));",
     ].join('\n') + '\n');
-    const capture = { ref: 'f4-exec', event: 'PostToolUse', command: LINT_COMMAND, cwd: tmp, tool_use_id: 'toolu_f4_probe', session_id: 'f4-sess', interrupted: false, responseDigest: 'a'.repeat(64), responseRef: 'host-payload/PostToolUse/f4' };
+    const capture = { ref: 'f4-exec', event: 'PostToolUse', command: LINT_COMMAND.split(DOC_CHECK_TOKEN).join(fx.DISTRIBUTIONS[leg.id].docCheck), cwd: tmp, tool_use_id: 'toolu_f4_probe', session_id: 'f4-sess', interrupted: false, responseDigest: 'a'.repeat(64), responseRef: 'host-payload/PostToolUse/f4' };
     const run = (args, captureList) => {
       const result = spawnSync(process.execPath, args, { cwd: entry, encoding: 'utf8', env: { ...process.env, F4_PROBE_CAPTURES: JSON.stringify(captureList) }, timeout: 10000 });
       if (result.status !== 0) throw new Error(`probe exited ${result.status}: ${String(result.stderr).slice(0, 200)}`);

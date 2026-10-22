@@ -298,6 +298,7 @@ function resultOf(handle, result, pilot) {
   };
 }
 
+const DOC_CHECK_TOKEN = '{{DOC_CHECK}}';
 const CAPTURE_HOOK_EVENTS = new Set(['PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop']);
 
 // Host-transport ops (F4). hostRun executes the distribution's registered doc-check entry by argv, with no shell, the
@@ -321,8 +322,10 @@ function runHostOp(handle, action, pilot) {
   };
   if (p.event === 'PostToolUse' || p.event === 'PostToolUseFailure') {
     if (typeof p.command !== 'string' || typeof p.toolUseId !== 'string') throw new Error('hookDeliver tool events need command and toolUseId');
-    body.tool_name = 'Bash';
-    body.tool_input = { command: p.command };
+    body.tool_name = p.toolName === undefined ? 'Bash' : p.toolName;
+    // {{DOC_CHECK}} is the installed doc-check path of the leg under test, so a positive fixture invokes the path the
+    // host would really run; a relative spelling stays a literal negative case.
+    body.tool_input = { command: p.command.split(DOC_CHECK_TOKEN).join(dist.docCheck) };
     body.tool_use_id = p.toolUseId;
   }
   if (p.event === 'PostToolUse') {

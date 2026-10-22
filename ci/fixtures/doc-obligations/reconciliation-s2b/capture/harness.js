@@ -323,6 +323,8 @@ function simulateCapture(name, opts = {}) {
     responseRef: `payload/${name}`,
   };
   if (source.prompt_id !== undefined) record.prompt_id = source.prompt_id;
+  // Mirrors the capture builder: the launch tool name separates the Agent/Task result surface (F4/F5).
+  if (typeof source.tool_name === 'string') record.tool_name = source.tool_name;
   const agentId = opts.agentId || source.agent_id;
   if (agentId !== undefined) {
     record.agent_id = agentId;

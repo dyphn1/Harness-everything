@@ -8,8 +8,8 @@
 //
 // Binding properties:
 // - Positive credit is disabled until qualification resolves. The production
-//   path resolves the retained live-capture evidence directory
-//   benchmarks/results/live-host/claude-325-3b-s2b (or its verified export).
+//   path validates the qualification export next to this file and the sanitized
+//   capture it names (no directory search, no size-based acceptance).
 //   A process environment toggle or a self-declared capture flag can never
 //   substitute for that evidence. Dependency injection of an explicitly fake
 //   qualification object ({ source: 'fake-test-fixture', faked: true }) is a
@@ -41,21 +41,49 @@ const QUALIFICATION_EXPORT_SCHEMA = 'harness.doc-reconciliation.qualification.v1
 const HEX64 = /^[0-9a-f]{64}$/;
 const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent'];
 const STDOUT_CAP_BYTES = 1024 * 1024;
-const DOC_CHECK_SCRIPT = /(^|\/)harness-everything\/scripts\/doc-check\.js$/;
 const DOC_CHECK_FLAGS = ['--workspace', '--config', '--changed-path', '--base'];
 const DOC_CHECK_SCHEMA = 'harness.doc-check.check.v1';
+// This install's own doc-check runtime, relative to hooks/scripts/lib: the source checkout or the packaged plugin.
+const DOC_CHECK_INSTALL_LAYOUTS = [
+  ['..', '..', '..', 'harness-everything', 'scripts', 'doc-check.js'],
+  ['..', '..', '..', 'skills', 'harness-everything', 'scripts', 'doc-check.js'],
+];
 
 // A registered, argv-validated `doc-check check` invocation, or null. No shell operators, expansions or quoting.
+// Shape only: whether the script is this install's own runtime is decided by registeredInstalledCheck.
 function parseRegisteredCheck(command) {
   if (typeof command !== 'string' || /[&|;<>`$()\\"']/.test(command)) return null;
   const tokens = command.trim().split(/\s+/);
-  if (tokens.length < 4 || tokens[0] !== 'node' || !DOC_CHECK_SCRIPT.test(tokens[1]) || tokens[2] !== 'check') return null;
+  if (tokens.length < 4 || tokens[0] !== 'node' || path.basename(tokens[1]) !== 'doc-check.js' || tokens[2] !== 'check') return null;
   const flags = tokens.slice(3);
   if (flags.length % 2 !== 0) return null;
   for (let index = 0; index < flags.length; index += 2) {
     if (!DOC_CHECK_FLAGS.includes(flags[index]) || flags[index + 1].startsWith('--')) return null;
   }
   return tokens;
+}
+
+// The resolved path of this install's own doc-check.js, or null when neither layout exists. Realpath on both sides so a
+// symlink or a case-variant path cannot pass as the shipped file (canonicalPath matches the producer's helper).
+function canonicalPath(value) { return fs.realpathSync.native(path.resolve(value)); }
+function installedDocCheck() {
+  for (const layout of DOC_CHECK_INSTALL_LAYOUTS) {
+    try { return canonicalPath(path.resolve(__dirname, ...layout)); } catch { /* try the next layout */ }
+  }
+  return null;
+}
+function fileDigest(file) { return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); }
+
+// A registered check counts only when its script resolves (relative to the captured cwd) to this install's own runtime.
+// Any other path, or a missing file, returns null: no credit, no capability event and no verification evidence.
+function registeredInstalledCheck(command, cwd) {
+  const tokens = parseRegisteredCheck(command);
+  if (!tokens) return null;
+  const installed = installedDocCheck();
+  if (!installed) return null;
+  let argv;
+  try { argv = canonicalPath(path.resolve(textOf(cwd) ? cwd : process.cwd(), tokens[1])); } catch { return null; }
+  return argv === installed ? { tokens, installed } : null;
 }
 
 // Observation-time digests of the checked paths, read from the workspace when the check ran. Absent paths are omitted.
@@ -104,13 +132,52 @@ function failDiagnostics(prefix, reason) {
 const EXPORT_FILE = 'doc-reconciliation-qualification.json';
 
 // Structured verdict: a labelled line `Review verdict: approve|reject`, with the summary on that line or after it.
-// Free text such as `REJECT: ...` carries no verdict, so it can never approve.
+// Free text such as `REJECT: ...` carries no verdict, so it can never approve. The reviewed artifacts are named by
+// `Reviewed artifact: <relative path> sha256:<64 hex>` lines; they bind the review to exact path digests (F6).
+const REVIEWED_ARTIFACT_LINE = /^\s*-?\s*Reviewed artifact:\s*(\S+)\s+sha256:([0-9a-f]{64})\s*$/i;
 function parseReviewVerdict(message) {
   if (typeof message !== 'string') return null;
   const match = /^\s*Review verdict:\s*(approve|reject)\b[.:]?\s*(.*)$/im.exec(message);
   if (!match) return null;
-  const summary = [match[2], message.slice(match.index + match[0].length)].join('\n').trim();
-  return { verdict: match[1].toLowerCase(), summary };
+  const reviewedArtifactDigests = {};
+  const summary = [match[2], message.slice(match.index + match[0].length)].join('\n').split(/\r?\n/)
+    .filter(line => {
+      const reviewed = REVIEWED_ARTIFACT_LINE.exec(line);
+      if (reviewed) reviewedArtifactDigests[reviewed[1]] = reviewed[2].toLowerCase();
+      return !reviewed;
+    }).join('\n').trim();
+  return { verdict: match[1].toLowerCase(), summary, reviewedArtifactDigests };
+}
+
+// Executor principals of this task (owner #325, 2026-10-21: the reviewer "must differ from the author's `session_id` and
+// from every executor principal"; an executor principal is the principal of execution evidence used in this assessment).
+// The author session is always an executor. Other executors are the principals of a registered doc-check run, the only
+// execution evidence a doc obligation uses. Acceptance is not required, so the set over-approximates and fails closed:
+// a reviewer whose registered run was refused still counts as an executor. Read-only tool use, such as a plain Bash
+// call, does not make a reviewer an executor. The Agent/Task launch surface is never execution evidence.
+function journalExecutors(captures, author) {
+  const executors = new Set(textOf(author) ? [author] : []);
+  for (const item of Array.isArray(captures) ? captures : []) {
+    if (!recordOf(item) || item.event !== 'PostToolUse') continue;
+    if (item.tool_name === 'Agent' || item.tool_name === 'Task') continue;
+    if (!parseRegisteredCheck(item.command)) continue;
+    if (textOf(item.session_id)) executors.add(item.session_id);
+    if (textOf(item.agent_id)) executors.add(item.agent_id);
+  }
+  return [...executors].sort(compareKeys);
+}
+
+// The Agent/Task result surface that names this reviewer: a PostToolUse of the launch tool whose agent_id is the reviewer.
+function agentResultSurface(captures, reviewer) {
+  return (Array.isArray(captures) ? captures : []).some(item => recordOf(item) && item.event === 'PostToolUse'
+    && (item.tool_name === 'Agent' || item.tool_name === 'Task') && item.agent_id === reviewer);
+}
+
+// A reviewed path must be a relative governed path; its digest must be a sha256 of the observed bytes.
+function reviewedDigestsValid(digests) {
+  return recordOf(digests) && Object.keys(digests).length > 0
+    && Object.entries(digests).every(([relative, digest]) => textOf(relative) && !path.isAbsolute(relative)
+      && !relative.split(/[\\/]/).includes('..') && HEX64.test(String(digest)));
 }
 
 // What the sanitized capture proves: the payload kinds with their fields, and the correlation rules it demonstrates.
@@ -324,8 +391,11 @@ const createClaudeOriginProvider = input => {
     if (capability) {
       // Doc capability: only a registered, passed, fully covered doc-check invocation with retained stdout can cover it.
       if (cap.event !== 'PostToolUse') return rejected('capability-mismatch', 'only a PostToolUse check invocation can cover a doc capability');
-      const registered = parseRegisteredCheck(cap.command);
-      if (!registered) return rejected('unregistered-command', 'the command is not a registered doc-check invocation; an arbitrary successful shell command never covers a doc capability');
+      if (!parseRegisteredCheck(cap.command)) return rejected('unregistered-command', 'the command is not a registered doc-check invocation; an arbitrary successful shell command never covers a doc capability');
+      // The script must be this install's own runtime, and its digest must still be the one observed at capture (F1/F9).
+      const registered = registeredInstalledCheck(cap.command, cap.cwd);
+      if (!registered) return rejected('implementation-not-installed', 'the registered check does not resolve to this install\'s own doc-check runtime; a different path earns no credit');
+      if (cap.implementationDigest !== fileDigest(registered.installed)) return rejected('implementation-digest-mismatch', 'the installed doc-check digest differs from the one observed at capture; no credit');
       if (!(cap.tool_use_id && typeof cap.tool_use_id === 'string')) return rejected('tool-use-id-missing', 'absent or empty tool_use_id: the invocation cannot be correlated, no credit');
       if (typeof cap.interrupted !== 'boolean') return rejected('outcome-ambiguous', 'ambiguous interruption/success correlation cannot be treated as success');
       if (cap.interrupted === true) return rejected('interrupted-not-credited', 'interrupted success is not mapped to exit 0 (owner decision row 1)');
@@ -356,7 +426,7 @@ const createClaudeOriginProvider = input => {
         if (typeof observed[relative] !== 'string') return rejected('artifact-unobserved', `no observation-time digest for ${relative}`);
         artifactDigests[relative] = observed[relative];
       }
-      const command = registered.join(' ');
+      const command = registered.tokens.join(' ');
       const event = {
         eventId: 'claude-check-' + digestText(cap.captureId + ':' + capability),
         producerId,
@@ -366,7 +436,7 @@ const createClaudeOriginProvider = input => {
         capability,
         kind: 'execution',
         command,
-        argv: registered,
+        argv: registered.tokens,
         cwd: typeof cap.cwd === 'string' ? cap.cwd : '',
         exitCode: 0,
         signal: null,
@@ -437,15 +507,17 @@ const createClaudeOriginProvider = input => {
       if (!textOf(reviewer)) {
         return rejected('reviewer-principal-missing', 'SubagentStop without a host-issued agent_id cannot establish a reviewer principal; a caller-supplied name or review prose is not an agent identity');
       }
+      // Executors: the configured principals plus every session and agent that ran a captured tool in this task (F4).
+      const reviewerExecutors = [...new Set([...executors, ...journalExecutors(captures, author)])];
       if (reviewer === author) {
         return rejected('reviewer-not-independent', 'the reviewer agent_id equals the author session principal; not independent');
       }
-      if (executors.includes(reviewer)) {
+      if (reviewerExecutors.includes(reviewer)) {
         return rejected('reviewer-not-independent', 'the reviewer agent_id equals an executor principal; not independent');
       }
-      const taskResults = captures.filter(item => recordOf(item) && item.event === 'PostToolUse' && textOf(item.agent_id));
-      if (taskResults.length && !taskResults.some(item => item.agent_id === reviewer)) {
-        return rejected('surface-inconsistency', 'SubagentStop and the Agent/Task result name different subagent identities; inconsistent surfaces are rejected');
+      // An approval needs its own correlated Agent/Task result surface, never a bare SubagentStop (F5).
+      if (!agentResultSurface(captures, reviewer)) {
+        return rejected('agent-result-missing', 'no correlated Agent/Task result names this reviewer agent_id; without that surface the review is not approved');
       }
       if (!HEX64.test(String(cap.reviewDigest === undefined ? '' : cap.reviewDigest))) {
         return rejected('review-digest-missing', 'SubagentStop without a bound final review artifact digest cannot close a review');
@@ -460,9 +532,13 @@ const createClaudeOriginProvider = input => {
       if (!textOf(cap.reviewSummary)) {
         return rejected('review-summary-missing', 'an approve verdict needs a non-empty summary');
       }
+      // The reviewed paths and their digests come from the explicit verdict, never from the caller (F6).
+      if (!reviewedDigestsValid(cap.reviewedArtifactDigests)) {
+        return rejected('reviewed-artifacts-missing', 'an approve verdict must name each reviewed path with its sha256 (Reviewed artifact lines); without them the review cannot bind the candidate');
+      }
       const eventId = 'claude-review-' + digestText(signature + ':review');
       const independentOf = [];
-      for (const candidate of [author, ...executors]) {
+      for (const candidate of [author, ...reviewerExecutors]) {
         if (textOf(candidate) && candidate !== reviewer && !independentOf.includes(candidate)) independentOf.push(candidate);
       }
       const event = {
@@ -476,8 +552,8 @@ const createClaudeOriginProvider = input => {
         summary: cap.reviewSummary,
         independentOf,
         identity: recordOf(request.identity) ? JSON.parse(JSON.stringify(request.identity)) : null,
-        paths: [],
-        reviewedArtifactDigests: {},
+        paths: Object.keys(cap.reviewedArtifactDigests).sort(compareKeys),
+        reviewedArtifactDigests: { ...cap.reviewedArtifactDigests },
         captured: {
           responseRef: cap.responseRef,
           responseDigest: cap.responseDigest,
@@ -531,6 +607,8 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
     responseRef: `host-payload/${event}/${captureId}`,
   };
   if (payload.prompt_id !== undefined) record.prompt_id = payload.prompt_id;
+  // The launch tool name separates the Agent/Task result surface and the subagent launch from executed tools (F4/F5).
+  if (typeof payload.tool_name === 'string') record.tool_name = payload.tool_name;
   const agentId = payload.agent_id !== undefined ? payload.agent_id : responseAliasAgentId;
   if (agentId !== undefined) {
     record.agent_id = agentId;
@@ -542,7 +620,10 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
     if (recordOf(toolResponse) && typeof toolResponse.interrupted === 'boolean') record.interrupted = toolResponse.interrupted;
     // A registered doc-check invocation keeps its full stdout (capped), a digest of it, and the checked paths' digests
     // at observation time. Assessment re-parses the stdout; nothing is trusted from an agent-written field.
-    if (parseRegisteredCheck(record.command)) {
+    const installedCheck = registeredInstalledCheck(record.command, record.cwd);
+    if (installedCheck) {
+      // Digest of the shipped runtime observed now; assessment recomputes it and withholds on any change (F1/F9).
+      record.implementationDigest = fileDigest(installedCheck.installed);
       const stdout = recordOf(toolResponse) && typeof toolResponse.stdout === 'string' ? toolResponse.stdout : '';
       record.stdoutDigest = crypto.createHash('sha256').update(stdout).digest('hex');
       if (Buffer.byteLength(stdout) <= STDOUT_CAP_BYTES) {
@@ -566,14 +647,16 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
     const verdict = parseReviewVerdict(payload.last_assistant_message);
     record.reviewVerdict = verdict ? verdict.verdict : null;
     record.reviewSummary = verdict ? verdict.summary : null;
+    record.reviewedArtifactDigests = verdict ? verdict.reviewedArtifactDigests : {};
     if (payload.agent_transcript_path !== undefined) record.agentTranscriptPath = payload.agent_transcript_path;
   }
   return record;
 }
 
 // ---- Immutable per-event capture records (I2c) ----------------------------------------------------------------------
-// Each capture is one write-once file (created exclusively, never rewritten). The compatibility journal
-// `doc-reconciliation-capture.json` is rebuilt from those files. Readers compare the two: any difference is tampering.
+// Each capture is one event file, created exclusively and never rewritten by this code. The compatibility journal
+// `doc-reconciliation-capture.json` is rebuilt from those files, and readers compare the two. This detects accidental and
+// journal-only edits. It does not stop the local agent from rewriting event files, which the owner's bound accepts (F13).
 const EVENT_DIR = 'doc-reconciliation-capture';
 const JOURNAL_FILE = 'doc-reconciliation-capture.json';
 const EVENT_NAME = /^\d{8}\.json$/;
@@ -635,13 +718,15 @@ function observedIdentityFor(sessionDir) {
 // artifact digest is bound, and the verdict is an explicit approve with a non-empty summary. REJECT never approves.
 function reviewRecordIndependent(cap, captures, principals) {
   if (!recordOf(cap) || cap.event !== 'SubagentStop' || !textOf(cap.agent_id)) return false;
-  const executors = recordOf(principals) && Array.isArray(principals.executors) ? principals.executors : [];
+  const executors = [...new Set([...(recordOf(principals) && Array.isArray(principals.executors) ? principals.executors : []),
+    ...journalExecutors(captures, principals.author)])];
   if (cap.agent_id === principals.author || executors.includes(cap.agent_id)) return false;
-  const taskResults = (Array.isArray(captures) ? captures : []).filter(item => recordOf(item) && item.event === 'PostToolUse' && textOf(item.agent_id));
-  if (taskResults.length && !taskResults.some(item => item.agent_id === cap.agent_id)) return false;
+  if (!agentResultSurface(captures, cap.agent_id)) return false;
   if (!HEX64.test(String(cap.reviewDigest === undefined ? '' : cap.reviewDigest))) return false;
+  if (!reviewedDigestsValid(cap.reviewedArtifactDigests)) return false;
   return cap.reviewVerdict === 'approve' && textOf(cap.reviewSummary);
 }
 
-module.exports = { createClaudeOriginProvider, buildCaptureRecord, parseRegisteredCheck, reviewRecordIndependent,
+module.exports = { createClaudeOriginProvider, buildCaptureRecord, parseRegisteredCheck, registeredInstalledCheck, installedDocCheck,
+  fileDigest, journalExecutors, reviewRecordIndependent,
   writeImmutableEvent, rebuildJournalView, readCaptureView, observedIdentityFor, _internals: { captureJson, captureDigest, digestText, canonicalCapture } };

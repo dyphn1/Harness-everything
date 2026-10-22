@@ -146,7 +146,7 @@ Do not silence a missing config. A missing config is a visible gap.
 
 ## Credit (F4)
 
-The JSON is planned to gain a logical command ID (`harness.doc-check.check.v1` or `harness.doc-check.compare-derived.v1`) and per-capability checked paths, coverage and skipped reasons. The field change itself lands in packet I1; this note states the contract.
+The JSON carries a logical command ID (`harness.doc-check.check.v1` or `harness.doc-check.compare-derived.v1`) and per-capability `capabilities` with checked paths, coverage and skipped reasons. Credit is granted only for a registered run of this install's own script, identified by its resolved path and digest.
 
 - This JSON is **never self-credited**. Stdout that repeats an ID or a status is not evidence of credit.
 - Credit needs the host-captured raw output, checked against the producer's independently derived expected set. See `docs/doc-workflow-reconciliation.md`, section "F4: credited reconciliation".
