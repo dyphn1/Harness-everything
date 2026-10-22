@@ -43,6 +43,8 @@ const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent'];
 const STDOUT_CAP_BYTES = 1024 * 1024;
 const DOC_CHECK_FLAGS = ['--workspace', '--config', '--changed-path', '--base'];
 const DOC_CHECK_SCHEMA = 'harness.doc-check.check.v1';
+// Canonical SHA-256 of harness-everything/scripts/doc-check.js (CRLF normalised to LF). Re-pin deliberately when that script changes.
+const SHIPPED_DOC_CHECK_DIGEST = '1bbf23e8f830690ffae8e8535c70ed3db0dc35d2ae4d3d76aea1bfc2b1a6a426';
 // This install's own doc-check runtime, relative to hooks/scripts/lib: the source checkout or the packaged plugin.
 const DOC_CHECK_INSTALL_LAYOUTS = [
   ['..', '..', '..', 'harness-everything', 'scripts', 'doc-check.js'],
@@ -72,7 +74,8 @@ function installedDocCheck() {
   }
   return null;
 }
-function fileDigest(file) { return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); }
+// Canonical doc-check digest (UTF-8, CRLF normalised to LF): capture and assessment compare the same value.
+function fileDigest(file) { return crypto.createHash('sha256').update(fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n')).digest('hex'); }
 
 // A registered check counts only when its script resolves (relative to the captured cwd) to this install's own runtime.
 // Any other path, or a missing file, returns null: no credit, no capability event and no verification evidence.
@@ -397,6 +400,7 @@ const createClaudeOriginProvider = input => {
       const registered = registeredInstalledCheck(cap.command, cap.cwd);
       if (!registered) return rejected('implementation-not-installed', 'the registered check does not resolve to this install\'s own doc-check runtime; a different path earns no credit');
       if (cap.implementationDigest !== fileDigest(registered.installed)) return rejected('implementation-digest-mismatch', 'the installed doc-check digest differs from the one observed at capture; no credit');
+      if (fileDigest(registered.installed) !== SHIPPED_DOC_CHECK_DIGEST) return rejected('implementation-pin-mismatch', 'the installed doc-check is not the shipped script (canonical digest differs from SHIPPED_DOC_CHECK_DIGEST); no credit');
       if (!(cap.tool_use_id && typeof cap.tool_use_id === 'string')) return rejected('tool-use-id-missing', 'absent or empty tool_use_id: the invocation cannot be correlated, no credit');
       if (typeof cap.interrupted !== 'boolean') return rejected('outcome-ambiguous', 'ambiguous interruption/success correlation cannot be treated as success');
       if (cap.interrupted === true) return rejected('interrupted-not-credited', 'interrupted success is not mapped to exit 0 (owner decision row 1)');
@@ -630,6 +634,9 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
     if (installedCheck) {
       // Digest of the shipped runtime observed now; assessment recomputes it and withholds on any change (F1/F9).
       record.implementationDigest = fileDigest(installedCheck.installed);
+    }
+    // G0: an unpinned doc-check keeps its digest only; its output is never retained, so no capture credit can be recorded.
+    if (installedCheck && record.implementationDigest === SHIPPED_DOC_CHECK_DIGEST) {
       const stdout = recordOf(toolResponse) && typeof toolResponse.stdout === 'string' ? toolResponse.stdout : '';
       record.stdoutDigest = crypto.createHash('sha256').update(stdout).digest('hex');
       if (Buffer.byteLength(stdout) <= STDOUT_CAP_BYTES) {
@@ -734,5 +741,5 @@ function reviewRecordIndependent(cap, captures, principals) {
 }
 
 module.exports = { createClaudeOriginProvider, buildCaptureRecord, parseRegisteredCheck, registeredInstalledCheck, installedDocCheck,
-  fileDigest, journalExecutors, reviewRecordIndependent,
+  fileDigest, SHIPPED_DOC_CHECK_DIGEST, journalExecutors, reviewRecordIndependent,
   writeImmutableEvent, rebuildJournalView, readCaptureView, observedIdentityFor, _internals: { captureJson, captureDigest, digestText, canonicalCapture } };
