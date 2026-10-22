@@ -80,7 +80,7 @@ function runCheck(scriptDir, options) {
     '--workspace', options.workspace,
     '--config', options.config,
     ...(options.args || [])
-  ], { encoding: 'utf8', cwd: os.tmpdir() });
+  ], { encoding: 'utf8', cwd: os.tmpdir(), ...(options.timeoutMs ? { timeout: options.timeoutMs } : {}) });
 }
 
 function jsonOut(result) {
@@ -642,6 +642,25 @@ assertPerLeg('case-33:link-nested-in-link-label-both-checked', leg => {
   same(result.status, 1, 'exit');
   const out = jsonOut(result);
   same((out.links.broken || []).map(item => item.target).sort(), ['b.md', 'doc.md'], 'broken targets');
+});
+
+// Case 34: deeply nested labels complete within a generous cross-platform bound and count every target once.
+assertPerLeg('case-34:deeply-nested-labels-iterative-and-complete', leg => {
+  const depth = 6000;
+  const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
+  writeDoc(ws, 'docs/a.md', refDoc('['.repeat(depth) + 'x' + '](a)'.repeat(depth)));
+  writeDoc(ws, 'docs/a', 'target\n');
+  const result = runCheck(leg.dir, {
+    workspace: ws, config: CONFIG, timeoutMs: 30000,
+    args: ['--changed-path', 'docs/a.md']
+  });
+  same(result.status, 0, 'exit within 30 seconds');
+  const out = jsonOut(result);
+  same(out.links.checked, depth, 'all nested targets checked once');
+  same(out.links.broken, [], 'broken targets');
+  same(out.coverage.unsupported, [], 'unsupported syntax');
+  same(result.stdout, `${JSON.stringify(out, null, 2)}\n`, 'single JSON object on stdout');
+  same(result.stderr, '', 'stderr');
 });
 
 // ---- Summary -------------------------------------------------------------------------------------------------------

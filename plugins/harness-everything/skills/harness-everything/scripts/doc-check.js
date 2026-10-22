@@ -20,19 +20,20 @@ function escaped(text, index) {
   return slashes % 2 === 1;
 }
 
-// Index of the bracket that closes the label opened at `start`, or -1.
-function labelClose(text, start) {
-  let depth = 0;
-  for (let i = start; i < text.length; i++) {
-    if (escaped(text, i)) continue;
-    if (text[i] === '[') depth++;
-    else if (text[i] === ']' && --depth === 0) return i;
+// Map each unescaped label opener to its closing bracket in one pass.
+function labelCloses(text) {
+  const closes = new Array(text.length).fill(-1);
+  const opens = [];
+  for (let i = 0; i < text.length; i++) {
+    if ((text[i] !== '[' && text[i] !== ']') || escaped(text, i)) continue;
+    if (text[i] === '[') opens.push(i);
+    else if (opens.length) closes[opens.pop()] = i;
   }
-  return -1;
+  return closes;
 }
 
-function parseInlineLink(text, start) {
-  const close = labelClose(text, start);
+function parseInlineLink(text, start, closes) {
+  const close = closes[start];
   if (close < 0 || text[close + 1] !== '(') return null;
 
   let i = close + 2;
@@ -98,18 +99,24 @@ function runLint(workspace, options) {
   return spawnSync(process.execPath, args, { encoding: 'utf8' });
 }
 
-// Scans text[from, to) for inline links and images (an image is a link with a leading `!`). The label interior is scanned
-// before the destination is skipped, so a nested image or link is checked too. A nested link inside a link label is
-// a deliberate over-check: CommonMark keeps only the inner link, so both targets are checked and neither is silent.
-function scanSpan(text, from, to, line, targets, unsupported) {
-  for (let i = from; i < to; i++) {
-    if (text[i] !== '[' || escaped(text, i)) continue;
-    const parsed = parseInlineLink(text, i);
-    if (!parsed) continue;
-    if (parsed.invalid) unsupported.push({ line, syntax: 'inline-link-unparsed' });
-    else targets.push({ line, target: parsed.target });
-    scanSpan(text, i + 1, labelClose(text, i), line, targets, unsupported);
-    i = Math.max(i, parsed.end - 1);
+// Scan nested label spans depth-first, then resume after each destination. Matching brackets are precomputed per line,
+// and an explicit stack keeps nesting from consuming the JS call stack. A nested link inside a label remains an
+// intentional over-check: CommonMark keeps only the inner link, so both targets are checked and neither is silent.
+function scanSpan(text, line, targets, unsupported) {
+  const closes = labelCloses(text);
+  const spans = [{ from: 0, to: text.length }];
+  while (spans.length) {
+    const span = spans.pop();
+    for (let i = span.from; i < span.to; i++) {
+      if (text[i] !== '[' || escaped(text, i)) continue;
+      const parsed = parseInlineLink(text, i, closes);
+      if (!parsed) continue;
+      if (parsed.invalid) unsupported.push({ line, syntax: 'inline-link-unparsed' });
+      else targets.push({ line, target: parsed.target });
+      if (parsed.end < span.to) spans.push({ from: parsed.end, to: span.to });
+      if (closes[i] > i + 1) spans.push({ from: i + 1, to: closes[i] });
+      break;
+    }
   }
 }
 
@@ -128,7 +135,7 @@ function scanLinks(lines) {
     }
     if (marker) { fence = marker[1]; return; }
     const text = raw.replace(/(`+)(.+?)\1/g, '');
-    scanSpan(text, 0, text.length, line, targets, unsupported);
+    scanSpan(text, line, targets, unsupported);
     if (/\[[^\]]*\]\[[^\]]*\]/.test(text)) unsupported.push({ line, syntax: 'reference-link' });
     if (/^\s{0,3}\[[^\]]+\]:/.test(text)) unsupported.push({ line, syntax: 'reference-definition' });
   });
