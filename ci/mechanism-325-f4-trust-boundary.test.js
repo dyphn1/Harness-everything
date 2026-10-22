@@ -164,9 +164,8 @@ function partR1R2(leg) {
     fs.appendFileSync(script, '\n// tampered by the F4-T4 digest case\n', 'utf8');
     const root = replay(tamperedCase, tampered.dist, { pilot: '1' });
     runChecks(`R2.tampered-script@${leg}`, root, [
-      // Open (F4-T5): no shipped doc-check digest is pinned anywhere (the export carries none), so a script changed before the run
-      // is observed, digested and credited. The assessment-time digest only detects a change after capture.
-      { id: 'no-credit', status: 'RED', reason: 'F4-R F1: the registered check is not bound to a pinned shipped implementation digest (a tampered script before the run earns credit)', test: () => ({ pass: pilotOf(root).pilotCredit === false, actual: pilotOf(root).pilotCredit }) },
+      // Open (G0, F4-A3): SHIPPED_DOC_CHECK_DIGEST is absent, so a script changed before the run is observed, digested and credited.
+      { id: 'no-credit', status: 'RED', reason: 'G0 (F4-A3): the shipped doc-check is not pinned (SHIPPED_DOC_CHECK_DIGEST absent), so a script changed before the run earns credit', test: () => ({ pass: pilotOf(root).pilotCredit === false, actual: pilotOf(root).pilotCredit }) },
     ]);
   } finally {
     tampered.cleanup();
@@ -318,15 +317,14 @@ function partR8R9(leg) {
       ];
       const checks = setup.concat(expectCredit
         ? [
-          // Open (F4-T5): the review never reaches the credit chain. captureReferences offers PostToolUse refs only, resolveEvent sends
-          // `#quality-review` to the doc-capability branch, and the review event has no provenance. Verified by a scratch copy
-          // with those three changes: quality-review is accepted. conflict-check has no producer, so pilotCredit stays false by design.
-          { id: 'R8.quality-review-accepted', status: 'RED', reason: 'F4-R F6: a bound independent review is accepted as quality-review (not yet reached: the review never enters the credit chain)', test: () => ({ pass: acceptedCapabilityOf(root).includes('quality-review'), actual: { accepted: acceptedCapabilityOf(root) } }) },
+          // Closed by F4-W7 (G1-G3): the review reaches the credit chain, and quality-review is accepted. conflict-check has no
+          // producer, so pilotCredit stays false by design; this check claims quality-review only.
+          { id: 'R8.quality-review-accepted', status: 'CONTROL', reason: 'F4-R F6: a bound independent review is accepted as quality-review (the review enters the credit chain)', test: () => ({ pass: acceptedCapabilityOf(root).includes('quality-review'), actual: { accepted: acceptedCapabilityOf(root) } }) },
         ]
         : [
           { id: 'R9.quality-review-not-accepted', status: 'CONTROL', reason: '', test: () => ({ pass: !acceptedCapabilityOf(root).includes('quality-review'), actual: acceptedCapabilityOf(root) }) },
-          // Open (F4-T5): the same three gaps as R8 keep the stale review out of the events adapter, so no mismatch is reported.
-          { id: 'R9.artifact-mismatch-reported', status: 'RED', reason: 'F4-R F6: a stale reviewed digest is reported as artifact-mismatch (not reached: the review never enters the credit chain)', test: () => ({ pass: diagnosticsOf(root).some(item => item && item.code === 'artifact-mismatch'), actual: diagnosticsOf(root).map(item => (item && item.code) || item) }) },
+          // Closed by F4-W7 (G1-G3): the stale review reaches the events adapter, which reports artifact-mismatch.
+          { id: 'R9.artifact-mismatch-reported', status: 'CONTROL', reason: 'F4-R F6: a stale reviewed digest is reported as artifact-mismatch (the review enters the credit chain)', test: () => ({ pass: diagnosticsOf(root).some(item => item && item.code === 'artifact-mismatch'), actual: diagnosticsOf(root).map(item => (item && item.code) || item) }) },
         ]);
       runChecks(`${label}@${leg}`, root, checks);
     } finally {
@@ -393,6 +391,68 @@ function partM2(leg) {
   }
 }
 
+// ---- G0 (F4-T7): the shipped doc-check is pinned by canonical digest (F4-A3) ------------------------------------------
+// The provider must export SHIPPED_DOC_CHECK_DIGEST: the canonical SHA-256 (UTF-8, CRLF normalised to LF) of the shipped
+// harness-everything/scripts/doc-check.js. Until that pin exists, the pin REDs fail for that reason alone, and a script
+// changed before its run is still credited. F4-W8 implements the pin; this part asserts it and must not be relaxed.
+
+const SOURCE_DOC_CHECK = path.join(ROOT, 'harness-everything', 'scripts', 'doc-check.js');
+const PACKAGED_DOC_CHECK = path.join(ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'doc-check.js');
+const canonicalDigest = file => sha256(fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n'));
+const bytesDigest = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const EXPECTED_PIN = canonicalDigest(SOURCE_DOC_CHECK);
+const pinOf = leg => require(path.join(LEG_LIB[leg], 'doc-reconciliation-provider.js')).SHIPPED_DOC_CHECK_DIGEST;
+const rePinHint = leg => `set SHIPPED_DOC_CHECK_DIGEST = '${EXPECTED_PIN}' in ${path.relative(ROOT, path.join(LEG_LIB[leg], 'doc-reconciliation-provider.js'))}`;
+const shippedDocCheck = leg => (leg === 'source' ? SOURCE_DOC_CHECK : PACKAGED_DOC_CHECK);
+
+// Replays the positive case against a staged copy of the leg, after an optional change to its installed doc-check.
+function g0Replay(leg, mutate) {
+  const staged = stage(leg);
+  try {
+    useShippedExport(staged);
+    if (mutate) mutate(staged.dist.docCheck);
+    return replay(clone(POS_CASE), staged.dist, { pilot: '1' });
+  } finally {
+    staged.cleanup();
+  }
+}
+
+function partG0() {
+  console.log('\n== G0 (both legs): the shipped doc-check is pinned by canonical digest (F4-A3) ==');
+  for (const leg of LEGS) {
+    const pin = pinOf(leg);
+    const pinned = pin === undefined ? null : pin;
+    runChecks(`G0.pin@${leg}`, undefined, [
+      { id: 'pin-matches-shipped-script', status: 'RED', reason: 'G0 (F4-A3): SHIPPED_DOC_CHECK_DIGEST is absent from the provider, so the shipped doc-check is not pinned', test: () => ({ pass: pin === EXPECTED_PIN, actual: { pin: pinned, expected: EXPECTED_PIN, rePin: rePinHint(leg) } }) },
+    ]);
+    const staged = stage(leg);
+    try {
+      useShippedExport(staged);
+      runChecks(`G0.install@${leg}`, undefined, [
+        { id: 'staged-install-is-shipped', status: 'CONTROL', reason: '', test: () => ({ pass: bytesDigest(staged.dist.docCheck) === bytesDigest(shippedDocCheck(leg)), actual: staged.dist.docCheck }) },
+      ]);
+    } finally {
+      staged.cleanup();
+    }
+  }
+  runChecks('G0.legs@source', undefined, [
+    { id: 'pins-agree-across-legs', status: 'RED', reason: 'G0 (F4-A3): the source and packaged providers must carry the same pin (both absent now)', test: () => ({ pass: typeof pinOf('source') === 'string' && pinOf('source') === pinOf('packaged'), actual: { source: pinOf('source') === undefined ? null : pinOf('source'), packaged: pinOf('packaged') === undefined ? null : pinOf('packaged') } }) },
+  ]);
+
+  for (const leg of LEGS) {
+    const shippedRoot = g0Replay(leg, null);
+    const crlfRoot = g0Replay(leg, file => fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/\n/g, '\r\n'), 'utf8'));
+    const oneByteRoot = g0Replay(leg, file => fs.appendFileSync(file, '\n', 'utf8'));
+    runChecks(`G0.positive@${leg}`, undefined, [
+      { id: 'shipped-script-credited', status: 'CONTROL', reason: '', test: () => ({ pass: JSON.stringify(creditedOf(shippedRoot)) === JSON.stringify(['doc-lint', 'link-check']), actual: creditedOf(shippedRoot) }) },
+      { id: 'crlf-copy-credited', status: 'CONTROL', reason: 'a CRLF copy of the shipped script has the same canonical digest, so it stays accepted once pinned', test: () => ({ pass: JSON.stringify(creditedOf(crlfRoot)) === JSON.stringify(['doc-lint', 'link-check']), actual: creditedOf(crlfRoot) }) },
+    ]);
+    runChecks(`G0.one-byte@${leg}`, undefined, [
+      { id: 'one-byte-change-refused', status: 'RED', reason: 'G0 (F4-A3): a one-byte change to the shipped doc-check before its run is still credited (no pin)', test: () => ({ pass: pilotOf(oneByteRoot).pilotCredit === false && !creditedOf(oneByteRoot).includes('doc-lint'), actual: creditedOf(oneByteRoot) }) },
+    ]);
+  }
+}
+
 function main() {
   if (!shippedExportPresent()) {
     console.log('INFRA: the committed qualification export is missing from a leg; the trust-boundary cases need it');
@@ -405,6 +465,7 @@ function main() {
     partR8R9(leg);
     partM2(leg);
   }
+  partG0();
   console.log('\n== F4-T4 trust-boundary evidence ==');
   console.log(`controls and passing checks: ${passCount}`);
   console.log(`RED checks confirmed: ${redCount}`);
