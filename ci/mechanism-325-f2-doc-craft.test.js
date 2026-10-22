@@ -347,36 +347,70 @@ function caseR20(dir) {
 }
 assertPerLeg('case-r20:indented-backticks-not-a-fence', leg => caseR20(leg.dir));
 
-// ---- C cases: shared-craft carriers --------------------------------------------------------------------------------
+// ---- C cases: shared-reference carriers -----------------------------------------------------------------------------
 
 const SHARED = 'harness-everything/references/documentation/_shared';
-const CRAFT_TARGET = path.join(ROOT, 'plugins', 'harness-everything', 'skills', SHARED, 'writing-craft.md');
 const C1_FILES = {
   'to-spec': 'process.md',
   'to-tickets': 'publishing-and-templates.md',
   'repo-docs': 'process-guide.md',
   'grill-with-docs': 'session-playbook.md'
 };
+const C1_LEGS = [
+  { name: 'source', root: ROOT, shared: path.join(ROOT, SHARED) },
+  {
+    name: 'packaged',
+    root: path.join(ROOT, 'plugins', 'harness-everything', 'skills'),
+    shared: path.join(ROOT, 'plugins', 'harness-everything', 'skills', SHARED)
+  }
+];
 
-// C1: the four thin consumers name the shared craft reference through <skills-repo-root>, and the target
-// exists in the packaged skills tree.
+// C1: the four thin consumers name both shared references through <skills-repo-root>, and both targets
+// exist in the source and packaged skills trees.
 {
   const id = 'case-c1:consumer-pointers-resolve';
-  const missing = [];
-  try {
-    for (const [skill, fileName] of Object.entries(C1_FILES)) {
-      const file = path.join(ROOT, 'plugins', 'harness-everything', 'skills', skill, 'references', fileName);
-      if (!fs.existsSync(file)) { missing.push(`${skill}: reference file missing`); continue; }
-      const text = fs.readFileSync(file, 'utf8');
-      if (!text.includes('<skills-repo-root>/harness-everything/references/documentation/_shared/writing-craft.md')) {
-        missing.push(`${skill}: writing-craft pointer missing`);
+  for (const leg of C1_LEGS) {
+    const missing = [];
+    try {
+      for (const [skill, fileName] of Object.entries(C1_FILES)) {
+        const file = path.join(leg.root, skill, 'references', fileName);
+        if (!fs.existsSync(file)) { missing.push(`${skill}: reference file missing`); continue; }
+        const text = fs.readFileSync(file, 'utf8');
+        for (const sharedName of ['writing-craft.md', 'maintenance.md']) {
+          if (!text.includes(`<skills-repo-root>/harness-everything/references/documentation/_shared/${sharedName}`)) {
+            missing.push(`${skill}: ${sharedName} pointer missing`);
+          }
+        }
       }
+      for (const sharedName of ['writing-craft.md', 'maintenance.md']) {
+        if (!fs.existsSync(path.join(leg.shared, sharedName))) missing.push(`${sharedName} target missing`);
+      }
+      if (missing.length) throw new Error(missing.join(' | '));
+      record('PASS', id, leg.name);
+    } catch (error) {
+      record('FAIL', id, leg.name, error.message.split('\n')[0]);
     }
-    if (!fs.existsSync(CRAFT_TARGET)) missing.push('packaged writing-craft.md target missing');
-    if (missing.length) throw new Error(missing.join(' | '));
-    record('PASS', id, 'both');
-  } catch (error) {
-    record('FAIL', id, 'both', error.message.split('\n')[0]);
+  }
+}
+
+// C3: shared references use stable D-number and section citations, never drifting source line numbers.
+{
+  const id = 'case-c3:shared-citations-use-stable-anchors';
+  for (const leg of C1_LEGS) {
+    const missing = [];
+    try {
+      for (const sharedName of ['writing-craft.md', 'maintenance.md']) {
+        const file = path.join(leg.shared, sharedName);
+        if (!fs.existsSync(file)) { missing.push(`${sharedName} target missing`); continue; }
+        if (/\b(?:lines?\s+\d+|L\d+|[A-Za-z0-9.]+:\d+)\b/i.test(fs.readFileSync(file, 'utf8'))) {
+          missing.push(`${sharedName} contains a line-number citation`);
+        }
+      }
+      if (missing.length) throw new Error(missing.join(' | '));
+      record('PASS', id, leg.name);
+    } catch (error) {
+      record('FAIL', id, leg.name, error.message.split('\n')[0]);
+    }
   }
 }
 

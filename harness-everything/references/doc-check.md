@@ -34,10 +34,16 @@ Run it from any cwd. The script finds its sibling `doc-lifecycle.js` from its ow
 
 ## Output and exit codes
 
-Stdout is one JSON object:
+Stdout is always one JSON object. Successful checks use this shape:
 
 ```text
 { lint: {exit, evidence, diagnostics}, links: {checked, broken: [{path, line, target}]}, coverage: {unsupported: [...]} }
+```
+
+Usage or config errors use this reduced shape:
+
+```text
+{ lint: {exit: 2, error}, links: {checked: 0, broken: [], skipped: "lint-usage-error"}, coverage: {unsupported: []} }
 ```
 
 | Exit | Meaning |
@@ -118,13 +124,14 @@ node "<this-skill-dir>/scripts/doc-check.js" compare-derived \
 
 - No normative review, quality review or conflict review. Normative changes still need their own review.
 - No trusted reconciliation credit. Exit 0 is ordinary command evidence, not a documentation-obligation PASS.
-- Link checks cover only inline `[text](target)` links to local files. Anything else appears in `coverage.unsupported`:
+- Link checks cover inline `[text](target)` links to local files, including nested or escaped brackets in labels and balanced parentheses in destinations. Any inline-link form the scanner cannot parse appears in `coverage.unsupported`:
 
 | Syntax | Result |
 |---|---|
 | `http:`, `https:`, `mailto:`, `#fragment` | Skipped on purpose |
-| `<angle>` destinations and `?query` suffixes | Checked as their plain target |
+| `<angle>` destinations, `?query` suffixes, nested/escaped label brackets, balanced destination parentheses | Checked as their plain target |
 | Other schemes, root-relative `/path`, scheme-less `www.` targets, reference-style links | Listed as unsupported, not checked |
+| Malformed inline-link syntax | Listed as `inline-link-unparsed` in `coverage.unsupported` |
 | Changed path not on disk (`reason: "not on disk"`) | Listed as unsupported, not checked |
 | Changed path not governed (`reason: "not governed"`) | Listed as unsupported, not checked |
 | Changed path on disk but unreadable | `links.broken` with `reason: "unreadable"`; exit 1 |
@@ -157,6 +164,6 @@ The JSON carries a logical command ID (`harness.doc-check.check.v1` or `harness.
 Keep these in the task's verification record:
 
 - The full command, the workspace, the `--base` SHA and the changed paths
-- Exit code and stdout (stderr if exit 2)
+- Exit code and the single JSON object on stdout (`lint.error` explains exit 2)
 - Whether `coverage.unsupported` is empty
 - Label the claim as command evidence, not as document-obligation credit
