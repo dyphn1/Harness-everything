@@ -80,13 +80,25 @@ function runCheck(scriptDir, options) {
     '--workspace', options.workspace,
     '--config', options.config,
     ...(options.args || [])
-  ], { encoding: 'utf8', cwd: os.tmpdir() });
+  ], { encoding: 'utf8', cwd: os.tmpdir(), ...(options.timeoutMs ? { timeout: options.timeoutMs } : {}) });
 }
 
 function jsonOut(result) {
   try { return JSON.parse(result.stdout); } catch {
     throw new Error(`stdout is not JSON (exit ${result.status}): ${truncate(result.stdout || result.stderr)}`);
   }
+}
+
+function assertUsageJson(result) {
+  const out = jsonOut(result);
+  same(Object.keys(out).sort(), ['coverage', 'links', 'lint'], 'top-level keys');
+  same(Object.keys(out.lint).sort(), ['error', 'exit'], 'lint keys');
+  same(out.lint.exit, 2, 'lint.exit');
+  if (typeof out.lint.error !== 'string' || !out.lint.error) throw new Error('lint.error is missing');
+  same(out.links, { checked: 0, broken: [], skipped: 'lint-usage-error' }, 'links');
+  same(out.coverage, { unsupported: [] }, 'coverage');
+  same(result.stdout, `${JSON.stringify(out, null, 2)}\n`, 'single JSON object on stdout');
+  same(result.stderr, '', 'stderr');
 }
 
 function noDiagnosticOfCode(out, code, extraLabel) {
@@ -222,6 +234,7 @@ assertPerLeg('case-9:missing-changed-path-exit-2', leg => {
   writeDoc(ws, 'docs/a.md', refDoc('Some standing text.\n'));
   const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: [] });
   same(result.status, 2, 'exit');
+  assertUsageJson(result);
 });
 
 // Case 10: no --base shows the immutability factor as not-observed.
@@ -493,6 +506,7 @@ assertPerLeg('case-26:flag-shaped-value-exit-2', leg => {
     '--changed-path', '--base'
   ], { encoding: 'utf8', cwd: os.tmpdir() });
   same(result.status, 2, 'exit');
+  assertUsageJson(result);
 });
 
 // Case 27: a repeated --config is a usage error even when both configs are valid.
@@ -503,6 +517,7 @@ assertPerLeg('case-27:repeated-config-exit-2', leg => {
   writeDoc(ws, 'b.json', `${JSON.stringify(REFERENCE({ domains: ['GRPH'] }), null, 2)}\n`);
   const result = runCheck(leg.dir, { workspace: ws, config: 'a.json', args: ['--config', 'b.json', '--changed-path', 'docs/a.md'] });
   same(result.status, 2, 'exit');
+  assertUsageJson(result);
 });
 
 // ---- Case 28: the shared obligation derivation is not broken by the SHA-256 rule ----------------------------------------------------------------
@@ -557,6 +572,95 @@ assertPerLeg('case-28:sha256-prose-keeps-req-resolution-resolved', leg => {
   const cited = (facts.citedReqs || []).filter(item => item.id === 'REQ-GRPH-020');
   if (cited.length !== 1) throw new Error(`REQ-GRPH-020 not cited exactly once: ${truncate(JSON.stringify(facts.citedReqs))}`);
   same(cited[0].resolution, 'resolved', 'cited REQ resolution');
+});
+
+// Case 29: nested and escaped label brackets must not hide missing destinations.
+assertPerLeg('case-29:nested-and-escaped-labels-find-broken-links', leg => {
+  const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
+  writeDoc(ws, 'docs/a.md', refDoc('See [API [v2]](missing-nested.md) and [API \\[v3\\]](missing-escaped.md).'));
+  const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 1, 'exit');
+  const out = jsonOut(result);
+  same((out.links.broken || []).map(item => item.target), ['missing-nested.md', 'missing-escaped.md'], 'broken targets');
+});
+
+// Case 30: balanced parentheses belong to the destination, not the link delimiter.
+assertPerLeg('case-30:balanced-parentheses-in-destination-resolve', leg => {
+  const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
+  writeDoc(ws, 'docs/a.md', refDoc('See [release](release(v2).md).'));
+  writeDoc(ws, 'docs/release(v2).md', 'release notes\n');
+  const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 0, 'exit');
+  const out = jsonOut(result);
+  same(out.links.checked, 1, 'links.checked');
+  same(out.links.broken, [], 'links.broken');
+});
+
+// Case 31: malformed inline-link syntax must be reported as unsupported, never silently omitted.
+assertPerLeg('case-31:unparsed-inline-link-reported-unsupported', leg => {
+  const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
+  writeDoc(ws, 'docs/a.md', refDoc('See [broken](missing.md without closing paren.'));
+  const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 0, 'exit');
+  const out = jsonOut(result);
+  if (!(out.coverage.unsupported || []).some(item => item.path === 'docs/a.md' && item.syntax === 'inline-link-unparsed')) {
+    throw new Error(`unparsed inline link missing from coverage.unsupported: ${truncate(JSON.stringify(out.coverage))}`);
+  }
+});
+
+// Case 32: an image nested in a link label is a link target. A missing image is broken; a present one passes.
+assertPerLeg('case-32:image-in-link-label-checked', leg => {
+  const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
+  writeDoc(ws, 'docs/a.md', refDoc('See [text ![img](i.png)](doc.md).'));
+  writeDoc(ws, 'docs/doc.md', 'doc\n');
+  const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 1, 'exit with a missing image');
+  const out = jsonOut(result);
+  same((out.links.broken || []).map(item => item.target), ['i.png'], 'broken targets');
+  same(out.links.checked, 2, 'links.checked');
+});
+
+// Control for case 32: the same label with the image present passes.
+assertPerLeg('case-32-control:image-in-link-label-present-passes', leg => {
+  const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
+  writeDoc(ws, 'docs/a.md', refDoc('See [text ![img](i.png)](doc.md).'));
+  writeDoc(ws, 'docs/doc.md', 'doc\n');
+  writeDoc(ws, 'docs/i.png', 'png\n');
+  const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 0, 'exit');
+  const out = jsonOut(result);
+  same(out.links.broken, [], 'links.broken');
+  same(out.links.checked, 2, 'links.checked');
+});
+
+// Case 33: a link nested in a link label. CommonMark makes only the inner link a link; doc-check checks both targets, so
+// neither is skipped silently. Both missing gives both broken, compared as sorted sets.
+assertPerLeg('case-33:link-nested-in-link-label-both-checked', leg => {
+  const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
+  writeDoc(ws, 'docs/a.md', refDoc('See [outer [inner](b.md)](doc.md).'));
+  const result = runCheck(leg.dir, { workspace: ws, config: CONFIG, args: ['--changed-path', 'docs/a.md'] });
+  same(result.status, 1, 'exit');
+  const out = jsonOut(result);
+  same((out.links.broken || []).map(item => item.target).sort(), ['b.md', 'doc.md'], 'broken targets');
+});
+
+// Case 34: deeply nested labels complete within a generous cross-platform bound and count every target once.
+assertPerLeg('case-34:deeply-nested-labels-iterative-and-complete', leg => {
+  const depth = 6000;
+  const ws = makeWorkspace(REFERENCE({ domains: ['GRPH'] }));
+  writeDoc(ws, 'docs/a.md', refDoc('['.repeat(depth) + 'x' + '](a)'.repeat(depth)));
+  writeDoc(ws, 'docs/a', 'target\n');
+  const result = runCheck(leg.dir, {
+    workspace: ws, config: CONFIG, timeoutMs: 30000,
+    args: ['--changed-path', 'docs/a.md']
+  });
+  same(result.status, 0, 'exit within 30 seconds');
+  const out = jsonOut(result);
+  same(out.links.checked, depth, 'all nested targets checked once');
+  same(out.links.broken, [], 'broken targets');
+  same(out.coverage.unsupported, [], 'unsupported syntax');
+  same(result.stdout, `${JSON.stringify(out, null, 2)}\n`, 'single JSON object on stdout');
+  same(result.stderr, '', 'stderr');
 });
 
 // ---- Summary -------------------------------------------------------------------------------------------------------
