@@ -327,6 +327,8 @@ function runHostOp(handle, action, pilot) {
     // host would really run; a relative spelling stays a literal negative case.
     body.tool_input = { command: p.command.split(DOC_CHECK_TOKEN).join(dist.docCheck) };
     body.tool_use_id = p.toolUseId;
+    // A subagent's own tool call carries its host agent_id at the top level (F4 executor identity).
+    if (p.agentId !== undefined) body.agent_id = p.agentId;
   }
   if (p.event === 'PostToolUse') {
     if (p.fromRun !== undefined) {

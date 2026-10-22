@@ -23,6 +23,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const H = require('./fixtures/doc-obligations/reconciliation-s2b/capture/harness');
+const { DISTRIBUTIONS } = require('./lib/doc-reconciliation-prep-fixtures');
 
 const PILOT_SWITCH = 'HARNESS_DOC_RECONCILIATION_PILOT';
 const PROVIDER_REQ = [{ file: 'doc-reconciliation-provider.js', exports: ['createClaudeOriginProvider'] }];
@@ -271,11 +272,19 @@ runner.run('R2C1-REVIEWER-REPLAY-COPIED-REJECTED', PROVIDER_REQ, (_mods, leg) =>
   }
 });
 
-// F4-T5 conflict 1: a reviewer whose own registered doc-check run became accepted evidence is an executor, so its review is refused.
+// F4-T5 conflict 1: a reviewer that ran a registered doc-check is an executor, so its review is refused. Its plain tool
+// use is not execution evidence, so the same review stays accepted (the control keeps the refusal from being vacuous).
 runner.run('R2C1-REVIEWER-RAN-EVIDENCE-REFUSED', PROVIDER_REQ, (_mods, leg) => {
+  const plain = H.simulateCapture('payload-post-tool-use-success.json', { ref: 'exec-plain', agentId: 'agent-r2c1-rev' });
+  const control = runProvider(leg, { captures: [plain, ...reviewCaptures('agent-r2c1-rev', 'agent-r2c1-rev')], qualification: H.fakeQualification('sim') }, REVIEW_REF);
+  if (!control.response || control.response.status !== 'accepted') {
+    throw new Error(`control: a reviewer's plain tool use must not refuse the review; got ${control.response ? control.response.status : 'no response'}`);
+  }
   const run = H.simulateCapture('payload-post-tool-use-success.json', { ref: 'exec-pass', agentId: 'agent-r2c1-rev' });
+  run.command = `node ${DISTRIBUTIONS[leg.name].docCheck} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md`;
   const out = runProvider(leg, { captures: [run, ...reviewCaptures('agent-r2c1-rev', 'agent-r2c1-rev')], qualification: H.fakeQualification('sim') }, REVIEW_REF);
-  if (out.response && out.response.status === 'accepted') throw new Error('reviewer that ran the registered check as evidence was accepted as independent');
+  if (!out.response || out.response.status === 'accepted') throw new Error('reviewer that ran the registered check was accepted as independent');
+  if (!captureDiagnosticsText(out).includes('reviewer-not-independent')) throw new Error(`refused for another reason: ${captureDiagnosticsText(out).slice(0, 200)}`);
 });
 
 // A labelled `Review verdict: reject` never approves, and neither does free text that only says REJECT. Both are

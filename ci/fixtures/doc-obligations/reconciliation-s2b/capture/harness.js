@@ -297,12 +297,20 @@ const FIXED = {
 // The labelled verdict line of a final review artifact. Mirrors the capture vocabulary only, so the fixture
 // carries the same explicit verdict a real reviewer must state. Free text such as `REJECT: ...` carries none.
 const REVIEW_VERDICT_LINE = /^\s*Review verdict:\s*(approve|reject)\b[.:]?\s*(.*)$/im;
+// Mirrors the provider's `Reviewed artifact: <path> sha256:<hex>` binding (F6): the lines become digests, not summary text.
+const REVIEWED_ARTIFACT_LINE = /^\s*-?\s*Reviewed artifact:\s*(\S+)\s+sha256:([0-9a-f]{64})\s*$/i;
 function reviewVerdictOf(message) {
   const text = String(message || '');
   const match = REVIEW_VERDICT_LINE.exec(text);
-  if (!match) return { reviewVerdict: null, reviewSummary: null };
-  const summary = [match[2], text.slice(match.index + match[0].length)].join('\n').trim();
-  return { reviewVerdict: match[1].toLowerCase(), reviewSummary: summary };
+  if (!match) return { reviewVerdict: null, reviewSummary: null, reviewedArtifactDigests: {} };
+  const reviewedArtifactDigests = {};
+  const summary = [match[2], text.slice(match.index + match[0].length)].join('\n').split(/\r?\n/)
+    .filter(line => {
+      const reviewed = REVIEWED_ARTIFACT_LINE.exec(line);
+      if (reviewed) reviewedArtifactDigests[reviewed[1]] = reviewed[2].toLowerCase();
+      return !reviewed;
+    }).join('\n').trim();
+  return { reviewVerdict: match[1].toLowerCase(), reviewSummary: summary, reviewedArtifactDigests };
 }
 
 // Simulated capture journal entry built directly from a payload fixture, using

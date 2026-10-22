@@ -11,9 +11,8 @@
 // Staged trees: every replay runs from a scratch copy of the leg, which carries the committed qualification export and
 // its sibling sanitized capture (the shipped export), so the production gate is open exactly as it is for users.
 //
-// Interface used here, to be matched by F4-W5: a review verdict may bind the artifacts it reviewed with one line per
-// path, `Reviewed: <repo-relative path> sha256:<hex>`, in the final review artifact (the SubagentStop message). F4-R
-// finding F6 needs such a binding; the packet does not define its syntax, so it is defined here.
+// Interface (F4-W5): a review verdict binds the artifacts it reviewed with one line per path,
+// `Reviewed artifact: <repo-relative path> sha256:<hex>`, in the final review artifact (the SubagentStop message).
 //
 // Statuses: CONTROL passes now and at GREEN. RED fails now for its finding. FAIL is an unexpected result, including a
 // RED that already passes. INFRA is a harness fault. Strict by default; `--expect-red` exits 0 only when the RED plan
@@ -38,7 +37,8 @@ const LEG_LIB = {
 const POS_CASE = fx.readCaseCorpus(F4_CASES).cases.find(item => item.id === 'F4-POS-body-edit');
 const clone = value => JSON.parse(JSON.stringify(value));
 const sha256 = text => crypto.createHash('sha256').update(text).digest('hex');
-const LINT_COMMAND = 'node harness-everything/scripts/doc-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md';
+// {{DOC_CHECK}} resolves per leg to the installed doc-check path, so a positive run is one the host would really run.
+const LINT_COMMAND = 'node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md';
 const FM = '---\nrole: reference\nstatus: active\n---\n\n';
 const BASE_A = FM + 'The checkout retries once. See [b](b.md).\n';
 const CAND_NORMATIVE = FM + 'The checkout MUST retry twice. See [b](b.md).\n';
@@ -145,9 +145,9 @@ function partR1R2(leg) {
     const before = root.actions['doc-pass'].state.handoff || {};
     const after = root.actions['post-fake'].state.handoff || {};
     runChecks(`R1.fake-impl@${leg}`, root, [
-      { id: 'no-credit', status: 'RED', reason: 'F4-R F1: a self-authored doc-check earns document credit (the path shape alone is matched)', test: () => ({ pass: pilotOf(root).pilotCredit === false, actual: pilotOf(root).pilotCredit }) },
-      { id: 'no-capability-accepted', status: 'RED', reason: 'F4-R F1: capability events accepted from the self-authored implementation', test: () => ({ pass: (pilotOf(root).acceptedRefs || []).length === 0, actual: pilotOf(root).acceptedRefs }) },
-      { id: 'lastVerifyAt-unchanged', status: 'RED', reason: 'F4-R F9: a non-registered path sets lastVerifyAt', test: () => ({ pass: before.lastVerifyAt === after.lastVerifyAt, actual: { before: before.lastVerifyAt, after: after.lastVerifyAt } }) },
+      { id: 'no-credit', status: 'CONTROL', reason: 'F4-R F1: a self-authored doc-check earns document credit (the path shape alone is matched)', test: () => ({ pass: pilotOf(root).pilotCredit === false, actual: pilotOf(root).pilotCredit }) },
+      { id: 'no-capability-accepted', status: 'CONTROL', reason: 'F4-R F1: capability events accepted from the self-authored implementation', test: () => ({ pass: (pilotOf(root).acceptedRefs || []).length === 0, actual: pilotOf(root).acceptedRefs }) },
+      { id: 'lastVerifyAt-unchanged', status: 'CONTROL', reason: 'F4-R F9: a non-registered path sets lastVerifyAt', test: () => ({ pass: before.lastVerifyAt === after.lastVerifyAt, actual: { before: before.lastVerifyAt, after: after.lastVerifyAt } }) },
     ]);
   } finally {
     staged.cleanup();
@@ -164,7 +164,9 @@ function partR1R2(leg) {
     fs.appendFileSync(script, '\n// tampered by the F4-T4 digest case\n', 'utf8');
     const root = replay(tamperedCase, tampered.dist, { pilot: '1' });
     runChecks(`R2.tampered-script@${leg}`, root, [
-      { id: 'no-credit', status: 'RED', reason: 'F4-R F1: the registered check is not bound to the shipped implementation digest', test: () => ({ pass: pilotOf(root).pilotCredit === false, actual: pilotOf(root).pilotCredit }) },
+      // Open (F4-T5): no shipped doc-check digest is pinned anywhere (the export carries none), so a script changed before the run
+      // is observed, digested and credited. The assessment-time digest only detects a change after capture.
+      { id: 'no-credit', status: 'RED', reason: 'F4-R F1: the registered check is not bound to a pinned shipped implementation digest (a tampered script before the run earns credit)', test: () => ({ pass: pilotOf(root).pilotCredit === false, actual: pilotOf(root).pilotCredit }) },
     ]);
   } finally {
     tampered.cleanup();
@@ -180,9 +182,9 @@ function partR3R5(leg) {
     useShippedExport(staged);
     const root = replay(POS_CASE, staged.dist, { pilot: '1' });
     runChecks(`R3-R5.positive@${leg}`, root, [
-      { id: 'R3.credited-exactly-lint-and-links', status: 'RED', reason: 'F4-R F2: the report lists capabilities that were never accepted or that are N/A', test: () => ({ pass: JSON.stringify(creditedOf(root)) === JSON.stringify(['doc-lint', 'link-check']), actual: creditedOf(root) }) },
-      { id: 'R4.no-unsatisfied-when-credited', status: 'RED', reason: 'F4-R F3: pilotCredit is true while the report still lists unsatisfied obligations', test: () => ({ pass: (pilotOf(root).unsatisfied || []).length === 0, actual: pilotOf(root).unsatisfied }) },
-      { id: 'R5.diagnostics-carry-obligationId', status: 'RED', reason: 'F4-R F12: diagnostics keep only the code and drop the obligation', test: () => ({ pass: diagnosticsOf(root).every(item => item && typeof item === 'object' && typeof item.obligationId === 'string'), actual: diagnosticsOf(root) }) },
+      { id: 'R3.credited-exactly-lint-and-links', status: 'CONTROL', reason: 'F4-R F2: the report lists capabilities that were never accepted or that are N/A', test: () => ({ pass: JSON.stringify(creditedOf(root)) === JSON.stringify(['doc-lint', 'link-check']), actual: creditedOf(root) }) },
+      { id: 'R4.no-unsatisfied-when-credited', status: 'CONTROL', reason: 'F4-R F3: pilotCredit is true while the report still lists unsatisfied obligations', test: () => ({ pass: (pilotOf(root).unsatisfied || []).length === 0, actual: pilotOf(root).unsatisfied }) },
+      { id: 'R5.diagnostics-carry-obligationId', status: 'CONTROL', reason: 'F4-R F12: diagnostics keep only the code and drop the obligation', test: () => ({ pass: diagnosticsOf(root).every(item => item && typeof item === 'object' && typeof item.obligationId === 'string'), actual: diagnosticsOf(root) }) },
     ]);
   } finally {
     staged.cleanup();
@@ -203,60 +205,93 @@ function reviewRoot(leg, extraActions, label) {
     { id: 'start', op: 'start', payload: {} },
     { id: 'doc-pass', op: 'step', payload: { stepId: 'req-docs', disposition: 'pass', evidence: 'sentence corrected' } },
     ...extraActions,
-    { id: 'verify-bind', op: 'binding', payload: { stepId: 'req-verify', bindingId: 'verification-loop', disposition: 'loaded', evidence: 'verification loop skill located' } },
+    // Exit 2 is the honest outcome while the review is refused: verification cannot complete ahead of an unapproved review.
+    { id: 'verify-bind', op: 'binding', payload: { stepId: 'req-verify', bindingId: 'verification-loop', disposition: 'loaded', evidence: 'verification loop skill located' }, expectExit: { on: [0, 2] } },
     { id: 'stop', op: 'stop' },
     { id: 'stop-generic', op: 'stopGeneric' },
   ];
   return item;
 }
 
+// The Agent launch's correlated PostToolUse: the result surface that names the reviewer (F5). Its tool is not evidence.
+const agentSurface = (id, agentId) => ({ id, op: 'hookDeliver', payload: { event: 'PostToolUse', toolName: 'Agent', command: 'agent-launch', toolUseId: `toolu_f4t4_${id}`, response: { stdout: '', stderr: '', interrupted: false, agentId } } });
+const subStop = (agentId, message) => ({ id: 'sub-stop', op: 'hookDeliver', payload: { event: 'SubagentStop', agentId, agentType: 'doc-reviewer', lastAssistantMessage: message } });
+const reviewPass = () => ({ id: 'review-pass', op: 'step', payload: { stepId: 'req-review', disposition: 'pass', evidence: 'reviewer approved' }, expectExit: { on: [0, 2] } });
+// Approves and binds the reviewed artifact, so the only variable in each case is the one under test.
+const BOUND_APPROVE = `${VERDICT_APPROVE}\nReviewed artifact: docs/a.md sha256:${sha256(CAND_NORMATIVE)}`;
+const LINT_RUN = { id: 'lint-run', op: 'hostRun', payload: { command: 'doc-check', args: ['check', '--workspace', '.', '--config', '.agents/harness-everything/project-docs.json', '--changed-path', 'docs/a.md'] } };
+const lintBy = agentId => ({ id: 'post-lint', op: 'hookDeliver', payload: { event: 'PostToolUse', command: LINT_COMMAND, toolUseId: 'toolu_f4t4_lint_r6', fromRun: 'lint-run', agentId } });
+
 function partR6R7(leg) {
   console.log(`\n== R6/R7 (${leg}): an executor or an unlabelled surface cannot approve the review ==`);
-  // R6: the reviewer is the same subagent that ran the work (the Agent result carries its id).
-  const executorStaged = stage(leg);
-  try {
-    useShippedExport(executorStaged);
-    const item = reviewRoot(leg, [
-      { id: 'agent-post', op: 'hookDeliver', payload: { event: 'PostToolUse', command: LINT_COMMAND, toolUseId: 'toolu_f4t4_agent', response: { stdout: '{}', stderr: '', interrupted: false, agentId: 'agent-9' } } },
-      { id: 'sub-stop', op: 'hookDeliver', payload: { event: 'SubagentStop', agentId: 'agent-9', agentType: 'doc-reviewer', lastAssistantMessage: VERDICT_APPROVE } },
-      { id: 'review-pass', op: 'step', payload: { stepId: 'req-review', disposition: 'pass', evidence: 'reviewer approved' }, expectExit: { on: [0, 2] } },
-    ], 'F4T4-R6-executor');
-    const root = replay(item, executorStaged.dist, { pilot: '1' });
-    runChecks(`R6.reviewer-is-executor@${leg}`, root, [
-      { id: 'review-refused', status: 'RED', reason: 'F4-R F4: the reviewer agent_id equals an executor of this task and the review is approved', test: () => ({ pass: root.actions['review-pass'].exitCode === 2, actual: root.actions['review-pass'].exitCode }) },
-    ]);
-  } finally {
-    executorStaged.cleanup();
-  }
+  // Each case runs one review. `runs` are the reviewer's own tool calls; the review then has its Agent surface and verdict.
+  const reviewCase = (label, runs, agentId) => {
+    const staged = stage(leg);
+    try {
+      useShippedExport(staged);
+      const item = reviewRoot(leg, [...runs, agentSurface('agent-result', agentId), subStop(agentId, BOUND_APPROVE), reviewPass()], label);
+      return replay(item, staged.dist, { pilot: '1' });
+    } finally {
+      staged.cleanup();
+    }
+  };
+  const approved = root => root.actions['review-pass'].exitCode === 0;
+  const refused = root => root.actions['review-pass'].exitCode === 2;
 
-  // R7: a SubagentStop with no Agent or Task result surface at all.
-  const surfaceStaged = stage(leg);
-  try {
-    useShippedExport(surfaceStaged);
-    const item = reviewRoot(leg, [
-      { id: 'sub-stop', op: 'hookDeliver', payload: { event: 'SubagentStop', agentId: 'agent-9', agentType: 'doc-reviewer', lastAssistantMessage: VERDICT_APPROVE } },
-      { id: 'review-pass', op: 'step', payload: { stepId: 'req-review', disposition: 'pass', evidence: 'reviewer approved' }, expectExit: { on: [0, 2] } },
-    ], 'F4T4-R7-no-surface');
-    const root = replay(item, surfaceStaged.dist, { pilot: '1' });
-    runChecks(`R7.no-agent-surface@${leg}`, root, [
-      { id: 'not-approved', status: 'RED', reason: 'F4-R F5: a review is approved with no correlated Agent/Task result surface', test: () => ({ pass: root.actions['review-pass'].exitCode === 2, actual: root.actions['review-pass'].exitCode }) },
-    ]);
-  } finally {
-    surfaceStaged.cleanup();
-  }
+  // R6: the reviewer ran a registered doc-check, so the reviewer is an executor and cannot approve (F4-R F4).
+  const registeredRun = { id: 'agent-post', op: 'hookDeliver', payload: { event: 'PostToolUse', command: LINT_COMMAND, toolUseId: 'toolu_f4t4_agent', response: { stdout: '{}', stderr: '', interrupted: false, agentId: 'agent-9' } } };
+  const plainRun = { ...registeredRun, id: 'agent-post', payload: { ...registeredRun.payload, command: 'npm test', toolUseId: 'toolu_f4t4_plain' } };
+  const root6 = reviewCase('F4T4-R6-executor', [registeredRun], 'agent-9');
+  const root6Plain = reviewCase('F4T4-R6-plain-control', [plainRun], 'agent-9');
+  // The same executor rule with the registered run as real evidence: the reviewer's own doc-check run is refused.
+  const rootEvidence = reviewCase('F4T4-R6-evidence', [LINT_RUN, lintBy('agent-9')], 'agent-9');
+  const rootEvidenceOther = reviewCase('F4T4-R6-evidence-other-control', [LINT_RUN, lintBy('agent-other')], 'agent-9');
+  runChecks('R6.reviewer-is-executor@' + leg, root6, [
+    { id: 'registered-run-refused', status: 'CONTROL', reason: 'F4-R F4: the reviewer agent_id equals an executor of this task and the review is approved', test: () => ({ pass: refused(root6), actual: root6.actions['review-pass'].exitCode }) },
+  ]);
+  runChecks('R6.plain-tool-use-control@' + leg, root6Plain, [
+    { id: 'plain-tool-use-approved', status: 'CONTROL', reason: 'a reviewer whose tool use is not registered doc-check evidence stays independent', test: () => ({ pass: approved(root6Plain), actual: root6Plain.actions['review-pass'].exitCode }) },
+  ]);
+  runChecks('R6.evidence-run-refused@' + leg, rootEvidence, [
+    { id: 'reviewer-own-evidence-refused', status: 'CONTROL', reason: 'F4-R F4: a reviewer whose own registered doc-check run is evidence is an executor', test: () => ({ pass: refused(rootEvidence), actual: rootEvidence.actions['review-pass'].exitCode }) },
+  ]);
+  runChecks('R6.evidence-run-other-control@' + leg, rootEvidenceOther, [
+    { id: 'other-agent-evidence-approved', status: 'CONTROL', reason: 'the same run by another agent leaves the reviewer independent', test: () => ({ pass: approved(rootEvidenceOther), actual: rootEvidenceOther.actions['review-pass'].exitCode }) },
+  ]);
+
+  // R7: a SubagentStop with no Agent or Task result surface at all is not an approval (F4-R F5).
+  const noSurface = (() => {
+    const staged = stage(leg);
+    try {
+      useShippedExport(staged);
+      return replay(reviewRoot(leg, [subStop('agent-9', BOUND_APPROVE), reviewPass()], 'F4T4-R7-no-surface'), staged.dist, { pilot: '1' });
+    } finally {
+      staged.cleanup();
+    }
+  })();
+  runChecks(`R7.no-agent-surface@${leg}`, noSurface, [
+    { id: 'not-approved', status: 'CONTROL', reason: 'F4-R F5: a review is approved with no correlated Agent/Task result surface', test: () => ({ pass: refused(noSurface), actual: noSurface.actions['review-pass'].exitCode }) },
+  ]);
 }
 
 // ---- R8 and R9: an independent review bound to the current candidate, and a stale binding (F4-R F6) ------------------
 
 function partR8R9(leg) {
   console.log(`\n== R8/R9 (${leg}): an independent review bound to the candidate is credited; a stale binding is not ==`);
-  const candidateDigest = sha256(CAND_NORMATIVE);
-  const staleDigest = sha256(BASE_A);
+  // Quality-review is a normative-change obligation, and only prd and adr documents carry normative changes (a requirement
+  // acceptance edit is one). A reference body is never normative, so these cases govern docs/a.md as a draft prd.
+  const PRD = acceptance => `---\nrole: prd\nid: PRD-GRPH-001\nrevision: 1\nstatus: draft\n---\n\n### REQ-GRPH-010: Checkout retry\n\nAcceptance: the checkout retries ${acceptance}.\n`;
+  const PRD_BASE = PRD('once');
+  const PRD_CAND = PRD('twice');
+  const PRD_CONFIG = JSON.stringify({ governed: [{ path: 'docs/a.md', role: 'prd' }], domains: ['GRPH'] }, null, 2) + '\n';
+  const candidateDigest = sha256(PRD_CAND);
+  const staleDigest = sha256(PRD_BASE);
   const normativeCase = (label, digest) => {
     const item = reviewRoot(leg, [
-      { id: 'lint-run', op: 'hostRun', payload: { command: 'doc-check', args: ['check', '--workspace', '.', '--config', '.agents/harness-everything/project-docs.json', '--changed-path', 'docs/a.md'] } },
+      LINT_RUN,
       { id: 'post-lint', op: 'hookDeliver', payload: { event: 'PostToolUse', command: LINT_COMMAND, toolUseId: 'toolu_f4t4_check_r8', fromRun: 'lint-run' } },
-      { id: 'sub-stop', op: 'hookDeliver', payload: { event: 'SubagentStop', agentId: 'agent-7', agentType: 'doc-reviewer', lastAssistantMessage: `${VERDICT_APPROVE}\nReviewed: docs/a.md sha256:${digest}` } },
+      agentSurface('agent-result', 'agent-7'),
+      subStop('agent-7', `${VERDICT_APPROVE}\nReviewed artifact: docs/a.md sha256:${digest}`),
       { id: 'review-pass', op: 'step', payload: { stepId: 'req-review', disposition: 'pass', evidence: 'independent reviewer approved' } },
       { id: 'verify-pass', op: 'step', payload: { stepId: 'req-verify', disposition: 'pass', evidence: 'objective doc checks recorded' }, expectExit: { on: [0, 2] } },
     ], label);
@@ -266,13 +301,14 @@ function partR8R9(leg) {
     return item;
   };
   // The normative edit goes to the candidate tree; the base is the committed one.
-  const candidateFiles = { 'docs/a.md': CAND_NORMATIVE };
+  const candidateFiles = { 'docs/a.md': PRD_CAND };
+  const baseFiles = { ...clone(POS_CASE.input.baseFiles), 'docs/a.md': PRD_BASE, '.agents/harness-everything/project-docs.json': PRD_CONFIG };
   for (const [label, digest, expectCredit] of [['F4T4-R8-bound', candidateDigest, true], ['F4T4-R9-stale', staleDigest, false]]) {
     const staged = stage(leg);
     try {
       useShippedExport(staged);
       const item = normativeCase(label, digest);
-      item.input = { ...clone(POS_CASE.input), candidateFiles };
+      item.input = { baseFiles, candidateFiles };
       const root = replay(item, staged.dist, { pilot: '1' });
       // Non-vacuity: the independent review really reached the chain, so a missing acceptance is the finding, not a broken set-up.
       const reviewCapture = (root.actions['sub-stop'].state.capture || { records: [] }).records.find(record => record.event === 'SubagentStop') || {};
@@ -282,11 +318,15 @@ function partR8R9(leg) {
       ];
       const checks = setup.concat(expectCredit
         ? [
-          { id: 'R8.quality-review-accepted', status: 'RED', reason: 'F4-R F6: the reviewed digests are never bound, so an applicable quality-review is never accepted and can never be satisfied', test: () => ({ pass: acceptedCapabilityOf(root).includes('quality-review') && pilotOf(root).pilotCredit === true, actual: { accepted: acceptedCapabilityOf(root), pilotCredit: pilotOf(root).pilotCredit } }) },
+          // Open (F4-T5): the review never reaches the credit chain. captureReferences offers PostToolUse refs only, resolveEvent sends
+          // `#quality-review` to the doc-capability branch, and the review event has no provenance. Verified by a scratch copy
+          // with those three changes: quality-review is accepted. conflict-check has no producer, so pilotCredit stays false by design.
+          { id: 'R8.quality-review-accepted', status: 'RED', reason: 'F4-R F6: a bound independent review is accepted as quality-review (not yet reached: the review never enters the credit chain)', test: () => ({ pass: acceptedCapabilityOf(root).includes('quality-review'), actual: { accepted: acceptedCapabilityOf(root) } }) },
         ]
         : [
           { id: 'R9.quality-review-not-accepted', status: 'CONTROL', reason: '', test: () => ({ pass: !acceptedCapabilityOf(root).includes('quality-review'), actual: acceptedCapabilityOf(root) }) },
-          { id: 'R9.artifact-mismatch-reported', status: 'RED', reason: 'F4-R F6: a stale reviewed digest is not reported as artifact-mismatch', test: () => ({ pass: diagnosticsOf(root).some(item => item && item.code === 'artifact-mismatch'), actual: diagnosticsOf(root).map(item => (item && item.code) || item) }) },
+          // Open (F4-T5): the same three gaps as R8 keep the stale review out of the events adapter, so no mismatch is reported.
+          { id: 'R9.artifact-mismatch-reported', status: 'RED', reason: 'F4-R F6: a stale reviewed digest is reported as artifact-mismatch (not reached: the review never enters the credit chain)', test: () => ({ pass: diagnosticsOf(root).some(item => item && item.code === 'artifact-mismatch'), actual: diagnosticsOf(root).map(item => (item && item.code) || item) }) },
         ]);
       runChecks(`${label}@${leg}`, root, checks);
     } finally {
