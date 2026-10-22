@@ -315,6 +315,8 @@ Decision extraction recognizes ATX boundaries with 0–3 leading spaces and igno
 
 Source checkout, Codex plugin and Claude plugin copy whole skill trees. Callers locate `doc-lifecycle.js` and the resolver relative to their own skill directory, never the source-tree root. A to-spec-only install must use the same resolver implementation (copied byte-identically and checked), and a broken shared module is an error, never a silent fallback to older host scanning.
 
+The shared writing craft and maintenance references live in `harness-everything/references/documentation/_shared/` and ship with the plugin package, so every doc-producing skill links to one copy rather than its own.
+
 ## Generated index
 
 `buildIndex` returns Markdown with no timestamps or environment data, so two runs over the same tree are byte-identical. Sections: active documents (sorted by ID then path, with derived `superseded by`), legacy documents (sorted by ID then path, with projected status), and the unresolved list (resolution-affecting error diagnostics).

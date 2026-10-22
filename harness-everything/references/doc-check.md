@@ -46,6 +46,17 @@ Stdout is one JSON object:
 | 1 | A defect: a lint error, a broken link, or an unreadable changed path (`links.broken` with `reason: "unreadable"`). Fix it and rerun |
 | 2 | Usage or config error. Nothing was checked; `links.skipped` says so |
 
+A top-level `reminders` array carries advisory prose-share items, `strength: "SHOULD"`. One item is emitted for each changed, readable, non-legacy governed `reference` doc whose body has more than 50% prose lines (`2 * proseLines > eligibleLines`). Reminders never change an exit code and are never diagnostics. The array is absent on the exit-2 lanes. A doc with malformed frontmatter gets no reminder, because lint already reports the frontmatter error.
+
+## Shared craft and maintenance
+
+Read these before drafting or editing a governed document:
+
+- [writing-craft.md](documentation/_shared/writing-craft.md): writing principles and the prose-share reminder rules (D6.7)
+- [maintenance.md](documentation/_shared/maintenance.md): the event table for D6.5 and D6.6
+
+These links resolve from this `references/` directory. A copy of the skill without `references/documentation/` must report the shared reference as unavailable.
+
 ## What it does not prove
 
 - No normative review, quality review or conflict review. Normative changes still need their own review.

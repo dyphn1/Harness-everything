@@ -79,6 +79,26 @@ function emit(result, exit) {
   return exit;
 }
 
+// A1 §3 line classifier over the body (frontmatter already removed). Returns prose and eligible physical-line counts.
+function proseShare(body) {
+  let prose = 0;
+  let eligible = 0;
+  let fence = null;
+  for (const line of body.split(/\r?\n/)) {
+    if (fence) {
+      const close = line.match(/^ {0,3}(`{3,}|~{3,})\s*$/);
+      if (close && close[1][0] === fence[0] && close[1].length >= fence.length) fence = null;
+      continue;
+    }
+    const open = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (open) { fence = open[1]; continue; }
+    if (!line.trim() || /^( {4}|\t)/.test(line)) continue;
+    eligible++;
+    if (!/^ {0,3}(#{1,6}(\s|$)|([-+*]|\d+[.)])\s|\||(-{3,}|\*{3,}|_{3,})\s*$)/.test(line)) prose++;
+  }
+  return { prose, eligible };
+}
+
 function check(options) {
   const workspace = path.resolve(options.workspace);
   const configPath = path.resolve(workspace, options.config);
@@ -92,7 +112,8 @@ function check(options) {
     return emit({ lint: { exit: 2, error: 'lint output was not JSON', diagnostics: [] }, links: { checked: 0, broken: [], skipped: 'lint-usage-error' }, coverage: { unsupported: [] } }, 2);
   }
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  const governed = new Set(collectDocs(workspace, config).filter(doc => doc.role).map(doc => doc.path));
+  const docs = collectDocs(workspace, config);
+  const governed = new Set(docs.filter(doc => doc.role).map(doc => doc.path));
 
   const broken = [];
   const unsupported = [];
@@ -130,10 +151,20 @@ function check(options) {
     }
   }
 
+  // SHOULD reminders only: they never change the exit code and are never diagnostics.
+  const changed = new Set(options.changedPaths.map(value => path.relative(workspace, path.resolve(workspace, value)).split(path.sep).join('/')));
+  const reminders = [];
+  for (const doc of docs) {
+    if (!changed.has(doc.path) || doc.role !== 'reference' || doc.legacy || doc.error) continue;
+    const { prose, eligible } = proseShare(doc.body);
+    if (2 * prose > eligible) reminders.push({ code: 'prose-share', path: doc.path, strength: 'SHOULD', proseLines: prose, eligibleLines: eligible, share: prose / eligible, threshold: 0.5 });
+  }
+
   const result = {
     lint: { exit: lintExit, evidence: analysis.evidence, diagnostics: analysis.diagnostics },
     links: { checked, broken },
-    coverage: { unsupported }
+    coverage: { unsupported },
+    reminders
   };
   return emit(result, lintExit === 1 || broken.length ? 1 : 0);
 }
