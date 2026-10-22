@@ -74,9 +74,12 @@ function processState(payload) {
       // verification evidence, and only at the shipped pin (R3-02). Any other path earns no verification evidence. OFF stays legacy.
       const docCheck = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1' ? require('./lib/doc-reconciliation-provider') : null;
       const installedCheck = docCheck && docCheck.registeredInstalledCheck(command, cwdOf(payload, root));
-      const verifies = installedCheck
+      const docCheckCandidate = installedCheck && installedCheck.kind !== 'not-candidate';
+      const pinCheckable = installedCheck && installedCheck.installed
+        && (installedCheck.kind === 'accepted' || installedCheck.reason === 'implementation-pin-mismatch');
+      const verifies = docCheckCandidate && pinCheckable
         ? docCheck.fileDigest(installedCheck.installed) === docCheck.SHIPPED_DOC_CHECK_DIGEST
-        : isVerificationShell(command, { cwd: cwdOf(payload, root), root });
+        : docCheckCandidate ? false : isVerificationShell(command, { cwd: cwdOf(payload, root), root });
       if (!isFailed && (isSuccessEvent || exitCode === 0) && verifies) { state.lastVerifyAt = Date.now(); state.lastVerifyExitCode = exitCode ?? null; }
     }
     fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');

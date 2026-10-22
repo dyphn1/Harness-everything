@@ -202,14 +202,23 @@ function readCaptures(context) {
   return require('./doc-reconciliation-provider').readCaptureView(context.sessionDir).records;
 }
 
-// Only a Bash command that names doc-check is a doc-check candidate. An ordinary Edit or Agent result is not (R3-01).
-const docCheckCandidate = item => item.event === 'PostToolUse' && /doc-check/.test(String(item.command || ''));
+// Only explicit PostToolUse doc-check candidates are offered; ordinary Edit or Agent results are not (R3-01).
+const docCheckCandidate = item => item.event === 'PostToolUse'
+  && require('./doc-reconciliation-provider').resolveDocCheckInvocation(item.command, item.cwd).kind !== 'not-candidate';
 
 function captureReferences(context) {
-  return readCaptures(context)
+  const captures = readCaptures(context);
+  const candidates = captures
     .filter(item => item && typeof item.ref === 'string' && (item.event === 'SubagentStop' || docCheckCandidate(item)))
-    .flatMap(item => (item.event === 'SubagentStop' ? ['quality-review'] : ['doc-lint', 'link-check'])
-      .map(capability => `${item.ref}#${capability}`));
+    .filter(item => item.event !== 'SubagentStop');
+  const reviews = captures.filter(item => item && typeof item.ref === 'string' && item.event === 'SubagentStop');
+  const references = [];
+  for (const [index, capability] of ['doc-lint', 'link-check'].entries()) {
+    const ordered = index ? candidates.slice(1).concat(candidates.slice(0, 1)) : candidates;
+    references.push(...ordered.map(item => `${item.ref}#${capability}`));
+  }
+  // The adapter accepts one event per capability; rotating candidate order lets separate valid runs fill each capability.
+  return [...references, ...reviews.map(item => `${item.ref}#quality-review`)];
 }
 
 // R3-02: verification recorded before an installed-runtime change is withdrawn once the live doc-check leaves the pin.
@@ -219,7 +228,11 @@ function withdrawChangedRuntimeVerification(context) {
     const provider = require('./doc-reconciliation-provider');
     const installed = provider.installedDocCheck();
     if (!installed || provider.fileDigest(installed) === provider.SHIPPED_DOC_CHECK_DIGEST) return;
-    if (!readCaptures(context).some(item => item && item.event === 'PostToolUse' && provider.parseRegisteredCheck(item.command))) return;
+    if (!readCaptures(context).some(item => {
+      if (!item || item.event !== 'PostToolUse') return false;
+      const invocation = provider.resolveDocCheckInvocation(item.command, item.cwd);
+      return invocation.kind === 'accepted' || invocation.reason === 'implementation-pin-mismatch';
+    })) return;
     const file = path.join(context.sessionDir, 'handoff-state.json');
     const handoff = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (handoff.lastVerifyAt === undefined) return;

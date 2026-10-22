@@ -25,6 +25,16 @@ node "<this-skill-dir>/scripts/doc-check.js" check \
 - `--changed-path` is repeatable. Quote paths with spaces. Pass deleted and old rename paths too.
 - `--base` is the commit the change is measured against. Omit it and the output shows `evidence.immutability: not-observed`.
 
+## Hook invocation grammar
+
+Hook evidence recognizes only a direct `node <installed-doc-check.js> check` command. The installed script path must resolve through native `realpath` to this plugin's runtime, and its CRLF-normalized SHA-256 must match the shipped pin. Case variants are accepted when the host filesystem resolves them to that same file.
+
+- `--workspace`, `--config`, and at least one `--changed-path` are required. `--workspace`, `--config`, and optional `--base` occur once; `--changed-path` may repeat. Every flag takes one value.
+- The hook tokenizer supports single and double quotes, adjacent quoted/unquoted text, and backslash escapes. This lets quoted or escaped paths contain spaces.
+- Explicit candidates using wrappers such as `sh -c`, `env`, or `npx` are refused. The tokenizer rejects unquoted shell operators and line breaks, escaped line continuations, comment markers at a word boundary, active `$`/backtick substitution syntax (including inside double quotes), and unquoted glob, brace, or tilde expansion. Quoting or escaping makes supported metacharacters literal.
+- A refused explicit candidate gets a reason and cannot fall through to generic shell verification or set `lastVerifyAt`.
+- The hook sees the command text supplied by the host. An opaque alias such as `dc` cannot be resolved as doc-check without host-provided argv or alias expansion, so it remains unrecognized.
+
 | Layout | `<this-skill-dir>` |
 |---|---|
 | Source checkout | `<checkout>/harness-everything` |

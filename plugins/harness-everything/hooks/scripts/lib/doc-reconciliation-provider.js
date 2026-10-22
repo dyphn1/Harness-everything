@@ -41,8 +41,9 @@ const QUALIFICATION_EXPORT_SCHEMA = 'harness.doc-reconciliation.qualification.v1
 const HEX64 = /^[0-9a-f]{64}$/;
 const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent'];
 const STDOUT_CAP_BYTES = 1024 * 1024;
-const DOC_CHECK_FLAGS = ['--workspace', '--config', '--changed-path', '--base'];
+const DOC_CHECK_FLAGS = new Set(['--workspace', '--config', '--changed-path', '--base']);
 const DOC_CHECK_SCHEMA = 'harness.doc-check.check.v1';
+const DOC_CHECK_CANDIDATE = /doc-check(?:\.js)?/i;
 // Canonical SHA-256 of harness-everything/scripts/doc-check.js (CRLF normalised to LF). Re-pin deliberately when that script changes.
 const SHIPPED_DOC_CHECK_DIGEST = 'da5e51a763eda6680afb63ee781b566253df9d358eec1e65436786c9ecebbbdb';
 // This install's own doc-check runtime, relative to hooks/scripts/lib: the source checkout or the packaged plugin.
@@ -51,22 +52,7 @@ const DOC_CHECK_INSTALL_LAYOUTS = [
   ['..', '..', '..', 'skills', 'harness-everything', 'scripts', 'doc-check.js'],
 ];
 
-// A registered, argv-validated `doc-check check` invocation, or null. No shell operators, expansions or quoting.
-// Shape only: whether the script is this install's own runtime is decided by registeredInstalledCheck.
-function parseRegisteredCheck(command) {
-  if (typeof command !== 'string' || /[&|;<>`$()\\"']/.test(command)) return null;
-  const tokens = command.trim().split(/\s+/);
-  if (tokens.length < 4 || tokens[0] !== 'node' || path.basename(tokens[1]) !== 'doc-check.js' || tokens[2] !== 'check') return null;
-  const flags = tokens.slice(3);
-  if (flags.length % 2 !== 0) return null;
-  for (let index = 0; index < flags.length; index += 2) {
-    if (!DOC_CHECK_FLAGS.includes(flags[index]) || flags[index + 1].startsWith('--')) return null;
-  }
-  return tokens;
-}
-
-// The resolved path of this install's own doc-check.js, or null when neither layout exists. Realpath on both sides so a
-// symlink or a case-variant path cannot pass as the shipped file (canonicalPath matches the producer's helper).
+// The resolved path of this install's own doc-check.js, or null when neither layout exists.
 function canonicalPath(value) { return fs.realpathSync.native(path.resolve(value)); }
 function installedDocCheck() {
   for (const layout of DOC_CHECK_INSTALL_LAYOUTS) {
@@ -77,16 +63,118 @@ function installedDocCheck() {
 // Canonical doc-check digest (UTF-8, CRLF normalised to LF): capture and assessment compare the same value.
 function fileDigest(file) { return crypto.createHash('sha256').update(fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n')).digest('hex'); }
 
-// A registered check counts only when its script resolves (relative to the captured cwd) to this install's own runtime.
-// Any other path, or a missing file, returns null: no credit, no capability event and no verification evidence.
-function registeredInstalledCheck(command, cwd) {
-  const tokens = parseRegisteredCheck(command);
-  if (!tokens) return null;
-  const installed = installedDocCheck();
-  if (!installed) return null;
+// Tokenize only the shell-word subset needed for a direct node invocation. Expansion and shell control syntax are refused.
+function safeTokenize(command) {
+  if (typeof command !== 'string') return { ok: false, reason: 'invalid-command' };
+  const tokens = [];
+  let token = '';
+  let active = false;
+  let quote = null;
+  const push = () => {
+    if (active) tokens.push(token);
+    token = '';
+    active = false;
+  };
+
+  for (let index = 0; index < command.length; index += 1) {
+    const ch = command[index];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      else token += ch;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === '"') { quote = null; continue; }
+      if (ch === '\\') {
+        const next = command[index + 1];
+        if (next === undefined || next === '\n' || next === '\r') return { ok: false, reason: 'shell-continuation' };
+        if ([ '"', '\\', '$', '`' ].includes(next)) token += next;
+        else token += `\\${next}`;
+        index += 1;
+        active = true;
+        continue;
+      }
+      if (ch === '$' || ch === '`') return { ok: false, reason: 'shell-expansion' };
+      token += ch;
+      active = true;
+      continue;
+    }
+
+    if (ch === '\n' || ch === '\r') return { ok: false, reason: 'shell-operator' };
+    if (/\s/.test(ch)) { push(); continue; }
+    if (ch === "'" || ch === '"') { quote = ch; active = true; continue; }
+    if (ch === '\\') {
+      const next = command[index + 1];
+      if (next === undefined || next === '\n' || next === '\r') return { ok: false, reason: 'shell-continuation' };
+      token += next;
+      active = true;
+      index += 1;
+      continue;
+    }
+    if (';&|<>()'.includes(ch)) return { ok: false, reason: 'shell-operator' };
+    if ('*?[]{}~'.includes(ch) || ch === '$' || ch === '`') return { ok: false, reason: 'shell-expansion' };
+    if (ch === '#' && !active) return { ok: false, reason: 'shell-comment' };
+    token += ch;
+    active = true;
+  }
+  if (quote) return { ok: false, reason: 'unclosed-quote' };
+  push();
+  return { ok: true, tokens };
+}
+
+// Internal realpath check; the public decision and reason tuple come only from resolveDocCheckInvocation.
+function matchInstalledRuntime(tokens, cwd, installed) {
   let argv;
   try { argv = canonicalPath(path.resolve(textOf(cwd) ? cwd : process.cwd(), tokens[1])); } catch { return null; }
   return argv === installed ? { tokens, installed } : null;
+}
+
+function resolveDocCheckInvocation(command, cwd) {
+  let installed = null;
+  let digest = null;
+  let argv = null;
+  function rejected(reason) { return { kind: 'rejected', reason, installed, digest, argv }; }
+
+  if (typeof command !== 'string' || !DOC_CHECK_CANDIDATE.test(command)) {
+    return { kind: 'not-candidate', reason: 'not-doc-check', installed: null, digest: null, argv: null };
+  }
+  const parsed = safeTokenize(command);
+  if (!parsed.ok) return rejected(parsed.reason);
+  const tokens = parsed.tokens;
+  argv = tokens.slice(1);
+  if (tokens[0] !== 'node') return rejected('direct-launcher-required');
+  if (tokens.length < 4 || path.basename(tokens[1]).toLowerCase() !== 'doc-check.js' || tokens[2] !== 'check') {
+    return rejected('invocation-grammar');
+  }
+
+  const values = new Map();
+  const changedPaths = [];
+  for (let index = 3; index < tokens.length; index += 2) {
+    const flag = tokens[index];
+    const value = tokens[index + 1];
+    if (!DOC_CHECK_FLAGS.has(flag)) return rejected('unknown-flag');
+    if (value === undefined || !value || value.startsWith('--')) return rejected('flag-value-missing');
+    if (flag === '--changed-path') changedPaths.push(value);
+    else {
+      if (values.has(flag)) return rejected('duplicate-flag');
+      values.set(flag, value);
+    }
+  }
+  if (!values.has('--workspace') || !values.has('--config') || !changedPaths.length) {
+    return rejected('required-flag-missing');
+  }
+
+  installed = installedDocCheck();
+  if (!installed) return rejected('implementation-not-installed');
+  const registered = matchInstalledRuntime(tokens, cwd, installed);
+  if (!registered) return rejected('implementation-not-installed');
+  digest = fileDigest(registered.installed);
+  if (registered) {
+    if (registered.installed) {
+      if (fileDigest(registered.installed) !== SHIPPED_DOC_CHECK_DIGEST) return rejected('implementation-pin-mismatch', 'the installed doc-check is not the shipped script (canonical digest differs from SHIPPED_DOC_CHECK_DIGEST); no credit');
+    }
+  }
+  return { kind: 'accepted', reason: null, installed: registered.installed, digest, argv };
 }
 
 // Observation-time digests of the checked paths, read from the workspace when the check ran. Absent paths are omitted.
@@ -163,7 +251,7 @@ function journalExecutors(captures, author) {
   for (const item of Array.isArray(captures) ? captures : []) {
     if (!recordOf(item) || item.event !== 'PostToolUse') continue;
     if (item.tool_name === 'Agent' || item.tool_name === 'Task') continue;
-    if (!parseRegisteredCheck(item.command)) continue;
+    if (resolveDocCheckInvocation(item.command, item.cwd).kind === 'not-candidate') continue;
     if (textOf(item.session_id)) executors.add(item.session_id);
     if (textOf(item.agent_id)) executors.add(item.agent_id);
   }
@@ -395,12 +483,14 @@ const createClaudeOriginProvider = input => {
     if (capability && capability !== 'quality-review') {
       // Doc capability: only a registered, passed, fully covered doc-check invocation with retained stdout can cover it.
       if (cap.event !== 'PostToolUse') return rejected('capability-mismatch', 'only a PostToolUse check invocation can cover a doc capability');
-      if (!parseRegisteredCheck(cap.command)) return rejected('unregistered-command', 'the command is not a registered doc-check invocation; an arbitrary successful shell command never covers a doc capability');
-      // The script must be this install's own runtime, and its digest must still be the one observed at capture (F1/F9).
-      const registered = registeredInstalledCheck(cap.command, cap.cwd);
-      if (!registered) return rejected('implementation-not-installed', 'the registered check does not resolve to this install\'s own doc-check runtime; a different path earns no credit');
+      const registered = resolveDocCheckInvocation(cap.command, cap.cwd);
+      if (registered.kind === 'not-candidate') return rejected('unregistered-command', 'the command is not a registered doc-check invocation; an arbitrary successful shell command never covers a doc capability');
+      if (registered.kind === 'rejected' && registered.reason !== 'implementation-pin-mismatch') {
+        if (registered.reason === 'implementation-not-installed') return rejected('implementation-not-installed', 'the registered check does not resolve to this install\'s own doc-check runtime; a different path earns no credit');
+        return rejected('unregistered-command', `doc-check invocation rejected (${registered.reason}); no credit`);
+      }
       if (cap.implementationDigest !== fileDigest(registered.installed)) return rejected('implementation-digest-mismatch', 'the installed doc-check digest differs from the one observed at capture; no credit');
-      if (fileDigest(registered.installed) !== SHIPPED_DOC_CHECK_DIGEST) return rejected('implementation-pin-mismatch', 'the installed doc-check is not the shipped script (canonical digest differs from SHIPPED_DOC_CHECK_DIGEST); no credit');
+      if (registered.kind === 'rejected') return rejected('implementation-pin-mismatch', 'the installed doc-check is not the shipped script (canonical digest differs from SHIPPED_DOC_CHECK_DIGEST); no credit');
       if (!(cap.tool_use_id && typeof cap.tool_use_id === 'string')) return rejected('tool-use-id-missing', 'absent or empty tool_use_id: the invocation cannot be correlated, no credit');
       if (typeof cap.interrupted !== 'boolean') return rejected('outcome-ambiguous', 'ambiguous interruption/success correlation cannot be treated as success');
       if (cap.interrupted === true) return rejected('interrupted-not-credited', 'interrupted success is not mapped to exit 0 (owner decision row 1)');
@@ -431,7 +521,8 @@ const createClaudeOriginProvider = input => {
         if (typeof observed[relative] !== 'string') return rejected('artifact-unobserved', `no observation-time digest for ${relative}`);
         artifactDigests[relative] = observed[relative];
       }
-      const command = registered.tokens.join(' ');
+      const argv = ['node', ...registered.argv];
+      const command = argv.join(' ');
       const event = {
         eventId: 'claude-check-' + digestText(cap.captureId + ':' + capability),
         producerId,
@@ -441,7 +532,7 @@ const createClaudeOriginProvider = input => {
         capability,
         kind: 'execution',
         command,
-        argv: registered.tokens,
+        argv,
         cwd: typeof cap.cwd === 'string' ? cap.cwd : '',
         exitCode: 0,
         signal: null,
@@ -630,10 +721,10 @@ function buildCaptureRecord(payload, eventName, workspaceRoot) {
     if (recordOf(toolResponse) && typeof toolResponse.interrupted === 'boolean') record.interrupted = toolResponse.interrupted;
     // A registered doc-check invocation keeps its full stdout (capped), a digest of it, and the checked paths' digests
     // at observation time. Assessment re-parses the stdout; nothing is trusted from an agent-written field.
-    const installedCheck = registeredInstalledCheck(record.command, record.cwd);
-    if (installedCheck) {
-      // Digest of the shipped runtime observed now; assessment recomputes it and withholds on any change (F1/F9).
-      record.implementationDigest = fileDigest(installedCheck.installed);
+    const installedCheck = resolveDocCheckInvocation(record.command, record.cwd);
+    if (installedCheck.kind === 'accepted' || installedCheck.reason === 'implementation-pin-mismatch') {
+      // Record the observed bytes even when unpinned; only an accepted result may retain stdout.
+      record.implementationDigest = installedCheck.digest;
     }
     // G0: an unpinned doc-check keeps its digest only; its output is never retained, so no capture credit can be recorded.
     if (installedCheck && record.implementationDigest === SHIPPED_DOC_CHECK_DIGEST) {
@@ -740,6 +831,8 @@ function reviewRecordIndependent(cap, captures, principals) {
   return cap.reviewVerdict === 'approve' && textOf(cap.reviewSummary);
 }
 
-module.exports = { createClaudeOriginProvider, buildCaptureRecord, parseRegisteredCheck, registeredInstalledCheck, installedDocCheck,
+// Keep the old state-persist seam as an alias; it points at the single resolver above.
+module.exports = { createClaudeOriginProvider, buildCaptureRecord, resolveDocCheckInvocation,
+  registeredInstalledCheck: resolveDocCheckInvocation, installedDocCheck,
   fileDigest, SHIPPED_DOC_CHECK_DIGEST, journalExecutors, reviewRecordIndependent,
   writeImmutableEvent, rebuildJournalView, readCaptureView, observedIdentityFor, _internals: { captureJson, captureDigest, digestText, canonicalCapture } };
