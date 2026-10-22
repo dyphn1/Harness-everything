@@ -524,6 +524,23 @@ const handoffOf = (root, id) => (root.actions[id] && root.actions[id].state && r
 const reminderOf = root => (root.actions['stop-generic'] && root.actions['stop-generic'].stderr) || '';
 const unregisteredCount = root => diagnosticsOf(root).filter(item => item && item.code === 'unregistered-command').length;
 
+// A doc-edit session with no assessment: no verify step runs, so only state-persist decides lastVerifyAt. Used by the
+// M6 probe (F4-W9 pin in state-persist): a one-byte-changed doc-check must not advance lastVerifyAt, so the generic Stop
+// still reminds. The control is the unmodified doc-check, which sets lastVerifyAt and suppresses the reminder.
+function r3NoAssessCase(label, tampered) {
+  const item = clone(POS_CASE);
+  item.id = label;
+  const keep = new Set(['route', 'plan', 'start', 'doc-pass', 'lint-run', 'post-lint', 'stop-generic']);
+  const acts = [];
+  for (const action of item.actions) {
+    if (!keep.has(action.id)) continue;
+    if (action.id === 'lint-run') { acts.push(EDIT_FILE); if (tampered) acts.push(EDIT_CHECK); }
+    acts.push(action);
+  }
+  item.actions = acts;
+  return item;
+}
+
 function partR3(leg) {
   console.log(`\n== R3 (${leg}): a normal doc-edit session, and a one-byte installed change ==`);
   const runCase = item => {
@@ -539,14 +556,14 @@ function partR3(leg) {
   const session = runCase(r3ReviewCase(`F4T9-R3-01-edit@${leg}`, true));
   const agentOnly = runCase(r3ReviewCase(`F4T9-R3-01-agent@${leg}`, false));
   runChecks(`R3-01.normal-edit-session@${leg}`, session, [
-    { id: 'verify-step-passes', status: 'RED', reason: 'R3-01 (P1): the ordinary Edit and the Agent result become doc refs, which withholds credit, so the verify step exits 2', test: () => ({ pass: session.actions['verify-pass'].exitCode === 0, actual: session.actions['verify-pass'].exitCode }) },
-    { id: 'credited-exactly-lint-and-links', status: 'RED', reason: 'R3-01 (P1): a normal edit session withholds doc-lint and link-check credit (unregistered-command diagnostics from the Edit and Agent records)', test: () => ({ pass: JSON.stringify(creditedOf(session)) === JSON.stringify(['doc-lint', 'link-check']), actual: creditedOf(session) }) },
-    { id: 'no-unregistered-command-from-edit-or-agent', status: 'RED', reason: 'R3-01 (P1): the Edit and Agent PostToolUse records produce unregistered-command diagnostics (four observed: two from the Edit, two from the Agent result)', test: () => ({ pass: unregisteredCount(session) === 0, actual: unregisteredCount(session) }) },
+    { id: 'verify-step-passes', status: 'CONTROL', reason: 'R3-01 (P1): the ordinary Edit and the Agent result become doc refs, which withholds credit, so the verify step exits 2; closed by F4-W9 (4489376)', test: () => ({ pass: session.actions['verify-pass'].exitCode === 0, actual: session.actions['verify-pass'].exitCode }) },
+    { id: 'credited-exactly-lint-and-links', status: 'CONTROL', reason: 'R3-01 (P1): a normal edit session withholds doc-lint and link-check credit (unregistered-command diagnostics from the Edit and Agent records); closed by F4-W9 (4489376)', test: () => ({ pass: JSON.stringify(creditedOf(session)) === JSON.stringify(['doc-lint', 'link-check']), actual: creditedOf(session) }) },
+    { id: 'no-unregistered-command-from-edit-or-agent', status: 'CONTROL', reason: 'R3-01 (P1): the Edit and Agent PostToolUse records produce unregistered-command diagnostics (four observed: two from the Edit, two from the Agent result); closed by F4-W9 (4489376)', test: () => ({ pass: unregisteredCount(session) === 0, actual: unregisteredCount(session) }) },
     { id: 'reviewer-surface-approved', status: 'CONTROL', reason: '', test: () => ({ pass: session.actions['review-pass'].exitCode === 0, actual: session.actions['review-pass'].exitCode }) },
     { id: 'registered-run-accepted', status: 'CONTROL', reason: '', test: () => ({ pass: ['doc-lint', 'link-check'].every(c => acceptedCapabilityOf(session).includes(c)), actual: acceptedCapabilityOf(session) }) },
   ]);
   runChecks(`R3-01.agent-result-only@${leg}`, agentOnly, [
-    { id: 'no-unregistered-command-from-agent', status: 'RED', reason: 'R3-01 (P1): the Agent result PostToolUse alone produces unregistered-command diagnostics (two observed)', test: () => ({ pass: unregisteredCount(agentOnly) === 0, actual: unregisteredCount(agentOnly) }) },
+    { id: 'no-unregistered-command-from-agent', status: 'CONTROL', reason: 'R3-01 (P1): the Agent result PostToolUse alone produces unregistered-command diagnostics (two observed); closed by F4-W9 (4489376)', test: () => ({ pass: unregisteredCount(agentOnly) === 0, actual: unregisteredCount(agentOnly) }) },
     { id: 'reviewer-surface-approved', status: 'CONTROL', reason: '', test: () => ({ pass: agentOnly.actions['review-pass'].exitCode === 0, actual: agentOnly.actions['review-pass'].exitCode }) },
     { id: 'registered-run-accepted', status: 'CONTROL', reason: '', test: () => ({ pass: ['doc-lint', 'link-check'].every(c => acceptedCapabilityOf(agentOnly).includes(c)), actual: acceptedCapabilityOf(agentOnly) }) },
   ]);
@@ -561,10 +578,22 @@ function partR3(leg) {
     const before = handoffOf(root, 'edit-doc').lastVerifyAt ?? null;
     const after = handoffOf(root, 'verify-pass').lastVerifyAt ?? null;
     runChecks(`R3-02.${where}@${leg}`, root, [
-      { id: 'last-verify-unchanged', status: 'RED', reason: 'R3-02 (P3): a one-byte-changed installed doc-check still sets lastVerifyAt (set today, at capture)', test: () => ({ pass: before === after, actual: { before, after } }) },
-      { id: 'verification-reminder-emitted', status: 'RED', reason: 'R3-02 (P3): the advanced lastVerifyAt suppresses the generic verification reminder', test: () => ({ pass: /\[Verification Reminder\]/.test(reminderOf(root)), actual: reminderOf(root).trim().slice(0, 80) }) },
+      { id: 'last-verify-unchanged', status: 'CONTROL', reason: 'R3-02 (P3): a one-byte-changed installed doc-check still sets lastVerifyAt (set today, at capture); closed by F4-W9 (4489376)', test: () => ({ pass: before === after, actual: { before, after } }) },
+      { id: 'verification-reminder-emitted', status: 'CONTROL', reason: 'R3-02 (P3): the advanced lastVerifyAt suppresses the generic verification reminder; closed by F4-W9 (4489376)', test: () => ({ pass: /\[Verification Reminder\]/.test(reminderOf(root)), actual: reminderOf(root).trim().slice(0, 80) }) },
     ]);
   }
+
+  // M6 coverage (F4-T10): with no assessment, state-persist alone decides lastVerifyAt, and the generic Stop must still remind.
+  const noAssessControl = runCase(r3NoAssessCase(`F4T10-R3-02-noassess-control@${leg}`, false));
+  const noAssessTampered = runCase(r3NoAssessCase(`F4T10-R3-02-noassess-tampered@${leg}`, true));
+  runChecks(`R3-02.no-assessment-control@${leg}`, noAssessControl, [
+    { id: 'real-run-sets-last-verify-without-assessment', status: 'CONTROL', reason: '', test: () => ({ pass: typeof handoffOf(noAssessControl, 'post-lint').lastVerifyAt === 'number', actual: handoffOf(noAssessControl, 'post-lint').lastVerifyAt ?? null }) },
+    { id: 'no-reminder-after-real-run', status: 'CONTROL', reason: '', test: () => ({ pass: !/\[Verification Reminder\]/.test(reminderOf(noAssessControl)), actual: reminderOf(noAssessControl).trim().slice(0, 80) }) },
+  ]);
+  runChecks(`R3-02.no-assessment-tampered@${leg}`, noAssessTampered, [
+    { id: 'pinned-run-leaves-last-verify-unset', status: 'CONTROL', reason: 'F4-W9 (state-persist pin): a one-byte-changed doc-check does not advance lastVerifyAt, even without an assessment', test: () => ({ pass: (handoffOf(noAssessTampered, 'post-lint').lastVerifyAt ?? null) === null, actual: handoffOf(noAssessTampered, 'post-lint').lastVerifyAt ?? null }) },
+    { id: 'reminder-emitted-without-assessment', status: 'CONTROL', reason: 'F4-W9 (state-persist pin): the generic Stop still reminds after a one-byte-changed doc-check', test: () => ({ pass: /\[Verification Reminder\]/.test(reminderOf(noAssessTampered)), actual: reminderOf(noAssessTampered).trim().slice(0, 80) }) },
+  ]);
 }
 
 function main() {
