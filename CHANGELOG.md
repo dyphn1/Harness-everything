@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.41.1](https://github.com/dyphn1/Harness-everything/compare/v0.41.0...v0.41.1) (2026-10-23)
+
+### Bug Fixes
+
+* **hooks:** stop counting a recorded workflow step as an edit ([#365](https://github.com/dyphn1/Harness-everything/issues/365)) ([b1beefe](https://github.com/dyphn1/Harness-everything/commit/b1beefe55f3f2b794901a4bad4fe3d0310de6745))
+
 ## [0.41.0](https://github.com/dyphn1/Harness-everything/compare/v0.40.0...v0.41.0) (2026-10-23)
 
 ### Features
