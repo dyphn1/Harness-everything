@@ -45,6 +45,10 @@ episodes:
         change: "W13 5466cfb: stop candidate scanning at an unquoted word-start shell comment; retain quoted/mid-word hash and explicit checker controls"
         review: "A9 focused source/resolver review at 5466cfb; full closing review unknown"
         result: "Original comment witness resolves and direct/wrapped controls retain their kinds. Pre-existing multiline checker candidate is missed; naive newline splitting misclassifies heredoc data. In-scope boundary follow-up remains; episode open."
+      - round: 3
+        change: "Z2 a9a8807: split executable newlines and skip simple heredoc bodies; integrated at 0c53a57"
+        review: "R6 review of WB2/Z2 at 0c53a57; A10 class-level source and helper probes"
+        result: "Normal Run 4 credits exactly lint/link with review/verify pass. R6 finds unquoted heredoc substitution hidden by scanner, permitting generic fallback. A10 confirms full generic predicate and omitted reviewer executor; escaped target spelling defeats raw-substring-only guard. Episode remains open."
 ---
 
 ## Cue
@@ -58,6 +62,8 @@ The parser, the capture candidate filter, the installed-path check and the diges
 ## Lesson
 
 Stop point-fixing after the second same-class round. List the findings by decision class, name the violated clause, inventory every site that makes the decision (including unchanged consumers), then choose the smallest justified correction and re-trace one normal acceptance path. See the zoom-out repair-loop trigger.
+
+Episode 2 adds: one shared decision is not enough when its consumers need opposite error trade-offs. Selecting evidence references wants few false positives; granting trust (generic verification, reviewer independence) wants few false negatives. A scanner tuned for the first, patched one shell syntax per round, kept leaking into the second. Split them: a bounded recognizer selects references, and a conservative, parse-free rule denies trust to anything that is not a plain command.
 
 ## Evidence
 
