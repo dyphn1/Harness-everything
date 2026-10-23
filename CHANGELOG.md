@@ -39,6 +39,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Port the OpenCode adapter to the OpenCode 2 plugin contract: the module now default-exports `{ id: "harness.enforcement", setup(ctx) }` that registers `ctx.tool.hook("execute.before|after")` and `ctx.event.subscribe()` over the OpenCode 2 domains, while keeping the named V1 `HarnessEnforcement` factory for OpenCode 1.x hosts. OpenCode 2 fails to load named-export-only plugins with `Plugin must export a default definition with an id and an effect or setup function`; the V2 load was verified live on OpenCode 2.1.3 after a global-install reload.
+
 - Reject root-level `__proto__` files in S2a snapshot capture and validation instead of silently dropping their document obligations (#353).
 
 - Bind the S2a captured origin identity to the snapshot identity (workspace, session, workflow, revision, task), the captured plan and the selected active host, so a jointly substituted origin context and provider context cannot earn credit in either reconciliation mode; bind the captured config bytes to the captured inventory (#353).

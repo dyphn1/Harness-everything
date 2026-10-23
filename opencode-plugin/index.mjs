@@ -932,3 +932,80 @@ export const HarnessEnforcement = async ({ client, directory }) => {
     },
   }
 }
+
+// ---------------------------------------------------------------------------
+// OpenCode 2.x entrypoint.
+//
+// OpenCode 2 changed the plugin contract: a plugin default-exports
+// { id, setup(ctx) } and registers hooks through domains (ctx.tool.hook,
+// ctx.event.subscribe, ctx.session.*) instead of returning a hooks object from
+// a named factory. A named-export-only module fails to load with
+// "Plugin must export a default definition with an id and an effect or setup
+// function" (SchemaError at ["default"]) - this is what tripped the global
+// install on this machine's OpenCode 2.1.3.
+//
+// The named `HarnessEnforcement` factory above keeps the hooks-object shape
+// used by the repository mechanism tests (and by OpenCode 1.x hosts); this
+// default export adapts it to the V2 hooks. Tool hook events are verified
+// OpenCode 2.1.3 shapes: execute.before is {tool, sessionID, agent, messageID,
+// id, input} with `input` carrying the tool args; execute.after adds
+// {status, result | error}.
+export default {
+  id: "harness.enforcement",
+  async setup(ctx) {
+    const hooks = await HarnessEnforcement({
+      client: {
+        session: {
+          // V1 shutdown path calls client.session.prompt({path, body}) twice;
+          // map it onto the V2 session API instead of duplicating the code.
+          prompt: ({ path, body }) =>
+            ctx.session.prompt({
+              sessionID: path && path.id,
+              text: (body && body.parts || []).map((part) => part && part.text || "").join(""),
+            }),
+        },
+      },
+      directory: (ctx.location && ctx.location.directory) || ctx.directory,
+    })
+
+    await ctx.tool.hook("execute.before", (event) =>
+      hooks["tool.execute.before"](toolEventInput(event), { args: event.input }))
+    await ctx.tool.hook("execute.after", (event) =>
+      hooks["tool.execute.after"](toolEventInput(event), { args: event.input }))
+
+    const events = new AbortController()
+    void (async () => {
+      for await (const raw of ctx.event.subscribe({ signal: events.signal })) {
+        try {
+          await hooks.event({
+            event: {
+              type: raw.type,
+              // V1 event handlers read {type, properties}; V2 events are flat
+              // objects, so pass both shapes.
+              properties: raw.properties ?? raw,
+            },
+          })
+        } catch { // fail open, same as the hooks themselves
+        }
+      }
+    })()
+    return () => events.abort()
+  },
+}
+
+// Build the V1-shaped (input, output) pair the legacy hooks expect from the
+// V2 tool-hook event: legacy telemetry reads callID/agentID/sessionID and
+// `.args`, and edit detection reads output.args, which is the same input args
+// object in the V2 API.
+function toolEventInput(event) {
+  const input = event.input && typeof event.input === "object" ? event.input : {}
+  return {
+    ...input,
+    args: input,
+    tool: event.tool,
+    sessionID: event.sessionID,
+    agentID: event.agent,
+    callID: event.id,
+    callId: event.id,
+  }
+}
