@@ -1,0 +1,34 @@
+{
+  "schema": "harness.doc-reconciliation.qualification.v1",
+  "host": "claude-code",
+  "hostVersion": "2.1.308",
+  "captureRecordVersion": "claude-capture-record/1",
+  "run": "Run 2b",
+  "payloadKinds": {
+    "PostToolUse": [
+      "agent_id",
+      "interrupted",
+      "tool_use_id"
+    ],
+    "PreToolUse": [
+      "agent_id",
+      "tool_use_id"
+    ],
+    "SubagentStart": [
+      "agent_id"
+    ],
+    "SubagentStop": [
+      "agent_id"
+    ]
+  },
+  "correlation": {
+    "preToPostByToolUseId": true,
+    "interruptedExplicit": true,
+    "subagentStartStopSameAgent": true,
+    "agentResultAliasCorrelated": true
+  },
+  "sanitizedCapture": {
+    "file": "doc-reconciliation-capture.sanitized.jsonl",
+    "sha256": "db4d8c85d2ba0fd06f53f455f31b125dd194e9a22cb337687bc0e295a16f02e5"
+  }
+}

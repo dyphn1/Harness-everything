@@ -25,6 +25,20 @@ node "<this-skill-dir>/scripts/doc-check.js" check \
 - `--changed-path` is repeatable. Quote paths with spaces. Pass deleted and old rename paths too.
 - `--base` is the commit the change is measured against. Omit it and the output shows `evidence.immutability: not-observed`.
 
+## Hook invocation grammar
+
+Only a direct `node <installed-doc-check.js> check` command earns credit. The installed script path must resolve through native `realpath` to this plugin's runtime, and its CRLF-normalized SHA-256 must match the shipped pin. Case variants are accepted when the host filesystem resolves them to that same file.
+
+Candidate detection follows command roles across unquoted newline-separated command segments. A direct `doc-check`/`doc-check.js` target, a checker script operand to a recognized runtime, or a checker command inside a recognized shell `-c` string is a candidate even if its launcher, subcommand, flags or shell composition are unsupported. A command segment that explicitly targets the checker followed by unsupported operators, expansion or malformed trailing quoting remains a candidate and is refused by the strict grammar below; candidate status never authorizes a wrapper. A workflow command whose JSON acceptance text merely mentions `doc-check`, or an unrelated command that prints the name, is not a candidate.
+
+The bounded candidate scan treats quoted or escaped newlines as text. Simple here-docs with a same-line delimiter after `<<` or `<<-` are also recognized: their body through the exact closing-delimiter line is data, with leading tabs ignored for `<<-`. Dynamic or continued delimiters and shell-dialect extensions are outside this scan; they do not establish an accepted invocation.
+
+- `--workspace`, `--config`, and at least one `--changed-path` are required. `--workspace`, `--config`, and optional `--base` occur once; `--changed-path` may repeat. Every flag takes one value.
+- The strict invocation tokenizer supports single and double quotes, adjacent quoted/unquoted text, and backslash escapes. This lets quoted or escaped paths contain spaces.
+- An explicit checker target using a wrapper such as `sh -c`, `env`, or `npx` is refused. The tokenizer rejects unquoted shell operators and line breaks, escaped line continuations, comment markers at a word boundary, active `$`/backtick substitution syntax (including inside double quotes), and unquoted glob, brace, or tilde expansion. Quoting or escaping makes supported metacharacters literal.
+- A refused explicit candidate gets a reason and cannot fall through to generic shell verification or set `lastVerifyAt`.
+- The hook sees the command text supplied by the host. An opaque alias such as `dc` cannot be resolved as doc-check without host-provided argv or alias expansion, so it remains unrecognized.
+
 | Layout | `<this-skill-dir>` |
 |---|---|
 | Source checkout | `<checkout>/harness-everything` |
@@ -150,6 +164,17 @@ Bare `<DOMAIN>-NNN` tokens (no `REQ-`, `PRD-` or `legacy:` prefix) are reference
 | `no domains declared; bare <DOMAIN>-NNN references are not checked` in `coverage.unsupported` | Declare `domains` to have bare ADR-style refs checked. An undeclared-domain token is never a valid ADR ID (contract D6.8) |
 
 Do not silence a missing config. A missing config is a visible gap.
+
+## Credit (F4)
+
+The JSON carries a logical command ID (`harness.doc-check.check.v1` or `harness.doc-check.compare-derived.v1`) and per-capability `capabilities` with checked paths, coverage and skipped reasons. Credit is granted only for a registered run of this install's own script, identified by its resolved path and digest.
+
+- This JSON is **never self-credited**. Stdout that repeats an ID or a status is not evidence of credit.
+- Credit needs the host-captured raw output, checked against the producer's independently derived expected set. See `docs/doc-workflow-reconciliation.md`, section "F4: credited reconciliation".
+- Reminders never earn credit.
+- Trust is conservative. A compound shell command (newline, heredoc, `$()`, operators, malformed quoting) or any command that names doc-check gets no generic verification and does not make a reviewer independent. Run the checker as a plain command. A benign compound such as `npm test && echo ok` must run as its own command to count as generic verification.
+
+For an independent review in the L3 path, the parent computes the post-edit candidate digest with the one read-only command `shasum -a 256 docs/a.md`, then gives the reviewer the relative path and actual digest. The reviewer reads the file and returns a plain `Review verdict: approve` or `Review verdict: reject` line, `Reviewed artifact: docs/a.md sha256:<digest>`, and a non-empty `Summary:` line. Do not edit between hashing and review or pre-fill the verdict. Assessment still checks the correlated host review and the candidate digest; supplying a digest is not proof of reading.
 
 ## Record evidence
 
