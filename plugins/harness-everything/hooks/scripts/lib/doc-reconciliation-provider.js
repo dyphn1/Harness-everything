@@ -127,14 +127,44 @@ function safeTokenize(command) {
   return { ok: true, tokens };
 }
 
+function skipHereDocBodies(command, newlineIndex, hereDocs) {
+  const afterLineBreak = index => command[index] === '\r' && command[index + 1] === '\n' ? index + 2 : index + 1;
+  let index = afterLineBreak(newlineIndex);
+  for (const { delimiter, stripTabs } of hereDocs) {
+    let found = false;
+    while (index <= command.length) {
+      let end = index;
+      while (end < command.length && command[end] !== '\n' && command[end] !== '\r') end += 1;
+      let line = command.slice(index, end);
+      if (stripTabs) line = line.replace(/^\t+/, '');
+      if (line === delimiter) {
+        index = end < command.length ? afterLineBreak(end) : end;
+        found = true;
+        break;
+      }
+      if (end === command.length) return end;
+      index = afterLineBreak(end);
+    }
+    if (!found) return command.length;
+  }
+  return index;
+}
+
 function commandSegments(command) {
   const segments = [];
   let words = [];
   let token = '';
   let active = false;
   let quote = null;
+  let awaitingHereDocDelimiter = null;
+  const hereDocs = [];
   const pushWord = () => {
-    if (active) words.push(token);
+    if (active) {
+      if (awaitingHereDocDelimiter) {
+        hereDocs.push({ delimiter: token, stripTabs: awaitingHereDocDelimiter.stripTabs });
+        awaitingHereDocDelimiter = null;
+      } else words.push(token);
+    }
     token = '';
     active = false;
   };
@@ -164,7 +194,9 @@ function commandSegments(command) {
     }
     if (ch === "'" || ch === '"') { quote = ch; active = true; continue; }
     if (ch === '\\' && command[index + 1] !== undefined) {
-      token += command[++index];
+      token += command[index + 1];
+      if (command[index + 1] === '\r' && command[index + 2] === '\n') index += 2;
+      else index += 1;
       active = true;
       continue;
     }
@@ -173,8 +205,29 @@ function commandSegments(command) {
       while (index + 1 < command.length && command[index + 1] !== '\n' && command[index + 1] !== '\r') index += 1;
       continue;
     }
+    if (ch === '<' && command[index + 1] === '<' && command[index + 2] !== '<') {
+      pushWord();
+      awaitingHereDocDelimiter = { stripTabs: command[index + 2] === '-' };
+      index += awaitingHereDocDelimiter.stripTabs ? 2 : 1;
+      continue;
+    }
+    if (ch === '\n' || ch === '\r') {
+      pushWord();
+      awaitingHereDocDelimiter = null;
+      pushSegment();
+      if (hereDocs.length) {
+        index = skipHereDocBodies(command, index, hereDocs) - 1;
+        hereDocs.length = 0;
+      } else if (ch === '\r' && command[index + 1] === '\n') index += 1;
+      continue;
+    }
     if (/\s/.test(ch)) { pushWord(); continue; }
-    if (';&|<>()'.includes(ch) || ch === '\n' || ch === '\r') { pushSegment(); continue; }
+    if (';&|<>()'.includes(ch)) {
+      pushWord();
+      awaitingHereDocDelimiter = null;
+      pushSegment();
+      continue;
+    }
     token += ch;
     active = true;
   }
