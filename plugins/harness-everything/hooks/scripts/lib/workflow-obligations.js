@@ -673,6 +673,13 @@ function updateStep(context, stepId, disposition, options = {}) {
     withholdPilotVerification(context, loaded.set);
     throw new Error('document verification pending: S1 grants no document credit');
   }
+  // Review-mode refusal (pilot ON only): a self-authored or non-independent review PASS stays pending.
+  if (disposition === 'pass' && step.stepType === 'review') {
+    const pilot = require('./doc-reconciliation-pilot');
+    if (pilot.reviewRequired(loaded.set) && !pilot.independentReviewAccepted(context)) {
+      throw new Error('review pending: a self-authored or non-independent review cannot pass this step; an independent host quality review is required');
+    }
+  }
   step.status = disposition;
   step.evidence = evidence;
   step.reasonCode = reasonCode;

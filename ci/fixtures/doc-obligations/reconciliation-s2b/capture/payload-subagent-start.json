@@ -1,0 +1,7 @@
+{
+  "session_id": "r2c1-sess-a",
+  "cwd": "/tmp/r2c1-ws",
+  "hook_event_name": "SubagentStart",
+  "agent_id": "agent-r2c1-rev",
+  "agent_type": "repo-docs-reviewer"
+}

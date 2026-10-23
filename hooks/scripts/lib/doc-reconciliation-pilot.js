@@ -111,10 +111,157 @@ function collect(context) {
   return deriveDocObligations(facts).filter(item => item.strength === 'MUST' && item.applicability !== 'N/A');
 }
 
+// S2b credit chain (F4): produce the snapshot, accept the origin-provider events, and check them against the expected
+// MUSTs. Credit only when the core marks the evidence eligible. Production has no qualification, so it stays withheld.
+function creditChain(context, set, dependencies = {}) {
+  if (require('./doc-reconciliation-provider').readCaptureView(context.sessionDir).tampered) {
+    return { eligible: false, diagnostics: [{ code: 'journal-tampered', message: 'the capture journal no longer matches its immutable event records' }] };
+  }
+  const { produceDocSnapshot } = require('./doc-reconciliation-producer');
+  const { acceptDocEvents } = require('./doc-reconciliation-events');
+  const { checkAcceptedDocEvidence } = require('./doc-reconciliation-core');
+  const baseline = context.workflow.docReconciliationBaseline;
+  const requirements = Array.isArray(set?.requirements) ? set.requirements : [];
+  const taskId = `task-${requirements.map(item => item.id).join('+') || 'none'}`;
+  const sessionId = context.sessionId;
+  const { createClaudeOriginProvider, journalExecutors } = require('./doc-reconciliation-provider');
+  const captures = readCaptures(context);
+  const originProvider = dependencies.originProvider || createClaudeOriginProvider({
+    hostId: 'claude-code',
+    sessionId,
+    workspaceRoot: context.root,
+    workflowId: context.workflow.workflowId,
+    workflowRevision: context.workflow.revision,
+    taskId,
+    principals: { author: sessionId, executors: journalExecutors(captures, sessionId) },
+    baseline,
+    captures,
+  });
+  const produced = produceDocSnapshot({
+    workspaceRoot: context.root,
+    baseline,
+    workflow: { workflowId: context.workflow.workflowId, sessionId, workflowRevision: context.workflow.revision },
+    task: { taskId, requirements },
+    scope: { prdRoot: 'docs/prd/' },
+    activeHost: 'claude-code',
+    prdRoot: 'docs/prd/',
+  }, { originProvider });
+  if (produced.state !== 'ready' || !produced.snapshot) return { eligible: false, diagnostics: produced.diagnostics, unsatisfied: [] };
+  const eventRefs = captureReferences(context);
+  const accepted = acceptDocEvents({ snapshot: produced.snapshot, eventRefs }, { originProvider });
+  const checked = checkAcceptedDocEvidence({ snapshot: produced.snapshot, accepted, mode: 'verification' });
+  // Credit covers only the expected MUSTs that were both accepted and satisfied (passing, observed). N/A never counts.
+  const passing = new Set((checked.results || []).filter(r => r.observation === 'observed' && r.outcome === 'pass').map(r => r.obligationId));
+  const expected = new Set(checked.checkedMustIds || []);
+  const satisfied = produced.snapshot.obligations.filter(o => o.strength === 'MUST' && o.applicability !== 'N/A' && expected.has(o.id) && passing.has(o.id));
+  return {
+    eligible: checked.eligible === true,
+    capabilities: checked.eligible === true ? [...new Set(satisfied.map(o => o.capability))] : [],
+    satisfiedObligationIds: satisfied.map(o => o.id),
+    unsatisfied: checked.unsatisfied || [],
+    acceptedRefs: Object.keys(accepted.acceptedIndex || {}),
+    diagnostics: [...(accepted.diagnostics || []), ...(checked.diagnostics || [])],
+    rejected: accepted.rejected || [],
+  };
+}
+
+// Report diagnostics are objects with the obligation they concern (F12); a global fault has obligationId null.
+function diagnosticOf(item) {
+  if (item && typeof item === 'object') return { ...item, code: item.code || 'unknown', obligationId: item.obligationId ?? null };
+  return { code: String(item), obligationId: null };
+}
+
+// Review-mode refusal (F4 I2a): with the pilot ON in a supported (non-Fable) workflow, a review step PASS needs an
+// independent quality-review record. The provider's own independence rules decide it: a host agent_id that differs from
+// the author session, an explicit approve verdict, a non-empty summary and the bound final-artifact digest.
+function reviewRequired(set) {
+  return enabled() && set?.stepBindingsEnabled === true && !String(set?.strategy || '').startsWith('fable-');
+}
+
+// The review step is independent of credit qualification: the step records host-observed independence, while document
+// credit itself still needs the validated qualification (assess).
+function independentReviewAccepted(context) {
+  const { reviewRecordIndependent, journalExecutors } = require('./doc-reconciliation-provider');
+  const view = require('./doc-reconciliation-provider').readCaptureView(context.sessionDir);
+  if (view.tampered) return false;
+  const captures = view.records;
+  const principals = { author: context.sessionId, executors: journalExecutors(captures, context.sessionId) };
+  const pin = context.workflow.docReconciliationBaseline;
+  return captures.some(item => recordOf(item) && item.session_id === context.sessionId
+    && recordOf(item.observedIdentity) && item.observedIdentity.workflowId === context.workflow.workflowId
+    && item.observedIdentity.workflowRevision === context.workflow.revision
+    && (!pin || (recordOf(item.observedIdentity.baselinePin) && item.observedIdentity.baselinePin.commit === pin.commit))
+    && reviewRecordIndependent(item, captures, principals));
+}
+
+function recordOf(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+
+// The session capture records are the only host-event source. A missing journal means no events; a journal that no longer
+// equals its immutable event files is tampered and yields no events, so the chain withholds.
+function readCaptures(context) {
+  return require('./doc-reconciliation-provider').readCaptureView(context.sessionDir).records;
+}
+
+// Only explicit PostToolUse doc-check candidates are offered; ordinary Edit or Agent results are not (R3-01).
+const docCheckCandidate = item => item.event === 'PostToolUse'
+  && require('./doc-reconciliation-provider').resolveDocCheckInvocation(item.command, item.cwd).kind !== 'not-candidate';
+
+function captureReferences(context) {
+  const captures = readCaptures(context);
+  const candidates = captures
+    .filter(item => item && typeof item.ref === 'string' && (item.event === 'SubagentStop' || docCheckCandidate(item)))
+    .filter(item => item.event !== 'SubagentStop');
+  const reviews = captures.filter(item => item && typeof item.ref === 'string' && item.event === 'SubagentStop');
+  const references = [];
+  for (const [index, capability] of ['doc-lint', 'link-check'].entries()) {
+    const ordered = index ? candidates.slice(1).concat(candidates.slice(0, 1)) : candidates;
+    references.push(...ordered.map(item => `${item.ref}#${capability}`));
+  }
+  // The adapter accepts one event per capability; rotating candidate order lets separate valid runs fill each capability.
+  return [...references, ...reviews.map(item => `${item.ref}#quality-review`)];
+}
+
+// R3-02: verification recorded before an installed-runtime change is withdrawn once the live doc-check leaves the pin.
+// Capture time sees the pristine runtime, so only assessment can catch a later change. Scoped to sessions that ran a doc-check.
+function withdrawChangedRuntimeVerification(context) {
+  try {
+    const provider = require('./doc-reconciliation-provider');
+    const installed = provider.installedDocCheck();
+    if (!installed || provider.fileDigest(installed) === provider.SHIPPED_DOC_CHECK_DIGEST) return;
+    if (!readCaptures(context).some(item => {
+      if (!item || item.event !== 'PostToolUse') return false;
+      const invocation = provider.resolveDocCheckInvocation(item.command, item.cwd);
+      return invocation.kind === 'accepted' || invocation.reason === 'implementation-pin-mismatch';
+    })) return;
+    const file = path.join(context.sessionDir, 'handoff-state.json');
+    const handoff = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const genericAt = handoff.lastGenericVerifyAt;
+    const hasGeneric = typeof genericAt === 'number' && Number.isFinite(genericAt);
+    const hasDoc = typeof handoff.lastDocVerifyAt === 'number' && Number.isFinite(handoff.lastDocVerifyAt);
+    if (!hasGeneric && !hasDoc && handoff.lastVerifyAt === undefined) return;
+    delete handoff.lastDocVerifyAt;
+    delete handoff.lastDocVerifyExitCode;
+    if (hasGeneric) {
+      handoff.lastVerifyAt = genericAt;
+      if (Object.prototype.hasOwnProperty.call(handoff, 'lastGenericVerifyExitCode')) {
+        handoff.lastVerifyExitCode = handoff.lastGenericVerifyExitCode;
+      } else {
+        delete handoff.lastVerifyExitCode;
+      }
+    } else {
+      // Older aggregate-only state has unknown ownership; do not preserve it as unaffected evidence.
+      delete handoff.lastVerifyAt;
+      delete handoff.lastVerifyExitCode;
+    }
+    atomicWriteJson(file, handoff);
+  } catch { /* fail-open: no handoff state yet, or nothing to withdraw */ }
+}
+
 // Assessment is deliberately negative-credit only in S1. Unsupported topologies never enter
 // generic step reconciliation, and failures (including report persistence) never escape to Stop.
-function assess(context, set) {
+function assess(context, set, dependencies = {}) {
   if (!enabled()) return { withhold: false };
+  withdrawChangedRuntimeVerification(context);
   const report = {
     schemaVersion: 1, reportOrigin: 'runtime', pilotStatus: 'unavailable', pilotCredit: false,
     identity: null, expectedMustIds: [], results: [], unsatisfied: [], diagnostics: [],
@@ -133,6 +280,27 @@ function assess(context, set) {
         reasonCode: item.applicability === 'unknown' ? 'unknown-applicability' : 'producer-unavailable',
       }));
       if (!withhold) report.diagnostics.push('trusted-non-document-scope');
+      if (withhold) {
+        let chain;
+        try { chain = creditChain(context, set, dependencies); }
+        catch (error) { chain = { eligible: false, diagnostics: [{ code: 'collector-unavailable', message: String(error.message) }] }; }
+        // The unsatisfied list is rewritten from the chain: a MUST that the chain did not satisfy stays listed (F3).
+        const satisfied = new Set(chain.satisfiedObligationIds || []);
+        report.unsatisfied = [
+          ...musts.filter(item => !satisfied.has(item.id)).map(item => ({
+            obligationId: item.id, state: item.applicability === 'unknown' ? 'unknown' : 'pending',
+            reasonCode: item.applicability === 'unknown' ? 'unknown-applicability' : 'producer-unavailable',
+          })),
+          ...(chain.unsatisfied || []),
+        ];
+        report.creditedCapabilities = chain.eligible === true ? chain.capabilities : [];
+        report.acceptedRefs = chain.acceptedRefs || [];
+        report.diagnostics.push(...(chain.diagnostics || []));
+        // Credit needs an empty unsatisfied list across both sources and at least one satisfied capability.
+        withhold = !(chain.eligible === true && report.unsatisfied.length === 0 && report.creditedCapabilities.length > 0);
+        report.pilotCredit = !withhold;
+        report.pilotStatus = report.pilotCredit ? 'credited' : 'unresolved';
+      }
     } catch (error) {
       withhold = true;
       const reason = ['baseline-unavailable', 'config-unavailable', 'scope-unavailable', 'config-scope-changed'].includes(error.message)
@@ -141,6 +309,7 @@ function assess(context, set) {
       report.unsatisfied.push({ obligationId: 'doc-change:scope', state: 'unavailable', reasonCode: reason });
     }
   }
+  report.diagnostics = report.diagnostics.map(diagnosticOf);
   try { atomicWriteJson(path.join(context.sessionDir, 'doc-reconciliation-pilot.json'), report); }
   catch {
     if (supported) withhold = true;
@@ -149,4 +318,4 @@ function assess(context, set) {
   return { withhold, report };
 }
 
-module.exports = { enabled, captureBaseline, assess };
+module.exports = { enabled, captureBaseline, assess, reviewRequired, independentReviewAccepted };

@@ -1,0 +1,19 @@
+{
+  "session_id": "r2c1-sess-a",
+  "cwd": "/tmp/r2c1-ws",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Task",
+  "tool_use_id": "toolu_r2c1_task",
+  "duration_ms": 64000,
+  "tool_input": {
+    "description": "Independent quality review of the governed PRD revision",
+    "subagent_type": "repo-docs-reviewer"
+  },
+  "tool_response": {
+    "agentId": "agent-r2c1-rev",
+    "resolvedModel": "claude-haiku-4-5-20251001",
+    "totalTokens": 1234,
+    "outputFile": "/tmp/r2c1/subagents/agent-r2c1-rev.jsonl",
+    "result": "Review verdict: approve. The governed PRD revision keeps acceptance criteria consistent; no unresolved conflicts found.\nReviewed artifact: docs/prd/graph.md sha256:4d2b4ef924ba492f4de058d00eb7a27c91f0bad64f5fcb2eab28fb36e048ec6b"
+  }
+}

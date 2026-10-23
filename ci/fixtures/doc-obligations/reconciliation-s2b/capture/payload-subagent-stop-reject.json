@@ -1,0 +1,11 @@
+{
+  "session_id": "r2c1-sess-a",
+  "cwd": "/tmp/r2c1-ws",
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_id": "agent-r2c1-rev",
+  "agent_type": "repo-docs-reviewer",
+  "agent_transcript_path": "/tmp/r2c1/subagents/agent-r2c1-rev.jsonl",
+  "transcript_path": "/tmp/r2c1/transcript-a.jsonl",
+  "last_assistant_message": "Review verdict: reject. The governed PRD revision contradicts the acceptance criteria it cites."
+}

@@ -1,0 +1,674 @@
+{
+  "source": {
+    "workflow": {
+      "schemaVersion": 2,
+      "workflowId": "<volatile>",
+      "createdAt": "<volatile>",
+      "createdAtMs": "<volatile>",
+      "sessionId": "w-off-legacy-session",
+      "promptHash": "5a42f0158e73dbc406b9c4db",
+      "tier": "tier3",
+      "strategy": "iterative-single",
+      "strategySelection": "selected",
+      "requiredInvariants": [
+        "scope-lock",
+        "environment-alignment",
+        "verify-before-claim",
+        "replan-after-repeated-failure",
+        "visible-status-updates",
+        "loop-awareness",
+        "objective-verification",
+        "isolated-worktree-before-mutation"
+      ],
+      "suggestedSkills": [],
+      "verification": {
+        "mode": "objective",
+        "independent": false
+      },
+      "mutationIsolation": {
+        "required": true,
+        "mechanism": "git-worktree",
+        "transition": "before-first-mutation",
+        "onUnavailable": "degraded"
+      },
+      "workflowPlan": {
+        "schemaVersion": 1,
+        "routingStatus": "ok",
+        "tier": "tier3",
+        "strategy": "iterative-single",
+        "strategySelection": "selected",
+        "patterns": [
+          "router",
+          "react"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates",
+          "loop-awareness",
+          "objective-verification",
+          "isolated-worktree-before-mutation"
+        ],
+        "suggestedSkills": [],
+        "knowledgeSignals": [
+          "spec",
+          "verify"
+        ],
+        "actionGate": {
+          "required": false,
+          "reasonCodes": [],
+          "approver": null,
+          "disposition": null
+        },
+        "limits": {
+          "maxIterations": 8,
+          "maxRevisionRounds": 2,
+          "maxReplans": 2,
+          "maxWorkers": 4
+        },
+        "parallelism": {
+          "allowed": false,
+          "requires": [
+            "declared-dependsOn",
+            "disjoint-writeSet"
+          ],
+          "reasonCodes": [
+            "single-agent-loop"
+          ]
+        },
+        "workspace": {
+          "required": false,
+          "reasonCodes": [
+            "single-agent-loop"
+          ]
+        },
+        "memory": {
+          "read": "none",
+          "scope": "task-relevant-only",
+          "write": "none"
+        },
+        "verification": {
+          "mode": "objective",
+          "independent": false
+        },
+        "ensemble": null,
+        "profileSelection": {
+          "requested": null,
+          "alias": null,
+          "policy": "behavior-profile-with-advisory-runtime-floor"
+        },
+        "fallback": {
+          "onMissingSubagents": "visible-inline-or-stop",
+          "disposition": "none",
+          "mode": "none",
+          "reasonCodes": []
+        },
+        "reasonCodes": [
+          "post-decomposition-workflow-selection",
+          "explicit-strategy-request"
+        ],
+        "mutationIsolation": {
+          "required": true,
+          "mechanism": "git-worktree",
+          "transition": "before-first-mutation",
+          "onUnavailable": "degraded"
+        }
+      },
+      "taskShape": {
+        "schemaVersion": 1,
+        "scopeSize": "multi-file",
+        "estimatedStages": 2,
+        "dependencyGraph": "sequential",
+        "writeSetOverlap": "unknown",
+        "domainDiversity": "unknown",
+        "expectedDuration": "multi-turn",
+        "reversibility": "unknown",
+        "uncertainty": "unknown",
+        "verificationRequirement": "independent",
+        "hostCapabilities": {
+          "subagents": "unknown",
+          "parallelCalls": "unknown",
+          "hooks": "unknown",
+          "state": "unknown",
+          "modelAvailability": "unknown"
+        },
+        "constraints": {
+          "cost": "unspecified",
+          "latency": "unspecified",
+          "tokens": "unspecified",
+          "concurrency": "unspecified"
+        },
+        "explicitRequest": {
+          "fableProfile": null,
+          "fableAlias": null,
+          "strategy": null,
+          "prohibitions": []
+        },
+        "observedSignals": {
+          "macroScope": false,
+          "trivialDocsEdit": false,
+          "tier3Keyword": true,
+          "tier2Keyword": true,
+          "multipleTasks": true,
+          "multipleSentences": false,
+          "specificFile": false,
+          "question": false,
+          "independentWorkstreams": false,
+          "readOnly": false,
+          "disjointWrites": false,
+          "sharedWrite": false,
+          "dependentStages": false,
+          "multiSession": false,
+          "reusableSpecialists": false,
+          "crossDomain": false,
+          "highUncertainty": false,
+          "irreversibleAction": false,
+          "externalSideEffect": false,
+          "memoryPersistenceRequested": false
+        },
+        "reasonCodes": [
+          "tier3-keyword"
+        ]
+      },
+      "state": "satisfied",
+      "planningWarnings": [],
+      "runId": null,
+      "revision": "<volatile>",
+      "escapes": [],
+      "guidance": {
+        "mode": "semantic-contract",
+        "reasoningPolicy": "model-controls-how",
+        "hardBoundaries": [
+          "rule-of-3-reflection",
+          "user-host-permission"
+        ]
+      },
+      "obligationContract": {
+        "schemaVersion": 1,
+        "file": "workflow-obligations.json",
+        "revision": "<volatile>"
+      },
+      "resolvedAt": "<volatile>",
+      "unresolved": []
+    },
+    "obligations": {
+      "schemaVersion": 1,
+      "workflowId": "<volatile>",
+      "sessionId": "w-off-legacy-session",
+      "tier": "tier3",
+      "candidateStrategy": "fable-staged",
+      "revision": "<volatile>",
+      "phase": "execution",
+      "createdAt": "<volatile>",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "order": 1,
+          "summary": "Update the PRD REQ text",
+          "acceptance": "normative PRD text is reviewed",
+          "suggestedSkills": [],
+          "stepType": "doc-change",
+          "status": "pass",
+          "evidence": "PRD REQ text updated",
+          "reasonCode": null,
+          "updatedAt": "<volatile>",
+          "requiredBindings": [],
+          "optionalBindings": []
+        },
+        {
+          "id": "req-review",
+          "order": 2,
+          "summary": "Review the PRD change",
+          "acceptance": "reviewed scope and findings are recorded",
+          "suggestedSkills": [],
+          "stepType": "review",
+          "status": "pass",
+          "evidence": "review scope recorded",
+          "reasonCode": null,
+          "updatedAt": "<volatile>",
+          "requiredBindings": [],
+          "optionalBindings": []
+        },
+        {
+          "id": "req-verify",
+          "order": 3,
+          "summary": "Verify the PRD change",
+          "acceptance": "objective doc checks are recorded",
+          "suggestedSkills": [],
+          "stepType": "verification",
+          "status": "pass",
+          "evidence": "objective doc checks recorded",
+          "reasonCode": null,
+          "updatedAt": "<volatile>",
+          "requiredBindings": [
+            {
+              "id": "verification-loop",
+              "required": true,
+              "status": "loaded",
+              "path": "verification-loop/SKILL.md",
+              "availability": "available",
+              "resolvedPath": "<skill:verification-loop>",
+              "evidence": "verification loop skill located",
+              "reasonCode": null,
+              "updatedAt": "<volatile>"
+            }
+          ],
+          "optionalBindings": []
+        }
+      ],
+      "workflowSelection": {
+        "candidateStrategy": "fable-staged",
+        "requestedStrategy": "iterative-single",
+        "confirmedStrategy": "iterative-single",
+        "evidence": "three dependent requirements fit a bounded documentation loop",
+        "confirmedAt": "<iso>",
+        "disposition": "confirmed",
+        "fallback": {
+          "onMissingSubagents": "visible-inline-or-stop",
+          "disposition": "none",
+          "mode": "none",
+          "reasonCodes": []
+        }
+      },
+      "obligations": [
+        {
+          "id": "decompose",
+          "kind": "planning",
+          "requirement": "Decompose the user intent into explicit requirement fragments with acceptance evidence.",
+          "required": true,
+          "escapable": false,
+          "suggestedSkills": [],
+          "status": "pass",
+          "evidence": "requirements:req-docs,req-review,req-verify",
+          "reasonCode": null,
+          "scope": null,
+          "updatedAt": "<volatile>"
+        },
+        {
+          "id": "compose",
+          "kind": "planning",
+          "requirement": "Evaluate the requirement fragments and confirm the smallest sufficient workflow before execution.",
+          "required": true,
+          "escapable": false,
+          "suggestedSkills": [],
+          "status": "pass",
+          "evidence": "three dependent requirements fit a bounded documentation loop",
+          "reasonCode": null,
+          "scope": null,
+          "updatedAt": "<volatile>"
+        },
+        {
+          "id": "execute",
+          "kind": "execution",
+          "requirement": "Resolve the planned requirement fragments using adaptive Skill/direct-action bindings.",
+          "required": true,
+          "escapable": true,
+          "suggestedSkills": [],
+          "status": "pass",
+          "evidence": "typed-execution-steps:req-docs,req-review",
+          "reasonCode": null,
+          "scope": null,
+          "updatedAt": "<volatile>"
+        },
+        {
+          "id": "verify",
+          "kind": "verification",
+          "requirement": "Produce objective verification evidence appropriate to the completed requirements before claiming completion.",
+          "required": true,
+          "escapable": false,
+          "suggestedSkills": [],
+          "status": "pass",
+          "evidence": "typed-verification-steps:req-verify",
+          "reasonCode": null,
+          "scope": null,
+          "updatedAt": "<volatile>"
+        }
+      ],
+      "stepBindingsEnabled": true,
+      "activeStepId": null,
+      "activeStrategy": "iterative-single"
+    },
+    "stopGeneric": {
+      "state": "satisfied",
+      "exitCode": 0
+    }
+  },
+  "packaged": {
+    "workflow": {
+      "schemaVersion": 2,
+      "workflowId": "<volatile>",
+      "createdAt": "<volatile>",
+      "createdAtMs": "<volatile>",
+      "sessionId": "w-off-legacy-session",
+      "promptHash": "5a42f0158e73dbc406b9c4db",
+      "tier": "tier3",
+      "strategy": "iterative-single",
+      "strategySelection": "selected",
+      "requiredInvariants": [
+        "scope-lock",
+        "environment-alignment",
+        "verify-before-claim",
+        "replan-after-repeated-failure",
+        "visible-status-updates",
+        "loop-awareness",
+        "objective-verification",
+        "isolated-worktree-before-mutation"
+      ],
+      "suggestedSkills": [],
+      "verification": {
+        "mode": "objective",
+        "independent": false
+      },
+      "mutationIsolation": {
+        "required": true,
+        "mechanism": "git-worktree",
+        "transition": "before-first-mutation",
+        "onUnavailable": "degraded"
+      },
+      "workflowPlan": {
+        "schemaVersion": 1,
+        "routingStatus": "ok",
+        "tier": "tier3",
+        "strategy": "iterative-single",
+        "strategySelection": "selected",
+        "patterns": [
+          "router",
+          "react"
+        ],
+        "requiredInvariants": [
+          "scope-lock",
+          "environment-alignment",
+          "verify-before-claim",
+          "replan-after-repeated-failure",
+          "visible-status-updates",
+          "loop-awareness",
+          "objective-verification",
+          "isolated-worktree-before-mutation"
+        ],
+        "suggestedSkills": [],
+        "knowledgeSignals": [
+          "spec",
+          "verify"
+        ],
+        "actionGate": {
+          "required": false,
+          "reasonCodes": [],
+          "approver": null,
+          "disposition": null
+        },
+        "limits": {
+          "maxIterations": 8,
+          "maxRevisionRounds": 2,
+          "maxReplans": 2,
+          "maxWorkers": 4
+        },
+        "parallelism": {
+          "allowed": false,
+          "requires": [
+            "declared-dependsOn",
+            "disjoint-writeSet"
+          ],
+          "reasonCodes": [
+            "single-agent-loop"
+          ]
+        },
+        "workspace": {
+          "required": false,
+          "reasonCodes": [
+            "single-agent-loop"
+          ]
+        },
+        "memory": {
+          "read": "none",
+          "scope": "task-relevant-only",
+          "write": "none"
+        },
+        "verification": {
+          "mode": "objective",
+          "independent": false
+        },
+        "ensemble": null,
+        "profileSelection": {
+          "requested": null,
+          "alias": null,
+          "policy": "behavior-profile-with-advisory-runtime-floor"
+        },
+        "fallback": {
+          "onMissingSubagents": "visible-inline-or-stop",
+          "disposition": "none",
+          "mode": "none",
+          "reasonCodes": []
+        },
+        "reasonCodes": [
+          "post-decomposition-workflow-selection",
+          "explicit-strategy-request"
+        ],
+        "mutationIsolation": {
+          "required": true,
+          "mechanism": "git-worktree",
+          "transition": "before-first-mutation",
+          "onUnavailable": "degraded"
+        }
+      },
+      "taskShape": {
+        "schemaVersion": 1,
+        "scopeSize": "multi-file",
+        "estimatedStages": 2,
+        "dependencyGraph": "sequential",
+        "writeSetOverlap": "unknown",
+        "domainDiversity": "unknown",
+        "expectedDuration": "multi-turn",
+        "reversibility": "unknown",
+        "uncertainty": "unknown",
+        "verificationRequirement": "independent",
+        "hostCapabilities": {
+          "subagents": "unknown",
+          "parallelCalls": "unknown",
+          "hooks": "unknown",
+          "state": "unknown",
+          "modelAvailability": "unknown"
+        },
+        "constraints": {
+          "cost": "unspecified",
+          "latency": "unspecified",
+          "tokens": "unspecified",
+          "concurrency": "unspecified"
+        },
+        "explicitRequest": {
+          "fableProfile": null,
+          "fableAlias": null,
+          "strategy": null,
+          "prohibitions": []
+        },
+        "observedSignals": {
+          "macroScope": false,
+          "trivialDocsEdit": false,
+          "tier3Keyword": true,
+          "tier2Keyword": true,
+          "multipleTasks": true,
+          "multipleSentences": false,
+          "specificFile": false,
+          "question": false,
+          "independentWorkstreams": false,
+          "readOnly": false,
+          "disjointWrites": false,
+          "sharedWrite": false,
+          "dependentStages": false,
+          "multiSession": false,
+          "reusableSpecialists": false,
+          "crossDomain": false,
+          "highUncertainty": false,
+          "irreversibleAction": false,
+          "externalSideEffect": false,
+          "memoryPersistenceRequested": false
+        },
+        "reasonCodes": [
+          "tier3-keyword"
+        ]
+      },
+      "state": "satisfied",
+      "planningWarnings": [],
+      "runId": null,
+      "revision": "<volatile>",
+      "escapes": [],
+      "guidance": {
+        "mode": "semantic-contract",
+        "reasoningPolicy": "model-controls-how",
+        "hardBoundaries": [
+          "rule-of-3-reflection",
+          "user-host-permission"
+        ]
+      },
+      "obligationContract": {
+        "schemaVersion": 1,
+        "file": "workflow-obligations.json",
+        "revision": "<volatile>"
+      },
+      "resolvedAt": "<volatile>",
+      "unresolved": []
+    },
+    "obligations": {
+      "schemaVersion": 1,
+      "workflowId": "<volatile>",
+      "sessionId": "w-off-legacy-session",
+      "tier": "tier3",
+      "candidateStrategy": "fable-staged",
+      "revision": "<volatile>",
+      "phase": "execution",
+      "createdAt": "<volatile>",
+      "requirements": [
+        {
+          "id": "req-docs",
+          "order": 1,
+          "summary": "Update the PRD REQ text",
+          "acceptance": "normative PRD text is reviewed",
+          "suggestedSkills": [],
+          "stepType": "doc-change",
+          "status": "pass",
+          "evidence": "PRD REQ text updated",
+          "reasonCode": null,
+          "updatedAt": "<volatile>",
+          "requiredBindings": [],
+          "optionalBindings": []
+        },
+        {
+          "id": "req-review",
+          "order": 2,
+          "summary": "Review the PRD change",
+          "acceptance": "reviewed scope and findings are recorded",
+          "suggestedSkills": [],
+          "stepType": "review",
+          "status": "pass",
+          "evidence": "review scope recorded",
+          "reasonCode": null,
+          "updatedAt": "<volatile>",
+          "requiredBindings": [],
+          "optionalBindings": []
+        },
+        {
+          "id": "req-verify",
+          "order": 3,
+          "summary": "Verify the PRD change",
+          "acceptance": "objective doc checks are recorded",
+          "suggestedSkills": [],
+          "stepType": "verification",
+          "status": "pass",
+          "evidence": "objective doc checks recorded",
+          "reasonCode": null,
+          "updatedAt": "<volatile>",
+          "requiredBindings": [
+            {
+              "id": "verification-loop",
+              "required": true,
+              "status": "loaded",
+              "path": "verification-loop/SKILL.md",
+              "availability": "available",
+              "resolvedPath": "<skill:verification-loop>",
+              "evidence": "verification loop skill located",
+              "reasonCode": null,
+              "updatedAt": "<volatile>"
+            }
+          ],
+          "optionalBindings": []
+        }
+      ],
+      "workflowSelection": {
+        "candidateStrategy": "fable-staged",
+        "requestedStrategy": "iterative-single",
+        "confirmedStrategy": "iterative-single",
+        "evidence": "three dependent requirements fit a bounded documentation loop",
+        "confirmedAt": "<iso>",
+        "disposition": "confirmed",
+        "fallback": {
+          "onMissingSubagents": "visible-inline-or-stop",
+          "disposition": "none",
+          "mode": "none",
+          "reasonCodes": []
+        }
+      },
+      "obligations": [
+        {
+          "id": "decompose",
+          "kind": "planning",
+          "requirement": "Decompose the user intent into explicit requirement fragments with acceptance evidence.",
+          "required": true,
+          "escapable": false,
+          "suggestedSkills": [],
+          "status": "pass",
+          "evidence": "requirements:req-docs,req-review,req-verify",
+          "reasonCode": null,
+          "scope": null,
+          "updatedAt": "<volatile>"
+        },
+        {
+          "id": "compose",
+          "kind": "planning",
+          "requirement": "Evaluate the requirement fragments and confirm the smallest sufficient workflow before execution.",
+          "required": true,
+          "escapable": false,
+          "suggestedSkills": [],
+          "status": "pass",
+          "evidence": "three dependent requirements fit a bounded documentation loop",
+          "reasonCode": null,
+          "scope": null,
+          "updatedAt": "<volatile>"
+        },
+        {
+          "id": "execute",
+          "kind": "execution",
+          "requirement": "Resolve the planned requirement fragments using adaptive Skill/direct-action bindings.",
+          "required": true,
+          "escapable": true,
+          "suggestedSkills": [],
+          "status": "pass",
+          "evidence": "typed-execution-steps:req-docs,req-review",
+          "reasonCode": null,
+          "scope": null,
+          "updatedAt": "<volatile>"
+        },
+        {
+          "id": "verify",
+          "kind": "verification",
+          "requirement": "Produce objective verification evidence appropriate to the completed requirements before claiming completion.",
+          "required": true,
+          "escapable": false,
+          "suggestedSkills": [],
+          "status": "pass",
+          "evidence": "typed-verification-steps:req-verify",
+          "reasonCode": null,
+          "scope": null,
+          "updatedAt": "<volatile>"
+        }
+      ],
+      "stepBindingsEnabled": true,
+      "activeStepId": null,
+      "activeStrategy": "iterative-single"
+    },
+    "stopGeneric": {
+      "state": "satisfied",
+      "exitCode": 0
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "id": "on-lookalikes-runtime-mutations",
+  "mode": "on",
+  "events": [
+    {
+      "id": "event-01",
+      "event": "PostToolUse",
+      "toolName": "Bash",
+      "command": "node ./scripts/doc-check.js check",
+      "toolUseId": "tool-use-1",
+      "cwd": "{{WORKSPACE}}",
+      "success": true
+    },
+    {
+      "id": "event-02",
+      "event": "PostToolUse",
+      "toolName": "Bash",
+      "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+      "toolUseId": "tool-use-2",
+      "cwd": "{{WORKSPACE}}",
+      "success": true
+    },
+    {
+      "id": "event-03",
+      "event": "PostToolUse",
+      "toolName": "Bash",
+      "command": "node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md",
+      "toolUseId": "tool-use-3",
+      "cwd": "{{WORKSPACE}}",
+      "success": true
+    }
+  ],
+  "expectations": {
+    "moduleLoads": {
+      "invariant": "I1",
+      "outcome": "each hook and selected entrypoint load from the selected distribution; provenance is observable"
+    },
+    "stateFiles": {
+      "invariant": "I1",
+      "outcome": "state keys retain the action that created/updated each key; no fixture writes outside isolated HARNESS_STATE_HOME"
+    },
+    "captureRecords": {
+      "invariant": "I1-I3",
+      "outcome": "ordered host events retain command, cwd, tool-use and success/failure correlation"
+    },
+    "pilotReport": {
+      "invariant": "I1-I3",
+      "outcome": "no document credit without valid correlated checks; runtime drift invalidates document evidence only"
+    },
+    "workflowStep": {
+      "invariant": "I2-I3",
+      "outcome": "ordinary verification remains separate; document step remains pending absent valid credited evidence"
+    },
+    "workflowStop": {
+      "invariant": "I4",
+      "outcome": "exit 0; reminder/stop output reflects unresolved workflow state without a persistent Harness lock"
+    },
+    "genericStop": {
+      "invariant": "I4",
+      "outcome": "exit 0; generic verification behavior remains independent of document credit"
+    }
+  },
+  "sources": [
+    "synthetic stream derived from F4-Z1 §4 minimal covering set"
+  ]
+}

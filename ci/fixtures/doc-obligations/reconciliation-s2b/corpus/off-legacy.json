@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "id": "off-legacy",
+  "mode": "off",
+  "events": [
+    {
+      "id": "event-01",
+      "event": "PreToolUse",
+      "toolName": "Bash",
+      "command": "npm test",
+      "toolUseId": "tool-use-1",
+      "cwd": "{{WORKSPACE}}",
+      "success": true
+    },
+    {
+      "id": "event-02",
+      "event": "PostToolUseFailure",
+      "toolName": "Bash",
+      "command": "npm test",
+      "toolUseId": "tool-use-2",
+      "cwd": "{{WORKSPACE}}",
+      "success": false
+    },
+    {
+      "id": "event-03",
+      "event": "PostToolUse",
+      "toolName": "Bash",
+      "command": "npm test",
+      "toolUseId": "tool-use-3",
+      "cwd": "{{WORKSPACE}}",
+      "success": true
+    }
+  ],
+  "expectations": {
+    "moduleLoads": {
+      "invariant": "I1",
+      "outcome": "pilot modules may remain mounted; OFF gate returns before pilot work"
+    },
+    "stateFiles": {
+      "invariant": "I1",
+      "outcome": "legacy workflow state only; no pilot session binding or report file"
+    },
+    "captureRecords": {
+      "invariant": "I1-I3",
+      "outcome": "no pilot capture journal or records"
+    },
+    "pilotReport": {
+      "invariant": "I1-I3",
+      "outcome": "absent"
+    },
+    "workflowStep": {
+      "invariant": "I2-I3",
+      "outcome": "legacy step behavior is preserved"
+    },
+    "workflowStop": {
+      "invariant": "I4",
+      "outcome": "exit 0; reminder/stop output reflects unresolved workflow state without a persistent Harness lock"
+    },
+    "genericStop": {
+      "invariant": "I4",
+      "outcome": "exit 0; generic verification behavior remains independent of document credit"
+    }
+  },
+  "sources": [
+    "synthetic stream derived from F4-Z1 §4 minimal covering set"
+  ]
+}
