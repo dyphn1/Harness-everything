@@ -1,0 +1,9 @@
+{
+  "session_id": "r2c1-sess-a",
+  "cwd": "/tmp/r2c1-ws",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "npm test" },
+  "tool_response": { "stdout": "ok", "stderr": "", "interrupted": false, "isImage": false },
+  "tool_use_id": "toolu_r2c1_c"
+}

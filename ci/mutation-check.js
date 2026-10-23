@@ -11,6 +11,10 @@ const { distributionTargets, prepareMutation } = require('./mutation-loader');
 const ROOT = path.resolve(__dirname, '..');
 const LOADER = path.join(__dirname, 'mutation-loader.js');
 const SHA256 = /^[a-f0-9]{64}$/;
+const PROBE_SUITES = [
+  'ci/mechanism-325-f2-doc-craft.test.js',
+  'ci/mechanism-325-f3-derived-views.test.js',
+];
 
 const LEGACY_CASES = {
   pathBoundary: 'LEGACY.mechanism-2v-verifier-boundaries',
@@ -768,6 +772,24 @@ function printReport(report) {
   if (report.reason && report.verdict !== 'KILLED') console.error(`  ${report.reason}`);
 }
 
+function runProbeSuites() {
+  let failed = false;
+  for (const suite of PROBE_SUITES) {
+    console.log(`Running source mutation probes: ${suite}`);
+    const result = spawnSync(process.execPath, [path.join(ROOT, suite), '--mutation-probes'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    if (result.stdout) process.stdout.write(result.stdout);
+    if (result.stderr) process.stderr.write(result.stderr);
+    if (result.error || result.status !== 0) {
+      console.error(`Source mutation probes failed: ${suite}${result.error ? ` (${result.error.message})` : ` (exit ${result.status})`}`);
+      failed = true;
+    }
+  }
+  return failed;
+}
+
 function selectChecks(argv) {
   const filters = [];
   for (let index = 0; index < argv.length; index++) {
@@ -795,11 +817,12 @@ function main(argv = process.argv.slice(2)) {
   const reports = runChecks({ checks: selected });
   reports.forEach(printReport);
   const failures = reports.filter(report => report.verdict !== 'KILLED');
-  if (failures.length) {
-    console.error(`Mutation check failed: ${failures.length} tuple(s) did not qualify.`);
+  const probeFailure = runProbeSuites();
+  if (failures.length || probeFailure) {
+    if (failures.length) console.error(`Mutation check failed: ${failures.length} tuple(s) did not qualify.`);
     process.exitCode = 1;
   } else {
-    console.log(`Mutation check passed: ${reports.length} production mutant(s) were rejected by their intended assertions.`);
+    console.log(`Mutation check passed: ${reports.length} production mutant(s) and ${PROBE_SUITES.length} source probe suite(s) passed.`);
   }
 }
 

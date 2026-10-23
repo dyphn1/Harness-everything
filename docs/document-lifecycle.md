@@ -311,9 +311,19 @@ Decision extraction recognizes ATX boundaries with 0–3 leading spaces and igno
 - Checks are pure and generators deterministic, so reruns are idempotent.
 - `requirement-sync` is the only genuinely new rule; the rest reuse D5 and D6.3 checks.
 
+## Derived-view lane (F3)
+
+- Applicability is conservative (`conservative-all-governed`): a change to any governed or legacy source path marks every declared view as affected; a changed derived output marks every declared view (not only that output); a config change marks all candidate declarations. This is not exact dependency inference.
+- The `sources` seam in `doc-obligations.js` is an implementation detail, not a public schema. F3 adds no source mapping; a view with no mapping is covered by the conservative rule.
+- `check` never runs a generator. A view it lists as affected needs an authorized generation step and a `compare-derived` record; see `harness-everything/references/doc-check.md` § Derived views.
+
+F4 is the creditable bounded consumer; its first positive scope is lint and links on a body-only reference edit (see `docs/doc-workflow-reconciliation.md`, F4 section).
+
 ## Packaging
 
 Source checkout, Codex plugin and Claude plugin copy whole skill trees. Callers locate `doc-lifecycle.js` and the resolver relative to their own skill directory, never the source-tree root. A to-spec-only install must use the same resolver implementation (copied byte-identically and checked), and a broken shared module is an error, never a silent fallback to older host scanning.
+
+The shared writing craft and maintenance references live in `harness-everything/references/documentation/_shared/` and ship with the plugin package, so every doc-producing skill links to one copy rather than its own.
 
 ## Generated index
 

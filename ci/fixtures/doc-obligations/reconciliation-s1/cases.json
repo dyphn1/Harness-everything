@@ -2067,6 +2067,9 @@
             "stepId": "req-review",
             "disposition": "pass",
             "evidence": "self-review by the author of the change"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -2127,8 +2130,9 @@
               "exitCode"
             ],
             "operator": "equals",
-            "expected": 0,
-            "s1Kind": "control"
+            "expected": 2,
+            "s1Kind": "control",
+            "note": "F4-T3 decision 1 (#325 S2 slice plan, comment of 2026-10-21: S2 retires P02e x2, P03 verify-retry-exit, P05 x2). The ON self-authored review PASS is refused with exit 2 by the F4 I2a review-mode refusal; the step stays pending. The OFF expectation is unchanged."
           },
           {
             "id": "stop-exit-0",
@@ -2225,6 +2229,9 @@
             "stepId": "req-review",
             "disposition": "pass",
             "evidence": "review scope recorded"
+          },
+          "expectExit": {
+            "on": 2
           }
         },
         {
@@ -2235,7 +2242,11 @@
             "bindingId": "verification-loop",
             "disposition": "loaded",
             "evidence": "verification loop skill located"
-          }
+          },
+          "expectExit": {
+            "on": 2
+          },
+          "note": "F4-T3: after the ON review PASS is refused (review-pass exit 2) the review step stays active, so the verification binding is refused with exit 2 (bindings may only be resolved for the active step). Declared as an ON refusal; the OFF leg is unchanged."
         },
         {
           "id": "verify-pass",
@@ -2354,8 +2365,9 @@
               "exitCode"
             ],
             "operator": "equals",
-            "expected": 0,
-            "s1Kind": "control"
+            "expected": 2,
+            "s1Kind": "control",
+            "note": "F4-T3 decision 1 (#325 S2 slice plan, comment of 2026-10-21: S2 retires P02e x2, P03 verify-retry-exit, P05 x2). The ON self-authored review PASS is refused with exit 2 by the F4 I2a review-mode refusal; the step stays pending. The OFF expectation is unchanged."
           },
           {
             "id": "verify-pass-exit",
