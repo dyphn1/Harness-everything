@@ -30,7 +30,8 @@ helper.check(
   // Mirrors the plugin getWorkspaceKey(): cwd-realpath + slug + 12-char sha1.
   const realWorkspace = fs.realpathSync(path.resolve(workspace));
   const slug = realWorkspace.split(path.sep).pop().toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
-  const hash = crypto.createHash('sha1').update(realWorkspace).digest('hex').slice(0, 12);
+  const hashInput = process.platform === 'win32' ? realWorkspace.toLowerCase() : realWorkspace;
+  const hash = crypto.createHash('sha1').update(hashInput).digest('hex').slice(0, 12);
   const stateRoot = path.join(fakeHome, '.agents', 'harness-everything', 'workspaces', `${slug}-${hash}`, 'state', 'sessions');
 
   fs.writeFileSync(
