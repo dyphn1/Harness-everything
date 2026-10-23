@@ -28,6 +28,15 @@ episodes:
         change: "One identity resolver (invariant I1), committed as 0308386"
         review: unknown
         result: "Closing invariant review not yet run"
+  - episode: 325-f4-l3-candidate-overcapture
+    feature: "#325 F4 normal-session credit (PR #358), input 0308386"
+    date: 2026-10-23
+    closed: false
+    rounds:
+      - round: 0
+        change: null
+        review: "Live no-credit discovery and read-only diagnosis at 0308386; advisor accepts candidate-boundary finding"
+        result: "Plan JSON mentioning doc-check projected as two stale refs; valid checker accepted but credit withheld. Corrected-review replay still withholds; current-check-only control is eligible. Fix and closing review unknown."
 ---
 
 ## Cue
@@ -46,3 +55,4 @@ Stop point-fixing after the second same-class round. List the findings by decisi
 
 - PR #358 (F4); issue #359 (error ledger and per-site ownership proposal).
 - Round 1 review at `bb23ea1`; resolver commit `0308386`.
+- Episode 2 (2026-10-23): the first live normal-session credit run at `0308386` was withheld because the single resolver treated any rejected command as a doc-check candidate, so a workflow `plan` command whose JSON mentioned doc-check was projected as stale doc-check evidence. One resolver is not enough: it also needs a precise candidate boundary (an explicit command target, never a data argument). The diagnosis came from a packet that consulted this record first, which pointed straight at the shared decision instead of a consumer patch.
