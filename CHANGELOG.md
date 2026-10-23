@@ -76,6 +76,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Keep successful installed workflow step dispositions from advancing verification freshness while unknown workflow commands and mutations remain tracked (#365).
+
 - Accept an interior `~` in unquoted installed doc-check path tokens, and reject `%VAR%` expansion before identity and digest checks.
 
 - Preserve Windows path separators while classifying installed doc-check commands, and make the OpenCode workspace-key fixture match the plugin's Windows case normalization.
