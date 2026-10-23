@@ -27,11 +27,13 @@ node "<this-skill-dir>/scripts/doc-check.js" check \
 
 ## Hook invocation grammar
 
-Hook evidence recognizes only a direct `node <installed-doc-check.js> check` command. The installed script path must resolve through native `realpath` to this plugin's runtime, and its CRLF-normalized SHA-256 must match the shipped pin. Case variants are accepted when the host filesystem resolves them to that same file.
+Only a direct `node <installed-doc-check.js> check` command earns credit. The installed script path must resolve through native `realpath` to this plugin's runtime, and its CRLF-normalized SHA-256 must match the shipped pin. Case variants are accepted when the host filesystem resolves them to that same file.
+
+Candidate detection follows command roles. A direct `doc-check`/`doc-check.js` target, a checker script operand to a recognized runtime, or a checker command inside a recognized shell `-c` string is a candidate even if its launcher, subcommand, flags or shell composition are unsupported. It is then refused by the strict grammar below; candidate status never authorizes a wrapper. A workflow command whose JSON acceptance text merely mentions `doc-check`, or an unrelated command that prints the name, is not a candidate.
 
 - `--workspace`, `--config`, and at least one `--changed-path` are required. `--workspace`, `--config`, and optional `--base` occur once; `--changed-path` may repeat. Every flag takes one value.
 - The hook tokenizer supports single and double quotes, adjacent quoted/unquoted text, and backslash escapes. This lets quoted or escaped paths contain spaces.
-- Explicit candidates using wrappers such as `sh -c`, `env`, or `npx` are refused. The tokenizer rejects unquoted shell operators and line breaks, escaped line continuations, comment markers at a word boundary, active `$`/backtick substitution syntax (including inside double quotes), and unquoted glob, brace, or tilde expansion. Quoting or escaping makes supported metacharacters literal.
+- An explicit checker target using a wrapper such as `sh -c`, `env`, or `npx` is refused. The tokenizer rejects unquoted shell operators and line breaks, escaped line continuations, comment markers at a word boundary, active `$`/backtick substitution syntax (including inside double quotes), and unquoted glob, brace, or tilde expansion. Quoting or escaping makes supported metacharacters literal.
 - A refused explicit candidate gets a reason and cannot fall through to generic shell verification or set `lastVerifyAt`.
 - The hook sees the command text supplied by the host. An opaque alias such as `dc` cannot be resolved as doc-check without host-provided argv or alias expansion, so it remains unrecognized.
 
@@ -168,6 +170,8 @@ The JSON carries a logical command ID (`harness.doc-check.check.v1` or `harness.
 - This JSON is **never self-credited**. Stdout that repeats an ID or a status is not evidence of credit.
 - Credit needs the host-captured raw output, checked against the producer's independently derived expected set. See `docs/doc-workflow-reconciliation.md`, section "F4: credited reconciliation".
 - Reminders never earn credit.
+
+For an independent review in the L3 path, the parent computes the post-edit candidate digest with the one read-only command `shasum -a 256 docs/a.md`, then gives the reviewer the relative path and actual digest. The reviewer reads the file and returns a plain `Review verdict: approve` or `Review verdict: reject` line, `Reviewed artifact: docs/a.md sha256:<digest>`, and a non-empty `Summary:` line. Do not edit between hashing and review or pre-fill the verdict. Assessment still checks the correlated host review and the candidate digest; supplying a digest is not proof of reading.
 
 ## Record evidence
 

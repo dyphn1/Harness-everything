@@ -1156,6 +1156,8 @@ Logical command IDs: `harness.doc-check.check.v1` and `harness.doc-check.compare
 
 Only direct, single, registered Node invocations are credited. Compound shell commands, aliases and wrappers stay uncredited unless their expansion is validated independently. The script must resolve (realpath, relative to the captured cwd) to this install's own `harness-everything/scripts/doc-check.js` (source) or `skills/harness-everything/scripts/doc-check.js` (packaged). Its digest must equal the digest observed at capture; any other path or digest earns no credit, no capability event and no verification evidence.
 
+Candidate classification follows command roles, not arbitrary text matches. A direct `doc-check`/`doc-check.js` target, a checker script operand to a recognized launcher, or a checker command in a recognized shell command-string remains a candidate when its launcher, subcommand, flags, quoting or composition is unsupported; it is refused as `unregistered-command` and cannot fall through to generic verification. An unrelated command whose data argument mentions `doc-check`—including workflow-plan JSON, `echo` text or a supplied filename—is not a candidate. Candidate detection never authorizes a wrapper, and opaque aliases or dynamically constructed targets remain unsupported.
+
 | Capability | Credit needs |
 |---|---|
 | `doc-lint` | One projection from an observed successful `check`: lint exit 0, valid schema, the exact expected governed and baseline paths, and complete relevant coverage |
@@ -1172,7 +1174,7 @@ Positive production credit stays **disabled** until a live capture validates. Pr
 1. Pin the capture implementation. Stage the Claude plugin outside the checkout with `scripts/stage-claude-plugin.js`. Use a small scratch Git project with one governed reference and a committed baseline. Keep Harness state and output outside that project.
 2. Install a capture-only logging wrapper through a session `--settings` file. For PreToolUse, PostToolUse, PostToolUseFailure, SubagentStart and SubagentStop, write the raw stdin payload to owned JSONL before running the staged hook. Record the settings and wrapper hashes.
 3. Set `HARNESS_DOC_RECONCILIATION_PILOT=1` and a scratch `HARNESS_STATE_HOME`. Use a fresh session UUID, a foreground read-only `doc-reviewer` agent and normal scoped permissions. Do not add a bypass flag. If the required tools are denied or authentication fails, record the gate as unmet.
-4. Run the command below. The prompt asks Claude to read the reference, run the registered `doc-check` command, invoke `doc-reviewer`, wait for its completion and stop.
+4. Run the command below. After the edit and before delegation, the parent uses one read-only `shasum -a 256 docs/a.md` command and passes the relative path and actual post-edit digest to the independent reviewer. Require a plain `Review verdict:` line followed by `approve` or `reject`, a `Reviewed artifact: docs/a.md sha256:<digest>` line, and a non-empty summary. Do not pre-fill the verdict or edit between hashing and review. The prompt asks Claude to read the reference, run the registered `doc-check` command, invoke `doc-reviewer`, wait for its completion and stop.
 5. Validate a populated `tool_use_id`, an explicit interruption value, and the reviewer's `agent_id` and `agent_type`, with parent-session, start, stop and Agent-result correlation. A missing field keeps the gate unmet.
 
 ```text

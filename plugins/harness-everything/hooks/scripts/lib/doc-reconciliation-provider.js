@@ -43,7 +43,12 @@ const PRE_CAPTURE_TOOLS = ['Bash', 'PowerShell', 'Task', 'Agent'];
 const STDOUT_CAP_BYTES = 1024 * 1024;
 const DOC_CHECK_FLAGS = new Set(['--workspace', '--config', '--changed-path', '--base']);
 const DOC_CHECK_SCHEMA = 'harness.doc-check.check.v1';
-const DOC_CHECK_CANDIDATE = /doc-check(?:\.js)?/i;
+const DOC_CHECK_SHELLS = new Set(['sh', 'bash', 'dash', 'zsh', 'ksh', 'fish']);
+const DOC_CHECK_LAUNCHERS = new Set(['node', 'nodejs', 'bun', 'deno', 'tsx', 'ts-node']);
+const DOC_CHECK_LAUNCHER_VALUE_FLAGS = new Set(['-r', '--require', '--import', '--loader', '--experimental-loader', '--inspect-port', '--input-type', '--conditions', '--env-file']);
+const DOC_CHECK_WRAPPERS = new Set(['env', 'npx']);
+const DOC_CHECK_ENV_VALUE_FLAGS = new Set(['-u', '--unset', '-C', '--chdir']);
+const DOC_CHECK_NPX_VALUE_FLAGS = new Set(['-p', '--package', '--prefix', '--cache', '--userconfig', '--registry', '--workspace', '-w']);
 // Canonical SHA-256 of harness-everything/scripts/doc-check.js (CRLF normalised to LF). Re-pin deliberately when that script changes.
 const SHIPPED_DOC_CHECK_DIGEST = 'da5e51a763eda6680afb63ee781b566253df9d358eec1e65436786c9ecebbbdb';
 // This install's own doc-check runtime, relative to hooks/scripts/lib: the source checkout or the packaged plugin.
@@ -122,6 +127,113 @@ function safeTokenize(command) {
   return { ok: true, tokens };
 }
 
+function commandSegments(command) {
+  const segments = [];
+  let words = [];
+  let token = '';
+  let active = false;
+  let quote = null;
+  const pushWord = () => {
+    if (active) words.push(token);
+    token = '';
+    active = false;
+  };
+  const pushSegment = () => {
+    pushWord();
+    if (words.length) segments.push(words);
+    words = [];
+  };
+
+  for (let index = 0; index < command.length; index += 1) {
+    const ch = command[index];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      else token += ch;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === '"') { quote = null; continue; }
+      if (ch === '\\' && command[index + 1] !== undefined) {
+        token += command[++index];
+        active = true;
+        continue;
+      }
+      token += ch;
+      active = true;
+      continue;
+    }
+    if (ch === "'" || ch === '"') { quote = ch; active = true; continue; }
+    if (ch === '\\' && command[index + 1] !== undefined) {
+      token += command[++index];
+      active = true;
+      continue;
+    }
+    if (/\s/.test(ch)) { pushWord(); continue; }
+    if (';&|<>()'.includes(ch) || ch === '\n' || ch === '\r') { pushSegment(); continue; }
+    token += ch;
+    active = true;
+  }
+  pushSegment();
+  return segments;
+}
+
+function isDocCheckTarget(token) {
+  const basename = String(token || '').split(/[\\/]/).pop().toLowerCase();
+  return basename === 'doc-check' || basename === 'doc-check.js';
+}
+
+function commandAfterWrapper(words, wrapper, depth) {
+  for (let index = 1; index < words.length; index += 1) {
+    const word = words[index];
+    if (word === '--') return { words: words.slice(index + 1) };
+    if (wrapper === 'env') {
+      if (DOC_CHECK_ENV_VALUE_FLAGS.has(word)) { index += 1; continue; }
+      if (/^--(?:unset|chdir)=/.test(word) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) continue;
+      if (word.startsWith('-')) continue;
+      return { words: words.slice(index) };
+    }
+    if (DOC_CHECK_NPX_VALUE_FLAGS.has(word)) { index += 1; continue; }
+    if (word === '-c' || word === '--call') return { command: words[index + 1], depth: depth + 1 };
+    if (/^--(?:package|prefix|cache|userconfig|registry|workspace)=/.test(word)) continue;
+    if (word.startsWith('-')) continue;
+    return { words: words.slice(index) };
+  }
+  return null;
+}
+
+// Classify explicit command/script targets; argument data that merely mentions the checker is not a candidate.
+function hasDocCheckCommandTarget(command, depth = 0) {
+  if (typeof command !== 'string' || depth > 4) return false;
+  function wordsTarget(words, level) {
+    if (level > 4) return false;
+    const executable = String(words[0] || '').split(/[\\/]/).pop().toLowerCase();
+    if (isDocCheckTarget(words[0])) return true;
+    if (DOC_CHECK_SHELLS.has(executable)) {
+      if (isDocCheckTarget(words[1])) return true;
+      const commandFlag = words.findIndex((word, index) => index > 0 && /^-[a-z]*c[a-z]*$/i.test(word));
+      return commandFlag >= 0 && words[commandFlag + 1] !== undefined
+        && hasDocCheckCommandTarget(words[commandFlag + 1], level + 1);
+    }
+    if (DOC_CHECK_WRAPPERS.has(executable)) {
+      const nested = commandAfterWrapper(words, executable, level);
+      if (!nested) return false;
+      return nested.command !== undefined
+        ? hasDocCheckCommandTarget(nested.command, nested.depth)
+        : wordsTarget(nested.words, level + 1);
+    }
+    if (!DOC_CHECK_LAUNCHERS.has(executable)) return false;
+    for (let index = 1; index < words.length; index += 1) {
+      const word = words[index];
+      if (word === '--') return isDocCheckTarget(words[index + 1]);
+      if (DOC_CHECK_LAUNCHER_VALUE_FLAGS.has(word)) { index += 1; continue; }
+      if (word.startsWith('-')) continue;
+      return isDocCheckTarget(word);
+    }
+    return false;
+  }
+  return commandSegments(command).some(words => wordsTarget(words, depth));
+}
+
 // Internal realpath check; the public decision and reason tuple come only from resolveDocCheckInvocation.
 function matchInstalledRuntime(tokens, cwd, installed) {
   let argv;
@@ -135,7 +247,7 @@ function resolveDocCheckInvocation(command, cwd) {
   let argv = null;
   function rejected(reason) { return { kind: 'rejected', reason, installed, digest, argv }; }
 
-  if (typeof command !== 'string' || !DOC_CHECK_CANDIDATE.test(command)) {
+  if (!hasDocCheckCommandTarget(command)) {
     return { kind: 'not-candidate', reason: 'not-doc-check', installed: null, digest: null, argv: null };
   }
   const parsed = safeTokenize(command);

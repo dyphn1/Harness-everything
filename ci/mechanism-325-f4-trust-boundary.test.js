@@ -596,6 +596,112 @@ function partR3(leg) {
   ]);
 }
 
+// ---- C1 (F4-W12): command-role candidates, strict malformed-attempt refusal, and identity freshness ---------------
+// locks: A, C
+
+const PLAN_MENTIONS_DOC_CHECK = `node hooks/scripts/workflow-disposition.js plan --session-id f4-w12-session --requirements-json '${JSON.stringify([
+  { id: 'req-verify', stepType: 'verification', summary: 'Run checks', acceptance: 'run doc-check after the edit' },
+])}' --strategy iterative-single --evidence "normal documentation trace"`;
+const MALFORMED_DOC_CHECK = 'sh -c "node {{DOC_CHECK}} check"';
+const PLAN_CAPTURE = { id: 'plan-command', op: 'hookDeliver', payload: { event: 'PostToolUse', command: PLAN_MENTIONS_DOC_CHECK, toolUseId: 'toolu_f4_w12_plan', response: { stdout: 'planned', stderr: '', interrupted: false } } };
+const MALFORMED_CAPTURE = { id: 'malformed-shell', op: 'hookDeliver', payload: { event: 'PostToolUse', command: MALFORMED_DOC_CHECK, toolUseId: 'toolu_f4_w12_shell', response: { stdout: '', stderr: '', interrupted: false } } };
+
+function moveBeforeStart(item, ...actions) {
+  item.actions.splice(item.actions.findIndex(action => action.id === 'start'), 0, ...actions);
+  return item;
+}
+
+function moveAfterStart(item, ...actions) {
+  item.actions.splice(item.actions.findIndex(action => action.id === 'start') + 1, 0, ...actions);
+  return item;
+}
+
+function c1Replay(leg, item) {
+  const staged = stage(leg);
+  try {
+    useShippedExport(staged);
+    return replay(item, staged.dist, { pilot: '1' });
+  } finally {
+    staged.cleanup();
+  }
+}
+
+function partC1(leg) {
+  console.log(`\n== C1 (${leg}): only checker command targets enter the doc-credit boundary ==`);
+  const resolver = require(path.join(LEG_LIB[leg], 'doc-reconciliation-provider.js'));
+  const installed = resolver.installedDocCheck();
+  const roleCases = [
+    ['workflow-plan-data', PLAN_MENTIONS_DOC_CHECK, 'not-candidate', 'not-doc-check'],
+    ['echo-data', 'echo doc-check', 'not-candidate', 'not-doc-check'],
+    ['unrelated-script-data', 'node scripts/format.js --name doc-check', 'not-candidate', 'not-doc-check'],
+    ['npx-wrapper-target', 'npx doc-check check', 'rejected', 'direct-launcher-required'],
+    ['npx-package-data', 'npx --package doc-check prettier', 'not-candidate', 'not-doc-check'],
+    ['env-wrapper-target', `env node ${installed} check`, 'rejected', 'direct-launcher-required'],
+    ['env-assignment-data', 'env DOC_CHECK=doc-check echo ready', 'not-candidate', 'not-doc-check'],
+    ['shell-wrapper-target', `sh -c "node ${installed} check"`, 'rejected', 'direct-launcher-required'],
+    ['shell-operator-target', `node ${installed} check; echo done`, 'rejected', 'shell-operator'],
+    ['malformed-trailing-quote-target', `node "${installed}" check "`, 'rejected', 'unclosed-quote'],
+  ];
+  for (const [id, command, kind, reason] of roleCases) {
+    const result = resolver.resolveDocCheckInvocation(command, ROOT);
+    runChecks(`C1.target-role.${id}@${leg}`, result, [
+      { id: 'classification-preserves-boundary', status: 'CONTROL', reason: '', test: value => ({ pass: value.kind === kind && value.reason === reason, actual: value }) },
+    ]);
+  }
+  const normal = moveBeforeStart(r3ReviewCase(`F4W12-C1-plan-mention@${leg}`, true), PLAN_CAPTURE);
+  const normalRoot = c1Replay(leg, normal);
+  runChecks(`C1.normal-plan-mention@${leg}`, normalRoot, [
+    { id: 'plan-json-does-not-withhold-real-check-credit', status: 'CONTROL', reason: 'F4-W12 C1 (A/C): workflow JSON mentioning doc-check stays ordinary metadata while the current registered check receives exact credit', test: () => ({ pass: normalRoot.pilot?.pilotCredit === true && JSON.stringify(creditedOf(normalRoot)) === JSON.stringify(['doc-lint', 'link-check']), actual: { pilotCredit: normalRoot.pilot?.pilotCredit, credited: creditedOf(normalRoot), diagnostics: diagnosticsOf(normalRoot).map(item => item && item.code) } }) },
+    { id: 'installed-check-is-still-accepted', status: 'CONTROL', reason: '', test: () => ({ pass: ['doc-lint', 'link-check'].every(capability => acceptedCapabilityOf(normalRoot).includes(capability)), actual: acceptedCapabilityOf(normalRoot) }) },
+  ]);
+
+  const malformed = moveAfterStart(r3ReviewCase(`F4W12-C1-malformed-shell@${leg}`, true), MALFORMED_CAPTURE);
+  const malformedRoot = c1Replay(leg, malformed);
+  runChecks(`C1.malformed-current-shell@${leg}`, malformedRoot, [
+    { id: 'explicit-attempt-is-unregistered', status: 'CONTROL', reason: '', test: () => ({ pass: unregisteredCount(malformedRoot) > 0, actual: diagnosticsOf(malformedRoot).map(item => item && item.code) }) },
+    { id: 'malformed-attempt-withholds-credit', status: 'CONTROL', reason: '', test: () => ({ pass: malformedRoot.pilot?.pilotCredit === false && creditedOf(malformedRoot).length === 0, actual: { pilotCredit: malformedRoot.pilot?.pilotCredit, credited: creditedOf(malformedRoot) } }) },
+    { id: 'malformed-attempt-does-not-set-generic-verify-time', status: 'CONTROL', reason: '', test: () => ({ pass: handoffOf(malformedRoot, 'malformed-shell').lastVerifyAt == null, actual: handoffOf(malformedRoot, 'malformed-shell').lastVerifyAt ?? null }) },
+  ]);
+
+  const stale = clone(POS_CASE);
+  stale.id = `F4W12-C1-stale-real-check@${leg}`;
+  stale.requirements = clone(REQUIREMENTS);
+  stale.actions = [
+    { id: 'route', op: 'route', payload: { prompt: 'Update docs/a.md and verify it.' } },
+    { id: 'plan', op: 'plan', payload: { requirements: '$requirements', strategy: 'iterative-single', evidence: 'bounded documentation loop' } },
+    LINT_RUN,
+    { id: 'post-lint', op: 'hookDeliver', payload: { event: 'PostToolUse', command: LINT_COMMAND, toolUseId: `toolu_f4_w12_stale_${leg}`, fromRun: 'lint-run' } },
+    { id: 'start', op: 'start', payload: {} },
+    { id: 'doc-pass', op: 'step', payload: { stepId: 'req-docs', disposition: 'pass', evidence: 'sentence corrected' } },
+    { id: 'stop', op: 'stop' },
+    { id: 'stop-generic', op: 'stopGeneric' },
+  ];
+  const staleRoot = c1Replay(leg, stale);
+  runChecks(`C1.stale-real-check@${leg}`, staleRoot, [
+    { id: 'stale-check-identity-rejected', status: 'CONTROL', reason: '', test: () => ({ pass: staleRoot.pilot?.pilotCredit === false && creditedOf(staleRoot).length === 0 && diagnosticsOf(staleRoot).some(item => item && item.code === 'identity-mismatch'), actual: { pilotCredit: staleRoot.pilot?.pilotCredit, credited: creditedOf(staleRoot), diagnostics: diagnosticsOf(staleRoot).map(item => item && item.code) } }) },
+  ]);
+}
+
+// ---- C2 (F4-W12): the plain review contract still requires a current artifact binding -------------------------------
+// locks: A, B, C
+
+function partC2(leg) {
+  console.log(`\n== C2 (${leg}): plain independent review evidence must bind the current artifact ==`);
+  const cases = [
+    ['plain-current-digest', BOUND_APPROVE, true],
+    ['missing-digest', VERDICT_APPROVE, false],
+    ['explicit-reject', `Review verdict: reject\nSummary: The requested change is incorrect.\nReviewed artifact: docs/a.md sha256:${sha256(CAND_NORMATIVE)}`, false],
+  ];
+  for (const [label, message, approved] of cases) {
+    const root = c1Replay(leg, reviewRoot(leg, [agentSurface('agent-result', 'agent-w12-review'), subStop('agent-w12-review', message), reviewPass()], `F4W12-C2-${label}@${leg}`));
+    const capture = (root.actions['sub-stop'].state.capture || { records: [] }).records.find(record => record.event === 'SubagentStop') || {};
+    runChecks(`C2.${label}@${leg}`, root, [
+      { id: 'verdict-is-explicit', status: 'CONTROL', reason: '', test: () => ({ pass: capture.reviewVerdict === (approved ? 'approve' : label === 'explicit-reject' ? 'reject' : 'approve'), actual: capture.reviewVerdict }) },
+      { id: approved ? 'bound-review-passes' : 'unbound-or-rejected-review-refused', status: 'CONTROL', reason: '', test: () => ({ pass: approved ? root.actions['review-pass'].exitCode === 0 && capture.reviewedArtifactDigests?.['docs/a.md'] === sha256(CAND_NORMATIVE) : root.actions['review-pass'].exitCode === 2 && !acceptedCapabilityOf(root).includes('quality-review'), actual: { reviewExit: root.actions['review-pass'].exitCode, reviewed: capture.reviewedArtifactDigests, accepted: acceptedCapabilityOf(root) } }) },
+    ]);
+  }
+}
+
 function main() {
   if (!shippedExportPresent()) {
     console.log('INFRA: the committed qualification export is missing from a leg; the trust-boundary cases need it');
@@ -610,6 +716,10 @@ function main() {
     partR3(leg);
   }
   partG0();
+  for (const leg of LEGS) {
+    partC1(leg);
+    partC2(leg);
+  }
   console.log('\n== F4-T4 trust-boundary evidence ==');
   console.log(`controls and passing checks: ${passCount}`);
   console.log(`RED checks confirmed: ${redCount}`);
