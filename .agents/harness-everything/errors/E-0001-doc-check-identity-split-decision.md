@@ -37,6 +37,14 @@ episodes:
         change: null
         review: "Live no-credit discovery and read-only diagnosis at 0308386; advisor accepts candidate-boundary finding"
         result: "Plan JSON mentioning doc-check projected as two stale refs; valid checker accepted but credit withheld. Corrected-review replay still withholds; current-check-only control is eligible. Fix and closing review unknown."
+      - round: 1
+        change: "W12 fd3833e: shared command-target candidate boundary; normal and malformed controls"
+        review: "R5 substantive review of fd3833e; live Run 3 at f226c3c"
+        result: "Normal plan-mention path credits exactly doc-lint/link-check and review/verify pass. R5 finds in-scope P3: shell comment text still becomes a candidate. Episode remains open."
+      - round: 2
+        change: "W13 5466cfb: stop candidate scanning at an unquoted word-start shell comment; retain quoted/mid-word hash and explicit checker controls"
+        review: "A9 focused source/resolver review at 5466cfb; full closing review unknown"
+        result: "Original comment witness resolves and direct/wrapped controls retain their kinds. Pre-existing multiline checker candidate is missed; naive newline splitting misclassifies heredoc data. In-scope boundary follow-up remains; episode open."
 ---
 
 ## Cue

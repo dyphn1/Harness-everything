@@ -16,12 +16,16 @@ episodes:
   - episode: 325-f4-l3-review-format
     feature: "#325 F4 normal-session credit (PR #358), input 0308386"
     date: 2026-10-23
-    closed: false
+    closed: true
     rounds:
       - round: 0
         change: null
         review: "Live review-step refusal and read-only diagnosis at 0308386; advisor selects reachable delegation contract"
         result: "Independent Read-only reviewer returned bold approval without artifact digest; review step refused. Plain verdict plus current digest accepted in replay. Delegation fix and closing review unknown."
+      - round: 1
+        change: "W12 fd3833e delivery: post-edit candidate hash and exact plain verdict/artifact/summary format handed to a Read-only independent reviewer; C2 controls retained"
+        review: "R5 review of C2 entrypoint coverage; Run 3 live result at f226c3c; A9 bounded closure adjudication"
+        result: "Independent bound review and verification pass on the live path with exact doc-lint/link-check credit. Missing digest and reject remain refused in W12 mechanism evidence. Review-format episode closed."
 ---
 
 ## Cue
