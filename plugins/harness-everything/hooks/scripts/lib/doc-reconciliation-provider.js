@@ -49,6 +49,17 @@ const DOC_CHECK_LAUNCHER_VALUE_FLAGS = new Set(['-r', '--require', '--import', '
 const DOC_CHECK_WRAPPERS = new Set(['env', 'npx']);
 const DOC_CHECK_ENV_VALUE_FLAGS = new Set(['-u', '--unset', '-C', '--chdir']);
 const DOC_CHECK_NPX_VALUE_FLAGS = new Set(['-p', '--package', '--prefix', '--cache', '--userconfig', '--registry', '--workspace', '-w']);
+// Backslashes are shell escapes except when a rooted Windows path token makes them separators.
+function isWindowsPathToken(token) {
+  return token.startsWith('\\\\') || /^[A-Za-z]:$/.test(token) || /^[A-Za-z]:\\/.test(token)
+    || (process.platform === 'win32' && !token.includes('/'));
+}
+function isDoubleQuotedEscapeTarget(value) {
+  return value === '"' || value === '\\' || value === '$' || value === '\x60';
+}
+function isUncPathPrefix(token, command, index) {
+  return token === '' && command[index] === '\\' && command[index + 1] === '\\';
+}
 // Canonical SHA-256 of harness-everything/scripts/doc-check.js (CRLF normalised to LF). Re-pin deliberately when that script changes.
 const SHIPPED_DOC_CHECK_DIGEST = 'da5e51a763eda6680afb63ee781b566253df9d358eec1e65436786c9ecebbbdb';
 // This install's own doc-check runtime, relative to hooks/scripts/lib: the source checkout or the packaged plugin.
@@ -83,6 +94,12 @@ function safeTokenize(command) {
 
   for (let index = 0; index < command.length; index += 1) {
     const ch = command[index];
+    if (ch === '\\' && isUncPathPrefix(token, command, index)) {
+      token += '\\\\';
+      index += 1;
+      active = true;
+      continue;
+    }
     if (quote === "'") {
       if (ch === "'") quote = null;
       else token += ch;
@@ -111,9 +128,12 @@ function safeTokenize(command) {
     if (ch === '\\') {
       const next = command[index + 1];
       if (next === undefined || next === '\n' || next === '\r') return { ok: false, reason: 'shell-continuation' };
-      token += next;
+      if (isWindowsPathToken(token)) token += '\\';
+      else {
+        token += next;
+        index += 1;
+      }
       active = true;
-      index += 1;
       continue;
     }
     if (';&|<>()'.includes(ch)) return { ok: false, reason: 'shell-operator' };
@@ -176,6 +196,12 @@ function commandSegments(command) {
 
   for (let index = 0; index < command.length; index += 1) {
     const ch = command[index];
+    if (ch === '\\' && isUncPathPrefix(token, command, index)) {
+      token += '\\\\';
+      index += 1;
+      active = true;
+      continue;
+    }
     if (quote === "'") {
       if (ch === "'") quote = null;
       else token += ch;
@@ -184,7 +210,9 @@ function commandSegments(command) {
     if (quote === '"') {
       if (ch === '"') { quote = null; continue; }
       if (ch === '\\' && command[index + 1] !== undefined) {
-        token += command[++index];
+        const next = command[index + 1];
+        if (isDoubleQuotedEscapeTarget(next)) token += command[++index];
+        else token += '\\';
         active = true;
         continue;
       }
@@ -194,9 +222,14 @@ function commandSegments(command) {
     }
     if (ch === "'" || ch === '"') { quote = ch; active = true; continue; }
     if (ch === '\\' && command[index + 1] !== undefined) {
-      token += command[index + 1];
-      if (command[index + 1] === '\r' && command[index + 2] === '\n') index += 2;
-      else index += 1;
+      const next = command[index + 1];
+      if (next === '\r' && command[index + 2] === '\n') index += 2;
+      else if (next === '\n') index += 1;
+      else if (isWindowsPathToken(token)) token += '\\';
+      else {
+        token += next;
+        index += 1;
+      }
       active = true;
       continue;
     }
@@ -419,7 +452,11 @@ function trustRisk(command) {
   const text = typeof command === 'string' ? command : '';
   if (/doc-check/i.test(text)) return true;
   if (commandSegments(text).some(words => words.some(word => /doc-check/i.test(word)))) return true;
-  return !safeTokenize(text).ok;
+  // A Windows relative path and a POSIX escape can look the same; fail closed on either command spelling.
+  const posixDecoded = text.replace(/\\([^\r\n])/g, '$1');
+  if (posixDecoded !== text && hasDocCheckCommandTarget(posixDecoded)) return true;
+  const parsed = safeTokenize(text);
+  return !parsed.ok || parsed.tokens.some(word => /doc-check/i.test(word));
 }
 
 // Executor principals of this task (owner #325, 2026-10-21: the reviewer "must differ from the author's `session_id` and
