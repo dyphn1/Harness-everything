@@ -27,6 +27,13 @@ flowchart TD
 ## 1. Triggers
 - **Rule of 3 (Repeated Failures)**: Attempting to fix the same error or test failure 3 times without progress.
 - **Divergence**: Fixing one bug repeatedly introduces new secondary errors.
+- **Repair loop (feature level)**: Two consecutive review or fix rounds on the same feature each surface new defects in the same decision class (for example "is this the trusted checker?"), even though every command succeeded.
+  - The Rule of 3 hook cannot see this. It counts same-signature command failures in one session. Successful review findings do not increment it, and unrelated successes can leave an existing count in place. New sessions and different failure signatures do not accumulate a feature's review history.
+  - The signal comes from review history: prior findings and their dispositions, the round count per class in an error ledger, or the reviewer noticing the pattern. It is a prompt to reflect, not a lock. The hook gate in the skill contract applies only to the three-failure trigger.
+  - "Same decision class" means the same acceptance decision under the same trust assumptions, possibly at different sites. "Same directory" or "validation" is too broad. Count a repeated or renamed finding once, and treat missing history as unknown, not zero.
+  - Phase 2 here means: list every finding so far by decision class, state the acceptance clause each violates, and inventory every site (callers, state readers, Stop consumers) that makes the same decision. Findings that map to no acceptance clause stay `unresolved` for the owner instead of becoming new fixes.
+  - RESUME by using the inventory to choose the smallest justified correction (which may be one shared fix, or no code change), then re-trace one normal end-to-end acceptance path. Unresolved findings need scope adjudication, not speculative repairs.
+  - A one-shot reviewer cannot see the previous round on its own. The packet carries the current acceptance anchor, a link to the previous comparable report with its revision, the prior finding IDs and dispositions, and the fix made since.
 - **Goal Drift**: Execution strays far from the initial task objective.
 - **User Instruction**: The user requests a step back ("zoom out", "step back", "stop and think").
 

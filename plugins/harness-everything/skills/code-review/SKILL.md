@@ -30,10 +30,10 @@ Independently review completed changes for correctness, contract violations, and
 
 ## Workflow
 
-1. Pin repository, contract, base/head, changed scope, and CI state; inspect relevant callers and consumers.
+1. Pin repository, verbatim acceptance contract, base/head, changed scope, and CI state; inspect relevant callers and consumers.
 2. Independently trace behavior and test applicable counterexamples. Separate severity from safety conditions.
 3. Report only supported findings with evidence tier, smallest correction, regression, and positive control. Use `<this-skill-dir>/templates/finding.template.md`.
-4. On re-review, disposition every prior finding at the new HEAD, then inspect for regressions.
+4. On re-review, disposition every prior finding at the new HEAD, re-trace the acceptance path, then inspect for regressions.
 5. Keep review read-only unless explicitly authorized. Do not claim “bug-free.”
 
 In the interim, bind explicitly on an existing review step: `{"stepType":"review","optionalBindings":["code-review"]}`.
