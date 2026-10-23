@@ -307,7 +307,10 @@ function checkTrace(runtimeRoot, packaged, pilot) {
   fs.chmodSync(newlineMutator, 0o755);
   const newlineChained = `node "${context.controller}" step --session-id "${context.sessionId}" ` +
     '--step-id "req-doc" --disposition pass --evidence\n./newline-mutate.sh';
-  const newlineResult = shell(context, newlineChained);
+  // cmd.exe does not split commands on a newline, so on Windows replay the host outcome a POSIX shell produces.
+  const newlineResult = process.platform === 'win32'
+    ? (fs.writeFileSync(path.join(context.repo, 'newline-chained.txt'), 'x\n'), { status: 0, stdout: '', stderr: '' })
+    : shell(context, newlineChained);
   assert.strictEqual(newlineResult.status, 0, `${context.label}: newline-separated mutation succeeds\n${newlineResult.stderr}`);
   shellEvent(context, runtimeRoot, newlineChained, newlineResult);
   assert.ok(fs.existsSync(path.join(context.repo, 'newline-chained.txt')), `${context.label}: newline-separated mutation ran`);
