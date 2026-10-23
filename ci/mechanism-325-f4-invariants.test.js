@@ -93,6 +93,7 @@ const VARIANTS = {
   drift: { driftEdit: true },
   'no-post-check': { noPostCheck: true },
   'drift-no-post-check': { driftEdit: true, noPostCheck: true },
+  'base-snapshot': { snapshot: true },
 };
 
 function eventAction(event, index) {
@@ -126,6 +127,7 @@ function definitionFor(label, streamEvents, variant, installed) {
     { id: 'doc-pass', op: 'step', payload: { stepId: 'req-docs', disposition: 'pass', evidence: 'sentence corrected' } },
   ];
   if (!review) actions.push(clone(VERIFY_BIND));
+  if (spec.snapshot) actions.push({ id: 'observe-pre', op: 'observeStateTree' });
   const candidateIndex = events.findIndex(isCandidate);
   let reviewInserted = false;
   events.forEach((event, index) => {
@@ -189,6 +191,7 @@ function observe(definition, root, mode, leg, modules) {
     faults: fx.infrastructureFaults(definition, root, mode).map(item => `${item.actionId}: ${item.message}`),
     pilot: root.pilot || null,
     handoff: state.handoff || {},
+    preHook: root.actions['observe-pre'] ? { stateFiles: root.actions['observe-pre'].json.stateFiles, captures: (root.actions['observe-pre'].state.capture || {}).records || [] } : null,
     obligations: state.obligations || null,
     stateFiles: json.stateFiles || [],
     after: (root.actions['observe-after'] && root.actions['observe-after'].state && root.actions['observe-after'].state.handoff) || null,
@@ -263,21 +266,25 @@ const run = (leg, streamId, variant) => runVariant(leg, streamId, variant, STREA
 
 // ---- Predicates. Each takes the runs for one leg and returns { pass, actual }. -------------------------------------------
 
-const bindingFiles = obs => obs.stateFiles.filter(file => file.startsWith('session-workspaces/'));
 const lastVerify = obs => obs.handoff.lastVerifyAt ?? null;
 const creditedOf = obs => (obs.pilot && obs.pilot.creditedCapabilities ? [...obs.pilot.creditedCapabilities].sort() : []);
 const acceptedRefs = obs => (obs.pilot && obs.pilot.acceptedRefs) || [];
 const docRecords = obs => obs.captures.filter(record => record.event === 'PostToolUse' && /doc-check/.test(record.command || ''));
 const quotedRecords = obs => obs.captures.filter(record => record.event === 'PostToolUse' && /node "/.test(record.command || ''));
 const diagCodes = obs => ((obs.pilot && obs.pilot.diagnostics) || []).map(item => (item && item.code) || item);
-const timestampSourceKeys = obs => Object.keys(obs.handoff).filter(key => /lastVerify/i.test(key) && /(source|kind|origin)/i.test(key));
 
 // Each cell: site, invariant, the runs it needs (stream, variant), the predicate, and the invariant it states.
 const CELLS = [
-  // locks: unresolved — OFF pre-switch binding is retained I2 (A4), not in the A/B/C/R3 table
-  { id: 'S1-I2', site: 'state-persist entry and workspace binding', inv: 'I2', stated: 'the OFF capture-only route writes no workspace binding before the pilot switch',
-    runs: [['off-capture-only', 'base']],
-    check: r => ({ pass: bindingFiles(r['off-capture-only|base']).length === 0, actual: bindingFiles(r['off-capture-only|base']) }) },
+  // locks: unresolved — OFF pre-switch binding is retained I2 (A4), not in the A/B/C/R3 table. The delta excludes the
+  // route/plan/start state the replay creates first; the ON leg is the positive control that the delta can see a write.
+  { id: 'S1-I2', site: 'state-persist entry and workspace binding', inv: 'I2', stated: 'the OFF capture-only route adds no workspace binding, capture or handoff file (hook delta); the ON control adds one',
+    runs: [['off-capture-only', 'base-snapshot'], ['on-valid-direct-quoted-review', 'base-snapshot']],
+    check: r => {
+      const added = obs => obs.stateFiles.filter(file => !obs.preHook.stateFiles.includes(file));
+      const off = added(r['off-capture-only|base-snapshot']);
+      const on = added(r['on-valid-direct-quoted-review|base-snapshot']);
+      return { pass: off.length === 0 && on.length > 0, actual: { offHookAdded: off, onControlAdded: on.length } };
+    } },
   // locks: A — "Pilot ON credits valid evidence (no false PASS)"; control: S6-I4
   { id: 'S2-I1', site: 'state-persist verification', inv: 'I1', stated: 'a refused doc-check candidate never writes the doc-check timestamp, and a valid direct run does',
     runs: [['on-malformed', 'candidates-only'], ['on-valid-direct-quoted-review', 'direct-only']],
@@ -286,10 +293,18 @@ const CELLS = [
   { id: 'S2-I2', site: 'state-persist verification', inv: 'I2', stated: 'a changed-before-run doc-check never writes the timestamp before pilot acceptance',
     runs: [['on-lookalikes-runtime-mutations', 'pre-edit']],
     check: r => ({ pass: lastVerify(r['on-lookalikes-runtime-mutations|pre-edit']) === null, actual: lastVerify(r['on-lookalikes-runtime-mutations|pre-edit']) }) },
-  // locks: unresolved — key-name predicate (lastVerify plus source/kind/origin) is mechanism-specific; the R3 behaviour is S7-I1
-  { id: 'S2-I3', site: 'state-persist verification', inv: 'I3', stated: 'the doc-check timestamp carries a source tag, so withdrawal can remove only its own record',
-    runs: [['on-valid-direct-quoted-review', 'review']],
-    check: r => ({ pass: timestampSourceKeys(r['on-valid-direct-quoted-review|review']).length > 0, actual: Object.keys(r['on-valid-direct-quoted-review|review'].handoff) }) },
+  // locks: R3 — "only affected evidence is revoked"; control: S7-I1
+  { id: 'S2-I3', site: 'state-persist verification', inv: 'I3', stated: 'after a runtime change the doc-check record is withdrawn by its own source tag, the generic record survives, and the workflow Stop still names req-verify',
+    runs: [['runtime-npm-drift', 'drift-no-post-check']],
+    check: r => {
+      const obs = r['runtime-npm-drift|drift-no-post-check'];
+      const docBefore = obs.handoff.lastDocVerifyAt ?? null;
+      const docAfter = obs.after?.lastDocVerifyAt ?? null;
+      const genericBefore = obs.handoff.lastGenericVerifyAt ?? null;
+      const pass = typeof docBefore === 'number' && docAfter === null && typeof genericBefore === 'number'
+        && obs.after?.lastVerifyAt === genericBefore && /step:req-verify:pending/.test(obs.stop.stderr);
+      return { pass, actual: { docBefore, docAfter, genericBefore, aggregateAfter: obs.after?.lastVerifyAt ?? null, workflowStop: obs.stop.stderr.trim().slice(0, 120) } };
+    } },
   // locks: B — "host payload fields are re-validated at assessment time"; control: S6-I4
   { id: 'S2-I4', site: 'state-persist verification', inv: 'I4', stated: 'state-persist and the provider agree on a safely quoted doc-check invocation: the timestamp is set exactly when the provider accepts that record',
     runs: [['on-valid-direct-quoted-review', 'quoted-only']],
@@ -354,10 +369,7 @@ const CELLS = [
       };
       return { pass: Object.values(parts).every(Boolean), actual: parts };
     } },
-  // locks: unresolved — acceptedEvents schema is a mechanism shape; no violated owner clause (A7 §3)
-  { id: 'S6-I3', site: 'provider resolveEvent, event adapter and core', inv: 'I3', stated: 'the persisted report keeps per-event provenance for every accepted event',
-    runs: [['on-valid-direct-quoted-review', 'review']],
-    check: r => { const obs = r['on-valid-direct-quoted-review|review']; const accepted = acceptedRefs(obs).length; const events = (obs.pilot && obs.pilot.acceptedEvents) || null; return { pass: accepted > 0 && Array.isArray(events) && events.length === accepted && events.every(event => event && event.provenance), actual: { acceptedRefs: accepted, acceptedEvents: events ? events.length : null } }; } },
+  // locks: historical — retired 2026-10-23 (owner decision 5): S6-I3 acceptedEvents schema predicate; see ci/archive/325-prep/README.md
   // locks: A — "Pilot ON credits valid evidence (no false PASS)"; control: S2-I1
   { id: 'S6-I4', site: 'provider resolveEvent, event adapter and core', inv: 'I4', stated: 'the provider accepts the safely quoted installed invocation',
     runs: [['on-valid-direct-quoted-review', 'review']],
@@ -378,10 +390,7 @@ const CELLS = [
   { id: 'S7-I2', site: 'assessment withdrawal and pilot report', inv: 'I2', stated: 'withdrawal runs only for a session with a valid registered doc-check capture; a look-alike session keeps its ordinary timestamp',
     runs: [['lookalike-npm-drift', 'drift']],
     check: r => ({ pass: ((r['lookalike-npm-drift|drift'].after) || {}).lastVerifyAt ?? null !== null, actual: ((r['lookalike-npm-drift|drift'].after) || {}).lastVerifyAt ?? null }) },
-  // locks: unresolved — a truthy identity field proves neither freshness nor selective revocation (A7 §2)
-  { id: 'S7-I3', site: 'assessment withdrawal and pilot report', inv: 'I3', stated: 'the pilot report carries the workflow identity it was assessed under',
-    runs: [['on-valid-direct-quoted-review', 'review']],
-    check: r => ({ pass: Boolean(r['on-valid-direct-quoted-review|review'].pilot && r['on-valid-direct-quoted-review|review'].pilot.identity), actual: r['on-valid-direct-quoted-review|review'].pilot && r['on-valid-direct-quoted-review|review'].pilot.identity }) },
+  // locks: historical — retired 2026-10-23 (owner decision 5): S7-I3 pilot identity schema predicate; see ci/archive/325-prep/README.md
   // locks: R3 — "only affected evidence is revoked"; control: S7-I2
   { id: 'S7-I4', site: 'assessment withdrawal and pilot report', inv: 'I4', stated: 'a malformed candidate is not a registered capture, so withdrawal ignores it',
     runs: [['malformed-npm-drift', 'drift']],
@@ -390,10 +399,7 @@ const CELLS = [
   { id: 'S8-I2', site: 'workflow withholding', inv: 'I2', stated: 'OFF returns without any pilot withholding: the legacy verify step passes',
     runs: [['off-legacy', 'base']],
     check: r => ({ pass: r['off-legacy|base'].verify.exit === 0, actual: r['off-legacy|base'].verify.exit }) },
-  // locks: unresolved — origin-marker key predicate; withholding is per run (A7 §2)
-  { id: 'S8-I3', site: 'workflow withholding', inv: 'I3', stated: 'a pilot-withheld verify state carries an origin marker',
-    runs: [['on-malformed', 'base']],
-    check: r => { const obligations = r['on-malformed|base'].obligations || {}; return { pass: Object.keys(obligations).some(key => /origin|withheld|source/i.test(key)), actual: Object.keys(obligations) }; } },
+  // locks: historical — retired 2026-10-23 (owner decision 5): S8-I3 origin-marker key predicate; see ci/archive/325-prep/README.md
   // locks: unresolved — OFF mounts and early return are an owner decision in A4, not in the A/B/C/R3 table
   { id: 'S9-I2', site: 'workflow callers and baseline capture', inv: 'I2', stated: 'OFF keeps its mounts and returns early: a legacy OFF workflow performs no pilot assessment and writes no capture (owner decision: mounts stay)',
     runs: [['off-legacy', 'base']],
@@ -402,10 +408,17 @@ const CELLS = [
   { id: 'S10-I2', site: 'generic verification wrapper and runtime CLI', inv: 'I2', stated: 'the generic verifier is unchanged by the pilot switch: a legacy success sets the timestamp',
     runs: [['off-legacy', 'base']],
     check: r => ({ pass: lastVerify(r['off-legacy|base']) !== null, actual: lastVerify(r['off-legacy|base']) }) },
-  // locks: unresolved — source-tag key predicate; the R3 behaviour is S7-I1
-  { id: 'S10-I3', site: 'generic verification wrapper and runtime CLI', inv: 'I3', stated: 'the generic verifier timestamp carries a source tag',
-    runs: [['off-legacy', 'base']],
-    check: r => ({ pass: timestampSourceKeys(r['off-legacy|base']).length > 0, actual: Object.keys(r['off-legacy|base'].handoff) }) },
+  // locks: R3 — "only affected evidence is revoked"; control: S7-I1
+  { id: 'S10-I3', site: 'generic verification wrapper and runtime CLI', inv: 'I3', stated: 'after the same runtime change the generic record keeps its own source tag, the aggregate equals it, and the generic Stop stays silent',
+    runs: [['runtime-npm-drift', 'drift-no-post-check']],
+    check: r => {
+      const obs = r['runtime-npm-drift|drift-no-post-check'];
+      const genericBefore = obs.handoff.lastGenericVerifyAt ?? null;
+      const genericAfter = obs.after?.lastGenericVerifyAt ?? null;
+      const pass = typeof genericBefore === 'number' && genericAfter === genericBefore && obs.after?.lastVerifyAt === genericBefore
+        && !/\[Verification Reminder\]/.test(obs.generic.stderr);
+      return { pass, actual: { genericBefore, genericAfter, aggregateAfter: obs.after?.lastVerifyAt ?? null, genericStop: obs.generic.stderr.trim().slice(0, 120) } };
+    } },
   // locks: R3 — "only affected evidence is revoked"; control: doc-only current runtime
   { id: 'WB-R3b', site: 'assessment withdrawal and current generic evidence', inv: 'I3', stated: 'withdrawal restores generic evidence in either order, keeps it stale after a later edit, and withdraws doc-only evidence',
     runs: [['generic-doc-runtime-drift', 'drift-no-post-check'], ['generic-edit-doc-runtime-drift', 'drift-no-post-check'],
