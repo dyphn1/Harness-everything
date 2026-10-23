@@ -51,6 +51,16 @@ const FAKE_REPORT = JSON.stringify({ schema: 'harness.doc-check.check.v1', comma
 
 function sha(text) { return crypto.createHash('sha256').update(text).digest('hex'); }
 const clone = value => JSON.parse(JSON.stringify(value));
+// Content digests of the state files the observer parses, and the capture journal. An in-place change is a change even when
+// the path list is the same, so S1-I2 compares these as well as the paths.
+const STATE_KEYS = ['workflow', 'obligations', 'handoff', 'capture'];
+const digestOf = value => sha(JSON.stringify(value ?? null));
+const stateDigests = state => Object.fromEntries(STATE_KEYS.map(key => [key, digestOf(state[key])]));
+// Paths added, and digests changed, between two observations of one state tree.
+const hookDelta = (before, after) => ({
+  added: after.stateFiles.filter(file => !before.stateFiles.includes(file)),
+  changed: Object.keys(before.digests).filter(key => before.digests[key] !== after.digests[key]),
+});
 const streamFile = id => JSON.parse(fs.readFileSync(path.join(CORPUS, `${id}.json`), 'utf8'));
 
 // Host probes. The case-variant check runs only where a case-variant spelling of the installed file resolves to it.
@@ -191,9 +201,10 @@ function observe(definition, root, mode, leg, modules) {
     faults: fx.infrastructureFaults(definition, root, mode).map(item => `${item.actionId}: ${item.message}`),
     pilot: root.pilot || null,
     handoff: state.handoff || {},
-    preHook: root.actions['observe-pre'] ? { stateFiles: root.actions['observe-pre'].json.stateFiles, captures: (root.actions['observe-pre'].state.capture || {}).records || [] } : null,
+    preHook: root.actions['observe-pre'] ? { stateFiles: root.actions['observe-pre'].json.stateFiles, digests: stateDigests(root.actions['observe-pre'].state || {}) } : null,
     obligations: state.obligations || null,
     stateFiles: json.stateFiles || [],
+    digests: stateDigests(state),
     after: (root.actions['observe-after'] && root.actions['observe-after'].state && root.actions['observe-after'].state.handoff) || null,
     captures: records,
     modules,
@@ -273,17 +284,32 @@ const docRecords = obs => obs.captures.filter(record => record.event === 'PostTo
 const quotedRecords = obs => obs.captures.filter(record => record.event === 'PostToolUse' && /node "/.test(record.command || ''));
 const diagCodes = obs => ((obs.pilot && obs.pilot.diagnostics) || []).map(item => (item && item.code) || item);
 
+// S1-I2 negative control: an in-place append to a pre-existing state file, on a copy. The path list is unchanged, so only
+// the content digest can report it; a path-only comparison must miss it.
+function inPlaceAppendControl() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'f4t4-s1i2-'));
+  const file = path.join(dir, 'handoff-state.json');
+  fs.writeFileSync(file, '{"lastVerifyAt":1}\n', 'utf8');
+  const snap = () => ({ stateFiles: fs.readdirSync(dir), digests: { handoff: sha(fs.readFileSync(file, 'utf8')) } });
+  const before = snap();
+  fs.appendFileSync(file, '{"lastVerifyAt":2}\n', 'utf8');
+  const delta = hookDelta(before, snap());
+  fs.rmSync(dir, { recursive: true, force: true });
+  return { caught: delta.changed.join() === 'handoff', pathOnlyMisses: delta.added.length === 0 };
+}
+
 // Each cell: site, invariant, the runs it needs (stream, variant), the predicate, and the invariant it states.
 const CELLS = [
-  // locks: unresolved — OFF pre-switch binding is retained I2 (A4), not in the A/B/C/R3 table. The delta excludes the
-  // route/plan/start state the replay creates first; the ON leg is the positive control that the delta can see a write.
-  { id: 'S1-I2', site: 'state-persist entry and workspace binding', inv: 'I2', stated: 'the OFF capture-only route adds no workspace binding, capture or handoff file (hook delta); the ON control adds one',
+  // locks: unresolved — OFF pre-switch binding is retained I2 (A4), not in the A/B/C/R3 table. The delta is taken between
+  // observe-pre and observe-state (paths and content digests); the ON leg is the positive control that the delta sees a write.
+  { id: 'S1-I2', site: 'state-persist entry and workspace binding', inv: 'I2', stated: 'the OFF capture-only route adds no file and changes no existing state file or capture record (hook delta); the ON control adds one',
     runs: [['off-capture-only', 'base-snapshot'], ['on-valid-direct-quoted-review', 'base-snapshot']],
     check: r => {
-      const added = obs => obs.stateFiles.filter(file => !obs.preHook.stateFiles.includes(file));
-      const off = added(r['off-capture-only|base-snapshot']);
-      const on = added(r['on-valid-direct-quoted-review|base-snapshot']);
-      return { pass: off.length === 0 && on.length > 0, actual: { offHookAdded: off, onControlAdded: on.length } };
+      const off = hookDelta(r['off-capture-only|base-snapshot'].preHook, r['off-capture-only|base-snapshot']);
+      const on = hookDelta(r['on-valid-direct-quoted-review|base-snapshot'].preHook, r['on-valid-direct-quoted-review|base-snapshot']);
+      const control = inPlaceAppendControl();
+      return { pass: off.added.length === 0 && off.changed.length === 0 && on.added.length > 0 && control.caught && control.pathOnlyMisses,
+        actual: { offHookAdded: off.added, offHookChanged: off.changed, onControlAdded: on.added.length, control } };
     } },
   // locks: A — "Pilot ON credits valid evidence (no false PASS)"; control: S6-I4
   { id: 'S2-I1', site: 'state-persist verification', inv: 'I1', stated: 'a refused doc-check candidate never writes the doc-check timestamp, and a valid direct run does',

@@ -276,6 +276,22 @@ function partR6R7(leg) {
   runChecks('R6.compound-escaped-reviewer-refused@' + leg, root6Escaped, [
     { id: 'escaped-reviewer-refused', status: 'CONTROL', reason: 'A10 §1: the escaped-hyphen spelling of a compound checker run is refused the same way', test: () => ({ pass: refused(root6Escaped), actual: root6Escaped.actions['review-pass'].exitCode }) },
   ]);
+  // Read-only reviewer control: a plain, non-compound read keeps the reviewer independent, so the refusals are specific. It has
+  // no doc-check run, so its non-reviewer diagnostics are the baseline for a run that names no doc-check at all.
+  const readRun = { id: 'agent-read', op: 'hookDeliver', payload: { event: 'PostToolUse', command: 'cat docs/a.md', toolUseId: 'toolu_f4t4_read', response: { stdout: '', stderr: '', interrupted: false, agentId: 'agent-9' } } };
+  const root6Read = reviewCase('F4T4-R6-read-only-control', [readRun], 'agent-9');
+  runChecks('R6.read-only-reviewer-control@' + leg, root6Read, [
+    { id: 'read-only-reviewer-approved', status: 'CONTROL', reason: 'a reviewer whose only tool use is a plain read stays independent', test: () => ({ pass: approved(root6Read), actual: root6Read.actions['review-pass'].exitCode }) },
+  ]);
+  // A literal quoted heredoc: the body is data, but the command is compound and names the checker, so trust still refuses it.
+  const LITERAL_HEREDOC = `npm test <<'EOF'\n${LINT_COMMAND}\nEOF`;
+  const root6Literal = compoundRoot('F4T4-R6-literal-heredoc', compoundRun('agent-post', LITERAL_HEREDOC, 'agent-9'), 'agent-9');
+  runChecks('R6.literal-heredoc-refused@' + leg, root6Literal, [
+    { id: 'literal-heredoc-reviewer-refused', status: 'CONTROL', reason: 'A10 §1: a literal quoted heredoc that names the checker is compound, so its reviewer is not independent', test: () => ({ pass: refused(root6Literal), actual: root6Literal.actions['review-pass'].exitCode }) },
+    { id: 'literal-heredoc-no-generic', status: 'CONTROL', reason: 'A10 §1: a literal quoted heredoc earns no generic verification', test: () => ({ pass: (handoffOf(root6Literal, 'agent-post').lastGenericVerifyAt ?? null) === null, actual: handoffOf(root6Literal, 'agent-post').lastGenericVerifyAt ?? null }) },
+    // Not a doc-check candidate: no unregistered-command diagnostic and no doc-lint acceptance for the literal record.
+    { id: 'literal-heredoc-no-doc-diagnostic', status: 'CONTROL', reason: 'A10 §1: a literal quoted heredoc is not a doc-check candidate: no unregistered-command diagnostic and no doc-lint acceptance', test: () => ({ pass: !diagnosticsOf(root6Literal).some(item => item && item.code === 'unregistered-command') && !acceptedCapabilityOf(root6Literal).includes('doc-lint'), actual: { codes: diagnosticsOf(root6Literal).map(item => (item && item.code) || item), accepted: acceptedCapabilityOf(root6Literal) } }) },
+  ]);
   const genericRoot = (() => {
     const staged = stage(leg);
     try {
@@ -605,6 +621,8 @@ function partR3(leg) {
   runChecks(`R3-02.unmodified-control@${leg}`, control, [
     { id: 'real-run-sets-last-verify', status: 'CONTROL', reason: '', test: () => ({ pass: typeof handoffOf(control, 'verify-pass').lastVerifyAt === 'number', actual: handoffOf(control, 'verify-pass').lastVerifyAt ?? null }) },
     { id: 'no-reminder-after-real-verification', status: 'CONTROL', reason: '', test: () => ({ pass: !/\[Verification Reminder\]/.test(reminderOf(control)), actual: reminderOf(control).trim().slice(0, 80) }) },
+    // A10 doc-only absence: a clean accepted doc-check run sets the doc timestamp and never the generic one (no npm test ran).
+    { id: 'doc-only-sets-doc-leaves-generic-absent', status: 'CONTROL', reason: 'A10: a clean accepted doc-check run sets lastDocVerifyAt and leaves lastGenericVerifyAt absent', test: () => ({ pass: typeof handoffOf(control, 'verify-pass').lastDocVerifyAt === 'number' && (handoffOf(control, 'verify-pass').lastGenericVerifyAt ?? null) === null && acceptedCapabilityOf(control).includes('doc-lint'), actual: { doc: handoffOf(control, 'verify-pass').lastDocVerifyAt ?? null, generic: handoffOf(control, 'verify-pass').lastGenericVerifyAt ?? null, accepted: acceptedCapabilityOf(control) } }) },
   ]);
   for (const where of ['before-run', 'after-capture']) {
     const root = runCase(r3TamperCase(`F4T9-R3-02-${where}@${leg}`, where));
@@ -694,6 +712,7 @@ function partC1(leg) {
   runChecks(`C1.normal-plan-mention@${leg}`, normalRoot, [
     { id: 'plan-json-does-not-withhold-real-check-credit', status: 'CONTROL', reason: 'F4-W12 C1 (A/C): workflow JSON mentioning doc-check stays ordinary metadata while the current registered check receives exact credit', test: () => ({ pass: normalRoot.pilot?.pilotCredit === true && JSON.stringify(creditedOf(normalRoot)) === JSON.stringify(['doc-lint', 'link-check']), actual: { pilotCredit: normalRoot.pilot?.pilotCredit, credited: creditedOf(normalRoot), diagnostics: diagnosticsOf(normalRoot).map(item => item && item.code) } }) },
     { id: 'installed-check-is-still-accepted', status: 'CONTROL', reason: '', test: () => ({ pass: ['doc-lint', 'link-check'].every(capability => acceptedCapabilityOf(normalRoot).includes(capability)), actual: acceptedCapabilityOf(normalRoot) }) },
+    { id: 'review-pass-exits-zero', status: 'CONTROL', reason: 'A10: the normal plan-JSON run has an independent reviewer whose review-pass exits 0', test: () => ({ pass: normalRoot.actions['review-pass'].exitCode === 0, actual: normalRoot.actions['review-pass'].exitCode }) },
   ]);
 
   const malformed = moveAfterStart(r3ReviewCase(`F4W12-C1-malformed-shell@${leg}`, true), MALFORMED_CAPTURE);
