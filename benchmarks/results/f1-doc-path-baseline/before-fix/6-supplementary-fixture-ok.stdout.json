@@ -1,0 +1,16 @@
+{
+  "lint": {
+    "exit": 0,
+    "evidence": {
+      "immutability": "unavailable"
+    },
+    "diagnostics": []
+  },
+  "links": {
+    "checked": 2,
+    "broken": []
+  },
+  "coverage": {
+    "unsupported": []
+  }
+}

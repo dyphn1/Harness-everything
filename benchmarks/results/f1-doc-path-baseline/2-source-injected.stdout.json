@@ -1,0 +1,33 @@
+{
+  "lint": {
+    "exit": 1,
+    "evidence": {
+      "immutability": "observed"
+    },
+    "diagnostics": [
+      {
+        "code": "invalid-status",
+        "severity": "error",
+        "path": "docs/architecture.md",
+        "message": "status bogus is not valid for reference"
+      }
+    ]
+  },
+  "links": {
+    "checked": 13,
+    "broken": [
+      {
+        "path": "docs/architecture.md",
+        "line": 229,
+        "target": "./does-not-exist.md"
+      }
+    ]
+  },
+  "coverage": {
+    "unsupported": [
+      {
+        "reason": "no domains declared; bare <DOMAIN>-NNN references are not checked"
+      }
+    ]
+  }
+}

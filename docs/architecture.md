@@ -1,3 +1,8 @@
+---
+role: reference
+status: active
+---
+
 # Harness Architecture
 
 This document describes Harness runtime architecture and integration boundaries. Current host capability/evidence claims are centralized in [platform-capabilities.md](platform-capabilities.md); package wiring is not live-host proof.

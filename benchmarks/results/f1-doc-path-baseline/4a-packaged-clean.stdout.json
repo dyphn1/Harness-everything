@@ -1,0 +1,20 @@
+{
+  "lint": {
+    "exit": 0,
+    "evidence": {
+      "immutability": "observed"
+    },
+    "diagnostics": []
+  },
+  "links": {
+    "checked": 12,
+    "broken": []
+  },
+  "coverage": {
+    "unsupported": [
+      {
+        "reason": "no domains declared; bare <DOMAIN>-NNN references are not checked"
+      }
+    ]
+  }
+}

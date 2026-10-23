@@ -1,0 +1,15 @@
+{
+  "lint": {
+    "exit": 2,
+    "error": "cannot read config: ENOENT: no such file or directory, open '<workspace>/.agents/harness-everything/does-not-exist.json'",
+    "diagnostics": []
+  },
+  "links": {
+    "checked": 0,
+    "broken": [],
+    "skipped": "lint-usage-error"
+  },
+  "coverage": {
+    "unsupported": []
+  }
+}

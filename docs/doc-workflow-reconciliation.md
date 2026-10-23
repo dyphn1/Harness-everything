@@ -1,3 +1,8 @@
+---
+role: reference
+status: active
+---
+
 # Document workflow reconciliation — Phase 3b S1 runtime
 
 **Status: S1 runtime ships default OFF; opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`.
@@ -286,12 +291,12 @@ path and file content with NUL bytes. The current list is
 `hooks/scripts/workflow-stop-gate.js`; `doc-evidence.js` is excluded because the P01–P08 replays
 do not load it. A changed fingerprint fails qualification. To refresh deliberately, the runner
 prints an explicit command such as
-`node ci/prep/doc-reconciliation-red.js --recapture-candidate ci/fixtures/doc-obligations/reconciliation-prep/pending-red.candidate.json --baseline-sha <40-hex-commit>`.
+`node ci/archive/325-prep/doc-reconciliation-red.js --recapture-candidate ci/fixtures/doc-obligations/reconciliation-prep/pending-red.candidate.json --baseline-sha <40-hex-commit>` (historical).
 It writes a separate candidate; review its actual/desired values and reason codes before replacing
 the committed registry, then remove the candidate. Nothing is auto-accepted.
 
-The [preparation runner](../ci/prep/doc-reconciliation-red.js) has two replay modes:
-`--strict` exits 1 when a desired-contract gap remains; `--expect-red` exits 0 only when every
+The [archived preparation runner](../ci/archive/325-prep/doc-reconciliation-red.js) is historical T2 evidence, not a current gate. It has two replay modes:
+`--strict` exits 1 when a desired-contract gap remains; historical `--expect-red` exits 0 only when every
 current mismatch matches an exact case/assertion/distribution/actual/desired registry entry and
 all controls and parity checks pass. A stale fingerprint, unexpected PASS, unqualified mismatch,
 wrong assertion, crash, missing fixture, import error, or other infrastructure failure fails
@@ -504,7 +509,7 @@ registry retains these five S2 assertion IDs × two distributions:
   withholding case for S1. Merely changing exit policy introduces an unregistered initial-state gap.
 - Deliberately review/recapture the changed baseline and registry actual/desired qualification;
   include the newly imported pilot module in the ordered runtime fingerprint. Then exactly the
-  targeted entries retire and the remaining `--expect-red` run must qualify on that reviewed S1
+  targeted entries retire and the remaining historical `--expect-red` run must qualify on that reviewed S1
   baseline. Deleting registry rows alone proves nothing.
 - Additional strict S1 cases: governed diff without authored `doc-change`, direct aggregate PASS
   after authored completion, correlated Fable stage binding, persisted untyped workflow, legacy
@@ -874,6 +879,204 @@ Outside this contract: attestation service/PKI, a new command runner/authorizati
 review provider, PRD-root/schema generalization, automatic verifier/generator, code→doc graph
 (#350) and new locks. S2a does not change the public derive/check APIs or weaken reviewer independence.
 
+## S2b — host capture, wiring and freshness
+
+**Docs-stage contract; host wiring and positive runtime credit are not claimed as shipped.**
+This section implements the existing [S2 row](https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6308606462)
+using the [owner-approved host-origin decisions](https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6312323110).
+S2a supplies the producer, accepted-event adapter and expected-set core; S2b supplies the actual
+Claude Code origin provider and workflow boundaries. Default OFF, unsupported-host withholding,
+unchanged checker APIs and the separate E1/3c/promotion gates remain binding.
+
+### Activation and pilot-only scope
+
+The pilot MUST establish an actual ON + supported decision before any pilot capture or changed
+workflow disposition: exact switch value `1`, a loaded non-Fable typed contract, and correlated
+Claude Code host context. A process environment hint, authored doc step or caller host label alone
+cannot establish support. OFF MUST return to the existing legacy path before pilot collection,
+journal writes, report mutation or principal checks. This restriction includes helper functions
+and review handling, not only the final credit branch.
+
+OpenCode and Codex MUST report positive capability `unavailable` when ON: OpenCode has no supported
+shell-result/subagent capture here; Codex tool-level hooks are not live-verified. Fable and loaded
+untyped workflows likewise remain unsupported. Their ON unavailable report is a diagnostic surface,
+not permission to capture or change their lifecycle; OFF emits no new pilot report. Unsupported
+hosts MUST NOT borrow Claude's exit mapping. On supported Claude paths, absence of any required
+origin/input or the live qualification below retains S1 withholding. The live gate controls credit,
+not the ON + supported capture needed to gather the qualifying evidence.
+
+### Claude capture and origin-provider contract
+
+Capture MUST be pilot-only and fail-open to the host: missing fields, storage failure and collector
+exceptions produce no accepted evidence and never block a tool or Stop. Existing handoff behavior
+in `state-persist.js` remains intact. Capture does not execute a command, verifier or generator.
+
+| Capture seam | Retained fields and required binding |
+| --- | --- |
+| Existing PreToolUse identity seam | Correlate the authorized invocation's `tool_use_id`, session/turn/task/workflow and start snapshot before execution. Retain the S2a identity tuple and reference; a Post-only current snapshot cannot be relabeled as the invocation's start identity. Missing start correlation is unavailable |
+| `state-persist.js` on PostToolUse / PostToolUseFailure | Retain event name, exact command, cwd, `tool_use_id`, `session_id`, `prompt_id` when supplied, `agent_id`/`agent_type` when supplied, `duration_ms`, success `interrupted` or failure `is_interrupt`, failure disposition and response digest/reference. Bind end snapshot, actual capability/scope and event/result refs to the same invocation; absent optional fields remain absent, never invented |
+| Agent/Task result capture | Add Claude matcher coverage for the spawning tool's actual name. Retain parent invocation/session correlation, host result principal fields and review-result digest/reference. A background launch is not a completed review; a caller-supplied name or review prose is not an agent identity |
+| Claude SubagentStart / SubagentStop manifest entries | Record host-issued `agent_id`/`agent_type`, parent session/task correlation and start/stop event refs. SubagentStop or completed Agent/Task result supplies the reviewer principal and bound final review artifact; inconsistent identities between surfaces are rejected |
+
+For shell-form input, adaptation MAY use `argv = [command]` to satisfy the existing command/argv
+consistency check; this records the shell form, not an invented parsed argv. Preserve cwd, invocation
+identity and immutable response reference. A digest binds captured bytes; it does not authenticate
+their origin. Failure errors/interruption are retained even without a successful tool_response.
+An absent numeric exit is handled only by the exact approved mapping below; absent or ambiguous
+interruption/success/failure correlation cannot be treated as success. A numeric failure or other
+contradictory captured outcome MUST NOT be overridden by the success mapping.
+
+The following trust-contract rows reproduce the owner decision verbatim. They specialize the S2a
+origin adapter for Claude; they do not change the checker schema or introduce generic null→0
+conversion. The reviewer row defines the bounded claim for this host, including its forgery limit.
+
+| # | Decision | Bound |
+|---|---|---|
+| 1 | **Exit mapping.** Claude Code's `PostToolUse` success payload has no numeric exit code. For a given `tool_use_id`, the S2b origin provider treats "`PostToolUse` received, `interrupted` is false, and no `PostToolUseFailure` arrived" as exit `0`. This is a named mapping of the host's own success/failure classification, not a null→0 conversion. | A `PostToolUseFailure` is never credited. Its `Exit code N` text is used for diagnostics only. The mapping is written verbatim as a row in the trust contract. |
+| 2 | **Reviewer independence uses the host-issued subagent principal.** The reviewer is identified by the subagent's `agent_id`/`agent_type`, taken from `SubagentStop` or the Agent/Task result payload. It must differ from the author's `session_id` and from every executor principal. S2b adds `SubagentStart`/`SubagentStop` and Task-result capture to the Claude manifest. | The claim is bounded. The agent can run arbitrary code, so it can forge local journals. The guarantee is that host payload fields are re-validated at assessment time, and copied-record replay tests are required negatives. **Cryptographic unforgeability is not claimed.** Human approval is not available as a reviewer principal. |
+
+The origin provider MUST implement the existing `resolveContext` / `resolveEvent` seam and
+re-validate captured host payload fields against current workspace/session/task/workflow, pinned
+baseline, requested event reference, invocation and principal relationships on every assessment.
+It MUST reject copied records from another session, task, invocation, workflow revision or snapshot,
+changed payload/result digests, conflicting success/failure records and fabricated principal labels.
+An exact duplicate or altered record cannot become a new accepted event by changing its filename.
+A failure arriving for a previously mapped invocation invalidates that invocation's current credit
+on reassessment. Missing origins remain unavailable; writable local journals, permissions and
+hash agreement alone cannot upgrade them. These replay checks do not promise protection from an
+agent replacing all local state or invoking hook code with fabricated input.
+
+Review approval still needs approve verdict, nonempty summary, current identity, reviewed artifact
+digests and scope. The host principal is derived from capture, never `independentOf` prose.
+Author and executor relationships MUST also be correlated; unknown relationships cannot prove
+independence. Host result aliases such as `agentId` require a demonstrated capture mapping to the
+same subagent identity; never guess it from text. Human approval is unavailable for this S2b path.
+The provider MUST validate what a successful command actually checked: an arbitrary exit-0 command
+cannot claim document lint, link, conflict or requirement-sync capability.
+
+### Retained live-capture gate
+
+Positive credit MUST stay disabled until one retained live Claude Code capture contains populated
+`tool_use_id` for an actual tool outcome and `agent_id` for its correlated reviewer-subagent path.
+Use `benchmarks/results/live-host/claude-325-3b-s2b/` as the retained evidence location, with
+`capture.sanitized.jsonl` for hook payloads and `README.md` for host/version, plugin/revision,
+capture procedure, event references, digests and bounded conclusions. These are required future
+artifacts, not claims that files or a live capture already exist. Preserve the required correlation
+fields through sanitization; a transcript alone, synthetic payload or screenshot of a name is not
+this hook-capture evidence.
+
+The origin provider's qualification check MUST resolve that retained evidence reference (or its
+verified export), validate captured host/event kinds, nonempty tool/subagent IDs, parent/session
+correlation and recorded digests, and match the supported host/capture implementation being used.
+Missing, malformed, mismatched or unresolvable qualification evidence returns unavailable and no
+credit. Do not enable qualification from a caller `trusted` flag, environment toggle, populated
+fields in the current journal or a fake provider. Tests may inject an explicitly fake qualification
+through dependency injection; production has no fixture trust switch. Qualification proves this
+host capture path exposed the fields; every later event still needs current origin/identity checks.
+A retained capture does not authenticate arbitrary local journals or imply E1 GO. Record the live
+gate as unmet until this check actually passes; do not label the docs or deterministic tests as live.
+
+### Workflow credit, review progression and freshness
+
+Every ON + supported credit attempt MUST invoke the following current chain, with the same
+correlated origin provider: `produceDocSnapshot` → `acceptDocEvents` →
+`checkAcceptedDocEvidence`. Only the current adapter output may feed the core; neither CLI JSON,
+a caller-fabricated `accepted` object nor a previously persisted report may bypass that chain.
+S2a core `eligible` is mode-specific, never by itself full workflow verification.
+
+| Boundary | Required decision and persisted behavior |
+| --- | --- |
+| Authored doc-change | Existing authorized/binding-checked advance is allowed; it grants no document-MUST verification credit |
+| Governed normative review PASS | After existing active-step/binding validation, use review mode. Current independent quality-review evidence can pass before later verifier records exist. Missing or self-reviewed approval leaves review pending, refuses the PASS with exit 2, and Stop reports the review step. Review eligibility never sets full pilotCredit |
+| Verification-step PASS | Live qualification plus verification mode must credit every expected applicable MUST, with unknown MUSTs unresolved, N/A reasoned and SHOULD diagnostic-only. Otherwise retain S1 withholding, no verification-step PASS and exit 2 |
+| Direct aggregate execute / verify PASS | Apply the same current full evidence guard even when authored steps are already complete. Text is not a bypass. Internal derived authored execute may still reflect completed authored work; document verification cannot be derived from loaded skills |
+| Completion, including persisted satisfied / all-PASS | Recollect all ten identity fields and re-resolve accepted origins/review bindings immediately before completion credit. Any stale/unavailable/unresolved MUST revokes current aggregate completion credit, retains authored history, and uses S1 running/pending diagnostics. Both Stop surfaces return success to the host |
+
+At verification and completion, bracket collection/checking and the credit write with identity
+rechecks. A mutation of candidate/config/task/plan/baseline or accepted bindings between collection,
+checker evaluation and persistence MUST withhold rather than persist a stale PASS. The pinned
+baseline cannot advance after a commit; passing a step or changing a timestamp cannot alter stable
+task semantics. ON→OFF→ON rechecks current evidence instead of trusting legacy PASS. No host lock
+or command execution is introduced at these boundaries. A complete trusted non-document decision
+retains P06 legacy behavior and never fabricates verified document credit.
+
+A positive runtime report MUST identify the current tuple, full expected MUST IDs, unchanged
+checker results, accepted record refs and diagnostics; verified pilotCredit requires the current
+full verification decision and live gate. Unknown/unavailable/failed evidence stays visible.
+Recollection or report-persistence failure cannot earn credit. The report and workflow state must
+agree about withholding; a stale positive report cannot remain the authority after revocation.
+
+### S2b GREEN implementation decisions (coordinator, HOW only)
+
+| Question raised at RED | Decision |
+| --- | --- |
+| How do tests hand origin evidence to the wired CLI/Stop? | Only through the session capture journal that ON `state-persist` writes (content discovery, as in the capture contract) plus a simulated live-capture artifact in the documented form. No other input channel reaches the wired runtime. |
+| Where does `taskId` come from? | A workflow-local task identity: the workflow id, recorded at ON `plan`/`start` next to `docReconciliationBaseline` and validated against the current workflow at every assessment. A changed or missing task identity is `identity-mismatch`, never a new task. |
+| What is the credit seam? | `assess(context, set, options)` / `updateStep(..., options)` accept `options.originProvider` for in-process tests only. Production always builds `createClaudeOriginProvider` from the session journal. No CLI argument, environment value or host payload can inject a provider or an `accepted` object (closes carry-over N1 at the wiring boundary). |
+
+### Exact S2b RED handoff and registry retirement
+
+The following five IDs each have `source` and `packaged` entries: exactly ten pending gaps.
+All GREEN claims MUST exercise the actual host-provider/wiring path with declared test-origin
+fixtures, not a hardcoded eligible result. Deterministic fake-host evidence remains mechanism
+proof; authentic host claims additionally require the retained live gate.
+
+| Assertion ID (both legs) | Required GREEN condition |
+| --- | --- |
+| `P02e.on.review-pass-exit` | Current self/unknown reviewer provenance refuses review PASS with exit 2; an otherwise-valid distinct host subagent approval passes |
+| `P02e.on.stop-reports` | Rejected review remains active/pending and Stop includes `step:req-review:pending`, exit 0 |
+| `P03.on.verify-retry-exit` | Valid independent review remains reachable; first verification is refused without verifier events; later fresh accepted events for the same tuple make retry exit 0. Set retry ON expectExit to exactly 0 and restore final satisfied completion from S1's staged running assertion |
+| `P05.on.stop-on-2-withheld` | Despite the historical suffix, this ID currently asserts initial `verify-pass.exitCode === 0`; provide complete positive producer/events before mutation |
+| `P05.on.stop-on-3-withheld` | This ID currently asserts initial `stop-on-1.workflow.state === satisfied`; establish positive completion, then retain the separate candidate/config stale-credit and ON→OFF→ON negatives |
+
+Materialize real Git baseline/candidate/config fixtures for the positive P02e/P03/P05 paths and
+correlate their host-origin test records. Empty/non-Git maps and arbitrary `prep-host-events` JSON
+cannot become positive runtime authority. Keep all S1 refusal/compatibility coverage with its
+intended evidence absence. An empty registry is the strict-prep mechanism gate, not live-host
+proof, E1 GO or permission for wider rollout.
+
+S2a's pure A01–A14 vectors remain required. S2b MUST additionally execute these wired strict cases:
+
+| Case | Required runtime assertion |
+| --- | --- |
+| Task/host substitution | Reuse otherwise-valid evidence after task/scope/requirements/bindings/revision or host changes; current origin/tuple mismatch rejects credit, while unchanged context succeeds |
+| Config/root/inventory | Parse/hash substitution, equal parsed config with different bytes/host selection, unsupported custom PRD root, baseline/candidate disagreement, omitted new/deleted/rename paths and PRD-only whole-identity substitution remain no-credit through actual disposition/Stop |
+| Omitted authored step/result | Same governed diff derives the same MUSTs without doc-change; missing/empty/subset results cannot pass merely because every returned result passes |
+| Old typed PASS gains governed scope | Start genuinely non-document and satisfied, then change governed content without changing authored steps; Stop revokes current credit, retains history and exits 0 |
+| Commit/rename freshness | Commit mid-workflow and move content across rename endpoints; current HEAD never replaces the pinned baseline and all current stored-byte bindings are checked |
+| Capture/check/persist race | Mutate candidate/config/task or accepted binding at each boundary after a previously valid positive evaluation; no stale report/PASS survives |
+| Live qualification and replay | Missing/invalid qualification, copied or altered journal/result, same ID with failure/interruption, self reviewer or principal alias substitution all remove the prior positive path; fresh valid captures pass |
+| Ignored-path producer coverage | Exercise S2a's closed F4 case through disposition/completion: ignored governed/derived/config/relevant code content is included or unavailable, never silently non-document |
+| Actual unsupported topology | Exercise a genuinely active correlated Fable branch and persisted untyped workflow separately from fallback-generic fixtures; report unavailable independently of generic completion without Fable credit or a new lock |
+
+### Carry-over dispositions and non-vacuity
+
+| Review item | S2b disposition |
+| --- | --- |
+| V2a-N1: fabricated accepted structure | Close in wiring: only current `acceptDocEvents` output, after actual provider resolution, enters the core. Injecting an internally consistent forged accepted/checker object at a public boundary MUST fail; test that bypassing acceptance changes a successful-origin negative |
+| V2a-N2: final origin outage labeled snapshot-changed | Preserve existing S2a frozen diagnostic and no-credit behavior. Add a final-only provider-outage case at the wired boundary and retain phase/origin context in runtime diagnostics; reason-code refinement is optional and must not weaken A14 or change the checker API |
+| V2a-N3: candidate Git failure labeled baseline-unavailable | Preserve the conservative existing code; assert candidate check-attr failure is no-credit, with operation context identifying the candidate phase. Do not relabel it successful or change evidence semantics to improve wording |
+| V2a-N4: rejected capability marked seen | Preserve conservative rejection for a batch containing invalid/duplicate/conflicting evidence; a new assessment with fresh valid refs can recover. Do not filter relevant failures out of a batch to manufacture PASS; add mixed-invalid/valid and fresh-retry cases |
+| S1 F4: ignored paths | Closed by S2a producer, not re-accepted as an S2b exemption; verify through wired positive-then-ignored-change tests |
+| S1 F6: unsupported-path coupling | Execute the actual Fable branch rather than counting generic fallback reporting as its coverage; assert unsupported diagnostics and Stop success independently |
+
+Non-vacuity MUST begin with a successful full-credit wired vector and a successful review-only
+progression. Then require targeted mutations to fail the intended assertions: bypass current
+provider/acceptDocEvents resolution; skip reviewer independence; apply Claude success mapping to
+failure/interruption/missing ID; trust copied result/journal or old pilot report; bypass the live
+gate; iterate only returned results; re-anchor baseline to HEAD; hash only PRDs; drop config-byte
+binding; exclude ignored relevant paths; skip verification/completion recollection; and skip the
+last recheck before persistence. A mutant is not killed merely because S1 still refuses everything,
+a fixture cannot start, a dependency is missing or a test crashes. Assert exact reason/state and
+loss of a previously valid credit path; keep fake-origin and retained-host evidence layers separate.
+
+OFF/unset/`0`/other values, genuine non-document P06, P07u, P02d diagnostic ordering, existing
+required bindings/authorization and unsupported-host lifecycle MUST remain compatible. Intentional
+PASS refusal has exact exit 2; both workflow Stop and generic Stop have exit 0 under missing origins,
+collector/report failure, stale evidence and unsupported topology. Capture failure itself always
+fails open to the host while withholding evidence credit. No tool/Stop lock, auto-commit, forced
+provider, discovery execution, public checker change or new attestation service/PKI is introduced.
+
 ## Implementation and acceptance after E0
 
 S1 ships the default-OFF switch, narrow disposition/completion no-credit integration and runtime
@@ -884,3 +1087,127 @@ relevant green CI including Windows. The S1 suites establish their tested mechan
 contracts; they do not establish independent host provenance, live-host loading or architectural
 benefit. E1 has not started and begins only after a creditable S2; E1 GO and H1–H4/paired evidence
 remain separate gates.
+
+## F4: credited reconciliation (Claude-only, pilot ON)
+
+Status: **implemented behind the pilot switch; mechanism and package evidence, plus one live field-availability capture.** Credit works for `doc-lint` and `link-check` (a registered `doc-check` run) and for an independent `quality-review` (a host reviewer with bound path digests). One live capture (Claude Code 2.1.308, macOS, one session) proves field availability, not live-host credit. There is no live-host credit run yet. Deterministic mechanism tests prove the chain. Design source: the A3 advisor report (`.worktrees/packets/feat-path/A3-advisor-report.md`, a local coordination file, not a shipped doc).
+
+### Whole path
+
+```mermaid
+flowchart LR
+  P["Plan/start: pin baseline + task/workflow semantics"] --> B["PreToolUse / review start: capture identity + command + principal"]
+  B --> X["Claude runs registered doc check or verifier"]
+  X --> H["PostToolUse/Failure or SubagentStop: capture raw result + IDs"]
+  H --> J["Session-owned origin records outside candidate tree"]
+  J --> A["Current assess: live qualification + origin provider"]
+  A --> S["produceDocSnapshot"]
+  S --> E["acceptDocEvents: current refs, identity, scope, principal"]
+  E --> C["checkAcceptedDocEvidence: expected MUST set"]
+  C --> R["Recheck identity/origins; persist eligible mode only"]
+  R --> T["Completion/Stop: recollect; stale evidence loses credit"]
+```
+
+### Modes
+
+| Mode | Condition | Result |
+|---|---|---|
+| OFF | `HARNESS_DOC_RECONCILIATION_PILOT` unset (default) | Legacy behaviour. No pilot capture, assessment or report writes |
+| ON without qualifying evidence | Pilot on, but a host field, capture or live qualification is missing, or an identity or origin recheck fails | Withheld: no credit. Both Stop entry points exit 0 |
+| ON with current accepted evidence and live qualification | Every identity current; capture validated | Credit only for the capabilities in the result contract below |
+
+### Projection and trust limits
+
+- The narrow candidate scanner only selects doc references. It does not prove that a command contains no checker execution.
+- Trust uses a separate, conservative rule for generic verification and reviewer independence. A command that is compound (newline, heredoc, `$()`, shell operators, malformed quoting) or names the checker is not generic verification, and its shell executor counts for independence. Accepted tradeoff (owner decision 3): benign compounds such as `npm test && echo ok` lose generic credit and must run separately.
+- Accepted known limit (owner decision 4): in unreleased pilot-ON dev sessions created before WB2, aggregate-only verification may be cleared on checker drift and must be re-verified. Current source-tagged state keeps R3 preservation.
+
+### Test transport
+
+- Raw fixture hook payloads go through the real hook subprocess entry points, which write their own session records. The disposition and Stop subprocesses then run against that same isolated task and session.
+- Qualification comes only from a CI-only preloader passed as `node --require <ci-preloader> <entry>`. It supplies explicit fake qualification through the origin-provider factory. It may change qualification only. It never changes the snapshot, the `resolveEvent` outcome, principals, capability, accepted records or core eligibility.
+- No production environment or argv switch exists. The preloader stays under `ci/` and is not packaged.
+- This proves **deterministic simulated-host behaviour**. It does not prove live-host behaviour.
+
+Replay negatives that must reject:
+
+- Cross-session, cross-task, workflow-revision, baseline or candidate replay
+- The same record under a new name
+- A duplicate tool ID
+- Conflicting success and failure for one tool
+- An edited raw payload or result
+- A false `independentOf` claim in prose
+- A stale review
+- Forged accepted or checker structures
+
+### Owner's bounded claim
+
+Quoted from the #325 owner decisions of 2026-10-21 (09:10 comment), verbatim.
+
+Trust contract row, exit mapping (decision 1):
+
+> For a given `tool_use_id`, the S2b origin provider treats "`PostToolUse` received, `interrupted` is false, and no `PostToolUseFailure` arrived" as exit `0`. This is a named mapping of the host's own success/failure classification, not a null→0 conversion.
+
+Bound: "A `PostToolUseFailure` is never credited. Its `Exit code N` text is used for diagnostics only."
+
+Reviewer principal and claim boundary (decision 2, bound column):
+
+> The claim is bounded. The agent can run arbitrary code, so it can forge local journals. The guarantee is that host payload fields are re-validated at assessment time, and copied-record replay tests are required negatives. **Cryptographic unforgeability is not claimed.** Human approval is not available as a reviewer principal.
+
+Supported host for positive credit: **Claude Code only.** OpenCode and Codex stay unavailable.
+
+### Result contract
+
+Logical command IDs: `harness.doc-check.check.v1` and `harness.doc-check.compare-derived.v1`. An ID is bound to the observed executable and argv, the resolved installed runtime path and an implementation digest. Stdout that repeats the ID is not trusted.
+
+Only direct, single, registered Node invocations are credited. Compound shell commands, aliases and wrappers stay uncredited unless their expansion is validated independently. The script must resolve (realpath, relative to the captured cwd) to this install's own `harness-everything/scripts/doc-check.js` (source) or `skills/harness-everything/scripts/doc-check.js` (packaged). Its digest must equal the digest observed at capture; any other path or digest earns no credit, no capability event and no verification evidence.
+
+Candidate classification follows command roles, not arbitrary text matches. A direct `doc-check`/`doc-check.js` target, a checker script operand to a recognized launcher, or a checker command in a recognized shell command-string remains a candidate when its launcher, subcommand, flags, quoting or composition is unsupported; it is refused as `unregistered-command` and cannot fall through to generic verification. An unrelated command whose data argument mentions `doc-check`—including workflow-plan JSON, `echo` text or a supplied filename—is not a candidate. Candidate detection never authorizes a wrapper, and opaque aliases or dynamically constructed targets remain unsupported.
+
+| Capability | Credit needs |
+|---|---|
+| `doc-lint` | One projection from an observed successful `check`: lint exit 0, valid schema, the exact expected governed and baseline paths, and complete relevant coverage |
+| `link-check` | A separate projection of the same invocation, scoped to the expected paths: no broken, skipped, unreadable or unsupported link syntax |
+| `derived-regenerate` | An observed successful generation **and** an observed successful pure comparison, bound to the same source and config identity and to the same generated bytes. `--generation-status ok` is caller-reported and cannot establish generation alone |
+| `quality-review` | A completed review from a correlated host `agent_id` distinct from the author session and every executor. Executors are the author session and the principals of registered doc-check runs in the task, which are the execution evidence a doc obligation uses (see the rationale below). An Agent/Task result must name the same `agent_id`. The verdict needs an explicit approve line, a non-empty summary and one `Reviewed artifact: <path> sha256:<hex>` line per reviewed path, which must match the candidate. SubagentStop alone is never approval |
+| `conflict-check`, `requirement-sync` | Stay unresolved. F4 gives them no credit |
+| SHOULD reminders | Never earn credit, and their absence never withholds it |
+
+### Live capture gate
+
+Positive production credit stays **disabled** until a live capture validates. Procedure (A3 §4):
+
+1. Pin the capture implementation. Stage the Claude plugin outside the checkout with `scripts/stage-claude-plugin.js`. Use a small scratch Git project with one governed reference and a committed baseline. Keep Harness state and output outside that project.
+2. Install a capture-only logging wrapper through a session `--settings` file. For PreToolUse, PostToolUse, PostToolUseFailure, SubagentStart and SubagentStop, write the raw stdin payload to owned JSONL before running the staged hook. Record the settings and wrapper hashes.
+3. Set `HARNESS_DOC_RECONCILIATION_PILOT=1` and a scratch `HARNESS_STATE_HOME`. Use a fresh session UUID, a foreground read-only `doc-reviewer` agent and normal scoped permissions. Do not add a bypass flag. If the required tools are denied or authentication fails, record the gate as unmet.
+4. Run the command below. After the edit and before delegation, the parent uses one read-only `shasum -a 256 docs/a.md` command and passes the relative path and actual post-edit digest to the independent reviewer. Require a plain `Review verdict:` line followed by `approve` or `reject`, a `Reviewed artifact: docs/a.md sha256:<digest>` line, and a non-empty summary. Do not pre-fill the verdict or edit between hashing and review. The prompt asks Claude to read the reference, run the registered `doc-check` command, invoke `doc-reviewer`, wait for its completion and stop.
+5. Validate a populated `tool_use_id`, an explicit interruption value, and the reviewer's `agent_id` and `agent_type`, with parent-session, start, stop and Agent-result correlation. A missing field keeps the gate unmet.
+
+```text
+HARNESS_DOC_RECONCILIATION_PILOT=1 HARNESS_STATE_HOME="<scratch-state>" \
+claude -p "<fixed capture prompt, containing the exact check command>" \
+  --plugin-dir "<staged-claude-plugin>" \
+  --settings "<scratch-capture-settings.json>" \
+  --agents '{"doc-reviewer":{"description":"Read-only documentation reviewer","prompt":"Read only. Return explicit verdict, summary and reviewed artifact digests; never edit or execute the implementation."}}' \
+  --session-id "<fresh-UUID>" --setting-sources project,local \
+  --output-format stream-json --verbose
+```
+
+**Retained artifacts** go to `benchmarks/results/live-host/claude-325-3b-s2b/`: `capture.sanitized.jsonl`, `README.md`, the relevant stream-json transcript, settings, manifest and wrapper digests, the host version, the runtime and tree fingerprint, and the command and exit summary. Raw payloads stay private, outside the repository. Transcript text alone is not hook evidence.
+
+**Qualification export** is a sanitized file at the canonical path `hooks/scripts/lib/doc-reconciliation-qualification.json`, copied by plugin sync, with a byte-identical copy of its sanitized capture beside it (`doc-reconciliation-capture.sanitized.jsonl`). The runtime validates schema, host version, payload kinds, correlation and the capture digest against that sibling file. It does not search ancestor directories and does not accept a file by size.
+
+### Scope and limits
+
+- The first positive scope is a body-only edit to an existing governed reference, with no derived declaration, code, test, PRD or ADR normative change. Its applicable MUSTs are lint and links.
+- Simulated replay and one live field capture are not E1 GO, and they do not permit a wider rollout.
+- Not claimed: cryptographic attestation, a sandbox, a forced review provider, default-ON, live-host behaviour beyond the capture, or support for OpenCode or Codex.
+
+**Executor rationale.** The owner's text (#325, 2026-10-21) says the reviewer "must differ from the author's `session_id` and from every executor principal". An executor principal is the principal of execution evidence used in this assessment. A reviewer that read or computed digests with plain tool calls is not an executor. A reviewer whose registered doc-check run is refused still counts, which keeps the rule fail-closed.
+
+### Known limits (documented, no code change)
+
+- **OFF is not the F3 wiring (F8).** Pilot-off writes are unchanged, but the capture hooks mount on Bash, PowerShell, Task and Agent PreToolUse, so each of those runs one extra Node process (about 25 ms, measured). "OFF = legacy behaviour" holds for writes, not for the hook set.
+- **The live gate is a repository-pinned field-availability check, not a running-host compatibility check (F10).** The qualification export records Claude Code `2.1.308`, but the retained Claude hook payloads expose no host-version field for the runtime to compare. The export and sibling sanitized capture validate the recorded payload kinds and correlations for that host version; they do not establish compatibility with the current session. Editing both repository artifacts and updating the capture digest can reopen the gate without a new live capture.
+- **The unsupported-host check is vacuous in production (F11).** The only production caller asserts the Claude host id. OpenCode and Codex stay unavailable because their plugins do not mount `state-persist.js`, not because the host is detected.
+- **Event files are not tamper-proof (F13).** Event files are created exclusively, and the journal is checked against them. The local agent can still rewrite event files and rebuild the journal. This is the owner's bounded claim, not a guarantee of tamper resistance.

@@ -1,0 +1,115 @@
+{
+  "lint": {
+    "exit": 1,
+    "evidence": {
+      "immutability": "observed"
+    },
+    "diagnostics": [
+      {
+        "code": "missing-req",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "requirement REQ-GRAPH-012 is referenced but is not defined in an active PRD",
+        "id": "REQ-GRAPH-012"
+      },
+      {
+        "code": "missing-req",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "requirement REQ-GRAPH-020 is referenced but is not defined in an active PRD",
+        "id": "REQ-GRAPH-020"
+      },
+      {
+        "code": "missing-req",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "requirement REQ-GRPH-012 is referenced but is not defined in an active PRD",
+        "id": "REQ-GRPH-012"
+      },
+      {
+        "code": "missing-req",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "requirement REQ-GRPH-013 is referenced but is not defined in an active PRD",
+        "id": "REQ-GRPH-013"
+      },
+      {
+        "code": "missing-req",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "requirement REQ-GRPH-020 is referenced but is not defined in an active PRD",
+        "id": "REQ-GRPH-020"
+      },
+      {
+        "code": "missing-req",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "requirement REQ-GRPH-099 is referenced but is not defined in an active PRD",
+        "id": "REQ-GRPH-099"
+      },
+      {
+        "code": "unresolved-ref",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "reference GRPH-007 cannot be resolved",
+        "id": "GRPH-007"
+      },
+      {
+        "code": "unresolved-ref",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "reference PRD-GRPH-001 cannot be resolved",
+        "id": "PRD-GRPH-001"
+      },
+      {
+        "code": "unresolved-ref",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "reference PRD-GRPH-001@r2 cannot be resolved",
+        "id": "PRD-GRPH-001@r2"
+      },
+      {
+        "code": "unresolved-ref",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "reference PRD-GRPH-001@r2#REQ-GRPH-012 cannot be resolved",
+        "id": "PRD-GRPH-001@r2#REQ-GRPH-012"
+      },
+      {
+        "code": "unresolved-ref",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "reference PRD-GRPH-001@r3 cannot be resolved",
+        "id": "PRD-GRPH-001@r3"
+      },
+      {
+        "code": "unresolved-ref",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "reference PRD-GRPH-001@r4 cannot be resolved",
+        "id": "PRD-GRPH-001@r4"
+      },
+      {
+        "code": "unresolved-ref",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "reference legacy:GRPH-007 cannot be resolved",
+        "id": "legacy:GRPH-007"
+      },
+      {
+        "code": "unresolved-ref",
+        "severity": "error",
+        "path": "docs/document-lifecycle.md",
+        "message": "reference legacy:GRPH-007@docs/adr/legacy/v2/GRPH-007.md cannot be resolved",
+        "id": "legacy:GRPH-007@docs/adr/legacy/v2/GRPH-007.md"
+      }
+    ]
+  },
+  "links": {
+    "checked": 6,
+    "broken": []
+  },
+  "coverage": {
+    "unsupported": []
+  }
+}

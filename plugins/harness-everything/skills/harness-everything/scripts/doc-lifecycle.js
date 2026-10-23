@@ -1290,6 +1290,9 @@ function lintDocs(docs, config, options = {}) {
       const ref = match[1].replace(/[.,;:!?]+$/, '');
       if (seen.has(ref)) continue;
       seen.add(ref);
+      // A bare <X>-NNN is a reference only for a declared domain or an exact known ID, alias or legacy ID.
+      const bare = ref.startsWith('REQ-') || ref.startsWith('PRD-') ? null : ref.match(/^([A-Z][A-Z0-9]{1,9})-\d{3,}/);
+      if (bare && !domains.has(bare[1]) && !resolveRef(entries, ref, { graph }).doc && !entries.some(item => item.legacy && idFromLegacy(item) === ref)) continue;
       if (ref.startsWith('REQ-') && !allReqIds.has(ref)) {
         unresolved('missing-req', doc, ref, { error: 'missing-req', candidates: [] }, `requirement ${ref} is referenced but is not defined in an active PRD`);
         continue;

@@ -172,3 +172,9 @@ ordinary terminal sees it only when set at user/OS level. Keep the mode `off`
 until a Harness-trained checkpoint passes the rollout gates.
 Public Skills-only artifacts do not acquire lifecycle hooks from this feature.
 See [System One routing](system-one-routing.md) for limits, rollback and evidence.
+
+The editorial doc check (`harness-everything/scripts/doc-check.js`, F1) is reached by instruction only: the `SKILL.md` deep-dive line leads to `references/triage-and-tiers.md`, whose governed-doc section names `references/doc-check.md`, which holds the command. No `doc-change` step binding exists. Evidence is package and mechanism only. It adds no host enforcement, no Stop lock and no trusted document credit, and a non-empty `coverage.unsupported` marks the check as partial.
+
+`compare-derived` (`harness-everything/scripts/doc-check.js`, F3) compares a caller-captured generator output with a declared derived view, byte for byte. It runs no generator and writes no files. Its evidence is package and mechanism only: the generation status is caller-reported, and the output is ordinary command evidence. It is not trusted credit, and it makes no live-host claim.
+
+Credited reconciliation for F4 (Claude Code only, pilot ON) is **implemented, with mechanism and package evidence and one live field-availability capture**. Credit works for `doc-lint` and `link-check` through a registered `doc-check` run, and for an independent `quality-review` with bound path digests. The capture under `benchmarks/results/live-host/claude-325-3b-s2b/` proves field availability on Claude Code 2.1.308 for one session. It is not live-host credit, and no live-host credit run exists yet. Deterministic mechanism tests (replay through the real hook entry points, with a CI-only qualification preloader) prove the chain.

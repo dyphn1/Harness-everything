@@ -1,0 +1,9 @@
+{
+  "governed": [
+    { "path": "docs/architecture.md", "role": "reference" },
+    { "path": "docs/doc-workflow-reconciliation.md", "role": "reference" }
+  ],
+  "derived": [
+    { "path": "docs/governed-index.md", "generator": "node harness-everything/scripts/doc-lifecycle.js index --workspace . --config .agents/harness-everything/project-docs.json --all" }
+  ]
+}

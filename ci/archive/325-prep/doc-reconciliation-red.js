@@ -2,17 +2,19 @@
 'use strict';
 
 // #325 Phase 3b preparation: strict and expected-RED replay over the real CLI, hook and Stop entry points.
+// ARCHIVED by F4-T2 (historical evidence, revision 0308386); see ci/archive/325-prep/README.md. Relocation edits only:
+// ROOT, the fixtures require path and the printed re-capture command point at this directory.
 //
-//   node ci/prep/doc-reconciliation-red.js --strict      exits 1 on any desired-contract gap or control failure
-//   node ci/prep/doc-reconciliation-red.js --expect-red  exits 0 only when every gap is qualified by the registry
-//   node ci/prep/doc-reconciliation-red.js --recapture-candidate <file> --baseline-sha <40-hex>
+//   node ci/archive/325-prep/doc-reconciliation-red.js --strict      exits 1 on any desired-contract gap or control failure
+//   node ci/archive/325-prep/doc-reconciliation-red.js --expect-red  exits 0 only when every gap is qualified by the registry
+//   node ci/archive/325-prep/doc-reconciliation-red.js --recapture-candidate <file> --baseline-sha <40-hex>
 //                                                        writes a candidate registry for review; never the registry
 //
 // Optional: --case <id> (repeatable), --cases <file>, --registry <file>, --json (print the report), --log <file>.
 // Exit 2 means infrastructure or registry error (replay crash, malformed registry, unreadable file, a spawn error,
 // a signal, an exit outside the action's expectExit policy, or missing required output).
 //
-// This file is not discovered by filename. The preparation suite invokes --expect-red and parses the report.
+// This file is not discovered by filename. The live preparation suite runs it only for infrastructure checks (exit 2).
 // A qualified gap is an ON assertion that fails today and matches a registry entry exactly (case, assertion,
 // distribution, actual and desired). Infrastructure faults are decided first and never qualify as gaps.
 // Qualification is bound to the runtime fingerprint of the shared runtime files, not to the commit: a registry
@@ -22,9 +24,9 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const fx = require('../lib/doc-reconciliation-prep-fixtures');
+const fx = require('../../lib/doc-reconciliation-prep-fixtures');
 
-const ROOT = path.resolve(__dirname, '..', '..');
+const ROOT = path.resolve(__dirname, '..', '..', '..');
 const PREP_DIR = path.join(ROOT, 'ci', 'fixtures', 'doc-obligations', 'reconciliation-prep');
 const DEFAULT_CASES = path.join(PREP_DIR, 'cases.json');
 const DEFAULT_REGISTRY = path.join(PREP_DIR, 'pending-red.json');
@@ -63,7 +65,7 @@ function currentCommit() {
 }
 
 function recaptureCommand(commit) {
-  return `node ci/prep/doc-reconciliation-red.js --recapture-candidate ${CANDIDATE_FILE} --baseline-sha ${commit}`;
+  return `node ci/archive/325-prep/doc-reconciliation-red.js --recapture-candidate ${CANDIDATE_FILE} --baseline-sha ${commit}`;
 }
 
 function parseArgs(argv) {

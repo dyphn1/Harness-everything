@@ -1,5 +1,9 @@
 # Storage Path Resolution & Publishing Detail (moved from SKILL.md)
 
+Before drafting, read `<skills-repo-root>/harness-everything/references/documentation/_shared/writing-craft.md`; for governed-doc events, follow `<skills-repo-root>/harness-everything/references/documentation/_shared/maintenance.md`.
+`<skills-repo-root>` is the directory that holds the sibling skill directories: the source checkout root, or `<plugin-root>/skills` when packaged.
+If the harness-everything skill is not installed, say the shared reference is unavailable.
+
 ### 0. Resolve Storage Path & Framework (Gated Resolution Loop)
 
 Follow the decision matrix below to determine where ticket artifacts must be published:

@@ -129,6 +129,7 @@ Globs are repo-relative POSIX paths supporting `*` (one segment) and `**` (any d
 - Frontmatter fields: `id`, `role`, `status`, `supersedes`, `aliases`. `superseded_by` and `amends` are not stored; `superseded_by` is derived in the index.
 - **Ratchet:** schema checks (role/status/ID) apply to governed files named in `changedPaths`. Full mode is explicit (`--all` / `{ all: true }`); the CLI refuses to run without `--changed`, `--changed-path` or `--all`. Cross-file integrity diagnostics are errors when any involved file is changed (deleted and renamed paths count as changed), warnings otherwise. Warnings that affect resolution still appear in the index's unresolved list. CLI `--changed` entries resolve against `--workspace`, normalize to repo-relative POSIX paths, and fail as usage errors when outside the workspace; `--changed` takes one comma-separated argument and cannot represent filenames containing commas, so repeat `--changed-path <path>` (one occurrence per path, never comma-split, normalizes and resolves like the CSV form, and mutually exclusive with `--all`; may be combined with `--changed`) when a filename contains a comma. Occurrences of either changed selector accumulate: repeated `--changed` or `--changed-path` flags add to the changed set instead of overwriting earlier declarations. The CSV form trims whitespace around its comma-separated items; `--changed-path` preserves commas and outer whitespace while resolving paths and normalizing separators. Both `/` and `\` are separators on every host; literal backslashes in POSIX filenames cannot be selected through these CLI flags — use `--all` or the API `changedPaths` for those files. Relative `--config` paths also resolve from `--workspace`. Without a trusted base, escalation for deleted or renamed targets covers explicit `legacy:ID@path` selectors only; ID-only references escalate when a trusted base (`--base` or a supplied inventory, see D6.9) maps the ID to a changed path.
 - Parsing conventions: role comes from the first matching `governed` entry; frontmatter is the leading `---` block in a YAML subset (scalars, inline `[a, b]` lists, `- a` block lists); references inside fenced code blocks are ignored.
+- Bare `<X>-NNN` tokens (no `REQ-`, `PRD-` or `legacy:` prefix) are references only when `X` is in `domains` or the exact token is an active canonical ID, alias or legacy ID. Other bare tokens such as `SHA-256` are not references.
 
 ## IDs, aliases and references (D6.2, D6.8)
 
@@ -310,9 +311,19 @@ Decision extraction recognizes ATX boundaries with 0–3 leading spaces and igno
 - Checks are pure and generators deterministic, so reruns are idempotent.
 - `requirement-sync` is the only genuinely new rule; the rest reuse D5 and D6.3 checks.
 
+## Derived-view lane (F3)
+
+- Applicability is conservative (`conservative-all-governed`): a change to any governed or legacy source path marks every declared view as affected; a changed derived output marks every declared view (not only that output); a config change marks all candidate declarations. This is not exact dependency inference.
+- The `sources` seam in `doc-obligations.js` is an implementation detail, not a public schema. F3 adds no source mapping; a view with no mapping is covered by the conservative rule.
+- `check` never runs a generator. A view it lists as affected needs an authorized generation step and a `compare-derived` record; see `harness-everything/references/doc-check.md` § Derived views.
+
+F4 is the creditable bounded consumer; its first positive scope is lint and links on a body-only reference edit (see `docs/doc-workflow-reconciliation.md`, F4 section).
+
 ## Packaging
 
 Source checkout, Codex plugin and Claude plugin copy whole skill trees. Callers locate `doc-lifecycle.js` and the resolver relative to their own skill directory, never the source-tree root. A to-spec-only install must use the same resolver implementation (copied byte-identically and checked), and a broken shared module is an error, never a silent fallback to older host scanning.
+
+The shared writing craft and maintenance references live in `harness-everything/references/documentation/_shared/` and ship with the plugin package, so every doc-producing skill links to one copy rather than its own.
 
 ## Generated index
 

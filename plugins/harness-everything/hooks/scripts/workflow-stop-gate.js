@@ -16,7 +16,8 @@ function decide(payload) {
     const context = loadWorkflow(payload);
     const { workflow, sessionDir } = context;
     if (!workflow || workflow.state === 'deferred') return;
-    const handoff = readJson(path.join(sessionDir, 'handoff-state.json'));
+    const handoffFile = path.join(sessionDir, 'handoff-state.json');
+    let handoff = readJson(handoffFile);
     const unresolved = [];
     const diagnostics = [];
     let requiredFault = false;
@@ -36,11 +37,15 @@ function decide(payload) {
 
     required(() => planningUnresolved(context));
     if (String(workflow.strategy || '').startsWith('fable-')) {
-      if (!unresolved.length) require('./lib/doc-reconciliation-pilot').assess(context, null);
+      if (!unresolved.length) {
+        require('./lib/doc-reconciliation-pilot').assess(context, null);
+      }
       const match = matchingRun(context);
       unresolved.push(...(match ? unresolvedStages(match, workflow, handoff?.lastEditAt || 0) : ['correlated-run-missing']));
     } else {
       required(() => unresolvedObligations(context));
+      // Assessment can withdraw stale document verification; read the current aggregate afterward.
+      handoff = readJson(handoffFile);
       const lastEdit = Math.max(workflow.lastMutationAt || 0, handoff?.lastEditAt || 0);
       if (lastEdit && (handoff?.lastVerifyAt || 0) < lastEdit) unresolved.push('verification-after-edit-missing');
     }

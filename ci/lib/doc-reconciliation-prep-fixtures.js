@@ -25,9 +25,15 @@ const PILOT_SWITCH = 'HARNESS_DOC_RECONCILIATION_PILOT';
 const PILOT_REPORT_FILE = 'doc-reconciliation-pilot.json';
 const BASELINE_AUTHOR = Object.freeze({ name: 'doc-recon-replay', email: 'doc-recon-replay@invalid' });
 const BASELINE_DATE = '2026-01-01T00:00:00Z';
-const FIXTURE_OPS = new Set(['provideEvidence', 'mutateIdentity', 'timestampHints', 'seedState', 'gitCommit']);
+const FIXTURE_OPS = new Set(['provideEvidence', 'mutateIdentity', 'timestampHints', 'seedState', 'gitCommit', 'editJournal', 'editDocCheck', 'observeStateTree']);
 const CONTROLLER_OPS = new Set(['plan', 'start', 'binding', 'stageBinding', 'step', 'obligation']);
-const ALL_OPS = new Set(['route', 'stop', 'stopGeneric', ...CONTROLLER_OPS, ...FIXTURE_OPS]);
+// Host-transport ops (F4): hostRun executes a registered command the way the host would; hookDeliver sends one raw
+// host payload through the real hook entry (state-persist.js). Neither writes a journal or accepted record itself.
+const HOST_OPS = new Set(['hostRun', 'hookDeliver']);
+const ALL_OPS = new Set(['route', 'stop', 'stopGeneric', ...CONTROLLER_OPS, ...FIXTURE_OPS, ...HOST_OPS]);
+// CI-only qualification preloader. Passed as `node --require <file>` to every child of a replay that asks for it.
+const QUALIFICATION_PRELOAD = path.join(__dirname, 'doc-reconciliation-qualification-preload.js');
+const CAPTURE_JOURNAL_FILE = 'doc-reconciliation-capture.json';
 // The only session files a case may seed, and only inside its own temporary state home.
 const SEEDABLE_FILES = new Set(['workflow-stages.json']);
 
@@ -38,14 +44,18 @@ const DISTRIBUTIONS = Object.freeze({
     controller: path.join(REPO_ROOT, 'hooks', 'scripts', 'workflow-disposition.js'),
     stopGate: path.join(REPO_ROOT, 'hooks', 'scripts', 'workflow-stop-gate.js'),
     kernel: path.join(REPO_ROOT, 'harness-everything', 'scripts', 'kernel-router.js'),
-    genericStopGate: path.join(REPO_ROOT, 'hooks', 'scripts', 'stop-gate.js')
+    genericStopGate: path.join(REPO_ROOT, 'hooks', 'scripts', 'stop-gate.js'),
+    stateHook: path.join(REPO_ROOT, 'hooks', 'scripts', 'state-persist.js'),
+    docCheck: path.join(REPO_ROOT, 'harness-everything', 'scripts', 'doc-check.js')
   },
   packaged: {
     root: path.join(REPO_ROOT, 'plugins', 'harness-everything'),
     controller: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-disposition.js'),
     stopGate: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'workflow-stop-gate.js'),
     kernel: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'kernel-router.js'),
-    genericStopGate: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'stop-gate.js')
+    genericStopGate: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'stop-gate.js'),
+    stateHook: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'hooks', 'scripts', 'state-persist.js'),
+    docCheck: path.join(REPO_ROOT, 'plugins', 'harness-everything', 'skills', 'harness-everything', 'scripts', 'doc-check.js')
   }
 });
 
@@ -94,13 +104,26 @@ function childEnv(workspace, stateHome, pilot) {
   return env;
 }
 
+// A distribution is a named one above, or an explicit set of entry paths (F4-T2: a test runs the real entries from its own
+// staged tree, with its own export). Either way every entry point is an absolute path.
+const DISTRIBUTION_KEYS = ['controller', 'stopGate', 'kernel', 'genericStopGate', 'stateHook', 'docCheck'];
+function resolveDistribution(distribution) {
+  if (typeof distribution === 'string') {
+    if (!DISTRIBUTIONS[distribution]) throw new Error(`unknown distribution ${distribution}`);
+    return DISTRIBUTIONS[distribution];
+  }
+  if (distribution && typeof distribution === 'object' && DISTRIBUTION_KEYS.every(key => typeof distribution[key] === 'string')) return distribution;
+  throw new Error('unknown distribution');
+}
+
 function createSession(distribution, caseId, pilot) {
-  if (!DISTRIBUTIONS[distribution]) throw new Error(`unknown distribution ${distribution}`);
+  const dist = resolveDistribution(distribution);
   const token = crypto.randomBytes(4).toString('hex');
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), `doc-recon-${caseId}-${distribution}-ws-${token}-`));
   const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), `doc-recon-${caseId}-${distribution}-state-${token}-`));
   return {
-    distribution,
+    dist,
+    distribution: typeof distribution === 'string' ? distribution : 'custom',
     caseId,
     pilot,
     workspace,
@@ -114,8 +137,11 @@ function disposeSession(handle) {
   fs.rmSync(handle.stateHome, { recursive: true, force: true });
 }
 
+// The preloader is a test-driver argument only: a replay with `preload: true` adds it to every child it launches.
 function runScript(handle, script, args, stdin, pilot) {
-  return spawnSync(process.execPath, [script, ...args], {
+  const preload = handle.preload ? ['--require', QUALIFICATION_PRELOAD] : [];
+  // Test-only extra arguments (for example a file-access spy). They come before the preloader, so the spy sees everything.
+  return spawnSync(process.execPath, [...(handle.nodeArgs || []), ...preload, script, ...args], {
     cwd: handle.workspace,
     encoding: 'utf8',
     input: stdin === undefined ? undefined : JSON.stringify(stdin),
@@ -159,10 +185,13 @@ function readJsonOrNull(file) {
 function snapshot(handle) {
   const dir = sessionDirOf(handle);
   if (!dir) return { workflow: null, obligations: null, handoff: null };
+  // The capture journal is included only when a hook actually wrote it, so legacy replays keep their shape.
+  const capture = readJsonOrNull(path.join(dir, CAPTURE_JOURNAL_FILE));
   return {
     workflow: readJsonOrNull(path.join(dir, 'workflow-run.json')),
     obligations: readJsonOrNull(path.join(dir, 'workflow-obligations.json')),
-    handoff: readJsonOrNull(path.join(dir, 'handoff-state.json'))
+    handoff: readJsonOrNull(path.join(dir, 'handoff-state.json')),
+    ...(capture ? { capture } : {})
   };
 }
 
@@ -207,6 +236,20 @@ function runFixture(handle, action, pilot) {
     fs.writeFileSync(target, String(p.content), 'utf8');
     return fixtureResult(handle, pilot, { op: 'mutateIdentity', kind: p.kind, path: p.path });
   }
+  if (action.op === 'observeStateTree') {
+    // Read-only: lists the relative paths the replay wrote under its state home and workspace (F4-T12 matrix; no contents).
+    const list = root => { const out = []; const walk = dir => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) walk(full); else out.push(path.relative(root, full).split(path.sep).join('/')); } }; if (fs.existsSync(root)) walk(root); return out.sort(); };
+    return fixtureResult(handle, pilot, { op: 'observeStateTree', stateFiles: list(handle.stateHome), workspaceFiles: list(handle.workspace) });
+  }
+  if (action.op === 'editDocCheck') {
+    // Appends to the leg's installed doc-check file after a capture (F4-T6: the assessment-time digest check). Only a staged
+    // copy may change: the target must sit outside the repository.
+    if (typeof p.append !== 'string') throw new Error('editDocCheck needs an append string');
+    const target = handle.dist.docCheck;
+    if (path.basename(target) !== 'doc-check.js' || target.startsWith(REPO_ROOT + path.sep)) throw new Error('editDocCheck may only edit a staged doc-check copy');
+    fs.appendFileSync(target, p.append, 'utf8');
+    return fixtureResult(handle, pilot, { op: 'editDocCheck' });
+  }
   if (action.op === 'gitCommit') {
     // Commits the replay workspace's current tree into HEAD mid-workflow. The baseline recorded at plan is not moved by
     // this fixture: the case exists to show that scope is still assessed against that recorded baseline. A clean tree
@@ -230,6 +273,17 @@ function runFixture(handle, action, pilot) {
     fs.writeFileSync(target, JSON.stringify(p.json, null, 2), 'utf8');
     return fixtureResult(handle, pilot, { op: 'seedState', file: p.file });
   }
+  if (action.op === 'editJournal') {
+    // Rewrites one retained field of the replay's own capture journal, as an edited payload or result would appear on disk.
+    const dir = sessionDirOf(handle);
+    if (!dir) throw new Error('editJournal needs an existing session');
+    const file = path.join(dir, CAPTURE_JOURNAL_FILE);
+    const doc = readJsonOrNull(file);
+    if (!doc || !Array.isArray(doc.records) || !doc.records[p.index]) throw new Error('editJournal needs an existing journal record');
+    doc.records[p.index][p.key] = p.value;
+    fs.writeFileSync(file, JSON.stringify(doc, null, 2), 'utf8');
+    return fixtureResult(handle, pilot, { op: 'editJournal', key: p.key });
+  }
   if (action.op === 'timestampHints') {
     const dir = sessionDirOf(handle);
     if (!dir) throw new Error('timestampHints needs an existing session');
@@ -244,13 +298,82 @@ function runFixture(handle, action, pilot) {
   throw new Error(`unknown fixture op ${action.op}`);
 }
 
+function resultOf(handle, result, pilot) {
+  return {
+    exitCode: result.status,
+    signal: result.signal,
+    error: result.error ? result.error.message : null,
+    errorCode: result.error ? result.error.code || null : null,
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+    json: parseJsonOrNull(result.stdout || ''),
+    state: snapshot(handle),
+    pilot
+  };
+}
+
+const DOC_CHECK_TOKEN = '{{DOC_CHECK}}';
+const CAPTURE_HOOK_EVENTS = new Set(['PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop']);
+
+// Host-transport ops (F4). hostRun executes the distribution's registered doc-check entry by argv, with no shell, the
+// way the host runs a registered command. hookDeliver sends one raw host payload to the real state-persist hook, with
+// the session and workspace fields the host would send. Payload content is declared by the case and then the entry
+// itself records it; the replay never writes a journal record or accepted event directly.
+function runHostOp(handle, action, pilot) {
+  const dist = handle.dist;
+  const p = action.payload || {};
+  if (action.op === 'hostRun') {
+    if (p.command !== 'doc-check' || !Array.isArray(p.args) || !p.args.every(arg => typeof arg === 'string')) {
+      throw new Error('hostRun needs command "doc-check" and string args');
+    }
+    return resultOf(handle, runScript(handle, scriptFor(handle, 'docCheck', dist.docCheck), p.args, undefined, pilot), pilot);
+  }
+  if (!CAPTURE_HOOK_EVENTS.has(p.event)) throw new Error(`hookDeliver event ${p.event} is not a capture event`);
+  const body = {
+    session_id: p.sessionId === undefined ? handle.sessionId : p.sessionId,
+    cwd: handle.workspace,
+    hook_event_name: p.event
+  };
+  if (p.event === 'PreToolUse' || p.event === 'PostToolUse' || p.event === 'PostToolUseFailure') {
+    if (typeof p.command !== 'string' || typeof p.toolUseId !== 'string') throw new Error('hookDeliver tool events need command and toolUseId');
+    body.tool_name = p.toolName === undefined ? 'Bash' : p.toolName;
+    // {{DOC_CHECK}} is the installed doc-check path of the leg under test, so a positive fixture invokes the path the
+    // host would really run; a relative spelling stays a literal negative case.
+    body.tool_input = { command: p.command.split(DOC_CHECK_TOKEN).join(dist.docCheck) };
+    body.tool_use_id = p.toolUseId;
+    // A subagent's own tool call carries its host agent_id at the top level (F4 executor identity).
+    if (p.agentId !== undefined) body.agent_id = p.agentId;
+  }
+  if (p.event === 'PostToolUse') {
+    if (p.fromRun !== undefined) {
+      const run = handle.actions[p.fromRun];
+      if (!run) throw new Error(`hookDeliver fromRun ${p.fromRun} names no earlier action`);
+      body.tool_response = { stdout: run.stdout, stderr: '', interrupted: false };
+    } else {
+      body.tool_response = p.response;
+    }
+    if (p.interrupted !== undefined) body.tool_response.interrupted = p.interrupted;
+    if (p.omitInterrupted === true) delete body.tool_response.interrupted;
+  } else if (p.event === 'PostToolUseFailure') {
+    body.error = p.error;
+    body.is_interrupt = p.isInterrupt === true;
+  } else {
+    body.agent_id = p.agentId;
+    body.agent_type = p.agentType;
+    if (p.event === 'SubagentStop') body.last_assistant_message = p.lastAssistantMessage;
+  }
+  // The hook is fail-open and prints nothing, so only its exit status and the journal it writes are observable.
+  return resultOf(handle, runScript(handle, scriptFor(handle, 'hookDeliver', dist.stateHook), [], body, pilot), pilot);
+}
+
 // Actions are the only way replay state changes. Each controller/stop op maps to the existing public entry point.
 function runAction(handle, action, pilot) {
-  const dist = DISTRIBUTIONS[handle.distribution];
+  const dist = handle.dist;
   const sid = handle.sessionId;
   const p = action.payload || {};
   if (!ALL_OPS.has(action.op)) throw new Error(`unsupported replay op ${action.op}`);
   if (FIXTURE_OPS.has(action.op)) return runFixture(handle, action, pilot);
+  if (HOST_OPS.has(action.op)) return runHostOp(handle, action, pilot);
   let result;
   if (action.op === 'route') {
     result = runScript(handle, scriptFor(handle, 'route', dist.kernel), [], { session_id: sid, cwd: handle.workspace, prompt: p.prompt }, pilot);
@@ -376,13 +499,16 @@ function runtimePilotOf(handle) {
 // Replays one case through one distribution. Actions run in order and the replay stops at its first infrastructure
 // fault: the faulted action is recorded, no later action runs, and the temporary directories are still removed.
 // A crash is recorded, not hidden.
+// `options.preload: true` adds the CI-only qualification preloader to every child (F4 test transport). Production
+// replays never set it, so the production gate stays unmet.
 function replayCase(caseDef, distribution, options = {}) {
   const limits = limitsFor(caseDef);
   const mode = options.pilot === undefined ? 'off' : 'on';
-  const handle = { ...createSession(distribution, caseDef.id, options.pilot), distribution, limits };
+  const handle = { ...createSession(distribution, caseDef.id, options.pilot), limits, preload: options.preload === true, nodeArgs: Array.isArray(options.nodeArgs) ? options.nodeArgs : [] };
   try {
     materialiseInput(handle, caseDef.input);
     const actions = {};
+    handle.actions = actions;
     for (const action of caseDef.actions) {
       if (Object.prototype.hasOwnProperty.call(actions, action.id)) throw new Error(`duplicate action id ${action.id}`);
       const payload = action.payload && action.payload.requirements === '$requirements'

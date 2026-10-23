@@ -56,6 +56,10 @@ The model remains free to choose tools, implementation technique, decomposition 
 
 Keyword/domain matches are normalized planning signals, not document selectors. Each ordered step declares its required and optional skill/reference bindings; only the active step or dependency-ready Fable stage exposes those paths. Read a required skill's complete entry and follow its applicable core contract before the step passes. Required bindings without a known path remain visible and unresolved. Optional bindings resolve as loaded or not-needed. Hooks may remind, but missing bindings do not hard-block ordinary tools or Stop.
 
+### Governed-doc check
+
+An active `doc-change` step, or any edit to a file governed by `.agents/harness-everything/project-docs.json`, runs the editorial check in [doc-check.md](doc-check.md): lifecycle lint plus local link targets. Its exit code is ordinary command evidence, not trusted document credit.
+
 ## 2. Routing Mechanism
 
 Use the public kernel entry point:
