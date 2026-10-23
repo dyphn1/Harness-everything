@@ -1,0 +1,67 @@
+[
+  {
+    "name": "polyglot-untouched",
+    "result": {
+      "argv": [
+        "node",
+        "<HARNESS_SOURCE>/benchmarks/issue290-pilot/grader.cjs",
+        "<TMP>/issue290-grader-ae68mbog/simple-linked-list.js"
+      ],
+      "exit": 1,
+      "stdout": "{\"pass\":false,\"tests\":23,\"results\":[{\"name\":\"has constructor\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"value reflects constructor arg\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"has null for next by default\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"has constructor\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"new lists should have length 0\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"can add a element\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"adding a element increments length\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"adding two elements increments twice\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"new Lists have a null head element\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"adding an Element to an empty list sets the head Element\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"adding a second Element updates the head Element\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"can get the next Element from the head\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"can be initialized with an array\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"with correct length\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"with correct head value\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"can traverse the list\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"can convert to an array\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"head of list is final element from input array\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"can convert longer list to an array\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"can be reversed\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"can be reversed when it has more elements\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"can reverse with many elements\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"},{\"name\":\"can reverse a reversal\",\"pass\":false,\"error\":\"Remove this statement and implement this function\"}]}\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "polyglot-independent-reference",
+    "result": {
+      "argv": [
+        "node",
+        "<HARNESS_SOURCE>/benchmarks/issue290-pilot/grader.cjs",
+        "<TMP>/issue290-grader-ae68mbog/simple-linked-list.js"
+      ],
+      "exit": 0,
+      "stdout": "{\"pass\":true,\"tests\":23,\"results\":[{\"name\":\"has constructor\",\"pass\":true},{\"name\":\"value reflects constructor arg\",\"pass\":true},{\"name\":\"has null for next by default\",\"pass\":true},{\"name\":\"has constructor\",\"pass\":true},{\"name\":\"new lists should have length 0\",\"pass\":true},{\"name\":\"can add a element\",\"pass\":true},{\"name\":\"adding a element increments length\",\"pass\":true},{\"name\":\"adding two elements increments twice\",\"pass\":true},{\"name\":\"new Lists have a null head element\",\"pass\":true},{\"name\":\"adding an Element to an empty list sets the head Element\",\"pass\":true},{\"name\":\"adding a second Element updates the head Element\",\"pass\":true},{\"name\":\"can get the next Element from the head\",\"pass\":true},{\"name\":\"can be initialized with an array\",\"pass\":true},{\"name\":\"with correct length\",\"pass\":true},{\"name\":\"with correct head value\",\"pass\":true},{\"name\":\"can traverse the list\",\"pass\":true},{\"name\":\"can convert to an array\",\"pass\":true},{\"name\":\"head of list is final element from input array\",\"pass\":true},{\"name\":\"can convert longer list to an array\",\"pass\":true},{\"name\":\"can be reversed\",\"pass\":true},{\"name\":\"can be reversed when it has more elements\",\"pass\":true},{\"name\":\"can reverse with many elements\",\"pass\":true},{\"name\":\"can reverse a reversal\",\"pass\":true}]}\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "quixbugs-untouched",
+    "result": {
+      "argv": [
+        "python3",
+        "check.py"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"<TMP>/issue290-grader-ae68mbog/check.py\", line 6, in <module>\n    assert find_in_sorted(*args) == expected, (args,expected)\n           ~~~~~~~~~~~~~~^^^^^^^\n  File \"<TMP>/issue290-grader-ae68mbog/find_in_sorted.py\", line 13, in find_in_sorted\n    return binsearch(0, len(arr))\n  File \"<TMP>/issue290-grader-ae68mbog/find_in_sorted.py\", line 9, in binsearch\n    return binsearch(mid, end)\n  File \"<TMP>/issue290-grader-ae68mbog/find_in_sorted.py\", line 7, in binsearch\n    return binsearch(start, mid)\n  File \"<TMP>/issue290-grader-ae68mbog/find_in_sorted.py\", line 7, in binsearch\n    return binsearch(start, mid)\n  File \"<TMP>/issue290-grader-ae68mbog/find_in_sorted.py\", line 9, in binsearch\n    return binsearch(mid, end)\n  File \"<TMP>/issue290-grader-ae68mbog/find_in_sorted.py\", line 9, in binsearch\n    return binsearch(mid, end)\n  File \"<TMP>/issue290-grader-ae68mbog/find_in_sorted.py\", line 9, in binsearch\n    return binsearch(mid, end)\n  [Previous line repeated 992 more times]\nRecursionError: maximum recursion depth exceeded\n"
+    }
+  },
+  {
+    "name": "quixbugs-upstream-reference",
+    "source": "https://raw.githubusercontent.com/jkoppel/QuixBugs/4257f44b0ff1181dedaedee6a447e133219fcebf/correct_python_programs/find_in_sorted.py",
+    "sha256": "cce13769543e2972d66ea61c9d1f1751836c719abf336be8f50f2702d19477ea",
+    "result": {
+      "argv": [
+        "python3",
+        "check.py"
+      ],
+      "exit": 0,
+      "stdout": "PASS: all 7 pinned upstream cases\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "normal-node-require",
+    "result": {
+      "argv": [
+        "node",
+        "-e",
+        "require(\"node:fs\");console.log(\"PASS require\")"
+      ],
+      "exit": 0,
+      "stdout": "PASS require\n",
+      "stderr": ""
+    }
+  }
+]

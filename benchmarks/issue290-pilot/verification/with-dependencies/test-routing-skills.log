@@ -1,0 +1,44 @@
+
+> harness-everything@0.31.1 test:routing:skills
+> node ci/skill-routing-check.js
+
+PASS fable-mode/execution-guardrails/SKILL.md: routing=internal
+PASS fable-mode/fable-haiku/SKILL.md: routing=parent
+PASS fable-mode/fable-opus/SKILL.md: routing=parent
+PASS fable-mode/fable-sonnet/SKILL.md: routing=parent
+PASS environment-detection/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS eval-harness/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS fable-discipline/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS fable-mode/positive-haiku-mode.yaml: skill-specific relevance proven without pre-step path leaks
+PASS fable-mode/positive-opus-mode.yaml: skill-specific relevance proven without pre-step path leaks
+PASS fable-mode/positive-sonnet-mode.yaml: skill-specific relevance proven without pre-step path leaks
+PASS fable-mode/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS find-skills/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS git-commit/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS grill-me/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS grill-with-docs/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS harness-everything/positive-tier1.yaml: skill-specific relevance proven without pre-step path leaks
+PASS harness-everything/positive-tier2.yaml: skill-specific relevance proven without pre-step path leaks
+PASS harness-everything/positive-tier3.yaml: skill-specific relevance proven without pre-step path leaks
+PASS improve-codebase-architecture/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS install-cognitive-os/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS multi-agent-workspace/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS repo-docs/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS rewrite-commits/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS security-review/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS self-evolve/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS skill-creator/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS skill-style/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS tdd/positive-bugfix.yaml: skill-specific relevance proven without pre-step path leaks
+PASS tdd/positive-feature.yaml: skill-specific relevance proven without pre-step path leaks
+PASS tdd/positive-refactor.yaml: skill-specific relevance proven without pre-step path leaks
+PASS to-spec/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS to-tickets/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS todo-driven-workflow/positive-multi-step.yaml: skill-specific relevance proven without pre-step path leaks
+PASS todo-driven-workflow/positive-refactor-flow.yaml: skill-specific relevance proven without pre-step path leaks
+PASS using-git-worktrees/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS verification-loop/positive-pre-ship.yaml: skill-specific relevance proven without pre-step path leaks
+PASS verify-before-claim/positive-trigger.yaml: skill-specific relevance proven without pre-step path leaks
+PASS zoom-out/positive-repeated-failure.yaml: skill-specific relevance proven without pre-step path leaks
+
+Positive skill-eval coverage: 34 case(s) checked across 26 direct skills; 4 nested skill(s) classified.

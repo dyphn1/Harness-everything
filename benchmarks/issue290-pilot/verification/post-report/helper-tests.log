@@ -1,0 +1,22 @@
+# node v24.14.1
+## analyze.test.py
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.002s
+
+OK
+exit 0
+## fixture.test.py
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.043s
+
+OK
+exit 0
+## hook.test.cjs
+PASS canonical host-hook attribution and isolated A/B timing
+exit 0
+## py_compile
+OK
+## node --check
+OK
