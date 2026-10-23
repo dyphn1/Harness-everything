@@ -104,6 +104,21 @@ new breaker failure. A reflection artifact itself does not count as a code edit.
 
 ## Installation
 
+**OpenCode 2.x (and newer 1.18.29+):** the module default-exports
+`{ id: "harness.enforcement", setup(ctx) }` and registers `ctx.tool.hook("execute.before|after")`
+plus `ctx.event.subscribe()` through the OpenCode 2 plugin context. OpenCode 2
+never loads a named-export-only plugin: it fails with `Plugin must export a
+default definition with an id and an effect or setup function`
+(SchemaError at `["default"]`). The named `HarnessEnforcement` export stays
+available for OpenCode 1.x hosts: it receives the V1 context
+(`{client, directory}`) and returns a V1 hooks object
+(`tool.execute.before`, `tool.execute.after`, `event`); the V2 `setup`
+adapter wraps that factory and maps the V2 hook events onto it, so the
+enforcement logic is shared, not duplicated.
+
+Direction:
+named factory (V1 hosts/tests) → default-export setup adapter → V2 domains.
+
 Copy `index.mjs` into opencode's plugin directory **under a `.js` filename** -
 it is self-contained, no sibling files required:
 
