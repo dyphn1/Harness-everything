@@ -2,6 +2,43 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.41.0](https://github.com/dyphn1/Harness-everything/compare/v0.40.0...v0.41.0) (2026-10-23)
+
+### Features
+
+* **doc-lifecycle:** check derived views with regenerate-equals ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([a27f845](https://github.com/dyphn1/Harness-everything/commit/a27f845b6666f026f407f66d916bddeeb765adac))
+* **doc-lifecycle:** credit doc-check evidence through the s2a chain ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([9cb57a8](https://github.com/dyphn1/Harness-everything/commit/9cb57a8742eca48c118318eecf5690dd6daabd55))
+* **doc-lifecycle:** refuse self-authored doc reviews and qualify the live host ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([9a01d9d](https://github.com/dyphn1/Harness-everything/commit/9a01d9d1f7d8beab096774309f195c90289d863c))
+* **doc-lifecycle:** share documentation craft across doc skills ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([3413ece](https://github.com/dyphn1/Harness-everything/commit/3413ecee5bdea91c36e65b20e6d22e819879c053))
+* **doc-lifecycle:** wire the editorial doc check end to end ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([1d70dd3](https://github.com/dyphn1/Harness-everything/commit/1d70dd3b2818fbd80683f128596d6118511d0220))
+* **errors:** close the candidate-overcapture episode ([a0b8c04](https://github.com/dyphn1/Harness-everything/commit/a0b8c0402aee84bd4204f974065e275a9495021c))
+* **errors:** close the checker-identity episode on executed evidence ([fc37122](https://github.com/dyphn1/Harness-everything/commit/fc371220d466aa7fd4bfbd5f1c6963451b197728))
+* **errors:** record round 3 and the projection-versus-trust lesson ([11c9c15](https://github.com/dyphn1/Harness-everything/commit/11c9c15552b117b0049d22b007dc392473024a8d))
+* **errors:** record round 4 of the candidate-overcapture episode ([cdafc66](https://github.com/dyphn1/Harness-everything/commit/cdafc66dc78af2d6decf5284c6e2a71cdaabc8b0))
+* **errors:** record the f4 repair rounds and close the review-format episode ([9a3da41](https://github.com/dyphn1/Harness-everything/commit/9a3da41e3682807b75a8ee3158f4553f0f42f631))
+* **errors:** record the first ledger consult and seed four error classes ([07ce76e](https://github.com/dyphn1/Harness-everything/commit/07ce76ef43246c755592179e7bc8aeff540608ea))
+
+### Bug Fixes
+
+* **doc-check:** check links and images nested in link labels ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([3ba9efb](https://github.com/dyphn1/Harness-everything/commit/3ba9efb18f384eead8087bfbe3d9fb50a3254f86))
+* **doc-check:** parse nested link labels and always emit usage json ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([f6660e1](https://github.com/dyphn1/Harness-everything/commit/f6660e1d035b21b46b86d74770d9a5714fb38e86))
+* **doc-check:** scan nested link labels iteratively ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([c004713](https://github.com/dyphn1/Harness-everything/commit/c004713a0c78b9db992c2eff01c331da20037c6d))
+* **doc-craft:** align maintenance summary with the lifecycle spec ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([ce4224d](https://github.com/dyphn1/Harness-everything/commit/ce4224d7e4b34d9a922ee3fb498e931ce82b2b7b))
+* **doc-lifecycle:** accept windows short-name paths to the installed doc-check ([1770f48](https://github.com/dyphn1/Harness-everything/commit/1770f48e1c5bff5b37c43faac556ddf17d4e7492))
+* **doc-lifecycle:** bind credit to the installed doc-check implementation ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([63ad692](https://github.com/dyphn1/Harness-everything/commit/63ad692ac3deb485ea6a65ccbc42c266061c1d96))
+* **doc-lifecycle:** deny trust shortcuts to compound or checker-naming commands ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([f9b3e92](https://github.com/dyphn1/Harness-everything/commit/f9b3e92611a750c0e7e5c1fec67876d6b2ce5c90))
+* **doc-lifecycle:** ignore doc-check paths inside shell comments ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([5466cfb](https://github.com/dyphn1/Harness-everything/commit/5466cfb51f1f1920f560f5db01504e76646ad127))
+* **doc-lifecycle:** keep generic verification when doc evidence is withdrawn ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([0c7d9d1](https://github.com/dyphn1/Harness-everything/commit/0c7d9d1c7be3dc38b4969f5a6741b08a0d468947))
+* **doc-lifecycle:** keep normal sessions creditable and verify timestamps pinned ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([4489376](https://github.com/dyphn1/Harness-everything/commit/44893769c44bb14186fd5f0768124db87307b54d))
+* **doc-lifecycle:** pin the shipped doc-check digest in the provider ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([dc94b4d](https://github.com/dyphn1/Harness-everything/commit/dc94b4d9301c5ad1ce136fab84a25cf2d3129be5))
+* **doc-lifecycle:** re-pin the shipped doc-check after the stack merge ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([c271249](https://github.com/dyphn1/Harness-everything/commit/c271249a8a99d7e0320288af8cb086bb03f8fa1a))
+* **doc-lifecycle:** recognize windows paths to the installed doc-check ([dcd2092](https://github.com/dyphn1/Harness-everything/commit/dcd209248587af36f5e8a6d9a477b85cede9bb0a))
+* **doc-lifecycle:** require explicit review verdicts in host capture ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([97243e5](https://github.com/dyphn1/Harness-everything/commit/97243e5054329ef2f8d20138f41cf9b6d6d1cfdd))
+* **doc-lifecycle:** route quality review into the credit chain ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([38e8fc4](https://github.com/dyphn1/Harness-everything/commit/38e8fc4de9e1b85a8428a22b31a3204faff6c45d)), closes [#quality-review](https://github.com/dyphn1/Harness-everything/issues/quality-review)
+* **doc-lifecycle:** split candidate scanning on executable newlines ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([a9a8807](https://github.com/dyphn1/Harness-everything/commit/a9a88077ade6fce882e443558ab810334b8c4489))
+* **doc-lifecycle:** treat only explicit command targets as doc-check candidates ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([fd3833e](https://github.com/dyphn1/Harness-everything/commit/fd3833e23e931e8a07da6689317ec32af893c45e))
+* **opencode:** default-export a v2 plugin definition so opencode 2 loads the adapter ([1a8595e](https://github.com/dyphn1/Harness-everything/commit/1a8595ed90c9777e0bb1b39f78b9b9593b7b4811)), closes [#362](https://github.com/dyphn1/Harness-everything/issues/362)
+
 ## [0.40.0](https://github.com/dyphn1/Harness-everything/compare/v0.39.0...v0.40.0) (2026-10-23)
 
 ### Features
@@ -38,6 +75,12 @@ All notable changes to this project are documented in this file.
 * **doc-lifecycle:** withhold on config scope change and failed withholding writes ([#325](https://github.com/dyphn1/Harness-everything/issues/325)) ([dc04db8](https://github.com/dyphn1/Harness-everything/commit/dc04db8d573339604f32a28ec1a8a65fcffe10a1))
 
 ## [Unreleased]
+
+- Keep successful installed workflow step dispositions from advancing verification freshness while unknown workflow commands and mutations remain tracked (#365).
+
+- Accept an interior `~` in unquoted installed doc-check path tokens, and reject `%VAR%` expansion before identity and digest checks.
+
+- Preserve Windows path separators while classifying installed doc-check commands, and make the OpenCode workspace-key fixture match the plugin's Windows case normalization.
 
 - Port the OpenCode adapter to the OpenCode 2 plugin contract: the module now default-exports `{ id: "harness.enforcement", setup(ctx) }` that registers `ctx.tool.hook("execute.before|after")` and `ctx.event.subscribe()` over the OpenCode 2 domains, while keeping the named V1 `HarnessEnforcement` factory for OpenCode 1.x hosts. OpenCode 2 fails to load named-export-only plugins with `Plugin must export a default definition with an id and an effect or setup function`; the V2 load was verified live on OpenCode 2.1.3 after a global-install reload.
 

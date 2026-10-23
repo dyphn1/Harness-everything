@@ -681,6 +681,80 @@ function partC1(leg) {
   console.log(`\n== C1 (${leg}): only checker command targets enter the doc-credit boundary ==`);
   const resolver = require(path.join(LEG_LIB[leg], 'doc-reconciliation-provider.js'));
   const installed = resolver.installedDocCheck();
+  const driveSpelling = /^[A-Za-z]:[\\/]/.test(installed)
+    ? installed.replaceAll('/', '\\')
+    : 'C:' + installed.replaceAll('/', '\\');
+  const windowsSpelling = driveSpelling;
+  const commandSuffix = ' check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md';
+  const windowsPathResult = resolver.resolveDocCheckInvocation('node "' + windowsSpelling + '"' + commandSuffix, ROOT);
+  const unquotedWindowsPathResult = windowsSpelling.includes(' ')
+    ? null
+    : resolver.resolveDocCheckInvocation('node ' + windowsSpelling + commandSuffix, ROOT);
+  const drivePathResult = resolver.resolveDocCheckInvocation('node "' + driveSpelling + '"' + commandSuffix, ROOT);
+  const uncSpelling = '\\\\server\\share\\repo\\harness-everything\\scripts\\doc-check.js';
+  const uncPathResult = resolver.resolveDocCheckInvocation('node "' + uncSpelling + '"' + commandSuffix, ROOT);
+  const escapedHyphenSpelling = installed.split(path.sep).join('/').replace('doc-check.js', 'doc\\-check.js');
+  const escapedHyphenCommand = 'node ' + escapedHyphenSpelling + commandSuffix;
+  const escapedHyphenResult = resolver.resolveDocCheckInvocation(escapedHyphenCommand, ROOT);
+  const escapedHyphenRisk = resolver.trustRisk(escapedHyphenCommand);
+  const escapedHyphenExecutors = resolver.journalExecutors([
+    { event: 'PostToolUse', tool_name: 'Bash', command: escapedHyphenCommand, cwd: ROOT, session_id: 'reviewer-session' },
+  ], 'author-session');
+  const escapedRelativeCommand = 'node doc\\-check.js' + commandSuffix;
+  const platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform');
+  let escapedRelativeProbe;
+  try {
+    Object.defineProperty(process, 'platform', { ...platformDescriptor, value: 'win32' });
+    escapedRelativeProbe = {
+      result: resolver.resolveDocCheckInvocation(escapedRelativeCommand, ROOT),
+      risk: resolver.trustRisk(escapedRelativeCommand),
+      executors: resolver.journalExecutors([
+        { event: 'PostToolUse', tool_name: 'Bash', command: escapedRelativeCommand, cwd: ROOT, session_id: 'relative-reviewer-session' },
+      ], 'author-session'),
+    };
+  } finally {
+    Object.defineProperty(process, 'platform', platformDescriptor);
+  }
+  const nativePathResult = resolver.resolveDocCheckInvocation('node "' + installed + '"' + commandSuffix, ROOT);
+  const lookalikeDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'f4-doc-check-lookalike-'));
+  try {
+    const lookalikePath = path.join(lookalikeDirectory, 'doc-check.js');
+    fs.copyFileSync(installed, lookalikePath);
+    const lookalikeBytesMatch = fs.readFileSync(lookalikePath).equals(fs.readFileSync(installed));
+    const outsideLookalike = resolver.resolveDocCheckInvocation('node "' + lookalikePath + '"' + commandSuffix, ROOT);
+    const shortNameDirectory = path.join(lookalikeDirectory, 'RUNNER~1-#safe');
+    fs.symlinkSync(path.dirname(installed), shortNameDirectory, process.platform === 'win32' ? 'junction' : 'dir');
+    const shortNamePath = path.join(shortNameDirectory, path.basename(installed));
+    const shortNameResult = resolver.resolveDocCheckInvocation('node ' + shortNamePath + commandSuffix, ROOT);
+    const variableDirectory = path.join(lookalikeDirectory, '%TEMP%');
+    fs.symlinkSync(path.dirname(installed), variableDirectory, process.platform === 'win32' ? 'junction' : 'dir');
+    const variablePath = path.join(variableDirectory, path.basename(installed));
+    const variablePathResult = resolver.resolveDocCheckInvocation('node ' + variablePath + commandSuffix, ROOT);
+    const expansionControls = [
+      ['leading-tilde', 'node ~/doc-check.js' + commandSuffix],
+      ['leading-user-tilde', 'node ~runner/doc-check.js' + commandSuffix],
+      ['dollar', 'node $RUNNER/doc-check.js' + commandSuffix],
+      ['backticks', 'node `echo ignored`/doc-check.js' + commandSuffix],
+      ['windows-percent-variable', 'node %TEMP%\\doc-check.js' + commandSuffix],
+    ].map(([id, command]) => ({ id, result: resolver.resolveDocCheckInvocation(command, ROOT), risk: resolver.trustRisk(command) }));
+    runChecks('C1.windows-path-identity@' + leg, { windowsPathResult, unquotedWindowsPathResult, drivePathResult, uncPathResult, escapedHyphenResult, escapedHyphenRisk, escapedHyphenExecutors, escapedRelativeProbe, nativePathResult, lookalikeBytesMatch, outsideLookalike, shortNamePath, shortNameResult, variablePathResult, expansionControls }, [
+      { id: 'native-positive-control', status: 'CONTROL', reason: '', test: value => ({ pass: value.nativePathResult.kind === 'accepted', actual: value.nativePathResult }) },
+      { id: 'quoted-backslash-spelling-remains-a-check-target', status: 'CONTROL', reason: '', test: value => ({ pass: value.windowsPathResult.kind !== 'not-candidate' && value.windowsPathResult.argv?.[0] === windowsSpelling, actual: value.windowsPathResult }) },
+      { id: 'unquoted-backslash-spelling-remains-a-check-target', status: 'CONTROL', reason: '', test: value => ({ pass: value.unquotedWindowsPathResult === null || (value.unquotedWindowsPathResult.kind !== 'not-candidate' && value.unquotedWindowsPathResult.argv?.[0] === windowsSpelling), actual: value.unquotedWindowsPathResult }) },
+      { id: 'drive-rooted-backslash-path-remains-intact', status: 'CONTROL', reason: '', test: value => ({ pass: value.drivePathResult.kind !== 'not-candidate' && value.drivePathResult.argv?.[0] === driveSpelling, actual: value.drivePathResult }) },
+      { id: 'quoted-unc-prefix-is-preserved', status: 'CONTROL', reason: '', test: value => ({ pass: value.uncPathResult.kind !== 'not-candidate' && value.uncPathResult.argv?.[0] === uncSpelling, actual: value.uncPathResult }) },
+      { id: 'interior-tilde-and-safe-punctuation-reach-installed-identity', status: 'CONTROL', reason: '', test: value => ({ pass: value.shortNameResult.kind === 'accepted' && value.shortNameResult.argv?.[0] === value.shortNamePath, actual: value.shortNameResult }) },
+      { id: 'cmd-variable-expansion-path-is-refused', status: 'CONTROL', reason: '', test: value => ({ pass: value.variablePathResult.kind === 'rejected' && value.variablePathResult.reason === 'shell-expansion', actual: value.variablePathResult }) },
+      { id: 'leading-tilde-words-remain-expansion-risk', status: 'CONTROL', reason: '', test: value => ({ pass: value.expansionControls.slice(0, 2).every(item => item.result.reason === 'shell-expansion' && item.risk), actual: value.expansionControls.slice(0, 2) }) },
+      { id: 'dollar-backtick-and-percent-forms-remain-risky', status: 'CONTROL', reason: '', test: value => ({ pass: value.expansionControls.slice(2).every(item => item.result.kind !== 'accepted' && item.risk), actual: value.expansionControls.slice(2) }) },
+      { id: 'unquoted-shell-escaped-hyphen-remains-a-check-target-and-risk', status: 'CONTROL', reason: '', test: value => ({ pass: value.escapedHyphenResult.kind === 'accepted' && value.escapedHyphenRisk === true && value.escapedHyphenExecutors.includes('reviewer-session'), actual: { result: value.escapedHyphenResult, trustRisk: value.escapedHyphenRisk, executors: value.escapedHyphenExecutors } }) },
+      { id: 'windows-relative-shell-escape-fails-closed-as-risky-evidence', status: 'CONTROL', reason: '', test: value => ({ pass: value.escapedRelativeProbe.result.kind !== 'accepted' && value.escapedRelativeProbe.risk === true && value.escapedRelativeProbe.executors.includes('relative-reviewer-session'), actual: value.escapedRelativeProbe }) },
+      { id: 'outside-lookalike-is-byte-identical', status: 'CONTROL', reason: '', test: value => ({ pass: value.lookalikeBytesMatch, actual: value.lookalikeBytesMatch }) },
+      { id: 'outside-lookalike-remains-refused', status: 'CONTROL', reason: '', test: value => ({ pass: value.outsideLookalike.kind === 'rejected' && value.outsideLookalike.reason === 'implementation-not-installed', actual: value.outsideLookalike }) },
+    ]);
+  } finally {
+    fs.rmSync(lookalikeDirectory, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
+  }
   const roleCases = [
     ['workflow-plan-data', PLAN_MENTIONS_DOC_CHECK, 'not-candidate', 'not-doc-check'],
     ['echo-data', 'echo doc-check', 'not-candidate', 'not-doc-check'],

@@ -4,7 +4,7 @@ description: Generate or update precise, reader-oriented README.md and AGENTS.md
 license: Apache-2.0
 metadata:
   author: Miya Daniel
-  version: 0.4.0
+  version: 0.41.0
 ---
 
 # Repo Docs (Automated Project Documentation Generation & Smart Merging)
