@@ -94,6 +94,7 @@ function safeTokenize(command) {
 
   for (let index = 0; index < command.length; index += 1) {
     const ch = command[index];
+    if (ch === '%' && /^%[^%\s]+%/.test(command.slice(index))) return { ok: false, reason: 'shell-expansion' };
     if (ch === '\\' && isUncPathPrefix(token, command, index)) {
       token += '\\\\';
       index += 1;
@@ -137,7 +138,7 @@ function safeTokenize(command) {
       continue;
     }
     if (';&|<>()'.includes(ch)) return { ok: false, reason: 'shell-operator' };
-    if ('*?[]{}~'.includes(ch) || ch === '$' || ch === '`') return { ok: false, reason: 'shell-expansion' };
+    if ('*?[]{}'.includes(ch) || (ch === '~' && !active) || ch === '$' || ch === '`') return { ok: false, reason: 'shell-expansion' };
     if (ch === '#' && !active) return { ok: false, reason: 'shell-comment' };
     token += ch;
     active = true;

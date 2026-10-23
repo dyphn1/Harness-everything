@@ -722,12 +722,31 @@ function partC1(leg) {
     fs.copyFileSync(installed, lookalikePath);
     const lookalikeBytesMatch = fs.readFileSync(lookalikePath).equals(fs.readFileSync(installed));
     const outsideLookalike = resolver.resolveDocCheckInvocation('node "' + lookalikePath + '"' + commandSuffix, ROOT);
-    runChecks('C1.windows-path-identity@' + leg, { windowsPathResult, unquotedWindowsPathResult, drivePathResult, uncPathResult, escapedHyphenResult, escapedHyphenRisk, escapedHyphenExecutors, escapedRelativeProbe, nativePathResult, lookalikeBytesMatch, outsideLookalike }, [
+    const shortNameDirectory = path.join(lookalikeDirectory, 'RUNNER~1-#safe');
+    fs.symlinkSync(path.dirname(installed), shortNameDirectory, process.platform === 'win32' ? 'junction' : 'dir');
+    const shortNamePath = path.join(shortNameDirectory, path.basename(installed));
+    const shortNameResult = resolver.resolveDocCheckInvocation('node ' + shortNamePath + commandSuffix, ROOT);
+    const variableDirectory = path.join(lookalikeDirectory, '%TEMP%');
+    fs.symlinkSync(path.dirname(installed), variableDirectory, process.platform === 'win32' ? 'junction' : 'dir');
+    const variablePath = path.join(variableDirectory, path.basename(installed));
+    const variablePathResult = resolver.resolveDocCheckInvocation('node ' + variablePath + commandSuffix, ROOT);
+    const expansionControls = [
+      ['leading-tilde', 'node ~/doc-check.js' + commandSuffix],
+      ['leading-user-tilde', 'node ~runner/doc-check.js' + commandSuffix],
+      ['dollar', 'node $RUNNER/doc-check.js' + commandSuffix],
+      ['backticks', 'node `echo ignored`/doc-check.js' + commandSuffix],
+      ['windows-percent-variable', 'node %TEMP%\\doc-check.js' + commandSuffix],
+    ].map(([id, command]) => ({ id, result: resolver.resolveDocCheckInvocation(command, ROOT), risk: resolver.trustRisk(command) }));
+    runChecks('C1.windows-path-identity@' + leg, { windowsPathResult, unquotedWindowsPathResult, drivePathResult, uncPathResult, escapedHyphenResult, escapedHyphenRisk, escapedHyphenExecutors, escapedRelativeProbe, nativePathResult, lookalikeBytesMatch, outsideLookalike, shortNamePath, shortNameResult, variablePathResult, expansionControls }, [
       { id: 'native-positive-control', status: 'CONTROL', reason: '', test: value => ({ pass: value.nativePathResult.kind === 'accepted', actual: value.nativePathResult }) },
       { id: 'quoted-backslash-spelling-remains-a-check-target', status: 'CONTROL', reason: '', test: value => ({ pass: value.windowsPathResult.kind !== 'not-candidate' && value.windowsPathResult.argv?.[0] === windowsSpelling, actual: value.windowsPathResult }) },
       { id: 'unquoted-backslash-spelling-remains-a-check-target', status: 'CONTROL', reason: '', test: value => ({ pass: value.unquotedWindowsPathResult === null || (value.unquotedWindowsPathResult.kind !== 'not-candidate' && value.unquotedWindowsPathResult.argv?.[0] === windowsSpelling), actual: value.unquotedWindowsPathResult }) },
       { id: 'drive-rooted-backslash-path-remains-intact', status: 'CONTROL', reason: '', test: value => ({ pass: value.drivePathResult.kind !== 'not-candidate' && value.drivePathResult.argv?.[0] === driveSpelling, actual: value.drivePathResult }) },
       { id: 'quoted-unc-prefix-is-preserved', status: 'CONTROL', reason: '', test: value => ({ pass: value.uncPathResult.kind !== 'not-candidate' && value.uncPathResult.argv?.[0] === uncSpelling, actual: value.uncPathResult }) },
+      { id: 'interior-tilde-and-safe-punctuation-reach-installed-identity', status: 'CONTROL', reason: '', test: value => ({ pass: value.shortNameResult.kind === 'accepted' && value.shortNameResult.argv?.[0] === value.shortNamePath, actual: value.shortNameResult }) },
+      { id: 'cmd-variable-expansion-path-is-refused', status: 'CONTROL', reason: '', test: value => ({ pass: value.variablePathResult.kind === 'rejected' && value.variablePathResult.reason === 'shell-expansion', actual: value.variablePathResult }) },
+      { id: 'leading-tilde-words-remain-expansion-risk', status: 'CONTROL', reason: '', test: value => ({ pass: value.expansionControls.slice(0, 2).every(item => item.result.reason === 'shell-expansion' && item.risk), actual: value.expansionControls.slice(0, 2) }) },
+      { id: 'dollar-backtick-and-percent-forms-remain-risky', status: 'CONTROL', reason: '', test: value => ({ pass: value.expansionControls.slice(2).every(item => item.result.kind !== 'accepted' && item.risk), actual: value.expansionControls.slice(2) }) },
       { id: 'unquoted-shell-escaped-hyphen-remains-a-check-target-and-risk', status: 'CONTROL', reason: '', test: value => ({ pass: value.escapedHyphenResult.kind === 'accepted' && value.escapedHyphenRisk === true && value.escapedHyphenExecutors.includes('reviewer-session'), actual: { result: value.escapedHyphenResult, trustRisk: value.escapedHyphenRisk, executors: value.escapedHyphenExecutors } }) },
       { id: 'windows-relative-shell-escape-fails-closed-as-risky-evidence', status: 'CONTROL', reason: '', test: value => ({ pass: value.escapedRelativeProbe.result.kind !== 'accepted' && value.escapedRelativeProbe.risk === true && value.escapedRelativeProbe.executors.includes('relative-reviewer-session'), actual: value.escapedRelativeProbe }) },
       { id: 'outside-lookalike-is-byte-identical', status: 'CONTROL', reason: '', test: value => ({ pass: value.lookalikeBytesMatch, actual: value.lookalikeBytesMatch }) },
