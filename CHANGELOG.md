@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.40.0](https://github.com/dyphn1/Harness-everything/compare/v0.39.0...v0.40.0) (2026-10-23)
+
+### Features
+
+* **errors:** add repository error ledger with generated index ([346716b](https://github.com/dyphn1/Harness-everything/commit/346716b14f2ac01c1968df9c3658db756fb86bf7)), closes [#325](https://github.com/dyphn1/Harness-everything/issues/325)
+* **routing:** surface zoom-out for repair-loop cues ([7ff7d66](https://github.com/dyphn1/Harness-everything/commit/7ff7d6689d711a3bac9e9a25b6a42f1f30fcd3ae))
+
 ## [0.39.0](https://github.com/dyphn1/Harness-everything/compare/v0.38.0...v0.39.0) (2026-10-21)
 
 ### Features
