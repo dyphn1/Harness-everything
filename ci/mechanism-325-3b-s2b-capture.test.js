@@ -54,7 +54,7 @@ function legacyGoldenChecks(id, drive) {
 
 // locks: I2 — OFF is capture-only, with no pilot writes/capture and legacy OFF behavior preserved.
 // F8 routes are capture-only when OFF. Drive the real source/package hook with
-// an isolated state home and a preload spy that records eager internal imports.
+// an isolated state home and assert its OFF side effects (state, capture, output, exit).
 const CAPTURE_ONLY_ROUTES = [
   { id: 'pre-bash', event: 'PreToolUse', tool: 'Bash', input: { command: 'echo f8-probe' } },
   { id: 'pre-powershell', event: 'PreToolUse', tool: 'PowerShell', input: { command: 'Write-Output f8-probe' } },
@@ -70,7 +70,6 @@ const OFF_SWITCH_VALUES = [
   { id: 'zero', value: '0' },
   { id: 'other', value: 'true' },
 ];
-const OFF_INTERNAL_REQUIRES = ['./lib/harness-state', './lib/workflow-isolation', './lib/telemetry'];
 
 function snapshotTree(root) {
   const files = {};
@@ -96,8 +95,6 @@ function driveCaptureOnlyRoute(leg, route, switchSetting) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'f10-f8-capture-'));
   const stateHome = path.join(temp, 'state-home');
   const wsRoot = path.join(temp, 'workspace');
-  const spyPath = path.join(temp, 'load-spy.js');
-  const spyLog = path.join(temp, 'loaded-modules.txt');
   fs.mkdirSync(stateHome, { recursive: true });
   fs.mkdirSync(wsRoot, { recursive: true });
 
@@ -123,19 +120,6 @@ function driveCaptureOnlyRoute(leg, route, switchSetting) {
     payload.last_assistant_message = 'Review verdict: approve. F8 capture probe.';
   }
 
-  const spySource = [
-    "const fs = require('node:fs');",
-    "const Module = require('node:module');",
-    'const logPath = ' + JSON.stringify(spyLog) + ';',
-    'const watched = new Set(' + JSON.stringify(OFF_INTERNAL_REQUIRES) + ');',
-    'const originalLoad = Module._load;',
-    'Module._load = function(request, parent, isMain) {',
-    '  if (watched.has(request)) fs.appendFileSync(logPath, request + String.fromCharCode(10));',
-    '  return originalLoad.call(this, request, parent, isMain);',
-    '};',
-  ].join('\n');
-  fs.writeFileSync(spyPath, spySource, 'utf8');
-
   const env = {
     ...process.env,
     CLAUDE: '1',
@@ -149,7 +133,7 @@ function driveCaptureOnlyRoute(leg, route, switchSetting) {
   else env[PILOT_SWITCH] = switchSetting.value;
 
   try {
-    const result = spawnSync(process.execPath, ['--require', spyPath, path.join(leg.hooksScripts, 'state-persist.js')], {
+    const result = spawnSync(process.execPath, [path.join(leg.hooksScripts, 'state-persist.js')], {
       input: JSON.stringify(payload),
       encoding: 'utf8',
       cwd: wsRoot,
@@ -162,7 +146,6 @@ function driveCaptureOnlyRoute(leg, route, switchSetting) {
       stdout: result.stdout || '',
       stderr: result.stderr || '',
       files: snapshotTree(stateHome),
-      loadedModules: fs.existsSync(spyLog) ? fs.readFileSync(spyLog, 'utf8').trim().split(/\r?\n/).filter(Boolean) : [],
       payload,
     };
   } finally {
@@ -170,21 +153,17 @@ function driveCaptureOnlyRoute(leg, route, switchSetting) {
   }
 }
 
+// locks: historical — retired 2026-10-23 (owner decision 5): the F8 preload-spy predicate (internal modules loaded in
+// 24/24 OFF cases) is removed from the active set; see ci/archive/325-prep/README.md. OFF side effects stay asserted.
 runner.run('R2C1-OFF-CAPTURE-ONLY-FAST-PATH', [], (_mods, leg) => {
   const routeSwitchCases = CAPTURE_ONLY_ROUTES.length * OFF_SWITCH_VALUES.length;
-  let preloadCases = 0;
   let stateChangeCases = 0;
   let outputCases = 0;
   let captureCases = 0;
   let badExitCases = 0;
-  const loadedModules = new Set();
   for (const route of CAPTURE_ONLY_ROUTES) {
     for (const switchSetting of OFF_SWITCH_VALUES) {
       const result = driveCaptureOnlyRoute(leg, route, switchSetting);
-      if (result.loadedModules.length) {
-        preloadCases += 1;
-        result.loadedModules.forEach(name => loadedModules.add(name));
-      }
       if (result.code !== 0) badExitCases += 1;
       if (result.stdout || result.stderr) outputCases += 1;
       if (Object.keys(result.files).length) stateChangeCases += 1;
@@ -192,12 +171,11 @@ runner.run('R2C1-OFF-CAPTURE-ONLY-FAST-PATH', [], (_mods, leg) => {
     }
   }
   const failures = [];
-  if (preloadCases) failures.push('preload-spy RED: internal modules loaded in ' + preloadCases + '/' + routeSwitchCases + ' OFF route/switch cases (' + [...loadedModules].join(', ') + ')');
   if (badExitCases) failures.push('nonzero exit in ' + badExitCases + '/' + routeSwitchCases + ' OFF cases');
   if (outputCases) failures.push('output emitted in ' + outputCases + '/' + routeSwitchCases + ' OFF cases');
   if (stateChangeCases) failures.push('state changed in ' + stateChangeCases + '/' + routeSwitchCases + ' OFF cases');
   if (captureCases) failures.push('capture written in ' + captureCases + '/' + routeSwitchCases + ' OFF cases');
-  if (failures.length) failures.push(`observed side effects: state=${stateChangeCases}, capture=${captureCases}, output=${outputCases}, nonzero-exit=${badExitCases}; internal-module-load=${preloadCases}/${routeSwitchCases}`);
+  if (failures.length) failures.push(`observed side effects: state=${stateChangeCases}, capture=${captureCases}, output=${outputCases}, nonzero-exit=${badExitCases}`);
   if (failures.length) throw new Error(failures.join('; '));
 });
 

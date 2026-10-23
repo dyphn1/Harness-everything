@@ -42,3 +42,30 @@ node ci/archive/325-prep/historical-qualification.test.js          # 4 FAIL, 6 P
 ## Coordinator disposition (pending)
 
 The WA pending-probe gate (`P-ignore-missing-expected-must`, WA report 28–30) is superseded for WB by the coordinator's disposition. The coordinator records that disposition. It is not recorded here.
+
+## Retired 2026-10-23 (owner decision 5)
+
+Owner decision 5 (2026-10-23) retired the schema and preload-only predicates below. Each entry keeps its old predicate and its last result at `0c53a57` (source and packaged legs gave the same result unless noted). Each retired cell left a `// locks: historical — retired 2026-10-23 (owner decision 5)` comment where it was.
+
+**Retired from the active pass/fail set**
+
+| Cell | Old predicate | Last result at `0c53a57` | Where |
+|---|---|---|---|
+| S6-I3 | `pilot.acceptedEvents` is an array with one `provenance` per accepted ref (`on-valid-direct-quoted-review` / `review`) | RED: `{"acceptedRefs":2,"acceptedEvents":null}` | `ci/mechanism-325-f4-invariants.test.js` |
+| S7-I3 | `Boolean(pilot.identity)` (`on-valid-direct-quoted-review` / `review`) | RED: `null` | `ci/mechanism-325-f4-invariants.test.js` |
+| S8-I3 | some key of the withheld `obligations` matches `/origin\|withheld\|source/i` (`on-malformed` / `base`) | RED: keys are `schemaVersion, workflowId, sessionId, …` with no origin key | `ci/mechanism-325-f4-invariants.test.js` |
+| F8 preload spy | the internal modules `./lib/harness-state`, `./lib/workflow-isolation`, `./lib/telemetry` are not eagerly loaded in any OFF route/switch case | FAIL: internal-module-load 24/24 OFF cases | `ci/mechanism-325-3b-s2b-capture.test.js` (`R2C1-OFF-CAPTURE-ONLY-FAST-PATH`) |
+
+F8's OFF side-effect assertions (state, capture, output, exit = 0) and the legacy OFF controls stay in the active set. At `0c53a57` they observed 0 / 0 / 0 / 0.
+
+**Replaced oracles (cell kept, key predicate swapped for a behaviour oracle)**
+
+| Cell | Old predicate | Last result at `0c53a57` | Behaviour oracle now |
+|---|---|---|---|
+| S1-I2 | no `session-workspaces/` file exists after the OFF capture-only route (state created by route/plan/start included) | RED: `session-workspaces/346be55a….json` present | file-set delta across the hook (OFF adds none; ON control adds some) |
+| S2-I3 | a `handoff` key matches `/lastVerify/` and `/(source\|kind\|origin)/` | RED: no such key | after drift, `lastDocVerifyAt` is withdrawn, the generic record survives, the workflow Stop names `req-verify` |
+| S10-I3 | the same key predicate on the OFF legacy run | RED: no such key | after drift, `lastGenericVerifyAt` equals the aggregate, and the generic Stop stays silent |
+
+Limits: the S1-I2 delta compares file sets, so an in-place rewrite of a binding that route/plan/start already created is not seen. Pre-existing OFF handoff writes are legacy behaviour and are not part of this cell.
+
+Sources: `F4-T3-before-invariants.log` and `F4-T3-before-capture.log` (`0c53a57`), `F4-T3-after-invariants.log` and `F4-T3-after-capture.log` (this change).
