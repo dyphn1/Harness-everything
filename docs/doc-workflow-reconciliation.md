@@ -5,13 +5,13 @@ status: active
 
 # Document workflow reconciliation — Phase 3b S1 runtime
 
-**Status: S1 runtime ships default OFF; opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`.
-S1 grants no positive document verification credit. S2/S3 are pending; E1 has not started.**
-This document refines the [document lifecycle contract](document-lifecycle.md#phase-3b--narrow-integration-contract-s1-shipped-default-off-positive-reconciliation-not-shipped).
+**Status: the runtime ships default OFF; opt in with `HARNESS_DOC_RECONCILIATION_PILOT=1`.
+With the pilot ON, F4 ([#358](https://github.com/dyphn1/Harness-everything/pull/358)) grants limited positive credit for exactly `doc-lint` and `link-check`, from a host-captured run of the installed doc-check on Claude Code 2.1.309 (live runs 4–5). S3 provider integration is pending; E1 has not started.**
+This document refines the [document lifecycle contract](document-lifecycle.md#phase-3b--narrow-integration-contract-s1-default-off-f4-limited-credit).
 The [accepted E0](https://github.com/dyphn1/Harness-everything/issues/341#issuecomment-6308604128)
 permits this limited, reversible consumer under the
 [owner's E0/E1 decision](https://github.com/dyphn1/Harness-everything/issues/325#issuecomment-6283237637).
-Current evidence establishes deterministic mechanism/package behavior, not live-host loading or E1 GO.
+Current evidence establishes deterministic mechanism/package behavior and bounded Claude Code 2.1.309 live credit runs; it is not E1 GO.
 
 ## Entry gates and ownership
 
@@ -336,12 +336,12 @@ Preparation assertion rows do not carry `reportOrigin`; the S1 runtime report ca
 marker is never presented as a production report.
 ## S1 — switch, trusted scope and fail-closed no-credit gate
 
-**S1 runtime ships default OFF (`HARNESS_DOC_RECONCILIATION_PILOT=1` opts in). It grants no positive document verification credit; S2/S3 are pending and E1 has not started.**
+**S1 runtime ships default OFF (`HARNESS_DOC_RECONCILIATION_PILOT=1` opts in). With the pilot ON, F4 (#358) grants limited positive credit for `doc-lint` and `link-check` only; S3 provider integration is pending and E1 has not started.**
 The [accepted E0](https://github.com/dyphn1/Harness-everything/issues/341#issuecomment-6308604128)
 permits this limited implementation; the [posted execution plan](https://github.com/dyphn1/Harness-everything/issues/325)
-orders Docs → RED → GREEN → independent review → green CI for each slice. S1 is a temporary
-negative-credit slice. S2 supplies trusted producer records, independent review provenance,
-positive reconciliation and freshness; only then can E1 observation begin. S3 adds optional
+orders Docs → RED → GREEN → independent review → green CI for each slice. S1 was the temporary
+negative-credit slice; F4 added the limited positive credit. The S2 requirements (trusted producer records, independent review provenance,
+positive reconciliation and freshness) gate E1 observation. S3 adds optional
 provider suggestions. None of these slices authorizes wider #320 integration.
 
 ### Switch and scope decision
@@ -1080,8 +1080,8 @@ provider, discovery execution, public checker change or new attestation service/
 ## Implementation and acceptance after E0
 
 S1 ships the default-OFF switch, narrow disposition/completion no-credit integration and runtime
-status reporting. S2's trusted producer, positive reconciliation and freshness remain pending;
-S3's optional provider adapter remains pending. Require every expected applicable MUST and
+status reporting. F4 adds limited positive reconciliation behind the same switch. S3's optional
+provider adapter remains pending. Require every expected applicable MUST and
 freshness check before positive credit, plus source/package compatibility, negative cases and
 relevant green CI including Windows. The S1 suites establish their tested mechanism/package
 contracts; they do not establish independent host provenance, live-host loading or architectural
@@ -1090,7 +1090,7 @@ remain separate gates.
 
 ## F4: credited reconciliation (Claude-only, pilot ON)
 
-Status: **implemented behind the pilot switch; mechanism and package evidence, plus one live field-availability capture.** Credit works for `doc-lint` and `link-check` (a registered `doc-check` run) and for an independent `quality-review` (a host reviewer with bound path digests). One live capture (Claude Code 2.1.308, macOS, one session) proves field availability, not live-host credit. There is no live-host credit run yet. Deterministic mechanism tests prove the chain. Design source: the A3 advisor report (`.worktrees/packets/feat-path/A3-advisor-report.md`, a local coordination file, not a shipped doc).
+Status: **implemented behind the pilot switch; mechanism and package evidence, plus live credit runs on Claude Code 2.1.309 (runs 4–5), which credited exactly `doc-lint` and `link-check`.** Mechanism tests cover credit for `doc-lint` and `link-check` (a registered `doc-check` run) and for an independent `quality-review` (a host reviewer with bound path digests). The earlier Claude Code 2.1.308 capture (macOS, one session) proves field availability only. Deterministic mechanism tests prove the chain. Design source: the A3 advisor report (`.worktrees/packets/feat-path/A3-advisor-report.md`, a local coordination file, not a shipped doc).
 
 ### Whole path
 
@@ -1200,8 +1200,8 @@ claude -p "<fixed capture prompt, containing the exact check command>" \
 ### Scope and limits
 
 - The first positive scope is a body-only edit to an existing governed reference, with no derived declaration, code, test, PRD or ADR normative change. Its applicable MUSTs are lint and links.
-- Simulated replay and one live field capture are not E1 GO, and they do not permit a wider rollout.
-- Not claimed: cryptographic attestation, a sandbox, a forced review provider, default-ON, live-host behaviour beyond the capture, or support for OpenCode or Codex.
+- Simulated replay and the recorded live credit runs are not E1 GO, and they do not permit a wider rollout.
+- Not claimed: cryptographic attestation, a sandbox, a forced review provider, default-ON, live-host behaviour beyond the recorded runs, or support for OpenCode or Codex.
 
 **Executor rationale.** The owner's text (#325, 2026-10-21) says the reviewer "must differ from the author's `session_id` and from every executor principal". An executor principal is the principal of execution evidence used in this assessment. A reviewer that read or computed digests with plain tool calls is not an executor. A reviewer whose registered doc-check run is refused still counts, which keeps the rule fail-closed.
 
