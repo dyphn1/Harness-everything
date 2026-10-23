@@ -14,7 +14,7 @@ episodes:
   - episode: 325-f4-checker-identity
     feature: "#325 F4 credited reconciliation (PR #358)"
     date: 2026-10-22
-    closed: false
+    closed: true
     rounds:
       - round: 0
         change: null
@@ -28,6 +28,10 @@ episodes:
         change: "One identity resolver (invariant I1), committed as 0308386"
         review: unknown
         result: "Closing invariant review not yet run"
+      - round: 3
+        change: "No identity change; closing evidence at 4899fbb"
+        review: "Executed: verify:all 13 PASS / 0 FAIL at 4899fbb; invariant matrix S2-I1..S7-I1 CONTROL on source and packaged legs; mutants M1-M6 detected by their I1 owner cells (F4-T3 mutants log); R1/R2 self-authored and tampered doc-check earn nothing; live runs 4 and 5 credit only the installed checker"
+        result: "Checker identity decided consistently; the fake-checker P1 and the case-variant P2 stay closed. Episode closed 2026-10-23 on executed evidence."
   - episode: 325-f4-l3-candidate-overcapture
     feature: "#325 F4 normal-session credit (PR #358), input 0308386"
     date: 2026-10-23
