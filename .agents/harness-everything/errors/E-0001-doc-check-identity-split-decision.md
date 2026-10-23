@@ -31,7 +31,7 @@ episodes:
   - episode: 325-f4-l3-candidate-overcapture
     feature: "#325 F4 normal-session credit (PR #358), input 0308386"
     date: 2026-10-23
-    closed: false
+    closed: true
     rounds:
       - round: 0
         change: null
@@ -52,7 +52,7 @@ episodes:
       - round: 4
         change: "W14 f9b3e92: class-level split, conservative parse-free trust rule (compound or checker-marked commands get no generic verification or reviewer independence); T3 feac455 and T4 4899fbb test-only reconciliation"
         review: "R7 independent review of W14 + T3 at 267402e; live Run 5 at 4899fbb"
-        result: "R7 finds no product defect, only test-oracle gaps (S1-I2 path-only delta, three A10 cells), closed by T4. Run 5 credits exactly doc-lint/link-check with review/verify pass and no generic verification from the doc-only run; Stops remind only for the separate L3-4 issue (#365). No new same-class finding. Closing awaits owner acceptance."
+        result: "R7 finds no product defect, only test-oracle gaps (S1-I2 path-only delta, three A10 cells), closed by T4. Run 5 credits exactly doc-lint/link-check with review/verify pass and no generic verification from the doc-only run; Stops remind only for the separate L3-4 issue (#365). No new same-class finding. Owner closed the episode 2026-10-23; residual edge cases are left to observation (funnel: rules catch the bulk, LLM review handles the rest)."
 ---
 
 ## Cue
