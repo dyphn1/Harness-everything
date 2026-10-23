@@ -49,6 +49,10 @@ episodes:
         change: "Z2 a9a8807: split executable newlines and skip simple heredoc bodies; integrated at 0c53a57"
         review: "R6 review of WB2/Z2 at 0c53a57; A10 class-level source and helper probes"
         result: "Normal Run 4 credits exactly lint/link with review/verify pass. R6 finds unquoted heredoc substitution hidden by scanner, permitting generic fallback. A10 confirms full generic predicate and omitted reviewer executor; escaped target spelling defeats raw-substring-only guard. Episode remains open."
+      - round: 4
+        change: "W14 f9b3e92: class-level split, conservative parse-free trust rule (compound or checker-marked commands get no generic verification or reviewer independence); T3 feac455 and T4 4899fbb test-only reconciliation"
+        review: "R7 independent review of W14 + T3 at 267402e; live Run 5 at 4899fbb"
+        result: "R7 finds no product defect, only test-oracle gaps (S1-I2 path-only delta, three A10 cells), closed by T4. Run 5 credits exactly doc-lint/link-check with review/verify pass and no generic verification from the doc-only run; Stops remind only for the separate L3-4 issue (#365). No new same-class finding. Closing awaits owner acceptance."
 ---
 
 ## Cue
