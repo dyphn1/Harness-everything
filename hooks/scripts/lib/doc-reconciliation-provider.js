@@ -168,6 +168,11 @@ function commandSegments(command) {
       active = true;
       continue;
     }
+    // shortcut: comments are word-initial unquoted # only, no heredoc or $(...) awareness, upgrade with a real shell parser
+    if (ch === '#' && !active) {
+      while (index + 1 < command.length && command[index + 1] !== '\n' && command[index + 1] !== '\r') index += 1;
+      continue;
+    }
     if (/\s/.test(ch)) { pushWord(); continue; }
     if (';&|<>()'.includes(ch) || ch === '\n' || ch === '\r') { pushSegment(); continue; }
     token += ch;
