@@ -85,9 +85,10 @@ function processState(payload) {
       const docCheckCandidate = installedCheck && installedCheck.kind !== 'not-candidate';
       const pinCheckable = installedCheck && installedCheck.installed
         && (installedCheck.kind === 'accepted' || installedCheck.reason === 'implementation-pin-mismatch');
-      const verifies = docCheckCandidate && pinCheckable
-        ? docCheck.fileDigest(installedCheck.installed) === docCheck.SHIPPED_DOC_CHECK_DIGEST
-        : docCheckCandidate ? false : isVerificationShell(command, { cwd: cwdOf(payload, root), root });
+      // A non-candidate that is compound or names the checker is not generic verification (trustRisk); the scanner miss does not clear it.
+      const verifies = docCheckCandidate
+        ? Boolean(pinCheckable) && docCheck.fileDigest(installedCheck.installed) === docCheck.SHIPPED_DOC_CHECK_DIGEST
+        : !(pilotEnabled && docCheck.trustRisk(command)) && isVerificationShell(command, { cwd: cwdOf(payload, root), root });
       if (!isFailed && (isSuccessEvent || exitCode === 0) && verifies) {
         const verifiedAt = Date.now();
         const verifiedExitCode = exitCode ?? null;

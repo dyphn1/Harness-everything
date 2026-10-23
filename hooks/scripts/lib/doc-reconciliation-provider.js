@@ -410,18 +410,31 @@ function parseReviewVerdict(message) {
   return { verdict: match[1].toLowerCase(), summary, reviewedArtifactDigests };
 }
 
+// Conservative trust gate (owner decision 3, A10 §1). The narrow candidate scanner only selects doc refs; trust asks more.
+// A command is risky when strict safeTokenize refuses it (newline, heredoc, `$()`, operators, malformed quoting) or when it
+// names the checker, raw or decoded. Risky commands get no generic verification and no reviewer independence. The check is
+// conservative on purpose: it is not a shell parser, and non-string input is not shell text.
+// shortcut: benign compounds such as `npm test && echo ok` lose generic credit, upgrade with a real shell parser.
+function trustRisk(command) {
+  const text = typeof command === 'string' ? command : '';
+  if (/doc-check/i.test(text)) return true;
+  if (commandSegments(text).some(words => words.some(word => /doc-check/i.test(word)))) return true;
+  return !safeTokenize(text).ok;
+}
+
 // Executor principals of this task (owner #325, 2026-10-21: the reviewer "must differ from the author's `session_id` and
 // from every executor principal"; an executor principal is the principal of execution evidence used in this assessment).
 // The author session is always an executor. Other executors are the principals of a registered doc-check run, the only
-// execution evidence a doc obligation uses. Acceptance is not required, so the set over-approximates and fails closed:
-// a reviewer whose registered run was refused still counts as an executor. Read-only tool use, such as a plain Bash
-// call, does not make a reviewer an executor. The Agent/Task launch surface is never execution evidence.
+// execution evidence a doc obligation uses, and of any risky shell command (trustRisk), which could have run the checker.
+// Acceptance is not required, so the set over-approximates and fails closed: a reviewer whose registered run was refused
+// still counts as an executor. Plain read-only tool use, such as `git status`, does not make a reviewer an executor.
+// The Agent/Task launch surface is never execution evidence.
 function journalExecutors(captures, author) {
   const executors = new Set(textOf(author) ? [author] : []);
   for (const item of Array.isArray(captures) ? captures : []) {
     if (!recordOf(item) || item.event !== 'PostToolUse') continue;
     if (item.tool_name === 'Agent' || item.tool_name === 'Task') continue;
-    if (resolveDocCheckInvocation(item.command, item.cwd).kind === 'not-candidate') continue;
+    if (resolveDocCheckInvocation(item.command, item.cwd).kind === 'not-candidate' && !trustRisk(item.command)) continue;
     if (textOf(item.session_id)) executors.add(item.session_id);
     if (textOf(item.agent_id)) executors.add(item.agent_id);
   }
@@ -1004,5 +1017,5 @@ function reviewRecordIndependent(cap, captures, principals) {
 // Keep the old state-persist seam as an alias; it points at the single resolver above.
 module.exports = { createClaudeOriginProvider, buildCaptureRecord, resolveDocCheckInvocation,
   registeredInstalledCheck: resolveDocCheckInvocation, installedDocCheck,
-  fileDigest, SHIPPED_DOC_CHECK_DIGEST, journalExecutors, reviewRecordIndependent,
+  fileDigest, SHIPPED_DOC_CHECK_DIGEST, trustRisk, journalExecutors, reviewRecordIndependent,
   writeImmutableEvent, rebuildJournalView, readCaptureView, observedIdentityFor, _internals: { captureJson, captureDigest, digestText, canonicalCapture } };

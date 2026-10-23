@@ -172,6 +172,7 @@ The JSON carries a logical command ID (`harness.doc-check.check.v1` or `harness.
 - This JSON is **never self-credited**. Stdout that repeats an ID or a status is not evidence of credit.
 - Credit needs the host-captured raw output, checked against the producer's independently derived expected set. See `docs/doc-workflow-reconciliation.md`, section "F4: credited reconciliation".
 - Reminders never earn credit.
+- Trust is conservative. A compound shell command (newline, heredoc, `$()`, operators, malformed quoting) or any command that names doc-check gets no generic verification and does not make a reviewer independent. Run the checker as a plain command. A benign compound such as `npm test && echo ok` must run as its own command to count as generic verification.
 
 For an independent review in the L3 path, the parent computes the post-edit candidate digest with the one read-only command `shasum -a 256 docs/a.md`, then gives the reviewer the relative path and actual digest. The reviewer reads the file and returns a plain `Review verdict: approve` or `Review verdict: reject` line, `Reviewed artifact: docs/a.md sha256:<digest>`, and a non-empty `Summary:` line. Do not edit between hashing and review or pre-fill the verdict. Assessment still checks the correlated host review and the candidate digest; supplying a digest is not proof of reading.
 

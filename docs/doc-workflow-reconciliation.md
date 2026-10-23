@@ -1116,6 +1116,12 @@ flowchart LR
 | ON without qualifying evidence | Pilot on, but a host field, capture or live qualification is missing, or an identity or origin recheck fails | Withheld: no credit. Both Stop entry points exit 0 |
 | ON with current accepted evidence and live qualification | Every identity current; capture validated | Credit only for the capabilities in the result contract below |
 
+### Projection and trust limits
+
+- The narrow candidate scanner only selects doc references. It does not prove that a command contains no checker execution.
+- Trust uses a separate, conservative rule for generic verification and reviewer independence. A command that is compound (newline, heredoc, `$()`, shell operators, malformed quoting) or names the checker is not generic verification, and its shell executor counts for independence. Accepted tradeoff (owner decision 3): benign compounds such as `npm test && echo ok` lose generic credit and must run separately.
+- Accepted known limit (owner decision 4): in unreleased pilot-ON dev sessions created before WB2, aggregate-only verification may be cleared on checker drift and must be re-verified. Current source-tagged state keeps R3 preservation.
+
 ### Test transport
 
 - Raw fixture hook payloads go through the real hook subprocess entry points, which write their own session records. The disposition and Stop subprocesses then run against that same isolated task and session.

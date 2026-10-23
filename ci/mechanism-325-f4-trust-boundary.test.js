@@ -260,6 +260,39 @@ function partR6R7(leg) {
     { id: 'other-agent-evidence-approved', status: 'CONTROL', reason: 'the same run by another agent leaves the reviewer independent', test: () => ({ pass: approved(rootEvidenceOther), actual: rootEvidenceOther.actions['review-pass'].exitCode }) },
   ]);
 
+  // R6 compound (A10 §1, owner decision 3): a heredoc whose body runs the checker is not a plain command. The narrow scanner
+  // skips the body, so trust must refuse it: the reviewer is an executor, and the command earns no generic verification.
+  // The escaped-hyphen spelling defeats a raw substring guard, so it is a separate witness. Its path is relative: the fixture
+  // only rewrites the installed-path token. Plain npm test controls keep both trust consumers working.
+  const compoundRun = (id, command, agentId) => ({ id, op: 'hookDeliver', payload: { event: 'PostToolUse', command, toolUseId: `toolu_f4t4_${id}`, response: { stdout: '', stderr: '', interrupted: false, ...(agentId ? { agentId } : {}) } } });
+  const HEREDOC_SUBST = `npm test <<EOF\n$(${LINT_COMMAND})\nEOF`;
+  const HEREDOC_ESCAPED = 'npm test <<EOF\n$(node scripts/doc\\-check.js check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md)\nEOF';
+  const compoundRoot = (label, run, agentId) => reviewCase(label, [run], agentId);
+  const root6Heredoc = compoundRoot('F4T4-R6-heredoc', compoundRun('agent-post', HEREDOC_SUBST, 'agent-9'), 'agent-9');
+  const root6Escaped = compoundRoot('F4T4-R6-escaped', compoundRun('agent-post', HEREDOC_ESCAPED, 'agent-9'), 'agent-9');
+  runChecks('R6.compound-reviewer-refused@' + leg, root6Heredoc, [
+    { id: 'heredoc-reviewer-refused', status: 'CONTROL', reason: 'A10 §1: a reviewer whose compound command runs the checker is an executor, not independent', test: () => ({ pass: refused(root6Heredoc), actual: root6Heredoc.actions['review-pass'].exitCode }) },
+  ]);
+  runChecks('R6.compound-escaped-reviewer-refused@' + leg, root6Escaped, [
+    { id: 'escaped-reviewer-refused', status: 'CONTROL', reason: 'A10 §1: the escaped-hyphen spelling of a compound checker run is refused the same way', test: () => ({ pass: refused(root6Escaped), actual: root6Escaped.actions['review-pass'].exitCode }) },
+  ]);
+  const genericRoot = (() => {
+    const staged = stage(leg);
+    try {
+      useShippedExport(staged);
+      const npmRun = { id: 'gen-npm', op: 'hookDeliver', payload: { event: 'PostToolUse', command: 'npm test', toolUseId: 'toolu_f4t4_gen_npm', response: { stdout: '', stderr: '', interrupted: false } } };
+      return replay(reviewRoot(leg, [npmRun, compoundRun('gen-heredoc', HEREDOC_SUBST), compoundRun('gen-escaped', HEREDOC_ESCAPED)], 'F4T4-R6-generic'), staged.dist, { pilot: '1' });
+    } finally {
+      staged.cleanup();
+    }
+  })();
+  const genericAt = id => handoffOf(genericRoot, id).lastGenericVerifyAt;
+  runChecks('R6.compound-no-generic@' + leg, genericRoot, [
+    { id: 'plain-npm-records-generic', status: 'CONTROL', reason: 'an ordinary npm test still records generic verification', test: () => ({ pass: typeof genericAt('gen-npm') === 'number', actual: genericAt('gen-npm') }) },
+    { id: 'heredoc-keeps-prior-generic', status: 'CONTROL', reason: 'A10 §1: a compound checker attempt adds no generic record and does not overwrite the prior valid one', test: () => ({ pass: typeof genericAt('gen-npm') === 'number' && genericAt('gen-heredoc') === genericAt('gen-npm'), actual: genericAt('gen-heredoc') }) },
+    { id: 'escaped-keeps-prior-generic', status: 'CONTROL', reason: 'A10 §1: the escaped-hyphen compound attempt adds no generic record', test: () => ({ pass: genericAt('gen-escaped') === genericAt('gen-npm'), actual: genericAt('gen-escaped') }) },
+  ]);
+
   // R7: a SubagentStop with no Agent or Task result surface at all is not an approval (F4-R F5).
   const noSurface = (() => {
     const staged = stage(leg);
