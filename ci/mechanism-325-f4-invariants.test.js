@@ -10,8 +10,7 @@
 // case-sensitive filesystem and is always reported.
 //
 // Modes:
-//   (default)       run the matrix; exit 1 while any RED exists.
-//   --expect-red    exit 0 only when the RED set equals the frozen plan below and nothing is INFRA.
+//   (default)       run the matrix; exit 1 while any RED exists. Every RED is an actual failure, never a frozen expectation.
 //   --json          print a machine-readable summary (used by the mutation runner).
 //   --mutants       run the mutation table (Z1 §4) on scratch copies; fail if a mutant is not applied, is not detected by
 //                   its owning cell, or is detected only by a different cell.
@@ -264,42 +263,55 @@ const timestampSourceKeys = obs => Object.keys(obs.handoff).filter(key => /lastV
 
 // Each cell: site, invariant, the runs it needs (stream, variant), the predicate, and the invariant it states.
 const CELLS = [
+  // locks: unresolved — OFF pre-switch binding is retained I2 (A4), not in the A/B/C/R3 table
   { id: 'S1-I2', site: 'state-persist entry and workspace binding', inv: 'I2', stated: 'the OFF capture-only route writes no workspace binding before the pilot switch',
     runs: [['off-capture-only', 'base']],
     check: r => ({ pass: bindingFiles(r['off-capture-only|base']).length === 0, actual: bindingFiles(r['off-capture-only|base']) }) },
+  // locks: A — "Pilot ON credits valid evidence (no false PASS)"; control: S6-I4
   { id: 'S2-I1', site: 'state-persist verification', inv: 'I1', stated: 'a refused doc-check candidate never writes the doc-check timestamp, and a valid direct run does',
     runs: [['on-malformed', 'candidates-only'], ['on-valid-direct-quoted-review', 'direct-only']],
     check: r => { const refused = lastVerify(r['on-malformed|candidates-only']); const valid = lastVerify(r['on-valid-direct-quoted-review|direct-only']); return { pass: refused === null && valid !== null, actual: { refused, valid } }; } },
+  // locks: C — "unavailable observations ... cannot become a false PASS"; control: S6-I1
   { id: 'S2-I2', site: 'state-persist verification', inv: 'I2', stated: 'a changed-before-run doc-check never writes the timestamp before pilot acceptance',
     runs: [['on-lookalikes-runtime-mutations', 'pre-edit']],
     check: r => ({ pass: lastVerify(r['on-lookalikes-runtime-mutations|pre-edit']) === null, actual: lastVerify(r['on-lookalikes-runtime-mutations|pre-edit']) }) },
+  // locks: unresolved — key-name predicate (lastVerify plus source/kind/origin) is mechanism-specific; the R3 behaviour is S7-I1
   { id: 'S2-I3', site: 'state-persist verification', inv: 'I3', stated: 'the doc-check timestamp carries a source tag, so withdrawal can remove only its own record',
     runs: [['on-valid-direct-quoted-review', 'review']],
     check: r => ({ pass: timestampSourceKeys(r['on-valid-direct-quoted-review|review']).length > 0, actual: Object.keys(r['on-valid-direct-quoted-review|review'].handoff) }) },
+  // locks: B — "host payload fields are re-validated at assessment time"; control: S6-I4
   { id: 'S2-I4', site: 'state-persist verification', inv: 'I4', stated: 'state-persist and the provider agree on a safely quoted doc-check invocation: the timestamp is set exactly when the provider accepts that record',
     runs: [['on-valid-direct-quoted-review', 'quoted-only']],
     check: r => { const obs = r['on-valid-direct-quoted-review|quoted-only']; const quoted = quotedRecords(obs); const accepted = quoted.length > 0 && acceptedRefs(obs).some(ref => ref.startsWith(quoted[0].ref)); return { pass: (lastVerify(obs) !== null) === accepted, actual: { timestamp: lastVerify(obs) !== null, providerAccepted: accepted } }; } },
+  // locks: B — "host payload fields are re-validated at assessment time"; control: S6-I4
   { id: 'S3-I1', site: 'capture builder and event/journal writer', inv: 'I1', stated: 'a wrong-path candidate records no doc-check material (no digest, no stdout)',
     runs: [['on-lookalikes-runtime-mutations', 'base']],
     check: r => { const wrong = r['on-lookalikes-runtime-mutations|base'].captures.find(record => /\.\/scripts\/doc-check\.js/.test(record.command || '')); return { pass: Boolean(wrong) && !wrong.implementationDigest && typeof wrong.stdout !== 'string', actual: wrong ? { digest: Boolean(wrong.implementationDigest), stdout: typeof wrong.stdout === 'string' } : 'no record' }; } },
+  // locks: unresolved — OFF capture-only writes no record before the switch: retained I2 (A4), not in the A/B/C/R3 table
   { id: 'S3-I2', site: 'capture builder and event/journal writer', inv: 'I2', stated: 'the OFF capture-only route writes no capture record before the pilot switch',
     runs: [['off-capture-only', 'base']],
     check: r => ({ pass: r['off-capture-only|base'].captures.length === 0, actual: r['off-capture-only|base'].captures.length }) },
+  // locks: B — "host payload fields are re-validated at assessment time"; control: S6-I4
   { id: 'S3-I3', site: 'capture builder and event/journal writer', inv: 'I3', stated: 'capture records keep ref, session and tool correlation (concurrent writers are not covered by this cell)',
     runs: [['on-valid-direct-quoted-review', 'review']],
     check: r => { const records = r['on-valid-direct-quoted-review|review'].captures.filter(record => record.event === 'PostToolUse'); const ok = records.length > 0 && records.every(record => record.ref && record.session_id && record.tool_use_id); return { pass: ok, actual: records.map(record => ({ ref: Boolean(record.ref), session: Boolean(record.session_id), tool: Boolean(record.tool_use_id) })) }; } },
+  // locks: B — "host payload fields are re-validated at assessment time"; control: S6-I1
   { id: 'S3-I4', site: 'capture builder and event/journal writer', inv: 'I4', stated: 'a candidate with changed bytes retains no stdout or digest for the pinned check',
     runs: [['on-valid-direct-quoted-review', 'review-pre-edit']],
     check: r => { const records = docRecords(r['on-valid-direct-quoted-review|review-pre-edit']); return { pass: records.length > 0 && records.every(record => typeof record.stdout !== 'string'), actual: records.map(record => ({ stdout: typeof record.stdout === 'string', digest: Boolean(record.implementationDigest) })) }; } },
+  // locks: B — "copied-record replay tests are required negatives"; control: S6-I4
   { id: 'S4-I1', site: 'parseRegisteredCheck / registeredInstalledCheck callers', inv: 'I1', stated: 'a byte-identical copy outside the install is not the installed runtime and is not accepted',
     runs: [['on-valid-direct-quoted-review', 'copy-only']],
     check: r => { const obs = r['on-valid-direct-quoted-review|copy-only']; const copy = obs.captures.find(record => (record.command || '').includes(OUTSIDE_COPY)); const accepted = Boolean(copy) && acceptedRefs(obs).some(ref => ref.startsWith(copy.ref)); return { pass: Boolean(copy) && !accepted, actual: { copyRecorded: Boolean(copy), accepted } }; } },
+  // locks: C — "unavailable observations ... cannot become a false PASS"; control: S6-I4
   { id: 'S4-I4', site: 'parseRegisteredCheck / registeredInstalledCheck callers', inv: 'I4', stated: 'every explicit malformed candidate is refused with a reason diagnostic',
     runs: [['on-malformed', 'base']],
     check: r => ({ pass: creditedOf(r['on-malformed|base']).length === 0 && diagCodes(r['on-malformed|base']).includes('unregistered-command'), actual: diagCodes(r['on-malformed|base']) }) },
+  // locks: A — "Pilot ON credits valid evidence (no false PASS)"; control: S6-I4
   { id: 'S5-I1', site: 'capture candidate selection', inv: 'I1', stated: 'ordinary Edit, Agent and npm events create no doc-check references',
     runs: [['on-normal-session', 'base']],
     check: r => { const codes = diagCodes(r['on-normal-session|base']); return { pass: !codes.includes('unregistered-command'), actual: codes.filter(code => code === 'unregistered-command').length }; } },
+  // locks: A — "Pilot ON credits valid evidence (no false PASS)"; control: S6-I4
   { id: 'S5-I4', site: 'capture candidate selection', inv: 'I4', stated: 'a grammar-valid candidate spelled with a case variant is offered and accepted, never silently omitted',
     runs: [['on-valid-direct-quoted-review', 'case-only']],
     check: (r, leg) => {
@@ -310,6 +322,7 @@ const CELLS = [
       const accepted = records.length === 1 && acceptedRefs(obs).some(ref => ref.startsWith(records[0].ref));
       return { pass: accepted, actual: { records: records.length, accepted } };
     } },
+  // locks: B — "host payload fields are re-validated at assessment time"; control: S6-I4
   { id: 'S6-I1', site: 'provider resolveEvent, event adapter and core', inv: 'I1', stated: 'the installed identity decides: a valid direct run is accepted; a post-capture or pre-run change is refused with its own code; an independent approve is accepted; a reviewer who ran evidence is refused with reviewer-not-independent',
     runs: [['on-valid-direct-quoted-review', 'base'], ['on-valid-direct-quoted-review', 'post-edit'], ['on-valid-direct-quoted-review', 'pre-edit'], ['on-valid-direct-quoted-review', 'review'], ['on-valid-direct-quoted-review', 'executor']],
     check: r => {
@@ -330,36 +343,47 @@ const CELLS = [
       };
       return { pass: Object.values(parts).every(Boolean), actual: parts };
     } },
+  // locks: unresolved — acceptedEvents schema is a mechanism shape; no violated owner clause (A7 §3)
   { id: 'S6-I3', site: 'provider resolveEvent, event adapter and core', inv: 'I3', stated: 'the persisted report keeps per-event provenance for every accepted event',
     runs: [['on-valid-direct-quoted-review', 'review']],
     check: r => { const obs = r['on-valid-direct-quoted-review|review']; const accepted = acceptedRefs(obs).length; const events = (obs.pilot && obs.pilot.acceptedEvents) || null; return { pass: accepted > 0 && Array.isArray(events) && events.length === accepted && events.every(event => event && event.provenance), actual: { acceptedRefs: accepted, acceptedEvents: events ? events.length : null } }; } },
+  // locks: A — "Pilot ON credits valid evidence (no false PASS)"; control: S2-I1
   { id: 'S6-I4', site: 'provider resolveEvent, event adapter and core', inv: 'I4', stated: 'the provider accepts the safely quoted installed invocation',
     runs: [['on-valid-direct-quoted-review', 'review']],
     check: r => { const obs = r['on-valid-direct-quoted-review|review']; const quoted = quotedRecords(obs); return { pass: quoted.length === 1 && acceptedRefs(obs).some(ref => ref.startsWith(quoted[0].ref)), actual: { quotedRecords: quoted.length, accepted: acceptedRefs(obs).length } }; } },
+  // locks: R3 — "only affected evidence is revoked"; control: S10-I2
   { id: 'S7-I1', site: 'assessment withdrawal and pilot report', inv: 'I1', stated: 'withdrawal after a runtime change removes only the doc-check record; ordinary verification survives',
     runs: [['runtime-npm-drift', 'drift']],
     check: r => ({ pass: ((r['runtime-npm-drift|drift'].after) || {}).lastVerifyAt ?? null !== null, actual: ((r['runtime-npm-drift|drift'].after) || {}).lastVerifyAt ?? null }) },
+  // locks: R3 — "only affected evidence is revoked"; control: S7-I1
   { id: 'S7-I2', site: 'assessment withdrawal and pilot report', inv: 'I2', stated: 'withdrawal runs only for a session with a valid registered doc-check capture; a look-alike session keeps its ordinary timestamp',
     runs: [['lookalike-npm-drift', 'drift']],
     check: r => ({ pass: ((r['lookalike-npm-drift|drift'].after) || {}).lastVerifyAt ?? null !== null, actual: ((r['lookalike-npm-drift|drift'].after) || {}).lastVerifyAt ?? null }) },
+  // locks: unresolved — a truthy identity field proves neither freshness nor selective revocation (A7 §2)
   { id: 'S7-I3', site: 'assessment withdrawal and pilot report', inv: 'I3', stated: 'the pilot report carries the workflow identity it was assessed under',
     runs: [['on-valid-direct-quoted-review', 'review']],
     check: r => ({ pass: Boolean(r['on-valid-direct-quoted-review|review'].pilot && r['on-valid-direct-quoted-review|review'].pilot.identity), actual: r['on-valid-direct-quoted-review|review'].pilot && r['on-valid-direct-quoted-review|review'].pilot.identity }) },
+  // locks: R3 — "only affected evidence is revoked"; control: S7-I2
   { id: 'S7-I4', site: 'assessment withdrawal and pilot report', inv: 'I4', stated: 'a malformed candidate is not a registered capture, so withdrawal ignores it',
     runs: [['malformed-npm-drift', 'drift']],
     check: r => ({ pass: ((r['malformed-npm-drift|drift'].after) || {}).lastVerifyAt ?? null !== null, actual: ((r['malformed-npm-drift|drift'].after) || {}).lastVerifyAt ?? null }) },
+  // locks: unresolved — OFF withholding absence is retained I2 (A4), not in the A/B/C/R3 table
   { id: 'S8-I2', site: 'workflow withholding', inv: 'I2', stated: 'OFF returns without any pilot withholding: the legacy verify step passes',
     runs: [['off-legacy', 'base']],
     check: r => ({ pass: r['off-legacy|base'].verify.exit === 0, actual: r['off-legacy|base'].verify.exit }) },
+  // locks: unresolved — origin-marker key predicate; withholding is per run (A7 §2)
   { id: 'S8-I3', site: 'workflow withholding', inv: 'I3', stated: 'a pilot-withheld verify state carries an origin marker',
     runs: [['on-malformed', 'base']],
     check: r => { const obligations = r['on-malformed|base'].obligations || {}; return { pass: Object.keys(obligations).some(key => /origin|withheld|source/i.test(key)), actual: Object.keys(obligations) }; } },
+  // locks: unresolved — OFF mounts and early return are an owner decision in A4, not in the A/B/C/R3 table
   { id: 'S9-I2', site: 'workflow callers and baseline capture', inv: 'I2', stated: 'OFF keeps its mounts and returns early: a legacy OFF workflow performs no pilot assessment and writes no capture (owner decision: mounts stay)',
     runs: [['off-legacy', 'base']],
     check: r => { const obs = r['off-legacy|base']; return { pass: obs.pilot === null && obs.captures.length === 0, actual: { pilot: obs.pilot === null ? null : 'report', captures: obs.captures.length } }; } },
+  // locks: R3 — "only affected evidence is revoked"; control: S7-I1
   { id: 'S10-I2', site: 'generic verification wrapper and runtime CLI', inv: 'I2', stated: 'the generic verifier is unchanged by the pilot switch: a legacy success sets the timestamp',
     runs: [['off-legacy', 'base']],
     check: r => ({ pass: lastVerify(r['off-legacy|base']) !== null, actual: lastVerify(r['off-legacy|base']) }) },
+  // locks: unresolved — source-tag key predicate; the R3 behaviour is S7-I1
   { id: 'S10-I3', site: 'generic verification wrapper and runtime CLI', inv: 'I3', stated: 'the generic verifier timestamp carries a source tag',
     runs: [['off-legacy', 'base']],
     check: r => ({ pass: timestampSourceKeys(r['off-legacy|base']).length > 0, actual: Object.keys(r['off-legacy|base'].handoff) }) },
@@ -377,10 +401,6 @@ function evaluate(cell, leg) {
   if (outcome.skip) return { status: 'SKIP', reason: outcome.skip };
   return { status: outcome.pass ? 'CONTROL' : 'RED', stated: cell.stated, actual: outcome.actual };
 }
-
-// Frozen RED plan (F4-T12 review): the cells that fail today for the invariant named in the table, on both legs. Any other
-// status change, and any RED outside this list, fails --expect-red. Each entry is reviewed against its real cause.
-const EXPECTED_RED = ["S1-I2@packaged","S1-I2@source","S10-I3@packaged","S10-I3@source","S2-I3@packaged","S2-I3@source","S2-I4@packaged","S2-I4@source","S5-I4@packaged","S5-I4@source","S6-I3@packaged","S6-I3@source","S6-I4@packaged","S6-I4@source","S7-I1@packaged","S7-I1@source","S7-I3@packaged","S7-I3@source","S8-I3@packaged","S8-I3@source"];
 
 // Mutation table (F4-Z1 §4). `apply` is a text needle in the source file; the same edit is applied to the packaged mirror.
 // `owner` is the cell that must fail for this mutant. Probes whose target code does not exist yet are declared with
@@ -405,7 +425,6 @@ const MUTANTS = [
   { id: 'P-move-switch-after-workspace-bind', pending: 'needs the Packet B entry gate (switch before workspace binding); the current order is not a single edit', owner: 'S1-I2' },
   { id: 'P-drop-capture-provenance', pending: 'needs source-keyed capture provenance (Packet B); no such field exists to drop', owner: 'S3-I3' },
   { id: 'P-drop-adapter-provenance-identity', pending: 'the adapter required-field list is shared with the provenance tag introduced by W7; separating it needs Packet A', owner: 'S6-I3' },
-  { id: 'P-ignore-missing-expected-must', pending: 'the MUST eligibility is in core and the mutant needs the Packet A resolver result to be a single point', owner: 'S6-I1' },
   { id: 'P-delete-generic-timestamps-in-withdrawal', pending: 'the withdrawal already deletes both timestamps (the defect); the probe needs the source-scoped withdrawal of Packet B', owner: 'S7-I2' },
   { id: 'P-overwrite-concurrent-source-record', pending: 'no source-keyed records exist yet (Packet B)', owner: 'S8-I3' },
   { id: 'P-bypass-stop-source-selection', pending: 'no Stop source selection exists yet (Packet B); Z1 §4 names a Stop-reader site that Z1 §2 maps to no invariant cell, so this probe has no owner cell yet', owner: 'NO-CELL' },
@@ -414,7 +433,6 @@ const MUTANTS = [
 async function main(argv) {
   const json = argv.includes('--json');
   const verbose = argv.includes('--verbose');
-  const expectRed = argv.includes('--expect-red');
   if (argv.includes('--mutants')) return mutantRun();
   const results = {};
   for (const leg of LEGS) for (const cell of CELLS) {
@@ -431,12 +449,6 @@ async function main(argv) {
   const reds = Object.values(results).filter(item => item.status === 'RED').map(item => `${item.cell}@${item.leg}`).sort();
   const infra = Object.values(results).filter(item => item.status === 'INFRA').length;
   console.log(`\nF4 invariant matrix: ${counts.CONTROL || 0} CONTROL, ${counts.RED || 0} RED, ${counts.SKIP || 0} SKIP, ${infra} INFRA`);
-  if (expectRed) {
-    const plan = EXPECTED_RED.slice().sort();
-    const matched = JSON.stringify(reds) === JSON.stringify(plan) && infra === 0;
-    console.log(matched ? 'STATUS: RED-PLAN-MATCHED' : `STATUS: RED-PLAN-MISMATCH (expected ${plan.length}, observed ${reds.length}, infra ${infra})`);
-    return matched ? 0 : 1;
-  }
   console.log(reds.length || infra ? `STATUS: NOT-GREEN (red ${reds.length}, infra ${infra})` : 'STATUS: GREEN');
   return reds.length || infra ? 1 : 0;
 }
@@ -491,4 +503,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { CELLS, MUTANTS, EXPECTED_RED };
+module.exports = { CELLS, MUTANTS };

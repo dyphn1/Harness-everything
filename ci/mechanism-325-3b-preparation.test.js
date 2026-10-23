@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
-// #325 Phase 3b preparation (H1+H2): fixture inventory, the qualified expected-RED runner, legacy controls,
-// switch sanitation, source/package parity and negative registry checks. This suite asserts no runtime
-// behaviour change and no pilot credit. Desired-contract gaps are qualified by the registry, never
-// asserted as passing behaviour. Full replay runs use the runner; negative checks use one case each.
+// #325 Phase 3b preparation (H1+H2): fixture inventory, legacy controls, switch sanitation, source/package parity and
+// the runner's infrastructure bounds. This suite asserts no runtime behaviour change and no pilot credit. The qualified
+// RED runner, its frozen registry and the runtime-fingerprint and recapture checks are archived by F4-T2 under
+// ci/archive/325-prep (historical evidence, see its README.md). The archived runner is still invoked here, only for its
+// infrastructure path (exit 2, child deadline, output bound), which is live.
 
 const assert = require('assert');
 const crypto = require('crypto');
@@ -13,11 +14,11 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const fx = require('./lib/doc-reconciliation-prep-fixtures');
-const runner = require('./prep/doc-reconciliation-red.js');
+const runner = require('./archive/325-prep/doc-reconciliation-red.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const PREP_DIR = path.join(__dirname, 'fixtures', 'doc-obligations', 'reconciliation-prep');
-const RUNNER = path.join(__dirname, 'prep', 'doc-reconciliation-red.js');
+const RUNNER = path.join(__dirname, 'archive', '325-prep', 'doc-reconciliation-red.js');
 const corpus = fx.readCaseCorpus(path.join(PREP_DIR, 'cases.json'));
 const registry = JSON.parse(fs.readFileSync(path.join(PREP_DIR, 'pending-red.json'), 'utf8'));
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'doc-recon-prep-suite-'));
@@ -43,16 +44,10 @@ function checkCase(name, runCase) {
 function runRunner(args) {
   return spawnSync(process.execPath, [RUNNER, ...args], { cwd: ROOT, encoding: 'utf8' });
 }
-function writeRegistry(name, mutate) {
-  const copy = JSON.parse(JSON.stringify(registry));
-  mutate(copy);
-  const file = path.join(workDir, name);
-  fs.writeFileSync(file, `${JSON.stringify(copy, null, 2)}\n`, 'utf8');
-  return file;
-}
 
-console.log('=== #325 3b preparation: corpus, qualified RED runner and controls (H1+H2) ===');
+console.log('=== #325 3b preparation: corpus, legacy controls and infrastructure bounds (H1+H2) ===');
 
+// locks: unresolved — fixture-shape control (corpus field shape); no A/B/C/R3 clause
 checkCase('inventory: the H2 corpus covers P01-P07 with the L1 field shape', () => {
   const ids = corpus.cases.map(item => item.id);
   assert.deepStrictEqual(ids, ['P01', 'P04', 'P06', 'P02a', 'P02b', 'P02c', 'P02g', 'P02d', 'P02e', 'P02f', 'P03', 'P05', 'P07-fable-staged', 'P07-fable-parallel', 'P07-fable-multi-agent-workspace', 'P07u']);
@@ -74,67 +69,6 @@ checkCase('inventory: the H2 corpus covers P01-P07 with the L1 field shape', () 
   }
 });
 
-// The full replay runs once, through the runner's JSON report. Every case must be a control or a qualified gap,
-// with matching parity between the two legs and no pilot credit.
-let report = null;
-checkCase('expected-RED mode: every case is CONTROL_PASS or EXPECTED_RED and exits 0', () => {
-  const run = runRunner(['--expect-red', '--json']);
-  assert.strictEqual(run.status, 0, `exit ${run.status}: ${(run.stderr || run.stdout).slice(0, 400)}`);
-  report = JSON.parse(run.stdout);
-});
-
-checkCase('expected-RED report: legs agree, controls are green, no pilot credit, runtime fingerprint matches', () => {
-  assert.ok(report, 'the report was produced');
-  assert.strictEqual(report.pilotCredit, false, 'preparation reports never grant pilot credit');
-  assert.strictEqual(report.runtimeFingerprintMatches, true, 'registry describes the current shared runtime bytes');
-  for (const item of report.cases) {
-    assert.ok(['CONTROL_PASS', 'EXPECTED_RED'].includes(item.status), `${item.caseId} is ${item.status}`);
-    assert.strictEqual(item.parity, 'match', `${item.caseId} source and packaged legs agree`);
-  }
-  const controls = report.cases.filter(item => item.status === 'CONTROL_PASS').map(item => item.caseId).sort();
-  // P02e is a control since F4-T3: its review gap closed (the ON self-authored review PASS is refused) and its registry entries were retired.
-  assert.deepStrictEqual(controls, ['P01', 'P02a', 'P02b', 'P02c', 'P02d', 'P02e', 'P02f', 'P02g', 'P04', 'P06', 'P07-fable-multi-agent-workspace', 'P07-fable-parallel', 'P07-fable-staged', 'P07u']);
-});
-
-checkCase('gap registry: every entry is qualified and the expected-RED mode accounts for all of them', () => {
-  assert.ok(report, 'the report was produced');
-  const qualified = report.cases.flatMap(item => item.assertions.filter(entry => entry.status === 'gap-qualified'));
-  assert.strictEqual(qualified.length, registry.entries.length, 'each registry entry is observed exactly once');
-  assert.ok(!report.cases.some(item => item.assertions.some(entry => entry.status === 'gap-unqualified' || entry.status === 'unexpected-pass')));
-});
-
-checkCase('strict mode fails on the recorded gaps and preserves the RED log', () => {
-  // Retargeted to P03 in F4-T3: P02e's gaps are closed, and P03 still has open verify-retry gaps on both legs.
-  const log = path.join(workDir, 'p03-red.json');
-  const run = runRunner(['--strict', '--case', 'P03', '--log', log]);
-  assert.strictEqual(run.status, 1, `strict mode exits 1 on gaps: ${run.stdout}`);
-  const saved = JSON.parse(fs.readFileSync(log, 'utf8'));
-  assert.ok(saved.cases[0].assertions.some(entry => entry.status === 'gap-qualified'), 'the log keeps the qualified gaps');
-});
-
-checkCase('malformed registry is an infrastructure error, not a RED pass', () => {
-  const file = writeRegistry('missing-reason.json', copy => { delete copy.entries[0].reasonCode; });
-  const run = runRunner(['--expect-red', '--case', 'P01', '--registry', file]);
-  assert.strictEqual(run.status, 2, `registry errors exit 2: ${run.stdout} ${run.stderr}`);
-});
-
-checkCase('a registry that omits a gap fails expected-RED mode', () => {
-  const file = writeRegistry('omit-gap.json', copy => { copy.entries = copy.entries.filter(entry => entry.assertionId !== 'P03.on.verify-retry-exit' || entry.distribution !== 'source'); });
-  const run = runRunner(['--expect-red', '--case', 'P03', '--registry', file]);
-  assert.strictEqual(run.status, 1, `an unqualified gap fails: ${run.stdout}`);
-});
-
-checkCase('an unexpected PASS on a control fails expected-RED mode', () => {
-  const file = writeRegistry('unexpected-pass.json', copy => {
-    copy.entries.push({
-      caseId: 'P06', assertionId: 'P06.on.stop-satisfied', distribution: 'source', baselineSha: copy.baselineSha,
-      actual: 'satisfied', desired: 'running', blocker: '#341 E0', reasonCode: 'pretend-gap'
-    });
-  });
-  const run = runRunner(['--expect-red', '--case', 'P06', '--registry', file]);
-  assert.strictEqual(run.status, 1, `a passing assertion with a registry entry fails: ${run.stdout}`);
-});
-
 // Infrastructure rule: an abnormal action result is never a qualified gap. The controls start from one healthy replay
 // set of P01 and change only the ON route result, so every other fault and assertion is the unmodified replay's.
 const p01 = corpus.cases.find(item => item.id === 'P01');
@@ -146,6 +80,7 @@ const injectIntoRoute = (patch, legs = ['source', 'packaged']) => {
   return injected;
 };
 
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
 checkCase('negative control: an abnormal route in P01 is infrastructure, and --expect-red exits nonzero though later assertions still match', () => {
   const injected = injectIntoRoute({ exitCode: 1 });
   const later = p01.expectations.on.filter(assertion => assertion.id.startsWith('verify-obligation') || assertion.id.startsWith('stop-'));
@@ -167,6 +102,7 @@ checkCase('negative control: an abnormal route in P01 is infrastructure, and --e
   assert.strictEqual(runner.exitCodeFor({ cases: [result] }, 'expect-red'), 2, 'expected-RED mode exits nonzero');
 });
 
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
 checkCase('negative control: a route killed by a signal or without an exit status is infrastructure', () => {
   const result = runner.classifyCase(p01, injectIntoRoute({ exitCode: null, signal: 'SIGTERM' }), p01Entries);
   assert.strictEqual(result.status, 'INFRASTRUCTURE');
@@ -174,18 +110,21 @@ checkCase('negative control: a route killed by a signal or without an exit statu
   assert.ok(result.infrastructure.includes('source.on.route: no exit status'), result.infrastructure.join('; '));
 });
 
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
 checkCase('negative control: a spawn error on the route is infrastructure', () => {
   const result = runner.classifyCase(p01, injectIntoRoute({ exitCode: null, error: 'spawnSync node ENOENT' }), p01Entries);
   assert.strictEqual(result.status, 'INFRASTRUCTURE');
   assert.ok(result.infrastructure.includes('source.on.route: spawn error spawnSync node ENOENT'), result.infrastructure.join('; '));
 });
 
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
 checkCase('negative control: an accepted route exit without the routing checkpoint is malformed required output', () => {
   const result = runner.classifyCase(p01, injectIntoRoute({ stdout: 'routing unavailable' }), p01Entries);
   assert.strictEqual(result.status, 'INFRASTRUCTURE');
   assert.ok(result.infrastructure.includes('source.on.route: malformed required output'), result.infrastructure.join('; '));
 });
 
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
 checkCase('--expect-red exits nonzero from the CLI when a real route exit falls outside its policy', () => {
   const corpusCopy = JSON.parse(JSON.stringify(corpus));
   corpusCopy.cases.find(item => item.id === 'P01').actions.find(action => action.id === 'route').expectExit = { off: 1, on: 1 };
@@ -214,6 +153,7 @@ function runWithChildLimits(caseId, childLimits) {
   return { run, elapsed: Date.now() - started };
 }
 
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
 checkCase('a hung route entrypoint cannot stall --expect-red: the CLI exits 2 promptly and removes the replay directories', () => {
   const before = replayDirsFor('P01');
   const { run, elapsed } = runWithChildLimits('P01', { timeoutMs: 500, substitutes: { route: 'hang-entrypoint.js' } });
@@ -224,6 +164,7 @@ checkCase('a hung route entrypoint cannot stall --expect-red: the CLI exits 2 pr
   assert.strictEqual(replayDirsFor('P01'), before, 'replay directories are removed after the timeout');
 });
 
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
 checkCase('a route that floods stdout is stopped by the output bound and exits 2 through the CLI', () => {
   const before = replayDirsFor('P01');
   const { run, elapsed } = runWithChildLimits('P01', { timeoutMs: 5000, substitutes: { route: 'flood-entrypoint.js' } });
@@ -234,6 +175,7 @@ checkCase('a route that floods stdout is stopped by the output bound and exits 2
   assert.strictEqual(replayDirsFor('P01'), before, 'replay directories are removed after the output bound');
 });
 
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
 checkCase('a faulted replay runs no action after its first infrastructure fault and still removes its directories', () => {
   const before = replayDirsFor('P01');
   const item = { ...p01, childLimits: { timeoutMs: 500, substitutes: { route: 'hang-entrypoint.js' } } };
@@ -248,6 +190,7 @@ checkCase('a faulted replay runs no action after its first infrastructure fault 
 // spend one deadline per replay (64 route timeouts). The fail-fast spends one, names the rest NOT_RUN, and exits 2.
 const SHARED_HANG_DEADLINE_MS = 500;
 const SHARED_HANG_BOUND_MS = 5000;
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P01
 checkCase('corpus-level: a route hung in every case costs one deadline, exits 2, and names the other cases NOT_RUN', () => {
   const everyCaseHangs = JSON.parse(JSON.stringify(corpus));
   for (const item of everyCaseHangs.cases) {
@@ -276,15 +219,18 @@ checkCase('corpus-level: a route hung in every case costs one deadline, exits 2,
   assert.strictEqual(replayDirsFor(''), before, 'replay directories are removed');
 });
 
+// locks: unresolved — test-only override guard (tool control); no A/B/C/R3 clause
 checkCase('the committed corpus carries no child-limit override, so production replays use the default deadline', () => {
   assert.ok(corpus.cases.every(item => item.childLimits === undefined), 'a childLimits key is test-only');
 });
 
+// locks: unresolved — deadline-shortening guard (tool control); no A/B/C/R3 clause
 checkCase('a child deadline override can only shorten the default deadline', () => {
   const item = { ...corpus.cases.find(candidate => candidate.id === 'P06'), childLimits: { timeoutMs: 60000 } };
   assert.throws(() => fx.replayCase(item, 'source'), /may only shorten/);
 });
 
+// locks: C — "unavailable observations ... cannot become a false PASS"; control: P06
 checkCase('a malformed expectExit policy is an infrastructure error, not a RED pass', () => {
   const corpusCopy = JSON.parse(JSON.stringify(corpus));
   corpusCopy.cases.find(item => item.id === 'P06').actions.find(action => action.id === 'route').expectExit = { off: 'two' };
@@ -294,33 +240,7 @@ checkCase('a malformed expectExit policy is an infrastructure error, not a RED p
   assert.strictEqual(run.status, 2, `a malformed policy exits 2: ${run.stdout} ${run.stderr}`);
 });
 
-checkCase('a runtime fingerprint change invalidates qualification and prints the exact deliberate re-capture command', () => {
-  const file = writeRegistry('stale-fingerprint.json', copy => { copy.runtimeFingerprint = '0'.repeat(64); });
-  const run = runRunner(['--expect-red', '--case', 'P01', '--registry', file]);
-  assert.strictEqual(run.status, 1, `a fingerprint mismatch fails: ${run.stdout}`);
-  const output = run.stdout + run.stderr;
-  assert.ok(output.includes('--recapture-candidate ci/fixtures/doc-obligations/reconciliation-prep/pending-red.candidate.json'), 'the re-capture command names the candidate');
-  assert.ok(/--baseline-sha [0-9a-f]{40}/.test(output), 'the re-capture command names the commit');
-  assert.ok(output.includes('nothing is auto-accepted'), 'the message says nothing is auto-accepted');
-});
-
-checkCase('recapture writes a reviewable candidate and never the committed registry', () => {
-  const candidate = path.join(workDir, 'candidate.json');
-  const before = fs.readFileSync(path.join(PREP_DIR, 'pending-red.json'), 'utf8');
-  const run = spawnSync(process.execPath, [RUNNER, '--recapture-candidate', candidate, '--baseline-sha', registry.baselineSha, '--case', 'P06'], { cwd: ROOT, encoding: 'utf8' });
-  assert.strictEqual(run.status, 0, run.stderr);
-  assert.strictEqual(fs.readFileSync(path.join(PREP_DIR, 'pending-red.json'), 'utf8'), before, 'the committed registry is untouched');
-  const saved = JSON.parse(fs.readFileSync(candidate, 'utf8'));
-  assert.strictEqual(saved.entries.length, 0, 'a control case has no gaps to record');
-  assert.strictEqual(saved.runtimeFingerprint, registry.runtimeFingerprint, 'the candidate describes the current runtime');
-});
-
-checkCase('a candidate with unreviewed reasons is rejected by the registry validator', () => {
-  const file = writeRegistry('unreviewed.json', copy => { copy.entries[0].reasonCode = 'needs-reason'; });
-  const run = runRunner(['--expect-red', '--case', 'P01', '--registry', file]);
-  assert.strictEqual(run.status, 2, 'an unreviewed reason is a registry error');
-});
-
+// locks: unresolved — package parity control (shared runtime bytes); not a false-PASS claim
 checkCase('P08 parity: shared runtime files are byte-identical between the source and packaged legs', () => {
   for (const [source, packaged] of SHARED_FILES) {
     const left = crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, source))).digest('hex');
@@ -330,6 +250,7 @@ checkCase('P08 parity: shared runtime files are byte-identical between the sourc
 });
 
 // Switch sanitation: an inherited ON request does not reach an OFF replay (one replay).
+// locks: unresolved — OFF isolation from an inherited ON request; the I2 invariant is not in the A/B/C/R3 table
 checkCase('switch sanitation: an inherited ON request does not reach an OFF replay', () => {
   const previous = process.env[fx.PILOT_SWITCH];
   process.env[fx.PILOT_SWITCH] = '1';
@@ -344,6 +265,7 @@ checkCase('switch sanitation: an inherited ON request does not reach an OFF repl
   }
 });
 
+// locks: unresolved — temporary-directory hygiene control; no A/B/C/R3 clause
 checkCase('cleanup: replays remove their temporary workspace and state directories', () => {
   const prefix = 'doc-recon-P06-source-';
   const before = fs.readdirSync(os.tmpdir()).filter(name => name.startsWith(prefix)).length;
@@ -353,6 +275,7 @@ checkCase('cleanup: replays remove their temporary workspace and state directori
 });
 
 // F-a: separator-agnostic scrubbing. Windows-shaped strings from each leg must normalize to the same markers.
+// locks: unresolved — replay path-normalisation control; no A/B/C/R3 clause
 checkCase('F-a: Windows-shaped source and packaged paths normalize identically', () => {
   const roots = { repo: 'D:\\a\\repo', tmp: ['C:\\Users\\runneradmin\\AppData\\Local\\Temp'] };
   const sourceSkill = fx.scrubText('D:\\a\\repo\\tdd\\SKILL.md', roots);
@@ -368,6 +291,7 @@ checkCase('F-a: Windows-shaped source and packaged paths normalize identically',
 });
 
 // F-b: a per-action switch override must not reach an OFF replay.
+// locks: unresolved — OFF replay carries no per-action switch; the I2 invariant is not in the A/B/C/R3 table
 checkCase('F-b: an OFF replay of P05 carries no per-action switch; the ON replay keeps its overrides', () => {
   const item = corpus.cases.find(candidate => candidate.id === 'P05');
   const off = fx.replayCase(item, 'source');
@@ -380,5 +304,5 @@ checkCase('F-b: an OFF replay of P05 carries no per-action switch; the ON replay
 });
 
 fs.rmSync(workDir, { recursive: true, force: true });
-console.log(failed ? `\n${failed} preparation check(s) failed` : '\nAll preparation checks passed (desired-contract gaps are qualified, not asserted as behaviour)');
+console.log(failed ? `\n${failed} preparation check(s) failed` : '\nAll preparation checks passed');
 process.exitCode = failed ? 1 : 0;

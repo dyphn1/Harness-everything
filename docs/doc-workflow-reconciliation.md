@@ -291,12 +291,12 @@ path and file content with NUL bytes. The current list is
 `hooks/scripts/workflow-stop-gate.js`; `doc-evidence.js` is excluded because the P01–P08 replays
 do not load it. A changed fingerprint fails qualification. To refresh deliberately, the runner
 prints an explicit command such as
-`node ci/prep/doc-reconciliation-red.js --recapture-candidate ci/fixtures/doc-obligations/reconciliation-prep/pending-red.candidate.json --baseline-sha <40-hex-commit>`.
+`node ci/archive/325-prep/doc-reconciliation-red.js --recapture-candidate ci/fixtures/doc-obligations/reconciliation-prep/pending-red.candidate.json --baseline-sha <40-hex-commit>` (historical).
 It writes a separate candidate; review its actual/desired values and reason codes before replacing
 the committed registry, then remove the candidate. Nothing is auto-accepted.
 
-The [preparation runner](../ci/prep/doc-reconciliation-red.js) has two replay modes:
-`--strict` exits 1 when a desired-contract gap remains; `--expect-red` exits 0 only when every
+The [archived preparation runner](../ci/archive/325-prep/doc-reconciliation-red.js) is historical T2 evidence, not a current gate. It has two replay modes:
+`--strict` exits 1 when a desired-contract gap remains; historical `--expect-red` exits 0 only when every
 current mismatch matches an exact case/assertion/distribution/actual/desired registry entry and
 all controls and parity checks pass. A stale fingerprint, unexpected PASS, unqualified mismatch,
 wrong assertion, crash, missing fixture, import error, or other infrastructure failure fails
@@ -509,7 +509,7 @@ registry retains these five S2 assertion IDs × two distributions:
   withholding case for S1. Merely changing exit policy introduces an unregistered initial-state gap.
 - Deliberately review/recapture the changed baseline and registry actual/desired qualification;
   include the newly imported pilot module in the ordered runtime fingerprint. Then exactly the
-  targeted entries retire and the remaining `--expect-red` run must qualify on that reviewed S1
+  targeted entries retire and the remaining historical `--expect-red` run must qualify on that reviewed S1
   baseline. Deleting registry rows alone proves nothing.
 - Additional strict S1 cases: governed diff without authored `doc-change`, direct aggregate PASS
   after authored completion, correlated Fable stage binding, persisted untyped workflow, legacy
