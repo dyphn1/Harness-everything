@@ -39,7 +39,7 @@ const CANDIDATE = POS_CASE.input.candidateFiles['docs/a.md'];
 const LINT_ARGS = ['check', '--workspace', '.', '--config', '.agents/harness-everything/project-docs.json', '--changed-path', 'docs/a.md'];
 const LINT_TEXT = 'node {{DOC_CHECK}} check --workspace . --config .agents/harness-everything/project-docs.json --changed-path docs/a.md';
 const TOOL = (command, toolUseId, extra = {}) => ({ event: 'PostToolUse', toolName: 'Bash', command, toolUseId, success: true, ...extra });
-const NPM_TEST = { id: 'npm-test', event: 'PostToolUse', toolName: 'Bash', command: 'npm test', toolUseId: 'tool-npm', success: true };
+const NPM_TEST = { id: 'npm-test', event: 'PostToolUse', toolName: 'Bash', command: 'npm test', toolUseId: 'tool-npm', success: true, checkpointAfter: 'generic' };
 const EDIT = { id: 'edit-check', op: 'editDocCheck', payload: { append: '\n// F4-T12 matrix: one-byte change to the installed doc-check\n' } };
 const VERIFY_BIND = { id: 'verify-bind', op: 'binding', payload: { stepId: 'req-verify', bindingId: 'verification-loop', disposition: 'loaded', evidence: 'verification loop skill located' }, expectExit: { on: [0, 2] } };
 const REVIEW_PASS = { id: 'review-pass', op: 'step', payload: { stepId: 'req-review', disposition: 'pass', evidence: 'independent reviewer approved' }, expectExit: { on: [0, 2] } };
@@ -91,6 +91,8 @@ const VARIANTS = {
   'case-only': { only: () => false, caseVariant: true },
   'direct-only': { only: event => event.id === 'event-01' },
   drift: { driftEdit: true },
+  'no-post-check': { noPostCheck: true },
+  'drift-no-post-check': { driftEdit: true, noPostCheck: true },
 };
 
 function eventAction(event, index) {
@@ -135,6 +137,7 @@ function definitionFor(label, streamEvents, variant, installed) {
       reviewInserted = true;
     }
     actions.push(...eventAction(event, index));
+    if (event.checkpointAfter === 'generic') actions.push({ id: 'observe-generic', op: 'observeStateTree' });
     if (spec.postEdit && index === candidateIndex) actions.push(clone(EDIT));
   });
   if (review && !reviewInserted) throw new Error(`${label}: review variant needs a SubagentStop event`);
@@ -148,7 +151,10 @@ function definitionFor(label, streamEvents, variant, installed) {
   }
   if (spec.driftEdit) actions.push(clone(EDIT));
   if (review) actions.push(clone(REVIEW_PASS), clone(VERIFY_BIND));
-  actions.push(clone(OBSERVE), clone(VERIFY_PASS), { id: 'observe-after', op: 'observeStateTree' }, ...clone(STOP));
+  actions.push(clone(OBSERVE));
+  if (!spec.noPostCheck) actions.push(clone(VERIFY_PASS), { id: 'observe-after', op: 'observeStateTree' });
+  actions.push(...clone(STOP));
+  if (spec.noPostCheck) actions.push({ id: 'observe-after', op: 'observeStateTree' });
   return { id: label, requirements: clone(review ? REQUIREMENTS : POS_CASE.requirements), actions, input: clone(POS_CASE.input) };
 }
 
@@ -158,6 +164,9 @@ const SYNTHETIC = {
   'lookalike-npm-drift': [{ id: 'event-01', event: 'PostToolUse', toolName: 'Bash', command: 'node ./scripts/doc-check.js check', toolUseId: 'tool-1', success: true }, clone(NPM_TEST)],
   'malformed-npm-drift': [{ id: 'event-01', event: 'PostToolUse', toolName: 'Bash', command: `sh -c "node ${'{{DOC_CHECK}}'} check"`, toolUseId: 'tool-1', success: true }, clone(NPM_TEST)],
   'runtime-npm-drift': [streamFile('on-runtime-drift-later-npm-test').events[0], clone(NPM_TEST)],
+  'generic-doc-runtime-drift': [clone(NPM_TEST), streamFile('on-runtime-drift-later-npm-test').events[0]],
+  'generic-edit-doc-runtime-drift': [clone(NPM_TEST), { id: 'edit-doc', event: 'PostToolUse', toolName: 'Edit', command: 'docs/a.md', toolUseId: 'tool-edit-doc', success: true }, streamFile('on-runtime-drift-later-npm-test').events[0]],
+  'doc-only-runtime-drift': [streamFile('on-runtime-drift-later-npm-test').events[0]],
 };
 function streamEvents(id) { return SYNTHETIC[id] ? SYNTHETIC[id] : streamFile(id).events; }
 
@@ -165,6 +174,7 @@ function streamEvents(id) { return SYNTHETIC[id] ? SYNTHETIC[id] : streamFile(id
 const STREAM_MODE = {
   'off-capture-only': 'off', 'off-legacy': 'off', 'on-normal-session': 'on', 'on-valid-direct-quoted-review': 'on',
   'on-malformed': 'on', 'on-lookalikes-runtime-mutations': 'on', 'on-runtime-drift-later-npm-test': 'on', 'on-concurrent-writers': 'on',
+  'generic-doc-runtime-drift': 'on', 'generic-edit-doc-runtime-drift': 'on', 'doc-only-runtime-drift': 'on',
 };
 
 const traceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'f4t12-trace-'));
@@ -186,7 +196,8 @@ function observe(definition, root, mode, leg, modules) {
     modules,
     verify: { exit: root.actions['verify-pass'] && root.actions['verify-pass'].exitCode, stdout: root.actions['verify-pass'] && root.actions['verify-pass'].stdout },
     review: { exit: root.actions['review-pass'] && root.actions['review-pass'].exitCode },
-    stop: { exit: root.actions.stop && root.actions.stop.exitCode },
+    genericCheckpoint: (root.actions['observe-generic'] && root.actions['observe-generic'].state && root.actions['observe-generic'].state.handoff) || null,
+    stop: { exit: root.actions.stop && root.actions.stop.exitCode, stderr: (root.actions.stop && root.actions.stop.stderr) || '' },
     generic: { exit: root.actions['stop-generic'] && root.actions['stop-generic'].exitCode, stderr: (root.actions['stop-generic'] && root.actions['stop-generic'].stderr) || '' },
     rootActions: Object.keys(root.actions),
   };
@@ -354,7 +365,15 @@ const CELLS = [
   // locks: R3 — "only affected evidence is revoked"; control: S10-I2
   { id: 'S7-I1', site: 'assessment withdrawal and pilot report', inv: 'I1', stated: 'withdrawal after a runtime change removes only the doc-check record; ordinary verification survives',
     runs: [['runtime-npm-drift', 'drift']],
-    check: r => ({ pass: ((r['runtime-npm-drift|drift'].after) || {}).lastVerifyAt ?? null !== null, actual: ((r['runtime-npm-drift|drift'].after) || {}).lastVerifyAt ?? null }) },
+    check: r => {
+      const obs = r['runtime-npm-drift|drift'];
+      const before = obs.handoff;
+      const after = obs.after || {};
+      return { pass: typeof before.lastVerifyAt === 'number' && after.lastVerifyAt === before.lastVerifyAt
+        && after.lastVerifyExitCode === before.lastVerifyExitCode,
+      actual: { before: { lastVerifyAt: before.lastVerifyAt ?? null, lastVerifyExitCode: before.lastVerifyExitCode ?? null },
+        after: { lastVerifyAt: after.lastVerifyAt ?? null, lastVerifyExitCode: after.lastVerifyExitCode ?? null } } };
+    } },
   // locks: R3 — "only affected evidence is revoked"; control: S7-I1
   { id: 'S7-I2', site: 'assessment withdrawal and pilot report', inv: 'I2', stated: 'withdrawal runs only for a session with a valid registered doc-check capture; a look-alike session keeps its ordinary timestamp',
     runs: [['lookalike-npm-drift', 'drift']],
@@ -387,6 +406,48 @@ const CELLS = [
   { id: 'S10-I3', site: 'generic verification wrapper and runtime CLI', inv: 'I3', stated: 'the generic verifier timestamp carries a source tag',
     runs: [['off-legacy', 'base']],
     check: r => ({ pass: timestampSourceKeys(r['off-legacy|base']).length > 0, actual: Object.keys(r['off-legacy|base'].handoff) }) },
+  // locks: R3 — "only affected evidence is revoked"; control: doc-only current runtime
+  { id: 'WB-R3b', site: 'assessment withdrawal and current generic evidence', inv: 'I3', stated: 'withdrawal restores generic evidence in either order, keeps it stale after a later edit, and withdraws doc-only evidence',
+    runs: [['generic-doc-runtime-drift', 'drift-no-post-check'], ['generic-edit-doc-runtime-drift', 'drift-no-post-check'],
+      ['doc-only-runtime-drift', 'drift-no-post-check'], ['doc-only-runtime-drift', 'no-post-check']],
+    check: r => {
+      const genericThenDoc = r['generic-doc-runtime-drift|drift-no-post-check'];
+      const editedAfterGeneric = r['generic-edit-doc-runtime-drift|drift-no-post-check'];
+      const docOnlyDrift = r['doc-only-runtime-drift|drift-no-post-check'];
+      const docOnlyCurrent = r['doc-only-runtime-drift|no-post-check'];
+      const genericMatches = obs => obs.genericCheckpoint && typeof obs.genericCheckpoint.lastVerifyAt === 'number'
+        && obs.after?.lastVerifyAt === obs.genericCheckpoint.lastVerifyAt
+        && obs.after?.lastVerifyExitCode === obs.genericCheckpoint.lastVerifyExitCode;
+      const genericStaysStale = genericMatches(editedAfterGeneric)
+        && editedAfterGeneric.after.lastVerifyAt < editedAfterGeneric.after.lastEditAt
+        && /verification-after-edit-missing/.test(editedAfterGeneric.stop.stderr);
+      const docOnlyWithdrawn = typeof docOnlyDrift.handoff.lastVerifyAt === 'number'
+        && docOnlyDrift.after?.lastVerifyAt === undefined && /step:req-verify:pending/.test(docOnlyDrift.stop.stderr);
+      const docOnlyControl = typeof docOnlyCurrent.handoff.lastVerifyAt === 'number'
+        && docOnlyCurrent.after?.lastVerifyAt === docOnlyCurrent.handoff.lastVerifyAt;
+      return { pass: genericMatches(genericThenDoc) && genericStaysStale && docOnlyWithdrawn && docOnlyControl,
+        actual: { genericThenDoc: { before: genericThenDoc.genericCheckpoint?.lastVerifyAt ?? null, after: genericThenDoc.after?.lastVerifyAt ?? null },
+          genericAfterEdit: { verify: editedAfterGeneric.after?.lastVerifyAt ?? null, edit: editedAfterGeneric.after?.lastEditAt ?? null, reminder: editedAfterGeneric.stop.stderr },
+          docOnlyDrift: { before: docOnlyDrift.handoff.lastVerifyAt ?? null, after: docOnlyDrift.after?.lastVerifyAt ?? null, stop: docOnlyDrift.stop.stderr },
+          docOnlyCurrent: { credit: docOnlyCurrent.pilot?.pilotCredit ?? null, before: docOnlyCurrent.handoff.lastVerifyAt ?? null, after: docOnlyCurrent.after?.lastVerifyAt ?? null } } };
+    } },
+  // locks: B, C, R3 — "claims alone ... cannot become a false PASS" and "only affected evidence is revoked"; control: lookalike-only
+  { id: 'WB-consumers', site: 'workflow and generic Stop readers', inv: 'I3', stated: 'both Stop paths read current evidence; generic success never satisfies stale document MUSTs, and lookalikes do not trigger withdrawal',
+    runs: [['runtime-npm-drift', 'drift-no-post-check'], ['lookalike-npm-drift', 'drift-no-post-check']],
+    check: r => {
+      const stale = r['runtime-npm-drift|drift-no-post-check'];
+      const lookalike = r['lookalike-npm-drift|drift-no-post-check'];
+      const expectedStops = obs => /step:req-verify:pending/.test(obs.stop.stderr) && !/\[Verification Reminder\]/.test(obs.generic.stderr);
+      const genericPreserved = stale.after?.lastVerifyAt === stale.genericCheckpoint?.lastVerifyAt
+        && stale.pilot?.pilotCredit === false;
+      const lookalikePreserved = typeof lookalike.after?.lastVerifyAt === 'number'
+        && lookalike.after.lastVerifyAt === lookalike.handoff.lastVerifyAt;
+      return { pass: genericPreserved && lookalikePreserved && expectedStops(stale) && expectedStops(lookalike),
+        actual: { stale: { credit: stale.pilot?.pilotCredit ?? null, before: stale.handoff.lastVerifyAt ?? null, after: stale.after?.lastVerifyAt ?? null,
+          workflowStop: stale.stop.stderr, genericStop: stale.generic.stderr },
+          lookalike: { before: lookalike.handoff.lastVerifyAt ?? null, after: lookalike.after?.lastVerifyAt ?? null,
+            workflowStop: lookalike.stop.stderr, genericStop: lookalike.generic.stderr } } };
+    } },
 ];
 
 // ---- Evaluation ---------------------------------------------------------------------------------------------------------

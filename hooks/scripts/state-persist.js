@@ -21,8 +21,16 @@ process.stdin.on('end', () => { clearTimeout(timeout); try { processState(JSON.p
 function processState(payload) {
   try {
     const sessionId = payload && (payload.session_id || payload.sessionId);
-    const root = getWorkspaceRoot(payload);
     const captureEventName = payload ? (payload.hook_event_name || payload.hookEventName) || '' : '';
+    const captureToolName = payload ? (payload.tool_name || payload.tool || '') : '';
+    const captureOnly = captureEventName === 'SubagentStart' || captureEventName === 'SubagentStop'
+      || captureEventName === 'PreToolUse'
+      || (captureEventName === 'PostToolUse' && CAPTURE_ONLY_TOOLS.indexOf(captureToolName) !== -1);
+    if (captureOnly && process.env.HARNESS_DOC_RECONCILIATION_PILOT !== '1') {
+      process.exit(0);
+      return;
+    }
+    const root = getWorkspaceRoot(payload);
     // SubagentStart/SubagentStop were never routed to this script before S2b.
     // They are capture-only events: the legacy handoff state path stays
     // untouched for them, so wiring them while OFF adds no writes at all.
@@ -32,7 +40,6 @@ function processState(payload) {
       return;
     }
     // Pre-tool launch capture and Task/Agent result capture: capture-only, no legacy handoff state is written.
-    const captureToolName = payload ? (payload.tool_name || payload.tool || '') : '';
     if (captureEventName === 'PreToolUse' || (captureEventName === 'PostToolUse' && CAPTURE_ONLY_TOOLS.indexOf(captureToolName) !== -1)) {
       persistPilotCapture(payload, captureEventName, sessionId, root);
       process.exit(0);
@@ -72,7 +79,8 @@ function processState(payload) {
       // Verification evidence needs a confirmed success: a PostToolUse event or an explicit zero exit.
       // Pilot ON only: a registered, argv-validated doc-check that resolves to this install's own runtime is the document
       // verification evidence, and only at the shipped pin (R3-02). Any other path earns no verification evidence. OFF stays legacy.
-      const docCheck = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1' ? require('./lib/doc-reconciliation-provider') : null;
+      const pilotEnabled = process.env.HARNESS_DOC_RECONCILIATION_PILOT === '1';
+      const docCheck = pilotEnabled ? require('./lib/doc-reconciliation-provider') : null;
       const installedCheck = docCheck && docCheck.registeredInstalledCheck(command, cwdOf(payload, root));
       const docCheckCandidate = installedCheck && installedCheck.kind !== 'not-candidate';
       const pinCheckable = installedCheck && installedCheck.installed
@@ -80,7 +88,17 @@ function processState(payload) {
       const verifies = docCheckCandidate && pinCheckable
         ? docCheck.fileDigest(installedCheck.installed) === docCheck.SHIPPED_DOC_CHECK_DIGEST
         : docCheckCandidate ? false : isVerificationShell(command, { cwd: cwdOf(payload, root), root });
-      if (!isFailed && (isSuccessEvent || exitCode === 0) && verifies) { state.lastVerifyAt = Date.now(); state.lastVerifyExitCode = exitCode ?? null; }
+      if (!isFailed && (isSuccessEvent || exitCode === 0) && verifies) {
+        const verifiedAt = Date.now();
+        const verifiedExitCode = exitCode ?? null;
+        state.lastVerifyAt = verifiedAt;
+        state.lastVerifyExitCode = verifiedExitCode;
+        if (pilotEnabled) {
+          const source = docCheckCandidate ? 'Doc' : 'Generic';
+          state[`last${source}VerifyAt`] = verifiedAt;
+          state[`last${source}VerifyExitCode`] = verifiedExitCode;
+        }
+      }
     }
     fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
     observeTool(payload);

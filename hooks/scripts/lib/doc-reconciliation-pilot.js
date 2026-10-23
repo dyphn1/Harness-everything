@@ -235,9 +235,24 @@ function withdrawChangedRuntimeVerification(context) {
     })) return;
     const file = path.join(context.sessionDir, 'handoff-state.json');
     const handoff = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (handoff.lastVerifyAt === undefined) return;
-    delete handoff.lastVerifyAt;
-    delete handoff.lastVerifyExitCode;
+    const genericAt = handoff.lastGenericVerifyAt;
+    const hasGeneric = typeof genericAt === 'number' && Number.isFinite(genericAt);
+    const hasDoc = typeof handoff.lastDocVerifyAt === 'number' && Number.isFinite(handoff.lastDocVerifyAt);
+    if (!hasGeneric && !hasDoc && handoff.lastVerifyAt === undefined) return;
+    delete handoff.lastDocVerifyAt;
+    delete handoff.lastDocVerifyExitCode;
+    if (hasGeneric) {
+      handoff.lastVerifyAt = genericAt;
+      if (Object.prototype.hasOwnProperty.call(handoff, 'lastGenericVerifyExitCode')) {
+        handoff.lastVerifyExitCode = handoff.lastGenericVerifyExitCode;
+      } else {
+        delete handoff.lastVerifyExitCode;
+      }
+    } else {
+      // Older aggregate-only state has unknown ownership; do not preserve it as unaffected evidence.
+      delete handoff.lastVerifyAt;
+      delete handoff.lastVerifyExitCode;
+    }
     atomicWriteJson(file, handoff);
   } catch { /* fail-open: no handoff state yet, or nothing to withdraw */ }
 }

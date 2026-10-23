@@ -52,6 +52,7 @@ function legacyGoldenChecks(id, drive) {
   if (captures.length) throw new Error(`OFF wrote a pilot capture record despite the switch being off: ${JSON.stringify(captures[0]).slice(0, 200)}`);
 }
 
+// locks: I2 — OFF is capture-only, with no pilot writes/capture and legacy OFF behavior preserved.
 // F8 routes are capture-only when OFF. Drive the real source/package hook with
 // an isolated state home and a preload spy that records eager internal imports.
 const CAPTURE_ONLY_ROUTES = [
@@ -196,6 +197,7 @@ runner.run('R2C1-OFF-CAPTURE-ONLY-FAST-PATH', [], (_mods, leg) => {
   if (outputCases) failures.push('output emitted in ' + outputCases + '/' + routeSwitchCases + ' OFF cases');
   if (stateChangeCases) failures.push('state changed in ' + stateChangeCases + '/' + routeSwitchCases + ' OFF cases');
   if (captureCases) failures.push('capture written in ' + captureCases + '/' + routeSwitchCases + ' OFF cases');
+  if (failures.length) failures.push(`observed side effects: state=${stateChangeCases}, capture=${captureCases}, output=${outputCases}, nonzero-exit=${badExitCases}; internal-module-load=${preloadCases}/${routeSwitchCases}`);
   if (failures.length) throw new Error(failures.join('; '));
 });
 
