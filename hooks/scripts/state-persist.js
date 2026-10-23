@@ -5,6 +5,30 @@ const { getWorkspaceRoot, getSessionDir } = require('./lib/harness-state');
 const { cwdOf, classifyShell, isVerificationShell, directMutationInWorkspace } = require('./lib/workflow-isolation');
 const { observeTool } = require('./lib/telemetry');
 
+function isSuccessfulMetadataStep(command, cwd) {
+  // A line break starts a second shell command, so it can never be metadata-only.
+  if (/[\r\n]/.test(String(command || ''))) return false;
+  const text = String(command || '').trim();
+  if (/[$`%!^]/.test(text)) return false;
+  const value = '(?:"[^"\\r\\n]*"|\'[^\'\\r\\n]*\'|[^\\s;&|<>`$(){}]+)';
+  const pattern = new RegExp(
+    `^node\\s+(?<script>${value})\\s+step\\s+--session-id\\s+(?<session>${value})` +
+    `\\s+--step-id\\s+(?<step>${value})\\s+--disposition\\s+(?<disposition>pass|blocked)` +
+    `(?:\\s+--reason-code\\s+(?<reason>${value}))?\\s+--evidence\\s+(?<evidence>${value})$`
+  );
+  const match = pattern.exec(text);
+  if (!match) return false;
+  const unquote = token => token && token.length >= 2 &&
+    ((token[0] === '"' && token[token.length - 1] === '"') || (token[0] === "'" && token[token.length - 1] === "'"))
+    ? token.slice(1, -1) : token || '';
+  const { script, session, step, disposition, reason, evidence } = match.groups;
+  return path.resolve(cwd, unquote(script)) === path.join(__dirname, 'workflow-disposition.js')
+    && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(unquote(session))
+    && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(unquote(step))
+    && Boolean(unquote(evidence).trim())
+    && (disposition === 'pass' ? reason === undefined : /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(unquote(reason)));
+}
+
 // S2b doc-reconciliation pilot capture (docs/doc-workflow-reconciliation.md
 // § S2b "Activation and pilot-only scope", "Claude capture and origin-provider
 // contract"): pilot-only, fail-open to the host, and gated on the exact
@@ -75,7 +99,9 @@ function processState(payload) {
     const command = (payload.tool_input && payload.tool_input.command) || '';
     if (isShell) {
       const commandClass = classifyShell(command);
-      if (commandClass !== 'read-only' && commandClass !== 'worktree-setup') state.lastEditAt = Date.now();
+      const metadataStep = !isFailed && (isSuccessEvent || exitCode === 0)
+        && isSuccessfulMetadataStep(command, cwdOf(payload, root));
+      if (!metadataStep && commandClass !== 'read-only' && commandClass !== 'worktree-setup') state.lastEditAt = Date.now();
       // Verification evidence needs a confirmed success: a PostToolUse event or an explicit zero exit.
       // Pilot ON only: a registered, argv-validated doc-check that resolves to this install's own runtime is the document
       // verification evidence, and only at the shipped pin (R3-02). Any other path earns no verification evidence. OFF stays legacy.

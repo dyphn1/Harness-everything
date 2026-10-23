@@ -39,6 +39,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Keep successful installed workflow step dispositions from advancing verification freshness while unknown workflow commands and mutations remain tracked (#365).
+
 - Port the OpenCode adapter to the OpenCode 2 plugin contract: the module now default-exports `{ id: "harness.enforcement", setup(ctx) }` that registers `ctx.tool.hook("execute.before|after")` and `ctx.event.subscribe()` over the OpenCode 2 domains, while keeping the named V1 `HarnessEnforcement` factory for OpenCode 1.x hosts. OpenCode 2 fails to load named-export-only plugins with `Plugin must export a default definition with an id and an effect or setup function`; the V2 load was verified live on OpenCode 2.1.3 after a global-install reload.
 
 - Reject root-level `__proto__` files in S2a snapshot capture and validation instead of silently dropping their document obligations (#353).
